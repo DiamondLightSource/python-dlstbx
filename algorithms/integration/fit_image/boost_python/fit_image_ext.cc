@@ -10,13 +10,13 @@
  */
 #include <boost/python.hpp>
 #include <boost/python/def.hpp>
-#include <dials/algorithms/integration/fit_image/fit.h>
+#include <dlstbx/algorithms/integration/fit_image/fit.h>
 
 namespace dials { namespace algorithms { namespace boost_python {
 
   using namespace boost::python;
 
-  BOOST_PYTHON_MODULE(dials_algorithms_integration_fit_image_ext)
+  BOOST_PYTHON_MODULE(dlstbx_algorithms_integration_fit_image_ext)
   {
     typedef ImageSpaceProfileFitting::reference_learner_type reference_learner_type;
 

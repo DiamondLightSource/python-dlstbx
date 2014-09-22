@@ -19,7 +19,8 @@ class FitImageIntegrationExt(IntensityIface):
 
   @classmethod
   def phil(cls):
-    phil = '''
+    from libtbx.phil import parse
+    phil = parse('''
 
       grid_size = 5
         .type = int
@@ -34,7 +35,7 @@ class FitImageIntegrationExt(IntensityIface):
         .type = bool
         .help = "Save the reference profiles and other debug info."
 
-    '''
+    ''')
     return phil
 
   def __init__(self, params, experiments, profile_model):

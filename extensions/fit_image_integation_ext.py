@@ -17,22 +17,25 @@ class FitImageIntegrationExt(IntensityIface):
 
   name = 'fit_image'
 
-  phil = '''
+  @classmethod
+  def phil(cls):
+    phil = '''
 
-    grid_size = 5
-      .type = int
-      .help = "The size of the profile grid."
+      grid_size = 5
+        .type = int
+        .help = "The size of the profile grid."
 
-    integrator = *auto 3d flat3d 2d single2d
-      .type = choice
-      .help = "The integrator to use."
-      .expert_level=3
+      integrator = *auto 3d flat3d 2d single2d
+        .type = choice
+        .help = "The integrator to use."
+        .expert_level=3
 
-    debug = False
-      .type = bool
-      .help = "Save the reference profiles and other debug info."
+      debug = False
+        .type = bool
+        .help = "Save the reference profiles and other debug info."
 
-  '''
+    '''
+    return phil
 
   def __init__(self, params, experiments, profile_model):
     ''' Initialise the algorithm. '''

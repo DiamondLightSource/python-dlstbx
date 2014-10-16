@@ -12,6 +12,8 @@
 #ifndef DIALS_ALGORITHMS_INTEGRATION_FIT_IMAGE_FIT_H
 #define DIALS_ALGORITHMS_INTEGRATION_FIT_IMAGE_FIT_H
 
+#include <iostream>
+#include <iomanip>
 #include <scitbx/array_family/tiny_types.h>
 #include <dxtbx/model/beam.h>
 #include <dxtbx/model/detector.h>
@@ -20,7 +22,7 @@
 #include <dials/array_family/scitbx_shared_and_versa.h>
 #include <dials/array_family/reflection_table.h>
 #include <dials/algorithms/integration/profile/fitting.h>
-#include <dials/algorithms/reflection_basis/coordinate_system.h>
+#include <dials/algorithms/profile_model/gaussian_rs/coordinate_system.h>
 #include <dials/algorithms/polygon/clip/clip.h>
 #include <dials/algorithms/polygon/spatial_interpolation.h>
 #include <dials/algorithms/polygon/area.h>
@@ -40,7 +42,7 @@ namespace dials { namespace algorithms {
   using dials::model::Shoebox;
   using dials::model::Valid;
   using dials::model::Foreground;
-  using dials::algorithms::reflection_basis::CoordinateSystem;
+  using dials::algorithms::profile_model::gaussian_rs::CoordinateSystem;
   using dials::algorithms::polygon::simple_area;
   using dials::algorithms::polygon::clip::vert4;
   using dials::algorithms::polygon::clip::vert8;
@@ -156,8 +158,6 @@ namespace dials { namespace algorithms {
      * @param phi The rotation angle.
      */
     bool add(const Shoebox<> &sbox, vec3<double> s1, double phi) {
-
-      // FIXME Offset along e2 axis
 
       // Check the input
       DIALS_ASSERT(sbox.is_consistent());
@@ -292,7 +292,10 @@ namespace dials { namespace algorithms {
      */
     void finalize() {
       DIALS_ASSERT(!finalized_);
-      double total = af::sum(data_.const_ref());
+      double total = 0;
+      for (std::size_t i = 0; i < data_.size(); ++i) {
+        total += data_[i];
+      }
       DIALS_ASSERT(total > 0);
       for (std::size_t i = 0; i < data_.size(); ++i) {
         data_[i] /= total;
@@ -314,6 +317,14 @@ namespace dials { namespace algorithms {
       return count_;
     }
 
+    /**
+     * Get the profile for the given reflection.
+     * @param The panel number
+     * @param s1 The diffracted beam vector
+     * @param phi The rotation angle
+     * @param bbox The bounding box
+     * @returns The profile for the reflection
+     */
     profile_type get(
         std::size_t panel_number,
         const vec3<double> &s1,
@@ -330,7 +341,7 @@ namespace dials { namespace algorithms {
       std::size_t xs = bbox[1] - bbox[0];
       std::size_t ys = bbox[3] - bbox[2];
       std::size_t zs = bbox[5] - bbox[4];
-      profile_type profile(af::c_grid<3>(zs, ys, xs), 1);
+      profile_type profile(af::c_grid<3>(zs, ys, xs), 0);
 
       // Compute the grid step and offset
       double xoff = -delta_b_;
@@ -425,6 +436,12 @@ namespace dials { namespace algorithms {
           }
         }
       }
+
+      double total = 0;
+      for (std::size_t i = 0; i < profile.size(); ++i) {
+        total += profile[i];
+      }
+      std::cout << "Total: " << std::setprecision(12) << total << std::endl;
 
       // Return the profile
       return profile;

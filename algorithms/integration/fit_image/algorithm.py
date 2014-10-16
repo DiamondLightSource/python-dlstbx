@@ -103,9 +103,10 @@ class IntegrationAlgorithm(object):
     print prof
 
     # show_3d(profiles.data(0))
+    show_3d(profiles.data(0))
     show_3d(prof)
     show_3d(reflections[500]['shoebox'].data)
-      
+
     # import numpy
     # numpy.set_printoptions(threshold='nan')
     # from dials.util import pprint

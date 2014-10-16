@@ -35,8 +35,8 @@ class IntegrationAlgorithm(object):
         The list of integrated reflections
 
     '''
-    from dials.algorithms.integration.fit_image import ImageSpaceProfileFitting
-    from dials.algorithms.integration.fit_image import Spec
+    from dlstbx.algorithms.integration.fit_image import ImageSpaceProfileFitting
+    from dlstbx.algorithms.integration.fit_image import Spec
     from dials.algorithms.integration.interface import job_id
     from dials.array_family import flex
     from dials.util.command_line import Command
@@ -91,7 +91,21 @@ class IntegrationAlgorithm(object):
         pickle.dump(output, outfile, protocol=pickle.HIGHEST_PROTOCOL)
 
 
+    from dials.viewer.next_gen_viewer.simple_3D_slice_viewer import show_3d
 
+    print profiles.data(0)
+    print flex.sum(profiles.data(0))
+    prof = profiles.get(
+      0, 0, reflections[500]['s1'],
+      reflections[500]['xyzcal.mm'][2],
+      reflections[500]['bbox'])
+    print flex.sum(prof)
+    print prof
+
+    # show_3d(profiles.data(0))
+    show_3d(prof)
+    show_3d(reflections[500]['shoebox'].data)
+      
     # import numpy
     # numpy.set_printoptions(threshold='nan')
     # from dials.util import pprint

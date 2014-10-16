@@ -292,6 +292,11 @@ namespace dials { namespace algorithms {
      */
     void finalize() {
       DIALS_ASSERT(!finalized_);
+      double total = af::sum(data_.const_ref());
+      DIALS_ASSERT(total > 0);
+      for (std::size_t i = 0; i < data_.size(); ++i) {
+        data_[i] /= total;
+      }
       finalized_ = true;
     }
 

@@ -37,7 +37,7 @@ class IntegrationAlgorithm(object):
     '''
     from dlstbx.algorithms.integration.fit_image import ImageSpaceProfileFitting
     from dlstbx.algorithms.integration.fit_image import Spec
-    from dials.algorithms.integration.interface import job_id
+    from dials.algorithms.integration.integrator import job_id
     from dials.array_family import flex
     from dials.util.command_line import Command
 
@@ -102,7 +102,6 @@ class IntegrationAlgorithm(object):
     print flex.sum(prof)
     print prof
 
-    # show_3d(profiles.data(0))
     show_3d(profiles.data(0))
     show_3d(prof)
     show_3d(reflections[500]['shoebox'].data)

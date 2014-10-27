@@ -257,7 +257,15 @@ namespace dials { namespace algorithms {
               vert8 p3 = quad_with_convex_quad(p1, p2);
               double area = simple_area(p3);
               const double EPS = 1e-7;
-              DIALS_ASSERT(0.0 <= area && area <= (1.0+EPS));
+              if (area < 0.0) {
+                DIALS_ASSERT(area > -EPS);
+                area = 0.0;
+              }
+              if (area > 1.0) {
+                DIALS_ASSERT(area <= (1.0 + EPS));
+                area = 1.0;
+              }
+              DIALS_ASSERT(0.0 <= area && area <= 1.0);
               if (area > 0) {
                 for (std::size_t k = 0; k < data_.accessor()[0]; ++k) {
                   double f00 = std::min(z[k], z[k+1]);
@@ -271,7 +279,10 @@ namespace dials { namespace algorithms {
                     if ((sbox.mask(kk,jj,ii) & mask_code) == mask_code) {
                       std::size_t f10 = kk;
                       std::size_t f11 = kk+1;
-                      double fraction = std::min(1.0, (f11 - f10) / fr);
+                      double f0 = std::max(f00, (double)f10);
+                      double f1 = std::min(f01, (double)f11);
+                      double fraction = f1 > f0 ? (f1 - f0) / fr : 0.0;
+                      DIALS_ASSERT(fraction <= 1.0);
                       DIALS_ASSERT(fraction >= 0.0);
                       double value = fraction * area * signal(kk,jj,ii);
                       data_(k,j,i) += value;
@@ -412,7 +423,15 @@ namespace dials { namespace algorithms {
               double area = simple_area(p3);
               area /= p1_area;
               const double EPS = 1e-7;
-              DIALS_ASSERT(0.0 <= area && area <= (1.0+EPS));
+              if (area < 0.0) {
+                DIALS_ASSERT(area > -EPS);
+                area = 0.0;
+              }
+              if (area > 1.0) {
+                DIALS_ASSERT(area <= (1.0 + EPS));
+                area = 1.0;
+              }
+              DIALS_ASSERT(0.0 <= area && area <= 1.0);
               if (area > 0) {
                 for (std::size_t k = 0; k < data_.accessor()[0]; ++k) {
                   double f00 = std::min(z[k], z[k+1]);
@@ -425,7 +444,10 @@ namespace dials { namespace algorithms {
                   for (int kk = z0; kk < z1; ++kk) {
                     std::size_t f10 = kk;
                     std::size_t f11 = kk+1;
-                    double fraction = std::min(1.0, (f11 - f10) / fr);
+                    double f0 = std::max(f00, (double)f10);
+                    double f1 = std::min(f01, (double)f11);
+                    double fraction = f1 > f0 ? (f1 - f0) / fr : 0.0;
+                    DIALS_ASSERT(fraction <= 1.0);
                     DIALS_ASSERT(fraction >= 0.0);
                     double value = fraction * area * data_(k,j,i);
                     profile(kk,jj,ii) += value;
@@ -441,7 +463,6 @@ namespace dials { namespace algorithms {
       for (std::size_t i = 0; i < profile.size(); ++i) {
         total += profile[i];
       }
-      std::cout << "Total: " << std::setprecision(12) << total << std::endl;
 
       // Return the profile
       return profile;

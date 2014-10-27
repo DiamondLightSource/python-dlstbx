@@ -230,6 +230,7 @@ namespace dials { namespace algorithms {
       }
 
       // Get a list of pairs of overlapping polygons
+      profile_type profile(data_.accessor(), 0.0);
       for (std::size_t j = 0; j < data_.accessor()[1]; ++j) {
         for (std::size_t i = 0; i < data_.accessor()[2]; ++i) {
           vec2<double> xy00 = xy(j,i);
@@ -285,7 +286,7 @@ namespace dials { namespace algorithms {
                       DIALS_ASSERT(fraction <= 1.0);
                       DIALS_ASSERT(fraction >= 0.0);
                       double value = fraction * area * signal(kk,jj,ii);
-                      data_(k,j,i) += value;
+                      profile(k,j,i) += value;
                     }
                   }
                 }
@@ -293,6 +294,11 @@ namespace dials { namespace algorithms {
             }
           }
         }
+      }
+      double total = af::sum(profile.const_ref());
+      DIALS_ASSERT(total > 0);
+      for (std::size_t i = 0; i < profile.size(); ++i) {
+        data_[i] += (profile[i] / total);
       }
       count_++;
       return true;

@@ -90,35 +90,5 @@ class IntegrationAlgorithm(object):
       with open(filename, 'wb') as outfile:
         pickle.dump(output, outfile, protocol=pickle.HIGHEST_PROTOCOL)
 
-
-    from dials.viewer.next_gen_viewer.simple_3D_slice_viewer import show_3d
-
-    print profiles.data(0)
-    print flex.sum(profiles.data(0))
-    prof = profiles.get(
-      0, 0, reflections[500]['s1'],
-      reflections[500]['xyzcal.mm'][2],
-      reflections[500]['bbox'])
-    print flex.sum(prof)
-    print prof
-
-    show_3d(profiles.data(0))
-    show_3d(prof)
-    show_3d(reflections[500]['shoebox'].data)
-
-    # import numpy
-    # numpy.set_printoptions(threshold='nan')
-    # from dials.util import pprint
-    # print pprint.profile3d(profiles.data(0))
-    # for i in range(len(profiles)):
-    #   data = profiles.data(i)
-    #   vmax = flex.max(data)
-    #   data = data.as_numpy_array()
-    #   from matplotlib import pylab
-    #   for k in range(data.shape[0]):
-    #     pylab.subplot(1, data.shape[0],  k+1)
-    #     pylab.imshow(data[k,:,:], interpolation='none', vmin=0, vmax=vmax)
-    #   pylab.show()
-
     # Return the reflections
     return reflections

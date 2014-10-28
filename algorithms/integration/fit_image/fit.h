@@ -221,6 +221,9 @@ namespace dials { namespace algorithms {
             return false;
           }
           signal[i] = sbox.data[i] - sbox.background[i];
+          if (signal[i] < 0) {
+            signal[i] = 0.0;
+          }
           total_signal += signal[i];
         }
       }
@@ -272,7 +275,6 @@ namespace dials { namespace algorithms {
                   double f00 = std::min(z[k], z[k+1]);
                   double f01 = std::max(z[k], z[k+1]);
                   DIALS_ASSERT(f01 > f00);
-                  double fr = f01 - f00;
                   int z0 = std::max((int)0, (int)std::floor(f00));
                   int z1 = std::min((int)zs, (int)std::ceil(f01));
                   DIALS_ASSERT(z0 >= 0 && z1 <= (int)zs);
@@ -282,7 +284,7 @@ namespace dials { namespace algorithms {
                       std::size_t f11 = kk+1;
                       double f0 = std::max(f00, (double)f10);
                       double f1 = std::min(f01, (double)f11);
-                      double fraction = f1 > f0 ? (f1 - f0) / fr : 0.0;
+                      double fraction = f1 > f0 ? (f1 - f0) / 1.0 : 0.0;
                       DIALS_ASSERT(fraction <= 1.0);
                       DIALS_ASSERT(fraction >= 0.0);
                       double value = fraction * area * signal(kk,jj,ii);
@@ -295,10 +297,10 @@ namespace dials { namespace algorithms {
           }
         }
       }
-      double total = af::sum(profile.const_ref());
-      DIALS_ASSERT(total > 0);
+      double total_profile = af::sum(profile.const_ref());
+      DIALS_ASSERT(total_profile > 0 && total_profile <= 1.0);
       for (std::size_t i = 0; i < profile.size(); ++i) {
-        data_[i] += (profile[i] / total);
+        data_[i] += (profile[i] / total_profile);
       }
       count_++;
       return true;
@@ -465,10 +467,10 @@ namespace dials { namespace algorithms {
         }
       }
 
-      double total = 0;
-      for (std::size_t i = 0; i < profile.size(); ++i) {
-        total += profile[i];
-      }
+      // Check the profile sum is valid
+      const double EPS = 1e-3;
+      double total = af::sum(profile.const_ref());
+      DIALS_ASSERT(total > 0 && total <= (1.0+EPS));
 
       // Return the profile
       return profile;

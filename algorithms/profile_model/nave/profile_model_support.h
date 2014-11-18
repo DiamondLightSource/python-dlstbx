@@ -22,6 +22,7 @@ namespace profile_model {
 namespace nave {
 
   using scitbx::af::int6;
+  using dxtbx::model::Panel;
 
   /**
    * A class to provide methods needed by profile model
@@ -47,7 +48,8 @@ namespace nave {
         double s,
         double da,
         double w)
-      : scan_(scan),
+      : detector_(detector),
+        scan_(scan),
         s0_(beam.get_s0()),
         m2_(goniometer.get_rotation_axis()),
         s_(s),
@@ -82,42 +84,56 @@ namespace nave {
       return model.intensity_fraction(phia, phib);
     }
 
-    /* int6 compute_bbox() const { */
-    /*   Model model; */
+    int6 compute_bbox(
+        std::size_t panel,
+        vec3<double> s1,
+        double phi,
+        double d) const {
 
-    /*   // The angles where the ewald sphere is intersected */
-    /*   vec2<double> angles = model.ewald_intersection_angles(); */
+      // Get the panel
+      const Panel &p = detector_[panel];
 
+      // Create the model
+      Model model(s0_, m2_, s1, phi, d, s_, da_, w_);
 
+      // Get the angular range
+      vec2<double> phi_range = model.phi_range();
+      double z0 = scan_.get_array_index_from_angle(phi_range[0]);
+      double z1 = scan_.get_array_index_from_angle(phi_range[1]);
+      double zm = scan_.get_array_index_from_angle(phi);
+      vec2<double> z(z0, z1);
 
-    /*   // Compute the z range of the reflection */
-    /*   double z0 = scan_.array_index_from_angle(model.phi0()); */
-    /*   double z1 = scan_.array_index_from_angle(model.phi1()); */
+      // Get the minimum box of s1 vectors
+      af::small< vec3<double>, 8 > s1_box = model.minimum_box();
+      af::small<double, 8> x(8);
+      af::small<double, 8> y(8);
+      for (std::size_t i = 0; i < 8; ++i) {
+        vec2<double> xy = p.get_ray_intersection_px(s1_box[i]);
+        x[i] = xy[0];
+        y[i] = xy[1];
+      }
 
-    /*   // Return the roi in the following form: */
-    /*   // (minx, maxx, miny, maxy, minz, maxz) */
-    /*   // Min's are rounded down to the nearest integer, Max's are rounded up */
-    /*   double4 x(xy1[0], xy2[0], xy3[0], xy4[0]); */
-    /*   double4 y(xy1[1], xy2[1], xy3[1], xy4[1]); */
-    /*   double2 z(z1, z2); */
-    /*   int6 bbox( */
-    /*     (int)std::floor(min(x)), (int)std::ceil(max(x)), */
-    /*     (int)std::floor(min(y)), (int)std::ceil(max(y)), */
-    /*     (int)std::floor(min(z)), (int)std::ceil(max(z)) */
-    /*   ); */
+      // Return the roi in the following form:
+      // (minx, maxx, miny, maxy, minz, maxz)
+      // Min's are rounded down to the nearest integer, Max's are rounded up
+      int6 bbox(
+        (int)std::floor(min(x)), (int)std::ceil(max(x)),
+        (int)std::floor(min(y)), (int)std::ceil(max(y)),
+        (int)std::floor(min(z)), (int)std::ceil(max(z))
+      );
 
-    /*   // Check the bbox ranges */
-    /*   vec2<int> array_range = scan_.get_array_range(); */
-    /*   DIALS_ASSERT(bbox[4] <= frame && frame < bbox[5]); */
-    /*   bbox[4] = std::max(bbox[4], array_range[0]); */
-    /*   bbox[4] = std::min(bbox[4], array_range[1]-1); */
-    /*   bbox[5] = std::min(bbox[5], array_range[1]); */
-    /*   bbox[5] = std::max(bbox[5], array_range[0]+1); */
-    /*   DIALS_ASSERT(bbox[1] > bbox[0]); */
-    /*   DIALS_ASSERT(bbox[3] > bbox[2]); */
-    /*   DIALS_ASSERT(bbox[5] > bbox[4]); */
-    /*   return bbox; */
-    /* } */
+      // Check the bbox ranges
+      vec2<int> array_range = scan_.get_array_range();
+      DIALS_ASSERT(bbox[4] <= zm && zm < bbox[5]);
+      bbox[4] = std::max(bbox[4], array_range[0]);
+      bbox[4] = std::min(bbox[4], array_range[1]-1);
+      bbox[5] = std::min(bbox[5], array_range[1]);
+      bbox[5] = std::max(bbox[5], array_range[0]+1);
+      DIALS_ASSERT(bbox[1] > bbox[0]);
+      DIALS_ASSERT(bbox[3] > bbox[2]);
+      DIALS_ASSERT(bbox[5] > bbox[4]);
+      return bbox;
+    }
 
     /* void compute_mask() const { */
     /*     /1* int6 bbox, *1/ */
@@ -179,6 +195,7 @@ namespace nave {
 
   private:
 
+    Detector detector_;
     Scan scan_;
     vec3<double> s0_;
     vec3<double> m2_;

@@ -37,9 +37,10 @@ class Test(object):
     from scitbx import matrix
     from math import cos, pi, sin, acos, asin, atan, atan2
 
-    s = 10
+
+    s = 100
     da = 0
-    w = 0#pi/4# 0.1
+    w = pi/2# 0.1
 
 
     # Get stuff for each reflection
@@ -116,6 +117,75 @@ class Test(object):
         assert(abs(a2 - t_rocking_width * 0.5) < 1e-7)
       else:
         pass
+
+      # s1s = model.minimum_box()
+
+      # xxx = []
+      # yyy = []
+      # for s1ss in s1s:
+      #   x, y = self.experiment.detector[0].get_ray_intersection_px(s1ss)
+      #   xxx.append(x)
+      #   yyy.append(y)
+
+      # x, y = self.experiment.detector[0].get_ray_intersection_px(s1[i])
+      # print x, y, xxx, yyy
+
+      # from matplotlib import pylab
+      # pylab.scatter(xxx, yyy, color='blue')
+      # pylab.scatter([x], [y], color='red')
+      # pylab.axis('equal')
+      # pylab.show()
+
+
+    # from dials.array_family import flex
+    # width, height = self.experiment.detector[0].get_image_size()
+    # dm = self.experiment.detector[0].get_d_matrix()
+    # d0 = matrix.col((dm[0], dm[3], dm[6]))
+    # d1 = matrix.col((dm[1], dm[4], dm[7]))
+    # d2 = matrix.col((dm[2], dm[5], dm[8]))
+
+
+    # x, y = self.reflections['xyzcal.px'].parts()[0:2]
+    # d = (x - 3.0*width/4.0)**2 + (y - 3.0*height/4.0)**2
+    # index = flex.min_index(d)
+    # r = matrix.col(self.reflections['s1'][index]) - s0
+
+    # K = s0.length_sq() - r.length_sq() / 2.0
+    # KK = K * K
+    # d0s0 = d0.dot(s0)
+    # d1s0 = d1.dot(s0)
+    # d2s0 = d2.dot(s0)
+    # d0d2 = d0.dot(d2)
+    # d1d2 = d1.dot(d2)
+    # d2d2 = d2.length_sq()
+    # A = d0s0*d0s0 - KK
+    # B = d0s0*d1s0*2.0
+    # C = d1s0*d1s0 - KK
+    # D = d0s0*d2s0*2.0 - d0d2*KK*2.0
+    # E = d1s0*d2s0*2.0 - d1d2*KK*2.0
+    # F = d2s0*d2s0 - KK*d2d2
+
+
+
+    # im = flex.double(flex.grid(height, width))
+    # for j in range(height):
+    #   for i in range(width):
+    #     x, y = self.experiment.detector[0].pixel_to_millimeter((j,i))
+    #     G = A*x**2 + B*x*y + C*y**2 + D*x + E*y + F
+    #     # if G
+    #     #   im[j,i] = True
+    #     # else:
+    #     #   im[j,i] = False
+    #     im[j,i] = abs(G)
+    #     # print G, F
+
+    #     # if (G < -F):
+    #     #   im[j,i] = True
+    #     # else:
+    #     #   im[j,i] = False
+    # from matplotlib import pylab
+    # pylab.imshow(im.as_numpy_array())
+    # pylab.show()
 
     print 'OK'
 

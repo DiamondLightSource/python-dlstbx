@@ -53,6 +53,34 @@ namespace boost_python {
     }
   }
 
+  void profile_model_support_compute_bbox(
+      const ProfileModelSupport &self,
+      af::reflection_table data) {
+
+    // Check input
+    DIALS_ASSERT(data.contains("panel"));
+    DIALS_ASSERT(data.contains("s1"));
+    DIALS_ASSERT(data.contains("xyzcal.mm"));
+    DIALS_ASSERT(data.contains("d"));
+
+    // Get exisiting columns
+    af::const_ref< std::size_t > panel = data["panel"];
+    af::const_ref< vec3<double> > s1 = data["s1"];
+    af::const_ref< vec3<double> > xyz = data["xyzcal.mm"];
+    af::const_ref< double > d = data["d"];
+
+    // Create new column
+    af::ref< int6 > bbox = data["bbox"];
+
+    // Compute all values
+    for (std::size_t i = 0; i < bbox.size(); ++i) {
+      bbox[i] = self.compute_bbox(
+          panel[i],
+          s1[i],
+          xyz[i][2],
+          d[i]);
+    }
+  }
 
   BOOST_PYTHON_MODULE(dlstbx_algorithms_profile_model_nave_ext)
   {
@@ -110,8 +138,10 @@ namespace boost_python {
                  double,
                  double,
                  double>())
-      .def("compute_partiality", &profile_model_support_compute_partiality)
-      /* .def("compute_bbox", &ProfileModel::compute_bbox) */
+      .def("compute_partiality",
+          &profile_model_support_compute_partiality)
+      .def("compute_bbox",
+          &profile_model_support_compute_bbox)
       /* .def("compute_mask", &ProfileModel::compute_mask) */
       ;
 

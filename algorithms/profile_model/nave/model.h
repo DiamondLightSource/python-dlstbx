@@ -348,9 +348,6 @@ namespace nave {
       vec3<double> yp = s0_.cross(s1_).normalize();
       vec3<double> xp = yp.cross(zp);
 
-      std::cout << xp[0] << ", " << xp[1] << ", " << xp[2] << std::endl;
-      std::cout << s1_[0] << ", " << s1_[1] << ", " << s1_[2] << std::endl;
-
       // The radius and inclination
       double r = s0_.length();
       double theta1 = std::acos(a1_min / s0_.length_sq());

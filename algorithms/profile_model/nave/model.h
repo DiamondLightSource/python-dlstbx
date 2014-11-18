@@ -428,6 +428,120 @@ namespace nave {
       return in;
     }
 
+    af::small<double, 6> equation(mat3<double> d, double phi) const {
+
+      // Get the plane vectors
+      vec3<double> dx(d[0], d[3], d[6]);
+      vec3<double> dy(d[1], d[4], d[7]);
+      vec3<double> dz(d[2], d[5], d[8]);
+
+      // Compute the rotated vector
+      /* vec3<double> p = r().unit_rotate_around_origin(m2_, phi - phi_); */
+      vec3<double> p = r();
+
+      // The radius
+      double t2 = thickness() * thickness() / 4.0;
+      double sl2 = s0_.length_sq();
+      double pl2 = p.length_sq();
+      double s0p = s0_ * p;
+
+      // Compute the constant
+      /* double GR = sl2 + s0p + (pl2 - t2) / 2.0; */
+      double GR = (sl2 + s0p + (pl2 - t2) / 2.0);
+      double G = GR * GR / sl2;
+
+      // Compute the stereographic constants
+      double C1 = dx * dx;
+      double C2 = dx * dy * 2.0;
+      double C3 = dy * dy;
+      double C4 = dx * dz * 2.0;
+      double C5 = dy * dz * 2.0;
+      double C6 = dz * dz;
+
+      // Compute the intersection constants
+      double dxs0p = dx * (s0_ + p);
+      double dys0p = dy * (s0_ + p);
+      double dzs0p = dz * (s0_ + p);
+      double K1 = dxs0p * dxs0p;
+      double K2 = dxs0p * dys0p * 2.0;
+      double K3 = dys0p * dys0p;
+      double K4 = dxs0p * dzs0p * 2.0;
+      double K5 = dys0p * dzs0p * 2.0;
+      double K6 = dzs0p * dzs0p;
+
+      // Compute the ellipse coefficients
+      double L1 = K1 - G * C1;
+      double L2 = K2 - G * C2;
+      double L3 = K3 - G * C3;
+      double L4 = K4 - G * C4;
+      double L5 = K5 - G * C5;
+      double L6 = K6 - G * C6;
+
+      // Return as an array
+      af::small<double,6> result(6);
+      result[0] = L1;
+      result[1] = L2;
+      result[2] = L3;
+      result[3] = L4;
+      result[4] = L5;
+      result[5] = L6;
+      return result;
+    }
+
+    af::small<double, 5> parametric(mat3<double> d, double phi) const {
+      af::small<double, 6> coeffs = equation(d, phi);
+      double A = coeffs[0];
+      double B = coeffs[1] / 2.0;
+      double C = coeffs[2];
+      double D = coeffs[3] / 2.0;
+      double E = coeffs[4] / 2.0;
+      double F = coeffs[5];
+
+      // Compute ellipse centre
+      double den0 = B*B - A*C;
+      DIALS_ASSERT(den0 != 0);
+      double xc = (C*D - B*E) / den0;
+      double yc = (A*E - B*D) / den0;
+
+      // Compute axes
+      double den1 = (A - C)*(A - C) + 4*B*B;
+      DIALS_ASSERT(den1 >= 0);
+      double den2 = std::sqrt(den1);
+      double den3 = den0 * (den2 - (A + C));
+      double den4 = den0 * (-den2 - (A + C));
+      DIALS_ASSERT(den3 != 0 && den4 != 0);
+      double num = 2*(A*E*E+C*D*D+F*B*B-2*B*D*E-A*C*F);
+      double aa = num / den3;
+      double bb = num / den4;
+      DIALS_ASSERT(aa >= 0 && bb >= 0);
+      double a = std::sqrt(aa);
+      double b = std::sqrt(bb);
+
+      // Compute the angle
+      double theta = 0;
+      if (B == 0) {
+        if (A < C) {
+          theta = 0;
+        } else {
+          theta = pi / 2.0;
+        }
+      } else {
+        if (A < C) {
+          theta = 0.5 * std::atan2(2.0*B, (A - C));
+        } else {
+          theta = 0.5 * pi + 0.5 * std::atan2(2.0*B, (A - C));
+        }
+      }
+
+      af::small<double,5> result(5);
+      result[0] = xc;
+      result[1] = yc;
+      result[2] = a;
+      result[3] = b;
+      result[4] = theta;
+      return result;
+    }
+
   private:
 
     /**

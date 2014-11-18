@@ -151,7 +151,9 @@ namespace boost_python {
       .def("z1", &Model::z1)
       .def("intensity_fraction", &Model::intensity_fraction)
       .def("ewald_intersection_angles", &Model::ewald_intersection_angles)
-      .def("minimum_box", &Model::minimum_box);
+      .def("minimum_box", &Model::minimum_box)
+      .def("equation", &Model::equation)
+      .def("parametric", &Model::parametric)
       ;
 
     class_<ProfileModelSupport>("ProfileModelSupport", no_init)

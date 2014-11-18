@@ -1,0 +1,10 @@
+
+Import('env')
+
+env.SharedLibrary(
+  target='#/lib/dlstbx_algorithms_profile_model_nave_ext', 
+  source=[
+    'nave/boost_python/nave_ext.cc',
+  ])
+
+

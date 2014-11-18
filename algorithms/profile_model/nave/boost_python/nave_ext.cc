@@ -14,8 +14,8 @@
 #include <dlstbx/algorithms/profile_model/nave/spherical_cap.h>
 #include <dlstbx/algorithms/profile_model/nave/model.h>
 
-namespace dlstbx { 
-namespace algorithms { 
+namespace dlstbx {
+namespace algorithms {
 namespace profile_model {
 namespace nave {
 namespace boost_python {

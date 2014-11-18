@@ -77,31 +77,34 @@ namespace nave {
      * @returns The distance to the cap
      */
     double distance(vec3<double> p) const {
-      double l = p.length();
+      double d = 0;
       if (angle_ > 0) {
+        double l = p.length();
         if (l > 0) {
           double costheta = (axis_ * p) / (radius_ * l);
           if (costheta >  1) costheta =  1;
           if (costheta < -1) costheta = -1;
           double theta = std::acos(costheta);
           if (theta <= angle_) {
-            return std::abs(l - radius_);
+            d = std::abs(l - radius_);
           } else {
             DIALS_ASSERT(theta > angle_);
             double a = radius_*radius_ + l*l;
             double b = 2.0 * radius_*l*std::cos(theta - angle_);
             DIALS_ASSERT(a >= b);
-            return std::sqrt(a - b);
+            d = std::sqrt(a - b);
           }
         } else {
-          return radius_;
+          d = radius_;
         }
+      } else {
+        d = (axis_ - p).length();
       }
-      return l - radius_;
+      return d;
     }
 
   private:
-    
+
     vec3<double> axis_;
     double radius_;
     double angle_;

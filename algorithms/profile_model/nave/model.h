@@ -186,39 +186,20 @@ namespace nave {
     /**
      * @returns The first phi angle
      */
-    double phi0() const {
-      vec3<double> p = r().unit_rotate_around_origin(m2_, phi_);
-      double pl = p.length();
+    vec2<double> phi_range() const {
+      vec3<double> p = r();
+      double pl2 = p.length_sq();
       double m2p = m2_ * p;
       double m2p2 = m2p*m2p;
-      double a = m2p2 - pl*pl;
+      double a = m2p2 - pl2;
       DIALS_ASSERT(a != 0);
       DIALS_ASSERT(rocking_width_ > 0);
-      double b = m2p2 - pl*pl * std::cos(rocking_width_ * 0.5);
+      double b = m2p2 - pl2 * std::cos(rocking_width_ * 0.5);
       double cosdphi = b / a;
       if (cosdphi >  1) cosdphi =  1.0;
       if (cosdphi < -1) cosdphi = -1.0;
       double dphi = std::acos(cosdphi);
-      return phi_ - dphi;
-    }
-
-    /**
-     * @returns The last phi angle
-     */
-    double phi1() const {
-      vec3<double> p = r().unit_rotate_around_origin(m2_, phi_);
-      double pl = p.length();
-      double m2p = m2_ * p;
-      double m2p2 = m2p*m2p;
-      double a = m2p2 - pl*pl;
-      DIALS_ASSERT(a != 0);
-      DIALS_ASSERT(rocking_width_ > 0);
-      double b = m2p2 - pl*pl * std::cos(rocking_width_ * 0.5);
-      double cosdphi = b / a;
-      if (cosdphi >  1) cosdphi =  1.0;
-      if (cosdphi < -1) cosdphi = -1.0;
-      double dphi = std::acos(cosdphi);
-      return phi_ + dphi;
+      return vec2<double>(phi_ - dphi, phi_ + dphi);
     }
 
     /**

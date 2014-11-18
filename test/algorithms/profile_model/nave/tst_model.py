@@ -87,8 +87,7 @@ class Test(object):
       # Test some more properties
       t_thickness = model.thickness()
       t_rocking_width = model.rocking_width()
-      t_phi0 = model.phi0()
-      t_phi1 = model.phi1()
+      t_phi0, t_phi1 = model.phi_range()
       t_z0 = model.z0()
       t_z1 = model.z1()
       assert(almost_equal(t_thickness, thickness))

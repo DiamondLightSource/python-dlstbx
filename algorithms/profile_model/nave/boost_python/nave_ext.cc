@@ -30,14 +30,21 @@ namespace boost_python {
       .def("radius", &SphericalCap::radius)
       .def("angle", &SphericalCap::angle)
       .def("distance", &SphericalCap::distance)
+      .def("h1", &SphericalCap::h1)
+      .def("h2", &SphericalCap::h2)
+      .def("a", &SphericalCap::a)
       ;
 
     class_<Model>("Model", no_init)
       .def(init< vec3<double>,
                  double,
                  double,
+                 double,
+                 double,
                  double >())
       .def("r", &Model::r)
+      .def("phi", &Model::phi)
+      .def("d", &Model::d)
       .def("s", &Model::s)
       .def("da", &Model::da)
       .def("w", &Model::w)
@@ -45,7 +52,17 @@ namespace boost_python {
       .def("rocking_width", &Model::rocking_width)
       .def("distance", &Model::distance)
       .def("inside", &Model::inside)
+      .def("phi0", &Model::phi0)
+      .def("phi1", &Model::phi1)
+      .def("z0", &Model::z0)
+      .def("z1", &Model::z1)
       ;
+
+    /* class_<ProfileModel>("ProfileModel", no_init) */
+    /*   .def("compute_bbox", &ProfileModel::compute_bbox) */
+    /*   .def("compute_mask", &ProfileModel::compute_mask) */
+    /*   .def("compute_partiality", &ProfileModel::compute_partiality) */
+    /*   ; */
 
     class_<Projector>("Projector", no_init)
       .def(init< const Beam&,

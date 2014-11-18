@@ -68,6 +68,27 @@ namespace nave {
     }
 
     /**
+     * @returns The radius of the cap circle
+     */
+    double a() const {
+      return radius_ * std::sin(angle_);
+    }
+
+    /**
+     * @returns The distance from the top of the sphere to the cap plane
+     */
+    double h1() const {
+      return radius_ - h2();
+    }
+
+    /**
+     * @returns The signed distance from the centre to the cap plane
+     */
+    double h2() const {
+      return radius_ * std::cos(angle_);
+    }
+
+    /**
      * Compute the distance to the spherical cap. Where the inclination of the
      * point is < the angle that the cap covers, this is just the distance from
      * the origin of the sphere to the point minus the radius of the sphere.

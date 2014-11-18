@@ -21,6 +21,70 @@ namespace profile_model {
 namespace nave {
 
   /**
+   * A helper class to compute the elliptical parameters of the projections of
+   * the circle of intersection between the ewald sphere and sphere of rotation
+   * projected onto a plane.
+   */
+  class EwaldCirclePlaneProjection {
+  public:
+
+    /**
+     * Initialise the projection
+     * @param s0 The beam vector
+     * @param d The detector d matrix
+     */
+    EwaldCirclePlaneProjection(vec3<double> s0, mat3<double> d)
+      : s0_(s0),
+        d0_(d[0], d[3], d[6]),
+        d1_(d[1], d[4], d[7]),
+        d2_(d[2], d[5], d[8]),
+        d0s0_(d0_ * s0_),
+        d1s0_(d1_ * s0_),
+        d2s0_(d2_ * s0_),
+        d0d2_(d0_ * d2_),
+        d1d2_(d1_ * d2_),
+        d2d2_(d2_.length_sq()) {
+
+    }
+
+    /**
+     * Do the projection and return the elliptical parameters such that for x
+     * and y on the virtual detector plane, the ellipse is given as
+     *
+     * AX^2 + BXY + CY^2 + DX + EY + F = 0
+     *
+     * @param s1 The diffracted beam vector
+     * @returns The elliptical parameters
+     */
+    af::small<double, 6> operator()(vec3<double> s1) const {
+      double K = s0_.length() - (s1 - s0_).length_sq() / 2.0;
+      double KK = K * K;
+      af::small<double, 6> result(6);
+      result[0] = d0s0_*d0s0_ - KK;
+      result[1] = d0s0_*d1s0_*2.0;
+      result[2] = d1s0_*d1s0_ - KK;
+      result[3] = d0s0_*d2s0_*2.0 - d0d2_*KK*2.0;
+      result[4] = d1s0_*d2s0_*2.0 - d1d2_*KK*2.0;
+      result[5] = d2s0_*d2s0_ - KK*d2d2_;
+      return result;
+    }
+
+  private:
+
+    vec3<double> s0_;
+    vec3<double> d0_;
+    vec3<double> d1_;
+    vec3<double> d2_;
+    double d0s0_;
+    double d1s0_;
+    double d2s0_;
+    double d0d2_;
+    double d1d2_;
+    double d2d2_;
+  };
+
+
+  /**
    * A class to represent the model in reciprocal space.
    */
   class Model {

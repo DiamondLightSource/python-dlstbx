@@ -33,6 +33,7 @@ namespace nave {
      * @param w The angular spread of mosaic blocks
      */
     Model(vec3<double> s0,
+          vec3<double> m2,
           vec3<double> s1,
           double phi,
           double d,
@@ -40,7 +41,12 @@ namespace nave {
           double da,
           double w)
       : s0_(s0),
+        m2_(m2.normalize()),
         s1_(s1.normalize()*s0.length()),
+        e1_(s1_.cross(s0_).normalize()),
+        e2_(s1_.cross(e1_).normalize()),
+        e3_((s1_ + s0_).normalize()),
+        zeta_(m2_ * e1_),
         phi_(phi),
         d_(d),
         s_(s),
@@ -55,7 +61,7 @@ namespace nave {
       DIALS_ASSERT(w >= 0);
       DIALS_ASSERT(w <= pi);
       thickness_ = 1.0 / s;// + n * da / (a*a);
-      rocking_width_ = d / s + w;
+      rocking_width_ = 2.0 * std::atan2(1.0, (2.0 * s * r().length())) + w;
     }
 
     /**
@@ -63,6 +69,41 @@ namespace nave {
      */
     vec3<double> s0() const {
       return s0_;
+    }
+
+    /**
+     * @returns The rotation axis
+     */
+    vec3<double> m2() const {
+      return m2_;
+    }
+
+    /**
+     * @returns The e1 axis
+     */
+    vec3<double> e1() const {
+      return e1_;
+    }
+
+    /**
+     * @returns The e2 axis
+     */
+    vec3<double> e2() const {
+      return e2_;
+    }
+
+    /**
+     * @returns The e3 axis
+     */
+    vec3<double> e3() const {
+      return e3_;
+    }
+
+    /**
+     * @returns zeta
+     */
+    double zeta() const {
+      return zeta_;
     }
 
     /**
@@ -146,14 +187,38 @@ namespace nave {
      * @returns The first phi angle
      */
     double phi0() const {
-      return phi_ - rocking_width_ * 0.5;
+      vec3<double> p = r().unit_rotate_around_origin(m2_, phi_);
+      double pl = p.length();
+      double m2p = m2_ * p;
+      double m2p2 = m2p*m2p;
+      double a = m2p2 - pl*pl;
+      DIALS_ASSERT(a != 0);
+      DIALS_ASSERT(rocking_width_ > 0);
+      double b = m2p2 - pl*pl * std::cos(rocking_width_ * 0.5);
+      double cosdphi = b / a;
+      if (cosdphi >  1) cosdphi =  1.0;
+      if (cosdphi < -1) cosdphi = -1.0;
+      double dphi = std::acos(cosdphi);
+      return phi_ - dphi;
     }
 
     /**
      * @returns The last phi angle
      */
     double phi1() const {
-      return phi_ + rocking_width_ * 0.5;
+      vec3<double> p = r().unit_rotate_around_origin(m2_, phi_);
+      double pl = p.length();
+      double m2p = m2_ * p;
+      double m2p2 = m2p*m2p;
+      double a = m2p2 - pl*pl;
+      DIALS_ASSERT(a != 0);
+      DIALS_ASSERT(rocking_width_ > 0);
+      double b = m2p2 - pl*pl * std::cos(rocking_width_ * 0.5);
+      double cosdphi = b / a;
+      if (cosdphi >  1) cosdphi =  1.0;
+      if (cosdphi < -1) cosdphi = -1.0;
+      double dphi = std::acos(cosdphi);
+      return phi_ + dphi;
     }
 
     /**
@@ -168,6 +233,20 @@ namespace nave {
      */
     double z1() const {
       return cap_.radius() + thickness();
+    }
+
+    /**
+     * @returns fraction of expected intensity between two rotation angles
+     */
+    double intensity_fraction(double phia, double phib) const {
+      DIALS_ASSERT(rocking_width_ > 0);
+      if (phia > phib) {
+        std::swap(phia, phib);
+      }
+      double c = std::abs(zeta_) / (std::sqrt(2.0) * (0.5 * rocking_width_ / 3.0));
+      double p = 0.5 * (erf(c * (phib - phi_)) - erf(c * (phia - phi_)));
+      DIALS_ASSERT(p >= 0.0 && p <= 1.0);
+      return p;
     }
 
     /**
@@ -200,7 +279,12 @@ namespace nave {
     }
 
     vec3<double> s0_;
+    vec3<double> m2_;
     vec3<double> s1_;
+    vec3<double> e1_;
+    vec3<double> e2_;
+    vec3<double> e3_;
+    double zeta_;
     double phi_;
     double d_;
     double s_;

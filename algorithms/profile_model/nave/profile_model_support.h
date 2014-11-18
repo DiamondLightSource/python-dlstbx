@@ -23,9 +23,22 @@ namespace nave {
 
   using scitbx::af::int6;
 
+  /**
+   * A class to provide methods needed by profile model
+   */
   class ProfileModelSupport {
   public:
 
+    /**
+     * Initialise support functions
+     * @param beam The beam model
+     * @param detector The detector model
+     * @param goniometer The goniometer model
+     * @param scan The scan model
+     * @param s The size of mosaic blocks
+     * @param da The range of unit cell sizes
+     * @param w The angular spread of mosaic blocks
+     */
     ProfileModelSupport(
         const Beam &beam,
         const Detector &detector,
@@ -41,6 +54,14 @@ namespace nave {
         da_(da),
         w_(w) {}
 
+    /**
+     * Compute the reflection partiality
+     * @param s1 The diffracted beam vector
+     * @param phi The rotation angle
+     * @param d The resolution
+     * @param bbox The bounding box
+     * @returns The partiality
+     */
     double compute_partiality(
         vec3<double> s1,
         double phi,

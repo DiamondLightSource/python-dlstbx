@@ -35,32 +35,36 @@ class Test(object):
   def run(self):
     from dlstbx.algorithms.profile_model.nave import Model
     from scitbx import matrix
-    from math import cos
+    from math import cos, pi, sin, acos, asin, atan, atan2
 
-    s = 1000
+    s = 10
     da = 0
-    w = 0.1
+    w = 0#pi/4# 0.1
+
 
     # Get stuff for each reflection
     s0 = matrix.col(self.experiment.beam.get_s0())
+    m2 = matrix.col(self.experiment.goniometer.get_rotation_axis()).normalize()
     s1 = self.reflections['s1']
     phi = self.reflections['xyzcal.mm'].parts()[2]
     d = self.reflections.compute_d_single(self.experiment)
 
+    zz = []
+    dd = []
+
     # Look through all reflections
     for i in range(len(self.reflections)):
+
+      # Create the model
+      model = Model(s0, m2, s1[i], phi[i], d[i], s, da, w)
+      zeta = model.zeta()
 
       r = matrix.col(s1[i]) - matrix.col(s0)
 
       thickness = 1.0 / s
-      rocking_width = d[i] / s + w
-      phi0 = phi[i] - rocking_width / 2.0
-      phi1 = phi[i] + rocking_width / 2.0
+      rocking_width = 2.0 * atan2(1.0, (2.0 * s * r.length())) + w;
       z0 = r.length() * cos(w)
       z1 = r.length() + thickness / 2.0
-
-      # Create the model
-      model = Model(s0, s1[i], phi[i], d[i], s, da, w)
 
       # Test some simple properties
       t_s0 = model.s0()
@@ -89,8 +93,6 @@ class Test(object):
       t_z1 = model.z1()
       assert(almost_equal(t_thickness, thickness))
       assert(almost_equal(t_rocking_width, rocking_width))
-      assert(almost_equal(t_phi0, phi0))
-      assert(almost_equal(t_phi1, phi1))
       assert(almost_equal(t_z0, t_z0))
       assert(almost_equal(t_z1, t_z1))
 
@@ -102,6 +104,19 @@ class Test(object):
         s0.length(), r.length()+thickness/2.0)
       assert(almost_equal(t_angles[0], angle1))
       assert(almost_equal(t_angles[1], angle2))
+
+      # Test that rotation through given angles is valid and that the edge of
+      # the reflection in reciprocal space touches the edge of the rotation
+      if t_phi1 > t_phi0 and t_phi1 - t_phi0 < 2*pi:# and abs(zeta) < 0.3:
+        r0 = r.rotate_around_origin(m2, phi[i])
+        r1 = r.rotate_around_origin(m2, t_phi0)
+        r2 = r.rotate_around_origin(m2, t_phi1)
+        a1 = r0.angle(r1)
+        a2 = r0.angle(r2)
+        assert(abs(a1 - t_rocking_width * 0.5) < 1e-7)
+        assert(abs(a2 - t_rocking_width * 0.5) < 1e-7)
+      else:
+        pass
 
     print 'OK'
 

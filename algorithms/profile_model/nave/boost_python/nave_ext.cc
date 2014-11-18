@@ -10,9 +10,11 @@
  */
 #include <boost/python.hpp>
 #include <boost/python/def.hpp>
+#include <dials/array_family/reflection_table.h>
 #include <dlstbx/algorithms/profile_model/nave/projector.h>
 #include <dlstbx/algorithms/profile_model/nave/spherical_cap.h>
 #include <dlstbx/algorithms/profile_model/nave/model.h>
+#include <dlstbx/algorithms/profile_model/nave/profile_model_support.h>
 
 namespace dlstbx {
 namespace algorithms {
@@ -21,6 +23,36 @@ namespace nave {
 namespace boost_python {
 
   using namespace boost::python;
+
+  void profile_model_support_compute_partiality(
+      const ProfileModelSupport &self,
+      af::reflection_table data) {
+
+    // Check input
+    DIALS_ASSERT(data.contains("s1"));
+    DIALS_ASSERT(data.contains("xyzcal.mm"));
+    DIALS_ASSERT(data.contains("d"));
+    DIALS_ASSERT(data.contains("bbox"));
+
+    // Get exisiting columns
+    af::const_ref< vec3<double> > s1 = data["s1"];
+    af::const_ref< vec3<double> > xyz = data["xyzcal.mm"];
+    af::const_ref< double > d = data["d"];
+    af::const_ref< int6 > bbox = data["bbox"];
+
+    // Create new column
+    af::ref< double > partiality = data["partiality"];
+
+    // Compute all values
+    for (std::size_t i = 0; i < partiality.size(); ++i) {
+      partiality[i] = self.compute_partiality(
+          s1[i],
+          xyz[i][2],
+          d[i],
+          bbox[i]);
+    }
+  }
+
 
   BOOST_PYTHON_MODULE(dlstbx_algorithms_profile_model_nave_ext)
   {
@@ -39,15 +71,21 @@ namespace boost_python {
     class_<Model>("Model", no_init)
       .def(init< vec3<double>,
                  vec3<double>,
+                 vec3<double>,
                  double,
                  double,
                  double,
                  double,
                  double >())
       .def("s0", &Model::s0)
+      .def("m2", &Model::m2)
       .def("s1", &Model::s1)
+      .def("e1", &Model::e1)
+      .def("e2", &Model::e2)
+      .def("e3", &Model::e3)
       .def("r", &Model::r)
       .def("phi", &Model::phi)
+      .def("zeta", &Model::zeta)
       .def("d", &Model::d)
       .def("s", &Model::s)
       .def("da", &Model::da)
@@ -60,14 +98,22 @@ namespace boost_python {
       .def("phi1", &Model::phi1)
       .def("z0", &Model::z0)
       .def("z1", &Model::z1)
+      .def("intensity_fraction", &Model::intensity_fraction)
       .def("ewald_intersection_angles", &Model::ewald_intersection_angles)
       ;
 
-    /* class_<ProfileModel>("ProfileModel", no_init) */
-    /*   .def("compute_bbox", &ProfileModel::compute_bbox) */
-    /*   .def("compute_mask", &ProfileModel::compute_mask) */
-    /*   .def("compute_partiality", &ProfileModel::compute_partiality) */
-    /*   ; */
+    class_<ProfileModelSupport>("ProfileModelSupport", no_init)
+      .def(init< const Beam&,
+                 const Detector&,
+                 const Goniometer&,
+                 const Scan&,
+                 double,
+                 double,
+                 double>())
+      .def("compute_partiality", &profile_model_support_compute_partiality)
+      /* .def("compute_bbox", &ProfileModel::compute_bbox) */
+      /* .def("compute_mask", &ProfileModel::compute_mask) */
+      ;
 
     class_<Projector>("Projector", no_init)
       .def(init< const Beam&,

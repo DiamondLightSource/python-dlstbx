@@ -33,6 +33,8 @@ phil_scope = parse('''
 class ProfileModel(ProfileModelIface):
   ''' A class to encapsulate the profile model. '''
 
+  # TODO maybe add beam divergence and dispersion
+
   def __init__(self, s, da, w):
     ''' Initialise with the parameters. '''
     from math import pi
@@ -55,16 +57,38 @@ class ProfileModel(ProfileModelIface):
     ''' Return the angular spread of mosaic blocks. '''
     return self._w
 
-  def predict_reflections(self, experiment, dmin=None, dmax=None, margin=1,
-                          force_static=False, **kwargs):
+  def predict_reflections(self, experiment, dmin=None, dmax=None, **kwargs):
     ''' Predict the reflections. '''
+    from dials.algorithms.spot_prediction import ScanVaryingReflectionPredictor
     from dials.array_family import flex
-    return flex.reflection_table.from_predictions(
+
+    # Create the scan varying reflection predictor
+    predictor = ScanVaryingReflectionPredictor(
       experiment,
       dmin=dmin,
-      dmax=dmax,
-      margin=margin,
-      force_static=force_static)
+      margin=1)
+
+    # Get length of scan
+    scan_len = experiment.scan.get_num_images()
+    crystal = experiment.crystal
+
+    # Get the A matrices
+    if crystal.num_scan_points == 0:
+      A = [crystal.get_A() for i in range(scan_len+1)]
+    else:
+      assert(crystal.num_scan_points) == scan_len+1
+      A = [crystal.get_A_at_scan_point(i)  for i in range(scan_len+1)]
+
+    # Do the prediction
+    result = predictor.for_ub(flex.mat3_double(A))
+    if dmax is not None:
+      assert(dmax > 0)
+      result.compute_d_single(experiment)
+      mask = result['d'] > dmax
+      result.del_selected(mask)
+
+    # Return the reflections
+    return result
 
   def compute_bbox(self, experiment, reflections, **kwargs):
     ''' Compute the bounding box. '''
@@ -96,4 +120,3 @@ class ProfileModel(ProfileModelIface):
         self.da(),
         self.w())
     return factory.phil_scope.fetch(source=parse(phil_str))
-

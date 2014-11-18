@@ -436,8 +436,7 @@ namespace nave {
       vec3<double> dz(d[2], d[5], d[8]);
 
       // Compute the rotated vector
-      /* vec3<double> p = r().unit_rotate_around_origin(m2_, phi - phi_); */
-      vec3<double> p = r();
+      vec3<double> p = r().unit_rotate_around_origin(m2_, phi - phi_);
 
       // The radius
       double t2 = thickness() * thickness() / 4.0;
@@ -446,8 +445,7 @@ namespace nave {
       double s0p = s0_ * p;
 
       // Compute the constant
-      /* double GR = sl2 + s0p + (pl2 - t2) / 2.0; */
-      double GR = (sl2 + s0p + (pl2 - t2) / 2.0);
+      double GR = sl2 + s0p + (pl2 - t2) / 2.0;
       double G = GR * GR / sl2;
 
       // Compute the stereographic constants

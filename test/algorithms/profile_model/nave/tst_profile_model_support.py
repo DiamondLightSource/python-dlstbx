@@ -35,12 +35,13 @@ class Test(object):
   def run(self):
     from dlstbx.algorithms.profile_model.nave import ProfileModelSupport
     from math import pi
+    from dials.array_family import flex
 
     self.reflections.compute_d_single(self.experiment)
 
     s = 100
     da = 0
-    w = pi/2# 0.1
+    w = 0#0.0# 0.1
 
     # Create the support
     support = ProfileModelSupport(
@@ -66,6 +67,30 @@ class Test(object):
       assert(xyz[i][0] <  bbox[i][1])
       assert(xyz[i][1] <  bbox[i][3])
       assert(xyz[i][2] <  bbox[i][5])
+
+    # Create the shoeboxes
+    self.reflections['shoebox'] = flex.shoebox(
+      self.reflections['panel'],
+      self.reflections['bbox'])
+    self.reflections['shoebox'].allocate()
+
+    # Create the mask
+    support.compute_mask(self.reflections)
+
+    width, height = self.experiment.detector[0].get_image_size()
+    image = flex.int(flex.grid(height, width))
+    for r in self.reflections:
+      b = r['bbox']
+      s = r['shoebox']
+      sl = s.mask[0:1,:,:]
+      sl.reshape(flex.grid(sl.all()[1], sl.all()[2]))
+      if b[0] >= 0 and b[1] <= width and b[2] >= 0 and b[3] <= height:
+        image[b[2]:b[3],b[0]:b[1]] = sl
+
+
+    from matplotlib import pylab
+    pylab.imshow(image.as_numpy_array())
+    pylab.show()
 
     print 'OK'
 

@@ -38,9 +38,9 @@ class Test(object):
     from math import cos, pi, sin, acos, asin, atan, atan2
 
 
-    s = 100
-    da = 0
-    w = pi/2# 0.1
+    s = 500
+    da = 0.02
+    w = 0#pi/2# 0.1
 
 
     # Get stuff for each reflection
@@ -53,6 +53,7 @@ class Test(object):
     dd = []
 
     # Look through all reflections
+    coeffs = []
     for i in range(len(self.reflections)):
 
       # Create the model
@@ -61,8 +62,11 @@ class Test(object):
 
       r = matrix.col(s1[i]) - matrix.col(s0)
 
-      thickness = 1.0 / s
-      rocking_width = 2.0 * atan2(1.0, (2.0 * s * r.length())) + w;
+      thickness = 1.0 / s + r.length() * da
+      rocking_width = \
+        w + \
+        2.0 * atan2(1.0, (2.0 * s * r.length())) + \
+        2.0 * atan2(0.5 * da, 1.0)
       z0 = r.length() * cos(w)
       z1 = r.length() + thickness / 2.0
 
@@ -115,6 +119,59 @@ class Test(object):
       else:
         pass
 
+      try:
+        from dials.array_family import flex
+        width, height = self.experiment.detector[0].get_image_size()
+        # A,B,C,D,E,F = model.equation(self.experiment.detector[0].get_d_matrix(), t_phi)
+        # image = flex.double(flex.grid(height, width))
+        # for jj in range(height):
+        #   for ii in range(width):
+        #     x, y = self.experiment.detector[0].pixel_to_millimeter((ii,jj))
+        #     V = A*x*x+B*x*y+C*y*y+D*x+E*y+F
+        #     image[jj,ii] = abs(V) < 5
+        # from matplotlib import pylab
+        # pylab.imshow(image.as_numpy_array())
+        # xp, yp, zp = self.reflections['xyzcal.mm'][i]
+        # print xp, yp
+        # pylab.scatter([xp],[yp], color='black')
+        # pylab.show()
+        # print coeff
+        # width, height = self.experiment.detector[0].get_image_size_mm()
+        coeff = model.parametric(self.experiment.detector[0].get_d_matrix(), t_phi)
+        coeffs.append(coeff)
+        # xc, yc, a, b, psi = coeff
+        # print xc, yc, a, b, psi
+        # from matplotlib import pylab
+        # from matplotlib.patches import Ellipse
+        # el = Ellipse(xy=(xc, yc), width=a, height=b, angle=psi)
+        # fig = pylab.figure()
+        # ax = fig.add_subplot(111, aspect='equal')
+        # ax.add_artist(el)
+        # ax.set_xlim(0, width)
+        # ax.set_ylim(0, height)
+        # pylab.show()
+      except Exception:
+        raise
+        pass
+      # xp, yp, zp = self.reflections['xyzcal.mm'][i]
+      # print xp, yp
+      # pylab.scatter([xp],[yp], color='black')
+      # pylab.show()
+      # print coeff
+    width, height = self.experiment.detector[0].get_image_size_mm()
+    from matplotlib import pylab
+    from matplotlib.patches import Ellipse
+    els = []
+    for xc, yc, a, b, psi in coeffs:
+      els.append(Ellipse(xy=(xc, yc), width=a, height=b, angle=psi))
+
+    fig = pylab.figure()
+    ax = fig.add_subplot(111, aspect='equal')
+    for el in els:
+      ax.add_artist(el)
+    ax.set_xlim(0, width)
+    ax.set_ylim(0, height)
+    pylab.show()
       # s1s = model.minimum_box()
 
       # xxx = []

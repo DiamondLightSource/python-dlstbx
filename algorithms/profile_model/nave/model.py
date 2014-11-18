@@ -13,7 +13,21 @@ from libtbx.phil import parse
 from dials.algorithms.profile_model.interface import ProfileModelIface
 
 phil_scope = parse('''
+  nave {
+    model {
+      s = 0
+        .type = float(value_min=0.0)
+        .help = "The spread in mosaic block size"
 
+      da = 0
+        .type = float(value_min=0.0)
+        .help = "The spread in unit cell size"
+
+      w = 0
+        .type = float(value_min=0.0)
+        .help = "The angular spread of mosaic blocks."
+    }
+  }
 ''')
 
 class ProfileModel(ProfileModelIface):
@@ -66,5 +80,20 @@ class ProfileModel(ProfileModelIface):
 
   def dump(self):
     ''' Dump the profile model to phil parameters. '''
-    raise RuntimeError("Not implemented")
+    from dials.algorithms.profile_model import factory
+    phil_str = '''
+      profile {
+        nave {
+          model {
+            s=%g
+            da=%g
+            w=%g
+          }
+        }
+      }
+      ''' % (
+        self.s(),
+        self.da(),
+        self.w())
+    return factory.phil_scope.fetch(source=parse(phil_str))
 

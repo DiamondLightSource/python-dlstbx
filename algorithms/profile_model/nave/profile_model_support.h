@@ -23,6 +23,8 @@ namespace nave {
 
   using scitbx::af::int6;
   using dxtbx::model::Panel;
+  using dials::model::Background;
+  using dials::model::Foreground;
 
   /**
    * A class to provide methods needed by profile model
@@ -133,63 +135,60 @@ namespace nave {
       return bbox;
     }
 
-    /* void compute_mask() const { */
-    /*     /1* int6 bbox, *1/ */
-    /*     /1* af::ref< int, af::c_grid<3> > &mask) const { *1/ */
+    void compute_mask(
+        std::size_t panel,
+        vec3<double> s1,
+        double phi,
+        int6 bbox,
+        af::ref<int, af::c_grid<3> > mask) const {
 
-    /*   // Check the input */
-    /*   DIALS_ASSERT(bbox[1] > bbox[0]); */
-    /*   DIALS_ASSERT(bbox[3] > bbox[2]); */
-    /*   DIALS_ASSERT(bbox[5] > bbox[4]); */
-    /*   DIALS_ASSERT(mask.accessor()[0] == bbox[5] - bbox[4]); */
-    /*   DIALS_ASSERT(mask.accessor()[1] == bbox[3] - bbox[2]); */
-    /*   DIALS_ASSERT(mask.accessor()[2] == bbox[1] - bbox[0]); */
+      // Get the panel
+      const Panel &p = detector_[panel];
 
-    /*   // Loop through all the pixels in the mask region */
-    /*   for (std::size_t k = 0; k < mask.accessor()[0]; ++k) { */
-    /*     for (std::size_t j = 0; j < mask.accessor()[1]; ++j) { */
-    /*       for (std::size_t i = 0; i < mask.accessor()[2]; ++i) { */
+      // Create the model
+      Model model(s0_, m2_, s1, phi, s_, da_, w_);
 
-    /*         // Get the diffracted beam vectors */
-    /*         vec3<double> s00 = p.get_pixel_lab_coordinate(vec2<double>(x,y)); */
-    /*         vec3<double> s01 = p.get_pixel_lab_coordinate(vec2<double>(x+1,y)); */
-    /*         vec3<double> s10 = p.get_pixel_lab_coordinate(vec2<double>(x,y+1)); */
-    /*         vec3<double> s11 = p.get_pixel_lab_coordinate(vec2<double>(x+1,y+1)); */
-    /*         s00 = s00.normalize() * s1_length; */
-    /*         s01 = s01.normalize() * s1_length; */
-    /*         s10 = s10.normalize() * s1_length; */
-    /*         s11 = s11.normalize() * s1_length; */
+      // Check the input
+      DIALS_ASSERT(bbox[1] > bbox[0]);
+      DIALS_ASSERT(bbox[3] > bbox[2]);
+      DIALS_ASSERT(bbox[5] > bbox[4]);
+      DIALS_ASSERT(mask.accessor()[0] == bbox[5] - bbox[4]);
+      DIALS_ASSERT(mask.accessor()[1] == bbox[3] - bbox[2]);
+      DIALS_ASSERT(mask.accessor()[2] == bbox[1] - bbox[0]);
 
-    /*         // Get the range of oscillation angles */
-    /*         double phi00 = scan_.get_angle_from_array_index(z); */
-    /*         double phi01 = scan_.get_angle_from_array_index(z+1); */
-    /*         double phi10 = model.phi0(); */
-    /*         double phi11 = model.phi1(); */
-    /*         if ((phi00 < phi10 && phi01 > phi10) || */
-    /*             (phi00 < phi11 && phi01 > phi11)) { */
+      for (std::size_t k = 0; k < mask.accessor()[0]; ++k) {
+        for (std::size_t j = 0; j < mask.accessor()[1]; ++j) {
+          for (std::size_t i = 0; i < mask.accessor()[2]; ++i) {
 
-    /*         } else { */
-    /*           mask(k,j,i) |= Background; */
-    /*         } */
+            int z = bbox[4] + (int)k;
+            int y = bbox[2] + (int)j;
+            int x = bbox[0] + (int)i;
 
-    /*         // Compute the reciprocal space vectors */
-    /*         af::small< vec3<double>, 8 > vel(8); */
-    /*         vel[0] = (s00 - s0_).unit_rotate_around_axis(m2_, phi0); */
-    /*         vel[1] = (s00 - s0_).unit_rotate_around_axis(m2_, phi0); */
-    /*         vel[2] = (s00 - s0_).unit_rotate_around_axis(m2_, phi0); */
-    /*         vel[3] = (s00 - s0_).unit_rotate_around_axis(m2_, phi0); */
-    /*         vel[4] = (s00 - s0_).unit_rotate_around_axis(m2_, phi1); */
-    /*         vel[5] = (s00 - s0_).unit_rotate_around_axis(m2_, phi1); */
-    /*         vel[6] = (s00 - s0_).unit_rotate_around_axis(m2_, phi1); */
-    /*         vel[7] = (s00 - s0_).unit_rotate_around_axis(m2_, phi1); */
+            // The rotation angles
+            double phi0 = scan_.get_angle_from_array_index(z);
+            double phi1 = scan_.get_angle_from_array_index(z+1);
 
-    /*         // If the reciprocal space point is within the profile region then */
-    /*         // set the mask to foreground, otherwise background */
-    /*         mask(k,j,i) = model.inside(vel) ? Foreground : Background; */
-    /*       } */
-    /*     } */
-    /*   } */
-    /* } */
+            // The beam vectors
+            vec3<double> sp0 = p.get_pixel_lab_coord(vec2<double>(x,y));
+            vec3<double> sp1 = p.get_pixel_lab_coord(vec2<double>(x+1,y));
+            vec3<double> sp2 = p.get_pixel_lab_coord(vec2<double>(x,y+1));
+            vec3<double> sp3 = p.get_pixel_lab_coord(vec2<double>(x+1,y+1));
+            vec3<double> sp4 = p.get_pixel_lab_coord(vec2<double>(x+0.5,y+0.5));
+
+            // Check if point is inside
+            if (model.inside2(sp0, phi0, phi1) ||
+                model.inside2(sp1, phi0, phi1) ||
+                model.inside2(sp2, phi0, phi1) ||
+                model.inside2(sp3, phi0, phi1) ||
+                model.inside2(sp4, phi0, phi1)) {
+              mask(k,j,i) |= Foreground;
+            } else {
+              /* mask(k,j,i) |= Background; */
+            }
+          }
+        }
+      }
+    }
 
   private:
 

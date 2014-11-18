@@ -415,6 +415,19 @@ namespace nave {
       return result;
     }
 
+    /**
+     * Check if the vector is within the profile
+     */
+    bool inside2(vec3<double> s, double angle0, double angle1) const {
+
+      vec3<double> rr = s.normalize() * s0_.length() - s0_;
+      vec3<double> rr1 = rr.unit_rotate_around_origin(m2_, angle0 - phi_);
+      vec3<double> rr2 = rr.unit_rotate_around_origin(m2_, angle1 - phi_);
+      vec3<double> rr3 = rr.unit_rotate_around_origin(m2_, (angle0 + angle1) / 2.0 - phi_);
+      bool in = inside(rr1) || inside(rr2) || inside(rr3);
+      return in;
+    }
+
   private:
 
     /**

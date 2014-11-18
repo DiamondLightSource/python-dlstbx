@@ -22,6 +22,8 @@ namespace profile_model {
 namespace nave {
 namespace boost_python {
 
+  using dials::model::Shoebox;
+
   using namespace boost::python;
 
   void profile_model_support_compute_partiality(
@@ -76,6 +78,35 @@ namespace boost_python {
     }
   }
 
+  void profile_model_support_compute_mask(
+      const ProfileModelSupport &self,
+      af::reflection_table data) {
+
+    // Check input
+    DIALS_ASSERT(data.contains("panel"));
+    DIALS_ASSERT(data.contains("s1"));
+    DIALS_ASSERT(data.contains("xyzcal.mm"));
+    DIALS_ASSERT(data.contains("bbox"));
+    DIALS_ASSERT(data.contains("shoebox"));
+
+    // Get exisiting columns
+    af::const_ref< std::size_t > panel = data["panel"];
+    af::const_ref< vec3<double> > s1 = data["s1"];
+    af::const_ref< vec3<double> > xyz = data["xyzcal.mm"];
+    af::const_ref< int6> bbox = data["bbox"];
+    af::ref< Shoebox<> > shoebox = data["shoebox"];
+
+    // Compute all values
+    for (std::size_t i = 0; i < bbox.size(); ++i) {
+      self.compute_mask(
+          panel[i],
+          s1[i],
+          xyz[i][2],
+          bbox[i],
+          shoebox[i].mask.ref());
+    }
+  }
+
   BOOST_PYTHON_MODULE(dlstbx_algorithms_profile_model_nave_ext)
   {
     class_<SphericalCap>("SphericalCap", no_init)
@@ -114,6 +145,7 @@ namespace boost_python {
       .def("rocking_width", &Model::rocking_width)
       .def("distance", &Model::distance)
       .def("inside", &Model::inside)
+      .def("inside2", &Model::inside2)
       .def("phi_range", &Model::phi_range)
       .def("z0", &Model::z0)
       .def("z1", &Model::z1)
@@ -134,7 +166,8 @@ namespace boost_python {
           &profile_model_support_compute_partiality)
       .def("compute_bbox",
           &profile_model_support_compute_bbox)
-      /* .def("compute_mask", &ProfileModel::compute_mask) */
+      .def("compute_mask",
+          &profile_model_support_compute_mask)
       ;
 
     class_<Projector>("Projector", no_init)

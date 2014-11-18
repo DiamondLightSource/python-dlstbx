@@ -175,22 +175,14 @@ namespace nave {
      */
     vec2<double> ewald_intersection_angles() const {
       double rl = r().length();
-      return vec2<double>(
+      vec2<double> angles(
           ewald_intersection_angle(rl - thickness() / 2.0),
           ewald_intersection_angle(rl + thickness() / 2.0));
+      if (angles[0] > angles[1]) {
+        std::swap(angles[0], angles[1]);
+      }
+      return angles;
     }
-    /**
-     * @returns Does the line intersect the profile model
-     */
-    /* bool line_intersects(vec3<double> x0, vec3<double> x1) const { */
-    /*   double r1 = x0.length(); */
-    /*   double r2 = x1.length(); */
-    /*   double i1 = cap_.inclination(x0); */
-    /*   double i2 = cap_.inclination(x1); */
-    /*   if (i1 <= cap_.angle() && i2 <= cap_.angle()) { */
-
-    /*   } */
-    /* } */
 
   private:
 

@@ -33,15 +33,19 @@ namespace boost_python {
       .def("h1", &SphericalCap::h1)
       .def("h2", &SphericalCap::h2)
       .def("a", &SphericalCap::a)
+      .def("inclination", &SphericalCap::inclination)
       ;
 
     class_<Model>("Model", no_init)
       .def(init< vec3<double>,
+                 vec3<double>,
                  double,
                  double,
                  double,
                  double,
                  double >())
+      .def("s0", &Model::s0)
+      .def("s1", &Model::s1)
       .def("r", &Model::r)
       .def("phi", &Model::phi)
       .def("d", &Model::d)
@@ -56,6 +60,7 @@ namespace boost_python {
       .def("phi1", &Model::phi1)
       .def("z0", &Model::z0)
       .def("z1", &Model::z1)
+      .def("ewald_intersection_angles", &Model::ewald_intersection_angles)
       ;
 
     /* class_<ProfileModel>("ProfileModel", no_init) */

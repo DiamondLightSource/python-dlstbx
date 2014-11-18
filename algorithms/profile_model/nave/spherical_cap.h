@@ -124,6 +124,16 @@ namespace nave {
       return d;
     }
 
+  /**
+   * @returns the inclination of the point relative to the axis
+   */
+  double inclination(vec3<double> p) const {
+    double costheta = (axis_ * p) / (radius_ * p.length());
+    if (costheta >  1) costheta =  1;
+    if (costheta < -1) costheta = -1;
+    return std::acos(costheta);
+  }
+
   private:
 
     vec3<double> axis_;

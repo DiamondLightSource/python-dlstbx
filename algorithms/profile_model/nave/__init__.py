@@ -4,3 +4,5 @@ from dials.array_family import flex # import dependency
 from model import phil_scope        # implicit dependency
 from model import ProfileModel      # implicit dependency
 from factory import Factory
+
+from dlstbx_algorithms_profile_model_nave_ext import *

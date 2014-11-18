@@ -111,16 +111,18 @@ namespace nave {
   public:
 
     /**
-     * @param r The reciprocal lattive vector
+     * @param s0 The incident beam vector
+     * @param m2 The rotation axis
+     * @param s1 The diffracted beam vector
+     * @param phi The rotation angle
      * @param s The mosaic block size
-     * @param da The spread of unit cell sizes
+     * @param da The spread of unit cell sizes da/a
      * @param w The angular spread of mosaic blocks
      */
     Model(vec3<double> s0,
           vec3<double> m2,
           vec3<double> s1,
           double phi,
-          double d,
           double s,
           double da,
           double w)
@@ -132,20 +134,21 @@ namespace nave {
         e3_((s1_ + s0_).normalize()),
         zeta_(m2_ * e1_),
         phi_(phi),
-        d_(d),
         s_(s),
         da_(da),
         w_(w),
         cap_(s1_ - s0_, w_) {
       DIALS_ASSERT(s0_.length() > 0);
       DIALS_ASSERT(s1_.length() > 0);
-      DIALS_ASSERT(d > 0);
       DIALS_ASSERT(s > 0);
       DIALS_ASSERT(da >= 0);
       DIALS_ASSERT(w >= 0);
       DIALS_ASSERT(w <= pi);
-      thickness_ = 1.0 / s;// + n * da / (a*a);
-      rocking_width_ = 2.0 * std::atan2(0.5 / s, r().length()) + w;
+      thickness_ = 1.0 / s + r().length() * da;
+      rocking_width_ =
+        w +
+        2.0 * std::atan2(0.5 / s, r().length()) +
+        2.0 * std::atan2(0.5 * da, 1.0);
     }
 
     /**
@@ -209,13 +212,6 @@ namespace nave {
      */
     double phi() const {
       return phi_;
-    }
-
-    /**
-     * @returns The resolution of the reflection.
-     */
-    double d() const {
-      return d_;
     }
 
     /**
@@ -442,7 +438,6 @@ namespace nave {
     vec3<double> e3_;
     double zeta_;
     double phi_;
-    double d_;
     double s_;
     double da_;
     double w_;

@@ -32,12 +32,10 @@ namespace boost_python {
     DIALS_ASSERT(data.contains("s1"));
     DIALS_ASSERT(data.contains("xyzcal.mm"));
     DIALS_ASSERT(data.contains("d"));
-    DIALS_ASSERT(data.contains("bbox"));
 
     // Get exisiting columns
     af::const_ref< vec3<double> > s1 = data["s1"];
     af::const_ref< vec3<double> > xyz = data["xyzcal.mm"];
-    af::const_ref< double > d = data["d"];
     af::const_ref< int6 > bbox = data["bbox"];
 
     // Create new column
@@ -48,7 +46,6 @@ namespace boost_python {
       partiality[i] = self.compute_partiality(
           s1[i],
           xyz[i][2],
-          d[i],
           bbox[i]);
     }
   }
@@ -61,13 +58,11 @@ namespace boost_python {
     DIALS_ASSERT(data.contains("panel"));
     DIALS_ASSERT(data.contains("s1"));
     DIALS_ASSERT(data.contains("xyzcal.mm"));
-    DIALS_ASSERT(data.contains("d"));
 
     // Get exisiting columns
     af::const_ref< std::size_t > panel = data["panel"];
     af::const_ref< vec3<double> > s1 = data["s1"];
     af::const_ref< vec3<double> > xyz = data["xyzcal.mm"];
-    af::const_ref< double > d = data["d"];
 
     // Create new column
     af::ref< int6 > bbox = data["bbox"];
@@ -77,8 +72,7 @@ namespace boost_python {
       bbox[i] = self.compute_bbox(
           panel[i],
           s1[i],
-          xyz[i][2],
-          d[i]);
+          xyz[i][2]);
     }
   }
 
@@ -103,7 +97,6 @@ namespace boost_python {
                  double,
                  double,
                  double,
-                 double,
                  double >())
       .def("s0", &Model::s0)
       .def("m2", &Model::m2)
@@ -114,7 +107,6 @@ namespace boost_python {
       .def("r", &Model::r)
       .def("phi", &Model::phi)
       .def("zeta", &Model::zeta)
-      .def("d", &Model::d)
       .def("s", &Model::s)
       .def("da", &Model::da)
       .def("w", &Model::w)

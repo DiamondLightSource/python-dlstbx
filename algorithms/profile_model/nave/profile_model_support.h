@@ -67,11 +67,10 @@ namespace nave {
     double compute_partiality(
         vec3<double> s1,
         double phi,
-        double d,
         int6 bbox) const {
 
       // Create the model
-      Model model(s0_, m2_, s1, phi, d, s_, da_, w_);
+      Model model(s0_, m2_, s1, phi, s_, da_, w_);
 
       // Ensure our values are ok
       DIALS_ASSERT(bbox[4] < bbox[5]);
@@ -87,14 +86,13 @@ namespace nave {
     int6 compute_bbox(
         std::size_t panel,
         vec3<double> s1,
-        double phi,
-        double d) const {
+        double phi) const {
 
       // Get the panel
       const Panel &p = detector_[panel];
 
       // Create the model
-      Model model(s0_, m2_, s1, phi, d, s_, da_, w_);
+      Model model(s0_, m2_, s1, phi, s_, da_, w_);
 
       // Get the angular range
       vec2<double> phi_range = model.phi_range();

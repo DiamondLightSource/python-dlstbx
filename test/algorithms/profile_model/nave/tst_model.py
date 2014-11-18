@@ -48,7 +48,6 @@ class Test(object):
     m2 = matrix.col(self.experiment.goniometer.get_rotation_axis()).normalize()
     s1 = self.reflections['s1']
     phi = self.reflections['xyzcal.mm'].parts()[2]
-    d = self.reflections.compute_d_single(self.experiment)
 
     zz = []
     dd = []
@@ -57,7 +56,7 @@ class Test(object):
     for i in range(len(self.reflections)):
 
       # Create the model
-      model = Model(s0, m2, s1[i], phi[i], d[i], s, da, w)
+      model = Model(s0, m2, s1[i], phi[i], s, da, w)
       zeta = model.zeta()
 
       r = matrix.col(s1[i]) - matrix.col(s0)
@@ -72,14 +71,12 @@ class Test(object):
       t_s1 = model.s1()
       t_r = model.r()
       t_phi = model.phi()
-      t_d = model.d()
       t_s = model.s()
       t_da = model.da()
       t_w = model.w()
       assert(t_s == s)
       assert(t_da == da)
       assert(t_w == w)
-      assert(t_d == d[i])
       assert(t_phi == phi[i])
       assert(tuple_almost_equal(t_s1, s1[i]))
       assert(tuple_almost_equal(t_s0, s0))

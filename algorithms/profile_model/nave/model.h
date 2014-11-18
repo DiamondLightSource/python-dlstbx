@@ -20,6 +20,26 @@ namespace algorithms {
 namespace profile_model {
 namespace nave {
 
+  template <typename T>
+  T min3(T a, T b, T c) {
+    return std::min(std::min(a, b), c);
+  }
+
+  template <typename T>
+  T min6(T a, T b, T c, T d, T e, T f) {
+    return std::min(min3(a, b, c), min3(d, e, f));
+  }
+
+  template <typename T>
+  T max3(T a, T b, T c) {
+    return std::max(std::max(a, b), c);
+  }
+
+  template <typename T>
+  T max6(T a, T b, T c, T d, T e, T f) {
+    return std::max(max3(a, b, c), max3(d, e, f));
+  }
+
   /**
    * A helper class to compute the elliptical parameters of the projections of
    * the circle of intersection between the ewald sphere and sphere of rotation
@@ -53,11 +73,11 @@ namespace nave {
      *
      * AX^2 + BXY + CY^2 + DX + EY + F = 0
      *
-     * @param s1 The diffracted beam vector
+     * @param rl The length of the reciprocal lattice vector
      * @returns The elliptical parameters
      */
-    af::small<double, 6> operator()(vec3<double> s1) const {
-      double K = s0_.length() - (s1 - s0_).length_sq() / 2.0;
+    af::small<double, 6> operator()(double rl) const {
+      double K = s0_.length_sq() - rl*rl / 2.0;
       double KK = K * K;
       af::small<double, 6> result(6);
       result[0] = d0s0_*d0s0_ - KK;
@@ -125,7 +145,7 @@ namespace nave {
       DIALS_ASSERT(w >= 0);
       DIALS_ASSERT(w <= pi);
       thickness_ = 1.0 / s;// + n * da / (a*a);
-      rocking_width_ = 2.0 * std::atan2(1.0, (2.0 * s * r().length())) + w;
+      rocking_width_ = 2.0 * std::atan2(0.5 / s, r().length()) + w;
     }
 
     /**
@@ -306,6 +326,100 @@ namespace nave {
         std::swap(angles[0], angles[1]);
       }
       return angles;
+    }
+
+    /**
+     * @returns The minimum box as 8 s vectors
+     */
+    af::small< vec3<double>, 8> minimum_box() const {
+
+      const double EPS = 1e-7;
+
+      // The offset along the s0 axis of the two circles
+      double rl = r().length();
+      double rl_min = rl - thickness() / 2.0;
+      double rl_max = rl + thickness() / 2.0;
+      double a1_min = s0_.length_sq() - rl_min*rl_min / 2.0;
+      double a1_max = s0_.length_sq() - rl_max*rl_max / 2.0;
+      double a1_mid = s0_.length_sq() - rl * rl / 2.0;
+
+      // The three axes
+      vec3<double> zp = s0_.normalize();
+      vec3<double> yp = s0_.cross(s1_).normalize();
+      vec3<double> xp = yp.cross(zp);
+
+      std::cout << xp[0] << ", " << xp[1] << ", " << xp[2] << std::endl;
+      std::cout << s1_[0] << ", " << s1_[1] << ", " << s1_[2] << std::endl;
+
+      // The radius and inclination
+      double r = s0_.length();
+      double theta1 = std::acos(a1_min / s0_.length_sq());
+      double theta2 = std::acos(a1_max / s0_.length_sq());
+      double theta3 = std::acos(a1_mid / s0_.length_sq());
+      DIALS_ASSERT(theta1 <= s0_.angle(s1_));
+      DIALS_ASSERT(theta2 >= s0_.angle(s1_));
+      DIALS_ASSERT(std::abs(theta3 - s0_.angle(s1_)) < EPS);
+
+      // The azimuth angles
+      double phi1 = 0;
+      double phi2 = rocking_width() / 2.0;
+      double phi3 = -rocking_width() / 2.0;
+
+      // Compute the cartesian coordinates at the different extrema of r_min
+      vec3<double> v1(
+        r*std::sin(theta1)*std::cos(phi1),
+        r*std::sin(theta1)*std::sin(phi1),
+        r*std::cos(theta1));
+      vec3<double> v2(
+        r*std::sin(theta1)*std::cos(phi2),
+        r*std::sin(theta1)*std::sin(phi2),
+        r*std::cos(theta1));
+      vec3<double> v3(
+        r*std::sin(theta1)*std::cos(phi3),
+        r*std::sin(theta1)*std::sin(phi3),
+        r*std::cos(theta1));
+
+      // Compute the cartesian coordinates at the different extrema of r_max
+      vec3<double> v4(
+        r*std::sin(theta2)*std::cos(phi1),
+        r*std::sin(theta2)*std::sin(phi1),
+        r*std::cos(theta2));
+      vec3<double> v5(
+        r*std::sin(theta2)*std::cos(phi2),
+        r*std::sin(theta2)*std::sin(phi2),
+        r*std::cos(theta2));
+      vec3<double> v6(
+        r*std::sin(theta2)*std::cos(phi3),
+        r*std::sin(theta2)*std::sin(phi3),
+        r*std::cos(theta2));
+
+      // Compute cartesian coordinates
+      vec3<double> w1 = v1[0]*xp + v1[1]*yp + v1[2]*zp;
+      vec3<double> w2 = v2[0]*xp + v2[1]*yp + v2[2]*zp;
+      vec3<double> w3 = v3[0]*xp + v3[1]*yp + v3[2]*zp;
+      vec3<double> w4 = v4[0]*xp + v4[1]*yp + v4[2]*zp;
+      vec3<double> w5 = v5[0]*xp + v5[1]*yp + v5[2]*zp;
+      vec3<double> w6 = v6[0]*xp + v6[1]*yp + v6[2]*zp;
+
+      // Get the min/max x, y, z
+      double minx = min6(w1[0], w2[0], w3[0], w4[0], w5[0], w6[0]);
+      double maxx = max6(w1[0], w2[0], w3[0], w4[0], w5[0], w6[0]);
+      double miny = min6(w1[1], w2[1], w3[1], w4[1], w5[1], w6[1]);
+      double maxy = max6(w1[1], w2[1], w3[1], w4[1], w5[1], w6[1]);
+      double minz = min6(w1[2], w2[2], w3[2], w4[2], w5[2], w6[2]);
+      double maxz = max6(w1[2], w2[2], w3[2], w4[2], w5[2], w6[2]);
+
+      // Return the vectors
+      af::small< vec3<double>, 8> result(8);
+      result[0] = vec3<double>(minx, miny, minz);
+      result[1] = vec3<double>(minx, miny, maxz);
+      result[2] = vec3<double>(minx, maxy, minz);
+      result[3] = vec3<double>(minx, maxy, maxz);
+      result[4] = vec3<double>(maxx, miny, minz);
+      result[5] = vec3<double>(maxx, miny, maxz);
+      result[6] = vec3<double>(maxx, maxy, minz);
+      result[7] = vec3<double>(maxx, maxy, maxz);
+      return result;
     }
 
   private:

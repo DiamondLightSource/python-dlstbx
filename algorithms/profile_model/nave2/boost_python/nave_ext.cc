@@ -12,6 +12,7 @@
 #include <boost/python/def.hpp>
 #include <dials/array_family/reflection_table.h>
 #include <dlstbx/algorithms/profile_model/nave2/model.h>
+#include <dlstbx/algorithms/profile_model/nave2/support.h>
 
 namespace dlstbx {
 namespace algorithms {
@@ -47,6 +48,22 @@ namespace boost_python {
       .def("r", &Model::r)
       .def("Dm", &Model::Dm)
       .def("P", &Model::P)
+      ;
+
+
+    class_<Support>("Support", no_init)
+      .def(init<const Beam&,
+                const Detector&,
+                const Goniometer&,
+                const Scan&,
+                const mat3<double>&,
+                const vec3<double>&,
+                const vec3<double>&,
+                const vec3<double>&,
+                double>())
+      .def("compute_bbox", &Support::compute_bbox)
+      .def("compute_mask", &Support::compute_mask)
+      .def("compute_prof", &Support::compute_prof)
       ;
   }
 

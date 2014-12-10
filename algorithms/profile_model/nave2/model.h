@@ -57,18 +57,18 @@ namespace dlstbx { namespace algorithms {
       // The covariance matrix for the mosaic block size component in the
       // reciprocal lattice coordinate system
       mat3<double> sigma_s(
-        sqr(sig_s[0]),             0,            0,
-                    0, sqr(sig_s[1]),            0,
-                    0,             0, sqr(sig_s[2])
+        sqr(sig_s[0]), 0, 0,
+        0, sqr(sig_s[1]), 0,
+        0, 0, sqr(sig_s[2])
       );
 
       // The covariance matrix for the spread in unit cell size component in the
       // reciprocal lattice coordinate system
       vec3<double> h = A.inverse() * rlp_;
       mat3<double> sigma_a(
-        h[0]*h[0]*sig_a[0]*sig_a[0], 0, 0,
-        0, h[1]*h[1]*sig_a[1]*sig_a[1], 0,
-        0, 0, h[2]*h[1]*sig_a[2]*sig_a[2]
+        sqr(h[0]*sig_a[0]), 0, 0,
+        0, sqr(h[1]*sig_a[1]), 0,
+        0, 0, sqr(h[1]*sig_a[2])
       );
 
       // Compute the covariance in orthognal coordinate system
@@ -92,9 +92,9 @@ namespace dlstbx { namespace algorithms {
 
       // Compute the angular spread
       double w = ((A * mat3<double>(
-          sig_w[0], 0, 0,
-          0, sig_w[1], 0,
-          0, 0, sig_w[2])) * rlp_).length();
+        sig_w[0], 0, 0,
+        0, sig_w[1], 0,
+        0, 0, sig_w[2])) * rlp_).length();
 
       // Construct an eigenvalue matrix
       mat3<double> V(

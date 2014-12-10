@@ -15,7 +15,7 @@ if __name__ == '__main__':
   mosangle_kappa = 1.0 / 0.005
   mossize_sigma = 0.0001
   mosuc_sigma = 0.00001
-  
+
   # The mean indicent beam direction
   s0 = -matrix.col((0, 0, 1)).normalize()
 
@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
   # Loop through all photons
   for i in range(ncounts):
-    
+
     # Select a wavelength
     wavelength = normalvariate(wavelength_mean, wavelength_sigma)
     if wavelength <= 0:
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     mossize_xyz = multivariate_normal(
       [0.0, 0.0, 0.0],
       [
-        [mossize_sigma, 0.0, 0.0], 
+        [mossize_sigma, 0.0, 0.0],
         [0.0, mossize_sigma, 0.0],
         [0.0, 0.0, mossize_sigma]
       ]
@@ -64,13 +64,13 @@ if __name__ == '__main__':
     mosuc_xyz = multivariate_normal(
       [0.0, 0.0, 0.0],
       [
-        [mosuc_sigma, 0.0, 0.0], 
+        [mosuc_sigma, 0.0, 0.0],
         [0.0, mosuc_sigma, 0.0],
         [0.0, 0.0, mosuc_sigma]
       ]
     )
 
-    
+
     # The mosaic vector relative to the reciprocal lattice origin
     r = r0 + matrix.col(mossize_xyz) + matrix.col(mosuc_xyz)
     b = r.length()
@@ -83,7 +83,7 @@ if __name__ == '__main__':
       b*sin(theta)*sin(phi),
       b*cos(theta)))
     r = r.rotate(r0, mosangle[1])
-    
+
     # The ewald sphere centre relative to the rl origin
     a = 1.0 / wavelength
     s = a*s0

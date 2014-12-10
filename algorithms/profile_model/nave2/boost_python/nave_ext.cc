@@ -35,7 +35,6 @@ namespace boost_python {
                 vec3<double>,
                 vec3<double> >())
       .def("D", &Model::D)
-      .def("D1", &Model::D1)
       .def("A", &Model::A)
       .def("s0", &Model::s0)
       .def("m2", &Model::m2)

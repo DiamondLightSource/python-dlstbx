@@ -59,7 +59,7 @@ def run(experiment):
 
   AA = A*sss*A.transpose()
 
-  
+
   print sss
   h2 = A.inverse() * r
   sss =matrix.sqr((
@@ -72,7 +72,7 @@ def run(experiment):
 
   print AA
   print BB
-  
+
   rn = r.normalize()
   if abs(rn[0]) > abs(rn[2]):
     v1 = matrix.col((-rn[1], rn[0], 0)).normalize()
@@ -92,7 +92,7 @@ def run(experiment):
     matrix.col((A[2], A[5], A[8])).length() * h[2]
   ))
 
-  
+
   w = abs(ah.dot(matrix.col((0.05, 0.05, 0.05))))
 
   B = matrix.sqr((
@@ -115,7 +115,7 @@ def run(experiment):
     0, 0, 0))
 
   sigma2 = U * S * U.transpose()
-  
+
   sigma = A*sigma*A.transpose() + sigma2
   print "B:", tuple(U)
   sigmam1 = sigma.inverse()
@@ -201,7 +201,7 @@ def run(experiment):
         #   print ds.length()
         #   print Dm
         #   print "End Centre"
-        
+
         # data[j,i] = f
   # print flex.max(data1)
   print "Max Diff: ", flex.max(flex.abs(data1 - data2))
@@ -215,7 +215,7 @@ def run(experiment):
   for j in range(zs):
     pylab.imshow(data1.as_numpy_array()[j,:,:], cmap=cm.gist_heat,vmax=vmax)
     pylab.show()
-      
+
 
 
 

@@ -54,7 +54,7 @@ if __name__ == '__main__':
     tuple(params.sigma_a),
     tuple(params.sigma_w),
     params.percentile)
-    
+
   # Create the image
   assert(len(experiment.detector) == 1)
   panel = experiment.detector[0]
@@ -66,7 +66,7 @@ if __name__ == '__main__':
   # Predict the reflections
   reflections = flex.reflection_table.from_predictions(experiment)
   for r in reflections:
-  
+
     # Compute the bbox
     bbox = support.compute_bbox(
       r['panel'],
@@ -76,16 +76,15 @@ if __name__ == '__main__':
     # Create the mask
     for i in range(nimage):
       support.compute_image_mask(
-        image[i], 
-        r['panel'], 
+        image[i],
+        r['panel'],
         params.images[0] + i,
         r['s1'],
         r['xyzcal.mm'][2],
         bbox)
- 
+
   # Show the image
   from matplotlib import pylab
   for i in range(nimage):
     pylab.imshow(image[i].as_numpy_array())
     pylab.show()
-  

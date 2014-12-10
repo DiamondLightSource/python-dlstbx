@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
   # Loop through all photons
   for i in range(ncounts):
-    
+
     # Select a wavelength
     wavelength = normalvariate(wavelength_mean, wavelength_sigma)
     if wavelength <= 0:

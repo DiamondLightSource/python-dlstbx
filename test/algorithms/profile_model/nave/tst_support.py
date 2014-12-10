@@ -13,13 +13,13 @@ class Test(object):
     except KeyError, e:
       print 'FAIL: dials_regression not configured'
       exit(0)
-   
+
     experiments = ExperimentListFactory.from_json_file(
       join(dials_regression, "centroid_test_data", "experiments.json"))
 
     self.experiment = experiments[0]
     self.reflections = flex.reflection_table.from_predictions(self.experiment)
-    
+
 
   def run(self):
     from dlstbx.algorithms.profile_model.nave2 import Support, Model
@@ -29,7 +29,7 @@ class Test(object):
     from scipy.stats import chi2
 
     chi2p = chi2.ppf(0.99, 3)
-    
+
     # Create the support class
     support = Support(
       self.experiment.beam,
@@ -41,22 +41,22 @@ class Test(object):
       (0, 0, 0),
       (0, 0, 0),
       0.99)
-    
+
     # Process each reflections
     for i in range(len(self.reflections)):
       panel = self.reflections[i]['panel']
       s1 = self.reflections[i]['s1']
       phi = self.reflections[i]['xyzcal.mm'][2]
-     
+
       p = self.experiment.detector[panel]
-      
+
       D = matrix.sqr(p.get_d_matrix())
       A = matrix.sqr(self.experiment.crystal.get_A())
       s0 = matrix.col(self.experiment.beam.get_s0())
       m2 = matrix.col(self.experiment.goniometer.get_rotation_axis())
-      model = Model(D, A, s0, m2, s1, phi, 
-                    (0.02, 0.02, 0.02), 
-                    (0.0, 0.0, 0.0), 
+      model = Model(D, A, s0, m2, s1, phi,
+                    (0.02, 0.02, 0.02),
+                    (0.0, 0.0, 0.0),
                     (0.0, 0.0, 0.0))
 
       # Compute the bbox
@@ -66,7 +66,7 @@ class Test(object):
       # Create the shoebox
       sbox = Shoebox(panel, bbox)
       sbox.allocate(MaskCode.Valid)
-      
+
       # Compute the mask
       support.compute_mask(panel, s1, phi, sbox)
 

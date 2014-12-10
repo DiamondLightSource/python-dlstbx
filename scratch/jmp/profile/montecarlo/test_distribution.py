@@ -63,7 +63,7 @@ def run(experiment):
   from matplotlib import pylab, cm
   pylab.imshow(data.as_numpy_array(), cmap=cm.Greys)
   pylab.show()
-      
+
 
 
 

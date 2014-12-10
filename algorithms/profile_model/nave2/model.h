@@ -1,3 +1,13 @@
+/*
+ * model.h
+ *
+ *  Copyright (C) 2013 Diamond Light Source
+ *
+ *  Author: James Parkhurst
+ *
+ *  This code is distributed under the BSD license, a copy of which is
+ *  included in the root directory of this package.
+ */
 
 
 #ifndef DLSTBX_ALGORITHMS_PROFILE_MODEL_NAVE_MODEL_H
@@ -27,9 +37,24 @@ namespace dlstbx { namespace algorithms {
     return a * a;
   }
 
+  /**
+   * A class to represent the nave profile model
+   */
   class Model {
   public:
 
+    /**
+     * Initialise the model for a reflection
+     * @param D the detector d matrix
+     * @param A the UB matrix
+     * @param s0 The incident beam vector
+     * @param m2 The rotation axis
+     * @param s1 The diffracted beam vector
+     * @param phi The rotation angle
+     * @param sig_s The mosiac block size parameters
+     * @param sig_a The unit_cell size parameters
+     * @param sig_w The angular spread parameters
+     */
     Model(mat3<double> D,
           mat3<double> A,
           vec3<double> s0,
@@ -40,7 +65,6 @@ namespace dlstbx { namespace algorithms {
           vec3<double> sig_a,
           vec3<double> sig_w)
       : D_(D),
-        D1_(D.inverse()),
         A_(A),
         s0_(s0),
         m2_(m2.normalize()),
@@ -113,50 +137,57 @@ namespace dlstbx { namespace algorithms {
       sigma_inv_ = sigma_.inverse();
     }
 
+    /** @returns The detector d matrix */
     mat3<double> D() const {
       return D_;
     }
 
-    mat3<double> D1() const {
-      return D1_;
-    }
-
+    /** @returns The A matrix */
     mat3<double> A() const {
       return A_;
     }
 
+    /** @returns The incident beam vector */
     vec3<double> s0() const {
       return s0_;
     }
 
+    /** @returns The rotation axis */
     vec3<double> m2() const {
       return m2_;
     }
 
+    /** @returns The diffracted beam vector */
     vec3<double> s1() const {
       return s1_;
     }
 
+    /** @returns The rotation axis */
     double phi0() const {
       return phi0_;
     }
 
+    /** @returns The reciprocal lattice point */
     vec3<double> rlp() const {
       return rlp_;
     }
 
+    /** @returns The covariance matrix */
     mat3<double> sigma() const {
       return sigma_;
     }
 
+    /** @returns The inverse covariance matrix */
     mat3<double> sigma_inv() const {
       return sigma_inv_;
     }
 
+    /** @returns The rotation matrix about m2 */
     mat3<double> R(double phi) const {
       return axis_and_angle_as_matrix(m2_, phi);
     }
 
+    /** @returns The rlp at a point */
     vec3<double> r(double x, double y, double phi) const {
       vec3<double> v = D_ * vec3<double>(x, y, 1.0);
       double slen = s0_.length();
@@ -165,11 +196,13 @@ namespace dlstbx { namespace algorithms {
       return R(phi).transpose() * (v * slen / vlen - s0_);
     }
 
+    /** @returns The mahanabonis distance */
     double Dm(double x, double y, double phi) const {
       vec3<double> dh = r(x, y, phi) - rlp_;
       return dh * sigma_inv_ * dh;
     }
 
+    /** @returns The probability density */
     double P(double x, double y, double phi) const {
       return std::exp(-0.5 * Dm(x, y, phi));
     }
@@ -177,7 +210,6 @@ namespace dlstbx { namespace algorithms {
   private:
 
     mat3<double> D_;
-    mat3<double> D1_;
     mat3<double> A_;
     vec3<double> s0_;
     vec3<double> m2_;

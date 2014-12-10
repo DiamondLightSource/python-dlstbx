@@ -14,8 +14,8 @@ if __name__ == '__main__':
 
   for i in range(1000):
     u = vonmises(m, k1)
-    
-    
+
+
     for j in range(num):
       t = 2*pi*j/num
       xx = (r - r*cos(u)) + r * cos(t)

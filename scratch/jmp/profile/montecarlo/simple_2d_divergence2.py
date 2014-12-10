@@ -10,7 +10,7 @@ if __name__ == '__main__':
   mt = -pi
   k = 100
   r = 1.0
-  
+
   width, height = 1000, 1000
   f = flex.double(flex.grid(height, width))
 

@@ -1,3 +1,13 @@
+/*
+ * support.h
+ *
+ *  Copyright (C) 2013 Diamond Light Source
+ *
+ *  Author: James Parkhurst
+ *
+ *  This code is distributed under the BSD license, a copy of which is
+ *  included in the root directory of this package.
+ */
 
 #ifndef DLSTBX_ALGORITHMS_PROFILE_MODEL_NAVE_SUPPORT_H
 #define DLSTBX_ALGORITHMS_PROFILE_MODEL_NAVE_SUPPORT_H
@@ -36,9 +46,24 @@ namespace dlstbx { namespace algorithms {
   using dials::model::Foreground;
   using dials::model::Background;
 
+  /**
+   * A class to provide some support functions for the nave profile model
+   */
   class Support {
   public:
 
+    /**
+     * Initialise the support class
+     * @param beam The beam model
+     * @param detector The detector model
+     * @param goniometer The goniometer model
+     * @param scan The scan model
+     * @param A The UB matrix
+     * @param sig_s The mosiac block size parameters
+     * @param sig_a The unit_cell size parameters
+     * @param sig_w The angular spread parameters
+     * @param p The probability
+     */
     Support(
         const Beam &beam,
         const Detector &detector,
@@ -48,7 +73,7 @@ namespace dlstbx { namespace algorithms {
         const vec3<double> &sig_s,
         const vec3<double> &sig_a,
         const vec3<double> &sig_w,
-        double p) 
+        double p)
       : detector_(detector),
         scan_(scan),
         A_(A),
@@ -58,9 +83,16 @@ namespace dlstbx { namespace algorithms {
         sig_a_(sig_a),
         sig_w_(sig_w),
         chi2p_(quantile(boost::math::chi_squared(3), p)) {
-      DIALS_ASSERT(chi2p_ > 0);    
+      DIALS_ASSERT(chi2p_ > 0);
     }
 
+    /**
+     * Compute the bounding box
+     * @param panel The panel number
+     * @param s1 The s1 vector
+     * @param phi0 The rotation angle
+     * @returns The bounding box
+     */
     int6 compute_bbox(std::size_t panel, vec3<double> s1, double phi0) const {
 
       // Get the panel
@@ -83,7 +115,7 @@ namespace dlstbx { namespace algorithms {
       int ymax = ymin + 1;
       int zmin = (int)std::floor(zc);
       int zmax = zmin + 1;
-    
+
       // This list of those processed
       boost::unordered_set< vec3<int>, boost::hash< vec3<int> > > processed;
 
@@ -118,6 +150,13 @@ namespace dlstbx { namespace algorithms {
       return int6(xmin-1, xmax+1, ymin-1, ymax+1, zmin, zmax);
     }
 
+    /**
+     * Compute the reflection mask
+     * @param panel The panel number
+     * @param s1 The s1 vector
+     * @param phi0 The rotation angle
+     * @param sbox The shoebox
+     */
     void compute_mask(
         std::size_t panel,
         vec3<double> s1,
@@ -126,7 +165,7 @@ namespace dlstbx { namespace algorithms {
 
       // Check the input
       DIALS_ASSERT(sbox.is_consistent());
-      
+
       // Get the panel
       const Panel &p = detector_[panel];
       mat3<double> D = p.get_d_matrix();
@@ -184,13 +223,20 @@ namespace dlstbx { namespace algorithms {
       }
     }
 
+    /**
+     * Compute the reflection profile
+     * @param panel The panel number
+     * @param s1 The s1 vector
+     * @param phi0 The rotation angle
+     * @param profile The profile array
+     */
     void compute_prof(
         std::size_t panel,
         vec3<double> s1,
         double phi0,
         int6 bbox,
         af::ref< double, af::c_grid<3> > &profile) const {
-      
+
       // Get the panel
       const Panel &p = detector_[panel];
       mat3<double> D = p.get_d_matrix();
@@ -220,12 +266,21 @@ namespace dlstbx { namespace algorithms {
           vec2<double> xy = p.pixel_to_millimeter(vec2<double>(x+0.5, y+0.5));
           for (int z = z0; z < z1; ++z) {
             double p = scan_.get_angle_from_array_index(z0+0.5);
-            profile(z-z0,y-y0,x-x0) = model.P(xy[0], xy[1], p);        
+            profile(z-z0,y-y0,x-x0) = model.P(xy[0], xy[1], p);
           }
         }
       }
     }
 
+    /**
+     * Compute the reflection profile
+     * @param mask The mask array
+     * @param panel The panel number
+     * @param z The image number
+     * @param s1 The s1 vector
+     * @param phi0 The rotation angle
+     * @param bbox The bounding box
+     */
     void compute_image_mask(
         af::ref< int, af::c_grid<2> > mask,
         std::size_t panel,
@@ -233,7 +288,7 @@ namespace dlstbx { namespace algorithms {
         vec3<double> s1,
         double phi0,
         int6 bbox) const {
-      
+
       // Get the panel
       const Panel &p = detector_[panel];
       mat3<double> D = p.get_d_matrix();
@@ -304,7 +359,7 @@ namespace dlstbx { namespace algorithms {
 
 
   private:
-    
+
     Detector detector_;
     Scan scan_;
     mat3<double> D_;
@@ -316,7 +371,7 @@ namespace dlstbx { namespace algorithms {
     vec3<double> sig_w_;
     double chi2p_;
   };
-  
+
 
 }} // namespace dlstbx::algorithms
 

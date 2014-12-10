@@ -19,7 +19,7 @@ if __name__ == '__main__':
     x = uniform(0.0, 1.0)
     r = quantile(m, s, x)
     if r <= 0:
-      continue 
+      continue
     for j in range(num):
       t = 2*pi*j/num
       xx = (m - r) + r * cos(t)

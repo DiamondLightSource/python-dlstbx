@@ -1,6 +1,6 @@
 #
 # Simple test to do a montecarlo integration of a 2d gaussian moving through a
-# circle. 
+# circle.
 #
 
 def pdf(a, b, sigma, phi, theta):
@@ -46,18 +46,18 @@ def pdf3(a, b, sigma, phi0, phi, theta):
   return D6* exp(D1*cos(phi) + D2*sin(phi))
 
 if __name__ == '__main__':
- 
+
   from dials.array_family import flex
   from matplotlib import pylab
   from math import pi, cos, atan2, sqrt, exp
 
   A  = 1.0                     # The radius of the ewald sphere
   B  = 0.5           # The radius out to the lattice point
-  T0 = pi/2                    # The initial angle of the lattice point 
+  T0 = pi/2                    # The initial angle of the lattice point
   S  = 0.05                     # The standard deviation of the gaussian
   XC = A                      # The X offset of the ewald sphere centre
   YC = 0                       # The Y offset of the ewald sphere centre
-  TC = atan2(YC, XC)           # The angle 
+  TC = atan2(YC, XC)           # The angle
   RC = sqrt(XC*XC + YC*YC)     # The radius
 
   width, height = 1000, 1000
@@ -74,7 +74,7 @@ if __name__ == '__main__':
         maxz = z[j,i]
         maxphi = phi
         maxtheta= theta
-  
+
   print "Max Phi: ", maxphi * 180.0 / pi
   print "Max Theta: ", maxtheta * 180.0 / pi
   print "Total: ", flex.sum(z)

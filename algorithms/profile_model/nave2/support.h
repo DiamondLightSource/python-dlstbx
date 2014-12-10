@@ -70,9 +70,6 @@ namespace dlstbx { namespace algorithms {
       // Construct the model
       Model model(D, A_, s0_, m2_, s1, phi0, sig_s_, sig_a_, sig_w_);
 
-      vec2<double> xyz2  =p.get_ray_intersection(s1);
-      std::cout << "1: " << model.Dm(xyz2[0], xyz2[1], phi0) << std::endl;
-      std::cout << "2: " << (model.r(xyz2[0], xyz2[1], phi0)-model.rlp()).const_ref() << std::endl;
       // Get the centre
       vec2<double> xyc = p.get_ray_intersection_px(s1);
       double xc = xyc[0];
@@ -148,10 +145,10 @@ namespace dlstbx { namespace algorithms {
       // Loop through all the pixels
       for (std::size_t y = 0; y < mask.accessor()[1]; ++y) {
         for (std::size_t x = 0; x < mask.accessor()[2]; ++x) {
-          double xx0 = (double)(x0 + x);
+          double xx0 = (double)(x0 + (int)x);
           double xx2 = xx0 + 1.0;
           double xx1 = (xx0 + xx2) / 2.0;
-          double yy0 = (double)(y0 + y);
+          double yy0 = (double)(y0 + (int)y);
           double yy2 = yy0 + 1.0;
           double yy1 = (yy0 + yy2) / 2.0;
           af::small< vec2<double>, 9 > xy(9);
@@ -228,6 +225,83 @@ namespace dlstbx { namespace algorithms {
         }
       }
     }
+
+    void compute_image_mask(
+        af::ref< int, af::c_grid<2> > mask,
+        std::size_t panel,
+        int z,
+        vec3<double> s1,
+        double phi0,
+        int6 bbox) const {
+      
+      // Get the panel
+      const Panel &p = detector_[panel];
+      mat3<double> D = p.get_d_matrix();
+
+      // Get the bounding box values
+      int x0 = bbox[0];
+      int x1 = bbox[1];
+      int y0 = bbox[2];
+      int y1 = bbox[3];
+      int z0 = bbox[4];
+      int z1 = bbox[5];
+      DIALS_ASSERT(x1 > x0);
+      DIALS_ASSERT(y1 > y0);
+      DIALS_ASSERT(z1 > z0);
+      if (x0 < 0) x0 = 0;
+      if (y0 < 0) y0 = 0;
+      if (x1 > mask.accessor()[1]) x1 = mask.accessor()[1];
+      if (y1 > mask.accessor()[0]) y1 = mask.accessor()[0];
+      if (x1 <= x0 || y1 <= y0 || z0 > z || z1 < z) {
+        return;
+      }
+      std::size_t xs = x1 - x0;
+      std::size_t ys = y1 - y0;
+
+      // Construct the model
+      Model model(D, A_, s0_, m2_, s1, phi0, sig_s_, sig_a_, sig_w_);
+
+      // Loop through all the pixels
+      for (std::size_t y = 0; y < ys; ++y) {
+        for (std::size_t x = 0; x < xs; ++x) {
+          double xx0 = (double)(x0 + (int)x);
+          double xx2 = xx0 + 1.0;
+          double xx1 = (xx0 + xx2) / 2.0;
+          double yy0 = (double)(y0 + (int)y);
+          double yy2 = yy0 + 1.0;
+          double yy1 = (yy0 + yy2) / 2.0;
+          af::small< vec2<double>, 9 > xy(9);
+          xy[0] = p.pixel_to_millimeter(vec2<double>(xx0, yy0));
+          xy[1] = p.pixel_to_millimeter(vec2<double>(xx0, yy1));
+          xy[2] = p.pixel_to_millimeter(vec2<double>(xx0, yy2));
+          xy[3] = p.pixel_to_millimeter(vec2<double>(xx1, yy0));
+          xy[4] = p.pixel_to_millimeter(vec2<double>(xx1, yy1));
+          xy[5] = p.pixel_to_millimeter(vec2<double>(xx1, yy2));
+          xy[6] = p.pixel_to_millimeter(vec2<double>(xx2, yy0));
+          xy[7] = p.pixel_to_millimeter(vec2<double>(xx2, yy1));
+          xy[8] = p.pixel_to_millimeter(vec2<double>(xx2, yy2));
+          double zz0 = (double)(z);
+          double zz2 = zz0 + 1.0;
+          double zz1 = (zz0 + zz2) / 2.0;
+          af::small< double, 3> a(3);
+          a[0] = scan_.get_angle_from_array_index(zz0);
+          a[1] = scan_.get_angle_from_array_index(zz1);
+          a[2] = scan_.get_angle_from_array_index(zz2);
+          int mask_code = Background;
+          for (std::size_t j = 0; j < 3 && (mask_code == Background); ++j) {
+            for (std::size_t i = 0; i < 9; ++i) {
+              if (model.Dm(xy[i][0], xy[i][1], a[j]) < chi2p_) {
+                mask_code = Foreground;
+                break;
+              }
+            }
+          }
+          mask(y0+y,x0+x) |= mask_code;
+        }
+      }
+
+    }
+
 
   private:
     

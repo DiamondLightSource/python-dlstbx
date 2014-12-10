@@ -63,6 +63,7 @@ namespace boost_python {
       .def("compute_bbox", &Support::compute_bbox)
       .def("compute_mask", &Support::compute_mask)
       .def("compute_prof", &Support::compute_prof)
+      .def("compute_image_mask", &Support::compute_image_mask)
       ;
   }
 

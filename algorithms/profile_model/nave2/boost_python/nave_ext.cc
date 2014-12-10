@@ -30,16 +30,22 @@ namespace boost_python {
                 vec3<double>,
                 cctbx::miller::index<>,
                 vec3<double>,
+                vec3<double>,
                 vec3<double> >())
       .def("D", &Model::D)
+      .def("D1", &Model::D1)
       .def("A", &Model::A)
-      .def("A1", &Model::A1)
       .def("s0", &Model::s0)
       .def("m2", &Model::m2)
       .def("h", &Model::h)
+      .def("rlp", &Model::rlp)
+      .def("phi0_entering", &Model::phi0_entering)
+      .def("phi0_exiting", &Model::phi0_exiting)
+      .def("s1_entering", &Model::s1_entering)
+      .def("s1_exiting", &Model::s1_exiting)
+      .def("sigma", &Model::sigma)
       .def("sigma_inv", &Model::sigma_inv)
       .def("R", &Model::R)
-      .def("AR", &Model::AR)
       .def("h_frac", &Model::h_frac)
       .def("Dm", &Model::Dm)
       .def("P", &Model::P)

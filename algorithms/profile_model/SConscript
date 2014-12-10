@@ -7,4 +7,8 @@ env.SharedLibrary(
     'nave/boost_python/nave_ext.cc',
   ])
 
-
+env.SharedLibrary(
+  target='#/lib/dlstbx_algorithms_profile_model_nave2_ext', 
+  source=[
+    'nave2/boost_python/nave_ext.cc',
+  ])

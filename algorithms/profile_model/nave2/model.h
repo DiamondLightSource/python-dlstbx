@@ -46,7 +46,7 @@ namespace dlstbx { namespace algorithms {
         m2_(m2.normalize()),
         s1_(s1.normalize() * s0.length()),
         phi0_(phi),
-        rlp_(s1 - s0) {
+        rlp_(R(-phi) * (s1 - s0)) {
 
       // Check the input
       DIALS_ASSERT(s0_.length() > 0);

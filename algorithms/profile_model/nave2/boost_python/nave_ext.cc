@@ -50,7 +50,6 @@ namespace boost_python {
       .def("P", &Model::P)
       ;
 
-
     class_<Support>("Support", no_init)
       .def(init<const Beam&,
                 const Detector&,

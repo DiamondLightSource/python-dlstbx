@@ -2,6 +2,9 @@
 #ifndef DLSTBX_ALGORITHMS_PROFILE_MODEL_NAVE_SUPPORT_H
 #define DLSTBX_ALGORITHMS_PROFILE_MODEL_NAVE_SUPPORT_H
 
+#include <stack>
+#include <boost/unordered_set.hpp>
+#include <boost/math/distributions/chi_squared.hpp>
 #include <scitbx/array_family/tiny_types.h>
 #include <dxtbx/model/beam.h>
 #include <dxtbx/model/detector.h>
@@ -9,6 +12,16 @@
 #include <dxtbx/model/scan.h>
 #include <dials/model/data/shoebox.h>
 #include <dlstbx/algorithms/profile_model/nave2/model.h>
+
+namespace scitbx{
+std::size_t hash_value(vec3<int> a) {
+    std::size_t seed = 0;
+    boost::hash_combine(seed, a[0]);
+    boost::hash_combine(seed, a[1]);
+    boost::hash_combine(seed, a[2]);
+    return seed;
+  }
+}
 
 namespace dlstbx { namespace algorithms {
 
@@ -35,7 +48,7 @@ namespace dlstbx { namespace algorithms {
         const vec3<double> &sig_s,
         const vec3<double> &sig_a,
         const vec3<double> &sig_w,
-        double chi2p) 
+        double p) 
       : detector_(detector),
         scan_(scan),
         A_(A),
@@ -44,44 +57,65 @@ namespace dlstbx { namespace algorithms {
         sig_s_(sig_s),
         sig_a_(sig_a),
         sig_w_(sig_w),
-        chi2p_(chi2p) {
-      DIALS_ASSERT(chi2p > 0);    
+        chi2p_(quantile(boost::math::chi_squared(3), p)) {
+      DIALS_ASSERT(chi2p_ > 0);    
     }
 
     int6 compute_bbox(std::size_t panel, vec3<double> s1, double phi0) const {
 
-      /* // Get the panel */
-      /* const Panel &p = detector_[panel]; */
-      /* mat3<double> D = p.get_d_matrix(); */
+      // Get the panel
+      const Panel &p = detector_[panel];
+      mat3<double> D = p.get_d_matrix();
 
-      /* // Construct the model */
-      /* Model model(D, A_, s0_, m2_, s1, phi0, sig_s_, sig_a_, sig_w_); */
+      // Construct the model
+      Model model(D, A_, s0_, m2_, s1, phi0, sig_s_, sig_a_, sig_w_);
 
-      /* // Get the centre */
-      /* vec2<double> xyc = p.ray_intersection_px(s1); */
-      /* double xc = xyc[0]; */
-      /* double yc = xyc[1]; */
-      /* double zc = scan_.get_array_index_from_angle(phi); */
+      // Get the centre
+      vec2<double> xyc = p.get_ray_intersection_px(s1);
+      double xc = xyc[0];
+      double yc = xyc[1];
+      double zc = scan_.get_array_index_from_angle(phi0);
 
-      
+      // The initial ranges
+      int xmin = (int)std::floor(xc);
+      int xmax = xmin + 1;
+      int ymin = (int)std::floor(yc);
+      int ymax = ymin + 1;
+      int zmin = (int)std::floor(zc);
+      int zmax = zmin + 1;
+    
+      // This list of those processed
+      boost::unordered_set< vec3<int>, boost::hash< vec3<int> > > processed;
 
-      /* std::vector<int2> xrange; */
-      
-      /* int xmin = (int)xc; */
-      /* int xmax = xmin+1; */
-      /* for (;;--xmin) { */
-      /*   vec2<double> xymm = p.pixel_to_millimeter(vec2<double>(xmin, yc)); */
-      /*   if (model.Dm(xymm[0], xymm[1], phi) > chi2p_) { */
-      /*     break; */
-      /*   } */
-      /* } */
-      /* for (;;++xmax) { */
-      /*   vec2<double> xymm = p.pixel_to_millimeter(vec2<double>(xmax, yc)); */
-      /*   if (model.Dm(xymm[0], xymm[1], phi) > chi2p_) { */
-      /*     break; */
-      /*   } */
-      /* } */
-      return int6();
+      // Flood fill to find the bounding box
+      std::stack< vec3<int> > s;
+      s.push(vec3<int>(xmin, ymin, zmin));
+      while (!s.empty()) {
+        vec3<int> a = s.top();
+        s.pop();
+        if (processed.count(a)) {
+          continue;
+        }
+        processed.insert(a);
+        vec2<double> xymm = p.pixel_to_millimeter(vec2<double>(a[0], a[1]));
+        double b = scan_.get_angle_from_array_index(a[2]);
+        if (model.Dm(xymm[0], xymm[1], b) < chi2p_) {
+          if (a[0] < xmin) xmin = a[0];
+          if (a[1] < ymin) ymin = a[1];
+          if (a[2] < zmin) zmin = a[2];
+          if (a[0] >= xmax) xmax = a[0]+1;
+          if (a[1] >= ymax) ymax = a[1]+1;
+          if (a[2] >= zmax) zmax = a[2]+1;
+          s.push(vec3<int>(a[0]+1, a[1], a[2]));
+          s.push(vec3<int>(a[0], a[1]+1, a[2]));
+          s.push(vec3<int>(a[0], a[1], a[2]+1));
+          s.push(vec3<int>(a[0]-1, a[1], a[2]));
+          s.push(vec3<int>(a[0], a[1]-1, a[2]));
+          s.push(vec3<int>(a[0], a[1], a[2]-1));
+        }
+      }
+
+      return int6(xmin, xmax, ymin, ymax, zmin, zmax);
     }
 
     void compute_mask(
@@ -135,13 +169,13 @@ namespace dlstbx { namespace algorithms {
             double z0 = (double)z;
             double z2 = z0 + 1.0;
             double z1 = (z0 + z2) / 2.0;
-            af::small< double, 3> p(3);
-            p[0] = scan_.get_angle_from_array_index(z0);
-            p[1] = scan_.get_angle_from_array_index(z1);
-            p[2] = scan_.get_angle_from_array_index(z2);
+            af::small< double, 3> a(3);
+            a[0] = scan_.get_angle_from_array_index(z0);
+            a[1] = scan_.get_angle_from_array_index(z1);
+            a[2] = scan_.get_angle_from_array_index(z2);
             for (std::size_t j = 0; j < 3 && (mask_code == Background); ++j) {
               for (std::size_t i = 0; i < 9; ++i) {
-                if (model.Dm(xy[i][0], xy[i][1], p[j]) < chi2p_) {
+                if (model.Dm(xy[i][0], xy[i][1], a[j]) < chi2p_) {
                   mask_code = Foreground;
                   break;
                 }

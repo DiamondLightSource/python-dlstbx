@@ -13,21 +13,21 @@ from __future__ import division
 from dials.interfaces import ProfileModelCreatorIface
 
 
-class NaveProfileModelExt(ProfileModelCreatorIface):
-  ''' An extension class implementing the nave profile model. '''
-
-  name = 'nave'
-
-  @classmethod
-  def phil(cls):
-    from dlstbx.algorithms.profile_model.nave import phil_scope
-    return phil_scope
-
-  def __init__(self):
-    from dlstbx.algorithms.profile_model.nave import ProfileModelList
-    self._model = ProfileModelList()
-
-  @classmethod
-  def create(cls, params, experiments, reflections):
-    from dlstbx.algorithms.profile_model.nave import Factory
-    return Factory.create(params, experiments, reflections)
+#class NaveProfileModelExt(ProfileModelCreatorIface):
+#  ''' An extension class implementing the nave profile model. '''
+#
+#  name = 'nave'
+#
+#  @classmethod
+#  def phil(cls):
+#    from dlstbx.algorithms.profile_model.nave import phil_scope
+#    return phil_scope
+#
+#  def __init__(self):
+#    from dlstbx.algorithms.profile_model.nave import ProfileModelList
+#    self._model = ProfileModelList()
+#
+#  @classmethod
+#  def create(cls, params, experiments, reflections):
+#    from dlstbx.algorithms.profile_model.nave import Factory
+#    return Factory.create(params, experiments, reflections)

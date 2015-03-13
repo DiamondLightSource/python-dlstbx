@@ -1,0 +1,171 @@
+
+from __future__ import division
+
+command_template = '''
+#!/bin/bash
+
+set -xe
+
+FILE=$1
+ID=$SGE_TASK_ID
+
+ID_TEMPLATE=$(sed ${ID}'q;d' ${FILE})
+ID=$(echo $ID_TEMPLATE | tr -s " " | cut -d " " -f 1)
+TEMPLATE=$(echo $ID_TEMPLATE | tr -s " " | cut -d " " -f 2)
+
+mkdir -p ${ID}
+pushd ${ID} > /dev/null
+
+
+function __scale() {
+  intensities=$1
+
+  mkdir -p $intensities
+  pushd $intensities > /dev/null
+
+  pointless hklin ../integrated.mtz hklout sorted.mtz | tee pointless.log
+
+  aimless_params="intensities ${intensities}
+                  resolution 86 1.75
+                  anomalous on"
+
+  echo "${aimless_params}" | aimless hklin sorted.mtz hklout scaled.mtz | tee aimless.log
+
+  popd > /dev/null
+}
+
+dials.import template=$TEMPLATE
+
+dials.find_spots \
+  datablock.json
+
+dials.index \
+  space_group=P422 \
+  unit_cell='121.45 121.45  57.00  90.00  90.00  90.00' \
+  datablock.json \
+  strong.pickle \
+  n_macro_cycles=5 \
+  refinement.reflections.use_all_reflections=true
+
+dials.refine \
+  experiments.json \
+  indexed.pickle \
+  refinement.parameterisation.crystal.scan_varying=true \
+  refinement.reflections.use_all_reflections=true
+
+dials.integrate \
+  outlier.algorithm=null \
+  ../refined_experiments.json \
+  ../indexed.pickle
+
+dials.export_mtz \
+  ./new/integrated.pickle \
+  refined_experiments.json \
+  hklout=integrated.mtz
+
+__scale summation
+__scale profile
+__scale combine
+
+'''
+
+
+def get_env():
+  from os import environ
+  env = {}
+  for k, v in environ.iteritems():
+    try:
+      env[k.decode("ascii")] = v.decode("ascii")
+    except Exception:
+      pass
+  return env
+
+
+def find_file(template, image):
+  n = template.count('#')
+  pfx = template.split('#')[0]
+  sfx = template.split('#')[-1]
+  template_str = pfx + '%%0%dd' % n + sfx
+  return template_str % image
+
+
+class Runner(object):
+  '''
+  Class to run the test
+
+  '''
+
+  def __init__(self, datasets, directory):
+    '''
+    Initialise the class
+
+    '''
+    self.datasets = datasets
+    self.directory = directory
+
+  def run(self):
+    '''
+    Run the test
+
+    '''
+    import os
+    from os.path import join, exists
+    from time import gmtime
+    import datetime
+    import drmaa
+    import stat
+    import glob
+
+    # Print some output
+    print "Running test in %s" % self.directory
+
+    # Write input file
+    inputpath = join(self.directory, "input.txt")
+    with open(inputpath, "w") as outfile:
+      for key, dataset in self.datasets.iteritems():
+        template = join(dataset["directory"], dataset["template"])
+        outfile.write("%d %s\n" % (key, template))
+
+    # Write command file
+    command = join(self.directory, "command.sh")
+    with open(command, "w") as outfile:
+      outfile.write(command_template)
+    os.chmod(command, stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC)
+
+    # Make an output directory
+    outputpath = join(self.directory, "output")
+    if not exists(outputpath):
+      os.makedirs(outputpath)
+
+    # The output format
+    output_fmt = join(outputpath, "output.%s")
+
+    # Initialize the drmaa session
+    session = drmaa.Session
+    session.initialize()
+
+    # Create the job template
+    index = drmaa.JobTemplate.PARAMETRIC_INDEX
+    job = session.createJobTemplate()
+    job.workingDirectory = self.directory
+    job.remoteCommand = command
+    job.jobEnvironment = get_env()
+    job.args = [inputpath]
+    job.name = "summed_test"
+    job.outputPath = ":" + (output_fmt % index)
+    job.joinFiles = True
+
+    # The number of jobs
+    first = 1
+    last = len(self.datasets)
+
+    # Run as a bulk job
+    joblist = session.runBulkJobs(job, first, last, 1)
+    print "Job submitted between %d and %d" % (first, last)
+
+    # Wait for all job
+    session.synchronize(joblist, drmaa.Session.TIMEOUT_WAIT_FOREVER, True)
+
+    # Cleanup dramma stuff
+    session.deleteJobTemplate(job)
+    session.exit()

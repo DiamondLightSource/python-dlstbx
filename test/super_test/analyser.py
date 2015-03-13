@@ -60,7 +60,6 @@ class Analyser(object):
       else:
         result['error'] = '%s does not exists' % xia2txt
 
-
       # Add the result
       results.append(result)
 

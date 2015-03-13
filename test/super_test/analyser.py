@@ -7,34 +7,14 @@ class Analyser(object):
 
   '''
 
-  def __init__(self, basepath, runpath):
+  def __init__(self, datasets, runpath):
     '''
     Initialise the class
 
     '''
-    from os.path import join
-    import json
-
-    # Set the paths
-    self.basepath = basepath
+    self.datasets = datasets
     self.runpath = runpath
-    assert(self.basepath != self.runpath)
-    self.datasetpath = join(self.basepath, "datasets.json")
-
-    # load the datasets
-    with open(self.datasetpath, "r") as infile:
-      self.datasets = json.load(infile)
-
-      # Convert keys to integer
-    self.datasets = dict((int(k), v) for k, v in self.datasets.iteritems())
-
-    # Check paths are unique
-    paths = [join(d['directory'], d['template']) for d in
-             self.datasets.itervalues()]
-    assert(len(paths) == len(set(paths)))
-
-    # Print some output
-    print "Loaded %d datasets" % len(paths)
+    self.failed = []
 
   def analyse(self):
     '''
@@ -52,79 +32,50 @@ class Analyser(object):
 
       # Initialize the result
       result = {
-        'id'         : i,
-        'import'     : False,
-        'find_spots' : False,
-        'index'      : False,
-        'refine'     : False,
-        'integrate'  : False,
-        'export'     : False
+        'id'        : i,
+        'processed' : False,
+        'error'     : None,
       }
 
       # The processing path
       directory = join(self.runpath, "%d" % i)
-      if exists(directory):
-        if exists(join(directory, "datablock.json")):
-          result['import'] = True
-        else:
-          pass
-        if exists(join(directory, "strong.pickle")):
-          result['find_spots'] = True
-        else:
-          pass
-        if (exists(join(directory, "experiments.json")) and
-            exists(join(directory, "indexed.pickle"))):
-          result['index'] = True
-        else:
-          pass
-        if (exists(join(directory, "refined_experiments.json")) and
-            exists(join(directory, "refined.pickle"))):
-          result["refine"] = True
-        else:
-          pass
-        if exists(join(directory, "integrated.pickle")):
-          result["integrate"] = True
-        else:
-          pass
-        if exists(join(directory, "hklout.mtz")):
-          result["export"] = True
-        else:
-          pass
-        results.append(result)
+      xia2txt = join(directory, "xia2.txt")
+
+      # See if the xia2.txt file exists
+      if exists(xia2txt):
+        with open(xia2txt) as infile:
+          found_status = False
+          for line in infile.readlines():
+            if line.strip().startswith('Status:'):
+              result['error'] = line.strip()
+              if line.strip() == 'Status: normal termination':
+                result['processed'] = True
+                found_status = True
+                break
+              else:
+                found_status = True
+                break
+          if found_status == False:
+            result['error'] = '%s doesn\'t have status line' % xia2txt
       else:
-        results.append(result)
+        result['error'] = '%s does not exists' % xia2txt
+
+
+      # Add the result
+      results.append(result)
 
     # Print failure table
-    rows = [['#',
-             'Import',
-             'Find Spots',
-             'Index',
-             'Refine',
-             'Integrate',
-             'Export']]
+    rows = [['#', 'Processed', 'Error']]
     for r in results:
-      if list(r.itervalues()).count(False) > 0:
+      if r['processed'] == False:
         rows.append([
           str(r['id']),
-          str(r['import']),
-          str(r['find_spots']),
-          str(r['index']),
-          str(r['refine']),
-          str(r['integrate']),
-          str(r['export'])])
+          str(r['processed']),
+          str(r['error'])])
+        self.failed.append(r['id'])
     from libtbx.table_utils import format as table
     print table(rows, has_header=True)
 
     # Print the summary
-    nimport = [r['import'] for r in results].count(True)
-    nfind_spots = [r['find_spots'] for r in results].count(True)
-    nindex = [r['index'] for r in results].count(True)
-    nrefine = [r['refine'] for r in results].count(True)
-    nintegrate = [r['integrate'] for r in results].count(True)
-    nexport = [r['export'] for r in results].count(True)
-    print "Num Import: %d" % nimport
-    print "Num Find Spots: %d" % nfind_spots
-    print "Num Index: %d" % nindex
-    print "Num Refine: %d" % nrefine
-    print "Num Integrate: %d" % nintegrate
-    print "Num Export: %d" % nexport
+    nprocessed = [r['processed'] for r in results].count(True)
+    print "Num Processed: %d" % nprocessed

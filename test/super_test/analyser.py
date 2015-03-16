@@ -22,6 +22,7 @@ class Analyser(object):
 
     '''
     from os.path import join, exists
+    from textwrap import wrap
 
     # Find out which failed
     results = []
@@ -34,6 +35,7 @@ class Analyser(object):
       result = {
         'id'        : i,
         'processed' : False,
+        'section'   : None,
         'error'     : None,
       }
 
@@ -45,7 +47,10 @@ class Analyser(object):
       if exists(xia2txt):
         with open(xia2txt) as infile:
           found_status = False
+          section = ""
           for line in infile.readlines():
+            if line.strip().startswith("------"):
+              section = line.strip().translate(None, '-').strip()
             if line.strip().startswith('Status:'):
               result['error'] = line.strip()
               if line.strip() == 'Status: normal termination':
@@ -57,6 +62,7 @@ class Analyser(object):
                 break
           if found_status == False:
             result['error'] = '%s doesn\'t have status line' % xia2txt
+          result['section'] = section
       else:
         result['error'] = '%s does not exists' % xia2txt
 
@@ -64,12 +70,13 @@ class Analyser(object):
       results.append(result)
 
     # Print failure table
-    rows = [['#', 'Processed', 'Error']]
+    rows = [['#', 'Processed', 'Section', 'Error']]
     for r in results:
       if r['processed'] == False:
         rows.append([
           str(r['id']),
           str(r['processed']),
+          str(r['section']),
           str(r['error'])])
         self.failed.append(r['id'])
     from libtbx.table_utils import format as table

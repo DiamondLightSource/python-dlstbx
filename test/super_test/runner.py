@@ -16,7 +16,7 @@ TEMPLATE=$(echo $ID_TEMPLATE | tr -s " " | cut -d " " -f 2)
 mkdir -p ${ID}
 pushd ${ID} > /dev/null
 
-xia2.new -dials -image $TEMPLATE
+xia2.new -dials -image $TEMPLATE nproc=${NSLOTS}
 
 '''
 

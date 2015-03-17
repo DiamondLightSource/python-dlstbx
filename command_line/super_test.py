@@ -93,6 +93,9 @@ def load_runpath(directory, mode='a'):
   # Return the runpath
   return runpath
 
+def rec_split(path):
+  from os.path import split
+  return path.split('/')
 
 if __name__ == '__main__':
   from dials.util.options import OptionParser
@@ -139,6 +142,24 @@ if __name__ == '__main__':
   # Analyse the data
   analyser = Analyser(datasets, runpath)
   analyser.analyse()
+
+  # Save a csv file with some info
+  if len(analyser.failed) > 0:
+    print "Writing %d failed datasets to failed.csv" % len(analyser.failed)
+    lines = ['Beamline, Visit, Directory, Error']
+    for r in analyser.results:
+      i = r['id']
+      error = r['error']
+      d = datasets[i]
+      proc_path = join(runpath, str(i))
+      data_path = d['directory']
+      path_split = rec_split(data_path)
+      beamline = path_split[2]
+      visit = path_split[5]
+      lines.append('%s, %s, %s, %s' % (beamline, visit, proc_path, error))
+    with open("failed.csv", "w") as outfile:
+      outfile.write('\n'.join(lines))
+
 
   # Save the failed datasets as a phil file
   if len(analyser.failed) > 0:

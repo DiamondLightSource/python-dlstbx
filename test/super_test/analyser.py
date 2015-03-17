@@ -15,6 +15,7 @@ class Analyser(object):
     self.datasets = datasets
     self.runpath = runpath
     self.failed = []
+    self.results = []
 
   def analyse(self):
     '''
@@ -25,7 +26,6 @@ class Analyser(object):
     from textwrap import wrap
 
     # Find out which failed
-    results = []
     indices = sorted(self.datasets.iterkeys())
     for i in indices:
 
@@ -67,15 +67,14 @@ class Analyser(object):
         result['error'] = '%s does not exists' % xia2txt
 
       # Add the result
-      results.append(result)
+      self.results.append(result)
 
     # Print failure table
-    rows = [['#', 'Processed', 'Section', 'Error']]
-    for r in results:
+    rows = [['#', 'Section', 'Error']]
+    for r in self.results:
       if r['processed'] == False:
         rows.append([
           str(r['id']),
-          str(r['processed']),
           str(r['section']),
           str(r['error'])])
         self.failed.append(r['id'])
@@ -83,5 +82,5 @@ class Analyser(object):
     print table(rows, has_header=True)
 
     # Print the summary
-    nprocessed = [r['processed'] for r in results].count(True)
+    nprocessed = [r['processed'] for r in self.results].count(True)
     print "Num Processed: %d" % nprocessed

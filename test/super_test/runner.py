@@ -13,36 +13,16 @@ ID_TEMPLATE=$(sed ${ID}'q;d' ${FILE})
 ID=$(echo $ID_TEMPLATE | tr -s " " | cut -d " " -f 1)
 TEMPLATE=$(echo $ID_TEMPLATE | tr -s " " | cut -d " " -f 2)
 
+if [ -e ${ID} ]; then
+  rm -r ${ID}
+fi
+
 mkdir -p ${ID}
 pushd ${ID} > /dev/null
 
 xia2.new -dials -image $TEMPLATE nproc=${NSLOTS}
 
 '''
-
-#if ! [ -e datablock.json ]; then
-#  dials.import template=${TEMPLATE}
-#fi
-#
-#if ! [ -e strong.pickle ]; then
-#  dials.find_spots datablock.json
-#fi
-#
-#if ! [ -e experiments.json ]; then
-#  dials.index datablock.json strong.pickle
-#fi
-#
-#if ! [ -e refined_experiments.json ]; then
-#  dials.refine experiments.json indexed.pickle scan_varying=True output.reflections=refined.pickle
-#fi
-#
-#if ! [ -e integrated.pickle ]; then
-#  dials.integrate refined_experiments.json refined.pickle
-#fi
-#
-#if ! [ -e hklout.mtz ]; then
-#  dials.export_mtz refined_experiments.json integrated.pickle
-#fi
 
 
 def get_env():
@@ -70,13 +50,14 @@ class Runner(object):
 
   '''
 
-  def __init__(self, datasets, directory):
+  def __init__(self, datasets, directory, max_running_tasks):
     '''
     Initialise the class
 
     '''
     self.datasets = datasets
     self.directory = directory
+    self.max_running_tasks = max_running_tasks
 
   def run(self):
     '''
@@ -130,6 +111,7 @@ class Runner(object):
     job.name = "super_test"
     job.outputPath = ":" + (output_fmt % index)
     job.joinFiles = True
+    job.nativeSpecification = '-pe smp 12 -tc %d' % self.max_running_tasks
 
     # The number of jobs
     first = 1

@@ -13,6 +13,10 @@ phil_scope = parse('''
     .multiple = True
     .help = "Set which datasets to run"
 
+  max_running_tasks = auto
+    .type = int(value_min=1)
+    .help = "The maximum running tasks"
+
   resume = True
     .type = bool
     .help = "Resume last test or start a new one"
@@ -101,6 +105,7 @@ if __name__ == '__main__':
   from dials.util.options import OptionParser
   from dlstbx.test.super_test import Runner, Analyser
   from os.path import join
+  from libtbx import Auto
 
   # Create the option parser
   parser = OptionParser(phil=phil_scope)
@@ -117,11 +122,6 @@ if __name__ == '__main__':
   datasets = load_datasets(dsetpath)
   print "Loaded %d datasets" % len(datasets)
 
-  # Select the subset of datasets
-  if params.dataset is not None and len(params.dataset) > 0:
-    datasets = dict((i, datasets[i]) for i in params.dataset)
-    print "Selected %d datasets" % len(datasets)
-
   # Find the runpath
   if params.mode == 'run':
     if params.resume:
@@ -132,9 +132,25 @@ if __name__ == '__main__':
     mode = 'r'
   runpath = load_runpath(runpath, mode)
 
+  # Select the subset of datasets
+  if params.dataset is not None and len(params.dataset) > 0:
+    datasets = dict((i, datasets[i]) for i in params.dataset)
+    print "Selected %d datasets" % len(datasets)
+
+  # Find bad datasets if resume
+  if params.mode == 'run' and params.resume:
+    analyser = Analyser(datasets, runpath)
+    analyser.analyse()
+    datasets = dict((i, datasets[i]) for i in analyser.failed)
+    assert(len(datasets) > 0)
+
+  # Set the max running tasks
+  if params.max_running_tasks == Auto:
+    params.max_running_tasks = len(datasets)
+
   # Check if we want to run the test
   if params.mode == 'run':
-    runner = Runner(datasets, runpath)
+    runner = Runner(datasets, runpath, params.max_running_tasks)
     runner.run()
   else:
     assert(params.mode == 'info')
@@ -148,18 +164,18 @@ if __name__ == '__main__':
     print "Writing %d failed datasets to failed.csv" % len(analyser.failed)
     lines = ['Beamline, Visit, Directory, Error']
     for r in analyser.results:
-      i = r['id']
-      error = r['error']
-      d = datasets[i]
-      proc_path = join(runpath, str(i))
-      data_path = d['directory']
-      path_split = rec_split(data_path)
-      beamline = path_split[2]
-      visit = path_split[5]
-      lines.append('%s, %s, %s, %s' % (beamline, visit, proc_path, error))
+      if r['processed'] == False:
+        i = r['id']
+        error = r['error']
+        d = datasets[i]
+        proc_path = join(runpath, str(i))
+        data_path = d['directory']
+        path_split = rec_split(data_path)
+        beamline = path_split[2]
+        visit = path_split[5]
+        lines.append('%s, %s, %s, %s' % (beamline, visit, proc_path, error))
     with open("failed.csv", "w") as outfile:
       outfile.write('\n'.join(lines))
-
 
   # Save the failed datasets as a phil file
   if len(analyser.failed) > 0:

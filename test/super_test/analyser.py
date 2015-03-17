@@ -34,6 +34,7 @@ class Analyser(object):
       # Initialize the result
       result = {
         'id'        : i,
+        'finished'  : False,
         'processed' : False,
         'section'   : None,
         'error'     : None,
@@ -62,6 +63,8 @@ class Analyser(object):
                 break
           if found_status == False:
             result['error'] = '%s doesn\'t have status line' % xia2txt
+          else:
+            result['finished'] = True
           result['section'] = section
       else:
         result['error'] = '%s does not exists' % xia2txt
@@ -83,4 +86,10 @@ class Analyser(object):
 
     # Print the summary
     nprocessed = [r['processed'] for r in self.results].count(True)
-    print "Num Processed: %d" % nprocessed
+    nfinished = [r['finished'] for r in self.results].count(True)
+    assert(nfinished >= nprocessed)
+    nrunning = len(self.results) - nfinished
+    nfailed = nfinished - nprocessed
+    print "Num Succeeded: %d" % nprocessed
+    print "Num Failed: %d" % nfailed
+    print "Num Running %d" % nrunning

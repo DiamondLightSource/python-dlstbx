@@ -1,29 +1,6 @@
 
 from __future__ import division
 
-command_template = '''
-#!/bin/bash
-
-set -xe
-
-FILE=$1
-ID=$SGE_TASK_ID
-
-ID_TEMPLATE=$(sed ${ID}'q;d' ${FILE})
-ID=$(echo $ID_TEMPLATE | tr -s " " | cut -d " " -f 1)
-TEMPLATE=$(echo $ID_TEMPLATE | tr -s " " | cut -d " " -f 2)
-
-if [ -e ${ID} ]; then
-  rm -r ${ID}
-fi
-
-mkdir -p ${ID}
-pushd ${ID} > /dev/null
-
-xia2.new -dials -image $TEMPLATE nproc=${NSLOTS}
-
-'''
-
 
 def get_env():
   from os import environ
@@ -83,12 +60,6 @@ class Runner(object):
         file = find_file(template, dataset['image'])
         outfile.write("%d %s\n" % (key, file))
 
-    # Write command file
-    command = join(self.directory, "command.sh")
-    with open(command, "w") as outfile:
-      outfile.write(command_template)
-    os.chmod(command, stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC)
-
     # Make an output directory
     outputpath = join(self.directory, "output")
     if not exists(outputpath):
@@ -105,7 +76,7 @@ class Runner(object):
     index = drmaa.JobTemplate.PARAMETRIC_INDEX
     job = session.createJobTemplate()
     job.workingDirectory = self.directory
-    job.remoteCommand = command
+    job.remoteCommand = "dlstbx.super_test_cluster_runner"
     job.jobEnvironment = get_env()
     job.args = [inputpath]
     job.name = "super_test"

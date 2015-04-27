@@ -155,5 +155,5 @@ if __name__ == "__main__":
       from junit_xml import TestSuite
 
       ts = TestSuite("dlstbx.qa.%s" % t, [r.toJUnitTestCase(n) for (n, r) in results.iteritems()])
-      with open(os.path.join([home, 'logs', '%s.xml' % t]), 'w') as f:
+      with open(os.path.join(home, 'logs', '%s.xml' % t), 'w') as f:
         f.write(TestSuite.to_xml_string([ts]))

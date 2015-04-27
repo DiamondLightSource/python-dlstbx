@@ -1,3 +1,8 @@
+import sys
+
+# only export the color() function (for 'import *' call)
+__all__ = [ 'color' ]
+
 _colors = {
   '': '\033[0m',
   'black': '\033[30m',
@@ -12,12 +17,17 @@ _colors = {
   'bright': '\033[1m',
   }
 
+_colorsenabled = True
+for handle in [sys.stdout]: # don't actually write to sys.stderr
+  if not (hasattr(handle, "isatty") and handle.isatty()):
+    _colorsenabled = False
+
 def color(*args):
-  if not args:
-    args = ['']
-  for n in args:
-    if n in _colors:
-      import sys
-      sys.stdout.write(_colors[n]),
-    else:
-      print '%sunknown color %s%s' % (_colors['red'], n, _colors[''])
+  if _colorsenabled:
+    if not args:
+      args = ['']
+    for n in args:
+      if n in _colors:
+        sys.stdout.write(_colors[n]),
+      else:
+        print '%sunknown color %s%s' % (_colors['red'], n, _colors[''])

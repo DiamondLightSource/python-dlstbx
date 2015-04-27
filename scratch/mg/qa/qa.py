@@ -137,11 +137,6 @@ def _run_test_module(name, debugOutput=True):
   return testresults
 
 if __name__ == "__main__":
-#  import atexit
-#  def goodbye(name, adjective):
-#    print 'Goodbye, %s, it was %s to meet you.' % (name, adjective)
-#  atexit.register(goodbye, 'Donny', 'nice')
-
   import sys
   import tests
   import decorators
@@ -153,6 +148,6 @@ if __name__ == "__main__":
       results = _run_test_module(t)
       from junit_xml import TestSuite
 
-      ts = TestSuite(t, [r.toJUnitTestCase(n) for (n, r) in results.iteritems()])
+      ts = TestSuite("dlstbx.qa.%s" % t, [r.toJUnitTestCase(n) for (n, r) in results.iteritems()])
       with open('output.xml', 'w') as f:
         f.write(TestSuite.to_xml_string([ts]))

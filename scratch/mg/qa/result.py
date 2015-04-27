@@ -1,7 +1,10 @@
+# TODO: Refactor to be more like junit testcase
+
 _debug = False
 
 class Result:
   elapsedTime = None
+  skipMessage = None
 
   def __init__(self, error=False, message=None, stacktrace=None, stdout=None, stderr=None):
     if _debug:
@@ -121,6 +124,9 @@ class Result:
         self.stdout = ""
       self.stdout = (stdout + "\n" + self.stdout).rstrip()
 
+  def skip(self, message):
+    self.skipMessage = message
+
   def setTime(self, time):
     self.elapsedTime = time
 
@@ -192,6 +198,7 @@ class Result:
       time = self.getTime()
     t = TestCase(name, classname=classname, elapsed_sec=time, stdout=self.stdout, stderr=self.stderr)
     t.add_failure_info(message=self.message, output=self.stacktrace) # None values are ignored
+    t.add_skipped_info(message=self.skipMessage)
     if (self.message is None) and (self.stacktrace is None) and self.error:
       t.add_failure_info(message="Test failed")
       # If test is marked as failed, then either message or stacktrace need to be set.

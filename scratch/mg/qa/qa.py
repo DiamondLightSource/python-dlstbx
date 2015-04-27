@@ -11,6 +11,7 @@ _datadir = os.path.join(_basedir, 'data')
 _workdir = os.path.join(_basedir, 'work')
 _archive = os.path.join(_basedir, 'archive')
 _loaded_modules = {}
+_debug = False
 
 def _load_test_module(name):
   if name in _loaded_modules:
@@ -30,7 +31,8 @@ def _load_test_module(name):
   loader['result'] = Result(stdout="\n".join(loader['errors']),
                             stderr="\n".join(loader['errors']))
   _loaded_modules[name] = loader
-  print loader
+  if _debug:
+    print loader
   return loader
 
 def _show_all_tests():
@@ -116,10 +118,11 @@ def _run_test_module(name, debugOutput=True):
   for fun in module['Test()']:
     funcname = fun[0]
     if setupresult.error:
-      color('blue')
+      color('bright', 'yellow')
       message = "Skipping test %s.%s due to failed initialization" % (name, funcname)
       print "\n" + message
-      results = Result(error=True, stdout=message, stderr=message)
+      results = Result(stdout=message)
+      results.skip(message)
     else:
       color('blue')
       print "\nRunning %s.%s" % (name, funcname)

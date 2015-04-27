@@ -2,7 +2,11 @@ from qa import *
 
 @Data
 def checkthatdataiscomplete():
-  images(460)
+  images(300, 
+         between(100,300),
+         between(500,300),
+         atLeast(300),
+         atMost(300),)
 
 @Test
 def runwithdials():

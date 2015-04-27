@@ -18,6 +18,12 @@ def _debug(message):
 def _fail(message):
   _testStatus.append(error=True, stdout=message, stderr=message)
 
+def _result(message, status):
+  if status:
+    _debug(" [ OK ] " + message)
+  else:
+    _fail(" [FAIL] " + message)
+
 def _trace(stacktrace):
   _testStatus.append(error=True, stdout=stacktrace, stacktrace=stacktrace)
 
@@ -60,11 +66,45 @@ def _assertNumericParameters(source, args):
   if any([not isinstance(r, numbers.Number) for r in args]):
     raise ValueError('%s test called with non-numerical parameters' % source)
 
+def _assertNumericOrComparator(source, args):
+  import numbers
+  if any([not isinstance(r, numbers.Number) and not isinstance(r, _Comparator) for r in args]):
+    raise ValueError('%s test called with non-numerical parameters' % source)
+
+
+# Communication with test runner qa.py: Store module reference
+
+_module = None
+
+def setModule(module):
+ global _module
+ _module = module
+
+def getModule():
+ return _module
+
+
+# Comparator class holding a function and a plain text description of it
+
+class _Comparator():
+  def __init__(self, function, description):
+    self.f = function
+    self.description = description
+
+  def eval(self,x):
+    return self.f(x)
+
+  def __str__(self):
+    return self.description
+
+  def __repr__(self):
+    return self.description
+
 
 # Internal decorator for test functions
-# Only export decorated test functions for '*' imports
+# Only export a few selected and all decorated test functions for '*' imports
 
-__all__ = []
+__all__ = ['getModule']
 def _TestFunction(func):
   global __all__
   functionName = func.__name__
@@ -108,10 +148,19 @@ def _resetRecursionDepth():
 
 
 @_TestFunction
-def images(n):
-  _debug("Check for %d images" % n)
-#  raise('asdf')
-#  return fail("not implemented yet")
+def images(*args):
+  _assertParametersPresent('images', args)
+  _assertNumericOrComparator('images', args)
+  directory = getModule()['datadir']
+  import os
+  filecount = len(os.listdir(directory))
+  _debug("Found %d files in %s" % (filecount, directory))
+  for r in args:
+    if isinstance(r, _Comparator):
+      check = r.eval(filecount)
+    else:
+      check = r == filecount
+    _result("Check for %s images" % r, check)
 
 @_TestFunction
 def spacegroup(*args):
@@ -123,11 +172,40 @@ def unitcell(*args):
 
 @_TestFunction
 def between(boundaryA, boundaryB):
+  _assertNumericParameters('between', [boundaryA, boundaryB])
   if (boundaryA > boundaryB):
     boundaryA, boundaryB = boundaryB, boundaryA
   def comparator(x):
     return (x >= boundaryA) and (x <= boundaryB)
-  return comparator 
+  return _Comparator(comparator, "between %d and %d" % (boundaryA, boundaryB))
+
+@_TestFunction
+def moreThan(boundary):
+  _assertNumericParameters('moreThan', [boundary])
+  def comparator(x):
+    return (x > boundary)
+  return _Comparator(comparator, "more than %d" % (boundary))
+
+@_TestFunction
+def lessThan(boundary):
+  _assertNumericParameters('lessThan', [boundary])
+  def comparator(x):
+    return (x < boundary)
+  return _Comparator(comparator, "less than %d" % (boundary))
+
+@_TestFunction
+def atLeast(boundary):
+  _assertNumericParameters('atLeast', [boundary])
+  def comparator(x):
+    return (x >= boundary)
+  return _Comparator(comparator, "at least %d" % (boundary))
+
+@_TestFunction
+def atMost(boundary):
+  _assertNumericParameters('atMost', [boundary])
+  def comparator(x):
+    return (x <= boundary)
+  return _Comparator(comparator, "at most %d" % (boundary))
 
 @_TestFunction
 def resolution(*args):
@@ -135,14 +213,8 @@ def resolution(*args):
   _assertParametersPresent('resolution', args)
   _assertNumericParameters('resolution', args)
   for r in args:
-    if callable(r):
-      pass
-    else:
-      check = between(_testResult['resolution.low'], _testResult['resolution.high'])(r)
-      if check:
-        _debug("Check for resolution %.2f: OK" % r)
-      else:
-        _fail("Check for resolution %.2f: FAIL" % r)
+    check = between(_testResult['resolution.low'], _testResult['resolution.high']).eval(r)
+    _result("Check for resolution %.2f" % r, check)
 
 @_TestFunction
 def completeness(*args):

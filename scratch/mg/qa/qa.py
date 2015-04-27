@@ -7,9 +7,12 @@ from term import *
 import os
 
 _basedir = '/dls/mx-scratch/mgerstel/qa'
+
 _datadir = os.path.join(_basedir, 'data')
 _workdir = os.path.join(_basedir, 'work')
+_logdir  = os.path.join(_basedir, 'logs')
 _archive = os.path.join(_basedir, 'archive')
+
 _loaded_modules = {}
 _debug = False
 
@@ -25,6 +28,8 @@ def _load_test_module(name):
   loader["Data()"] = decorators.getDiscoveredDataFunctions()
   loader["runlog"] = {}
   loader["datadir"] = os.path.join(_datadir, name)
+  loader["workdir"] = os.path.join(_workdir, name)
+  loader["archivedir"] = os.path.join(_archive, name)
   loader["errors"] = [ "Test runs function %s() on import. Tests should not run functions on import." % n for n in decorators.disabledCalls() ]
   if not os.path.exists(loader["datadir"]):
     loader["errors"].append( "Data directory %s is missing" % loader["datadir"] )
@@ -51,12 +56,13 @@ def _show_all_tests():
       color()
   print "Specify tests on command line to run them"
 
-def _run_test_function(func, xia2callRequired=False):
+def _run_test_function(module, func, xia2callRequired=False):
   import testsuite
   import timeit
   failure = None
   stacktrace = None
   testsuite.resetTestResults()
+  testsuite.setModule(module.copy())
   startTime = timeit.default_timer()
   try:
     func[1]()
@@ -85,7 +91,6 @@ def _color_red(string):
   else:
     color('red')
 
-
 def _run_test_module(name, debugOutput=True):
   if name not in _loaded_modules:
     _load_test_module(name)
@@ -98,7 +103,7 @@ def _run_test_module(name, debugOutput=True):
     color('blue')
     print "\nRunning %s.%s" % (name, fun[0])
     color()
-    results = _run_test_function(fun)
+    results = _run_test_function(module, fun)
     results.printStdout(colorFunctionStdout=_color_green, colorFunctionStderr=_color_red)
     setupresult.append(stdout="\n\n")
     if results.error:
@@ -124,7 +129,7 @@ def _run_test_module(name, debugOutput=True):
       color('blue')
       print "\nRunning %s.%s" % (name, funcname)
       color()
-      results = _run_test_function(fun, xia2callRequired=True)
+      results = _run_test_function(module, fun, xia2callRequired=True)
       results.printStdout(colorFunctionStdout=_color_green, colorFunctionStderr=_color_red)
 
     color()
@@ -139,13 +144,19 @@ def _run_test_module(name, debugOutput=True):
   color()
   return testresults
 
+
 if __name__ == "__main__":
   import os
   import sys
   import tests
   import decorators
 
-  home = '/dls/mx-scratch/mgerstel/qa'
+  print "   Base directory:", _basedir
+  print "   Data directory:", _datadir
+  print "   Work directory:", _workdir
+  print "    Log directory:", _logdir
+  print "Archive directory:", _archive
+  print
 
   if (len(sys.argv) <= 1):
     _show_all_tests()
@@ -155,5 +166,5 @@ if __name__ == "__main__":
       from junit_xml import TestSuite
 
       ts = TestSuite("dlstbx.qa.%s" % t, [r.toJUnitTestCase(n) for (n, r) in results.iteritems()])
-      with open(os.path.join(home, 'logs', '%s.xml' % t), 'w') as f:
+      with open(os.path.join(_logdir, '%s.xml' % t), 'w') as f:
         TestSuite.to_file(f, [ts], prettyprint=False)

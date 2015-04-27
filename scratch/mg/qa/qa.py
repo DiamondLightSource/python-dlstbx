@@ -51,9 +51,11 @@ def _show_all_tests():
 
 def _run_test_function(func, xia2callRequired=False):
   import testsuite
+  import timeit
   failure = None
   stacktrace = None
   testsuite.resetTestResults()
+  startTime = timeit.default_timer()
   try:
     func[1]()
     def derp():
@@ -67,6 +69,7 @@ def _run_test_function(func, xia2callRequired=False):
   if xia2callRequired:
     testsuite.checkTestResults()
   testresults = testsuite.getTestOutput()
+  testresults.setTime(timeit.default_timer() - startTime)
   if failure is not None:
     testresults.append(error=True, stdout=failure + "\n" + stacktrace, stderr=failure, stacktrace=stacktrace)
   return testresults

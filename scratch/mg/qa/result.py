@@ -1,6 +1,8 @@
 _debug = False
 
 class Result:
+  elapsedTime = None
+
   def __init__(self, error=False, message=None, stacktrace=None, stdout=None, stderr=None):
     if _debug:
       print "Result() constructor:"
@@ -119,6 +121,11 @@ class Result:
         self.stdout = ""
       self.stdout = (stdout + "\n" + self.stdout).rstrip()
 
+  def setTime(self, time):
+    self.elapsedTime = time
+
+  def getTime(self):
+    return self.elapsedTime
 
   def _print(self, what, colorFunction):
     if what is not None:
@@ -181,6 +188,8 @@ class Result:
 
   def toJUnitTestCase(self, name, classname=None, time=None):
     from junit_xml import TestCase
+    if time is None:
+      time = self.getTime()
     t = TestCase(name, classname=classname, elapsed_sec=time, stdout=self.stdout, stderr=self.stderr)
     t.add_failure_info(message=self.message, output=self.stacktrace) # None values are ignored
     if (self.message is None) and (self.stacktrace is None) and self.error:

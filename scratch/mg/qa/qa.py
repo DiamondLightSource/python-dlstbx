@@ -107,25 +107,25 @@ def _run_test_module(name, debugOutput=True):
       results.prepend(stdout=setupmessage)
     setupresult.append(results)
 
-  testresults = { name : setupresult }
+  testresults = { "__init__" : setupresult }
 #  setupresult.printStdout(colorFunctionStdout=_color_green, colorFunctionStderr=_color_red)
 
   for fun in module['Test()']:
-    testname = "%s.%s" % (name, fun[0])
+    funcname = fun[0]
     if setupresult.error:
       color('blue')
-      message = "Skipping test %s due to failed initialization" % testname
+      message = "Skipping test %s.%s due to failed initialization" % (name, funcname)
       print "\n" + message
       results = Result(error=True, stdout=message, stderr=message)
     else:
       color('blue')
-      print "\nRunning %s" % testname
+      print "\nRunning %s.%s" % (name, funcname)
       color()
       results = _run_test_function(fun, xia2callRequired=True)
       results.printStdout(colorFunctionStdout=_color_green, colorFunctionStderr=_color_red)
 
     color()
-    testresults[testname] = results
+    testresults[funcname] = results
 
   if any([t.error for t in testresults.itervalues()]):
     color('bright', 'red')
@@ -149,14 +149,10 @@ if __name__ == "__main__":
   if (len(sys.argv) <= 1):
     _show_all_tests()
   else:
-    results = {}
     for t in sys.argv[1:]:
-      print t
-      results.update(_run_test_module(t))
-    print results
-    from junit_xml import TestSuite
+      results = _run_test_module(t)
+      from junit_xml import TestSuite
 
-    ts = TestSuite("my test suite", [r.toJUnitTestCase(n) for (n, r) in results.iteritems()])
-    with open('output.xml', 'w') as f:
-      f.write(TestSuite.to_xml_string([ts]))
- 
+      ts = TestSuite(t, [r.toJUnitTestCase(n) for (n, r) in results.iteritems()])
+      with open('output.xml', 'w') as f:
+        f.write(TestSuite.to_xml_string([ts]))

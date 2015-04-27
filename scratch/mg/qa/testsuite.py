@@ -51,7 +51,7 @@ def _assertResultsAvailable(source):
   if _testResult is None:
     raise ValueError('xia2() has not been called before %s test' % source)
 
- 
+
 # Internal decorator for test functions
 # Only export decorated test functions for '*' imports
 
@@ -63,7 +63,7 @@ def _TestFunction(func):
   def inner(*args, **kwargs):
     callLevel = _incrementRecursionDepth() # ignore problems reported by inner functions
     result = ''
-    if _debugOutput: 
+    if _debugOutput:
       print "Arguments to %s were: %s, %s" % (functionName, args, kwargs)
     try:
       result = func(*args, **kwargs)
@@ -97,7 +97,7 @@ def _resetRecursionDepth():
   global _recursionDepth
   _recursionDepth = 0
 
- 
+
 @_TestFunction
 def images(n):
   _debug("Check for %d images" % n)
@@ -147,4 +147,3 @@ def fail(*args):
   _fail(message)
 
 _resultList = []
-

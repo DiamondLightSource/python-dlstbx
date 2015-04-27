@@ -1,5 +1,15 @@
+_debug = False
+
 class Result:
   def __init__(self, error=False, message=None, stacktrace=None, stdout=None, stderr=None):
+    if _debug:
+      print "Result() constructor:"
+      print "  err: ", error
+      print "  msg: ", message
+      print "  trc: ", stacktrace
+      print "  out: ", stdout
+      print "  err: ", stderr
+
     if (error == False):
       self.error = False
     else:
@@ -30,6 +40,14 @@ class Result:
 
 
   def append(self, result=None, error=False, message=None, stacktrace=None, stdout=None, stderr=None):
+    if _debug:
+      print "Result() append:"
+      print "  err: ", error
+      print "  msg: ", message
+      print "  trc: ", stacktrace
+      print "  out: ", stdout
+      print "  err: ", stderr
+
     if result is not None:
       self.append(error=result.error, message=result.message, stacktrace=result.stacktrace, stdout=result.stdout, stderr=result.stderr)
 
@@ -55,7 +73,7 @@ class Result:
         self.stacktrace = ""
       self.stacktrace = (self.stacktrace + "\n" + stacktrace).lstrip()
       if self.message is None:
-        self.message = self.stacktrace.split('\n')[-1]
+        self.message = self.stacktrace.split('\n')[0]
 
     if (stdout is not None) and (stdout is not ""):
       if self.stdout is None:
@@ -64,6 +82,14 @@ class Result:
 
 
   def prepend(self, error=False, message=None, stacktrace=None, stdout=None, stderr=None):
+    if _debug:
+      print "Result() prepend:"
+      print "  err: ", error
+      print "  msg: ", message
+      print "  trc: ", stacktrace
+      print "  out: ", stdout
+      print "  err: ", stderr
+
     if (error == True):
       self.error = True
 

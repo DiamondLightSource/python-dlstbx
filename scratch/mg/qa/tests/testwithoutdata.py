@@ -16,5 +16,3 @@ def runwithdials():
   uniquereflections(100)
   multiplicity(between(3, 5))
   runtime(minutes(10))
-
-

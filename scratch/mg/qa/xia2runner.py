@@ -5,6 +5,6 @@ def xia2(*args, **kwargs):
   print "running test ", args, kwargs
   print "=========="
 
-  result = { "resolution": 7 }
+  result = { "resolution.low": 5, "resolution.high": 20 }
 
   testsuite.storeTestResults(result)

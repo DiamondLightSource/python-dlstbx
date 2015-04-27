@@ -51,6 +51,15 @@ def _assertResultsAvailable(source):
   if _testResult is None:
     raise ValueError('xia2() has not been called before %s test' % source)
 
+def _assertParametersPresent(source, args):
+  if len(args) == 0:
+    raise ValueError('%s test called without parameters' % source)
+
+def _assertNumericParameters(source, args):
+  import numbers
+  if any([not isinstance(r, numbers.Number) for r in args]):
+    raise ValueError('%s test called with non-numerical parameters' % source)
+
 
 # Internal decorator for test functions
 # Only export decorated test functions for '*' imports
@@ -113,17 +122,27 @@ def unitcell(*args):
   pass
 
 @_TestFunction
-def between(*args):
-  pass
+def between(boundaryA, boundaryB):
+  if (boundaryA > boundaryB):
+    boundaryA, boundaryB = boundaryB, boundaryA
+  def comparator(x):
+    return (x >= boundaryA) and (x <= boundaryB)
+  return comparator 
 
 @_TestFunction
 def resolution(*args):
   _assertResultsAvailable('resolution%s' % str(args))
+  _assertParametersPresent('resolution', args)
+  _assertNumericParameters('resolution', args)
   for r in args:
     if callable(r):
       pass
     else:
-      _debug("Check for resolution %.2f" % r)
+      check = between(_testResult['resolution.low'], _testResult['resolution.high'])(r)
+      if check:
+        _debug("Check for resolution %.2f: OK" % r)
+      else:
+        _fail("Check for resolution %.2f: FAIL" % r)
 
 @_TestFunction
 def completeness(*args):

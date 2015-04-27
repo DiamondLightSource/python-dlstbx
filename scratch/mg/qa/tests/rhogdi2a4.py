@@ -2,10 +2,7 @@ from qa import *
 
 @Data
 def checkthatdataiscomplete():
-  images(450)
-#  fail('some error')
-#  fail('some other error', 2)
-  pass
+  images(460)
 
 @Test
 def runwithdials():
@@ -27,10 +24,6 @@ def showparameters():
   xia2()
 
 @Test
-def dontrunxia2():
-  pass
-
-@Test
 def earlytest():
   resolution(5)
   xia2('bla')
@@ -39,6 +32,7 @@ def earlytest():
 @Test(15)
 def runwith3dii15():
   xia2('-3dii15')
+  resolution(12)
 
 @Test(timeout=minutes(20))
 def runwith3dii():

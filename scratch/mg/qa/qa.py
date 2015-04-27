@@ -60,9 +60,6 @@ def _run_test_function(func, xia2callRequired=False):
   startTime = timeit.default_timer()
   try:
     func[1]()
-    def derp():
-      fnail
-#   derp()
   except Exception as e:
     e_type, e_value, e_traceback = sys.exc_info()
     import traceback
@@ -159,4 +156,4 @@ if __name__ == "__main__":
 
       ts = TestSuite("dlstbx.qa.%s" % t, [r.toJUnitTestCase(n) for (n, r) in results.iteritems()])
       with open(os.path.join(home, 'logs', '%s.xml' % t), 'w') as f:
-        f.write(TestSuite.to_xml_string([ts]))
+        TestSuite.to_file(f, [ts], prettyprint=False)

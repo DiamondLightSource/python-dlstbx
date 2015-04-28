@@ -104,13 +104,27 @@ def _run_with_timeout(command, timeout, debug=False):
 
 
 def xia2(*args, **kwargs):
+  import os
+
+  module = testsuite.getModule()
+  workdir = os.path.join(module['workdir'], module['testname'])
+  datadir = module['datadir']
+
+  if not os.path.isdir(workdir):
+    os.makedirs(workdir)
+  os.chdir(workdir)
+
   print "=========="
   print "running test ", args, kwargs
+  print "Workdir:", workdir
+  print "Datadir:", datadir
   print "=========="
+
+  command = ['xia2', '-quick']
+  command.extend(args)
+  command.append(datadir)
+  print _run_with_timeout(command, 600)
 
   result = { "resolution.low": 5, "resolution.high": 20 }
 
   testsuite.storeTestResults(result)
-
-#  print _run_with_timeout(['/bin/bash', '-c', 'sleep 5'], 0.7)
-#  print _run_with_timeout(['/bin/bash', '-c', 'ls -la'], 1.05)

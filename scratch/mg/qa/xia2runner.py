@@ -2,7 +2,7 @@ import testsuite
 
 class _NonBlockingStreamReader:
   '''Reads a stream in a thread to avoid blocking/deadlocks'''
-  def __init__(self, stream):
+  def __init__(self, stream, output=True):
     import cStringIO as StringIO
     from threading import Thread
 
@@ -17,6 +17,8 @@ class _NonBlockingStreamReader:
         line = self._stream.readline()
         if line:
           self._buffer.write(line)
+          if output:
+            print line,
       self._terminated = True
 
     self._thread = Thread(target = _thread_write_stream_to_buffer)
@@ -42,6 +44,7 @@ def _run_with_timeout(command, timeout, debug=False):
   import time
   import timeit
   import subprocess
+  import sys
 
   if debug:
     print "Starting external process:", command
@@ -59,7 +62,12 @@ def _run_with_timeout(command, timeout, debug=False):
       print "still running (T%.2fs)" % (timeit.default_timer() - max_time)
 
     # sleep some time
-    time.sleep(0.5)
+    try:
+      time.sleep(0.5)
+    except KeyboardInterrupt:
+      p.kill() # if user pressed Ctrl+C we won't be able to produce a proper report anyway
+               # but at least should make sure the process dies with us
+      sys.exit(1)
 
     # check if process is still running
     p.poll()
@@ -107,23 +115,29 @@ def xia2(*args, **kwargs):
   import os
 
   module = testsuite.getModule()
-  workdir = os.path.join(module['workdir'], module['testname'])
+  workdir = os.path.join(module['workdir'], module['currentTest'][0])
   datadir = module['datadir']
-
-  if not os.path.isdir(workdir):
-    os.makedirs(workdir)
-  os.chdir(workdir)
+  timeout = 3600
+  if 'timeout' in module['currentTest'][3]:
+    timeout = module['currentTest'][3]['timeout']
 
   print "=========="
   print "running test ", args, kwargs
   print "Workdir:", workdir
   print "Datadir:", datadir
+  print "Decoration:", module['currentTest'][3]
+  print "Timeout:", timeout
   print "=========="
+
+  if not os.path.isdir(workdir):
+    os.makedirs(workdir)
+  os.chdir(workdir)
 
   command = ['xia2', '-quick']
   command.extend(args)
   command.append(datadir)
-  print _run_with_timeout(command, 600)
+
+  print _run_with_timeout(command, timeout=timeout, debug=False)
 
   result = { "resolution.low": 5, "resolution.high": 20 }
 

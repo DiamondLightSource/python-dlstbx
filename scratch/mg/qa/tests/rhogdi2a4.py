@@ -14,16 +14,13 @@ def checkthatdataiscomplete():
 def runwithdials():
   xia2('-dials')
 
-  runtime(minutes(10))
+  runtime(minutes(4))
 #  spacegroup("P 21 21 21")
 #  unitcell(between(4,7), between(5,8), between(10,20))
-
-  resolution(1.5, 20)
-#  completeness(60)
-#  multiplicity(4)
-#  uniquereflections(100)
-#  multiplicity(between(3, 5))
-
+  resolution(2.1, 25)
+  completeness(40)
+  multiplicity(1.2)
+  uniquereflections(3700)
 
 @Test
 def showparameters():
@@ -32,6 +29,14 @@ def showparameters():
 @Test(timeout=minutes(20))
 def runwith3dii():
   xia2('-3dii')
+
+  runtime(minutes(4))
+#  spacegroup("P 21 21 21")
+#  unitcell(between(4,7), between(5,8), between(10,20))
+  resolution(2.1, 25)
+  completeness(40)
+  multiplicity(1.2)
+  uniquereflections(3700)
 
 if 0:
   checkthatdataiscomplete()

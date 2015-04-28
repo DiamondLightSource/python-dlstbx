@@ -59,7 +59,7 @@ def _show_all_tests():
 def _run_test_function(module, func, xia2callRequired=False):
   import testsuite
   import timeit
-  module['testname'] = func[0]
+  module['currentTest'] = func
   failure = None
   stacktrace = None
 

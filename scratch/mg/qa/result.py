@@ -68,7 +68,7 @@ class Result:
       self.error = True
       if self.stderr is None:
         self.stderr = ""
-      self.stderr = (self.stderr + "\n" + stderr).lstrip()
+      self.stderr = (self.stderr + "\n" + stderr).lstrip("\n")
       if self.message is None:
         self.message = self.stderr.split('\n', 1)[0]
 
@@ -76,14 +76,14 @@ class Result:
       self.error = True
       if self.stacktrace is None:
         self.stacktrace = ""
-      self.stacktrace = (self.stacktrace + "\n" + stacktrace).lstrip()
+      self.stacktrace = (self.stacktrace + "\n" + stacktrace).lstrip("\n")
       if self.message is None:
         self.message = self.stacktrace.split('\n')[0]
 
     if (stdout is not None) and (stdout is not ""):
       if self.stdout is None:
         self.stdout = ""
-      self.stdout = (self.stdout + "\n" + stdout).lstrip()
+      self.stdout = (self.stdout + "\n" + stdout).lstrip("\n")
 
 
   def prepend(self, error=False, message=None, stacktrace=None, stdout=None, stderr=None):
@@ -107,7 +107,7 @@ class Result:
       self.error = True
       if self.stderr is None:
         self.stderr = ""
-      self.stderr = (stderr + "\n" + self.stderr).rstrip()
+      self.stderr = (stderr + "\n" + self.stderr).rstrip("\n")
       if self.message is None:
         self.message = self.stderr.split('\n', 1)[0]
 
@@ -115,14 +115,14 @@ class Result:
       self.error = True
       if self.stacktrace is None:
         self.stacktrace = ""
-      self.stacktrace = (stacktrace + "\n" + self.stacktrace).rstrip()
+      self.stacktrace = (stacktrace + "\n" + self.stacktrace).rstrip("\n")
       if self.message is None:
         self.message = self.stacktrace.split('\n')[-1]
 
     if (stdout is not None) and (stdout is not ""):
       if self.stdout is None:
         self.stdout = ""
-      self.stdout = (stdout + "\n" + self.stdout).rstrip()
+      self.stdout = (stdout + "\n" + self.stdout).rstrip("\n")
 
   def skip(self, message):
     self.skipMessage = message
@@ -144,6 +144,38 @@ class Result:
       if colorFunction is not None:
         colorFunction(None)
 
+  def printResult(self):
+    import term
+    if self.stdout is None:
+      stdout = []
+    else:
+      stdout = self.stdout.split('\n')
+    if self.stderr is None:
+      stderr = []
+    else:
+      stderr = self.stderr.split('\n')
+    if self.stacktrace is None:
+      stacktrace = []
+    else:
+      stacktrace = self.stacktrace.split('\n')
+
+    for line in stdout:
+      if stderr and (line == stderr[0]):
+        stderr = stderr[1:]
+        term.color('red')
+      elif stacktrace and (line == stacktrace[0]):
+        stacktrace = stacktrace[1:]
+        term.color('red')
+      else:
+        term.color('green')
+      print line
+    term.color('red')
+    for line in stderr:
+      print line
+    for line in stacktrace:
+      print line
+    term.color('')
+ 
   def printStdout(self, colorFunctionStdout=None, colorFunctionStderr=None, colorFunctionStacktrace=None):
     if self.stdout is None:
       return

@@ -1,4 +1,3 @@
-from result import Result
 # test functions for improved test readability
 
 _debugOutput = False
@@ -10,6 +9,7 @@ _testStatus = None
 
 def _reset():
   global _testStatus
+  from result import Result
   _testStatus = Result()
 
 def _debug(message):

@@ -79,32 +79,20 @@ def _run_test_function(module, func, xia2callRequired=False):
     testresults.append(error=True, stdout=failure + "\n" + stacktrace, stderr=failure, stacktrace=stacktrace)
   return testresults
 
-def _color_green(string):
-  if string is None:
-    color()
-  else:
-    color('green')
-
-def _color_red(string):
-  if string is None:
-    color()
-  else:
-    color('red')
-
 def _run_test_module(name, debugOutput=True):
   if name not in _loaded_modules:
     _load_test_module(name)
   module = _loaded_modules[name]
 
   setupresult = module['result']
-  setupresult.printStdout(colorFunctionStdout=_color_green, colorFunctionStderr=_color_red)
+  setupresult.printResult()
 
   for fun in module['Data()']:
     color('blue')
     print "\nRunning %s.%s" % (name, fun[0])
     color()
     results = _run_test_function(module, fun)
-    results.printStdout(colorFunctionStdout=_color_green, colorFunctionStderr=_color_red)
+    results.printResult()
     setupresult.append(stdout="\n\n")
     if results.error:
       setupmessage = "Test setup error in %s()" % fun[0]
@@ -115,7 +103,7 @@ def _run_test_module(name, debugOutput=True):
     setupresult.append(results)
 
   testresults = { "__init__" : setupresult }
-#  setupresult.printStdout(colorFunctionStdout=_color_green, colorFunctionStderr=_color_red)
+#  setupresult.printResult()
 
   for fun in module['Test()']:
     funcname = fun[0]
@@ -130,7 +118,7 @@ def _run_test_module(name, debugOutput=True):
       print "\nRunning %s.%s" % (name, funcname)
       color()
       results = _run_test_function(module, fun, xia2callRequired=True)
-      results.printStdout(colorFunctionStdout=_color_green, colorFunctionStderr=_color_red)
+      results.printResult()
 
     color()
     testresults[funcname] = results

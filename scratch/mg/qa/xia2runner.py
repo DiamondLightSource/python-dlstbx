@@ -1,14 +1,11 @@
 import testsuite
 
 class _NonBlockingStreamReader:
+  '''Reads a stream in a thread to avoid blocking/deadlocks'''
   def __init__(self, stream):
     import cStringIO as StringIO
     from threading import Thread
 
-    '''
-    stream: the stream to read from.
-            Usually a process' stdout or stderr.
-    '''
     self._stream = stream
     self._buffer = StringIO.StringIO()
     self._terminated = False
@@ -115,5 +112,5 @@ def xia2(*args, **kwargs):
 
   testsuite.storeTestResults(result)
 
-  print _run_with_timeout(['/bin/bash', '-c', 'sleep 5'], 0.7)
-  print _run_with_timeout(['/bin/bash', '-c', 'ls -la'], 1.05)
+#  print _run_with_timeout(['/bin/bash', '-c', 'sleep 5'], 0.7)
+#  print _run_with_timeout(['/bin/bash', '-c', 'ls -la'], 1.05)

@@ -10,4 +10,4 @@ for f in os.listdir(p):
     for n in suites.getchildren():
       merged.append(n)
 
-et.ElementTree(merged).write('output.xml')
+print et.tostring(merged)

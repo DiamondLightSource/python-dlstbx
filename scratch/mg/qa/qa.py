@@ -107,7 +107,6 @@ def _run_test_module(name, debugOutput=True):
     setupresult.append(results)
 
   testresults = { "__init__" : setupresult }
-#  setupresult.printResult()
 
   for fun in module['Test()']:
     funcname = fun[0]
@@ -142,6 +141,9 @@ if __name__ == "__main__":
   import sys
   import tests
   import decorators
+
+  # ensure all created files are group writeable and publically readable
+  os.umask((os.umask(0) | 075) - 075)
 
   print "   Base directory:", _basedir
   print "   Data directory:", _datadir

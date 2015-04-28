@@ -1,5 +1,7 @@
 import testsuite
 
+_debug = False
+
 class _NonBlockingStreamReader:
   '''Reads a stream in a thread to avoid blocking/deadlocks'''
   def __init__(self, stream, output=True):
@@ -39,14 +41,14 @@ class _NonBlockingStreamReader:
     return data
 
 
-def _run_with_timeout(command, timeout, debug=False):
+def _run_with_timeout(command, timeout):
   import cStringIO as StringIO
   import time
   import timeit
   import subprocess
   import sys
 
-  if debug:
+  if _debug:
     print "Starting external process:", command
   start_time = timeit.default_timer()
   max_time = start_time + timeout
@@ -58,7 +60,7 @@ def _run_with_timeout(command, timeout, debug=False):
   timeout = False
   
   while (timeit.default_timer() < max_time) and (p.returncode is None):
-    if debug:
+    if _debug:
       print "still running (T%.2fs)" % (timeit.default_timer() - max_time)
 
     # sleep some time
@@ -75,7 +77,7 @@ def _run_with_timeout(command, timeout, debug=False):
   if p.returncode is None:
     # timeout condition
     timeout = True
-    if debug:
+    if _debug:
       print "timeout (T%.2fs)" % (timeit.default_timer() - max_time)
 
     # send terminate signal and wait some time for buffers to be read
@@ -98,7 +100,7 @@ def _run_with_timeout(command, timeout, debug=False):
     raise Exception("Process won't terminate")
 
   runtime = timeit.default_timer() - start_time
-  if debug:
+  if _debug:
     print "Process ended after %.1f seconds with exit code %d (T%.2fs)" % \
       (runtime, p.returncode, timeit.default_timer() - max_time)
 
@@ -113,6 +115,7 @@ def _run_with_timeout(command, timeout, debug=False):
 
 def xia2(*args, **kwargs):
   import os
+  import shutil
 
   module = testsuite.getModule()
   workdir = os.path.join(module['workdir'], module['currentTest'][0])
@@ -129,15 +132,31 @@ def xia2(*args, **kwargs):
   print "Timeout:", timeout
   print "=========="
 
+  # Go to working directory
   if not os.path.isdir(workdir):
     os.makedirs(workdir)
   os.chdir(workdir)
+
+  # clear working directory
+  for f in os.listdir(workdir):
+    fp = os.path.join(workdir, f)
+    if os.path.isfile(fp):
+      if _debug:
+        print "unlink", fp
+      os.unlink(fp)
+    elif os.path.isdir(fp):
+      if _debug:
+        print "rmtree", fp
+      shutil.rmtree(fp)
+
 
   command = ['xia2', '-quick']
   command.extend(args)
   command.append(datadir)
 
-  print _run_with_timeout(command, timeout=timeout, debug=False)
+  run = _run_with_timeout(command, timeout=timeout)
+  if _debug:
+    print run
 
   result = { "resolution.low": 5, "resolution.high": 20 }
 

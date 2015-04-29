@@ -1,6 +1,7 @@
 import testsuite
 
 _debug = False
+_dummy = True
 
 class _NonBlockingStreamReader:
   '''Reads a stream in a thread to avoid blocking/deadlocks'''
@@ -154,7 +155,11 @@ def xia2(*args, **kwargs):
   command.extend(args)
   command.append(datadir)
 
-  run = _run_with_timeout(command, timeout=timeout)
+  if _dummy:
+    run = "dummy"
+  else:
+    run = _run_with_timeout(command, timeout=timeout)
+
   if _debug:
     print run
 

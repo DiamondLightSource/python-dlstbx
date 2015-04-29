@@ -6,15 +6,14 @@ from units import *
 from term import *
 import os
 
-_basedir = '/dls/mx-scratch/mgerstel/qa'
-
-_datadir = os.path.join(_basedir, 'data')
-_workdir = os.path.join(_basedir, 'work')
-_logdir  = os.path.join(_basedir, 'logs')
-_archive = os.path.join(_basedir, 'archive')
-
 _loaded_modules = {}
 _debug = False
+
+def _archive_path(module):
+  from datetime import datetime
+  now = datetime.now()
+  return os.path.join(_settings['archive'], "%04d" % now.year, "%02d" % now.month, module,
+    "%04d-%02d-%02d-%02d%02d%02d" % (now.year, now.month, now.day, now.hour, now.minute, now.second))
 
 def _load_test_module(name):
   if name in _loaded_modules:
@@ -22,17 +21,17 @@ def _load_test_module(name):
 
   loader = { "name" : name }
   decorators.disableDecoratorFunctions()
-  loader["module"] = tests.load_module(name)
+  loader['module'] = tests.load_module(name)
   decorators.enableDecoratorFunctions()
-  loader["Test()"] = decorators.getDiscoveredTestFunctions()
-  loader["Data()"] = decorators.getDiscoveredDataFunctions()
-  loader["runlog"] = {}
-  loader["datadir"] = os.path.join(_datadir, name)
-  loader["workdir"] = os.path.join(_workdir, name)
-  loader["archivedir"] = os.path.join(_archive, name)
-  loader["errors"] = [ "Test runs function %s() on import. Tests should not run functions on import." % n for n in decorators.disabledCalls() ]
-  if not os.path.exists(loader["datadir"]):
-    loader["errors"].append( "Data directory %s is missing" % loader["datadir"] )
+  loader['Test()'] = decorators.getDiscoveredTestFunctions()
+  loader['Data()'] = decorators.getDiscoveredDataFunctions()
+  loader['runlog'] = {}
+  loader['datadir'] = os.path.join(_settings['datadir'], name)
+  loader['workdir'] = os.path.join(_settings['workdir'], name)
+  loader['archivedir'] = _archive_path(name)
+  loader['errors'] = [ "Test runs function %s() on import. Tests should not run functions on import." % n for n in decorators.disabledCalls() ]
+  if not os.path.exists(loader['datadir']):
+    loader['errors'].append( "Data directory %s is missing" % loader["datadir"] )
   loader['result'] = Result(stdout="\n".join(loader['errors']),
                             stderr="\n".join(loader['errors']))
   _loaded_modules[name] = loader
@@ -41,20 +40,19 @@ def _load_test_module(name):
   return loader
 
 def _show_all_tests():
-  print "Available tests:"
   for k, _ in tests.list_all_modules().iteritems():
     test = _load_test_module(k)
     testlist = ", ".join([name for (name, func, args, kwargs) in test["Test()"]])
-    print "  %25s : [ %s ]" % (k, testlist)
     if test["errors"]:
       color('bright', 'red')
+    print "  %25s : [ %s ]" % (k, testlist)
+    if test["errors"]:
       print "  This test contains errors:"
       color('', 'red')
       for n in test["errors"]:
         print "    %s" % n
       print
       color()
-  print "Specify tests on command line to run them"
 
 def _run_test_function(module, func, xia2callRequired=False):
   import testsuite
@@ -86,6 +84,10 @@ def _run_test_function(module, func, xia2callRequired=False):
 def _run_test_module(name, debugOutput=True):
   if name not in _loaded_modules:
     _load_test_module(name)
+  color('blue')
+  print "\nLoading %s" % name
+  color()
+
   module = _loaded_modules[name]
 
   setupresult = module['result']
@@ -141,24 +143,46 @@ if __name__ == "__main__":
   import sys
   import tests
   import decorators
+  from optparse import OptionParser, SUPPRESS_HELP
 
   # ensure all created files are group writeable and publically readable
   os.umask((os.umask(0) | 075) - 075)
 
-  print "   Base directory:", _basedir
-  print "   Data directory:", _datadir
-  print "   Work directory:", _workdir
-  print "    Log directory:", _logdir
-  print "Archive directory:", _archive
+  parser = OptionParser("usage: %prog [options] [module [module [..]]]")
+  parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+#  parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="produce more output")
+#  parser.add_option("-q", "--quiet", action="store_true", dest="quiet", help="produce less output")
+  parser.add_option("-p", "--path", dest="path", metavar="PATH", help="Location of the quality-assurance directory structure (containing subdirectories /work /logs /archive)", default=".")
+  parser.add_option("-d", "--datapath", dest="datapath", metavar="PATH", help="Location of the data (default: /dls/mx-scratch/mgerstel/qa/data)", default="/dls/mx-scratch/mgerstel/qa/data")
+  (options, args) = parser.parse_args()
+
+  if _debug:
+    print "Options:  ", options
+    print "Arguments:", args
+
+  global _settings
+  _settings = { 'basedir': os.path.abspath(options.path),
+                'datadir': options.datapath }
+  _settings['workdir'] = os.path.join(_settings['basedir'], 'work')
+  _settings['logdir'] = os.path.join(_settings['basedir'], 'logs')
+  _settings['archive'] = os.path.join(_settings['basedir'], 'archive')
+
+  print "   Base directory:", _settings['basedir']
+  print "   Data directory:", _settings['datadir']
+  print "   Work directory:", _settings['workdir']
+  print "    Log directory:", _settings['logdir']
+  print "Archive directory:", _settings['archive']
   print
 
-  if (len(sys.argv) <= 1):
+  if (len(args) == 0):
+    print "Available tests:"
     _show_all_tests()
+    print "Specify tests on command line to run them"
   else:
-    for t in sys.argv[1:]:
+    for t in args:
       results = _run_test_module(t)
       from junit_xml import TestSuite
 
       ts = TestSuite("dlstbx.qa.%s" % t, [r.toJUnitTestCase(n) for (n, r) in results.iteritems()])
-      with open(os.path.join(_logdir, '%s.xml' % t), 'w') as f:
+      with open(os.path.join(_settings['logdir'], '%s.xml' % t), 'w') as f:
         TestSuite.to_file(f, [ts], prettyprint=False)

@@ -1,7 +1,7 @@
 import testsuite
 
-_debug = False
-_dummy = True
+_debug = True
+_dummy = False
 
 class _NonBlockingStreamReader:
   '''Reads a stream in a thread to avoid blocking/deadlocks'''
@@ -121,6 +121,7 @@ def xia2(*args, **kwargs):
   module = testsuite.getModule()
   workdir = os.path.join(module['workdir'], module['currentTest'][0])
   datadir = module['datadir']
+  archivedir = os.path.join(module['archivedir'], module['currentTest'][0])
   timeout = 3600
   if 'timeout' in module['currentTest'][3]:
     timeout = module['currentTest'][3]['timeout']
@@ -131,6 +132,7 @@ def xia2(*args, **kwargs):
   print "Datadir:", datadir
   print "Decoration:", module['currentTest'][3]
   print "Timeout:", timeout
+  print "Archive:", archivedir
   print "=========="
 
   # Go to working directory

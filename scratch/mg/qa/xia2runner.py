@@ -1,5 +1,4 @@
-_debug = False
-_dummy = False
+_dummy = True
 
 class _NonBlockingStreamReader:
   '''Reads a stream in a thread to avoid blocking/deadlocks'''
@@ -40,14 +39,14 @@ class _NonBlockingStreamReader:
     return data
 
 
-def _run_with_timeout(command, timeout):
+def _run_with_timeout(command, timeout, debug):
   import cStringIO as StringIO
   import time
   import timeit
   import subprocess
   import sys
 
-  if _debug:
+  if debug:
     print "Starting external process:", command
   start_time = timeit.default_timer()
   max_time = start_time + timeout
@@ -59,7 +58,7 @@ def _run_with_timeout(command, timeout):
   timeout = False
   
   while (timeit.default_timer() < max_time) and (p.returncode is None):
-    if _debug:
+    if debug:
       print "still running (T%.2fs)" % (timeit.default_timer() - max_time)
 
     # sleep some time
@@ -76,7 +75,7 @@ def _run_with_timeout(command, timeout):
   if p.returncode is None:
     # timeout condition
     timeout = True
-    if _debug:
+    if debug:
       print "timeout (T%.2fs)" % (timeit.default_timer() - max_time)
 
     # send terminate signal and wait some time for buffers to be read
@@ -99,7 +98,7 @@ def _run_with_timeout(command, timeout):
     raise Exception("Process won't terminate")
 
   runtime = timeit.default_timer() - start_time
-  if _debug:
+  if debug:
     print "Process ended after %.1f seconds with exit code %d (T%.2fs)" % \
       (runtime, p.returncode, timeit.default_timer() - max_time)
 
@@ -112,25 +111,29 @@ def _run_with_timeout(command, timeout):
   return result
 
 
-def runxia2(command, module):
+def runxia2(command, module, debug=1):
   import os
   import shutil
+  from datetime import datetime
+  now = datetime.now()
 
   workdir = os.path.join(module['workdir'], module['currentTest'][0])
   datadir = module['datadir']
-  archivedir = os.path.join(module['archivedir'], module['currentTest'][0])
+  archive = os.path.join(module['archivedir'], module['currentTest'][0], 
+       "%s-%s-%04d%02d%02d-%02d%02d.json" % (module['name'], module['currentTest'][0], now.year, now.month, now.day, now.hour, now.minute))
   timeout = 3600
   if 'timeout' in module['currentTest'][3]:
     timeout = module['currentTest'][3]['timeout']
 
-  print "=========="
-  print "running test ", command
-  print "Workdir:", workdir
-  print "Datadir:", datadir
-  print "Decoration:", module['currentTest'][3]
-  print "Timeout:", timeout
-  print "Archive:", archivedir
-  print "=========="
+  if debug:
+    print "=========="
+    print "running test ", command
+    print "Workdir:", workdir
+    print "Datadir:", datadir
+    print "Decoration:", module['currentTest'][3]
+    print "Timeout:", timeout
+    print "Archive:", archive
+    print "=========="
 
   # Go to working directory
   if not os.path.isdir(workdir):
@@ -138,29 +141,47 @@ def runxia2(command, module):
   os.chdir(workdir)
 
   # clear working directory
-  for f in os.listdir(workdir):
-    fp = os.path.join(workdir, f)
-    if os.path.isfile(fp):
-      if _debug:
-        print "unlink", fp
-      os.unlink(fp)
-    elif os.path.isdir(fp):
-      if _debug:
-        print "rmtree", fp
-      shutil.rmtree(fp)
+  if not _dummy:
+    for f in os.listdir(workdir):
+      fp = os.path.join(workdir, f)
+      if os.path.isfile(fp):
+        if debug:
+          print "unlink", fp
+        os.unlink(fp)
+      elif os.path.isdir(fp):
+        if debug:
+          print "rmtree", fp
+        shutil.rmtree(fp)
 
   runcmd = ['xia2', '-quick']
   runcmd.extend(command)
   runcmd.append(datadir)
 
   if _dummy:
-    run = "dummy"
+    run = { 'exitcode': 0, 'timeout': False }
   else:
-    run = _run_with_timeout(runcmd, timeout=timeout)
+    run = _run_with_timeout(runcmd, timeout=timeout, debug=(debug>=2))
 
-  if _debug:
+  if debug:
     print run
 
-  result = { "resolution.low": 5, "resolution.high": 20 }
+  jsonfile = os.path.join(workdir, 'xia2.json')
 
-  return (True, result)
+  success = (run['exitcode'] == 0) and (run['timeout'] == False) \
+     and os.path.isfile(jsonfile) \
+     and not os.path.isfile(os.path.join(workdir, 'xia2.error'))
+
+  result = None
+  try:
+    import json
+    with open(jsonfile, 'r') as f:
+      result = json.load(f)
+  except:
+    success = False
+
+  if not os.path.exists(os.path.dirname(archive)):
+    os.makedirs(os.path.dirname(archive))
+
+  shutil.copyfile(jsonfile, archive)
+  
+  return (success, result)

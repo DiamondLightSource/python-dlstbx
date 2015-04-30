@@ -1,6 +1,4 @@
-import testsuite
-
-_debug = True
+_debug = False
 _dummy = False
 
 class _NonBlockingStreamReader:
@@ -114,11 +112,10 @@ def _run_with_timeout(command, timeout):
   return result
 
 
-def xia2(*args, **kwargs):
+def runxia2(command, module):
   import os
   import shutil
 
-  module = testsuite.getModule()
   workdir = os.path.join(module['workdir'], module['currentTest'][0])
   datadir = module['datadir']
   archivedir = os.path.join(module['archivedir'], module['currentTest'][0])
@@ -127,7 +124,7 @@ def xia2(*args, **kwargs):
     timeout = module['currentTest'][3]['timeout']
 
   print "=========="
-  print "running test ", args, kwargs
+  print "running test ", command
   print "Workdir:", workdir
   print "Datadir:", datadir
   print "Decoration:", module['currentTest'][3]
@@ -152,19 +149,18 @@ def xia2(*args, **kwargs):
         print "rmtree", fp
       shutil.rmtree(fp)
 
-
-  command = ['xia2', '-quick']
-  command.extend(args)
-  command.append(datadir)
+  runcmd = ['xia2', '-quick']
+  runcmd.extend(command)
+  runcmd.append(datadir)
 
   if _dummy:
     run = "dummy"
   else:
-    run = _run_with_timeout(command, timeout=timeout)
+    run = _run_with_timeout(runcmd, timeout=timeout)
 
   if _debug:
     print run
 
   result = { "resolution.low": 5, "resolution.high": 20 }
 
-  testsuite.storeTestResults(result)
+  return (True, result)

@@ -1,6 +1,5 @@
 from result import Result
 from decorators import Data, Test
-from xia2runner import xia2
 from testsuite import *
 from units import *
 from term import *
@@ -12,8 +11,7 @@ _debug = False
 def _archive_path(module):
   from datetime import datetime
   now = datetime.now()
-  return os.path.join(_settings['archive'], "%04d" % now.year, "%02d" % now.month, module,
-    "%04d-%02d-%02d-%02d%02d%02d" % (now.year, now.month, now.day, now.hour, now.minute, now.second))
+  return os.path.join(_settings['archive'], "%04d" % now.year, "%02d" % now.month, module)
 
 def _load_test_module(name):
   if name in _loaded_modules:

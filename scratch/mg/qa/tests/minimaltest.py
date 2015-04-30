@@ -1,5 +1,5 @@
 from qa import *
 
 @Test
-def runwithdials():
-  xia2()
+def failwithemptydirectory():
+  xia2('-3d')

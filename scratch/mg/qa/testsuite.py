@@ -36,26 +36,32 @@ def getTestOutput():
 _reset()
 
 
-# Communication with xia2: Injecting, resetting, checking for test results
+# Embedding xia2runner: Calling, resetting, checking for test results
 
-_testResult = None
+_testResultXia2 = False
+_testResultJSON = None
 
-def storeTestResults(result):
-  global _testResult
+def _storeTestResults(result):
+  global _testResultJSON
   print "test result stored:", result
-  _testResult = result
+  _testResultJSON = result
 
 def resetTestResults():
-  global _testResult
-  _testResult = None
+  global _testResultJSON, _testResultXia2
+  _testResultJSON = None
+  _testResultXia2 = False
 
 def checkTestResults():
-  if _testResult is None:
+  if not _testResultXia2:
     fail("Test does not include xia2() call")
+  if _testResultJSON is None:
+    fail("xia2() results not available")
 
 def _assertResultsAvailable(source):
-  if _testResult is None:
+  if not _testResultXia2:
     raise ValueError('xia2() has not been called before %s test' % source)
+  if _testResultJSON is None:
+    raise ValueError('xia2() did not return results in %s test' % source)
 
 def _assertParametersPresent(source, args):
   if len(args) == 0:
@@ -161,6 +167,22 @@ def images(*args):
     else:
       check = r == filecount
     _result("Check for %s images" % r, check)
+
+@_TestFunction
+def xia2(*args):
+  import xia2runner
+  global _testResultXia2
+  _testResultXia2 = True
+  (success, result) = xia2runner.runxia2(args, getModule())
+  if success:
+    _storeTestResults(result)
+  else:
+    error = "xia2() failed with: %s" % result
+    if not ('failFast' in getModule()['currentTest'][3]) or getModule()['currentTest'][3]['failFast']:
+      raise Exception(error)
+    else:
+      fail(error)
+  return success
 
 @_TestFunction
 def spacegroup(*args):

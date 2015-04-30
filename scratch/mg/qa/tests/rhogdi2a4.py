@@ -23,8 +23,8 @@ def runwithdials():
   uniquereflections(3700)
 
 @Test
-def showparameters():
-  xia2()
+def failwithinvalidparameters():
+  xia2('-stuff', 'barf=1')
 
 @Test(timeout=minutes(20))
 def runwith3dii():

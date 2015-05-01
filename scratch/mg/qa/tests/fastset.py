@@ -20,6 +20,11 @@ def runwith3d():
   spacegroup("P 21 21 21")
   unitcell(between(4,7), between(5,8), between(10,20))
   resolution(2.1, 25)
+  if high_resolution().has_resolution(5.1):
+    output("bad high res shell")
+  else:
+    output("good high res shell")
+  high_resolution().resolution(2.1)
 
   if has_resolution(1.0):
     output("ultra-high resolution")

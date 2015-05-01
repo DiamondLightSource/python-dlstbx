@@ -142,14 +142,21 @@ class _Comparator():
     return self.description
 
 
-# Internal decorator for test functions
-# Only export a few selected and all decorated test functions for '*' imports
+# 'import *' should only load functions decorated with @_Export
+__all__ = []
 
-__all__ = ['getModule']
-def _TestFunction(func):
+def _Export(func):
   global __all__
+  print "EXPORT ", func.__name__
   functionName = func.__name__
   __all__.append(functionName)
+  def test_function_export(*args, **kwargs):
+    return func(*args, **kwargs)
+  return test_function_export
+
+# Another internal decorator for test functions
+def _TestFunction(func):
+  functionName = func.__name__
   def inner(*args, **kwargs):
     callLevel = _incrementRecursionDepth() # ignore problems reported by inner functions
     result = ''
@@ -174,7 +181,8 @@ def _TestFunction(func):
       stacktrace = "".join(traceback.format_tb(e_traceback)[1:])
       _trace("Test resulted in error: %s\n%s" % (e, stacktrace))
       result = e
-      if not ('failFast' in getModule()['currentTest'][3]) or getModule()['currentTest'][3]['failFast']:
+      test_decorator_kwargs = getModule()['currentTest'][3]
+      if not ('failFast' in test_decorator_kwargs) or test_decorator_kwargs['failFast']:
         raise
     _decrementRecursionDepth()
     if softfail:
@@ -202,10 +210,12 @@ def _resetRecursionDepth():
 
 
 @_TestFunction
+@_Export
 def has_images(*args):
   return images(*args, override_fail=True)
 
 @_TestFunction
+@_Export
 def images(*args):
   _assertParametersPresent('images', args)
   _assertNumericOrComparator('images', args)
@@ -221,6 +231,7 @@ def images(*args):
     _result("Check for %s images" % r, check)
 
 @_TestFunction
+@_Export
 def xia2(*args):
   import xia2runner
   global _testResultXia2
@@ -251,14 +262,17 @@ def xia2(*args):
   return success
 
 @_TestFunction
+@_Export
 def spacegroup(*args):
   skip("Spacegroup not implemented yet")
 
 @_TestFunction
+@_Export
 def unitcell(*args):
   skip("Unit cell not implemented yet")
 
 @_TestFunction
+@_Export
 def between(boundaryA, boundaryB):
   _assertNumericParameters('between', [boundaryA, boundaryB])
   if (boundaryA > boundaryB):
@@ -268,6 +282,7 @@ def between(boundaryA, boundaryB):
   return _Comparator(comparator, "between %.1f and %.1f" % (boundaryA, boundaryB))
 
 @_TestFunction
+@_Export
 def moreThan(boundary):
   _assertNumericParameters('moreThan', [boundary])
   def comparator(x):
@@ -275,6 +290,7 @@ def moreThan(boundary):
   return _Comparator(comparator, "more than %d" % (boundary))
 
 @_TestFunction
+@_Export
 def lessThan(boundary):
   _assertNumericParameters('lessThan', [boundary])
   def comparator(x):
@@ -282,6 +298,7 @@ def lessThan(boundary):
   return _Comparator(comparator, "less than %d" % (boundary))
 
 @_TestFunction
+@_Export
 def atLeast(boundary):
   _assertNumericParameters('atLeast', [boundary])
   def comparator(x):
@@ -289,6 +306,7 @@ def atLeast(boundary):
   return _Comparator(comparator, "at least %d" % (boundary))
 
 @_TestFunction
+@_Export
 def atMost(boundary):
   _assertNumericParameters('atMost', [boundary])
   def comparator(x):
@@ -296,6 +314,7 @@ def atMost(boundary):
   return _Comparator(comparator, "at most %d" % (boundary))
 
 @_TestFunction
+@_Export
 def resolution(*args):
   _assertResultsAvailable('resolution%s' % str(args))
   _assertParametersPresent('resolution', args)
@@ -309,38 +328,65 @@ def resolution(*args):
     _result("Check for resolution %.2f" % r, check.eval(r))
 
 @_TestFunction
+@_Export
 def has_resolution(*args):
   return resolution(*args, override_fail=True)
 
 @_TestFunction
+@_Export
 def completeness(*args):
   skip("Completeness not implemented yet")
 
 @_TestFunction
+@_Export
 def multiplicity(*args):
   skip("Multiplicity not implemented yet")
 
 @_TestFunction
+@_Export
 def uniquereflections(*args):
   skip("Unique reflections not implemented yet")
 
 @_TestFunction
+@_Export
 def runtime(*args):
   skip("Runtime not implemented yet")
 
 @_TestFunction
+@_Export
 def output(*args):
   message = " ".join([str(x) for x in args])
   _output(message)
 
 @_TestFunction
+@_Export
 def skip(*args):
   message = " ".join([str(x) for x in args])
   _skip(message)
 
 @_TestFunction
+@_Export
 def fail(*args):
   message = " ".join([str(x) for x in args])
   _fail(message)
+
+@_Export
+class high_resolution():
+  @_TestFunction
+  def has_resolution(self, *args):
+    return self.resolution(*args, override_fail=True)
+
+  @_TestFunction
+  def resolution(self, *args):
+    _assertResultsAvailable('resolution%s' % str(args))
+    _assertParametersPresent('resolution', args)
+    _assertNumericParameters('resolution', args)
+
+    lowres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['Low resolution limit'][2]
+    highres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['High resolution limit'][2]
+    check = between(lowres, highres)
+    _output("High resolution shell ranges from %.1f to %.1f" % (highres, lowres))
+    for r in args:
+      _result("Check for high resolution %.2f" % r, check.eval(r))
 
 _resultList = []

@@ -70,7 +70,7 @@ def _run_test_function(module, func, xia2callRequired=False):
     e_type, e_value, e_traceback = sys.exc_info()
     import traceback
     stacktrace = ("".join(traceback.format_tb(e_traceback)[1:])).strip()
-    failure = ("Test resulted in error: %s\n%s" % (e, e.__doc__)).strip()
+    failure = "Test resulted in error: %s" % e
   if xia2callRequired:
     testsuite.checkTestResults()
   testresults = testsuite.getTestOutput()

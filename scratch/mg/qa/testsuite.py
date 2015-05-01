@@ -1,38 +1,67 @@
 # test functions for improved test readability
 
-_debugOutput = False
+_debug = True
 
 
-# Internal test status object
-
-_testStatus = None
+# Internal test status object, this tracks a test on the Test level
+#   Module > Test (@Test function) > Subtest function (@_TestFunction call) 
+#             ^^ you are here ^^
+_test_status = None
+_test_soft_fail = 0
+_test_soft_fail_tripped = False
 
 def _reset():
-  global _testStatus
+  global _test_status, _test_soft_fail, _test_soft_fail_tripped
   from result import Result
-  _testStatus = Result()
+  _test_status = Result()
+  _test_soft_fail = 0
+  _test_soft_fail_tripped = False
 
 def _debug(message):
-  _testStatus.append(stdout=message)
+  _test_status.append(stdout=message)
 
 def _fail(message):
-  _testStatus.append(error=True, stdout=message, stderr=message)
+  global _test_soft_fail_tripped
+  if _test_soft_fail:
+    _test_status.append(stdout=message)
+    _test_soft_fail_tripped = True
+  else:
+    _test_status.append(error=True, stdout=message, stderr=message)
 
 def _skip(message):
-  _testStatus.append(stdout=message)
+  _test_status.append(stdout=message)
 
-def _result(message, status):
+def _result(message, status, testOnly=False):
   if status:
     _debug(" [ OK ] " + message)
   else:
-    _fail(" [FAIL] " + message)
+    if _test_soft_fail:
+      _fail(" [fail] " + message)
+    else:
+      _fail(" [FAIL] " + message)
 
 def _trace(stacktrace):
-  _testStatus.append(error=True, stdout=stacktrace, stacktrace=stacktrace)
+  _test_status.append(error=True, stdout=stacktrace, stacktrace=stacktrace)
+
+def _set_soft_fail():
+  global _test_soft_fail
+  if _debug:
+    print "Soft fail set"
+  _test_soft_fail = _test_soft_fail + 1
+
+def _get_soft_fail():
+  global _test_soft_fail, _test_soft_fail_tripped
+  _test_soft_fail = _test_soft_fail - 1
+  if _debug:
+    print "Soft fail unset (Trip status:", _test_soft_fail_tripped, ")"
+  status = _test_soft_fail_tripped
+  if (_test_soft_fail == 0):
+    _test_soft_fail_tripped = False
+  return status
 
 def getTestOutput():
   _resetRecursionDepth()
-  r = _testStatus
+  r = _test_status
   _reset()
   return r
 
@@ -59,6 +88,9 @@ def checkTestResults():
     fail("Test does not include xia2() call")
   if _testResultJSON is None:
     fail("xia2() results not available")
+
+
+# Useful assertions for test functions
 
 def _assertResultsAvailable(source):
   if not _testResultXia2:
@@ -121,8 +153,15 @@ def _TestFunction(func):
   def inner(*args, **kwargs):
     callLevel = _incrementRecursionDepth() # ignore problems reported by inner functions
     result = ''
-    if _debugOutput:
+    if _debug:
       print "Arguments to %s were: %s, %s" % (functionName, args, kwargs)
+    softfail = 'override_fail' in kwargs
+    if softfail:
+      del kwargs['override_fail']
+      _set_soft_fail()
+    if _debug:
+      print "Arguments to %s were: %s, %s" % (functionName, args, kwargs)
+
     try:
       result = func(*args, **kwargs)
     except Exception as e:
@@ -133,9 +172,14 @@ def _TestFunction(func):
       e_type, e_value, e_traceback = sys.exc_info()
       import traceback
       stacktrace = "".join(traceback.format_tb(e_traceback)[1:])
-      _trace("Test resulted in error: %s\n%s\n%s" % (e, e.__doc__, stacktrace))
+      _trace("Test resulted in error: %s\n%s" % (e, stacktrace))
       result = e
+      if not ('failFast' in getModule()['currentTest'][3]) or getModule()['currentTest'][3]['failFast']:
+        raise
     _decrementRecursionDepth()
+    if softfail:
+      result = not _get_soft_fail()
+      print "Soft fail function returns", result
     return result
   return inner
 
@@ -155,6 +199,10 @@ def _resetRecursionDepth():
   global _recursionDepth
   _recursionDepth = 0
 
+
+@_TestFunction
+def has_images(*args):
+  return images(*args, override_fail=True)
 
 @_TestFunction
 def images(*args):
@@ -203,11 +251,11 @@ def xia2(*args):
 
 @_TestFunction
 def spacegroup(*args):
-  skip("Not implemented yet")
+  skip("Spacegroup not implemented yet")
 
 @_TestFunction
 def unitcell(*args):
-  skip("Not implemented yet")
+  skip("Unit cell not implemented yet")
 
 @_TestFunction
 def between(boundaryA, boundaryB):
@@ -257,24 +305,28 @@ def resolution(*args):
 
 @_TestFunction
 def completeness(*args):
-  skip("Not implemented yet")
+  skip("Completeness not implemented yet")
 
 @_TestFunction
 def multiplicity(*args):
-  skip("Not implemented yet")
+  skip("Multiplicity not implemented yet")
 
 @_TestFunction
 def uniquereflections(*args):
-  skip("Not implemented yet")
+  skip("Unique reflections not implemented yet")
 
 @_TestFunction
 def runtime(*args):
-  skip("Not implemented yet")
+  skip("Runtime not implemented yet")
+
+@_TestFunction
+def output(*args):
+  message = " ".join([str(x) for x in args])
+  _debug(message)
 
 @_TestFunction
 def skip(*args):
   message = " ".join([str(x) for x in args])
-  print message
   _skip(message)
 
 @_TestFunction

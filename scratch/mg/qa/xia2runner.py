@@ -44,7 +44,6 @@ def _run_with_timeout(command, timeout, debug):
   import time
   import timeit
   import subprocess
-  import sys
 
   if debug:
     print "Starting external process:", command
@@ -66,8 +65,7 @@ def _run_with_timeout(command, timeout, debug):
       time.sleep(0.5)
     except KeyboardInterrupt:
       p.kill() # if user pressed Ctrl+C we won't be able to produce a proper report anyway
-               # but at least should make sure the process dies with us
-      sys.exit(1)
+      raise    # but at least should make sure the process dies with us
 
     # check if process is still running
     p.poll()
@@ -147,7 +145,7 @@ def runxia2(command, workdir, datadir, archivejson, timeout, debug=1):
   runcmd.append(datadir)
 
   if _dummy:
-    run = { 'exitcode': 0, 'timeout': False }
+    run = { 'exitcode': 0, 'timeout': False, 'stderr': '' }
   else:
     run = _run_with_timeout(runcmd, timeout=timeout, debug=(debug>=2))
 
@@ -159,23 +157,25 @@ def runxia2(command, workdir, datadir, archivejson, timeout, debug=1):
   success = (run['exitcode'] == 0) and (run['timeout'] == False) \
      and os.path.isfile(jsonfile) \
      and not os.path.isfile(os.path.join(workdir, 'xia2.error'))
+  result = "xia2 did not terminate successfully\n" + run['stderr']
 
-  result = None
-  try:
-    import json
-    with open(jsonfile, 'r') as f:
-      result = json.load(f)
-  except:
-    success = False
-
-  if not os.path.exists(os.path.dirname(archivejson)):
-    os.makedirs(os.path.dirname(archivejson))
-
-  if os.path.isfile(jsonfile):
-    shutil.copyfile(jsonfile, archivejson)
-    xz = _run_with_timeout(['xz', '-9ef', archivejson], timeout=300, debug=(debug>=2))
-    if xz['timeout'] or (xz['exitcode'] != 0):
+  if success:
+    try:
+      import json
+      with open(jsonfile, 'r') as f:
+        result = json.load(f)
+    except:
       success = False
-      result = xz
+      result = "Could not read xia2.json"
+
+    if not os.path.exists(os.path.dirname(archivejson)):
+      os.makedirs(os.path.dirname(archivejson))
+
+    if os.path.isfile(jsonfile):
+      shutil.copyfile(jsonfile, archivejson)
+      xz = _run_with_timeout(['xz', '-9ef', archivejson], timeout=300, debug=(debug>=2))
+      if xz['timeout'] or (xz['exitcode'] != 0):
+        success = False
+        result = xz
 
   return (success, result)

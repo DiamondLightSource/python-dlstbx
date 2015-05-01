@@ -1,6 +1,6 @@
 # test functions for improved test readability
 
-_debug = True
+_debug = False
 
 
 # Internal test status object, this tracks a test on the Test level
@@ -17,7 +17,7 @@ def _reset():
   _test_soft_fail = 0
   _test_soft_fail_tripped = False
 
-def _debug(message):
+def _output(message):
   _test_status.append(stdout=message)
 
 def _fail(message):
@@ -33,7 +33,7 @@ def _skip(message):
 
 def _result(message, status, testOnly=False):
   if status:
-    _debug(" [ OK ] " + message)
+    _output(" [ OK ] " + message)
   else:
     if _test_soft_fail:
       _fail(" [fail] " + message)
@@ -179,7 +179,8 @@ def _TestFunction(func):
     _decrementRecursionDepth()
     if softfail:
       result = not _get_soft_fail()
-      print "Soft fail function returns", result
+      if _debug:
+        print "Soft fail function returns", result
     return result
   return inner
 
@@ -211,7 +212,7 @@ def images(*args):
   directory = getModule()['datadir']
   import os
   filecount = len(os.listdir(directory))
-  _debug("Found %d files in %s" % (filecount, directory))
+  _output("Found %d files in %s" % (filecount, directory))
   for r in args:
     if isinstance(r, _Comparator):
       check = r.eval(filecount)
@@ -264,7 +265,7 @@ def between(boundaryA, boundaryB):
     boundaryA, boundaryB = boundaryB, boundaryA
   def comparator(x):
     return (x >= boundaryA) and (x <= boundaryB)
-  return _Comparator(comparator, "between %d and %d" % (boundaryA, boundaryB))
+  return _Comparator(comparator, "between %.1f and %.1f" % (boundaryA, boundaryB))
 
 @_TestFunction
 def moreThan(boundary):
@@ -299,9 +300,17 @@ def resolution(*args):
   _assertResultsAvailable('resolution%s' % str(args))
   _assertParametersPresent('resolution', args)
   _assertNumericParameters('resolution', args)
+
+  lowres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['Low resolution limit'][0]
+  highres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['High resolution limit'][0]
+  check = between(lowres, highres)
+  _output("Resolution ranges from %.1f to %.1f" % (highres, lowres))
   for r in args:
-    check = between(_testResult['resolution.low'], _testResult['resolution.high']).eval(r)
-    _result("Check for resolution %.2f" % r, check)
+    _result("Check for resolution %.2f" % r, check.eval(r))
+
+@_TestFunction
+def has_resolution(*args):
+  return resolution(*args, override_fail=True)
 
 @_TestFunction
 def completeness(*args):
@@ -322,7 +331,7 @@ def runtime(*args):
 @_TestFunction
 def output(*args):
   message = " ".join([str(x) for x in args])
-  _debug(message)
+  _output(message)
 
 @_TestFunction
 def skip(*args):

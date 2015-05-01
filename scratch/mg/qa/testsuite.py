@@ -18,6 +18,9 @@ def _debug(message):
 def _fail(message):
   _testStatus.append(error=True, stdout=message, stderr=message)
 
+def _skip(message):
+  _testStatus.append(stdout=message)
+
 def _result(message, status):
   if status:
     _debug(" [ OK ] " + message)
@@ -43,7 +46,7 @@ _testResultJSON = None
 
 def _storeTestResults(result):
   global _testResultJSON
-  print "test result stored:", result
+#  print "test result stored:", result
   _testResultJSON = result
 
 def resetTestResults():
@@ -173,7 +176,21 @@ def xia2(*args):
   import xia2runner
   global _testResultXia2
   _testResultXia2 = True
-  (success, result) = xia2runner.runxia2(args, getModule())
+
+  from datetime import datetime
+  import os
+  now = datetime.now()
+  workdir = os.path.join(getModule()['workdir'], getModule()['currentTest'][0])
+  datadir = getModule()['datadir']
+  archivejson = os.path.join(getModule()['archivedir'], getModule()['currentTest'][0],
+       "%s-%s-%04d%02d%02d-%02d%02d.json" % (getModule()['name'], getModule()['currentTest'][0],
+              now.year, now.month, now.day, now.hour, now.minute))
+  if 'timeout' in getModule()['currentTest'][3]:
+    timeout = getModule()['currentTest'][3]['timeout']
+  else:
+    timeout = 3600
+
+  (success, result) = xia2runner.runxia2(args, workdir, datadir, archivejson, timeout)
   if success:
     _storeTestResults(result)
   else:
@@ -186,11 +203,11 @@ def xia2(*args):
 
 @_TestFunction
 def spacegroup(*args):
-  return "Not implemented yet"
+  skip("Not implemented yet")
 
 @_TestFunction
 def unitcell(*args):
-  pass
+  skip("Not implemented yet")
 
 @_TestFunction
 def between(boundaryA, boundaryB):
@@ -240,19 +257,25 @@ def resolution(*args):
 
 @_TestFunction
 def completeness(*args):
-  pass
+  skip("Not implemented yet")
 
 @_TestFunction
 def multiplicity(*args):
-  pass
+  skip("Not implemented yet")
 
 @_TestFunction
 def uniquereflections(*args):
-  pass
+  skip("Not implemented yet")
 
 @_TestFunction
 def runtime(*args):
-  pass
+  skip("Not implemented yet")
+
+@_TestFunction
+def skip(*args):
+  message = " ".join([str(x) for x in args])
+  print message
+  _skip(message)
 
 @_TestFunction
 def fail(*args):

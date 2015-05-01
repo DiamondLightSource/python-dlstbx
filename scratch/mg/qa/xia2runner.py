@@ -111,28 +111,17 @@ def _run_with_timeout(command, timeout, debug):
   return result
 
 
-def runxia2(command, module, debug=1):
+def runxia2(command, workdir, datadir, archivejson, timeout, debug=1):
   import os
   import shutil
-  from datetime import datetime
-  now = datetime.now()
-
-  workdir = os.path.join(module['workdir'], module['currentTest'][0])
-  datadir = module['datadir']
-  archive = os.path.join(module['archivedir'], module['currentTest'][0], 
-       "%s-%s-%04d%02d%02d-%02d%02d.json" % (module['name'], module['currentTest'][0], now.year, now.month, now.day, now.hour, now.minute))
-  timeout = 3600
-  if 'timeout' in module['currentTest'][3]:
-    timeout = module['currentTest'][3]['timeout']
 
   if debug:
     print "=========="
     print "running test ", command
     print "Workdir:", workdir
     print "Datadir:", datadir
-    print "Decoration:", module['currentTest'][3]
     print "Timeout:", timeout
-    print "Archive:", archive
+    print "Archive:", archivejson
     print "=========="
 
   # Go to working directory
@@ -179,9 +168,9 @@ def runxia2(command, module, debug=1):
   except:
     success = False
 
-  if not os.path.exists(os.path.dirname(archive)):
-    os.makedirs(os.path.dirname(archive))
+  if not os.path.exists(os.path.dirname(archivejson)):
+    os.makedirs(os.path.dirname(archivejson))
 
-  shutil.copyfile(jsonfile, archive)
+  shutil.copyfile(jsonfile, archivejson)
   
   return (success, result)

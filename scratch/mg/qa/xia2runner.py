@@ -171,6 +171,11 @@ def runxia2(command, workdir, datadir, archivejson, timeout, debug=1):
   if not os.path.exists(os.path.dirname(archivejson)):
     os.makedirs(os.path.dirname(archivejson))
 
-  shutil.copyfile(jsonfile, archivejson)
-  
+  if os.path.isfile(jsonfile):
+    shutil.copyfile(jsonfile, archivejson)
+    xz = _run_with_timeout(['xz', '-9ef', archivejson], timeout=300, debug=(debug>=2))
+    if xz['timeout'] or (xz['exitcode'] != 0):
+      success = False
+      result = xz
+
   return (success, result)

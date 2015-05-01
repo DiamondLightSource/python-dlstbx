@@ -1,12 +1,21 @@
-# TODO: Refactor to be more like junit testcase
+# TODO: Refactor to be a proper subclass of junit TestCase
 
 _debug = False
 
-class Result:
-  elapsedTime = None
+from junit_xml import TestCase
+
+class Result(TestCase):
   skipMessage = None
+  log = []
+
+  # self.stacktrace -> failure_output
+  # self.message    -> failure_message
+  #                    skipped_message
+  #                    skipped_output
+  # 
 
   def __init__(self, error=False, message=None, stacktrace=None, stdout=None, stderr=None):
+    TestCase.__init__(self, None)
     if _debug:
       print "Result() constructor:"
       print "  err: ", error
@@ -127,12 +136,6 @@ class Result:
   def skip(self, message):
     self.skipMessage = message
 
-  def setTime(self, time):
-    self.elapsedTime = time
-
-  def getTime(self):
-    return self.elapsedTime
-
   def _print(self, what, colorFunction):
     if what is not None:
       for line in what.split('\n'):
@@ -210,12 +213,14 @@ class Result:
     if colorFunctionStdout is not None:
       colorFunctionStdout(None)
 
-  def printStderr(self, colorFunction=None):
-    self._print(self.stderr, colorFunction)
+  def set_name(self, name):
+    self.name = name
 
-  def printStacktrace(self, colorFunction=None):
-    self._print(self.stacktrace, colorFunction)
+  def set_classname(self, classname):
+    self.classname = classname
 
+  def set_time(self, time):
+    self.elapsed_sec = time
 
   def toDict(self):
     return { "error": self.error,
@@ -224,11 +229,8 @@ class Result:
              "stdout": self.stdout,
              "stderr": self.stderr }
 
-  def toJUnitTestCase(self, name, classname=None, time=None):
-    from junit_xml import TestCase
-    if time is None:
-      time = self.getTime()
-    t = TestCase(name, classname=classname, elapsed_sec=time, stdout=self.stdout, stderr=self.stderr)
+  def toJUnitTestCase(self):
+    t = TestCase(self.name, classname=self.classname, elapsed_sec=self.elapsed_sec, stdout=self.stdout, stderr=self.stderr)
     t.add_failure_info(message=self.message, output=self.stacktrace) # None values are ignored
     t.add_skipped_info(message=self.skipMessage)
     if (self.message is None) and (self.stacktrace is None) and self.error:

@@ -32,6 +32,7 @@ def _load_test_module(name):
     loader['errors'].append( "Data directory %s is missing" % loader["datadir"] )
   loader['result'] = Result(stdout="\n".join(loader['errors']),
                             stderr="\n".join(loader['errors']))
+  loader['result'].set_name('__init__')
   _loaded_modules[name] = loader
   if _debug:
     print loader
@@ -73,7 +74,8 @@ def _run_test_function(module, func, xia2callRequired=False):
   if xia2callRequired:
     testsuite.checkTestResults()
   testresults = testsuite.getTestOutput()
-  testresults.setTime(timeit.default_timer() - startTime)
+  testresults.set_time(timeit.default_timer() - startTime)
+  testresults.set_name(func[0])
 
   if failure is not None:
     testresults.append(error=True, stdout=failure + "\n" + stacktrace, stderr=failure, stacktrace=stacktrace)
@@ -106,7 +108,7 @@ def _run_test_module(name, debugOutput=True):
       results.prepend(stdout=setupmessage)
     setupresult.append(results)
 
-  testresults = { "__init__" : setupresult }
+  testresults = [ setupresult ]
 
   for fun in module['Test()']:
     funcname = fun[0]
@@ -115,6 +117,7 @@ def _run_test_module(name, debugOutput=True):
       message = "Skipping test %s.%s due to failed initialization" % (name, funcname)
       print "\n" + message
       results = Result(stdout=message)
+      results.set_name(funcname)
       results.skip(message)
     else:
       color('blue')
@@ -124,11 +127,11 @@ def _run_test_module(name, debugOutput=True):
       results.printResult()
 
     color()
-    testresults[funcname] = results
+    testresults.append(results)
 
-  if any([t.error for t in testresults.itervalues()]):
+  if any([t.error for t in testresults]):
     color('bright', 'red')
-    print "\nModule failed (%d out of %d tests failed)" % (sum([1 for t in testresults.itervalues() if t.error]), len(testresults))
+    print "\nModule failed (%d out of %d tests failed)" % (sum([1 for t in testresults if t.error]), len(testresults))
   else:
     color('bright', 'green')
     print "\nModule passed (%d tests completed successfully)" % (len(testresults))
@@ -181,6 +184,6 @@ if __name__ == "__main__":
       results = _run_test_module(t)
       from junit_xml import TestSuite
 
-      ts = TestSuite("dlstbx.qa.%s" % t, [r.toJUnitTestCase(n) for (n, r) in results.iteritems()])
+      ts = TestSuite("dlstbx.qa.%s" % t, [r.toJUnitTestCase() for r in results])
       with open(os.path.join(_settings['logdir'], '%s.xml' % t), 'w') as f:
         TestSuite.to_file(f, [ts], prettyprint=False)

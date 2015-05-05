@@ -8,9 +8,11 @@ class Result(TestCase):
   name = None
   classname = None
   elapsed_sec = 0
-  skipped_message = None # skipped message
+  skipped_message = None # first skipped message
+  skipped_output  = None # skipped messages
   failure_message = None # error message
-  failure_output = None  # stack trace
+  failure_output  = None # stack trace
+                         # to test for failure use is_failure()
   stdout = None          # standard output
   stderr = None          # standard error
   log = []
@@ -19,59 +21,19 @@ class Result(TestCase):
   # self.message    -> failure_message
   #                    skipped_message
 
-  def __init__(self, error=False, message=None, stacktrace=None, stdout=None, stderr=None):
+  def __init__(self):
     TestCase.__init__(self, None)
-    if _debug:
-      print "Result() constructor:"
-      print "  err: ", error
-      print "  msg: ", message
-      print "  trc: ", stacktrace
-      print "  out: ", stdout
-      print "  err: ", stderr
 
-    if (error == False):
-      self.error = False
-    else:
-      self.error = True
-    self.failure_message = None
-
-    if (stderr is not None) and (stderr is not ""):
-      self.error = True
-      self.stderr = stderr
-      self.failure_message = stderr.split('\n', 1)[0]
-    else:
-      self.stderr = None
-
-    if (stacktrace is not None) and (stacktrace is not ""):
-      self.error = True
-      self.failure_output = stacktrace
-      self.failure_message = stacktrace.split('\n')[-1]
-    else:
-      self.failure_output = None
-
-    if (message is not None) and (message is not ""):
-      self.failure_message = message
-
-    if (stdout is not None) and (stdout is not ""):
-      self.stdout = stdout
-    else:
-      self.stdout = None
-
-
-  def append(self, result=None, error=False, message=None, stacktrace=None, stdout=None, stderr=None):
+  def append(self, result=None, message=None, stacktrace=None, stdout=None, stderr=None):
     if _debug:
       print "Result() append:"
-      print "  err: ", error
       print "  msg: ", message
       print "  trc: ", stacktrace
       print "  out: ", stdout
       print "  err: ", stderr
 
     if result is not None:
-      self.append(error=result.error, message=result.failure_message, stacktrace=result.failure_output, stdout=result.stdout, stderr=result.stderr)
-
-    if (error == True):
-      self.error = True
+      self.append(message=result.failure_message, stacktrace=result.failure_output, stdout=result.stdout, stderr=result.stderr)
 
     if self.failure_message is None:
       if (message is not None) and (message is not ""):
@@ -79,7 +41,6 @@ class Result(TestCase):
       # otherwise ignore new message
 
     if (stderr is not None) and (stderr is not ""):
-      self.error = True
       if self.stderr is None:
         self.stderr = ""
       self.stderr = (self.stderr + "\n" + stderr).lstrip("\n")
@@ -87,7 +48,6 @@ class Result(TestCase):
         self.failure_message = self.stderr.split('\n', 1)[0]
 
     if (stacktrace is not None) and (stacktrace is not ""):
-      self.error = True
       if self.failure_output is None:
         self.failure_output = ""
       self.failure_output = (self.failure_output + "\n" + stacktrace).lstrip("\n")
@@ -100,41 +60,47 @@ class Result(TestCase):
       self.stdout = (self.stdout + "\n" + stdout).lstrip("\n")
 
 
-  def prepend(self, stdout=None, stderr=None):
-    if _debug:
-      print "Result() prepend:"
-      print "  out: ", stdout
-      print "  err: ", stderr
+  def log_message(self, text):
+    self.log.append((0, text))
+    if self.stdout is None:
+      self.stdout = text
+    else:
+      self.stdout = self.stdout + "\n" + text
 
-    if (stderr is not None) and (stderr is not ""):
-      self.error = True
-      if self.stderr is None:
-        self.stderr = ""
-      self.stderr = (stderr + "\n" + self.stderr).rstrip("\n")
-      if self.failure_message is None:
-        self.failure_message = self.stderr.split('\n', 1)[0]
+  def log_skip(self, text):
+    self.log.append((1, text))
+    if self.skipped_message is None:
+      self.skipped_message = text
+    if self.skipped_output is None:
+      self.skipped_output = text
+    else:
+      self.skipped_output = self.skipped_output + "\n" + text
 
-    if (stdout is not None) and (stdout is not ""):
-      if self.stdout is None:
-        self.stdout = ""
-      self.stdout = (stdout + "\n" + self.stdout).rstrip("\n")
+  def log_error(self, text):
+    self.log.append((2, text))
+    if self.failure_message is None:
+      self.failure_message = text
+    if self.stderr is None:
+      self.stderr = text
+    else:
+      self.stderr = self.stderr + "\n" + text
 
-  def skip(self, message):
-    self.skipped_message = message
-
-  def _print(self, what, colorFunction):
-    if what is not None:
-      for line in what.split('\n'):
-        if colorFunction is not None:
-          r = colorFunction(line)
-          if r is not None:
-            line = r
-        print line
-      if colorFunction is not None:
-        colorFunction(None)
+  def log_trace(self, text):
+    self.log.append((3, text))
+    if self.failure_message is None:
+      self.failure_message = text.split('\n')[0]
+    if self.failure_output is None:
+      self.failure_output = text
+    else:
+      self.failure_output = self.failure_output + "\n" + text
 
   def printResult(self):
     import term
+    for (c, t) in self.log:
+      term.color(['green', 'yellow', 'red', 'red'][c])
+      print t
+    return
+
     if self.stdout is None:
       stdout = []
     else:
@@ -212,7 +178,7 @@ class Result(TestCase):
     t = TestCase(self.name, classname=self.classname, elapsed_sec=self.elapsed_sec, stdout=self.stdout, stderr=self.stderr)
     t.add_failure_info(message=self.failure_message, output=self.failure_output) # None values are ignored
     t.add_skipped_info(message=self.skipped_message)
-    if (self.failure_message is None) and (self.failure_output is None) and self.error:
-      t.add_failure_info(message="Test failed")
+#    if (self.failure_message is None) and (self.failure_output is None) and self.error:
+#      t.add_failure_info(message="Test failed")
       # If test is marked as failed, then either message or stacktrace need to be set.
     return t

@@ -30,9 +30,12 @@ def _load_test_module(name):
   loader['errors'] = [ "Test runs function %s() on import. Tests should not run functions on import." % n for n in decorators.disabledCalls() ]
   if not os.path.exists(loader['datadir']):
     loader['errors'].append( "Data directory %s is missing" % loader["datadir"] )
-  loader['result'] = Result(stdout="\n".join(loader['errors']),
-                            stderr="\n".join(loader['errors']))
+
+  loader['result'] = Result()
+  for e in loader['errors']:
+    loader['result'].log_error(e)
   loader['result'].set_name('__init__')
+
   _loaded_modules[name] = loader
   if _debug:
     print loader
@@ -78,7 +81,8 @@ def _run_test_function(module, func, xia2callRequired=False):
   testresults.set_name(func[0])
 
   if failure is not None:
-    testresults.append(error=True, stdout=failure + "\n" + stacktrace, stderr=failure, stacktrace=stacktrace)
+    testresults.log_error(failure)
+    testresults.log_trace(stacktrace)
   return testresults
 
 def _run_test_module(name, debugOutput=True):
@@ -100,41 +104,45 @@ def _run_test_module(name, debugOutput=True):
     results = _run_test_function(module, fun)
     results.printResult()
     setupresult.append(stdout="\n\n")
-    if results.error:
+    if results.is_failure():
       setupmessage = "Test setup error in %s()" % fun[0]
-      results.prepend(stdout=setupmessage, stderr=setupmessage)
+      setupresult.append(stdout=setupmessage, stderr=setupmessage)
     else:
       setupmessage = "Running %s()" % fun[0]
-      results.prepend(stdout=setupmessage)
+      setupresult.append(stdout=setupmessage)
     setupresult.append(results)
 
   testresults = [ setupresult ]
 
   for fun in module['Test()']:
     funcname = fun[0]
-    if setupresult.error:
-      color('bright', 'yellow')
+    if setupresult.is_failure():
       message = "Skipping test %s.%s due to failed initialization" % (name, funcname)
-      print "\n" + message
-      results = Result(stdout=message)
+      results = Result()
       results.set_name(funcname)
-      results.skip(message)
+      results.log_skip(message)
     else:
       color('blue')
       print "\nRunning %s.%s" % (name, funcname)
       color()
       results = _run_test_function(module, fun, xia2callRequired=True)
-      results.printResult()
+    results.printResult()
 
     color()
     testresults.append(results)
 
-  if any([t.error for t in testresults]):
+  failures = sum([1 for t in testresults if t.is_failure()])
+  skips    = sum([1 for t in testresults if t.is_skipped() and not t.is_failure()])
+  total    = len(testresults)
+  if failures:
     color('bright', 'red')
-    print "\nModule failed (%d out of %d tests failed)" % (sum([1 for t in testresults if t.error]), len(testresults))
+    print "\nModule failed (%d out of %d tests failed%s)" % (failures, total, (", %d tests skipped" % skips) if skips else "")
+  elif skips:
+    color('bright', 'yellow')
+    print "\nModule has skipped tests (%d out of %d tests skipped)" % (skips, total)
   else:
     color('bright', 'green')
-    print "\nModule passed (%d tests completed successfully)" % (len(testresults))
+    print "\nModule passed (%d tests completed successfully)" % (total)
   color()
   return testresults
 

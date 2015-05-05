@@ -18,18 +18,18 @@ def _reset():
   _test_soft_fail_tripped = False
 
 def _output(message):
-  _test_status.append(stdout=message)
+  _test_status.log_message(message)
 
 def _fail(message):
   global _test_soft_fail_tripped
   if _test_soft_fail:
-    _test_status.append(stdout=message)
+    _test_status.log_message(message)
     _test_soft_fail_tripped = True
   else:
-    _test_status.append(error=True, stdout=message, stderr=message)
+    _test_status.log_error(message)
 
 def _skip(message):
-  _test_status.append(stdout=message)
+  _test_status.log_skip(message)
 
 def _result(message, status, testOnly=False):
   if status:
@@ -41,7 +41,7 @@ def _result(message, status, testOnly=False):
       _fail(" [FAIL] " + message)
 
 def _trace(stacktrace):
-  _test_status.append(error=True, stdout=stacktrace, stacktrace=stacktrace)
+  _test_status.log_trace(stacktrace)
 
 def _set_soft_fail():
   global _test_soft_fail

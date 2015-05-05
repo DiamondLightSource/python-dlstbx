@@ -23,21 +23,21 @@ class Result(TestCase):
   def update_timer(self):
     self.set_time(timeit.default_timer() - self.start_time)
  
-  def append(self, result=None, message=None, stacktrace=None, stdout=None, stderr=None):
+  def append(self, result):
     self.update_timer()
+
+    stacktrace=result.failure_output
+    stdout=result.stdout
+    stderr=result.stderr
+
     if _debug:
       print "Result() append:"
-      print "  msg: ", message
       print "  trc: ", stacktrace
       print "  out: ", stdout
       print "  err: ", stderr
 
-    if result is not None:
-      self.append(message=result.failure_message, stacktrace=result.failure_output, stdout=result.stdout, stderr=result.stderr)
-
     if self.failure_message is None:
-      if (message is not None) and (message is not ""):
-        self.failure_message = message
+      self.failure_message = result.failure_message
       # otherwise ignore new message
 
     if (stderr is not None) and (stderr is not ""):
@@ -115,9 +115,3 @@ class Result(TestCase):
 
   def is_success(self):
     return not self.is_failure() and not self.is_error() and not self.is_skipped()
-
-# def toJUnitTestCase(self):
-#   t = TestCase(self.name, classname=self.classname, elapsed_sec=self.elapsed_sec, stdout=self.stdout, stderr=self.stderr)
-#   t.add_failure_info(message=self.failure_message, output=self.failure_output) # None values are ignored
-#   t.add_skipped_info(message=self.skipped_message)
-#   return t

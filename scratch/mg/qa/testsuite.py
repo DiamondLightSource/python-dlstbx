@@ -348,6 +348,7 @@ def uniquereflections(*args):
 def runtime(*args):
   _assertParametersPresent('runtime', args)
   _assertNumericOrComparator('runtime', args)
+  _test_status.update_timer()
   runtime = _test_status.elapsed_sec
   output("Current runtime is %d seconds" % runtime)
   for r in args:

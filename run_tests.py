@@ -2,16 +2,16 @@ from __future__ import division
 from libtbx import test_utils
 import libtbx.load_env
 
-def discover_unittests():
+def discover_unittests(module, pattern='tst_*.py'):
   run_list = []
-  dist_dir = libtbx.env.dist_path("dlstbx")
+  dist_dir = libtbx.env.dist_path(module)
 
   try:
     import inspect
     import unittest
     import sys
 
-    found_tests = unittest.TestLoader().discover(dist_dir, pattern='tst_*.py')
+    found_tests = unittest.TestLoader().discover(dist_dir, pattern=pattern)
 
     def recursive_TestSuite_to_list(suite):
       list = []
@@ -33,13 +33,13 @@ def discover_unittests():
 
   except:
     pass
-  return run_list
+  return tuple(run_list)
 
 tst_list = (
   "$D/test/algorithms/profile_model/nave/tst_model.py",
-) + tuple(discover_unittests())
+) + discover_unittests("dlstbx")
 
-def run () :
+def run():
   build_dir = libtbx.env.under_build("dlstbx")
   dist_dir = libtbx.env.dist_path("dlstbx")
   test_utils.run_tests(build_dir, dist_dir, tst_list)

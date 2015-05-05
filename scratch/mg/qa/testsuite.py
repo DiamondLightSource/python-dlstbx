@@ -346,7 +346,15 @@ def uniquereflections(*args):
 @_TestFunction
 @_Export
 def runtime(*args):
-  skip("Runtime not implemented yet")
+  _assertParametersPresent('runtime', args)
+  _assertNumericOrComparator('runtime', args)
+  runtime = _test_status.elapsed_sec
+  output("Current runtime is %d seconds" % runtime)
+  for r in args:
+    if not isinstance(r, _Comparator):
+      r = atMost(r)
+    check = r.eval(runtime)
+    _result("Check for %s seconds test runtime" % r, check)
 
 @_TestFunction
 @_Export

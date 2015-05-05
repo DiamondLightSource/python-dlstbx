@@ -31,11 +31,17 @@ class DecoratorTests(unittest.TestCase):
 
     @decorators.Test
     @decorators.Data
-    def function_store_arguments(*args, **kwargs):
+    def store_arguments(*args, **kwargs):
       self.parameters = (args, kwargs)
 
     self.assertEqual(self.parameters, ())
-    function_store_arguments(21, 42, someargument = 1)
+    store_arguments()
+    self.assertEqual(self.parameters, ((), {}))
+    store_arguments(someargument = 1)
+    self.assertEqual(self.parameters, ((), {'someargument': 1}))
+    store_arguments(21, 42)
+    self.assertEqual(self.parameters, ((21, 42), {}))
+    store_arguments(21, 42, someargument = 1)
     self.assertEqual(self.parameters, ((21, 42), {'someargument': 1}))
 
 

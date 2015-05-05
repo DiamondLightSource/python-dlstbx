@@ -28,9 +28,6 @@ def _fail(message):
   else:
     _test_status.log_error(message)
 
-def _skip(message):
-  _test_status.log_skip(message)
-
 def _result(message, status, testOnly=False):
   if status:
     _output(" [ OK ] " + message)
@@ -39,9 +36,6 @@ def _result(message, status, testOnly=False):
       _fail(" [fail] " + message)
     else:
       _fail(" [FAIL] " + message)
-
-def _trace(stacktrace):
-  _test_status.log_trace(stacktrace)
 
 def _set_soft_fail():
   global _test_soft_fail
@@ -180,7 +174,7 @@ def _TestFunction(func):
       e_type, e_value, e_traceback = sys.exc_info()
       import traceback
       stacktrace = "".join(traceback.format_tb(e_traceback)[1:])
-      _trace("Test resulted in error: %s\n%s" % (e, stacktrace))
+      _test_status.log_trace("Test resulted in error: %s\n%s" % (e, stacktrace))
       result = e
       test_decorator_kwargs = getModule()['currentTest'][3]
       if not ('failFast' in test_decorator_kwargs) or test_decorator_kwargs['failFast']:
@@ -224,7 +218,7 @@ def images(*args):
   directory = getModule()['datadir']
   import os
   filecount = len(os.listdir(directory))
-  _output("Found %d files in %s" % (filecount, directory))
+  output("Found %d files in %s" % (filecount, directory))
   for r in args:
     if isinstance(r, _Comparator):
       check = r.eval(filecount)
@@ -364,7 +358,7 @@ def output(*args):
 @_Export
 def skip(*args):
   message = " ".join([str(x) for x in args])
-  _skip(message)
+  _test_status.log_skip(message)
 
 @_TestFunction
 @_Export
@@ -387,7 +381,7 @@ class high_resolution():
     lowres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['Low resolution limit'][2]
     highres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['High resolution limit'][2]
     check = between(lowres, highres)
-    _output("High resolution shell ranges from %.1f to %.1f" % (highres, lowres))
+    output("High resolution shell ranges from %.1f to %.1f" % (highres, lowres))
     for r in args:
       _result("Check for high resolution %.2f" % r, check.eval(r))
 

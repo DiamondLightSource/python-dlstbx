@@ -90,7 +90,6 @@ def _run_test_module(name, debugOutput=True):
     _load_test_module(name)
   color('blue')
   print "\nLoading %s" % name
-  color()
 
   module = _loaded_modules[name]
 
@@ -101,35 +100,35 @@ def _run_test_module(name, debugOutput=True):
     color('blue')
     print "\nRunning %s.%s" % (name, fun[0])
     color()
-    results = _run_test_function(module, fun)
-    results.printResult()
-    setupresult.append(stdout="\n\n")
-    if results.is_failure():
+    result = _run_test_function(module, fun)
+    result.printResult()
+    setupresult.log_message("\n\n")
+    if result.is_failure():
       setupmessage = "Test setup error in %s()" % fun[0]
-      setupresult.append(stdout=setupmessage, stderr=setupmessage)
+      setupresult.log_error(setupmessage)
     else:
       setupmessage = "Running %s()" % fun[0]
-      setupresult.append(stdout=setupmessage)
-    setupresult.append(results)
+      setupresult.log_message(setupmessage)
+    setupresult.append(result)
 
   testresults = [ setupresult ]
 
   for fun in module['Test()']:
     funcname = fun[0]
     if setupresult.is_failure():
-      message = "Skipping test %s.%s due to failed initialization" % (name, funcname)
-      results = Result()
-      results.set_name(funcname)
-      results.log_skip(message)
+      message = "Skipping test %s.%s due to failed module initialization" % (name, funcname)
+      result = Result()
+      result.set_name(funcname)
+      result.log_skip(message)
     else:
       color('blue')
       print "\nRunning %s.%s" % (name, funcname)
       color()
-      results = _run_test_function(module, fun, xia2callRequired=True)
-    results.printResult()
+      result = _run_test_function(module, fun, xia2callRequired=True)
+    result.printResult()
 
     color()
-    testresults.append(results)
+    testresults.append(result)
 
   failures = sum([1 for t in testresults if t.is_failure()])
   skips    = sum([1 for t in testresults if t.is_skipped() and not t.is_failure()])

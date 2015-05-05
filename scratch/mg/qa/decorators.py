@@ -31,6 +31,7 @@ def Test(*args, **kwargs):
         _log_disabled_call(f.__name__)
       else:
         f(*fargs, **fkwargs)
+    wrapped_f.__name__ = f.__name__ # make decorator transparent
     return wrapped_f
 
   # Decorator may not have parameters.
@@ -60,6 +61,7 @@ def Data(*args, **kwargs):
         _log_disabled_call(f.__name__)
       else:
         f(*fargs, **fkwargs)
+    wrapped_f.__name__ = f.__name__ # make decorator transparent
     return wrapped_f
 
   # Decorator may not have parameters.

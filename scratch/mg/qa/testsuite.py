@@ -147,11 +147,12 @@ __all__ = []
 
 def _Export(func):
   global __all__
-  print "EXPORT ", func.__name__
+#  print "EXPORT ", func.__name__
   functionName = func.__name__
   __all__.append(functionName)
   def test_function_export(*args, **kwargs):
     return func(*args, **kwargs)
+  test_function_export.__name__ = func.__name__ # make decorator transparent
   return test_function_export
 
 # Another internal decorator for test functions
@@ -190,6 +191,7 @@ def _TestFunction(func):
       if _debug:
         print "Soft fail function returns", result
     return result
+  inner.__name__ = functionName # make decorator transparent
   return inner
 
 _recursionDepth = 0 # to control recursive test functions

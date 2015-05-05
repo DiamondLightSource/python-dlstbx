@@ -58,7 +58,6 @@ def _show_all_tests():
 
 def _run_test_function(module, func, xia2callRequired=False):
   import testsuite
-  import timeit
   module['currentTest'] = func
   failure = None
   stacktrace = None
@@ -66,7 +65,6 @@ def _run_test_function(module, func, xia2callRequired=False):
   testsuite.resetTestResults()
   testsuite.setModule(module.copy())
 
-  startTime = timeit.default_timer()
   try:
     func[1]()
   except Exception as e:
@@ -77,7 +75,6 @@ def _run_test_function(module, func, xia2callRequired=False):
   if xia2callRequired:
     testsuite.checkTestResults()
   testresults = testsuite.getTestOutput()
-  testresults.set_time(timeit.default_timer() - startTime)
   testresults.set_name(func[0])
 
   if failure is not None:
@@ -191,6 +188,6 @@ if __name__ == "__main__":
       results = _run_test_module(t)
       from junit_xml import TestSuite
 
-      ts = TestSuite("dlstbx.qa.%s" % t, [r.toJUnitTestCase() for r in results])
+      ts = TestSuite("dlstbx.qa.%s" % t, results)
       with open(os.path.join(_settings['logdir'], '%s.xml' % t), 'w') as f:
         TestSuite.to_file(f, [ts], prettyprint=False)

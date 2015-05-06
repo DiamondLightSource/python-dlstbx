@@ -2,12 +2,12 @@ from qa import *
 
 @Data
 def checkthatdataiscomplete():
-  images(moreThan(30), lessThan(100), between(30, 100))
-  if has_images(moreThan(200)):
+  images(more_than(30), less_than(100), between(30, 100))
+  if has_images(more_than(200)):
     output("more than 200")
   else:
     output("less than 200")
-  if has_images(moreThan(30)):
+  if has_images(more_than(30)):
     output("more than 30")
   else:
     output("less than 30")

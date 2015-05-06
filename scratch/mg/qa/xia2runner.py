@@ -168,14 +168,15 @@ def runxia2(command, workdir, datadir, archivejson, timeout, debug=1):
       success = False
       result = "Could not read xia2.json"
 
-    if not os.path.exists(os.path.dirname(archivejson)):
-      os.makedirs(os.path.dirname(archivejson))
+    if archivejson:
+      if not os.path.exists(os.path.dirname(archivejson)):
+        os.makedirs(os.path.dirname(archivejson))
 
-    if os.path.isfile(jsonfile):
-      shutil.copyfile(jsonfile, archivejson)
-      xz = _run_with_timeout(['xz', '-9ef', archivejson], timeout=300, debug=(debug>=2))
-      if xz['timeout'] or (xz['exitcode'] != 0):
-        success = False
-        result = xz
+      if os.path.isfile(jsonfile):
+        shutil.copyfile(jsonfile, archivejson)
+        xz = _run_with_timeout(['xz', '-9ef', archivejson], timeout=300, debug=(debug>=2))
+        if xz['timeout'] or (xz['exitcode'] != 0):
+          success = False
+          result = xz
 
   return (success, result)

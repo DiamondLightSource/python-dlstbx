@@ -222,9 +222,13 @@ def xia2(*args):
   now = datetime.now()
   workdir = os.path.join(getModule()['workdir'], getModule()['currentTest'][0])
   datadir = getModule()['datadir']
-  archivejson = os.path.join(getModule()['archivedir'], getModule()['currentTest'][0],
+  if getModule()['archivedir']:
+    archivejson = os.path.join(getModule()['archivedir'], getModule()['currentTest'][0],
        "%s-%s-%04d%02d%02d-%02d%02d.json" % (getModule()['name'], getModule()['currentTest'][0],
               now.year, now.month, now.day, now.hour, now.minute))
+  else:
+    archivejson = None
+
   if 'timeout' in getModule()['currentTest'][3]:
     timeout = getModule()['currentTest'][3]['timeout']
   else:
@@ -295,7 +299,7 @@ def runtime(*args):
   output("Current runtime is %d seconds" % runtime)
   for r in args:
     if not isinstance(r, comparators.Comparator):
-      r = comparators.atMost(r)
+      r = comparators.at_most(r)
     check = r(runtime)
     _result("Check for %s seconds test runtime" % r, check)
 

@@ -5,10 +5,10 @@ def checkthatdataiscomplete():
   images(300, 
          between(100,300),
          between(500,300),
-         atLeast(300),
-         atMost(300),
-         moreThan(299),
-         lessThan(301))
+         at_least(300),
+         at_most(300),
+         more_than(299),
+         less_than(301))
 
 @Test
 def runwithdials():

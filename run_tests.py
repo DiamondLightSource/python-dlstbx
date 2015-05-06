@@ -3,37 +3,38 @@ from libtbx import test_utils
 import libtbx.load_env
 
 def discover_unittests(module, pattern='tst_*.py'):
-  run_list = []
-  dist_dir = libtbx.env.dist_path(module)
-
   try:
     import inspect
-    import unittest
+    import os
     import sys
-
-    found_tests = unittest.TestLoader().discover(dist_dir, pattern=pattern)
-
-    def recursive_TestSuite_to_list(suite):
-      list = []
-      for t in suite:
-        if isinstance(t, unittest.TestSuite):
-          list.extend(recursive_TestSuite_to_list(t))
-        elif isinstance(t, unittest.TestCase):
-          list.append(t.id())
-        else:
-          raise Exception("Unknown test object (%s)" % t)
-      return list
-    test_list = recursive_TestSuite_to_list(found_tests)
-
-    for t in test_list:
-      test = t.split('.')
-      (module, testclass, testname) = ('.'.join(test[:-2]), test[-2], test[-1])
-      file = inspect.getsourcefile(sys.modules[module])
-      run_list.append(['libtbx.python', file, '%s.%s' % (testclass, testname)])
-
+    import unittest
   except:
-    pass
-  return tuple(run_list)
+    return tuple([])
+
+  dist_dir = libtbx.env.dist_path(module)
+  found_tests = unittest.defaultTestLoader.discover(dist_dir, pattern=pattern)
+
+  def recursive_TestSuite_to_list(suite):
+    list = []
+    for t in suite:
+      if isinstance(t, unittest.TestSuite):
+        list.extend(recursive_TestSuite_to_list(t))
+      elif isinstance(t, unittest.TestCase):
+        module = t.__class__.__module__
+        if module == 'unittest.loader':
+          # This indicates a loading error.
+          # Regenerate file name and try to run file directly.
+          path = t._testMethodName.replace('.', os.path.sep)
+          list.append("$D/%s.py" % path)
+        else:
+          module = inspect.getsourcefile(sys.modules[module])
+          function = "%s.%s" % (t.__class__.__name__, t._testMethodName)
+          list.append(['libtbx.python', module, function])
+      else:
+        raise Exception("Unknown test object (%s)" % t)
+    return list
+  test_list = recursive_TestSuite_to_list(found_tests)
+  return tuple(test_list)
 
 tst_list = (
   "$D/test/algorithms/profile_model/nave/tst_model.py",

@@ -89,13 +89,46 @@ class ResultTests(unittest.TestCase):
     self.assertEqual(r.name, n1)
     self.assertEqual(r.classname, n2)
 
-  @unittest.skip('not implemented yet')
   def test_inorder_logging_of_debug_and_error_messages(self):
-    self.fail('Not implemented yet')
+    (t1, t2, t3) = ('some text', 'some more text', 'third line')
 
-  @unittest.skip('not implemented yet')
+    r = result.Result()
+    r.log_message(t1)
+    r.log_error(t2)
+    r.log_message(t3)
+    r.log_skip(t1)
+    r.log_message(t2)
+    r.log_error(t3)
+    r.log_skip(t1)
+
+    (msg, skp, err) = (0, 1, 2)
+    self.assertEqual([l for (l, _) in r.log], [msg, err, msg, skp, msg, err, skp])
+    self.assertEqual([t for (_, t) in r.log], [t1, t2, t3, t1, t2, t3, t1])
+
   def test_appending_one_result_object_to_another(self):
-    self.fail('Not implemented yet')
+    (t1, t2) = ('some text', 'some more text')
+
+    r = result.Result()
+    r.log_message(t1)
+
+    s = result.Result()
+    s.log_error(t1)
+
+    t = result.Result()
+    t.log_message(t2)
+    t.log_error(t2)
+    t.log_skip(t2)
+    t.log_trace(t2)
+
+    s.append(t)
+    r.append(s)
+
+    self.assertTrue(r.is_failure())
+    self.assertEqual(r.failure_message, t1)
+    self.assertEqual(r.failure_output, t2)
+    self.assertEqual(r.skipped_message, t2)
+    self.assertEqual(r.skipped_output, t2)
+    self.assertEqual(r.stderr, "\n".join([t1,t2]))
 
 if __name__ == '__main__':
   unittest.main()

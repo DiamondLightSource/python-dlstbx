@@ -1,5 +1,3 @@
-_debug = False
-
 import timeit
 from junit_xml import TestCase
 
@@ -26,39 +24,33 @@ class Result(TestCase):
   def append(self, result):
     self.update_timer()
 
-    stacktrace=result.failure_output
-    stdout=result.stdout
-    stderr=result.stderr
-
-    if _debug:
-      print "Result() append:"
-      print "  trc: ", stacktrace
-      print "  out: ", stdout
-      print "  err: ", stderr
-
     if self.failure_message is None:
       self.failure_message = result.failure_message
       # otherwise ignore new message
 
-    if (stderr is not None) and (stderr is not ""):
-      if self.stderr is None:
-        self.stderr = ""
-      self.stderr = (self.stderr + "\n" + stderr).lstrip("\n")
-      if self.failure_message is None:
-        self.failure_message = self.stderr.split('\n', 1)[0]
+    if self.skipped_message is None:
+      self.skipped_message = result.skipped_message
+      # otherwise ignore new message
 
-    if (stacktrace is not None) and (stacktrace is not ""):
-      if self.failure_output is None:
-        self.failure_output = ""
-      self.failure_output = (self.failure_output + "\n" + stacktrace).lstrip("\n")
-      if self.failure_message is None:
-        self.failure_message = self.failure_output.split('\n')[0]
+    if self.skipped_output is None:
+      self.skipped_output = result.skipped_output
+    elif result.skipped_output is not None:
+      self.skipped_output = "\n".join([self.skipped_output, result.skipped_output])
 
-    if (stdout is not None) and (stdout is not ""):
-      if self.stdout is None:
-        self.stdout = ""
-      self.stdout = (self.stdout + "\n" + stdout).lstrip("\n")
+    if self.stderr is None:
+      self.stderr = result.stderr
+    elif result.stderr is not None:
+      self.stderr = "\n".join([self.stderr, result.stderr])
 
+    if self.stdout is None:
+      self.stdout = result.stdout
+    elif result.stdout is not None:
+      self.stdout = "\n".join([self.stdout, result.stdout])
+
+    if self.failure_output is None:
+      self.failure_output = result.failure_output
+    elif result.failure_output is not None:
+      self.failure_output = "\n".join([self.failure_output, result.failure_output])
 
   def log_message(self, text):
     self.update_timer()

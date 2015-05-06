@@ -1,3 +1,5 @@
+import comparators
+
 # test functions for improved test readability
 
 _debug = False
@@ -103,7 +105,7 @@ def _assertNumericParameters(source, args):
 
 def _assertNumericOrComparator(source, args):
   import numbers
-  if any([not isinstance(r, numbers.Number) and not isinstance(r, _Comparator) for r in args]):
+  if any([not isinstance(r, numbers.Number) and not isinstance(r, comparators.Comparator) for r in args]):
     raise ValueError('%s test called with non-numerical parameters' % source)
 
 
@@ -117,24 +119,6 @@ def setModule(module):
 
 def getModule():
  return _module
-
-
-# Comparator class holding a function and a plain text description of it
-
-class _Comparator():
-  def __init__(self, function, description):
-    self.f = function
-    self.description = description
-
-  def eval(self,x):
-    return self.f(x)
-
-  def __str__(self):
-    return self.description
-
-  def __repr__(self):
-    return self.description
-
 
 # 'import *' should only load functions decorated with @_Export
 __all__ = []
@@ -220,7 +204,7 @@ def images(*args):
   filecount = len(os.listdir(directory))
   output("Found %d files in %s" % (filecount, directory))
   for r in args:
-    if isinstance(r, _Comparator):
+    if isinstance(r, comparators.Comparator):
       check = r.eval(filecount)
     else:
       check = r == filecount
@@ -269,48 +253,6 @@ def unitcell(*args):
 
 @_TestFunction
 @_Export
-def between(boundaryA, boundaryB):
-  _assertNumericParameters('between', [boundaryA, boundaryB])
-  if (boundaryA > boundaryB):
-    boundaryA, boundaryB = boundaryB, boundaryA
-  def comparator(x):
-    return (x >= boundaryA) and (x <= boundaryB)
-  return _Comparator(comparator, "between %.1f and %.1f" % (boundaryA, boundaryB))
-
-@_TestFunction
-@_Export
-def moreThan(boundary):
-  _assertNumericParameters('moreThan', [boundary])
-  def comparator(x):
-    return (x > boundary)
-  return _Comparator(comparator, "more than %d" % (boundary))
-
-@_TestFunction
-@_Export
-def lessThan(boundary):
-  _assertNumericParameters('lessThan', [boundary])
-  def comparator(x):
-    return (x < boundary)
-  return _Comparator(comparator, "less than %d" % (boundary))
-
-@_TestFunction
-@_Export
-def atLeast(boundary):
-  _assertNumericParameters('atLeast', [boundary])
-  def comparator(x):
-    return (x >= boundary)
-  return _Comparator(comparator, "at least %d" % (boundary))
-
-@_TestFunction
-@_Export
-def atMost(boundary):
-  _assertNumericParameters('atMost', [boundary])
-  def comparator(x):
-    return (x <= boundary)
-  return _Comparator(comparator, "at most %d" % (boundary))
-
-@_TestFunction
-@_Export
 def resolution(*args):
   _assertResultsAvailable('resolution%s' % str(args))
   _assertParametersPresent('resolution', args)
@@ -318,7 +260,7 @@ def resolution(*args):
 
   lowres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['Low resolution limit'][0]
   highres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['High resolution limit'][0]
-  check = between(lowres, highres)
+  check = comparators.between(lowres, highres)
   _output("Resolution ranges from %.1f to %.1f" % (highres, lowres))
   for r in args:
     _result("Check for resolution %.2f" % r, check.eval(r))
@@ -352,8 +294,8 @@ def runtime(*args):
   runtime = _test_status.elapsed_sec
   output("Current runtime is %d seconds" % runtime)
   for r in args:
-    if not isinstance(r, _Comparator):
-      r = atMost(r)
+    if not isinstance(r, comparators.Comparator):
+      r = comparators.atMost(r)
     check = r.eval(runtime)
     _result("Check for %s seconds test runtime" % r, check)
 
@@ -389,7 +331,7 @@ class high_resolution():
 
     lowres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['Low resolution limit'][2]
     highres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['High resolution limit'][2]
-    check = between(lowres, highres)
+    check = comparators.between(lowres, highres)
     output("High resolution shell ranges from %.1f to %.1f" % (highres, lowres))
     for r in args:
       _result("Check for high resolution %.2f" % r, check.eval(r))

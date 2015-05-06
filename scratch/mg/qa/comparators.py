@@ -5,7 +5,7 @@ class Comparator():
     self.f = function
     self.description = description
 
-  def eval(self,x):
+  def __call__(self, x):
     return self.f(x)
 
   def __str__(self):
@@ -14,39 +14,43 @@ class Comparator():
   def __repr__(self):
     return self.description
 
-def _assertNumericParameters(source, args):
+def _is_numeric(x):
   import numbers
-  if any([not isinstance(r, numbers.Number) for r in args]):
-    raise ValueError('%s test called with non-numerical parameters' % source)
+  return isinstance(x, numbers.Number)
+
+def _assert_parameter_is_numeric(source, arg):
+  if not _is_numeric(arg):
+    raise ValueError('Comparator %s expects numerical parameters ("%s" is not numerical)' % (source, arg))
 
 def between(boundaryA, boundaryB):
-  _assertNumericParameters('between', [boundaryA, boundaryB])
+  _assert_parameter_is_numeric('between', boundaryA)
+  _assert_parameter_is_numeric('between', boundaryB)
   if (boundaryA > boundaryB):
     boundaryA, boundaryB = boundaryB, boundaryA
   def comparator(x):
-    return (x >= boundaryA) and (x <= boundaryB)
+    return (x is not None) and _is_numeric(x) and (x >= boundaryA) and (x <= boundaryB)
   return Comparator(comparator, "between %.1f and %.1f" % (boundaryA, boundaryB))
 
-def moreThan(boundary):
-  _assertNumericParameters('moreThan', [boundary])
+def more_than(boundary):
+  _assert_parameter_is_numeric('moreThan', boundary)
   def comparator(x):
-    return (x > boundary)
+    return (x is not None) and _is_numeric(x) and (x > boundary)
   return Comparator(comparator, "more than %d" % (boundary))
 
-def lessThan(boundary):
-  _assertNumericParameters('lessThan', [boundary])
+def less_than(boundary):
+  _assert_parameter_is_numeric('lessThan', boundary)
   def comparator(x):
-    return (x < boundary)
+    return (x is not None) and _is_numeric(x) and (x < boundary)
   return Comparator(comparator, "less than %d" % (boundary))
 
-def atLeast(boundary):
-  _assertNumericParameters('atLeast', [boundary])
+def at_least(boundary):
+  _assert_parameter_is_numeric('atLeast', boundary)
   def comparator(x):
-    return (x >= boundary)
+    return (x is not None) and _is_numeric(x) and (x >= boundary)
   return Comparator(comparator, "at least %d" % (boundary))
 
-def atMost(boundary):
-  _assertNumericParameters('atMost', [boundary])
+def at_most(boundary):
+  _assert_parameter_is_numeric('atMost', boundary)
   def comparator(x):
-    return (x <= boundary)
+    return (x is not None) and _is_numeric(x) and (x <= boundary)
   return Comparator(comparator, "at most %d" % (boundary))

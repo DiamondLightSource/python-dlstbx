@@ -205,7 +205,7 @@ def images(*args):
   output("Found %d files in %s" % (filecount, directory))
   for r in args:
     if isinstance(r, comparators.Comparator):
-      check = r.eval(filecount)
+      check = r(filecount)
     else:
       check = r == filecount
     _result("Check for %s images" % r, check)
@@ -263,7 +263,7 @@ def resolution(*args):
   check = comparators.between(lowres, highres)
   _output("Resolution ranges from %.1f to %.1f" % (highres, lowres))
   for r in args:
-    _result("Check for resolution %.2f" % r, check.eval(r))
+    _result("Check for resolution %.2f" % r, check(r))
 
 @_TestFunction
 @_Export
@@ -296,7 +296,7 @@ def runtime(*args):
   for r in args:
     if not isinstance(r, comparators.Comparator):
       r = comparators.atMost(r)
-    check = r.eval(runtime)
+    check = r(runtime)
     _result("Check for %s seconds test runtime" % r, check)
 
 @_TestFunction
@@ -334,6 +334,6 @@ class high_resolution():
     check = comparators.between(lowres, highres)
     output("High resolution shell ranges from %.1f to %.1f" % (highres, lowres))
     for r in args:
-      _result("Check for high resolution %.2f" % r, check.eval(r))
+      _result("Check for high resolution %.2f" % r, check(r))
 
 _resultList = []

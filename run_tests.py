@@ -29,7 +29,7 @@ def discover_unittests(module, pattern='tst_*.py'):
         else:
           module = inspect.getsourcefile(sys.modules[module])
           function = "%s.%s" % (t.__class__.__name__, t._testMethodName)
-          list.append(['libtbx.python', module, function])
+          list.append([module, function])
       else:
         raise Exception("Unknown test object (%s)" % t)
     return list

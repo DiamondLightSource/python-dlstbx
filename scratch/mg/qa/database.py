@@ -1,8 +1,33 @@
+import os
 import sqlite3
 
 class DB(object):
+  memory = ':memory:'
+
   def __init__(self, file):
-#   print sqlite3
+    _needs_initialization = (file == self.memory) or not os.path.isfile(file)
+    self.sql = sqlite3.connect(file)
+    if _needs_initialization:
+      self._initialize_database()
+
+  def __enter__(self):
+    return self  # for use with python 'with' statement
+
+  def __exit__(self, type, value, traceback):
+    self.close() # for use with python 'with' statement
+
+  def __del__(self):
+    self.close() # destructor
+
+  def close(self):
+    if self.sql is not None:
+      self.sql.close()
+    self.sql = None
+
+  def _initialize_database(self):
+    pass
+
+  def save(self, dataset, test, timestamp, values):
     pass
 
 def transform_to_values(datastructure):

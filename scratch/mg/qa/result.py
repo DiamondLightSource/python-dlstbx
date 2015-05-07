@@ -1,3 +1,4 @@
+import term
 import timeit
 from junit_xml import TestCase
 
@@ -20,7 +21,7 @@ class Result(TestCase):
 
   def update_timer(self):
     self.set_time(timeit.default_timer() - self.start_time)
- 
+
   def append(self, result):
     self.update_timer()
 
@@ -91,7 +92,6 @@ class Result(TestCase):
       self.failure_output = self.failure_output + "\n" + text
 
   def printResult(self):
-    import term
     for (c, t) in self.log:
       term.color(['green', 'yellow', 'red', 'red'][c])
       print t

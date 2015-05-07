@@ -1,5 +1,6 @@
 import unittest
 import result
+import time
 
 class ResultTests(unittest.TestCase):
 
@@ -74,7 +75,6 @@ class ResultTests(unittest.TestCase):
   def test_result_internal_timer(self):
     r = result.Result()
     self.assertEqual(r.elapsed_sec, 0)
-    import time
     time.sleep(0.1)
     r.update_timer()
     self.assertAlmostEqual(r.elapsed_sec, 0.1, places=2)

@@ -1,4 +1,13 @@
 import comparators
+from datetime import datetime
+import json
+import numbers
+import os
+import result
+import shutil
+import sys
+import traceback
+import xia2runner
 
 # test functions for improved test readability
 
@@ -6,7 +15,7 @@ _debug = False
 
 
 # Internal test status object, this tracks a test on the Test level
-#   Module > Test (@Test function) > Subtest function (@_TestFunction call) 
+#   Module > Test (@Test function) > Subtest function (@_TestFunction call)
 #             ^^ you are here ^^
 _test_status = None
 _test_soft_fail = 0
@@ -14,8 +23,7 @@ _test_soft_fail_tripped = False
 
 def _reset():
   global _test_status, _test_soft_fail, _test_soft_fail_tripped
-  from result import Result
-  _test_status = Result()
+  _test_status = result.Result()
   _test_soft_fail = 0
   _test_soft_fail_tripped = False
 
@@ -66,7 +74,7 @@ _reset()
 
 # Embedding xia2runner: Calling, resetting, checking for test results
 
-_testResultXia2 = False
+_xia2_was_called_in_test = False
 _testResultJSON = None
 
 def _storeTestResults(result):
@@ -75,12 +83,12 @@ def _storeTestResults(result):
   _testResultJSON = result
 
 def resetTestResults():
-  global _testResultJSON, _testResultXia2
+  global _testResultJSON, _xia2_was_called_in_test
   _testResultJSON = None
-  _testResultXia2 = False
+  _xia2_was_called_in_test = False
 
 def checkTestResults():
-  if not _testResultXia2:
+  if not _xia2_was_called_in_test:
     fail("Test does not include xia2() call")
   if _testResultJSON is None:
     fail("xia2() results not available")
@@ -89,7 +97,7 @@ def checkTestResults():
 # Useful assertions for test functions
 
 def _assertResultsAvailable(source):
-  if not _testResultXia2:
+  if not _xia2_was_called_in_test:
     raise ValueError('xia2() has not been called before %s test' % source)
   if _testResultJSON is None:
     raise ValueError('xia2() did not return results in %s test' % source)
@@ -99,12 +107,10 @@ def _assertParametersPresent(source, args):
     raise ValueError('%s test called without parameters' % source)
 
 def _assertNumericParameters(source, args):
-  import numbers
   if any([not isinstance(r, numbers.Number) for r in args]):
     raise ValueError('%s test called with non-numerical parameters' % source)
 
 def _assertNumericOrComparator(source, args):
-  import numbers
   if any([not isinstance(r, numbers.Number) and not isinstance(r, comparators.Comparator) for r in args]):
     raise ValueError('%s test called with non-numerical parameters' % source)
 
@@ -154,14 +160,12 @@ def _TestFunction(func):
       if callLevel > 1:
         _decrementRecursionDepth()
         raise
-      import sys
       e_type, e_value, e_traceback = sys.exc_info()
-      import traceback
       stacktrace = "".join(traceback.format_tb(e_traceback)[1:])
       _test_status.log_trace("Test resulted in error: %s\n%s" % (e, stacktrace))
       result = e
       test_decorator_kwargs = getModule()['currentTest'][3]
-      if not ('failFast' in test_decorator_kwargs) or test_decorator_kwargs['failFast']:
+      if not ('fail_fast' in test_decorator_kwargs) or test_decorator_kwargs['fail_fast']:
         raise
     _decrementRecursionDepth()
     if softfail:
@@ -200,7 +204,6 @@ def images(*args):
   _assertParametersPresent('images', args)
   _assertNumericOrComparator('images', args)
   directory = getModule()['datadir']
-  import os
   filecount = len(os.listdir(directory))
   output("Found %d files in %s" % (filecount, directory))
   for r in args:
@@ -213,12 +216,9 @@ def images(*args):
 @_TestFunction
 @_Export
 def xia2(*args):
-  import xia2runner
-  global _testResultXia2
-  _testResultXia2 = True
+  global _xia2_was_called_in_test
+  _xia2_was_called_in_test = True
 
-  from datetime import datetime
-  import os
   now = datetime.now()
   workdir = os.path.join(getModule()['workdir'], getModule()['currentTest'][0])
   datadir = getModule()['datadir']
@@ -234,16 +234,39 @@ def xia2(*args):
   else:
     timeout = 3600
 
-  (success, result) = xia2runner.runxia2(args, workdir, datadir, archivejson, timeout)
-  if success:
+  args = list(args)
+  args.append(datadir)
+  xia2result = xia2runner.runxia2(args, workdir, timeout)
+
+  result = "xia2 did not terminate successfully\n" + xia2result['stderr']
+  if xia2result['success']:
+    try:
+      with open(xia2result['jsonfile'], 'r') as f:
+        result = json.load(f)
+    except:
+      xia2result['success'] = False
+      result = "Could not read xia2.json"
+
+    if archivejson:
+      if not os.path.exists(os.path.dirname(archivejson)):
+        os.makedirs(os.path.dirname(archivejson))
+
+      if os.path.isfile(xia2result['jsonfile']):
+        shutil.copyfile(xia2result['jsonfile'], archivejson)
+        xz = xia2runner.compress_file(archivejson, debug=1)
+        if not xz['success']:
+          xia2result['success'] = False
+          result = xz
+
+  if xia2result['success']:
     _storeTestResults(result)
   else:
     error = "xia2() failed with: %s" % result
-    if not ('failFast' in getModule()['currentTest'][3]) or getModule()['currentTest'][3]['failFast']:
+    if not ('fail_fast' in getModule()['currentTest'][3]) or getModule()['currentTest'][3]['fail_fast']:
       raise Exception(error)
     else:
       fail(error)
-  return success
+  return xia2result['success']
 
 @_TestFunction
 @_Export

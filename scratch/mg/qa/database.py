@@ -7,6 +7,7 @@ class DB(object):
   def __init__(self, file):
     _needs_initialization = (file == self.memory) or not os.path.isfile(file)
     self.sql = sqlite3.connect(file)
+    self.sql.row_factory = sqlite3.Row
     if _needs_initialization:
       self._initialize_database()
 
@@ -25,32 +26,49 @@ class DB(object):
     self.sql = None
 
   def _initialize_database(self):
-    pass
+    cur = self.sql.cursor()
+    cur.execute("CREATE TABLE TestModules(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, dataset TEXT NOT NULL, test TEXT NOT NULL, lastseen INTEGER NOT NULL, success INT NOT NULL, output TEXT)")
+    cur.execute("CREATE UNIQUE INDEX dataset_test ON TestModules (dataset, test)")
 
-  def save(self, dataset, test, timestamp, values):
+  def processed_dataset(self, dataset, test, lastseen, success, output):
+    cur = self.sql.cursor()
+    cur.execute('SELECT id FROM TestModules WHERE dataset = :ds AND test = :t', {'ds': dataset, 't': test})
+    existing_id = cur.fetchone()
+    success = 1 if success else 0
+    if existing_id is not None:
+      cur.execute('UPDATE TestModules SET lastseen = ?, success = ?, output = ? WHERE id = ?', (lastseen, success, output, existing_id['id']))
+    else:
+      cur.execute('INSERT INTO TestModules(dataset, test, lastseen, success, output) VALUES (?, ?, ?, ?, ?)', (dataset, test, lastseen, success, output))
+
+  def select_dataset(self, whereclause=''):
+    cur = self.sql.cursor()
+    cur.execute('SELECT * FROM TestModules %s' % whereclause)
+    return cur.fetchall()
+
+  def store_keys(self, dataset, test, timestamp, values):
     pass
 
 def transform_to_values(datastructure):
   from collections import Mapping
   if isinstance(datastructure, Mapping):
-    recursive = {}               
+    recursive = {}
     for key, value in datastructure.iteritems():
-      kv = transform_to_values(value)            
+      kv = transform_to_values(value)
       for kvkey, kvvalue in kv.iteritems():
         recursive[ key + ('.' + kvkey if kvkey != '' else '') ] = kvvalue
     return recursive
   elif isinstance(datastructure, basestring):
     return { '': datastructure }
   else:
-    try:                                                                 
-      z = 1                                                              
-      recursive = {}                                                     
-      for n in datastructure:                                                        
-       kv = transform_to_values(n)                                                    
-       for kvkey, kvvalue in kv.iteritems():                             
+    try:
+      z = 1
+      recursive = {}
+      for n in datastructure:
+       kv = transform_to_values(n)
+       for kvkey, kvvalue in kv.iteritems():
          recursive[ str(z) + ('.' + kvkey if kvkey != '' else '') ] = kvvalue
-       z += 1                                                                
-      return recursive                                                       
+       z += 1
+      return recursive
     except:
       pass
   return { '': datastructure }

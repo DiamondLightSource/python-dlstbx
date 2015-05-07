@@ -2,7 +2,7 @@ from qa import *
 
 @Data
 def checkthatdataiscomplete():
-  images(300, 
+  images(300,
          between(100,300),
          between(500,300),
          at_least(300),
@@ -45,4 +45,3 @@ if 0:
   print
   print "dir():"
   print dir()
-

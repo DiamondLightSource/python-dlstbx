@@ -1,11 +1,16 @@
+import cStringIO as StringIO
+import os
+import shutil
+import subprocess
+import time
+import timeit
+from threading import Thread
+
 _dummy = True
 
 class _NonBlockingStreamReader:
   '''Reads a stream in a thread to avoid blocking/deadlocks'''
   def __init__(self, stream, output=True):
-    import cStringIO as StringIO
-    from threading import Thread
-
     self._stream = stream
     self._buffer = StringIO.StringIO()
     self._terminated = False
@@ -40,13 +45,12 @@ class _NonBlockingStreamReader:
 
 
 def _run_with_timeout(command, timeout, debug):
-  import cStringIO as StringIO
-  import time
-  import timeit
-  import subprocess
-
   if debug:
     print "Starting external process:", command
+  if _dummy:
+    return { 'exitcode': 0, 'command': " ".join(command),
+             'stdout': '', 'stderr': '',
+             'timeout': False, 'runtime': 0 }
   start_time = timeit.default_timer()
   max_time = start_time + timeout
   p = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -55,7 +59,7 @@ def _run_with_timeout(command, timeout, debug):
 
   block = 4096 # block size to read from pipes
   timeout = False
-  
+
   while (timeit.default_timer() < max_time) and (p.returncode is None):
     if debug:
       print "still running (T%.2fs)" % (timeit.default_timer() - max_time)
@@ -103,23 +107,18 @@ def _run_with_timeout(command, timeout, debug):
   stdout = stdout.get_output()
   stderr = stderr.get_output()
 
-  result = { 'exitcode': p.returncode,
+  result = { 'exitcode': p.returncode, 'command': " ".join(command),
              'stdout': stdout, 'stderr': stderr,
              'timeout': timeout, 'runtime': runtime }
   return result
 
 
-def runxia2(command, workdir, datadir, archivejson, timeout, debug=1):
-  import os
-  import shutil
-
+def runxia2(command, workdir, timeout, debug=1):
   if debug:
     print "=========="
     print "running test ", command
     print "Workdir:", workdir
-    print "Datadir:", datadir
     print "Timeout:", timeout
-    print "Archive:", archivejson
     print "=========="
 
   # Go to working directory
@@ -142,41 +141,23 @@ def runxia2(command, workdir, datadir, archivejson, timeout, debug=1):
 
   runcmd = ['xia2', '-quick']
   runcmd.extend(command)
-  runcmd.append(datadir)
 
-  if _dummy:
-    run = { 'exitcode': 0, 'timeout': False, 'stderr': '' }
-  else:
-    run = _run_with_timeout(runcmd, timeout=timeout, debug=(debug>=2))
-
+  run = _run_with_timeout(runcmd, timeout=timeout, debug=(debug>=2))
   if debug:
     print run
 
   jsonfile = os.path.join(workdir, 'xia2.json')
+  if os.path.isfile(jsonfile):
+    run['jsonfile'] = jsonfile
 
   success = (run['exitcode'] == 0) and (run['timeout'] == False) \
      and os.path.isfile(jsonfile) \
      and not os.path.isfile(os.path.join(workdir, 'xia2.error'))
-  result = "xia2 did not terminate successfully\n" + run['stderr']
 
-  if success:
-    try:
-      import json
-      with open(jsonfile, 'r') as f:
-        result = json.load(f)
-    except:
-      success = False
-      result = "Could not read xia2.json"
+  run['success'] = success
+  return run
 
-    if archivejson:
-      if not os.path.exists(os.path.dirname(archivejson)):
-        os.makedirs(os.path.dirname(archivejson))
-
-      if os.path.isfile(jsonfile):
-        shutil.copyfile(jsonfile, archivejson)
-        xz = _run_with_timeout(['xz', '-9ef', archivejson], timeout=300, debug=(debug>=2))
-        if xz['timeout'] or (xz['exitcode'] != 0):
-          success = False
-          result = xz
-
-  return (success, result)
+def compress_file(filename, timeout=300, debug=True):
+  xz = _run_with_timeout(['xz', '-9ef', filename], timeout=timeout, debug=debug)
+  xz['success'] = not xz['timeout'] and (xz['exitcode'] == 0)
+  return xz

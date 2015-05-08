@@ -41,7 +41,22 @@ class DatabaseTests(unittest.TestCase):
     self.assertTrue(mock_db_init.called)
     self.assertTrue(mock_connection.close.called)
 
-  def test_store_retrieve_and_update_run_result(self):
+  def test_register_test_in_database_and_retrieve_testid(self):
+    (dataset, test) = ('qa', 'test')
+
+    with database.DB(database.DB.memory) as db:
+      id_1 = db.register_test(dataset, test)
+      id_2 = db.get_testid(dataset, test)
+      test_db = db.get_test(id_1)
+
+      id_3 = db.register_test(dataset, test)
+
+    self.assertEqual(id_1, id_2)
+    self.assertEqual(test_db['dataset'], dataset)
+    self.assertEqual(test_db['test'], test)
+    self.assertEqual(id_1, id_3)
+
+  def test_store_test_results_in_database(self):
     (dataset, test) = ('qa', 'test')
     (lastseenA, successA, stdoutA, stderrA, jsonA, xia2errorA) = (1, True, 'a', 'b', 'c', None)
     (lastseenB, successB, stdoutB, stderrB, jsonB, xia2errorB) = (2, False, '', None, 'y', 'z')
@@ -51,12 +66,16 @@ class DatabaseTests(unittest.TestCase):
     expectedB = { 'id': 1, 'dataset': dataset, 'test': test, 'lastseen': lastseenB,
                   'success': 1 if successB else 0, 'stdout': stdoutB, 'stderr': stderrB,
                   'json': jsonB, 'xia2error': xia2errorB }
+
     with database.DB(database.DB.memory) as db:
-      db.processed_dataset(dataset, test, lastseenA, successA, stdoutA, stderrA, jsonA, xia2errorA)
-      rowsA = db.select_dataset()
+      testid = db.register_test(dataset, test)
+
+      db.store_test_result(testid, lastseenA, successA, stdoutA, stderrA, jsonA, xia2errorA)
+      rowsA = db.select_tests()
       actualA = dict(rowsA[0])
-      db.processed_dataset(dataset, test, lastseenB, successB, stdoutB, stderrB, jsonB, xia2errorB)
-      rowsB = db.select_dataset()
+
+      db.store_test_result(testid, lastseenB, successB, stdoutB, stderrB, jsonB, xia2errorB)
+      rowsB = db.select_tests()
       actualB = dict(rowsB[0])
 
     self.assertEqual(len(rowsA), 1)
@@ -64,19 +83,50 @@ class DatabaseTests(unittest.TestCase):
     self.assertEqual(len(rowsB), 1)
     self.assertEqual(actualB, expectedB)
 
+  @unittest.skip('not implemented yet')
+  def test_store_test_runs_in_database_and_retrieve_ordered_list(self):
+    (dataset, test, timestampA, timestampB) = ('qa', 'test', 2,  1)
+
+    with database.DB(database.DB.memory) as db:
+      testid = db.register_test(dataset, test)
+      runidA = db.register_testrun(testid, timestampA)
+      runidB = db.register_testrun(testid, timestampB)
+
+      runs = db.lookup_testrun_ids(testid)
+
+      self.assertEqual(set(runs), set([runidA, runidB]))
+
+      actual = db.retrieve_keys(testids=ids) # [ {testid: n, timestamp: t, keyid: v, keyid#2: v2} ]
+
+
+  @unittest.skip('not implemented yet')
   @mock.patch('database.sqlite3')
   def test_store_new_key_values_in_database(self, mock_sqlite3):
-    (dataset, test, timestamp, key, value) = ('qa-test', 'store', 1, 'some.key', 'value')
+    (dataset, test, timestamp, key, value) = ('qa', 'test', 1, 'some key', 'some value')
+#    expected = [ { 'timestamp': timestamp, '
 
     with database.DB(database.DB.memory) as db:
+      db.processed_dataset(dataset, test, None, None, None, None, None, None)
       db.store_keys(dataset, test, timestamp, { key : value })
 
+      ids = db.lookup_test_ids(dataset=dataset, test=test)
+      self.assertEqual(len(ids), 1)
+
+      actual = db.retrieve_keys(testids=ids) # [ {testid: n, timestamp: t, keyid: v, keyid#2: v2} ]
+      #self.assertEquals
+
+  @unittest.skip('not implemented yet')
   @mock.patch('database.sqlite3')
   def test_store_existing_key_values_in_database(self, mock_sqlite3):
-    (dataset, test, timestamp, key, value) = ('qa-test', 'store', 1, 'some.key', 'value')
+    (datasetA, testA, timestampA) = ('qa', 'test1', 1)
+    (datasetB, testB, timestampB) = ('qa', 'test2', 2)
+    (key, value) = ('some key', 'some value')
 
     with database.DB(database.DB.memory) as db:
-      db.store_keys(dataset, test, timestamp, { key : value })
+      db.processed_dataset(datasetA, testA, None, None, None, None, None, None)
+      db.processed_dataset(datasetB, testB, None, None, None, None, None, None)
+      db.store_keys(datasetA, testA, timestampA, { key : value })
+      db.retrieve_keys(dataset=datasetA, test=testA) # [ {testid: n, timestamp: t, keyid: v, keyid#2: v2} ]
 
   @unittest.skip('not implemented yet')
   @mock.patch('database.sqlite3')

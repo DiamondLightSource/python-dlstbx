@@ -167,7 +167,7 @@ def _TestFunction(func):
       stacktrace = "".join(traceback.format_tb(e_traceback)[1:])
       _test_status.log_trace("Test resulted in error: %s\n%s" % (e, stacktrace))
       result = e
-      test_decorator_kwargs = getModule()['currentTest'][3]
+      test_decorator_kwargs = getModule()['current_test'][3]
       if not ('fail_fast' in test_decorator_kwargs) or test_decorator_kwargs['fail_fast']:
         raise
     _decrementRecursionDepth()
@@ -225,11 +225,11 @@ def xia2(*args):
   _xia2_was_called_in_test = True
 
   now = datetime.now()
-  workdir = os.path.join(getModule()['workdir'], getModule()['currentTest'][0])
+  workdir = os.path.join(getModule()['workdir'], getModule()['current_test'][0])
   datadir = getModule()['datadir']
 
-  if 'timeout' in getModule()['currentTest'][3]:
-    timeout = getModule()['currentTest'][3]['timeout']
+  if 'timeout' in getModule()['current_test'][3]:
+    timeout = getModule()['current_test'][3]['timeout']
   else:
     timeout = 3600
 
@@ -240,6 +240,7 @@ def xia2(*args):
   if _debug:
     print xia2result
 
+  xia2result['json'], xia2result['xia2.error'] = None, None
   if xia2result['success'] and xia2result['jsonfile']:
     try:
       with open(xia2result['jsonfile'], 'r') as f:
@@ -253,8 +254,8 @@ def xia2(*args):
       xia2result['xia2.error'] = errorfile.read()
 
   if xia2result['success'] and xia2result['jsonfile'] and getModule()['archivedir']:
-    archivejson = os.path.join(getModule()['archivedir'], getModule()['currentTest'][0],
-       "%s-%s-%04d%02d%02d-%02d%02d.json" % (getModule()['name'], getModule()['currentTest'][0],
+    archivejson = os.path.join(getModule()['archivedir'], getModule()['current_test'][0],
+       "%s-%s-%04d%02d%02d-%02d%02d.json" % (getModule()['name'], getModule()['current_test'][0],
               now.year, now.month, now.day, now.hour, now.minute))
     if not os.path.exists(os.path.dirname(archivejson)):
       os.makedirs(os.path.dirname(archivejson))
@@ -267,6 +268,10 @@ def xia2(*args):
       xia2result['xz'] = xz
 
   _store_xia2_results(xia2result)
+  getModule()['db'].processed_dataset(getModule()['name'], getModule()['current_test'][0],
+      (now - datetime(1970, 1, 1)).total_seconds(),
+      xia2result['success'], xia2result['stdout'], xia2result['stderr'],
+      xia2result['json'], xia2result['xia2.error'])
 
   if not xia2result['success']:
     error = "xia2() failed"
@@ -277,7 +282,7 @@ def xia2(*args):
     elif xia2result['stdout']:
       error += " with: " + xia2result['stdout'].split("\n")[-4]
 
-    if not ('fail_fast' in getModule()['currentTest'][3]) or getModule()['currentTest'][3]['fail_fast']:
+    if not ('fail_fast' in getModule()['current_test'][3]) or getModule()['current_test'][3]['fail_fast']:
       raise Exception(error)
     else:
       fail(error)

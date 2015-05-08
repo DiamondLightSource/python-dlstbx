@@ -27,18 +27,19 @@ class DB(object):
 
   def _initialize_database(self):
     cur = self.sql.cursor()
-    cur.execute("CREATE TABLE TestModules(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, dataset TEXT NOT NULL, test TEXT NOT NULL, lastseen INTEGER NOT NULL, success INT NOT NULL, output TEXT)")
+    cur.execute("CREATE TABLE TestModules(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, dataset TEXT NOT NULL, test TEXT NOT NULL, lastseen INTEGER NOT NULL, success INT NOT NULL, stdout TEXT, stderr TEXT, json TEXT, xia2error TEXT)")
     cur.execute("CREATE UNIQUE INDEX dataset_test ON TestModules (dataset, test)")
 
-  def processed_dataset(self, dataset, test, lastseen, success, output):
+  def processed_dataset(self, dataset, test, lastseen, success, stdout, stderr, json, xia2error):
     cur = self.sql.cursor()
     cur.execute('SELECT id FROM TestModules WHERE dataset = :ds AND test = :t', {'ds': dataset, 't': test})
     existing_id = cur.fetchone()
     success = 1 if success else 0
     if existing_id is not None:
-      cur.execute('UPDATE TestModules SET lastseen = ?, success = ?, output = ? WHERE id = ?', (lastseen, success, output, existing_id['id']))
+      cur.execute('UPDATE TestModules SET lastseen = ?, success = ?, stdout = ?, stderr = ?, json = ?, xia2error = ? WHERE id = ?', (lastseen, success, stdout, stderr, json, xia2error, existing_id['id']))
     else:
-      cur.execute('INSERT INTO TestModules(dataset, test, lastseen, success, output) VALUES (?, ?, ?, ?, ?)', (dataset, test, lastseen, success, output))
+      cur.execute('INSERT INTO TestModules(dataset, test, lastseen, success, stdout, stderr, json, xia2error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (dataset, test, lastseen, success, stdout, stderr, json, xia2error))
+    self.sql.commit()
 
   def select_dataset(self, whereclause=''):
     cur = self.sql.cursor()

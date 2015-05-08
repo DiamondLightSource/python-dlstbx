@@ -20,7 +20,7 @@ class Loader():
       self._loaded_modules[name]['archivedir'] = archivedir
       return self._loaded_modules[name]
 
-    module = { 'name': name, 'datadir': datadir, 'workdir': workdir, 'archivedir': archivedir }
+    module = { 'name': name, 'datadir': datadir, 'workdir': workdir, 'archivedir': archivedir, 'db': self.db }
 
     module['result'] = Result()
     decorators.disableDecoratorFunctions()
@@ -58,7 +58,7 @@ class Loader():
         term.color()
 
   def run_test_function(self, module, func, xia2callRequired=False):
-    module['currentTest'] = func
+    module['current_test'] = func
     failure = None
     stacktrace = None
 

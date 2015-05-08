@@ -43,18 +43,19 @@ class DatabaseTests(unittest.TestCase):
 
   def test_store_retrieve_and_update_run_result(self):
     (dataset, test) = ('qa', 'test')
-    (lastseenA, successA, outputA) = (1, True, 'output information')
-    (lastseenB, successB, outputB) = (2, False, 'failure information')
+    (lastseenA, successA, stdoutA, stderrA, jsonA, xia2errorA) = (1, True, 'a', 'b', 'c', None)
+    (lastseenB, successB, stdoutB, stderrB, jsonB, xia2errorB) = (2, False, '', None, 'y', 'z')
     expectedA = { 'id': 1, 'dataset': dataset, 'test': test, 'lastseen': lastseenA,
-                  'success': 1 if successA else 0, 'output': outputA }
+                  'success': 1 if successA else 0, 'stdout': stdoutA, 'stderr': stderrA,
+                  'json': jsonA, 'xia2error': xia2errorA }
     expectedB = { 'id': 1, 'dataset': dataset, 'test': test, 'lastseen': lastseenB,
-                  'success': 1 if successB else 0, 'output': outputB }
-
+                  'success': 1 if successB else 0, 'stdout': stdoutB, 'stderr': stderrB,
+                  'json': jsonB, 'xia2error': xia2errorB }
     with database.DB(database.DB.memory) as db:
-      db.processed_dataset(dataset, test, lastseenA, successA, outputA)
+      db.processed_dataset(dataset, test, lastseenA, successA, stdoutA, stderrA, jsonA, xia2errorA)
       rowsA = db.select_dataset()
       actualA = dict(rowsA[0])
-      db.processed_dataset(dataset, test, lastseenB, successB, outputB)
+      db.processed_dataset(dataset, test, lastseenB, successB, stdoutB, stderrB, jsonB, xia2errorB)
       rowsB = db.select_dataset()
       actualB = dict(rowsB[0])
 

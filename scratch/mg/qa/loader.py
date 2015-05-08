@@ -62,7 +62,7 @@ class Loader():
     failure = None
     stacktrace = None
 
-    testsuite.resetTestResults()
+    testsuite.reset_xia2_results()
     testsuite.setModule(module.copy())
 
     try:
@@ -72,7 +72,7 @@ class Loader():
       stacktrace = ("".join(traceback.format_tb(e_traceback)[1:])).strip()
       failure = "Test resulted in error: %s" % e
     if xia2callRequired:
-      testsuite.checkTestResults()
+      testsuite.check_xia2_results()
     testresults = testsuite.getTestOutput()
     testresults.set_name(func[0])
 

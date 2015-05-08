@@ -75,31 +75,34 @@ _reset()
 # Embedding xia2runner: Calling, resetting, checking for test results
 
 _xia2_was_called_in_test = False
-_testResultJSON = None
+_xia2_results = None
 
-def _storeTestResults(result):
-  global _testResultJSON
-#  print "test result stored:", result
-  _testResultJSON = result
+def _store_xia2_results(result):
+  global _xia2_results
+  if _debug:
+    print "xia2 results stored:", result
+  _xia2_results = result
 
-def resetTestResults():
-  global _testResultJSON, _xia2_was_called_in_test
-  _testResultJSON = None
+def reset_xia2_results():
+  global _xia2_results, _xia2_was_called_in_test
+  _xia2_results = None
   _xia2_was_called_in_test = False
 
-def checkTestResults():
+def check_xia2_results():
   if not _xia2_was_called_in_test:
     fail("Test does not include xia2() call")
-  if _testResultJSON is None:
+    return None
+  if _xia2_results is None:
     fail("xia2() results not available")
-
+    return None
+  return _xia2_results
 
 # Useful assertions for test functions
 
 def _assertResultsAvailable(source):
   if not _xia2_was_called_in_test:
     raise ValueError('xia2() has not been called before %s test' % source)
-  if _testResultJSON is None:
+  if _xia2_results is None:
     raise ValueError('xia2() did not return results in %s test' % source)
 
 def _assertParametersPresent(source, args):
@@ -217,17 +220,13 @@ def images(*args):
 @_Export
 def xia2(*args):
   global _xia2_was_called_in_test
+  if _xia2_was_called_in_test:
+    raise exception('xia2 called multiple times within test')
   _xia2_was_called_in_test = True
 
   now = datetime.now()
   workdir = os.path.join(getModule()['workdir'], getModule()['currentTest'][0])
   datadir = getModule()['datadir']
-  if getModule()['archivedir']:
-    archivejson = os.path.join(getModule()['archivedir'], getModule()['currentTest'][0],
-       "%s-%s-%04d%02d%02d-%02d%02d.json" % (getModule()['name'], getModule()['currentTest'][0],
-              now.year, now.month, now.day, now.hour, now.minute))
-  else:
-    archivejson = None
 
   if 'timeout' in getModule()['currentTest'][3]:
     timeout = getModule()['currentTest'][3]['timeout']
@@ -238,30 +237,46 @@ def xia2(*args):
   args.append(datadir)
   xia2result = xia2runner.runxia2(args, workdir, timeout)
 
-  result = "xia2 did not terminate successfully\n" + xia2result['stderr']
-  if xia2result['success']:
+  if _debug:
+    print xia2result
+
+  if xia2result['success'] and xia2result['jsonfile']:
     try:
       with open(xia2result['jsonfile'], 'r') as f:
-        result = json.load(f)
+        xia2result['json'] = json.load(f)
     except:
       xia2result['success'] = False
-      result = "Could not read xia2.json"
+      xia2result['stderr'] = "Could not read xia2.json"
 
-    if archivejson:
-      if not os.path.exists(os.path.dirname(archivejson)):
-        os.makedirs(os.path.dirname(archivejson))
+  if os.path.exists(os.path.join(workdir, 'xia2.error')):
+    with open (os.path.join(workdir, 'xia2.error'), "r") as errorfile:
+      xia2result['xia2.error'] = errorfile.read()
 
-      if os.path.isfile(xia2result['jsonfile']):
-        shutil.copyfile(xia2result['jsonfile'], archivejson)
-        xz = xia2runner.compress_file(archivejson, debug=1)
-        if not xz['success']:
-          xia2result['success'] = False
-          result = xz
+  if xia2result['success'] and xia2result['jsonfile'] and getModule()['archivedir']:
+    archivejson = os.path.join(getModule()['archivedir'], getModule()['currentTest'][0],
+       "%s-%s-%04d%02d%02d-%02d%02d.json" % (getModule()['name'], getModule()['currentTest'][0],
+              now.year, now.month, now.day, now.hour, now.minute))
+    if not os.path.exists(os.path.dirname(archivejson)):
+      os.makedirs(os.path.dirname(archivejson))
 
-  if xia2result['success']:
-    _storeTestResults(result)
-  else:
-    error = "xia2() failed with: %s" % result
+    shutil.copyfile(xia2result['jsonfile'], archivejson)
+    xz = xia2runner.compress_file(archivejson, debug=1)
+    if not xz['success']:
+      xia2result['success'] = False
+      xia2result['stderr'] = "Could not archive xia2.json"
+      xia2result['xz'] = xz
+
+  _store_xia2_results(xia2result)
+
+  if not xia2result['success']:
+    error = "xia2() failed"
+    if xia2result['stderr']:
+      error += " with: " + xia2result['stderr']
+    elif 'xia2.error' in xia2result:
+      error += " with: " + " ".join(xia2result['xia2.error'].split("\n")[-2:-1])
+    elif xia2result['stdout']:
+      error += " with: " + xia2result['stdout'].split("\n")[-4]
+
     if not ('fail_fast' in getModule()['currentTest'][3]) or getModule()['currentTest'][3]['fail_fast']:
       raise Exception(error)
     else:
@@ -285,8 +300,8 @@ def resolution(*args):
   _assertParametersPresent('resolution', args)
   _assertNumericParameters('resolution', args)
 
-  lowres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['Low resolution limit'][0]
-  highres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['High resolution limit'][0]
+  lowres = _xia2_results['json']['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['Low resolution limit'][0]
+  highres = _xia2_results['json']['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['High resolution limit'][0]
   check = comparators.between(lowres, highres)
   _output("Resolution ranges from %.1f to %.1f" % (highres, lowres))
   for r in args:
@@ -356,8 +371,8 @@ class high_resolution():
     _assertParametersPresent('resolution', args)
     _assertNumericParameters('resolution', args)
 
-    lowres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['Low resolution limit'][2]
-    highres = _testResultJSON['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['High resolution limit'][2]
+    lowres = _xia2_results['json']['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['Low resolution limit'][2]
+    highres = _xia2_results['json']['_crystals']['DEFAULT']['_scaler']['_scalr_statistics']["[\"AUTOMATIC\", \"DEFAULT\", \"NATIVE\"]"]['High resolution limit'][2]
     check = comparators.between(lowres, highres)
     output("High resolution shell ranges from %.1f to %.1f" % (highres, lowres))
     for r in args:

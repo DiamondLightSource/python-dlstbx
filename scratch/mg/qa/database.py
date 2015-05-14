@@ -62,6 +62,27 @@ class DB(object):
       existing_id = cur.fetchone()
       return existing_id
 
+  def register_testrun(self, testid, timestamp):
+    with self.sql as sql:
+      cur = sql.cursor()
+      cur.execute('INSERT INTO TestRuns(testid, timestamp) VALUES (?, ?)', (testid, timestamp))
+      sql.commit()
+      return cur.lastrowid
+
+  def get_testruns(self, testid, limit=None, after_timestamp=None):
+    with self.sql as sql:
+      cur = sql.cursor()
+      sql_command = 'SELECT id, timestamp FROM TestRuns WHERE testid = :testid'
+      if after_timestamp:
+        sql_command += ' AND timestamp > :timestamp'
+      if limit:
+        sql_command += ' LIMIT :limit'
+      rows = cur.execute( sql_command, {'testid': testid, 'timestamp': after_timestamp, 'limit': limit})
+      results = {}
+      for row in rows:
+        results[row['id']] = row['timestamp']
+      return results
+
   def store_test_result(self, testid, lastseen, success, stdout, stderr, json, xia2error):
     with self.sql as sql:
       cur = sql.cursor()
@@ -69,16 +90,17 @@ class DB(object):
       cur.execute('UPDATE Tests SET lastseen = ?, success = ?, stdout = ?, stderr = ?, json = ?, xia2error = ? WHERE id = ?', (lastseen, success, stdout, stderr, json, xia2error, testid))
       sql.commit()
 
-  def get_dataset(self, dataset=None, test=None, testid=None):
-    pass
-
-  def select_tests(self, whereclause=''):
+  def get_tests(self, whereclause=''):
     with self.sql as sql:
       cur = sql.cursor()
       cur.execute('SELECT * FROM Tests %s' % whereclause)
       return cur.fetchall()
 
-  def store_keys(self, dataset, test, timestamp, values):
+  def store_keys(self, runid, values):
+    with self.sql as sql:
+      pass
+
+  def get_keys(self, runid):
     with self.sql as sql:
       pass
 

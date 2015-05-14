@@ -56,6 +56,7 @@ class DatabaseTests(unittest.TestCase):
     self.assertEqual(test_db['test'], test)
     self.assertEqual(id_1, id_3)
 
+  # test = one test function running on one test dataset, stored together with its last results
   def test_store_test_results_in_database(self):
     (dataset, test) = ('qa', 'test')
     (lastseenA, successA, stdoutA, stderrA, jsonA, xia2errorA) = (1, True, 'a', 'b', 'c', None)
@@ -71,11 +72,11 @@ class DatabaseTests(unittest.TestCase):
       testid = db.register_test(dataset, test)
 
       db.store_test_result(testid, lastseenA, successA, stdoutA, stderrA, jsonA, xia2errorA)
-      rowsA = db.select_tests()
+      rowsA = db.get_tests()
       actualA = dict(rowsA[0])
 
       db.store_test_result(testid, lastseenB, successB, stdoutB, stderrB, jsonB, xia2errorB)
-      rowsB = db.select_tests()
+      rowsB = db.get_tests()
       actualB = dict(rowsB[0])
 
     self.assertEqual(len(rowsA), 1)
@@ -83,8 +84,8 @@ class DatabaseTests(unittest.TestCase):
     self.assertEqual(len(rowsB), 1)
     self.assertEqual(actualB, expectedB)
 
-  @unittest.skip('not implemented yet')
-  def test_store_test_runs_in_database_and_retrieve_ordered_list(self):
+  # test run = one single run at a particular time of a given test
+  def test_store_test_runs_in_database_and_read_them_back(self):
     (dataset, test, timestampA, timestampB) = ('qa', 'test', 2,  1)
 
     with database.DB(database.DB.memory) as db:
@@ -92,28 +93,27 @@ class DatabaseTests(unittest.TestCase):
       runidA = db.register_testrun(testid, timestampA)
       runidB = db.register_testrun(testid, timestampB)
 
-      runs = db.lookup_testrun_ids(testid)
+      runs1 = db.get_testruns(testid)
+      runs2 = db.get_testruns(testid, limit=1)
+      runs3 = db.get_testruns(testid, after_timestamp=1.5)
 
-      self.assertEqual(set(runs), set([runidA, runidB]))
-
-      actual = db.retrieve_keys(testids=ids) # [ {testid: n, timestamp: t, keyid: v, keyid#2: v2} ]
-
+      self.assertEqual(runs1, { runidA: timestampA, runidB: timestampB })
+      self.assertEqual(runs2, { runidA: timestampA })
+      self.assertEqual(runs3, { runidA: timestampA })
 
   @unittest.skip('not implemented yet')
   @mock.patch('database.sqlite3')
   def test_store_new_key_values_in_database(self, mock_sqlite3):
     (dataset, test, timestamp, key, value) = ('qa', 'test', 1, 'some key', 'some value')
-#    expected = [ { 'timestamp': timestamp, '
 
     with database.DB(database.DB.memory) as db:
-      db.processed_dataset(dataset, test, None, None, None, None, None, None)
-      db.store_keys(dataset, test, timestamp, { key : value })
+      testid = db.register_test(dataset, test)
+      runid  = db.register_testrun(testid, timestamp)
+      
+      db.store_keys(runid, { key : value })
+      keys = db.get_keys(runid)
 
-      ids = db.lookup_test_ids(dataset=dataset, test=test)
-      self.assertEqual(len(ids), 1)
-
-      actual = db.retrieve_keys(testids=ids) # [ {testid: n, timestamp: t, keyid: v, keyid#2: v2} ]
-      #self.assertEquals
+      self.assertEqual(keys, { key: value })
 
   @unittest.skip('not implemented yet')
   @mock.patch('database.sqlite3')

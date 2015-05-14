@@ -268,7 +268,7 @@ def xia2(*args):
       xia2result['xz'] = xz
 
   _store_xia2_results(xia2result)
-  getModule()['db'].processed_dataset(getModule()['name'], getModule()['current_test'][0],
+  getModule()['db'].store_test_result(getModule()['name'], getModule()['current_test'][0],
       (now - datetime(1970, 1, 1)).total_seconds(),
       xia2result['success'], xia2result['stdout'], xia2result['stderr'],
       xia2result['json'], xia2result['xia2.error'])

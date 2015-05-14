@@ -247,7 +247,7 @@ def xia2(*args):
     try:
       with open(xia2result['jsonfile'], 'r') as f:
         xia2result['json_raw'] = f.read()
-        xia2result['json'] = json.loads(f)
+        xia2result['json'] = json.loads(xia2result['json_raw'])
     except:
       xia2result['success'] = False
       xia2result['stderr'] = "Could not read xia2.json"
@@ -280,7 +280,7 @@ def xia2(*args):
     error = "xia2() failed"
     if xia2result['stderr']:
       error += " with: " + xia2result['stderr']
-    elif 'xia2.error' in xia2result:
+    elif xia2result['xia2.error']:
       error += " with: " + " ".join(xia2result['xia2.error'].split("\n")[-2:-1])
     elif xia2result['stdout']:
       error += " with: " + xia2result['stdout'].split("\n")[-4]

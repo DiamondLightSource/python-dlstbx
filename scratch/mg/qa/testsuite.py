@@ -242,11 +242,12 @@ def xia2(*args):
   if _debug:
     print xia2result
 
-  xia2result['json'], xia2result['xia2.error'] = None, None
+  xia2result['json'], xia2result['json_raw'],  xia2result['xia2.error'] = None, None, None
   if xia2result['success'] and xia2result['jsonfile']:
     try:
       with open(xia2result['jsonfile'], 'r') as f:
-        xia2result['json'] = json.load(f)
+        xia2result['json_raw'] = f.read()
+        xia2result['json'] = json.loads(f)
     except:
       xia2result['success'] = False
       xia2result['stderr'] = "Could not read xia2.json"
@@ -273,7 +274,7 @@ def xia2(*args):
   getModule()['db'].store_test_result(testid,
       (now - datetime(1970, 1, 1)).total_seconds(),
       xia2result['success'], xia2result['stdout'], xia2result['stderr'],
-      xia2result['json'], xia2result['xia2.error'])
+      xia2result['json_raw'], xia2result['xia2.error'])
 
   if not xia2result['success']:
     error = "xia2() failed"

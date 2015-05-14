@@ -96,13 +96,34 @@ class DB(object):
       cur.execute('SELECT * FROM Tests %s' % whereclause)
       return cur.fetchall()
 
-  def store_keys(self, runid, values):
+  def get_key_ids(self, keys, register_keys=False):
     with self.sql as sql:
-      pass
+      cur = sql.cursor()
+      keyids = {}
+      for k in keys:
+        cur.execute('SELECT id FROM Observables WHERE key = :key', { 'key': k })
+        keyid = cur.fetchone()
+        if (keyid is None) and register_keys:
+          cur.execute('INSERT INTO Observables (key) VALUES (:key)', { 'key': k })
+          keyid = cur.lastrowid
+        keyids[k] = keyid
+      if register_keys:
+        sql.commit()
+    return keyids
+
+  def store_keys(self, runid, values):
+    keyids = self.get_key_ids(values.keys(), register_keys=True)
+    data = [ (runid, keyids[key], values[key]) for key in values ]
+    with self.sql as sql:
+      cur = sql.cursor()
+      cur.executemany('INSERT INTO Observations (runid, observableid, value) VALUES (?, ?, ?)', data)
+      sql.commit()
 
   def get_keys(self, runid):
     with self.sql as sql:
-      pass
+      cur = sql.cursor()
+      cur.execute('SELECT key, value FROM Observations JOIN Observables ON (Observables.id = Observations.observableid) WHERE runid = :runid', { 'runid': runid })
+      return { k:v for (k, v) in cur.fetchall() }
 
 def transform_to_values(datastructure):
   from collections import Mapping

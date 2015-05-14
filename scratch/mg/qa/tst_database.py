@@ -101,19 +101,19 @@ class DatabaseTests(unittest.TestCase):
       self.assertEqual(runs2, { runidA: timestampA })
       self.assertEqual(runs3, { runidA: timestampA })
 
-  @unittest.skip('not implemented yet')
-  @mock.patch('database.sqlite3')
-  def test_store_new_key_values_in_database(self, mock_sqlite3):
-    (dataset, test, timestamp, key, value) = ('qa', 'test', 1, 'some key', 'some value')
+  def test_store_new_key_values_in_database(self):
+    (dataset, test, timestamp) = ('qa', 'test', 1)
+    (keyA, valueA) = ('some key', 'some value')
+    (keyB, valueB) = ('other key', 'other value')
 
     with database.DB(database.DB.memory) as db:
       testid = db.register_test(dataset, test)
       runid  = db.register_testrun(testid, timestamp)
       
-      db.store_keys(runid, { key : value })
+      db.store_keys(runid, { keyA: valueA, keyB: valueB })
       keys = db.get_keys(runid)
 
-      self.assertEqual(keys, { key: value })
+      self.assertEqual(keys, { keyA: valueA, keyB: valueB })
 
   @unittest.skip('not implemented yet')
   @mock.patch('database.sqlite3')

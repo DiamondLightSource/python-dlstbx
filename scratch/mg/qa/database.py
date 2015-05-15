@@ -106,6 +106,8 @@ class DB(object):
         if (keyid is None) and register_keys:
           cur.execute('INSERT INTO Observables (key) VALUES (:key)', { 'key': k })
           keyid = cur.lastrowid
+        else:
+          keyid = keyid['id']
         keyids[k] = keyid
       if register_keys:
         sql.commit()
@@ -124,6 +126,37 @@ class DB(object):
       cur = sql.cursor()
       cur.execute('SELECT key, value FROM Observations JOIN Observables ON (Observables.id = Observations.observableid) WHERE runid = :runid', { 'runid': runid })
       return { k:v for (k, v) in cur.fetchall() }
+
+  def get_key_values(self, key, test=None, limit=None, after_timestamp=None):
+    select_vars = [ 'runid', 'value' ]
+    whereclause = [ 'observableid = :key' ]
+    limitclause = []
+
+    join_testruns = False
+    with self.sql as sql:
+      cur = sql.cursor()
+      if not test is None:
+        join_testruns = True
+        whereclause.append('testid = :test')
+      if not after_timestamp is None:
+        join_testruns = True
+        whereclause.append('timestamp > :timestamp')
+      if not limit is None:
+        join_testruns = True
+        limitclause = [ 'ORDER BY timestamp DESC LIMIT :limit' ]
+
+      if join_testruns:
+        select_vars.extend(['testid', 'timestamp'])
+      sql_command = [ 'SELECT', ', '.join(select_vars), 'FROM Observations' ]
+
+      if join_testruns:
+        sql_command.append('JOIN TestRuns ON (Observations.runid = TestRuns.id)')
+
+      sql_command.append('WHERE (' + (") AND (".join(whereclause)) + ')')
+      sql_command.extend(limitclause)
+
+      cur.execute(' '.join(sql_command), { 'key': key, 'test': test, 'timestamp': after_timestamp, 'limit': limit } )
+      return cur.fetchall()
 
 def transform_to_values(datastructure):
   from collections import Mapping

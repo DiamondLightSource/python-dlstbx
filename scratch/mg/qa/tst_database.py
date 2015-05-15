@@ -115,22 +115,49 @@ class DatabaseTests(unittest.TestCase):
 
       self.assertEqual(keys, { keyA: valueA, keyB: valueB })
 
-  @unittest.skip('not implemented yet')
-  @mock.patch('database.sqlite3')
-  def test_store_existing_key_values_in_database(self, mock_sqlite3):
-    (datasetA, testA, timestampA) = ('qa', 'test1', 1)
-    (datasetB, testB, timestampB) = ('qa', 'test2', 2)
-    (key, value) = ('some key', 'some value')
+  def test_store_multiple_key_values_in_database_and_read_back(self):
+    (dataset, test) = ('qa', 'test')
+    (timestampA, timestampB) = (1, 2)
+    (key, valueA, valueB) = ('some key', 'some value', 'other value')
 
     with database.DB(database.DB.memory) as db:
-      db.processed_dataset(datasetA, testA, None, None, None, None, None, None)
-      db.processed_dataset(datasetB, testB, None, None, None, None, None, None)
-      db.store_keys(datasetA, testA, timestampA, { key : value })
-      db.retrieve_keys(dataset=datasetA, test=testA) # [ {testid: n, timestamp: t, keyid: v, keyid#2: v2} ]
+      testid = db.register_test(dataset, test)
+      runidA = db.register_testrun(testid, timestampA)
+      db.store_keys(runidA, { key: valueA })
+      runidB = db.register_testrun(testid, timestampB)
+      db.store_keys(runidB, { key: valueB })
+      expected_one = { runidB: (valueB, timestampB) }
+      expected_two = { runidA: (valueA, timestampA), runidB: (valueB, timestampB) }
+
+      keyids = db.get_key_ids([key])
+      keyid = keyids[key]
+      keys_all         = db.get_key_values(key=keyid)
+      keys_this_test   = db.get_key_values(key=keyid, test=testid)
+      keys_other_test  = db.get_key_values(key=keyid, test=testid+1)
+      keys_limit_1     = db.get_key_values(key=keyid, limit=1)
+      keys_limit_2     = db.get_key_values(key=keyid, limit=2)
+      keys_timestamp_1 = db.get_key_values(key=keyid, after_timestamp=1.5)
+      keys_timestamp_2 = db.get_key_values(key=keyid, after_timestamp=0.5)
+
+      # reformat output for comparing
+      keys_all         = { r['runid']: r['value'] for r in keys_all }
+      keys_this_test   = { r['runid']: (r['value'], r['timestamp']) for r in keys_this_test }
+      keys_other_test  = { r['runid']: (r['value'], r['timestamp']) for r in keys_other_test }
+      keys_limit_1     = { r['runid']: (r['value'], r['timestamp']) for r in keys_limit_1 }
+      keys_limit_2     = { r['runid']: (r['value'], r['timestamp']) for r in keys_limit_2 }
+      keys_timestamp_1 = { r['runid']: (r['value'], r['timestamp']) for r in keys_timestamp_1 }
+      keys_timestamp_2 = { r['runid']: (r['value'], r['timestamp']) for r in keys_timestamp_2 }
+
+      self.assertEqual(keys_all, { runidA: valueA, runidB: valueB })
+      self.assertEqual(keys_this_test, expected_two)
+      self.assertEqual(keys_other_test, {})
+      self.assertEqual(keys_limit_1, expected_one)
+      self.assertEqual(keys_limit_2, expected_two)
+      self.assertEqual(keys_timestamp_1, expected_one)
+      self.assertEqual(keys_timestamp_2, expected_two)
 
   @unittest.skip('not implemented yet')
-  @mock.patch('database.sqlite3')
-  def test_retrieve_key_values_from_database(self, mock_sqlite3):
+  def test_retrieve_key_values_from_database(self):
     pass
 
   def test_transform_data_structure_to_key_values(self):

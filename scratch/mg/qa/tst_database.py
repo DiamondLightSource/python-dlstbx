@@ -109,7 +109,7 @@ class DatabaseTests(unittest.TestCase):
     with database.DB(database.DB.memory) as db:
       testid = db.register_test(dataset, test)
       runid  = db.register_testrun(testid, timestamp)
-      
+
       db.store_keys(runid, { keyA: valueA, keyB: valueB })
       keys = db.get_keys(runid)
 

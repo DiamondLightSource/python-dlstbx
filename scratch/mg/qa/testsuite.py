@@ -271,10 +271,15 @@ def xia2(*args):
       xia2result['xz'] = xz
 
   _store_xia2_results(xia2result)
-  getModule()['db'].store_test_result(testid,
-      (now - datetime(1970, 1, 1)).total_seconds(),
+  db = getModule()['db']
+  db.store_test_result(testid, (now - datetime(1970, 1, 1)).total_seconds(),
       xia2result['success'], xia2result['stdout'], xia2result['stderr'],
       xia2result['json_raw'], xia2result['xia2.error'])
+
+  if xia2result['success']:
+    keyvalues = db.transform_to_values(xia2result['json'])
+    runid = db.register_testrun(testid, (now - datetime(1970, 1, 1)).total_seconds())
+    db.store_keys(runid, keyvalues)
 
   if not xia2result['success']:
     error = "xia2() failed"

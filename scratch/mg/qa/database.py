@@ -100,7 +100,7 @@ class DB(object):
     with self.sql as sql:
       cur = sql.cursor()
       keyids = {}
-      for k in keys:
+      for k in sorted(keys):
         cur.execute('SELECT id FROM Observables WHERE key = :key', { 'key': k })
         keyid = cur.fetchone()
         if (keyid is None) and register_keys:
@@ -157,6 +157,10 @@ class DB(object):
 
       cur.execute(' '.join(sql_command), { 'key': key, 'test': test, 'timestamp': after_timestamp, 'limit': limit } )
       return cur.fetchall()
+
+  def transform_to_values(self, datastructure):
+    global transform_to_values
+    return transform_to_values(datastructure)
 
 def transform_to_values(datastructure):
   from collections import Mapping

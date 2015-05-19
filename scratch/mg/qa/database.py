@@ -55,12 +55,43 @@ class DB(object):
       else:
         return existing_id['id']
 
-  def get_test(self, testid):
+  def get_tests(self, test_id=None, all_columns=False, group_by_dataset=False):
+    query = { 'select': [], 'where': [], 'group': [] }
+
+    query['select'] = [ 'id', 'dataset', 'test', 'lastseen', 'success' ]
+    if group_by_dataset:
+      query['group'].append('dataset')
+      query['select'].remove('id')
+      query['select'].remove('test')
+      query['select'].remove('success')
+      query['select'].remove('lastseen')
+      query['select'].append('MIN(success) as success')
+      query['select'].append('MAX(lastseen) as lastseen')
+      all_columns = False
+    if all_columns:
+      query['select'].extend([ 'stdout', 'stderr', 'json', 'xia2error' ])
+    if test_id:
+      query['where'].append('id = :testid')
+
+    query['select'] = ', '.join(query['select'])
+    query['where'] = ') AND ('.join(query['where'])
+    query['group'] = ', '.join(query['group'])
+
+    if query['select'] != '':
+      query['select'] = 'SELECT %s FROM Tests' % query['select']
+    if query['where'] != '':
+      query['where'] = 'WHERE (%s)' % query['where']
+    if query['group'] != '':
+      query['group'] = 'GROUP BY %s' % query['group']
+
+    query = " ".join([query[n] for n in ['select', 'where', 'group']])
+
     with self.sql as sql:
       cur = sql.cursor()
-      cur.execute('SELECT * FROM Tests WHERE id = :testid', {'testid': testid})
-      existing_id = cur.fetchone()
-      return existing_id
+      cur.execute(query, {'testid': test_id} )
+      if test_id:
+        return cur.fetchone()
+      return cur.fetchall()
 
   def register_testrun(self, testid, timestamp):
     with self.sql as sql:
@@ -89,12 +120,6 @@ class DB(object):
       success = 1 if success else 0
       cur.execute('UPDATE Tests SET lastseen = ?, success = ?, stdout = ?, stderr = ?, json = ?, xia2error = ? WHERE id = ?', (lastseen, success, stdout, stderr, json, xia2error, testid))
       sql.commit()
-
-  def get_tests(self, whereclause=''):
-    with self.sql as sql:
-      cur = sql.cursor()
-      cur.execute('SELECT * FROM Tests %s' % whereclause)
-      return cur.fetchall()
 
   def get_key_ids(self, keys, register_keys=False):
     with self.sql as sql:

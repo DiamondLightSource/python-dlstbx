@@ -47,7 +47,7 @@ class DatabaseTests(unittest.TestCase):
     with database.DB(database.DB.memory) as db:
       id_1 = db.register_test(dataset, test)
       id_2 = db.get_testid(dataset, test)
-      test_db = db.get_test(id_1)
+      test_db = db.get_tests(test_id=id_1, all_columns=True)
 
       id_3 = db.register_test(dataset, test)
 
@@ -72,11 +72,11 @@ class DatabaseTests(unittest.TestCase):
       testid = db.register_test(dataset, test)
 
       db.store_test_result(testid, lastseenA, successA, stdoutA, stderrA, jsonA, xia2errorA)
-      rowsA = db.get_tests()
+      rowsA = db.get_tests(all_columns=True)
       actualA = dict(rowsA[0])
 
       db.store_test_result(testid, lastseenB, successB, stdoutB, stderrB, jsonB, xia2errorB)
-      rowsB = db.get_tests()
+      rowsB = db.get_tests(all_columns=True)
       actualB = dict(rowsB[0])
 
     self.assertEqual(len(rowsA), 1)
@@ -155,10 +155,6 @@ class DatabaseTests(unittest.TestCase):
       self.assertEqual(keys_limit_2, expected_two)
       self.assertEqual(keys_timestamp_1, expected_one)
       self.assertEqual(keys_timestamp_2, expected_two)
-
-  @unittest.skip('not implemented yet')
-  def test_retrieve_key_values_from_database(self):
-    pass
 
   def test_transform_data_structure_to_key_values(self):
     datastructure = { 'key': [ { 'a' : 1 }, { 'b' : 2 } , { 'c' : [ 'x', 'y' ] } ] }

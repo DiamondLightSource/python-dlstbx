@@ -57,27 +57,27 @@ class DecoratorTests(unittest.TestCase):
     def reset_call_flag():
       self.called = False
 
-    self.assertEqual(self.called, False)
+    self.assertFalse(self.called)
     set_call_flag()
-    self.assertEqual(self.called, True)
+    self.assertTrue(self.called)
     reset_call_flag()
-    self.assertEqual(self.called, False)
+    self.assertFalse(self.called)
 
     decorators.disableDecoratorFunctions()
     set_call_flag()
-    self.assertEqual(self.called, False)
+    self.assertFalse(self.called)
 
     decorators.enableDecoratorFunctions()
     set_call_flag()
-    self.assertEqual(self.called, True)
+    self.assertTrue(self.called)
 
     decorators.disableDecoratorFunctions()
     reset_call_flag()
-    self.assertEqual(self.called, True)
+    self.assertTrue(self.called)
 
     decorators.enableDecoratorFunctions()
     reset_call_flag()
-    self.assertEqual(self.called, False)
+    self.assertFalse(self.called)
 
     self.assertEqual(decorators.disabledCalls(), ['set_call_flag', 'reset_call_flag'])
     self.assertEqual(decorators.disabledCalls(), [])

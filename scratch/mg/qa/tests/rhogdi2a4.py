@@ -8,7 +8,7 @@ def checkthatdataiscomplete():
          at_least(300),
          at_most(300),
          more_than(299),
-         less_than(301))
+         less_than(301)) # http://en.wikipedia.org/wiki/Rabbit_of_Caerbannog#Holy_Hand_Grenade_of_Antioch
 
 @Test
 def runwithdials():

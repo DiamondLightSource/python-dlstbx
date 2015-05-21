@@ -57,7 +57,6 @@ def _run_with_timeout(command, timeout, debug):
   stdout = _NonBlockingStreamReader(p.stdout)
   stderr = _NonBlockingStreamReader(p.stderr)
 
-  block = 4096 # block size to read from pipes
   timeout = False
 
   while (timeit.default_timer() < max_time) and (p.returncode is None):

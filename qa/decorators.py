@@ -47,6 +47,7 @@ def Data(*args, **kwargs):
      which is run once before any tests on that dataset"""
   if _debug:
     print _debug_format % ("Data", args, kwargs)
+  return
   def wrap(f):
     if _debug:
       print _debug_format % (("datawrap for function %s" % f), args, kwargs)

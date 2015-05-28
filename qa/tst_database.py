@@ -101,6 +101,40 @@ class DatabaseTests(unittest.TestCase):
       self.assertEqual(runs2, { runidA: timestampA })
       self.assertEqual(runs3, { runidA: timestampA })
 
+  def test_retrieve_grouped_and_ordered_test_results_from_database(self):
+    (dataset, testA, testB, testC) = ('qa', 'alpha', 'beta', 'gamma')
+    (stdout, stderr, json, xia2error) = (None, None, None, None)
+    (lastseenA, successA) = (11, True)
+    (lastseenB, successB) = (31, True)
+    (lastseenC, successC) = (21, False)
+
+    expected_sorted = [ ( dataset, testA, lastseenA, successA ),
+                        ( dataset, testB, lastseenB, successB ),
+                        ( dataset, testC, lastseenC, successC ) ]
+
+    expected_grouped = { dataset: ( max(lastseenA, lastseenB, lastseenC), all([successA, successB, successC]) ) }
+
+    with database.DB(database.DB.memory) as db:
+      testidC = db.register_test(dataset, testC)
+      testidB = db.register_test(dataset, testB)
+      testidA = db.register_test(dataset, testA)
+
+      db.store_test_result(testidC, lastseenC, successC, stdout, stderr, json, xia2error)
+      db.store_test_result(testidB, lastseenB, successB, stdout, stderr, json, xia2error)
+      db.store_test_result(testidA, lastseenA, successA, stdout, stderr, json, xia2error)
+
+      actual_all_tests = { t['id']: ( t['dataset'], t['test'], t['lastseen'], t['success'] ) for t in db.get_tests() }
+
+      actual_sorted_tests = [ ( t['dataset'], t['test'], t['lastseen'], t['success'] ) for t in db.get_tests(order_by_name=True) ]
+
+      actual_grouped_tests = { t['dataset']: ( t['lastseen'], t['success'] ) for t in db.get_tests(group_by_dataset=True) }
+
+    self.assertEqual(actual_all_tests[testidA], ( dataset, testA, lastseenA, successA))
+    self.assertEqual(actual_all_tests[testidB], ( dataset, testB, lastseenB, successB))
+    self.assertEqual(actual_all_tests[testidC], ( dataset, testC, lastseenC, successC))
+    self.assertEqual(actual_sorted_tests, expected_sorted)
+    self.assertEqual(actual_grouped_tests, expected_grouped)
+
   def test_store_new_key_values_in_database(self):
     (dataset, test, timestamp) = ('qa', 'test', 1)
     (keyA, valueA) = ('some key', 'some value')

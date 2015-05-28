@@ -55,14 +55,19 @@ class DB(object):
       else:
         return existing_id['id']
 
-  def get_tests(self, test_id=None, all_columns=False, group_by_dataset=False):
-    query = { 'select': [], 'where': [], 'group': [] }
+  def get_tests(self, test_id=None, all_columns=False, group_by_dataset=False, order_by_name=False):
+    query = { 'select': [], 'where': [], 'group': [], 'order': [] }
 
     query['select'] = [ 'id', 'dataset', 'test', 'lastseen', 'success' ]
+    if order_by_name:
+      query['order'].append('dataset ASC')
+      query['order'].append('test ASC')
     if group_by_dataset:
       query['group'].append('dataset')
       query['select'].remove('id')
       query['select'].remove('test')
+      if order_by_name:
+        query['order'].remove('test ASC')
       query['select'].remove('success')
       query['select'].remove('lastseen')
       query['select'].append('MIN(success) as success')
@@ -76,6 +81,7 @@ class DB(object):
     query['select'] = ', '.join(query['select'])
     query['where'] = ') AND ('.join(query['where'])
     query['group'] = ', '.join(query['group'])
+    query['order'] = ', '.join(query['order'])
 
     if query['select'] != '':
       query['select'] = 'SELECT %s FROM Tests' % query['select']
@@ -83,8 +89,10 @@ class DB(object):
       query['where'] = 'WHERE (%s)' % query['where']
     if query['group'] != '':
       query['group'] = 'GROUP BY %s' % query['group']
+    if query['order'] != '':
+      query['order'] = 'ORDER BY %s' % query['order']
 
-    query = " ".join([query[n] for n in ['select', 'where', 'group']])
+    query = " ".join([query[n] for n in ['select', 'where', 'group', 'order']])
 
     with self.sql as sql:
       cur = sql.cursor()

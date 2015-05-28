@@ -37,3 +37,21 @@ def weeks(w):
 
 def week(w):
   return weeks(w)
+
+## From seconds to readable time
+
+def readable_time(t):
+  if (t < 1):
+    return "less than 1 second"
+  if (t < 2):
+    return "1 second"
+  if (t < 120):
+    return "%d seconds" % t
+  t = t / 60
+  if (t < 120):
+    return "%d minutes" % t
+  t = t / 60
+  if (t < 48):
+    return "%d hours" % t
+  t = t / 24
+  return "%d days" % t

@@ -30,10 +30,11 @@ if __name__ == "__main__":
   parser = OptionParser("usage: %prog [options] [module [module [..]]]")
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 #  parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="produce more output")
-#  parser.add_option("-q", "--quiet", action="store_true", dest="quiet", help="produce less output")
   parser.add_option("-p", "--path", dest="path", metavar="PATH", help="Location of the quality-assurance directory structure (containing subdirectories /work /logs /archive)", default=".")
   parser.add_option("-d", "--datapath", dest="datapath", metavar="PATH", help="Location of the data (default: /dls/mx-scratch/mgerstel/qa/data)", default="/dls/mx-scratch/mgerstel/qa/data")
   parser.add_option("-b", "--database", dest="database", metavar="FILE", help="Location of the sqlite3 qa database (default: ./qa.db relative to $path)", default="./qa.db")
+  parser.add_option("-l", "--list", action="store_true", dest="list", help="list all available tests")
+  parser.add_option("-a", "--auto", action="store_true", dest="auto", help="automatically select and run one test")
   (options, args) = parser.parse_args()
 
   if _debug:
@@ -53,16 +54,32 @@ if __name__ == "__main__":
   print "   Work directory:", workdir
   print "    Log directory:", logdir
   print "Archive directory:", archive
-  print
 
   with database.DB(dbfile) as db:
     loader = loader.Loader(db)
-    if (len(args) == 0):
-      print "Available tests:"
+    if options.list:
+      print "\nAvailable tests:"
       loader.show_all_tests(datadir)
-      print "Specify tests on command line to run them"
-    else:
-      for t in args:
+    testlist = args
+    if options.auto:
+      modules_available = set(loader.list_all_modules())
+      modules_status = db.get_tests(group_by_dataset=True)
+
+      # auto-selection priority:
+      #  - triggered test (don't yet know how)
+      #  - tests that never ran, any order
+      seen_modules = { t['dataset'] for t in modules_status }
+      untested_modules = modules_available - seen_modules
+      if len(untested_modules) > 0:
+        testlist = [ untested_modules.pop() ]
+      else:
+      #  - tests that failed more than 24 hours ago, by age
+      #  - oldest test
+        print modules_available
+        print modules_status
+        testlist = [ "rhogdi2a4" ] #  TODO
+    if (len(testlist) > 0):
+      for t in testlist:
         results = loader.run_test_module(t,
           os.path.join(datadir, t),
           os.path.join(workdir, t),

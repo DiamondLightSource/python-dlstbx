@@ -42,19 +42,21 @@ class Loader():
       print module
     return module
 
+  def list_all_modules(self):
+    return tests.list_all_modules().iterkeys()
+
   def show_all_tests(self, datadir):
-    for k, _ in tests.list_all_modules().iteritems():
-      test = self.load_test_module(k, os.path.join(datadir, k))
+    for m in self.list_all_modules():
+      test = self.load_test_module(m, os.path.join(datadir, m))
       testlist = ", ".join([name for (name, func, args, kwargs) in test["Test()"]])
       if test["errors"]:
         term.color('bright', 'red')
-      print "  %25s : [ %s ]" % (k, testlist)
+      print "  %25s : [ %s ]" % (m, testlist)
       if test["errors"]:
         print "  This test contains errors:"
         term.color('', 'red')
         for n in test["errors"]:
           print "    %s" % n
-        print
         term.color()
 
   def run_test_function(self, module, func, xia2callRequired=False):

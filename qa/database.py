@@ -29,7 +29,7 @@ class DB(object):
   def _initialize_database(self):
     with self.sql as sql:
       cur = self.sql.cursor()
-      cur.execute("CREATE TABLE Tests(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, dataset TEXT NOT NULL, test TEXT NOT NULL, lastseen INTEGER, success INT, stdout TEXT, stderr TEXT, json TEXT, xia2error TEXT)")
+      cur.execute("CREATE TABLE Tests(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, dataset TEXT NOT NULL, test TEXT NOT NULL, lastseen INTEGER, success INT, skipped INT, stdout TEXT, stderr TEXT, json TEXT, xia2error TEXT)")
       cur.execute("CREATE TABLE TestRuns(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, testid INTEGER NOT NULL, timestamp INTEGER NOT NULL, FOREIGN KEY(testid) REFERENCES Tests(id) ON DELETE CASCADE)")
       cur.execute("CREATE TABLE Observables(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, key TEXT NOT NULL UNIQUE)")
       cur.execute("CREATE TABLE Observations(runid INTEGER NOT NULL, observableid INTEGER NOT NULL, value TEXT, FOREIGN KEY(runid) REFERENCES TestRuns(id) ON DELETE CASCADE, FOREIGN KEY(observableid) REFERENCES Observables(id) ON DELETE CASCADE)")
@@ -58,7 +58,7 @@ class DB(object):
   def get_tests(self, test_id=None, all_columns=False, group_by_dataset=False, order_by_name=False):
     query = { 'select': [], 'where': [], 'group': [], 'order': [] }
 
-    query['select'] = [ 'id', 'dataset', 'test', 'lastseen', 'success' ]
+    query['select'] = [ 'id', 'dataset', 'test', 'lastseen', 'success', 'skipped' ]
     if order_by_name:
       query['order'].append('dataset ASC')
       query['order'].append('test ASC')
@@ -69,8 +69,10 @@ class DB(object):
       if order_by_name:
         query['order'].remove('test ASC')
       query['select'].remove('success')
+      query['select'].remove('skipped')
       query['select'].remove('lastseen')
       query['select'].append('MIN(success) as success')
+      query['select'].append('MAX(skipped) as skipped')
       query['select'].append('MAX(lastseen) as lastseen')
       all_columns = False
     if all_columns:
@@ -122,11 +124,11 @@ class DB(object):
         results[row['id']] = row['timestamp']
       return results
 
-  def store_test_result(self, testid, lastseen, success, stdout, stderr, json, xia2error):
+  def store_test_result(self, testid, lastseen, success, skipped, stdout, stderr, json, xia2error):
     with self.sql as sql:
       cur = sql.cursor()
       success = 1 if success else 0
-      cur.execute('UPDATE Tests SET lastseen = ?, success = ?, stdout = ?, stderr = ?, json = ?, xia2error = ? WHERE id = ?', (lastseen, success, stdout, stderr, json, xia2error, testid))
+      cur.execute('UPDATE Tests SET lastseen = ?, success = ?, skipped = ?, stdout = ?, stderr = ?, json = ?, xia2error = ? WHERE id = ?', (lastseen, success, skipped, stdout, stderr, json, xia2error, testid))
       sql.commit()
 
   def get_key_ids(self, keys, register_keys=False):

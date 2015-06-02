@@ -59,23 +59,23 @@ class DatabaseTests(unittest.TestCase):
   # test = one test function running on one test dataset, stored together with its last results
   def test_store_test_results_in_database(self):
     (dataset, test) = ('qa', 'test')
-    (lastseenA, successA, stdoutA, stderrA, jsonA, xia2errorA) = (1, True, 'a', 'b', 'c', None)
-    (lastseenB, successB, stdoutB, stderrB, jsonB, xia2errorB) = (2, False, '', None, 'y', 'z')
+    (lastseenA, successA, skippedA, stdoutA, stderrA, jsonA, xia2errorA) = (1, True, False, 'a', 'b', 'c', None)
+    (lastseenB, successB, skippedB, stdoutB, stderrB, jsonB, xia2errorB) = (2, False, True, '', None, 'y', 'z')
     expectedA = { 'id': 1, 'dataset': dataset, 'test': test, 'lastseen': lastseenA,
-                  'success': 1 if successA else 0, 'stdout': stdoutA, 'stderr': stderrA,
-                  'json': jsonA, 'xia2error': xia2errorA }
+                  'success': 1 if successA else 0, 'skipped': 1 if skippedA else 0,
+                  'stdout': stdoutA, 'stderr': stderrA, 'json': jsonA, 'xia2error': xia2errorA }
     expectedB = { 'id': 1, 'dataset': dataset, 'test': test, 'lastseen': lastseenB,
-                  'success': 1 if successB else 0, 'stdout': stdoutB, 'stderr': stderrB,
-                  'json': jsonB, 'xia2error': xia2errorB }
+                  'success': 1 if successB else 0, 'skipped': 1 if skippedB else 0,
+                  'stdout': stdoutB, 'stderr': stderrB, 'json': jsonB, 'xia2error': xia2errorB }
 
     with database.DB(database.DB.memory) as db:
       testid = db.register_test(dataset, test)
 
-      db.store_test_result(testid, lastseenA, successA, stdoutA, stderrA, jsonA, xia2errorA)
+      db.store_test_result(testid, lastseenA, successA, skippedA, stdoutA, stderrA, jsonA, xia2errorA)
       rowsA = db.get_tests(all_columns=True)
       actualA = dict(rowsA[0])
 
-      db.store_test_result(testid, lastseenB, successB, stdoutB, stderrB, jsonB, xia2errorB)
+      db.store_test_result(testid, lastseenB, successB, skippedB, stdoutB, stderrB, jsonB, xia2errorB)
       rowsB = db.get_tests(all_columns=True)
       actualB = dict(rowsB[0])
 
@@ -104,34 +104,34 @@ class DatabaseTests(unittest.TestCase):
   def test_retrieve_grouped_and_ordered_test_results_from_database(self):
     (dataset, testA, testB, testC) = ('qa', 'alpha', 'beta', 'gamma')
     (stdout, stderr, json, xia2error) = (None, None, None, None)
-    (lastseenA, successA) = (11, True)
-    (lastseenB, successB) = (31, True)
-    (lastseenC, successC) = (21, False)
+    (lastseenA, successA, skippedA) = (11, True, False)
+    (lastseenB, successB, skippedB) = (31, True, True)
+    (lastseenC, successC, skippedC) = (21, False, False)
 
-    expected_sorted = [ ( dataset, testA, lastseenA, successA ),
-                        ( dataset, testB, lastseenB, successB ),
-                        ( dataset, testC, lastseenC, successC ) ]
+    expected_sorted = [ ( dataset, testA, lastseenA, successA, skippedA ),
+                        ( dataset, testB, lastseenB, successB, skippedB ),
+                        ( dataset, testC, lastseenC, successC, skippedC ) ]
 
-    expected_grouped = { dataset: ( max(lastseenA, lastseenB, lastseenC), all([successA, successB, successC]) ) }
+    expected_grouped = { dataset: ( max(lastseenA, lastseenB, lastseenC), all([successA, successB, successC]), any([skippedA, skippedB, skippedC]) ) }
 
     with database.DB(database.DB.memory) as db:
       testidC = db.register_test(dataset, testC)
       testidB = db.register_test(dataset, testB)
       testidA = db.register_test(dataset, testA)
 
-      db.store_test_result(testidC, lastseenC, successC, stdout, stderr, json, xia2error)
-      db.store_test_result(testidB, lastseenB, successB, stdout, stderr, json, xia2error)
-      db.store_test_result(testidA, lastseenA, successA, stdout, stderr, json, xia2error)
+      db.store_test_result(testidC, lastseenC, successC, skippedC, stdout, stderr, json, xia2error)
+      db.store_test_result(testidB, lastseenB, successB, skippedB, stdout, stderr, json, xia2error)
+      db.store_test_result(testidA, lastseenA, successA, skippedA, stdout, stderr, json, xia2error)
 
-      actual_all_tests = { t['id']: ( t['dataset'], t['test'], t['lastseen'], t['success'] ) for t in db.get_tests() }
+      actual_all_tests = { t['id']: ( t['dataset'], t['test'], t['lastseen'], t['success'], t['skipped'] ) for t in db.get_tests() }
 
-      actual_sorted_tests = [ ( t['dataset'], t['test'], t['lastseen'], t['success'] ) for t in db.get_tests(order_by_name=True) ]
+      actual_sorted_tests = [ ( t['dataset'], t['test'], t['lastseen'], t['success'], t['skipped'] ) for t in db.get_tests(order_by_name=True) ]
 
-      actual_grouped_tests = { t['dataset']: ( t['lastseen'], t['success'] ) for t in db.get_tests(group_by_dataset=True) }
+      actual_grouped_tests = { t['dataset']: ( t['lastseen'], t['success'], t['skipped'] ) for t in db.get_tests(group_by_dataset=True) }
 
-    self.assertEqual(actual_all_tests[testidA], ( dataset, testA, lastseenA, successA))
-    self.assertEqual(actual_all_tests[testidB], ( dataset, testB, lastseenB, successB))
-    self.assertEqual(actual_all_tests[testidC], ( dataset, testC, lastseenC, successC))
+    self.assertEqual(actual_all_tests[testidA], ( dataset, testA, lastseenA, successA, skippedA ))
+    self.assertEqual(actual_all_tests[testidB], ( dataset, testB, lastseenB, successB, skippedB ))
+    self.assertEqual(actual_all_tests[testidC], ( dataset, testC, lastseenC, successC, skippedC ))
     self.assertEqual(actual_sorted_tests, expected_sorted)
     self.assertEqual(actual_grouped_tests, expected_grouped)
 

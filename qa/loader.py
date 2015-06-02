@@ -1,3 +1,4 @@
+from datetime import datetime
 import decorators
 from result import Result
 import tests
@@ -20,7 +21,7 @@ class Loader():
       self._loaded_modules[name]['archivedir'] = archivedir
       return self._loaded_modules[name]
 
-    module = { 'name': name, 'datadir': datadir, 'workdir': workdir, 'archivedir': archivedir, 'db': self.db }
+    module = { 'name': name, 'datadir': datadir, 'workdir': workdir, 'archivedir': archivedir }
 
     module['result'] = Result()
     decorators.disableDecoratorFunctions()
@@ -59,8 +60,10 @@ class Loader():
           print "    %s" % n
         term.color()
 
-  def run_test_function(self, module, func, xia2callRequired=False):
+  def run_test_function(self, module, func, xia2_call_required=False):
     module['current_test'] = func
+    testid = self.db.register_test(module['name'], func[0])
+
     failure = None
     stacktrace = None
 
@@ -73,15 +76,44 @@ class Loader():
       e_type, e_value, e_traceback = sys.exc_info()
       stacktrace = ("".join(traceback.format_tb(e_traceback)[1:])).strip()
       failure = "Test resulted in error: %s" % e
-    if xia2callRequired:
-      testsuite.check_xia2_results()
-    testresults = testsuite.getTestOutput()
+    xia2result = testsuite.get_xia2_results(xia2_call_required)
+    testresults = testsuite.get_test_output()
     testresults.set_name(func[0])
+
+    epoch = (datetime.now() - datetime(1970, 1, 1)).total_seconds()
+    # TODO: use testresults, store values marked as untrusted/unstable
+    success = (failure is None) \
+              and ((not xia2_call_required) \
+                   or (xia2result and xia2result['success']))
+
+    stderr = "\n".join([ xia2result and xia2result['stderr'] or '', failure or '', stacktrace or '' ])
+
+    self.db.store_test_result(testid, epoch,
+      success, False, xia2result and xia2result['stdout'], stderr,
+      xia2result and xia2result['json_raw'], xia2result and xia2result['xia2.error'])
+
+    if xia2result and xia2result['success']:
+      keyvalues = self.db.transform_to_values(xia2result['json'])
+      runid = self.db.register_testrun(testid, epoch)
+      self.db.store_keys(runid, keyvalues)
 
     if failure is not None:
       testresults.log_error(failure)
       testresults.log_trace(stacktrace)
     return testresults
+
+  def skip_test_function(self, module, func):
+    epoch = (datetime.now() - datetime(1970, 1, 1)).total_seconds()
+    testid = self.db.register_test(module['name'], func[0])
+    message = "Skipping test %s.%s due to failed module initialization" % (module['name'], func[0])
+
+    self.db.store_test_result(testid, epoch, True, True, message, None, None, None)
+
+    result = Result()
+    result.set_name(func[0])
+    result.log_skip(message)
+
+    return result
 
   def run_test_module(self, name, datadir, workdir, archivedir=None, debugOutput=True):
     if name not in self._loaded_modules:
@@ -112,17 +144,13 @@ class Loader():
     testresults = [ setupresult ]
 
     for fun in module['Test()']:
-      funcname = fun[0]
       if setupresult.is_failure():
-        message = "Skipping test %s.%s due to failed module initialization" % (name, funcname)
-        result = Result()
-        result.set_name(funcname)
-        result.log_skip(message)
+        result = self.skip_test_function(module, fun)
       else:
         term.color('blue')
-        print "\nRunning %s.%s" % (name, funcname)
+        print "\nRunning %s.%s" % (name, fun[0])
         term.color()
-        result = self.run_test_function(module, fun, xia2callRequired=True)
+        result = self.run_test_function(module, fun, xia2_call_required=True)
       result.printResult()
 
       term.color()

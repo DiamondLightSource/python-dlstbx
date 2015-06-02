@@ -25,19 +25,24 @@ def run(dbfile):
       print ' %s' % t['dataset']
       print '=' * (2 + len(t['dataset']))
       color()
-
-    if t['success'] and not t['skipped']:
+    if t['lastseen'] is None:
+      color('grey')
+      print " [----]",
+    elif t['success'] and not t['skipped']:
       color('green')
       print " [ OK ]",
     elif t['success']:
-      color('yellow')
+      color('bright', 'yellow')
       print " [SKIP]",
     else:
       color('red')
       print " [FAIL]",
     print "%-30s" % t['test'],
     color()
-    print " (%s ago)" % units.readable_time(epoch - t['lastseen'])
+    if t['lastseen'] is None:
+      print
+    else:
+      print " (%s ago)" % units.readable_time(epoch - t['lastseen'])
 
 if __name__ == '__main__':
   parser = OptionParser("usage: %prog database.db [options] [module [module [..]]]")

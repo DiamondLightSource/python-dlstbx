@@ -63,7 +63,7 @@ def _get_soft_fail():
     _test_soft_fail_tripped = False
   return status
 
-def getTestOutput():
+def get_test_output():
   _resetRecursionDepth()
   r = _test_status
   _reset()
@@ -88,12 +88,14 @@ def reset_xia2_results():
   _xia2_results = None
   _xia2_was_called_in_test = False
 
-def check_xia2_results():
+def get_xia2_results(required=True):
   if not _xia2_was_called_in_test:
-    fail("Test does not include xia2() call")
+    if required:
+      fail("Test does not include xia2() call")
     return None
   if _xia2_results is None:
-    fail("xia2() results not available")
+    if required:
+      fail("xia2() results not available")
     return None
   return _xia2_results
 
@@ -227,7 +229,6 @@ def xia2(*args):
   now = datetime.now()
   workdir = os.path.join(getModule()['workdir'], getModule()['current_test'][0])
   datadir = getModule()['datadir']
-  testid = getModule()['db'].register_test(getModule()['name'], getModule()['current_test'][0])
 #  runid = ...
 
   if 'timeout' in getModule()['current_test'][3]:
@@ -253,7 +254,7 @@ def xia2(*args):
       xia2result['stderr'] = "Could not read xia2.json"
 
   if os.path.exists(os.path.join(workdir, 'xia2.error')):
-    with open (os.path.join(workdir, 'xia2.error'), "r") as errorfile:
+    with open(os.path.join(workdir, 'xia2.error'), "r") as errorfile:
       xia2result['xia2.error'] = errorfile.read()
 
   if xia2result['success'] and xia2result['jsonfile'] and getModule()['archivedir']:
@@ -271,15 +272,6 @@ def xia2(*args):
       xia2result['xz'] = xz
 
   _store_xia2_results(xia2result)
-  db = getModule()['db']
-  db.store_test_result(testid, (now - datetime(1970, 1, 1)).total_seconds(),
-      xia2result['success'], xia2result['stdout'], xia2result['stderr'],
-      xia2result['json_raw'], xia2result['xia2.error'])
-
-  if xia2result['success']:
-    keyvalues = db.transform_to_values(xia2result['json'])
-    runid = db.register_testrun(testid, (now - datetime(1970, 1, 1)).total_seconds())
-    db.store_keys(runid, keyvalues)
 
   if not xia2result['success']:
     error = "xia2() failed"

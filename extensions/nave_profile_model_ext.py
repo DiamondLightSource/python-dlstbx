@@ -10,7 +10,7 @@
 #  included in the root directory of this package.
 from __future__ import division
 
-from dials.interfaces import ProfileModelIface
+# from dials.interfaces import ProfileModelIface
 
 
 #class NaveProfileModelExt(ProfileModelCreatorIface):

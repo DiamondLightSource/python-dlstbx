@@ -22,7 +22,11 @@ def run(dbfile):
         print
       lastdataset = t['dataset']
       color('bright', 'white')
-      print ' %s' % t['dataset']
+      print ' %s' % t['dataset'],
+      color()
+      color('grey')
+      print ' (%s)' % t['runpriority']
+      color('bright', 'white')
       print '=' * (2 + len(t['dataset']))
       color()
     if t['lastseen'] is None:

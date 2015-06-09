@@ -63,10 +63,12 @@ class DatabaseTests(unittest.TestCase):
     (lastseenB, successB, skippedB, stdoutB, stderrB, jsonB, xia2errorB) = (2, False, True, '', None, 'y', 'z')
     expectedA = { 'id': 1, 'dataset': dataset, 'test': test, 'lastseen': lastseenA,
                   'success': 1 if successA else 0, 'skipped': 1 if skippedA else 0,
-                  'stdout': stdoutA, 'stderr': stderrA, 'json': jsonA, 'xia2error': xia2errorA }
+                  'stdout': stdoutA, 'stderr': stderrA, 'json': jsonA, 'xia2error': xia2errorA,
+                  'runpriority': 0 }
     expectedB = { 'id': 1, 'dataset': dataset, 'test': test, 'lastseen': lastseenB,
                   'success': 1 if successB else 0, 'skipped': 1 if skippedB else 0,
-                  'stdout': stdoutB, 'stderr': stderrB, 'json': jsonB, 'xia2error': xia2errorB }
+                  'stdout': stdoutB, 'stderr': stderrB, 'json': jsonB, 'xia2error': xia2errorB,
+                  'runpriority': 0 }
 
     with database.DB(database.DB.memory) as db:
       testid = db.register_test(dataset, test)
@@ -189,6 +191,49 @@ class DatabaseTests(unittest.TestCase):
       self.assertEqual(keys_limit_2, expected_two)
       self.assertEqual(keys_timestamp_1, expected_one)
       self.assertEqual(keys_timestamp_2, expected_two)
+
+  def test_select_next_test_according_to_runpriority(self):
+    (datasetA, datasetB, testA, testB, testC, testZ) = ('qa', 'control', 'alpha', 'beta', 'gamma', 'omega')
+
+    with database.DB(database.DB.memory) as db:
+      id_A = db.register_test(datasetA, testA)
+      id_B = db.register_test(datasetA, testB)
+      id_C = db.register_test(datasetA, testC)
+      id_Z = db.register_test(datasetB, testZ)
+
+      db.set_runpriority(id_A, 20)
+      db.set_runpriority(id_B, 40)
+      db.set_runpriority(id_C, 10)
+      db.set_runpriority(id_Z, 15)
+
+      expected_order = [ testC, testZ, testA, testB ]
+      actual_order = [ t['test'] for t in db.get_tests(order_by_priority=True) ]
+
+      expected_top_priority = [ datasetA ]
+      actual_top_priority = [ t['dataset'] for t in db.get_tests(order_by_priority=True, limit=1) ]
+
+      expected_grouped_order = [ datasetA, datasetB ]
+      actual_grouped_order = [ t['dataset'] for t in db.get_tests(order_by_priority=True, group_by_dataset=True) ]
+
+      self.assertEqual(actual_order, expected_order)
+      self.assertEqual(actual_top_priority, expected_top_priority)
+      self.assertEqual(actual_grouped_order, expected_grouped_order)
+
+      db.set_runpriority(id_A, failed=True)
+      db.set_runpriority(id_C)
+
+      expected_order = [ testZ, testB, testA, testC ]
+      actual_order = [ t['test'] for t in db.get_tests(order_by_priority=True) ]
+
+      expected_top_priority = [ datasetB ]
+      actual_top_priority = [ t['dataset'] for t in db.get_tests(order_by_priority=True, limit=1) ]
+
+      expected_grouped_order = [ datasetB, datasetA ]
+      actual_grouped_order = [ t['dataset'] for t in db.get_tests(order_by_priority=True, group_by_dataset=True) ]
+
+      self.assertEqual(actual_order, expected_order)
+      self.assertEqual(actual_top_priority, expected_top_priority)
+      self.assertEqual(actual_grouped_order, expected_grouped_order)
 
   def test_transform_data_structure_to_key_values(self):
     datastructure = { 'key': [ { 'a' : 1 }, { 'b' : 2 } , { 'c' : [ 'x', 'y' ] } ] }

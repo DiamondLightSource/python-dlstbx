@@ -29,11 +29,12 @@ class DB(object):
   def _initialize_database(self):
     with self.sql as sql:
       cur = self.sql.cursor()
-      cur.execute("CREATE TABLE Tests(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, dataset TEXT NOT NULL, test TEXT NOT NULL, lastseen INTEGER, success INT, skipped INT, stdout TEXT, stderr TEXT, json TEXT, xia2error TEXT)")
+      cur.execute("CREATE TABLE Tests(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, dataset TEXT NOT NULL, test TEXT NOT NULL, lastseen INTEGER, success INT, skipped INT, runpriority INT NOT NULL DEFAULT 0, stdout TEXT, stderr TEXT, json TEXT, xia2error TEXT)")
       cur.execute("CREATE TABLE TestRuns(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, testid INTEGER NOT NULL, timestamp INTEGER NOT NULL, FOREIGN KEY(testid) REFERENCES Tests(id) ON DELETE CASCADE)")
       cur.execute("CREATE TABLE Observables(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, key TEXT NOT NULL UNIQUE)")
       cur.execute("CREATE TABLE Observations(runid INTEGER NOT NULL, observableid INTEGER NOT NULL, value TEXT, FOREIGN KEY(runid) REFERENCES TestRuns(id) ON DELETE CASCADE, FOREIGN KEY(observableid) REFERENCES Observables(id) ON DELETE CASCADE)")
       cur.execute("CREATE UNIQUE INDEX dataset_test ON Tests (dataset, test)")
+      cur.execute("CREATE INDEX dataset_runpriority ON Tests (runpriority)")
 
   def register_test(self, dataset, test):
     id = self.get_testid(dataset, test)
@@ -55,10 +56,23 @@ class DB(object):
       else:
         return existing_id['id']
 
-  def get_tests(self, test_id=None, all_columns=False, group_by_dataset=False, order_by_name=False):
-    query = { 'select': [], 'where': [], 'group': [], 'order': [] }
+  def set_runpriority(self, testid, runpriority=None, failed=False):
+    rp = ':runpriority'
+    if runpriority is None:
+      rp = "STRFTIME('%s', 'now')"
+    if failed:
+      rp = "MAX((runpriority + %s) / 2, STRFTIME('%%s', 'now') - 48*3600)" % rp
+    with self.sql as sql:
+      cur = sql.cursor()
+      cur.execute('UPDATE Tests SET runpriority = %s WHERE id = :id' % rp, {'runpriority': runpriority, 'id': testid})
+      sql.commit()
 
-    query['select'] = [ 'id', 'dataset', 'test', 'lastseen', 'success', 'skipped' ]
+  def get_tests(self, test_id=None, all_columns=False, group_by_dataset=False, order_by_name=False, order_by_priority=False, limit=None):
+    query = { 'select': [], 'where': [], 'group': [], 'order': [], 'limit': '' }
+
+    query['select'] = [ 'id', 'dataset', 'test', 'lastseen', 'success', 'skipped', 'runpriority' ]
+    if order_by_priority:
+      query['order'].append('runpriority ASC')
     if order_by_name:
       query['order'].append('dataset ASC')
       query['order'].append('test ASC')
@@ -71,14 +85,18 @@ class DB(object):
       query['select'].remove('success')
       query['select'].remove('skipped')
       query['select'].remove('lastseen')
+      query['select'].remove('runpriority')
       query['select'].append('MIN(success) as success')
       query['select'].append('MAX(skipped) as skipped')
       query['select'].append('MAX(lastseen) as lastseen')
+      query['select'].append('MIN(runpriority) as runpriority')
       all_columns = False
     if all_columns:
       query['select'].extend([ 'stdout', 'stderr', 'json', 'xia2error' ])
     if test_id:
       query['where'].append('id = :testid')
+    if limit:
+      query['limit'] = str(limit)
 
     query['select'] = ', '.join(query['select'])
     query['where'] = ') AND ('.join(query['where'])
@@ -93,8 +111,10 @@ class DB(object):
       query['group'] = 'GROUP BY %s' % query['group']
     if query['order'] != '':
       query['order'] = 'ORDER BY %s' % query['order']
+    if query['limit'] != '':
+      query['limit'] = 'LIMIT %s' % query['limit']
 
-    query = " ".join([query[n] for n in ['select', 'where', 'group', 'order']])
+    query = " ".join([query[n] for n in ['select', 'where', 'group', 'order', 'limit']])
 
     with self.sql as sql:
       cur = sql.cursor()

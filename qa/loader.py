@@ -91,6 +91,10 @@ class Loader():
     self.db.store_test_result(testid, epoch,
       success, False, xia2result and xia2result['stdout'], stderr,
       xia2result and xia2result['json_raw'], xia2result and xia2result['xia2.error'])
+    if success:
+      self.db.set_runpriority(testid)
+    else:
+      self.db.set_runpriority(testid, failed=True)
 
     if xia2result and xia2result['success']:
       keyvalues = self.db.transform_to_values(xia2result['json'])
@@ -108,6 +112,7 @@ class Loader():
     message = "Skipping test %s.%s due to failed module initialization" % (module['name'], func[0])
 
     self.db.store_test_result(testid, epoch, True, True, message, None, None, None)
+    self.db.set_runpriority(testid, failed=True)
 
     result = Result()
     result.set_name(func[0])

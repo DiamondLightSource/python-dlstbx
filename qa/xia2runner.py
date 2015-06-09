@@ -6,7 +6,7 @@ import time
 import timeit
 from threading import Thread
 
-_dummy = True
+_dummy = False
 
 class _NonBlockingStreamReader:
   '''Reads a stream in a thread to avoid blocking/deadlocks'''

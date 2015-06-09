@@ -63,21 +63,21 @@ if __name__ == "__main__":
     testlist = args
     if options.auto:
       modules_available = set(loader.list_all_modules())
-      modules_status = db.get_tests(group_by_dataset=True)
+      modules_status = db.get_tests(group_by_dataset=True, order_by_priority=True)
 
       # auto-selection priority:
-      #  - triggered test (don't yet know how)
-      #  - tests that never ran, any order
-      seen_modules = { t['dataset'] for t in modules_status }
-      untested_modules = modules_available - seen_modules
-      if len(untested_modules) > 0:
-        testlist = [ untested_modules.pop() ]
+      #  - triggered tests (runpriority < 0)
+      if len(modules_status) > 0 and modules_status[0]['runpriority'] < 0:
+        testlist = [ modules_status[0]['dataset'] ]
       else:
-      #  - tests that failed more than 24 hours ago, by age
-      #  - oldest test
-        print modules_available
-        print modules_status
-        testlist = [ "rhogdi2a4" ] #  TODO
+        #  - tests that never ran, any order
+        seen_modules = { t['dataset'] for t in modules_status }
+        untested_modules = modules_available - seen_modules
+        if len(untested_modules) > 0:
+          testlist = [ untested_modules.pop() ]
+        else:
+          #  - test with lowest runpriority
+          testlist = [ modules_status[0]['dataset'] ]
     if (len(testlist) > 0):
       for t in testlist:
         results = loader.run_test_module(t,

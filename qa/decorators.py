@@ -5,28 +5,26 @@
 # @Data functions are called first. These functions should verify that the required dataset is present and valid.
 # Then each @Test function is called on the dataset.
 
-_debug = False
+def _debug(*args):
+  if False:
+    print "In %8s: args %s kwargs %s" % args
 
 _discoveredTestFunctions = []
 _discoveredDataFunctions = []
 _disableExecution = False
 _disabledCalls = []
-_debug_format = "In %8s: args %s kwargs %s"
 
 def Test(*args, **kwargs):
   """Decorator for a test function"""
-  if _debug:
-    print _debug_format % ("Test", args, kwargs)
+  _debug("Test", args, kwargs)
   def wrap(f):
-    if _debug:
-      print _debug_format % (("testwrap for function %s" % f), args, kwargs)
+    _debug(("testwrap for function %s" % f), args, kwargs)
     _discoveredTestFunctions.append((f.__name__, f, args, kwargs))
 
     def wrapped_f(*fargs, **fkwargs):
-      if _debug:
-        print _debug_format % ("wrapped_f() decorator arguments", args, kwargs)
+      _debug("wrapped_f() decorator arguments", args, kwargs)
 # Function arguments will usually be empty. Theoretically the decorator could generate parameters.
-#       print _debug_format % ("wrapped_f() function arguments ", fargs, fkwargs)
+#       _debug("wrapped_f() function arguments ", fargs, fkwargs)
       if _disableExecution:
         _log_disabled_call(f.__name__)
       else:
@@ -45,16 +43,13 @@ def Test(*args, **kwargs):
 def Data(*args, **kwargs):
   """Decorator for a data sanity checking function,
      which is run once before any tests on that dataset"""
-  if _debug:
-    print _debug_format % ("Data", args, kwargs)
+  _debug("Data", args, kwargs)
   def wrap(f):
-    if _debug:
-      print _debug_format % (("datawrap for function %s" % f), args, kwargs)
+    _debug(("datawrap for function %s" % f), args, kwargs)
     _discoveredDataFunctions.append((f.__name__, f, args, kwargs))
 
     def wrapped_f(*fargs, **fkwargs):
-      if _debug:
-        print _debug_format % ("wrapped_f() decorator arguments", args, kwargs)
+      _debug("wrapped_f() decorator arguments", args, kwargs)
 # Function arguments will usually be empty. Theoretically the decorator could generate parameters.
 #       print _debug_format % ("wrapped_f() function arguments ", fargs, fkwargs)
       if _disableExecution:

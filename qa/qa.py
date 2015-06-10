@@ -9,10 +9,6 @@ from term import *
 
 _debug = False
 
-def works():
-  # temporary function to check command line script
-  return True
-
 if __name__ == "__main__":
   import database
   import datetime

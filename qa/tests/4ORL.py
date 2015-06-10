@@ -1,11 +1,11 @@
 from qa import *
 
 @Data
-def checkthatdataiscomplete():
-  images(atleast(220))
+def check_that_data_is_complete():
+  images(at_least(220))
 
 @Test(timeout=minutes(20))
-def runwithdials():
+def run_with_dials():
   xia2('-dials')
 
   runtime(minutes(8))
@@ -14,7 +14,7 @@ def runwithdials():
   resolution(1.4, 27)
 
 @Test(timeout=minutes(20))
-def runwith3dii():
+def run_with_3dii():
   xia2('-3dii')
 
   runtime(minutes(10))

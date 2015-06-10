@@ -17,4 +17,4 @@ def runwithdials():
 def runwith3dii():
   xia2('-3dii')
 
-  runtime(minutes(10)
+  runtime(minutes(10))

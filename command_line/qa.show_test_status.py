@@ -8,7 +8,22 @@ from optparse import OptionParser, SUPPRESS_HELP
 import os.path
 import sys
 
-def run(dbfile):
+def indicate_success(t):
+  if t['lastseen'] is None:
+    color('grey')
+    print " [----]",
+  elif t['success'] and not t['skipped']:
+    color('green')
+    print " [ OK ]",
+  elif t['success']:
+    color('bright', 'yellow')
+    print " [SKIP]",
+  else:
+    color('red')
+    print " [FAIL]",
+
+def run(options, args):
+  dbfile = args[0]
   if not os.path.exists(dbfile):
     print "Database file %s not found" % dbfile
     return
@@ -16,42 +31,38 @@ def run(dbfile):
 
   epoch = (datetime.now() - datetime(1970, 1, 1)).total_seconds()
   lastdataset = None
-  for t in sql.get_tests(order_by_name=True):
+
+  for t in sql.get_tests(order_by_name=True, group_by_dataset=options.group):
     if lastdataset != t['dataset']:
-      if lastdataset != None:
-        print
-      lastdataset = t['dataset']
-      color('bright', 'white')
-      print ' %s' % t['dataset'],
+      if options.group:
+        indicate_success(t)
+      else:
+        if lastdataset != None:
+          print
+        lastdataset = t['dataset']
+        color('bright', 'white')
+        print '',
+      print '%s' % t['dataset'],
       color()
       color('grey')
       print ' (%s)' % t['runpriority']
-      color('bright', 'white')
-      print '=' * (2 + len(t['dataset']))
+      if not options.group:
+        color('bright', 'white')
+        print '=' * (2 + len(t['dataset']))
       color()
-    if t['lastseen'] is None:
-      color('grey')
-      print " [----]",
-    elif t['success'] and not t['skipped']:
-      color('green')
-      print " [ OK ]",
-    elif t['success']:
-      color('bright', 'yellow')
-      print " [SKIP]",
-    else:
-      color('red')
-      print " [FAIL]",
-    print "%-30s" % t['test'],
-    color()
-    if t['lastseen'] is None:
-      print
-    else:
-      print " (%s ago)" % units.readable_time(epoch - t['lastseen'])
+    if not options.group:
+      indicate_success(t)
+      print "%-30s" % t['test'],
+      color()
+      if t['lastseen'] is None:
+        print
+      else:
+        print " (%s ago)" % units.readable_time(epoch - t['lastseen'])
 
 if __name__ == '__main__':
   parser = OptionParser("usage: %prog database.db [options] [module [module [..]]]")
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-#  parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="produce more output")
+  parser.add_option("-g", "--group", action="store_true", dest="group", help="group dataset tests together")
 #  parser.add_option("-p", "--path", dest="path", metavar="PATH", help="Location of the quality-assurance directory structure (containing subdirectories /work /logs /archive)", default=".")
 #  parser.add_option("-l", "--list", action="store_true", dest="list", help="list all available tests")
 #  parser.add_option("-a", "--auto", action="store_true", dest="auto", help="automatically select and run one test")
@@ -59,7 +70,4 @@ if __name__ == '__main__':
   if len(args) < 1:
     parser.error('Location of the database file must be specified')
 
-#  print "Options:  ", options
-#  print "Arguments:", args
-
-  run(args[0])
+  run(options, args)

@@ -64,11 +64,11 @@ class DatabaseTests(unittest.TestCase):
     expectedA = { 'id': 1, 'dataset': dataset, 'test': test, 'lastseen': lastseenA,
                   'success': 1 if successA else 0, 'skipped': 1 if skippedA else 0,
                   'stdout': stdoutA, 'stderr': stderrA, 'json': jsonA, 'xia2error': xia2errorA,
-                  'runpriority': 0 }
+                  'runpriority': 0, 'retired': 0 }
     expectedB = { 'id': 1, 'dataset': dataset, 'test': test, 'lastseen': lastseenB,
                   'success': 1 if successB else 0, 'skipped': 1 if skippedB else 0,
                   'stdout': stdoutB, 'stderr': stderrB, 'json': jsonB, 'xia2error': xia2errorB,
-                  'runpriority': 0 }
+                  'runpriority': 0, 'retired': 0 }
 
     with database.DB(database.DB.memory) as db:
       testid = db.register_test(dataset, test)
@@ -234,6 +234,21 @@ class DatabaseTests(unittest.TestCase):
       self.assertEqual(actual_order, expected_order)
       self.assertEqual(actual_top_priority, expected_top_priority)
       self.assertEqual(actual_grouped_order, expected_grouped_order)
+
+      db.retire_test(id_Z)
+
+      expected_order = [ testB, testA, testC ]
+      actual_order = [ t['test'] for t in db.get_tests(order_by_priority=True) ]
+      self.assertEqual(actual_order, expected_order)
+
+      id_Z2 = db.register_test(datasetB, testZ)
+      self.assertEqual(id_Z2, id_Z)
+
+      expected_order = [ testZ, testB, testA, testC ]
+      actual_order = [ t['test'] for t in db.get_tests(order_by_priority=True) ]
+      self.assertEqual(actual_order, expected_order)
+      
+
 
   def test_transform_data_structure_to_key_values(self):
     datastructure = { 'key': [ { 'a' : 1 }, { 'b' : 2 } , { 'c' : [ 'x', 'y' ] } ] }

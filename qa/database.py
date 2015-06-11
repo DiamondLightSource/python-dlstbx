@@ -29,7 +29,7 @@ class DB(object):
   def _initialize_database(self):
     with self.sql as sql:
       cur = self.sql.cursor()
-      cur.execute("CREATE TABLE Tests(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, dataset TEXT NOT NULL, test TEXT NOT NULL, lastseen INTEGER, success INT, skipped INT, runpriority INT NOT NULL DEFAULT 0, stdout TEXT, stderr TEXT, json TEXT, xia2error TEXT)")
+      cur.execute("CREATE TABLE Tests(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, dataset TEXT NOT NULL, test TEXT NOT NULL, lastseen INTEGER, success INT, skipped INT, runpriority INT NOT NULL DEFAULT 0, retired INT NOT NULL DEFAULT 0, stdout TEXT, stderr TEXT, json TEXT, xia2error TEXT)")
       cur.execute("CREATE TABLE TestRuns(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, testid INTEGER NOT NULL, timestamp INTEGER NOT NULL, FOREIGN KEY(testid) REFERENCES Tests(id) ON DELETE CASCADE)")
       cur.execute("CREATE TABLE Observables(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, key TEXT NOT NULL UNIQUE)")
       cur.execute("CREATE TABLE Observations(runid INTEGER NOT NULL, observableid INTEGER NOT NULL, value TEXT, FOREIGN KEY(runid) REFERENCES TestRuns(id) ON DELETE CASCADE, FOREIGN KEY(observableid) REFERENCES Observables(id) ON DELETE CASCADE)")
@@ -39,6 +39,7 @@ class DB(object):
   def register_test(self, dataset, test):
     id = self.get_testid(dataset, test)
     if id is not None:
+      self.unretire_test(id)
       return id
     with self.sql as sql:
       cur = sql.cursor()
@@ -67,12 +68,25 @@ class DB(object):
       cur.execute('UPDATE Tests SET runpriority = %s WHERE id = :id' % rp, {'runpriority': runpriority, 'id': testid})
       sql.commit()
 
+  def retire_test(self, testid):
+    with self.sql as sql:
+      cur = sql.cursor()
+      cur.execute('UPDATE Tests SET retired = 1 WHERE id = :id', {'id': testid})
+      sql.commit()
+
+  def unretire_test(self, testid):
+    with self.sql as sql:
+      cur = sql.cursor()
+      cur.execute('UPDATE Tests SET retired = 0 WHERE id = :id', {'id': testid})
+      sql.commit()
+
   def get_tests(self, test_id=None, all_columns=False, group_by_dataset=False, order_by_name=False, order_by_priority=False, limit=None):
     query = { 'select': [], 'where': [], 'group': [], 'order': [], 'limit': '' }
 
-    query['select'] = [ 'id', 'dataset', 'test', 'lastseen', 'success', 'skipped', 'runpriority' ]
+    query['select'] = [ 'id', 'dataset', 'test', 'lastseen', 'success', 'skipped', 'runpriority', 'retired' ]
     if order_by_priority:
       query['order'].append('runpriority ASC')
+      query['where'].append('retired = 0')
     if order_by_name:
       query['order'].append('dataset ASC')
       query['order'].append('test ASC')
@@ -148,7 +162,7 @@ class DB(object):
     with self.sql as sql:
       cur = sql.cursor()
       success = 1 if success else 0
-      cur.execute('UPDATE Tests SET lastseen = ?, success = ?, skipped = ?, stdout = ?, stderr = ?, json = ?, xia2error = ? WHERE id = ?', (lastseen, success, skipped, stdout, stderr, json, xia2error, testid))
+      cur.execute('UPDATE Tests SET retired = 0, lastseen = ?, success = ?, skipped = ?, stdout = ?, stderr = ?, json = ?, xia2error = ? WHERE id = ?', (lastseen, success, skipped, stdout, stderr, json, xia2error, testid))
       sql.commit()
 
   def get_key_ids(self, keys, register_keys=False):

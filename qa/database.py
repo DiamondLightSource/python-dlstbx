@@ -80,12 +80,14 @@ class DB(object):
       cur.execute('UPDATE Tests SET retired = 0 WHERE id = :id', {'id': testid})
       sql.commit()
 
-  def get_tests(self, dataset=None, test_id=None, all_columns=False, group_by_dataset=False, order_by_name=False, order_by_priority=False, limit=None):
+  def get_tests(self, dataset=None, test_id=None, all_columns=False, group_by_dataset=False, order_by_name=False, order_by_priority=False, limit=None, ignore_retired=True):
     query = { 'select': [], 'where': [], 'group': [], 'order': [], 'limit': '' }
 
     query['select'] = [ 'id', 'dataset', 'test', 'lastseen', 'success', 'skipped', 'runpriority', 'retired' ]
     if order_by_priority:
       query['order'].append('runpriority ASC')
+      ignore_retired = True
+    if ignore_retired:
       query['where'].append('retired = 0')
     if order_by_name:
       query['order'].append('dataset ASC')

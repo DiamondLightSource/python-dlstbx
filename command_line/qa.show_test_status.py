@@ -59,11 +59,16 @@ def run(options, args):
     if not options.group:
       indicate_success(t)
       print "%-30s" % t['test'],
-      color()
+      if t['retired']:
+        color()
+        color('grey')
+      else:
+        color()
       if t['lastseen'] is None:
         print
       else:
-        print " (%s ago)" % units.readable_time(epoch - t['lastseen'])
+        print " (%s ago%s)" % (units.readable_time(epoch - t['lastseen']), ", retired" if t['retired'] else '')
+      color()
 
 if __name__ == '__main__':
   parser = OptionParser("usage: %prog database.db [options] [module [module [..]]]")

@@ -80,7 +80,7 @@ class DB(object):
       cur.execute('UPDATE Tests SET retired = 0 WHERE id = :id', {'id': testid})
       sql.commit()
 
-  def get_tests(self, test_id=None, all_columns=False, group_by_dataset=False, order_by_name=False, order_by_priority=False, limit=None):
+  def get_tests(self, dataset=None, test_id=None, all_columns=False, group_by_dataset=False, order_by_name=False, order_by_priority=False, limit=None):
     query = { 'select': [], 'where': [], 'group': [], 'order': [], 'limit': '' }
 
     query['select'] = [ 'id', 'dataset', 'test', 'lastseen', 'success', 'skipped', 'runpriority', 'retired' ]
@@ -109,6 +109,8 @@ class DB(object):
       query['select'].extend([ 'stdout', 'stderr', 'json', 'xia2error' ])
     if test_id:
       query['where'].append('id = :testid')
+    if dataset:
+      query['where'].append('dataset = :dataset')
     if limit:
       query['limit'] = str(limit)
 
@@ -132,7 +134,7 @@ class DB(object):
 
     with self.sql as sql:
       cur = sql.cursor()
-      cur.execute(query, {'testid': test_id} )
+      cur.execute(query, {'testid': test_id, 'dataset': dataset} )
       if test_id:
         return cur.fetchone()
       return cur.fetchall()

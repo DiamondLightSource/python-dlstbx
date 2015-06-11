@@ -56,6 +56,29 @@ class DatabaseTests(unittest.TestCase):
     self.assertEqual(test_db['test'], test)
     self.assertEqual(id_1, id_3)
 
+  def test_find_all_tests_of_one_dataset(self):
+    (datasetA, datasetB, datasetC, testA, testB) = ('a', 'b', 'c', 't1', 't2')
+
+    with database.DB(database.DB.memory) as db:
+      id_aa = db.register_test(datasetA, testA)
+      id_ab = db.register_test(datasetA, testB)
+      id_ba = db.register_test(datasetB, testA)
+      id_cb = db.register_test(datasetC, testB)
+
+      def scrape_ids(list): return {x['id'] for x in list}
+
+      actual_all_tests   = scrape_ids(db.get_tests())
+      actual_all_A_tests = scrape_ids(db.get_tests(dataset=datasetA))
+      actual_all_B_tests = scrape_ids(db.get_tests(dataset=datasetB))
+      actual_all_C_tests = scrape_ids(db.get_tests(dataset=datasetC))
+      actual_no_tests    = scrape_ids(db.get_tests(dataset="XXX"))
+
+    self.assertEqual(actual_all_tests, {id_aa, id_ab, id_ba, id_cb})
+    self.assertEqual(actual_all_A_tests, {id_aa, id_ab})
+    self.assertEqual(actual_all_B_tests, {id_ba})
+    self.assertEqual(actual_all_C_tests, {id_cb})
+    self.assertEqual(actual_no_tests, set([]))
+
   # test = one test function running on one test dataset, stored together with its last results
   def test_store_test_results_in_database(self):
     (dataset, test) = ('qa', 'test')
@@ -247,8 +270,6 @@ class DatabaseTests(unittest.TestCase):
       expected_order = [ testZ, testB, testA, testC ]
       actual_order = [ t['test'] for t in db.get_tests(order_by_priority=True) ]
       self.assertEqual(actual_order, expected_order)
-      
-
 
   def test_transform_data_structure_to_key_values(self):
     datastructure = { 'key': [ { 'a' : 1 }, { 'b' : 2 } , { 'c' : [ 'x', 'y' ] } ] }

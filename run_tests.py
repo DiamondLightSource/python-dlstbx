@@ -36,9 +36,9 @@ def discover_unittests(module, pattern='tst_*.py'):
   test_list = recursive_TestSuite_to_list(found_tests)
   return tuple(test_list)
 
-tst_list = (
-  "$D/test/algorithms/profile_model/nave/tst_model.py",
-) + discover_unittests("dlstbx")
+tst_list = [
+  # "$D/test/algorithms/profile_model/nave/tst_model.py",
+] + list(discover_unittests("dlstbx"))
 
 def run():
   build_dir = libtbx.env.under_build("dlstbx")

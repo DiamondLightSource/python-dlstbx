@@ -258,7 +258,9 @@ class DatabaseTests(unittest.TestCase):
       self.assertEqual(actual_top_priority, expected_top_priority)
       self.assertEqual(actual_grouped_order, expected_grouped_order)
 
+      self.assertFalse(db.is_test_retired(id_Z))
       db.retire_test(id_Z)
+      self.assertTrue(db.is_test_retired(id_Z))
 
       expected_order = [ testB, testA, testC ]
       actual_order = [ t['test'] for t in db.get_tests(order_by_priority=True) ]

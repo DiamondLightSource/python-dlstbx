@@ -39,7 +39,7 @@ class DB(object):
   def register_test(self, dataset, test):
     id = self.get_testid(dataset, test)
     if id is not None:
-      self.unretire_test(id)
+      if self.is_test_retired(id): self.unretire_test(id)
       return id
     with self.sql as sql:
       cur = sql.cursor()
@@ -67,6 +67,12 @@ class DB(object):
       cur = sql.cursor()
       cur.execute('UPDATE Tests SET runpriority = %s WHERE id = :id' % rp, {'runpriority': runpriority, 'id': testid})
       sql.commit()
+
+  def is_test_retired(self, testid):
+    with self.sql as sql:
+      cur = sql.cursor()
+      cur.execute('SELECT retired FROM Tests WHERE id = :id', {'id': testid})
+      return cur.fetchone()['retired']
 
   def retire_test(self, testid):
     with self.sql as sql:

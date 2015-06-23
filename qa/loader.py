@@ -161,6 +161,14 @@ class Loader():
       term.color()
       testresults.append(result)
 
+    term.color('blue')
+    known_functions = [fun[0] for fun in module['Data()'] + module['Test()']]
+    db_known_functions = {fun['test']: fun['id'] for fun in self.db.get_tests(dataset=name)}
+    retired_functions = [f for f in db_known_functions if f not in known_functions]
+    for f in retired_functions:
+      print "Retiring unseen test %s" % f
+      self.db.retire_test(db_known_functions[f])
+
     failures = sum([1 for t in testresults if t.is_failure()])
     skips    = sum([1 for t in testresults if t.is_skipped() and not t.is_failure()])
     total    = len(testresults)

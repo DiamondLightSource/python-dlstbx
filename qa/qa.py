@@ -7,22 +7,8 @@ from testsuite import *
 from units import *
 from term import *
 
-_debug = False
-
-if __name__ == "__main__":
-  import database
-  import datetime
-  now = datetime.datetime.now()
-  import decorators
-  import junit_xml
-  import loader
+def qa_parse_options():
   from optparse import OptionParser, SUPPRESS_HELP
-  import os
-  import sys
-
-  # ensure all created files are group writeable and publically readable
-  os.umask((os.umask(0) | 075) - 075)
-
   parser = OptionParser("usage: %prog [options] [module [module [..]]]")
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 #  parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="produce more output")
@@ -31,11 +17,20 @@ if __name__ == "__main__":
   parser.add_option("-b", "--database", dest="database", metavar="FILE", help="Location of the sqlite3 qa database (default: ./qa.db relative to $path)", default="./qa.db")
   parser.add_option("-l", "--list", action="store_true", dest="list", help="list all available tests")
   parser.add_option("-a", "--auto", action="store_true", dest="auto", help="automatically select and run one test")
-  (options, args) = parser.parse_args()
+  return parser.parse_args()
 
-  if _debug:
-    print "Options:  ", options
-    print "Arguments:", args
+def qa_run(options, args):
+  import database
+  import datetime
+  now = datetime.datetime.now()
+  import decorators
+  import junit_xml
+  import loader
+  import os
+  import sys
+
+  # ensure all created files are group writeable and publically readable
+  os.umask((os.umask(0) | 075) - 075)
 
   basedir = os.path.abspath(options.path)
   dbfile  = os.path.normpath(os.path.join(basedir, options.database))
@@ -84,3 +79,6 @@ if __name__ == "__main__":
         ts = junit_xml.TestSuite("dlstbx.qa.%s" % t, results)
         with open(os.path.join(logdir, '%s.xml' % t), 'w') as f:
           junit_xml.TestSuite.to_file(f, [ts], prettyprint=False)
+
+if __name__ == "__main__":
+  qa_run(*qa_parse_options())

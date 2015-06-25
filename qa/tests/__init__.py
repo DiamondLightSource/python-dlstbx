@@ -25,4 +25,5 @@ def load_module(name):
   if name in _modulelist:
     filename = _modulelist[name]
     return imp.load_source('tests.%s' % name, filename)
-  raise Exception('Test module %s not found. (Do not use paths or filenames)' % name)
+  import errno
+  raise IOError(errno.ENOENT, 'Test module %s not found. (Do not use paths or filenames)' % name, name)

@@ -16,7 +16,7 @@ class Loader():
     self.db = database
 
   def load_test_module(self, name, datadir, workdir=None, archivedir=None):
-    if name in self._loaded_modules:
+    if name in self._loaded_modules and self._loaded_modules[name]:
       self._loaded_modules[name]['workdir'] = workdir
       self._loaded_modules[name]['archivedir'] = archivedir
       return self._loaded_modules[name]
@@ -25,7 +25,13 @@ class Loader():
 
     module['result'] = Result()
     decorators.disableDecoratorFunctions()
-    module['module'] = tests.load_module(name)
+    try:
+      module['module'] = tests.load_module(name)
+    except IOError as e:
+      if e.filename != name:
+        raise
+      self._loaded_modules[name] = False
+      return False
     decorators.enableDecoratorFunctions()
     module['Test()'] = decorators.getDiscoveredTestFunctions()
     module['Data()'] = decorators.getDiscoveredDataFunctions()
@@ -49,16 +55,20 @@ class Loader():
   def show_all_tests(self, datadir):
     for m in self.list_all_modules():
       test = self.load_test_module(m, os.path.join(datadir, m))
-      testlist = ", ".join([name for (name, func, args, kwargs) in test["Test()"]])
-      if test["errors"]:
+      if test:
+        testlist = ", ".join([name for (name, func, args, kwargs) in test["Test()"]])
+        if test["errors"]:
+          term.color('bright', 'red')
+        print "  %25s : [ %s ]" % (m, testlist)
+        if test["errors"]:
+          print "  This test contains errors:"
+          term.color('', 'red')
+          for n in test["errors"]:
+            print "    %s" % n
+      else:
         term.color('bright', 'red')
-      print "  %25s : [ %s ]" % (m, testlist)
-      if test["errors"]:
-        print "  This test contains errors:"
-        term.color('', 'red')
-        for n in test["errors"]:
-          print "    %s" % n
-        term.color()
+        print "  %25s : could not be loaded" % m
+      term.color()
 
   def run_test_function(self, module, func, xia2_call_required=False):
     module['current_test'] = func
@@ -122,7 +132,15 @@ class Loader():
 
   def run_test_module(self, name, datadir, workdir, archivedir=None, debugOutput=True):
     if name not in self._loaded_modules:
-      self.load_test_module(name, datadir, workdir, archivedir)
+      if not self.load_test_module(name, datadir, workdir, archivedir):
+        term.color('bright','red')
+        print "\nTest module %s has disappeared. Retiring all tests." % name
+        term.color()
+        term.color('red')
+        for fun in self.db.get_tests(dataset=name):
+          print "  ", fun['test']
+          self.db.retire_test(fun['id'])
+        return []
     term.color('blue')
     print "\nLoading %s" % name
 

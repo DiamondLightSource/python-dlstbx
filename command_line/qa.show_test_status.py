@@ -22,9 +22,8 @@ def indicate_success(t):
     color('red')
     print " [FAIL]",
 
-def run(options, args):
-  dbfile = args[0]
-  datasets = args[1:]
+def run(options, datasets):
+  dbfile = options.database
   if not os.path.exists(dbfile):
     print "Database file %s not found" % dbfile
     return
@@ -71,15 +70,9 @@ def run(options, args):
       color()
 
 if __name__ == '__main__':
-  parser = OptionParser("usage: %prog database.db [options] [module [module [..]]]")
+  parser = OptionParser("usage: %prog [options] [module [module [..]]]")
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-g", "--group", action="store_true", dest="group", help="group dataset tests together")
   parser.add_option("-a", "--all", action="store_true", dest="show_all", help="show all tests, including retired tests")
-#  parser.add_option("-p", "--path", dest="path", metavar="PATH", help="Location of the quality-assurance directory structure (containing subdirectories /work /logs /archive)", default=".")
-#  parser.add_option("-l", "--list", action="store_true", dest="list", help="list all available tests")
-#  parser.add_option("-a", "--auto", action="store_true", dest="auto", help="automatically select and run one test")
-  (options, args) = parser.parse_args()
-  if len(args) < 1:
-    parser.error('Location of the database file must be specified')
-
-  run(options, args)
+  parser.add_option("-d", "--database", dest="database", metavar="DBFILE", help="location of the quality-assurance database file", default="/dls/mx-scratch/mgerstel/qa/qa.db")
+  run(*parser.parse_args())

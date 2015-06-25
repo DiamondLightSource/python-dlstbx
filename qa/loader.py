@@ -7,6 +7,7 @@ import term
 import traceback
 import os
 import sys
+from xia2dbfilter import xia2dbfilter
 
 class Loader():
   _loaded_modules = {}
@@ -109,7 +110,8 @@ class Loader():
     if xia2result and xia2result['success']:
       keyvalues = self.db.transform_to_values(xia2result['json'])
       runid = self.db.register_testrun(testid, epoch)
-      self.db.store_keys(runid, keyvalues)
+      filteredvalues = {k: keyvalues[k] for k in keyvalues if xia2dbfilter(k)}
+      self.db.store_keys(runid, filteredvalues)
 
     if failure is not None:
       testresults.log_error(failure)

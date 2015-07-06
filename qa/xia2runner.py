@@ -138,7 +138,7 @@ def runxia2(command, workdir, timeout, debug=1):
           print "rmtree", fp
         shutil.rmtree(fp)
 
-  runcmd = ['xia2', '-quick']
+  runcmd = ['xia2']
   runcmd.extend(command)
 
   run = _run_with_timeout(runcmd, timeout=timeout, debug=(debug>=2))

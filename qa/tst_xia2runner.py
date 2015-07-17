@@ -58,25 +58,34 @@ class Xia2runnerTests(unittest.TestCase):
     self.assertEquals(actual, expected)
 
 
-  @unittest.skip('Not implemented yet')
-  def test_nonblockingstreamreader_tbd(self):
-    command = ['-parameter']
-    workdir = 'workdir'
-    datadir = 'datadir'
-    archivejson = 'archive.json'
-    timeout = 60
+  def test_nonblockingstreamreader_can_read(self):
+    import time
+    class _stream:
+      def __init__(self):
+        self.data = []
+        self.closed = False
+      def write(self, string):
+        self.data.append(string)
+      def readline(self):
+        while (len(self.data) == 0) and not self.closed:
+          time.sleep(0.3)
+        return self.data.pop(0) if len(self.data) > 0 else ''
+      def close(self):
+        self.closed=True
 
-    #os.unlink
-    #os.makedirs
-    #os.chdir
+    teststream = _stream()
+    testdata = ['a', 'b', 'c']
 
-    xia2runner.runxia2(command, workdir, datadir, archivejson, timeout)
+    streamreader = xia2runner._NonBlockingStreamReader(teststream, output=False)
+    for d in testdata:
+      teststream.write(d)
+    self.assertFalse(streamreader.has_finished())
 
-#  @unittest.skip('Not implemented yet')
-#  def test_runxia2_tbd(self):
+    teststream.close()
+    time.sleep(0.6)
 
-#  @unittest.skip('Not implemented yet')
-#  def test_compress_file_tbd(self):
+    self.assertTrue(streamreader.has_finished())
+    self.assertEquals(streamreader.get_output(), ''.join(testdata))
 
 
 if __name__ == '__main__':

@@ -22,10 +22,6 @@ def runwithdials():
   multiplicity(1.2)
   uniquereflections(3700)
 
-@Test
-def failwithinvalidparameters():
-  xia2('-stuff', 'barf=1')
-
 @Test(timeout=minutes(20))
 def runwith3dii():
   xia2('-3dii')
@@ -37,11 +33,3 @@ def runwith3dii():
   completeness(40)
   multiplicity(1.2)
   uniquereflections(3700)
-
-if 0:
-  checkthatdataiscomplete()
-  #runwithdials()
-  #runwith3dii()
-  print
-  print "dir():"
-  print dir()

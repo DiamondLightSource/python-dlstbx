@@ -2,7 +2,7 @@ from qa import *
 
 @Data
 def check_that_data_is_complete():
-  images(60)
+  images(2 * 60)
 
 @Test(timeout=minutes(20))
 def run_with_dials():

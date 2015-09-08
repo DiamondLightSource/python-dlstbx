@@ -105,7 +105,7 @@ Spacegroup: P 41 21 2
 @Test(timeout=minutes(20))
 def run_with_xds():
   xia2('-3di', 'nproc=1')
- 
+
   expected_data_files = [
     'AUTOMATIC_DEFAULT_free.mtz',
     'AUTOMATIC_DEFAULT_scaled.sca',

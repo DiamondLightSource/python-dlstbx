@@ -10,8 +10,8 @@ def run_with_dials():
 
   runtime(minutes(8))
 
-@Test(timeout=minutes(20))
+@Test(timeout=minutes(30))
 def run_with_3dii():
   xia2('-3dii')
 
-  runtime(minutes(10))
+  runtime(minutes(20))

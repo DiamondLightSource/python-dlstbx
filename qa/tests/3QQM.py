@@ -10,8 +10,8 @@ def check_that_data_is_complete():
 #
 #  runtime(minutes(8))
 
-@Test(timeout=minutes(30))
+@Test(timeout=minutes(40))
 def run_with_3dii():
   xia2('-3dii')
 
-  runtime(minutes(20))
+  runtime(minutes(30))

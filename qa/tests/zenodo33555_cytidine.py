@@ -6,24 +6,24 @@ def data_are_complete():
 
 @Test(timeout=minutes(120))
 def run_with_dials():
-  xia2('-dials')
+  xia2('-dials', '-small_molecule')
 
-  runtime(minutes(4))
+  runtime(minutes(25))
 #  spacegroup("P 21 21 21")
 #  unitcell(between(4,7), between(5,8), between(10,20))
-  resolution(2.1, 25)
-  completeness(40)
-  multiplicity(1.2)
-  uniquereflections(3700)
+  resolution(0.7, 10)
+  completeness(90)
+  multiplicity(12)
+  uniquereflections(3000)
 
 @Test(timeout=minutes(120))
 def run_with_3dii():
-  xia2('-3dii')
+  xia2('-3dii', '-small_molecule')
 
   runtime(minutes(4))
 #  spacegroup("P 21 21 21")
 #  unitcell(between(4,7), between(5,8), between(10,20))
-  resolution(2.1, 25)
-  completeness(40)
-  multiplicity(1.2)
-  uniquereflections(3700)
+  resolution(0.7, 10)
+  completeness(90)
+  multiplicity(12)
+  uniquereflections(3000)

@@ -262,6 +262,6 @@ def transform_to_values(datastructure):
          recursive[ str(z) + ('.' + kvkey if kvkey != '' else '') ] = kvvalue
        z += 1
       return recursive
-    except:
+    except Exception:
       pass
   return { '': datastructure }

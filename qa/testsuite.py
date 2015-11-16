@@ -223,7 +223,7 @@ def images(*args):
 def xia2(*args):
   global _xia2_was_called_in_test
   if _xia2_was_called_in_test:
-    raise exception('xia2 called multiple times within test')
+    raise Exception('xia2 called multiple times within test')
   _xia2_was_called_in_test = True
 
   now = datetime.now()
@@ -316,6 +316,30 @@ def resolution(*args):
 @_Export
 def has_resolution(*args):
   return resolution(*args, override_fail=True)
+
+def create_testfunctions(name, decorators=[], namespace=None):
+  function_list = []
+
+  def proto_has_f(*args):
+    print "proto_has_f [%s]" % name
+    skip("%s not implemented yet" % name)
+  function_list.append((proto_has_f, "has_%s"))
+
+  def proto_f(*args):
+    print "proto_f [%s]" % name
+    skip("%s not implemented yet" % name)
+  function_list.append((proto_f, "%s"))
+
+  if namespace is None: # default to caller's globals
+    namespace = sys._getframe(1).f_globals
+  for (f, fname) in function_list:
+    fname = fname % name
+    f.__name__ = fname
+    for d in reversed(decorators):
+      f = d(f)
+    namespace[fname] = f
+
+create_testfunctions('completeness', [_TestFunction, _Export])
 
 @_TestFunction
 @_Export

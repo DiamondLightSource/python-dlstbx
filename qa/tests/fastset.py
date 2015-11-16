@@ -3,6 +3,13 @@ from qa import *
 @Data
 def checkthatdataiscomplete():
   images(more_than(30), less_than(100), between(30, 100))
+#  images(300,
+#         between(100,300),
+#         between(500,300),
+#         at_least(300),
+#         at_most(300),
+#         more_than(299),
+#         less_than(301)) # http://en.wikipedia.org/wiki/Rabbit_of_Caerbannog#Holy_Hand_Grenade_of_Antioch
   if has_images(more_than(200)):
     output("more than 200")
   else:

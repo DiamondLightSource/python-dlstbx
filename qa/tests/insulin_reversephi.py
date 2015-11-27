@@ -8,7 +8,7 @@ def data_are_complete():
 def run_with_dials():
   xia2('-dials')
 
-  runtime(minutes(10))
+  runtime(minutes(20))
 #  spacegroup("P 21 21 21")
 #  unitcell(between(4,7), between(5,8), between(10,20))
 #  resolution(0.7, 10)
@@ -20,7 +20,7 @@ def run_with_dials():
 def run_with_3dii():
   xia2('-3dii')
 
-  runtime(minutes(10))
+  runtime(minutes(20))
 #  spacegroup("P 21 21 21")
 #  unitcell(between(4,7), between(5,8), between(10,20))
 #  resolution(0.7, 10)

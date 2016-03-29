@@ -97,6 +97,7 @@ def updateHandler(signum, frame):
   write_status(status, blink=(iteration % 2) > 0)
   print "%s   [%d]" % (colorama.Style.RESET_ALL + colorama.Style.DIM, iteration)
   iteration = iteration + 1
+  assert iteration < 24*3600
 
 colorama.init()
 

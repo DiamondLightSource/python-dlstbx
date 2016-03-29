@@ -9,7 +9,7 @@ def load_status():
   baseurl = "http://jenkins.diamond.ac.uk:8080"
   view = "/view/DIALS-monitor"
   api = "/api/json?tree="
-  selector = "jobs[name,displayName,inQueue,lastBuild[result,building,executor[likelyStuck,progress]],lastCompletedBuild[result,timestamp,actions[failCount]]]"
+  selector = "jobs[name,displayName,inQueue,lastBuild[result,building,executor[likelyStuck,progress]],lastCompletedBuild[result,timestamp,duration,actions[failCount]]]"
 
   url = baseurl + view + api + selector
   json_data = json.loads(urllib.urlopen(url).read())
@@ -20,7 +20,7 @@ def write_status(status, blink=False):
 
   for job in jobnames:
     building = status[job].get('lastBuild',{}).get('building', False)
-    recent = time.time() - status[job].get('lastCompletedBuild',{}).get('timestamp', 0) / 1000 < 180
+    recent = time.time() - (status[job].get('lastCompletedBuild',{}).get('timestamp', 0) + status[job].get('lastCompletedBuild',{}).get('duration', 0)) / 1000 < 180
     queued = status[job].get('inQueue', False)
 
     jobcolor = colorama.Style.RESET_ALL

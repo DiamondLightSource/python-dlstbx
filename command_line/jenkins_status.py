@@ -9,7 +9,7 @@ def load_status():
   baseurl = "http://jenkins.diamond.ac.uk:8080"
   view = "/view/DIALS-monitor"
   api = "/api/json?tree="
-  selector = "jobs[name,displayName,lastBuild[result,building,executor[likelyStuck,progress]],lastCompletedBuild[result,actions[failCount]]]"
+  selector = "jobs[name,displayName,inQueue,lastBuild[result,building,executor[likelyStuck,progress]],lastCompletedBuild[result,timestamp,actions[failCount]]]"
 
   url = baseurl + view + api + selector
   json_data = json.loads(urllib.urlopen(url).read())
@@ -19,6 +19,10 @@ def write_status(status, blink=False):
   jobnames = sorted(status.keys())
 
   for job in jobnames:
+    building = status[job].get('lastBuild',{}).get('building', False)
+    recent = time.time() - status[job].get('lastCompletedBuild',{}).get('timestamp', 0) / 1000 < 180
+    queued = status[job].get('inQueue', False)
+
     jobcolor = colorama.Style.RESET_ALL
     if status[job].get('lastCompletedBuild') is not None:
       if status[job]['lastCompletedBuild']['result'] == 'SUCCESS':
@@ -27,13 +31,15 @@ def write_status(status, blink=False):
         jobcolor += colorama.Fore.YELLOW
       elif status[job]['lastCompletedBuild']['result'] == 'FAILURE':
         jobcolor += colorama.Fore.RED
+      elif status[job]['lastCompletedBuild']['result'] == 'ABORTED':
+        jobcolor += colorama.Fore.CYAN
       else:
         raise Exception("unknown build status %s" % status[job]['lastCompletedBuild']['result'])
-    if status[job].get('lastBuild',{}).get('building', False):
+    if building or recent or queued:
       jobcolor += colorama.Style.BRIGHT
   
     progress = ""
-    if status[job].get('lastBuild',{}).get('building', False):
+    if building:
       progcolor = colorama.Style.RESET_ALL
       if status[job].get('lastBuild',{}).get('executor',{}).get('likelyStuck',False):
         progcolor += colorama.Fore.RED
@@ -52,22 +58,28 @@ def write_status(status, blink=False):
         if isinstance(row, dict) and 'failCount' in row:
           testfails = row['failCount']
       teststatus = colorama.Fore.YELLOW
-      if not status[job].get('lastBuild',{}).get('building', False):
+      if not building:
         teststatus += colorama.Style.BRIGHT
       teststatus += " (%d test%s failing)" % (testfails, "s" if testfails != 1 else "")
 
     clear_line()
     sys.stdout.write(jobcolor)
-    if status[job].get('lastBuild',{}).get('building', False):
+    if building:
       if blink:
-        sys.stdout.write(unichr(9642).encode('utf-8'))
-        sys.stdout.write(unichr(9643).encode('utf-8'))
+        sys.stdout.write(unichr(9632).encode('utf-8'))
+        sys.stdout.write(unichr(9633).encode('utf-8'))
       else:
-        sys.stdout.write(unichr(9643).encode('utf-8'))
-        sys.stdout.write(unichr(9642).encode('utf-8'))
+        sys.stdout.write(unichr(9633).encode('utf-8'))
+        sys.stdout.write(unichr(9632).encode('utf-8'))
+    elif queued:
+      sys.stdout.write(unichr(9723).encode('utf-8'))
+      sys.stdout.write(unichr(9723).encode('utf-8'))
+    elif recent:
+      sys.stdout.write(unichr(9724).encode('utf-8'))
+      sys.stdout.write(unichr(9724).encode('utf-8'))
     else:
-      sys.stdout.write(unichr(9642).encode('utf-8'))
-      sys.stdout.write(unichr(9642).encode('utf-8'))
+      sys.stdout.write(unichr(9643).encode('utf-8'))
+      sys.stdout.write(unichr(9643).encode('utf-8'))
     print " " + job + progress + teststatus
 
 def clear_screen():

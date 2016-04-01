@@ -21,7 +21,7 @@ class Jenkins():
     baseurl = "http://jenkins.diamond.ac.uk:8080"
     view = "/view/DIALS-monitor"
     api = "/api/json?tree="
-    selector = "jobs[name,displayName,inQueue,lastBuild[result,building,executor[likelyStuck,progress]],lastCompletedBuild[result,timestamp,duration,actions[failCount]]]"
+    selector = "jobs[name,displayName,buildable,inQueue,lastBuild[result,building,executor[likelyStuck,progress]],lastCompletedBuild[result,timestamp,duration,actions[failCount]]]"
 
     url = baseurl + view + api + selector
     with self._update_lock:
@@ -37,6 +37,7 @@ class Jenkins():
     self._redraw_lock.acquire()
 
     for job in jobnames:
+      disabled = not status[job].get('buildable', True)
       building = status[job].get('lastBuild',{}).get('building', False)
       recent = time.time() - (status[job].get('lastCompletedBuild',{}).get('timestamp', 0) + status[job].get('lastCompletedBuild',{}).get('duration', 0)) / 1000 < 180
       queued = status[job].get('inQueue', False)
@@ -80,7 +81,9 @@ class Jenkins():
 
       self.clear_line()
       sys.stdout.write(jobcolor + colorama.Style.BRIGHT)
-      if building:
+      if disabled:
+        sys.stdout.write('xx')
+      elif building:
         if blink:
           sys.stdout.write(unichr(9632).encode('utf-8'))
           sys.stdout.write(unichr(9633).encode('utf-8'))

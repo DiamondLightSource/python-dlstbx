@@ -119,6 +119,7 @@ class Jenkins():
         sys.stdout.write(unichr(9643).encode('utf-8'))
       sys.stdout.write(healthcolor)
       sys.stdout.write(healthsymbol)
+      sys.stdout.write(jobcolor + colorama.Style.BRIGHT)
       if not (building or recent or queued):
         sys.stdout.write(jobcolor)
       print " " + job + progress + teststatus

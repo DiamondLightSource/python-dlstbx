@@ -21,7 +21,7 @@ class Jenkins():
     baseurl = "http://jenkins.diamond.ac.uk:8080"
     view = "/view/DIALS-monitor"
     api = "/api/json?tree="
-    selector = "jobs[name,displayName,buildable,inQueue,lastBuild[result,building,executor[likelyStuck,progress]],lastCompletedBuild[result,timestamp,duration,actions[failCount]]]"
+    selector = "jobs[name,displayName,buildable,inQueue,lastBuild[result,building,executor[likelyStuck,progress]],lastCompletedBuild[result,timestamp,duration,actions[failCount]],healthReport[score]]"
 
     url = baseurl + view + api + selector
     with self._update_lock:
@@ -43,6 +43,22 @@ class Jenkins():
       queued = status[job].get('inQueue', False)
 
       jobcolor = colorama.Style.RESET_ALL
+      health, healthcolor, healthsymbol = None, "", " "
+      if status[job].get('healthReport') is not None:
+        scores = [ hr['score'] for hr in status[job].get('healthReport') if 'score' in hr ]
+        if scores:
+          health = min(scores)
+      if health is not None:
+        if health >= 100:
+          healthcolor = colorama.Fore.GREEN
+          healthsymbol = unichr(10004).encode('utf-8')
+        elif health > 0:
+          healthcolor = colorama.Fore.YELLOW
+          healthsymbol = unichr(10008).encode('utf-8')
+        else:
+          healthcolor = colorama.Fore.RED
+          healthsymbol = unichr(10008).encode('utf-8')
+
       if status[job].get('lastCompletedBuild') is not None:
         if status[job]['lastCompletedBuild']['result'] == 'SUCCESS':
           jobcolor += colorama.Fore.GREEN
@@ -54,6 +70,8 @@ class Jenkins():
           jobcolor += colorama.Fore.CYAN
         else:
           raise Exception("unknown build status %s" % status[job]['lastCompletedBuild']['result'])
+      elif health is not None:
+        jobcolor += healthcolor
   
       progress = ""
       if building:
@@ -99,6 +117,8 @@ class Jenkins():
       else:
         sys.stdout.write(unichr(9643).encode('utf-8'))
         sys.stdout.write(unichr(9643).encode('utf-8'))
+      sys.stdout.write(healthcolor)
+      sys.stdout.write(healthsymbol)
       if not (building or recent or queued):
         sys.stdout.write(jobcolor)
       print " " + job + progress + teststatus

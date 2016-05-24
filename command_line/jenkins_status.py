@@ -169,9 +169,11 @@ class Jenkins():
       self.reset_cursor()
       self.write_status(blink=(iteration % 2) > 0)
       print "%s   [%d]" % (colorama.Style.RESET_ALL + colorama.Style.DIM, iteration)
-      assert iteration < 24*3600
+      if iteration > 24*3600:
+        print "Exiting after 24 hours"
+        sys.exit(0)
 
 try:
   Jenkins().run()
 except KeyboardInterrupt:
-  print olorama.Style.RESET_ALL
+  print colorama.Style.RESET_ALL

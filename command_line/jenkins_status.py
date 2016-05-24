@@ -38,6 +38,9 @@ class Jenkins():
 
     for job in jobnames:
       disabled = not status[job].get('buildable', True)
+      for ensure_not_none in ('lastBuild', 'lastCompletedBuild'):
+        if status[job].get(ensure_not_none,{}) is None:
+          del(status[job][ensure_not_none])
       building = status[job].get('lastBuild',{}).get('building', False)
       recent = time.time() - (status[job].get('lastCompletedBuild',{}).get('timestamp', 0) + status[job].get('lastCompletedBuild',{}).get('duration', 0)) / 1000 < 180
       queued = status[job].get('inQueue', False)

@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+#
+# LIBTBX_SET_DISPATCHER_NAME dials.swirly_eyes
+
 import dlstbx.util.html2ansi
 import re
 

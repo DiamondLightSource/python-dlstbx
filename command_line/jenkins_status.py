@@ -168,4 +168,7 @@ class Jenkins():
       print "%s   [%d]" % (colorama.Style.RESET_ALL + colorama.Style.DIM, iteration)
       assert iteration < 24*3600
 
-Jenkins().run()
+try:
+  Jenkins().run()
+except KeyboardInterrupt:
+  print olorama.Style.RESET_ALL

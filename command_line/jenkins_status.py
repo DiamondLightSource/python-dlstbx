@@ -51,6 +51,9 @@ class Jenkins():
         scores = [ hr['score'] for hr in status[job].get('healthReport') if 'score' in hr ]
         if scores:
           health = min(scores)
+        elif status[job].get('lastCompletedBuild') is None:
+          # If there is no health report and no build status then this could be a folder and everything is OK
+          health = 100
       if health is not None:
         if health >= 100:
           healthcolor = colorama.Fore.GREEN

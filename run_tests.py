@@ -1,5 +1,6 @@
 from __future__ import division
 from libtbx import test_utils
+from libtbx.test_utils.pytest import discover
 import libtbx.load_env
 
 def discover_unittests(module, pattern='tst_*.py'):
@@ -38,7 +39,7 @@ def discover_unittests(module, pattern='tst_*.py'):
 
 tst_list = [
   # "$D/test/algorithms/profile_model/nave/tst_model.py",
-] + list(discover_unittests("dlstbx"))
+] + list(discover_unittests("dlstbx")) + discover("dlstbx")
 
 def run():
   build_dir = libtbx.env.under_build("dlstbx")

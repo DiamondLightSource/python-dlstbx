@@ -1,6 +1,6 @@
 from __future__ import division
 
-class Service():
+class Service(object):
   '''
   Base class for dlstbx services. A service is a piece of software that runs
   in an isolated environment, communicating only via queues with the outside

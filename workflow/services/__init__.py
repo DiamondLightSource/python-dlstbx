@@ -45,7 +45,7 @@ class Service():
   # the main loop regardless of the status text, which can be set freely by
   # the specific service.
 
-  # The state transitions are:
+  # The state transitions are: (see definition of start() below)
   #  constructor() -> NEW
   #            NEW -> start() being called -> STARTING
   #       STARTING -> self.initialize() -> IDLE
@@ -71,9 +71,13 @@ class Service():
     self.__update_service_status(self.SERVICE_STATUS_NEW)
 
   def _log_send(self, data_structure):
+    '''Internal function to format and send log messages.'''
+    self.__log_send_full({'log': data_structure, 'source': 'other'})
+
+  def __log_send_full(self, data_structure):
     '''Internal function to actually send log messages.'''
     if self.__queues['frontend']:
-      self.__queues['frontend'].put({'log': data_structure})
+      self.__queues['frontend'].put(data_structure)
 
   def _register(self, message_type, callback):
     '''Register a callback function for a specific command message type.'''
@@ -82,8 +86,7 @@ class Service():
   def _update_status(self, status):
     '''Internal function to actually send status update.'''
     if self.__queues['frontend']:
-      self.__queues['frontend'].put({'status': status,
-                                     'statuscode': self.__service_status})
+      self.__queues['frontend'].put({'status': status})
 
   def __update_service_status(self, statuscode):
     '''Set the internal status of the service object, and notify frontend.'''
@@ -111,9 +114,19 @@ class Service():
 
       if message and 'channel' in message:
         processor = self.__callback_register.get(message['channel'])
-        if processor:
+        if processor is None:
+          self.__log_send_full({
+              'source': 'service',
+              'cause': 'received message on unregistered channel',
+              'channel': message['channel'],
+              'log': message})
+        else:
           processor(message.get('payload'))
-      # todo: otherwise log things
+      else:
+        self.__log_send_full({
+            'source': 'service',
+            'cause': 'received message without channel information',
+            'log': message})
 
     self.__update_service_status(self.SERVICE_STATUS_SHUTDOWN)
 

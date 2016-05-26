@@ -13,19 +13,34 @@ def test_instantiate_basic_service():
 def test_logging_to_frontend():
   '''Log messages should be passed to frontend'''
   fe_queue = mock.Mock()
-  service = dlstbx.workflow.services.Service(
-      frontend=fe_queue)
+  service = dlstbx.workflow.services.Service(frontend=fe_queue)
 
   service.log(mock.sentinel.logmessage)
 
   fe_queue.put.assert_called()
   assert fe_queue.put.call_args \
-      == (({ 'log': mock.sentinel.logmessage },), {})
+      == (({ 'log': mock.sentinel.logmessage, 'source': 'other' },), {})
 
 def test_logging_to_dummy():
   '''Should run without errors, message should be dropped.'''
   service = dlstbx.workflow.services.Service()
   service.log(mock.sentinel.logmessage)
+
+def test_send_status_updates_to_frontend():
+  '''Status updates should be passed to frontend'''
+  fe_queue = mock.Mock()
+  service = dlstbx.workflow.services.Service(frontend=fe_queue)
+
+  service.update_status(mock.sentinel.status)
+
+  fe_queue.put.assert_called()
+  assert fe_queue.put.call_args \
+      == (({ 'status': mock.sentinel.status },), {})
+
+def test_send_status_dummy():
+  '''Should run without errors, status should be dropped.'''
+  service = dlstbx.workflow.services.Service()
+  service.update_status(mock.sentinel.status)
 
 def test_receive_and_follow_shutdown_command():
   '''Receive a shutdown message via the command queue and act on it.
@@ -70,3 +85,33 @@ def test_receive_and_follow_shutdown_command():
     service.SERVICE_STATUS_SHUTDOWN,
     service.SERVICE_STATUS_END,
     ]
+
+def test_log_unknown_channel_data():
+  '''All unidentified messages should be logged to the frondend.'''
+  cmd_queue = mock.Mock()
+  cmd_queue.get.side_effect = [ 
+    { 'channel': mock.sentinel.channel, 'payload': mock.sentinel.failure1 },
+    { 'payload': mock.sentinel.failure2 },
+    { 'channel': 'command', 'payload': 'shutdown' },
+    AssertionError('Not observing commands') ]
+  fe_queue = Queue.Queue()
+
+  # Create service
+  service = dlstbx.workflow.services.Service(
+      command=cmd_queue, frontend=fe_queue)
+
+  # Start service
+  service.start()
+
+  # Check startup/shutdown sequence
+  messages = []
+  while not fe_queue.empty():
+    message = fe_queue.get_nowait()
+    if 'log' in message:
+      messages.append(message)
+  assert len(messages) == 2
+  assert messages[0]['source'] == 'service' and \
+         messages[0]['channel'] == mock.sentinel.channel
+  assert messages[1]['source'] == 'service' and \
+         messages[1].get('channel') == None
+

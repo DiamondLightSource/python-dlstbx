@@ -2,6 +2,10 @@ import dlstbx.workflow.services
 import time
 
 class Waiter(dlstbx.workflow.services.Service):
+  '''An example service building on top of the workflow.services architecture,
+     demonstrating how this architecture can be used.
+     This service receives work, waits a while and generates some 'results'.'''
+
   def __init__(self, *args, **kwargs):
     '''Pass on arguments to baseclass constructor.'''
     super(Waiter, self).__init__(*args, **kwargs)
@@ -11,6 +15,7 @@ class Waiter(dlstbx.workflow.services.Service):
     self._register('stuff', self.stuff_handler)
 
   def stuff_handler(self, *args, **kwargs):
+    '''Pretend processing of "data"'''
     self.update_status('Processing stuff [1/3]')
     time.sleep(3)
     self.update_status('Processing stuff [2/3]')

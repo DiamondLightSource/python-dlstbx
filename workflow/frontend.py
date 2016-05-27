@@ -4,6 +4,7 @@ import dlstbx.workflow.services
 import multiprocessing
 import Queue
 import threading
+import time
 
 class Frontend():
   def __init__(self, transport=None, service=None):
@@ -13,11 +14,20 @@ class Frontend():
     self._queue_commands = None
     self._queue_frontend = None
 
-    if transport is None or instance(transport, basestring):
+    # Connect to the network transport layer
+    if transport is None or isinstance(transport, basestring):
       self._transport = dlstbx.workflow.transport.lookup(transport)()
     else:
       self._transport = transport()
+    if not self._transport.connect():
+      print "Could not connect to transport layer"
+      self._transport = None
 
+    # Start broadcasting node information
+    self._advertise_interval = 6 # seconds
+    self._advertise_start()
+
+    # Start service if one has been requested
     if service is not None:
       self.switch_service(service)
 
@@ -82,3 +92,38 @@ class Frontend():
       self._service = None
       self._queue_commands = None
       self._queue_frontend = None
+
+  def _advertise_start(self):
+    '''Start a background thread to regularly broadcast the current node status.'''
+    with self.__lock:
+      if not hasattr(self, '_advertise_lock'):
+        self._advertise_lock = threading.Lock()
+    with self._advertise_lock:
+      self._advertise_next = 0
+      if not hasattr(self, '_advertise_thread'):
+        self._advertise_thread = threading.Thread(
+            target=self._advertise_timer,
+            name='heartbeat')
+        self._advertise_thread.daemon = True
+        self._advertise_thread.start()
+
+  def _advertise_timer(self):
+    '''Advertising timer thread.'''
+    while self._transport is not None:
+      wait_for = self._advertise()
+      if wait_for is None:
+        time.sleep(self._advertise_interval)
+      else:
+        time.sleep(wait_for)
+
+  def _advertise(self, force=False):
+    '''Advertise current frontend and service status to transport layer, and
+       broadcast useful information about this node.'''
+    with self._advertise_lock:
+      if not force and self._advertise_next > time.time():
+        return self._advertise_next - time.time()
+      with self.__lock:
+        if self._transport:
+          self._transport.broadcast_retain('stuff', channel=self.get_host_id())
+      self._advertise_next = time.time() + self._advertise_interval
+      return self._advertise_interval

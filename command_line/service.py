@@ -6,17 +6,25 @@
 from __future__ import division
 import dlstbx.workflow.transport
 import dlstbx.workflow.frontend
-from optparse import OptionParser
+from optparse import OptionParser, SUPPRESS_HELP
 import sys
 
 def run(cmdline_args):
   parser = OptionParser(
     usage='dlstbx.service [options]'
   )
+  parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+  parser.add_option("-s", "--service", dest="service", metavar="SVC",
+      default=None, help="Name of the service to start")
+  parser.add_option("-t", "--transport", dest="transport", metavar="TRN",
+      default="stomp", help="Transport mechanism, default stomp")
   dlstbx.workflow.transport.add_command_line_options(parser)
   (options, args) = parser.parse_args(cmdline_args)
 
-  dlstbx.workflow.frontend.Frontend()
+  dlstbx.workflow.frontend.Frontend(
+      service=options.service,
+      transport=options.transport,
+    ).run()
 
 if __name__ == '__main__':
   run(sys.argv[1:])

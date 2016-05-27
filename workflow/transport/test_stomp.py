@@ -1,9 +1,14 @@
 from __future__ import division
+import dlstbx.workflow.transport
 from dlstbx.workflow.transport.stomp import Transport
 import mock
 
-def test_initialize_stomp_transport_layer():
-  Transport()
+def test_lookup_and_initialize_stomp_transport_layer():
+  '''Find the stomp transport layer via the lookup mechanism and run
+     its constructor with default settings.'''
+  stomp = dlstbx.workflow.transport.lookup("stomp")
+  assert stomp == Transport
+  stomp()
 
 def test_add_command_line_help():
   '''Check that command line parameters are registered in the parser.'''
@@ -39,4 +44,3 @@ def test_instantiate_link_and_connect_to_broker(mockstomp):
   mockconn.connect.assert_called_once()
   assert stomp.is_connected()
 
-# optparse code & tests

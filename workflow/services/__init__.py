@@ -62,7 +62,7 @@ class Service(object):
   # Not so overrideable functions ---------------------------------------------
 
   def __init__(self, *args, **kwargs):
-    '''Service constructor. Paramteres include optional references to two
+    '''Service constructor. Parameters include optional references to two
        queues: frontend=Queue for messages from the service to the frontend,
        and commands=Queue for messages from the frontend to the service.'''
     self.__queue_frontend = kwargs.get('frontend')
@@ -143,3 +143,10 @@ class Service(object):
     '''Process an incoming command message from the frontend.'''
     if command == 'shutdown':
       self.__shutdown = True
+
+def lookup(service):
+  '''Find a service class based on a name.'''
+  if service == 'waiter': # less than ideal, but works for now
+    import dlstbx.workflow.services.sample_service
+    return dlstbx.workflow.services.sample_service.Waiter
+  # TODO: Do this properly

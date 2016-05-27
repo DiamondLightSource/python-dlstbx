@@ -62,10 +62,11 @@ class Service(object):
   # Not so overrideable functions ---------------------------------------------
 
   def __init__(self, *args, **kwargs):
-
-    self.__queues = { 'frontend': kwargs.get('frontend'),
-                      'messaging': kwargs.get('messaging'),
-                      'command': kwargs.get('command') }
+    '''Service constructor. Paramteres include optional references to two
+       queues: frontend=Queue for messages from the service to the frontend,
+       and commands=Queue for messages from the frontend to the service.'''
+    self.__queue_frontend = kwargs.get('frontend')
+    self.__queue_commands = kwargs.get('commands')
     self.__shutdown = False
     self.__callback_register = {}
     self.__update_service_status(self.SERVICE_STATUS_NEW)
@@ -76,8 +77,8 @@ class Service(object):
 
   def __log_send_full(self, data_structure):
     '''Internal function to actually send log messages.'''
-    if self.__queues['frontend']:
-      self.__queues['frontend'].put(data_structure)
+    if self.__queue_frontend:
+      self.__queue_frontend.put(data_structure)
 
   def _register(self, message_type, callback):
     '''Register a callback function for a specific command message type.'''
@@ -85,14 +86,14 @@ class Service(object):
  
   def _update_status(self, status):
     '''Internal function to actually send status update.'''
-    if self.__queues['frontend']:
-      self.__queues['frontend'].put({'status': status})
+    if self.__queue_frontend:
+      self.__queue_frontend.put({'status': status})
 
   def __update_service_status(self, statuscode):
     '''Set the internal status of the service object, and notify frontend.'''
     self.__service_status = statuscode
-    if self.__queues['frontend']:
-      self.__queues['frontend'].put({'statuscode': self.__service_status})
+    if self.__queue_frontend:
+      self.__queue_frontend.put({'statuscode': self.__service_status})
 
   def start(self):
     '''Start listening to command queue, process commands in main loop,
@@ -104,11 +105,15 @@ class Service(object):
     self.initialize()
     self._register('command', self.__process_command)
 
+    if self.__queue_commands is None:
+      # can only listen to commands if command queue is defined
+      self.__shutdown = True
+
     while not self.__shutdown: # main loop
 
       self.__update_service_status(self.SERVICE_STATUS_IDLE)
 
-      message = self.__queues['command'].get()
+      message = self.__queue_commands.get()
 
       self.__update_service_status(self.SERVICE_STATUS_PROCESSING)
 

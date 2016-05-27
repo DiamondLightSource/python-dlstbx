@@ -53,7 +53,7 @@ def test_receive_and_follow_shutdown_command():
 
   # Create service
   service = dlstbx.workflow.services.Service(
-      command=cmd_queue, frontend=fe_queue)
+      commands=cmd_queue, frontend=fe_queue)
   # override class API to ensure overidden functions are called
   service.initialize = mock.Mock()
   service.shutdown = mock.Mock()
@@ -98,7 +98,7 @@ def test_log_unknown_channel_data():
 
   # Create service
   service = dlstbx.workflow.services.Service(
-      command=cmd_queue, frontend=fe_queue)
+      commands=cmd_queue, frontend=fe_queue)
 
   # Start service
   service.start()

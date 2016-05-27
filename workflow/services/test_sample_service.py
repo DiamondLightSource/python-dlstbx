@@ -16,7 +16,7 @@ def test_start_and_shutdown_sample_service(mock_time):
 
   # Create service
   service = dlstbx.workflow.services.sample_service.Waiter(
-      command=cmd_queue, frontend=fe_queue)
+      commands=cmd_queue, frontend=fe_queue)
 
   # Start service
   service.start()

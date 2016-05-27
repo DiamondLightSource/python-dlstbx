@@ -1,6 +1,7 @@
 from __future__ import division
+import stomp
 
-class Communication():
+class Transport():
   '''Abstraction layer for messaging infrastructure. Here we are using ActiveMQ
      with STOMP.'''
 
@@ -18,6 +19,14 @@ class Communication():
 
     self._connected = False
 
+  def connect(self):
+    if self._connected: return
+    self._conn = stomp.Connection()
+    self._conn.set_listener('', stomp.PrintingListener())
+    self._conn.start()
+    self._conn.connect('admin', 'password', wait=True)
+    self._connected = True
+
   def is_connected(self):
     '''Return connection status'''
     return self._connected
@@ -31,8 +40,8 @@ class Communication():
 
   def add_command_line_options(self, optparser):
     '''function to inject command line parameters'''
-    optparser.add_option('--stomp-broker', metavar='HOST',
-      default=self.defaults.get('--stomp-broker'),
+    optparser.add_option('--stomp-host', metavar='HOST',
+      default=self.defaults.get('--stomp-host'),
       help='Stomp broker address, default %default',
       type='string', nargs=1,
       action='callback', callback=self._set_parameter)

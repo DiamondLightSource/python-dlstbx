@@ -1,9 +1,11 @@
 from __future__ import division
-import dlstbx.stomp
+import dlstbx.workflow.transport.stomp
 import multiprocessing
 
 class Frontend():
-  def __init__(self, communication_layer=dlstbx.stomp.Communication):
+  def __init__(self, transport=None):
+    if transport is None:
+      transport = dlstbx.workflow.transport.stomp.Transport()
     self._reset()
 
   def _reset(self):

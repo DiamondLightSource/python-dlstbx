@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 from __future__ import division
+import json
 import stomp
 import threading
 import time
@@ -50,21 +51,23 @@ class Transport():
     '''Return connection status'''
     return self._connected
 
-  def broadcast_retain(self, message, channel=None):
-    destination = ['/topic/transient']
+  def broadcast_status(self, status, channel=None):
+    destination = ['/topic/transient.status']
     if self.get_namespace():
       destination.append(self.get_namespace())
     if channel:
       destination.append(channel)
     destination = '.'.join(destination)
+    message = { 'status': status }
+    message_string = json.dumps(message)
     with self._lock:
       self._conn.send(
-          body=message,
+          body=message_string,
           destination=destination,
 #         retain=True,
-          headers={ 'activemq.retain': True,
+          headers={ # 'activemq.retain': True,
 #                   'persistent': 'true',
-                    'expires': '%d' % int((30 + time.time()) * 1000)
+                    'expires': '%d' % int((90 + time.time()) * 1000)
                    })
 
   def get_namespace(self):

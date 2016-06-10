@@ -4,6 +4,10 @@ import time
 import traceback
 
 class StatusAdvertise():
+  '''Background thread that advertises the current node status, obtained by
+     calling a specified function, to a specified transport layer at regular
+     intervals.'''
+
   def __init__(self, interval=60, status_callback=None, transport=None):
     self._advertise_lock = threading.Lock()
     self._interval = interval

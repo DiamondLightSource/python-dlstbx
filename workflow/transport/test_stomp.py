@@ -67,3 +67,22 @@ def test_instantiate_link_and_connect_to_broker(mockstomp):
   mockconn.start.assert_called_once()
   mockconn.connect.assert_called_once()
   assert stomp.is_connected()
+
+@mock.patch('dlstbx.workflow.transport.stomp.time')
+@mock.patch('dlstbx.workflow.transport.stomp.stomp')
+def test_broadcast_status(mockstomp, mocktime):
+  '''Test the status broadcast function.'''
+  mockconn = mock.Mock()
+  mockstomp.Connection.return_value = mockconn
+  mocktime.time.return_value = 20000
+  stomp = Transport()
+  stomp.connect()
+
+  stomp.broadcast_status(str(mock.sentinel.status))
+
+  mockconn.send.assert_called_once()
+  args, kwargs = mockconn.send.call_args
+  # expiration should be 90 seconds in the future
+  assert int(kwargs['headers']['expires']) == 1000 * (20000 + 90)
+  assert kwargs['destination'].startswith('/topic/transient.status')
+  assert kwargs['body'] == '{"status": "%s"}' % str(mock.sentinel.status)

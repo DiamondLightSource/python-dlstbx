@@ -4,6 +4,7 @@
 #
 
 from __future__ import division
+from dlstbx.util.version import dlstbx_version
 import dlstbx.workflow.status_monitor
 import dlstbx.workflow.transport
 from optparse import OptionParser, SUPPRESS_HELP
@@ -11,7 +12,8 @@ import sys
 
 def run(cmdline_args):
   parser = OptionParser(
-    usage='dlstbx.service_monitor [options]'
+    usage='dlstbx.service_monitor [options]',
+    version=dlstbx_version()
   )
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-t", "--transport", dest="transport", metavar="TRN",

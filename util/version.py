@@ -5,7 +5,7 @@ from dials.util.version import get_git_version
 #  1. a common prefix
 __dlstbx_version_format = "dlstbx %s"
 #  2. the most recent annotated git tag (or failing that: a default string)
-__dlstbx_version_default = "1.dev"
+__dlstbx_version_default = "0.dev"
 #  3. a dash followed by the number of commits since that tag
 #  4. a dash followed by a lowercase 'g' and the current commit id
 

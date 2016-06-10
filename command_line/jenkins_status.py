@@ -1,3 +1,4 @@
+from __future__ import division
 import colorama
 import json
 import signal
@@ -78,7 +79,7 @@ class Jenkins():
           raise Exception("unknown build status %s" % status[job]['lastCompletedBuild']['result'])
       elif health is not None:
         jobcolor += healthcolor
-  
+
       progress = ""
       if building:
         progcolor = colorama.Style.RESET_ALL
@@ -144,7 +145,7 @@ class Jenkins():
 
   def resize_handler(self, signum, frame):
     self._resize_detected = True
- 
+
   def update_handler(self, signum, frame):
     self._update_required = True
 

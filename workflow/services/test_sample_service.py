@@ -16,7 +16,7 @@ def test_service_can_be_looked_up():
 def test_start_and_shutdown_sample_service(mock_time):
   '''Start the waiter service, process some stuff and shut it down again.'''
   cmd_queue = mock.Mock()
-  cmd_queue.get.side_effect = [ 
+  cmd_queue.get.side_effect = [
     { 'channel': 'stuff', 'payload': mock.sentinel.stuff },
     { 'channel': 'command', 'payload': 'shutdown' },
     AssertionError('Not observing commands') ]

@@ -1,3 +1,4 @@
+from __future__ import division
 import status_monitor
 import mock
 

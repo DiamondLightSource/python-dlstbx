@@ -83,7 +83,7 @@ class Service(object):
   def _register(self, message_type, callback):
     '''Register a callback function for a specific command message type.'''
     self.__callback_register[message_type] = callback
- 
+
   def _update_status(self, status):
     '''Internal function to actually send status update.'''
     if self.__queue_frontend:

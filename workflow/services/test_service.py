@@ -2,9 +2,7 @@ from __future__ import division
 
 import dlstbx.workflow.services
 import mock
-import multiprocessing
 import Queue
-import pytest
 
 def test_instantiate_basic_service():
   '''Create a basic service object'''
@@ -46,7 +44,7 @@ def test_receive_and_follow_shutdown_command():
   '''Receive a shutdown message via the command queue and act on it.
      Check that status codes are updated properly.'''
   cmd_queue = mock.Mock()
-  cmd_queue.get.side_effect = [ 
+  cmd_queue.get.side_effect = [
     { 'channel': 'command', 'payload': 'shutdown' },
     AssertionError('Not observing commands') ]
   fe_queue = Queue.Queue()
@@ -89,7 +87,7 @@ def test_receive_and_follow_shutdown_command():
 def test_log_unknown_channel_data():
   '''All unidentified messages should be logged to the frondend.'''
   cmd_queue = mock.Mock()
-  cmd_queue.get.side_effect = [ 
+  cmd_queue.get.side_effect = [
     { 'channel': mock.sentinel.channel, 'payload': mock.sentinel.failure1 },
     { 'payload': mock.sentinel.failure2 },
     { 'channel': 'command', 'payload': 'shutdown' },

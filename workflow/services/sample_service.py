@@ -1,3 +1,4 @@
+from __future__ import division
 import dlstbx.workflow.services
 import time
 

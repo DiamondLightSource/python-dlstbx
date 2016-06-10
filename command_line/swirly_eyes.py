@@ -2,6 +2,7 @@
 #
 # LIBTBX_SET_DISPATCHER_NAME dials.swirly_eyes
 
+from __future__ import division
 import dlstbx.util.html2ansi
 import re
 

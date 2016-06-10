@@ -6,7 +6,8 @@ import pytest
 def test_instantiate_new_frontend(mock_frontend):
   '''Test creation of a new frontend object when run without parameters.'''
   dlstbx.command_line.service.run([])
-  mock_frontend.Frontend.assert_called()
+  mock_frontend.Frontend.assert_called_once_with(service=mock.ANY, transport=mock.ANY)
+  mock_frontend.Frontend.return_value.run.assert_called_once()
 
 def test_help_output(capsys):
   '''Check that help strings are provided. (Strictly speaking this only

@@ -149,4 +149,7 @@ def lookup(service):
   if service == 'waiter': # less than ideal, but works for now
     import dlstbx.workflow.services.sample_service
     return dlstbx.workflow.services.sample_service.Waiter
+  if service == 'waiter_alt': # less than ideal, but works for now
+    import dlstbx.workflow.services.sample_service
+    return dlstbx.workflow.services.sample_service.Waiter
   # TODO: Do this properly

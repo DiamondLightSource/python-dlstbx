@@ -1,0 +1,1 @@
+while :; do py.test --ff --color=yes | (sleep 1; clear; cat); sleep 4; done

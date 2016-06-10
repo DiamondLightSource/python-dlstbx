@@ -1,5 +1,43 @@
+from __future__ import division
+import time
+import dlstbx.workflow.transport
+import threading
+
 class Terminal():
   def __init__(self, transport=None):
-    pass
+    # Connect to the network transport layer
+    if transport is None or isinstance(transport, basestring):
+      self._transport = dlstbx.workflow.transport.lookup(transport)()
+    else:
+      self._transport = transport()
+    if not self._transport.connect():
+      print "Could not connect to transport layer"
+      self._transport = None
+    self._lock = threading.RLock()
+    self._node_status = {}
+
+  def update_status(self, header, body):
+    print "SUBSCRIPTION ALERT:"
+    print header, body
+    with self._lock:
+      if body['host'] not in self._node_status or \
+          int(header['timestamp']) > self._node_status[body['host']]['last_seen']:
+        self._node_status[body['host']] = { 'last_seen': int(header['timestamp']) }
+
   def run(self):
-    print "dlstbx.service_monitor is not available yet."
+    print "\n", '='*47
+    print "dlstbx.service_monitor started. End with Ctrl+C\n", '='*47
+    self._transport.subscribe('/topic/transient.status.demo', self.update_status, retroactive=True)
+    try:
+      while True:
+        print "\n", '-'*40, "\n"
+        now = int(time.time())
+        with self._lock:
+          for host, status in self._node_status.iteritems():
+            print host,
+            print "(last seen %d seconds ago)" % (now - int(status['last_seen'] / 1000))
+        time.sleep(3)
+    except KeyboardInterrupt:
+      print
+    self._transport.disconnect()
+    self._transport = None

@@ -65,7 +65,9 @@ class Frontend():
     return "%s.%d" % (host, pid)
 
   def get_status(self):
-    return { 'status': True }
+    '''Returns a dictionary containing all relevant status information to be
+       broadcast across the network.'''
+    return { 'host': self.__hostid, 'status': True }
 
   def switch_service(self, new_service):
     '''Start a new service in a subprocess.

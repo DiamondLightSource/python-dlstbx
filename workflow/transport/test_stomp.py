@@ -1,6 +1,7 @@
 from __future__ import division
 import dlstbx.workflow.transport
 from dlstbx.workflow.transport.stomp import Transport
+import json
 import mock
 import optparse
 import os
@@ -68,6 +69,10 @@ def test_instantiate_link_and_connect_to_broker(mockstomp):
   mockconn.connect.assert_called_once()
   assert stomp.is_connected()
 
+  stomp.disconnect()
+
+  # TODO
+
 @mock.patch('dlstbx.workflow.transport.stomp.time')
 @mock.patch('dlstbx.workflow.transport.stomp.stomp')
 def test_broadcast_status(mockstomp, mocktime):
@@ -78,11 +83,54 @@ def test_broadcast_status(mockstomp, mocktime):
   stomp = Transport()
   stomp.connect()
 
-  stomp.broadcast_status(str(mock.sentinel.status))
+  stomp.broadcast_status({ 'status': str(mock.sentinel.status) })
 
   mockconn.send.assert_called_once()
   args, kwargs = mockconn.send.call_args
   # expiration should be 90 seconds in the future
   assert int(kwargs['headers']['expires']) == 1000 * (20000 + 90)
   assert kwargs['destination'].startswith('/topic/transient.status')
-  assert kwargs['body'] == '{"status": "%s"}' % str(mock.sentinel.status)
+  statusdict = json.loads(kwargs['body'])
+  assert statusdict['status'] == str(mock.sentinel.status)
+  assert 'stomp.cmdchan' in statusdict
+
+@mock.patch('dlstbx.workflow.transport.stomp.stomp')
+def test_subscribe_to_channel(mockstomp):
+  '''Test subscribing to a channel.'''
+  mock_cb1 = mock.Mock()
+  mock_cb2 = mock.Mock()
+  mockconn = mock.Mock()
+  mockstomp.Connection.return_value = mockconn
+  stomp = Transport()
+  stomp.connect()
+
+  mockconn.set_listener.assert_called_once()
+  listener = mockconn.set_listener.call_args[0][1]
+  assert listener is not None
+
+  stomp.subscribe(mock.sentinel.channel1, mock_cb1, client_id='A')
+
+  mockconn.subscribe.assert_called_once()
+  args, kwargs = mockconn.subscribe.call_args
+  assert args, kwargs == ((mock.sentinel.channel1, mock.ANY), { 'headers': mock.ANY })
+  headers1 = kwargs['headers']
+  subscription_id1 = args[1]
+  assert headers1 == { }
+
+  stomp.subscribe(mock.sentinel.channel2, mock_cb2, client_id='B', retroactive=True)
+
+  assert mockconn.subscribe.call_count == 2
+  args, kwargs = mockconn.subscribe.call_args
+  assert args, kwargs == ((mock.sentinel.channel2, mock.ANY), { 'headers': mock.ANY })
+  headers2 = kwargs['headers']
+  subscription_id2 = args[1]
+  assert subscription_id1 != subscription_id2
+  assert headers2 == { 'activemq.retroactive':'true' }
+
+  assert mock_cb1.call_count == 0
+  listener.on_message({'subscription': subscription_id1}, '{"some": "message" }')
+  mock_cb1.assert_called_once_with({'subscription': subscription_id1}, { 'some': 'message' })
+
+  assert mock_cb2.call_count == 0
+  listener.on_message({'subscription': subscription_id2}, '{"other": ["mess", "age"] }')
+  mock_cb2.assert_called_once_with({'subscription': subscription_id2}, { 'other': ['mess', 'age'] })

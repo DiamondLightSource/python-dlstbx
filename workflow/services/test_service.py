@@ -8,6 +8,8 @@ def test_instantiate_basic_service():
   '''Create a basic service object'''
   service = dlstbx.workflow.services.Service()
 
+  assert service.get_name() is not None
+
 def test_logging_to_frontend():
   '''Log messages should be passed to frontend'''
   fe_queue = mock.Mock()

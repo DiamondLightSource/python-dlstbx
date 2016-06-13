@@ -71,6 +71,7 @@ class Service(object):
     '''Service constructor. Parameters include optional references to two
        queues: frontend=Queue for messages from the service to the frontend,
        and commands=Queue for messages from the frontend to the service.'''
+    self._service_name = 'unnamed service'
     self.__queue_frontend = kwargs.get('frontend')
     self.__queue_commands = kwargs.get('commands')
     self.__shutdown = False
@@ -100,6 +101,11 @@ class Service(object):
     self.__service_status = statuscode
     if self.__queue_frontend:
       self.__queue_frontend.put({'statuscode': self.__service_status})
+
+  def get_name(self):
+    '''Return a name for this service.
+       Change the name by overwriting self._service_name.'''
+    return self._service_name
 
   def start(self):
     '''Start listening to command queue, process commands in main loop,

@@ -10,6 +10,7 @@ class Waiter(dlstbx.workflow.services.Service):
   def __init__(self, *args, **kwargs):
     '''Pass on arguments to baseclass constructor.'''
     super(Waiter, self).__init__(*args, **kwargs)
+    self._service_name = 'waiting service'
 
   def initialize(self):
     '''Register handling function for 'stuff' messages.'''

@@ -14,6 +14,7 @@ class Frontend():
     self.__lock = threading.RLock()
     self.__hostid = self._generate_unique_host_id()
     self._service = None
+    self._service_name = None
     self._queue_commands = None
     self._queue_frontend = None
     self._service_status = services.Service.SERVICE_STATUS_NONE
@@ -76,7 +77,7 @@ class Frontend():
   def get_status(self):
     '''Returns a dictionary containing all relevant status information to be
        broadcast across the network.'''
-    return { 'host': self.__hostid, 'status': self._service_status }
+    return { 'host': self.__hostid, 'status': self._service_status, 'service': self._service_name }
 
   def switch_service(self, new_service):
     '''Start a new service in a subprocess.
@@ -102,6 +103,7 @@ class Frontend():
       # Start new service in a separate process
       self._service = multiprocessing.Process(
         target=service_instance.start, args=())
+      self._service_name = service_instance.get_name()
       self._service.daemon = True
       self._service.start()
 
@@ -111,6 +113,7 @@ class Frontend():
     with self.__lock:
       self._service.terminate()
       self._service = None
+      self._service_name = None
       self._service_status = services.Service.SERVICE_STATUS_END
       self._queue_commands = None
       self._queue_frontend = None

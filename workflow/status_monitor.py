@@ -21,8 +21,9 @@ class Terminal():
     print header, body
     with self._lock:
       if body['host'] not in self._node_status or \
-          int(header['timestamp']) > self._node_status[body['host']]['last_seen']:
-        self._node_status[body['host']] = { 'last_seen': int(header['timestamp']) }
+          int(header['timestamp']) >= self._node_status[body['host']]['last_seen']:
+        self._node_status[body['host']] = body
+        self._node_status[body['host']]['last_seen'] = int(header['timestamp'])
 
   def run(self):
     print "\n", '='*47
@@ -33,9 +34,15 @@ class Terminal():
         print "\n", '-'*40, "\n"
         now = int(time.time())
         with self._lock:
-          for host, status in self._node_status.iteritems():
-            print host,
-            print "(last seen %d seconds ago)" % (now - int(status['last_seen'] / 1000))
+          overview = self._node_status.copy()
+        for host, status in overview.iteritems():
+          age = (now - int(status['last_seen'] / 1000))
+          if age > 90:
+            with self._lock:
+              del(self._node_status[host])
+          else:
+            print "%s: %s in state %d (last seen %d seconds ago)" % \
+                (host, status['service'], status['status'], age)
         time.sleep(3)
     except KeyboardInterrupt:
       print

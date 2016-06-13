@@ -1,4 +1,5 @@
 from __future__ import division
+import Queue
 import sys
 import threading
 import time
@@ -19,6 +20,7 @@ class StatusAdvertise():
         name='heartbeat')
     self._background_thread.daemon = True
     self._shutdown = False
+    self._notification = Queue.Queue()
 
   def start(self):
     '''Start a background thread to broadcast the current node status at
@@ -28,6 +30,10 @@ class StatusAdvertise():
   def stop(self):
     '''Stop the background thread.'''
     self._shutdown = True
+
+  def trigger(self):
+    '''Trigger an immediate status update.'''
+    self._notification.put(None)
 
   def _timer(self):
     '''Advertise current frontend and service status to transport layer, and
@@ -54,4 +60,7 @@ class StatusAdvertise():
         print '-'*60
 
       waitperiod = waitperiod - time.time()
-      time.sleep(waitperiod)
+      try:
+        self._notification.get(True, waitperiod)
+      except Queue.Empty:
+        pass # intentional

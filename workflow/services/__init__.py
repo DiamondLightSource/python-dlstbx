@@ -59,6 +59,12 @@ class Service(object):
     SERVICE_STATUS_PROCESSING, SERVICE_STATUS_SHUTDOWN, SERVICE_STATUS_END, \
     SERVICE_STATUS_ERROR = range(7)
 
+  # Extra states that are not used by services themselves but may be used
+  # externally:
+
+  SERVICE_STATUS_NONE = -1     # Node has no service instance loaded
+  SERVICE_STATUS_TEARDOWN = -2 # Node is shutting down
+
   # Not so overrideable functions ---------------------------------------------
 
   def __init__(self, *args, **kwargs):

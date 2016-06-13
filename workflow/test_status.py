@@ -3,11 +3,13 @@ import status
 import mock
 
 @mock.patch('dlstbx.workflow.status.threading')
-def test_status_advertiser_starts_a_new_thread(mock_threading):
+def test_status_advertiser_starts_and_stops_threads(mock_threading):
   s = status.StatusAdvertise()
   mock_threading.Thread.assert_called_once()
   s.start()
   mock_threading.Thread.return_value.start.assert_called_once()
+  s.stop_and_wait()
+  mock_threading.Thread.return_value.join.assert_called_once()
 
 @mock.patch('dlstbx.workflow.status.Queue')
 @mock.patch('dlstbx.workflow.status.threading')
@@ -45,10 +47,10 @@ def test_status_advertiser_regularly_passes_status(mock_time, mock_threading, mo
   tm.broadcast_status.assert_called_once_with(mock.sentinel.status1)
 
   # Run after being stopped
-  s.stop()
+  s.stop_and_wait()
   t() # this must no longer throw an exception
 
-  assert sm.call_count == 2
+  assert sm.call_count == 3
 
 @mock.patch('dlstbx.workflow.status.Queue')
 @mock.patch('dlstbx.workflow.status.threading')
@@ -63,3 +65,19 @@ def test_status_advertiser_external_triggering(mock_time, mock_threading, mock_q
 
   s.trigger()
   qm.put.assert_called_once()
+
+@mock.patch('dlstbx.workflow.status.Queue')
+@mock.patch('dlstbx.workflow.status.threading')
+def test_status_advertiser_sends_last_update_when_stopping(mock_threading, mock_queue):
+  tm = mock.Mock() # transport mock
+  qm = mock_queue.Queue.return_value
+  mock_threading.Queue.return_value = qm
+  s = status.StatusAdvertise(transport=tm)
+  t = mock_threading.Thread.call_args[1]['target'] # target function
+  qm.get.side_effect = RuntimeError(mock.sentinel.queue_read)
+  qm.empty.return_value = False
+
+  s.stop()
+
+  t()
+  tm.broadcast_status.assert_called_once()

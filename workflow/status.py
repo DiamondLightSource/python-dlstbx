@@ -31,6 +31,11 @@ class StatusAdvertise():
     '''Stop the background thread.'''
     self._shutdown = True
 
+  def stop_and_wait(self):
+    '''Stop the background thread and wait for any pending broadcasts.'''
+    self.stop()
+    self._background_thread.join()
+
   def trigger(self):
     '''Trigger an immediate status update.'''
     self._notification.put(None)
@@ -64,3 +69,14 @@ class StatusAdvertise():
         self._notification.get(True, waitperiod)
       except Queue.Empty:
         pass # intentional
+
+    # Thread is stopping. Check if one last notification should be sent
+    with self._advertise_lock:
+      status = None
+      if self._status_function is not None:
+        status = self._status_function()
+      if self._transport is not None:
+        if status is None:
+          self._transport.broadcast_status()
+        else:
+          self._transport.broadcast_status(status)

@@ -16,6 +16,7 @@ class Frontend():
     self._service = None
     self._queue_commands = None
     self._queue_frontend = None
+    self._service_status = services.Service.SERVICE_STATUS_NONE
 
     # Connect to the network transport layer
     if transport is None or isinstance(transport, basestring):
@@ -28,6 +29,7 @@ class Frontend():
 
     # Start initial service if one has been requested
     if service is not None:
+      self._service_status = services.Service.SERVICE_STATUS_NEW
       self.switch_service(service)
 
     # Start broadcasting node information
@@ -45,10 +47,17 @@ class Frontend():
       if self._queue_frontend is not None:
         try:
           message = self._queue_frontend.get(True, 1)
-          print message
+          if 'statuscode' in message:
+            self._service_status = message['statuscode']
+            self._status_advertiser.trigger()
+          print "MSG:", message
         except Queue.Empty:
           pass
       n = n - 1
+
+    self._service_status = services.Service.SERVICE_STATUS_TEARDOWN
+    self._status_advertiser.trigger()
+    self._status_advertiser.stop_and_wait()
     print "Fin."
 
   def get_host_id(self):
@@ -67,7 +76,7 @@ class Frontend():
   def get_status(self):
     '''Returns a dictionary containing all relevant status information to be
        broadcast across the network.'''
-    return { 'host': self.__hostid, 'status': True }
+    return { 'host': self.__hostid, 'status': self._service_status }
 
   def switch_service(self, new_service):
     '''Start a new service in a subprocess.
@@ -102,6 +111,6 @@ class Frontend():
     with self.__lock:
       self._service.terminate()
       self._service = None
+      self._service_status = services.Service.SERVICE_STATUS_END
       self._queue_commands = None
       self._queue_frontend = None
-

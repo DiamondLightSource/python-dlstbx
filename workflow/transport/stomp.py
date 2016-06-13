@@ -30,6 +30,7 @@ class Transport():
     self._stomp_listener = stomp.listener.ConnectionListener()
     self._stomp_listener = stomp.PrintingListener()
     self._stomp_listener.on_message = self._on_message
+    self._stomp_listener.on_before_message = self._on_before_message
 
   def get_namespace(self):
     '''Return the stomp namespace. This is a prefix used for all topic and
@@ -172,6 +173,9 @@ class Transport():
 
 
 ## Stomp listener methods #####################################################
+
+  def _on_before_message(self, headers, body):
+    return headers, body
 
   def _on_message(self, headers, body):
     subscription_id = headers.get('subscription')

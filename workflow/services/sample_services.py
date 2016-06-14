@@ -25,3 +25,9 @@ class Waiter(dlstbx.workflow.services.Service):
     self.update_status('Processing stuff [3/3]')
     time.sleep(4)
     self.update_status('Completed processing stuff')
+
+class Generator(dlstbx.workflow.services.Service):
+  '''An example service building on top of the workflow.services architecture,
+     demonstrating how this architecture can be used.
+     This service generates messages.'''
+

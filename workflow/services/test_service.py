@@ -86,6 +86,14 @@ def test_receive_and_follow_shutdown_command():
     service.SERVICE_STATUS_END,
     ]
 
+def test_trigger_idle_timer():
+  '''Should run without errors, message should be dropped.'''
+  pass # TODO
+
+def test_callbacks_are_routed_correctly():
+  '''Incoming messages are routed to the correct callback functions'''
+  pass # TODO
+
 def test_log_unknown_channel_data():
   '''All unidentified messages should be logged to the frondend.'''
   cmd_queue = mock.Mock()

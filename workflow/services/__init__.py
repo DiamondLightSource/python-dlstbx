@@ -50,14 +50,16 @@ class Service(object):
   #            NEW -> start() being called -> STARTING
   #       STARTING -> self.initialize() -> IDLE
   #           IDLE -> wait for messages on command queue -> PROCESSING
+  #              \--> optionally: idle timer elapsed -> TIMER
   #     PROCESSING -> process command -> IDLE
   #              \--> shutdown command received -> SHUTDOWN
+  #          TIMER -> process event -> IDLE
   #       SHUTDOWN -> self.shutdown() -> END
   #  unhandled exception -> ERROR
 
   SERVICE_STATUS_NEW, SERVICE_STATUS_STARTING, SERVICE_STATUS_IDLE, \
-    SERVICE_STATUS_PROCESSING, SERVICE_STATUS_SHUTDOWN, SERVICE_STATUS_END, \
-    SERVICE_STATUS_ERROR = range(7)
+    SERVICE_STATUS_TIMER, SERVICE_STATUS_PROCESSING, SERVICE_STATUS_SHUTDOWN, \
+    SERVICE_STATUS_END, SERVICE_STATUS_ERROR = range(8)
 
   # Extra states that are not used by services themselves but may be used
   # externally:
@@ -158,10 +160,10 @@ class Service(object):
 
 def lookup(service):
   '''Find a service class based on a name.'''
-  if service == 'waiter': # less than ideal, but works for now
-    import dlstbx.workflow.services.sample_service
-    return dlstbx.workflow.services.sample_service.Waiter
-  if service == 'waiter_alt': # less than ideal, but works for now
-    import dlstbx.workflow.services.sample_service
-    return dlstbx.workflow.services.sample_service.Waiter
+  if service == 'sample_waiter': # less than ideal, but works for now
+    import dlstbx.workflow.services.sample_services
+    return dlstbx.workflow.services.sample_services.Waiter
+  if service == 'sample_generator': # less than ideal, but works for now
+    import dlstbx.workflow.services.sample_services
+    return dlstbx.workflow.services.sample_services.Generator
   # TODO: Do this properly

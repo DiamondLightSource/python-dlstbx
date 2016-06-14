@@ -1,19 +1,17 @@
 from __future__ import division
 
 import dlstbx.workflow.services
-import dlstbx.workflow.services.sample_service
+import dlstbx.workflow.services.sample_services
 import mock
 import Queue
 
 def test_service_can_be_looked_up():
   '''Attempt to look up the service by its name'''
-  service_class = dlstbx.workflow.services.lookup('waiter')
-  assert service_class == dlstbx.workflow.services.sample_service.Waiter
-  service_class = dlstbx.workflow.services.lookup('waiter_alt')
-  assert service_class == dlstbx.workflow.services.sample_service.Waiter
+  service_class = dlstbx.workflow.services.lookup('sample_waiter')
+  assert service_class == dlstbx.workflow.services.sample_services.Waiter
 
-@mock.patch('dlstbx.workflow.services.sample_service.time')
-def test_start_and_shutdown_sample_service(mock_time):
+@mock.patch('dlstbx.workflow.services.sample_services.time')
+def test_start_and_shutdown_waiter_service(mock_time):
   '''Start the waiter service, process some stuff and shut it down again.'''
   cmd_queue = mock.Mock()
   cmd_queue.get.side_effect = [
@@ -23,7 +21,7 @@ def test_start_and_shutdown_sample_service(mock_time):
   fe_queue = Queue.Queue()
 
   # Create service
-  service = dlstbx.workflow.services.sample_service.Waiter(
+  service = dlstbx.workflow.services.sample_services.Waiter(
       commands=cmd_queue, frontend=fe_queue)
 
   # Start service

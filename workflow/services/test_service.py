@@ -131,7 +131,26 @@ def test_idle_timer_is_triggered():
 
 def test_callbacks_are_routed_correctly():
   '''Incoming messages are routed to the correct callback functions'''
-  pass # TODO
+  cmd_queue = mock.Mock()
+  cmd_queue.get.side_effect = [
+    { 'channel': mock.sentinel.channel,
+      'payload': mock.sentinel.payload },
+    { 'channel': 'command',
+      'payload': dlstbx.workflow.services.Commands.SHUTDOWN },
+    AssertionError('Not observing commands') ]
+  fe_queue = Queue.Queue()
+  callback = mock.Mock()
+
+  # Create service
+  service = dlstbx.workflow.services.Service(
+      commands=cmd_queue, frontend=fe_queue)
+  service._register(mock.sentinel.channel, callback)
+
+  # Start service
+  service.start()
+
+  # Check callback occured
+  callback.assert_called_with(mock.sentinel.payload)
 
 def test_log_unknown_channel_data():
   '''All unidentified messages should be logged to the frondend.'''

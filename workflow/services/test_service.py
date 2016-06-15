@@ -47,7 +47,8 @@ def test_receive_and_follow_shutdown_command():
      Check that status codes are updated properly.'''
   cmd_queue = mock.Mock()
   cmd_queue.get.side_effect = [
-    { 'channel': 'command', 'payload': 'shutdown' },
+    { 'channel': 'command',
+      'payload': dlstbx.workflow.services.Commands.SHUTDOWN },
     AssertionError('Not observing commands') ]
   fe_queue = Queue.Queue()
 
@@ -55,8 +56,8 @@ def test_receive_and_follow_shutdown_command():
   service = dlstbx.workflow.services.Service(
       commands=cmd_queue, frontend=fe_queue)
   # override class API to ensure overidden functions are called
-  service.initialize = mock.Mock()
-  service.shutdown = mock.Mock()
+  service.initializing = mock.Mock()
+  service.in_shutdown = mock.Mock()
 
   # Check new status
   messages = []
@@ -70,8 +71,8 @@ def test_receive_and_follow_shutdown_command():
   service.start()
 
   # Check startup/shutdown sequence
-  service.initialize.assert_called_once()
-  service.shutdown.assert_called_once()
+  service.initializing.assert_called_once()
+  service.in_shutdown.assert_called_once()
   cmd_queue.get.assert_called_once()
   messages = []
   while not fe_queue.empty():
@@ -100,7 +101,8 @@ def test_log_unknown_channel_data():
   cmd_queue.get.side_effect = [
     { 'channel': mock.sentinel.channel, 'payload': mock.sentinel.failure1 },
     { 'payload': mock.sentinel.failure2 },
-    { 'channel': 'command', 'payload': 'shutdown' },
+    { 'channel': 'command',
+      'payload': dlstbx.workflow.services.Commands.SHUTDOWN },
     AssertionError('Not observing commands') ]
   fe_queue = Queue.Queue()
 

@@ -16,7 +16,7 @@ class Service(object):
 
   # Overrideable functions ----------------------------------------------------
 
-  def initialize(self):
+  def initializing(self):
     '''Service initialization. This function is run before any commands are
        received from the frontend. This is the place to request channel
        subscriptions with the messaging layer, and register callbacks.
@@ -33,7 +33,7 @@ class Service(object):
        This function can be overridden by specific service implementations.'''
     self._update_status(status)
 
-  def shutdown(self):
+  def in_shutdown(self):
     '''Service shutdown. This function is run before the service is terminated.
        No more commands are received, but communications can still be sent.
        This function can be overridden by specific service implementations.'''
@@ -48,13 +48,13 @@ class Service(object):
   # The state transitions are: (see definition of start() below)
   #  constructor() -> NEW
   #            NEW -> start() being called -> STARTING
-  #       STARTING -> self.initialize() -> IDLE
+  #       STARTING -> self.initializing() -> IDLE
   #           IDLE -> wait for messages on command queue -> PROCESSING
   #              \--> optionally: idle timer elapsed -> TIMER
   #     PROCESSING -> process command -> IDLE
   #              \--> shutdown command received -> SHUTDOWN
   #          TIMER -> process event -> IDLE
-  #       SHUTDOWN -> self.shutdown() -> END
+  #       SHUTDOWN -> self.in_shutdown() -> END
   #  unhandled exception -> ERROR
 
   SERVICE_STATUS_NEW, SERVICE_STATUS_STARTING, SERVICE_STATUS_IDLE, \
@@ -116,7 +116,7 @@ class Service(object):
        process.'''
     self.__update_service_status(self.SERVICE_STATUS_STARTING)
 
-    self.initialize()
+    self.initializing()
     self._register('command', self.__process_command)
 
     if self.__queue_commands is None:
@@ -149,14 +149,21 @@ class Service(object):
 
     self.__update_service_status(self.SERVICE_STATUS_SHUTDOWN)
 
-    self.shutdown()
+    self.in_shutdown()
 
     self.__update_service_status(self.SERVICE_STATUS_END)
 
   def __process_command(self, command):
     '''Process an incoming command message from the frontend.'''
-    if command == 'shutdown':
+    if command == Commands.SHUTDOWN:
       self.__shutdown = True
+
+
+class Commands():
+  SHUTDOWN = 'shutdown'
+  SUBSCRIBE = 'subscribe'
+  UNSUBSCRIBE = 'unsubscribe'
+
 
 def lookup(service):
   '''Find a service class based on a name.'''

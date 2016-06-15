@@ -17,7 +17,6 @@ class Terminal():
     self._node_status = {}
 
   def update_status(self, header, body):
-    print "SUBSCRIPTION ALERT:"
     print header, body
     with self._lock:
       if body['host'] not in self._node_status or \
@@ -31,7 +30,7 @@ class Terminal():
     self._transport.subscribe('/topic/transient.status.demo', self.update_status, retroactive=True)
     try:
       while True:
-        print "\n", '-'*40, "\n"
+        print ""
         now = int(time.time())
         with self._lock:
           overview = self._node_status.copy()

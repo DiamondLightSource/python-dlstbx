@@ -16,7 +16,8 @@ def test_start_and_shutdown_waiter_service(mock_time):
   cmd_queue = mock.Mock()
   cmd_queue.get.side_effect = [
     { 'channel': 'stuff', 'payload': mock.sentinel.stuff },
-    { 'channel': 'command', 'payload': 'shutdown' },
+    { 'channel': 'command',
+      'payload': dlstbx.workflow.services.Commands.SHUTDOWN },
     AssertionError('Not observing commands') ]
   fe_queue = Queue.Queue()
 

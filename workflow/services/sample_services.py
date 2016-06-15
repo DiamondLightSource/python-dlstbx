@@ -12,7 +12,7 @@ class Waiter(dlstbx.workflow.services.Service):
     super(Waiter, self).__init__(*args, **kwargs)
     self._service_name = 'waiting service'
 
-  def initialize(self):
+  def initializing(self):
     '''Register handling function for 'stuff' messages.'''
     self._register('stuff', self.stuff_handler)
 

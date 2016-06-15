@@ -1,4 +1,5 @@
 from __future__ import division
+import Queue
 
 class Service(object):
   '''
@@ -79,6 +80,8 @@ class Service(object):
     self.__shutdown = False
     self.__callback_register = {}
     self.__update_service_status(self.SERVICE_STATUS_NEW)
+    self._idle_callback = None
+    self._idle_time = None
 
   def _log_send(self, data_structure):
     '''Internal function to format and send log messages.'''
@@ -92,6 +95,12 @@ class Service(object):
   def _register(self, message_type, callback):
     '''Register a callback function for a specific command message type.'''
     self.__callback_register[message_type] = callback
+
+  def _register_idle(self, idle_time, callback):
+    '''Register a callback function that is run when idling for a given
+       time span (in seconds).'''
+    self._idle_callback = callback
+    self._idle_time = idle_time
 
   def _update_status(self, status):
     '''Internal function to actually send status update.'''
@@ -127,7 +136,16 @@ class Service(object):
 
       self.__update_service_status(self.SERVICE_STATUS_IDLE)
 
-      message = self.__queue_commands.get()
+      if self._idle_time is None:
+        message = self.__queue_commands.get()
+      else:
+        try:
+          message = self.__queue_commands.get(True, self._idle_time)
+        except Queue.Empty:
+          self.__update_service_status(self.SERVICE_STATUS_TIMER)
+          if self._idle_callback is not None:
+            self._idle_callback()
+          continue
 
       self.__update_service_status(self.SERVICE_STATUS_PROCESSING)
 

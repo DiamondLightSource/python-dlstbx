@@ -74,6 +74,7 @@ def test_receive_and_follow_shutdown_command():
   service.initializing.assert_called_once()
   service.in_shutdown.assert_called_once()
   cmd_queue.get.assert_called_once()
+  assert cmd_queue.get.call_args == ()
   messages = []
   while not fe_queue.empty():
     message = fe_queue.get_nowait()
@@ -87,9 +88,46 @@ def test_receive_and_follow_shutdown_command():
     service.SERVICE_STATUS_END,
     ]
 
-def test_trigger_idle_timer():
-  '''Should run without errors, message should be dropped.'''
-  pass # TODO
+def test_idle_timer_is_triggered():
+  '''Check that the idle timer callback is run if set.'''
+  cmd_queue = mock.Mock()
+  cmd_queue.get.side_effect = [
+    Queue.Empty(),
+    { 'channel': 'command',
+      'payload': dlstbx.workflow.services.Commands.SHUTDOWN },
+    AssertionError('Not observing commands') ]
+  fe_queue = Queue.Queue()
+  idle_trigger = mock.Mock()
+
+  # Create service
+  service = dlstbx.workflow.services.Service(
+      commands=cmd_queue, frontend=fe_queue)
+  service._register_idle(10, idle_trigger)
+
+  # Start service
+  service.start()
+
+  # Check trigger has been called
+  idle_trigger.assert_called_once_with()
+
+  # Check startup/shutdown sequence
+  assert cmd_queue.get.call_count == 2
+  assert cmd_queue.get.call_args == ((True, 10),)
+  messages = []
+  while not fe_queue.empty():
+    message = fe_queue.get_nowait()
+    if 'statuscode' in message:
+      messages.append(message['statuscode'])
+  assert messages == [
+    service.SERVICE_STATUS_NEW,
+    service.SERVICE_STATUS_STARTING,
+    service.SERVICE_STATUS_IDLE,
+    service.SERVICE_STATUS_TIMER,
+    service.SERVICE_STATUS_IDLE,
+    service.SERVICE_STATUS_PROCESSING,
+    service.SERVICE_STATUS_SHUTDOWN,
+    service.SERVICE_STATUS_END,
+    ]
 
 def test_callbacks_are_routed_correctly():
   '''Incoming messages are routed to the correct callback functions'''

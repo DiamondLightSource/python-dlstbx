@@ -15,15 +15,11 @@ print("Current libzmq version is %s" % zmq.zmq_version())
 print("Current  pyzmq version is %s" % zmq.__version__)
 
 
-default_image = '/home/upc86898/Desktop/EigerStream/zmq/adsc_streamer/test/testcrystal_1_001.img'
-if not os.path.exists(default_image):
-  default_image = '/dls/science/users/wra62962/zmq/adsc_streamer/test/testcrystal_1_001.img'
-
 parser = OptionParser()
 parser.add_option("-?", help=SUPPRESS_HELP, action="help")
 parser.add_option('-f', '--file', dest="filename",
                   help="image file to send", metavar="FILE",
-                  default=default_image)
+                  default='/dls/science/users/wra62962/zmq/adsc_streamer/test/testcrystal_1_001.img')
 parser.add_option('-n', '--num-images', dest="numimgs", type="int",
                   help="number of images to send, default 100-130", metavar="NUM",
                   default=int(random.uniform(100, 130)))
@@ -44,6 +40,10 @@ options, args = parser.parse_args()
 
 if options.exposure_time < 1 / 133:
   options.exposure_time = 1 / 133
+
+if not os.path.exists(options.filename):
+  print "Use -f to point to an image file. Use --help to see command line options"
+  sys.exit(1)
 
 # Read image data
 img_file = fabio.open(options.filename)

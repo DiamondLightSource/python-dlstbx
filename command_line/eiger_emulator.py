@@ -34,6 +34,9 @@ parser.add_option("--basic", action="store_true", dest="header_basic", default=F
                   help="Generate basic detail stream headers")
 parser.add_option("--full", action="store_true", dest="header_full", default=False,
                   help="Generate full detail stream headers (unsupported)")
+parser.add_option("--abort", action="store_true", dest="abort", default=False,
+                  help="Abort data collection mid-run")
+
 
 # image header parameters
 parser.add_option('--exposure-time', dest='exposure_time', type="float", default=0, help=SUPPRESS_HELP)
@@ -67,43 +70,43 @@ def message_header_basic(series='08/15'):
                 'chi_increment': None,
                 'chi_start': None,
                 'compression': 'lz4',
-                'count_time': options.exposure_time,
+                'count_time': options.exposure_time - 0.000001,
                 'countrate_correction_applied': True,
                 'countrate_correction_count_cutoff': 65535,
                 'data_collection_date': "Thu Sep  8 13:37:18 BST 2016",
                 'description': "EIGER 16M simulator",
                 'detector_distance': 160,
                 'detector_number': 1,
-                'detector_readout_time': None,
-                'element': None,
-                'flatfield': None,
-                'flatfield_correction_applied': None,
-                'frame_time': None,
+                'detector_readout_time': 0.000001, # value? unit?
+                'element': 'Mo',
+                'flatfield': [ 1, 1 ],
+                'flatfield_correction_applied': True,
+                'frame_time': options.exposure_time,
                 'kappa_increment': None,
                 'kappa_start': None,
-                'nimages': None,
+                'nimages': options.numimgs,
                 'ntrigger': None,
-                'number_of_excluded_pixels': None,
+                'number_of_excluded_pixels': 0,
                 'omega_increment': None,
                 'omega_start': None,
-                'phi_increment': None,
-                'phi_start': None,
-                'photon_energy': None,
+                'phi_increment': 0.1,
+                'phi_start': 0.0,
+                'photon_energy': 18000, # unit?
                 'pixel_mask': None,
-                'pixel_mask_applied': None,
-                'roi_mode': None,
-                'sensor_material': None,
-                'sensor_thickness': None,
-                'software_version': None,
-                'threshold_energy': None,
-                'trigger_mode': None,
+                'pixel_mask_applied': True,
+                'roi_mode': '16M',
+                'sensor_material': 'Si',
+                'sensor_thickness': 0.270,
+                'software_version': 'Thursday',
+                'threshold_energy': 12000,
+                'trigger_mode': 'happy',
                 'two_theta_increment': None,
                 'two_theta_start': None,
-                'wavelength': None,
-                'x_pixel_size': None,
-                'x_pixels_in_detector': None,
-                'y_pixel_size': None,
-                'y_pixels_in_detector': None
+                'wavelength': 0.68890,
+                'x_pixel_size': 0.016,
+                'x_pixels_in_detector': 4096,
+                'y_pixel_size': 0.016,
+                'y_pixels_in_detector': 4096
                })
     ]
 
@@ -158,6 +161,10 @@ sys.stdout.flush()
 for task_nbr in xrange(options.numimgs):
   sender.send_multipart(message_image(frameid=task_nbr))
   sys.stdout.write(' %d' % task_nbr)
+  if options.abort and task_nbr > random.uniform(30,70):
+    sys.stdout.write(' ABORT')
+    sys.stdout.flush()
+    break
   sys.stdout.flush()
   time.sleep(options.exposure_time)
 

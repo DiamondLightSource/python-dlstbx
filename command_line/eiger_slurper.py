@@ -14,6 +14,7 @@ receiver = context.socket(zmq.PULL)
 receiver.connect("tcp://localhost:5557")
 
 s = receiver.recv_multipart()
+img_expected = None
 if s and s[0] and 'dheader-1.0' in s[0]:
   header = json.loads(s[0])
   if 'header_detail' in header:
@@ -21,6 +22,8 @@ if s and s[0] and 'dheader-1.0' in s[0]:
     if header['header_detail'] in ('basic', 'all'):
       assert len(s) >= 2
       print s[1]
+      img_header = json.loads(s[1])
+      img_expected = img_header['nimages']
   else:
     print "ERR: First message is misformatted header"
 else:
@@ -32,6 +35,8 @@ while True:
 
   if s and s[0] and 'dseries_end-1.0' in s[0]:
     print "END."
+    if img_expected and x != img_expected:
+      print "ERR: %d images expected, but %d received" % (img_expected, x)
     break
 
   img_header = {}
@@ -53,6 +58,8 @@ while True:
 
   time.sleep(0.03)
   x = x + 1
+  if img_expected and x > img_expected:
+    print "ERR: More images (%d) than expected (%d)" % (x, img_expected)
 
 time.sleep(1)
 context.destroy()

@@ -104,9 +104,9 @@ def message_header_basic(series='08/15'):
                 'two_theta_start': None,
                 'wavelength': 0.68890,
                 'x_pixel_size': 0.016,
-                'x_pixels_in_detector': 4096,
+                'x_pixels_in_detector': int(img_header['SIZE1']),
                 'y_pixel_size': 0.016,
-                'y_pixels_in_detector': 4096
+                'y_pixels_in_detector': int(img_header['SIZE2'])
                })
     ]
 

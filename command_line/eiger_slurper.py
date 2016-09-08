@@ -13,8 +13,9 @@ receiver = context.socket(zmq.PULL)
 receiver.connect("tcp://localhost:5557")
 
 for x in range(102):
-  s = receiver.recv()
-# Simple progress indicator for the viewer
+  s = receiver.recv_multipart()
+  if len(s) >= 3 and ('dimage-1.0' in s[0]):
+    s[2] = '<cut>'
 
   print s
 

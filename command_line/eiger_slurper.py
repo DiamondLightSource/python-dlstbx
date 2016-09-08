@@ -1,4 +1,5 @@
 from __future__ import division
+import json
 import sys
 import time
 import zmq
@@ -12,14 +13,48 @@ receiver = context.socket(zmq.PULL)
 # receiver.setsockopt(zmq.RCVBUF, 2) # this may come into play once we throw larger frames about
 receiver.connect("tcp://localhost:5557")
 
-for x in range(102):
+s = receiver.recv_multipart()
+if s and s[0] and 'dheader-1.0' in s[0]:
+  header = json.loads(s[0])
+  if 'header_detail' in header:
+    print "Receiving data stream, '%s' format:" % header['header_detail']
+    if header['header_detail'] in ('basic', 'all'):
+      assert len(s) >= 2
+      print s[1]
+  else:
+    print "ERR: First message is misformatted header"
+else:
+  print "ERR: First message is not header"
+
+x = 0
+while True:
   s = receiver.recv_multipart()
-  if len(s) >= 3 and ('dimage-1.0' in s[0]):
+
+  if s and s[0] and 'dseries_end-1.0' in s[0]:
+    print "END."
+    break
+
+  img_header = {}
+  if s and len(s) >= 3 and 'dimage-1.0' in s[0]:
     s[2] = '<cut>'
+    img_header = json.loads(s[0])
+  if img_header and 'frame' in img_header and img_header['frame'] == x:
+    sys.stdout.write('.')
+    sys.stdout.flush()
+  else:
+    print "ERR: Expected frame %d, received" % x,
+    if img_header:
+      if 'frame' in img_header:
+        print "frame %d instead." % img_header['frame']
+      else:
+        print img_header
+    else:
+      print "something else"
 
-  print s
-
-  time.sleep(0.01)
+  time.sleep(0.03)
+  x = x + 1
 
 time.sleep(1)
+context.destroy()
+
 

@@ -36,10 +36,10 @@ parser.add_option("--full", action="store_true", dest="header_full", default=Fal
                   help="Generate full detail stream headers (unsupported)")
 parser.add_option("--abort", action="store_true", dest="abort", default=False,
                   help="Abort data collection mid-run")
-
+parser.add_option('--exposure-time', dest='exposure_time', type="float", default=0,
+                  help="Waiting (exposure) time between images")
 
 # image header parameters
-parser.add_option('--exposure-time', dest='exposure_time', type="float", default=0, help=SUPPRESS_HELP)
 options, args = parser.parse_args()
 
 if options.exposure_time < 1 / 133:
@@ -110,8 +110,7 @@ def message_header_basic(series='08/15'):
                })
     ]
 
-def message_image(series='08/15', frameid=0):
-  start_time = time.time()
+def message_image(series='08/15', frameid=0, start_time=0.0):
   exposure = options.exposure_time
   end_time = start_time + exposure
   in_ns = 1000*1000*1000
@@ -157,16 +156,22 @@ else:
 
 sys.stdout.write('START ')
 sys.stdout.flush()
+start_time = time.time()
+image_time = start_time
 
 for task_nbr in xrange(options.numimgs):
-  sender.send_multipart(message_image(frameid=task_nbr))
+  sender.send_multipart(message_image(frameid=task_nbr, start_time=image_time))
   sys.stdout.write(' %d' % task_nbr)
   if options.abort and task_nbr > random.uniform(30,70):
     sys.stdout.write(' ABORT')
     sys.stdout.flush()
     break
   sys.stdout.flush()
-  time.sleep(options.exposure_time)
+
+  current_time = time.time()
+  image_time = image_time + options.exposure_time
+  if current_time <= image_time:
+    time.sleep(image_time - current_time)
 
 sender.send_multipart(message_end())
 sys.stdout.write(' END.\n')

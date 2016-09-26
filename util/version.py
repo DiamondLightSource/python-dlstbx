@@ -46,3 +46,6 @@ def dlstbx_version():
     version = __dlstbx_version_format % version
 
   return version
+
+if __name__ == '__main__':
+  print dlstbx_version()

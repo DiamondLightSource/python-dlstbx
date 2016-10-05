@@ -5,8 +5,8 @@
 
 from __future__ import division
 from dlstbx.util.version import dlstbx_version
-import dlstbx.workflow.status_monitor
-import dlstbx.workflow.transport
+import workflows.contrib.status_monitor
+import workflows.transport
 from optparse import OptionParser, SUPPRESS_HELP
 import sys
 
@@ -18,10 +18,10 @@ def run(cmdline_args):
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-t", "--transport", dest="transport", metavar="TRN",
       default="stomp", help="Transport mechanism, default '%default'")
-  dlstbx.workflow.transport.add_command_line_options(parser)
+  workflows.transport.add_command_line_options(parser)
   (options, args) = parser.parse_args(cmdline_args)
 
-  dlstbx.workflow.status_monitor.Terminal(
+  workflows.contrib.status_monitor.Terminal(
       transport=options.transport,
     ).run()
 

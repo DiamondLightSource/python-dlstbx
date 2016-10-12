@@ -49,6 +49,9 @@ class DLSFileMonitoring(CommonService):
         firstfile = False
         print "File", nextfile, "appeared."
         self._transport.send('transient.destination', 'File %s appeared' % nextfile)
+
+        # send off file to PIA
+        self._transport.send('per_image_analysis', { 'file': nextfile } )
     except StopIteration:
       print "All done."
       return

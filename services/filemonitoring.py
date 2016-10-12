@@ -19,6 +19,9 @@ class DLSFileMonitoring(CommonService):
 
     self._basespeed=0.1
     self._waitlimit=2048
+    # This is a bug in the message handling API. This function should receive the deserialized message.
+    import json
+    message = json.loads(message)
 
     files = iter(message['files'])
     firstfile = True
@@ -29,7 +32,7 @@ class DLSFileMonitoring(CommonService):
         total_wait = 0
         while not os.path.exists(nextfile):
           if backoff >= self._waitlimit * 2:
-            # give up
+            print "File", nextfile, "did not appear. Giving up."
             return
           if backoff > self._waitlimit:
             waittime = self._waitlimit
@@ -43,9 +46,9 @@ class DLSFileMonitoring(CommonService):
             backoff += 40
           else:
             backoff *= 2
-      firstfile = False
-      # success, file appeared
-      self._transport.send('transient.file_appeared', nextfile)
+        firstfile = False
+        print "File", nextfile, "appeared."
+        self._transport.send('transient.destination', 'File %s appeared' % nextfile)
     except StopIteration:
-      # done
+      print "All done."
       return

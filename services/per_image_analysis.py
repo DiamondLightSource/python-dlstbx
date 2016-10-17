@@ -1,10 +1,14 @@
 from __future__ import absolute_import, division
 import os
 import time
+import logging
 from workflows.services.common_service import CommonService
 
 from dials.command_line.find_spots_client import response_to_xml
 from dials.command_line.find_spots_server import work
+import logging
+
+logger = logging.getLogger('dlstbx.services.per_image_analysis')
 
 class DLSPerImageAnalysis(CommonService):
   '''A service that analyses individual images.'''
@@ -33,17 +37,17 @@ class DLSPerImageAnalysis(CommonService):
 
     # Extract the filename
     filename = message['file']
-    print "Running PIA on", filename
+    logger.info("Running PIA on %s" %filename)
 
     # Do the per-image-analysis
     cl = ['d_max=40']
     results = work(filename, cl=cl)
     results['image'] = filename
     xml_response = response_to_xml(results)
-    print results
-    print xml_response
+    logger.debug(str(results))
+    logger.info(xml_response)
 
     # Send results onwards
     self._transport.send('transient.destination', results, transaction=txn)
     self._transport.transaction_commit(txn)
-    print "PIA completed on", filename
+    logger.info("PIA completed on %s" %filename)

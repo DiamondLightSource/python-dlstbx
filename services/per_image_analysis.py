@@ -24,13 +24,6 @@ class DLSPerImageAnalysis(CommonService):
   def per_image_analysis(self, header, message):
     '''Run PIA on one image.'''
 
-    #################
-    # This is a bug in the message handling API.
-    # The function should have receive a deserialized message.
-    import json
-    message = json.loads(message)
-    #################
-
     # Conditionally acknowledge receipt of the message
     txn = self._transport.transaction_begin()
     self._transport.ack(header['message-id'], transaction=txn)

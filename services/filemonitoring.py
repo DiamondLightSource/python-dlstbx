@@ -19,9 +19,6 @@ class DLSFileMonitoring(CommonService):
 
     self._basespeed=0.1
     self._waitlimit=2048
-    # This is a bug in the message handling API. This function should receive the deserialized message.
-    import json
-    message = json.loads(message)
 
     files = iter(message['files'])
     firstfile = True

@@ -27,7 +27,8 @@ def setup_logging(debug=True):
   # Enable logging to graylog
   try:
     import graypy
-    graylog = graypy.GELFHandler('cs04r-sc-serv-14.diamond.ac.uk', 12201)
+    graylog = graypy.GELFHandler('cs04r-sc-serv-14.diamond.ac.uk', 12201, \
+                                 level_names=True)
     logger.addHandler(graylog)
   except ImportError:
     logging.getLogger('dlstbx.service').warn(

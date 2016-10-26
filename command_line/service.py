@@ -5,35 +5,44 @@
 
 from __future__ import division
 from dlstbx.util.version import dlstbx_version
-import os.path
 import logging
+import os.path
 import sys
 import workflows
 import workflows.contrib.start_service
 
+def setup_logging(debug=True):
+  '''Initialize common logging framework. Everything is logged to central
+     graylog server. Depending on setting messages of DEBUG or INFO and higher
+     go to console.'''
+  logger = logging.getLogger()
+  logger.setLevel(logging.DEBUG)
+
+  # Enable logging to console
+  console = logging.StreamHandler()
+  if not debug:
+    console.setLevel(logging.INFO)
+  logger.addHandler(console)
+
+  # Enable logging to graylog
+  try:
+    import graypy
+    graylog = graypy.GELFHandler('cs04r-sc-serv-14.diamond.ac.uk', 12201)
+    logger.addHandler(graylog)
+  except ImportError:
+    logging.getLogger('dlstbx.service').warn(
+        'Could not enable logging to graylog: python module graypy missing')
+ 
 if __name__ == '__main__':
   # override default stomp host
   from workflows.transport.stomp_transport import StompTransport
   StompTransport.defaults['--stomp-host'] = 'ws154.diamond.ac.uk'
 
-  logger = logging.getLogger('dlstbx')
-  logger.setLevel(logging.DEBUG)
-  fh = logging.FileHandler('dlstbx.services.log')
-  fh.setLevel(logging.DEBUG)
-  ch = logging.StreamHandler()
-  ch.setLevel(logging.INFO)
-  # create formatter and add it to the handlers
-  fhformatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-  chformatter = logging.Formatter('%(message)s')
-  fh.setFormatter(fhformatter)
-  ch.setFormatter(chformatter)
-  logger.addHandler(fh)
-  logger.addHandler(ch)
-  # log dials output to file
-  dials_logger = logging.getLogger('dials')
-  dials_logger.addHandler(fh)
-  dials_logger.setLevel(logging.INFO)
-  logger.info(str(sys.argv))
+  # initialize logging
+  setup_logging()
+  logger = logging.getLogger('dlstbx.service')
+
+  logger.debug('Launching dlstbx.service with ' + str(sys.argv[1:]))
 
   dlstbx = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
   workflows.load_plugins([os.path.join(dlstbx, 'services')])

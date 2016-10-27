@@ -4,6 +4,7 @@
 #
 
 from __future__ import division
+from dlstbx import enable_graylog
 from dlstbx.util.version import dlstbx_version
 import logging
 import os.path
@@ -25,14 +26,7 @@ def setup_logging(debug=True):
   logger.addHandler(console)
 
   # Enable logging to graylog
-  try:
-    import graypy
-    graylog = graypy.GELFHandler('cs04r-sc-serv-14.diamond.ac.uk', 12201, \
-                                 level_names=True)
-    logger.addHandler(graylog)
-  except ImportError:
-    logging.getLogger('dlstbx.service').warn(
-        'Could not enable logging to graylog: python module graypy missing')
+  enable_graylog()
  
 if __name__ == '__main__':
   # override default stomp host
@@ -40,7 +34,7 @@ if __name__ == '__main__':
   StompTransport.defaults['--stomp-host'] = 'ws154.diamond.ac.uk'
 
   # initialize logging
-  setup_logging()
+  setup_logging(debug=True)
   logger = logging.getLogger('dlstbx.service')
 
   logger.debug('Launching dlstbx.service with ' + str(sys.argv[1:]))

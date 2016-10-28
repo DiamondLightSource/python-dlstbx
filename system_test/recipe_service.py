@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division
 from dlstbx.system_test.common import CommonSystemTest
 
-class TestRecipeService(CommonSystemTest):
+class RecipeService(CommonSystemTest):
   '''Tests for the recipe service.'''
 
   def test_recipe_parsing(self):
@@ -36,4 +36,4 @@ class TestRecipeService(CommonSystemTest):
     )
 
 if __name__ == "__main__":
-  TestRecipeService().validate()
+  RecipeService().validate()

@@ -45,10 +45,11 @@ for classname, cls in systest_classes.iteritems():
       testresult.log_trace("\n".join(testsetting['errors']))
       testsetting['ignore'] = True
     tests[(classname, testname)] = (testsetting, testresult)
-
 logger.info("Found %d system tests" % len(tests))
 
 # Set up subscriptions
+
+print("")
 
 channels = {}
 for test, _ in tests.itervalues():
@@ -65,12 +66,17 @@ def handle_receipt(header, message):
     if not expected_message.get('received'):
       if expected_message['message'] == message:
         if expected_message.get('headers'):
-          # test headers else continue
-          continue
+          headers_match = True
+          for parameter, value in expected_message['headers'].iteritems():
+            if value != header.get(parameter):
+              headers_match = False
+          if not headers_match:
+            logger.warn("Received a message similar to an expected message:\n" + str(message) + "\n but its header\n" + str(header) + "\ndoes not match the expected header:\n" + str(expected_message['headers']))
+            continue
         expected_message['received'] = True
-        logger.debug("Received expected message:\n" + str(header) + "\n" + str(message))
+        logger.debug("Received expected message:\n" + str(header) + "\n" + str(message) + "\n")
         return
-  logger.warn("Received unexpected message:\n" + str(header) + "\n" + str(message))
+  logger.warn("Received unexpected message:\n" + str(header) + "\n" + str(message) + "\n which is not in \n" + str(expected_messages) + "\n")
 
 for queue, topic in channels.iterkeys():
   logger.debug("Subscribing to %s" % queue)
@@ -82,6 +88,8 @@ for queue, topic in channels.iterkeys():
 
 # Send out message
 
+print("")
+
 for test, _ in tests.itervalues():
   if not test.get('ignore'):
     for message in test['send']:
@@ -92,13 +100,14 @@ for test, _ in tests.itervalues():
         logger.debug("Broadcasting message to %s", message['topic'])
         transport.broadcast(message['topic'], message['message'], headers=message['headers'])
 
-start_time = time.time()
+print("")
 
 # Wait for messages and timeouts
 
+start_time = time.time()
 waiting = True
 while waiting:
-  print "Waited %5.1fs for messages." % (time.time() - start_time)
+  print("Waited %5.1fs for messages." % (time.time() - start_time))
   time.sleep(0.2)
   waiting = False
   for testname, test in tests.iteritems():
@@ -119,4 +128,6 @@ ts = junit_xml.TestSuite("dlstbx.system_test",
                          [r for _, r in tests.itervalues()])
 with open('output.xml', 'w') as f:
   junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
-logger.info("System test run completed.")
+
+successes = sum(r.is_success() for _, r in tests.itervalues())
+logger.info("System test run completed, %d out of %d tests succeeded." % (successes, len(tests)))

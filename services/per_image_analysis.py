@@ -1,12 +1,10 @@
 from __future__ import absolute_import, division
-import os
-import time
-import logging
-from workflows.services.common_service import CommonService
-
 from dials.command_line.find_spots_client import response_to_xml
 from dials.command_line.find_spots_server import work
 import logging
+import os
+import time
+from workflows.services.common_service import CommonService
 
 logger = logging.getLogger('dlstbx.services.per_image_analysis')
 

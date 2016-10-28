@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division
 from dlstbx.system_test.common import CommonSystemTest
+from workflows.recipe import Recipe
 
 class RecipeService(CommonSystemTest):
   '''Tests for the recipe service.'''
@@ -9,14 +10,14 @@ class RecipeService(CommonSystemTest):
        The recipe should be interpreted and a message passed back.
        The message should contain the recipe and a correctly set pointer.'''
 
-    recipe = {
+    recipe = self.apply_parameters({
         1: { 'service': 'DLS system test',
              'queue': 'transient.system_test.{guid}'
            },
         'start': [
            (1, { 'purpose': 'test the recipe parsing service' }),
         ]
-      }
+      })
 
     self.send_message(
       queue='processing_recipe',
@@ -28,10 +29,10 @@ class RecipeService(CommonSystemTest):
     )
 
     self.expect_message(
-      queue='transient.system_test.{guid}',
+      queue=self.apply_parameters('transient.system_test.{guid}'),
       message=recipe['start'][0][1],
-      headers={ 'recipe': recipe,
-                'recipe-pointer': 1,
+      headers={ 'recipe': Recipe(recipe),
+                'recipe-pointer': '1',
               },
       timeout=3,
     )

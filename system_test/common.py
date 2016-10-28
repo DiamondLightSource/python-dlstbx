@@ -3,40 +3,21 @@ import mock
 import string
 import uuid
 
-def recursive_replace(item, **kwargs):
-  '''Recursively apply formatting to {item}s in a data structure, leaving
-     undefined {item}s as they are.
-
-     Example:
-       recursive_replace( { '{x}': '{y}' }, x='5' )
-          => { '5': '{y}' }
-       recursive_replace( { '{x}': '{y}' }, y='5' )
-          => { '{x}': '5' }
-       recursive_replace( { '{x}': '{y}' }, x='3', y='5' )
-          => { '3': '5' }
-  '''
-  class SafeDict(dict):
-    def __missing__(self, key):
-      return '{' + key + '}'
-  replacement_dictionary = SafeDict(kwargs)
-  def inner_replace(item):
-    if isinstance(item, basestring):
-      return string.Formatter().vformat(item, (), replacement_dictionary)
-    if isinstance(item, dict):
-      return { inner_replace(key): inner_replace(value) for
-               key, value in item.iteritems() }
-    if isinstance(item, tuple):
-      return tuple(inner_replace(list(item)))
-    if isinstance(item, list):
-      return [ inner_replace(x) for x in item ]
-    return item
-  return inner_replace(item)
+class SafeDict(dict):
+  '''A dictionary that returns undefined keys as {keyname}.
+     This can be used to selectively replace variables in datastructures.'''
+  def __missing__(self, key):
+    return '{' + key + '}'
 
 class CommonSystemTest(object):
   '''Framework for testing the Diamond Light Source data analysis
      'plum duff' framework.
      This is class that all system tests are derived from.
   '''
+
+  parameters = SafeDict()
+  '''Set of known test parameters. Generally only a unique test identifier,
+     parameters['guid'], will be set.'''
 
   def enumerate_test_functions(self):
     '''Returns a list of (name, function) tuples for all declared test
@@ -67,13 +48,11 @@ class CommonSystemTest(object):
     '''Runs all test functions and collects messaging information.
        Returns a dictionary of
          { testname: { 'send': [], 'expect': [], 'errors': [] } }.
-
-       Replaces the formatting strings in messaging calls:
-         {guid} -> unique guid
     '''
 
     messages = {}
     for name, function in self.enumerate_test_functions():
+      self.parameters['guid'] = uuid.uuid4()
       def messaging(direction, **kwargs):
         if direction not in messages[name]:
           raise RuntimeError('Invalid messaging call (%s)' % str(direction))
@@ -81,7 +60,7 @@ class CommonSystemTest(object):
 
       self._messaging = messaging
       messages[name] = { 'send': [], 'expect': [], 'errors': [] }
-      print "Collecting from test function %s:" % name,
+      print "Found test function %s:" % name,
       try:
         function()
       except Exception, e:
@@ -91,9 +70,6 @@ class CommonSystemTest(object):
         print "FAIL"
       else:
         print "OK"
-
-      function_call_guid = uuid.uuid4()
-      messages[name] = recursive_replace(messages[name], guid=function_call_guid)
     return messages
 
   #
@@ -112,6 +88,34 @@ class CommonSystemTest(object):
     assert not queue or not topic, 'Can only expect message on queue or topic, not both'
     self._messaging('expect', queue=queue, topic=topic, headers=headers,
                     message=message, timeout=timeout)
+
+  def apply_parameters(self, item):
+    '''Recursively apply formatting to {item}s in a data structure, leaving
+       undefined {item}s as they are.
+
+       Examples:
+         parameters = { 'x':'5' }
+         recursively_replace_parameters( { '{x}': '{y}' } )
+            => { '5': '{y}' }
+
+         parameters = { 'y':'5' }
+         recursively_replace_parameters( { '{x}': '{y}' } )
+            => { '{x}': '5' }
+
+         parameters = { 'x':'3', 'y':'5' }
+         recursively_replace_parameters( { '{x}': '{y}' } )
+            => { '3': '5' }
+    '''
+    if isinstance(item, basestring):
+      return string.Formatter().vformat(item, (), self.parameters)
+    if isinstance(item, dict):
+      return { self.apply_parameters(key): self.apply_parameters(value) for
+               key, value in item.iteritems() }
+    if isinstance(item, tuple):
+      return tuple(self.apply_parameters(list(item)))
+    if isinstance(item, list):
+      return [ self.apply_parameters(x) for x in item ]
+    return item
 
   #
   # -- Internal house-keeping functions --------------------------------------

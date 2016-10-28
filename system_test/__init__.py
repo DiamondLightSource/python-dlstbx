@@ -15,4 +15,4 @@ def load_all_tests():
 
 def get_all_tests():
   import dlstbx.system_test.common
-  return dlstbx.system_test.common.CommonSystemTest.test_register
+  return dlstbx.system_test.common.CommonSystemTest.register

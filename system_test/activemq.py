@@ -10,12 +10,10 @@ class ActiveMQ(CommonSystemTest):
       message='loopback {guid}',
     )
 
-    self._messaging('cause test to fail')
-
     self.expect_message(
       queue='transient.system_test.{guid}',
       message='loopback {guid}',
-      timeout=1,
+      timeout=3,
     )
 
 if __name__ == "__main__":

@@ -26,12 +26,13 @@ class RecipeService(CommonSystemTest):
         'custom_recipe': recipe,
       }
     )
+
     self.expect_message(
       queue='transient.system_test.{guid}',
       message=recipe['start'][0][1],
-      header={ 'recipe': recipe,
-               'recipe-pointer': 1,
-             },
+      headers={ 'recipe': recipe,
+                'recipe-pointer': 1,
+              },
       timeout=3,
     )
 

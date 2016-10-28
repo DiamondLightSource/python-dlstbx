@@ -30,7 +30,7 @@ def test_validation_should_fail_on_broken_function_signatures():
   def valid_function():
     t.send_message(
       queue='somewhere',
-      header={'something': 'something'},
+      headers={'something': 'something'},
       message='more something'
     )
   setattr(t, 'test_function', valid_function)
@@ -39,7 +39,7 @@ def test_validation_should_fail_on_broken_function_signatures():
   # Now validation should fail
   def broken_function():
     t.send_message(
-      header={'something': 'something'},
+      headers={'something': 'something'},
       message='more something',
       undefined_parameter=True
     )

@@ -12,3 +12,7 @@ def load_all_tests():
       imp.load_module(name, fid, pathname, desc)
       if fid:
         fid.close()
+
+def get_all_tests():
+  import dlstbx.system_test.common
+  return dlstbx.system_test.common.CommonSystemTest.test_register

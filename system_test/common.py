@@ -6,6 +6,9 @@ class CommonSystemTest(object):
      This is class that all system tests are derived from.
   '''
 
+  def validate(self):
+    print "OK"
+
   #
   # -- Plugin-related function -----------------------------------------------
   #

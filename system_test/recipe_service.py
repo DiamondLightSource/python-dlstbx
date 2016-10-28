@@ -15,6 +15,5 @@ class TestRecipeService(CommonSystemTest):
         timeout=300
     )
 
-print "LOAD"
-print TestRecipeService()
-                   
+if __name__ == "__main__":
+  TestRecipeService().validate()

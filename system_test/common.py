@@ -15,6 +15,10 @@ class CommonSystemTest(object):
      This is class that all system tests are derived from.
   '''
 
+  guid = str(uuid.uuid4())
+  '''A random unique identifier for tests. A new one will be generated for
+     each invocation of a test function.'''
+
   parameters = SafeDict()
   '''Set of known test parameters. Generally only a unique test identifier,
      parameters['guid'], will be set.'''
@@ -52,7 +56,8 @@ class CommonSystemTest(object):
 
     messages = {}
     for name, function in self.enumerate_test_functions():
-      self.parameters['guid'] = uuid.uuid4()
+      self.guid = str(uuid.uuid4())
+      self.parameters['guid'] = self.guid
       def messaging(direction, **kwargs):
         if direction not in messages[name]:
           raise RuntimeError('Invalid messaging call (%s)' % str(direction))

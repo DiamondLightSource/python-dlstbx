@@ -7,29 +7,30 @@ class RecipeService(CommonSystemTest):
 
   def test_recipe_parsing(self):
     '''Passing in a recipe to the service without external dependencies.
-       The recipe should be interpreted and a message passed back.
-       The message should contain the recipe and a correctly set pointer.'''
+       The recipe should be interpreted, the 'guid' placeholder replaced using
+       the parameter field, and the message passed back.
+       The message should then contain the recipe and a correctly set pointer.'''
 
-    recipe = self.apply_parameters({
+    recipe = {
         1: { 'service': 'DLS system test',
              'queue': 'transient.system_test.{guid}'
            },
         'start': [
            (1, { 'purpose': 'test the recipe parsing service' }),
         ]
-      })
+      }
 
     self.send_message(
       queue='processing_recipe',
       message={
-        'parameters': {},
+        'parameters': { 'guid': self.guid },
         'selected_recipes': [],
         'custom_recipe': recipe,
       }
     )
 
     self.expect_message(
-      queue=self.apply_parameters('transient.system_test.{guid}'),
+      queue='transient.system_test.' + self.guid,
       message=recipe['start'][0][1],
       headers={ 'recipe': Recipe(recipe),
                 'recipe-pointer': '1',

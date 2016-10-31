@@ -6,13 +6,13 @@ class ActiveMQ(CommonSystemTest):
 
   def test_loopback_message(self):
     self.send_message(
-      queue=self.apply_parameters('transient.system_test.{guid}'),
-      message=self.apply_parameters('loopback {guid}'),
+      queue='transient.system_test.' + self.guid,
+      message='loopback ' + self.guid,
     )
 
     self.expect_message(
-      queue=self.apply_parameters('transient.system_test.{guid}'),
-      message=self.apply_parameters('loopback {guid}'),
+      queue='transient.system_test.' + self.guid,
+      message='loopback ' + self.guid,
       timeout=3,
     )
 

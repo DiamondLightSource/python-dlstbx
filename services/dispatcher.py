@@ -26,11 +26,17 @@ class DLSDispatcher(CommonService):
     txn = self._transport.transaction_begin()
     self._transport.ack(header['message-id'], transaction=txn)
 
+    # Load processing parameters
+    parameters = message.get('parameters')
+    # At this point external helper functions should be called,
+    # eg. ISPyB database lookups
+
     # Process message
     print "Received processing request:\n" + str(message)
     if message.get('custom_recipe'):
         custom_recipe = workflows.recipe.Recipe(recipe=json.dumps(message['custom_recipe']))
         custom_recipe.validate()
+        custom_recipe.apply_parameters(parameters)
         for destinationid, message in custom_recipe['start']:
           destination = custom_recipe[destinationid]
           headers = {}

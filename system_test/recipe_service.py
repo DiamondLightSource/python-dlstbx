@@ -19,20 +19,23 @@ class RecipeService(CommonSystemTest):
            (1, { 'purpose': 'test the recipe parsing service' }),
         ]
       }
+    parameters = { 'guid': self.guid }
 
     self.send_message(
       queue='processing_recipe',
       message={
-        'parameters': { 'guid': self.guid },
+        'parameters': parameters,
         'selected_recipes': [],
         'custom_recipe': recipe,
       }
     )
 
+    expected_recipe = Recipe(recipe)
+    expected_recipe.apply_parameters(parameters)
     self.expect_message(
       queue='transient.system_test.' + self.guid,
       message=recipe['start'][0][1],
-      headers={ 'recipe': Recipe(recipe),
+      headers={ 'recipe': expected_recipe,
                 'recipe-pointer': '1',
               },
       timeout=3,

@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division
 from dlstbx.system_test.common import CommonSystemTest
+import json
 from workflows.recipe import Recipe
 
 class DispatcherService(CommonSystemTest):
@@ -52,7 +53,6 @@ class DispatcherService(CommonSystemTest):
       queue='processing_recipe',
       message={
         'parameters': parameters,
-        'selected_recipes': [],
         'custom_recipe': recipe,
       }
     )
@@ -67,6 +67,30 @@ class DispatcherService(CommonSystemTest):
               },
       timeout=3,
     )
+
+  def test_loading_a_recipe_from_a_file(self):
+    '''When a file name is passed to the service the file should be loaded and
+       parsed correctly, including parameter replacement.'''
+
+    parameters = { 'guid': self.guid }
+    self.send_message(
+      queue='processing_recipe',
+      message={
+        'parameters': parameters,
+        'recipes': [ 'system-test-dispatcher' ],
+      }
+    )
+
+    with open('/dls_sw/apps/mx-scripts/plum-duff/recipes/system-test-dispatcher.json', 'r') as fh:
+      recipe = json.loads(fh.read())
+
+    self.expect_message(
+      queue='transient.system_test.' + self.guid,
+      message=recipe['start'][0][1],
+      headers={ 'recipe-pointer': '1' },
+      timeout=3,
+    )
+
 
 if __name__ == "__main__":
   DispatcherService().validate()

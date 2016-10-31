@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division
 import dlstbx
 import json
+import os
 from workflows.services.common_service import CommonService
 import workflows.recipe
 
@@ -33,15 +34,21 @@ class DLSDispatcher(CommonService):
 
     # Process message
     print "Received processing request:\n" + str(message)
+    recipe = None
     if message.get('custom_recipe'):
-        custom_recipe = workflows.recipe.Recipe(recipe=json.dumps(message['custom_recipe']))
-        custom_recipe.validate()
-        custom_recipe.apply_parameters(parameters)
-        for destinationid, message in custom_recipe['start']:
-          destination = custom_recipe[destinationid]
+      recipe = workflows.recipe.Recipe(recipe=json.dumps(message['custom_recipe']))
+    if message.get('recipes'):
+      recipefile = message['recipes'][0]
+      with open(os.path.join('/dls_sw/apps/mx-scripts/plum-duff/recipes', recipefile + '.json'), 'r') as rcp:
+        recipe = workflows.recipe.Recipe(recipe=rcp.read())
+    if recipe:
+        recipe.validate()
+        recipe.apply_parameters(parameters)
+        for destinationid, message in recipe['start']:
+          destination = recipe[destinationid]
           headers = {}
           headers['recipe-pointer'] = destinationid
-          headers['recipe'] = custom_recipe.serialize()
+          headers['recipe'] = recipe.serialize()
           if destination.get('queue'):
             self._transport.send(destination['queue'],
                                  message,
@@ -52,8 +59,6 @@ class DLSDispatcher(CommonService):
                                       message,
                                       transaction=txn,
                                       headers=headers)
-#      except workflows.WorkflowsError, e:
-#        raise
 
     # Commit transaction
     self._transport.transaction_commit(txn)

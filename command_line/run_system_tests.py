@@ -3,6 +3,7 @@ from __future__ import absolute_import, division
 import dlstbx
 import dlstbx.qa.result
 import dlstbx.system_test
+from dlstbx.util.colorstreamhandler import ColorStreamHandler
 import logging
 import sys
 import time
@@ -11,7 +12,7 @@ from workflows.transport.stomp_transport import StompTransport
 # Set up logging to console and graylog
 
 logger = logging.getLogger('dlstbx')
-console = logging.StreamHandler()
+console = ColorStreamHandler()
 #if not debug:
 #  console.setLevel(logging.INFO)
 logger.addHandler(console)
@@ -129,5 +130,11 @@ ts = junit_xml.TestSuite("dlstbx.system_test",
 with open('output.xml', 'w') as f:
   junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
 
+print("")
+
 successes = sum(r.is_success() for _, r in tests.itervalues())
-logger.info("System test run completed, %d out of %d tests succeeded." % (successes, len(tests)))
+logger.info("System test run completed, %d of %d tests succeeded." % (successes, len(tests)))
+for a, b in tests.itervalues():
+  if not b.is_success():
+    logger.warn("  %s %s received %d out of %d expected replies" % \
+      (b.classname, b.name, len(filter(lambda x: x.get('received'), a['expect'])), len(a['expect'])))

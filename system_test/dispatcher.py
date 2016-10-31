@@ -2,10 +2,37 @@ from __future__ import absolute_import, division
 from dlstbx.system_test.common import CommonSystemTest
 from workflows.recipe import Recipe
 
-class RecipeService(CommonSystemTest):
-  '''Tests for the recipe service.'''
+class DispatcherService(CommonSystemTest):
+  '''Tests for the dispatcher service (recipe service).'''
 
-  def test_recipe_parsing(self):
+  def test_processing_a_trivial_recipe(self):
+    '''Passing in a recipe to the service without external dependencies.
+       The recipe should be interpreted and a simple message passed back to a
+       fixed destination.'''
+
+    recipe = {
+        1: { 'service': 'DLS system test',
+             'queue': 'transient.system_test.' + self.guid
+           },
+        'start': [
+           (1, { 'purpose': 'trivial test for the recipe parsing service' }),
+        ]
+      }
+
+    self.send_message(
+      queue='processing_recipe',
+      message={
+        'custom_recipe': recipe,
+      }
+    )
+
+    self.expect_message(
+      queue='transient.system_test.' + self.guid,
+      message=recipe['start'][0][1],
+      timeout=3,
+    )
+
+  def test_parsing_a_recipe_and_replacing_parameters(self):
     '''Passing in a recipe to the service without external dependencies.
        The recipe should be interpreted, the 'guid' placeholder replaced using
        the parameter field, and the message passed back.
@@ -42,4 +69,4 @@ class RecipeService(CommonSystemTest):
     )
 
 if __name__ == "__main__":
-  RecipeService().validate()
+  DispatcherService().validate()

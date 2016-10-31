@@ -27,7 +27,7 @@ class DLSDispatcher(CommonService):
     self._transport.ack(header['message-id'], transaction=txn)
 
     # Load processing parameters
-    parameters = message.get('parameters')
+    parameters = message.get('parameters', {})
     # At this point external helper functions should be called,
     # eg. ISPyB database lookups
 

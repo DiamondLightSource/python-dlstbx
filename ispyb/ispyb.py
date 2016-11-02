@@ -10,6 +10,7 @@
 
 import MySQLdb.connections as mysql
 import json
+import os
 
 sauce = '/dls_sw/apps/mx-scripts/plum-duff/secret_ingredient.json'
 
@@ -58,6 +59,7 @@ class ispyb(object):
     return result
 
   def get_dc_group(self, dc_id):
+    # someone should learn how to use SQL JOIN here
     groups = self.execute('select dataCollectionGroupId from DataCollection '
                           'where datacollectionid="%d";' % dc_id)
     assert(len(groups) == 1)
@@ -69,6 +71,7 @@ class ispyb(object):
     return dc_ids
 
   def get_matching_folder(self, dc_id):
+    # someone should learn how to use SQL JOIN here
     folders = self.execute('select imageDirectory from DataCollection '
                            'where datacollectionid="%d";' % dc_id)
     assert(len(folders) == 1)
@@ -77,19 +80,68 @@ class ispyb(object):
                            'where imageDirectory="%s";' % folder)
     assert(len(matches) >= 1)
     dc_ids = [m[0] for m in matches]
-    return dc_ids
+    return sorted(dc_ids)
+
+  def dc_info_to_filename(self, dc_info):
+    template = dc_info['fileTemplate']
+    directory = dc_info['imageDirectory']
+    start = dc_info['startImageNumber']
+    number = dc_info['numberOfImages']
+    end = start + number - 1
+    fmt = '%%0%dd' % template.count('#')
+    prefix = template.split('#')[0]
+    suffix = template.split('#')[-1]
+    first_image = os.path.join(directory, '%s%s%s' %
+                               (prefix, fmt % start, suffix))
+    return first_image
+
+  def dc_info_is_grid_scan(self, dc_info):
+    if dc_info['numberOfImages'] > 1 and dc_info['axisRange'] == 0.0:
+      return True
+    return False
+
+  def dc_info_is_screening(self, dc_info):
+    if dc_info['numberOfImages'] == 1:
+      return True
+    if dc_info['numberOfImages'] > 1 and dc_info['overlap'] != 0.0:
+      return True
+    return False
+
+  def dc_info_is_rotation_scan(self, dc_info):
+    if dc_info['overlap'] == 0.0 and dc_info['axisRange'] > 0:
+      return True
+    return False
+
+  def classify_dc(self, dc_info):
+    return {'grid':self.dc_info_is_grid_scan(dc_info),
+            'screen':self.dc_info_is_screening(dc_info),
+            'rotation':self.dc_info_is_rotation_scan(dc_info)}
 
 def test():
   i = ispyb()
   dc_id = 1397955
-  res = i.get_dc_info(dc_id)
+  dc_info = i.get_dc_info(dc_id)
   # this was not recorded as a data collection group
   whole_group = i.get_dc_group(dc_id)
   assert(len(whole_group) == 1)
   # however there are four data collections
   whole_group = i.get_matching_folder(dc_id)
   assert(len(whole_group) == 4)
+  for dc_id in whole_group:
+    dc_info = i.get_dc_info(dc_id)
   print 'OK'
 
+def work(dc_ids):
+  i = ispyb()
+  for dc_id in dc_ids:
+    dc_info = i.get_dc_info(dc_id)
+    print dc_id
+    print i.dc_info_to_filename(dc_info)
+    print i.classify_dc(dc_info)
+
 if __name__ == '__main__':
-  test()
+  import sys
+  if len(sys.argv) == 1:
+    test()
+  else:
+    work(map(int, sys.argv[1:]))

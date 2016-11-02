@@ -48,6 +48,28 @@ def test_validation_should_fail_on_broken_function_signatures():
     t.validate()
 
 
+def test_validation_must_set_validation_boolean_correctly():
+  '''Here we test that the validation of system tests actually works.
+     This is as meta as it gets.'''
+  # Instantiate test class. This should be valid
+  t = CommonSystemTest()
+  t.validate()
+
+  def only_works_under_validation():
+    assert t.validation
+  setattr(t, 'test_function', only_works_under_validation)
+  t.validate()
+  with pytest.raises(AssertionError):
+    t.test_function()
+
+  def never_works_under_validation():
+    assert not t.validation
+  setattr(t, 'test_function', never_works_under_validation)
+  with pytest.raises(AssertionError):
+    t.validate()
+  t.test_function()
+
+
 def test_validate_all_system_tests():
   '''Now check that all defined system tests pass validation, ie. do not
      have syntax errors and properly call messaging functions.'''

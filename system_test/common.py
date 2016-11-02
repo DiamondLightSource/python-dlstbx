@@ -23,6 +23,10 @@ class CommonSystemTest(object):
   '''Set of known test parameters. Generally only a unique test identifier,
      parameters['guid'], will be set.'''
 
+  validation = False
+  '''Set to true when test functions are only called for validation rather than
+     testing. Think of this as 'dummy_mode'.'''
+
   def enumerate_test_functions(self):
     '''Returns a list of (name, function) tuples for all declared test
        functions in the class.'''
@@ -38,6 +42,7 @@ class CommonSystemTest(object):
     original_functions = { (x, getattr(self, x)) for x in patch_functions }
     for x in patch_functions:
       setattr(self, x, mock.create_autospec(getattr(self, x)))
+    self.validation = True
     try:
       for name, function in self.enumerate_test_functions():
         print "validating", name
@@ -47,6 +52,7 @@ class CommonSystemTest(object):
       # Restore messaging functions
       for name, function in original_functions:
         setattr(self, name, function)
+      self.validation = False
 
   def collect_tests(self):
     '''Runs all test functions and collects messaging information.

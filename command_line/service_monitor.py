@@ -11,6 +11,10 @@ from optparse import OptionParser, SUPPRESS_HELP
 import sys
 
 def run(cmdline_args):
+  # override default stomp host
+  from workflows.transport.stomp_transport import StompTransport
+  StompTransport.defaults['--stomp-host'] = 'ws154.diamond.ac.uk'
+
   parser = OptionParser(
     usage='dlstbx.service_monitor [options]',
     version=dlstbx_version()
@@ -21,7 +25,7 @@ def run(cmdline_args):
   workflows.transport.add_command_line_options(parser)
   (options, args) = parser.parse_args(cmdline_args)
 
-  workflows.contrib.status_monitor.Terminal(
+  workflows.contrib.status_monitor.Monitor(
       transport=options.transport,
     ).run()
 

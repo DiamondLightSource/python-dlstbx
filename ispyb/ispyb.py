@@ -82,6 +82,25 @@ class ispyb(object):
     dc_ids = [m[0] for m in matches]
     return sorted(dc_ids)
 
+  def get_matching_sample_and_session(self, dc_id):
+    result = self.execute(
+      'select actualsamplebarcode,sessionid,blsampleid from DataCollection '
+      'where datacollectionid="%d";' % dc_id)
+    assert len(result) == 1
+    barcode, session, sample = result[0]
+    if barcode and barcode != 'NR':
+      matches = self.execute('select datacollectionid from DataCollection '
+                             'where sessionid="%d" and barcode="%s";' % \
+                               (session, barcode))
+    else:
+      matches = self.execute('select datacollectionid from DataCollection '
+                             'where sessionid="%d" and blsampleid="%d";' % \
+                               (session, sample))
+
+    assert(len(matches) >= 1)
+    dc_ids = [m[0] for m in matches]
+    return sorted(dc_ids)
+
   def dc_info_to_filename(self, dc_info):
     template = dc_info['fileTemplate']
     directory = dc_info['imageDirectory']
@@ -182,6 +201,19 @@ def work(dc_ids):
     print i.dc_info_to_working_directory(dc_info, 'xia2-dials')
     print 'Results directory for xia2 pipeline=dials:'
     print i.dc_info_to_results_directory(dc_info, 'xia2-dials')
+    whole_group = i.get_dc_group(dc_id)
+    whole_group.extend(i.get_matching_folder(dc_id))
+    whole_group = list(sorted(set(whole_group)))
+    print 'Related data collections in group or same folder:'
+    for dc in whole_group:
+      print dc
+
+    print 'Somehow related data collections before %d:' % dc_id
+    massive_group = i.get_matching_sample_and_session(dc_id)
+    for dc in massive_group:
+      if dc > dc_id:
+        continue
+      print i.dc_info_to_filename(i.get_dc_info(dc))
 
 if __name__ == '__main__':
   import sys

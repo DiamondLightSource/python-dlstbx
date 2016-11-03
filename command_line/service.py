@@ -33,6 +33,7 @@ if __name__ == '__main__':
   # override default stomp host
   from workflows.transport.stomp_transport import StompTransport
   StompTransport.defaults['--stomp-host'] = 'ws154.diamond.ac.uk'
+  StompTransport.defaults['--stomp-prfx'] = 'pd'
 
   # initialize logging
   setup_logging(debug=True)

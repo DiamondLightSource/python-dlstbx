@@ -117,6 +117,46 @@ class ispyb(object):
             'screen':self.dc_info_is_screening(dc_info),
             'rotation':self.dc_info_is_rotation_scan(dc_info)}
 
+  def data_folder_to_visit(self, directory):
+    '''Extract visit directory, assumes the path structure goes something
+    like /dls/${beamline}/data/${year}/${visit} - 2016/11/03 this is a
+    valid assumption'''
+
+    return os.sep.join(directory.split(os.sep)[:6]).strip()
+
+  def dc_info_to_working_directory(self, dc_info, taskname=None):
+    template = dc_info['fileTemplate']
+    directory = dc_info['imageDirectory']
+    visit = self.data_folder_to_visit(directory)
+    rest = directory.replace(visit, '')
+    if taskname is None:
+      return os.sep.join([visit, 'tmp', rest, template.split('#')[0]]).replace(
+        2*os.sep, os.sep)
+    else:
+      import uuid
+      root = os.sep.join([visit, 'tmp', rest, template.split('#')[0]]).replace(
+        2*os.sep, os.sep)
+      return os.path.join(root, '%s-%s' % (taskname, uuid.uuid4()))
+
+  def dc_info_to_results_directory(self, dc_info, taskname=None):
+    template = dc_info['fileTemplate']
+    directory = dc_info['imageDirectory']
+    visit = self.data_folder_to_visit(directory)
+    rest = directory.replace(visit, '')
+    if taskname is None:
+      return os.sep.join(
+        [visit, 'processed', rest, template.split('#')[0]]).replace(
+        2*os.sep, os.sep)
+    else:
+      import uuid
+      root = os.sep.join(
+        [visit, 'processed', rest, template.split('#')[0]]).replace(
+        2*os.sep, os.sep)
+      run = 0
+      while os.path.exists(os.path.join(root, '%s-%d' % (taskname, run))):
+        run += 1
+      return os.path.join(root, '%s-%d' % (taskname, run))
+
 def test():
   i = ispyb()
   dc_id = 1397955
@@ -135,9 +175,13 @@ def work(dc_ids):
   i = ispyb()
   for dc_id in dc_ids:
     dc_info = i.get_dc_info(dc_id)
-    print dc_id
+    print 'For %d' % dc_id
     print i.dc_info_to_filename(dc_info)
     print i.classify_dc(dc_info)
+    print 'Working directory for xia2 pipeline=dials:'
+    print i.dc_info_to_working_directory(dc_info, 'xia2-dials')
+    print 'Results directory for xia2 pipeline=dials:'
+    print i.dc_info_to_results_directory(dc_info, 'xia2-dials')
 
 if __name__ == '__main__':
   import sys

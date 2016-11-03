@@ -7,6 +7,7 @@ from __future__ import division
 from dlstbx import enable_graylog
 from dlstbx.util.version import dlstbx_version
 import logging
+import multiprocessing
 import os.path
 import sys
 import workflows
@@ -16,7 +17,7 @@ def setup_logging(debug=True):
   '''Initialize common logging framework. Everything is logged to central
      graylog server. Depending on setting messages of DEBUG or INFO and higher
      go to console.'''
-  logger = logging.getLogger()
+  logger = multiprocessing.get_logger()
   logger.setLevel(logging.DEBUG)
 
   # Enable logging to console

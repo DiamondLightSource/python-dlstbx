@@ -23,6 +23,7 @@ logger = logging.getLogger('dlstbx.system_test')
 # Set up transport
 
 StompTransport.defaults['--stomp-host'] = 'ws154.diamond.ac.uk'
+StompTransport.defaults['--stomp-prfx'] = 'pd'
 transport = StompTransport()
 transport.connect()
 if not transport.is_connected():

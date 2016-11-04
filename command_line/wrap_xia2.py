@@ -7,13 +7,14 @@ from dials.util import procrunner
 logger = logging.getLogger('dlstbx.wrap_xia2')
 
 def run(args):
-  assert len(args) > 0
-  recipe_file = args[0]
+  assert len(args) >= 2, len(args)
+  recipe_pointer = args[0]
+  recipe_file = args[1]
   assert os.path.isfile(recipe_file), recipe_file
   with open(recipe_file, 'rb') as f:
     recipe = json.load(f)
 
-  xia2_recipe = recipe[str(recipe['start'][0][0])]
+  xia2_recipe = recipe[recipe_pointer]
 
   # setup the xia2 command line
 
@@ -21,7 +22,7 @@ def run(args):
   params = xia2_recipe['job_parameters']
   for param, values in params['xia2'].iteritems():
     if param == 'images':
-      params = 'images'
+      param = 'images'
       values = values.split(',')
     if not isinstance(values, (list, tuple)):
       values = [values]
@@ -49,16 +50,16 @@ def run(args):
 
   # copy output files to result directory
 
-  result_directory = params['result_directory']
+  results_directory = params['results_directory']
 
   for subdir in ('DataFiles', 'Harvest', 'LogFiles'):
     src = os.path.join(working_directory, subdir)
-    dst = os.path.join(result_directory, subdir)
-    logger.debug('Copying %s to %s' %(src, dst)
+    dst = os.path.join(results_directory, subdir)
+    logger.debug('Copying %s to %s' %(src, dst))
     shutil.copytree(src, dst)
 
   for f in glob.glob(os.path.join(working_directory, '*.*')):
-    shutil.copy(f, result_directory)
+    shutil.copy(f, results_directory)
 
   os.chdir(cwd)
 

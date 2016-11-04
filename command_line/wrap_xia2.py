@@ -53,6 +53,8 @@ def run(args):
   # copy output files to result directory
 
   results_directory = params['results_directory']
+  if not os.path.exists(results_directory):
+    os.makedirs(results_directory)
 
   for subdir in ('DataFiles', 'Harvest', 'LogFiles'):
     src = os.path.join(working_directory, subdir)

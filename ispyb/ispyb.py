@@ -177,6 +177,11 @@ class ispyb(object):
     directory = dc_info['imageDirectory']
     visit = self.data_folder_to_visit(directory)
     rest = directory.replace(visit, '')
+
+    if True:
+      import uuid
+      return os.path.join('/', 'dls', 'tmp', uuid.uuid4())
+
     if taskname is None:
       return os.sep.join([visit, 'tmp', rest, template.split('#')[0]]).replace(
         2*os.sep, os.sep)

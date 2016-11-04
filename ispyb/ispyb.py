@@ -40,6 +40,9 @@ class ispyb(object):
 
     self._cursor = self.conn.cursor()
 
+  def __del__(self):
+    self.conn.close()
+
   def cursor(self):
     return self._cursor
 
@@ -113,6 +116,12 @@ class ispyb(object):
     first_image = os.path.join(directory, '%s%s%s' %
                                (prefix, fmt % start, suffix))
     return first_image
+
+  def dc_info_to_start_end(self, dc_info):
+    start = dc_info['startImageNumber']
+    number = dc_info['numberOfImages']
+    end = start + number - 1
+    return start, end
 
   def dc_info_is_grid_scan(self, dc_info):
     if dc_info['numberOfImages'] > 1 and dc_info['axisRange'] == 0.0:
@@ -190,30 +199,75 @@ def test():
     dc_info = i.get_dc_info(dc_id)
   print 'OK'
 
-def work(dc_ids):
-  i = ispyb()
-  for dc_id in dc_ids:
-    dc_info = i.get_dc_info(dc_id)
-    print 'For %d' % dc_id
-    print i.dc_info_to_filename(dc_info)
-    print i.classify_dc(dc_info)
-    print 'Working directory for xia2 pipeline=dials:'
-    print i.dc_info_to_working_directory(dc_info, 'xia2-dials')
-    print 'Results directory for xia2 pipeline=dials:'
-    print i.dc_info_to_results_directory(dc_info, 'xia2-dials')
-    whole_group = i.get_dc_group(dc_id)
-    whole_group.extend(i.get_matching_folder(dc_id))
-    whole_group = list(sorted(set(whole_group)))
-    print 'Related data collections in group or same folder:'
-    for dc in whole_group:
-      print dc
+def ispyb_magic(message, parameters):
+  '''Do something to work out what to do with this data...'''
 
-    print 'Somehow related data collections before %d:' % dc_id
-    massive_group = i.get_matching_sample_and_session(dc_id)
-    for dc in massive_group:
-      if dc > dc_id:
-        continue
-      print i.dc_info_to_filename(i.get_dc_info(dc))
+  assert 'ispyb_dcid' in parameters
+
+  i = ispyb()
+  dc_id = parameters['ispyb_dcid']
+
+  dc_info = i.get_dc_info(dc_id)
+  dc_class = i.classify_dc(dc_info)
+  parameters['filepath'] = i.dc_info_to_filename(dc_info)
+
+  if dc_class['grid']:
+    message['default_recipe'] = ['per_image_analysis']
+    start, end = i.dc_info_to_start_end(dc_info)
+    parameters['first_image_number'] = start
+    parameters['last_image_number'] = end
+    return message, parameters
+
+  if dc_class['screen']:
+    message['default_recipe'] = ['per_image_analysis', 'strategy']
+    start, end = i.dc_info_to_start_end(dc_info)
+    parameters['first_image_number'] = start
+    parameters['last_image_number'] = end
+
+    # fixme dig out spacegroup etc if in database
+
+    return message, parameters
+
+  assert(dc_class['rotation'])
+
+  related_dcs = i.get_dc_group(dc_id)
+  related_dcs.extend(i.get_matching_folder(dc_id))
+  related_dcs.extend(i.get_matching_sample_and_session(dc_id))
+
+  related = list(sorted(set(related_dcs)))
+
+  other_dc_info = { }
+
+  related_rotation_sets = []
+
+  for dc in related:
+    if dc == dc_id:
+      continue
+
+    info = i.get_dc_info(dc)
+    other_dc_class = i.classify_dc(info)
+    if other_dc_class['rotation']:
+      start, end = i.dc_info_to_start_end(info)
+      related_rotation_sets.append(
+        {'filepath':i.dc_info_to_filename(info),
+         'first_image_number':start,
+         'last_image_number':end})
+
+    parameters['related'] = related_rotation_sets
+
+  message['default_recipe'] = ['per_image_analysis', 'fast_dp', 'xia2',
+                               'multi_xia2']
+
+  return message, parameters
+
+def work(dc_ids):
+
+  for dc_id in dc_ids:
+    message = { }
+    parameters = {'ispyb_dcid': dc_id}
+    message, parameters = ispyb_magic(message, parameters)
+    print message
+    print parameters
 
 if __name__ == '__main__':
   import sys

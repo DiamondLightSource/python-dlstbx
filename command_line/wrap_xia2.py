@@ -41,12 +41,14 @@ def run(args):
     command, timeout=params.get('timeout'),
     print_stdout=False, print_stderr=False)
 
-  logger.info(result['command'])
-  logger.info(result['timeout'])
-  logger.info(result['time_start'])
-  logger.info(result['time_end'])
-  logger.info(result['runtime'])
-  logger.info(result['exitcode'])
+  logger.info('command: %s', ' '.join(result['command']))
+  logger.info('timeout: %s', result['timeout'])
+  logger.info('time_start: %s', result['time_start'])
+  logger.info('time_end: %s', result['time_end'])
+  logger.info('runtime: %s', result['runtime'])
+  logger.info('exitcode: %s', result['exitcode'])
+  logger.debug(result['stdout'])
+  logger.debug(result['stderr'])
 
   # copy output files to result directory
 
@@ -55,8 +57,11 @@ def run(args):
   for subdir in ('DataFiles', 'Harvest', 'LogFiles'):
     src = os.path.join(working_directory, subdir)
     dst = os.path.join(results_directory, subdir)
-    logger.debug('Copying %s to %s' %(src, dst))
-    shutil.copytree(src, dst)
+    if os.path.exists(src):
+      logger.debug('Copying %s to %s' %(src, dst))
+      shutil.copytree(src, dst)
+    else:
+      logger.warn('Expected output directory does not exist: %s', src)
 
   for f in glob.glob(os.path.join(working_directory, '*.*')):
     shutil.copy(f, results_directory)

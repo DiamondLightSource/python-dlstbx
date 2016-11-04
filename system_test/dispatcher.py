@@ -91,6 +91,39 @@ class DispatcherService(CommonSystemTest):
       timeout=3,
     )
 
+  def test_ispyb_magic(self):
+    '''Test the ISPyB magic to see that it does what we think it should do'''
+
+    recipe = {
+        1: { 'service': 'DLS system test',
+             'queue': 'transient.system_test.' + self.guid
+           },
+        'start': [
+           (1, { 'purpose': 'testing if ISPyB connection works',
+                 'parameters': {'filepath':'{filepath}',
+                                'first_image_number':'{first_image_number}',
+                                'last_image_number':'{last_image_number}'}
+                 }),
+        ]
+      }
+
+    self.send_message(
+      queue='processing_recipe',
+      message={
+        'custom_recipe': recipe,
+        'parameters':{'dc_id':1397955}
+      }
+    )
+
+    self.expect_message(
+      queue='transient.system_test.' + self.guid,
+      message={'purpose': 'testing if ISPyB connection works',
+               'parameters': {'filepath':'/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_3_0001.cbf',
+                              'first_image_number':'1',
+                              'last_image_number':'1800'}
+               },
+      timeout=3
+    )
 
 if __name__ == "__main__":
   DispatcherService().validate()

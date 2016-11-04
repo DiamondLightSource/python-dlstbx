@@ -202,7 +202,8 @@ def test():
 def ispyb_magic(message, parameters):
   '''Do something to work out what to do with this data...'''
 
-  assert 'ispyb_dcid' in parameters
+  if not 'ispyb_dcid' in parameters:
+    return message, parameters
 
   i = ispyb()
   dc_id = parameters['ispyb_dcid']

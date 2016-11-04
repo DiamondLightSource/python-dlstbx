@@ -31,7 +31,7 @@ class DLSDispatcher(CommonService):
     # At this point external helper functions should be called,
     # eg. ISPyB database lookups
 
-    from ispyb.ispyb import ispyb_magic
+    from dlstbx.ispyb.ispyb import ispyb_magic
     message, parameters = ispyb_magic(message, parameters)
 
     # Process message

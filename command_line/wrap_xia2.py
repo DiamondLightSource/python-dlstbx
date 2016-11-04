@@ -22,7 +22,7 @@ def run(args):
   params = xia2_recipe['job_parameters']
   for param, values in params['xia2'].iteritems():
     if param == 'images':
-      param = 'images'
+      param = 'image'
       values = values.split(',')
     if not isinstance(values, (list, tuple)):
       values = [values]

@@ -73,6 +73,26 @@ class ispyb(object):
     dc_ids = [m[0] for m in matches]
     return dc_ids
 
+  def get_space_group(self, dc_id):
+    samples = self.execute('select blsampleid from DataCollection '
+                           'where datacollectionid="%d";' % dc_id)
+    assert len(samples) == 1
+    if samples[0][0] is None:
+      return None
+    sample = samples[0][0]
+    crystals = self.execute('select crystalid from BLSample where '
+                            'blsampleid="%d";' % sample)
+
+    if crystals[0][0] is None:
+      return None
+
+    crystal = crystals[0][0]
+
+    spacegroups = self.execute('select spacegroup from Crystal where '
+                               'crystalid="%d";' % crystal)
+
+    return spacegroups[0][0]
+
   def get_matching_folder(self, dc_id):
     # someone should learn how to use SQL JOIN here
     folders = self.execute('select imageDirectory from DataCollection '
@@ -187,7 +207,13 @@ class ispyb(object):
 
 def test():
   i = ispyb()
-  dc_id = 1397955
+  dc_id_C2 = 1397955
+  dc_id_i04_bag = 527189
+  dc_id_INS1_1 = 1383040
+  dc_id_thau = 1320883
+  dc_id = dc_id_C2
+  sg = i.get_space_group(dc_id)
+
   dc_info = i.get_dc_info(dc_id)
   # this was not recorded as a data collection group
   whole_group = i.get_dc_group(dc_id)

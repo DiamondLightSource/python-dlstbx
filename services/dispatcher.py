@@ -2,6 +2,7 @@ from __future__ import absolute_import, division
 import dlstbx
 import json
 import os
+import uuid
 from workflows.services.common_service import CommonService
 import workflows.recipe
 
@@ -28,9 +29,11 @@ class DLSDispatcher(CommonService):
 
     # Load processing parameters
     parameters = message.get('parameters', {})
+    if 'guid' not in parameters:
+      parameters['guid'] = str(uuid.uuid4())
+
     # At this point external helper functions should be called,
     # eg. ISPyB database lookups
-
     from dlstbx.ispyb.ispyb import ispyb_magic
     message, parameters = ispyb_magic(message, parameters)
 

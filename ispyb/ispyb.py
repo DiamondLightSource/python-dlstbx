@@ -230,6 +230,10 @@ def ispyb_magic(message, parameters):
 
   assert(dc_class['rotation'])
 
+  start, end = i.dc_info_to_start_end(dc_info)
+  parameters['first_image_number'] = start
+  parameters['last_image_number'] = end
+
   related_dcs = i.get_dc_group(dc_id)
   related_dcs.extend(i.get_matching_folder(dc_id))
   related_dcs.extend(i.get_matching_sample_and_session(dc_id))

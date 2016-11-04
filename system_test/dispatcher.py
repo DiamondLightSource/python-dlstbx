@@ -33,6 +33,20 @@ class DispatcherService(CommonSystemTest):
       timeout=3,
     )
 
+  def test_guid_generation_during_recipe_parsing(self):
+    '''The guid parameter should be created during parsing of each recipe.'''
+
+    recipe = {
+        1: { 'service': 'DLS system test',
+             'queue': 'transient.system_test.' + self.guid
+           },
+        'start': [
+           (1, { 'purpose': 'guid generation test for the recipe parsing service' }),
+        ]
+      }
+
+    # TODO: The testing framework actually does not support this atm!
+
   def test_parsing_a_recipe_and_replacing_parameters(self):
     '''Passing in a recipe to the service without external dependencies.
        The recipe should be interpreted, the 'guid' placeholder replaced using

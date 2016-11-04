@@ -180,7 +180,7 @@ class ispyb(object):
 
     if True:
       import uuid
-      return os.path.join('/', 'dls', 'tmp', uuid.uuid4())
+      return os.path.join('/', 'dls', 'tmp', str(uuid.uuid4()))
 
     if taskname is None:
       return os.sep.join([visit, 'tmp', rest, template.split('#')[0]]).replace(

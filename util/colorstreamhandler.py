@@ -7,11 +7,11 @@
 # i used a dict-based logging configuration, not sure what else would work.
 #
 # import logging, logging.config, colorstreamhandler
-# 
+#
 # _LOGCONFIG = {
 #     "version": 1,
 #     "disable_existing_loggers": False,
-# 
+#
 #     "handlers": {
 #         "console": {
 #             "class": "colorstreamhandler.ColorStreamHandler",
@@ -19,17 +19,17 @@
 #             "level": "INFO"
 #         }
 #     },
-# 
+#
 #     "root": {
 #         "level": "INFO",
 #         "handlers": ["console"]
 #     }
 # }
-# 
+#
 # logging.config.dictConfig(_LOGCONFIG)
 # mylogger = logging.getLogger("mylogger")
 # mylogger.warning("foobar")
- 
+
 # Copyright (c) 2014 Markus Pointner
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy

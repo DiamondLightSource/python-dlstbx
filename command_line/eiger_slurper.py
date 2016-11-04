@@ -63,5 +63,3 @@ while True:
 
 time.sleep(1)
 context.destroy()
-
-

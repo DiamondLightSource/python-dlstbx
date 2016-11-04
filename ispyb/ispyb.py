@@ -234,9 +234,13 @@ def ispyb_magic(message, parameters):
 
   other_dc_info = { }
 
-  related = []
+  related_images = []
+
+  parameters['images'] = ''
 
   for dc in related:
+
+    # FIXME logic: should this exclude dc > dc_id?
     if dc == dc_id:
       continue
 
@@ -245,10 +249,10 @@ def ispyb_magic(message, parameters):
     if other_dc_class['rotation']:
       start, end = i.dc_info_to_start_end(info)
 
-      related.append('%s:%d:%d' % (dc_info_to_filename(info),
-                                   start, end))
+      related_images.append('%s:%d:%d' % (i.dc_info_to_filename(info),
+                                          start, end))
 
-    parameters['images'] = ','.join(related)
+    parameters['images'] = ','.join(related_images)
 
   message['default_recipe'] = ['per_image_analysis', 'fast_dp', 'xia2',
                                'multi_xia2']

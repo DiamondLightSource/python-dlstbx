@@ -15,7 +15,7 @@ if __name__ == '__main__':
   stomp = StompTransport()
   stomp.connect()
 
-  dcid = 1397955
+  dcid = 527189
   stomp.send(
     'processing_recipe',
     {

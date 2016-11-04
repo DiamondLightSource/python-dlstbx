@@ -17,7 +17,6 @@ class DLSDispatcher(CommonService):
 
   def initializing(self):
     '''Subscribe to the processing_recipe queue. Received messages must be acknowledged.'''
-    # TODO: Limit the number of messages in flight
     self._transport.subscribe('processing_recipe', self.process, acknowledgement=True)
 
   def process(self, header, message):
@@ -31,6 +30,8 @@ class DLSDispatcher(CommonService):
     parameters = message.get('parameters', {})
     # At this point external helper functions should be called,
     # eg. ISPyB database lookups
+
+##### parameters = ispybmagic(parameters)
 
     # Process message
     print "Received processing request:\n" + str(message)

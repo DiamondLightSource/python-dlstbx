@@ -100,9 +100,7 @@ class DispatcherService(CommonSystemTest):
            },
         'start': [
            (1, { 'purpose': 'testing if ISPyB connection works',
-                 'parameters': {'filepath':'{filepath}',
-                                'first_image_number':'{first_image_number}',
-                                'last_image_number':'{last_image_number}'}
+                 'parameters': {'image':'{image}'}
                  }),
         ]
       }
@@ -118,9 +116,7 @@ class DispatcherService(CommonSystemTest):
     self.expect_message(
       queue='transient.system_test.' + self.guid,
       message={'purpose': 'testing if ISPyB connection works',
-               'parameters': {'filepath':'/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf',
-                              'first_image_number':'1',
-                              'last_image_number':'1800'}
+               'parameters': {'image':'/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800'}
                },
       timeout=3
     )

@@ -210,12 +210,11 @@ def ispyb_magic(message, parameters):
 
   dc_info = i.get_dc_info(dc_id)
   dc_class = i.classify_dc(dc_info)
-  parameters['filepath'] = i.dc_info_to_filename(dc_info)
+  start, end = i.dc_info_to_start_end(dc_info)
+  parameters['image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
+                                      start, end)
   parameters['working_directory'] = i.dc_info_to_working_directory(dc_info)
   parameters['results_directory'] = i.dc_info_to_results_directory(dc_info)
-  start, end = i.dc_info_to_start_end(dc_info)
-  parameters['first_image_number'] = start
-  parameters['last_image_number'] = end
 
   if dc_class['grid']:
     message['default_recipe'] = ['per_image_analysis']
@@ -235,7 +234,7 @@ def ispyb_magic(message, parameters):
 
   other_dc_info = { }
 
-  related_rotation_sets = []
+  related = []
 
   for dc in related:
     if dc == dc_id:
@@ -245,12 +244,11 @@ def ispyb_magic(message, parameters):
     other_dc_class = i.classify_dc(info)
     if other_dc_class['rotation']:
       start, end = i.dc_info_to_start_end(info)
-      related_rotation_sets.append(
-        {'filepath':i.dc_info_to_filename(info),
-         'first_image_number':start,
-         'last_image_number':end})
 
-    parameters['related'] = related_rotation_sets
+      related.append('%s:%d:%d' % (dc_info_to_filename(info),
+                                   start, end))
+
+    parameters['images'] = ','.join(related)
 
   message['default_recipe'] = ['per_image_analysis', 'fast_dp', 'xia2',
                                'multi_xia2']

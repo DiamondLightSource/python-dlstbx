@@ -111,14 +111,14 @@ class DispatcherService(CommonSystemTest):
       queue='processing_recipe',
       message={
         'custom_recipe': recipe,
-        'parameters':{'dc_id':1397955}
+        'parameters':{'ispyb_dcid':1397955}
       }
     )
 
     self.expect_message(
       queue='transient.system_test.' + self.guid,
       message={'purpose': 'testing if ISPyB connection works',
-               'parameters': {'filepath':'/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_3_0001.cbf',
+               'parameters': {'filepath':'/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf',
                               'first_image_number':'1',
                               'last_image_number':'1800'}
                },

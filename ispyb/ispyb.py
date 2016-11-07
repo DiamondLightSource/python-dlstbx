@@ -279,7 +279,7 @@ def work(dc_ids):
   for dc_id in dc_ids:
     message = { }
     parameters = {'ispyb_dcid': dc_id}
-    message, parameters = ispyb_magic(message, parameters)
+    message, parameters = ispyb_filter(message, parameters)
     print message
     print parameters
 

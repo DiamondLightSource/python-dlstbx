@@ -60,14 +60,8 @@ def run(args):
   if not os.path.exists(results_directory):
     os.makedirs(results_directory)
 
-  for subdir in ('DataFiles', 'Harvest', 'LogFiles'):
-    src = os.path.join(working_directory, subdir)
-    dst = os.path.join(results_directory, subdir)
-    if os.path.exists(src):
-      logger.debug('Copying %s to %s' %(src, dst))
-      shutil.copytree(src, dst)
-    else:
-      logger.warn('Expected output directory does not exist: %s', src)
+  # FIXME decide what useful results should be copied over for a useful
+  # fast_dp job
 
   for f in glob.glob(os.path.join(working_directory, '*.*')):
     shutil.copy(f, results_directory)

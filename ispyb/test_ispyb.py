@@ -28,12 +28,12 @@ def test_ispyb_recipe_filtering_does_read_datacollect_information():
   assert message == { 'dummy_msg': mock.sentinel.dummy_msg, 'default_recipe': ['per_image_analysis', 'fast_dp', 'xia2', 'multi_xia2'] }
   assert parameters == {
     'dummy_param': mock.sentinel.dummy_param, 'ispyb_dcid': ds['gphl_C2'],
-    'image': '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800',
-    'images': '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_1_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_2_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_3_0001.cbf:1:1800',
-    'results_directory': '/dls/i03/data/2016/cm14451-4/processed/tmp/2016-10-07/fake113556/TRP_M1S6_4_',
-    'working_directory': mock.ANY,
+    'ispyb_image': '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800',
+    'ispyb_images': '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_1_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_2_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_3_0001.cbf:1:1800',
+    'ispyb_results_directory': '/dls/i03/data/2016/cm14451-4/processed/tmp/2016-10-07/fake113556/TRP_M1S6_4_',
+    'ispyb_working_directory': mock.ANY,
   }
-  assert parameters['working_directory'].startswith('/dls/tmp')
+  assert parameters['ispyb_working_directory'].startswith('/dls/tmp')
 
 
 def test_fetch_datacollect_group_from_ispyb():

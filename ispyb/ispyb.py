@@ -227,10 +227,10 @@ def ispyb_filter(message, parameters):
   dc_info = i.get_dc_info(dc_id)
   dc_class = i.classify_dc(dc_info)
   start, end = i.dc_info_to_start_end(dc_info)
-  parameters['image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
-                                      start, end)
-  parameters['working_directory'] = i.dc_info_to_working_directory(dc_info)
-  parameters['results_directory'] = i.dc_info_to_results_directory(dc_info)
+  parameters['ispyb_image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
+                                            start, end)
+  parameters['ispyb_working_directory'] = i.dc_info_to_working_directory(dc_info)
+  parameters['ispyb_results_directory'] = i.dc_info_to_results_directory(dc_info)
 
   if dc_class['grid']:
     message['default_recipe'] = ['per_image_analysis']
@@ -252,7 +252,7 @@ def ispyb_filter(message, parameters):
 
   related_images = []
 
-  parameters['images'] = ''
+  parameters['ispyb_images'] = ''
 
   for dc in related:
 
@@ -268,7 +268,7 @@ def ispyb_filter(message, parameters):
       related_images.append('%s:%d:%d' % (i.dc_info_to_filename(info),
                                           start, end))
 
-    parameters['images'] = ','.join(related_images)
+    parameters['ispyb_images'] = ','.join(related_images)
 
   message['default_recipe'] = ['per_image_analysis', 'fast_dp', 'xia2',
                                'multi_xia2']
@@ -276,7 +276,6 @@ def ispyb_filter(message, parameters):
   return message, parameters
 
 def work(dc_ids):
-
   for dc_id in dc_ids:
     message = { }
     parameters = {'ispyb_dcid': dc_id}

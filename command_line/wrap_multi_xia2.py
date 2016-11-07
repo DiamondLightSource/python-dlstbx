@@ -21,10 +21,7 @@ def run(args):
   command = ['xia2']
   params = xia2_recipe['job_parameters']
   for param, values in params['xia2'].iteritems():
-    # this is single xia2 task to ignore the other images
     if param == 'images':
-      continue
-    if param == 'image':
       param = 'image'
       values = values.split(',')
     if not isinstance(values, (list, tuple)):

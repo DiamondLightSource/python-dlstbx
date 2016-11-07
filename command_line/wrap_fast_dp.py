@@ -4,7 +4,7 @@ import logging
 import os
 import shutil
 from dials.util import procrunner
-logger = logging.getLogger('dlstbx.wrap_xia2')
+logger = logging.getLogger('dlstbx.wrap_fast_dp')
 
 def run(args):
   assert len(args) >= 2, len(args)
@@ -14,25 +14,24 @@ def run(args):
   with open(recipe_file, 'rb') as f:
     recipe = json.load(f)
 
-  xia2_recipe = recipe[recipe_pointer]
+  fast_dp_recipe = recipe[recipe_pointer]
 
-  # setup the xia2 command line
+  # setup the fast_dp command line FIXME work out unit cell, spacegroup,
+  # -j -J values
 
-  command = ['xia2']
-  params = xia2_recipe['job_parameters']
-  for param, values in params['xia2'].iteritems():
-    # this is single xia2 task to ignore the other images
-    if param == 'images':
-      continue
+  command = ['fast_dp', '-a', 'S']
+  filename = None
+  params = fast_dp_recipe['job_parameters']
+  for param, values in params['fast_dp'].iteritems():
     if param == 'image':
-      param = 'image'
-      values = values.split(',')
-    if not isinstance(values, (list, tuple)):
-      values = [values]
-    for v in values:
-      command.append('%s=%s' %(param, v))
+      tokens = values.split(':')
+      filename = tokens[0]
+      start, end = int(tokens[1]), int(tokens[2])
+      command.extend(['-1', str(start), '-N', str(end)])
 
-  # run xia2 in working directory
+  assert not filename is None
+  command.append(filename)
+  # run fast_dp in working directory
 
   cwd = os.path.abspath(os.curdir)
 
@@ -78,4 +77,3 @@ if __name__ == '__main__':
   logging.basicConfig(level=logging.DEBUG)
   import sys
   run(sys.argv[1:])
-

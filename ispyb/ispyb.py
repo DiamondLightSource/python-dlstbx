@@ -98,6 +98,35 @@ class ispyb(object):
 
     return spacegroups[0][0]
 
+  def get_space_groupand_cell(self, dc_id):
+    samples = self.execute('select blsampleid from DataCollection '
+                           'where datacollectionid=%s;', dc_id)
+    assert len(samples) == 1
+    if samples[0][0] is None:
+      return None, []
+
+    sample = samples[0][0]
+    crystals = self.execute('select crystalid from BLSample where '
+                            'blsampleid=%s;', sample)
+
+    if crystals[0][0] is None:
+      return None, []
+
+    crystal = crystals[0][0]
+
+    spacegroups = self.execute('select spacegroup from Crystal where '
+                               'crystalid=%s;', crystal)
+
+    spacegroup = spacegroups[0]
+
+    cells = self.execute(
+      'select cell_a,cell_b,cell_c,cell_alpha,cell_beta,cell_gamma '
+      'from Crystal where crystalid=%s;', crystal)
+
+    cell = cells[0]
+
+    return spacegroup, cell
+
   def get_matching_folder(self, dc_id):
     # someone should learn how to use SQL JOIN here
     folders = self.execute('select imageDirectory from DataCollection '
@@ -229,8 +258,10 @@ def ispyb_filter(message, parameters):
   start, end = i.dc_info_to_start_end(dc_info)
   parameters['ispyb_image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
                                             start, end)
-  parameters['ispyb_working_directory'] = i.dc_info_to_working_directory(dc_info)
-  parameters['ispyb_results_directory'] = i.dc_info_to_results_directory(dc_info)
+  parameters['ispyb_working_directory'] = i.dc_info_to_working_directory(
+    dc_info)
+  parameters['ispyb_results_directory'] = i.dc_info_to_results_directory(
+    dc_info)
 
   if dc_class['grid']:
     message['default_recipe'] = ['per_image_analysis']
@@ -249,6 +280,9 @@ def ispyb_filter(message, parameters):
   related = list(sorted(set(related_dcs)))
 
   other_dc_info = { }
+
+  parameters['space_group'] = i.get_space_group(dc_id)
+
 
   related_images = []
 
@@ -276,17 +310,24 @@ def ispyb_filter(message, parameters):
   return message, parameters
 
 def work(dc_ids):
+
+  import pprint
+
+  pp = pprint.PrettyPrinter(indent=2)
+
   for dc_id in dc_ids:
     message = { }
     parameters = {'ispyb_dcid': dc_id}
     message, parameters = ispyb_filter(message, parameters)
-    print message
-    print parameters
+
+    pp.pprint('Message:')
+    pp.pprint(message)
+    pp.pprint('Parameters:')
+    pp.pprint(parameters)
 
 if __name__ == '__main__':
   import sys
   if len(sys.argv) == 1:
-    test()
-    test_sg()
+    raise RuntimeError, 'for this mode of testing pass list of DCID on CL'
   else:
     work(map(int, sys.argv[1:]))

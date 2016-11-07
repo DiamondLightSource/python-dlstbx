@@ -4,7 +4,7 @@ import logging
 import os
 import shutil
 from dials.util import procrunner
-logger = logging.getLogger('dlstbx.wrap_xia2')
+logger = logging.getLogger('dlstbx.wrap_multi_xia2')
 
 def run(args):
   assert len(args) >= 2, len(args)
@@ -14,13 +14,13 @@ def run(args):
   with open(recipe_file, 'rb') as f:
     recipe = json.load(f)
 
-  xia2_recipe = recipe[recipe_pointer]
+  multi_xia2_recipe = recipe[recipe_pointer]
 
-  # setup the xia2 command line
+  # setup the multi_xia2 command line
 
   command = ['xia2']
-  params = xia2_recipe['job_parameters']
-  for param, values in params['xia2'].iteritems():
+  params = multi_xia2_recipe['job_parameters']
+  for param, values in params['multi_xia2'].iteritems():
     if param == 'images':
       param = 'image'
       values = values.split(',')

@@ -215,7 +215,7 @@ class ispyb(object):
         run += 1
       return os.path.join(root, '%s-%d' % (taskname, run))
 
-def ispyb_magic(message, parameters):
+def ispyb_filter(message, parameters):
   '''Do something to work out what to do with this data...'''
 
   if not 'ispyb_dcid' in parameters:

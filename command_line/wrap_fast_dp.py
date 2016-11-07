@@ -39,11 +39,12 @@ def run(args):
   if not os.path.exists(working_directory):
     os.makedirs(working_directory)
   os.chdir(working_directory)
+  logger.info('command: %s', ' '.join(result['command']))
+  logger.info('working directory: %s' % working_directory)
   result = procrunner.run_process(
     command, timeout=params.get('timeout'),
     print_stdout=False, print_stderr=False)
 
-  logger.info('command: %s', ' '.join(result['command']))
   logger.info('timeout: %s', result['timeout'])
   logger.info('time_start: %s', result['time_start'])
   logger.info('time_end: %s', result['time_end'])

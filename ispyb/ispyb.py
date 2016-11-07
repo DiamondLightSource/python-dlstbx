@@ -215,33 +215,6 @@ class ispyb(object):
         run += 1
       return os.path.join(root, '%s-%d' % (taskname, run))
 
-def test_sg():
-  i = ispyb()
-  dc_id = 1308505
-  sg = i.get_space_group(dc_id)
-  assert sg == 'P212121'
-  print 'OK'
-
-def bucket_of_dc_ids():
-  gphl_C2 = 1397955
-  i04_BAG = 527189
-  weak_ins_4 = 1383040
-  sg_set = 1308505
-
-def test():
-  i = ispyb()
-  dc_id = 1397955
-  dc_info = i.get_dc_info(dc_id)
-  # this was not recorded as a data collection group
-  whole_group = i.get_dc_group(dc_id)
-  assert(len(whole_group) == 1)
-  # however there are four data collections
-  whole_group = i.get_matching_folder(dc_id)
-  assert(len(whole_group) == 4)
-  for dc_id in whole_group:
-    dc_info = i.get_dc_info(dc_id)
-  print 'OK'
-
 def ispyb_magic(message, parameters):
   '''Do something to work out what to do with this data...'''
 

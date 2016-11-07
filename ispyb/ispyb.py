@@ -98,7 +98,7 @@ class ispyb(object):
 
     return spacegroups[0][0]
 
-  def get_space_groupand_cell(self, dc_id):
+  def get_space_group_and_cell(self, dc_id):
     samples = self.execute('select blsampleid from DataCollection '
                            'where datacollectionid=%s;', dc_id)
     assert len(samples) == 1
@@ -250,6 +250,9 @@ def ispyb_filter(message, parameters):
   if not 'ispyb_dcid' in parameters:
     return message, parameters
 
+  # FIXME put in here logic to check input if set i.e. if dc_id==0 then check
+  # files exist; if image already set check they exist, ...
+
   i = ispyb()
   dc_id = parameters['ispyb_dcid']
 
@@ -315,7 +318,10 @@ def work(dc_ids):
 
   pp = pprint.PrettyPrinter(indent=2)
 
+  i = ispyb()
+
   for dc_id in dc_ids:
+    print i.get_space_group_and_cell(dc_id)
     message = { }
     parameters = {'ispyb_dcid': dc_id}
     message, parameters = ispyb_filter(message, parameters)

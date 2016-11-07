@@ -46,15 +46,20 @@ class ispyb(object):
   def cursor(self):
     return self._cursor
 
-  def execute(self, query):
+  def execute(self, query, parameters=None):
     cursor = self.cursor()
-    cursor.execute(query)
+    if parameters:
+      if isinstance(parameters, (basestring, int, long)):
+        parameters = (parameters,)
+      cursor.execute(query, parameters)
+    else:
+      cursor.execute(query)
     results = [result for result in cursor]
     return results
 
   def get_dc_info(self, dc_id):
     results = self.execute('select * from DataCollection where '
-                           'datacollectionid="%d";' % dc_id)
+                           'datacollectionid=%s;', dc_id)
     labels = self.columns['DataCollection']
     result = { }
     for l, r in zip(labels, results[0]):
@@ -64,24 +69,24 @@ class ispyb(object):
   def get_dc_group(self, dc_id):
     # someone should learn how to use SQL JOIN here
     groups = self.execute('select dataCollectionGroupId from DataCollection '
-                          'where datacollectionid="%d";' % dc_id)
+                          'where datacollectionid=%s;', dc_id)
     assert(len(groups) == 1)
     group = groups[0][0]
     matches = self.execute('select datacollectionid from DataCollection '
-                           'where dataCollectionGroupId="%d";' % group)
+                           'where dataCollectionGroupId=%s;', group)
     assert(len(matches) >= 1)
     dc_ids = [m[0] for m in matches]
     return dc_ids
 
   def get_space_group(self, dc_id):
     samples = self.execute('select blsampleid from DataCollection '
-                           'where datacollectionid="%d";' % dc_id)
+                           'where datacollectionid=%s;', dc_id)
     assert len(samples) == 1
     if samples[0][0] is None:
       return None
     sample = samples[0][0]
     crystals = self.execute('select crystalid from BLSample where '
-                            'blsampleid="%d";' % sample)
+                            'blsampleid=%s;', sample)
 
     if crystals[0][0] is None:
       return None
@@ -89,18 +94,18 @@ class ispyb(object):
     crystal = crystals[0][0]
 
     spacegroups = self.execute('select spacegroup from Crystal where '
-                               'crystalid="%d";' % crystal)
+                               'crystalid=%s;', crystal)
 
     return spacegroups[0][0]
 
   def get_matching_folder(self, dc_id):
     # someone should learn how to use SQL JOIN here
     folders = self.execute('select imageDirectory from DataCollection '
-                           'where datacollectionid="%d";' % dc_id)
+                           'where datacollectionid=%s;', dc_id)
     assert(len(folders) == 1)
     folder = folders[0][0]
     matches = self.execute('select datacollectionid from DataCollection '
-                           'where imageDirectory="%s";' % folder)
+                           'where imageDirectory=%s;', folder)
     assert(len(matches) >= 1)
     dc_ids = [m[0] for m in matches]
     return sorted(dc_ids)
@@ -108,16 +113,16 @@ class ispyb(object):
   def get_matching_sample_and_session(self, dc_id):
     result = self.execute(
       'select actualsamplebarcode,sessionid,blsampleid from DataCollection '
-      'where datacollectionid="%d";' % dc_id)
+      'where datacollectionid=%s;', dc_id)
     assert len(result) == 1
     barcode, session, sample = result[0]
     if barcode and barcode != 'NR':
       matches = self.execute('select datacollectionid from DataCollection '
-                             'where sessionid="%d" and barcode="%s";' % \
+                             'where sessionid=%s and barcode=%s;', \
                                (session, barcode))
     else:
       matches = self.execute('select datacollectionid from DataCollection '
-                             'where sessionid="%d" and blsampleid="%d";' % \
+                             'where sessionid=%s and blsampleid=%s;', \
                                (session, sample))
 
     assert(len(matches) >= 1)

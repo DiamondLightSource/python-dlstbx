@@ -114,7 +114,7 @@ class DispatcherService(CommonSystemTest):
            },
         'start': [
            (1, { 'purpose': 'testing if ISPyB connection works',
-                 'parameters': {'image':'{image}'}
+                 'parameters': {'image':'{ispyb_image}'}
                  }),
         ]
       }

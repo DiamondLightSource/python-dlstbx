@@ -105,6 +105,43 @@ class DispatcherService(CommonSystemTest):
       timeout=3,
     )
 
+  def test_combining_recipes(self):
+    '''Combine a recipe from a file and a custom recipe.'''
+
+    parameters = { 'guid': self.guid }
+    recipe_passed = {
+      1: { 'service': 'DLS system test',
+           'queue': 'transient.system_test.{guid}'
+         },
+      'start': [
+         (1, { 'purpose': 'test recipe merging' }),
+      ]
+    }
+    self.send_message(
+      queue='processing_recipe',
+      message={
+        'parameters': parameters,
+        'custom_recipe': recipe_passed,
+        'recipes': [ 'system-test-dispatcher' ],
+      }
+    )
+
+    with open('/dls_sw/apps/mx-scripts/plum-duff/recipes/system-test-dispatcher.json', 'r') as fh:
+      recipe_from_file = json.loads(fh.read())
+
+    self.expect_message(
+      queue='transient.system_test.' + self.guid,
+      message=recipe_from_file['start'][0][1],
+      headers={ 'recipe-pointer': '2' },
+      timeout=3,
+    )
+    self.expect_message(
+      queue='transient.system_test.' + self.guid,
+      message=recipe_passed['start'][0][1],
+      headers={ 'recipe-pointer': '1' },
+      timeout=3,
+    )
+
   def test_ispyb_magic(self):
     '''Test the ISPyB magic to see that it does what we think it should do'''
 

@@ -27,12 +27,12 @@ class DLSDispatcher(CommonService):
     txn = self._transport.transaction_begin()
     self._transport.ack(header['message-id'], transaction=txn)
 
-    print "Received processing request:\n" + str(message)
-    print "Received processing parameters:\n" + str(parameters)
-
     # Load processing parameters
     parameters = message.get('parameters', {})
     generate_guids = 'guid' not in parameters
+
+    print "Received processing request:\n" + str(message)
+    print "Received processing parameters:\n" + str(parameters)
 
     # At this point external helper functions should be called,
     # eg. ISPyB database lookups
@@ -58,19 +58,21 @@ class DLSDispatcher(CommonService):
       recipe.apply_parameters(parameters)
       full_recipe = full_recipe.merge(recipe)
 
-    headers = { 'recipe': full_recipe.serialize() }
+    common_headers = { 'recipe': full_recipe.serialize() }
     for destinationid, message in full_recipe['start']:
+      message_headers = common_headers.copy()
+      message_headers['recipe-pointer'] = destinationid
       destination = full_recipe[destinationid]
       if destination.get('queue'):
         self._transport.send(destination['queue'],
                              message,
                              transaction=txn,
-                             headers=headers)
+                             headers=message_headers)
       if destination.get('topic'):
         self._transport.broadcast(destination['topic'],
                                   message,
                                   transaction=txn,
-                                  headers=headers)
+                                  headers=message_headers)
 
     # Commit transaction
     self._transport.transaction_commit(txn)

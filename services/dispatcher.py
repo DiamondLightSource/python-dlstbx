@@ -27,43 +27,50 @@ class DLSDispatcher(CommonService):
     txn = self._transport.transaction_begin()
     self._transport.ack(header['message-id'], transaction=txn)
 
+    print "Received processing request:\n" + str(message)
+    print "Received processing parameters:\n" + str(parameters)
+
     # Load processing parameters
     parameters = message.get('parameters', {})
-    if 'guid' not in parameters:
-      parameters['guid'] = str(uuid.uuid4())
+    generate_guids = 'guid' not in parameters
 
     # At this point external helper functions should be called,
     # eg. ISPyB database lookups
     from dlstbx.ispyb.ispyb import ispyb_filter
     message, parameters = ispyb_filter(message, parameters)
+    print "Mangled processing request:\n" + str(message)
+    print "Mangled processing parameters:\n" + str(parameters)
 
     # Process message
-    print "Received processing request:\n" + str(message)
-    recipe = None
+    recipes = []
     if message.get('custom_recipe'):
-      recipe = workflows.recipe.Recipe(recipe=json.dumps(message['custom_recipe']))
+      recipes.append(workflows.recipe.Recipe(recipe=json.dumps(message['custom_recipe'])))
     if message.get('recipes'):
-      recipefile = message['recipes'][0]
-      with open(os.path.join('/dls_sw/apps/mx-scripts/plum-duff/recipes', recipefile + '.json'), 'r') as rcp:
-        recipe = workflows.recipe.Recipe(recipe=rcp.read())
-    if recipe:
-        recipe.validate()
-        recipe.apply_parameters(parameters)
-        for destinationid, message in recipe['start']:
-          destination = recipe[destinationid]
-          headers = {}
-          headers['recipe-pointer'] = destinationid
-          headers['recipe'] = recipe.serialize()
-          if destination.get('queue'):
-            self._transport.send(destination['queue'],
-                                 message,
-                                 transaction=txn,
-                                 headers=headers)
-          if destination.get('topic'):
-            self._transport.broadcast(destination['topic'],
-                                      message,
-                                      transaction=txn,
-                                      headers=headers)
+      for recipefile in message['recipes']:
+        with open(os.path.join('/dls_sw/apps/mx-scripts/plum-duff/recipes', recipefile + '.json'), 'r') as rcp:
+          recipes.append(workflows.recipe.Recipe(recipe=rcp.read()))
+
+    full_recipe = workflows.recipe.Recipe()
+    for recipe in recipes:
+      recipe.validate()
+      if generate_guids:
+        parameters['guid'] = str(uuid.uuid4())
+      recipe.apply_parameters(parameters)
+      full_recipe = full_recipe.merge(recipe)
+
+    headers = { 'recipe': full_recipe.serialize() }
+    for destinationid, message in full_recipe['start']:
+      destination = full_recipe[destinationid]
+      if destination.get('queue'):
+        self._transport.send(destination['queue'],
+                             message,
+                             transaction=txn,
+                             headers=headers)
+      if destination.get('topic'):
+        self._transport.broadcast(destination['topic'],
+                                  message,
+                                  transaction=txn,
+                                  headers=headers)
 
     # Commit transaction
     self._transport.transaction_commit(txn)

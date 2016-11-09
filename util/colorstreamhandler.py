@@ -54,6 +54,7 @@ import logging
 
 class _AnsiColorStreamHandler(logging.StreamHandler):
     DEFAULT = '\x1b[0m'
+    GREY    = '\x1b[30m'
     RED     = '\x1b[31m'
     GREEN   = '\x1b[32m'
     YELLOW  = '\x1b[33m'
@@ -63,7 +64,7 @@ class _AnsiColorStreamHandler(logging.StreamHandler):
     ERROR    = RED
     WARNING  = YELLOW
     INFO     = GREEN
-    DEBUG    = CYAN
+    DEBUG    = GREY
 
     @classmethod
     def _get_color(cls, level):

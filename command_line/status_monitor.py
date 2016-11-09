@@ -13,8 +13,8 @@ import sys
 def run(cmdline_args):
   # override default stomp host
   from workflows.transport.stomp_transport import StompTransport
-  StompTransport.defaults['--stomp-host'] = 'ws154.diamond.ac.uk'
-  StompTransport.defaults['--stomp-prfx'] = 'pd'
+  StompTransport.defaults['--stomp-host'] = 'cs04r-sc-vserv-128'
+  StompTransport.defaults['--stomp-prfx'] = 'zocdev'
 
   parser = OptionParser(
     usage='dlstbx.service_monitor [options]',

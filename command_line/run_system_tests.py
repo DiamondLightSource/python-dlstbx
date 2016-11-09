@@ -22,8 +22,8 @@ logger = logging.getLogger('dlstbx.system_test')
 
 # Set up transport
 
-StompTransport.defaults['--stomp-host'] = 'ws154.diamond.ac.uk'
-StompTransport.defaults['--stomp-prfx'] = 'pd'
+StompTransport.defaults['--stomp-host'] = 'cs04r-sc-vserv-128'
+StompTransport.defaults['--stomp-prfx'] = 'zocdev'
 transport = StompTransport()
 transport.connect()
 if not transport.is_connected():

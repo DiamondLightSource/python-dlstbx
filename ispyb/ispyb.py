@@ -285,8 +285,7 @@ def ispyb_filter(message, parameters):
 
   other_dc_info = { }
 
-  parameters['space_group'] = i.get_space_group(dc_id)
-
+  parameters['ispyb_space_group'] = i.get_space_group(dc_id)
 
   related_images = []
 

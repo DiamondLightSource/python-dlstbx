@@ -20,21 +20,23 @@ def test_ispyb_recipe_filtering_does_not_affect_messages_without_ispyb_content()
   assert message == { 'dummy_msg': mock.sentinel.dummy_msg }
   assert parameters == { 'dummy_param': mock.sentinel.dummy_param }
 
-def test_ispyb_recipe_filtering_does_read_datacollect_information():
+def test_ispyb_recipe_filtering_does_read_datacollection_information():
   message = { 'dummy_msg': mock.sentinel.dummy_msg }
   parameters = { 'dummy_param': mock.sentinel.dummy_param, 'ispyb_dcid': ds['gphl_C2'] }
 
   message, parameters = ispyb_filter(message, parameters)
 
   assert message == { 'dummy_msg': mock.sentinel.dummy_msg, 'default_recipe': ['per_image_analysis', 'fast_dp', 'xia2', 'multi_xia2'] }
-  assert parameters == {
-    'dummy_param': mock.sentinel.dummy_param, 'ispyb_dcid': ds['gphl_C2'],
-    'ispyb_image': '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800',
-    'ispyb_images': '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_1_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_2_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_3_0001.cbf:1:1800',
-    'ispyb_results_directory': '/dls/i03/data/2016/cm14451-4/processed/tmp/2016-10-07/fake113556/TRP_M1S6_4_',
-    'ispyb_working_directory': mock.ANY,
-  }
+  assert parameters['ispyb_dcid'] == ds['gphl_C2']
+  assert parameters['ispyb_image'] == '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800'
+  assert parameters['ispyb_images'] == '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_1_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_2_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_3_0001.cbf:1:1800'
+  assert parameters['ispyb_results_directory'] == '/dls/i03/data/2016/cm14451-4/processed/tmp/2016-10-07/fake113556/TRP_M1S6_4_'
   assert parameters['ispyb_working_directory'].startswith('/dls/tmp')
+
+  non_ispyb_parameters = { k:v for k,v in parameters.iteritems() if not k.startswith('ispyb_') }
+  assert non_ispyb_parameters == {
+    'dummy_param': mock.sentinel.dummy_param
+  }
 
 
 def test_fetch_datacollect_group_from_ispyb():

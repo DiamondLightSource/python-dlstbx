@@ -136,22 +136,23 @@ class ispyb(object):
     dc_ids = [m[0] for m in matches]
     return sorted(dc_ids)
 
-  def get_matching_sample_and_session(self, dc_id):
+  def get_matching_dcids_by_sample_and_session(self, dc_id):
     result = self.execute(
       'select actualsamplebarcode,sessionid,blsampleid from DataCollection '
       'where datacollectionid=%s;', dc_id)
     assert len(result) == 1
     barcode, session, sample = result[0]
+    matches = []
     if barcode and barcode != 'NR':
       matches = self.execute('select datacollectionid from DataCollection '
                              'where sessionid=%s and barcode=%s;', \
                                (session, barcode))
-    else:
+      assert(len(matches) >= 1)
+    elif sample:
       matches = self.execute('select datacollectionid from DataCollection '
                              'where sessionid=%s and blsampleid=%s;', \
                                (session, sample))
-
-    assert(len(matches) >= 1)
+      assert(len(matches) >= 1)
     dc_ids = [m[0] for m in matches]
     return sorted(dc_ids)
 
@@ -275,7 +276,7 @@ def ispyb_filter(message, parameters):
 
   related_dcs = i.get_dc_group(dc_id)
   related_dcs.extend(i.get_matching_dcids_by_folder(dc_id))
-  related_dcs.extend(i.get_matching_sample_and_session(dc_id))
+  related_dcs.extend(i.get_matching_dcids_by_sample_and_session(dc_id))
 
   related = list(sorted(set(related_dcs)))
 

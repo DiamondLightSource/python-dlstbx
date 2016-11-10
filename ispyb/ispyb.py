@@ -128,14 +128,10 @@ class ispyb(object):
 
     return spacegroup, cell
 
-  def get_matching_folder(self, dc_id):
-    # someone should learn how to use SQL JOIN here
-    folders = self.execute('select imageDirectory from DataCollection '
-                           'where datacollectionid=%s;', dc_id)
-    assert(len(folders) == 1)
-    folder = folders[0][0]
-    matches = self.execute('select datacollectionid from DataCollection '
-                           'where imageDirectory=%s;', folder)
+  def get_matching_dcids_by_folder(self, dc_id):
+    matches = self.execute('SELECT datacollectionid FROM DataCollection '
+                           'WHERE imageDirectory=(SELECT imageDirectory FROM DataCollection '
+                                                 'WHERE datacollectionid=%s);', dc_id)
     assert(len(matches) >= 1)
     dc_ids = [m[0] for m in matches]
     return sorted(dc_ids)
@@ -278,7 +274,7 @@ def ispyb_filter(message, parameters):
   assert(dc_class['rotation'])
 
   related_dcs = i.get_dc_group(dc_id)
-  related_dcs.extend(i.get_matching_folder(dc_id))
+  related_dcs.extend(i.get_matching_dcids_by_folder(dc_id))
   related_dcs.extend(i.get_matching_sample_and_session(dc_id))
 
   related = list(sorted(set(related_dcs)))

@@ -47,7 +47,7 @@ def test_fetch_datacollect_group_from_ispyb():
   whole_group = i.get_dc_group(dc_id)
   assert len(whole_group) == 1
   # however there are four data collections
-  whole_group = i.get_matching_folder(dc_id)
+  whole_group = i.get_matching_dcids_by_folder(dc_id)
   assert len(whole_group) == 4
   for dc_id in whole_group:
     dc_info = i.get_dc_info(dc_id)

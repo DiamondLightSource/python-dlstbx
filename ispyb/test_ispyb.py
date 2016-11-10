@@ -8,6 +8,7 @@ ds = {
   "i04_BAG": 527189,
   "weak_ins_4": 1383040,
   "sg_set": 1308505,
+  "i19_screening": 1396413,
 }
 
 def test_ispyb_recipe_filtering_does_not_affect_messages_without_ispyb_content():
@@ -94,3 +95,8 @@ def test_obtain_space_group():
   dc_id = ds['sg_set']
   sg = i.get_space_group(dc_id)
   assert sg == 'P212121'
+
+def test_filter_function():
+  msg = {}
+  param = { 'ispyb_dcid': ds["i19_screening"] }
+  msg, param = ispyb_filter(msg, param)

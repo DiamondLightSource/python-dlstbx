@@ -5,10 +5,10 @@
 #
 # Dependencies:
 #
-#   dials.python -m pip install mysql
+#   dials.python -m pip install mysql-connector
 #
 
-import MySQLdb.connections as mysql
+import mysql.connector
 import json
 import os
 
@@ -18,11 +18,12 @@ secret_ingredients = json.load(open(sauce, 'r'))
 
 class ispyb(object):
   def __init__(self):
-    self.conn = mysql.Connection(host=secret_ingredients['host'],
-                                 port=secret_ingredients['port'],
-                                 user=secret_ingredients['user'],
-                                 passwd=secret_ingredients['passwd'],
-                                 db=secret_ingredients['db'])
+    self.conn = mysql.connector.connect(
+        host=secret_ingredients['host'],
+        port=secret_ingredients['port'],
+        user=secret_ingredients['user'],
+        password=secret_ingredients['passwd'],
+        database=secret_ingredients['db'])
 
     # gather information on tables so we can map the data structures
     # back to named tuples / dictionaries in the results

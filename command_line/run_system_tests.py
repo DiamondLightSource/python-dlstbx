@@ -69,6 +69,11 @@ for test, _ in tests.itervalues():
 
 channel_lookup = {}
 
+unexpected_messages = dlstbx.qa.result.Result()
+unexpected_messages.set_name('received_no_unexpected_messages')
+unexpected_messages.set_classname('.')
+unexpected_messages.count = 0
+
 def handle_receipt(header, message):
   expected_messages = channels[channel_lookup[header['subscription']]]
   for expected_message in expected_messages:
@@ -86,6 +91,9 @@ def handle_receipt(header, message):
         logger.debug("Received expected message:\n" + str(header) + "\n" + str(message) + "\n")
         return
   logger.warn("Received unexpected message:\n" + str(header) + "\n" + str(message) + "\n which is not in \n" + str(expected_messages) + "\n")
+  unexpected_messages.log_error("Received unexpected message")
+  unexpected_messages.log_error(str(header) + "\n" + str(message) + "\n")
+  unexpected_messages.count += 1
 
 for queue, topic in channels.iterkeys():
   logger.debug("Subscribing to %s" % queue)
@@ -162,7 +170,7 @@ while keep_waiting:
 # Export results
 import junit_xml
 ts = junit_xml.TestSuite("dlstbx.system_test",
-                         [r for _, r in tests.itervalues()])
+                         [r for _, r in tests.itervalues()] + [unexpected_messages])
 with open('output.xml', 'w') as f:
   junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
 
@@ -177,3 +185,5 @@ for a, b in tests.itervalues():
     else:
       logger.warn("  %s %s received %d out of %d expected replies" % \
         (b.classname, b.name, len(filter(lambda x: x.get('received'), a['expect'])), len(a['expect'])))
+if unexpected_messages.count:
+  logger.error("  Received %d unexpected message%s." % (unexpected_messages.count, "" if unexpected_messages.count == 1 else "s"))

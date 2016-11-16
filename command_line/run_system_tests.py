@@ -34,7 +34,14 @@ if not transport.is_connected():
 
 dlstbx.system_test.load_all_tests()
 systest_classes = dlstbx.system_test.get_all_tests()
-logger.info("Found %d system test classes" % len(systest_classes))
+systest_count = len(systest_classes)
+logger.info("Found %d system test classes" % systest_count)
+
+if sys.argv[1:] and systest_count:
+  systest_classes = { n: cls for n, cls in systest_classes.iteritems() if
+    any(n.lower().startswith(v.lower()) for v in sys.argv[1:]) }
+  logger.info("Filtered %d classes via command line arguments" % (systest_count - len(systest_classes)))
+  systest_count = len(systest_classes)
 
 tests = {}
 for classname, cls in systest_classes.iteritems():
@@ -137,5 +144,8 @@ successes = sum(r.is_success() for _, r in tests.itervalues())
 logger.info("System test run completed, %d of %d tests succeeded." % (successes, len(tests)))
 for a, b in tests.itervalues():
   if not b.is_success():
-    logger.warn("  %s %s received %d out of %d expected replies" % \
-      (b.classname, b.name, len(filter(lambda x: x.get('received'), a['expect'])), len(a['expect'])))
+    if b.is_failure() and b.failure_output:
+      logger.error("  %s %s failed:\n    %s", b.classname, b.name, b.failure_output.replace('\n', '\n    '))
+    else:
+      logger.warn("  %s %s received %d out of %d expected replies" % \
+        (b.classname, b.name, len(filter(lambda x: x.get('received'), a['expect'])), len(a['expect'])))

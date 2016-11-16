@@ -90,12 +90,12 @@ class CommonSystemTest(object):
     self._messaging('send', queue=queue, topic=topic, headers=headers,
                     message=message)
 
-  def expect_message(self, queue=None, topic=None, headers=None, message=None, timeout=10):
+  def expect_message(self, queue=None, topic=None, headers=None, message=None, min_wait=0, timeout=10):
     '''Use this function within tests to wait for messages to queues and topics.'''
     assert queue or topic, 'Message queue or topic destination required'
     assert not queue or not topic, 'Can only expect message on queue or topic, not both'
     self._messaging('expect', queue=queue, topic=topic, headers=headers,
-                    message=message, timeout=timeout)
+                    message=message, min_wait=min_wait, timeout=timeout)
 
   def timer_event(self, at_time=None, callback=None, args=None, kwargs=None):
     if args is None: args = []

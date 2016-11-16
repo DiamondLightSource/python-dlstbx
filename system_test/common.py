@@ -57,7 +57,7 @@ class CommonSystemTest(object):
   def collect_tests(self):
     '''Runs all test functions and collects messaging information.
        Returns a dictionary of
-         { testname: { 'send': [], 'expect': [], 'errors': [] } }.
+         { testname: { 'send': [], 'expect': [], 'timers': [], 'errors': [] } }.
     '''
 
     messages = {}
@@ -68,19 +68,16 @@ class CommonSystemTest(object):
         if direction not in messages[name]:
           raise RuntimeError('Invalid messaging call (%s)' % str(direction))
         messages[name][direction].append(kwargs)
-
+      def timer(**kwargs):
+        messages[name]['timers'].append(kwargs)
       self._messaging = messaging
-      messages[name] = { 'send': [], 'expect': [], 'errors': [] }
-      print "Found test function %s:" % name,
+      self._add_timer = timer
+      messages[name] = { 'send': [], 'expect': [], 'timers': [], 'errors': [] }
       try:
         function()
       except Exception, e:
         import traceback
         messages[name]['errors'].append(traceback.format_exc())
-      if messages[name]['errors']:
-        print "FAIL"
-      else:
-        print "OK"
     return messages
 
   #

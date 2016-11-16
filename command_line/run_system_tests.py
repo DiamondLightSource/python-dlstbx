@@ -95,7 +95,7 @@ for queue, topic in channels.iterkeys():
     sub_id = transport.subscribe_broadcast(topic, handle_receipt)
   channel_lookup[str(sub_id)] = (queue, topic)
 
-# Send out message
+# Send out messages
 
 print("")
 
@@ -109,16 +109,44 @@ for test, _ in tests.itervalues():
         logger.debug("Broadcasting message to %s", message['topic'])
         transport.broadcast(message['topic'], message['message'], headers=message['headers'])
 
+# Prepare timer events
+
 print("")
 
-# Wait for messages and timeouts
-
 start_time = time.time()
-waiting = True
-while waiting:
-  print("Waited %5.1fs for messages." % (time.time() - start_time))
-  time.sleep(0.2)
-  waiting = False
+
+timer_events = []
+for test, _ in tests.itervalues():
+  if not test.get('ignore'):
+    for event in test['timers']:
+      event['at_time'] = event['at_time'] + start_time
+      function = event['callback']
+      args = event.get('args', ())
+      kwargs = event.get('kwargs', {})
+      x = lambda: function(*args, **kwargs)
+      timer_events.append((event['at_time'], x))
+timer_events = sorted(timer_events, key=lambda tup: tup[0])
+
+# Wait for messages and timeouts, run events
+
+keep_waiting = True
+last_message = time.time()
+while keep_waiting:
+
+  # Wait fixed time period or until next event
+  wait_to = time.time() + 0.2
+  keep_waiting = False
+  while timer_events and time.time() > timer_events[0][0]:
+    event = timer_events.pop(0)
+    event[1]()
+  if timer_events:
+    wait_to = min(wait_to, timer_events[0][0])
+    keep_waiting = True
+  if time.time() > last_message + 0.5:
+    logger.info("Waited %5.1fs." % (time.time() - start_time))
+    last_message = time.time()
+  time.sleep(max(0.01, wait_to - time.time()))
+
   for testname, test in tests.iteritems():
     if not test[0].get('ignore'):
       for expectation in test[0]['expect']:
@@ -129,7 +157,7 @@ while waiting:
             test[1].log_error('No answer received within time limit.')
             test[1].log_error(str(expectation))
           else:
-            waiting = True
+            keep_waiting = True
 
 # Export results
 import junit_xml

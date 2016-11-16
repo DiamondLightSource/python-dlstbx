@@ -38,7 +38,7 @@ class CommonSystemTest(object):
     '''Checks that all test functions parse correctly to pick up syntax errors.
        Does run test functions with disabled messaging functions.'''
     # Replace messaging functions by mock constructs
-    patch_functions = ['_messaging']
+    patch_functions = ['_add_timer', '_messaging']
     original_functions = { (x, getattr(self, x)) for x in patch_functions }
     for x in patch_functions:
       setattr(self, x, mock.create_autospec(getattr(self, x)))
@@ -100,6 +100,14 @@ class CommonSystemTest(object):
     self._messaging('expect', queue=queue, topic=topic, headers=headers,
                     message=message, timeout=timeout)
 
+  def timer_event(self, at_time=None, callback=None, args=None, kwargs=None):
+    if args is None: args = []
+    if kwargs is None: kwargs = {}
+    assert at_time, 'need to specify time for event'
+    assert callback, 'need to specify callback function'
+    self._add_timer(at_time=at_time, callback=callback,
+                    args=args, kwargs=kwargs)
+
   def apply_parameters(self, item):
     '''Recursively apply formatting to {item}s in a data structure, leaving
        undefined {item}s as they are.
@@ -132,8 +140,11 @@ class CommonSystemTest(object):
   # -- Internal house-keeping functions --------------------------------------
   #
 
+  def _add_timer(self, *args, **kwargs):
+    raise NotImplementedError('Test functions can not be run directly')
+
   def _messaging(self, *args, **kwargs):
-    assert False, 'Test functions can not be run directly'
+    raise NotImplementedError('Test functions can not be run directly')
 
   #
   # -- Plugin-related function -----------------------------------------------

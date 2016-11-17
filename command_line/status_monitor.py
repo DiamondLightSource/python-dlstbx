@@ -1,6 +1,6 @@
 #
-# dlstbx.service_monitor
-#   Starts a service monitor (what do you expect?)
+# dlstbx.status_monitor
+#   Starts a status monitor (what do you expect?)
 #
 
 from __future__ import division
@@ -13,11 +13,14 @@ import sys
 def run(cmdline_args):
   # override default stomp host
   from workflows.transport.stomp_transport import StompTransport
-  StompTransport.defaults['--stomp-host'] = 'cs04r-sc-vserv-128'
-  StompTransport.defaults['--stomp-prfx'] = 'zocdev'
+  try:
+    StompTransport.load_configuration_file(
+        '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
+  except workflows.WorkflowsError, e:
+    print e # probably should use logging
 
   parser = OptionParser(
-    usage='dlstbx.service_monitor [options]',
+    usage='dlstbx.status_monitor [options]',
     version=dlstbx_version()
   )
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)

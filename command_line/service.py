@@ -32,8 +32,11 @@ def setup_logging(debug=True):
 if __name__ == '__main__':
   # override default stomp host
   from workflows.transport.stomp_transport import StompTransport
-  StompTransport.defaults['--stomp-host'] = 'cs04r-sc-vserv-128'
-  StompTransport.defaults['--stomp-prfx'] = 'zocdev'
+  try:
+    StompTransport.load_configuration_file(
+        '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
+  except workflows.WorkflowsError, e:
+    print e # probably should use logging
 
   # initialize logging
   setup_logging(debug=True)

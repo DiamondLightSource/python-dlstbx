@@ -47,11 +47,13 @@ class FilewatcherService(CommonSystemTest):
         6: { 'queue': 'transient.system_test.' + self.guid + '.6' },
         'start': [ (1, '') ]
       }
+    recipe = Recipe(recipe)
+    recipe.validate()
 
     self.send_message(
       queue='filewatcher',
       message='',
-      headers={ 'recipe': recipe,
+      headers={ 'recipe': recipe.serialize(),
                 'recipe-pointer': '1',
               }
     )
@@ -59,9 +61,6 @@ class FilewatcherService(CommonSystemTest):
     # Create 200 files in 5 seconds
     for file_number in range(200):
       self.timer_event(at_time=(file_number + 1) / 40, callback=self.create_next_file)
-
-    recipe = Recipe(recipe)
-    recipe.validate()
 
     # Now check for expected messages, marked in the recipe above:
 

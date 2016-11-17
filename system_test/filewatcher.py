@@ -69,7 +69,7 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.2',
-      message=self.filepattern % 1,
+      message={ 'file': self.filepattern % 1 },
       headers={ 'recipe': recipe,
                 'recipe-pointer': '2',
               },
@@ -81,7 +81,7 @@ class FilewatcherService(CommonSystemTest):
     for file_number in range(200):
       self.expect_message(
         queue='transient.system_test.' + self.guid + '.3',
-        message=self.filepattern % (file_number + 1),
+        message={ 'file': self.filepattern % (file_number + 1) },
         headers={ 'recipe': recipe,
                   'recipe-pointer': '3',
                 },
@@ -93,7 +93,7 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.4',
-      message=self.filepattern % 200,
+      message={ 'file': self.filepattern % 200 },
       headers={ 'recipe': recipe,
                 'recipe-pointer': '4',
               },
@@ -106,7 +106,7 @@ class FilewatcherService(CommonSystemTest):
     for file_number in (1, 7, 14, 21, 28, 35, 42, 49, 56, 63, 69, 76, 83, 90, 97, 104, 111, 118, 125, 132, 138, 145, 152, 159, 166, 173, 180, 187, 194, 200):
       self.expect_message(
         queue='transient.system_test.' + self.guid + '.5',
-        message=self.filepattern % file_number,
+        message={ 'file': self.filepattern % file_number },
         headers={ 'recipe': recipe,
                   'recipe-pointer': '5',
                 },
@@ -117,7 +117,7 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.6',
-      message=self.filepattern % 20,
+      message={ 'file': self.filepattern % 20 },
       headers={ 'recipe': recipe,
                 'recipe-pointer': '6',
               },

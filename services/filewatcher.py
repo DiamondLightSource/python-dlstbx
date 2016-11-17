@@ -19,7 +19,7 @@ class DLSFileWatcher(CommonService):
                               self.watch_files,
                               acknowledgement=True)
 
-  def notify(self, recipe, destinations, header, message, txn):
+  def notify(self, recipe, destinations, header, filename, txn):
     '''Send file-found notifications to selected output channels.'''
     if destinations is None:
       return
@@ -30,12 +30,12 @@ class DLSFileWatcher(CommonService):
       if recipe[destination].get('queue'):
         self._transport.send(
             recipe[destination]['queue'],
-            message, headers=header,
+            { 'file': filename }, headers=header,
             transaction=txn)
       if recipe[destination].get('topic'):
         self._transport.broadcast(
             recipe[destination]['topic'],
-            message, headers=header,
+            { 'file': filename }, headers=header,
             transaction=txn)
 
   def watch_files(self, header, message):

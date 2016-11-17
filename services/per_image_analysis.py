@@ -27,6 +27,10 @@ class DLSPerImageAnalysis(CommonService):
 
     # Extract the filename
     filename = message['file']
+
+    filename = str(filename) # required due to
+                             # https://github.com/dials/dials/issues/256
+
     self.logger.info("Running PIA on %s" %filename)
 
     # Do the per-image-analysis

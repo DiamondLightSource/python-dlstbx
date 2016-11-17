@@ -10,8 +10,12 @@ def dls_tmp_folder():
   except OSError as exception:
     if exception.errno != errno.EEXIST:
       raise
-  os.chmod(tmp_folder, \
-    stat.S_IRUSR + stat.S_IWUSR + stat.S_IXUSR + \
-    stat.S_IRGRP + stat.S_IWGRP + stat.S_IXGRP + \
-    stat.S_IROTH + stat.S_IWOTH + stat.S_IXOTH)
+  try:
+    os.chmod(tmp_folder, \
+      stat.S_IRUSR + stat.S_IWUSR + stat.S_IXUSR + \
+      stat.S_IRGRP + stat.S_IWGRP + stat.S_IXGRP + \
+      stat.S_IROTH + stat.S_IWOTH + stat.S_IXOTH)
+  except OSError as exception:
+    if exception.errno != errno.EPERM:
+      raise
   return tmp_folder

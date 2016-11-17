@@ -49,11 +49,12 @@ class FilewatcherService(CommonSystemTest):
       }
     recipe = Recipe(recipe)
     recipe.validate()
+    recipe = recipe.serialize()
 
     self.send_message(
       queue='filewatcher',
       message='',
-      headers={ 'recipe': recipe.serialize(),
+      headers={ 'recipe': recipe,
                 'recipe-pointer': '1',
               }
     )

@@ -59,9 +59,17 @@ class FilewatcherService(CommonSystemTest):
               }
     )
 
-    # Create 200 files in 20 seconds
-    for file_number in range(200):
-      self.timer_event(at_time=(file_number + 1) / 10, callback=self.create_next_file)
+    # Create 60 files in 0-6 seconds
+    for file_number in range(1, 61):
+      self.timer_event(at_time=file_number / 10, callback=self.create_next_file)
+
+    # Create 80 files in 20-28 seconds
+    for file_number in range(61, 141):
+      self.timer_event(at_time=14 + (file_number / 10), callback=self.create_next_file)
+
+    # Create 60 files in 35-41 seconds
+    for file_number in range(141, 201):
+      self.timer_event(at_time=21 + (file_number / 10), callback=self.create_next_file)
 
     # Now check for expected messages, marked in the recipe above:
 
@@ -85,8 +93,8 @@ class FilewatcherService(CommonSystemTest):
         headers={ 'recipe': recipe,
                   'recipe-pointer': '3',
                 },
-        min_wait=max(0, file_number / 15) - 0.5,
-        timeout=60,
+        min_wait=max(0, file_number / 10) - 0.5,
+        timeout=70,
       )
 
     # Last =============================
@@ -97,8 +105,8 @@ class FilewatcherService(CommonSystemTest):
       headers={ 'recipe': recipe,
                 'recipe-pointer': '4',
               },
-      min_wait=4,
-      timeout=60,
+      min_wait=35,
+      timeout=70,
     )
 
     # Select ===========================
@@ -110,7 +118,7 @@ class FilewatcherService(CommonSystemTest):
         headers={ 'recipe': recipe,
                   'recipe-pointer': '5',
                 },
-        timeout=60,
+        timeout=70,
       )
 
     # Specific =========================
@@ -121,7 +129,7 @@ class FilewatcherService(CommonSystemTest):
       headers={ 'recipe': recipe,
                 'recipe-pointer': '6',
               },
-      timeout=50,
+      timeout=35,
     )
 
 

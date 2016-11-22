@@ -1,27 +1,25 @@
 from __future__ import absolute_import, division
-from workflows.services.common_service import CommonService
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
-import logging
 import json
+import logging
+from optparse import OptionParser, SUPPRESS_HELP
 import sys
 import time
+from workflows.transport.stomp_transport import StompTransport
 
-class DLSLog(CommonService):
-  '''Service showing log messages.'''
-
-  # Human readable service name
-  _service_name = "DLS Log Watcher"
-
-  # Logger name
-  _logger_name = "dlstbx.log"
+class DLSLog():
+  '''Listens on ActiveMQ for log messages.'''
 
   last_host = None
   last_host_messages = 0
 
+  def __init__(self, transport):
+    '''Create a log viewer.'''
+    self._transport = transport
+
   def initializing(self):
     '''Disable all irrelevant logging for this service.
        Then subscribe to log messages.'''
-    logging.disable(logging.INFO)
     self._transport.subscribe_broadcast('transient.log', self.read_log_message)
 
     if hasattr(ColorStreamHandler, '_get_color'):
@@ -68,3 +66,25 @@ class DLSLog(CommonService):
 #     print json.dumps(message, indent=2)
       self.resetcolor()
     time.sleep(0.1)
+
+if __name__ == '__main__':
+  parser = OptionParser(usage="dlstbx.log [options]")
+  parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+
+  # override default stomp host
+  try:
+    StompTransport.load_configuration_file(
+      '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
+  except workflows.WorkflowsError, e:
+    raise
+
+  StompTransport.add_command_line_options(parser)
+  (options, args) = parser.parse_args(sys.argv[1:])
+
+  stomp = StompTransport()
+  stomp.connect()
+  logviewer = DLSLog(stomp)
+  logviewer.initializing()
+
+  while True:
+    time.sleep(5)

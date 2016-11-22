@@ -59,17 +59,13 @@ class FilewatcherService(CommonSystemTest):
               }
     )
 
-    # Create 60 files in 0-6 seconds
-    for file_number in range(1, 61):
+    # Create 100 files in 0-10 seconds
+    for file_number in range(1, 101):
       self.timer_event(at_time=file_number / 10, callback=self.create_next_file)
 
-    # Create 80 files in 20-28 seconds
-    for file_number in range(61, 141):
-      self.timer_event(at_time=14 + (file_number / 10), callback=self.create_next_file)
-
-    # Create 60 files in 35-41 seconds
-    for file_number in range(141, 201):
-      self.timer_event(at_time=21 + (file_number / 10), callback=self.create_next_file)
+    # Create 100 files in 60-70 seconds
+    for file_number in range(101, 201):
+      self.timer_event(at_time=50 + (file_number / 10), callback=self.create_next_file)
 
     # Now check for expected messages, marked in the recipe above:
 
@@ -81,7 +77,7 @@ class FilewatcherService(CommonSystemTest):
       headers={ 'recipe': recipe,
                 'recipe-pointer': '2',
               },
-      timeout=30,
+      timeout=45,
     )
 
     # Every ============================
@@ -94,7 +90,7 @@ class FilewatcherService(CommonSystemTest):
                   'recipe-pointer': '3',
                 },
         min_wait=max(0, file_number / 10) - 0.5,
-        timeout=70,
+        timeout=120,
       )
 
     # Last =============================
@@ -105,8 +101,8 @@ class FilewatcherService(CommonSystemTest):
       headers={ 'recipe': recipe,
                 'recipe-pointer': '4',
               },
-      min_wait=35,
-      timeout=70,
+      min_wait=65,
+      timeout=120,
     )
 
     # Select ===========================
@@ -118,7 +114,7 @@ class FilewatcherService(CommonSystemTest):
         headers={ 'recipe': recipe,
                   'recipe-pointer': '5',
                 },
-        timeout=70,
+        timeout=120,
       )
 
     # Specific =========================
@@ -129,7 +125,7 @@ class FilewatcherService(CommonSystemTest):
       headers={ 'recipe': recipe,
                 'recipe-pointer': '6',
               },
-      timeout=35,
+      timeout=60,
     )
 
 

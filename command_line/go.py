@@ -19,36 +19,45 @@ if __name__ == '__main__':
   parser.add_option("-r", "--recipe", dest="recipe", metavar="RCP",
       action="append", default=[],
       help="Name of a recipe to run. Can be used multiple times.")
+  parser.add_option("-n", "--no-dcid", dest="nodcid",
+      action="store_true", default=False,
+      help="Trigger recipe without specifying a data collection ID")
 
-  StompTransport.defaults['--stomp-host'] = 'cs04r-sc-vserv-128'
-  StompTransport.defaults['--stomp-prfx'] = 'zocdev'
+  # override default stomp host
+  try:
+    StompTransport.load_configuration_file(
+      '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
+  except workflows.WorkflowsError, e:
+    raise
+
   StompTransport.add_command_line_options(parser)
-
   (options, args) = parser.parse_args(sys.argv[1:])
 
-  if not args:
-    print "No data collection IDs specified."
-    sys.exit(0)
-
-  if len(args) > 1:
-    print "Currently only a single data collection ID can be specified."
-    sys.exit(0)
-
-  dcid = int(args[0])
-  assert dcid > 0, "Invalid data collection ID given."
-
+  message = { 'recipes': options.recipe,
+              'parameters': {},
+            }
   print "Running recipes", options.recipe
-  print "for data collection", dcid
 
+  if not options.nodcid:
+    if not args:
+      print "No data collection IDs specified."
+      sys.exit(0)
+
+    if len(args) > 1:
+      print "Currently only a single data collection ID can be specified."
+      sys.exit(0)
+
+    dcid = int(args[0])
+    assert dcid > 0, "Invalid data collection ID given."
+
+    print "for data collection", dcid
+    message['parameters']['ispyb_dcid'] = dcid
 
   stomp = StompTransport()
   stomp.connect()
   stomp.send(
     'processing_recipe',
-    {
-      'recipes': options.recipe,
-      'parameters': { 'ispyb_dcid': dcid }
-    }
+    message
   )
 
   print "\nSubmitted."

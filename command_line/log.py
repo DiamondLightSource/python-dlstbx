@@ -85,5 +85,9 @@ if __name__ == '__main__':
   logviewer = DLSLog(stomp)
   logviewer.initializing()
 
-  while True:
-    time.sleep(5)
+  try:
+    while True:
+      time.sleep(5)
+  except KeyboardInterrupt:
+    logviewer.resetcolor()
+    print

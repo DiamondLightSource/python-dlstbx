@@ -59,8 +59,9 @@ class _AnsiColorStreamHandler(logging.StreamHandler):
     YELLOW  = '\x1b[33m'
     BLUE    = '\x1b[34m'
     CYAN    = '\x1b[36m'
+    BOLD    = '\x1b[1m'
 
-    CRITICAL = RED
+    CRITICAL = RED + BOLD
     ERROR    = RED
     WARNING  = YELLOW
     INFO     = GREEN

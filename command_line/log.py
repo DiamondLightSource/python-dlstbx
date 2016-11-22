@@ -65,7 +65,6 @@ class DLSLog():
 
 #     print json.dumps(message, indent=2)
       self.resetcolor()
-    time.sleep(0.1)
 
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.log [options]")

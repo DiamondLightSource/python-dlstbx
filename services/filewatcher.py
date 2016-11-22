@@ -18,8 +18,6 @@ class DLSFileWatcher(CommonService):
   def initializing(self):
     '''Subscribe to the filewatcher queue. Received messages must be
        acknowledged.'''
-    import logging
-    self.log.setLevel(logging.DEBUG)
     self.log.info("Filewatcher starting")
     self._transport.subscribe('filewatcher',
                               self.watch_files,

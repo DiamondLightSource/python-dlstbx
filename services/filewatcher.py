@@ -12,9 +12,15 @@ class DLSFileWatcher(CommonService):
   # Human readable service name
   _service_name = "DLS Filewatcher"
 
+  # Logger name
+  _logger_name = 'dlstbx.services.filewatcher'
+
   def initializing(self):
     '''Subscribe to the filewatcher queue. Received messages must be
        acknowledged.'''
+    import logging
+    self.log.setLevel(logging.DEBUG)
+    self.log.info("Filewatcher starting")
     self._transport.subscribe('filewatcher',
                               self.watch_files,
                               acknowledgement=True)
@@ -50,13 +56,10 @@ class DLSFileWatcher(CommonService):
     current_recipepointer = int(header['recipe-pointer'])
     subrecipe = current_recipe[current_recipepointer]
 
-    print "Waiting for", subrecipe['parameters']['pattern']
-
     # Check if message body contains partial results from a previous run
     status = { 'seen-files': 0, 'start-time': time.time() }
     if isinstance(message, dict):
       status.update(message.get('filewatcher-status', {}))
-    print status
 
     # List files to wait for
     files = [ subrecipe['parameters']['pattern'] % x
@@ -64,16 +67,22 @@ class DLSFileWatcher(CommonService):
                              subrecipe['parameters']['pattern-end'] + 1) ]
     filecount = len(files)
 
+    self.log.info("Waiting %.1f seconds for %s\n%d of %d files seen so far",
+        time.time()-status['start-time'],
+        subrecipe['parameters']['pattern'],
+        status['seen-files'], filecount)
+
     # Identify selections to notify for
     selections = [ k for k in subrecipe['output'].iterkeys()
                    if isinstance(k, basestring) and k.startswith('select-') ]
     selections = { int(k[7:]): k for k in selections }
 
     # Check if a minimum-wait time is set, and wait accordingly
-    # (but no more than 2 seconds)
+    # (but no more than 3 seconds)
     if status.get('min-wait', 0) > time.time():
-      print "Holding for time"
-      time.sleep(max(0, min(2, status['min-wait'] - time.time())))
+      timeout = max(0, min(3, status['min-wait'] - time.time()))
+      self.log.debug("Waiting %.1f seconds", timeout)
+      time.sleep(timeout)
 
     # Look for files
     files_found = 0
@@ -81,7 +90,7 @@ class DLSFileWatcher(CommonService):
           files_found < subrecipe['parameters'].get('burst-limit', 40) and \
           os.path.isfile(files[status['seen-files']]):
       filename = files[status['seen-files']]
-#      print "Found", filename
+      self.log.debug("Found %s", filename)
 
       files_found += 1
       status['seen-files'] += 1
@@ -123,7 +132,7 @@ class DLSFileWatcher(CommonService):
     # Are we done?
     if status['seen-files'] == filecount:
       # Happy days
-      print "All done."
+      self.log.info("%d files found. All done.", files_found)
       self._transport.transaction_commit(txn)
       return
 
@@ -131,11 +140,10 @@ class DLSFileWatcher(CommonService):
     # Otherwise note last time progress was made
     if files_found == 0:
       status['min-wait'] = time.time() + 1
+      self.log.info("No files found this time")
     else:
       status['last-seen'] = time.time()
-
-    print status
-    print "Done."
+      self.log.info("%d files found this time", files_found)
 
     # Send results to myself for next round of processing
     self._transport.send('filewatcher',

@@ -36,16 +36,20 @@ if __name__ == '__main__':
   message = { 'recipes': options.recipe,
               'parameters': {},
             }
+  if not options.recipe:
+    print "No recipes specified."
+    sys.exit(1)
+
   print "Running recipes", options.recipe
 
   if not options.nodcid:
     if not args:
       print "No data collection IDs specified."
-      sys.exit(0)
+      sys.exit(1)
 
     if len(args) > 1:
       print "Currently only a single data collection ID can be specified."
-      sys.exit(0)
+      sys.exit(1)
 
     dcid = int(args[0])
     assert dcid > 0, "Invalid data collection ID given."

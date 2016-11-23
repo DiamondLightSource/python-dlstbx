@@ -10,8 +10,8 @@ from workflows.transport.stomp_transport import StompTransport
 class DLSLog():
   '''Listens on ActiveMQ for log messages.'''
 
-  last_host = None
-  last_host_messages = 0
+  last_info = None
+  last_info_messages = 0
 
   def __init__(self, transport):
     '''Create a log viewer.'''
@@ -51,13 +51,13 @@ class DLSLog():
       if 'workflows_statustext' in message:
         message['service_description'] = ' ({workflows_service}:{workflows_statustext})'.format(**message)
       message['workflows_host'] = message.get('workflows_host', '???')
-      if message['workflows_host'] != self.last_host or self.last_host_messages > 20:
-        self.last_host = message['workflows_host']
-        self.last_host_messages = 0
+      if self.last_info != [message.get(x) for x in ('workflows_host', 'workflows_service', 'workflows_status')] or self.last_info_messages > 20:
+        self.last_info = [message.get(x) for x in ('workflows_host', 'workflows_service', 'workflows_status')]
+        self.last_info_messages = 0
         self.setbold()
         print "====== {workflows_host}{service_description} ======".format(**message)
         self.resetcolor()
-      self.last_host_messages += 1
+      self.last_info_messages += 1
       self.setcolor(message.get('levelno', 0))
       if message['levelno'] >= logging.WARN:
         print "{pathname}:{lineno}{service_description}".format(**message)

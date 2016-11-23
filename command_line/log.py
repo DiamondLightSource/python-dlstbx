@@ -59,10 +59,13 @@ class DLSLog():
         self.resetcolor()
       self.last_info_messages += 1
       self.setcolor(message.get('levelno', 0))
-      if message['levelno'] >= logging.WARN:
-        print "{pathname}:{lineno}{service_description}".format(**message)
-      print "{name}: {msg}".format(**message)
-
+      if message.get('exc_text'):
+        print "{name}: {msg}{service_description}".format(**message)
+        print message.get('exc_text')
+      else:
+        if message['levelno'] >= logging.WARN:
+          print "{pathname}:{lineno}{service_description}".format(**message)
+        print "{name}: {msg}".format(**message)
 #     print json.dumps(message, indent=2)
       self.resetcolor()
 

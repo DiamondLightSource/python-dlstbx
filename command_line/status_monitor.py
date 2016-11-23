@@ -67,9 +67,13 @@ class Monitor():
           msg_col = curses.color_pair(1)
         if message['levelno'] >= logging.CRITICAL:
           msg_col = curses.color_pair(1) + curses.A_BOLD
-        if message['levelno'] >= logging.WARN:
-          self.log_box.addstr("{pathname}:{lineno}{service_description}\n".format(**message), msg_col)
-        self.log_box.addstr("{name}: {msg}\n".format(**message), msg_col)
+        if message.get('exc_text'):
+          self.log_box.addstr("{name}: {msg}{service_description}\n".format(**message), msg_col)
+          self.log_box.addstr(message['exc_text'], msg_col)
+        else:
+          if message['levelno'] >= logging.WARN:
+            self.log_box.addstr("{pathname}:{lineno}{service_description}\n".format(**message), msg_col)
+          self.log_box.addstr("{name}: {msg}\n".format(**message), msg_col)
       self.log_box.refresh()
 
   def update_status(self, header, message):

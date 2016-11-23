@@ -6,9 +6,10 @@
 from __future__ import absolute_import, division
 import curses
 from dlstbx.util.version import dlstbx_version
+import logging
 from optparse import OptionParser, SUPPRESS_HELP
-import time
 import threading
+import time
 from workflows.services.common_service import CommonService
 import workflows.transport
 
@@ -36,7 +37,40 @@ class Monitor():
     self._lock = threading.RLock()
     self._node_status = {}
     self.message_box = None
+    self.log_box = None
     self._transport.subscribe_broadcast('transient.status', self.update_status, retroactive=True)
+    self.last_info = None
+    self.last_info_messages = 0
+    self._transport.subscribe_broadcast('transient.log', self.print_log_message)
+
+  def print_log_message(self, header, message):
+    '''Add a new log message to the log window.'''
+    if self.log_box:
+      if not isinstance(message, dict) or 'message' not in message:
+        self.log_box.addstr("Unknown message:\n" + message, curses.color_pair(1))
+      else:
+        message['service_description'] = message.get('workflows_service', '')
+        if 'workflows_statustext' in message:
+          message['service_description'] = ' ({workflows_service}:{workflows_statustext})'.format(**message)
+        message['workflows_host'] = message.get('workflows_host', '???')
+        if self.last_info != [message.get(x) for x in ('workflows_host', 'workflows_service', 'workflows_status')] or self.last_info_messages > 20:
+          self.last_info = [message.get(x) for x in ('workflows_host', 'workflows_service', 'workflows_status')]
+          self.last_info_messages = 0
+          self.log_box.addstr("====== {workflows_host}{service_description} ======\n".format(**message), curses.A_BOLD)
+        self.last_info_messages += 1
+        msg_col = curses.color_pair(3)
+        if message['levelno'] >= logging.INFO:
+          msg_col = curses.color_pair(3)
+        if message['levelno'] >= logging.WARN:
+          msg_col = curses.color_pair(4)
+        if message['levelno'] >= logging.ERROR:
+          msg_col = curses.color_pair(1)
+        if message['levelno'] >= logging.CRITICAL:
+          msg_col = curses.color_pair(1) + curses.A_BOLD
+        if message['levelno'] >= logging.WARN:
+          self.log_box.addstr("{pathname}:{lineno}{service_description}\n".format(**message), msg_col)
+        self.log_box.addstr("{name}: {msg}\n".format(**message), msg_col)
+      self.log_box.refresh()
 
   def update_status(self, header, message):
     '''Process incoming status message. Acquire lock for status dictionary before updating.'''
@@ -86,6 +120,31 @@ class Monitor():
       self.message_box = self._boxwin(5, curses.COLS, 2, 0, title='last seen message', color_pair=1)
       self.message_box.scrollok(True)
       self.cards = []
+      self._redraw_log_box()
+
+  def _redraw_log_box(self, reserved_card_spaces=0):
+    with self._lock:
+      starty = 7
+      if self.cards or reserved_card_spaces:
+        max_cards_horiz = int(curses.COLS / 35)
+        starty = 7 + 6 * ((len(self.cards) + reserved_card_spaces + max_cards_horiz - 1) // max_cards_horiz)
+      height = curses.LINES - starty
+      if self.log_box:
+        oldstarty = self.log_box.getbegyx()[0] - 1
+        oldheight = self.log_box.getmaxyx()[0]
+        if starty == oldstarty and curses.LINES == oldstarty + oldheight + 2:
+          return # No change needed
+        obliterate = curses.newwin(curses.LINES - oldstarty, curses.COLS, oldstarty, 0)
+        obliterate.erase()
+        obliterate.noutrefresh()
+      if self.log_box:
+        self._boxwin(height, curses.COLS, starty, 0, title='log')
+        self.log_box.resize(height - 2, curses.COLS - 2)
+        self.log_box.mvwin(starty + 1, 1)
+      else:
+        self.log_box = self._boxwin(height, curses.COLS, starty, 0, title='log')
+        self.log_box.scrollok(True)
+      self.log_box.noutrefresh()
 
   def _get_card(self, number):
     with self._lock:
@@ -93,6 +152,7 @@ class Monitor():
         return self.cards[number]
       if number == len(self.cards):
         max_cards_horiz = int(curses.COLS / 35)
+        self._redraw_log_box(reserved_card_spaces=1)
         self.cards.append(self._boxwin(6, 35, 7 + 6 * (number // max_cards_horiz), 35 * (number % max_cards_horiz), color_pair=3))
         return self.cards[number]
       raise RuntimeError("Card number too high")
@@ -109,6 +169,7 @@ class Monitor():
       obliterate.erase()
       obliterate.noutrefresh()
       del(self.cards[number])
+      self._redraw_log_box()
 
   def _run(self, stdscr):
     '''Start the actual service monitor'''
@@ -118,6 +179,7 @@ class Monitor():
       curses.init_pair(1, curses.COLOR_RED, -1)
       curses.init_pair(2, curses.COLOR_BLACK, -1)
       curses.init_pair(3, curses.COLOR_GREEN, -1)
+      curses.init_pair(4, curses.COLOR_YELLOW, -1)
       self._redraw_screen(stdscr)
 
     try:

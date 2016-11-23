@@ -16,6 +16,9 @@ class DLSDispatcher(CommonService):
   # Human readable service name
   _service_name = "DLS Dispatcher"
 
+  # Logger name
+  _logger_name = 'dlstbx.services.dispatcher'
+
   def initializing(self):
     '''Subscribe to the processing_recipe queue. Received messages must be acknowledged.'''
     self._transport.subscribe('processing_recipe', self.process, acknowledgement=True)
@@ -31,15 +34,15 @@ class DLSDispatcher(CommonService):
     parameters = message.get('parameters', {})
     generate_guids = 'guid' not in parameters
 
-    print "Received processing request:\n" + str(message)
-    print "Received processing parameters:\n" + str(parameters)
+    self.log.debug("Received processing request:\n" + str(message))
+    self.log.debug("Received processing parameters:\n" + str(parameters))
 
     # At this point external helper functions should be called,
     # eg. ISPyB database lookups
     from dlstbx.ispyb.ispyb import ispyb_filter
     message, parameters = ispyb_filter(message, parameters)
-    print "Mangled processing request:\n" + str(message)
-    print "Mangled processing parameters:\n" + str(parameters)
+    self.log.info("Mangled processing request:\n" + str(message))
+    self.log.info("Mangled processing parameters:\n" + str(parameters))
 
     # Process message
     recipes = []
@@ -76,4 +79,4 @@ class DLSDispatcher(CommonService):
 
     # Commit transaction
     self._transport.transaction_commit(txn)
-    print "Processing completed"
+    self.log.info("Processing completed")

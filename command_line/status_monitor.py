@@ -128,7 +128,7 @@ class Monitor():
       if self.cards or reserved_card_spaces:
         max_cards_horiz = int(curses.COLS / 35)
         starty = 7 + 6 * ((len(self.cards) + reserved_card_spaces + max_cards_horiz - 1) // max_cards_horiz)
-      height = curses.LINES - starty
+      height = curses.LINES - starty - 1
       if self.log_box:
         oldstarty = self.log_box.getbegyx()[0] - 1
         oldheight = self.log_box.getmaxyx()[0]

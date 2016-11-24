@@ -58,6 +58,12 @@ class ispyb(object):
     results = [result for result in cursor]
     return results
 
+  def find_dc_id(self, directory):
+    results = self.execute('select datacollectionid from DataCollection where '
+                           'imagedirectory=%s;', directory)
+    ids = [result[0] for result in results]
+    return ids
+
   def get_dc_info(self, dc_id):
     results = self.execute('select * from DataCollection where '
                            'datacollectionid=%s;', dc_id)
@@ -241,6 +247,14 @@ class ispyb(object):
       while os.path.exists(os.path.join(root, '%s-%d' % (taskname, run))):
         run += 1
       return os.path.join(root, '%s-%d' % (taskname, run))
+
+  def wrap_stored_procedure_insert_program(self, values):
+    # this wraps a stored procedure I think - which should be a good thing
+    # FIXME any documentation for what values should contain?!
+    result = self.execute('select ispub.upsert_program_run(%s)' % \
+                            ','.join([str(v) for v in values]))
+    # etc? do I need to return anything?
+    # probably
 
 def ispyb_filter(message, parameters):
   '''Do something to work out what to do with this data...'''

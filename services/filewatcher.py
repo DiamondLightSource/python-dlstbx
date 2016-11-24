@@ -54,8 +54,6 @@ class DLSFileWatcher(CommonService):
     current_recipepointer = int(header['recipe-pointer'])
     subrecipe = current_recipe[current_recipepointer]
 
-    print "Waiting for", subrecipe['parameters']['pattern']
-
     # Check if message body contains partial results from a previous run
     status = { 'seen-files': 0, 'start-time': time.time() }
     if isinstance(message, dict):

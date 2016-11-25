@@ -12,7 +12,7 @@ import mysql.connector
 import json
 import os
 
-sauce = '/dls_sw/apps/mx-scripts/plum-duff/secret_ingredient.json'
+sauce = '/dls_sw/apps/zocalo/secrets/ispyb-login.json'
 
 secret_ingredients = json.load(open(sauce, 'r'))
 

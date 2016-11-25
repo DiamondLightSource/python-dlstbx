@@ -203,7 +203,14 @@ class Monitor():
               card.erase()
               card.move(0, 0)
               card.addstr('Host: ', curses.color_pair(3))
-              card.addstr(host)
+              if host.startswith('uk.ac.diamond.'): host = host[14:]
+              host = host.split('.')
+              if len(host) >= 2:
+                card.addstr('.'.join(host[:-1]))
+                card.addstr('.' + host[-1],
+                  curses.color_pair(2) + curses.A_BOLD)
+              else:
+                card.addstr(host)
               card.move(1, 0)
               card.addstr('Service: ', curses.color_pair(3))
               if 'service' in status and status['service']:

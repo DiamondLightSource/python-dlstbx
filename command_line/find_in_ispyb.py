@@ -17,7 +17,10 @@ def main(args):
       print json.dumps(parameters)
     except ValueError, e:
       path = arg
+      if not path.endswith('/'):
+        path += '/'
       dc_ids = i.find_dc_id(path)
+      print path
       for dc_id in dc_ids:
         print dc_id
 

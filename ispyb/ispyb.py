@@ -73,6 +73,12 @@ class ispyb(object):
       result[l] = r
     return result
 
+  def get_pia_results(self, dc_id):
+    results = self.execute(
+      'select imagenumber, spottotal from '
+      'ImageQualityIndicators where datacollectionid=%s;', dc_id)
+    return results
+
   def get_dc_group(self, dc_id):
     # someone should learn how to use SQL JOIN here
     groups = self.execute('select dataCollectionGroupId from DataCollection '
@@ -162,18 +168,17 @@ class ispyb(object):
     dc_ids = [m[0] for m in matches]
     return sorted(dc_ids)
 
-  def dc_info_to_filename(self, dc_info):
+  def dc_info_to_filename(self, dc_info, image_number=None):
     template = dc_info['fileTemplate']
     directory = dc_info['imageDirectory']
     start = dc_info['startImageNumber']
-    number = dc_info['numberOfImages']
-    end = start + number - 1
     fmt = '%%0%dd' % template.count('#')
     prefix = template.split('#')[0]
     suffix = template.split('#')[-1]
-    first_image = os.path.join(directory, '%s%s%s' %
-                               (prefix, fmt % start, suffix))
-    return first_image
+    if image_number is None:
+      return os.path.join(directory, '%s%s%s' % (prefix, fmt % start, suffix))
+    return os.path.join(directory, '%s%s%s' % (prefix, fmt % image_number, 
+                                               suffix))
 
   def dc_info_to_start_end(self, dc_info):
     start = dc_info['startImageNumber']

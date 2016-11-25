@@ -177,7 +177,7 @@ class ispyb(object):
     suffix = template.split('#')[-1]
     if image_number is None:
       return os.path.join(directory, '%s%s%s' % (prefix, fmt % start, suffix))
-    return os.path.join(directory, '%s%s%s' % (prefix, fmt % image_number, 
+    return os.path.join(directory, '%s%s%s' % (prefix, fmt % image_number,
                                                suffix))
 
   def dc_info_to_start_end(self, dc_info):

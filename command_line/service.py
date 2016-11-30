@@ -62,6 +62,8 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
   def on_parser_preparation(self, parser):
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
                       default=False, help="Show debug output")
+    parser.add_option("--tag", dest="tag", metavar="TAG", default=None,
+                      help="Individual tag related to this service instance")
     parser.add_option("-d", "--debug", dest="debug", action="store_true",
                       default=False, help="Set debug log level for workflows")
     self.log.debug('Launching ' + str(sys.argv))

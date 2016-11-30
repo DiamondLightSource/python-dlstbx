@@ -66,10 +66,10 @@ class DLSController(CommonService):
     self.last_survey = time.time()
 
     # Don't survey when the service list can't be trusted
-#    if self.master_since == 0 or \
-#       self.master_since > time.time() - 30:
-#      self.log.debug('Controller is too young to survey')
-#      return
+    if self.master_since == 0 or \
+       self.master_since > time.time() - 30:
+      self.log.debug('Controller is too young to survey')
+      return
 
     self.log.debug('Surveying...')
     print ""
@@ -96,6 +96,7 @@ class DLSController(CommonService):
     expected_service = { # 'Message Consumer': { 'name': 'SampleConsumer', 'count': 1 },
                          'DLS Schlockmeister': { 'name': 'DLSSchlockMeister', 'count': 1 },
                          'DLS Filewatcher':    { 'name': 'DLSFileWatcher', 'count': 1 },
+                         'DLS Dispatcher':     { 'name': 'DLSDispatcher', 'count': 1 },
                          'DLS cluster submitter': { 'name': 'DLSClusterSubmission', 'count': 1 }
                        }
     for service in expected_service:

@@ -97,6 +97,7 @@ class DLSController(CommonService):
                          'DLS Schlockmeister': { 'name': 'DLSSchlockMeister', 'count': 1 },
                          'DLS Filewatcher':    { 'name': 'DLSFileWatcher', 'count': 1 },
                          'DLS Dispatcher':     { 'name': 'DLSDispatcher', 'count': 1 },
+                         'DLS Per-Image-Analysis': { 'name': 'DLSPerImageAnalysis', 'count': 1 },
                          'DLS cluster submitter': { 'name': 'DLSClusterSubmission', 'count': 1 }
                        }
     for service in expected_service:

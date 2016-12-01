@@ -42,4 +42,4 @@ class DLSSchlockmeister(CommonService):
                   str(header)[:1000], str(message)[:1000])
 
     # The actual quarantining magic happens on the broker
-    self._transport.nack(header['message-id'])
+    self._transport.nack(header)

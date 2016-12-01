@@ -35,7 +35,7 @@ class DLSClusterSubmission(CommonService):
 
     # Conditionally acknowledge receipt of the message
     txn = self._transport.transaction_begin()
-    self._transport.ack(header['message-id'], transaction=txn)
+    self._transport.ack(header, transaction=txn)
 
     current_recipe = Recipe(header['recipe'])
     current_recipepointer = int(header['recipe-pointer'])

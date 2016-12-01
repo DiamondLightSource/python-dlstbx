@@ -21,7 +21,7 @@ class DLSRunXia2(CommonService):
 
     # Conditionally acknowledge receipt of the message
     txn = self._transport.transaction_begin()
-    self._transport.ack(header['message-id'], transaction=txn)
+    self._transport.ack(header, transaction=txn)
 
     parameters = message.get('parameters', [])
     command_line = ['xia2'] + parameters

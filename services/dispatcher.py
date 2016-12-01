@@ -28,7 +28,7 @@ class DLSDispatcher(CommonService):
 
     # Conditionally acknowledge receipt of the message
     txn = self._transport.transaction_begin()
-    self._transport.ack(header['message-id'], transaction=txn)
+    self._transport.ack(header, transaction=txn)
 
     # Load processing parameters
     parameters = message.get('parameters', {})

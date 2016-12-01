@@ -47,7 +47,7 @@ class DLSFileWatcher(CommonService):
 
     # Conditionally acknowledge receipt of the message
     txn = self._transport.transaction_begin()
-    self._transport.ack(header['message-id'], transaction=txn)
+    self._transport.ack(header, transaction=txn)
 
     # Extract the recipe
     current_recipe = Recipe(header['recipe'])

@@ -58,6 +58,9 @@ class ispyb(object):
     results = [result for result in cursor]
     return results
 
+  def commit(self):
+    self.conn.commit()
+
   def find_dc_id(self, directory):
     results = self.execute('select datacollectionid from DataCollection where '
                            'imagedirectory=%s;', directory)
@@ -260,6 +263,76 @@ class ispyb(object):
                             ','.join([str(v) for v in values]))
     # etc? do I need to return anything?
     # probably
+
+  def insert_screening_results(self, dc_id, values):
+    keys = (
+      'dataCollectionId', 'programVersion', 'shortComments', 'mosaicity',
+      'spacegroup', 'unitCell_a', 'unitCell_b', 'unitCell_c',
+      'unitCell_alpha', 'unitCell_beta', 'unitCell_gamma',
+      'comments', 'wedgeNumber', 'numberOfImages', 'completeness', 'resolution',
+      'axisStart', 'axisEnd', 'oscillationRange', 'numberOfImages', 'completeness',
+      'resolution', 'rotationAxis', 'exposureTime'
+    )
+    for k in keys:
+      assert k in values, k
+      self.execute('SET @%s="%s";' % (k, values[k]))
+
+    #-- Insert characterisation
+    self.execute('insert into Screening (dataCollectionId, programVersion, shortComments) values ('
+                 '@dataCollectionId, @programVersion, @shortComments);')
+    self.execute('SET @scrId = LAST_INSERT_ID();')
+    self.execute('insert into ScreeningOutput (screeningId, mosaicity) values ('
+                 '@scrId, @mosaicity);')
+    self.execute('SET @scrOutId = LAST_INSERT_ID();')
+    self.execute('insert into ScreeningOutputLattice (screeningOutputId, spacegroup,'
+                 'unitCell_a,unitCell_b,unitCell_c,unitCell_alpha,unitCell_beta,unitCell_gamma) values ('
+                 '@scrOutId, @spacegroup,'
+                 '@unitCell_a, @unitCell_b, @unitCell_c, @unitCell_alpha, @unitCell_beta, @unitCell_gamma'
+                 ');')
+
+    #-- Insert strategy
+    self.execute('insert into ScreeningStrategy (screeningOutputId, program) values ('
+                '@scrOutId, @comments'
+                ');')
+    self.execute('SET @scrStratId = LAST_INSERT_ID();')
+
+    self.execute('insert into ScreeningStrategyWedge (screeningStrategyId, wedgeNumber, numberOfImages,'
+                 'completeness, resolution) values ('
+                 '@scrStratId, 1, @numberOfImages, @completeness, @resolution'
+                 ');')
+
+    self.execute('SET @scrStratWId = LAST_INSERT_ID();')
+
+    self.execute('insert into ScreeningStrategySubWedge (screeningStrategyWedgeId, axisStart, axisEnd,'
+                 'oscillationRange, numberOfImages, completeness, resolution, rotationAxis, exposureTime) values ('
+                 '@scrStratWId, @axisStart, @axisEnd, @oscillationRange,'
+                 '@numberOfImages, @completeness, @resolution, @rotationAxis, @exposureTime'
+                 ');')
+    self.commit()
+
+  def get_screening_results(self, dc_id, columns=None):
+    if columns is not None:
+      select_str = ', '.join(c for c in columns)
+    else:
+      select_str = '*'
+    results = self.execute('''
+SELECT %s
+FROM Screening
+INNER JOIN ScreeningOutput
+ON Screening.screeningID = ScreeningOutput.screeningID
+INNER JOIN ScreeningStrategy
+ON ScreeningOutput.screeningoutputID = ScreeningStrategy.screeningoutputID
+INNER JOIN ScreeningStrategyWedge
+ON ScreeningStrategy.screeningstrategyID = ScreeningStrategyWedge.screeningstrategyID
+INNER JOIN ScreeningStrategySubWedge
+ON ScreeningStrategyWedge.screeningStrategyWedgeId = ScreeningStrategySubWedge.screeningStrategyWedgeId
+INNER JOIN ScreeningOutputLattice
+ON ScreeningOutput.screeningOutputId = ScreeningOutputLattice.screeningOutputId
+WHERE Screening.datacollectionid=%s
+;
+''' %(select_str, dc_id)
+    )
+    return results
 
 def ispyb_filter(message, parameters):
   '''Do something to work out what to do with this data...'''

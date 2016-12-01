@@ -157,10 +157,13 @@ class Monitor():
         return self.cards[number]
       if number == len(self.cards):
         max_cards_horiz = int(curses.COLS / 35)
+        max_cards_vert = int((curses.LINES - 7 - 7)/ 6)
+        if (number // max_cards_horiz) >= max_cards_vert:
+          return # Don't add more cards - screen is full
         self._redraw_log_box(reserved_card_spaces=1)
         self.cards.append(self._boxwin(6, 35, 7 + 6 * (number // max_cards_horiz), 35 * (number % max_cards_horiz), color_pair=3))
         return self.cards[number]
-      raise RuntimeError("Card number too high")
+      return
 
   def _erase_card(self, number):
     '''Destroy cards with this or higher number.'''
@@ -200,43 +203,44 @@ class Monitor():
               del(self._node_status[host])
             else:
               card = self._get_card(cardnumber)
-              card.erase()
-              card.move(0, 0)
-              card.addstr('Host: ', curses.color_pair(3))
-              if host.startswith('uk.ac.diamond.'): host = host[14:]
-              host = host.split('.')
-              if len(host) >= 2:
-                card.addstr('.'.join(host[:-1]))
-                card.addstr('.' + host[-1],
-                  curses.color_pair(2) + curses.A_BOLD)
-              else:
-                card.addstr(host)
-              card.move(1, 0)
-              card.addstr('Service: ', curses.color_pair(3))
-              if 'service' in status and status['service']:
-                card.addstr(status['service'])
-              else:
-                card.addstr('---', curses.color_pair(2))
-              card.move(2, 0)
-              card.addstr('State: ', curses.color_pair(3))
-              if 'status' in status:
-                status_code = status['status']
-                state_string = CommonService.human_readable_state.get(status_code, str(status_code))
-                state_color = None
-                if status_code in (CommonService.SERVICE_STATUS_PROCESSING, CommonService.SERVICE_STATUS_TIMER):
-                  state_color = curses.color_pair(3) + curses.A_BOLD
-                if status_code == CommonService.SERVICE_STATUS_IDLE:
-                  state_color = curses.color_pair(2) + curses.A_BOLD
-                if status_code == CommonService.SERVICE_STATUS_ERROR:
-                  state_color = curses.color_pair(1)
-                if state_color:
-                  card.addstr(state_string, state_color)
+              if card:
+                card.erase()
+                card.move(0, 0)
+                card.addstr('Host: ', curses.color_pair(3))
+                if host.startswith('uk.ac.diamond.'): host = host[14:]
+                host = host.split('.')
+                if len(host) >= 2:
+                  card.addstr('.'.join(host[:-1]))
+                  card.addstr('.' + host[-1],
+                    curses.color_pair(2) + curses.A_BOLD)
                 else:
-                  card.addstr(state_string)
-              card.move(3, 0)
-              if age >= 10:
-                card.addstr("last seen %d seconds ago" % age, curses.color_pair(1) + (0 if age < 60 else curses.A_BOLD))
-              card.noutrefresh()
+                  card.addstr(host)
+                card.move(1, 0)
+                card.addstr('Service: ', curses.color_pair(3))
+                if 'service' in status and status['service']:
+                  card.addstr(status['service'])
+                else:
+                  card.addstr('---', curses.color_pair(2))
+                card.move(2, 0)
+                card.addstr('State: ', curses.color_pair(3))
+                if 'status' in status:
+                  status_code = status['status']
+                  state_string = CommonService.human_readable_state.get(status_code, str(status_code))
+                  state_color = None
+                  if status_code in (CommonService.SERVICE_STATUS_PROCESSING, CommonService.SERVICE_STATUS_TIMER):
+                    state_color = curses.color_pair(3) + curses.A_BOLD
+                  if status_code == CommonService.SERVICE_STATUS_IDLE:
+                    state_color = curses.color_pair(2) + curses.A_BOLD
+                  if status_code == CommonService.SERVICE_STATUS_ERROR:
+                    state_color = curses.color_pair(1)
+                  if state_color:
+                    card.addstr(state_string, state_color)
+                  else:
+                    card.addstr(state_string)
+                card.move(3, 0)
+                if age >= 10:
+                  card.addstr("last seen %d seconds ago" % age, curses.color_pair(1) + (0 if age < 60 else curses.A_BOLD))
+                card.noutrefresh()
               cardnumber = cardnumber + 1
         if cardnumber < len(self.cards):
           with self._lock:

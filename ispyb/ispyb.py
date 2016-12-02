@@ -278,8 +278,8 @@ class ispyb(object):
       self.execute('SET @%s="%s";' % (k, values[k]))
 
     #-- Insert characterisation
-    self.execute('insert into Screening (dataCollectionId, programVersion, shortComments) values ('
-                 '@dataCollectionId, @programVersion, @shortComments);')
+    self.execute('insert into Screening (dataCollectionId, programVersion, comments, shortComments) values ('
+                 '@dataCollectionId, @programVersion, @comments, @shortComments);')
     self.execute('SET @scrId = LAST_INSERT_ID();')
     self.execute('insert into ScreeningOutput (screeningId, mosaicity) values ('
                  '@scrId, @mosaicity);')
@@ -292,7 +292,7 @@ class ispyb(object):
 
     #-- Insert strategy
     self.execute('insert into ScreeningStrategy (screeningOutputId, program) values ('
-                '@scrOutId, @comments'
+                '@scrOutId, @program'
                 ');')
     self.execute('SET @scrStratId = LAST_INSERT_ID();')
 

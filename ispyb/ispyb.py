@@ -271,7 +271,7 @@ class ispyb(object):
       'unitCell_alpha', 'unitCell_beta', 'unitCell_gamma',
       'comments', 'wedgeNumber', 'numberOfImages', 'completeness', 'resolution',
       'axisStart', 'axisEnd', 'oscillationRange', 'numberOfImages', 'completeness',
-      'resolution', 'rotationAxis', 'exposureTime'
+      'resolution', 'rotationAxis', 'exposureTime', 'transmission',
     )
     for k in keys:
       assert k in values, k
@@ -303,10 +303,12 @@ class ispyb(object):
 
     self.execute('SET @scrStratWId = LAST_INSERT_ID();')
 
-    self.execute('insert into ScreeningStrategySubWedge (screeningStrategyWedgeId, axisStart, axisEnd,'
-                 'oscillationRange, numberOfImages, completeness, resolution, rotationAxis, exposureTime) values ('
+    self.execute('insert into ScreeningStrategySubWedge (screeningStrategyWedgeId,'
+                 'axisStart, axisEnd, oscillationRange, numberOfImages, completeness,'
+                 'resolution, rotationAxis, exposureTime, transmission) values ('
                  '@scrStratWId, @axisStart, @axisEnd, @oscillationRange,'
-                 '@numberOfImages, @completeness, @resolution, @rotationAxis, @exposureTime'
+                 '@numberOfImages, @completeness, @resolution, @rotationAxis,'
+                 '@exposureTime, @transmission'
                  ');')
     self.commit()
 

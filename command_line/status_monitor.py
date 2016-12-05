@@ -191,7 +191,7 @@ class Monitor():
       self._redraw_screen(stdscr)
 
     try:
-      while not self.shutdown:
+      while not self.shutdown and self._transport.is_connected():
         now = int(time.time())
         with self._lock:
           overview = self._node_status.copy()

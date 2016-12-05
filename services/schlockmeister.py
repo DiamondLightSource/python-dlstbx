@@ -134,26 +134,30 @@ class DLSSchlockmeister(CommonService):
     self.update_subscriptions()
 
   def update_subscriptions(self):
-    '''Match up subscriptions to list of queues with real subscribers.'''
+    '''Subscribe to any new queues with real subscribers.'''
     for destination in self.known_queues:
+      if self.known_queues[destination].get('subscription'):
+        continue
       real_subscriber_count = sum(map(lambda k: k not in self.known_instances, self.known_queues[destination]['subscribers']))
-      if real_subscriber_count and not self.known_queues[destination].get('subscription'):
+      if real_subscriber_count:
         self.log.debug("subscribing to %s", destination)
         self.known_queues[destination]['subscription'] = \
             self._transport.subscribe(destination, self.quarantine, acknowledgement=True,
                                       selector="JMSXDeliveryCount>10", disable_mangling=True)
-      if not real_subscriber_count and self.known_queues[destination].get('subscription'):
-        self.log.debug("unsubscribing from %s", destination)
-        self._transport.unsubscribe(self.known_queues[destination]['subscription'])
-        del(self.known_queues[destination]['subscription'])
 
   def garbage_collect(self):
-    '''Regularly clean up list of known queues.'''
-    entries = list(self.known_queues)
-    for entry in entries:
-      if len(self.known_queues[entry]) == 1 and not any(self.known_queues[entry]['subscribers']):
-        del(self.known_queues[entry])
-        self.log.info("collecting stale queue %s, leaving %d queues, %d consumers, %d peers", entry, len(self.known_queues), len(self.known_consumers), len(self.known_instances)-1)
+    '''Delayed unsubscribe from lists that are without other subscribers.
+       Clean up list of known queues.'''
+    for destination in self.known_queues:
+      if self.known_queues[destination].get('subscription'):
+        real_subscriber_count = sum(map(lambda k: k not in self.known_instances, self.known_queues[destination]['subscribers']))
+        if not real_subscriber_count:
+          self.log.debug("unsubscribing from %s", destination)
+          self._transport.unsubscribe(self.known_queues[destination]['subscription'])
+          del(self.known_queues[destination]['subscription'])
+      if len(self.known_queues[destination]) == 1 and not any(self.known_queues[destination]['subscribers']):
+        del(self.known_queues[destination])
+        self.log.info("collecting stale queue %s, leaving %d queues, %d consumers, %d peers", destination, len(self.known_queues), len(self.known_consumers), len(self.known_instances)-1)
 
   def quarantine(self, header, message):
     '''Quarantine this message.'''

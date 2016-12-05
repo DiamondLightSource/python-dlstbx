@@ -148,7 +148,8 @@ class DLSSchlockmeister(CommonService):
   def garbage_collect(self):
     '''Delayed unsubscribe from lists that are without other subscribers.
        Clean up list of known queues.'''
-    for destination in self.known_queues:
+    queues = list(self.known_queues)
+    for destination in queues:
       if self.known_queues[destination].get('subscription'):
         real_subscriber_count = sum(map(lambda k: k not in self.known_instances, self.known_queues[destination]['subscribers']))
         if not real_subscriber_count:

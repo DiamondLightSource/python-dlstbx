@@ -90,14 +90,18 @@ class QueueStatus():
         # Check if screen was re-sized (True or False)
         resize = curses.is_term_resized(curs_y, curs_x)
 
-        # Action in loop if resize is True:
+        # Redraw in new layout if terminal window has been resized
         stdscr.clear()
         stdscr.scrollok(True)
         if resize is True:
           curs_y, curs_x = stdscr.getmaxyx()
           curses.resizeterm(curs_y, curs_x)
         rows = curses.LINES
+
+        # Expire old destinations, select destinations to show
         with self.lock:
+          destinations = self.status.keys()
+          self.status = {k: self.status[k] for k in destinations if self.status[k].get('last-seen', 0) + (self.gather_interval * 3) >= time.time()}
           status_list = self.status.values()
         status_list.sort(key=lambda s:s['relevance'], reverse=True)
 

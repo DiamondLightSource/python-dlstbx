@@ -316,7 +316,7 @@ class ispyb(object):
       select_str = ', '.join(c for c in columns)
     else:
       select_str = '*'
-    results = self.execute('''
+    sql_str = '''
 SELECT %s
 FROM Screening
 INNER JOIN ScreeningOutput
@@ -325,14 +325,25 @@ INNER JOIN ScreeningStrategy
 ON ScreeningOutput.screeningoutputID = ScreeningStrategy.screeningoutputID
 INNER JOIN ScreeningStrategyWedge
 ON ScreeningStrategy.screeningstrategyID = ScreeningStrategyWedge.screeningstrategyID
+''' %select_str
+    if columns is not None:
+      for c in columns:
+        if c.startswith('ScreeningStrategySubWedge'):
+          sql_str += '''\
 INNER JOIN ScreeningStrategySubWedge
-ON ScreeningStrategyWedge.screeningStrategyWedgeId = ScreeningStrategySubWedge.screeningStrategyWedgeId
+ON ScreeningStrategyWedge.screeningStrategyWedgeId = ScreeningStrategySubWedge.screeningStrategyWedgeId'''
+          break
+      for c in columns:
+        if c.startswith('ScreeningOutputLattice'):
+          sql_str += '''\
 INNER JOIN ScreeningOutputLattice
-ON ScreeningOutput.screeningOutputId = ScreeningOutputLattice.screeningOutputId
+ON ScreeningOutput.screeningOutputId = ScreeningOutputLattice.screeningOutputId'''
+          break
+    sql_str += '''\
 WHERE Screening.datacollectionid=%s
 ;
-''' %(select_str, dc_id)
-    )
+''' %dc_id
+    results = self.execute(sql_str)
     return results
 
 def ispyb_filter(message, parameters):

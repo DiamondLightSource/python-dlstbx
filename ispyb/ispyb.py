@@ -346,6 +346,36 @@ WHERE Screening.datacollectionid=%s
     results = self.execute(sql_str)
     return results
 
+  def insert_alignment_result(self, values):
+    keys = ('dataCollectionId', 'program', 'shortComments', 'comments', 'phi')
+    for k in keys:
+      assert k in values, k
+      self.execute('SET @%s="%s";' % (k, values[k]))
+    self.execute('insert into Screening (dataCollectionId, programVersion, comments, shortComments) values ('
+                 '@dataCollectionId, @program, @comments, @shortComments'
+                 ');')
+    self.execute('SET @scrId=LAST_INSERT_ID();')
+    self.execute('insert into ScreeningOutput (screeningId) values (@scrId);')
+    self.execute('SET @scrOutId = LAST_INSERT_ID();')
+    self.execute('insert into ScreeningStrategy (screeningOutputId, program) values ('
+                 '@scrOutId, @program'
+                 ');')
+    self.execute('SET @scrStratId = LAST_INSERT_ID();')
+    if 'chi' in values:
+      self.execute('SET @chi="%s";' % (values['chi']))
+      self.execute('insert into ScreeningStrategyWedge (screeningStrategyId, chi, phi) values ('
+                   '@scrStratId, @chi, @phi'
+                   ');')
+    elif 'kappa' in values:
+      self.execute('SET @kappa="%s";' % (values['kappa']))
+      self.execute('insert into ScreeningStrategyWedge (screeningStrategyId, kappa, phi) values ('
+                   '@scrStratId, @kappa, @phi'
+                   ');')
+    else:
+      raise RuntimeError('chi or kappa values must be provided')
+    self.commit()
+
+
 def ispyb_filter(message, parameters):
   '''Do something to work out what to do with this data...'''
 

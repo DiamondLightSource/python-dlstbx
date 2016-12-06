@@ -146,7 +146,7 @@ class ispyb(object):
   def get_matching_dcids_by_folder(self, dc_id):
     matches = self.execute('SELECT datacollectionid FROM DataCollection '
                            'WHERE imageDirectory=(SELECT imageDirectory FROM DataCollection '
-                                                 'WHERE datacollectionid=%s);', dc_id)
+                           'WHERE datacollectionid=%s);', dc_id)
     assert(len(matches) >= 1)
     dc_ids = [m[0] for m in matches]
     return sorted(dc_ids)
@@ -224,17 +224,17 @@ class ispyb(object):
     visit = self.data_folder_to_visit(directory)
     rest = directory.replace(visit, '')
 
-    if True:
+    if False:
       import uuid
       return os.path.join('/', 'dls', 'tmp', str(uuid.uuid4()))
 
     if taskname is None:
-      return os.sep.join([visit, 'tmp', rest, template.split('#')[0]]).replace(
-        2*os.sep, os.sep)
+      return os.sep.join([visit, 'tmp', 'zocalo', rest,
+                          template.split('#')[0]]).replace(2*os.sep, os.sep)
     else:
       import uuid
-      root = os.sep.join([visit, 'tmp', rest, template.split('#')[0]]).replace(
-        2*os.sep, os.sep)
+      root = os.sep.join([visit, 'tmp', 'zocalo', rest,
+                          template.split('#')[0]]).replace(2*os.sep, os.sep)
       return os.path.join(root, '%s-%s' % (taskname, uuid.uuid4()))
 
   def dc_info_to_results_directory(self, dc_info, taskname=None):
@@ -244,12 +244,11 @@ class ispyb(object):
     rest = directory.replace(visit, '')
     if taskname is None:
       return os.sep.join(
-        [visit, 'processed', rest, template.split('#')[0]]).replace(
+        [visit, 'processed', 'zocalo', rest, template.split('#')[0]]).replace(
         2*os.sep, os.sep)
     else:
-      import uuid
       root = os.sep.join(
-        [visit, 'processed', rest, template.split('#')[0]]).replace(
+        [visit, 'processed', 'zocalo', rest, template.split('#')[0]]).replace(
         2*os.sep, os.sep)
       run = 0
       while os.path.exists(os.path.join(root, '%s-%d' % (taskname, run))):

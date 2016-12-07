@@ -3,43 +3,19 @@ from libtbx import test_utils
 from libtbx.test_utils.pytest import discover
 import libtbx.load_env
 
-def discover_unittests(module, pattern='tst_*.py'):
-  try:
-    import inspect
-    import os
-    import sys
-    import unittest
-  except:
-    return tuple([])
+# To write tests for dlstbx:
 
-  dist_dir = libtbx.env.dist_path(module)
-  found_tests = unittest.defaultTestLoader.discover(dist_dir, pattern=pattern)
+# 1. Test file should be named test_*.py
+# 2. Test methods should be named test_*()
+# 3. Nothing else needed. Rest happens by magic.
 
-  def recursive_TestSuite_to_list(suite):
-    list = []
-    for t in suite:
-      if isinstance(t, unittest.TestSuite):
-        list.extend(recursive_TestSuite_to_list(t))
-      elif isinstance(t, unittest.TestCase):
-        module = t.__class__.__module__
-        if module == 'unittest.loader':
-          # This indicates a loading error.
-          # Regenerate file name and try to run file directly.
-          path = t._testMethodName.replace('.', os.path.sep)
-          list.append("$D/%s.py" % path)
-        else:
-          module = inspect.getsourcefile(sys.modules[module])
-          function = "%s.%s" % (t.__class__.__name__, t._testMethodName)
-          list.append([module, function])
-      else:
-        raise Exception("Unknown test object (%s)" % t)
-    return list
-  test_list = recursive_TestSuite_to_list(found_tests)
-  return tuple(test_list)
+# To run dlstbx tests:
 
-tst_list = [
-  # "$D/test/algorithms/profile_model/nave/tst_model.py",
-] + list(discover_unittests("dlstbx")) + discover("dlstbx")
+# A. libtbx.run_tests_parallel as usual
+#   or, much better:
+# B. run 'py.test' inside dlstbx directory
+
+tst_list = discover("dlstbx")
 
 def run():
   build_dir = libtbx.env.under_build("dlstbx")

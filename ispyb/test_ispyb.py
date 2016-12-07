@@ -30,7 +30,7 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
   assert parameters['ispyb_dcid'] == ds['gphl_C2']
   assert parameters['ispyb_image'] == '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800'
   assert parameters['ispyb_images'] == '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_1_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_2_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_3_0001.cbf:1:1800'
-  assert parameters['ispyb_results_directory'] == '/dls/i03/data/2016/cm14451-4/processed/tmp/2016-10-07/fake113556/TRP_M1S6_4_'
+  assert parameters['ispyb_results_directory'] == '/dls/i03/data/2016/cm14451-4/processed/zocalo/tmp/2016-10-07/fake113556/TRP_M1S6_4_'
   assert parameters['ispyb_working_directory'].startswith('/dls/tmp')
 
   non_ispyb_parameters = { k:v for k,v in parameters.iteritems() if not k.startswith('ispyb_') }

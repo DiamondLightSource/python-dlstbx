@@ -17,7 +17,7 @@ import uuid
 import workflows
 import workflows.transport
 
-locale.setlocale(locale.LC_ALL, '') 
+locale.setlocale(locale.LC_ALL, '')
 
 class QueueStatus():
   '''Monitor ActiveMQ queue activity.'''

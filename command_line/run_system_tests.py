@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division
 
 import dlstbx
-import Result from dlstbx.util.result
+from dlstbx.util.result import Result
 import dlstbx.system_test
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 import logging

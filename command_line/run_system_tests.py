@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division
 
 import dlstbx
-import dlstbx.qa.result
+import Result from dlstbx.util.result
 import dlstbx.system_test
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 import logging
@@ -47,7 +47,7 @@ tests = {}
 for classname, cls in systest_classes.iteritems():
   logger.debug('Collecting tests from %s' % classname)
   for testname, testsetting in cls().collect_tests().iteritems():
-    testresult = dlstbx.qa.result.Result()
+    testresult = Result()
     testresult.set_name(testname)
     testresult.set_classname(classname)
     testresult.early = 0
@@ -72,7 +72,7 @@ for test, _ in tests.itervalues():
 
 channel_lookup = {}
 
-unexpected_messages = dlstbx.qa.result.Result()
+unexpected_messages = Result()
 unexpected_messages.set_name('received_no_unexpected_messages')
 unexpected_messages.set_classname('.')
 unexpected_messages.count = 0

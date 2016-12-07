@@ -1,4 +1,3 @@
-import term
 import timeit
 from junit_xml import TestCase
 
@@ -90,11 +89,6 @@ class Result(TestCase):
       self.failure_output = text
     else:
       self.failure_output = self.failure_output + "\n" + text
-
-  def printResult(self):
-    for (c, t) in self.log:
-      term.color(['green', 'yellow', 'red', 'red'][c])
-      print t
 
   def set_name(self, name):
     self.name = name

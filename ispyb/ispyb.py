@@ -322,25 +322,27 @@ FROM Screening
 INNER JOIN ScreeningOutput
 ON Screening.screeningID = ScreeningOutput.screeningID
 INNER JOIN ScreeningStrategy
-ON ScreeningOutput.screeningoutputID = ScreeningStrategy.screeningoutputID
+ON ScreeningOutput.screeningOutputID = ScreeningStrategy.screeningOutputID
 INNER JOIN ScreeningStrategyWedge
-ON ScreeningStrategy.screeningstrategyID = ScreeningStrategyWedge.screeningstrategyID
+ON ScreeningStrategy.screeningStrategyID = ScreeningStrategyWedge.screeningStrategyID
 ''' %select_str
     if columns is not None:
       for c in columns:
         if c.startswith('ScreeningStrategySubWedge'):
           sql_str += '''\
 INNER JOIN ScreeningStrategySubWedge
-ON ScreeningStrategyWedge.screeningStrategyWedgeId = ScreeningStrategySubWedge.screeningStrategyWedgeId'''
+ON ScreeningStrategyWedge.screeningStrategyWedgeID = ScreeningStrategySubWedge.screeningStrategyWedgeID
+'''
           break
       for c in columns:
         if c.startswith('ScreeningOutputLattice'):
           sql_str += '''\
 INNER JOIN ScreeningOutputLattice
-ON ScreeningOutput.screeningOutputId = ScreeningOutputLattice.screeningOutputId'''
+ON ScreeningOutput.screeningOutputID = ScreeningOutputLattice.screeningOutputID
+'''
           break
     sql_str += '''\
-WHERE Screening.datacollectionid=%s
+WHERE Screening.dataCollectionID=%s
 ;
 ''' %dc_id
     results = self.execute(sql_str)

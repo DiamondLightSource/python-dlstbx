@@ -66,6 +66,8 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
                       help="Individual tag related to this service instance")
     parser.add_option("-d", "--debug", dest="debug", action="store_true",
                       default=False, help="Set debug log level for workflows")
+    parser.add_option("-r", "--restart", dest="service_restart", action="store_true",
+                      default=False, help="Restart service on failure")
     self.log.debug('Launching ' + str(sys.argv))
 
   def on_parsing(self, options, args):
@@ -73,6 +75,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
       self.console.setLevel(logging.DEBUG)
     if options.debug:
       logging.getLogger('workflows').setLevel(logging.DEBUG)
+    self.options = options
 
   def on_transport_preparation(self, transport):
     self.log.info('Attaching ActiveMQ logging to transport')
@@ -84,6 +87,10 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
           record = record.__dict__
         transport.broadcast('transient.log', record)
     logging.getLogger().addHandler(workflows.logging.CallbackHandler(logging_call))
+
+  def on_frontend_preparation(self, frontend):
+    if self.options.service_restart:
+      frontend.restart_service = True
 
 if __name__ == '__main__':
   DLSTBXServiceStarter().run(program_name='dlstbx.service',

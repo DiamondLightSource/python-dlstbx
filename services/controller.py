@@ -11,10 +11,6 @@ class DLSController(CommonService):
   _service_name = "DLS Controller"
   _logger_name = 'dlstbx.services.controller'
 
-  # This setting is required to subscribe to service status broadcasts without
-  # creating an infinite status notification loop.
-  _broadcast_status_on_change = False
-
   # Only one controller service at a time will instruct other services.
   # That instance of the controller service has master==true.
   master = False

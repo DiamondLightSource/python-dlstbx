@@ -8,7 +8,7 @@ from dlstbx import enable_graylog
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.version import dlstbx_version
 import logging
-import os.path
+import os
 import sys
 import workflows
 import workflows.contrib.start_service
@@ -96,6 +96,20 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
   def on_frontend_preparation(self, frontend):
     if self.options.service_restart:
       frontend.restart_service = True
+
+    extended_status = {}
+    if self.options.tag:
+      extended_status['tag'] = self.options.tag
+    for env in ('SGE_CELL', 'JOB_ID'):
+      if env in os.environ:
+        extended_status['cluster_' + env] = os.environ[env]
+
+    original_status_function = frontend.get_status
+    def extend_status_wrapper():
+      status = original_status_function()
+      status.update(extended_status)
+      return status
+    frontend.get_status = extend_status_wrapper
 
 if __name__ == '__main__':
   DLSTBXServiceStarter().run(program_name='dlstbx.service',

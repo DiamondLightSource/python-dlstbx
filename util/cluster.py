@@ -144,29 +144,35 @@ class Cluster():
                         self.drmaa.JobState.FAILED: 'job finished, but failed'}
     return decodestatus[self.session.jobStatus(jobid)]
 
-  def _qsub(self, asdf):
+  def _qsub(self, command, arguments):
+    '''Submit a job to the cluster
+       :param command: String pointing to an executable.
+                       This must be reachable, ie. not be on a local drive.
+       :param arguments: List of strings, command line arguments.
+       :return: A string containing the job ID of the submission
+    '''
     job = self.session.createJobTemplate()
-    job.remoteCommand = '/bin/bash'
-    import uuid
-    job.args = [ '-c', 'touch markerfile.' + str(uuid.uuid4()) + '; sleep 120; ls -la' ]
+    job.remoteCommand = command
+    job.args = arguments
     job.joinFiles = True
     jobid = self.session.runJob(job)
-    print "Job submitted as %s" % jobid
     self.session.deleteJobTemplate(job)
     return(jobid)
 
+  def _qwait(self, jobid):
     retval = self.session.wait(jobid, self.drmaa.Session.TIMEOUT_WAIT_FOREVER)
     print('Job: {0} finished with status {1}'.format(retval.jobId, retval.hasExited))
 
 if __name__ == '__main__':
   rc = Cluster('dlscluster')
   tc = Cluster('dlstestcluster')
-  for x in xrange(3):
-    print "Submitted:", tc.qsub('asdf')
-    print "Submitted:", rc.qsub('asdf')
-    print "Cluster",     rc.qstat(17048040)
-    print "Testcluster", tc.qstat(1468)
-    time.sleep(0.5)
+  import uuid
+  test_id = tc.qsub('/bin/bash', [ '-c', 'touch markerfile.' + str(uuid.uuid4()) + '; sleep 10; ls -la' ])
+  real_id = rc.qsub('/bin/bash', [ '-c', 'touch markerfile.' + str(uuid.uuid4()) + '; sleep 10; ls -la' ])
+  print "Submitted job #%s to the cluster and #%s to the testcluster" % (real_id, test_id)
+  for x in xrange(4):
+    time.sleep(4)
+    print "Cluster",     rc.qstat(real_id)
+    print "Testcluster", tc.qstat(test_id)
   tc.close()
   rc.close()
-

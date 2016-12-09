@@ -103,6 +103,7 @@ class QueueStatus():
           destinations = self.status.keys()
           self.status = {k: self.status[k] for k in destinations if self.status[k].get('last-seen', 0) + (self.gather_interval * 3) >= time.time()}
           status_list = self.status.values()
+        status_list = filter(lambda s:s['relevance'] > 0, status_list)
         status_list.sort(key=lambda s:s['relevance'], reverse=True)
 
         stdscr.addstr(0, 0, 'DLS Zocalo queue monitor', curses.color_pair(4))
@@ -196,7 +197,7 @@ class QueueStatus():
           elif dequeued == 0:
             stdscr.addstr(u'\u25b60'.encode('utf-8'), curses.color_pair(2))
 
-          stdscr.addstr(reserved_rows + n, curses.COLS - 7, "%6.1f" % s['relevance'])
+#         stdscr.addstr(reserved_rows + n, curses.COLS - 7, "%6.1f" % s['relevance'])
         stdscr.refresh()
         time.sleep(0.4)
     except KeyboardInterrupt:
@@ -278,9 +279,6 @@ class QueueStatus():
       report['relevance'] = relevance
 
       self.status[destination] = report
-#     change = { key: report[key] - last_status[key] for key in ('size', 'enqueueCount', 'dequeueCount', 'inflightCount') }
-#      if any(change.itervalues()) or report['size'] or change['enqueueCount'] or change['dequeueCount']:
-#        print '%60s: %3d -> %3d (%+3d) -> %3d [ %3d %3d ]' % (destination, change['enqueueCount'], report['size'], change['size'], change['dequeueCount'], report['inflightCount'], change['inflightCount'])
 
 #averageEnqueueTime :  0
 #averageMessageSize :  0

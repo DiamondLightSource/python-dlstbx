@@ -88,6 +88,11 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         transport.broadcast('transient.log', record)
     logging.getLogger().addHandler(workflows.logging.CallbackHandler(logging_call))
 
+  def before_frontend_construction(self, kwargs):
+    if self.options.verbose:
+      kwargs['verbose_service'] = True
+    return kwargs
+
   def on_frontend_preparation(self, frontend):
     if self.options.service_restart:
       frontend.restart_service = True

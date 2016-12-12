@@ -94,7 +94,7 @@ class DLSController(CommonService):
                          'DLS Filewatcher':    { 'name': 'DLSFileWatcher', 'count': 1 },
                          'DLS Dispatcher':     { 'name': 'DLSDispatcher', 'count': 1 },
                          'DLS Per-Image-Analysis': { 'name': 'DLSPerImageAnalysis', 'count': 1 },
-                         'DLS cluster submitter': { 'name': 'DLSClusterSubmission', 'count': 1 }
+#                        'DLS cluster submitter': { 'name': 'DLSClusterSubmission', 'count': 1 }
                        }
     for service in expected_service:
       if len(list_by_service.get(service, [])) < expected_service[service].get('count', 0):

@@ -6,9 +6,8 @@
 from __future__ import absolute_import, division
 import ConfigParser
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
+import base64
 import json
-import logging
-import os
 import sys
 import time
 import urllib2
@@ -24,19 +23,16 @@ class GraylogAPI():
     self.url = cfgparser.get('graylog', 'url')
     if not self.url.endswith('/'):
       self.url += '/'
-    self.username = cfgparser.get('graylog', 'username')
-    self.password = cfgparser.get('graylog', 'password')
+    self.authstring = "Basic " \
+                    + base64.b64encode(cfgparser.get('graylog', 'username')
+                                                                 + ':' +
+                                       cfgparser.get('graylog', 'password'))
     self.stream = cfgparser.get('graylog', 'stream')
 
   def _get(self, url):
     complete_url = self.url + url
-    password_manager = urllib2.HTTPPasswordMgrWithDefaultRealm()
-    password_manager.add_password(None, complete_url, self.username, self.password)
-    auth_manager = urllib2.HTTPBasicAuthHandler(password_manager)
-    opener = urllib2.build_opener(auth_manager)
-    urllib2.install_opener(opener)
-
     req = urllib2.Request(complete_url, headers={"Accept": "application/json"})
+    req.add_header("Authorization", self.authstring)
     handler = urllib2.urlopen(req)
 
     returncode = handler.getcode()
@@ -61,6 +57,7 @@ class GraylogAPI():
       update = self.absolute_update()
     else:
       update = self.relative_update()
+      self.last_seen_timestamp = update['parsed']['to']
     if not update['success']:
       return
     update = update['parsed']
@@ -69,7 +66,7 @@ class GraylogAPI():
       message_ids = [ m['_id'] for m in messages ]
       try:
         seen_marker = message_ids.index(self.last_seen_message)
-        messages = messages[seen_marker + 1:]
+        messages = messages[seen_marker + 1:] # skip previously seen message and all preceeding
       except ValueError:
         pass # last seen message not in selection
     if messages:
@@ -99,14 +96,27 @@ class GraylogAPI():
                      .format(from_time=from_time, stream=self.stream)
         )
 
+log_levels = {
+    0: {'name': 'emerg', 'color': ColorStreamHandler.CRITICAL },
+    1: {'name': 'alert', 'color': ColorStreamHandler.CRITICAL },
+    2: {'name': 'crit', 'color': ColorStreamHandler.CRITICAL },
+    3: {'name': 'err', 'color': ColorStreamHandler.ERROR },
+    4: {'name': 'warning', 'color': ColorStreamHandler.WARNING },
+    5: {'name': 'notice', 'color': ColorStreamHandler.INFO },
+    6: {'name': 'info', 'color': ColorStreamHandler.INFO },
+    7: {'name': 'debug', 'color': ColorStreamHandler.DEBUG },
+  }
+
+def format(message):
+  return ( log_levels[message['level']]['color']
+         + ("{timestamp} {source} {facility}\n" \
+            "  {full_message}\n".format(**message))
+         + ColorStreamHandler.DEFAULT)
+
 if __name__ == '__main__':
   g = GraylogAPI('/dls_sw/apps/zocalo/secrets/credentials-log.cfg')
-  import pprint
   while True:
     for message in g.get_messages():
-      print ""
-      print time.time()
-      pprint.pprint(message)
-    print ""
-    print time.time()
-    time.sleep(1)
+      sys.stdout.write(format(message))
+    sys.stdout.flush()
+    time.sleep(0.7)

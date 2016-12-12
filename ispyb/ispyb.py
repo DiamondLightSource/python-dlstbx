@@ -270,7 +270,7 @@ class ispyb(object):
       'unitCell_alpha', 'unitCell_beta', 'unitCell_gamma',
       'comments', 'wedgeNumber', 'numberOfImages', 'completeness', 'resolution',
       'axisStart', 'axisEnd', 'oscillationRange', 'numberOfImages', 'completeness',
-      'resolution', 'rotationAxis', 'exposureTime', 'transmission',
+      'rankingResolution', 'rotationAxis', 'exposureTime', 'transmission',
     )
     for k in keys:
       assert k in values, k
@@ -290,8 +290,8 @@ class ispyb(object):
                  ');')
 
     #-- Insert strategy
-    self.execute('insert into ScreeningStrategy (screeningOutputId, program) values ('
-                '@scrOutId, @program'
+    self.execute('insert into ScreeningStrategy (screeningOutputId, program, rankingResolution) values ('
+                '@scrOutId, @program, @rankingResolution'
                 ');')
     self.execute('SET @scrStratId = LAST_INSERT_ID();')
 

@@ -5,6 +5,7 @@
 
 from __future__ import division
 from dlstbx import enable_graylog
+import dlstbx.util
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.version import dlstbx_version
 import logging
@@ -109,6 +110,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
     def extend_status_wrapper():
       status = original_status_function()
       status.update(extended_status)
+      status['mem-uss'] = dlstbx.util.get_process_uss()
       return status
     frontend.get_status = extend_status_wrapper
 

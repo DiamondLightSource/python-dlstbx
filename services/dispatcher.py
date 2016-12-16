@@ -50,8 +50,11 @@ class DLSDispatcher(CommonService):
       recipes.append(workflows.recipe.Recipe(recipe=json.dumps(message['custom_recipe'])))
     if message.get('recipes'):
       for recipefile in message['recipes']:
-        with open(os.path.join('/dls_sw/apps/zocalo/live/recipes', recipefile + '.json'), 'r') as rcp:
-          recipes.append(workflows.recipe.Recipe(recipe=rcp.read()))
+        try:
+          with open(os.path.join('/dls_sw/apps/zocalo/live/recipes', recipefile + '.json'), 'r') as rcp:
+            recipes.append(workflows.recipe.Recipe(recipe=rcp.read()))
+        except ValueError, e:
+          raise ValueError("Error reading recipe '%s': %s" % (recipefile, str(e)))
 
     full_recipe = workflows.recipe.Recipe()
     for recipe in recipes:

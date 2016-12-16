@@ -50,7 +50,7 @@ class DLSDispatcher(CommonService):
       recipes.append(workflows.recipe.Recipe(recipe=json.dumps(message['custom_recipe'])))
     if message.get('recipes'):
       for recipefile in message['recipes']:
-        with open(os.path.join('/dls_sw/apps/mx-scripts/plum-duff/recipes', recipefile + '.json'), 'r') as rcp:
+        with open(os.path.join('/dls_sw/apps/zocalo/live/recipes', recipefile + '.json'), 'r') as rcp:
           recipes.append(workflows.recipe.Recipe(recipe=rcp.read()))
 
     full_recipe = workflows.recipe.Recipe()

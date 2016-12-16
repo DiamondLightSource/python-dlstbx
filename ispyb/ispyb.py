@@ -226,7 +226,7 @@ class ispyb(object):
 
     if False:
       import uuid
-      return os.path.join('/', 'dls', 'tmp', str(uuid.uuid4()))
+      return os.path.join('/', 'dls', 'tmp', 'zocalo', str(uuid.uuid4()))
 
     if taskname is None:
       return os.sep.join([visit, 'tmp', 'zocalo', rest,

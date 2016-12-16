@@ -42,7 +42,8 @@ class ispyb(object):
     self._cursor = self.conn.cursor()
 
   def __del__(self):
-    self.conn.close()
+    if hasattr(self, 'conn') and self.conn:
+      self.conn.close()
 
   def cursor(self):
     return self._cursor

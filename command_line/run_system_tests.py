@@ -22,8 +22,8 @@ logger = logging.getLogger('dlstbx.system_test')
 
 # Set up transport
 
-StompTransport.defaults['--stomp-host'] = 'cs04r-sc-vserv-128'
-StompTransport.defaults['--stomp-prfx'] = 'zocdev'
+StompTransport.load_configuration_file(
+    '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
 transport = StompTransport()
 transport.connect()
 if not transport.is_connected():

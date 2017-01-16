@@ -5,7 +5,7 @@ from workflows.services.common_service import CommonService
 
 class DLSSchlockmeister(CommonService):
   '''Remove too-often-redelivered messages from the queues.
-     When a message is redelivered this can have inocuous reasons, for example
+     When a message is redelivered this can have innocuous reasons, for example
      when it was processed by a service that got killed by the user, or there
      was a temporary network glitch, or anything along those lines.
      In other cases the message may cause services to die without them catching

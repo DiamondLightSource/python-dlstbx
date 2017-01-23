@@ -236,7 +236,7 @@ class ispyb(object):
       import uuid
       root = os.sep.join([visit, 'tmp', 'zocalo', rest,
                           template.split('#')[0]]).replace(2*os.sep, os.sep)
-      return os.path.join(root, '%s-%s' % (taskname, uuid.uuid4()))
+      return os.path.join(root, '%s-%s' % (taskname, str(uuid.uuid4())))
 
   def dc_info_to_results_directory(self, dc_info, taskname=None):
     template = dc_info['fileTemplate']
@@ -252,6 +252,7 @@ class ispyb(object):
         [visit, 'processed', 'zocalo', rest, template.split('#')[0]]).replace(
         2*os.sep, os.sep)
       run = 0
+      # FIXME this is a race condition
       while os.path.exists(os.path.join(root, '%s-%d' % (taskname, run))):
         run += 1
       return os.path.join(root, '%s-%d' % (taskname, run))

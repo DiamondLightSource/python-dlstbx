@@ -63,7 +63,7 @@ class DLSController(CommonService):
 
     # Don't survey when the service list can't be trusted
     if self.master_since == 0 or \
-       self.master_since > time.time() - 30:
+       self.master_since > time.time() - 20:
       self.log.debug('Controller is too young to survey')
       return
 
@@ -90,27 +90,35 @@ class DLSController(CommonService):
       print "%dx %s" % (len(list_by_service[svc]), svc)
 
     expected_service = { # 'Message Consumer': { 'name': 'SampleConsumer', 'count': 1 },
-                         'DLS Schlockmeister': { 'name': 'DLSSchlockMeister', 'count': 1 },
-                         'DLS Filewatcher':    { 'name': 'DLSFileWatcher', 'count': 1 },
-                         'DLS Dispatcher':     { 'name': 'DLSDispatcher', 'count': 1 },
+                         'DLS Schlockmeister': { 'name': 'DLSSchlockMeister', 'count': 1, 'limit': 3 },
+                         'DLS Filewatcher':    { 'name': 'DLSFileWatcher', 'count': 1, 'limit': 3 },
+                         'DLS Dispatcher':     { 'name': 'DLSDispatcher', 'count': 1, 'limit': 3 },
                          'DLS Per-Image-Analysis': { 'name': 'DLSPerImageAnalysis', 'count': 1 },
-                         'DLS cluster submitter': { 'name': 'DLSClusterSubmission', 'count': 1 }
+                         'DLS cluster submitter': { 'name': 'DLSClusterSubmission', 'count': 1, 'limit': 3 }
                        }
     for service in expected_service:
       if len(list_by_service.get(service, [])) < expected_service[service].get('count', 0):
         self.consider('start', expected_service[service]['name'])
+      if expected_service[service].get('limit') and len(list_by_service.get(service, [])) > expected_service[service].get('limit'):
+        self.consider('stop', expected_service[service]['name'], candidates=list_by_service[service])
 
   def on_expiration(self, service):
     self.log.info('Service %s expired (%s)', service['service'], str(service))
 
-  def consider(self, action, service):
+  def consider(self, action, service, candidates=None):
     with self._lock:
       if (action, service) not in self.actions:
         self.log.info('Running action %s on %s', action, service)
-        self.actions[(action, service)] = time.time()
-        result = run_process(['/dls/tmp/wra62962/zocalo/start_service', service], timeout=15)
+        if action == 'start':
+          self.actions[(action, service)] = time.time() + 180
+          result = run_process(['/dls/tmp/wra62962/zocalo/start_service', service], timeout=15)
+        elif action == 'stop':
+          self.actions[(action, service)] = time.time() + 100
+          candidate = candidates[0] # simplest strategy: choose first.
+          self.log.debug("Should stop %s at %s", service, str(candidate))
+          self.kill_service(candidate['host'])
       else:
-        if self.actions[(action, service)] + 180 > time.time():
+        if self.actions[(action, service)] > time.time():
           self.log.info('Still waiting for %s on %s', action, service)
         else:
           del(self.actions[(action, service)])
@@ -166,3 +174,8 @@ class DLSController(CommonService):
     self.actions = {}
     self._set_name("DLS Controller")
     self.log.info("Controller demoted")
+
+  def kill_service(self, service_id):
+    self.log.info("Sending kill signal to %s", service_id)
+    self._transport.send('transient.command.' + service_id,
+                         { 'command': 'shutdown' })

@@ -21,7 +21,7 @@ class Cluster():
     elif clustername == 'dlstestcluster':
       self.environment = self.load_environment(_DLS_Load_Testcluster)
     else:
-      raise RuntimeError('Need to specify name of cluster to accecss (dlscluster/dlstestcluster)')
+      raise RuntimeError('Need to specify name of cluster to access (dlscluster/dlstestcluster)')
 
     # Set up drmaa subprocess. Create two bidirectional pipes,
     # one for the main process and one for the drmaa subprocess.
@@ -144,7 +144,7 @@ class Cluster():
                         self.drmaa.JobState.FAILED: 'job finished, but failed'}
     return decodestatus[self.session.jobStatus(jobid)]
 
-  def _qsub(self, command, arguments):
+  def _qsub(self, command, arguments, job_params=None):
     '''Submit a job to the cluster
        :param command: String pointing to an executable.
                        This must be reachable, ie. not be on a local drive.
@@ -155,6 +155,19 @@ class Cluster():
     job.remoteCommand = command
     job.args = arguments
     job.joinFiles = True
+    native_spec = []
+    if job_params:
+      native_spec.append('-pe smp 1')
+      if job_params.get('now'):
+        native_spec += ['-now', 'yes']
+      if job_params.get('time_limit'):
+        native_spec += ['-l', 'h_rt=' + job_params.get('time_limit')]
+      if job_params.get('nproc'):
+        native_spec += ['-pe', 'smp', str(job_params.get('nproc'))]
+      if job_params.get('queue'):
+        native_spec += ['-q', job_params.get('queue')]
+    if native_spec:
+      job.nativeSpecification = ' '.join(native_spec)
     jobid = self.session.runJob(job)
     self.session.deleteJobTemplate(job)
     return(jobid)

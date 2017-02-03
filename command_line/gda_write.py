@@ -10,10 +10,7 @@ import random
 import sys
 import time
 import workflows
-import workflows.contrib.start_service
 from workflows.transport.stomp_transport import StompTransport
-
-# Example: dlstbx.go -r example-xia2 527189
 
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.gda_write [options]")
@@ -73,7 +70,7 @@ if __name__ == '__main__':
   else:
     def visit():
       return "%s%05d-%d" % (random.choice(['cm', 'mt', 'sw', 'sp', 'mx', 'in', 'nr', 'nt']), \
-                            int(random.uniform(10000, 20000)), \
+                            random.choice([10000, 12345, 13631, 19973]), \
                             int(random.expovariate(1.0 / 7) + 1))
 
   if options.application:

@@ -5,11 +5,9 @@
 
 from __future__ import absolute_import, division
 from optparse import OptionParser, SUPPRESS_HELP
-import random
 import sys
 import time
 import workflows
-import workflows.contrib.start_service
 from workflows.transport.stomp_transport import StompTransport
 
 if __name__ == '__main__':

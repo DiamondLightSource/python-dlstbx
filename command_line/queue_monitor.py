@@ -31,6 +31,7 @@ class QueueStatus():
   # Unique ID for this queue status monitor
   uuid = str(uuid.uuid4())
   report_queue = 'transient.report.' + uuid
+  namespace = ''
 
   def __init__(self, transport=None):
     '''Set up monitor and connect to the network transport layer'''
@@ -42,6 +43,13 @@ class QueueStatus():
     self._transport.subscribe(self.report_queue, self.process_report, transformation=True)
 #   self._transport.subscribe_broadcast('ActiveMQ.Advisory.>', self.activemq_advisory, ignore_namespace=True)
 
+    try:
+      # Get namespace for introspection
+      self.namespace = self._transport.get_namespace() + '.'
+    except AttributeError:
+      # use '' if get_namespace() is not offered by this transport method
+      self.namespace = ''
+
   def run(self):
     '''A wrapper for the real _run() function to cleanly enable/disable the
        curses environment.'''
@@ -49,9 +57,8 @@ class QueueStatus():
 
   def gather(self):
     self.last_gather = time.time()
-#   self._transport.send('ActiveMQ.Statistics.Broker', '', headers = { 'JMSReplyTo': 'zocdev.' + self.report_queue }, ignore_namespace=True )
-    self._transport.broadcast('ActiveMQ.Statistics.Destination.zocdev.transient.status', '', headers = { 'JMSReplyTo': 'zocdev.' + self.report_queue }, ignore_namespace=True )
-    self._transport.send('ActiveMQ.Statistics.Destination.>', '', headers = { 'JMSReplyTo': 'zocdev.' + self.report_queue }, ignore_namespace=True )
+    self._transport.broadcast('ActiveMQ.Statistics.Destination.' + self.namespace + 'transient.status', '', headers = { 'JMSReplyTo': self.namespace + self.report_queue }, ignore_namespace=True )
+    self._transport.send('ActiveMQ.Statistics.Destination.' + self.namespace + '>', '', headers = { 'JMSReplyTo': self.namespace + self.report_queue }, ignore_namespace=True )
 
   @staticmethod
   def formatnumber(stdscr, number):
@@ -227,7 +234,7 @@ class QueueStatus():
 
     self.last_gather = time.time()
 
-    shortdest = destination.replace('queue://zocdev.', '').replace('topic://zocdev.', '').replace('uk.ac.diamond.', 'u.a.d.').replace('transient.', 't.')
+    shortdest = destination.replace('queue://' + self.namespace, '').replace('topic://' + self.namespace, '').replace('uk.ac.diamond.', 'u.a.d.').replace('transient.', 't.')
     shortdest = re.sub('([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', '\\1-(..)', shortdest)
     report['shortdest'] = shortdest
     report['last-seen'] = time.time()

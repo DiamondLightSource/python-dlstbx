@@ -26,7 +26,7 @@ if __name__ == '__main__':
       default=None, help="URL field")
   parser.add_option("-s", "--summary", dest="summary",
       default=None, help="Summary field")
-  parser.add_option("-c", "--count", dest="count",
+  parser.add_option("-c", "--count", dest="count", type="int",
       default=None, help="Number of messages")
   parser.add_option("-i", "--interval", dest="interval",
       default=0.2, help="Number seconds between messages")

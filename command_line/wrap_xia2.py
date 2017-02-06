@@ -59,17 +59,15 @@ def run(args):
   if not os.path.exists(results_directory):
     os.makedirs(results_directory)
 
-  for subdir in ('DataFiles', 'Harvest', 'LogFiles'):
-    src = os.path.join(working_directory, subdir)
-    dst = os.path.join(results_directory, subdir)
-    if os.path.exists(src):
+  for f in os.listdir(working_directory):
+    src = os.path.join(working_directory, f)
+    dst = os.path.join(results_directory, f)
+    if os.path.isfile(src):
       logger.debug('Copying %s to %s' %(src, dst))
+      shutil.copyfile(src, dst)
+    elif f in ('DataFiles', 'Harvest', 'LogFiles') and os.path.isdir(src):
+      logger.debug('Copying %s to %s recursively' %(src, dst))
       shutil.copytree(src, dst)
-    else:
-      logger.warn('Expected output directory does not exist: %s', src)
-
-  for f in glob.glob(os.path.join(working_directory, '*.*')):
-    shutil.copy(f, results_directory)
 
   os.chdir(cwd)
 

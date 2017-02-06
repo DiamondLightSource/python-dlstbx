@@ -30,7 +30,7 @@ class QueueStatus():
 
   # Unique ID for this queue status monitor
   uuid = str(uuid.uuid4())
-  report_queue = 'transient.report.' + uuid
+  report_queue = 'transient.qmonitor.' + uuid
   namespace = ''
 
   def __init__(self, transport=None):

@@ -95,6 +95,24 @@ class ispyb(object):
     dc_ids = [m[0] for m in matches]
     return dc_ids
 
+  def get_container_type(self, dc_id):
+    samples = self.execute('select blsampleid from DataCollection '
+                           'where datacollectionid=%s;', dc_id)
+    assert len(samples) == 1
+    if samples[0][0] is None:
+      return None
+    sample = samples[0][0]
+    containers = self.execute('select containerid from BLSample where '
+                              'blsampleid=%s;', sample)
+    assert len(containers) == 1
+    if containers[0][0] is None:
+      return None
+    container_id = containers[0][0]
+    container_type = self.execute('select containertype from Container where '
+                                  'containerid=%s;', container_id)
+    assert len(container_type) == 1
+    return container_type[0][0]
+
   def get_space_group(self, dc_id):
     samples = self.execute('select blsampleid from DataCollection '
                            'where datacollectionid=%s;', dc_id)

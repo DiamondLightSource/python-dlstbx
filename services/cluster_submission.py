@@ -13,9 +13,13 @@ class DLSClusterSubmission(CommonService):
   # Human readable service name
   _service_name = "DLS cluster submitter"
 
+  # Logger name
+  _logger_name = 'dlstbx.services.cluster_submission'
+
   def initializing(self):
     '''Subscribe to the cluster submission queue.
        Received messages must be acknowledged.'''
+    self.log.info("Cluster submitter starting")
     self._transport.subscribe('cluster.submission',
       self.run_submit_job,
       acknowledgement=True)
@@ -52,7 +56,7 @@ class DLSClusterSubmission(CommonService):
     if 'recipefile' in parameters:
       recipefile = parameters['recipefile']
       self._recursive_mkdir(os.path.dirname(recipefile))
-      print "Write recipe to ", recipefile
+      self.log.debug("Writing recipe to %s", recipefile)
       commands = commands.replace('$RECIPEFILE', recipefile)
       with open(recipefile, 'w') as fh:
         fh.write(header['recipe'])
@@ -68,9 +72,9 @@ class DLSClusterSubmission(CommonService):
       commands,
       "EOF"
     ]
-    print "Commands: ", commands
-    print "CWD: ", parameters.get('workingdir')
-    print subrecipe
+    self.log.debug("Commands: %s", commands)
+    self.log.debug("CWD: %s", parameters.get('workingdir'))
+    self.log.debug(str(subrecipe))
     result = run_process(["/bin/bash"], stdin = "\n".join(submission))
     assert result['exitcode'] == 0
     assert "has been submitted" in result['stdout']
@@ -81,3 +85,4 @@ class DLSClusterSubmission(CommonService):
     results = { 'jobid': jobnumber }
     self._transport.send('transient.destination', results, transaction=txn, headers=new_header)
     self._transport.transaction_commit(txn)
+    self.log.info("Submitted job %s to cluster", str(jobnumber))

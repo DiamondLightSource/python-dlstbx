@@ -13,7 +13,7 @@ from workflows.transport.stomp_transport import StompTransport
 #     for https://ispyb.diamond.ac.uk/dc/visit/cm16788-1/id/1515302
 
 if __name__ == '__main__':
-  parser = OptionParser(usage="dlstbx.submit_ispyb [options] dcid")
+  parser = OptionParser(usage="dlstbx.submit_ispyb [options] [dcid]")
 
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("--json", dest="json", action="append", default=[],
@@ -35,6 +35,27 @@ if __name__ == '__main__':
     parser.print_help()
     sys.exit(0)
 
+  if not options.xia2 and not options.json:
+    print "You need to specify something to be sent to ISPyB."
+    sys.exit(1)
+
+  messages = []
+
+  for jsonfile in options.json:
+    print "Loading", jsonfile
+    with open(jsonfile, 'r') as fh:
+      messages.append(json.load(fh))
+
+  if options.xia2:
+    print "Reading xia2 results"
+    from xia2.command_line.ispyb_json import ispyb_object
+    messages.append(ispyb_object())
+
+  dcid_present = all( \
+      all( container.get('AutoProcIntegration', {}).get('dataCollectionId') for container in \
+           message.get('AutoProcScalingContainer', {}).get('AutoProcIntegrationContainer', []) ) \
+      for message in messages )
+
   if not args:
     print "No data collection ID specified."
     sys.exit(1)
@@ -43,34 +64,22 @@ if __name__ == '__main__':
     print "Only a single data collection ID can be specified."
     sys.exit(1)
 
-  dcid = int(args[0])
-  assert dcid > 0, "Invalid data collection ID given."
-
-  if not options.xia2 and not options.json:
-    print "You need to specify something to be sent to ISPyB."
-    sys.exit(1)
+  if len(args) == 1:
+    dcid = int(args[0])
+    assert dcid > 0, "Invalid data collection ID given."
+    print "Writing to data collection ID", dcid
+    for message in messages:
+      for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
+        container['AutoProcIntegration']['dataCollectionId'] = dcid
 
   stomp = StompTransport()
   stomp.connect()
 
-  def send_message(message_object):
-    print "Sending", message_object
+  for message in messages:
+    print "Sending", message
     stomp.send(
       'transient.destination',
-      message_object
+      message
     )
-
-  for jsonfile in options.json:
-    print "Sending", jsonfile
-    with open(jsonfile, 'r') as fh:
-      message = json.load(fh)
-    send_message(message)
-
-  if options.xia2:
-    print "Reading xia2 results"
-    from xia2.command_line.ispyb_json import ispyb_object
-    message = ispyb_object()
-    print "Sending xia2 results"
-    send_message(message)
 
   print "\nDone."

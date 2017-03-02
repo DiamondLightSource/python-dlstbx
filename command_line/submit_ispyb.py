@@ -78,7 +78,7 @@ if __name__ == '__main__':
   for message in messages:
     print "Sending", message
     stomp.send(
-      'transient.destination',
+      'ispyb',
       message
     )
 

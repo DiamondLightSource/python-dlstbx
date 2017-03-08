@@ -3,6 +3,13 @@
 #   Starts a workflow service
 #
 
+# Note that the call semantics of dlstbx.service differs from other dlstbx
+# commands. dlstbx.service defaults to running in the testing ActiveMQ
+# namespace (zocdev), rather than the live namespace (zocalo). This is to
+# stop servers started by developers on their machines accidentally interfering
+# with live data processing.
+# To run a live server you must specify '--live'
+
 from __future__ import division
 from dlstbx import enable_graylog
 import dlstbx.util
@@ -54,10 +61,12 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
     self.log.debug('Loading dlstbx credentials')
 
     # override default stomp host
+    default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
+    if '--live' in sys.argv:
+      default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
     from workflows.transport.stomp_transport import StompTransport
     try:
-      StompTransport.load_configuration_file(
-        '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
+      StompTransport.load_configuration_file(default_configuration)
     except workflows.WorkflowsError, e:
       self.log.warn(e)
 
@@ -70,6 +79,10 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
                       default=False, help="Set debug log level for workflows")
     parser.add_option("-r", "--restart", dest="service_restart", action="store_true",
                       default=False, help="Restart service on failure")
+    parser.add_option("--test", action="store_true", dest="test",
+                      help="Run in ActiveMQ testing namespace (zocdev, default)")
+    parser.add_option("--live", action="store_true", dest="test",
+                      help="Run in ActiveMQ live namespace (zocalo)")
     self.log.debug('Launching ' + str(sys.argv))
 
   def on_parsing(self, options, args):

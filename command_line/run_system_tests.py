@@ -20,10 +20,13 @@ logger.setLevel(logging.DEBUG)
 dlstbx.enable_graylog()
 logger = logging.getLogger('dlstbx.system_test')
 
-# Set up transport
+# Set up transport: override default stomp host
+default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
+if '--test' in sys.argv:
+  default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
+  sys.argv = filter(lambda x: x != '--test', sys.argv)
+StompTransport.load_configuration_file(default_configuration)
 
-StompTransport.load_configuration_file(
-    '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
 transport = StompTransport()
 transport.connect()
 if not transport.is_connected():

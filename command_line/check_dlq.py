@@ -96,11 +96,6 @@ class QueueStatus():
         self.dlq_messages += report['size']
 
 if __name__ == '__main__':
-  # override default stomp host
-  from workflows.transport.stomp_transport import StompTransport
-  StompTransport.load_configuration_file(
-    '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
-
   parser = OptionParser(
     usage='dlstbx.check_dlq [options]'
   )
@@ -109,6 +104,15 @@ if __name__ == '__main__':
       default="", help="Restrict check to this namespace")
   parser.add_option("-t", "--transport", dest="transport", metavar="TRN",
       default="stomp", help="Transport mechanism, default '%default'")
+
+  # override default stomp host
+  parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
+  default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
+  if '--test' in sys.argv:
+    default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
+  from workflows.transport.stomp_transport import StompTransport
+  StompTransport.load_configuration_file(default_configuration)
+
   workflows.transport.add_command_line_options(parser)
   (options, args) = parser.parse_args()
 

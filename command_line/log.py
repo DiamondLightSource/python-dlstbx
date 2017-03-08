@@ -74,11 +74,12 @@ if __name__ == '__main__':
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 
   # override default stomp host
-  try:
-    StompTransport.load_configuration_file(
-      '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
-  except workflows.WorkflowsError, e:
-    raise
+  parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
+  default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
+  if '--test' in sys.argv:
+    default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
+  from workflows.transport.stomp_transport import StompTransport
+  StompTransport.load_configuration_file(default_configuration)
 
   StompTransport.add_command_line_options(parser)
   (options, args) = parser.parse_args(sys.argv[1:])

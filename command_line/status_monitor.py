@@ -8,6 +8,7 @@ import curses
 from dlstbx.util.version import dlstbx_version
 import logging
 from optparse import OptionParser, SUPPRESS_HELP
+import sys
 import threading
 import time
 from workflows.services.common_service import CommonService
@@ -27,7 +28,7 @@ class Monitor():
   border_chars_text = ('|', '|', '=', '=', '/', '\\', '\\', '/')
   '''Example alternative set of frame border characters.'''
 
-  def __init__(self, transport=None, version=None):
+  def __init__(self, transport=None, version=None, test=False):
     '''Set up monitor and connect to the network transport layer'''
     if transport is None or isinstance(transport, basestring):
       self._transport = workflows.transport.lookup(transport)()
@@ -36,7 +37,7 @@ class Monitor():
     assert self._transport.connect(), "Could not connect to transport layer"
     self._lock = threading.RLock()
     self._node_status = {}
-    self.headline = "DLS Zocalo service monitor"
+    self.headline = "DLS " + ("ZocDEV" if test else "Zocalo") + " service monitor"
     if version:
       self.headline += " v%s" % version.split(' ')[1].split('-')[0]
     self.headline += " -- quit with Ctrl+C"
@@ -258,14 +259,6 @@ class Monitor():
     self._transport.disconnect()
 
 if __name__ == '__main__':
-  # override default stomp host
-  from workflows.transport.stomp_transport import StompTransport
-  try:
-    StompTransport.load_configuration_file(
-        '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
-  except workflows.WorkflowsError, e:
-    print e # probably should use logging
-
   version = dlstbx_version()
   parser = OptionParser(
     usage='dlstbx.status_monitor [options]',
@@ -276,12 +269,26 @@ if __name__ == '__main__':
       default=False, help="Do not draw fancy borders")
   parser.add_option("-t", "--transport", dest="transport", metavar="TRN",
       default="stomp", help="Transport mechanism, default '%default'")
+
+  parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
+  default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
+  if '--test' in sys.argv:
+    default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
+
+  # override default stomp host
+  from workflows.transport.stomp_transport import StompTransport
+  try:
+    StompTransport.load_configuration_file(default_configuration)
+  except workflows.WorkflowsError, e:
+    raise
+
   workflows.transport.add_command_line_options(parser)
   (options, args) = parser.parse_args()
 
   monitor = Monitor(
       transport=options.transport,
-      version=version
+      version=version,
+      test=options.test
     )
   if options.nofancy:
     monitor.border_chars = monitor.border_chars_text

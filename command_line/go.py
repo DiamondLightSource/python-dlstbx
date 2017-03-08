@@ -23,10 +23,14 @@ if __name__ == '__main__':
       action="store_true", default=False,
       help="Trigger recipe without specifying a data collection ID")
 
+  parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
+  default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
+  if '--test' in sys.argv:
+    default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
+
   # override default stomp host
   try:
-    StompTransport.load_configuration_file(
-      '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
+    StompTransport.load_configuration_file(default_configuration)
   except workflows.WorkflowsError, e:
     raise
 

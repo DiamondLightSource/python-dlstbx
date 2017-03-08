@@ -47,6 +47,7 @@ class DLSLog():
       print "=" * 80
       self.resetcolor()
     else:
+      if message['name'] == 'dlstbx.services.cluster.stats': return # Filter cluster statistics messages
       message['service_description'] = message.get('workflows_service', '')
       if 'workflows_statustext' in message:
         message['service_description'] = ' ({workflows_service}:{workflows_statustext})'.format(**message)

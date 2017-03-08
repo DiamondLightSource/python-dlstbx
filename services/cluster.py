@@ -1,28 +1,40 @@
 from __future__ import absolute_import, division
+from collections import Counter
 from dials.util.procrunner import run_process
+from dlstbx.util.cluster import ClusterStatistics
 import errno
+import logging
 import os
 import random
 import string
 from workflows.recipe import Recipe
 from workflows.services.common_service import CommonService
 
-class DLSClusterSubmission(CommonService):
-  '''A service to run xia2 processing.'''
+class DLSCluster(CommonService):
+  '''A service to interface zocalo with cluster functions. Here we can start
+     new jobs and gather cluster statistics.'''
 
   # Human readable service name
-  _service_name = "DLS cluster submitter"
+  _service_name = "DLS Cluster service"
 
   # Logger name
-  _logger_name = 'dlstbx.services.cluster_submission'
+  _logger_name = 'dlstbx.services.cluster'
 
   def initializing(self):
     '''Subscribe to the cluster submission queue.
        Received messages must be acknowledged.'''
-    self.log.info("Cluster submitter starting")
+    self.log.info("Cluster service starting")
+
     self._transport.subscribe('cluster.submission',
       self.run_submit_job,
       acknowledgement=True)
+
+    # Generate cluster statistics up to every 30 seconds.
+    # Statistics go with debug level to a separate logger so they can be
+    # filtered by log monitors.
+    self.stats_log = logging.getLogger(self._logger_name + '.stats')
+    self.stats_log.setLevel(logging.DEBUG)
+    self._register_idle(30, self.update_cluster_statistics)
 
   @staticmethod
   def _recursive_mkdir(path):
@@ -86,3 +98,27 @@ class DLSClusterSubmission(CommonService):
     self._transport.send('transient.destination', results, transaction=txn, headers=new_header)
     self._transport.transaction_commit(txn)
     self.log.info("Submitted job %s to cluster", str(jobnumber))
+
+  def update_cluster_statistics(self):
+    '''Gather some cluster statistics.'''
+    submission = [
+      "module load global/cluster",
+      "qstat -f -r -u gda2 -xml"
+    ]
+    self.log.debug('Gathering cluster statistics...')
+    result = run_process(["/bin/bash"], stdin = "\n".join(submission), print_stdout=False, print_stderr=False)
+    if result['timeout']:
+      self.log.warn('Timeout reading cluster statistics')
+      return
+    if result['exitcode']:
+      self.log.warn('Encountered exit code %s reading cluster statistics', str(result['exitcode']))
+      return
+    self.log.debug('Received cluster statistics')
+
+    cs = ClusterStatistics()
+    joblist, queuelist = cs.parse_string(result['stdout'])
+    self.log.debug('Parsed cluster statistics')
+
+    pending_jobs = Counter(map(lambda j: j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
+    for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs):
+      self.stats_log.debug("queuelevel: %d jobs waiting in queue %s", pending_jobs[queue], queue, extra={'jobqueue': queue})

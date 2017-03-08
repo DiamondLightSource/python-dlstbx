@@ -55,6 +55,7 @@ class Monitor():
         if not isinstance(message, dict) or 'message' not in message:
           self.log_box.addstr("Unknown message:\n" + message, curses.color_pair(1))
         else:
+          if message['name'] == 'dlstbx.services.cluster.stats': return # Filter cluster statistics messages
           message['service_description'] = message.get('workflows_service', '')
           if 'workflows_statustext' in message:
             message['service_description'] = ' ({workflows_service}:{workflows_statustext})'.format(**message)

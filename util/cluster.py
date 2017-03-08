@@ -1,4 +1,5 @@
 from __future__ import absolute_import, division
+from datetime import datetime
 from dials.util.procrunner import run_process
 import multiprocessing
 import os
@@ -35,6 +36,7 @@ class Cluster():
     del(self._pipe_subprocess)
 
     self.qstat = self.create_remote_function_call('_qstat')
+    self.qstat_xml = self.create_remote_function_call('_qstat_xml')
     self.qsub  = self.create_remote_function_call('_qsub')
 
     self.lock = threading.Lock()
@@ -115,7 +117,7 @@ class Cluster():
       if '=' in line:
         line = line.strip()
         variable, content = line.split('=', 1)
-        if variable.startswith(('DRMAA_', 'SGE_')):
+        if variable.startswith(('DRMAA_', 'SGE_', 'PATH')):
           environment[variable] = content
     cls.cached_environment[command] = environment
     return environment
@@ -129,6 +131,7 @@ class Cluster():
       self._subprocess = None
 
   def _qstat(self, jobid):
+    '''Get the status of a single job with known ID.'''
     if isinstance(jobid, int):
       jobid = str(jobid)
     # Who needs a case statement when you have dictionaries?
@@ -143,6 +146,17 @@ class Cluster():
                         self.drmaa.JobState.DONE: 'job finished normally',
                         self.drmaa.JobState.FAILED: 'job finished, but failed'}
     return decodestatus[self.session.jobStatus(jobid)]
+
+  def _qstat_xml(self, arguments=None, timeout=10):
+    '''Run a qstat command against the cluster
+       :param arguments: List of command line parameters
+       :param timeout: maximum execution time
+       :return: A result dictionary, containing stdout, stderr, exitcode, and more.
+    '''
+    if not arguments: arguments = []
+    result = run_process(command=['qstat', '-xml'] + arguments, timeout=timeout,
+        stdin='', print_stdout=False, print_stderr=False)
+    return result
 
   def _qsub(self, command, arguments, job_params=None):
     '''Submit a job to the cluster
@@ -176,13 +190,122 @@ class Cluster():
     retval = self.session.wait(jobid, self.drmaa.Session.TIMEOUT_WAIT_FOREVER)
     print('Job: {0} finished with status {1}'.format(retval.jobId, retval.hasExited))
 
+
+class ClusterStatistics():
+  '''Interface to qstat'''
+
+  @staticmethod
+  def convert_string_to_time(s):
+    return datetime.strptime(s + '000', '%Y-%m-%dT%H:%M:%S.%f')
+
+  def age(self, dt):
+    if not hasattr(self, '_age_now'):
+      setattr(self, '_age_now', datetime.now())
+    return (getattr(self, '_age_now') - dt).total_seconds()
+
+  def parse_job_xml(self, j):
+    '''Parse qstat -xml job information into a dictionary'''
+    job = {}
+    job['state'] = j.attributes['state'].value
+    job['slots'] = int(j.getElementsByTagName('slots')[0].firstChild.nodeValue)
+    job['ID'] = int(j.getElementsByTagName('JB_job_number')[0].firstChild.nodeValue)
+    job['name'] = j.getElementsByTagName('JB_name')[0].firstChild.nodeValue
+    job['owner'] = j.getElementsByTagName('JB_owner')[0].firstChild.nodeValue
+    job['statecode'] = j.getElementsByTagName('state')[0].firstChild.nodeValue
+    if job['state'] == 'running':
+      job['start'] = self.convert_string_to_time(j.getElementsByTagName('JAT_start_time')[0].firstChild.nodeValue)
+      job['age'] = self.age(job['start'])
+      job['queue'], job['node'] = (j.getElementsByTagName('queue_name') or j.parentNode.getElementsByTagName('name'))[0].firstChild.nodeValue.split('@')
+    if job['state'] == 'pending':
+      job['submission'] = self.convert_string_to_time(j.getElementsByTagName('JB_submission_time')[0].firstChild.nodeValue)
+      job['age'] = self.age(job['submission'])
+      job['queue'] = j.getElementsByTagName('hard_req_queue')
+      if job['queue']:
+        job['queue'] = job['queue'][0].firstChild.nodeValue
+      else:
+        job['queue'] = ''
+    return job
+
+  @staticmethod
+  def parse_queue_xml(q):
+    '''Parse qstat -xml queue information into a dictionary'''
+    queue = {}
+    queue['ID'] = q.getElementsByTagName('name')[0].firstChild.nodeValue
+    queue['class'], queue['host'] = queue['ID'].split('@')
+    queue['slots_used'] = int(q.getElementsByTagName('slots_used')[0].firstChild.nodeValue)
+    queue['slots_reserved'] = int(q.getElementsByTagName('slots_resv')[0].firstChild.nodeValue)
+    queue['slots_total'] = int(q.getElementsByTagName('slots_total')[0].firstChild.nodeValue)
+    queue['slots_free'] = queue['slots_total'] - queue['slots_used'] - queue['slots_reserved']
+    queue['state'] = q.getElementsByTagName('state')
+    if queue['state']:
+      queue['state'] = queue['state'][0].firstChild.nodeValue
+    else:
+      queue['state'] = ''
+    queue['error'] = 'E' in queue['state']
+    queue['enabled'] = not any(char in queue['state'] for char in 'odsS') and not queue['error']
+    queue['suspended'] = any(char in queue['state'] for char in 'aADC') or not queue['enabled']
+    if queue['suspended'] or queue['error'] or not queue['enabled']:
+      queue['slots_free'] = 0
+    return queue
+
+  def parse_string(self, string):
+    '''Parse a string containing the XML output of qstat and
+       return a list of job and a list of queue dictionaries.'''
+    import xml.dom.minidom
+    return self.parse_xml(xml.dom.minidom.parseString(string))
+
+  def parse_xml(self, xmldom):
+    '''Given an XML object return a list of job and a list of queue dictionaries.'''
+    joblist = xmldom.getElementsByTagName('job_list')
+    joblist = map(self.parse_job_xml, joblist)
+    queuelist = xmldom.getElementsByTagName('Queue-List')
+    queuelist = map(self.parse_queue_xml, queuelist)
+    return (joblist, queuelist)
+
+  def run_on(self, cluster, arguments=None):
+    '''Run qstat on cluster object and return parsed output.
+
+       :return a list of job and a list of queue dictionaries otherwise.
+    '''
+    result = cluster.qstat_xml(arguments=arguments)
+    assert not result['timeout'] and result['exitcode'] == 0, 'Could not run qstat on cluster'
+    return self.parse_string(result['stdout'])
+
+
 if __name__ == '__main__':
   rc = Cluster('dlscluster')
   tc = Cluster('dlstestcluster')
+  stats = ClusterStatistics()
   import uuid
+  from pprint import pprint
   test_id = tc.qsub('/bin/bash', [ '-c', 'touch markerfile.' + str(uuid.uuid4()) + '; sleep 10; ls -la' ])
   real_id = rc.qsub('/bin/bash', [ '-c', 'touch markerfile.' + str(uuid.uuid4()) + '; sleep 10; ls -la' ])
   print "Submitted job #%s to the cluster and #%s to the testcluster" % (real_id, test_id)
+
+  joblist, _ = stats.run_on(rc, arguments=['-r', '-u', '*'])
+  joblist = filter(lambda j: j['ID'] == int(real_id), joblist)
+  if len(joblist) < 1:
+    print "Could not read back information about this job ID from cluster"
+  else:
+    if len(joblist) > 1:
+      print "Found more than one job with this ID on cluster"
+      pprint(joblist)
+    else:
+      print "Job information on cluster:"
+      pprint(joblist[0])
+
+  joblist, _ = stats.run_on(tc, arguments=['-r', '-u', '*'])
+  joblist = filter(lambda j: j['ID'] == int(test_id), joblist)
+  if len(joblist) < 1:
+    print "Could not read back information about this job ID from testcluster"
+  else:
+    if len(joblist) > 1:
+      print "Found more than one job with this ID on testcluster"
+      pprint(joblist)
+    else:
+      print "Job information on testcluster:"
+      pprint(joblist[0])
+
   for x in xrange(4):
     time.sleep(4)
     print "Cluster",     rc.qstat(real_id)

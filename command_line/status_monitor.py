@@ -27,7 +27,7 @@ class Monitor():
   border_chars_text = ('|', '|', '=', '=', '/', '\\', '\\', '/')
   '''Example alternative set of frame border characters.'''
 
-  def __init__(self, transport=None):
+  def __init__(self, transport=None, version=None):
     '''Set up monitor and connect to the network transport layer'''
     if transport is None or isinstance(transport, basestring):
       self._transport = workflows.transport.lookup(transport)()
@@ -36,6 +36,10 @@ class Monitor():
     assert self._transport.connect(), "Could not connect to transport layer"
     self._lock = threading.RLock()
     self._node_status = {}
+    self.headline = "DLS Zocalo service monitor"
+    if version:
+      self.headline += " v%s" % version.split(' ')[1].split('-')[0]
+    self.headline += " -- quit with Ctrl+C"
     self.message_box = None
     self.log_box = None
     self._transport.subscribe_broadcast('transient.status', self.update_status, retroactive=True)
@@ -120,7 +124,7 @@ class Monitor():
     '''Redraw screen. This could be to initialize, or to redraw after resizing.'''
     with self._lock:
       stdscr.clear()
-      stdscr.addstr(0, 0, "DLS Zocalo service monitor -- quit with Ctrl+C", curses.A_BOLD)
+      stdscr.addstr(0, 0, self.headline, curses.A_BOLD)
       stdscr.refresh()
       self.message_box = self._boxwin(5, curses.COLS, 2, 0, title='last seen message', color_pair=1)
       self.message_box.scrollok(True)
@@ -262,9 +266,10 @@ if __name__ == '__main__':
   except workflows.WorkflowsError, e:
     print e # probably should use logging
 
+  version = dlstbx_version()
   parser = OptionParser(
     usage='dlstbx.status_monitor [options]',
-    version=dlstbx_version()
+    version=version
   )
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-n", action="store_true", dest="nofancy",
@@ -276,6 +281,7 @@ if __name__ == '__main__':
 
   monitor = Monitor(
       transport=options.transport,
+      version=version
     )
   if options.nofancy:
     monitor.border_chars = monitor.border_chars_text

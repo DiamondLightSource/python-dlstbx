@@ -243,8 +243,9 @@ class ClusterStatistics():
       queue['state'] = ''
     queue['error'] = 'E' in queue['state']
     queue['enabled'] = not any(char in queue['state'] for char in 'odsS') and not queue['error']
-    queue['suspended'] = any(char in queue['state'] for char in 'aADC') or not queue['enabled']
-    if queue['suspended'] or queue['error'] or not queue['enabled']:
+    queue['alarm'] = any(char in queue['state'] for char in 'aA')
+    queue['suspended'] = any(char in queue['state'] for char in 'DC') or queue['alarm'] or not queue['enabled']
+    if queue['suspended'] or queue['error'] or queue['alarm'] or not queue['enabled']:
       queue['slots_free'] = 0
     return queue
 

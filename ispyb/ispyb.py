@@ -190,17 +190,19 @@ class ispyb(object):
     dc_ids = [m[0] for m in matches]
     return sorted(dc_ids)
 
-  def dc_info_to_filename(self, dc_info, image_number=None):
+  def dc_info_to_filename_pattern(self, dc_info):
     template = dc_info['fileTemplate']
-    directory = dc_info['imageDirectory']
-    start = dc_info['startImageNumber']
     fmt = '%%0%dd' % template.count('#')
     prefix = template.split('#')[0]
     suffix = template.split('#')[-1]
-    if image_number is None:
-      return os.path.join(directory, '%s%s%s' % (prefix, fmt % start, suffix))
-    return os.path.join(directory, '%s%s%s' % (prefix, fmt % image_number,
-                                               suffix))
+    return prefix + fmt + suffix
+
+  def dc_info_to_filename(self, dc_info, image_number=None):
+    template = self.dc_info_to_filename_pattern(dc_info)
+    directory = dc_info['imageDirectory']
+    if image_number:
+      return os.path.join(directory, template % image_number)
+    return os.path.join(directory, template % dc_info['startImageNumber'])
 
   def dc_info_to_start_end(self, dc_info):
     start = dc_info['startImageNumber']
@@ -411,8 +413,11 @@ def ispyb_filter(message, parameters):
   dc_id = parameters['ispyb_dcid']
 
   dc_info = i.get_dc_info(dc_id)
+  parameters['ispyb_dc_info'] = dc_info
   dc_class = i.classify_dc(dc_info)
+  parameters['ispyb_dc_class'] = dc_class
   start, end = i.dc_info_to_start_end(dc_info)
+  parameters['ispyb_image_pattern'] = i.dc_info_to_filename_pattern(dc_info)
   parameters['ispyb_image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
                                             start, end)
   parameters['ispyb_working_directory'] = i.dc_info_to_working_directory(

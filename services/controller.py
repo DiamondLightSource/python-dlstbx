@@ -90,6 +90,7 @@ class DLSController(CommonService):
       print "%dx %s" % (len(list_by_service[svc]), svc)
 
     expected_service = { # 'Message Consumer': { 'name': 'SampleConsumer', 'count': 1 },
+                         'DLS Archiver': { 'name': 'DLSArchiver', 'count': 1, 'limit': 2 },
                          'DLS Schlockmeister': { 'name': 'DLSSchlockMeister', 'count': 1, 'limit': 3 },
                          'DLS Filewatcher':    { 'name': 'DLSFileWatcher', 'count': 1, 'limit': 3 },
                          'DLS Dispatcher':     { 'name': 'DLSDispatcher', 'count': 1, 'limit': 3 },

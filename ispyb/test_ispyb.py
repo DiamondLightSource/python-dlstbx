@@ -31,6 +31,8 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
   assert isinstance(parameters['ispyb_dc_class'], dict)
   assert isinstance(parameters['ispyb_dc_info'], dict)
   assert parameters['ispyb_dc_class']['grid'] == False
+  assert parameters['ispyb_image_first'] == 1
+  assert parameters['ispyb_image_last'] == 1800
   assert parameters['ispyb_dc_info']['numberOfImages'] == 1800
   assert parameters['ispyb_image'] == '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800'
   assert parameters['ispyb_image_pattern'] == 'TRP_M1S6_4_%04d.cbf'

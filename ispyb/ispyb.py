@@ -417,6 +417,8 @@ def ispyb_filter(message, parameters):
   dc_class = i.classify_dc(dc_info)
   parameters['ispyb_dc_class'] = dc_class
   start, end = i.dc_info_to_start_end(dc_info)
+  parameters['ispyb_image_first'] = start
+  parameters['ispyb_image_last'] = end
   parameters['ispyb_image_pattern'] = i.dc_info_to_filename_pattern(dc_info)
   parameters['ispyb_image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
                                             start, end)

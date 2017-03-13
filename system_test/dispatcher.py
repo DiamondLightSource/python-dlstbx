@@ -169,7 +169,7 @@ class DispatcherService(CommonSystemTest):
       message={'purpose': 'testing if ISPyB connection works',
                'parameters': {'image':'/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800'}
                },
-      timeout=3
+      timeout=6
     )
 
 if __name__ == "__main__":

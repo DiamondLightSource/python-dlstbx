@@ -60,8 +60,8 @@ class DLSFileWatcher(CommonService):
 
     # List files to wait for
     files = [ subrecipe['parameters']['pattern'] % x
-              for x in range(subrecipe['parameters']['pattern-start'],
-                             subrecipe['parameters']['pattern-end'] + 1) ]
+              for x in range(int(subrecipe['parameters']['pattern-start']),
+                             int(subrecipe['parameters']['pattern-end']) + 1) ]
     filecount = len(files)
 
     self.log.info("Waiting %.1f seconds for %s\n%d of %d files seen so far",

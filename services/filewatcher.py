@@ -64,7 +64,7 @@ class DLSFileWatcher(CommonService):
                              int(subrecipe['parameters']['pattern-end']) + 1) ]
     filecount = len(files)
 
-    self.log.info("Waiting %.1f seconds for %s\n%d of %d files seen so far",
+    self.log.debug("Waiting %.1f seconds for %s\n%d of %d files seen so far",
         time.time()-status['start-time'],
         subrecipe['parameters']['pattern'],
         status['seen-files'], filecount)
@@ -129,7 +129,10 @@ class DLSFileWatcher(CommonService):
     # Are we done?
     if status['seen-files'] == filecount:
       # Happy days
-      self.log.info("%d files found. All done.", files_found)
+      self.log.info("All %d files found for %s after %.1f seconds.",
+        filecount,
+        subrecipe['parameters']['pattern'],
+        time.time()-status['start-time'])
       self._transport.transaction_commit(txn)
       return
 
@@ -137,10 +140,14 @@ class DLSFileWatcher(CommonService):
     # Otherwise note last time progress was made
     if files_found == 0:
       status['min-wait'] = time.time() + 1
-      self.log.info("No files found this time")
+      self.log.debug("No files found this time")
     else:
       status['last-seen'] = time.time()
-      self.log.info("%d files found this time", files_found)
+      self.log.info("%d files found for %s (total: %d out of %d) within %.1f seconds",
+        files_found,
+        subrecipe['parameters']['pattern'],
+        status['seen-files'], filecount
+        time.time()-status['start-time'])
 
     # Send results to myself for next round of processing
     self._transport.send('filewatcher',

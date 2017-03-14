@@ -146,7 +146,7 @@ class DLSFileWatcher(CommonService):
       self.log.info("%d files found for %s (total: %d out of %d) within %.1f seconds",
         files_found,
         subrecipe['parameters']['pattern'],
-        status['seen-files'], filecount
+        status['seen-files'], filecount,
         time.time()-status['start-time'])
 
     # Send results to myself for next round of processing

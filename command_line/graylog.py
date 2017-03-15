@@ -19,7 +19,7 @@ class GraylogAPI():
   def __init__(self, configfile):
     cfgparser = ConfigParser.ConfigParser(allow_no_value=True)
     if not cfgparser.read(configfile):
-      raise WorkflowsError('Could not read from configuration file %s' % filename)
+      raise RuntimeError('Could not read from configuration file %s' % filename)
     self.url = cfgparser.get('graylog', 'url')
     if not self.url.endswith('/'):
       self.url += '/'

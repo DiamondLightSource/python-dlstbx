@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division
 from dlstbx.system_test.common import CommonSystemTest
 import dlstbx.util
+import errno
 import mock
 import os.path
 from workflows.recipe import Recipe

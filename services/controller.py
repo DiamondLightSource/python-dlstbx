@@ -113,8 +113,10 @@ class DLSController(CommonService):
         if action == 'start':
           self.actions[(action, service)] = time.time() + 180
           result = run_process(['/dls_sw/apps/zocalo/start_service', service], timeout=15)
-          import pprint from pprint
+          from pprint import pprint
           pprint(result)
+          import json
+          self.log.info('Run action %s on %s call result: %s', action, service, json.dumps(result))
         elif action == 'stop':
           self.actions[(action, service)] = time.time() + 100
           candidate = candidates[0] # simplest strategy: choose first.

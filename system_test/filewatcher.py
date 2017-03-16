@@ -1,7 +1,6 @@
 from __future__ import absolute_import, division
 from dlstbx.system_test.common import CommonSystemTest
 import dlstbx.util
-import errno
 import mock
 import os.path
 from workflows.recipe import Recipe
@@ -10,6 +9,13 @@ tmpdir = dlstbx.util.dls_tmp_folder()
 
 class FilewatcherService(CommonSystemTest):
   '''Tests for the filewatcher service.'''
+
+  temp_dir_created = False
+
+  def create_temp_dir(self):
+    if not self.temp_dir_created:
+      self.temp_dir_created = True
+      os.makedirs(os.path.join(tmpdir, self.guid))
 
   def create_next_file(self):
     '''Create one more file for the test.'''
@@ -20,13 +26,7 @@ class FilewatcherService(CommonSystemTest):
     '''Send a recipe to the filewatcher. Create 200 files and wait for the
        appropriate notification messages.'''
 
-    try:
-      os.makedirs(os.path.join(tmpdir, self.guid))
-    except OSError as exc:
-      if exc.errno == errno.EEXIST and os.path.isdir(path):
-        pass
-      else:
-        raise
+    self.create_temp_dir()
     self.filepattern = os.path.join(tmpdir, self.guid, 'tst_%05d.cbf')
     self.filecount = 0
 
@@ -162,13 +162,7 @@ class FilewatcherService(CommonSystemTest):
     '''Send a recipe to the filewatcher. Do not create any files and wait for
        the appropriate timeout notification messages.'''
 
-    try:
-      os.makedirs(os.path.join(tmpdir, self.guid))
-    except OSError as exc:
-      if exc.errno == errno.EEXIST and os.path.isdir(path):
-        pass
-      else:
-        raise
+    self.create_temp_dir()
     failpattern = os.path.join(tmpdir, self.guid, 'tst_fail_%05d.cbf')
 
     recipe = {
@@ -257,13 +251,7 @@ class FilewatcherService(CommonSystemTest):
     '''Send a recipe to the filewatcher. Do not create any files and wait for
        the appropriate timeout notification messages.'''
 
-    try:
-      os.makedirs(os.path.join(tmpdir, self.guid))
-    except OSError as exc:
-      if exc.errno == errno.EEXIST and os.path.isdir(path):
-        pass
-      else:
-        raise
+    self.create_temp_dir()
     semifailpattern = os.path.join(tmpdir, self.guid, 'tst_semi_%05d.cbf')
     self.delayed_fail_file = semifailpattern % 1
 

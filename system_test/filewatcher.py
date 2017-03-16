@@ -30,7 +30,7 @@ class FilewatcherService(CommonSystemTest):
                              'pattern-start': 1,
                              'pattern-end': 200,
                              'burst-limit': 40,
-                             'timeout': 10,
+                             'timeout': 120,
                              'timeout-first': 60,
                            },
              'output': { 'first': 2,     # First

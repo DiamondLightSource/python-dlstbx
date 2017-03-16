@@ -33,6 +33,10 @@ class DLSFileWatcher(CommonService):
     for destination in destinations:
       header['recipe-pointer'] = destination
       if recipe[destination].get('queue'):
+        if recipe[destination].get('queue-delay'):
+          header['AMQ_SCHEDULED_DELAY'] = recipe[destination]['queue-delay']
+        elif 'AMQ_SCHEDULED_DELAY' in header:
+          del(header['AMQ_SCHEDULED_DELAY'])
         self._transport.send(
             recipe[destination]['queue'],
             message, headers=header,

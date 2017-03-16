@@ -245,13 +245,13 @@ class FilewatcherService(CommonSystemTest):
        the appropriate timeout notification messages.'''
 
     os.makedirs(os.path.join(tmpdir, self.guid))
-    failpattern = os.path.join(tmpdir, self.guid, 'tst_semi_%05d.cbf')
-    self.delayed_fail_file = failpattern % 1
+    semifailpattern = os.path.join(tmpdir, self.guid, 'tst_semi_%05d.cbf')
+    self.delayed_fail_file = semifailpattern % 1
 
     recipe = {
         1: { 'service': 'DLS Filewatcher',
              'queue': 'filewatcher',
-             'parameters': { 'pattern': failpattern,
+             'parameters': { 'pattern': semifailpattern,
                              'pattern-start': 1,
                              'pattern-end': 200,
                              'burst-limit': 40,
@@ -301,6 +301,7 @@ class FilewatcherService(CommonSystemTest):
       headers={ 'recipe': recipe,
                 'recipe-pointer': '2',
               },
+      min_wait=25,
       timeout=45,
     )
 
@@ -340,7 +341,7 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.semi.8',
-      message={ 'file': failpattern % 2,
+      message={ 'file': semifailpattern % 2,
                 'success': False,
               },
       headers={ 'recipe': recipe,

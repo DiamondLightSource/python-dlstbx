@@ -56,6 +56,7 @@ for classname, cls in systest_classes.iteritems():
     testresult.early = 0
     if testsetting.get('errors'):
       testresult.log_trace("\n".join(testsetting['errors']))
+      logger.warn("Error reading test %s:\n%s", testname, "\n".join(testsetting['errors']))
       testsetting['ignore'] = True
     tests[(classname, testname)] = (testsetting, testresult)
 logger.info("Found %d system tests" % len(tests))
@@ -140,7 +141,7 @@ for test, _ in tests.itervalues():
       function = event['callback']
       args = event.get('args', ())
       kwargs = event.get('kwargs', {})
-      x = lambda: function(*args, **kwargs)
+      x = lambda function=function: function(*args, **kwargs)
       timer_events.append((event['at_time'], x))
 timer_events = sorted(timer_events, key=lambda tup: tup[0])
 

@@ -22,23 +22,25 @@ class DLSFileWatcher(CommonService):
                               self.watch_files,
                               acknowledgement=True)
 
-  def notify(self, recipe, destinations, header, filename, txn):
+  def notify(self, recipe, destinations, header, filename, txn, message=None):
     '''Send file-found notifications to selected output channels.'''
     if destinations is None:
       return
     if not isinstance(destinations, list):
       destinations = [ destinations ]
+    if not message:
+      message = { 'file': filename }
     for destination in destinations:
       header['recipe-pointer'] = destination
       if recipe[destination].get('queue'):
         self._transport.send(
             recipe[destination]['queue'],
-            { 'file': filename }, headers=header,
+            message, headers=header,
             transaction=txn)
       if recipe[destination].get('topic'):
         self._transport.broadcast(
             recipe[destination]['topic'],
-            { 'file': filename }, headers=header,
+            message, headers=header,
             transaction=txn)
 
   def watch_files(self, header, message):
@@ -52,6 +54,7 @@ class DLSFileWatcher(CommonService):
     current_recipe = Recipe(header['recipe'])
     current_recipepointer = int(header['recipe-pointer'])
     subrecipe = current_recipe[current_recipepointer]
+    message_headers = { 'recipe': header['recipe'] }
 
     # Check if message body contains partial results from a previous run
     status = { 'seen-files': 0, 'start-time': time.time() }
@@ -92,8 +95,6 @@ class DLSFileWatcher(CommonService):
       files_found += 1
       status['seen-files'] += 1
 
-      message_headers = { 'recipe': header['recipe'] }
-
       # Notify for first file
       if status['seen-files'] == 1:
         self.notify(current_recipe, subrecipe['output'].get('first'),
@@ -133,15 +134,58 @@ class DLSFileWatcher(CommonService):
         filecount,
         subrecipe['parameters']['pattern'],
         time.time()-status['start-time'])
+
+      # Notify for 'finally' outcome
+      self.notify(current_recipe, subrecipe['output'].get('finally'),
+                  message_headers, filename, txn, message = {
+                    'files-expected': filecount,
+                    'files-seen': status['seen-files'],
+                    'success': True,
+                  })
+
       self._transport.transaction_commit(txn)
       return
 
-    # If no files are found, set a minimum waiting time.
-    # Otherwise note last time progress was made
     if files_found == 0:
+      # If no files were found, check timeout conditions.
+      if status['seen-files'] == 0:
+        # For first file: relevant timeout is 'timeout-first', with fallback 'timeout', with fallback 1 hour
+        timeout = subrecipe['parameters'].get('timeout-first', subrecipe['parameters'].get('timeout', 3600))
+        timed_out = (status['start-time'] + timeout) < time.time()
+      else:
+        # For subsequent files: relevant timeout is 'timeout', with fallback 1 hour
+        timeout = subrecipe['parameters'].get('timeout', 3600)
+        timed_out = (status['last-seen'] + timeout) < time.time()
+      if timed_out:
+        # File watch operation has timed out.
+        self.log.warn("Filewatcher for %s timed out after %.1f seconds (%d files found, nothing seen for %.1f seconds)",
+          subrecipe['parameters']['pattern'],
+          time.time()-status['start-time'],
+          status['seen-files'],
+          time.time()-status.get('last-seen', status['start-time']))
+
+        # Notify for timeout
+        self.notify(current_recipe,
+                    subrecipe['output'].get('timeout'),
+                    message_headers, files[status['seen-files']], txn, message = {
+                        'file': files[status['seen-files']],
+                        'success': False })
+        # Notify for 'finally' outcome
+        self.notify(current_recipe, subrecipe['output'].get('finally'),
+                    message_headers, files[status['seen-files']], txn, message = {
+                      'files-expected': filecount,
+                      'files-seen': status['seen-files'],
+                      'success': False,
+                    })
+        # Stop processing message
+        self._transport.transaction_commit(txn)
+        return
+
+      # If no timeouts are triggered, set a minimum waiting time.
       status['min-wait'] = time.time() + 1
       self.log.debug("No files found this time")
     else:
+      # Otherwise note last time progress was made
       status['last-seen'] = time.time()
       self.log.info("%d files found for %s (total: %d out of %d) within %.1f seconds",
         files_found,

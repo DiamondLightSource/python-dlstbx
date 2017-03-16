@@ -38,6 +38,8 @@ class FilewatcherService(CommonSystemTest):
                          'last': 4,      # Last
                          'select-30': 5, # Select
                          20: 6,          # Specific
+                         'finally': 7,   # End-of-job
+                         'timeout': 8    # Should not be triggered here
                        }
            },
         2: { 'queue': 'transient.system_test.' + self.guid + '.2' },
@@ -45,6 +47,8 @@ class FilewatcherService(CommonSystemTest):
         4: { 'queue': 'transient.system_test.' + self.guid + '.4' },
         5: { 'queue': 'transient.system_test.' + self.guid + '.5' },
         6: { 'queue': 'transient.system_test.' + self.guid + '.6' },
+        7: { 'queue': 'transient.system_test.' + self.guid + '.7' },
+        8: { 'queue': 'transient.system_test.' + self.guid + '.8' },
         'start': [ (1, '') ]
       }
     recipe = Recipe(recipe)
@@ -128,6 +132,23 @@ class FilewatcherService(CommonSystemTest):
       timeout=60,
     )
 
+    # Finally ==========================
+
+    self.expect_message(
+      queue='transient.system_test.' + self.guid + '.7',
+      message={ 'files-expected': 200,
+                'files-seen': 200,
+                'success': True },
+      headers={ 'recipe': recipe,
+                'recipe-pointer': '7',
+              },
+      min_wait=65,
+      timeout=120,
+    )
+
+    # Timeout ==========================
+
+    # No timeout message should be sent
 
 if __name__ == "__main__":
   FilewatcherService().validate()

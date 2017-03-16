@@ -42,13 +42,13 @@ class FilewatcherService(CommonSystemTest):
                          'timeout': 8    # Should not be triggered here
                        }
            },
-        2: { 'queue': 'transient.system_test.' + self.guid + '.2' },
-        3: { 'queue': 'transient.system_test.' + self.guid + '.3' },
-        4: { 'queue': 'transient.system_test.' + self.guid + '.4' },
-        5: { 'queue': 'transient.system_test.' + self.guid + '.5' },
-        6: { 'queue': 'transient.system_test.' + self.guid + '.6' },
-        7: { 'queue': 'transient.system_test.' + self.guid + '.7' },
-        8: { 'queue': 'transient.system_test.' + self.guid + '.8' },
+        2: { 'queue': 'transient.system_test.' + self.guid + '.pass.2' },
+        3: { 'queue': 'transient.system_test.' + self.guid + '.pass.3' },
+        4: { 'queue': 'transient.system_test.' + self.guid + '.pass.4' },
+        5: { 'queue': 'transient.system_test.' + self.guid + '.pass.5' },
+        6: { 'queue': 'transient.system_test.' + self.guid + '.pass.6' },
+        7: { 'queue': 'transient.system_test.' + self.guid + '.pass.7' },
+        8: { 'queue': 'transient.system_test.' + self.guid + '.pass.8' },
         'start': [ (1, '') ]
       }
     recipe = Recipe(recipe)
@@ -76,7 +76,7 @@ class FilewatcherService(CommonSystemTest):
     # First ============================
 
     self.expect_message(
-      queue='transient.system_test.' + self.guid + '.2',
+      queue='transient.system_test.' + self.guid + '.pass.2',
       message={ 'file': self.filepattern % 1 },
       headers={ 'recipe': recipe,
                 'recipe-pointer': '2',
@@ -88,7 +88,7 @@ class FilewatcherService(CommonSystemTest):
 
     for file_number in range(200):
       self.expect_message(
-        queue='transient.system_test.' + self.guid + '.3',
+        queue='transient.system_test.' + self.guid + '.pass.3',
         message={ 'file': self.filepattern % (file_number + 1) },
         headers={ 'recipe': recipe,
                   'recipe-pointer': '3',
@@ -100,7 +100,7 @@ class FilewatcherService(CommonSystemTest):
     # Last =============================
 
     self.expect_message(
-      queue='transient.system_test.' + self.guid + '.4',
+      queue='transient.system_test.' + self.guid + '.pass.4',
       message={ 'file': self.filepattern % 200 },
       headers={ 'recipe': recipe,
                 'recipe-pointer': '4',
@@ -113,7 +113,7 @@ class FilewatcherService(CommonSystemTest):
 
     for file_number in (1, 7, 14, 21, 28, 35, 42, 49, 56, 63, 69, 76, 83, 90, 97, 104, 111, 118, 125, 132, 138, 145, 152, 159, 166, 173, 180, 187, 194, 200):
       self.expect_message(
-        queue='transient.system_test.' + self.guid + '.5',
+        queue='transient.system_test.' + self.guid + '.pass.5',
         message={ 'file': self.filepattern % file_number },
         headers={ 'recipe': recipe,
                   'recipe-pointer': '5',
@@ -124,7 +124,7 @@ class FilewatcherService(CommonSystemTest):
     # Specific =========================
 
     self.expect_message(
-      queue='transient.system_test.' + self.guid + '.6',
+      queue='transient.system_test.' + self.guid + '.pass.6',
       message={ 'file': self.filepattern % 20 },
       headers={ 'recipe': recipe,
                 'recipe-pointer': '6',
@@ -135,7 +135,7 @@ class FilewatcherService(CommonSystemTest):
     # Finally ==========================
 
     self.expect_message(
-      queue='transient.system_test.' + self.guid + '.7',
+      queue='transient.system_test.' + self.guid + '.pass.7',
       message={ 'files-expected': 200,
                 'files-seen': 200,
                 'success': True },
@@ -149,6 +149,206 @@ class FilewatcherService(CommonSystemTest):
     # Timeout ==========================
 
     # No timeout message should be sent
+
+
+  def test_failure_notification_immediate(self):
+    '''Send a recipe to the filewatcher. Do not create any files and wait for
+       the appropriate timeout notification messages.'''
+
+    os.makedirs(os.path.join(tmpdir, self.guid))
+    failpattern = os.path.join(tmpdir, self.guid, 'tst_fail_%05d.cbf')
+
+    recipe = {
+        1: { 'service': 'DLS Filewatcher',
+             'queue': 'filewatcher',
+             'parameters': { 'pattern': failpattern,
+                             'pattern-start': 1,
+                             'pattern-end': 200,
+                             'burst-limit': 40,
+                             'timeout': 10,
+                             'timeout-first': 60,
+                           },
+             'output': { 'first': 2,     # Should not be triggered here
+                         'every': 3,     # Should not be triggered here
+                         'last': 4,      # Should not be triggered here
+                         'select-30': 5, # Should not be triggered here
+                         20: 6,          # Should not be triggered here
+                         'finally': 7,   # End-of-job
+                         'timeout': 8    # Ran into a timeout condition
+                       }
+           },
+        2: { 'queue': 'transient.system_test.' + self.guid + '.fail.2' },
+        3: { 'queue': 'transient.system_test.' + self.guid + '.fail.3' },
+        4: { 'queue': 'transient.system_test.' + self.guid + '.fail.4' },
+        5: { 'queue': 'transient.system_test.' + self.guid + '.fail.5' },
+        6: { 'queue': 'transient.system_test.' + self.guid + '.fail.6' },
+        7: { 'queue': 'transient.system_test.' + self.guid + '.fail.7' },
+        8: { 'queue': 'transient.system_test.' + self.guid + '.fail.8' },
+        'start': [ (1, '') ]
+      }
+    recipe = Recipe(recipe)
+    recipe.validate()
+    recipe = recipe.serialize()
+
+    self.send_message(
+      queue='filewatcher',
+      message='',
+      headers={ 'recipe': recipe,
+                'recipe-pointer': '1',
+              }
+    )
+
+    # Check for expected messages, marked in the recipe above:
+
+    # First ============================
+    # Every ============================
+    # Last =============================
+    # Select ===========================
+    # Specific =========================
+
+    # No messages should be sent
+
+    # Finally ==========================
+
+    self.expect_message(
+      queue='transient.system_test.' + self.guid + '.fail.7',
+      message={ 'files-expected': 200,
+                'files-seen': 0,
+                'success': False },
+      headers={ 'recipe': recipe,
+                'recipe-pointer': '7',
+              },
+      min_wait=55,
+      timeout=80,
+    )
+
+    # Timeout ==========================
+
+    self.expect_message(
+      queue='transient.system_test.' + self.guid + '.fail.8',
+      message={ 'file': failpattern % 1,
+                'success': False,
+              },
+      headers={ 'recipe': recipe,
+                'recipe-pointer': '8',
+              },
+      min_wait=55,
+      timeout=80,
+    )
+
+  def create_delayed_failure_file(self):
+    '''Create one file for the test.'''
+    open(self.delayed_fail_file, 'w').close()
+
+  def test_failure_notification_delayed(self):
+    '''Send a recipe to the filewatcher. Do not create any files and wait for
+       the appropriate timeout notification messages.'''
+
+    os.makedirs(os.path.join(tmpdir, self.guid))
+    failpattern = os.path.join(tmpdir, self.guid, 'tst_semi_%05d.cbf')
+    self.delayed_fail_file = failpattern % 1
+
+    recipe = {
+        1: { 'service': 'DLS Filewatcher',
+             'queue': 'filewatcher',
+             'parameters': { 'pattern': failpattern,
+                             'pattern-start': 1,
+                             'pattern-end': 200,
+                             'burst-limit': 40,
+                             'timeout': 10,
+                             'timeout-first': 60,
+                           },
+             'output': { 'first': 2,     # First
+                         'every': 3,     # Every
+                         'last': 4,      # Should not be triggered here
+                         'select-30': 5, # Should not be triggered here
+                         20: 6,          # Should not be triggered here
+                         'finally': 7,   # End-of-job
+                         'timeout': 8    # Ran into a timeout condition
+                       }
+           },
+        2: { 'queue': 'transient.system_test.' + self.guid + '.semi.2' },
+        3: { 'queue': 'transient.system_test.' + self.guid + '.semi.3' },
+        4: { 'queue': 'transient.system_test.' + self.guid + '.semi.4' },
+        5: { 'queue': 'transient.system_test.' + self.guid + '.semi.5' },
+        6: { 'queue': 'transient.system_test.' + self.guid + '.semi.6' },
+        7: { 'queue': 'transient.system_test.' + self.guid + '.semi.7' },
+        8: { 'queue': 'transient.system_test.' + self.guid + '.semi.8' },
+        'start': [ (1, '') ]
+      }
+    recipe = Recipe(recipe)
+    recipe.validate()
+    recipe = recipe.serialize()
+
+    self.send_message(
+      queue='filewatcher',
+      message='',
+      headers={ 'recipe': recipe,
+                'recipe-pointer': '1',
+              }
+    )
+
+    # Create first file after 30 seconds
+    self.timer_event(at_time=30, callback=self.create_delayed_failure_file)
+
+    # Check for expected messages, marked in the recipe above:
+
+    # First ============================
+
+    self.expect_message(
+      queue='transient.system_test.' + self.guid + '.semi.2',
+      message={ 'file': self.delayed_fail_file },
+      headers={ 'recipe': recipe,
+                'recipe-pointer': '2',
+              },
+      timeout=45,
+    )
+
+    # Every ============================
+
+    self.expect_message(
+      queue='transient.system_test.' + self.guid + '.semi.3',
+      message={ 'file': self.delayed_fail_file },
+      headers={ 'recipe': recipe,
+                'recipe-pointer': '3',
+              },
+      min_wait=25,
+      timeout=45,
+    )
+
+    # Last =============================
+    # Select ===========================
+    # Specific =========================
+
+    # No messages should be sent
+
+    # Finally ==========================
+
+    self.expect_message(
+      queue='transient.system_test.' + self.guid + '.semi.7',
+      message={ 'files-expected': 200,
+                'files-seen': 1,
+                'success': False },
+      headers={ 'recipe': recipe,
+                'recipe-pointer': '7',
+              },
+      min_wait=25,
+      timeout=55,
+    )
+
+    # Timeout ==========================
+
+    self.expect_message(
+      queue='transient.system_test.' + self.guid + '.semi.8',
+      message={ 'file': failpattern % 2,
+                'success': False,
+              },
+      headers={ 'recipe': recipe,
+                'recipe-pointer': '8',
+              },
+      min_wait=25,
+      timeout=55,
+    )
 
 if __name__ == "__main__":
   FilewatcherService().validate()

@@ -10,12 +10,9 @@ tmpdir = dlstbx.util.dls_tmp_folder()
 class FilewatcherService(CommonSystemTest):
   '''Tests for the filewatcher service.'''
 
-  temp_dir_created = False
-
   def create_temp_dir(self):
-    if not self.temp_dir_created:
-      self.temp_dir_created = True
-      os.makedirs(os.path.join(tmpdir, self.guid))
+    '''Create directory for the test.'''
+    os.makedirs(os.path.join(tmpdir, self.guid))
 
   def create_next_file(self):
     '''Create one more file for the test.'''

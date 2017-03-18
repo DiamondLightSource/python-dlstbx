@@ -5,7 +5,7 @@ import mock
 import os.path
 from workflows.recipe import Recipe
 
-tmpdir = dlstbx.util.dls_tmp_folder()
+tmpdir = dlstbx.util.dls_tmp_folder_date()
 
 class FilewatcherService(CommonSystemTest):
   '''Tests for the filewatcher service.'''

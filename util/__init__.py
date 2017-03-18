@@ -1,11 +1,11 @@
 from __future__ import absolute_import, division
+import datetime
 import errno
 import re
 import os
 import stat
 
-def dls_tmp_folder():
-  tmp_folder = '/dls/tmp/dlstbx'
+def _create_tmp_folder(tmp_folder):
   try:
     os.makedirs(tmp_folder)
   except OSError as exception:
@@ -19,6 +19,15 @@ def dls_tmp_folder():
   except OSError as exception:
     if exception.errno != errno.EPERM:
       raise
+
+def dls_tmp_folder():
+  tmp_folder = '/dls/tmp/dlstbx'
+  _create_tmp_folder(tmp_folder)
+  return tmp_folder
+
+def dls_tmp_folder_date():
+  tmp_folder = os.path.join(dls_tmp_folder(), datetime.date.today().strftime('%Y-%m-%d'))
+  _create_tmp_folder(tmp_folder)
   return tmp_folder
 
 _proc_getnumber = re.compile(':\s+([0-9]+)\s')

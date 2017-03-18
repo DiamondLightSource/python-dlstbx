@@ -47,6 +47,7 @@ class CommonSystemTest(object):
       for name, function in self.enumerate_test_functions():
         print "validating", name
         function()
+        self.guid = str(uuid.uuid4()) # rotate guid for next function
         print "OK"
     finally:
       # Restore messaging functions

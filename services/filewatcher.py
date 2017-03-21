@@ -162,7 +162,16 @@ class DLSFileWatcher(CommonService):
         timed_out = (status['last-seen'] + timeout) < time.time()
       if timed_out:
         # File watch operation has timed out.
-        self.log.warn("Filewatcher for %s timed out after %.1f seconds (%d files found, nothing seen for %.1f seconds)",
+
+        timeoutlog = self.log.warn
+        # Normally report all timeouts as warnings. If the warning is caused by
+        # a system test then downgrade it to information level.
+        if subrecipe['parameters']['pattern'].startswith('/dls/tmp/dlstbx') and ( \
+            ('tst_semi_' in subrecipe['parameters']['pattern'] and status['seen-files'] == 1) or \
+            ('tst_fail_' in subrecipe['parameters']['pattern'] and status['seen-files'] == 0)):
+          timeoutlog = self.log.info
+
+        timeoutlog("Filewatcher for %s timed out after %.1f seconds (%d files found, nothing seen for %.1f seconds)",
           subrecipe['parameters']['pattern'],
           time.time()-status['start-time'],
           status['seen-files'],

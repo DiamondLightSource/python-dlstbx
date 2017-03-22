@@ -7,7 +7,36 @@ import datetime
 import dlstbx.profiling
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 import logging
+from optparse import OptionGroup, OptionParser, SUPPRESS_HELP
 import sys
+
+parser = OptionParser(
+  usage='it.status [options]'
+)
+parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+parser.add_option("-v", action="store_true", dest="verbose",
+    default=False, help="Show information level messages")
+
+report = OptionGroup(parser, 'to add a report to the database')
+report.add_option("-s", "--source", dest="source", metavar="SRC",
+    default=None, help="Add a report for this source to the database")
+report.add_option("-l", "--level", dest="level", metavar="LVL",
+    default=0, help="Warning level (0-9: OK, 11-19: Warn, 20+: Error)")
+report.add_option("-m", "--message", dest="message", metavar="MSG",
+    default=None, help="A tweet-long (<140 chars) status message")
+report.add_option("-u", "--url", dest="URL",
+    default=None, help="Optional link to more information")
+parser.add_option_group(report)
+
+(options, args) = parser.parse_args()
+
+def store_status():
+  db = dlstbx.profiling.database()
+  db.set_infrastructure_status(
+    source=options.source,
+    level=options.level,
+    message=options.message,
+    url=options.URL)
 
 def display_status():
   if hasattr(ColorStreamHandler, '_get_color'):
@@ -32,8 +61,12 @@ def display_status():
     select = filter(lambda s: s['Group'] == group, status)
     if select:
       setcolor(colour)
-      setbold()
-      print "\n%d %s message%s:" % (len(select), group, '' if len(select) == 1 else 's')
+      if options.verbose or group != 'Information':
+        setbold()
+        print "\n%d %s message%s:" % (len(select), group, '' if len(select) == 1 else 's')
+      else:
+        print "\n%d %s message%s (omitted)" % (len(select), group, '' if len(select) == 1 else 's')
+        continue
       resetcolor()
       setcolor(colour)
       for s in select:
@@ -52,4 +85,7 @@ def display_status():
             print indent + s['URL']
   resetcolor()
 
-display_status()
+if options.source:
+  store_status()
+else:
+  display_status()

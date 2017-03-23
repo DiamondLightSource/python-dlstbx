@@ -71,6 +71,10 @@ class database(object):
       (source, level, message, fullmessage, url))
     self.commit()
 
+  def prune(self):
+    self.execute('DELETE FROM infrastructure_status WHERE (TO_SECONDS(NOW()) - TO_SECONDS(Timestamp)) > 24 * 3600;')
+    self.commit()
+
 if __name__ == '__main__':
   import pprint
   pp = pprint.PrettyPrinter(indent=2).pprint

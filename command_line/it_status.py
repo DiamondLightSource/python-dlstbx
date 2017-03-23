@@ -16,8 +16,8 @@ parser = OptionParser(
 parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 parser.add_option("-v", action="count", dest="verbosity",
     default=0, help="Increase verbosity level (up to 3x)")
-parser.add_option("-q", action="store_true", dest="quiet",
-    default=False, help="Show only terse report")
+parser.add_option("-q", action="count", dest="quiet",
+    default=0, help="Be more quiet (up to 2x)")
 
 report = OptionGroup(parser, 'to add a report to the database')
 report.add_option("-s", "--source", dest="source", metavar="SRC",
@@ -93,11 +93,16 @@ def display_status():
           age = "%d min ago" % round(age / 60)
         else:
           age = "%.1f hrs ago" % (age / 60 / 60)
-        print base_indent + "%s: %s (%s)" % (s['Source'], s['Message'], age)
+        if s['Level'] > 0:
+          setbold()
+        print base_indent + s['Source'] + ":",
+        resetcolor()
+        setcolor(colour)
+        print " %s (%s)" % (s['Message'], age)
         indent = base_indent + (len(s['Source']) + 2) * ' '
         if s['MessageBody'] and not options.quiet and (group != 'Information' or options.verbosity > 2):
           print indent + s['MessageBody'].replace('\n', '\n' + indent)
-        if s['URL'] and (group != 'Information' or options.verbosity > 1):
+        if s['URL'] and (group != 'Information' or options.verbosity > 1) and not (options.quiet > 1):
           print indent + s['URL']
   resetcolor()
 

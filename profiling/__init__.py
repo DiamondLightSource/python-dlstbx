@@ -19,7 +19,7 @@ class database(object):
     try:
       import mysql.connector
     except ImportError:
-      raise ImportError('MySQL connector module not found. Run python -m pip install mysql-connector')
+      raise ImportError('MySQL connector module not found. Run python -m pip install "mysql-connector<2.2.3"')
 
     self.conn = mysql.connector.connect(
         host=_secret_ingredients['host'],

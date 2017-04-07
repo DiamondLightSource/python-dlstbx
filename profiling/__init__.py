@@ -61,14 +61,16 @@ class database(object):
         s['Group'] = 'Error'
     return status
 
-  def set_infrastructure_status(self, source=None, level=None, message=None, fullmessage=None, url=None):
+  def set_infrastructure_status(self, source=None, level=None, message=None, fullmessage=None, url=None, ext=None):
+    if ext:
+      ext = json.dumps(ext)
     assert source, "Source of status message undefined"
     assert level is not None, "Warning level of status message undefined"
     assert message, "Message undefined"
     self.cursor().execute(
-      'REPLACE INTO infrastructure_status (Source, Level, Message, MessageBody, URL) '
-      'VALUES (%s, %s, %s, %s, %s)',
-      (source, level, message, fullmessage, url))
+      'REPLACE INTO infrastructure_status (Source, Level, Message, MessageBody, URL, ExtData) '
+      'VALUES (%s, %s, %s, %s, %s, %s)',
+      (source, level, message, fullmessage, url, ext))
     self.commit()
 
   def prune(self):

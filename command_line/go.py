@@ -7,7 +7,6 @@ from __future__ import division
 from optparse import OptionParser, SUPPRESS_HELP
 import sys
 import workflows
-import workflows.contrib.start_service
 from workflows.transport.stomp_transport import StompTransport
 
 # Example: dlstbx.go -r example-xia2 527189

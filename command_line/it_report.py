@@ -17,6 +17,9 @@ import sys
 import tempfile
 import time
 
+# Set this to false before changing the script
+live = True
+
 def select_issue():
   if hasattr(ColorStreamHandler, '_get_color'):
     def setbold():
@@ -81,7 +84,6 @@ def prepare_report(issue):
   issue['ext'] = json.loads(str(issue['ExtData'])) if issue.get('ExtData') else {}
 #  from pprint import pprint
 #  pprint(issue)
-
   if issue['Source'] in ('it.cluster', 'it.testcluster'):
     return report_cluster(issue)
 
@@ -102,9 +104,9 @@ def report_cluster(issue):
       elif crashed == 2:
         crashreport = 'Two cluster nodes, %s and %s, appear to have crashed.' % list(issue['ext']['nodecrashed'])
       elif crashed < 8:
-        crashreport = 'The following %d cluster nodes appear to have crashed:\n' % crashed + "\n".join(list(issue['ext']['nodecrashed']))
+        crashreport = 'The following %d cluster nodes appear to have crashed:\n' % crashed + "\n".join(sorted(list(issue['ext']['nodecrashed'])))
       else:
-        crashreport = 'A lot of cluster nodes appear to have crashed, %d in total:\n' % crashed + "\n".join(list(issue['ext']['nodecrashed']))
+        crashreport = 'A lot of cluster nodes appear to have crashed, %d in total:\n' % crashed + "\n".join(sorted(list(issue['ext']['nodecrashed'])))
       report.append(crashreport)
       report.append('')
       firstitem = False
@@ -112,17 +114,23 @@ def report_cluster(issue):
   if 'errqueue' in issue['ext']:
     erred = len(issue['ext']['errqueue'])
     if erred:
-      errreport = 'T' if firstitem else 'Additionally, t'
       if erred == 1:
-        errreport += 'he queue %s on host %s is in an error state.' % split(list(issue['ext']['errqueue'])[0])
+        errreport = 'The queue %s on host %s is in an error state.' % split(list(issue['ext']['errqueue'])[0])
       elif erred == 2:
-        errreport += 'wo queues, %s and %s, are in an error state.' % list(issue['ext']['errqueue'])
+        errreport = 'Two queues, %s and %s, are in an error state.' % list(issue['ext']['errqueue'])
       elif erred < 8:
-        errreport += 'he following %d queues are in an error state:\n' % erred + "\n".join(sorted(list(issue['ext']['errqueue'])))
+        errreport = 'The following %d queues are in an error state:\n' % erred + "\n".join(sorted(list(issue['ext']['errqueue'])))
       else:
-        errreport += 'here are a large number of queues showing an error state, %d in total:\n' % erred + "\n".join(sorted(list(issue['ext']['errqueue'])))
+        errreport = 'There are a large number of queues showing an error state, %d in total:\n' % erred + "\n".join(sorted(list(issue['ext']['errqueue'])))
+      if firstitem:
+        firstitem = False
+      else:
+        errreport = 'Additionally, ' + errreport[:1].lower() + errreport[1:]
       report.append(errreport)
       report.append('')
+
+  if 'longjobs' in issue['ext']:
+    pass
 
   if issue['ext']['overall']['crashed'] > ( issue['ext']['overall']['total'] * 0.5) :
     report.append('We are a bit concerned because the ' + clustername + ' is currently reduced to below half-capacity due to those problems.')
@@ -184,6 +192,10 @@ def pass_through_editor(initial_message):
   return lines, subject
 
 def send_mail(message, subject=None):
+  if not live:
+    print "Mail sending functionality disabled"
+    sys.exit(1)
+
   command = ['/bin/mail']
   if mailaddr:
     command.extend(['-r', mailaddr])

@@ -132,7 +132,16 @@ def report_cluster(issue):
   if 'longjobs' in issue['ext']:
     pass
 
-  if issue['ext']['overall']['crashed'] > ( issue['ext']['overall']['total'] * 0.5) :
+  if issue['ext']['overall']['crashed'] == issue['ext']['overall']['total']:
+    report.append('All nodes on the ' + clustername + ' have crashed. It looks like the ' + clustername + ' is down.')
+    report.append('')
+  elif issue['ext']['overall']['disabled'] == issue['ext']['overall']['total']:
+    report.append('All nodes on the ' + clustername + ' are shown as disabled. It looks like the ' + clustername + ' is down.')
+    report.append('')
+  elif (issue['ext']['overall']['crashed'] + issue['ext']['overall']['disabled']) == issue['ext']['overall']['total']:
+    report.append('All nodes on the ' + clustername + ' are shown as either crashed or disabled. It looks like the ' + clustername + ' is down.')
+    report.append('')
+  elif issue['ext']['overall']['crashed'] > ( issue['ext']['overall']['total'] * 0.5) :
     report.append('We are a bit concerned because the ' + clustername + ' is currently reduced to below half-capacity due to those problems.')
     report.append('')
   elif (issue['ext']['overall']['crashed'] + issue['ext']['overall']['disabled']) > (issue['ext']['overall']['total'] * 0.5) :

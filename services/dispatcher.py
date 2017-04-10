@@ -2,6 +2,7 @@ from __future__ import absolute_import, division
 import dlstbx
 import json
 import os
+import timeit
 import uuid
 from workflows.services.common_service import CommonService
 import workflows.recipe
@@ -25,6 +26,8 @@ class DLSDispatcher(CommonService):
 
   def process(self, header, message):
     '''Process an incoming processing request.'''
+    # Time execution
+    start_time = timeit.default_timer()
 
     # Conditionally acknowledge receipt of the message
     txn = self._transport.transaction_begin()
@@ -82,4 +85,4 @@ class DLSDispatcher(CommonService):
 
     # Commit transaction
     self._transport.transaction_commit(txn)
-    self.log.info("Processing completed")
+    self.log.info("Processing completed in %.2f seconds", timeit.default_timer() - start_time)

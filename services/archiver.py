@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division
 from datetime import datetime
+import errno
 import os
 import os.path
 from workflows.recipe import Recipe
@@ -68,8 +69,11 @@ class DLSArchiver(CommonService):
     for f in files:
       try:
         stat = os.stat(f)
-      except OSError:
-        self.log.warn("Could not archive %s", f, exc_info=True)
+      except OSError, e:
+        if e.errno == errno.ENOENT:
+          self.log.info("File %s not found", f)
+        else:
+          self.log.warn("Could not archive %s", f, exc_info=True)
         message_out['failed'] += 1
         continue
       self.log.debug("Archiving %s", f)
@@ -114,9 +118,12 @@ class DLSArchiver(CommonService):
     if dropfile:
       timestamp = datetime.strftime(datetime.now(), "%Y%m%d-%H%M%S")
       dropfile = dropfile.format(visit_id=visit_id, beamline=beamline, timestamp=timestamp)
-      with open(dropfile, 'w') as fh:
-        fh.write(xml_string)
-      self.log.info("Written dropfile XML to %s", dropfile)
+      if message_out['success']:
+        with open(dropfile, 'w') as fh:
+          fh.write(xml_string)
+        self.log.info("Written dropfile XML to %s", dropfile)
+      else:
+        self.log.info("Skipped writing empty dropfile XML to %s", dropfile)
     message_out['xml'] = xml_string
 
     if subrecipe['output']:

@@ -11,7 +11,7 @@ from optparse import OptionGroup, OptionParser, SUPPRESS_HELP
 import sys
 
 parser = OptionParser(
-  usage='it.status [options]'
+  usage='it.status [options] [issue | issuegroup.]*'
 )
 parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 parser.add_option("-v", action="count", dest="verbosity",
@@ -48,7 +48,7 @@ def prune_database():
   dlstbx.profiling.database().prune()
   print "Database successfully pruned"
 
-def display_status():
+def display_status(issues):
   if hasattr(ColorStreamHandler, '_get_color'):
     def setbold():
       sys.stdout.write(ColorStreamHandler.BOLD)
@@ -64,6 +64,9 @@ def display_status():
   db = dlstbx.profiling.database()
   status = db.get_infrastructure_status()
   status = sorted(status, key=lambda s:-s['Level'])
+  if issues:
+    prefixes = filter(lambda x: x.endswith('.'), issues)
+    status = filter(lambda x: x['Source'] in issues or any(map(lambda y: x['Source'].startswith(y), prefixes)), status)
 
   for group, colour in (('Error', logging.ERROR), \
                         ('Warning', logging.WARNING), \
@@ -111,4 +114,4 @@ if options.prune:
 elif options.source:
   store_status()
 else:
-  display_status()
+  display_status(args)

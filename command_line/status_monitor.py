@@ -15,7 +15,7 @@ import time
 from workflows.services.common_service import CommonService
 import workflows.transport
 
-class Monitor():
+class Monitor(object):
   '''A sample implementation of a status monitor showing all running services'''
 
   shutdown = False
@@ -28,6 +28,9 @@ class Monitor():
   '''Characters used for frame borders.'''
   border_chars_text = ('|', '|', '=', '=', '/', '\\', '\\', '/')
   '''Example alternative set of frame border characters.'''
+
+  most_recent_version = {}
+  '''Dictionary to hold software version information, so old versions can be highlighted.'''
 
   def __init__(self, transport=None, version=None, test=False):
     '''Set up monitor and connect to the network transport layer'''
@@ -84,6 +87,19 @@ class Monitor():
             self.log_box.addstr("{name}: {msg}\n".format(**message), msg_col)
         self.log_box.refresh()
 
+  def _is_most_recent_version(self, program, version):
+    vnum = tuple(int(i) for i in version.split('.'))
+    if program not in self.most_recent_version:
+      self.most_recent_version[program] = (version, vnum)
+      return True
+    elif self.most_recent_version[program][0] == version:
+      return True
+    else:
+      if (vnum > self.most_recent_version[program][1]):
+        self.most_recent_version[program] = (version, vnum)
+        return True
+    return False
+
   def update_status(self, header, message):
     '''Process incoming status message. Acquire lock for status dictionary before updating.'''
     with self._lock:
@@ -114,6 +130,8 @@ class Monitor():
     '''A wrapper for the real _run() function to cleanly enable/disable the
        curses environment.'''
     curses.wrapper(self._run)
+#    import mock
+#    self._run(mock.Mock())
 
   def _boxwin(self, height, width, row, column, title=None, title_x=7, color_pair=None):
     with self._lock:
@@ -258,10 +276,16 @@ class Monitor():
                   card.addstr('V: ', curses.color_pair(3))
                   if 'dlstbx' in process:
                     card.addstr('dlstbx ')
-                    card.addstr(process['dlstbx'])
+                    if self._is_most_recent_version('dlstbx', process['dlstbx']):
+                      card.addstr(process['dlstbx'])
+                    else:
+                      card.addstr(process['dlstbx'], curses.color_pair(1))
                     card.addstr(', ')
                   card.addstr('WF ')
-                  card.addstr(process['workflows'])
+                  if self._is_most_recent_version('workflows', process['workflows']):
+                    card.addstr(process['workflows'])
+                  else:
+                    card.addstr(process['workflows'], curses.color_pair(1))
                 card.noutrefresh()
               cardnumber = cardnumber + 1
         if cardnumber < len(self.cards):

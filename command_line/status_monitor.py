@@ -8,6 +8,7 @@ import curses
 from dlstbx.util.version import dlstbx_version
 import logging
 from optparse import OptionParser, SUPPRESS_HELP
+import re
 import sys
 import threading
 import time
@@ -100,6 +101,12 @@ class Monitor():
         self.message_box.refresh()
       if message['host'] not in self._node_status or \
           int(header['timestamp']) >= self._node_status[message['host']]['last_seen']:
+        if 'dlstbx' in message:
+          match = re.search('dlstbx ([0-9.]*)', message['dlstbx'])
+          if match:
+            message['dlstbx'] = match.group(1)
+          else:
+            message['dlstbx'] = None
         self._node_status[message['host']] = message
         self._node_status[message['host']]['last_seen'] = int(header['timestamp'])
 
@@ -209,6 +216,7 @@ class Monitor():
               del(self._node_status[host])
             else:
               card = self._get_card(cardnumber)
+              process = overview[host]
               if card:
                 card.erase()
                 card.move(0, 0)
@@ -246,6 +254,14 @@ class Monitor():
                 card.move(3, 0)
                 if age >= 10:
                   card.addstr("last seen %d seconds ago" % age, curses.color_pair(1) + (0 if age < 60 else curses.A_BOLD))
+                else:
+                  card.addstr('V: ', curses.color_pair(3))
+                  if 'dlstbx' in process:
+                    card.addstr('dlstbx ')
+                    card.addstr(process['dlstbx'])
+                    card.addstr(', ')
+                  card.addstr('WF ')
+                  card.addstr(process['workflows'])
                 card.noutrefresh()
               cardnumber = cardnumber + 1
         if cardnumber < len(self.cards):

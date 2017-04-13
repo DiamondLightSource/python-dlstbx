@@ -92,7 +92,7 @@ class DLSFileWatcher(CommonService):
     # Look for files
     files_found = 0
     while status['seen-files'] < filecount and \
-          files_found < subrecipe['parameters'].get('burst-limit', 40) and \
+          files_found < subrecipe['parameters'].get('burst-limit', 100) and \
           os.path.isfile(files[status['seen-files']]):
       filename = files[status['seen-files']]
       self.log.debug("Found %s", filename)

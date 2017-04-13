@@ -83,6 +83,7 @@ class DLSFileWatcher(CommonService):
 
     # Check if a minimum-wait time is set, and wait accordingly
     # (but no more than 3 seconds)
+    # can be removed in the future
     if status.get('min-wait', 0) > time.time():
       timeout = max(0, min(3, status['min-wait'] - time.time()))
       self.log.debug("Waiting %.1f seconds", timeout)
@@ -150,6 +151,7 @@ class DLSFileWatcher(CommonService):
       self._transport.transaction_commit(txn)
       return
 
+    message_delay = None
     if files_found == 0:
       # If no files were found, check timeout conditions.
       if status['seen-files'] == 0:
@@ -195,7 +197,8 @@ class DLSFileWatcher(CommonService):
         return
 
       # If no timeouts are triggered, set a minimum waiting time.
-      status['min-wait'] = time.time() + 1
+      status['min-wait'] = time.time() + 1 # can be removed in the future
+      message_delay = 1
       self.log.debug("No files found this time")
     else:
       # Otherwise note last time progress was made
@@ -211,5 +214,6 @@ class DLSFileWatcher(CommonService):
         { 'filewatcher-status': status },
         headers={ 'recipe': header['recipe'],
                   'recipe-pointer': header['recipe-pointer'] },
+        delay=message_delay,
         transaction=txn)
     self._transport.transaction_commit(txn)

@@ -66,12 +66,13 @@ class DLSArchiver(CommonService):
     ET.SubElement(dataset, 'description').text = 'unknown'
 
     message_out = { 'success': 0, 'failed': 0 }
+    files_not_found = []
     for f in files:
       try:
         stat = os.stat(f)
       except OSError, e:
         if e.errno == errno.ENOENT:
-          self.log.info("File %s not found", f)
+          files_not_found.append(f)
         else:
           self.log.warn("Could not archive %s", f, exc_info=True)
         message_out['failed'] += 1
@@ -89,6 +90,8 @@ class DLSArchiver(CommonService):
         # both are set to time of last modification
       ET.SubElement(df, 'file_size').text = str(stat.st_size)
       message_out['success'] += 1
+    if files_not_found:
+      self.log.info("The following files were not found:\n%s", "\n".join(files_not_found))
     self.log.info("%d files archived", message_out['success'])
     if message_out['failed']:
       self.log.warn("Failed to archive %d files", message_out['failed'])

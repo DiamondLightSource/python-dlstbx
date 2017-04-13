@@ -118,6 +118,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
     for env in ('SGE_CELL', 'JOB_ID'):
       if env in os.environ:
         extended_status['cluster_' + env] = os.environ[env]
+    extended_status['dlstbx'] = dlstbx_version()
 
     original_status_function = frontend.get_status
     def extend_status_wrapper():

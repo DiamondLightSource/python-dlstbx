@@ -4,9 +4,16 @@ import sys
 # modify sys.argv so the command line help shows the right executable name
 sys.argv[0] = 'ptw'
 
-from pkg_resources import load_entry_point
+from pkg_resources import load_entry_point, DistributionNotFound
 
 if __name__ == '__main__':
-    sys.exit(
-        load_entry_point('pytest-watch==4.1.0', 'console_scripts', 'ptw')()
-    )
+  try:
+    ptw = load_entry_point('pytest-watch>=4.1.0', 'console_scripts', 'ptw')
+
+  except DistributionNotFound:
+    # Install package if necessary
+    import pip
+    pip.main(['install', 'pytest-watch>=4.1.0'])
+    ptw = load_entry_point('pytest-watch>=4.1.0', 'console_scripts', 'ptw')
+
+  sys.exit(ptw())

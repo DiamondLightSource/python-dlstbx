@@ -23,6 +23,7 @@ class DLSDispatcher(CommonService):
   def initializing(self):
     '''Subscribe to the processing_recipe queue. Received messages must be acknowledged.'''
     self._transport.subscribe('processing_recipe', self.process, acknowledgement=True)
+    self.recipe_basepath = '/dls_sw/apps/zocalo/live/recipes'
 
   def process(self, header, message):
     '''Process an incoming processing request.'''
@@ -54,7 +55,7 @@ class DLSDispatcher(CommonService):
     if message.get('recipes'):
       for recipefile in message['recipes']:
         try:
-          with open(os.path.join('/dls_sw/apps/zocalo/live/recipes', recipefile + '.json'), 'r') as rcp:
+          with open(os.path.join(self.recipe_basepath, recipefile + '.json'), 'r') as rcp:
             recipes.append(workflows.recipe.Recipe(recipe=rcp.read()))
         except ValueError, e:
           raise ValueError("Error reading recipe '%s': %s" % (recipefile, str(e)))

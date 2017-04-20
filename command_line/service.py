@@ -24,6 +24,7 @@ import workflows.logging
 
 class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
   __frontendref = None
+  use_live_infrastructure = False
 
   def setup_logging(self):
     '''Initialize common logging framework. Everything is logged to central
@@ -60,10 +61,13 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
 
     self.log.debug('Loading dlstbx credentials')
 
-    # override default stomp host
+    # change settings when in live mode
     default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
     if '--live' in sys.argv:
+      self.use_live_infrastructure = True
       default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
+
+    # override default stomp host
     from workflows.transport.stomp_transport import StompTransport
     try:
       StompTransport.load_configuration_file(default_configuration)
@@ -106,6 +110,8 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
   def before_frontend_construction(self, kwargs):
     if self.options.verbose:
       kwargs['verbose_service'] = True
+    kwargs['environment'] = kwargs.get('environment', {})
+    kwargs['environment']['live'] = self.use_live_infrastructure
     return kwargs
 
   def on_frontend_preparation(self, frontend):

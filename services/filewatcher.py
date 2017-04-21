@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division
 import os.path
 import time
-from workflows.recipe import Recipe
+import workflows.recipe
 from workflows.services.common_service import CommonService
 
 class DLSFileWatcher(CommonService):
@@ -18,36 +18,11 @@ class DLSFileWatcher(CommonService):
     '''Subscribe to the filewatcher queue. Received messages must be
        acknowledged.'''
     self.log.info("Filewatcher starting")
-    self._transport.subscribe('filewatcher',
-                              self.watch_files,
-                              acknowledgement=True)
+    workflows.recipe.wrap_subscribe(
+        self._transport, 'filewatcher',
+        self.watch_files, acknowledgement=True)
 
-  def notify(self, recipe, destinations, header, filename, txn, message=None):
-    '''Send file-found notifications to selected output channels.'''
-    if destinations is None:
-      return
-    if not isinstance(destinations, list):
-      destinations = [ destinations ]
-    if not message:
-      message = { 'file': filename }
-    for destination in destinations:
-      header['recipe-pointer'] = destination
-      if recipe[destination].get('queue'):
-        if recipe[destination].get('queue-delay'):
-          header['AMQ_SCHEDULED_DELAY'] = recipe[destination]['queue-delay']
-        elif 'AMQ_SCHEDULED_DELAY' in header:
-          del(header['AMQ_SCHEDULED_DELAY'])
-        self._transport.send(
-            recipe[destination]['queue'],
-            message, headers=header,
-            transaction=txn)
-      if recipe[destination].get('topic'):
-        self._transport.broadcast(
-            recipe[destination]['topic'],
-            message, headers=header,
-            transaction=txn)
-
-  def watch_files(self, header, message):
+  def watch_files(self, rw, header, message):
     '''Check for presence of files.'''
 
     # Conditionally acknowledge receipt of the message
@@ -55,9 +30,7 @@ class DLSFileWatcher(CommonService):
     self._transport.ack(header, transaction=txn)
 
     # Extract the recipe
-    current_recipe = Recipe(header['recipe'])
-    current_recipepointer = int(header['recipe-pointer'])
-    subrecipe = current_recipe[current_recipepointer]
+    subrecipe = rw.recipe_step
     message_headers = { 'recipe': header['recipe'] }
 
     # Check if message body contains partial results from a previous run
@@ -102,25 +75,18 @@ class DLSFileWatcher(CommonService):
 
       # Notify for first file
       if status['seen-files'] == 1:
-        self.notify(current_recipe, subrecipe['output'].get('first'),
-                    message_headers, filename, txn)
+        rw.send_to('first', { 'file': filename }, transaction=txn)
 
       # Notify for every file
-      self.notify(current_recipe, subrecipe['output'].get('every'),
-                  message_headers, filename, txn)
+      rw.send_to('every', { 'file': filename }, transaction=txn)
 
       # Notify for last file
       if status['seen-files'] == filecount:
-        self.notify(current_recipe, subrecipe['output'].get('last'),
-                    message_headers, filename, txn)
+        rw.send_to('last', { 'file': filename }, transaction=txn)
 
       # Notify for nth file
-      self.notify(current_recipe,
-                  subrecipe['output'].get(status['seen-files']),
-                  message_headers, filename, txn)
-      self.notify(current_recipe,
-                  subrecipe['output'].get(str(status['seen-files'])),
-                  message_headers, filename, txn)
+      rw.send_to(status['seen-files'], { 'file': filename }, transaction=txn)
+      rw.send_to(str(status['seen-files']), { 'file': filename }, transaction=txn)
 
       # Notify for selections
       for m, dest in selections.iteritems():
@@ -128,9 +94,7 @@ class DLSFileWatcher(CommonService):
             filecount,
             1 + round(status['seen-files'] * (m-1) // filecount) \
                 * filecount // (m-1)):
-          self.notify(current_recipe,
-              subrecipe['output'].get(dest),
-              message_headers, filename, txn)
+          rw.send_to(dest, { 'file': filename }, transaction=txn)
 
     # Are we done?
     if status['seen-files'] == filecount:
@@ -141,12 +105,11 @@ class DLSFileWatcher(CommonService):
         time.time()-status['start-time'])
 
       # Notify for 'finally' outcome
-      self.notify(current_recipe, subrecipe['output'].get('finally'),
-                  message_headers, filename, txn, message = {
+      rw.send_to('finally', {
                     'files-expected': filecount,
                     'files-seen': status['seen-files'],
                     'success': True,
-                  })
+                 }, transaction=txn)
 
       self._transport.transaction_commit(txn)
       return
@@ -180,18 +143,14 @@ class DLSFileWatcher(CommonService):
           time.time()-status.get('last-seen', status['start-time']))
 
         # Notify for timeout
-        self.notify(current_recipe,
-                    subrecipe['output'].get('timeout'),
-                    message_headers, files[status['seen-files']], txn, message = {
+        rw.send_to('timeout', {
                         'file': files[status['seen-files']],
-                        'success': False })
+                        'success': False }, transaction=txn)
         # Notify for 'finally' outcome
-        self.notify(current_recipe, subrecipe['output'].get('finally'),
-                    message_headers, files[status['seen-files']], txn, message = {
+        rw.send_to('finally', {
                       'files-expected': filecount,
                       'files-seen': status['seen-files'],
-                      'success': False,
-                    })
+                      'success': False }, transaction=txn)
         # Stop processing message
         self._transport.transaction_commit(txn)
         return

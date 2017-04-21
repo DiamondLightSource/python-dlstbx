@@ -3,7 +3,7 @@ from datetime import datetime
 import errno
 import os
 import os.path
-from workflows.recipe import Recipe
+import workflows.recipe
 from workflows.services.common_service import CommonService
 import xml.etree.cElementTree as ET
 from xml.etree.cElementTree import Element, ElementTree
@@ -21,11 +21,11 @@ class DLSArchiver(CommonService):
     '''Subscribe to the archiver queue. Received messages must be
        acknowledged.'''
     self.log.info("Archiver starting")
-    self._transport.subscribe('archive.pattern',
-                              self.archive_dcid,
-                              acknowledgement=True)
+    workflows.recipe.wrap_subscribe(
+        self._transport, 'archive.pattern',
+        self.archive_dcid, acknowledgement=True)
 
-  def archive_dcid(self, header, message):
+  def archive_dcid(self, rw, header, message):
     '''Archive collected datafiles connected to a data collection.'''
 
     # Conditionally acknowledge receipt of the message
@@ -33,10 +33,7 @@ class DLSArchiver(CommonService):
     self._transport.ack(header, transaction=txn)
 
     # Extract the recipe
-    current_recipe = Recipe(header['recipe'])
-    current_recipepointer = int(header['recipe-pointer'])
-    subrecipe = current_recipe[current_recipepointer]
-
+    subrecipe = rw.recipe_step
     self.log.info("Attempting to archive %s", subrecipe['parameters']['pattern'])
 
     # List files to archive
@@ -135,27 +132,8 @@ class DLSArchiver(CommonService):
       for destination in subrecipe['output']:
         header['recipe-pointer'] = destination
 
-    message_headers = { 'recipe': header['recipe'] }
-    self.notify(current_recipe, subrecipe['output'], message_headers, message_out, txn)
+    tw.send_to('output', message_out, transaction=txn)
 
     self._transport.transaction_commit(txn)
     self.log.info("Done.")
 
-  def notify(self, recipe, destinations, header, message, txn):
-    '''Send notifications to selected output channels.'''
-    if destinations is None:
-      return
-    if not isinstance(destinations, list):
-      destinations = [ destinations ]
-    for destination in destinations:
-      header['recipe-pointer'] = destination
-      if recipe[destination].get('queue'):
-        self._transport.send(
-            recipe[destination]['queue'],
-            message, headers=header,
-            transaction=txn)
-      if recipe[destination].get('topic'):
-        self._transport.broadcast(
-            recipe[destination]['topic'],
-            message, headers=header,
-            transaction=txn)

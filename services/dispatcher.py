@@ -73,6 +73,8 @@ class DLSDispatcher(CommonService):
       recipe.apply_parameters(parameters)
       full_recipe = full_recipe.merge(recipe)
 
+    wrapper = workflows.recipe.RecipeWrapper(recipe=full_recipe)
+
     common_headers = { 'recipe': full_recipe.serialize() }
     for destinationid, message in full_recipe['start']:
       message_headers = common_headers.copy()

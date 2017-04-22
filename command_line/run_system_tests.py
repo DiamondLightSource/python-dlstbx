@@ -22,7 +22,10 @@ logger = logging.getLogger('dlstbx.system_test')
 
 # Set up transport: override default stomp host
 default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
+test_mode = False
 if '--test' in sys.argv:
+  logger.info("Running on test configuration")
+  test_mode = True
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
   sys.argv = filter(lambda x: x != '--test', sys.argv)
 StompTransport.load_configuration_file(default_configuration)
@@ -49,7 +52,7 @@ if sys.argv[1:] and systest_count:
 tests = {}
 for classname, cls in systest_classes.iteritems():
   logger.debug('Collecting tests from %s' % classname)
-  for testname, testsetting in cls().collect_tests().iteritems():
+  for testname, testsetting in cls(dev_mode=test_mode).collect_tests().iteritems():
     testresult = Result()
     testresult.set_name(testname)
     testresult.set_classname(classname)

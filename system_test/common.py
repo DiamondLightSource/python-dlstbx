@@ -27,6 +27,16 @@ class CommonSystemTest(object):
   '''Set to true when test functions are only called for validation rather than
      testing. Think of this as 'dummy_mode'.'''
 
+  development_mode = False
+  '''A flag to distinguish between testing the live system and testing the
+     development system. This should be used only sparingly, after all tests
+     should be as realistic as possible, but may be required in some places,
+     eg. to decide where to load external files from.'''
+
+  def __init__(self, dev_mode=False):
+    '''Constructor via which the development mode can be set.'''
+    self.development_mode = dev_mode
+
   def enumerate_test_functions(self):
     '''Returns a list of (name, function) tuples for all declared test
        functions in the class.'''

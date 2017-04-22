@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division
 from dlstbx.system_test.common import CommonSystemTest
 import json
+import os.path
 from workflows.recipe import Recipe
 
 class DispatcherService(CommonSystemTest):
@@ -95,7 +96,12 @@ class DispatcherService(CommonSystemTest):
       }
     )
 
-    with open('/dls_sw/apps/mx-scripts/plum-duff/recipes/system-test-dispatcher.json', 'r') as fh:
+    if self.development_mode:
+      recipe_path = '/dls_sw/apps/zocalo/test/recipes'
+    else:
+      recipe_path = '/dls_sw/apps/zocalo/live/recipes'
+
+    with open(os.path.join(recipe_path, 'system-test-dispatcher.json'), 'r') as fh:
       recipe = json.loads(fh.read())
 
     self.expect_message(

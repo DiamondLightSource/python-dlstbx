@@ -22,13 +22,13 @@ class DLSDispatcher(CommonService):
 
   def initializing(self):
     '''Subscribe to the processing_recipe queue. Received messages must be acknowledged.'''
-    self._transport.subscribe('processing_recipe', self.process, acknowledgement=True)
     if self._environment.get('live'):
       self.log.info('Dispatcher starting in live mode')
       self.recipe_basepath = '/dls_sw/apps/zocalo/live/recipes'
     else:
       self.log.info('Dispatcher starting in testing mode')
       self.recipe_basepath = '/dls_sw/apps/zocalo/test/recipes'
+    self._transport.subscribe('processing_recipe', self.process, acknowledgement=True)
 
   def process(self, header, message):
     '''Process an incoming processing request.'''

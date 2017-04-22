@@ -10,9 +10,8 @@ class SafeDict(dict):
     return '{' + key + '}'
 
 class CommonSystemTest(object):
-  '''Framework for testing the Diamond Light Source data analysis
-     'plum duff' framework.
-     This is class that all system tests are derived from.
+  '''Base class for system tests for Zocalo,
+     the Diamond Light Source data analysis framework.
   '''
 
   guid = str(uuid.uuid4())

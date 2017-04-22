@@ -132,7 +132,11 @@ class DispatcherService(CommonSystemTest):
       }
     )
 
-    with open('/dls_sw/apps/mx-scripts/plum-duff/recipes/system-test-dispatcher.json', 'r') as fh:
+    if self.development_mode:
+      recipe_path = '/dls_sw/apps/zocalo/test/recipes'
+    else:
+      recipe_path = '/dls_sw/apps/zocalo/live/recipes'
+    with open(os.path.join(recipe_path, 'system-test-dispatcher.json'), 'r') as fh:
       recipe_from_file = json.loads(fh.read())
 
     self.expect_message(

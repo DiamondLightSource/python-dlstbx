@@ -85,7 +85,7 @@ class FilewatcherService(CommonSystemTest):
       headers={ 'recipe': recipe,
                 'recipe-pointer': '2',
               },
-      timeout=45,
+      timeout=50,
     )
 
     # Every ============================
@@ -306,7 +306,7 @@ class FilewatcherService(CommonSystemTest):
                 'recipe-pointer': '2',
               },
       min_wait=25,
-      timeout=45,
+      timeout=50,
     )
 
     # Every ============================
@@ -318,7 +318,7 @@ class FilewatcherService(CommonSystemTest):
                 'recipe-pointer': '3',
               },
       min_wait=25,
-      timeout=45,
+      timeout=50,
     )
 
     # Last =============================

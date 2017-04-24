@@ -61,7 +61,7 @@ class DLSArchiver(CommonService):
     ET.SubElement(investigation, 'inv_type').text = 'experiment'
 
     dataset = ET.SubElement(investigation, 'dataset')
-    ET.SubElement(dataset, 'name').text = '/'.join(filepaths[6:-1])
+    ET.SubElement(dataset, 'name').text = '/'.join(filepaths[6:-1]) or 'topdir'
     ET.SubElement(dataset, 'dataset_type').text = 'EXPERIMENT_RAW'
     ET.SubElement(dataset, 'description').text = 'unknown'
 

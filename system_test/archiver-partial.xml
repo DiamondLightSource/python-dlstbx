@@ -8,7 +8,7 @@
       <title>dont need it</title>
       <inv_type>experiment</inv_type>
       <dataset>
-        <name />
+        <name>topdir</name>
         <dataset_type>EXPERIMENT_RAW</dataset_type>
         <description>unknown</description>
         <datafile>

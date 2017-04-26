@@ -12,6 +12,7 @@ import re
 import sys
 import threading
 import time
+import workflows
 from workflows.services.common_service import CommonService
 import workflows.transport
 
@@ -51,6 +52,10 @@ class Monitor(object):
     self.last_info = None
     self.last_info_messages = 0
     self._transport.subscribe_broadcast('transient.log', self.print_log_message)
+
+    dlstbx_version_num = re.search('dlstbx ([0-9.]*)', dlstbx_version()).group(1)
+    self.version_dlstbx = tuple(int(i) for i in dlstbx_version_num.split('.'))
+    self.version_workflows = tuple(int(i) for i in workflows.version().split('.'))
 
   def print_log_message(self, header, message):
     '''Add a new log message to the log window.'''
@@ -98,6 +103,14 @@ class Monitor(object):
       if (vnum > self.most_recent_version[program][1]):
         self.most_recent_version[program] = (version, vnum)
         return True
+    return False
+
+  def _is_outdated_version(self, program, version):
+    vnum = tuple(int(i) for i in version.split('.'))
+    if program == 'dlstbx':
+      return vnum < self.version_dlstbx
+    elif program == 'workflows':
+      return vnum < self.version_workflows
     return False
 
   def update_status(self, header, message):
@@ -276,16 +289,20 @@ class Monitor(object):
                   card.addstr('V: ', curses.color_pair(3))
                   if 'dlstbx' in process:
                     card.addstr('dlstbx ')
-                    if self._is_most_recent_version('dlstbx', process['dlstbx']):
-                      card.addstr(process['dlstbx'])
-                    else:
+                    if self._is_outdated_version('dlstbx', process['dlstbx']):
                       card.addstr(process['dlstbx'], curses.color_pair(1))
+                    elif not self._is_most_recent_version('dlstbx', process['dlstbx']):
+                      card.addstr(process['dlstbx'], curses.color_pair(4))
+                    else:
+                      card.addstr(process['dlstbx'])
                     card.addstr(', ')
                   card.addstr('WF ')
-                  if self._is_most_recent_version('workflows', process['workflows']):
-                    card.addstr(process['workflows'])
-                  else:
+                  if self._is_outdated_version('workflows', process['workflows']):
                     card.addstr(process['workflows'], curses.color_pair(1))
+                  elif not self._is_most_recent_version('workflows', process['workflows']):
+                    card.addstr(process['workflows'], curses.color_pair(4))
+                  else:
+                    card.addstr(process['workflows'])
                 card.noutrefresh()
               cardnumber = cardnumber + 1
         if cardnumber < len(self.cards):

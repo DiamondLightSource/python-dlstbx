@@ -119,6 +119,6 @@ class DLSCluster(CommonService):
     joblist, queuelist = cs.parse_string(result['stdout'])
     self.log.debug('Parsed cluster statistics')
 
-    pending_jobs = Counter(map(lambda j: j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
+    pending_jobs = Counter(map(lambda j: j['queue'].split('@@')[0] if '@@' in j['queue'] else j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
     for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs):
       self.stats_log.debug("queuelevel: %d jobs waiting in queue %s", pending_jobs[queue], queue, extra={'jobqueue': queue})

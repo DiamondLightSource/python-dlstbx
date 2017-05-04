@@ -69,6 +69,10 @@ def select_issue():
         indent = (len(s['Source']) + 2) * ' '
   resetcolor()
 
+  if not issues:
+    print "There are no issues to report. Happy days."
+    sys.exit(0)
+
   print
   try:
     selected_issue = raw_input("Which issue would you like to report? ")

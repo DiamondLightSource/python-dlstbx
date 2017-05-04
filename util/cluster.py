@@ -241,8 +241,9 @@ class ClusterStatistics():
       queue['state'] = queue['state'][0].firstChild.nodeValue
     else:
       queue['state'] = ''
-    queue['error'] = 'E' in queue['state']
-    queue['enabled'] = not any(char in queue['state'] for char in 'odD') and not queue['error']
+    queue['disabled'] = any(char in queue['state'] for char in 'odD')
+    queue['error'] = not queue['disabled'] and 'E' in queue['state']
+    queue['enabled'] = not queue['disabled'] and not queue['error']
     queue['unknown'] = 'u' in queue['state']
     queue['alarm'] = any(char in queue['state'] for char in 'aA') and queue['enabled']
     if q.getElementsByTagName('load-alarm-reason'):

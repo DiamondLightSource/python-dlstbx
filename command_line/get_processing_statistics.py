@@ -19,14 +19,19 @@ def run(args):
   args = unhandled
 
   assert len(args) > 0
-  dc_id = args[0]
-  if len(args) > 1:
-    columns = args[1:]
-  else:
-    columns = None
+  dc_ids = []
+  columns = []
+  for arg in args:
+    try:
+      dc_ids.append(int(arg))
+    except ValueError:
+      columns.append(arg)
+
+  if len(dc_ids) > 1:
+    columns.insert(0, 'AutoProcIntegration.dataCollectionId')
 
   ispyb_conn = ispyb()
-  field_names, rows = ispyb_conn.get_processing_statistics(dc_id, columns=columns, statistics_type=params.statistics_type)
+  field_names, rows = ispyb_conn.get_processing_statistics(dc_ids, columns=columns, statistics_type=params.statistics_type)
   rows = [[str(i) for i in r] for r in rows]
   rows.insert(0, field_names)
 

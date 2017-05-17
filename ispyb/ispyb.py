@@ -371,7 +371,7 @@ WHERE Screening.dataCollectionID=%s
     field_names = [i[0] for i in self._cursor.description]
     return field_names, results
 
-  def get_processing_statistics(self, dc_id, columns=None, statistics_type='overall'):
+  def get_processing_statistics(self, dc_ids, columns=None, statistics_type='overall'):
     assert statistics_type in ('outerShell', 'innerShell', 'overall')
     if columns is not None:
       select_str = ', '.join(c for c in columns)
@@ -388,9 +388,9 @@ INNER JOIN AutoProcScaling
 ON AutoProcScaling_has_Int.autoProcScalingId = AutoProcScaling.autoProcScalingId
 INNER JOIN AutoProcScalingStatistics
 ON AutoProcScaling.autoProcScalingId = AutoProcScalingStatistics.autoProcScalingId
-WHERE AutoProcIntegration.dataCollectionId=%s AND scalingStatisticsType='%s'
+WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s'
 ;
-''' %(select_str, dc_id, statistics_type)
+''' %(select_str, ','.join(str(i) for i in dc_ids), statistics_type)
     results = self.execute(sql_str)
     field_names = [i[0] for i in self._cursor.description]
     return field_names, results

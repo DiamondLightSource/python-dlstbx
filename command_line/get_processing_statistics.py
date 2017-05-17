@@ -27,7 +27,9 @@ def run(args):
     except ValueError:
       columns.append(arg)
 
-  if len(dc_ids) > 1:
+  if len(columns) == 0:
+    columns = None
+  elif len(dc_ids) > 1:
     columns.insert(0, 'AutoProcIntegration.dataCollectionId')
 
   ispyb_conn = ispyb()

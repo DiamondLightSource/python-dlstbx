@@ -368,7 +368,32 @@ WHERE Screening.dataCollectionID=%s
 ;
 ''' %dc_id
     results = self.execute(sql_str)
-    return results
+    field_names = [i[0] for i in self._cursor.description]
+    return field_names, results
+
+  def get_processing_statistics(self, dc_id, columns=None, statistics_type='overall'):
+    assert statistics_type in ('outerShell', 'innerShell', 'overall')
+    if columns is not None:
+      select_str = ', '.join(c for c in columns)
+    else:
+      select_str = '*'
+    sql_str = '''
+SELECT %s
+FROM AutoProcIntegration
+INNER JOIN AutoProcProgram
+ON AutoProcIntegration.autoProcProgramId = AutoProcProgram.autoProcProgramId
+INNER JOIN AutoProcScaling_has_Int
+ON AutoProcIntegration.autoProcIntegrationId = AutoProcScaling_has_Int.autoProcIntegrationId
+INNER JOIN AutoProcScaling
+ON AutoProcScaling_has_Int.autoProcScalingId = AutoProcScaling.autoProcScalingId
+INNER JOIN AutoProcScalingStatistics
+ON AutoProcScaling.autoProcScalingId = AutoProcScalingStatistics.autoProcScalingId
+WHERE AutoProcIntegration.dataCollectionId=%s AND scalingStatisticsType='%s'
+;
+''' %(select_str, dc_id, statistics_type)
+    results = self.execute(sql_str)
+    field_names = [i[0] for i in self._cursor.description]
+    return field_names, results
 
   def insert_alignment_result(self, values):
     keys = ('dataCollectionId', 'program', 'shortComments', 'comments', 'phi')

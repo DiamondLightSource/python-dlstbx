@@ -10,12 +10,9 @@ def run(args):
   else:
     columns = None
 
-  if columns is not None:
-    rows = [columns]
-  else:
-    rows = []
-  for r in ispyb_conn.get_screening_results(dc_id, columns=columns):
-    rows.append([str(i) for i in r])
+  field_names, rows = ispyb_conn.get_screening_results(dc_id, columns=columns)
+  rows = [[str(i) for i in r] for r in rows]
+  rows.insert(0, field_names)
 
   from libtbx import table_utils
   print table_utils.format(rows=rows, has_header=True)

@@ -14,6 +14,11 @@ def main(args):
 
       message, parameters = ispyb_filter(message, parameters)
 
+      import datetime
+      for k, v in parameters['ispyb_dc_info'].iteritems():
+        if type(v) == datetime.datetime:
+           parameters['ispyb_dc_info'][k] = str(v)
+
       print json.dumps(parameters)
     except ValueError, e:
       path = arg

@@ -25,13 +25,17 @@ class DLSFileWatcher(CommonService):
   def watch_files(self, rw, header, message):
     '''Check for presence of files.'''
 
-    # Conditionally acknowledge receipt of the message
-    txn = self._transport.transaction_begin()
-    self._transport.ack(header, transaction=txn)
+    if not rw:
+      self.log.warn('Discarding non-recipe message:\n' + \
+                    "First 1000 characters of header:\n%s\n" + \
+                    "First 1000 characters of message:\n%s",
+                    str(header)[:1000], str(message)[:1000])
+      self._transport.nack(header)
+      return
 
-    # Extract the recipe
-    subrecipe = rw.recipe_step
-    message_headers = { 'recipe': header['recipe'] }
+    # Conditionally acknowledge receipt of the message
+    txn = rw.transport.transaction_begin()
+    rw.transport.ack(header, transaction=txn)
 
     # Check if message body contains partial results from a previous run
     status = { 'seen-files': 0, 'start-time': time.time() }
@@ -39,18 +43,18 @@ class DLSFileWatcher(CommonService):
       status.update(message.get('filewatcher-status', {}))
 
     # List files to wait for
-    files = [ subrecipe['parameters']['pattern'] % x
-              for x in range(int(subrecipe['parameters']['pattern-start']),
-                             int(subrecipe['parameters']['pattern-end']) + 1) ]
+    files = [ rw.recipe_step['parameters']['pattern'] % x
+              for x in range(int(rw.recipe_step['parameters']['pattern-start']),
+                             int(rw.recipe_step['parameters']['pattern-end']) + 1) ]
     filecount = len(files)
 
     self.log.debug("Waiting %.1f seconds for %s\n%d of %d files seen so far",
         time.time()-status['start-time'],
-        subrecipe['parameters']['pattern'],
+        rw.recipe_step['parameters']['pattern'],
         status['seen-files'], filecount)
 
     # Identify selections to notify for
-    selections = [ k for k in subrecipe['output'].iterkeys()
+    selections = [ k for k in rw.recipe_step['output'].iterkeys()
                    if isinstance(k, basestring) and k.startswith('select-') ]
     selections = { int(k[7:]): k for k in selections }
 
@@ -65,7 +69,7 @@ class DLSFileWatcher(CommonService):
     # Look for files
     files_found = 0
     while status['seen-files'] < filecount and \
-          files_found < subrecipe['parameters'].get('burst-limit', 100) and \
+          files_found < rw.recipe_step['parameters'].get('burst-limit', 100) and \
           os.path.isfile(files[status['seen-files']]):
       filename = files[status['seen-files']]
       self.log.debug("Found %s", filename)
@@ -101,7 +105,7 @@ class DLSFileWatcher(CommonService):
       # Happy days
       self.log.info("All %d files found for %s after %.1f seconds.",
         filecount,
-        subrecipe['parameters']['pattern'],
+        rw.recipe_step['parameters']['pattern'],
         time.time()-status['start-time'])
 
       # Notify for 'finally' outcome
@@ -119,11 +123,11 @@ class DLSFileWatcher(CommonService):
       # If no files were found, check timeout conditions.
       if status['seen-files'] == 0:
         # For first file: relevant timeout is 'timeout-first', with fallback 'timeout', with fallback 1 hour
-        timeout = subrecipe['parameters'].get('timeout-first', subrecipe['parameters'].get('timeout', 3600))
+        timeout = rw.recipe_step['parameters'].get('timeout-first', rw.recipe_step['parameters'].get('timeout', 3600))
         timed_out = (status['start-time'] + timeout) < time.time()
       else:
         # For subsequent files: relevant timeout is 'timeout', with fallback 1 hour
-        timeout = subrecipe['parameters'].get('timeout', 3600)
+        timeout = rw.recipe_step['parameters'].get('timeout', 3600)
         timed_out = (status['last-seen'] + timeout) < time.time()
       if timed_out:
         # File watch operation has timed out.
@@ -131,13 +135,13 @@ class DLSFileWatcher(CommonService):
         timeoutlog = self.log.warn
         # Normally report all timeouts as warnings. If the warning is caused by
         # a system test then downgrade it to information level.
-        if subrecipe['parameters']['pattern'].startswith('/dls/tmp/dlstbx') and ( \
-            ('tst_semi_' in subrecipe['parameters']['pattern'] and status['seen-files'] == 1) or \
-            ('tst_fail_' in subrecipe['parameters']['pattern'] and status['seen-files'] == 0)):
+        if rw.recipe_step['parameters']['pattern'].startswith('/dls/tmp/dlstbx') and ( \
+            ('tst_semi_' in rw.recipe_step['parameters']['pattern'] and status['seen-files'] == 1) or \
+            ('tst_fail_' in rw.recipe_step['parameters']['pattern'] and status['seen-files'] == 0)):
           timeoutlog = self.log.info
 
         timeoutlog("Filewatcher for %s timed out after %.1f seconds (%d files found, nothing seen for %.1f seconds)",
-          subrecipe['parameters']['pattern'],
+          rw.recipe_step['parameters']['pattern'],
           time.time()-status['start-time'],
           status['seen-files'],
           time.time()-status.get('last-seen', status['start-time']))
@@ -164,15 +168,13 @@ class DLSFileWatcher(CommonService):
       status['last-seen'] = time.time()
       self.log.info("%d files found for %s (total: %d out of %d) within %.1f seconds",
         files_found,
-        subrecipe['parameters']['pattern'],
+        rw.recipe_step['parameters']['pattern'],
         status['seen-files'], filecount,
         time.time()-status['start-time'])
 
     # Send results to myself for next round of processing
-    self._transport.send('filewatcher',
+    rw.checkpoint(
         { 'filewatcher-status': status },
-        headers={ 'recipe': header['recipe'],
-                  'recipe-pointer': header['recipe-pointer'] },
         delay=message_delay,
         transaction=txn)
-    self._transport.transaction_commit(txn)
+    rw.transport.transaction_commit(txn)

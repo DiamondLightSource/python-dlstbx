@@ -41,7 +41,7 @@ class FilewatcherService(CommonSystemTest):
                          'every': 3,     # Every
                          'last': 4,      # Last
                          'select-30': 5, # Select
-                         20: 6,          # Specific
+                         '20': 6,        # Specific
                          'finally': 7,   # End-of-job
                          'timeout': 8    # Should not be triggered here
                        }
@@ -57,14 +57,13 @@ class FilewatcherService(CommonSystemTest):
       }
     recipe = Recipe(recipe)
     recipe.validate()
-    recipe = recipe.serialize()
 
     self.send_message(
       queue='filewatcher',
-      message='',
-      headers={ 'recipe': recipe,
+      message={ 'recipe': recipe.recipe,
                 'recipe-pointer': '1',
-              }
+              },
+      headers={ 'workflows-recipe': True }
     )
 
     # Create 100 files in 0-10 seconds
@@ -81,11 +80,14 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.pass.2',
-      message={ 'file': self.filepattern % 1 },
-      headers={ 'recipe': recipe,
-                'recipe-pointer': '2',
+      message={ 'payload': { 'file': self.filepattern % 1 },
+                'recipe': recipe,
+                'recipe-path': [ 1 ],
+                'recipe-pointer': 2,
+                'environment': mock.ANY,
               },
-      timeout=50,
+      headers={ 'workflows-recipe': 'True' },
+      timeout=5,
     )
 
     # Every ============================
@@ -93,24 +95,30 @@ class FilewatcherService(CommonSystemTest):
     for file_number in range(200):
       self.expect_message(
         queue='transient.system_test.' + self.guid + '.pass.3',
-        message={ 'file': self.filepattern % (file_number + 1) },
-        headers={ 'recipe': recipe,
-                  'recipe-pointer': '3',
+        message={ 'payload': { 'file': self.filepattern % (file_number + 1) },
+                  'recipe': recipe,
+                  'recipe-path': [ 1 ],
+                  'recipe-pointer': 3,
+                  'environment': mock.ANY,
                 },
+        headers={ 'workflows-recipe': 'True' },
         min_wait=max(0, file_number / 10) - 0.5,
-        timeout=120,
+        timeout=150,
       )
 
     # Last =============================
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.pass.4',
-      message={ 'file': self.filepattern % 200 },
-      headers={ 'recipe': recipe,
-                'recipe-pointer': '4',
+      message={ 'payload': { 'file': self.filepattern % 200 },
+                'recipe': recipe,
+                'recipe-path': [ 1 ],
+                'recipe-pointer': 4,
+                'environment': mock.ANY,
               },
+      headers={ 'workflows-recipe': 'True' },
       min_wait=65,
-      timeout=120,
+      timeout=150,
     )
 
     # Select ===========================
@@ -118,21 +126,27 @@ class FilewatcherService(CommonSystemTest):
     for file_number in (1, 7, 14, 21, 28, 35, 42, 49, 56, 63, 69, 76, 83, 90, 97, 104, 111, 118, 125, 132, 138, 145, 152, 159, 166, 173, 180, 187, 194, 200):
       self.expect_message(
         queue='transient.system_test.' + self.guid + '.pass.5',
-        message={ 'file': self.filepattern % file_number },
-        headers={ 'recipe': recipe,
-                  'recipe-pointer': '5',
+        message={ 'payload': { 'file': self.filepattern % file_number },
+                  'recipe': recipe,
+                  'recipe-path': [ 1 ],
+                  'recipe-pointer': 5,
+                  'environment': mock.ANY,
                 },
-        timeout=120,
+        headers={ 'workflows-recipe': 'True' },
+        timeout=150,
       )
 
     # Specific =========================
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.pass.6',
-      message={ 'file': self.filepattern % 20 },
-      headers={ 'recipe': recipe,
-                'recipe-pointer': '6',
+      message={ 'payload': { 'file': self.filepattern % 20 },
+                'recipe': recipe,
+                'recipe-path': [ 1 ],
+                'recipe-pointer': 6,
+                'environment': mock.ANY,
               },
+      headers={ 'workflows-recipe': 'True' },
       timeout=60,
     )
 
@@ -140,14 +154,17 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.pass.7',
-      message={ 'files-expected': 200,
-                'files-seen': 200,
-                'success': True },
-      headers={ 'recipe': recipe,
-                'recipe-pointer': '7',
+      message={ 'payload': { 'files-expected': 200,
+                             'files-seen': 200,
+                             'success': True },
+                'recipe': recipe,
+                'recipe-path': [ 1 ],
+                'recipe-pointer': 7,
+                'environment': mock.ANY,
               },
+      headers={ 'workflows-recipe': 'True' },
       min_wait=65,
-      timeout=120,
+      timeout=150,
     )
 
     # Timeout ==========================
@@ -176,7 +193,7 @@ class FilewatcherService(CommonSystemTest):
                          'every': 3,     # Should not be triggered here
                          'last': 4,      # Should not be triggered here
                          'select-30': 5, # Should not be triggered here
-                         20: 6,          # Should not be triggered here
+                         '20': 6,        # Should not be triggered here
                          'finally': 7,   # End-of-job
                          'timeout': 8    # Ran into a timeout condition
                        }
@@ -192,14 +209,13 @@ class FilewatcherService(CommonSystemTest):
       }
     recipe = Recipe(recipe)
     recipe.validate()
-    recipe = recipe.serialize()
 
     self.send_message(
       queue='filewatcher',
-      message='',
-      headers={ 'recipe': recipe,
+      message={ 'recipe': recipe.recipe,
                 'recipe-pointer': '1',
-              }
+              },
+      headers={ 'workflows-recipe': True }
     )
 
     # Check for expected messages, marked in the recipe above:
@@ -216,26 +232,32 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.fail.7',
-      message={ 'files-expected': 200,
-                'files-seen': 0,
-                'success': False },
-      headers={ 'recipe': recipe,
-                'recipe-pointer': '7',
+      message={ 'payload': { 'files-expected': 200,
+                             'files-seen': 0,
+                             'success': False },
+                'recipe': recipe,
+                'recipe-path': [ 1 ],
+                'recipe-pointer': 7,
+                'environment': mock.ANY,
               },
+      headers={ 'workflows-recipe': 'True' },
       min_wait=55,
       timeout=80,
     )
+
 
     # Timeout ==========================
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.fail.8',
-      message={ 'file': failpattern % 1,
-                'success': False,
+      message={ 'payload': { 'file': failpattern % 1,
+                             'success': False },
+                'recipe': recipe,
+                'recipe-path': [ 1 ],
+                'recipe-pointer': 8,
+                'environment': mock.ANY,
               },
-      headers={ 'recipe': recipe,
-                'recipe-pointer': '8',
-              },
+      headers={ 'workflows-recipe': 'True' },
       min_wait=55,
       timeout=80,
     )
@@ -266,7 +288,7 @@ class FilewatcherService(CommonSystemTest):
                          'every': 3,     # Every
                          'last': 4,      # Should not be triggered here
                          'select-30': 5, # Should not be triggered here
-                         20: 6,          # Should not be triggered here
+                         '20': 6,        # Should not be triggered here
                          'finally': 7,   # End-of-job
                          'timeout': 8    # Ran into a timeout condition
                        }
@@ -282,14 +304,13 @@ class FilewatcherService(CommonSystemTest):
       }
     recipe = Recipe(recipe)
     recipe.validate()
-    recipe = recipe.serialize()
 
     self.send_message(
       queue='filewatcher',
-      message='',
-      headers={ 'recipe': recipe,
+      message={ 'recipe': recipe.recipe,
                 'recipe-pointer': '1',
-              }
+              },
+      headers={ 'workflows-recipe': True }
     )
 
     # Create first file after 30 seconds
@@ -301,10 +322,13 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.semi.2',
-      message={ 'file': self.delayed_fail_file },
-      headers={ 'recipe': recipe,
-                'recipe-pointer': '2',
+      message={ 'payload': { 'file': self.delayed_fail_file },
+                'recipe': recipe,
+                'recipe-path': [ 1 ],
+                'recipe-pointer': 2,
+                'environment': mock.ANY,
               },
+      headers={ 'workflows-recipe': 'True' },
       min_wait=25,
       timeout=50,
     )
@@ -313,10 +337,13 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.semi.3',
-      message={ 'file': self.delayed_fail_file },
-      headers={ 'recipe': recipe,
-                'recipe-pointer': '3',
+      message={ 'payload': { 'file': self.delayed_fail_file },
+                'recipe': recipe,
+                'recipe-path': [ 1 ],
+                'recipe-pointer': 3,
+                'environment': mock.ANY,
               },
+      headers={ 'workflows-recipe': 'True' },
       min_wait=25,
       timeout=50,
     )
@@ -331,12 +358,15 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.semi.7',
-      message={ 'files-expected': 200,
-                'files-seen': 1,
-                'success': False },
-      headers={ 'recipe': recipe,
-                'recipe-pointer': '7',
+      message={ 'payload': { 'files-expected': 200,
+                             'files-seen': 1,
+                             'success': False },
+                'recipe': recipe,
+                'recipe-path': [ 1 ],
+                'recipe-pointer': 7,
+                'environment': mock.ANY,
               },
+      headers={ 'workflows-recipe': 'True' },
       min_wait=25,
       timeout=55,
     )
@@ -345,12 +375,14 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.semi.8',
-      message={ 'file': semifailpattern % 2,
-                'success': False,
+      message={ 'payload': { 'file': semifailpattern % 2,
+                             'success': False },
+                'recipe': recipe,
+                'recipe-path': [ 1 ],
+                'recipe-pointer': 8,
+                'environment': mock.ANY,
               },
-      headers={ 'recipe': recipe,
-                'recipe-pointer': '8',
-              },
+      headers={ 'workflows-recipe': 'True' },
       min_wait=25,
       timeout=55,
     )

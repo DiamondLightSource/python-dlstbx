@@ -52,7 +52,7 @@ class DLSPerImageAnalysis(CommonService):
  #   self.log.debug(xml_response)
 
     # Send results onwards
-    recipe.send_to('result', results, use_default_channel=True
+    recipe.send_to('result', results, use_default_channel=True)
     self._transport.send('transient.destination', results, transaction=txn)
     self._transport.transaction_commit(txn)
     self.log.info("PIA completed on %s", filename)

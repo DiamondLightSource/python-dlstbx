@@ -25,14 +25,6 @@ class DLSFileWatcher(CommonService):
   def watch_files(self, rw, header, message):
     '''Check for presence of files.'''
 
-    if not rw:
-      self.log.warn('Discarding non-recipe message:\n' + \
-                    "First 1000 characters of header:\n%s\n" + \
-                    "First 1000 characters of message:\n%s",
-                    str(header)[:1000], str(message)[:1000])
-      self._transport.nack(header)
-      return
-
     # Conditionally acknowledge receipt of the message
     txn = rw.transport.transaction_begin()
     rw.transport.ack(header, transaction=txn)

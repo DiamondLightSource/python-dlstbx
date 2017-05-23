@@ -27,14 +27,14 @@ class ArchiverService(CommonSystemTest):
       }
     recipe = Recipe(recipe)
     recipe.validate()
-    recipe = recipe.serialize()
 
     self.send_message(
       queue='archive.pattern',
-      message='',
-      headers={ 'recipe': recipe,
+      message={ 'payload': '',
+                'recipe': recipe.recipe,
                 'recipe-pointer': '1',
-              }
+              },
+      headers={ 'workflows-recipe': True }
     )
 
     expected_xml = os.path.join(os.path.dirname(__file__), 'archiver-success.xml')
@@ -68,14 +68,14 @@ class ArchiverService(CommonSystemTest):
       }
     recipe = Recipe(recipe)
     recipe.validate()
-    recipe = recipe.serialize()
 
     self.send_message(
       queue='archive.pattern',
-      message='',
-      headers={ 'recipe': recipe,
+      message={ 'payload': '',
+                'recipe': recipe.recipe,
                 'recipe-pointer': '1',
-              }
+              },
+      headers={ 'workflows-recipe': True }
     )
 
     expected_xml = os.path.join(os.path.dirname(__file__), 'archiver-partial.xml')

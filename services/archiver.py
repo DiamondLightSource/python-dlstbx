@@ -126,13 +126,8 @@ class DLSArchiver(CommonService):
         self.log.info("Skipped writing empty dropfile XML to %s", dropfile)
     message_out['xml'] = xml_string
 
-    if subrecipe['output']:
-      if not isinstance(subrecipe['output'], list):
-        subrecipe['output'] = [ subrecipe['output'] ]
-      for destination in subrecipe['output']:
-        header['recipe-pointer'] = destination
-
-    tw.send_to('output', message_out, transaction=txn)
+    rw.set_default_channel('dropfile')
+    rw.send_to('dropfile', message_out, transaction=txn)
 
     self._transport.transaction_commit(txn)
     self.log.info("Done.")

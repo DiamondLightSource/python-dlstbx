@@ -107,6 +107,30 @@ class CommonSystemTest(object):
     self._messaging('expect', queue=queue, topic=topic, headers=headers,
                     message=message, min_wait=min_wait, timeout=timeout)
 
+  def expect_recipe_message(self, recipe, recipe_path, recipe_pointer, headers=None, payload=None, min_wait=0, timeout=10, queue=None, topic=None):
+    '''Use this function within tests to wait for recipe-wrapped messages.'''
+    assert recipe, 'Recipe required'
+    if not (queue or topic):
+      assert recipe_pointer > 0, 'Recipe-pointer required'
+      assert recipe_pointer in recipe, 'Given recipe-pointer %s invalid' % str(recipe_pointer)
+      queue = recipe[recipe_pointer].get('queue')
+      topic = recipe[recipe_pointer].get('topic')
+      assert queue or topic, 'Message queue or topic destination required'
+    assert not queue or not topic, 'Can only expect message on queue or topic, not both'
+    if headers is None:
+      headers = { 'workflows-recipe': 'True' }
+    else:
+      headers = headers.copy()
+      headers['workflows-recipe'] = 'True'
+    expected_message = { 'payload': payload,
+                         'recipe': recipe,
+                         'recipe-path': recipe_path,
+                         'recipe-pointer': recipe_pointer,
+                         'environment': mock.ANY,
+                       }
+    self._messaging('expect', queue=queue, topic=topic, headers=headers,
+                    message=expected_message, min_wait=min_wait, timeout=timeout)
+
   def timer_event(self, at_time=None, callback=None, args=None, kwargs=None):
     if args is None: args = []
     if kwargs is None: kwargs = {}

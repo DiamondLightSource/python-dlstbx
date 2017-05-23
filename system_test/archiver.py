@@ -41,9 +41,11 @@ class ArchiverService(CommonSystemTest):
     with open(expected_xml, 'r') as fh:
       xmldata = fh.read()
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid,
-      message={ 'failed': 0, 'success': 10, 'xml': xmldata },
+    self.expect_recipe_message(
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=2,
+      payload={ 'failed': 0, 'success': 10, 'xml': xmldata },
       timeout=10,
     )
 
@@ -82,12 +84,13 @@ class ArchiverService(CommonSystemTest):
     with open(expected_xml, 'r') as fh:
       xmldata = fh.read()
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid,
-      message={ 'failed': 5, 'success': 6, 'xml': xmldata },
+    self.expect_recipe_message(
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=2,
+      payload={ 'failed': 5, 'success': 6, 'xml': xmldata },
       timeout=10,
     )
-
 
 if __name__ == "__main__":
   ArchiverService().validate()

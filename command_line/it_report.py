@@ -119,7 +119,7 @@ def report_cluster(issue):
     erred = len(issue['ext']['errqueue'])
     if erred:
       if erred == 1:
-        errreport = 'The queue %s on host %s is in an error state.' % split(list(issue['ext']['errqueue'])[0])
+        errreport = 'The queue %s is apparently in an error state.' % list(issue['ext']['errqueue'])[0]
       elif erred == 2:
         errreport = 'Two queues, %s and %s, are in an error state.' % list(issue['ext']['errqueue'])
       elif erred < 8:

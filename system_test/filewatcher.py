@@ -78,45 +78,33 @@ class FilewatcherService(CommonSystemTest):
 
     # First ============================
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid + '.pass.2',
-      message={ 'payload': { 'file': self.filepattern % 1 },
-                'recipe': recipe,
-                'recipe-path': [ 1 ],
-                'recipe-pointer': 2,
-                'environment': mock.ANY,
-              },
-      headers={ 'workflows-recipe': 'True' },
+    self.expect_recipe_message(
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=2,
+      payload={ 'file': self.filepattern % 1 },
       timeout=5,
     )
 
     # Every ============================
 
     for file_number in range(200):
-      self.expect_message(
-        queue='transient.system_test.' + self.guid + '.pass.3',
-        message={ 'payload': { 'file': self.filepattern % (file_number + 1) },
-                  'recipe': recipe,
-                  'recipe-path': [ 1 ],
-                  'recipe-pointer': 3,
-                  'environment': mock.ANY,
-                },
-        headers={ 'workflows-recipe': 'True' },
+      self.expect_recipe_message(
+        recipe=recipe,
+        recipe_path=[ 1 ],
+        recipe_pointer=3,
+        payload={ 'file': self.filepattern % (file_number + 1) },
         min_wait=max(0, file_number / 10) - 0.5,
         timeout=150,
       )
 
     # Last =============================
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid + '.pass.4',
-      message={ 'payload': { 'file': self.filepattern % 200 },
-                'recipe': recipe,
-                'recipe-path': [ 1 ],
-                'recipe-pointer': 4,
-                'environment': mock.ANY,
-              },
-      headers={ 'workflows-recipe': 'True' },
+    self.expect_recipe_message(
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=4,
+      payload={ 'file': self.filepattern % 200 },
       min_wait=65,
       timeout=150,
     )
@@ -124,45 +112,33 @@ class FilewatcherService(CommonSystemTest):
     # Select ===========================
 
     for file_number in (1, 7, 14, 21, 28, 35, 42, 49, 56, 63, 69, 76, 83, 90, 97, 104, 111, 118, 125, 132, 138, 145, 152, 159, 166, 173, 180, 187, 194, 200):
-      self.expect_message(
-        queue='transient.system_test.' + self.guid + '.pass.5',
-        message={ 'payload': { 'file': self.filepattern % file_number },
-                  'recipe': recipe,
-                  'recipe-path': [ 1 ],
-                  'recipe-pointer': 5,
-                  'environment': mock.ANY,
-                },
-        headers={ 'workflows-recipe': 'True' },
+      self.expect_recipe_message(
+        recipe=recipe,
+        recipe_path=[ 1 ],
+        recipe_pointer=5,
+        payload={ 'file': self.filepattern % file_number },
         timeout=150,
       )
 
     # Specific =========================
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid + '.pass.6',
-      message={ 'payload': { 'file': self.filepattern % 20 },
-                'recipe': recipe,
-                'recipe-path': [ 1 ],
-                'recipe-pointer': 6,
-                'environment': mock.ANY,
-              },
-      headers={ 'workflows-recipe': 'True' },
+    self.expect_recipe_message(
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=6,
+      payload={ 'file': self.filepattern % 20 },
       timeout=60,
     )
 
     # Finally ==========================
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid + '.pass.7',
-      message={ 'payload': { 'files-expected': 200,
-                             'files-seen': 200,
-                             'success': True },
-                'recipe': recipe,
-                'recipe-path': [ 1 ],
-                'recipe-pointer': 7,
-                'environment': mock.ANY,
-              },
-      headers={ 'workflows-recipe': 'True' },
+    self.expect_recipe_message(
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=7,
+      payload={ 'files-expected': 200,
+                'files-seen': 200,
+                'success': True },
       min_wait=65,
       timeout=150,
     )

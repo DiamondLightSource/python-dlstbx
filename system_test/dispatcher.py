@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division
 from dlstbx.system_test.common import CommonSystemTest
 import json
+import mock
 import os.path
 from workflows.recipe import Recipe
 
@@ -28,15 +29,11 @@ class DispatcherService(CommonSystemTest):
       }
     )
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid,
-      message={'recipe': recipe,
-               'recipe-pointer': 1,
-               'recipe-path': [],
-#              'environment': mock.ANY,
-               'payload': recipe['start'][0][1]},
-      headers={'workflows-recipe': True},
-      timeout=0.3,
+    self.expect_recipe_message(
+      recipe=Recipe(recipe),
+      recipe_path=[],
+      recipe_pointer=1,
+      payload=recipe['start'][0][1],
     )
 
   def disabled_test_guid_generation_during_recipe_parsing(self):
@@ -53,7 +50,7 @@ class DispatcherService(CommonSystemTest):
 
     # TODO: The testing framework actually does not support this atm!
 
-  def disabled_test_parsing_a_recipe_and_replacing_parameters(self):
+  def test_parsing_a_recipe_and_replacing_parameters(self):
     '''Passing in a recipe to the service without external dependencies.
        The recipe should be interpreted, the 'guid' placeholder replaced using
        the parameter field, and the message passed back.
@@ -79,16 +76,14 @@ class DispatcherService(CommonSystemTest):
 
     expected_recipe = Recipe(recipe)
     expected_recipe.apply_parameters(parameters)
-    self.expect_message(
-      queue='transient.system_test.' + self.guid,
-      message=recipe['start'][0][1],
-      headers={ 'recipe': expected_recipe,
-                'recipe-pointer': '1',
-              },
-      timeout=3,
+    self.expect_recipe_message(
+      recipe=expected_recipe,
+      recipe_path=[],
+      recipe_pointer=1,
+      payload=recipe['start'][0][1],
     )
 
-  def disabled_test_loading_a_recipe_from_a_file(self):
+  def test_loading_a_recipe_from_a_file(self):
     '''When a file name is passed to the service the file should be loaded and
        parsed correctly, including parameter replacement.'''
 
@@ -108,15 +103,17 @@ class DispatcherService(CommonSystemTest):
 
     with open(os.path.join(recipe_path, 'system-test-dispatcher.json'), 'r') as fh:
       recipe = json.loads(fh.read())
+    expected_recipe=Recipe(recipe)
+    expected_recipe.apply_parameters(parameters)
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid,
-      message=recipe['start'][0][1],
-      headers={ 'recipe-pointer': '1' },
-      timeout=3,
+    self.expect_recipe_message(
+      recipe=expected_recipe,
+      recipe_path=[],
+      recipe_pointer=1,
+      payload=recipe['start'][0][1],
     )
 
-  def disabled_test_combining_recipes(self):
+  def test_combining_recipes(self):
     '''Combine a recipe from a file and a custom recipe.'''
 
     parameters = { 'guid': self.guid }
@@ -144,20 +141,22 @@ class DispatcherService(CommonSystemTest):
     with open(os.path.join(recipe_path, 'system-test-dispatcher.json'), 'r') as fh:
       recipe_from_file = json.loads(fh.read())
 
-    self.expect_message(
+    self.expect_recipe_message(
+      recipe=mock.ANY,
+      recipe_path=[],
+      recipe_pointer=1,
       queue='transient.system_test.' + self.guid,
-      message=recipe_from_file['start'][0][1],
-      headers={ 'recipe-pointer': '2' },
-      timeout=3,
+      payload=recipe_passed['start'][0][1],
     )
-    self.expect_message(
+    self.expect_recipe_message(
+      recipe=mock.ANY,
+      recipe_path=[],
+      recipe_pointer=2,
       queue='transient.system_test.' + self.guid,
-      message=recipe_passed['start'][0][1],
-      headers={ 'recipe-pointer': '1' },
-      timeout=3,
+      payload=recipe_from_file['start'][0][1],
     )
 
-  def disabled_test_ispyb_magic(self):
+  def test_ispyb_magic(self):
     '''Test the ISPyB magic to see that it does what we think it should do'''
 
     recipe = {
@@ -179,12 +178,13 @@ class DispatcherService(CommonSystemTest):
       }
     )
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid,
-      message={'purpose': 'testing if ISPyB connection works',
-               'parameters': {'image':'/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800'}
-               },
-      timeout=6
+    recipe['start'][0][1]['parameters']['image'] = '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800'
+
+    self.expect_recipe_message(
+      recipe=Recipe(recipe),
+      recipe_path=[],
+      recipe_pointer=1,
+      payload=recipe['start'][0][1],
     )
 
 if __name__ == "__main__":

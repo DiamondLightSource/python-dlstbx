@@ -50,8 +50,8 @@ class DLSDispatcher(CommonService):
     # eg. ISPyB database lookups
     from dlstbx.ispyb.ispyb import ispyb_filter
     message, parameters = ispyb_filter(message, parameters)
-    self.log.info("Mangled processing request:\n" + str(message))
-    self.log.info("Mangled processing parameters:\n" + str(parameters))
+    self.log.debug("Mangled processing request:\n" + str(message))
+    self.log.debug("Mangled processing parameters:\n" + str(parameters))
 
     # Process message
     recipes = []
@@ -73,24 +73,9 @@ class DLSDispatcher(CommonService):
       recipe.apply_parameters(parameters)
       full_recipe = full_recipe.merge(recipe)
 
-    wrapper = workflows.recipe.RecipeWrapper(recipe=full_recipe)
-
-    common_headers = { 'recipe': full_recipe.serialize() }
-    for destinationid, message in full_recipe['start']:
-      message_headers = common_headers.copy()
-      message_headers['recipe-pointer'] = destinationid
-      destination = full_recipe[destinationid]
-      if destination.get('queue'):
-        self._transport.send(destination['queue'],
-                             message,
-                             transaction=txn,
-                             headers=message_headers)
-      if destination.get('topic'):
-        self._transport.broadcast(destination['topic'],
-                                  message,
-                                  transaction=txn,
-                                  headers=message_headers)
+    rw = workflows.recipe.RecipeWrapper(recipe=full_recipe, transport=self._transport)
+    rw.start(transaction=txn)
 
     # Commit transaction
     self._transport.transaction_commit(txn)
-    self.log.info("Processing completed in %.2f seconds", timeit.default_timer() - start_time)
+    self.log.info("Processed incoming message in %.4f seconds", timeit.default_timer() - start_time)

@@ -7,7 +7,7 @@ import logging
 import os
 import random
 import string
-from workflows.recipe import Recipe
+import workflows.recipe
 from workflows.services.common_service import CommonService
 
 class DLSCluster(CommonService):
@@ -25,7 +25,9 @@ class DLSCluster(CommonService):
        Received messages must be acknowledged.'''
     self.log.info("Cluster service starting")
 
-    self._transport.subscribe('cluster.submission',
+    workflows.recipe.wrap_subscribe(
+      self._transport,
+      'cluster.submission',
       self.run_submit_job,
       acknowledgement=True)
 
@@ -46,24 +48,23 @@ class DLSCluster(CommonService):
       else:
         raise
 
-  def run_submit_job(self, header, message):
+  def run_submit_job(self, rw, header, message):
     '''Submit cluster job according to message.'''
 
     # Conditionally acknowledge receipt of the message
     txn = self._transport.transaction_begin()
     self._transport.ack(header, transaction=txn)
 
-    current_recipe = Recipe(header['recipe'])
-    current_recipepointer = int(header['recipe-pointer'])
-    subrecipe = current_recipe[current_recipepointer]
-    parameters = subrecipe['parameters']
+    parameters = rw.recipe_step['parameters']
     commands = parameters['cluster_commands']
     if not isinstance(commands, basestring):
       commands = "\n".join(commands)
 
-    cluster = parameters.get('cluster', 'cluster') # is ignored though
+    cluster = parameters.get('cluster')
+    if cluster not in ('cluster', 'testcluster'):
+      cluster = 'cluster'
     submission_params = parameters.get('cluster_submission_parameters', '')
-    commands = commands.replace('$RECIPEPOINTER', str(int(header['recipe-pointer'])))
+    commands = commands.replace('$RECIPEPOINTER', str(rw.recipe_pointer))
 
     if 'recipefile' in parameters:
       recipefile = parameters['recipefile']
@@ -71,13 +72,13 @@ class DLSCluster(CommonService):
       self.log.debug("Writing recipe to %s", recipefile)
       commands = commands.replace('$RECIPEFILE', recipefile)
       with open(recipefile, 'w') as fh:
-        fh.write(header['recipe'])
+        fh.write(rw.recipe.pretty())
     if 'workingdir' in parameters:
       workingdir = parameters['workingdir']
       self._recursive_mkdir(workingdir)
 
     submission = [
-      "module load global/testcluster",
+      "module load global/" + cluster,
       "qsub %s << EOF" % submission_params,
       "#!/bin/bash",
       "cd " + workingdir,
@@ -86,18 +87,18 @@ class DLSCluster(CommonService):
     ]
     self.log.debug("Commands: %s", commands)
     self.log.debug("CWD: %s", parameters.get('workingdir'))
-    self.log.debug(str(subrecipe))
+    self.log.debug(str(rw.recipe_step))
     result = run_process(["/bin/bash"], stdin = "\n".join(submission))
     assert result['exitcode'] == 0
     assert "has been submitted" in result['stdout']
     jobnumber = result['stdout'].split()[2]
 
     # Send results onwards
-    new_header = { 'recipe': header['recipe'] }
-    results = { 'jobid': jobnumber }
-    self._transport.send('transient.destination', results, transaction=txn, headers=new_header)
+    rw.set_default_channel('default')
+    rw.send_to('default', { 'jobid': jobnumber }, transaction=txn)
+
     self._transport.transaction_commit(txn)
-    self.log.info("Submitted job %s to cluster", str(jobnumber))
+    self.log.info("Submitted job %s to %s", str(jobnumber), cluster)
 
   def update_cluster_statistics(self):
     '''Gather some cluster statistics.'''

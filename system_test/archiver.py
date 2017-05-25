@@ -49,6 +49,61 @@ class ArchiverService(CommonSystemTest):
       timeout=10,
     )
 
+  def test_split_set_of_existing_files_into_multiple_archives(self):
+    '''Generate multiple dropfiles for a set of files, and compare against saved copies.'''
+
+    recipe = {
+        1: { 'service': 'DLS Archiver',
+             'queue': 'archive.pattern',
+             'parameters': { 'pattern': '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_%03d.img',
+                             'pattern-start': 1,
+                             'pattern-end': '10',
+                             'limit-files': 6,
+                           },
+             'output': 2
+           },
+        2: { 'service': 'DLS System Test',
+             'queue': 'transient.system_test.' + self.guid
+           },
+        'start': [
+           (1, { 'purpose': 'Generate an XML dropfile for specified files' }),
+        ]
+      }
+    recipe = Recipe(recipe)
+    recipe.validate()
+
+    self.send_message(
+      queue='archive.pattern',
+      message={ 'payload': '',
+                'recipe': recipe.recipe,
+                'recipe-pointer': '1',
+              },
+      headers={ 'workflows-recipe': True }
+    )
+
+    expected_xml_1 = os.path.join(os.path.dirname(__file__), 'archiver-success-part1.xml')
+    expected_xml_2 = os.path.join(os.path.dirname(__file__), 'archiver-success-part2.xml')
+    with open(expected_xml_1, 'r') as fh:
+      xmldata_1 = fh.read()
+    with open(expected_xml_2, 'r') as fh:
+      xmldata_2 = fh.read()
+
+    self.expect_recipe_message(
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=2,
+      payload={ 'failed': 0, 'success': 6, 'xml': xmldata_1 },
+      timeout=10,
+    )
+
+    self.expect_recipe_message(
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=2,
+      payload={ 'failed': 0, 'success': 4, 'xml': xmldata_2 },
+      timeout=10,
+    )
+
   def test_archive_a_set_of_partially_missing_files(self):
     '''Generate a dropfile for a small set of files, some of which are missing, and compare against a saved copy.'''
 

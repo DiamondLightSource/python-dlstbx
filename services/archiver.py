@@ -36,10 +36,13 @@ class DLSArchiver(CommonService):
     subrecipe = rw.recipe_step
     self.log.info("Attempting to archive %s", subrecipe['parameters']['pattern'])
 
-    # List files to archive
-    files = [ subrecipe['parameters']['pattern'] % x
-              for x in range(int(subrecipe['parameters']['pattern-start']),
-                             int(subrecipe['parameters']['pattern-end']) + 1) ]
+    settings = subrecipe['parameters'].copy()
+    if isinstance(message, dict):
+      for field in ('multipart', 'pattern-start'):
+        if 'archive-' + field in message:
+          settings[field] = message['archive-' + field]
+
+    file_range_limit = int(settings.get('limit-files', 0))
 
     filepaths = subrecipe['parameters']['pattern'].split('/')
     _, _, beamline, _, _, visit_id = filepaths[0:6]
@@ -64,20 +67,34 @@ class DLSArchiver(CommonService):
 
     message_out = { 'success': 0, 'failed': 0 }
     files_not_found = []
-    for f in files:
+    for x in range(int(settings['pattern-start']), int(settings['pattern-end']) + 1):
+      if file_range_limit and message_out['success'] >= file_range_limit:
+        # Test for limit at beginning, not end, so >= 1 file remains
+        self.log.info("Reached dropfile limit of %d entries, splitting job.", file_range_limit)
+        # limit reached - bail out
+        if not settings.get('multipart'):
+          settings['multipart'] = 1
+        rw.checkpoint({
+            'archive-multipart': settings['multipart'] + 1,
+            'archive-pattern-start': x,
+          }, transaction=txn)
+        break
+
+      filename = subrecipe['parameters']['pattern'] % x
+
       try:
-        stat = os.stat(f)
+        stat = os.stat(filename)
       except OSError, e:
         if e.errno == errno.ENOENT:
-          files_not_found.append(f)
+          files_not_found.append(filename)
         else:
-          self.log.warn("Could not archive %s", f, exc_info=True)
+          self.log.warn("Could not archive %s", filename, exc_info=True)
         message_out['failed'] += 1
         continue
-      self.log.debug("Archiving %s", f)
+      self.log.debug("Archiving %s", filename)
       df = ET.SubElement(dataset, 'datafile')
-      ET.SubElement(df, 'name').text = f.split('/')[-1]
-      ET.SubElement(df, 'location').text = f
+      ET.SubElement(df, 'name').text = filename.split('/')[-1]
+      ET.SubElement(df, 'location').text = filename
       ET.SubElement(df, 'description').text = 'unknown'
       ET.SubElement(df, 'datafile_version').text = '1.0'
       ET.SubElement(df, 'datafile_create_time').text = \
@@ -117,7 +134,8 @@ class DLSArchiver(CommonService):
       dropfile = os.path.join(subrecipe['parameters']['dropfile-dir'], subrecipe['parameters']['dropfile-filename'])
     if dropfile:
       timestamp = datetime.strftime(datetime.now(), "%Y%m%d-%H%M%S")
-      dropfile = dropfile.format(visit_id=visit_id, beamline=beamline, timestamp=timestamp)
+      multipart_label = '-' + str(settings['multipart']) if settings.get('multipart') else ''
+      dropfile = dropfile.format(visit_id=visit_id, beamline=beamline, timestamp=timestamp, multipart=multipart_label)
       if message_out['success']:
         with open(dropfile, 'w') as fh:
           fh.write(xml_string)

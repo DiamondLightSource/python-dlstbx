@@ -22,18 +22,12 @@ class DLSPerImageAnalysis(CommonService):
     workflows.recipe.wrap_subscribe(self._transport, 'per_image_analysis',
         self.per_image_analysis, acknowledgement=True)
 
-  def per_image_analysis(self, recipe, header, message):
+  def per_image_analysis(self, rw, header, message):
     '''Run PIA on one image.'''
 
-    # Only process messages in workflows recipe format
-    if not recipe:
-      self.log.error("Rejecting message not in recipe format:\n%s" % str(header))
-      self._transport.nack(header)
-      return
-
     # Conditionally acknowledge receipt of the message
-    txn = recipe.transport.transaction_begin()
-    recipe.transport.ack(header, transaction=txn)
+    txn = rw.transport.transaction_begin()
+    rw.transport.ack(header, transaction=txn)
 
     # Extract the filename
     filename = message['file']
@@ -52,28 +46,7 @@ class DLSPerImageAnalysis(CommonService):
  #   self.log.debug(xml_response)
 
     # Send results onwards
-    recipe.send_to('result', results, use_default_channel=True)
-    self._transport.send('transient.destination', results, transaction=txn)
-    self._transport.transaction_commit(txn)
+    rw.set_default_channel('result')
+    rw.send_to('result', results, transaction=txn)
+    rw.transport.transaction_commit(txn)
     self.log.info("PIA completed on %s", filename)
-
-    # nonsense
-
-
-    workflows.recipe.wrap_subscribe(self._transport, 'per_image_analysis',
-       self.per_image_analysis, acknowledgement=True,
-       default_output_channel = 'result')
-
-    workflows.recipe.wrap_subscribe(self._transport, 'per_image_analysis',
-       self.per_image_analysis, acknowledgement=True,
-       wrapper_arguments = { 'default_output_channel': 'result' })
-
-    workflows.recipe.wrap_subscribe(self._transport, 'per_image_analysis',
-       self.per_image_analysis, acknowledgement=True,
-       default_output_channel = 'result')
-
-
-    recipe.unnamed_output_channel = 'result'
-    recipe.send_to('result', result)
-    recipe.send_error(result)
-

@@ -1,0 +1,5 @@
+#!/bin/bash
+#
+# LIBTBX_SET_DISPATCHER_NAME dials.swirly_window
+
+LD_LIBRARY_PATH="" xdg-open $(libtbx.find_in_repositories dlstbx/scratch/mg/diz.html)

@@ -1,0 +1,37 @@
+<html><head><title>x_x</title>
+<meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1"> 
+<script type="text/javascript">
+function pop() {
+  var img = document.createElement("img");
+  img.src = 'diz.png';
+  img.style.position = "absolute";
+  img.style.top = Math.floor(Math.random() * document.body.scrollHeight - 64)+"px";
+  img.style.left = Math.floor(Math.random() * document.body.scrollWidth - 64)+"px";
+  document.body.appendChild(img);
+}
+function forever() { window.setInterval(pop, 150); }
+function dot() { document.getElementById("update").childNodes[0].data += '.'; }
+function start() {
+  for (i = 200; i < 10000; i+=200)
+    window.setTimeout(dot, i);
+  delta = 800
+  window.setTimeout(pop, delta + 1000);
+  window.setTimeout(pop, delta + 1650);
+  window.setTimeout(pop, delta + 2150);
+  window.setTimeout(pop, delta + 2550);
+  window.setTimeout(pop, delta + 2950);
+  window.setTimeout(pop, delta + 3300);
+  window.setTimeout(pop, delta + 3600);
+  window.setTimeout(pop, delta + 3900);
+  window.setTimeout(pop, delta + 4150);
+  window.setTimeout(pop, delta + 4400);
+  window.setTimeout(pop, delta + 4600);
+  window.setTimeout(pop, delta + 4800);
+  window.setTimeout(forever, delta + 4800);
+  window.setTimeout(forever, delta + 5800);
+  window.setTimeout(forever, delta + 6950);
+}
+window.onload = start;
+</script></head><body style="width:100%; height:100%; overflow: hidden">
+<div style="overflow: hidden; margin: 40% 30%; padding: 10%; border: 2px solid black; background-color: #CCC; text-align: center;" id="update">Updating</div>
+</body></html>

@@ -5,6 +5,7 @@
 
 from __future__ import division
 from optparse import OptionParser, SUPPRESS_HELP
+import json
 import sys
 import workflows
 from workflows.transport.stomp_transport import StompTransport
@@ -18,6 +19,9 @@ if __name__ == '__main__':
   parser.add_option("-r", "--recipe", dest="recipe", metavar="RCP",
       action="append", default=[],
       help="Name of a recipe to run. Can be used multiple times.")
+  parser.add_option("-f", "--file", dest="recipefile", metavar="FILE",
+      action="store", type="string", default="",
+      help="Run recipe contained in this file.")
   parser.add_option("-n", "--no-dcid", dest="nodcid",
       action="store_true", default=False,
       help="Trigger recipe without specifying a data collection ID")
@@ -39,11 +43,17 @@ if __name__ == '__main__':
   message = { 'recipes': options.recipe,
               'parameters': {},
             }
-  if not options.recipe:
+  if options.recipe:
+    print "Running recipes", options.recipe
+
+  if options.recipefile:
+    with open(options.recipefile, 'r') as fh:
+      message['custom_recipe'] = json.load(fh)
+    print "Running recipe from file", options.recipefile
+
+  if not options.recipe and not message.get('custom_recipe'):
     print "No recipes specified."
     sys.exit(1)
-
-  print "Running recipes", options.recipe
 
   if not options.nodcid:
     if not args:

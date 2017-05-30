@@ -82,7 +82,7 @@ class FilewatcherService(CommonSystemTest):
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=2,
-      payload={ 'file': self.filepattern % 1 },
+      payload={ 'file': self.filepattern % 1, 'file-number': 1, 'file-pattern-index': 1 },
       timeout=50,
     )
 
@@ -93,7 +93,7 @@ class FilewatcherService(CommonSystemTest):
         recipe=recipe,
         recipe_path=[ 1 ],
         recipe_pointer=3,
-        payload={ 'file': self.filepattern % (file_number + 1) },
+        payload={ 'file': self.filepattern % (file_number + 1), 'file-number': file_number + 1, 'file-pattern-index': file_number + 1 },
         min_wait=max(0, file_number / 10) - 0.5,
         timeout=150,
       )
@@ -104,7 +104,7 @@ class FilewatcherService(CommonSystemTest):
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=4,
-      payload={ 'file': self.filepattern % 200 },
+      payload={ 'file': self.filepattern % 200, 'file-number': 200, 'file-pattern-index': 200 },
       min_wait=65,
       timeout=150,
     )
@@ -116,7 +116,7 @@ class FilewatcherService(CommonSystemTest):
         recipe=recipe,
         recipe_path=[ 1 ],
         recipe_pointer=5,
-        payload={ 'file': self.filepattern % file_number },
+        payload={ 'file': self.filepattern % file_number, 'file-number': file_number, 'file-pattern-index': file_number },
         timeout=150,
       )
 
@@ -126,7 +126,7 @@ class FilewatcherService(CommonSystemTest):
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=6,
-      payload={ 'file': self.filepattern % 20 },
+      payload={ 'file': self.filepattern % 20, 'file-number': 20, 'file-pattern-index': 20 },
       timeout=60,
     )
 
@@ -226,7 +226,7 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.fail.8',
-      message={ 'payload': { 'file': failpattern % 1,
+      message={ 'payload': { 'file': failpattern % 1, 'file-number': 1, 'file-pattern-index': 1,
                              'success': False },
                 'recipe': recipe,
                 'recipe-path': [ 1 ],
@@ -243,19 +243,19 @@ class FilewatcherService(CommonSystemTest):
     open(self.delayed_fail_file, 'w').close()
 
   def test_failure_notification_delayed(self):
-    '''Send a recipe to the filewatcher. Do not create any files and wait for
-       the appropriate timeout notification messages.'''
+    '''Send a recipe to the filewatcher. Creates a single file and waits for
+       the appropriate initial success and subsequent timeout notification messages.'''
 
     self.create_temp_dir()
     semifailpattern = os.path.join(tmpdir, self.guid, 'tst_semi_%05d.cbf')
-    self.delayed_fail_file = semifailpattern % 1
+    self.delayed_fail_file = semifailpattern % 5
 
     recipe = {
         1: { 'service': 'DLS Filewatcher',
              'queue': 'filewatcher',
              'parameters': { 'pattern': semifailpattern,
-                             'pattern-start': 1,
-                             'pattern-end': 200,
+                             'pattern-start': 5,
+                             'pattern-end': 204,
                              'burst-limit': 40,
                              'timeout': 10,
                              'timeout-first': 60,
@@ -298,7 +298,7 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.semi.2',
-      message={ 'payload': { 'file': self.delayed_fail_file },
+      message={ 'payload': { 'file': self.delayed_fail_file, 'file-number': 1, 'file-pattern-index': 5 },
                 'recipe': recipe,
                 'recipe-path': [ 1 ],
                 'recipe-pointer': 2,
@@ -313,7 +313,7 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.semi.3',
-      message={ 'payload': { 'file': self.delayed_fail_file },
+      message={ 'payload': { 'file': self.delayed_fail_file, 'file-number': 1, 'file-pattern-index': 5 },
                 'recipe': recipe,
                 'recipe-path': [ 1 ],
                 'recipe-pointer': 3,
@@ -351,7 +351,7 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.semi.8',
-      message={ 'payload': { 'file': semifailpattern % 2,
+      message={ 'payload': { 'file': semifailpattern % 2, 'file-number': 2, 'file-pattern-index': 6,
                              'success': False },
                 'recipe': recipe,
                 'recipe-path': [ 1 ],

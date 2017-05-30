@@ -83,7 +83,7 @@ class FilewatcherService(CommonSystemTest):
       recipe_path=[ 1 ],
       recipe_pointer=2,
       payload={ 'file': self.filepattern % 1 },
-      timeout=5,
+      timeout=50,
     )
 
     # Every ============================

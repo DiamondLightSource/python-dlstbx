@@ -92,17 +92,14 @@ class DispatcherService(CommonSystemTest):
       queue='processing_recipe',
       message={
         'parameters': parameters,
-        'recipes': [ 'system-test-dispatcher' ],
+        'recipes': [ 'test-dispatcher' ],
       }
     )
 
-    if self.development_mode:
-      recipe_path = '/dls_sw/apps/zocalo/test/recipes'
-    else:
-      recipe_path = '/dls_sw/apps/zocalo/live/recipes'
+    recipe_path = '/dls_sw/apps/zocalo/live/recipes'
 
-    with open(os.path.join(recipe_path, 'system-test-dispatcher.json'), 'r') as fh:
-      recipe = json.loads(fh.read())
+    with open(os.path.join(recipe_path, 'test-dispatcher.json'), 'r') as fh:
+      recipe = json.load(fh)
     expected_recipe=Recipe(recipe)
     expected_recipe.apply_parameters(parameters)
 
@@ -130,15 +127,12 @@ class DispatcherService(CommonSystemTest):
       message={
         'parameters': parameters,
         'custom_recipe': recipe_passed,
-        'recipes': [ 'system-test-dispatcher' ],
+        'recipes': [ 'test-dispatcher' ],
       }
     )
 
-    if self.development_mode:
-      recipe_path = '/dls_sw/apps/zocalo/test/recipes'
-    else:
-      recipe_path = '/dls_sw/apps/zocalo/live/recipes'
-    with open(os.path.join(recipe_path, 'system-test-dispatcher.json'), 'r') as fh:
+    recipe_path = '/dls_sw/apps/zocalo/live/recipes'
+    with open(os.path.join(recipe_path, 'test-dispatcher.json'), 'r') as fh:
       recipe_from_file = json.loads(fh.read())
 
     self.expect_recipe_message(

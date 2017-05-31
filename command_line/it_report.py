@@ -106,7 +106,7 @@ def report_cluster(issue):
       if crashed == 1:
         crashreport = 'The cluster node %s appears to have crashed.' % list(issue['ext']['nodecrashed'])[0]
       elif crashed == 2:
-        crashreport = 'Two cluster nodes, %s and %s, appear to have crashed.' % list(issue['ext']['nodecrashed'])
+        crashreport = 'Two cluster nodes, %s and %s, appear to have crashed.' % tuple(issue['ext']['nodecrashed'])
       elif crashed < 8:
         crashreport = 'The following %d cluster nodes appear to have crashed:\n' % crashed + "\n".join(sorted(list(issue['ext']['nodecrashed'])))
       else:

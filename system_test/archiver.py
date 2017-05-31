@@ -113,6 +113,7 @@ class ArchiverService(CommonSystemTest):
              'parameters': { 'pattern': '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_%03d.img',
                              'pattern-start': '40',
                              'pattern-end': 50,
+                             'log-summary-warning-as-info': True,
                            },
              'output': 2
            },

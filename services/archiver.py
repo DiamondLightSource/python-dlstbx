@@ -97,7 +97,11 @@ class DLSArchiver(CommonService):
         if e.errno == errno.ENOENT:
           files_not_found.append(filename)
         else:
-          self.log.warn("Could not archive %s", filename, exc_info=True)
+          # Report all missing files as warnings unless recipe says otherwise
+          if rw.recipe_step['parameters'].get('log-file-warnings-as-info'):
+            self.log.info("Could not archive %s", filename, exc_info=True)
+          else:
+            self.log.warn("Could not archive %s", filename, exc_info=True)
         message_out['failed'] += 1
         continue
       self.log.debug("Archiving %s", filename)
@@ -117,7 +121,10 @@ class DLSArchiver(CommonService):
       self.log.info("The following files were not found:\n%s", "\n".join(files_not_found))
     self.log.info("%d files archived", message_out['success'])
     if message_out['failed']:
-      self.log.warn("Failed to archive %d files", message_out['failed'])
+      if rw.recipe_step['parameters'].get('log-summary-warning-as-info'):
+        self.log.info("Failed to archive %d files", message_out['failed'])
+      else:
+        self.log.warn("Failed to archive %d files", message_out['failed'])
 
     def indent(elem, level=0):
       i = "\n" + level*"  "

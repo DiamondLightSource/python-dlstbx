@@ -82,7 +82,9 @@ if __name__ == '__main__':
   if options.default:
     def magic_function(dcid):
       '''Takes a DCID. Returns a list of recipe names.'''
-      return [ 'dummy-recipe-cluster' ]
+      from dlstbx.ispyb.ispyb import ispyb_filter
+      message, parameters = ispyb_filter({ }, {'ispyb_dcid':dcid})
+      return message['default_recipe']
 
     default_recipes = magic_function(dcid)
     message['recipes'] = list( set(message['recipes']) | set(default_recipes) )

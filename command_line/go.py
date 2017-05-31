@@ -25,6 +25,9 @@ if __name__ == '__main__':
   parser.add_option("-n", "--no-dcid", dest="nodcid",
       action="store_true", default=False,
       help="Trigger recipe without specifying a data collection ID")
+  parser.add_option("-d", "--default", dest="default",
+      action="store_true", default=False,
+      help="Run default recipes for each given data collection ID")
 
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
@@ -39,42 +42,68 @@ if __name__ == '__main__':
 
   StompTransport.add_command_line_options(parser)
   (options, args) = parser.parse_args(sys.argv[1:])
+  stomp = StompTransport()
 
   message = { 'recipes': options.recipe,
               'parameters': {},
             }
-  if options.recipe:
-    print "Running recipes", options.recipe
+
+  if not options.recipe and not message.get('custom_recipe') and not (options.default and not options.nodcid):
+    print "No recipes specified."
+    sys.exit(1)
+
+  if options.nodcid:
+    if options.recipe:
+      print "Running recipes", options.recipe
+    if options.recipefile:
+      with open(options.recipefile, 'r') as fh:
+        message['custom_recipe'] = json.load(fh)
+      print "Running recipe from file", options.recipefile
+    print "without specified data collection."
+    stomp.connect()
+    stomp.send(
+      'processing_recipe',
+      message
+    )
+    print "\nSubmitted."
+    sys.exit(0)
+
+  if not args:
+    print "No data collection IDs specified."
+    sys.exit(1)
+
+  if len(args) > 1:
+    print "Currently only a single data collection ID can be specified."
+    sys.exit(1)
+
+  dcid = int(args[0])
+  assert dcid > 0, "Invalid data collection ID given."
+
+  if options.default:
+    def magic_function(dcid):
+      '''Takes a DCID. Returns a list of recipe names.'''
+      return [ 'dummy-recipe-cluster' ]
+
+    default_recipes = magic_function(dcid)
+    message['recipes'] = list( set(message['recipes']) | set(default_recipes) )
+
+  if message['recipes']:
+    print "Running recipes", message['recipes']
 
   if options.recipefile:
     with open(options.recipefile, 'r') as fh:
       message['custom_recipe'] = json.load(fh)
     print "Running recipe from file", options.recipefile
 
-  if not options.recipe and not message.get('custom_recipe'):
+  if not message['recipes'] and not message.get('custom_recipe'):
     print "No recipes specified."
     sys.exit(1)
+  print "for data collection", dcid
+  message['parameters']['ispyb_dcid'] = dcid
 
-  if not options.nodcid:
-    if not args:
-      print "No data collection IDs specified."
-      sys.exit(1)
-
-    if len(args) > 1:
-      print "Currently only a single data collection ID can be specified."
-      sys.exit(1)
-
-    dcid = int(args[0])
-    assert dcid > 0, "Invalid data collection ID given."
-
-    print "for data collection", dcid
-    message['parameters']['ispyb_dcid'] = dcid
-
-  stomp = StompTransport()
   stomp.connect()
   stomp.send(
     'processing_recipe',
     message
   )
-
   print "\nSubmitted."

@@ -48,16 +48,18 @@ if __name__ == '__main__':
               'parameters': {},
             }
 
-  if not options.recipe and not message.get('custom_recipe') and not (options.default and not options.nodcid):
+  if not options.recipe and not options.recipefile and not (options.default and not options.nodcid):
     print "No recipes specified."
     sys.exit(1)
+
+  if options.recipefile:
+    with open(options.recipefile, 'r') as fh:
+      message['custom_recipe'] = json.load(fh)
 
   if options.nodcid:
     if options.recipe:
       print "Running recipes", options.recipe
     if options.recipefile:
-      with open(options.recipefile, 'r') as fh:
-        message['custom_recipe'] = json.load(fh)
       print "Running recipe from file", options.recipefile
     print "without specified data collection."
     stomp.connect()
@@ -91,8 +93,6 @@ if __name__ == '__main__':
     print "Running recipes", message['recipes']
 
   if options.recipefile:
-    with open(options.recipefile, 'r') as fh:
-      message['custom_recipe'] = json.load(fh)
     print "Running recipe from file", options.recipefile
 
   if not message['recipes'] and not message.get('custom_recipe'):

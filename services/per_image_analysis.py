@@ -1,9 +1,6 @@
 from __future__ import absolute_import, division
-#from dials.command_line.find_spots_client import response_to_xml
 from dials.command_line.find_spots_server import work
 import logging
-import os
-import time
 import workflows.recipe
 from workflows.services.common_service import CommonService
 

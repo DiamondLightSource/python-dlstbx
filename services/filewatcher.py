@@ -120,12 +120,9 @@ class DLSFileWatcher(CommonService):
       if timed_out:
         # File watch operation has timed out.
 
+        # Report all timeouts as warnings unless the recipe specifies otherwise
         timeoutlog = self.log.warn
-        # Normally report all timeouts as warnings. If the warning is caused by
-        # a system test then downgrade it to information level.
-        if rw.recipe_step['parameters']['pattern'].startswith('/dls/tmp/dlstbx') and ( \
-            ('tst_semi_' in rw.recipe_step['parameters']['pattern'] and status['seen-files'] == 1) or \
-            ('tst_fail_' in rw.recipe_step['parameters']['pattern'] and status['seen-files'] == 0)):
+        if rw.recipe_step['parameters'].get('log-timeout-as-info'):
           timeoutlog = self.log.info
 
         timeoutlog("Filewatcher for %s timed out after %.1f seconds (%d files found, nothing seen for %.1f seconds)",

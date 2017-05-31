@@ -164,6 +164,7 @@ class FilewatcherService(CommonSystemTest):
                              'burst-limit': 40,
                              'timeout': 10,
                              'timeout-first': 60,
+                             'log-timeout-as-info': True,
                            },
              'output': { 'first': 2,     # Should not be triggered here
                          'every': 3,     # Should not be triggered here
@@ -259,6 +260,7 @@ class FilewatcherService(CommonSystemTest):
                              'burst-limit': 40,
                              'timeout': 10,
                              'timeout-first': 60,
+                             'log-timeout-as-info': True,
                            },
              'output': { 'first': 2,     # First
                          'every': 3,     # Every

@@ -253,7 +253,10 @@ class ispyb(object):
     visit = self.data_folder_to_visit(directory)
     rest = directory.replace(visit, '')
     root = _clean_(os.sep.join([visit, 'tmp', 'zocalo', rest, prefix]))
-    return os.path.join(root, '%s-%s' % (taskname, str(uuid.uuid4())))
+    if taskname:
+      return os.path.join(root, '%s-%s' % (taskname, str(uuid.uuid4())))
+    else:
+      return os.path.join(root, str(uuid.uuid4()))
 
   def dc_info_to_results_directory(self, dc_info, taskname):
     import uuid
@@ -262,7 +265,10 @@ class ispyb(object):
     visit = self.data_folder_to_visit(directory)
     rest = directory.replace(visit, '')
     root = _clean_(os.sep.join([visit, 'processed', rest, prefix]))
-    return os.path.join(root, '%s-%s' % (taskname, str(uuid.uuid4())))
+    if taskname:
+      return os.path.join(root, '%s-%s' % (taskname, str(uuid.uuid4())))
+    else:
+      return os.path.join(root, str(uuid.uuid4()))
 
   def wrap_stored_procedure_insert_program(self, values):
     # this wraps a stored procedure I think - which should be a good thing
@@ -435,9 +441,9 @@ def ispyb_filter(message, parameters):
   parameters['ispyb_image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
                                             start, end)
   parameters['ispyb_working_directory'] = i.dc_info_to_working_directory(
-    dc_info, 'ispyb')
+    dc_info, '')
   parameters['ispyb_results_directory'] = i.dc_info_to_results_directory(
-    dc_info, 'ispyb')
+    dc_info, '')
 
   if dc_class['grid']:
     message['default_recipe'] = ['per-image-analysis-gridscan']

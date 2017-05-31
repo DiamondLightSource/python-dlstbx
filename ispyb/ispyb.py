@@ -440,11 +440,11 @@ def ispyb_filter(message, parameters):
     dc_info, 'ispyb')
 
   if dc_class['grid']:
-    message['default_recipe'] = ['per_image_analysis']
+    message['default_recipe'] = ['per-image-analysis-gridscan']
     return message, parameters
 
   if dc_class['screen']:
-    message['default_recipe'] = ['per_image_analysis', 'strategy']
+    message['default_recipe'] = ['per-image-analysis-rotation', 'strategy-edna', 'strategy-mosflm', 'strategy-xia2']
     return message, parameters
 
   assert(dc_class['rotation'])
@@ -479,8 +479,8 @@ def ispyb_filter(message, parameters):
 
     parameters['ispyb_images'] = ','.join(related_images)
 
-  message['default_recipe'] = ['per_image_analysis', 'fast_dp', 'xia2',
-                               'multi_xia2']
+  message['default_recipe'] = ['per-image-analysis-rotation', 'processing-fast-dp', 'processing-xia2',
+                               'processing-multi-xia2']
 
   return message, parameters
 

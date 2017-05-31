@@ -80,13 +80,11 @@ if __name__ == '__main__':
   assert dcid > 0, "Invalid data collection ID given."
 
   if options.default:
-    def magic_function(dcid):
-      '''Takes a DCID. Returns a list of recipe names.'''
-      from dlstbx.ispyb.ispyb import ispyb_filter
-      message, parameters = ispyb_filter({ }, {'ispyb_dcid':dcid})
-      return message['default_recipe']
+    # Take a DCID. Find a list of default recipe names.
+    from dlstbx.ispyb.ispyb import ispyb_filter
+    default_recipes = ispyb_filter({ }, {'ispyb_dcid': dcid})[0]['default_recipe']
 
-    default_recipes = magic_function(dcid)
+    # Merge with any manually specified recipes
     message['recipes'] = list( set(message['recipes']) | set(default_recipes) )
 
   if message['recipes']:

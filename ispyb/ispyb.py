@@ -435,9 +435,9 @@ def ispyb_filter(message, parameters):
   parameters['ispyb_image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
                                             start, end)
   parameters['ispyb_working_directory'] = i.dc_info_to_working_directory(
-    dc_info)
+    dc_info, 'ispyb')
   parameters['ispyb_results_directory'] = i.dc_info_to_results_directory(
-    dc_info)
+    dc_info, 'ispyb')
 
   if dc_class['grid']:
     message['default_recipe'] = ['per_image_analysis']

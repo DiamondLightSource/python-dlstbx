@@ -16,6 +16,13 @@ sauce = '/dls_sw/apps/zocalo/secrets/ispyb-login.json'
 
 secret_ingredients = json.load(open(sauce, 'r'))
 
+# convenience functions
+def _clean_(path):
+  return path.replace(2*os.sep, os.sep)
+
+def _prefix_(template):
+  return template.split('#')[0]
+
 class ispyb(object):
   def __init__(self):
     self.conn = mysql.connector.connect(
@@ -239,43 +246,23 @@ class ispyb(object):
 
     return os.sep.join(directory.split(os.sep)[:6]).strip()
 
-  def dc_info_to_working_directory(self, dc_info, taskname=None):
-    template = dc_info['fileTemplate']
+  def dc_info_to_working_directory(self, dc_info, taskname):
+    import uuid
+    prefix = _prefix_(dc_info['fileTemplate'])
     directory = dc_info['imageDirectory']
     visit = self.data_folder_to_visit(directory)
     rest = directory.replace(visit, '')
+    root = _clean_(os.sep.join([visit, 'tmp', 'zocalo', rest, prefix]))
+    return os.path.join(root, '%s-%s' % (taskname, str(uuid.uuid4())))
 
-    if False:
-      import uuid
-      return os.path.join('/', 'dls', 'tmp', 'zocalo', str(uuid.uuid4()))
-
-    if taskname is None:
-      return os.sep.join([visit, 'tmp', 'zocalo', rest,
-                          template.split('#')[0]]).replace(2*os.sep, os.sep)
-    else:
-      import uuid
-      root = os.sep.join([visit, 'tmp', 'zocalo', rest,
-                          template.split('#')[0]]).replace(2*os.sep, os.sep)
-      return os.path.join(root, '%s-%s' % (taskname, str(uuid.uuid4())))
-
-  def dc_info_to_results_directory(self, dc_info, taskname=None):
-    template = dc_info['fileTemplate']
+  def dc_info_to_results_directory(self, dc_info, taskname):
+    import uuid
+    prefix = _prefix_(dc_info['fileTemplate'])
     directory = dc_info['imageDirectory']
     visit = self.data_folder_to_visit(directory)
     rest = directory.replace(visit, '')
-    if taskname is None:
-      return os.sep.join(
-        [visit, 'processed', 'zocalo', rest, template.split('#')[0]]).replace(
-        2*os.sep, os.sep)
-    else:
-      root = os.sep.join(
-        [visit, 'processed', 'zocalo', rest, template.split('#')[0]]).replace(
-        2*os.sep, os.sep)
-      run = 0
-      # FIXME this is a race condition
-      while os.path.exists(os.path.join(root, '%s-%d' % (taskname, run))):
-        run += 1
-      return os.path.join(root, '%s-%d' % (taskname, run))
+    root = _clean_(os.sep.join([visit, 'processed', rest, prefix]))
+    return os.path.join(root, '%s-%s' % (taskname, str(uuid.uuid4())))
 
   def wrap_stored_procedure_insert_program(self, values):
     # this wraps a stored procedure I think - which should be a good thing

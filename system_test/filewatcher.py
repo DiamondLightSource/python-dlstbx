@@ -351,7 +351,7 @@ class FilewatcherService(CommonSystemTest):
 
     self.expect_message(
       queue='transient.system_test.' + self.guid + '.semi.8',
-      message={ 'payload': { 'file': semifailpattern % 2, 'file-number': 2, 'file-pattern-index': 6,
+      message={ 'payload': { 'file': semifailpattern % 6, 'file-number': 2, 'file-pattern-index': 6,
                              'success': False },
                 'recipe': recipe,
                 'recipe-path': [ 1 ],

@@ -35,10 +35,9 @@ class DLSFileWatcher(CommonService):
       status.update(message.get('filewatcher-status', {}))
 
     # List files to wait for
-    files = [ rw.recipe_step['parameters']['pattern'] % x
-              for x in range(int(rw.recipe_step['parameters']['pattern-start']),
-                             int(rw.recipe_step['parameters']['pattern-end']) + 1) ]
-    filecount = len(files)
+    pattern = rw.recipe_step['parameters']['pattern']
+    pattern_start = int(rw.recipe_step['parameters']['pattern-start'])
+    filecount = int(rw.recipe_step['parameters']['pattern-end']) - pattern_start + 1
 
     self.log.debug("Waiting %.1f seconds for %s\n%d of %d files seen so far",
         time.time()-status['start-time'],
@@ -62,8 +61,13 @@ class DLSFileWatcher(CommonService):
     files_found = 0
     while status['seen-files'] < filecount and \
           files_found < rw.recipe_step['parameters'].get('burst-limit', 100) and \
-          os.path.isfile(files[status['seen-files']]):
-      filename = files[status['seen-files']]
+          os.path.isfile(pattern % (pattern_start + status['seen-files'])):
+      filename = pattern % (pattern_start + status['seen-files'])
+      notification_record = {
+          'file': filename,
+          'file-number': status['seen-files'] + 1,
+          'file-pattern-index': pattern_start + status['seen-files'],
+      }
       self.log.debug("Found %s", filename)
 
       files_found += 1
@@ -71,18 +75,18 @@ class DLSFileWatcher(CommonService):
 
       # Notify for first file
       if status['seen-files'] == 1:
-        rw.send_to('first', { 'file': filename }, transaction=txn)
+        rw.send_to('first', notification_record, transaction=txn)
 
       # Notify for every file
-      rw.send_to('every', { 'file': filename }, transaction=txn)
+      rw.send_to('every', notification_record, transaction=txn)
 
       # Notify for last file
       if status['seen-files'] == filecount:
-        rw.send_to('last', { 'file': filename }, transaction=txn)
+        rw.send_to('last', notification_record, transaction=txn)
 
       # Notify for nth file
-      rw.send_to(status['seen-files'], { 'file': filename }, transaction=txn)
-      rw.send_to(str(status['seen-files']), { 'file': filename }, transaction=txn)
+      rw.send_to(status['seen-files'], notification_record, transaction=txn)
+      rw.send_to(str(status['seen-files']), notification_record, transaction=txn)
 
       # Notify for selections
       for m, dest in selections.iteritems():
@@ -90,7 +94,7 @@ class DLSFileWatcher(CommonService):
             filecount,
             1 + round(status['seen-files'] * (m-1) // filecount) \
                 * filecount // (m-1)):
-          rw.send_to(dest, { 'file': filename }, transaction=txn)
+          rw.send_to(dest, notification_record, transaction=txn)
 
     # Are we done?
     if status['seen-files'] == filecount:
@@ -140,7 +144,9 @@ class DLSFileWatcher(CommonService):
 
         # Notify for timeout
         rw.send_to('timeout', {
-                        'file': files[status['seen-files']],
+                        'file': pattern % (pattern_start + status['seen-files']),
+                        'file-number': status['seen-files'] + 1,
+                        'file-pattern-index': pattern_start + status['seen-files'],
                         'success': False }, transaction=txn)
         # Notify for 'finally' outcome
         rw.send_to('finally', {

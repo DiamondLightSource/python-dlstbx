@@ -18,7 +18,7 @@ if __name__ == '__main__':
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-r", "--recipe", dest="recipe", metavar="RCP",
       action="append", default=[],
-      help="Name of a recipe to run. Can be used multiple times.")
+      help="Name of a recipe to run. Can be used multiple times. Recipe names correspond to filenames (excluding .json) in /dls_sw/apps/zocalo/live/recipes")
   parser.add_option("-f", "--file", dest="recipefile", metavar="FILE",
       action="store", type="string", default="",
       help="Run recipe contained in this file.")

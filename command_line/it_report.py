@@ -151,7 +151,7 @@ def report_cluster(issue):
   elif (issue['ext']['overall']['crashed'] + issue['ext']['overall']['disabled']) > (issue['ext']['overall']['total'] * 0.5) :
     report.append('We are a bit concerned because, taking the disabled nodes into account, the ' + clustername + ' is currently reduced to below half-capacity.')
     report.append('')
- 
+
   report.append('Thanks.')
   report.append('')
   report.append(user)
@@ -245,7 +245,7 @@ if report:
   print "==========================================="
   print "Sending in 7 seconds, last chance to abort."
   try:
-    time.sleep(7) 
+    time.sleep(7)
   except KeyboardInterrupt:
     print "Aborted. No mail sent."
     sys.exit(0)

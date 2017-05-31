@@ -27,25 +27,31 @@ class DLSPerImageAnalysisSAN(CommonService):
     txn = rw.transport.transaction_begin()
     rw.transport.ack(header, transaction=txn)
 
-    # Extract the filename
-    filename = message['file']
+    # Copy filename under 'image' key
+    filename = message['image'] = message['file']
 
-    filename = str(filename) # required due to
-                             # https://github.com/dials/dials/issues/256
-
-    self.log.info("Running PIA on %s", filename)
+    self.log.debug("Storing PIA results for %s", filename)
 
     # Create XML from PIA result
     PIA_xml = response_to_xml(message)
+    image_number = message['file-number']
+    is_gridscan = rw.recipe_step.get('parameters', {}).get('gridscan') in ('True', 'true', 1)
+    dcid = rw.recipe_step.get('parameters', {}).get('dcid', '')
+
     self.log.debug(PIA_xml)
 
+    command = ['/bin/bash', '/dls_sw/apps/mx-scripts/misc/dials/imgScreen_LocalServerV2.sh',
+               filename, 'NA', str(image_number), is_gridscan, dcid]
+
+    self.log.debug("Running %s", str(command))
+
     # Run bash script which stores and notifies for XML
-    result = run_process(['/bin/bash', '/dls_sw/apps/mx-scripts/misc/dials/imgScreen_LocalServerV2.sh',
-      filename, 'NA', str(kwargs['imagenumber']), str(kwargs['grid']), kwargs['dcid']],
-      stdin=PIA_xml, debug=True, print_stdout=True)
+    result = run_process(command, stdin=PIA_xml, debug=True, print_stdout=True)
+
     if result['exitcode'] != 0:
-      info(result)
-    self.log.debug("%d: Thread stopped after %.1f seconds" % (pid, timeit.default_timer() - start))
+      self.log.warn(result)
+    else:
+      self.log.debug(result)
 
     # Send results onwards
     rw.set_default_channel('result')

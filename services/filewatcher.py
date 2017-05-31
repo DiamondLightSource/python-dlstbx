@@ -49,14 +49,6 @@ class DLSFileWatcher(CommonService):
                    if isinstance(k, basestring) and k.startswith('select-') ]
     selections = { int(k[7:]): k for k in selections }
 
-    # Check if a minimum-wait time is set, and wait accordingly
-    # (but no more than 3 seconds)
-    # can be removed in the future
-    if status.get('min-wait', 0) > time.time():
-      timeout = max(0, min(3, status['min-wait'] - time.time()))
-      self.log.debug("Waiting %.1f seconds", timeout)
-      time.sleep(timeout)
-
     # Look for files
     files_found = 0
     while status['seen-files'] < filecount and \
@@ -158,7 +150,6 @@ class DLSFileWatcher(CommonService):
         return
 
       # If no timeouts are triggered, set a minimum waiting time.
-      status['min-wait'] = time.time() + 1 # can be removed in the future
       message_delay = 1
       self.log.debug("No files found this time")
     else:

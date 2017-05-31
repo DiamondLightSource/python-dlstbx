@@ -18,7 +18,7 @@ class DLSPerImageAnalysis(CommonService):
 
   def initializing(self):
     '''Subscribe to the per_image_analysis queue. Received messages must be acknowledged.'''
-    logging.getLogger('dials').setLevel(logging.INFO)
+    logging.getLogger('dials').setLevel(logging.WARNING)
     workflows.recipe.wrap_subscribe(self._transport, 'per_image_analysis',
         self.per_image_analysis, acknowledgement=True)
 
@@ -35,7 +35,7 @@ class DLSPerImageAnalysis(CommonService):
     filename = str(filename) # required due to
                              # https://github.com/dials/dials/issues/256
 
-    self.log.info("Running PIA on %s", filename)
+    self.log.debug("Running PIA on %s", filename)
 
     # Do the per-image-analysis
     cl = ['d_max=40']
@@ -50,4 +50,4 @@ class DLSPerImageAnalysis(CommonService):
     rw.set_default_channel('result')
     rw.send_to('result', results, transaction=txn)
     rw.transport.transaction_commit(txn)
-    self.log.info("PIA completed on %s", filename)
+    self.log.info("PIA completed on %s, %d spots found", filename, results['n_spots_total'])

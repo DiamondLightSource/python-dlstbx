@@ -40,10 +40,11 @@ class DLSPerImageAnalysis(CommonService):
     # Do the per-image-analysis
     cl = ['d_max=40']
     results = work(filename, cl=cl)
-    results['image'] = filename
- #   xml_response = response_to_xml(results)
+
+    # Pass through all file* fields
+    for key in filter(lambda x: x.startswith('file'), message):
+      results[key] = message[key]
     self.log.debug(str(results))
- #   self.log.debug(xml_response)
 
     # Send results onwards
     rw.set_default_channel('result')

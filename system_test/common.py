@@ -1,4 +1,5 @@
 from __future__ import absolute_import, division
+import logging
 import mock
 import string
 import uuid
@@ -31,6 +32,9 @@ class CommonSystemTest(object):
      development system. This should be used only sparingly, after all tests
      should be as realistic as possible, but may be required in some places,
      eg. to decide where to load external files from.'''
+
+  log = logging.getLogger('dlstbx.system_test')
+  '''Common logger object.'''
 
   def __init__(self, dev_mode=False):
     '''Constructor via which the development mode can be set.'''

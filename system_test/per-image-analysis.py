@@ -19,7 +19,9 @@ class PerImageAnalysisService(CommonSystemTest):
              'queue': 'transient.system_test.' + self.guid
            },
         'start': [
-           (1, { 'file': '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_001.img' }),
+           (1, { 'file': '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_007.img',
+                 'file-number': 1,
+                 'file-pattern-index': 7 }),
         ]
       }
     recipe = Recipe(recipe)
@@ -37,7 +39,7 @@ class PerImageAnalysisService(CommonSystemTest):
     class PayloadIsValidPIAResult(object):
       '''A helper class to validate incoming results.'''
 
-      def __eq__(self, other):
+      def __eq__(self_eq, other):
         '''Comparison function'''
         if not isinstance(other, dict):
           return False
@@ -46,26 +48,32 @@ class PerImageAnalysisService(CommonSystemTest):
           { 'name': 'd_min_distl_method_1', 'type': numbers.Number },
           { 'name': 'd_min_distl_method_2', 'type': numbers.Number },
           { 'name': 'estimated_d_min', 'type': numbers.Number },
-          { 'name': 'image', 'equals': recipe['start'][0][1]['file'] },
+          { 'name': 'file', 'equals': recipe['start'][0][1]['file'] },
+          { 'name': 'file-number', 'equals': recipe['start'][0][1]['file-number'] },
+          { 'name': 'file-pattern-index', 'equals': recipe['start'][0][1]['file-pattern-index'] },
           { 'name': 'n_spots_4A', 'type': numbers.Number },
           { 'name': 'n_spots_no_ice', 'type': numbers.Number },
           { 'name': 'n_spots_total', 'type': numbers.Number },
           { 'name': 'noisiness_method_2', 'type': numbers.Number },
           { 'name': 'noisiness_method_1', 'type': numbers.Number },
-          { 'name': 'total_intensity', 'min': 8000000, 'max': 10000000 },
+          { 'name': 'total_intensity', 'min': 6000000, 'max': 8000000 },
         ]
 
         for r in requirements:
           if r['name'] not in other:
+            self.log.warn("Field %s is missing in output", r['name'])
             return False
           if 'min' in r and r['min'] > other[r['name']]:
+            self.log.warn("Field %s (%s) is below minimum (%s)", r['name'], str(other[r['name']]), str(r['min']))
             return False
           if 'max' in r and r['max'] < other[r['name']]:
+            self.log.warn("Field %s (%s) is above maximum (%s)", r['name'], str(other[r['name']]), str(r['max']))
             return False
           if 'equals' in r and r['equals'] != other[r['name']]:
+            self.log.warn("Field %s (%s) does not match %s", r['name'], str(other[r['name']]), str(r['equals']))
             return False
           if 'type' in r and not isinstance(other[r['name']], r['type']):
-            print "Field %s (%s) is not of type %s" % (r['name'], str(other[r['name']]), r['type'])
+            self.log.warn("Field %s (%s) is not of type %s", r['name'], str(other[r['name']]), str(r['type']))
             return False
 
         return True

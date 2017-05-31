@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division
 from datetime import datetime
 import errno
+import itertools
 import os
 import os.path
 import workflows.recipe
@@ -24,6 +25,14 @@ class DLSArchiver(CommonService):
     workflows.recipe.wrap_subscribe(
         self._transport, 'archive.pattern',
         self.archive_dcid, acknowledgement=True)
+
+  @staticmethod
+  def rangifier(numbers):
+    '''Convert lists into lists of ranges. Copied from are_all_images_there.py'''
+    ranges = lambda l:map(lambda x:(x[0][1], x[-1][1]),
+                          map(lambda (x,y):list(y), itertools.groupby(enumerate(l),
+                                                                      lambda (x,y):x-y)))
+    return list(ranges(numbers))
 
   def archive_dcid(self, rw, header, message):
     '''Archive collected datafiles connected to a data collection.'''

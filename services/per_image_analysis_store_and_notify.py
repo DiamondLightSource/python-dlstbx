@@ -41,12 +41,12 @@ class DLSPerImageAnalysisSAN(CommonService):
     self.log.debug(PIA_xml)
 
     command = ['/bin/bash', '/dls_sw/apps/mx-scripts/misc/dials/imgScreen_LocalServerV2.sh',
-               filename, 'NA', str(image_number), is_gridscan, dcid]
+               filename, 'NA', str(image_number), str(is_gridscan), str(dcid)]
 
     self.log.debug("Running %s", str(command))
 
     # Run bash script which stores and notifies for XML
-    result = run_process(command, stdin=PIA_xml, debug=True, print_stdout=True)
+    result = run_process(command, stdin=PIA_xml, print_stdout=False, print_stderr=False) # print_stdout=True
 
     if result['exitcode'] != 0:
       self.log.warn(result)
@@ -57,4 +57,4 @@ class DLSPerImageAnalysisSAN(CommonService):
     rw.set_default_channel('result')
     rw.send_to('result', PIA_xml, transaction=txn)
     rw.transport.transaction_commit(txn)
-    self.log.info("PIA completed on %s", filename)
+    self.log.info("PIA results for %s written to database", filename)

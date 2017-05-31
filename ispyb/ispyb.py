@@ -479,7 +479,7 @@ def ispyb_filter(message, parameters):
 
     parameters['ispyb_images'] = ','.join(related_images)
 
-  message['default_recipe'] = ['per-image-analysis-rotation', 'processing-fast-dp', 'processing-xia2',
+  message['default_recipe'] = ['per-image-analysis-rotation', 'processing-fast-dp', 'processing-xia2-3dii', 'processing-xia2-dials',
                                'processing-multi-xia2']
 
   return message, parameters

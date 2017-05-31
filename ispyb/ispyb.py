@@ -488,7 +488,7 @@ def ispyb_filter(message, parameters):
   if parameters['ispyb_images']:
     message['default_recipe'] = ['per-image-analysis-rotation', 'processing-fast-dp', 
                                  'processing-xia2-3dii', 'processing-xia2-dials',
-                                 'processing-multi-xia2-dials', 'processing-multi-xia2-dials']
+                                 'processing-multi-xia2-dials', 'processing-multi-xia2-3dii']
   else:
     message['default_recipe'] = ['per-image-analysis-rotation', 'processing-fast-dp', 
                                  'processing-xia2-3dii', 'processing-xia2-dials']

@@ -31,7 +31,8 @@ def run(args):
   with open(recipe_file, 'rb') as f:
     recipe = json.load(f)
 
-  autoPROC_recipe = recipe[recipe_pointer]
+  params = recipe[recipe_pointer]
+
   ap_env = {'autoPROC_HIGHLIGHT':'no'}
 
   image = params['autoPROC']['image']
@@ -54,18 +55,6 @@ def run(args):
              params['working_directory']]
   command.extend(ap_so_many_words)
              
-  filename = None
-  params = fast_dp_recipe['job_parameters']
-  for param, values in params['fast_dp'].iteritems():
-    if param == 'image':
-      tokens = values.split(':')
-      filename = tokens[0]
-      start, end = int(tokens[1]), int(tokens[2])
-      command.extend(['-1', str(start), '-N', str(end)])
-
-  assert not filename is None
-  command.append(filename)
-
   cwd = os.path.abspath(os.curdir)
 
   working_directory = params['working_directory']

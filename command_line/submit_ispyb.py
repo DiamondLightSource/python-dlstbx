@@ -23,6 +23,9 @@ if __name__ == '__main__':
   parser.add_option("--test", action="store_true", dest="test",
       help="Run in ActiveMQ testing (zocdev) namespace")
 
+  parser.add_option("--replace-zocalo-tmpdir", dest="zocalo_tmp_dir_mode", action="store_true", default=False,
+      help="Replace /tmp/zocalo/ in directory references with /processed/.")
+
   # override default stomp host
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
   if '--test' in sys.argv:
@@ -56,6 +59,28 @@ if __name__ == '__main__':
       all( container.get('AutoProcIntegration', {}).get('dataCollectionId') for container in \
            message.get('AutoProcScalingContainer', {}).get('AutoProcIntegrationContainer', []) ) \
       for message in messages )
+
+  def recursive_replace(thing, old, new):
+    '''Recursive string replacement in data structures.'''
+
+    def _recursive_apply(item):
+      '''Internal recursive helper function.'''
+      if isinstance(item, basestring):
+        return item.replace(old, new)
+      if isinstance(item, dict):
+        return { _recursive_apply(key): _recursive_apply(value) for
+                 key, value in item.items() }
+      if isinstance(item, tuple):
+        return tuple(_recursive_apply(list(item)))
+      if isinstance(item, list):
+        return [ _recursive_apply(x) for x in item ]
+      return item
+
+    return _recursive_apply(thing)
+
+  if options.zocalo_tmp_dir_mode:
+    print "Replacing temporary zocalo paths with correct destination paths"
+    messages = recursive_replace(messages, '/tmp/zocalo/', '/processed/')
 
   if not args:
     print "No data collection ID specified."

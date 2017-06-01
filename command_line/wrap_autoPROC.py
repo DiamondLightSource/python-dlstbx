@@ -35,6 +35,7 @@ def run(args):
 
   ap_env = {'autoPROC_HIGHLIGHT':'no'}
 
+  print params
   image = params['autoPROC']['image']
   first, last = image.split(':')[1:]
   template = params['autoPROC']['template']

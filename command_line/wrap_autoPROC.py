@@ -17,7 +17,7 @@ def get_rotation_axis_text(image):
   for record in text.split('\n'):
     if record.startswith('# Oscillation_axis'):
       if 'SLOW' in record:
-        axis_text = 'autoPROC_XdsKeyword_ROTATION_AXIS="0.0 -1.0 0.0"' 
+        axis_text = 'autoPROC_XdsKeyword_ROTATION_AXIS="0.0 -1.0 0.0"'
       return axis_text
 
   # should not get to here...
@@ -31,11 +31,10 @@ def run(args):
   with open(recipe_file, 'rb') as f:
     recipe = json.load(f)
 
-  params = recipe[recipe_pointer]
+  params = recipe[recipe_pointer]['job_parameters']
 
   ap_env = {'autoPROC_HIGHLIGHT':'no'}
 
-  print params
   image = params['autoPROC']['image']
   first, last = image.split(':')[1:]
   template = params['autoPROC']['template']
@@ -47,15 +46,15 @@ def run(args):
   # 'StopIfDayOfTheWeekBeginsWithT="no"'
   ap_so_many_words = ['autoPROC_XdsKeyword_MAXIMUM_NUMBER_OF_PROCESSORS=20',
                       'StopIfSubdirExists="no"']
-                      
-  axis_text = get_rotation_axis_text(image)
+
+  axis_text = get_rotation_axis_text(image.split(':')[0])
   if axis_text:
     ap_so_many_words.append(axis_text)
 
-  command = ['process', '-xml', '-Id', ap_Id, '-d', 
+  command = ['process', '-xml', '-Id', ap_Id, '-d',
              params['working_directory']]
   command.extend(ap_so_many_words)
-             
+
   cwd = os.path.abspath(os.curdir)
 
   working_directory = params['working_directory']
@@ -66,7 +65,7 @@ def run(args):
   logger.info('working directory: %s' % working_directory)
   result = procrunner.run_process(
     command, timeout=params.get('timeout'),
-    print_stdout=False, print_stderr=False, env=ap_env)
+    print_stdout=False, print_stderr=False, environ=ap_env)
 
   logger.info('command: %s', ' '.join(result['command']))
   logger.info('timeout: %s', result['timeout'])

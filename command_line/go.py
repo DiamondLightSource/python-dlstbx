@@ -28,6 +28,9 @@ if __name__ == '__main__':
   parser.add_option("-d", "--default", dest="default",
       action="store_true", default=False,
       help="Run default recipes for each given data collection ID")
+  parser.add_option("--not", dest="disable",
+      action="append", default=[],
+      help="Do not run this recipe. Only evaluated when --default is used")
 
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
@@ -87,7 +90,7 @@ if __name__ == '__main__':
     default_recipes = ispyb_filter({ }, {'ispyb_dcid': dcid})[0]['default_recipe']
 
     # Merge with any manually specified recipes
-    message['recipes'] = list( set(message['recipes']) | set(default_recipes) )
+    message['recipes'] = list( (set(message['recipes']) | set(default_recipes)) - set(options.disable) )
 
   if message['recipes']:
     print "Running recipes", message['recipes']

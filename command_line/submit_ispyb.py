@@ -4,7 +4,11 @@
 #
 
 from __future__ import division
+from dlstbx import enable_graylog
+from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from optparse import OptionParser, SUPPRESS_HELP
+import logging
+import os
 import sys
 import workflows
 from workflows.transport.stomp_transport import StompTransport
@@ -43,17 +47,30 @@ if __name__ == '__main__':
     print "You need to specify something to be sent to ISPyB."
     sys.exit(1)
 
+  # Set up logging to console and graylog
+  logger = logging.getLogger()
+  logger.setLevel(logging.WARN)
+  console = ColorStreamHandler()
+  console.setLevel(logging.DEBUG)
+  logger.addHandler(console)
+  log = logging.getLogger('dlstbx.submit_ispyb')
+  log.setLevel(logging.DEBUG)
+  enable_graylog()
+
   messages = []
+  sources = []
 
   for jsonfile in options.json:
-    print "Loading", jsonfile
+    log.debug("Loading %s", jsonfile)
     with open(jsonfile, 'r') as fh:
       messages.append(json.load(fh))
+    sources.append(jsonfile)
 
   if options.xia2:
-    print "Reading xia2 results"
+    log.debug("Reading xia2 results")
     from xia2.command_line.ispyb_json import ispyb_object
     messages.append(ispyb_object())
+    sources.append(os.path.join(os.getcwd(), 'xia2.txt'))
 
   dcid_present = all( \
       all( container.get('AutoProcIntegration', {}).get('dataCollectionId') for container in \
@@ -79,21 +96,21 @@ if __name__ == '__main__':
     return _recursive_apply(thing)
 
   if options.zocalo_tmp_dir_mode:
-    print "Replacing temporary zocalo paths with correct destination paths"
+    log.debug("Replacing temporary zocalo paths with correct destination paths")
     messages = recursive_replace(messages, '/tmp/zocalo/', '/processed/')
 
   if not args:
-    print "No data collection ID specified."
+    log.error("No data collection ID specified.")
     sys.exit(1)
 
   if len(args) > 1:
-    print "Only a single data collection ID can be specified."
+    log.error("Only a single data collection ID can be specified.")
     sys.exit(1)
 
   if len(args) == 1:
     dcid = int(args[0])
     assert dcid > 0, "Invalid data collection ID given."
-    print "Writing to data collection ID", dcid
+    log.debug("Writing to data collection ID %s", str(dcid))
     for message in messages:
       for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
         container['AutoProcIntegration']['dataCollectionId'] = dcid
@@ -102,10 +119,10 @@ if __name__ == '__main__':
   stomp.connect()
 
   for message in messages:
-    print "Sending", message
+    log.debug("Sending %s", str(message))
     stomp.send(
       'ispyb',
       message
     )
 
-  print "\nDone."
+  log.info("Processing information from %s attached to data collection %s", ", ".join(sources), str(dcid))

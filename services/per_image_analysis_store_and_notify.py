@@ -23,10 +23,6 @@ class DLSPerImageAnalysisSAN(CommonService):
   def store_and_notify(self, rw, header, message):
     '''Store and Notify for PIA results.'''
 
-    # Conditionally acknowledge receipt of the message
-    txn = rw.transport.transaction_begin()
-    rw.transport.ack(header, transaction=txn)
-
     # Copy filename under 'image' key
     filename = message['image'] = message['file']
 
@@ -50,14 +46,22 @@ class DLSPerImageAnalysisSAN(CommonService):
 
     if result['exitcode'] != 0:
       self.log.warn(result)
-      rw.transport.transaction_abort(txn)
+      # Reject message
+      rw.transport.nack(header)
       self.log.warn("PIA results for %s could not be written to database", filename)
       return
     else:
       self.log.debug(result)
 
+    # Begin transaction
+    txn = rw.transport.transaction_begin()
+
+    # Acknowledge message
+    rw.transport.ack(header, transaction=txn)
+
     # Send results onwards
     rw.set_default_channel('result')
     rw.send_to('result', PIA_xml, transaction=txn)
+
     rw.transport.transaction_commit(txn)
     self.log.info("PIA results for %s written to database", filename)

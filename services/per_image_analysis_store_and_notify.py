@@ -48,6 +48,9 @@ class DLSPerImageAnalysisSAN(CommonService):
     # Run bash script which stores and notifies for XML
     result = run_process(command, stdin=PIA_xml, print_stdout=False, print_stderr=False) # print_stdout=True
 
+    from pprint import pprint
+    pprint(result)
+
     if result['exitcode'] != 0:
       self.log.warn(result)
     else:
@@ -58,3 +61,6 @@ class DLSPerImageAnalysisSAN(CommonService):
     rw.send_to('result', PIA_xml, transaction=txn)
     rw.transport.transaction_commit(txn)
     self.log.info("PIA results for %s written to database", filename)
+
+    import sys
+    sys.exit(0)

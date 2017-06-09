@@ -1,8 +1,11 @@
 from __future__ import absolute_import, division
+import json
+import os.path
 import threading
 import time
 from workflows.services.common_service import CommonService
 from dials.util.procrunner import run_process
+from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
 
 class DLSController(CommonService):
   '''A service to supervise other services, start new instances and shut down
@@ -24,6 +27,17 @@ class DLSController(CommonService):
   # Time of the last operations survey
   last_survey = 0
 
+  # Time of the last service allocation balancing
+  last_balance = 0
+
+  # Time of the last check for a new service strategy file
+  timestamp_strategies_checked = None
+
+  # Timestamp of the most recently loaded strategy file
+  timestamp_strategies_loaded = None
+
+  strategy_file = '/dls_sw/apps/zocalo/controller-strategy.json'
+
   # Dictionary of all known services
   service_list = {}
 
@@ -37,10 +51,9 @@ class DLSController(CommonService):
     # Create lock to synchronize access to the internal service directory
     self._lock = threading.RLock()
 
-    # Connect to a synchronization channel. This is used to determine master
-    # controller status.
-    self._transport.subscribe('transient.controller', self.receive_sync_msg,
-                              exclusive=True)
+    # Create a strategy environment, which is an object that does services and
+    # instances bookkeeping and allocation.
+    self._se = StrategyEnvironment()
 
     # Listen to service announcements to build picture of running services.
     self._transport.subscribe_broadcast('transient.status',
@@ -54,80 +67,67 @@ class DLSController(CommonService):
     '''Check the overall data processing infrastructure state and ensure that
        everything is working fine and resources are deployed appropriately.'''
     self.self_check()
-    if not self.master: return
 
     # Only run once every approx. three seconds
     if self.last_survey > time.time() - 2.95:
       return
     self.last_survey = time.time()
 
-    # Don't survey when the service list can't be trusted
+    self.check_for_strategy_updates()
+
+    self.log.debug('Surveying.')
+    self._se.update_allocation()
+
+    # New master should wait a bit before beginning to mess with services
+    if not self.master: return
     if self.master_since == 0 or \
-       self.master_since > time.time() - 20:
-      self.log.debug('Controller is too young to survey')
+       self.master_since > time.time() - 30:
+      self.log.debug('Master controller in grace period.')
       return
 
-    self.log.debug('Surveying...')
-    print ""
+    # Only balance once every approx. 15 seconds
+    if self.last_balance > time.time() - 15:
+      return
+    self.last_balance = time.time()
+    self.log.debug('Balancing.')
 
-    with self._lock:
-      now = time.time()
-      hosts = list(self.service_list)
-      for h in hosts:
-        age = (now - int(self.service_list[h]['last_seen'] / 1000))
-        if age > 90:
-          self.on_expiration(self.service_list[h])
-          del(self.service_list[h])
+    self._se.balance_services(callback_stop=self.kill_service, callback_start=self.start_service_cluster)
 
-      list_by_service = {}
-      for s in self.service_list:
-        svc_name = self.service_list[s]['service']
-        if svc_name not in list_by_service:
-          list_by_service[svc_name] = []
-        list_by_service[svc_name].append(self.service_list[s])
+  def check_for_strategy_updates(self):
+    if self.timestamp_strategies_checked > time.time() - 60:
+      return
+    self.timestamp_strategies_checked = time.time()
 
-    for svc in list_by_service:
-      print "%dx %s" % (len(list_by_service[svc]), svc)
+    try:
+      strategies_file_timestamp = os.path.getmtime(self.strategy_file)
+    except Exception:
+      self.log.warn('Could not read timestamp of controller service strategy file, %s',
+                    self.strategy_file)
+      return
 
-    expected_service = { # 'Message Consumer': { 'name': 'SampleConsumer', 'count': 1 },
-                         'DLS Archiver': { 'name': 'DLSArchiver', 'count': 1, 'limit': 2 },
-                         'DLS Schlockmeister': { 'name': 'DLSSchlockMeister', 'count': 1, 'limit': 3 },
-                         'DLS Filewatcher':    { 'name': 'DLSFileWatcher', 'count': 1, 'limit': 3 },
-                         'DLS Dispatcher':     { 'name': 'DLSDispatcher', 'count': 1, 'limit': 3 },
-                         'DLS Per-Image-Analysis': { 'name': 'DLSPerImageAnalysis', 'count': 1 },
-                         'DLS Cluster service': { 'name': 'DLSCluster', 'count': 1, 'limit': 3 }
-                       }
-    for service in expected_service:
-      if len(list_by_service.get(service, [])) < expected_service[service].get('count', 0):
-        self.consider('start', expected_service[service]['name'])
-      if expected_service[service].get('limit') and len(list_by_service.get(service, [])) > expected_service[service].get('limit'):
-        self.consider('stop', expected_service[service]['name'], candidates=list_by_service[service])
+    if strategies_file_timestamp > self.timestamp_strategies_loaded:
+      self.log.debug('New strategy file detected')
+      with self._lock:
+        try:
+          with open(self.strategy_file, 'r') as fh:
+            self._se.update_strategies(json.load(fh))
+          self.log.info('Loaded controller service strategies from file')
+
+          if self.timestamp_strategies_loaded is None:
+            # This controller instance is now eligible to become a master.
+            # Connect to a synchronization channel. This is used to determine
+            # master controller status.
+            self._set_name("DLS Controller (Standby)")
+            self._transport.subscribe('transient.controller',
+                                      self.receive_sync_msg, exclusive=True)
+            self.log.debug('Controller may now become master')
+
+          self.timestamp_strategies_loaded = strategies_file_timestamp
+        except Exception:
+          self.log.error('Error loading strategy file', exc_info=True)
 
   def on_expiration(self, service):
     self.log.info('Service %s expired (%s)', service['service'], str(service))
-
-  def consider(self, action, service, candidates=None):
-    with self._lock:
-      if (action, service) not in self.actions:
-        self.log.info('Running action %s on %s', action, service)
-        if action == 'start':
-          self.actions[(action, service)] = time.time() + 180
-          result = run_process(['/dls_sw/apps/zocalo/start_service', service], timeout=15)
-          from pprint import pprint
-          pprint(result)
-          import json
-          self.log.info('Run action %s on %s call result: %s', action, service, json.dumps(result))
-        elif action == 'stop':
-          self.actions[(action, service)] = time.time() + 100
-          candidate = candidates[0] # simplest strategy: choose first.
-          self.log.debug("Should stop %s at %s", service, str(candidate))
-          self.kill_service(candidate['host'])
-      else:
-        if self.actions[(action, service)] > time.time():
-          self.log.info('Still waiting for %s on %s', action, service)
-        else:
-          del(self.actions[(action, service)])
-          self.log.info('Giving up on %s on %s', action, service)
 
   def self_check(self):
     '''Check that the controller service status is consistent.'''
@@ -148,11 +148,51 @@ class DLSController(CommonService):
 
   def receive_status_msg(self, header, message):
     '''Process incoming status message. Acquire lock for status dictionary before updating.'''
-    with self._lock:
-      if message['host'] not in self.service_list or \
-          int(header['timestamp']) >= self.service_list[message['host']]['last_seen']:
-        self.service_list[message['host']] = message
-        self.service_list[message['host']]['last_seen'] = int(header['timestamp'])
+
+    instance = {
+      'dlstbx': (0, 0),
+      'host': str(message.get('host',''))[:250],
+      'last-seen': time.time(),
+      'service': message.get('serviceclass'),
+      'title': str(message.get('service'))[:100],
+      'wfstatus': message.get('status'),
+      'workflows': (0, 0),
+    }
+
+    if instance['wfstatus'] == CommonService.SERVICE_STATUS_NEW:
+      # Message does not contain enough information to associate it with an
+      # expected service instance. Ignore it and wait for the next message.
+      return
+
+    try:
+      instance['workflows'] = map(int, message['workflows'].split('.', 1))
+    except Exception:
+      self.log.debug('Could not parse workflows version sent by %s', instance['host'])
+    try:
+      instance['dlstbx'] = map(int, message['dlstbx'].split(' ', 2)[1].split('-', 1)[0].split('.', 1))
+    except Exception:
+      self.log.debug('Could not parse dlstbx version sent by %s', instance['host'])
+
+    if instance['wfstatus'] == CommonService.SERVICE_STATUS_STARTING \
+        and message.get('tag'):
+      self._se.register_instance_tag_as_host(message['tag'], instance['host'])
+
+    if instance['wfstatus'] in \
+          (CommonService.SERVICE_STATUS_STARTING,
+           CommonService.SERVICE_STATUS_IDLE,
+           CommonService.SERVICE_STATUS_TIMER,
+           CommonService.SERVICE_STATUS_PROCESSING,
+           CommonService.SERVICE_STATUS_NONE):
+      self._se.update_instance(instance, set_alive=True)
+    elif instance['wfstatus'] in \
+          (CommonService.SERVICE_STATUS_SHUTDOWN,
+           CommonService.SERVICE_STATUS_END,
+           CommonService.SERVICE_STATUS_ERROR,
+           CommonService.SERVICE_STATUS_TEARDOWN):
+      self.log.debug('Service %s expired.', str(instance))
+      self._se.update_instance(instance, set_alive=False)
+    else:
+      self._se.update_instance(instance)
     self.survey_operations() # includes self_check()
 
   def receive_sync_msg(self, header, message):
@@ -180,7 +220,22 @@ class DLSController(CommonService):
     self._set_name("DLS Controller")
     self.log.info("Controller demoted")
 
-  def kill_service(self, service_id):
-    self.log.info("Sending kill signal to %s", service_id)
-    self._transport.send('transient.command.' + service_id,
-                         { 'command': 'shutdown' })
+  def start_service_cluster(self, instance):
+    service = instance['service']
+    result = run_process(['/dls_sw/apps/zocalo/start_service', service], timeout=15)
+    from pprint import pprint
+    pprint(result)
+    self.log.info('Started %s with result: %s', service, json.dumps(result))
+    return result.get('exitcode') == 0
+
+  def start_service_konsole(self, instance):
+    self.log.info('Starting %s on konsole', instance['service'])
+    with open('/dls/tmp/wra62962/interactrunner', 'a') as fh:
+      fh.write('date\n')
+      fh.write('konsole -e /home/wra62962/dials/start_service %s %s\n' % (instance['service'], instance['tag']))
+    return True
+
+  def kill_service(self, instance):
+    self.log.info("Shutting down instance %s (%s)", instance['host'], str(instance.get('title')))
+    self._transport.send('transient.command.' + instance['host'], { 'command': 'shutdown' })
+    return True

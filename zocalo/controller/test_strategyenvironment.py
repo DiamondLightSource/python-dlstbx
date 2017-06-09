@@ -1,11 +1,11 @@
 from __future__ import absolute_import, division
 
-from dlstbx.zocalo.controller.strategy import StrategyEnvironment
+from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
 from itertools import count
 import mock
 import pytest
 
-@mock.patch('dlstbx.zocalo.controller.strategy.dlstbx.zocalo.controller.strategy.simple.SimpleStrategy')
+@mock.patch('dlstbx.zocalo.controller.strategyenvironment.dlstbx.zocalo.controller.strategy.simple.SimpleStrategy')
 def test_can_define_set_of_strategies_ignoring_errors(st):
   se = StrategyEnvironment()
 
@@ -14,42 +14,40 @@ def test_can_define_set_of_strategies_ignoring_errors(st):
   st.side_effect = ( mock.sentinel.rv1, mock.sentinel.rv2, mock.sentinel.rv3, RuntimeError )
 
   se.update_strategies( [
-     { 'strategy': 'simple', 'service': 'A',
-       'setup': ((mock.sentinel.simple1,), { 'minimum': mock.sentinel.minimum, 'maximum': mock.sentinel.maximum }) },
-     { 'strategy': 'simple', 'service': 'B',
-       'setup': ((mock.sentinel.simple2,), { 'minimum': mock.sentinel.minimum, 'maximum': mock.sentinel.maximum }) },
+     { 'strategy': 'simple', 'service': 'A', 'minimum': mock.sentinel.minimum, 'maximum': mock.sentinel.maximum },
+     { 'strategy': 'simple', 'service': 'B', 'minimum': mock.sentinel.minimum, 'maximum': mock.sentinel.maximum },
   ] )
 
   st.assert_has_calls( [
-    mock.call(mock.sentinel.simple1, minimum=mock.sentinel.minimum, maximum=mock.sentinel.maximum),
-    mock.call(mock.sentinel.simple2, minimum=mock.sentinel.minimum, maximum=mock.sentinel.maximum),
+    mock.call(service='A', strategy='simple', minimum=mock.sentinel.minimum, maximum=mock.sentinel.maximum),
+    mock.call(service='B', strategy='simple', minimum=mock.sentinel.minimum, maximum=mock.sentinel.maximum),
   ] )
 
   assert se.strategies == { 'A': mock.sentinel.rv1, 'B': mock.sentinel.rv2 }
 
   se.update_strategies( [
-     { 'strategy': 'simple', 'service': 'B', 'setup': ((mock.sentinel.simple3,), {} ) },
+     { 'strategy': 'simple', 'service': 'B' },
   ] )
 
-  st.assert_called_with(mock.sentinel.simple3)
+  st.assert_called_with(service='B', strategy='simple')
 
   assert se.strategies == { 'B': mock.sentinel.rv3 }
 
   with pytest.raises(RuntimeError):
     se.update_strategies( [
-      { 'strategy': 'simple', 'service': 'Dummy', 'setup': ((mock.sentinel.error,), {} ) },
+      { 'strategy': 'simple', 'service': 'Dummy' },
     ] )
 
   assert se.strategies == { 'B': mock.sentinel.rv3 }
 
-@mock.patch('dlstbx.zocalo.controller.strategy.uuid')
+@mock.patch('dlstbx.zocalo.controller.strategyenvironment.uuid')
 def test_that_assessments_are_run_and_services_and_instances_are_created(uu):
   uu.uuid4 = count().next
 
   se = StrategyEnvironment()
   se.update_strategies( [
-     { 'strategy': 'simple', 'service': 'A', 'setup': ('A', { 'minimum': 2, 'maximum': 4 }) },
-     { 'strategy': 'simple', 'service': 'B', 'setup': ('B', { 'minimum': 2, 'maximum': 4 }) },
+     { 'strategy': 'simple', 'service': 'A', 'minimum': 2, 'maximum': 4 },
+     { 'strategy': 'simple', 'service': 'B', 'minimum': 2, 'maximum': 4 },
   ] )
   assert se.assessments == {}
 

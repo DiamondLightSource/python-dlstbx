@@ -1,5 +1,15 @@
 from __future__ import absolute_import, division
 
+import dlstbx.zocalo.controller.strategy
+
+def _filter_active(instances):
+  return { host: instance for host, instance in instances.iteritems()
+           if instance['status'] in (
+               dlstbx.zocalo.controller.strategy.StrategyEnvironment.S_STARTING,
+               dlstbx.zocalo.controller.strategy.StrategyEnvironment.S_RUNNING,
+               dlstbx.zocalo.controller.strategy.StrategyEnvironment.S_HOLDSHDN,
+           ) }
+
 class SimpleStrategy():
 
   def __init__(self, service_name, minimum=None, maximum=None):
@@ -11,20 +21,18 @@ class SimpleStrategy():
 
     assert isinstance(environment, dict), 'passed environment is invalid'
 
-    recommendation = {
-      'increase': {},
-      'decrease': {},
-      'shutdown': [],
+    result = {
+      'required': {},
+      'optional': {},
+      'shutdown': {},
     }
 
-    instances = environment.get('running_services', {}).get(self.service_name, [])
+    instances = _filter_active(environment.get('services', {}).get(self.service_name, {}))
 
     if self.minimum and len(instances) < self.minimum:
-      recommendation['increase'][self.service_name] = \
-          { 'instances': self.minimum - len(instances) }
+      result['required']['count'] = self.minimum
 
     if self.maximum and len(instances) > self.maximum:
-      recommendation['decrease'][self.service_name] = \
-          { 'instances': len(instances) - self.maximum }
+      result['required']['count'] = self.maximum
 
-    return recommendation
+    return result

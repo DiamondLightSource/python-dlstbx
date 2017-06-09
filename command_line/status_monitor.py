@@ -243,7 +243,7 @@ class Monitor(object):
         for host, status in overview.iteritems():
           age = (now - int(status['last_seen'] / 1000))
           with self._lock:
-            if age > 90:
+            if age > 90 or (age > 10 and status['status'] == CommonService.SERVICE_STATUS_TEARDOWN):
               del(self._node_status[host])
             else:
               card = self._get_card(cardnumber)
@@ -276,8 +276,8 @@ class Monitor(object):
                     state_color = curses.color_pair(3) + curses.A_BOLD
                   if status_code == CommonService.SERVICE_STATUS_IDLE:
                     state_color = curses.color_pair(2) + curses.A_BOLD
-                  if status_code == CommonService.SERVICE_STATUS_ERROR:
-                    state_color = curses.color_pair(1)
+                  if status_code in (CommonService.SERVICE_STATUS_ERROR, CommonService.SERVICE_STATUS_TEARDOWN):
+                    state_color = curses.color_pair(1) + curses.A_BOLD
                   if state_color:
                     card.addstr(state_string, state_color)
                   else:

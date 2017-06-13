@@ -19,6 +19,9 @@ if __name__ == '__main__':
   parser.add_option("-r", "--recipe", dest="recipe", metavar="RCP",
       action="append", default=[],
       help="Name of a recipe to run. Can be used multiple times. Recipe names correspond to filenames (excluding .json) in /dls_sw/apps/zocalo/live/recipes")
+  parser.add_option("-a", "--autoprocscalingid", dest="autoprocscalingid", metavar="APSID",
+      action="store", type="string", default=None,
+      help="An auto processing scaling ID for downstream processing recipes.")
   parser.add_option("-f", "--file", dest="recipefile", metavar="FILE",
       action="store", type="string", default="",
       help="Run recipe contained in this file.")
@@ -103,6 +106,11 @@ if __name__ == '__main__':
     sys.exit(1)
   print "for data collection", dcid
   message['parameters']['ispyb_dcid'] = dcid
+
+  if options.autoprocscalingid:
+    apsid = int(options.autoprocscalingid)
+    assert apsid > 0, "Invalid auto processing scaling ID given."
+    message['parameters']['ispyb_autoprocscalingid'] = apsid
 
   stomp.connect()
   stomp.send(

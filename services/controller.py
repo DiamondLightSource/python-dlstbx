@@ -36,8 +36,6 @@ class DLSController(CommonService):
   # Timestamp of the most recently loaded strategy file
   timestamp_strategies_loaded = None
 
-  strategy_file = '/dls_sw/apps/zocalo/controller-strategy.json'
-
   # Dictionary of all known services
   service_list = {}
 
@@ -54,6 +52,11 @@ class DLSController(CommonService):
     # Create a strategy environment, which is an object that does services and
     # instances bookkeeping and allocation.
     self._se = StrategyEnvironment()
+
+    if self._environment.get('live'):
+      self.strategy_file = '/dls_sw/apps/zocalo/live/strategy/controller-strategy.json'
+    else:
+      self.strategy_file = '/dls_sw/apps/zocalo/controller-strategy-test.json'
 
     # Listen to service announcements to build picture of running services.
     self._transport.subscribe_broadcast('transient.status',

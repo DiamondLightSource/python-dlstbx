@@ -110,3 +110,24 @@ def test_service_instances_are_allocated_correctly():
     for instance in se.environment['instances']:
       status_count[se.environment['instances'][instance]['status']] += 1
     assert status_count == alloc
+
+def test_ordering_service_instances_prefers_newer_workflows_versions():
+  instances = [ { 'workflows': [ 0, 35 ] },
+                { 'workflows': [ 0, 27 ] },
+                { 'workflows': [ 0, 40 ] },
+                { 'workflows': [ 0, 30 ] },
+                { } ]
+  se = generate_test_strategy_environment()
+  assert [ instances[k] for k in 4,1,3,0,2 ] == se.order_instances(instances)
+  assert [ instances[k] for k in 2,0,3,1,4 ] == se.order_instances(instances, reverse=True)
+
+def test_ordering_service_instances_prefers_newer_dlstbx_versions_when_same_workflows_version():
+  instances = [ { 'dlstbx': [ 0, 30 ] },
+                { 'dlstbx': [ 0, 17 ] },
+                { 'dlstbx': [ 0, 40 ] },
+                { 'dlstbx': [ 0, 23 ] },
+                { 'dlstbx': [ 0, 23 ], 'workflows': [0, 10] },
+                { } ]
+  se = generate_test_strategy_environment()
+  assert [ instances[k] for k in 5,1,3,0,2,4 ] == se.order_instances(instances)
+  assert [ instances[k] for k in 4,2,0,3,1,5 ] == se.order_instances(instances, reverse=True)

@@ -112,8 +112,10 @@ class StrategyEnvironment(object):
   @staticmethod
   def order_instances(instances, reverse=False):
     def fitness(i):
-      # TODO: Need a fitness function
-      return 1
+      return (
+          tuple(i.get('workflows', (0, 0))),
+          tuple(i.get('dlstbx', (0, 0))),
+        )
     decorated = [(fitness(inst), i, inst) for i, inst in enumerate(instances)]
     decorated.sort(reverse=reverse)
     return [inst for fit, i, inst in decorated]

@@ -126,9 +126,6 @@ class DLSController(CommonService):
         except Exception:
           self.log.error('Error loading strategy file', exc_info=True)
 
-  def on_expiration(self, service):
-    self.log.info('Service %s expired (%s)', service['service'], str(service))
-
   def self_check(self):
     '''Check that the controller service status is consistent.'''
 

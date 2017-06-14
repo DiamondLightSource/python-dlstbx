@@ -78,6 +78,13 @@ def run(args):
   for f in glob.glob(os.path.join(working_directory, '*.*')):
     shutil.copy(f, results_directory)
 
+  # make softlink to main results area without long name
+
+  path_elements = results_directory.split(os.sep)
+  link_path = os.path.join(path_elements[:-2] + [path_elements[-1]])
+  os.symlink(results_directory, link_path)
+
+  # FIXME record files in ISPyB
 
 if __name__ == '__main__':
   logging.basicConfig(level=logging.DEBUG)

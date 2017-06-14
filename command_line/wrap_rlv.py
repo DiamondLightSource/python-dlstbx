@@ -24,7 +24,7 @@ def run(args):
   os.chdir(working_directory)
   logger.info('working directory: %s' % working_directory)
 
-  command = 'dials.import template=%s' % params['rlv']['template']
+  command = ('dials.import template=%s' % params['rlv']['template']).split()
   logger.info('command: %s', ' '.join(command))
   result = procrunner.run_process(
     command, timeout=params.get('timeout'),
@@ -38,7 +38,7 @@ def run(args):
 
   # then find spots
 
-  command = 'dials.import datablock.json nproc=20'
+  command = 'dials.import datablock.json nproc=20'.split()
   logger.info('command: %s', ' '.join(command))
   result = procrunner.run_process(
     command, timeout=params.get('timeout'),
@@ -54,7 +54,7 @@ def run(args):
 
   # them map to csv file
 
-  command = 'dev.dials.csv datablock.json strong.pickle'
+  command = 'dev.dials.csv datablock.json strong.pickle'.split()
   logger.info('command: %s', ' '.join(command))
   result = procrunner.run_process(
     command, timeout=params.get('timeout'),

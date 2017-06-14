@@ -36,9 +36,9 @@ def run(args):
   logger.debug(result['stdout'])
   logger.debug(result['stderr'])
 
-  # then find spots 
+  # then find spots
 
-  command = 'dials.import datablock.json nproc=20' 
+  command = 'dials.import datablock.json nproc=20'
   logger.info('command: %s', ' '.join(command))
   result = procrunner.run_process(
     command, timeout=params.get('timeout'),
@@ -54,7 +54,7 @@ def run(args):
 
   # them map to csv file
 
-  command = 'dev.dials.csv datablock.json strong.pickle' 
+  command = 'dev.dials.csv datablock.json strong.pickle'
   logger.info('command: %s', ' '.join(command))
   result = procrunner.run_process(
     command, timeout=params.get('timeout'),

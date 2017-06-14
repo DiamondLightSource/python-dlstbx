@@ -240,15 +240,18 @@ class Monitor(object):
         now = int(time.time())
         with self._lock:
           overview = self._node_status.copy()
+
+        overview_keys = sorted((overview[key]['service'], overview[key]['dlstbx'], overview[key]['workflows'], overview[key]['host'], key) for key in list(overview))
+        overview_keys = [ x[-1] for x in overview_keys ]
         cardnumber = 0
-        for host, status in overview.iteritems():
+        for host in overview_keys:
+          status = overview[host]
           age = (now - int(status['last_seen'] / 1000))
           with self._lock:
             if age > 90 or (age > 10 and status['status'] == CommonService.SERVICE_STATUS_TEARDOWN):
               del(self._node_status[host])
             else:
               card = self._get_card(cardnumber)
-              process = overview[host]
               if card:
                 card.erase()
                 card.move(0, 0)
@@ -288,22 +291,22 @@ class Monitor(object):
                   card.addstr("last seen %d seconds ago" % age, curses.color_pair(1) + (0 if age < 60 else curses.A_BOLD))
                 else:
                   card.addstr('V: ', curses.color_pair(3))
-                  if 'dlstbx' in process:
+                  if 'dlstbx' in status:
                     card.addstr('dlstbx ')
-                    if self._is_outdated_version('dlstbx', process['dlstbx']):
-                      card.addstr(process['dlstbx'], curses.color_pair(1))
-                    elif not self._is_most_recent_version('dlstbx', process['dlstbx']):
-                      card.addstr(process['dlstbx'], curses.color_pair(4))
+                    if self._is_outdated_version('dlstbx', status['dlstbx']):
+                      card.addstr(status['dlstbx'], curses.color_pair(1))
+                    elif not self._is_most_recent_version('dlstbx', status['dlstbx']):
+                      card.addstr(status['dlstbx'], curses.color_pair(4))
                     else:
-                      card.addstr(process['dlstbx'])
+                      card.addstr(status['dlstbx'])
                     card.addstr(', ')
                   card.addstr('WF ')
-                  if self._is_outdated_version('workflows', process['workflows']):
-                    card.addstr(process['workflows'], curses.color_pair(1))
-                  elif not self._is_most_recent_version('workflows', process['workflows']):
-                    card.addstr(process['workflows'], curses.color_pair(4))
+                  if self._is_outdated_version('workflows', status['workflows']):
+                    card.addstr(status['workflows'], curses.color_pair(1))
+                  elif not self._is_most_recent_version('workflows', status['workflows']):
+                    card.addstr(status['workflows'], curses.color_pair(4))
                   else:
-                    card.addstr(process['workflows'])
+                    card.addstr(status['workflows'])
                 card.noutrefresh()
               cardnumber = cardnumber + 1
         if cardnumber < len(self.cards):

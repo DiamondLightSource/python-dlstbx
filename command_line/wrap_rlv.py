@@ -38,7 +38,7 @@ def run(args):
 
   # then find spots
 
-  command = 'dials.import datablock.json nproc=20'.split()
+  command = 'dials.find_spots datablock.json nproc=20'.split()
   logger.info('command: %s', ' '.join(command))
   result = procrunner.run_process(
     command, timeout=params.get('timeout'),

@@ -438,6 +438,7 @@ def ispyb_filter(message, parameters):
   parameters['ispyb_image_first'] = start
   parameters['ispyb_image_last'] = end
   parameters['ispyb_image_template'] = dc_info['fileTemplate']
+  parameters['ispyb_image_directory'] = dc_info['imageDirectory']
   parameters['ispyb_image_pattern'] = i.dc_info_to_filename_pattern(dc_info)
   parameters['ispyb_image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
                                             start, end)
@@ -491,12 +492,12 @@ def ispyb_filter(message, parameters):
       'per-image-analysis-rotation', 'processing-fast-dp',
       'processing-xia2-3dii', 'processing-xia2-dials',
       'processing-multi-xia2-dials', 'processing-multi-xia2-3dii',
-      'processing-autoproc']
+      'processing-autoproc', 'processing-rlv']
   else:
     message['default_recipe'] = [
       'per-image-analysis-rotation', 'processing-fast-dp',
       'processing-xia2-3dii', 'processing-xia2-dials',
-      'processing-autoproc']
+      'processing-autoproc', 'processing-rlv']
 
   return message, parameters
 

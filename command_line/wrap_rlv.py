@@ -35,6 +35,7 @@ def run(args):
   logger.info('exitcode: %s', result['exitcode'])
   logger.debug(result['stdout'])
   logger.debug(result['stderr'])
+  assert result['exitcode'] == 0
 
   # then find spots
 
@@ -49,6 +50,7 @@ def run(args):
   logger.info('exitcode: %s', result['exitcode'])
   logger.debug(result['stdout'])
   logger.debug(result['stderr'])
+  assert result['exitcode'] == 0
 
   # broadcast a note to ActiveMQ subscribers?
 
@@ -65,6 +67,7 @@ def run(args):
   logger.info('exitcode: %s', result['exitcode'])
   logger.debug(result['stdout'])
   logger.debug(result['stderr'])
+  assert result['exitcode'] == 0
 
   # copy output files to result directory
 

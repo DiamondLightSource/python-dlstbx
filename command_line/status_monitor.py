@@ -74,7 +74,7 @@ class Monitor(object):
             self.last_info_messages = 0
             self.log_box.addstr("====== {workflows_host}{service_description} ======\n".format(**message), curses.A_BOLD)
           self.last_info_messages += 1
-          msg_col = curses.color_pair(3)
+          msg_col = curses.color_pair(5)
           if message['levelno'] >= logging.INFO:
             msg_col = curses.color_pair(3)
           if message['levelno'] >= logging.WARN:
@@ -232,6 +232,7 @@ class Monitor(object):
       curses.init_pair(2, curses.COLOR_BLACK, -1)
       curses.init_pair(3, curses.COLOR_GREEN, -1)
       curses.init_pair(4, curses.COLOR_YELLOW, -1)
+      curses.init_pair(5, curses.COLOR_BLUE, -1)
       self._redraw_screen(stdscr)
 
     try:

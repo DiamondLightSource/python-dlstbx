@@ -75,8 +75,6 @@ def run(args):
   for f in glob.glob(os.path.join(working_directory, '*.*')):
     shutil.copy(f, results_directory)
 
-  os.chdir(cwd)
-
 
 if __name__ == '__main__':
   logging.basicConfig(level=logging.DEBUG)

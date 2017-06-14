@@ -38,14 +38,14 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
     self.console.setLevel(logging.INFO)
     logger.addHandler(self.console)
 
-    logging.getLogger('dials').setLevel(logging.DEBUG)
-    logging.getLogger('dlstbx').setLevel(logging.DEBUG)
+    logging.getLogger('dials').setLevel(logging.INFO)
+    logging.getLogger('dlstbx').setLevel(logging.INFO)
 #   logging.getLogger('stomp.py').setLevel(logging.DEBUG)
     logging.getLogger('workflows').setLevel(logging.INFO)
-    logging.getLogger('xia2').setLevel(logging.DEBUG)
+    logging.getLogger('xia2').setLevel(logging.INFO)
 
     self.log = logging.getLogger('dlstbx.service')
-    self.log.setLevel(logging.DEBUG)
+    self.log.setLevel(logging.INFO)
 
     # Enable logging to graylog
     enable_graylog()
@@ -92,6 +92,10 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
   def on_parsing(self, options, args):
     if options.verbose:
       self.console.setLevel(logging.DEBUG)
+      logging.getLogger('dials').setLevel(logging.DEBUG)
+      logging.getLogger('dlstbx').setLevel(logging.DEBUG)
+      logging.getLogger('xia2').setLevel(logging.DEBUG)
+      self.log.setLevel(logging.DEBUG)
     if options.debug:
       logging.getLogger('workflows').setLevel(logging.DEBUG)
     self.options = options

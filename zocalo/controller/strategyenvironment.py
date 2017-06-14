@@ -22,7 +22,7 @@ class StrategyEnvironment(object):
       range(S_STATUS_CODE_RANGE)
 
   lock = threading.Lock()
-  log = logging.getLogger('dlstbx.zocalo.controller.strategy')
+  log = logging.getLogger('dlstbx.zocalo.controller.strategyenvironment')
 
   def __init__(self):
     self._classlist = {

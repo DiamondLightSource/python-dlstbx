@@ -56,7 +56,7 @@ def run(args):
 
   # them map to csv file
 
-  command = 'dev.dials.csv datablock.json strong.pickle'.split()
+  command = 'dev.dials.csv dp=4 compress=true csv=rl.csv.gz datablock.json strong.pickle'.split()
   logger.info('command: %s', ' '.join(command))
   result = procrunner.run_process(
     command, timeout=params.get('timeout'),

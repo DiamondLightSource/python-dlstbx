@@ -69,38 +69,43 @@ def test_that_assessments_are_run_and_services_and_instances_are_created(uu):
       '3': { 'first-seen': mock.ANY, 'last-seen': mock.ANY, 'status': se.S_HOLD, 'tag': '3', 'service': 'B', 'status-set': mock.ANY },
   }
 
-def generate_test_strategy_environment():
+def generate_test_strategy_environment(allocation = None):
+  if not allocation:
+    allocation = [2, 2, 2, 2, 2, 2, 2]
   se = StrategyEnvironment()
-  # Set up 2 service 'X' instances for each status code
-  for i in range(2):
-    for x in range(se.S_STATUS_CODE_RANGE):
-      i = se.create_instance('X', status=x)
-      i['original_status'] = x
+  for status, num in zip(range(se.S_STATUS_CODE_RANGE), allocation):
+    for n in range(num):
+      inst = se.create_instance('X', status=status)
+      inst['original_status'] = status
   return se
 
 def test_service_instances_are_allocated_correctly():
-  expected_allocation_when_n_instances_required = {
-    0: [0, 0, 2, 0, 4, 2, 2],
-    1: [0, 0, 2, 1, 3, 2, 2],
-    2: [0, 0, 2, 2, 2, 2, 2],
-    3: [0, 0, 2, 2, 2, 2, 2],
-    4: [0, 0, 2, 2, 2, 2, 2],
-    5: [0, 0, 2, 3, 1, 2, 2],
-    6: [0, 0, 2, 4, 0, 2, 2],
-    7: [0, 0, 2, 5, 0, 1, 2],
-    8: [0, 0, 2, 6, 0, 0, 2],
-    9: [0, 1, 2, 6, 0, 0, 2],
-   10: [0, 2, 2, 6, 0, 0, 2],
-   11: [1, 2, 2, 6, 0, 0, 2],
-   12: [2, 2, 2, 6, 0, 0, 2],
-   13: [3, 2, 2, 6, 0, 0, 2],
-  }
+  expected_allocation_changes = [
+   #  -- prior allocation -  req.  -- post allocation --
+   #   HD PR ST RN HS SD XP  inst   HD PR ST RN HS SD XP
+    ( [2, 2, 2, 2, 2, 2, 2],   0,  [0, 0, 2, 0, 4, 2, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],   1,  [0, 0, 2, 1, 3, 2, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],   2,  [0, 0, 2, 2, 2, 2, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],   3,  [0, 0, 2, 2, 2, 2, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],   4,  [0, 0, 2, 2, 2, 2, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],   5,  [0, 0, 2, 3, 1, 2, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],   6,  [0, 0, 2, 4, 0, 2, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],   7,  [0, 0, 2, 5, 0, 1, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],   8,  [0, 0, 2, 6, 0, 0, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],   9,  [0, 1, 2, 6, 0, 0, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],  10,  [0, 2, 2, 6, 0, 0, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],  11,  [1, 2, 2, 6, 0, 0, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],  12,  [2, 2, 2, 6, 0, 0, 2] ),
+    ( [2, 2, 2, 2, 2, 2, 2],  13,  [3, 2, 2, 6, 0, 0, 2] ),
 
-  for req, alloc in expected_allocation_when_n_instances_required.iteritems():
-    print "Testing allocation for %d required instances" % req
-    se = generate_test_strategy_environment()
+    ( [0, 0, 0, 2, 0, 0, 1],   2,  [0, 0, 0, 2, 0, 0, 1] ),
+  ]
+
+  for prior, req_inst, allocation in expected_allocation_changes:
+    print "Testing allocation for %d required instances given %s" % (req_inst, str(prior))
+    se = generate_test_strategy_environment(prior)
     assessment = mock.Mock()
-    assessment.assess.return_value = { 'required': { 'count': req } }
+    assessment.assess.return_value = { 'required': { 'count': req_inst } }
     se.strategies = { 'X': assessment }
 
     se.update_allocation()
@@ -109,7 +114,7 @@ def test_service_instances_are_allocated_correctly():
     status_count = [ 0 ] * se.S_STATUS_CODE_RANGE
     for instance in se.environment['instances']:
       status_count[se.environment['instances'][instance]['status']] += 1
-    assert status_count == alloc
+    assert status_count == allocation
 
 def test_ordering_service_instances_prefers_newer_workflows_versions():
   instances = [ { 'workflows': [ 0, 35 ] },

@@ -115,6 +115,7 @@ class StrategyEnvironment(object):
       return (
           tuple(i.get('workflows', (0, 0))),
           tuple(i.get('dlstbx', (0, 0))),
+          'vserv' in (i.get('host') or ''),
         )
     decorated = [(fitness(inst), i, inst) for i, inst in enumerate(instances)]
     decorated.sort(reverse=reverse)

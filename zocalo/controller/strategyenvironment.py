@@ -221,8 +221,9 @@ class StrategyEnvironment(object):
 
       # Advance timers
       current_timestamp = time.time()
-      expiration_time = 30
       hold_time = 30
+      expiration_time = 15
+      discarding_time = 30
       discard_instances = []
       for key, instance in self.environment['instances'].iteritems():
         if 'status-set' not in instance:
@@ -240,7 +241,7 @@ class StrategyEnvironment(object):
           log_change(instance, 'running state (%d)' % instance['status'], 'EXPIRE')
           instance['status'] = self.S_EXPIRE
           instance['status-set'] = time.time()
-        if instance['status'] == self.S_EXPIRE and instance['status-set'] < current_timestamp - expiration_time:
+        if instance['status'] == self.S_EXPIRE and instance['status-set'] < current_timestamp - discarding_time:
           discard_instances.append(key)
           log_change(instance, 'EXPIRE', '/dev/null')
 

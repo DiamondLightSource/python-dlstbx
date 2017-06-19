@@ -46,7 +46,7 @@ class ArchiverService(CommonSystemTest):
       recipe_path=[ 1 ],
       recipe_pointer=2,
       payload={ 'failed': 0, 'success': 10, 'xml': xmldata },
-      timeout=10,
+      timeout=30,
     )
 
   def test_split_set_of_existing_files_into_multiple_archives(self):
@@ -93,7 +93,7 @@ class ArchiverService(CommonSystemTest):
       recipe_path=[ 1 ],
       recipe_pointer=2,
       payload={ 'failed': 0, 'success': 6, 'xml': xmldata_1 },
-      timeout=10,
+      timeout=30,
     )
 
     self.expect_recipe_message(
@@ -101,7 +101,7 @@ class ArchiverService(CommonSystemTest):
       recipe_path=[ 1 ],
       recipe_pointer=2,
       payload={ 'failed': 0, 'success': 4, 'xml': xmldata_2 },
-      timeout=10,
+      timeout=30,
     )
 
   def test_archive_a_set_of_partially_missing_files(self):
@@ -145,7 +145,7 @@ class ArchiverService(CommonSystemTest):
       recipe_path=[ 1 ],
       recipe_pointer=2,
       payload={ 'failed': 5, 'success': 6, 'xml': xmldata },
-      timeout=10,
+      timeout=30,
     )
 
 if __name__ == "__main__":

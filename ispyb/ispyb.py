@@ -388,6 +388,13 @@ WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s
     field_names = [i[0] for i in self._cursor.description]
     return field_names, results
 
+  def insert_rl_csv(self, dc_id, rl_csv):
+    self.execute('set @dataCollectionId="%d";' % str(dc_id))
+    self.execute('set @filetype="recip";')
+    self.execute('set @fullfilepath="%d";' % rl_csv)
+    self.execute('insert into DataCollectionFileAttachment (datacollectionid, filetype, filefullpath) values (@dataCollectionId, @filetype, @fullfilepath);')
+    self.commit()
+
   def insert_alignment_result(self, values):
     keys = ('dataCollectionId', 'program', 'shortComments', 'comments', 'phi')
     for k in keys:
@@ -416,7 +423,6 @@ WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s
     else:
       raise RuntimeError('chi or kappa values must be provided')
     self.commit()
-
 
 def ispyb_filter(message, parameters):
   '''Do something to work out what to do with this data...'''

@@ -221,6 +221,8 @@ class DLSController(CommonService):
     self.log.info("Controller demoted")
 
   def start_service(self, instance, init):
+    if not init:
+      return False
     service = instance['service']
     tag = instance['tag']
     for attempt in init:
@@ -234,8 +236,7 @@ class DLSController(CommonService):
         self.log.info('Could not start %s with %s', service, str(attempt))
       except Exception, e:
         self.log.info('Failed to start %s with %s, error: %s', service, str(attempt), str(e), exc_info=True)
-    if init:
-      self.log.warn('Could not start %s, all available options exhausted', service)
+    self.log.warn('Could not start %s, all available options exhausted', service)
     return False
 
   def launch_cluster(self, service=None, cluster="cluster", queue="admin.q", module="dials", tag="", **kwargs):

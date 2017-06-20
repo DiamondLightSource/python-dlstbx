@@ -389,7 +389,7 @@ WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s
     return field_names, results
 
   def insert_rl_csv(self, dc_id, rl_csv):
-    self.execute('set @dataCollectionId="%d";' % str(dc_id))
+    self.execute('set @dataCollectionId="%d";' % dc_id)
     self.execute('set @filetype="recip";')
     self.execute('set @fullfilepath="%d";' % rl_csv)
     self.execute('insert into DataCollectionFileAttachment (datacollectionid, filetype, filefullpath) values (@dataCollectionId, @filetype, @fullfilepath);')

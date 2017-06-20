@@ -241,7 +241,7 @@ class DLSController(CommonService):
   def launch_cluster(self, service=None, cluster="cluster", queue="admin.q", module="dials", tag="", **kwargs):
     assert service
     result = run_process(
-      [ '/dls_sw/apps/zocalo/launch_service', service ],
+      [ '/dls_sw/apps/zocalo/live/launch_service', service ],
       environ={
         'CLUSTER': cluster,
         'QUEUE': queue,

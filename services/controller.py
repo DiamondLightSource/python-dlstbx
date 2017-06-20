@@ -222,11 +222,14 @@ class DLSController(CommonService):
 
   def start_service(self, instance, init):
     service = instance['service']
+    tag = instance['tag']
     for attempt in init:
       try:
         attempt['service'] = service
+        attempt['tag'] = tag
         launch_function = getattr(self, 'launch_' + attempt.get('type'))
         if launch_function(**attempt):
+          self.log.info('Successfully started new instance of %s', service)
           return True
         self.log.info('Could not start %s with %s', service, str(attempt))
       except Exception, e:
@@ -235,7 +238,7 @@ class DLSController(CommonService):
       self.log.warn('Could not start %s, all available options exhausted', service)
     return False
 
-  def launch_cluster(self, service=None, cluster="cluster", queue="admin.q", module="dials", **kwargs):
+  def launch_cluster(self, service=None, cluster="cluster", queue="admin.q", module="dials", tag="", **kwargs):
     assert service
     result = run_process(
       [ '/dls_sw/apps/zocalo/launch_service', service ],
@@ -243,6 +246,7 @@ class DLSController(CommonService):
         'CLUSTER': cluster,
         'QUEUE': queue,
         'DIALS': module,
+        'TAG': tag,
       },
       timeout=15,
     )
@@ -253,7 +257,7 @@ class DLSController(CommonService):
 
   def launch_testcluster(self, **kwargs):
     kwargs["cluster"] = "testcluster"
-    self.launch_cluster(**kwargs)
+    return self.launch_cluster(**kwargs)
 
   def kill_service(self, instance):
     self.log.info("Shutting down instance %s (%s)", instance['host'], str(instance.get('title')))

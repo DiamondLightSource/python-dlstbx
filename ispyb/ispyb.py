@@ -5,10 +5,13 @@
 #
 # Dependencies:
 #
-#   dials.python -m pip install mysql-connector
+#   dials.python -m pip install "mysql-connector<2.2.3"
 #
 
-import mysql.connector
+try:
+  import mysql.connector
+except ImportError:
+  raise ImportError('MySQL connector module not found. Run python -m pip install "mysql-connector<2.2.3"')
 import json
 import os
 

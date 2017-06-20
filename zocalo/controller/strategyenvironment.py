@@ -34,6 +34,7 @@ class StrategyEnvironment(object):
         'services': {},
     }
     self.strategies = {}
+    self.launchers = {}
 
   def load_strategy(self, strategy):
     cls = self._classlist[strategy['strategy']]
@@ -41,8 +42,10 @@ class StrategyEnvironment(object):
 
   def update_strategies(self, strategy_list):
     new_strategies = { svc['service']: self.load_strategy(svc) for svc in strategy_list }
+    new_launchers = { svc['service']: svc['launch'] for svc in strategy_list if 'launch' in svc }
     with self.lock:
       self.strategies = new_strategies
+      self.launchers = new_launchers
 
   def create_instance(self, service, status=None):
     timestamp = time.time()
@@ -279,7 +282,8 @@ class StrategyEnvironment(object):
 
       if startup and callback_start:
         for key in startup:
-          if callback_start(self.environment['instances'][key]):
+          if callback_start(self.environment['instances'][key],
+                            self.launchers.get(self.environment['instances'][key]['service'])):
             self.environment['instances'][key]['status'] = self.S_STARTING
             self.environment['instances'][key]['status-set'] = time.time()
             self.environment['instances'][key]['last-seen'] = self.environment['instances'][key]['status-set']

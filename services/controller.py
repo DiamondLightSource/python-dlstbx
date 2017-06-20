@@ -94,7 +94,7 @@ class DLSController(CommonService):
     self.last_balance = time.time()
     self.log.debug('Balancing.')
 
-    self._se.balance_services(callback_stop=self.kill_service, callback_start=self.start_service_cluster)
+    self._se.balance_services(callback_stop=self.kill_service, callback_start=self.start_service)
 
   def check_for_strategy_updates(self):
     if self.timestamp_strategies_checked > time.time() - 60:
@@ -220,20 +220,40 @@ class DLSController(CommonService):
     self._set_name("DLS Controller")
     self.log.info("Controller demoted")
 
-  def start_service_cluster(self, instance):
+  def start_service(self, instance, init):
     service = instance['service']
-    result = run_process(['/dls_sw/apps/zocalo/start_service', service], timeout=15)
+    for attempt in init:
+      try:
+        attempt['service'] = service
+        launch_function = getattr(self, 'launch_' + attempt.get('type'))
+        if launch_function(**attempt):
+          return True
+        self.log.info('Could not start %s with %s', service, str(attempt))
+      except Exception, e:
+        self.log.info('Failed to start %s with %s, error: %s', service, str(attempt), str(e), exc_info=True)
+    if init:
+      self.log.warn('Could not start %s, all available options exhausted', service)
+    return False
+
+  def launch_cluster(self, service=None, cluster="cluster", queue="admin.q", module="dials", **kwargs):
+    assert service
+    result = run_process(
+      [ '/dls_sw/apps/zocalo/launch_service', service ],
+      environ={
+        'CLUSTER': cluster,
+        'QUEUE': queue,
+        'DIALS': module,
+      },
+      timeout=15,
+    )
     from pprint import pprint
     pprint(result)
-    self.log.info('Started %s with result: %s', service, json.dumps(result))
+    self.log.debug('Cluster launcher script for %s returned result: %s', service, json.dumps(result))
     return result.get('exitcode') == 0
 
-  def start_service_konsole(self, instance):
-    self.log.info('Starting %s on konsole', instance['service'])
-    with open('/dls/tmp/wra62962/interactrunner', 'a') as fh:
-      fh.write('date\n')
-      fh.write('konsole -e /home/wra62962/dials/start_service %s %s\n' % (instance['service'], instance['tag']))
-    return True
+  def launch_testcluster(self, **kwargs):
+    kwargs["cluster"] = "testcluster"
+    self.launch_cluster(**kwargs)
 
   def kill_service(self, instance):
     self.log.info("Shutting down instance %s (%s)", instance['host'], str(instance.get('title')))

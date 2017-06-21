@@ -5,9 +5,12 @@ import dlstbx.zocalo.controller.strategyenvironment
 def _filter_active(instances):
   return { host: instance for host, instance in instances.iteritems()
            if instance['status'] in (
+               dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_HOLD,
+               dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_PREPARE,
                dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_STARTING,
                dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_RUNNING,
                dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_HOLDSHDN,
+               dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_SHUTDOWN,
            ) }
 
 class SimpleStrategy():

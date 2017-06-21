@@ -209,6 +209,7 @@ class StrategyEnvironment(object):
         self.remove_instance(i)
         count_instances[self.S_HOLD] -= 1
       log_change(len(selected_for_removal), 'HOLD', '/dev/null')
+    self.log.debug("Allocation for %s with %d instances needed: %s", str(service), instances_needed, str(count_instances.values()))
 
   def update_allocation(self):
     '''Check with each registered strategy whether any changes are required.'''

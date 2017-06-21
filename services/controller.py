@@ -55,8 +55,10 @@ class DLSController(CommonService):
 
     if self._environment.get('live'):
       self.strategy_file = '/dls_sw/apps/zocalo/live/strategy/controller-strategy.json'
+      self.service_launch_script = '/dls_sw/apps/zocalo/live/launch_service'
     else:
       self.strategy_file = '/dls_sw/apps/zocalo/controller-strategy-test.json'
+      self.service_launch_script = '/dls_sw/apps/zocalo/test_launch_service'
 
     # Listen to service announcements to build picture of running services.
     self._transport.subscribe_broadcast('transient.status',
@@ -242,7 +244,7 @@ class DLSController(CommonService):
   def launch_cluster(self, service=None, cluster="cluster", queue="admin.q", module="dials", tag="", **kwargs):
     assert service
     result = run_process(
-      [ '/dls_sw/apps/zocalo/live/launch_service', service ],
+      [ self.service_launch_script, service ],
       environ={
         'CLUSTER': cluster,
         'QUEUE': queue,

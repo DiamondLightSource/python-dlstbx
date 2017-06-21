@@ -241,7 +241,7 @@ class Monitor(object):
         with self._lock:
           overview = self._node_status.copy()
 
-        overview_keys = sorted((overview[key]['service'], overview[key]['dlstbx'], overview[key]['workflows'], overview[key]['host'], key) for key in list(overview))
+        overview_keys = sorted((overview[key].get('service'), overview[key].get('dlstbx'), overview[key].get('workflows'), overview[key]['host'], key) for key in list(overview))
         overview_keys = [ x[-1] for x in overview_keys ]
         cardnumber = 0
         for host in overview_keys:

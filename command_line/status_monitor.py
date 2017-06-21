@@ -339,10 +339,7 @@ if __name__ == '__main__':
 
   # override default stomp host
   from workflows.transport.stomp_transport import StompTransport
-  try:
-    StompTransport.load_configuration_file(default_configuration)
-  except workflows.WorkflowsError, e:
-    raise
+  StompTransport.load_configuration_file(default_configuration)
 
   workflows.transport.add_command_line_options(parser)
   (options, args) = parser.parse_args()

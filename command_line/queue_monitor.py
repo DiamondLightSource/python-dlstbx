@@ -11,6 +11,7 @@ import locale
 import math
 from optparse import OptionParser, SUPPRESS_HELP
 import re
+import sys
 import threading
 import time
 import uuid
@@ -308,17 +309,22 @@ class QueueStatus():
 #size :  0
 
 if __name__ == '__main__':
-  # override default stomp host
-  from workflows.transport.stomp_transport import StompTransport
-  StompTransport.load_configuration_file(
-    '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
-
   parser = OptionParser(
     usage='dlstbx.queue_monitor [options]'
   )
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-t", "--transport", dest="transport", metavar="TRN",
       default="stomp", help="Transport mechanism, default '%default'")
+
+  parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
+  default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
+  if '--test' in sys.argv:
+    default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
+
+  # override default stomp host
+  from workflows.transport.stomp_transport import StompTransport
+  StompTransport.load_configuration_file(default_configuration)
+
   workflows.transport.add_command_line_options(parser)
   (options, args) = parser.parse_args()
 

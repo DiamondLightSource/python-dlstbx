@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division
 
 import dlstbx.zocalo.controller.strategy.simple
+import dlstbx.zocalo.controller.strategy.queue_static
 import logging
 import threading
 import time
@@ -27,6 +28,7 @@ class StrategyEnvironment(object):
   def __init__(self):
     self._classlist = {
         'simple': dlstbx.zocalo.controller.strategy.simple.SimpleStrategy,
+        'queue_static': dlstbx.zocalo.controller.strategy.queue_static.QueueStaticStrategy,
     }
     self.assessments = {}
     self.environment = {
@@ -211,13 +213,14 @@ class StrategyEnvironment(object):
       log_change(len(selected_for_removal), 'HOLD', '/dev/null')
     self.log.debug("Allocation for %s with %d instances needed: %s", str(service), instances_needed, str(count_instances.values()))
 
-  def update_allocation(self):
+  def update_allocation(self, queue_statistics=None):
     '''Check with each registered strategy whether any changes are required.'''
     def log_change(instance, s_from, s_to):
       self.log.debug("timer event: moved %s instance %s from %s to %s",
           str(instance.get('service', '???')), str(instance.get('host', '(unassigned)')), s_from, s_to)
 
     with self.lock:
+      self.environment['queues'] = queue_statistics or {}
       for service in self.strategies:
         if service not in self.environment['services']:
           self.environment['services'][service] = {}

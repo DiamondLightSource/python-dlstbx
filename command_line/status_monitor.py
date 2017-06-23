@@ -166,8 +166,8 @@ class Monitor(object):
       stdscr.clear()
       stdscr.addstr(0, 0, self.headline, curses.A_BOLD)
       stdscr.refresh()
-      self.message_box = self._boxwin(5, curses.COLS, 2, 0, title='last seen message', color_pair=1)
-      self.message_box.scrollok(True)
+#     self.message_box = self._boxwin(5, curses.COLS, 2, 0, title='last seen message', color_pair=1)
+#     self.message_box.scrollok(True)
       self.cards = []
       self._redraw_log_box()
 
@@ -320,6 +320,30 @@ class Monitor(object):
       pass
     self._transport.disconnect()
 
+class RawMonitor(object):
+  '''A minimalistic monitor that only displays raw status messages.'''
+  def __init__(self, transport=None, version=None, test=False):
+    '''Set up monitor and connect to the network transport layer'''
+    if transport is None or isinstance(transport, basestring):
+      self._transport = workflows.transport.lookup(transport)()
+    else:
+      self._transport = transport()
+    assert self._transport.connect(), "Could not connect to transport layer"
+    self._lock = threading.RLock()
+    headline = "DLS " + ("ZocDEV" if test else "Zocalo") + " service monitor"
+    if version:
+      headline += " v%s" % version.split(' ')[1].split('-')[0]
+    headline += " -- quit with Ctrl+C"
+    print(headline)
+
+  def print_status(self, header, message):
+    print message
+
+  def run(self):
+    self._transport.subscribe_broadcast('transient.status', self.print_status, retroactive=True)
+    while True:
+      time.sleep(1)
+
 if __name__ == '__main__':
   version = dlstbx_version()
   parser = OptionParser(
@@ -333,6 +357,7 @@ if __name__ == '__main__':
       default="stomp", help="Transport mechanism, default '%default'")
 
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
+  parser.add_option("--raw", action="store_true", dest="raw", help="Show raw status messages")
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
   if '--test' in sys.argv:
     default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
@@ -344,7 +369,10 @@ if __name__ == '__main__':
   workflows.transport.add_command_line_options(parser)
   (options, args) = parser.parse_args()
 
-  monitor = Monitor(
+  monitor = Monitor
+  if options.raw:
+    monitor = RawMonitor
+  monitor = monitor(
       transport=options.transport,
       version=version,
       test=options.test

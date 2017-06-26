@@ -87,6 +87,12 @@ class ispyb(object):
       result[l] = r
     return result
 
+  def get_beamline_from_dcid(self, dc_id):
+    results = self.execute('SELECT bs.beamlineName FROM BLSession bs INNER JOIN DataCollectionGroup dcg ON dcg.sessionId = bs.sessionId INNER JOIN DataCollection dc ON dc.dataCollectionGroupId = dcg.dataCollectionGroupId WHERE dc.dataCollectionId = %s;' % str(dc_id))
+    assert(len(results) == 1)
+    result = results[0][0]
+    return results
+    
   def get_pia_results(self, dc_id):
     results = self.execute(
       'select imagenumber, spottotal from '
@@ -440,6 +446,7 @@ def ispyb_filter(message, parameters):
   dc_id = parameters['ispyb_dcid']
 
   dc_info = i.get_dc_info(dc_id)
+  parameters['ispyb_beamline'] = i.get_beamline_from_dcid(dc_id)
   parameters['ispyb_dc_info'] = dc_info
   dc_class = i.classify_dc(dc_info)
   parameters['ispyb_dc_class'] = dc_class

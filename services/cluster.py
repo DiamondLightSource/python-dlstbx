@@ -109,10 +109,10 @@ class DLSCluster(CommonService):
     self.log.debug('Gathering cluster statistics...')
     result = run_process(["/bin/bash"], stdin = "\n".join(submission), print_stdout=False, print_stderr=False)
     if result['timeout']:
-      self.log.warn('Timeout reading cluster statistics')
+      self.log.warning('Timeout reading cluster statistics')
       return
     if result['exitcode']:
-      self.log.warn('Encountered exit code %s reading cluster statistics', str(result['exitcode']))
+      self.log.warning('Encountered exit code %s reading cluster statistics', str(result['exitcode']))
       return
     self.log.debug('Received cluster statistics')
 

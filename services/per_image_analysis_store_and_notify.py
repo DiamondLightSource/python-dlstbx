@@ -45,10 +45,10 @@ class DLSPerImageAnalysisSAN(CommonService):
     result = run_process(command, stdin=PIA_xml, print_stdout=True, print_stderr=True)
 
     if result['exitcode'] != 0:
-      self.log.warn(result)
+      self.log.warning(result)
       # Reject message
       rw.transport.nack(header)
-      self.log.warn("PIA results for %s could not be written to database", filename)
+      self.log.warning("PIA results for %s could not be written to database", filename)
       return
     else:
       self.log.debug(result)

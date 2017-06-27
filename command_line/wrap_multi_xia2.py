@@ -63,7 +63,7 @@ def run(args):
       logger.debug('Copying %s to %s' %(src, dst))
       shutil.copytree(src, dst)
     else:
-      logger.warn('Expected output directory does not exist: %s', src)
+      logger.warning('Expected output directory does not exist: %s', src)
 
   for f in glob.glob(os.path.join(working_directory, '*.*')):
     shutil.copy(f, results_directory)

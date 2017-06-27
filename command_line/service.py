@@ -72,7 +72,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
     try:
       StompTransport.load_configuration_file(default_configuration)
     except workflows.WorkflowsError, e:
-      self.log.warn(e)
+      self.log.warning(e)
 
   def on_parser_preparation(self, parser):
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",

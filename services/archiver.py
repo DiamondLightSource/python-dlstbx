@@ -101,7 +101,7 @@ class DLSArchiver(CommonService):
           if rw.recipe_step['parameters'].get('log-file-warnings-as-info'):
             self.log.info("Could not archive %s", filename, exc_info=True)
           else:
-            self.log.warn("Could not archive %s", filename, exc_info=True)
+            self.log.warning("Could not archive %s", filename, exc_info=True)
         message_out['failed'] += 1
         continue
       self.log.debug("Archiving %s", filename)
@@ -124,7 +124,7 @@ class DLSArchiver(CommonService):
       if rw.recipe_step['parameters'].get('log-summary-warning-as-info'):
         self.log.info("Failed to archive %d files", message_out['failed'])
       else:
-        self.log.warn("Failed to archive %d files", message_out['failed'])
+        self.log.warning("Failed to archive %d files", message_out['failed'])
 
     def indent(elem, level=0):
       i = "\n" + level*"  "

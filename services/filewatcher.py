@@ -121,7 +121,7 @@ class DLSFileWatcher(CommonService):
         # File watch operation has timed out.
 
         # Report all timeouts as warnings unless the recipe specifies otherwise
-        timeoutlog = self.log.warn
+        timeoutlog = self.log.warning
         if rw.recipe_step['parameters'].get('log-timeout-as-info'):
           timeoutlog = self.log.info
 

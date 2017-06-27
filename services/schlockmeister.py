@@ -91,7 +91,7 @@ class DLSSchlockmeister(CommonService):
     if 'ConsumerInfo' in message:
       destination = message['ConsumerInfo']['destination']['string']
       if not destination.startswith(self._namespace):
-        self.log.warn("Subscription to %s detected, which is not within namespace", self._namespace)
+        self.log.warning("Subscription to %s detected, which is not within namespace", self._namespace)
         return
       destination = destination.replace(self._namespace, '')
 
@@ -130,7 +130,7 @@ class DLSSchlockmeister(CommonService):
       if self.known_queues[destination]['subscribers'][subscriber] == 0:
         del(self.known_queues[destination]['subscribers'][subscriber])
     else:
-      self.log.warn('Received unknown message type\n%s', str(message))
+      self.log.warning('Received unknown message type\n%s', str(message))
     self.update_subscriptions()
 
   def update_subscriptions(self):
@@ -163,10 +163,11 @@ class DLSSchlockmeister(CommonService):
   def quarantine(self, header, message):
     '''Quarantine this message.'''
 
-    self.log.warn("Schlockmeister has found a potentially bad message.\n" + \
-                  "First 1000 characters of header:\n%s\n" + \
-                  "First 1000 characters of message:\n%s",
-                  str(header)[:1000], str(message)[:1000])
+    self.log.warning(
+        "Schlockmeister has found a potentially bad message.\n" + \
+        "First 1000 characters of header:\n%s\n" + \
+        "First 1000 characters of message:\n%s",
+        str(header)[:1000], str(message)[:1000])
 
     # The actual quarantining magic happens on the broker
     self._transport.nack(header)

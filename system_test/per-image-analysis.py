@@ -61,19 +61,19 @@ class PerImageAnalysisService(CommonSystemTest):
 
         for r in requirements:
           if r['name'] not in other:
-            self.log.warn("Field %s is missing in output", r['name'])
+            self.log.warning("Field %s is missing in output", r['name'])
             return False
           if 'min' in r and r['min'] > other[r['name']]:
-            self.log.warn("Field %s (%s) is below minimum (%s)", r['name'], str(other[r['name']]), str(r['min']))
+            self.log.warning("Field %s (%s) is below minimum (%s)", r['name'], str(other[r['name']]), str(r['min']))
             return False
           if 'max' in r and r['max'] < other[r['name']]:
-            self.log.warn("Field %s (%s) is above maximum (%s)", r['name'], str(other[r['name']]), str(r['max']))
+            self.log.warning("Field %s (%s) is above maximum (%s)", r['name'], str(other[r['name']]), str(r['max']))
             return False
           if 'equals' in r and r['equals'] != other[r['name']]:
-            self.log.warn("Field %s (%s) does not match %s", r['name'], str(other[r['name']]), str(r['equals']))
+            self.log.warning("Field %s (%s) does not match %s", r['name'], str(other[r['name']]), str(r['equals']))
             return False
           if 'type' in r and not isinstance(other[r['name']], r['type']):
-            self.log.warn("Field %s (%s) is not of type %s", r['name'], str(other[r['name']]), str(r['type']))
+            self.log.warning("Field %s (%s) is not of type %s", r['name'], str(other[r['name']]), str(r['type']))
             return False
 
         return True

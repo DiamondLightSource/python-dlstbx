@@ -59,7 +59,7 @@ for classname, cls in systest_classes.iteritems():
     testresult.early = 0
     if testsetting.get('errors'):
       testresult.log_trace("\n".join(testsetting['errors']))
-      logger.warn("Error reading test %s:\n%s", testname, "\n".join(testsetting['errors']))
+      logger.warning("Error reading test %s:\n%s", testname, "\n".join(testsetting['errors']))
       testsetting['ignore'] = True
     tests[(classname, testname)] = (testsetting, testresult)
 logger.info("Found %d system tests" % len(tests))
@@ -95,15 +95,15 @@ def handle_receipt(header, message):
             if value != header.get(parameter):
               headers_match = False
           if not headers_match:
-            logger.warn("Received a message similar to an expected message:\n" + str(message) + "\n but its header\n" + str(header) + "\ndoes not match the expected header:\n" + str(expected_message['headers']))
+            logger.warning("Received a message similar to an expected message:\n" + str(message) + "\n but its header\n" + str(header) + "\ndoes not match the expected header:\n" + str(expected_message['headers']))
             continue
         if expected_message.get('min_wait') and (time.time() - start_time) < expected_message['min_wait']:
           expected_message['early'] = "Received expected message:\n" + str(header) + "\n" + str(message) + "\n%.1f seconds too early." % (expected_message['min_wait'] + start_time - time.time())
-          logger.warn(expected_message['early'])
+          logger.warning(expected_message['early'])
         expected_message['received'] = True
         logger.debug("Received expected message:\n" + str(header) + "\n" + str(message) + "\n")
         return
-  logger.warn("Received unexpected message:\n" + str(header) + "\n" + str(message) + "\n which is not in \n" + str(expected_messages) + "\n")
+  logger.warning("Received unexpected message:\n" + str(header) + "\n" + str(message) + "\n which is not in \n" + str(expected_messages) + "\n")
   unexpected_messages.log_error("Received unexpected message")
   unexpected_messages.log_error(str(header) + "\n" + str(message) + "\n")
   unexpected_messages.count += 1
@@ -174,7 +174,7 @@ while keep_waiting:
         if not expectation.get('received') and not expectation.get('received_timeout'):
           if time.time() > start_time + expectation['timeout']:
             expectation['received_timeout'] = True
-            logger.warn("Test %s.%s timed out waiting for message\n%s" % (testname[0], testname[1], str(expectation)))
+            logger.warning("Test %s.%s timed out waiting for message\n%s" % (testname[0], testname[1], str(expectation)))
             test[1].log_error('No answer received within time limit.')
             test[1].log_error(str(expectation))
           else:
@@ -204,7 +204,7 @@ for a, b in tests.itervalues():
     if b.is_failure() and b.failure_output:
       logger.error("  %s %s failed:\n    %s", b.classname, b.name, b.failure_output.replace('\n', '\n    '))
     else:
-      logger.warn("  %s %s received %d out of %d expected replies %s" % \
+      logger.warning("  %s %s received %d out of %d expected replies %s" % \
         (b.classname, b.name, len(filter(lambda x: x.get('received'), a['expect'])), len(a['expect']), "(%d early)" % b.early if b.early else ""))
 if unexpected_messages.count:
   logger.error("  Received %d unexpected message%s." % (unexpected_messages.count, "" if unexpected_messages.count == 1 else "s"))

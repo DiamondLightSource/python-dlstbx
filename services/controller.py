@@ -114,8 +114,9 @@ class DLSController(CommonService):
     try:
       strategies_file_timestamp = os.path.getmtime(self.strategy_file)
     except Exception:
-      self.log.warn('Could not read timestamp of controller service strategy file, %s',
-                    self.strategy_file)
+      self.log.warning(
+          'Could not read timestamp of controller service strategy file, %s',
+          self.strategy_file)
       return
 
     if strategies_file_timestamp > self.timestamp_strategies_loaded:
@@ -152,8 +153,9 @@ class DLSController(CommonService):
 
     # Check that synchronization messages are received
     if self.master and (self.master_last_checked + 30 < time.time()):
-      self.log.warn("Inconsistent status: No sync messages received over 30 seconds, " + \
-                    "relinquishing master status")
+      self.log.warning(
+          "Inconsistent status: No sync messages received over 30 seconds, " + \
+          "relinquishing master status")
       self.master_disable()
 
   def receive_status_msg(self, header, message):
@@ -309,7 +311,7 @@ class DLSController(CommonService):
         self.log.info('Could not start %s with %s', service, str(attempt))
       except Exception, e:
         self.log.info('Failed to start %s with %s, error: %s', service, str(attempt), str(e), exc_info=True)
-    self.log.warn('Could not start %s, all available options exhausted', service)
+    self.log.warning('Could not start %s, all available options exhausted', service)
     return False
 
   def launch_cluster(self, service=None, cluster="cluster", queue="admin.q", module="dials", tag="", **kwargs):

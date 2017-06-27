@@ -8,6 +8,7 @@ import curses
 from dlstbx.util.version import dlstbx_version
 import logging
 from optparse import OptionParser, SUPPRESS_HELP
+from pprint import pprint
 import re
 import sys
 import threading
@@ -322,7 +323,7 @@ class RawMonitor(object):
     print(headline)
 
   def print_status(self, header, message):
-    print message
+    pprint(message)
 
   def run(self):
     self._transport.subscribe_broadcast('transient.status', self.print_status, retroactive=True)

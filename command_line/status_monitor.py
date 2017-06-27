@@ -46,7 +46,6 @@ class Monitor(object):
     if version:
       self.headline += " v%s" % version.split(' ')[1].split('-')[0]
     self.headline += " -- quit with Ctrl+C"
-    self.message_box = None
     self.log_box = None
     self._transport.subscribe_broadcast('transient.status', self.update_status, retroactive=True)
     self.last_info = None
@@ -116,18 +115,6 @@ class Monitor(object):
   def update_status(self, header, message):
     '''Process incoming status message. Acquire lock for status dictionary before updating.'''
     with self._lock:
-      if self.message_box:
-        self.message_box.erase()
-        self.message_box.move(0,0)
-        for n, field in enumerate(header):
-          if n == 0:
-            self.message_box.addstr(field + ":", curses.color_pair(1))
-          else:
-            self.message_box.addstr(", " + field + ":", curses.color_pair(1))
-          self.message_box.addstr(header[field])
-        self.message_box.addstr(": ", curses.color_pair(1))
-        self.message_box.addstr(str(message), curses.color_pair(2) + curses.A_BOLD)
-        self.message_box.refresh()
       if message['host'] not in self._node_status or \
           int(header['timestamp']) >= self._node_status[message['host']]['last_seen']:
         if 'dlstbx' in message:
@@ -166,17 +153,15 @@ class Monitor(object):
       stdscr.clear()
       stdscr.addstr(0, 0, self.headline, curses.A_BOLD)
       stdscr.refresh()
-#     self.message_box = self._boxwin(5, curses.COLS, 2, 0, title='last seen message', color_pair=1)
-#     self.message_box.scrollok(True)
       self.cards = []
       self._redraw_log_box()
 
   def _redraw_log_box(self, reserved_card_spaces=0):
     with self._lock:
-      starty = 7
+      starty = 2
       if self.cards or reserved_card_spaces:
         max_cards_horiz = int(curses.COLS / 35)
-        starty = 7 + 6 * ((len(self.cards) + reserved_card_spaces + max_cards_horiz - 1) // max_cards_horiz)
+        starty = 2 + 6 * ((len(self.cards) + reserved_card_spaces + max_cards_horiz - 1) // max_cards_horiz)
       height = curses.LINES - starty
       if self.log_box:
         oldstarty = self.log_box.getbegyx()[0] - 1
@@ -201,11 +186,11 @@ class Monitor(object):
         return self.cards[number]
       if number == len(self.cards):
         max_cards_horiz = int(curses.COLS / 35)
-        max_cards_vert = int((curses.LINES - 7 - 7)/ 6)
+        max_cards_vert = int((curses.LINES - 2 - 7)/ 6)
         if (number // max_cards_horiz) >= max_cards_vert:
           return # Don't add more cards - screen is full
         self._redraw_log_box(reserved_card_spaces=1)
-        self.cards.append(self._boxwin(6, 35, 7 + 6 * (number // max_cards_horiz), 35 * (number % max_cards_horiz), color_pair=3))
+        self.cards.append(self._boxwin(6, 35, 2 + 6 * (number // max_cards_horiz), 35 * (number % max_cards_horiz), color_pair=3))
         return self.cards[number]
       return
 
@@ -217,7 +202,7 @@ class Monitor(object):
       if number > (len(self.cards) - 1):
         return
       max_cards_horiz = int(curses.COLS / 35)
-      obliterate = curses.newwin(6, 35, 7 + 6 * (number // max_cards_horiz), 35 * (number % max_cards_horiz))
+      obliterate = curses.newwin(6, 35, 2 + 6 * (number // max_cards_horiz), 35 * (number % max_cards_horiz))
       obliterate.erase()
       obliterate.noutrefresh()
       del(self.cards[number])

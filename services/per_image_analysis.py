@@ -17,7 +17,7 @@ class DLSPerImageAnalysis(CommonService):
     '''Subscribe to the per_image_analysis queue. Received messages must be acknowledged.'''
     logging.getLogger('dials').setLevel(logging.WARNING)
     workflows.recipe.wrap_subscribe(self._transport, 'per_image_analysis',
-        self.per_image_analysis, acknowledgement=True)
+        self.per_image_analysis, acknowledgement=True, log_extender=self.extend_log)
 
   def per_image_analysis(self, rw, header, message):
     '''Run PIA on one image.'''

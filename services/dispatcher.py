@@ -38,41 +38,52 @@ class DLSDispatcher(CommonService):
 
     # Load processing parameters
     parameters = message.get('parameters', {})
-    generate_guids = 'guid' not in parameters
 
-    self.log.debug("Received processing request:\n" + str(message))
-    self.log.debug("Received processing parameters:\n" + str(parameters))
+    # Generate merged and individual recipe IDs if required.
+    # 'guid' is a recipe-individual ID,
+    # 'guid_merged' is identical across all recipes started at the same time,
+    # and is attached to log records.
+    # If 'guid' is already defined it overrides both.
+    generate_individual_recipe_guids = not parameters.get('guid')
+    recipe_id = parameters.get('guid') or str(uuid.uuid4())
+    parameters['guid_merged'] = recipe_id
 
-    # At this point external helper functions should be called,
-    # eg. ISPyB database lookups
-    from dlstbx.ispyb.ispyb import ispyb_filter
-    message, parameters = ispyb_filter(message, parameters)
-    self.log.debug("Mangled processing request:\n" + str(message))
-    self.log.debug("Mangled processing parameters:\n" + str(parameters))
+    # From here on add the global ID to all log messages
+    with self.extend_log('recipe_ID', recipe_id):
+      self.log.debug("Received processing request:\n" + str(message))
+      self.log.debug("Received processing parameters:\n" + str(parameters))
 
-    # Process message
-    recipes = []
-    if message.get('custom_recipe'):
-      recipes.append(workflows.recipe.Recipe(recipe=json.dumps(message['custom_recipe'])))
-    if message.get('recipes'):
-      for recipefile in message['recipes']:
-        try:
-          with open(os.path.join(self.recipe_basepath, recipefile + '.json'), 'r') as rcp:
-            recipes.append(workflows.recipe.Recipe(recipe=rcp.read()))
-        except ValueError, e:
-          raise ValueError("Error reading recipe '%s': %s" % (recipefile, str(e)))
+      # At this point external helper functions should be called,
+      # eg. ISPyB database lookups
+      from dlstbx.ispyb.ispyb import ispyb_filter
+      message, parameters = ispyb_filter(message, parameters)
+      self.log.debug("Mangled processing request:\n" + str(message))
+      self.log.debug("Mangled processing parameters:\n" + str(parameters))
 
-    full_recipe = workflows.recipe.Recipe()
-    for recipe in recipes:
-      recipe.validate()
-      if generate_guids:
-        parameters['guid'] = str(uuid.uuid4())
-      recipe.apply_parameters(parameters)
-      full_recipe = full_recipe.merge(recipe)
+      # Process message
+      recipes = []
+      if message.get('custom_recipe'):
+        recipes.append(workflows.recipe.Recipe(recipe=json.dumps(message['custom_recipe'])))
+      if message.get('recipes'):
+        for recipefile in message['recipes']:
+          try:
+            with open(os.path.join(self.recipe_basepath, recipefile + '.json'), 'r') as rcp:
+              recipes.append(workflows.recipe.Recipe(recipe=rcp.read()))
+          except ValueError, e:
+            raise ValueError("Error reading recipe '%s': %s" % (recipefile, str(e)))
 
-    rw = workflows.recipe.RecipeWrapper(recipe=full_recipe, transport=self._transport)
-    rw.start(transaction=txn)
+      full_recipe = workflows.recipe.Recipe()
+      for recipe in recipes:
+        recipe.validate()
+        if generate_individual_recipe_guids:
+          parameters['guid'] = str(uuid.uuid4())
+        recipe.apply_parameters(parameters)
+        full_recipe = full_recipe.merge(recipe)
 
-    # Commit transaction
-    self._transport.transaction_commit(txn)
-    self.log.info("Processed incoming message in %.4f seconds", timeit.default_timer() - start_time)
+      rw = workflows.recipe.RecipeWrapper(recipe=full_recipe, transport=self._transport)
+      rw.environment = { 'ID': recipe_id } # FIXME: This should go into the constructor, but workflows can't do that yet
+      rw.start(transaction=txn)
+
+      # Commit transaction
+      self._transport.transaction_commit(txn)
+      self.log.info("Processed incoming message in %.4f seconds", timeit.default_timer() - start_time)

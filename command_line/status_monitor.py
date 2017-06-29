@@ -241,6 +241,12 @@ class Monitor(object):
               if card:
                 card.erase()
                 card.move(0, 0)
+                card.addstr('Service: ', curses.color_pair(3))
+                if 'service' in status and status['service']:
+                  card.addstr(status['service'])
+                else:
+                  card.addstr('---', curses.color_pair(2))
+                card.move(1, 0)
                 card.addstr('Host: ', curses.color_pair(3))
                 if host.startswith('uk.ac.diamond.'): host = host[14:]
                 host = host.split('.')
@@ -250,12 +256,6 @@ class Monitor(object):
                     curses.color_pair(2) + curses.A_BOLD)
                 else:
                   card.addstr(host)
-                card.move(1, 0)
-                card.addstr('Service: ', curses.color_pair(3))
-                if 'service' in status and status['service']:
-                  card.addstr(status['service'])
-                else:
-                  card.addstr('---', curses.color_pair(2))
                 card.move(2, 0)
                 card.addstr('State: ', curses.color_pair(3))
                 if 'status' in status:

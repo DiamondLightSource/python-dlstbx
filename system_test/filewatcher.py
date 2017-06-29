@@ -62,6 +62,7 @@ class FilewatcherService(CommonSystemTest):
       queue='filewatcher',
       message={ 'recipe': recipe.recipe,
                 'recipe-pointer': '1',
+                'environment': { 'ID': self.guid },
               },
       headers={ 'workflows-recipe': True }
     )
@@ -79,6 +80,7 @@ class FilewatcherService(CommonSystemTest):
     # First ============================
 
     self.expect_recipe_message(
+      environment={ 'ID': self.guid },
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=2,
@@ -90,6 +92,7 @@ class FilewatcherService(CommonSystemTest):
 
     for file_number in range(200):
       self.expect_recipe_message(
+        environment={ 'ID': self.guid },
         recipe=recipe,
         recipe_path=[ 1 ],
         recipe_pointer=3,
@@ -101,6 +104,7 @@ class FilewatcherService(CommonSystemTest):
     # Last =============================
 
     self.expect_recipe_message(
+      environment={ 'ID': self.guid },
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=4,
@@ -113,6 +117,7 @@ class FilewatcherService(CommonSystemTest):
 
     for file_number in (1, 7, 14, 21, 28, 35, 42, 49, 56, 63, 69, 76, 83, 90, 97, 104, 111, 118, 125, 132, 138, 145, 152, 159, 166, 173, 180, 187, 194, 200):
       self.expect_recipe_message(
+        environment={ 'ID': self.guid },
         recipe=recipe,
         recipe_path=[ 1 ],
         recipe_pointer=5,
@@ -123,6 +128,7 @@ class FilewatcherService(CommonSystemTest):
     # Specific =========================
 
     self.expect_recipe_message(
+      environment={ 'ID': self.guid },
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=6,
@@ -133,6 +139,7 @@ class FilewatcherService(CommonSystemTest):
     # Finally ==========================
 
     self.expect_recipe_message(
+      environment={ 'ID': self.guid },
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=7,
@@ -191,6 +198,7 @@ class FilewatcherService(CommonSystemTest):
       queue='filewatcher',
       message={ 'recipe': recipe.recipe,
                 'recipe-pointer': '1',
+                'environment': { 'ID': self.guid },
               },
       headers={ 'workflows-recipe': True }
     )
@@ -207,17 +215,12 @@ class FilewatcherService(CommonSystemTest):
 
     # Finally ==========================
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid + '.fail.7',
-      message={ 'payload': { 'files-expected': 200,
-                             'files-seen': 0,
-                             'success': False },
-                'recipe': recipe,
-                'recipe-path': [ 1 ],
-                'recipe-pointer': 7,
-                'environment': mock.ANY,
-              },
-      headers={ 'workflows-recipe': 'True' },
+    self.expect_recipe_message(
+      environment={ 'ID': self.guid },
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=7,
+      payload={ 'files-expected': 200, 'files-seen': 0, 'success': False },
       min_wait=55,
       timeout=80,
     )
@@ -225,16 +228,12 @@ class FilewatcherService(CommonSystemTest):
 
     # Timeout ==========================
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid + '.fail.8',
-      message={ 'payload': { 'file': failpattern % 1, 'file-number': 1, 'file-pattern-index': 1,
-                             'success': False },
-                'recipe': recipe,
-                'recipe-path': [ 1 ],
-                'recipe-pointer': 8,
-                'environment': mock.ANY,
-              },
-      headers={ 'workflows-recipe': 'True' },
+    self.expect_recipe_message(
+      environment={ 'ID': self.guid },
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=8,
+      payload={ 'file': failpattern % 1, 'file-number': 1, 'file-pattern-index': 1, 'success': False },
       min_wait=55,
       timeout=80,
     )
@@ -287,6 +286,7 @@ class FilewatcherService(CommonSystemTest):
       queue='filewatcher',
       message={ 'recipe': recipe.recipe,
                 'recipe-pointer': '1',
+                'environment': { 'ID': self.guid },
               },
       headers={ 'workflows-recipe': True }
     )
@@ -298,30 +298,24 @@ class FilewatcherService(CommonSystemTest):
 
     # First ============================
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid + '.semi.2',
-      message={ 'payload': { 'file': self.delayed_fail_file, 'file-number': 1, 'file-pattern-index': 5 },
-                'recipe': recipe,
-                'recipe-path': [ 1 ],
-                'recipe-pointer': 2,
-                'environment': mock.ANY,
-              },
-      headers={ 'workflows-recipe': 'True' },
+    self.expect_recipe_message(
+      environment={ 'ID': self.guid },
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=2,
+      payload={ 'file': self.delayed_fail_file, 'file-number': 1, 'file-pattern-index': 5 },
       min_wait=25,
       timeout=50,
     )
 
     # Every ============================
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid + '.semi.3',
-      message={ 'payload': { 'file': self.delayed_fail_file, 'file-number': 1, 'file-pattern-index': 5 },
-                'recipe': recipe,
-                'recipe-path': [ 1 ],
-                'recipe-pointer': 3,
-                'environment': mock.ANY,
-              },
-      headers={ 'workflows-recipe': 'True' },
+    self.expect_recipe_message(
+      environment={ 'ID': self.guid },
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=3,
+      payload={ 'file': self.delayed_fail_file, 'file-number': 1, 'file-pattern-index': 5 },
       min_wait=25,
       timeout=50,
     )
@@ -334,33 +328,24 @@ class FilewatcherService(CommonSystemTest):
 
     # Finally ==========================
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid + '.semi.7',
-      message={ 'payload': { 'files-expected': 200,
-                             'files-seen': 1,
-                             'success': False },
-                'recipe': recipe,
-                'recipe-path': [ 1 ],
-                'recipe-pointer': 7,
-                'environment': mock.ANY,
-              },
-      headers={ 'workflows-recipe': 'True' },
+    self.expect_recipe_message(
+      environment={ 'ID': self.guid },
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=7,
+      payload={ 'files-expected': 200, 'files-seen': 1, 'success': False },
       min_wait=25,
       timeout=55,
     )
 
     # Timeout ==========================
 
-    self.expect_message(
-      queue='transient.system_test.' + self.guid + '.semi.8',
-      message={ 'payload': { 'file': semifailpattern % 6, 'file-number': 2, 'file-pattern-index': 6,
-                             'success': False },
-                'recipe': recipe,
-                'recipe-path': [ 1 ],
-                'recipe-pointer': 8,
-                'environment': mock.ANY,
-              },
-      headers={ 'workflows-recipe': 'True' },
+    self.expect_recipe_message(
+      environment={ 'ID': self.guid },
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=8,
+      payload={ 'file': semifailpattern % 6, 'file-number': 2, 'file-pattern-index': 6, 'success': False },
       min_wait=25,
       timeout=55,
     )

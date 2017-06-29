@@ -32,6 +32,7 @@ class PerImageAnalysisService(CommonSystemTest):
       message={ 'payload': recipe['start'][0][1],
                 'recipe': recipe.recipe,
                 'recipe-pointer': '1',
+                'environment': { 'ID': self.guid },
               },
       headers={ 'workflows-recipe': True }
     )
@@ -79,6 +80,7 @@ class PerImageAnalysisService(CommonSystemTest):
         return True
 
     self.expect_recipe_message(
+      environment={ 'ID': self.guid },
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=2,

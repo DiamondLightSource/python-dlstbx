@@ -111,7 +111,7 @@ class CommonSystemTest(object):
     self._messaging('expect', queue=queue, topic=topic, headers=headers,
                     message=message, min_wait=min_wait, timeout=timeout)
 
-  def expect_recipe_message(self, recipe, recipe_path, recipe_pointer, headers=None, payload=None, min_wait=0, timeout=10, queue=None, topic=None):
+  def expect_recipe_message(self, recipe, recipe_path, recipe_pointer, headers=None, payload=None, min_wait=0, timeout=10, queue=None, topic=None, environment=None):
     '''Use this function within tests to wait for recipe-wrapped messages.'''
     assert recipe, 'Recipe required'
     if not (queue or topic):
@@ -126,11 +126,21 @@ class CommonSystemTest(object):
     else:
       headers = headers.copy()
       headers['workflows-recipe'] = 'True'
+    if environment:
+      class dictionary_contains():
+        def __init__(self, d):
+          self.containsdict = d
+        def __eq__(self, other):
+          return self.containsdict.viewitems() <= other.viewitems()
+          # for Python3 : items() <= items()
+      environment = dictionary_contains(environment)
+    else:
+      environment = mock.ANY
     expected_message = { 'payload': payload,
                          'recipe': recipe,
                          'recipe-path': recipe_path,
                          'recipe-pointer': recipe_pointer,
-                         'environment': mock.ANY,
+                         'environment': environment,
                        }
     self._messaging('expect', queue=queue, topic=topic, headers=headers,
                     message=expected_message, min_wait=min_wait, timeout=timeout)

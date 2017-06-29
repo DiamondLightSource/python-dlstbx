@@ -33,6 +33,7 @@ class ArchiverService(CommonSystemTest):
       message={ 'payload': '',
                 'recipe': recipe.recipe,
                 'recipe-pointer': '1',
+                'environment': { 'ID': self.guid },
               },
       headers={ 'workflows-recipe': True }
     )
@@ -42,6 +43,7 @@ class ArchiverService(CommonSystemTest):
       xmldata = fh.read()
 
     self.expect_recipe_message(
+      environment={ 'ID': self.guid },
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=2,
@@ -77,6 +79,7 @@ class ArchiverService(CommonSystemTest):
       message={ 'payload': '',
                 'recipe': recipe.recipe,
                 'recipe-pointer': '1',
+                'environment': { 'ID': self.guid },
               },
       headers={ 'workflows-recipe': True }
     )
@@ -89,6 +92,7 @@ class ArchiverService(CommonSystemTest):
       xmldata_2 = fh.read()
 
     self.expect_recipe_message(
+      environment={ 'ID': self.guid },
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=2,
@@ -97,6 +101,7 @@ class ArchiverService(CommonSystemTest):
     )
 
     self.expect_recipe_message(
+      environment={ 'ID': self.guid },
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=2,
@@ -132,6 +137,7 @@ class ArchiverService(CommonSystemTest):
       message={ 'payload': '',
                 'recipe': recipe.recipe,
                 'recipe-pointer': '1',
+                'environment': { 'ID': self.guid },
               },
       headers={ 'workflows-recipe': True }
     )
@@ -141,6 +147,7 @@ class ArchiverService(CommonSystemTest):
       xmldata = fh.read()
 
     self.expect_recipe_message(
+      environment={ 'ID': self.guid },
       recipe=recipe,
       recipe_path=[ 1 ],
       recipe_pointer=2,

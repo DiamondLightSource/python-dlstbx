@@ -293,6 +293,22 @@ class Monitor(object):
                     card.addstr(status['workflows'], curses.color_pair(4))
                   else:
                     card.addstr(status['workflows'])
+                if 'utilization' in status:
+                  card.move(3, 28)
+                  busy = sum(status['utilization'].get(s, 0) for s in ('1', '3', '4', '5'))
+                  busy = round(busy * 100)
+
+                  state_color = None
+                  if busy < 10:
+                    state_color = curses.color_pair(2)
+                  elif busy > 90:
+                    state_color = curses.color_pair(3) + curses.A_BOLD
+                  elif busy > 75:
+                    state_color = curses.color_pair(3)
+                  if state_color:
+                    card.addstr('%3d%%' % busy, state_color)
+                  else:
+                    card.addstr('%3d%%' % busy)
                 card.noutrefresh()
               cardnumber = cardnumber + 1
         if cardnumber < len(self.cards):

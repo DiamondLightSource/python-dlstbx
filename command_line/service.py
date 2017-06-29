@@ -45,7 +45,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
     logging.getLogger('xia2').setLevel(logging.INFO)
 
     self.log = logging.getLogger('dlstbx.service')
-    self.log.setLevel(logging.INFO)
+    self.log.setLevel(logging.DEBUG)
 
     # Enable logging to graylog
     enable_graylog()
@@ -95,7 +95,6 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
       logging.getLogger('dials').setLevel(logging.DEBUG)
       logging.getLogger('dlstbx').setLevel(logging.DEBUG)
       logging.getLogger('xia2').setLevel(logging.DEBUG)
-      self.log.setLevel(logging.DEBUG)
     if options.debug:
       logging.getLogger('workflows').setLevel(logging.DEBUG)
     self.options = options
@@ -109,11 +108,13 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         except:
           record = record.__dict__
         transport.broadcast('transient.log', record)
-    logging.getLogger().addHandler(workflows.logging.CallbackHandler(logging_call))
+    amq_handler = workflows.logging.CallbackHandler(logging_call)
+    if not self.options.verbose:
+      amq_handler.setLevel(logging.INFO)
+    logging.getLogger().addHandler(amq_handler)
 
   def before_frontend_construction(self, kwargs):
-    if self.options.verbose:
-      kwargs['verbose_service'] = True
+    kwargs['verbose_service'] = True
     kwargs['environment'] = kwargs.get('environment', {})
     kwargs['environment']['live'] = self.use_live_infrastructure
     return kwargs

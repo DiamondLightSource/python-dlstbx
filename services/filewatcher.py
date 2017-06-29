@@ -20,7 +20,7 @@ class DLSFileWatcher(CommonService):
     self.log.info("Filewatcher starting")
     workflows.recipe.wrap_subscribe(
         self._transport, 'filewatcher',
-        self.watch_files, acknowledgement=True)
+        self.watch_files, acknowledgement=True, log_extender=self.extend_log)
 
   def watch_files(self, rw, header, message):
     '''Check for presence of files.'''

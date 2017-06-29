@@ -18,7 +18,7 @@ class DLSPerImageAnalysisSAN(CommonService):
     '''Subscribe to the per_image_analysis queue. Received messages must be acknowledged.'''
     logging.getLogger('dials').setLevel(logging.INFO)
     workflows.recipe.wrap_subscribe(self._transport, 'per_image_analysis_san',
-        self.store_and_notify, acknowledgement=True)
+        self.store_and_notify, acknowledgement=True, log_extender=self.extend_log)
 
   def store_and_notify(self, rw, header, message):
     '''Store and Notify for PIA results.'''

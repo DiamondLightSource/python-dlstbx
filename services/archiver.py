@@ -24,7 +24,7 @@ class DLSArchiver(CommonService):
     self.log.info("Archiver starting")
     workflows.recipe.wrap_subscribe(
         self._transport, 'archive.pattern',
-        self.archive_dcid, acknowledgement=True)
+        self.archive_dcid, acknowledgement=True, log_extender=self.extend_log)
 
   @staticmethod
   def rangifier(numbers):

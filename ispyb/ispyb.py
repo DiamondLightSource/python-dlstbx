@@ -390,6 +390,8 @@ INNER JOIN AutoProcScaling
 ON AutoProcScaling_has_Int.autoProcScalingId = AutoProcScaling.autoProcScalingId
 INNER JOIN AutoProcScalingStatistics
 ON AutoProcScaling.autoProcScalingId = AutoProcScalingStatistics.autoProcScalingId
+INNER JOIN AutoProc
+ON AutoProcScaling.autoProcScalingId = AutoProc.autoProcId
 WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s'
 ;
 ''' %(select_str, ','.join(str(i) for i in dc_ids), statistics_type)

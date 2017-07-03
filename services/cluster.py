@@ -154,5 +154,5 @@ class DLSCluster(CommonService):
       corestats['free_for_medium'] += node.get('medium.q', {}).get('slots_free', 0)
       corestats['free_for_high'] += node.get('high.q', {}).get('slots_free', 0)
 
-    self.stats_log.debug("cluster statistics admin.q: %d total, %d broken, %d free cores", corestats_admin['total'], corestats_admin['broken'], corestats_admin['free'])
-    self.stats_log.debug("cluster statistics general: %d total, %d broken, %d free-for-high, %d free-for-medium, %d free-for-low cores", corestats_admin['total'], corestats_admin['broken'], corestats_admin['free'], 0, 0)
+    self.stats_log.debug("cluster statistics admin.q: %d total, %d broken, %d total-minus-free, %d free cores", corestats_admin['total'], corestats_admin['broken'], corestats_admin['total']-corestats_admin['free'], corestats_admin['free'])
+    self.stats_log.debug("cluster statistics general: %d total, %d broken, %d free-for-high, %d free-for-medium, %d free-for-low, %d total-ffh, %d total-ffm, %d total-ffl cores", corestats['total'], corestats['broken'], corestats['free_for_high'], corestats['free_for_medium'], corestats['free_for_low'], corestats['total']-corestats['free_for_high'], corestats['total']-corestats['free_for_medium'], corestats['total']-corestats['free_for_low'])

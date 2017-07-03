@@ -132,15 +132,27 @@ class DLSCluster(CommonService):
 
     corestats = { 'total': 0, 'broken': 0, 'free_for_low': 0, 'free_for_medium': 0, 'free_for_high': 0 }
     corestats_admin =  { 'total': 0, 'broken': 0, 'free': 0 }
-    for node in sorted(cluster_nodes):
-      adminq = filter(lambda q: q['class'] == 'admin.q', cluster_nodes[node])
-      if adminq:
-        adminq_slots = adminq[0]['slots_total']
+    for node in cluster_nodes.values():
+      node = { q['class']: q for q in node if q['class'] in ('admin.q', 'bottom.q', 'low.q', 'medium.q', 'high.q') }
+      if 'admin.q' in node:
+        adminq_slots = node['admin.q']['slots_total']
         corestats_admin['total'] += adminq_slots
-        if adminq[0]['enabled'] and not adminq[0]['suspended']:
-          corestats_admin['free'] += adminq[0]['slots_free']
+        if node['admin.q']['enabled'] and not node['admin.q']['suspended'] and not node['admin.q']['error']:
+          corestats_admin['free'] += node['admin.q']['slots_free']
         else:
           corestats_admin['broken'] += adminq_slots
+        del node['admin.q']
+      if not node:
+        continue
+      cores = max(q['slots_total'] for q in node.values())
+      corestats['total'] += cores
+      node = { n: q for n, q in node.items() if q['enabled'] and not q['suspended'] and not q['error'] }
+      if not node:
+        corestats['broken'] += cores
+        continue
+      corestats['free_for_low'] += node.get('low.q', {}).get('slots_free', 0)
+      corestats['free_for_medium'] += node.get('medium.q', {}).get('slots_free', 0)
+      corestats['free_for_high'] += node.get('high.q', {}).get('slots_free', 0)
 
     self.stats_log.debug("cluster statistics admin.q: %d total, %d broken, %d free cores", corestats_admin['total'], corestats_admin['broken'], corestats_admin['free'])
     self.stats_log.debug("cluster statistics general: %d total, %d broken, %d free-for-high, %d free-for-medium, %d free-for-low cores", corestats_admin['total'], corestats_admin['broken'], corestats_admin['free'], 0, 0)

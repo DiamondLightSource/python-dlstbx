@@ -335,7 +335,7 @@ class ispyb(object):
                  ');')
     self.commit()
 
-  def get_screening_results(self, dc_id, columns=None):
+  def get_screening_results(self, dc_ids, columns=None):
     if columns is not None:
       select_str = ', '.join(c for c in columns)
     else:
@@ -366,9 +366,9 @@ ON ScreeningOutput.screeningOutputID = ScreeningOutputLattice.screeningOutputID
 '''
           break
     sql_str += '''\
-WHERE Screening.dataCollectionID=%s
+WHERE Screening.dataCollectionID IN (%s)
 ;
-''' %dc_id
+''' %','.join(str(i) for i in dc_ids)
     results = self.execute(sql_str)
     field_names = [i[0] for i in self._cursor.description]
     return field_names, results

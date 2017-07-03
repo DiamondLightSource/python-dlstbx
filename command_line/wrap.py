@@ -21,16 +21,17 @@ import workflows
 import workflows.services.common_service
 import workflows.transport
 from workflows.transport.stomp_transport import StompTransport
+import workflows.util
 
 class StatusNotifications(threading.Thread):
-  def __init__(self, send_function):
-    super(StatusNotifications, self).__init__()
+  def __init__(self, send_function, taskname):
+    super(StatusNotifications, self).__init__(name="zocalo status notification")
     self.daemon = True
     self.lock = threading.Condition(threading.Lock())
     self.send_status = send_function
     self.status_dict = {
-      'host': 'self.__hostid',
-      'service': 'self._service_name',
+      'host': workflows.util.generate_unique_host_id(),
+      'task': taskname,
       'workflows': workflows.version(),
     }
     for env in ('SGE_CELL', 'JOB_ID'):
@@ -38,6 +39,7 @@ class StatusNotifications(threading.Thread):
         self.status_dict['cluster_' + env] = os.environ[env]
     self.set_status(workflows.services.common_service.Status.STARTING)
     self._keep_running = True
+    self.start()
 
   def get_status(self):
     '''Returns a dictionary containing all relevant status information to be
@@ -65,13 +67,12 @@ def run(cmdline_args):
   # Enable logging to console
   console = ColorStreamHandler()
   console.setLevel(logging.INFO)
-  logging.getLogger().setLevel(logging.WARN)
-  logging.getLogger().addHandler(console)
-
   logging.getLogger('dials').setLevel(logging.INFO)
   logging.getLogger('dlstbx').setLevel(logging.INFO)
   logging.getLogger('workflows').setLevel(logging.INFO)
   logging.getLogger('xia2').setLevel(logging.INFO)
+  logging.getLogger().setLevel(logging.WARN)
+  logging.getLogger().addHandler(console)
   log = logging.getLogger('dlstbx.wrap')
 
   # Set up stomp defaults
@@ -121,8 +122,7 @@ def run(cmdline_args):
   # Connect to transport and start sending notifications
   transport = workflows.transport.lookup(options.transport)()
   transport.connect()
-  st = StatusNotifications(transport.broadcast_status)
-  st.start()
+  st = StatusNotifications(transport.broadcast_status, "some task")
 
   instance = instance()
 

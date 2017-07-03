@@ -123,3 +123,24 @@ class DLSCluster(CommonService):
     pending_jobs = Counter(map(lambda j: j['queue'].split('@@')[0] if '@@' in j['queue'] else j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
     for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs):
       self.stats_log.debug("queuelevel: %d jobs waiting in queue %s", pending_jobs[queue], queue, extra={'jobqueue': queue})
+
+    cluster_nodes = {}
+    for q in queuelist:
+      node_list = cluster_nodes.get(q['host'], [])
+      node_list.append(q)
+      cluster_nodes[q['host']] = node_list
+
+    corestats = { 'total': 0, 'broken': 0, 'free_for_low': 0, 'free_for_medium': 0, 'free_for_high': 0 }
+    corestats_admin =  { 'total': 0, 'broken': 0, 'free': 0 }
+    for node in sorted(cluster_nodes):
+      adminq = filter(lambda q: q['class'] == 'admin.q', cluster_nodes[node])
+      if adminq:
+        adminq_slots = adminq[0]['slots_total']
+        corestats_admin['total'] += adminq_slots
+        if adminq[0]['enabled'] and not adminq[0]['suspended']:
+          corestats_admin['free'] += adminq[0]['slots_free']
+        else:
+          corestats_admin['broken'] += adminq_slots
+
+    self.stats_log.debug("cluster statistics admin.q: %d total, %d broken, %d free cores", corestats_admin['total'], corestats_admin['broken'], corestats_admin['free'])
+    self.stats_log.debug("cluster statistics general: %d total, %d broken, %d free-for-high, %d free-for-medium, %d free-for-low cores", corestats_admin['total'], corestats_admin['broken'], corestats_admin['free'], 0, 0)

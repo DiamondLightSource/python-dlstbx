@@ -7,6 +7,7 @@ import logging
 import os
 import random
 import string
+import time
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -102,12 +103,12 @@ class DLSCluster(CommonService):
 
   def update_cluster_statistics(self):
     '''Gather some cluster statistics.'''
-    submission = [
+    load_stats = [
       "module load global/cluster",
       "qstat -f -r -u gda2 -xml"
     ]
     self.log.debug('Gathering cluster statistics...')
-    result = run_process(["/bin/bash"], stdin = "\n".join(submission), print_stdout=False, print_stderr=False)
+    result = run_process(["/bin/bash"], stdin = "\n".join(load_stats), print_stdout=False, print_stderr=False)
     if result['timeout']:
       self.log.warning('Timeout reading cluster statistics')
       return
@@ -115,6 +116,7 @@ class DLSCluster(CommonService):
       self.log.warning('Encountered exit code %s reading cluster statistics', str(result['exitcode']))
       return
     self.log.debug('Received cluster statistics')
+    stats_timestamp = time.time()
 
     cs = ClusterStatistics()
     joblist, queuelist = cs.parse_string(result['stdout'])
@@ -156,3 +158,15 @@ class DLSCluster(CommonService):
 
     self.stats_log.debug("cluster statistics admin.q: %d total, %d broken, %d total-minus-free, %d free cores", corestats_admin['total'], corestats_admin['broken'], corestats_admin['total']-corestats_admin['free'], corestats_admin['free'])
     self.stats_log.debug("cluster statistics general: %d total, %d broken, %d free-for-high, %d free-for-medium, %d free-for-low, %d total-ffh, %d total-ffm, %d total-ffl cores", corestats['total'], corestats['broken'], corestats['free_for_high'], corestats['free_for_medium'], corestats['free_for_low'], corestats['total']-corestats['free_for_high'], corestats['total']-corestats['free_for_medium'], corestats['total']-corestats['free_for_low'])
+
+    corestats['used-high']   = corestats['total'] - corestats['broken'] - corestats['free_for_high']
+    corestats['used-medium'] = corestats['total'] - corestats['broken'] - corestats['free_for_medium'] - corestats['used-high']
+    corestats['used-low']    = corestats['total'] - corestats['broken'] - corestats['free_for_low']    - corestats['used-medium']
+    clusterstats = {
+      'cluster': 'live',
+      'timestamp': stats_timestamp,
+      'slots': {
+        'general': corestats
+      }
+    }
+    self._transport.send('cluster.statistics', clusterstats)

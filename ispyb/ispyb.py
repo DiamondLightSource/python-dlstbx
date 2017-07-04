@@ -435,6 +435,41 @@ WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s
       raise RuntimeError('chi or kappa values must be provided')
     self.commit()
 
+  def get_visit_name_from_dcid(self, dc_id):
+    sql_str = '''
+SELECT proposalcode, proposalnumber, visit_number
+FROM BLSession bs
+INNER JOIN DataCollectionGroup dcg
+ON dcg.sessionId = bs.sessionId
+INNER JOIN DataCollection dc
+ON dc.dataCollectionGroupId = dcg.dataCollectionGroupId
+INNER JOIN Proposal p
+ON bs.proposalId = p.proposalId
+WHERE dc.dataCollectionId='%s'
+;''' % str(dc_id)
+    results = self.execute(sql_str)
+    assert len(results) == 1, len(results)
+    assert len(results[0]) == 3, results[0]
+    proposal_code, proposal_number, visit_number = results[0]
+    return proposal_code, proposal_number, visit_number
+
+  def get_bl_sessionid_from_visit_name(self, visit_name):
+    import re
+    m = re.match(r'([a-z][a-z])([\d]+)[-]([\d]+)', visit_name)
+    assert m is not None
+    assert len(m.groups()) == 3
+    proposal_code, proposal_number, visit_number = m.groups()
+    sql_str = '''
+SELECT sessionId
+FROM BLSession bs
+INNER JOIN Proposal p
+ON bs.proposalId = p.proposalId
+WHERE p.proposalcode='%s' and p.proposalnumber='%s' and bs.visit_number='%s'
+;''' %(proposal_code, proposal_number, visit_number)
+    results = self.execute(sql_str)
+    assert len(results) == 1
+    return results[0][0]
+
 def ispyb_filter(message, parameters):
   '''Do something to work out what to do with this data...'''
 

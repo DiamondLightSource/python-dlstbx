@@ -15,7 +15,7 @@ def run(args):
   if len(columns) == 0:
     columns = None
   elif len(dc_ids) > 1:
-    columns.insert(0, 'AutoProcIntegration.dataCollectionId')
+    columns.insert(0, 'Screening.dataCollectionID')
 
   field_names, rows = ispyb_conn.get_screening_results(dc_ids, columns=columns)
   rows = [[str(i) for i in r] for r in rows]

@@ -250,7 +250,7 @@ class ClusterStatistics():
       queue['alarm-reason'] = q.getElementsByTagName('load-alarm-reason')[0].firstChild.nodeValue
     if q.getElementsByTagName('message'):
       queue['message'] = q.getElementsByTagName('message')[0].firstChild.nodeValue
-    queue['suspended'] = any(char in queue['state'] for char in 'sSC') or queue['alarm'] or queue['unknown'] or not queue['enabled']
+    queue['suspended'] = any(char in queue['state'] for char in 'sSC') or queue['unknown'] or not queue['enabled']
     if queue['suspended'] or queue['error']:
       queue['slots_free'] = 0
     return queue

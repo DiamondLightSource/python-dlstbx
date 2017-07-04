@@ -87,8 +87,6 @@ class DLSController(CommonService):
     self.last_survey = time.time()
 
     self.check_for_strategy_updates()
-
-    self.log.debug('Surveying.')
     self._se.update_allocation(queue_statistics=self.queue_status)
 
     # New master should wait a bit before beginning to mess with services

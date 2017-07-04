@@ -211,6 +211,7 @@ class Monitor(object):
 
   def _run(self, stdscr):
     '''Start the actual service monitor'''
+    screeny, screenx = stdscr.getmaxyx()
     with self._lock:
       curses.use_default_colors()
       curses.curs_set(False)
@@ -223,6 +224,15 @@ class Monitor(object):
 
     try:
       while not self.shutdown and self._transport.is_connected():
+        # Check if screen was re-sized (True or False)
+        resize = curses.is_term_resized(screeny, screenx)
+        if resize:
+          screeny, screenx = stdscr.getmaxyx()
+          stdscr.clear()
+          curses.resizeterm(screeny, screenx)
+          stdscr.refresh()
+          self._redraw_screen(stdscr)
+
         now = int(time.time())
         with self._lock:
           overview = self._node_status.copy()
@@ -316,7 +326,8 @@ class Monitor(object):
             self._erase_card(cardnumber)
         with self._lock:
           curses.doupdate()
-        time.sleep(0.2)
+        if not resize:
+          time.sleep(0.2)
     except KeyboardInterrupt:
       '''User pressed CTRL+C'''
       pass

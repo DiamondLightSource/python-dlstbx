@@ -121,14 +121,14 @@ class DLSSchlockmeister(CommonService):
         self.log.error("Consumer triple %s unknown for removal!", str(consumer_triple))
         return
       destination = self.known_consumers[consumer_triple]
-      del(self.known_consumers[consumer_triple])
+      del self.known_consumers[consumer_triple]
 
       if destination not in self.known_queues:
         self.log.error("Queue %s unknown for removal", destination)
       self.log.debug("Seen subscriber %s leaving %s", subscriber, destination)
       self.known_queues[destination]['subscribers'].update({subscriber: -1})
       if self.known_queues[destination]['subscribers'][subscriber] == 0:
-        del(self.known_queues[destination]['subscribers'][subscriber])
+        del self.known_queues[destination]['subscribers'][subscriber]
     else:
       self.log.warning('Received unknown message type\n%s', str(message))
     self.update_subscriptions()
@@ -155,10 +155,10 @@ class DLSSchlockmeister(CommonService):
         if not real_subscriber_count:
           self.log.debug("unsubscribing from %s", destination)
           self._transport.unsubscribe(self.known_queues[destination]['subscription'])
-          del(self.known_queues[destination]['subscription'])
+          del self.known_queues[destination]['subscription']
       if len(self.known_queues[destination]) == 1 and not any(self.known_queues[destination]['subscribers']):
-        del(self.known_queues[destination])
-        self.log.info("collecting stale queue %s, leaving %d queues, %d consumers, %d peers", destination, len(self.known_queues), len(self.known_consumers), len(self.known_instances)-1)
+        del self.known_queues[destination]
+        self.log.debug("collecting stale queue %s, leaving %d queues, %d consumers, %d peers", destination, len(self.known_queues), len(self.known_consumers), len(self.known_instances)-1)
 
   def quarantine(self, header, message):
     '''Quarantine this message.'''

@@ -18,6 +18,7 @@ class GraylogAPI():
 
   def __init__(self, configfile):
     cfgparser = ConfigParser.ConfigParser(allow_no_value=True)
+    self.level = 6 # INFO
     if not cfgparser.read(configfile):
       raise RuntimeError('Could not read from configuration file %s' % filename)
     self.url = cfgparser.get('graylog', 'url')
@@ -76,11 +77,11 @@ class GraylogAPI():
 
   def relative_update(self, time=600):
     return self._get("search/universal/relative?"
-                     "query=*&"
+                     "query=level:%3C={level}&"
                      "range={time}&"
                      "filter=streams%3A{stream}&"
                      "sort=timestamp%3Aasc"
-                     .format(time=time, stream=self.stream)
+                     .format(time=time, stream=self.stream, level=self.level)
         )
 
   def absolute_update(self, from_time=None):
@@ -88,12 +89,12 @@ class GraylogAPI():
       from_time = self.last_seen_timestamp
     from_time = from_time.replace(':', '%3A')
     return self._get("search/universal/absolute?"
-                     "query=*&"
+                     "query=level:%3C={level}&"
                      "from={from_time}&"
                      "to=2031-01-01%2012%3A00%3A00&"
                      "filter=streams%3A{stream}&"
                      "sort=timestamp%3Aasc"
-                     .format(from_time=from_time, stream=self.stream)
+                     .format(from_time=from_time, stream=self.stream, level=self.level)
         )
 
 log_levels = {

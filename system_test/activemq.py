@@ -13,7 +13,7 @@ class ActiveMQ(CommonSystemTest):
     self.expect_message(
       queue='transient.system_test.' + self.guid,
       message='loopback ' + self.guid,
-      timeout=3,
+      timeout=10,
     )
 
 if __name__ == "__main__":

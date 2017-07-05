@@ -30,7 +30,7 @@ class RRDTool(object):
     command = [self.rrdtool, 'update', os.path.join(self.basepath, filename)]
     if options:
       command.extend(options)
-    command.extend([ ":".join(entry) for entry in data ])
+    command.extend([ ":".join(str(e) for e in entry) for entry in data ])
     return self._run_rrdtool(' '.join(command))
 
   def _run_rrdtool(self, command):

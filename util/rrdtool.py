@@ -15,7 +15,7 @@ class RRDTool(object):
     if not os.path.isdir(basepath):
       raise IOError('rrdtool base directory %s does not exist' % basepath)
 
-  def create_if_required(self, filename, options, start=1):
+  def create_if_required(self, filename, options, start=1000000000):
     rrdfile = os.path.join(self.basepath, filename)
     if os.path.exists(rrdfile):
       return True

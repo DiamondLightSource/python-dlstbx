@@ -27,9 +27,10 @@ class DLSStatistics(CommonService):
 
     self.unlocked_write_from = 0
     self.unlocked_write_to = 0
+    self.hold_until = 0
     self.newly_unlocked = None
     self.queue = Queue.PriorityQueue()
-    self._register_idle(5, self.process_statistics)
+    self._register_idle(3, self.process_statistics)
     self._transport.subscribe('statistics.cluster',
                               self.cluster_statistic,
                               acknowledgement=True, exclusive=True)
@@ -64,7 +65,9 @@ class DLSStatistics(CommonService):
       while not self.queue.empty():
         self.write_out_records()
     else:
-      self.write_out_records()
+      if time.time() > self.hold_until:
+        self.write_out_records()
+        self.hold_until = time.time() + 1
 
   def write_out_records(self):
     '''Gather a limited number of statistics and write them to the database.'''
@@ -104,7 +107,8 @@ class DLSStatistics(CommonService):
       stat['timestamp'] = int(stat['timestamp'])
       dedup[stat['timestamp']] = stat
     records = map( lambda r:
-                     "{timestamp}:{slots[general][total]}:{slots[general][broken]}:{slots[general][used-high]}:{slots[general][used-medium]}:{slots[general][used-low]}".format(**r),
+                     [ r['timestamp'], r['slots']['general']['total'], r['slots']['general']['broken'],
+                       r['slots']['general']['used-high'], r['slots']['general']['used-medium'], r['slots']['general']['used-low'] ],
                    (dedup[k] for k in sorted(dedup)) )
     return self.rrd.update('cluster-utilization-live-general.rrd', records)
 

@@ -30,12 +30,9 @@ class DLSStatistics(CommonService):
     self.newly_unlocked = None
     self.queue = Queue.PriorityQueue()
     self._register_idle(5, self.process_statistics)
-    self._transport.subscribe('cluster.statistics',
+    self._transport.subscribe('statistics.cluster',
                               self.cluster_statistic,
                               acknowledgement=True, exclusive=True)
-#    self._transport.subscribe('statistics.cluster',
-#                              self.cluster_statistic,
-#                              acknowledgement=True, exclusive=True)
 
   def cluster_statistic(self, header, message):
     '''Receive an interesting statistic about the cluster.'''

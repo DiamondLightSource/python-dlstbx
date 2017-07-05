@@ -24,13 +24,14 @@ class DLSStatistics(CommonService):
       self.rrd = RRDTool('/dls_sw/apps/zocalo/statistics')
     else:
       self.rrd = RRDTool('.')
+    self.rrd_file = {}
 
     self.unlocked_write_from = 0
     self.unlocked_write_to = 0
     self.hold_until = 0
     self.newly_unlocked = None
     self.queue = Queue.PriorityQueue()
-    self._register_idle(3, self.process_statistics)
+    self._register_idle(6, self.process_statistics)
     self._transport.subscribe('statistics.cluster',
                               self.cluster_statistic,
                               acknowledgement=True, exclusive=True)
@@ -58,12 +59,13 @@ class DLSStatistics(CommonService):
     if self.unlocked_write_from > time.time():
       return
     if self.newly_unlocked:
-      self.create_all_recordfiles()
+      self.open_all_recordfiles()
       self.newly_unlocked = False
     if time.time() > self.unlocked_write_to:
       self.log.debug('Locking statistics writing, processing all remaining data')
       while not self.queue.empty():
         self.write_out_records()
+      self.rrd_file = {}
     else:
       if time.time() > self.hold_until:
         self.write_out_records()
@@ -110,14 +112,21 @@ class DLSStatistics(CommonService):
                      [ r['timestamp'], r['slots']['general']['total'], r['slots']['general']['broken'],
                        r['slots']['general']['used-high'], r['slots']['general']['used-medium'], r['slots']['general']['used-low'] ],
                    (dedup[k] for k in sorted(dedup)) )
-    return self.rrd.update('cluster-utilization-live-general.rrd', records)
+    return self.rrd_file['cluster'].update(records)
 
-  def create_all_recordfiles(self):
-    self.log.debug('Creating record files')
-    if not self.rrd.create_if_required(
+  def open_all_recordfiles(self):
+    self.log.debug('opening record files')
+
+    self.rrd_file = {
+      'cluster': self.rrd.create(
           'cluster-utilization-live-general.rrd', [ '--step', '60' ]
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('slot-total', 'slot-broken', 'slot-used-h', 'slot-used-m', 'slot-used-l') ]
         + [ 'RRA:%s:0.5:1:1440' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
         + [ 'RRA:%s:0.5:6:3360' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
-        ):
-      self.log.warning('Failed to create cluster-utilization-live-general record file')
+      ),
+    }
+
+    for k in self.rrd_file:
+      if not self.rrd_file[k]:
+        self.log.error('Failed to open record file for %s', k)
+

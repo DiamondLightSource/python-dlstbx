@@ -1,6 +1,6 @@
 #
 # dlstbx.graylog
-#   tail -f equivalent for graylog messages
+#   'tail' equivalent for graylog messages
 #
 
 from __future__ import absolute_import, division
@@ -8,6 +8,7 @@ import ConfigParser
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 import base64
 import json
+from optparse import OptionParser, SUPPRESS_HELP
 import sys
 import time
 import urllib2
@@ -53,11 +54,11 @@ class GraylogAPI():
       "parsed": parsed
     }
 
-  def get_messages(self):
+  def get_messages(self, time=600):
     if self.last_seen_timestamp:
       update = self.absolute_update()
     else:
-      update = self.relative_update()
+      update = self.relative_update(time=time)
       self.last_seen_timestamp = update['parsed']['to']
     if not update['success']:
       return
@@ -74,6 +75,13 @@ class GraylogAPI():
       self.last_seen_message = messages[-1]['_id']
       self.last_seen_timestamp = messages[-1]['timestamp']
     return messages
+
+  def get_all_messages(self, time=600):
+    messages = True
+    while messages:
+      messages = g.get_messages(time=options.time)
+      for message in messages:
+        yield message
 
   def relative_update(self, time=600):
     return self._get("search/universal/relative?"
@@ -115,9 +123,33 @@ def format(message):
          + ColorStreamHandler.DEFAULT)
 
 if __name__ == '__main__':
+  parser = OptionParser(usage="dlstbx.graylog [options]")
+  parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+  parser.add_option("-f", "--follow", dest="follow", default=False, action="store_true",
+                    help="Keep showing log messages as they come in.")
+  parser.add_option("--level", dest="level", default="info",
+                    help="Show messages with this loglevel and higher. Valid options: alert, critical, error, warning, notice, info, debug")
+  parser.add_option("--time", dest="time", default=600, type="int",
+                    help="Start showing messages from this many seconds back in time.")
+  (options, args) = parser.parse_args(sys.argv[1:])
+
+  try:
+    level = [ 'a', 'c', 'e', 'w', 'n', 'i', 'd' ].index(options.level.lower()[0]) + 1
+  except ValueError:
+    print "Invalid loglevel specified."
+    sys.exit(1)
+
   g = GraylogAPI('/dls_sw/apps/zocalo/secrets/credentials-log.cfg')
-  while True:
-    for message in g.get_messages():
+  g.level = level
+  if options.follow:
+    try:
+      while True:
+        for message in g.get_messages(time=options.time):
+          sys.stdout.write(format(message))
+        sys.stdout.flush()
+        time.sleep(0.7)
+    except KeyboardInterrupt:
+      print
+  else:
+    for message in g.get_all_messages(time=options.time):
       sys.stdout.write(format(message))
-    sys.stdout.flush()
-    time.sleep(0.7)

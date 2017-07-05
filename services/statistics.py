@@ -97,10 +97,14 @@ class DLSStatistics(CommonService):
     self.log.debug("Processed %d records", sum(len(r) for r in records.itervalues()))
 
   def write_out_cluster_statistics(self, stats):
+    # Eliminate duplicate records for identical timestamps
+    dedup = {}
+    for stat in stats:
+      stat['timestamp'] = int(stat['timestamp'])
+      dedup[stat['timestamp']] = stat
     records = map( lambda r:
-                     "{timestampint}:{slots[general][total]}:{slots[general][broken]}:{slots[general][used-high]}:{slots[general][used-medium]}:{slots[general][used-low]}".format(
-                       timestampint=int(r['timestamp']), **r),
-                   stats )
+                     "{timestamp}:{slots[general][total]}:{slots[general][broken]}:{slots[general][used-high]}:{slots[general][used-medium]}:{slots[general][used-low]}".format(**r),
+                   dedup[k] for k in sorted(dedup) )
     return self.rrd.update('cluster-utilization-live-general.rrd', records)
 
   def create_all_recordfiles(self):

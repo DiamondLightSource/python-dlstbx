@@ -69,8 +69,7 @@ class DLSStatistics(CommonService):
   def write_out_records(self):
     '''Gather a limited number of statistics and write them to the database.'''
 
-    # Conditionally acknowledge receipt of messages
-    txn = self._transport.transaction_begin()
+    # Collect a limited number of records from the queue.
     records = {}
     try:
       while True:
@@ -87,13 +86,15 @@ class DLSStatistics(CommonService):
       self.log.warn('Statistics service in invalid state')
       return
 
+    # Process and acknowledge messages
+    txn = self._transport.transaction_begin()
     if 'cluster' in records:
       headers, messages = zip(*records['cluster'])
       self.write_out_cluster_statistics(messages)
       for header in headers:
         self._transport.ack(header, transaction=txn)
-
     self._transport.transaction_commit(txn)
+
     self.log.debug("Processed %d records", sum(len(r) for r in records.itervalues()))
 
   def write_out_cluster_statistics(self, stats):
@@ -104,7 +105,7 @@ class DLSStatistics(CommonService):
       dedup[stat['timestamp']] = stat
     records = map( lambda r:
                      "{timestamp}:{slots[general][total]}:{slots[general][broken]}:{slots[general][used-high]}:{slots[general][used-medium]}:{slots[general][used-low]}".format(**r),
-                   dedup[k] for k in sorted(dedup) )
+                   (dedup[k] for k in sorted(dedup)) )
     return self.rrd.update('cluster-utilization-live-general.rrd', records)
 
   def create_all_recordfiles(self):

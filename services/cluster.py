@@ -5,8 +5,6 @@ from dlstbx.util.cluster import ClusterStatistics
 import errno
 import logging
 import os
-import random
-import string
 import time
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -169,4 +167,4 @@ class DLSCluster(CommonService):
         'general': corestats
       }
     }
-    self._transport.send('cluster.statistics', clusterstats)
+    self._transport.send('statistics.cluster', clusterstats)

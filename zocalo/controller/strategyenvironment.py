@@ -22,9 +22,6 @@ class StrategyEnvironment(object):
   S_HOLD, S_PREPARE, S_STARTING, S_RUNNING, S_HOLDSHDN, S_SHUTDOWN, S_EXPIRE = \
       range(S_STATUS_CODE_RANGE)
 
-  lock = threading.Lock()
-  log = logging.getLogger('dlstbx.zocalo.controller.strategyenvironment')
-
   def __init__(self):
     self._classlist = {
         'simple': dlstbx.zocalo.controller.strategy.simple.SimpleStrategy,
@@ -37,6 +34,9 @@ class StrategyEnvironment(object):
     }
     self.strategies = {}
     self.launchers = {}
+    self.lock = threading.Lock()
+    self.log = logging.getLogger('dlstbx.zocalo.controller.strategyenvironment')
+    self.log.setLevel(logging.DEBUG)
 
   def load_strategy(self, strategy):
     cls = self._classlist[strategy['strategy']]

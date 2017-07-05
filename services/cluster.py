@@ -161,12 +161,14 @@ class DLSCluster(CommonService):
 
     corestats['used-high']   = corestats['total'] - corestats['broken'] - corestats['free_for_high']
     corestats['used-medium'] = corestats['total'] - corestats['broken'] - corestats['free_for_medium'] - corestats['used-high']
-    corestats['used-low']    = corestats['total'] - corestats['broken'] - corestats['free_for_low']    - corestats['used-medium']
+    corestats['used-low']    = corestats['total'] - corestats['broken'] - corestats['free_for_low']    - corestats['used-high'] - corestats['used-medium']
     clusterstats = {
+      'statistic': 'dlscluster-general',
       'cluster': 'live',
       'timestamp': stats_timestamp,
       'slots': {
         'general': corestats
       }
     }
+    clusterstats.update(corestats)
     self._transport.send('statistics.cluster', clusterstats)

@@ -77,9 +77,11 @@ class DLSCluster(CommonService):
       self._recursive_mkdir(workingdir)
 
     submission = [
+      ". /etc/profile.d/modules.sh",
       "module load global/" + cluster,
       "qsub %s << EOF" % submission_params,
       "#!/bin/bash",
+      ". /etc/profile.d/modules.sh",
       "cd " + workingdir,
       commands,
       "EOF"

@@ -35,6 +35,7 @@ class RRDTool(object):
 
   def _run_rrdtool(self, command):
     stdin = "\n".join([
+      ". /etc/profile.d/modules.sh",
       "module load rrdtool",
       command
     ])

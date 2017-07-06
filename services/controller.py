@@ -185,7 +185,7 @@ class DLSController(CommonService):
 
     if instance['wfstatus'] == CommonService.SERVICE_STATUS_STARTING \
         and message.get('tag'):
-      self._se.register_instance_tag_as_host(message['tag'], instance['host'])
+      self._se.register_instance_tag_as_host(message['tag'], instance['host'], instance['service'])
 
     if instance['wfstatus'] in \
           (CommonService.SERVICE_STATUS_STARTING,
@@ -324,8 +324,6 @@ class DLSController(CommonService):
       },
       timeout=15,
     )
-    from pprint import pprint
-    pprint(result)
     self.log.debug('Cluster launcher script for %s returned result: %s', service, json.dumps(result))
     return result.get('exitcode') == 0
 

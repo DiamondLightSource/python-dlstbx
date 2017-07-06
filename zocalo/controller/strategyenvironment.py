@@ -65,7 +65,7 @@ class StrategyEnvironment(object):
     self.environment['instances'][instance['tag']] = instance
     return instance
 
-  def register_instance_tag_as_host(self, tag, host):
+  def register_instance_tag_as_host(self, tag, host, service):
     with self.lock:
       self.log.debug("Replacing instance tag %s with host id %s", tag, host)
       instance = self.environment['instances'].get(tag)
@@ -75,6 +75,16 @@ class StrategyEnvironment(object):
         del self.environment['services'][instance['service']][tag]
         self.environment['instances'][host] = instance
         self.environment['services'][instance['service']][host] = instance
+      elif service in self.environment['services']:
+        # Find a PREPAREing or HOLDing entry in the environment to remove in lieu
+        dropentry = filter(lambda entry: self.environment['services'][service][entry]['status'] == self.S_PREPARE,
+                           self.environment['services'][service]) or \
+                    filter(lambda entry: self.environment['services'][service][entry]['status'] == self.S_HOLD,
+                           self.environment['services'][service])
+        if dropentry:
+          self.log.debug("Moving %s from PREPARE to /dev/null", dropentry[0])
+          del self.environment['services'][service][dropentry[0]]
+          return
 
   def update_instance(self, instance, set_alive=None):
     host = instance['host']
@@ -136,17 +146,18 @@ class StrategyEnvironment(object):
     return picked_instances
 
   def _allocate_service(self, service):
-    instances_needed = self.strategies[service].assess(self.environment) \
-                       .get('required', {}).get('count')
-    if instances_needed is None:
-      # Everything apparently fine as it is
-      return
-
     existing_instances = { x: [] for x in range(self.S_STATUS_CODE_RANGE) }
     for instance in self.environment['services'][service]:
       existing_instances[self.environment['services'][service][instance]['status']].append(
           self.environment['services'][service][instance])
     count_instances = { x: len(existing_instances[x]) for x in existing_instances }
+
+    instances_needed = self.strategies[service].assess(self.environment) \
+                       .get('required', {}).get('count')
+    if instances_needed is None:
+      # Everything apparently fine as it is
+      self.log.debug("Allocation for %s with no change required: %s", str(service), str(count_instances.values()))
+      return
 
     def log_change(count, s_from, s_to):
       self.log.debug("moved %d instances of %s from %s to %s",

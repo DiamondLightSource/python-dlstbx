@@ -83,8 +83,7 @@ class StrategyEnvironment(object):
                            self.environment['services'][service])
         if dropentry:
           self.log.debug("Moving %s from PREPARE to /dev/null", dropentry[0])
-          del self.environment['services'][service][dropentry[0]]
-          return
+          self.remove_instance(dropentry[0])
 
   def update_instance(self, instance, set_alive=None):
     host = instance['host']

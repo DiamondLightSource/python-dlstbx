@@ -124,13 +124,13 @@ class DLSCluster(CommonService):
 
     pending_jobs = Counter(map(lambda j: j['queue'].split('@@')[0] if '@@' in j['queue'] else j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
     for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs):
-      self.stats_log.debug("queuelevel: %d jobs waiting in queue %s", pending_jobs[queue], queue, extra={'jobqueue': queue})
+      if 'test' not in queue:
+        self.stats_log.debug("queuelevel: %d jobs waiting in queue %s", pending_jobs[queue], queue, extra={'jobqueue': queue})
 
-    cluster_nodes = {}
-    for q in queuelist:
-      node_list = cluster_nodes.get(q['host'], [])
-      node_list.append(q)
-      cluster_nodes[q['host']] = node_list
+    cluster_nodes = cs.get_nodelist_from_queuelist(queuelist)
+    node_summary = { node: cs.summarize_node_status(status) for node, status in cluster_nodes.items() }
+    node_summary['statistic'] = 'dlscluster-nodestatus'
+    self._transport.broadcast('transient.statistics.cluster', node_summary)
 
     corestats = { 'total': 0, 'broken': 0, 'free_for_low': 0, 'free_for_medium': 0, 'free_for_high': 0 }
     corestats_admin =  { 'total': 0, 'broken': 0, 'free': 0 }
@@ -161,7 +161,9 @@ class DLSCluster(CommonService):
 
     corestats['used-high']   = corestats['total'] - corestats['broken'] - corestats['free_for_high']
     corestats['used-medium'] = corestats['total'] - corestats['broken'] - corestats['free_for_medium'] - corestats['used-high']
+    assert corestats['used-medium'] == corestats['free_for_high'] - corestats['free_for_medium']
     corestats['used-low']    = corestats['total'] - corestats['broken'] - corestats['free_for_low']    - corestats['used-high'] - corestats['used-medium']
+    assert corestats['used-low'] == corestats['free_for_medium'] - corestats['free_for_low']
     clusterstats = {
       'statistic': 'dlscluster-general',
       'cluster': 'live',

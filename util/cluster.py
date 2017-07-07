@@ -269,6 +269,32 @@ class ClusterStatistics():
     queuelist = map(self.parse_queue_xml, queuelist)
     return (joblist, queuelist)
 
+  @staticmethod
+  def get_nodelist_from_queuelist(queuelist):
+    cluster_nodes = {}
+    for q in queuelist:
+      try:
+        cluster_nodes[q['host']].append(q)
+      except KeyError:
+        cluster_nodes[q['host']] = [q]
+    return cluster_nodes
+
+  @staticmethod
+  def summarize_node_status(node):
+    summary = { 'status': 'broken', 'running_queues': 0 }
+    for queue in node:
+      summary[queue['class']] = { 'slots': queue['slots_total'], 'used': queue['slots_used'], 'reserved': queue['slots_reserved'] }
+      if queue['suspended']:
+        summary[queue['class']]['status'] = 'suspended'
+      elif queue['disabled'] or not queue['enabled']:
+        summary[queue['class']]['status'] = 'broken'
+      else:
+        summary[queue['class']]['status'] = 'running'
+        summary['running_queues'] += 1
+    if summary['running_queues']:
+      summary['status'] = 'running'
+    return summary
+
   def run_on(self, cluster, arguments=None):
     '''Run qstat on cluster object and return parsed output.
 

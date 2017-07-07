@@ -28,7 +28,8 @@ class DLSCluster(CommonService):
       self._transport,
       'cluster.submission',
       self.run_submit_job,
-      acknowledgement=True)
+      acknowledgement=True,
+      log_extender=self.extend_log)
 
     # Generate cluster statistics up to every 30 seconds.
     # Statistics go with debug level to a separate logger so they can be

@@ -72,7 +72,12 @@ def format_message(verbosity):
              message
            ) + ColorStreamHandler.DEFAULT
 
-  formats = [ format_default, format_source, format_verbose, format_xverbose ]
+  def format_raw(message):
+    return message['timestamp'] + "\n" + log_levels[message['level']]['color'] + \
+           "\n".join("%23s: %s" % (key, str(message[key]).replace("\n", "\n" + " " * 23 + "| ")) for key in sorted(message) if not key.startswith('gl2_')) + \
+           "\n\n" + ColorStreamHandler.DEFAULT
+
+  formats = [ format_default, format_source, format_verbose, format_xverbose, format_raw ]
   try:
     return formats[verbosity]
   except IndexError:

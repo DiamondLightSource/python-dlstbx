@@ -28,6 +28,7 @@ class Cluster():
     # one for the main process and one for the drmaa subprocess.
     self._pipe_main, self._pipe_subprocess = multiprocessing.Pipe()
     self._subprocess = multiprocessing.Process(target=self.start, args=())
+    self._subprocess.name = 'dlstbx.util.cluster for ' + clustername
     self._subprocess.daemon = True
     self._subprocess.start()
 

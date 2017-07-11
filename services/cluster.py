@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division
 from collections import Counter
 from dials.util.procrunner import run_process
-from dlstbx.util.cluster import ClusterStatistics
+import dlstbx.util.cluster
 import errno
 import logging
 import os
@@ -19,6 +19,21 @@ class DLSCluster(CommonService):
   # Logger name
   _logger_name = 'dlstbx.services.cluster'
 
+  def __new__(cls, *args, **kwargs):
+    '''Start DRMAA cluster control processes as children of the main process,
+       and transparently inject references to those system-wide processes into
+       all instantiated objects.'''
+    if not hasattr(DLSCluster, '__drmaa_cluster'):
+      setattr(DLSCluster, '__drmaa_cluster',
+          dlstbx.util.cluster.Cluster('dlscluster'))
+    if not hasattr(DLSCluster, '__drmaa_testcluster'):
+      setattr(DLSCluster, '__drmaa_testcluster',
+          dlstbx.util.cluster.Cluster('dlstestcluster'))
+    instance = super(DLSCluster, cls).__new__(cls, *args, **kwargs)
+    instance.__drmaa_cluster = getattr(DLSCluster, '__drmaa_cluster')
+    instance.__drmaa_testcluster = getattr(DLSCluster, '__drmaa_testcluster')
+    return instance
+
   def initializing(self):
     '''Subscribe to the cluster submission queue.
        Received messages must be acknowledged.'''
@@ -34,6 +49,7 @@ class DLSCluster(CommonService):
     # Generate cluster statistics up to every 30 seconds.
     # Statistics go with debug level to a separate logger so they can be
     # filtered by log monitors.
+    self.cluster_statistics = dlstbx.util.cluster.ClusterStatistics()
     self.stats_log = logging.getLogger(self._logger_name + '.stats')
     self.stats_log.setLevel(logging.DEBUG)
     self._register_idle(30, self.update_cluster_statistics)
@@ -104,23 +120,10 @@ class DLSCluster(CommonService):
 
   def update_cluster_statistics(self):
     '''Gather some cluster statistics.'''
-    load_stats = [
-      "module load global/cluster",
-      "qstat -f -r -u gda2 -xml"
-    ]
     self.log.debug('Gathering cluster statistics...')
-    result = run_process(["/bin/bash"], stdin = "\n".join(load_stats), print_stdout=False, print_stderr=False)
-    if result['timeout']:
-      self.log.warning('Timeout reading cluster statistics')
-      return
-    if result['exitcode']:
-      self.log.warning('Encountered exit code %s reading cluster statistics', str(result['exitcode']))
-      return
-    self.log.debug('Received cluster statistics')
     stats_timestamp = time.time()
-
-    cs = ClusterStatistics()
-    joblist, queuelist = cs.parse_string(result['stdout'])
+    joblist, queuelist = self.cluster_statistics.run_on(
+        self.__drmaa_cluster, arguments=['-f', '-r', '-u', 'gda2'])
     self.log.debug('Parsed cluster statistics')
 
     pending_jobs = Counter(map(lambda j: j['queue'].split('@@')[0] if '@@' in j['queue'] else j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
@@ -128,8 +131,8 @@ class DLSCluster(CommonService):
       if 'test' not in queue:
         self.stats_log.debug("queuelevel: %d jobs waiting in queue %s", pending_jobs[queue], queue, extra={'jobqueue': queue})
 
-    cluster_nodes = cs.get_nodelist_from_queuelist(queuelist)
-    node_summary = { node: cs.summarize_node_status(status) for node, status in cluster_nodes.items() }
+    cluster_nodes = self.cluster_statistics.get_nodelist_from_queuelist(queuelist)
+    node_summary = { node: self.cluster_statistics.summarize_node_status(status) for node, status in cluster_nodes.items() }
     node_summary['statistic'] = 'dlscluster-nodestatus'
     self._transport.broadcast('transient.statistics.cluster', node_summary)
 

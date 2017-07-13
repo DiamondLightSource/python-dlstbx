@@ -38,11 +38,11 @@ class DLSStatistics(CommonService):
 
   def cluster_statistic(self, header, message):
     '''Receive an interesting statistic about the cluster.'''
-    if not isinstance(message, dict) or 'timestamp' not in message:
+    if not isinstance(message, dict) or 'statistic-timestamp' not in message:
       # Invalid message
       self._transport.nack(header)
       return
-    self.queue.put((message['timestamp'], 'cluster', header, message))
+    self.queue.put((message['statistic-timestamp'], 'cluster-' + message['statistic-cluster'] + '-' + message['statistic'], header, message))
     if self.unlocked_write_from <= time.time() <= self.unlocked_write_to:
       self.unlocked_write_to = time.time() + 90
       self.process_statistics()
@@ -82,7 +82,7 @@ class DLSStatistics(CommonService):
         if record[1] not in records:
           records[record[1]] = []
         records[record[1]].append((record[2], record[3]))
-        if len(records[record[1]]) >= 20:
+        if len(records[record[1]]) >= 30:
           break
     except Queue.Empty:
       pass
@@ -93,40 +93,97 @@ class DLSStatistics(CommonService):
 
     # Process and acknowledge messages
     txn = self._transport.transaction_begin()
-    if 'cluster' in records:
-      headers, messages = zip(*records['cluster'])
-      self.write_out_cluster_statistics(messages)
+
+    ignore = lambda x: None
+
+    dispatch = {
+        'cluster-live-utilization': self.stats_live_cluster_utilization,
+        'cluster-live-node-status': ignore,
+        'cluster-live-waiting-jobs-per-queue': ignore,
+        'cluster-test-utilization': self.stats_test_cluster_utilization,
+        'cluster-test-node-status': ignore,
+        'cluster-test-waiting-jobs-per-queue': ignore,
+    }
+    for key in records:
+      headers, messages = zip(*records[key])
+      if key in dispatch:
+        messages = self.order_and_deduplicate(messages)
+        dispatch[key](messages)
+      else:
+        self.log.warning('Discarding %d statistics records of unknown type %s', len(records[key]), key)
       for header in headers:
         self._transport.ack(header, transaction=txn)
     self._transport.transaction_commit(txn)
 
     self.log.debug("Processed %d records", sum(len(r) for r in records.itervalues()))
 
-  def write_out_cluster_statistics(self, stats):
-    # Eliminate duplicate records for identical timestamps
+  @staticmethod
+  def order_and_deduplicate(stats):
+    '''Eliminate duplicate records for identical timestamps.'''
     dedup = {}
     for stat in stats:
-      stat['timestamp'] = int(stat['timestamp'])
-      dedup[stat['timestamp']] = stat
-    records = map( lambda r:
-                     [ r['timestamp'], r['slots']['general']['total'], r['slots']['general']['broken'],
-                       r['slots']['general']['used-high'], r['slots']['general']['used-medium'], r['slots']['general']['used-low'] ],
-                   (dedup[k] for k in sorted(dedup)) )
-    return self.rrd_file['cluster'].update(records)
+      stat['statistic-timestamp'] = int(stat['statistic-timestamp'])
+      dedup[stat['statistic-timestamp']] = stat
+    return [dedup[k] for k in sorted(dedup)]
+
+  def ignore_and_dide_status(self, stats):
+    pass
+
+  def stats_live_cluster_utilization(self, stats):
+    self.rrd_file['cluster'].update( map( lambda r:
+                     [ r['statistic-timestamp'], r['total'], r['broken'],
+                       r['used-high'], r['used-medium'], r['used-low'] ],
+                   stats ))
+    if 'admin' in stats[0]:
+      self.rrd_file['clustergroups'].update( map( lambda r: [ r['statistic-timestamp'],
+                       r['cpu']['total'], r['cpu']['broken'], r['cpu']['used-high'], r['cpu']['used-medium'], r['cpu']['used-low'],
+                       r['gpu']['total'], r['gpu']['broken'], r['gpu']['used-high'], r['gpu']['used-medium'], r['gpu']['used-low'],
+                       r['admin']['total'], r['admin']['broken'], r['admin']['used'],
+                   ], stats ))
+
+  def stats_test_cluster_utilization(self, stats):
+    self.rrd_file['testcluster'].update( map( lambda r:
+                     [ r['statistic-timestamp'], r['total'], r['broken'],
+                       r['used-high'], r['used-medium'], r['used-low'] ],
+                   stats ))
+    self.rrd_file['testclustergroups'].update( map( lambda r: [ r['statistic-timestamp'],
+                       r['cpu']['total'], r['cpu']['broken'], r['cpu']['used-high'], r['cpu']['used-medium'], r['cpu']['used-low'],
+                       r['gpu']['total'], r['gpu']['broken'], r['gpu']['used-high'], r['gpu']['used-medium'], r['gpu']['used-low'],
+                       r['admin']['total'], r['admin']['broken'], r['admin']['used'],
+                   ], stats ))
 
   def open_all_recordfiles(self):
     self.log.debug('opening record files')
-
+    daydata       = [ 'RRA:%s:0.5:1:1440' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
+    fortnightdata = [ 'RRA:%s:0.5:6:3360' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
+#   monthdata     = [ 'RRA:%s:0.5:6:7440' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
     self.rrd_file = {
       'cluster': self.rrd.create(
           'cluster-utilization-live-general.rrd', [ '--step', '60' ]
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('slot-total', 'slot-broken', 'slot-used-h', 'slot-used-m', 'slot-used-l') ]
-        + [ 'RRA:%s:0.5:1:1440' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
-        + [ 'RRA:%s:0.5:6:3360' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
+        + daydata + fortnightdata
+      ),
+      'clustergroups': self.rrd.create(
+          'cluster-utilization-live-groups.rrd', [ '--step', '60' ]
+        + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('cpu-slot-total', 'cpu-slot-broken', 'cpu-slot-used-h', 'cpu-slot-used-m', 'cpu-slot-used-l') ]
+        + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('gpu-slot-total', 'gpu-slot-broken', 'gpu-slot-used-h', 'gpu-slot-used-m', 'gpu-slot-used-l') ]
+        + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('admin-total', 'admin-broken', 'admin-used') ]
+        + daydata + fortnightdata
+      ),
+      'testcluster': self.rrd.create(
+          'cluster-utilization-test-general.rrd', [ '--step', '60' ]
+        + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('slot-total', 'slot-broken', 'slot-used-h', 'slot-used-m', 'slot-used-l') ]
+        + daydata + fortnightdata
+      ),
+      'testclustergroups': self.rrd.create(
+          'cluster-utilization-test-groups.rrd', [ '--step', '60' ]
+        + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('cpu-slot-total', 'cpu-slot-broken', 'cpu-slot-used-h', 'cpu-slot-used-m', 'cpu-slot-used-l') ]
+        + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('gpu-slot-total', 'gpu-slot-broken', 'gpu-slot-used-h', 'gpu-slot-used-m', 'gpu-slot-used-l') ]
+        + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('admin-total', 'admin-broken', 'admin-used') ]
+        + daydata + fortnightdata
       ),
     }
 
     for k in self.rrd_file:
       if not self.rrd_file[k]:
-        self.log.error('Failed to open record file for %s', k)
-
+        raise IOError('Failed to open record file for %s' % k)

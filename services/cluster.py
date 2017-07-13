@@ -168,16 +168,9 @@ class DLSCluster(CommonService):
     assert corestats['used-medium'] == corestats['free_for_high'] - corestats['free_for_medium']
     corestats['used-low']    = corestats['total'] - corestats['broken'] - corestats['free_for_low']    - corestats['used-high'] - corestats['used-medium']
     assert corestats['used-low'] == corestats['free_for_medium'] - corestats['free_for_low']
-    clusterstats = {
-      'statistic': 'dlscluster-general',
-      'cluster': 'live',
-      'timestamp': stats_timestamp,
-      'slots': {
-        'general': corestats
-      }
-    }
-    clusterstats.update(corestats)
-    self._transport.send('statistics.cluster', clusterstats)
+
+    self.report_statistic(corestats, description='utilization',
+                          cluster='live', timestamp=stats_timestamp)
 
   def update_testcluster_statistics(self):
     '''Gather some statistics from the testcluster.'''
@@ -191,12 +184,12 @@ class DLSCluster(CommonService):
     self.log.debug('Processing %s cluster statistics', cluster)
     pending_jobs = Counter(map(lambda j: j['queue'].split('@@')[0] if '@@' in j['queue'] else j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
     waiting_jobs_per_queue = { queue: pending_jobs[queue] for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs) }
-    self.report_statistic(waiting_jobs_per_queue, description='waiting_jobs_per_queue',
+    self.report_statistic(waiting_jobs_per_queue, description='waiting-jobs-per-queue',
                           cluster=cluster, timestamp=timestamp)
 
     cluster_nodes = self.cluster_statistics.get_nodelist_from_queuelist(queuelist)
     node_summary = { node: self.cluster_statistics.summarize_node_status(status) for node, status in cluster_nodes.items() }
-    self.report_statistic(node_summary, description='node_status',
+    self.report_statistic(node_summary, description='node-status',
                           cluster=cluster, timestamp=timestamp)
 
     corestats = {}
@@ -244,6 +237,7 @@ class DLSCluster(CommonService):
       corestats[nodetype]['used-low']    = corestats[nodetype]['free_for_medium'] - corestats[nodetype]['free_for_low']
       for k, v in corestats[nodetype].items():
         corestats[k] = corestats.get(k, 0) + v
+    corestats['admin']['used'] = corestats['admin']['total'] - corestats['admin']['free']
 
     self.report_statistic(corestats, description='utilization',
                           cluster=cluster, timestamp=timestamp)

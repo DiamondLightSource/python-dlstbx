@@ -72,3 +72,5 @@ if __name__ == "__main__":
    pprint(mem)
    consumers = jmx.org.apache.activemq(type="Broker", brokerName="localhost/TotalConsumerCount")
    pprint(consumers)
+   health = jmx.org.apache.activemq(type="Broker", brokerName="localhost", service="Health")
+   pprint(health)

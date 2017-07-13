@@ -71,7 +71,7 @@ class RRDTool(object):
     command = ['create', os.path.join(self.basepath, filename)]
     if start:
       command.extend(['--start', str(start)])
-    command = ' '.join(command + options)
+    command.extend(options)
     if run_rrdtool(' '.join(command))['exitcode'] == 0:
       return RRDFile(rrdfile)
     return False

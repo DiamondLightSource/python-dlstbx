@@ -178,3 +178,83 @@ class DLSCluster(CommonService):
     }
     clusterstats.update(corestats)
     self._transport.send('statistics.cluster', clusterstats)
+
+  def update_testcluster_statistics(self):
+    '''Gather some statistics from the testcluster.'''
+    self.log.debug('Gathering test cluster statistics...')
+    timestamp = time.time()
+    joblist, queuelist = self.cluster_statistics.run_on(
+        self.__drmaa_testcluster, arguments=['-f', '-r', '-u', 'gda2'])
+    self.calculate_cluster_statistics(joblist, queuelist, 'test', timestamp)
+
+  def calculate_cluster_statistics(self, joblist, queuelist, cluster, timestamp):
+    self.log.debug('Processing %s cluster statistics', cluster)
+    pending_jobs = Counter(map(lambda j: j['queue'].split('@@')[0] if '@@' in j['queue'] else j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
+    waiting_jobs_per_queue = { queue: pending_jobs[queue] for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs) }
+    self.report_statistic(waiting_jobs_per_queue, description='waiting_jobs_per_queue',
+                          cluster=cluster, timestamp=timestamp)
+
+    cluster_nodes = self.cluster_statistics.get_nodelist_from_queuelist(queuelist)
+    node_summary = { node: self.cluster_statistics.summarize_node_status(status) for node, status in cluster_nodes.items() }
+    self.report_statistic(node_summary, description='node_status',
+                          cluster=cluster, timestamp=timestamp)
+
+    corestats = {}
+    corestats['cpu'] = { 'total': 0, 'broken': 0, 'free_for_low': 0, 'free_for_medium': 0, 'free_for_high': 0 }
+    corestats['gpu'] = corestats['cpu'].copy()
+    corestats['admin'] =  { 'total': 0, 'broken': 0, 'free': 0 }
+    for nodename, node in cluster_nodes.iteritems():
+      node = { q['class']: q for q in node }
+      for queuename in list(node):
+        if queuename.startswith('test'):
+          if queuename.startswith('test-') and queuename[5:] not in node:
+            node[queuename[5:]] = node[queuename]
+          del node[queuename]
+
+      if 'admin.q' in node:
+        adminq_slots = node['admin.q']['slots_total']
+        corestats['admin']['total'] += adminq_slots
+        if node['admin.q']['enabled'] and not node['admin.q']['suspended'] and not node['admin.q']['error']:
+          corestats['admin']['free'] += node['admin.q']['slots_free']
+        else:
+          corestats['admin']['broken'] += adminq_slots
+        del node['admin.q']
+
+      if not node:
+        continue
+
+      if (nodename.split('-')[2:3] or [None])[0] in ('com14',):
+        nodetype='gpu'
+      else:
+        nodetype='cpu'
+      cores = max(q['slots_total'] for q in node.values())
+      corestats[nodetype]['total'] += cores
+      node = { n: q for n, q in node.items() if q['enabled'] and not q['suspended'] and not q['error'] }
+      if not node:
+        corestats[nodetype]['broken'] += cores
+        continue
+      freelow, freemedium, freehigh = (node.get(q, {}).get('slots_free', 0) for q in ('low.q', 'medium.q', 'high.q'))
+      corestats[nodetype]['free_for_low']    += freelow
+      corestats[nodetype]['free_for_medium'] += max(freelow, freemedium)
+      corestats[nodetype]['free_for_high']   += max(freelow, freemedium, freehigh)
+
+    for nodetype in ('cpu', 'gpu'):
+      corestats[nodetype]['used-high']   = corestats[nodetype]['total'] - corestats[nodetype]['broken'] - corestats[nodetype]['free_for_high']
+      corestats[nodetype]['used-medium'] = corestats[nodetype]['free_for_high'] - corestats[nodetype]['free_for_medium']
+      corestats[nodetype]['used-low']    = corestats[nodetype]['free_for_medium'] - corestats[nodetype]['free_for_low']
+      for k, v in corestats[nodetype].items():
+        corestats[k] = corestats.get(k, 0) + v
+
+    self.report_statistic(corestats, description='utilization',
+                          cluster=cluster, timestamp=timestamp)
+
+  def report_statistic(self, data, **kwargs):
+    data_pack = {
+      'statistic-group': 'cluster',
+      'statistic': kwargs.get('description', 'unknown'),
+      'statistic-cluster': kwargs.get('cluster', 'live'),
+      'statistic-timestamp': kwargs.get('timestamp', 0),
+    }
+    data_pack.update(data)
+    self._transport.broadcast('transient.statistics.cluster', data_pack)
+    self._transport.send('statistics.cluster', data_pack)

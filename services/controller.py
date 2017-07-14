@@ -22,6 +22,7 @@ class DLSController(CommonService):
 
   # The controller should continuously check itself to ensure it does sensible
   # things.
+  last_status_seen = 0
   last_self_check = 0
 
   # Time of the last operations survey
@@ -150,14 +151,21 @@ class DLSController(CommonService):
     self._transport.send('transient.controller', 'synchronization message')
 
     # Check that synchronization messages are received
-    if self.master and (self.master_last_checked + 30 < time.time()):
-      self.log.warning(
-          "Inconsistent status: No sync messages received over 30 seconds, " + \
-          "relinquishing master status")
-      self.master_disable()
+    if self.master:
+      if self.master_last_checked + 60 < time.time():
+        self.log.error(
+          "Inconsistent status: No sync messages received over 60 seconds, " + \
+          "shutting down.")
+        self.master_disable()
+      if self.last_status_seen + 60 < time.time():
+        self.log.error(
+          "Inconsistent status: No status messages received over 60 seconds, " + \
+          "shutting down.")
+        self.master_disable()
 
   def receive_status_msg(self, header, message):
     '''Process incoming status message. Acquire lock for status dictionary before updating.'''
+    self.last_status_seen = time.time()
 
     instance = {
       'dlstbx': (0, 0),
@@ -278,8 +286,8 @@ class DLSController(CommonService):
     '''Demote this service instance from master controller.'''
     self.master = False
     self.master_since = 0
-    self._set_name("DLS Controller")
-    self.log.info("Controller demoted")
+    self._set_name("DLS Controller (defunct)")
+    self._shutdown()
 
   def queue_introspection_trigger(self):
     '''Trigger ActiveMQ statistics plugin to send out queue information.

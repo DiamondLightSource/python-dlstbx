@@ -229,8 +229,10 @@ class DLSController(CommonService):
   def receive_queue_status(self, header, message):
     '''Parse an incoming ActiveMQ Advisory message, which describes the status
        of one queue, and aggregate the information.'''
-    if header.get('type') != 'Advisory' or not header.get('timestamp') or not isinstance(message, dict):
-      return
+    if header.get('type') != 'Advisory' or \
+       (int(header.get('timestamp', '0')) / 1000) < (time.time()-60) or \
+       not isinstance(message, dict):
+      return # malformed or outdated information
     report = self.parse_advisory(message.get('map', {}).get('entry', []))
     if not report:
       return

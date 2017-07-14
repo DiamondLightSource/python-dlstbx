@@ -24,6 +24,7 @@ class DLSController(CommonService):
   # things.
   last_status_seen = 0
   last_self_check = 0
+  last_sync_sent = 0
 
   # Time of the last operations survey
   last_survey = 0
@@ -147,8 +148,12 @@ class DLSController(CommonService):
       return
     self.last_self_check = time.time()
 
-    # Send a message to the synchronization channel
-    self._transport.send('transient.controller', 'synchronization message')
+    if not self.master and self.last_sync_sent + 30 > time.time():
+      # Is not master, so no self-check required. Limit the number of sync messages sent.
+      return
+
+    self._transport.send('transient.controller', 'synchronization message', expiration=60)
+    self.last_sync_sent = time.time()
 
     # Check that synchronization messages are received
     if self.master:

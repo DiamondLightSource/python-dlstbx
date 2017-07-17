@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division
 
 import dlstbx.zocalo.controller.strategy.simple
+import dlstbx.zocalo.controller.strategy.queue_dynamic
 import dlstbx.zocalo.controller.strategy.queue_static
 import logging
 import threading
@@ -26,6 +27,7 @@ class StrategyEnvironment(object):
     self._classlist = {
         'simple': dlstbx.zocalo.controller.strategy.simple.SimpleStrategy,
         'queue_static': dlstbx.zocalo.controller.strategy.queue_static.QueueStaticStrategy,
+        'queue_dynamic': dlstbx.zocalo.controller.strategy.queue_dynamic.QueueDynamicStrategy,
     }
     self.assessments = {}
     self.environment = {

@@ -112,7 +112,7 @@ where DataCollection.sessionid = %s
           x.append(d[p].select(xia2_isel)[0])
           y.append(d[p].select(edna_isel)[0])
 
-      pyplot.scatter(x, y, label=strategy)
+      pyplot.scatter(x, y, label=strategy, marker='+')
 
     pyplot.xlabel('xia2.strategy')
     pyplot.ylabel('EDNA')
@@ -146,7 +146,7 @@ where DataCollection.sessionid = %s
         x.append(float(d['unitCell_%s' %uc].select(xia2_isel)[0]))
         y.append(float(d['unitCell_%s' %uc].select(edna_isel)[0]))
 
-    ax_scatter.scatter(x, y, label=uc)
+    ax_scatter.scatter(x, y, label=uc, marker='+')
 
     ax_hist_x.hist(x)
     ax_hist_y.hist(y, orientation="horizontal")

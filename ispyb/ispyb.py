@@ -92,7 +92,7 @@ class ispyb(object):
     assert(len(results) == 1)
     result = results[0][0]
     return results
-    
+
   def get_pia_results(self, dc_id):
     results = self.execute(
       'select imagenumber, spottotal from '
@@ -510,11 +510,19 @@ def ispyb_filter(message, parameters):
 
   assert(dc_class['rotation'])
 
-  related_dcs = i.get_dc_group(dc_id)
-  related_dcs.extend(i.get_matching_dcids_by_folder(dc_id))
-  related_dcs.extend(i.get_matching_dcids_by_sample_and_session(dc_id))
+  # for the moment we do not want multi-xia2 for /dls/mx i.e. VMXi
+  # beware if other projects start using this directory structure will
+  # need to be smarter here...
 
-  related = list(sorted(set(related_dcs)))
+  if not parameters['ispyb_image_directory'].startswith('/dls/mx'):
+    related = []
+
+  else:
+    related_dcs = i.get_dc_group(dc_id)
+    related_dcs.extend(i.get_matching_dcids_by_folder(dc_id))
+    related_dcs.extend(i.get_matching_dcids_by_sample_and_session(dc_id))
+
+    related = list(sorted(set(related_dcs)))
 
   other_dc_info = { }
 

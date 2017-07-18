@@ -514,7 +514,7 @@ def ispyb_filter(message, parameters):
   # beware if other projects start using this directory structure will
   # need to be smarter here...
 
-  if not parameters['ispyb_image_directory'].startswith('/dls/mx'):
+  if parameters['ispyb_image_directory'].startswith('/dls/mx'):
     related = []
 
   else:

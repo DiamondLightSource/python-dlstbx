@@ -74,3 +74,5 @@ if __name__ == "__main__":
    pprint(consumers)
    health = jmx.org.apache.activemq(type="Broker", brokerName="localhost", service="Health")
    pprint(health)
+   queuestats = jmx.org.apache.activemq(type="Broker", brokerName="localhost", destinationType="Queue", destinationName="zocalo.transient.controller")
+   pprint(queuestats)

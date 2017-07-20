@@ -24,7 +24,7 @@ def enable_graylog():
   graypy.handler.SYSLOG_LEVELS = PythonLevelToSyslogConverter()
 
   # Create and enable graylog handler
-  graylog = graypy.GELFHandler('cs04r-sc-serv-14.diamond.ac.uk', 12201, \
+  graylog = graypy.GELFHandler('graylog.diamond.ac.uk', 12203, \
                                level_names=True)
   logger = logging.getLogger()
   logger.addHandler(graylog)

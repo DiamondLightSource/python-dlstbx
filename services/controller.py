@@ -347,5 +347,6 @@ class DLSController(CommonService):
 
   def kill_service(self, instance):
     self.log.info("Shutting down instance %s (%s)", instance['host'], str(instance.get('title')))
-    self._transport.send('transient.command.' + instance['host'], { 'command': 'shutdown' })
+    self._transport.send('transient.command.' + instance['host'], { 'command': 'shutdown' }) # legacy for workflows <0.51
+    self._transport.broadcast('command', { 'host': instance['host'], 'command': 'shutdown' })
     return True

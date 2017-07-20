@@ -142,4 +142,4 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
 if __name__ == '__main__':
   DLSTBXServiceStarter().run(program_name='dlstbx.service',
                              version=dlstbx_version(),
-                             transport_command_prefix='transient.command.')
+                             transport_command_channel='command')

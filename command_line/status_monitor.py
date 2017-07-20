@@ -354,8 +354,11 @@ class RawMonitor(object):
 
   def run(self):
     self._transport.subscribe_broadcast('transient.status', self.print_status, retroactive=True)
-    while True:
-      time.sleep(1)
+    try:
+      while True:
+        time.sleep(1)
+    except KeyboardInterrupt:
+      pass
 
 if __name__ == '__main__':
   version = dlstbx_version()

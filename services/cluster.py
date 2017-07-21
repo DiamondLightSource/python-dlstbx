@@ -130,6 +130,9 @@ class DLSCluster(CommonService):
     for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs):
       if 'test' not in queue:
         self.stats_log.debug("queuelevel: %d jobs waiting in queue %s", pending_jobs[queue], queue, extra={'jobqueue': queue})
+    waiting_jobs_per_queue = { queue: pending_jobs[queue] for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs) }
+    self.report_statistic(waiting_jobs_per_queue, description='waiting-jobs-per-queue',
+                          cluster="live", timestamp=stats_timestamp)
 
     cluster_nodes = self.cluster_statistics.get_nodelist_from_queuelist(queuelist)
     node_summary = { node: self.cluster_statistics.summarize_node_status(status) for node, status in cluster_nodes.items() }
@@ -171,6 +174,7 @@ class DLSCluster(CommonService):
 
     self.report_statistic(corestats, description='utilization',
                           cluster='live', timestamp=stats_timestamp)
+    self.update_testcluster_statistics()
 
   def update_testcluster_statistics(self):
     '''Gather some statistics from the testcluster.'''
@@ -245,9 +249,9 @@ class DLSCluster(CommonService):
   def report_statistic(self, data, **kwargs):
     data_pack = {
       'statistic-group': 'cluster',
-      'statistic': kwargs.get('description', 'unknown'),
-      'statistic-cluster': kwargs.get('cluster', 'live'),
-      'statistic-timestamp': kwargs.get('timestamp', 0),
+      'statistic': kwargs['description'],
+      'statistic-cluster': kwargs['cluster'],
+      'statistic-timestamp': kwargs['timestamp'],
     }
     data_pack.update(data)
     self._transport.broadcast('transient.statistics.cluster', data_pack)

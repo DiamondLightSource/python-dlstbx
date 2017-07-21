@@ -99,10 +99,10 @@ class DLSStatistics(CommonService):
     dispatch = {
         'cluster-live-utilization': self.stats_live_cluster_utilization,
         'cluster-live-node-status': ignore,
-        'cluster-live-waiting-jobs-per-queue': ignore,
+        'cluster-live-waiting-jobs-per-queue': self.stats_live_cluster_jobs_waiting,
         'cluster-test-utilization': self.stats_test_cluster_utilization,
         'cluster-test-node-status': ignore,
-        'cluster-test-waiting-jobs-per-queue': ignore,
+        'cluster-test-waiting-jobs-per-queue': self.stats_test_cluster_jobs_waiting,
     }
     for key in records:
       headers, messages = zip(*records[key])
@@ -152,16 +152,34 @@ class DLSStatistics(CommonService):
                        r['admin']['total'], r['admin']['broken'], r['admin']['used'],
                    ], stats ))
 
+  def stats_live_cluster_jobs_waiting(self, stats):
+    self.rrd_file['clusterbacklog'].update( map( lambda r:
+                     [ r['statistic-timestamp'], r['admin.q'], r['bottom.q'],
+                       r['low.q'], r['medium.q'], r['high.q'] ],
+                   stats ))
+
+  def stats_test_cluster_jobs_waiting(self, stats):
+    self.rrd_file['testclusterbacklog'].update( map( lambda r:
+                     [ r['statistic-timestamp'], r['test-admin.q'], r['test-bottom.q'],
+                       r['test-low.q'], r['test-medium.q'], r['test-high.q'] ],
+                   stats ))
+
   def open_all_recordfiles(self):
     self.log.debug('opening record files')
     daydata       = [ 'RRA:%s:0.5:1:1440' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
+    weekdata      = [ 'RRA:%s:0.5:3:3360' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
     fortnightdata = [ 'RRA:%s:0.5:6:3360' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
-#   monthdata     = [ 'RRA:%s:0.5:6:7440' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
+    monthdata     = [ 'RRA:%s:0.5:6:7440' % cls for cls in ('AVERAGE', 'MAX', 'MIN') ]
     self.rrd_file = {
       'cluster': self.rrd.create(
           'cluster-utilization-live-general.rrd', [ '--step', '60' ]
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('slot-total', 'slot-broken', 'slot-used-h', 'slot-used-m', 'slot-used-l') ]
         + daydata + fortnightdata
+      ),
+      'clusterbacklog': self.rrd.create(
+          'cluster-jobswaiting-live.rrd', [ '--step', '60' ]
+        + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('admin', 'bottom', 'low', 'medium', 'high') ]
+        + daydata + weekdata + monthdata
       ),
       'clustergroups': self.rrd.create(
           'cluster-utilization-live-groups.rrd', [ '--step', '60' ]
@@ -174,6 +192,11 @@ class DLSStatistics(CommonService):
           'cluster-utilization-test-general.rrd', [ '--step', '60' ]
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('slot-total', 'slot-broken', 'slot-used-h', 'slot-used-m', 'slot-used-l') ]
         + daydata + fortnightdata
+      ),
+      'testclusterbacklog': self.rrd.create(
+          'cluster-jobswaiting-test.rrd', [ '--step', '60' ]
+        + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('admin', 'bottom', 'low', 'medium', 'high') ]
+        + daydata + weekdata + monthdata
       ),
       'testclustergroups': self.rrd.create(
           'cluster-utilization-test-groups.rrd', [ '--step', '60' ]

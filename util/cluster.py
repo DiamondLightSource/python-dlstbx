@@ -107,8 +107,12 @@ class Cluster():
     if command in cls.cached_environment:
       return cls.cached_environment[command]
 
+    blank_environment = { k: '' for k in
+                          filter(lambda k: k.startswith('DRMAA_') or k.startswith('SGE_'),
+                                 os.environ) }
+
     result = run_process(command=['/bin/bash', '-l'], timeout=10,
-        stdin=command + "\nset\n", print_stdout=False, print_stderr=False)
+        stdin=command + "\nset\n", print_stdout=False, print_stderr=False, environ=blank_environment)
     if result['timeout'] or result['exitcode'] != 0:
       print result
       raise RuntimeError('Could not load cluster environment\n%s' % str(result))
@@ -120,6 +124,8 @@ class Cluster():
         variable, content = line.split('=', 1)
         if variable.startswith(('DRMAA_', 'SGE_', 'PATH')):
           environment[variable] = content
+          if content == '':
+            raise RuntimeError('Could not load cluster environment, variable %s unset' % variable)
     cls.cached_environment[command] = environment
     return environment
 

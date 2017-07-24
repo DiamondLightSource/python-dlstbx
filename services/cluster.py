@@ -196,13 +196,7 @@ class DLSCluster(CommonService):
     self.log.debug('Processing %s cluster statistics', cluster)
     pending_jobs = Counter(map(lambda j: j['queue'].split('@@')[0] if '@@' in j['queue'] else j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
     waiting_jobs_per_queue = { queue: pending_jobs[queue] for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs) }
-    if cluster == 'test' and waiting_jobs_per_queue.get('test-admin.q') is None:
-      import pprint
-      pprint.pprint(joblist)
-      pprint.pprint(queuelist)
-      pprint.pprint(waiting_jobs_per_queue)
-    else:
-      self.report_statistic(waiting_jobs_per_queue, description='waiting-jobs-per-queue',
+    self.report_statistic(waiting_jobs_per_queue, description='waiting-jobs-per-queue',
                           cluster=cluster, timestamp=timestamp)
 
     cluster_nodes = self.cluster_statistics.get_nodelist_from_queuelist(queuelist)

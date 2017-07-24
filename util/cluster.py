@@ -6,8 +6,8 @@ import os
 import threading
 import time
 
-_DLS_Load_Cluster = "module load global/cluster"
-_DLS_Load_Testcluster = "module load global/testcluster"
+_DLS_Load_Cluster = ". /etc/profile.d/modules.sh ; module load global/cluster"
+_DLS_Load_Testcluster = ". /etc/profile.d/modules.sh ; module load global/testcluster"
 
 class Cluster():
   '''DRMAA access to DLS computing clusters'''

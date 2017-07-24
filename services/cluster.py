@@ -120,68 +120,17 @@ class DLSCluster(CommonService):
 
   def update_cluster_statistics(self):
     '''Gather some cluster statistics.'''
-    self.log.debug('Gathering cluster statistics...')
-    stats_timestamp = time.time()
+    self.log.debug('Gathering live cluster statistics...')
+    timestamp = time.time()
     try:
       joblist, queuelist = self.cluster_statistics.run_on(
         self.__drmaa_cluster, arguments=['-f', '-r', '-u', 'gda2'])
     except AssertionError:
       self.log.error('Could not gather cluster statistics', exc_info=True)
       return
-    self.log.debug('Parsed cluster statistics')
+    self.calculate_cluster_statistics(joblist, queuelist, 'live', timestamp)
 
-    pending_jobs = Counter(map(lambda j: j['queue'].split('@@')[0] if '@@' in j['queue'] else j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
-    for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs):
-      if 'test' not in queue:
-        self.stats_log.debug("queuelevel: %d jobs waiting in queue %s", pending_jobs[queue], queue, extra={'jobqueue': queue})
-    waiting_jobs_per_queue = { queue: pending_jobs[queue] for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs) }
-    self.report_statistic(waiting_jobs_per_queue, description='waiting-jobs-per-queue',
-                          cluster="live", timestamp=stats_timestamp)
-
-    cluster_nodes = self.cluster_statistics.get_nodelist_from_queuelist(queuelist)
-    node_summary = { node: self.cluster_statistics.summarize_node_status(status) for node, status in cluster_nodes.items() }
-    node_summary['statistic'] = 'dlscluster-nodestatus'
-    self._transport.broadcast('transient.statistics.cluster', node_summary)
-
-    corestats = { 'total': 0, 'broken': 0, 'free_for_low': 0, 'free_for_medium': 0, 'free_for_high': 0 }
-    corestats_admin =  { 'total': 0, 'broken': 0, 'free': 0 }
-    for node in cluster_nodes.values():
-      node = { q['class']: q for q in node if q['class'] in ('admin.q', 'bottom.q', 'low.q', 'medium.q', 'high.q') }
-      if 'admin.q' in node:
-        adminq_slots = node['admin.q']['slots_total']
-        corestats_admin['total'] += adminq_slots
-        if node['admin.q']['enabled'] and not node['admin.q']['suspended'] and not node['admin.q']['error']:
-          corestats_admin['free'] += node['admin.q']['slots_free']
-        else:
-          corestats_admin['broken'] += adminq_slots
-        del node['admin.q']
-      if not node:
-        continue
-      cores = max(q['slots_total'] for q in node.values())
-      corestats['total'] += cores
-      node = { n: q for n, q in node.items() if q['enabled'] and not q['suspended'] and not q['error'] }
-      if not node:
-        corestats['broken'] += cores
-        continue
-      corestats['free_for_low'] += node.get('low.q', {}).get('slots_free', 0)
-      corestats['free_for_medium'] += node.get('medium.q', {}).get('slots_free', 0)
-      corestats['free_for_high'] += node.get('high.q', {}).get('slots_free', 0)
-
-    self.stats_log.debug("cluster statistics admin.q: %d total, %d broken, %d total-minus-free, %d free cores", corestats_admin['total'], corestats_admin['broken'], corestats_admin['total']-corestats_admin['free'], corestats_admin['free'])
-    self.stats_log.debug("cluster statistics general: %d total, %d broken, %d free-for-high, %d free-for-medium, %d free-for-low, %d total-ffh, %d total-ffm, %d total-ffl cores", corestats['total'], corestats['broken'], corestats['free_for_high'], corestats['free_for_medium'], corestats['free_for_low'], corestats['total']-corestats['free_for_high'], corestats['total']-corestats['free_for_medium'], corestats['total']-corestats['free_for_low'])
-
-    corestats['used-high']   = corestats['total'] - corestats['broken'] - corestats['free_for_high']
-    corestats['used-medium'] = corestats['total'] - corestats['broken'] - corestats['free_for_medium'] - corestats['used-high']
-    assert corestats['used-medium'] == corestats['free_for_high'] - corestats['free_for_medium']
-    corestats['used-low']    = corestats['total'] - corestats['broken'] - corestats['free_for_low']    - corestats['used-high'] - corestats['used-medium']
-    assert corestats['used-low'] == corestats['free_for_medium'] - corestats['free_for_low']
-
-    self.report_statistic(corestats, description='utilization',
-                          cluster='live', timestamp=stats_timestamp)
-    self.update_testcluster_statistics()
-
-  def update_testcluster_statistics(self):
-    '''Gather some statistics from the testcluster.'''
+    # Now same for the testcluster
     self.log.debug('Gathering test cluster statistics...')
     timestamp = time.time()
     try:

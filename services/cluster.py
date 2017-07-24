@@ -122,8 +122,12 @@ class DLSCluster(CommonService):
     '''Gather some cluster statistics.'''
     self.log.debug('Gathering cluster statistics...')
     stats_timestamp = time.time()
-    joblist, queuelist = self.cluster_statistics.run_on(
+    try:
+      joblist, queuelist = self.cluster_statistics.run_on(
         self.__drmaa_cluster, arguments=['-f', '-r', '-u', 'gda2'])
+    except AssertionError:
+      self.log.error('Could not gather cluster statistics', exc_info=True)
+      return
     self.log.debug('Parsed cluster statistics')
 
     pending_jobs = Counter(map(lambda j: j['queue'].split('@@')[0] if '@@' in j['queue'] else j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
@@ -180,8 +184,12 @@ class DLSCluster(CommonService):
     '''Gather some statistics from the testcluster.'''
     self.log.debug('Gathering test cluster statistics...')
     timestamp = time.time()
-    joblist, queuelist = self.cluster_statistics.run_on(
+    try:
+      joblist, queuelist = self.cluster_statistics.run_on(
         self.__drmaa_testcluster, arguments=['-f', '-r', '-u', 'gda2'])
+    except AssertionError:
+      self.log.error('Could not gather test cluster statistics', exc_info=True)
+      return
     self.calculate_cluster_statistics(joblist, queuelist, 'test', timestamp)
 
   def calculate_cluster_statistics(self, joblist, queuelist, cluster, timestamp):

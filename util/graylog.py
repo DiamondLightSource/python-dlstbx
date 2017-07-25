@@ -7,6 +7,7 @@
 from __future__ import absolute_import, division
 import ConfigParser
 import base64
+import datetime
 import json
 import urllib2
 
@@ -51,6 +52,10 @@ class GraylogAPI():
       "parsed": parsed
     }
 
+  @staticmethod
+  def epoch_to_graylog(timestamp):
+    return datetime.datetime.fromtimestamp(timestamp).isoformat().replace('T', ' ')
+
   def get_messages(self, time=600):
     if self.last_seen_timestamp:
       update = self.absolute_update()
@@ -80,6 +85,22 @@ class GraylogAPI():
       for message in messages:
         yield message
 
+  def absolute_histogram(self, from_time=None, level=None, level_op='%3C='):
+    if not from_time:
+      from_time = self.last_seen_timestamp
+    from_time = from_time.replace(':', '%3A').replace(' ', '%20')
+    if not level:
+      level = self.level
+    return self._get("search/universal/absolute/histogram?"
+                     "query=level:{level_op}{level}&"
+                     "interval=minute&"
+                     "from={from_time}&"
+                     "to=2031-01-01%2012%3A00%3A00&"
+                     "filter=streams%3A{stream}"
+                     .format(from_time=from_time, stream=self.stream,
+                             level=level, level_op=level_op)
+        )
+
   def relative_update(self, time=600):
     return self._get("search/universal/relative?"
                      "query=level:%3C={level}&"
@@ -101,3 +122,16 @@ class GraylogAPI():
                      "sort=timestamp%3Aasc"
                      .format(from_time=from_time, stream=self.stream, level=self.level)
         )
+
+  def gather_log_levels_histogram_since(self, from_timestamp):
+    ts = self.epoch_to_graylog(from_timestamp)
+    global_histdata = {}
+    for level in (7, 6, 5, 4, 3, 2):
+      hist = self.absolute_histogram(from_time=ts, level=level, level_op='' if level > 2 else '%3C=')
+      assert hist['parsed'], 'Could not read histogram for level %d' % level
+      for k, v in hist['parsed']['results'].items():
+        k = int(k)
+        if k not in global_histdata:
+          global_histdata[k] = {}
+        global_histdata[k][level] = v
+    return global_histdata

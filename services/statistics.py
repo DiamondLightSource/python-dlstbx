@@ -1,5 +1,4 @@
 from __future__ import absolute_import, division
-from dials.util.procrunner import run_process
 from dlstbx.util.rrdtool import RRDTool
 import errno
 import os

@@ -291,7 +291,9 @@ class ClusterStatistics():
     summary = { 'status': 'broken', 'running_queues': 0 }
     for queue in node:
       summary[queue['class']] = { 'slots': queue['slots_total'], 'used': queue['slots_used'], 'reserved': queue['slots_reserved'] }
-      if queue['suspended']:
+      if queue['error']:
+        summary[queue['class']]['status'] = 'broken'
+      elif queue['suspended']:
         summary[queue['class']]['status'] = 'suspended'
       elif queue['disabled'] or not queue['enabled']:
         summary[queue['class']]['status'] = 'broken'

@@ -124,8 +124,9 @@ class Cluster():
         variable, content = line.split('=', 1)
         if variable.startswith(('DRMAA_', 'SGE_', 'PATH')):
           environment[variable] = content
-          if content == '':
-            raise RuntimeError('Could not load cluster environment, variable %s unset' % variable)
+    for variable in ('DRMAA_LIBRARY_PATH', 'SGE_ROOT', 'PATH'):
+      if not environment.get(variable):
+        raise RuntimeError('Could not load cluster environment, required variable %s unset' % variable)
     cls.cached_environment[command] = environment
     return environment
 

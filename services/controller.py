@@ -69,9 +69,9 @@ class DLSController(CommonService):
                                         self.receive_status_msg,
                                         retroactive=True)
 
-    # Listen to queue status reports to build picture of messages flying about.
-    self._transport.subscribe_broadcast('transient.queue_status.raw',
-                                        self.receive_queue_status, transformation=True)
+    # Listen to queue status reports for information on queue utilization.
+    self._transport.subscribe_broadcast('transient.queue_status',
+                                        self.receive_queue_status)
 
     # Run the main control function at least every three seconds, but only start
     # surveying after 20 seconds of listening in.
@@ -133,7 +133,9 @@ class DLSController(CommonService):
             # master controller status.
             self._set_name("DLS Controller (Standby)")
             self._transport.subscribe('transient.controller',
-                                      self.receive_sync_msg, exclusive=True)
+                                      self.receive_sync_msg,
+                                      exclusive=True,
+                                      transformation=True)
             self.log.debug('Controller may now become master')
 
           self.timestamp_strategies_loaded = strategies_file_timestamp
@@ -152,7 +154,8 @@ class DLSController(CommonService):
       # Is not master, so no self-check required. Limit the number of sync messages sent.
       return
 
-    self._transport.send('transient.controller', 'synchronization message', expiration=60)
+    self._transport.send('transient.controller', 'synchronization message',
+                         expiration=60, persistent=False)
     self.last_sync_sent = time.time()
 
     # Check that synchronization messages are received
@@ -220,43 +223,50 @@ class DLSController(CommonService):
 
   def receive_sync_msg(self, header, message):
     '''When a synchronization message is received, then this instance is currently
-       the master controller.'''
+       the master controller. Messages may be ActiveMQ Advisory messages, which
+       describe the status of one queue. In this case aggregate the information.'''
     self.master_last_checked = time.time()
     if not self.master:
       self.master_enable()
+
+    if header.get('type') == 'Advisory' and \
+       isinstance(message, dict) and \
+       (int(header.get('timestamp', '0')) / 1000) >= (time.time()-60):
+      report = self.parse_advisory(message.get('map', {}).get('entry', []))
+      if report:
+        destination = report.get('destinationName')
+        if destination and destination.startswith('queue://' + self.namespace):
+          destination = destination[8 + len(self.namespace) + 1:]
+          report['timestamp'] = int(header['timestamp']) / 1000
+          with self._lock:
+            self.queue_status[destination] = report
+        self.cleanup_and_broadcast_queue_status()
+
     self.survey_operations() # includes self_check()
 
   def receive_queue_status(self, header, message):
-    '''Parse an incoming ActiveMQ Advisory message, which describes the status
-       of one queue, and aggregate the information.'''
-    if header.get('type') != 'Advisory' or \
-       (int(header.get('timestamp', '0')) / 1000) < (time.time()-60) or \
-       not isinstance(message, dict):
-      return # malformed or outdated information
-    report = self.parse_advisory(message.get('map', {}).get('entry', []))
-    if not report:
+    if self.master:
+      self.log.debug('Ignoring queue status update as master controller')
       return
-    destination = report.get('destinationName')
-    if destination and destination.startswith('queue://' + self.namespace):
-      destination = destination[8 + len(self.namespace) + 1:]
-      report['timestamp'] = int(header['timestamp']) / 1000
-      with self._lock:
-        self.queue_status[destination] = report
-    self.expire_queue_status()
+    self.log.debug('Received queue status update')
+    with self._lock:
+      self.queue_status = message
 
-  def expire_queue_status(self):
+  def cleanup_and_broadcast_queue_status(self):
     '''Regularly discard information about old queues that are no longer
-       around.'''
-    cutoff = time.time() - 30
+       around, and notify other controller instances of status quo.'''
 
-    # Only expire once every 30 seconds
+    # Only run once every 30 seconds
+    cutoff = time.time() - 30
     if self.last_queue_status_expiration > cutoff:
       return
     self.last_queue_status_expiration = time.time()
 
+    self.log.debug('Cleaning up and broadcasting queue status information')
     with self._lock:
       self.queue_status = { dest: data for dest, data in self.queue_status.iteritems()
                             if data['timestamp'] >= cutoff }
+      self._transport.broadcast('transient.queue_status', self.queue_status)
 
   @staticmethod
   def parse_advisory(message):
@@ -305,7 +315,7 @@ class DLSController(CommonService):
     retrigger = threading.Timer(4, self.queue_introspection_trigger)
     retrigger.daemon = True
     retrigger.start()
-    self._transport.send('ActiveMQ.Statistics.Destination.' + self.namespace + '.>', '', headers = { 'JMSReplyTo': 'topic://' + self.namespace + '.transient.queue_status.raw' }, ignore_namespace=True)
+    self._transport.send('ActiveMQ.Statistics.Destination.' + self.namespace + '.>', '', headers = { 'JMSReplyTo': 'queue://' + self.namespace + '.transient.controller' }, ignore_namespace=True, persistent=False)
 
   def start_service(self, instance, init):
     if not init:

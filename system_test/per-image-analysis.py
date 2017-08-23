@@ -57,7 +57,7 @@ class PerImageAnalysisService(CommonSystemTest):
           { 'name': 'n_spots_total', 'type': numbers.Number },
           { 'name': 'noisiness_method_2', 'type': numbers.Number },
           { 'name': 'noisiness_method_1', 'type': numbers.Number },
-          { 'name': 'total_intensity', 'min': 6000000, 'max': 8000000 },
+          { 'name': 'total_intensity', 'min': 5000000, 'max': 6000000 },
         ]
 
         for r in requirements:

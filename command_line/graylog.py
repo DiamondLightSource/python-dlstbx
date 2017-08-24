@@ -5,7 +5,6 @@
 
 from __future__ import absolute_import, division
 import base64
-import ConfigParser
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.graylog import GraylogAPI
 import json

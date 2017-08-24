@@ -384,6 +384,8 @@ SELECT %s
 FROM AutoProcIntegration
 INNER JOIN AutoProcProgram
 ON AutoProcIntegration.autoProcProgramId = AutoProcProgram.autoProcProgramId
+INNER JOIN AutoProcProgramAttachment
+ON AutoProcProgram.autoProcProgramId = AutoProcProgramAttachment.autoProcProgramId
 INNER JOIN AutoProcScaling_has_Int
 ON AutoProcIntegration.autoProcIntegrationId = AutoProcScaling_has_Int.autoProcIntegrationId
 INNER JOIN AutoProcScaling
@@ -391,7 +393,7 @@ ON AutoProcScaling_has_Int.autoProcScalingId = AutoProcScaling.autoProcScalingId
 INNER JOIN AutoProcScalingStatistics
 ON AutoProcScaling.autoProcScalingId = AutoProcScalingStatistics.autoProcScalingId
 INNER JOIN AutoProc
-ON AutoProcScaling.autoProcScalingId = AutoProc.autoProcId
+ON AutoProcScaling.autoProcId = AutoProc.autoProcId
 WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s'
 ;
 ''' %(select_str, ','.join(str(i) for i in dc_ids), statistics_type)

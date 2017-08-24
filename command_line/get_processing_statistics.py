@@ -7,7 +7,7 @@ statistics_type = outerShell innerShell *overall
 
 def run(args):
 
-  from dlstbx.ispyb.ispyb import ispyb
+  from dlstbx.ispybtbx import ispybtbx
   import json
 
 
@@ -32,7 +32,7 @@ def run(args):
   elif len(dc_ids) > 1:
     columns.insert(0, 'AutoProcIntegration.dataCollectionId')
 
-  ispyb_conn = ispyb()
+  ispyb_conn = ispybtbx()
   field_names, rows = ispyb_conn.get_processing_statistics(dc_ids, columns=columns, statistics_type=params.statistics_type)
   rows = [[str(i) for i in r] for r in rows]
   rows.insert(0, field_names)

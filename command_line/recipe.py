@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
   dcid = int(sys.argv[1])
 
-  from dlstbx.ispyb.ispyb import ispyb_filter
+  from dlstbx.ispybtbx import ispyb_filter
 
   message = { }
   parameters = {'ispyb_dcid':dcid}

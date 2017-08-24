@@ -1,7 +1,7 @@
 def main(args):
-  from dlstbx.ispyb.ispyb import ispyb, ispyb_filter
+  from dlstbx.ispybtbx import ispybtbx, ispyb_filter
   import json
-  i = ispyb()
+  i = ispybtbx()
 
   for arg in args:
     try:

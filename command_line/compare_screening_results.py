@@ -5,7 +5,7 @@ phil_scope = libtbx.phil.parse('''\
 
 def run(args):
 
-  from dlstbx.ispyb.ispyb import ispyb
+  from dlstbx.ispybtbx import ispybtbx
   import json
 
   interp = phil_scope.command_line_argument_interpreter()
@@ -17,7 +17,7 @@ def run(args):
 
   assert len(args) > 0
   visit_name = args[0]
-  ispyb_conn = ispyb()
+  ispyb_conn = ispybtbx()
   sessionid = ispyb_conn.get_bl_sessionid_from_visit_name(visit_name)
   print sessionid
 

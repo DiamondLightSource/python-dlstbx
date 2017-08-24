@@ -1,5 +1,5 @@
-#!/usr/bin/python
-#
+from __future__ import division, absolute_import
+
 # Temporary API to ISPyB while I wait for a proper one using stored procedures
 # - beware here be dragons, written by a hacker who is not a database wonk.
 #
@@ -26,7 +26,7 @@ def _clean_(path):
 def _prefix_(template):
   return template.split('#')[0]
 
-class ispyb(object):
+class ispybtbx(object):
   def __init__(self):
     self.conn = mysql.connector.connect(
         host=secret_ingredients['host'],
@@ -479,7 +479,7 @@ def ispyb_filter(message, parameters):
   # FIXME put in here logic to check input if set i.e. if dc_id==0 then check
   # files exist; if image already set check they exist, ...
 
-  i = ispyb()
+  i = ispybtbx()
   dc_id = parameters['ispyb_dcid']
 
   dc_info = i.get_dc_info(dc_id)
@@ -568,7 +568,7 @@ def work(dc_ids):
 
   pp = pprint.PrettyPrinter(indent=2)
 
-  i = ispyb()
+  i = ispybtbx()
 
   for dc_id in dc_ids:
     print i.get_space_group_and_cell(dc_id)

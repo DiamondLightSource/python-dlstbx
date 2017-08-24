@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
   if options.default:
     # Take a DCID. Find a list of default recipe names.
-    from dlstbx.ispyb.ispyb import ispyb_filter
+    from dlstbx.ispybtbx import ispyb_filter
     default_recipes = ispyb_filter({ }, {'ispyb_dcid': dcid})[0]['default_recipe']
 
     # Merge with any manually specified recipes

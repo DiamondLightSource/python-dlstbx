@@ -1,7 +1,6 @@
 def run(args):
-  from dlstbx.ispyb.ispyb import ispyb
-  import json
-  ispyb_conn = ispyb()
+  from dlstbx.ispybtbx import ispybtbx
+  ispyb_conn = ispybtbx()
 
   assert len(args) > 0
   dc_ids = []

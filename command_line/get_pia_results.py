@@ -1,6 +1,6 @@
 def main(args):
-  from dlstbx.ispyb.ispyb import ispyb, ispyb_filter
-  i = ispyb()
+  from dlstbx.ispybtbx import ispybtbx
+  i = ispybtbx()
 
   for arg in args:
     dc_id = int(arg)

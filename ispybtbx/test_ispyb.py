@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division
 from datetime import datetime
-from dlstbx.ispyb.ispyb import ispyb, ispyb_filter
+from dlstbx.ispybtbx import ispybtbx, ispyb_filter
 import mock
 
 ds = {
@@ -49,7 +49,7 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
 
 
 def test_fetch_datacollect_group_from_ispyb():
-  i = ispyb()
+  i = ispybtbx()
   dc_id = ds['gphl_C2']
   res = i.get_dc_info(dc_id)
   # this was not recorded as a data collection group
@@ -62,7 +62,7 @@ def test_fetch_datacollect_group_from_ispyb():
     dc_info = i.get_dc_info(dc_id)
 
 def test_get_datacollection_information():
-  i = ispyb()
+  i = ispybtbx()
   dc_id = ds['gphl_C2']
   dc_info = i.get_dc_info(dc_id)
 # for k, v in dc_info.iteritems():
@@ -81,7 +81,7 @@ def test_get_datacollection_information():
   assert dc_info['resolution'] == 1.5
 
 def test_datacollection_classification():
-  i = ispyb()
+  i = ispybtbx()
   dc = { 'axisRange': 0, 'numberOfImages': 1800, 'overlap': 0 }
   assert i.classify_dc(dc) == { 'grid': True, 'rotation': False, 'screen': False }
 
@@ -92,17 +92,17 @@ def test_datacollection_classification():
   assert i.classify_dc(dc) == { 'grid': False, 'rotation': False, 'screen': True }
 
 def test_get_first_file_of_datacollection():
-  i = ispyb()
+  i = ispybtbx()
   dc = { 'imageDirectory': 'dir', 'fileTemplate': 'file_#####.cbf', 'startImageNumber': 30, 'numberOfImages': 300 }
   assert i.dc_info_to_filename(dc) == 'dir/file_00030.cbf'
 
 def test_get_extent_of_filenames_for_datacollection():
-  i = ispyb()
+  i = ispybtbx()
   dc = { 'imageDirectory': 'dir', 'fileTemplate': 'file_#####.cbf', 'startImageNumber': 30, 'numberOfImages': 300 }
   assert i.dc_info_to_start_end(dc) == (30, 329)
 
 def test_obtain_space_group():
-  i = ispyb()
+  i = ispybtbx()
   dc_id = ds['sg_set']
   sg = i.get_space_group(dc_id)
   assert sg == 'P212121'

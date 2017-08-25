@@ -32,12 +32,17 @@ class DLSDispatcher(CommonService):
     # Time execution
     start_time = timeit.default_timer()
 
+    # Load processing parameters
+    parameters = message.get('parameters', {})
+    if not isinstance(parameters, dict):
+      # malformed message
+      self.log.warning('Dispatcher rejected malformed message: parameters not given as dictionary')
+      self._transport.nack(header)
+      return
+
     # Conditionally acknowledge receipt of the message
     txn = self._transport.transaction_begin()
     self._transport.ack(header, transaction=txn)
-
-    # Load processing parameters
-    parameters = message.get('parameters', {})
 
     # Generate merged and individual recipe IDs if required.
     # 'guid' is a recipe-individual ID,

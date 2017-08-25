@@ -2,6 +2,8 @@ from __future__ import absolute_import, division
 import dlstbx
 import json
 import os
+import re
+import time
 import timeit
 import uuid
 from workflows.services.common_service import CommonService
@@ -20,12 +22,54 @@ class DLSDispatcher(CommonService):
   # Logger name
   _logger_name = 'dlstbx.services.dispatcher'
 
+  # Store a copy of all dispatch messages in this location
+  _logbook = '/dls/tmp/zocalo/dispatcher'
+
   def initializing(self):
     '''Subscribe to the processing_recipe queue. Received messages must be acknowledged.'''
     # self._environment.get('live') can be used to distinguish live/test mode
     self.log.info('Dispatcher starting')
     self.recipe_basepath = '/dls_sw/apps/zocalo/live/recipes'
+
+    if self._environment.get('live'):
+      try:
+        os.makedirs(self._logbook, 0775)
+      except OSError:
+        pass # Ignore if exists
+      if not os.access(self._logbook, os.R_OK | os.W_OK | os.X_OK):
+        self.log.error('Logbook disabled: Can not write to location')
+        self._logbook = None
+    else:
+      self.log.info('Logbook disabled: Not running in live mode')
+      self._logbook = None
+
     self._transport.subscribe('processing_recipe', self.process, acknowledgement=True)
+
+  def record_to_logbook(self, guid, header, message, recipewrap):
+    basepath = os.path.join(self._logbook, time.strftime('%Y-%m-%d'))
+    clean_guid = re.sub('[^a-z0-9A-Z\-]+', '', guid, re.UNICODE)
+    if not clean_guid or len(clean_guid) < 3:
+      self.log.warning('Message with non-conforming guid %s not written to logbook', guid)
+      return
+    try:
+      os.makedirs(os.path.join(basepath, clean_guid[:2]))
+    except OSError:
+      pass # Ignore if exists
+    try:
+      log_entry = os.path.join(basepath, clean_guid[:2], clean_guid)
+      with open(log_entry, 'w') as fh:
+        fh.write('Incoming message header:\n')
+        json.dump(header, fh, sort_keys=True, skipkeys=True, default=str,
+                  indent=2, separators=(',', ': '))
+        fh.write('\n\nIncoming message body:\n')
+        json.dump(message, fh, sort_keys=True, skipkeys=True, default=str,
+                  indent=2, separators=(',', ': '))
+        fh.write('\n\nRecipe object:\n')
+        json.dump(recipewrap.recipe.recipe, fh, sort_keys=True, skipkeys=True, default=str,
+                  indent=2, separators=(',', ': '))
+      self.log.debug('Message saved in logbook at %s', log_entry)
+    except Exception:
+      self.log.warning('Could not write message to logbook', exc_info=True)
 
   def process(self, header, message):
     '''Process an incoming processing request.'''
@@ -88,6 +132,10 @@ class DLSDispatcher(CommonService):
       rw = workflows.recipe.RecipeWrapper(recipe=full_recipe, transport=self._transport)
       rw.environment = { 'ID': recipe_id } # FIXME: This should go into the constructor, but workflows can't do that yet
       rw.start(transaction=txn)
+
+      # Write information to logbook if applicable
+      if self._logbook:
+        self.record_to_logbook(recipe_id, header, message, rw)
 
       # Commit transaction
       self._transport.transaction_commit(txn)

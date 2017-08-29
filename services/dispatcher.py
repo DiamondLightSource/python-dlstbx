@@ -84,10 +84,6 @@ class DLSDispatcher(CommonService):
       self._transport.nack(header)
       return
 
-    # Conditionally acknowledge receipt of the message
-    txn = self._transport.transaction_begin()
-    self._transport.ack(header, transaction=txn)
-
     # Generate merged and individual recipe IDs if required.
     # 'guid' is a recipe-individual ID,
     # 'guid_merged' is identical across all recipes started at the same time,
@@ -121,6 +117,11 @@ class DLSDispatcher(CommonService):
           except ValueError, e:
             raise ValueError("Error reading recipe '%s': %s" % (recipefile, str(e)))
 
+      if not recipes:
+        self.log.warning("Message contains no valid recipies or pointers to recipies")
+        self._transport.nack(header)
+        return
+
       full_recipe = workflows.recipe.Recipe()
       for recipe in recipes:
         recipe.validate()
@@ -128,6 +129,10 @@ class DLSDispatcher(CommonService):
           parameters['guid'] = str(uuid.uuid4())
         recipe.apply_parameters(parameters)
         full_recipe = full_recipe.merge(recipe)
+
+      # Conditionally acknowledge receipt of the message
+      txn = self._transport.transaction_begin()
+      self._transport.ack(header, transaction=txn)
 
       rw = workflows.recipe.RecipeWrapper(recipe=full_recipe, transport=self._transport)
       rw.environment = { 'ID': recipe_id } # FIXME: This should go into the constructor, but workflows can't do that yet

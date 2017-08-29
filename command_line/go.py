@@ -13,7 +13,7 @@ from workflows.transport.stomp_transport import StompTransport
 # Example: dlstbx.go -r example-xia2 527189
 
 if __name__ == '__main__':
-  parser = OptionParser(usage="dlstbx.go [options] dcid [dcid ...]")
+  parser = OptionParser(usage="dlstbx.go [options] dcid")
 
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-r", "--recipe", dest="recipe", metavar="RCP",
@@ -34,6 +34,9 @@ if __name__ == '__main__':
   parser.add_option("--not", dest="disable",
       action="append", default=[],
       help="Do not run this recipe. Only evaluated when --default is used")
+  parser.add_option("-p", "--reprocessing", dest="reprocess",
+      action="store_true", default=False,
+      help="Means a reprocessing ID is given rather than a data collection ID")
 
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
@@ -54,7 +57,7 @@ if __name__ == '__main__':
               'parameters': {},
             }
 
-  if not options.recipe and not options.recipefile and not (options.default and not options.nodcid):
+  if not options.recipe and not options.recipefile and not (options.default and not options.nodcid) and not options.reprocess:
     print "No recipes specified."
     sys.exit(1)
 
@@ -81,11 +84,21 @@ if __name__ == '__main__':
     sys.exit(1)
 
   if len(args) > 1:
-    print "Currently only a single data collection ID can be specified."
+    print "Only a single data collection ID can be specified."
     sys.exit(1)
 
   dcid = int(args[0])
   assert dcid > 0, "Invalid data collection ID given."
+
+  if options.reprocess:
+    # Given ID is a reprocessing ID. Nothing else needs to be specified.
+    stomp.connect()
+    stomp.send(
+      'processing_recipe',
+      { 'parameters': { 'ispyb_process': dcid }}
+    )
+    print "\nReprocessing task submitted."
+    sys.exit(0)
 
   if options.default:
     # Take a DCID. Find a list of default recipe names.

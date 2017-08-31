@@ -5,18 +5,19 @@ from __future__ import division, absolute_import
 #
 # Dependencies:
 #
-#   dials.python -m pip install "mysql-connector<2.2.3"
+#   dials.python -m pip install ispyb --upgrade
 #
 
 try:
-  import mysql.connector
+  import ispyb
+  import mysql.connector # installed by ispyb
 except ImportError:
-  raise ImportError('MySQL connector module not found. Run python -m pip install "mysql-connector<2.2.3"')
+  raise ImportError('ISPyB module not found. Run python -m pip install ispyb')
+import logging
 import json
 import os
 
 sauce = '/dls_sw/apps/zocalo/secrets/ispyb-login.json'
-
 secret_ingredients = json.load(open(sauce, 'r'))
 
 # convenience functions
@@ -28,6 +29,24 @@ def _prefix_(template):
 
 class ispybtbx(object):
   def __init__(self):
+    self.legacy_init()
+
+    self.log = logging.getLogger('dlstbx.ispybtbx')
+    api = ispyb.get_driver(ispyb.Backend.DATABASE_MYSQL)
+    self.db = api(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+    self.log.debug('ISPyB object set up')
+
+  def __call__(self, message, parameters):
+    if parameters.get('ispyb_process'):
+      # reprocessing ID
+      try:
+        parameters['ispyb_process_data'] = \
+          self.db.get_reprocessing_id(parameters['ispyb_process'])
+      except ispyb.exception.ISPyBNoResultException:
+        self.log.warning("Reprocessing ID %s not found", str(parameters['ispyb_process']))
+    return message, parameters
+
+  def legacy_init(self):
     self.conn = mysql.connector.connect(
         host=secret_ingredients['host'],
         port=secret_ingredients['port'],
@@ -475,13 +494,16 @@ WHERE p.proposalcode='%s' and p.proposalnumber='%s' and bs.visit_number='%s'
 def ispyb_filter(message, parameters):
   '''Do something to work out what to do with this data...'''
 
+  i = ispybtbx()
+
+  message, parameters = i(message, parameters)
+
   if not 'ispyb_dcid' in parameters:
     return message, parameters
 
   # FIXME put in here logic to check input if set i.e. if dc_id==0 then check
   # files exist; if image already set check they exist, ...
 
-  i = ispybtbx()
   dc_id = parameters['ispyb_dcid']
 
   dc_info = i.get_dc_info(dc_id)

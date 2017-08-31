@@ -111,3 +111,25 @@ def test_filter_function():
   msg = {}
   param = { 'ispyb_dcid': ds["i19_screening"] }
   msg, param = ispyb_filter(msg, param)
+
+def test_retrieve_reprocessing_information():
+  msg = {}
+  param = { 'ispyb_process': 52 }
+  msg, param = ispyb_filter(msg, param)
+  assert msg == {}
+  assert {
+      'ispyb_process': 52,
+      'ispyb_process_data': mock.ANY,
+  } == param
+  assert {
+      u'comments': mock.ANY,
+      u'dataCollectionId': 1912795,
+      u'displayName': mock.ANY,
+      u'lastUpdateMessage': mock.ANY,
+      u'lastUpdateTimestamp': mock.ANY,
+      u'recordTimestamp': mock.ANY,
+      u'reprocessingId': 52,
+      u'startedTimestamp': mock.ANY,
+      u'status': mock.ANY
+  } == param['ispyb_process_data']
+

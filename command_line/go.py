@@ -97,7 +97,7 @@ if __name__ == '__main__':
       'processing_recipe',
       { 'parameters': { 'ispyb_process': dcid }}
     )
-    print "\nReprocessing task submitted."
+    print "\nReprocessing task submitted for ID %d." % dcid
     sys.exit(0)
 
   if options.default:

@@ -10,6 +10,7 @@ from optparse import OptionParser, SUPPRESS_HELP
 import pprint
 import sys
 import ispyb
+import dlstbx
 
 # Display stored information:
 #   ispyb.reprocessing 73
@@ -27,11 +28,11 @@ if __name__ == '__main__':
       action="store_true", dest="verbose", default=False,
       help="show full reprocessing record")
   parser.add_option("-s", "--status", dest="status",
-      action="store", type="choice", default=None, choices=['submitted', 'running', 'finished', 'failed'],
-      help="set a specific status: submitted, running (default), finished, failed.")
+      action="store", type="choice", default=None, choices=['success', 'failure'],
+      help="set a reprocessing result: success, failure.")
   parser.add_option("-u", "--update", dest="update",
       action="store", type="string", default=None,
-      help="updates the database status information")
+      help="updates the reprocessing status information")
   parser.add_option("--update-time", dest="updatetime", metavar="TIMESTAMP",
       action="store", type="string", default=None,
       help="date the updated information (default: now)")
@@ -45,6 +46,7 @@ if __name__ == '__main__':
     print "Only one reprocessing ID can be specified"
     sys.exit(1)
 
+  dlstbx.ensure_ispyb_version(required="0.11")
   driver = ispyb.get_driver(ispyb.Backend.DATABASE_MYSQL)
   i = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
   rpid = args[0]
@@ -72,7 +74,7 @@ if __name__ == '__main__':
 
        Name: {displayName}
    Comments: {comments}
-     Status: {processingStatus}
+     Status: {readableStatus}
 
        DCID: {dataCollectionId}
 

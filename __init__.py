@@ -56,3 +56,26 @@ def enable_graylog():
                                level_names=True)
   logger = logging.getLogger()
   logger.addHandler(graylog)
+
+def ensure_ispyb_version(minimum=None, required=None):
+  if not minimum and not required:
+    pass
+  try:
+    import pkg_resources
+  except ImportError:
+    print "Could not verify ispyb version: setuptools missing"
+  try:
+    import ispyb
+  except ImportError:
+    raise ImportError('ISPyB module not found. Run python -m pip install ispyb')
+  message = 'ISPyB module out of date: v%s found, v%%s required.\n' \
+            'Run python -m pip install ispyb --upgrade' % \
+            ispyb.__version__
+  if required and \
+     pkg_resources.parse_version(ispyb.__version__) < \
+     pkg_resources.parse_version(required):
+    raise ImportError(message % required)
+  if minimum and \
+     pkg_resources.parse_version(ispyb.__version__) < \
+     pkg_resources.parse_version(minimum):
+    print message % minimum

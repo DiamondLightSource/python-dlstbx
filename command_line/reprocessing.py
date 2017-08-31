@@ -72,20 +72,21 @@ if __name__ == '__main__':
 
        Name: {displayName}
    Comments: {comments}
-     Status: {status}
+     Status: {processingStatus}
 
        DCID: {dataCollectionId}
 
     Defined: {recordTimestamp}
-    Started: {startedTimestamp}
-Last Update: {lastUpdateTimestamp}
-  with info: {lastUpdateMessage}'''.format(**rp)
+    Started: {processingStartTime}
+Last Update: {processingEndTime}
+  with info: {processingMessage}'''.format(**rp)
 
   if options.verbose:
     params = i.get_reprocessing_parameters(rpid)
-    maxlen = max(max(map(len, params)), 11)
-    print "\n Parameters:"
-    print '\n'.join("%%%ds: %%s" % maxlen % (key, params[key]) for key in sorted(params))
+    if params:
+      maxlen = max(max(map(len, params)), 11)
+      print "\n Parameters:"
+      print '\n'.join("%%%ds: %%s" % maxlen % (key, params[key]) for key in sorted(params))
 
     print "\n     Sweeps:",
     print ('\n' + ' ' * 13).join(map(

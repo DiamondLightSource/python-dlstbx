@@ -64,6 +64,7 @@ def ensure_ispyb_version(minimum=None, required=None):
     import pkg_resources
   except ImportError:
     print "Could not verify ispyb version: setuptools missing"
+    return
   try:
     import ispyb
   except ImportError:

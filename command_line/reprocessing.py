@@ -77,6 +77,7 @@ if __name__ == '__main__':
      Status: {readableStatus}
 
        DCID: {dataCollectionId}
+     Recipe: {recipe}
 
     Defined: {recordTimestamp}
     Started: {processingStartTime}

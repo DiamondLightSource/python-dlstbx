@@ -45,8 +45,8 @@ if __name__ == '__main__':
     print "Only one reprocessing ID can be specified"
     sys.exit(1)
 
-  api = ispyb.driver(ispyb.Backend.DATABASE_MYSQL)
-  i = api(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+  driver = ispyb.get_driver(ispyb.Backend.DATABASE_MYSQL)
+  i = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
   rpid = args[0]
 
   exit_code = 0

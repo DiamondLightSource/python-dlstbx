@@ -36,6 +36,8 @@ prune.add_option("--prune", dest="prune", action="store_true",
 
 (options, args) = parser.parse_args()
 
+error_exists = False
+
 def store_status():
   db = dlstbx.profiling.database()
   db.set_infrastructure_status(
@@ -49,6 +51,7 @@ def prune_database():
   print "Database successfully pruned"
 
 def display_status(issues):
+  global error_exists
   if hasattr(ColorStreamHandler, '_get_color'):
     def setbold():
       sys.stdout.write(ColorStreamHandler.BOLD)
@@ -83,6 +86,8 @@ def display_status(issues):
           print "\n%d %s message%s (omitted)" % (len(select), group, '' if len(select) == 1 else 's')
       if group == 'Information' and (options.quiet or options.verbosity == 0):
         continue
+      if group == 'Error':
+        error_exists = True
       base_indent = '' if options.quiet else '  '
       for s in select:
         resetcolor()
@@ -115,3 +120,6 @@ elif options.source:
   store_status()
 else:
   display_status(args)
+
+if error_exists:
+  sys.exit(1)

@@ -6,7 +6,7 @@
 # LIBTBX_SET_DISPATCHER_NAME ispyb.reprocessing
 
 from __future__ import division, absolute_import
-from optparse import OptionParser, SUPPRESS_HELP
+from optparse import OptionGroup, OptionParser, SUPPRESS_HELP
 import pprint
 import sys
 import ispyb
@@ -15,10 +15,15 @@ import dlstbx
 # Display stored information:
 #   ispyb.reprocessing 73
 #   ispyb.reprocessing 73 -v  # show full record
+
+# Create new processing program row:
+#   ispyb.reprocessing 73 -c -p "program" -s "starting up..."
+
 # Update stored information:
-#   ispyb.reprocessing 73 --update "things are happening"
-#   ispyb.reprocessing 73 --update "things are happening" --update-time "2017-08-25"
-#   ispyb.reprocessing 73 --update "things are done" --status finished
+#   ispyb.reprocessing 73 -u 1234 -s "running..."
+#   ispyb.reprocessing 73 -u 1234 -s "things are happening" --update-time "2017-08-25"
+#   ispyb.reprocessing 73 -u 1234 -s "completed successfully" -r success
+#   ispyb.reprocessing 73 -u 1234 -s "everything is broken" -r failure
 
 if __name__ == '__main__':
   parser = OptionParser(usage="ispyb.reprocessing [options] rpid")
@@ -27,15 +32,38 @@ if __name__ == '__main__':
   parser.add_option("-v", "--verbose",
       action="store_true", dest="verbose", default=False,
       help="show full reprocessing record")
-  parser.add_option("-s", "--status", dest="status",
+  parser.add_option("-c", "--create", dest="create",
+      action="store_true", default=False,
+      help="create a new processing program entry for the rpid")
+  parser.add_option("-u", "--update", dest="update",
+      action="store", type="int", default=None,
+      help="update an existing processing program entry")
+
+  group = OptionGroup(parser, "Processing entry options",
+      "These options can be used when creating or updating "
+      "processing program entries.")
+  group.add_option("-p", "--program", dest="program",
+      action="store", type="string", default=None,
+      help="set a program name for processing entry")
+  group.add_option("-l", "--cmdline", dest="cmdline",
+      action="store", type="string", default=None,
+      help="set full command line for processing entry")
+  group.add_option("-e", "--environment", dest="environment",
+      action="store", type="string", default=None,
+      help="set an environment string for processing entry")
+  group.add_option("-r", "--result", dest="result",
       action="store", type="choice", default=None, choices=['success', 'failure'],
       help="set a reprocessing result: success, failure.")
-  parser.add_option("-u", "--update", dest="update",
+  group.add_option("-s", "--status", dest="status",
       action="store", type="string", default=None,
-      help="updates the reprocessing status information")
-  parser.add_option("--update-time", dest="updatetime", metavar="TIMESTAMP",
+      help="set program status information")
+  group.add_option("--start-time", dest="starttime", metavar="TIMESTAMP",
+      action="store", type="string", default=None,
+      help="set the program start time (default: now)")
+  group.add_option("--update-time", dest="updatetime", metavar="TIMESTAMP",
       action="store", type="string", default=None,
       help="date the updated information (default: now)")
+  parser.add_option_group(group)
   (options, args) = parser.parse_args(sys.argv[1:])
 
   if not args:
@@ -46,23 +74,41 @@ if __name__ == '__main__':
     print "Only one reprocessing ID can be specified"
     sys.exit(1)
 
-  dlstbx.ensure_ispyb_version(required="0.11")
+  dlstbx.ensure_ispyb_version(required="0.12")
   driver = ispyb.get_driver(ispyb.Backend.DATABASE_MYSQL)
   i = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+  # because read access is only available with this login
+  isp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
+  # because stored procedures are only available with that login
   rpid = args[0]
 
   exit_code = 0
 
-  if options.update or options.status:
-    if not options.status:
-      options.status = 'running'
+  if options.create:
     try:
-      i.update_reprocessing_status(rpid, status=options.status,
-                                   update_time=options.updatetime,
-                                   start_time=options.updatetime,
-                                   update_message=options.update)
+      isp.add_processing_program(
+        reprocessing_id=rpid, programs=options.program,
+        command_line=options.cmdline,
+        environment=options.environment,
+        start_time=options.starttime,
+        update_time=options.updatetime,
+        update_message=options.status,
+        status=options.result,
+      )
     except ispyb.exception.UpdateFailed:
-      print "Error: Could not update reprocessing ID.\n"
+      print "Error: Could not create processing program.\n"
+      exit_code = 1
+
+  elif options.update:
+    try:
+      isp.update_processing_status(
+        options.update, status=options.result,
+        start_time=options.updatetime,
+        update_time=options.updatetime,
+        update_message=options.status,
+      )
+    except ispyb.exception.UpdateFailed:
+      print "Error: Could not update processing status.\n"
       exit_code = 1
 
   try:
@@ -73,16 +119,10 @@ if __name__ == '__main__':
   print '''Reprocessing ID {reprocessingId}:
 
        Name: {displayName}
-   Comments: {comments}
-     Status: {readableStatus}
-
-       DCID: {dataCollectionId}
      Recipe: {recipe}
-
-    Defined: {recordTimestamp}
-    Started: {processingStartTime}
-Last Update: {processingEndTime}
-  with info: {processingMessage}'''.format(**rp)
+   Comments: {comments}
+ Primary DC: {dataCollectionId}
+    Defined: {recordTimestamp}'''.format(**rp)
 
   if options.verbose:
     params = i.get_reprocessing_parameters(rpid)
@@ -97,3 +137,19 @@ Last Update: {processingEndTime}
           "DCID {dataCollectionId:7}  images{startImage:5} -{endImage:5}".format(**sweep),
         i.get_reprocessing_sweeps(rpid)))
 
+  processing_programs = i.get_processing_instances_for_reprocessing_id(rpid)
+  if processing_programs:
+    print_format = "             {processingPrograms} (#{autoProcProgramId}, {readableStatus})"
+    print_format = "\nProgram #{autoProcProgramId}: {processingPrograms}, {readableStatus}"
+
+    if options.verbose:
+      print_format += "\n    Command: {processingCommandLine}"
+      print_format += "\nEnvironment: {processingEnvironment}"
+      print_format += "\n    Defined: {recordTimeStamp}"
+      print_format += "\n    Started: {processingStartTime}"
+      print_format += "\nLast Update: {processingEndTime}"
+
+    print_format += "\n  Last Info: {processingMessage}"
+
+    for autoproc_instance in processing_programs:
+      print print_format.format(**autoproc_instance)

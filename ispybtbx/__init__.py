@@ -17,8 +17,8 @@ import logging
 import json
 import os
 
-sauce = '/dls_sw/apps/zocalo/secrets/ispyb-login.json'
-secret_ingredients = json.load(open(sauce, 'r'))
+with open('/dls_sw/apps/zocalo/secrets/ispyb-login.json', 'r') as sauce:
+  secret_ingredients = json.load(sauce)
 
 # convenience functions
 def _clean_(path):
@@ -34,17 +34,36 @@ class ispybtbx(object):
     self.log = logging.getLogger('dlstbx.ispybtbx')
     api = ispyb.get_driver(ispyb.Backend.DATABASE_MYSQL)
     self.db = api(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
-    self.log.debug('ISPyB object set up')
+    self.dbsp = api(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
+    self.log.debug('ISPyB objects set up')
 
   def __call__(self, message, parameters):
-    if parameters.get('ispyb_process'):
-      # reprocessing ID
+    reprocessing_id = parameters.get('ispyb_reprocessing_id', parameters.get('ispyb_process'))
+    if reprocessing_id:
       try:
-        parameters['ispyb_process_data'] = \
-          self.db.get_reprocessing_id(parameters['ispyb_process'])
+        parameters['ispyb_reprocessing_data'] = self.db.get_reprocessing_id(reprocessing_id)
+        parameters['ispyb_reprocessing_sweeps']  = self.db.get_reprocessing_sweeps(reprocessing_id)
+        for sweep in parameters['ispyb_reprocessing_sweeps']:
+          sweep['dataCollection'] = self.rich_get_datacollection(sweep['dataCollectionId'],
+              { 'start_image': sweep['startImage'],
+                'end_image': sweep['endImage'],
+              })
+        parameters['ispyb_images'] = ','.join(sweep['dataCollection']['ispyb_image'] for sweep in parameters['ispyb_reprocessing_sweeps'])
+        parameters['ispyb_reprocessing_parameters']  = self.db.get_reprocessing_parameters(reprocessing_id)
       except ispyb.exception.ISPyBNoResultException:
-        self.log.warning("Reprocessing ID %s not found", str(parameters['ispyb_process']))
+        self.log.warning("Reprocessing ID %s not found", str(reprocessing_id))
     return message, parameters
+
+  def rich_get_datacollection(self, dcid, override=None):
+    '''Retrieve data collection information from database and create derived fields.'''
+    dc = self.db.get_datacollection_id(dcid)
+    if not override:
+      override = {}
+    start, end = self.dc_info_to_start_end(dc)
+    start = override.get('start_image', start)
+    end = override.get('end_image', end)
+    dc['ispyb_image'] = '%s:%d:%d' % (self.dc_info_to_filename(dc, image_number=start), start, end)
+    return dc
 
   def legacy_init(self):
     self.conn = mysql.connector.connect(
@@ -298,14 +317,6 @@ class ispybtbx(object):
     else:
       return os.path.join(root, str(uuid.uuid4()))
 
-  def wrap_stored_procedure_insert_program(self, values):
-    # this wraps a stored procedure I think - which should be a good thing
-    # FIXME any documentation for what values should contain?!
-    result = self.execute('select ispub.upsert_program_run(%s)' % \
-                            ','.join([str(v) for v in values]))
-    # etc? do I need to return anything?
-    # probably
-
   def insert_screening_results(self, dc_id, values):
     keys = (
       'dataCollectionId', 'programVersion', 'shortComments', 'mosaicity',
@@ -499,6 +510,11 @@ def ispyb_filter(message, parameters):
   message, parameters = i(message, parameters)
 
   if not 'ispyb_dcid' in parameters:
+    if 'ispyb_reprocessing_data' in parameters and \
+       'dataCollectionId' in parameters['ispyb_reprocessing_data']:
+      parameters['ispyb_dcid'] = parameters['ispyb_reprocessing_data']['dataCollectionId']
+
+  if not 'ispyb_dcid' in parameters:
     return message, parameters
 
   # FIXME put in here logic to check input if set i.e. if dc_id==0 then check
@@ -517,12 +533,19 @@ def ispyb_filter(message, parameters):
   parameters['ispyb_image_template'] = dc_info['fileTemplate']
   parameters['ispyb_image_directory'] = dc_info['imageDirectory']
   parameters['ispyb_image_pattern'] = i.dc_info_to_filename_pattern(dc_info)
-  parameters['ispyb_image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
-                                            start, end)
+  if not parameters.get('ispyb_image'):
+    parameters['ispyb_image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
+                                              start, end)
   parameters['ispyb_working_directory'] = i.dc_info_to_working_directory(
     dc_info, '')
   parameters['ispyb_results_directory'] = i.dc_info_to_results_directory(
     dc_info, '')
+
+  if 'ispyb_reprocessing_data' in parameters and \
+      parameters['ispyb_reprocessing_data']['recipe']:
+    # Prefix recipe name coming from ispyb/synchweb with 'ispyb-'
+    message['recipes'] = [ 'ispyb-' + parameters['ispyb_reprocessing_data']['recipe'] ]
+    return message, parameters
 
   if dc_class['grid']:
     message['default_recipe'] = ['per-image-analysis-gridscan']

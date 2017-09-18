@@ -8,16 +8,15 @@ from dlstbx import enable_graylog
 import dlstbx.util
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.version import dlstbx_version
-import glob
+import dlstbx.zocalo.wrapper.xia2
 import json
 import logging
 import os
 from optparse import OptionParser, SUPPRESS_HELP
-import shutil
 import sys
-import time
 import threading
 import workflows
+import workflows.recipe.wrapper
 import workflows.services.common_service
 import workflows.transport
 from workflows.transport.stomp_transport import StompTransport
@@ -32,6 +31,7 @@ class StatusNotifications(threading.Thread):
     self.status_dict = {
       'host': workflows.util.generate_unique_host_id(),
       'task': taskname,
+      'dlstbx': dlstbx_version(),
       'workflows': workflows.version(),
     }
     for env in ('SGE_CELL', 'JOB_ID'):
@@ -83,38 +83,38 @@ def run(cmdline_args):
 
   # Set up parser
   parser = OptionParser(
-    usage='dlstbx.wrap wrapper [options]'
+    usage='dlstbx.wrap [options]'
   )
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+
+  parser.add_option("--wrap", action="store", dest="wrapper", type="choice",
+                    metavar="WRAP", default=None,
+                    choices=['xia2-dials'],
+                    help="Object to be wrapped (valid choices: xia2-dials)")
+  parser.add_option("--recipewrapper", action="store", dest="recipewrapper",
+                    metavar="RW", default=None,
+                    help="A serialized recipe wrapper file " \
+                         "for downstream communication")
+
+  parser.add_option("--test", action="store_true",
+                    help="Run in ActiveMQ testing namespace (zocdev)")
+  parser.add_option("--live", action="store_true",
+                    help="Run in ActiveMQ live namespace (zocalo, default)")
+
   parser.add_option("-t", "--transport", dest="transport", metavar="TRN",
     default="StompTransport",
     help="Transport mechanism. Known mechanisms: " + \
          ", ".join(workflows.transport.get_known_transports()) + \
          " (default: %default)")
   workflows.transport.add_command_line_options(parser)
-  parser.add_option("--test", action="store_true",
-                    help="Run in ActiveMQ testing namespace (zocdev)")
-  parser.add_option("--live", action="store_true",
-                    help="Run in ActiveMQ live namespace (zocalo, default)")
 
   # Parse command line arguments
   (options, args) = parser.parse_args(cmdline_args)
 
   # Instantiate specific wrapper
-  if len(args) > 1:
-    print "Exactly one wrapper needs to be specified."
+  if not options.wrapper:
+    print "A wrapper object must be specified."
     sys.exit(1)
-  elif len(args) < 1:
-    print "No wrapper has been specified."
-    sys.exit(1)
-
-  class wrapper(object):
-    def run(self):
-      print "Starting task"
-      import time
-      time.sleep(10)
-      print "Done"
-  instance = wrapper
 
   # Enable logging to graylog
   enable_graylog()
@@ -122,19 +122,38 @@ def run(cmdline_args):
   # Connect to transport and start sending notifications
   transport = workflows.transport.lookup(options.transport)()
   transport.connect()
-  st = StatusNotifications(transport.broadcast_status, "some task")
+  st = StatusNotifications(transport.broadcast_status, options.wrapper)
 
-  instance = instance()
+  instance = dlstbx.zocalo.wrapper.xia2.Xia2DialsWrapper()
+
+  if options.recipewrapper:
+    with open(options.recipewrapper, 'r') as fh:
+      recwrap = workflows.recipe.wrapper.RecipeWrapper(
+          message=json.load(fh),
+          transport=transport,
+      )
+    instance.set_recipe_wrapper(recwrap)
+
+  instance.prepare('Starting processing')
 
   st.set_status(workflows.services.common_service.Status.PROCESSING)
 
   try:
-    instance.run()
+    if instance.run():
+      instance.success('Finished processing')
+    else:
+      instance.failure('Processing failed')
     st.set_status(workflows.services.common_service.Status.END)
   except KeyboardInterrupt:
     print("\nShutdown via Ctrl+C")
+    st.set_status(workflows.services.common_service.Status.END)
+  except Exception as e:
+    log.error(str(e), exc_info=True)
+    instance.failure(e)
+    st.set_status(workflows.services.common_service.Status.ERROR)
 
-  st.set_status(workflows.services.common_service.Status.END)
+  instance.done('Finished processing')
+
   st.shutdown()
   st.join()
 

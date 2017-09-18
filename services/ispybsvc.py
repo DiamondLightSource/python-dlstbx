@@ -23,6 +23,16 @@ class DLSISPyB(CommonService):
         self._transport, 'ispyb_connector', # will become 'ispyb' in far future
         self.ispyb_msg, acknowledgement=True, log_extender=self.extend_log)
 
+  @staticmethod
+  def parse_value(rw, parameter):
+    base_value = rw.recipe_step['parameters'].get(parameter)
+    if not base_value or '$' not in base_value:
+      return base_value
+    for key in rw.environment:
+      if '$' + key in base_value:
+        base_value = base_value.replace('$' + key, str(rw.environment[key]))
+    return base_value
+
   def ispyb_msg(self, rw, header, message):
     '''Do something with ISPyB.'''
 
@@ -34,8 +44,25 @@ class DLSISPyB(CommonService):
 
     store_result = rw.recipe_step['parameters'].get('store_result')
 
-    if command == 'Xupdate_processing_status':
-      self.log.info('Updating processing status: command not implemented')
+    if command == 'update_processing_status':
+      ppid = self.parse_value(rw, 'program_id')
+      message = rw.recipe_step['parameters'].get('message')
+      start_time = rw.recipe_step['parameters'].get('start_time')
+      update_time = rw.recipe_step['parameters'].get('update_time')
+      status = rw.recipe_step['parameters'].get('status')
+      try:
+        result = self.ispybdbsp.update_processing_status(
+            ppid,
+            status=status,
+            start_time=start_time,
+            update_time=update_time,
+            update_message=message
+          )
+        self.log.info("Updating program %s status: '%s' with result %s", ppid, message, result)
+      except ispyb.exception.ISPyBException as e:
+        self.log.warning("Updating program %s status: '%s' caused exception '%s'.",
+                         ppid, message, e, exc_info=True)
+        result = None
 
     elif command == 'register_processing':
       program = rw.recipe_step['parameters'].get('program')

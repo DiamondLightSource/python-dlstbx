@@ -10,6 +10,15 @@ def run(args):
   assert len(args) >= 2, len(args)
   recipe_pointer = args[0]
   recipe_file = args[1]
+
+  environmentmode = False
+  if len(args) >= 3:
+    recipe_environment = args[2]
+    environmentmode = True
+    assert os.path.isfile(recipe_environment), recipe_environment
+    with open(recipe_environment, 'rb') as f:
+      environment = json.load(f)
+
   assert os.path.isfile(recipe_file), recipe_file
   with open(recipe_file, 'rb') as f:
     recipe = json.load(f)
@@ -20,7 +29,11 @@ def run(args):
 
   command = ['xia2']
   params = multi_xia2_recipe['job_parameters']
-  for param, values in params['multi_xia2'].iteritems():
+  if 'multi_xia2' in params:
+    job_parameters = params['multi_xia2']
+  else
+    job_parameters = params['xia2']
+  for param, values in job_parameters.iteritems():
     if param == 'images':
       param = 'image'
       values = values.split(',')
@@ -28,6 +41,13 @@ def run(args):
       values = [values]
     for v in values:
       command.append('%s=%s' %(param, v))
+  if environmentmode:
+    if environment.get('d_min'):
+      command.append('xia2.settings.resolution.d_min=%s' % environment['d_min'])
+    if environment.get('spacegroup'):
+      command.append('xia2.settings.space_group=%s' % environment['spacegroup'])
+    if environment.get('unit_cell'):
+      command.append('xia2.settings.unit_cell=%s' % environment['unit_cell'])
 
   # run xia2 in working directory
 

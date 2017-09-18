@@ -36,21 +36,23 @@ if __name__ == '__main__':
   (options, args) = parser.parse_args(sys.argv[1:])
   stomp = StompTransport()
 
-  if len(args) != 1:
-    print "Need to specify a service to shut down. Format: hostname.pid"
+  if not len(args):
+    print "Need to specify one or more services to shut down."
+    print "Format: hostname.pid"
     sys.exit(1)
 
-  host = args[0]
-  if not host.startswith('uk.ac.diamond.'):
-    host = 'uk.ac.diamond.' + host
-
-  message = { 'command' : 'shutdown',
-              'host': host,
-            }
-
   stomp.connect()
-  stomp.broadcast(
+
+  for host in args:
+    if not host.startswith('uk.ac.diamond.'):
+      host = 'uk.ac.diamond.' + host
+
+    message = { 'command' : 'shutdown',
+                'host': host,
+              }
+
+    stomp.broadcast(
       'command',
       message
-  )
-  print "\nSubmitted."
+    )
+    print "Shutting down", host

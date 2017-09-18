@@ -3,6 +3,7 @@ from collections import Counter
 from dials.util.procrunner import run_process
 import dlstbx.util.cluster
 import errno
+import json
 import logging
 import os
 import time
@@ -89,6 +90,14 @@ class DLSCluster(CommonService):
       commands = commands.replace('$RECIPEFILE', recipefile)
       with open(recipefile, 'w') as fh:
         fh.write(rw.recipe.pretty())
+    if 'recipeenvironment' in parameters:
+      recipeenvironment = parameters['recipeenvironment']
+      self._recursive_mkdir(os.path.dirname(recipeenvironment))
+      self.log.debug("Writing recipe environment to %s", recipeenvironment)
+      commands = commands.replace('$RECIPEENV', recipeenvironment)
+      with open(recipeenvironment, 'w') as fh:
+        json.dump(rw.environment, fh
+                  sort_keys=True, indent=2, separators=(',', ': '))
     if 'workingdir' in parameters:
       workingdir = parameters['workingdir']
       self._recursive_mkdir(workingdir)

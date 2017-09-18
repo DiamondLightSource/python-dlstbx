@@ -244,17 +244,21 @@ class Monitor(object):
           status = overview[host]
           age = (now - int(status['last_seen'] / 1000))
           with self._lock:
-            if age > 90 or (age > 10 and status['status'] == CommonService.SERVICE_STATUS_TEARDOWN):
+            if age > 90 or (age > 10 and status['status'] == CommonService.SERVICE_STATUS_TEARDOWN) or (age > 10 and status['status'] == CommonService.SERVICE_STATUS_END and 'task' in status):
               del(self._node_status[host])
             else:
               card = self._get_card(cardnumber)
               if card:
                 card.erase()
                 card.move(0, 0)
-                card.addstr('Service: ', curses.color_pair(3))
                 if 'service' in status and status['service']:
+                  card.addstr('Service: ', curses.color_pair(3))
                   card.addstr(status['service'])
+                elif 'task' in status and status['task']:
+                  card.addstr('Task: ', curses.color_pair(3))
+                  card.addstr(status['task'])
                 else:
+                  card.addstr('Service: ', curses.color_pair(3))
                   card.addstr('---', curses.color_pair(2))
                 card.move(1, 0)
                 card.addstr('Host: ', curses.color_pair(3))

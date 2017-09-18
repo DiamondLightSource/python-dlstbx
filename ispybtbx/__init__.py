@@ -40,6 +40,7 @@ class ispybtbx(object):
   def __call__(self, message, parameters):
     reprocessing_id = parameters.get('ispyb_reprocessing_id', parameters.get('ispyb_process'))
     if reprocessing_id:
+      parameters['ispyb_process'] = reprocessing_id
       try:
         parameters['ispyb_reprocessing_data'] = self.db.get_reprocessing_id(reprocessing_id)
         parameters['ispyb_reprocessing_sweeps']  = self.db.get_reprocessing_sweeps(reprocessing_id)
@@ -542,7 +543,8 @@ def ispyb_filter(message, parameters):
     dc_info, '')
 
   if 'ispyb_reprocessing_data' in parameters and \
-      parameters['ispyb_reprocessing_data']['recipe']:
+      parameters['ispyb_reprocessing_data']['recipe'] and \
+      not message.get('recipes'):
     # Prefix recipe name coming from ispyb/synchweb with 'ispyb-'
     message['recipes'] = [ 'ispyb-' + parameters['ispyb_reprocessing_data']['recipe'] ]
     return message, parameters

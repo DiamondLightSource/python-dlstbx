@@ -92,9 +92,12 @@ if __name__ == '__main__':
   if options.reprocess:
     # Given ID is a reprocessing ID. Nothing else needs to be specified.
     stomp.connect()
+    if options.recipe:
+      print "Running recipes", options.recipe
+    message['parameters']['ispyb_process'] = dcid
     stomp.send(
       'processing_recipe',
-      { 'parameters': { 'ispyb_process': dcid }}
+      message
     )
     print "\nReprocessing task submitted for ID %d." % dcid
     sys.exit(0)

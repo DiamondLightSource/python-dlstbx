@@ -98,6 +98,18 @@ class DLSCluster(CommonService):
       with open(recipeenvironment, 'w') as fh:
         json.dump(rw.environment, fh,
                   sort_keys=True, indent=2, separators=(',', ': '))
+    if 'recipewrapper' in parameters:
+      recipewrapper = parameters['recipewrapper']
+      self._recursive_mkdir(os.path.dirname(recipewrapper))
+      self.log.debug("Storing serialized recipe wrapper in %s", recipewrapper)
+      commands = commands.replace('$RECIPEWRAP', recipewrapper)
+      with open(recipewrapper, 'w') as fh:
+        json.dump({ 'recipe': rw.recipe,
+                    'recipe-pointer': rw.recipe_pointer,
+                    'environment': rw.environment,
+                    'recipe-path': rw.recipe_path,
+                  }, fh,
+                  sort_keys=True, indent=2, separators=(',', ': '))
     if 'workingdir' in parameters:
       workingdir = parameters['workingdir']
       self._recursive_mkdir(workingdir)

@@ -17,6 +17,7 @@ class DLSISPyB(CommonService):
        acknowledged.'''
     driver = ispyb.get_driver(ispyb.Backend.DATABASE_MYSQL)
     self.ispybdb = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+    self.ispybdbsp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.log.info("ISPyB connector starting with ispyb v%s", ispyb.__version__)
     workflows.recipe.wrap_subscribe(
         self._transport, 'ispyb_connector', # will become 'ispyb' in far future
@@ -25,18 +26,49 @@ class DLSISPyB(CommonService):
   def ispyb_msg(self, rw, header, message):
     '''Do something with ISPyB.'''
 
-    if not isinstance(message, dict) or not message.get('ispyb_command'):
+    command = rw.recipe_step['parameters'].get('ispyb_command')
+    if not command:
       self.log.warning('Received message is not a valid ISPyB command')
       rw.transport.nack(header)
       return
 
-    if message['ispyb_command'] == 'update_processing_status':
-      self.log.debug('Updating processing status')
+    store_result = rw.recipe_step['parameters'].get('store_result')
+
+    if command == 'Xupdate_processing_status':
+      self.log.info('Updating processing status: command not implemented')
+
+    elif command == 'register_processing':
+      program = rw.recipe_step['parameters'].get('program')
+      cmdline = rw.recipe_step['parameters'].get('cmdline')
+      environment = rw.recipe_step['parameters'].get('environment')
+      if isinstance(environment, dict):
+        environment = ', '.join('%s=%s' % (key, value) for key, value in environment.iteritems())
+      rpid = rw.recipe_step['parameters'].get('rpid')
+      try:
+        result = self.ispybdbsp.add_processing_program(
+                     reprocessing_id=rpid,
+                     command_line=cmdline,
+                     programs=program,
+                     environment=environment)
+        self.log.info("Registered new processing program '%s' for reprocessing id '%s' with command line '%s' and environment '%s' with result '%s'.",
+                      program, rpid, cmdline, environment, result)
+      except ispyb.exception.ISPyBException as e:
+        self.log.warning("Registering new processing program '%s' for reprocessing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
+                         program, rpid, cmdline, environment, e, exc_info=True)
+        result = None
+
     else:
       self.log.warning('Received unknown ISPyB command (%s)',
-                       message['ispyb_command'])
+                       command)
       rw.transport.nack(header)
       return
 
-    self.log.debug(str(message))
-    rw.transport.ack(header)
+    if store_result:
+      rw.environment[store_result] = result
+      self.log.debug("Storing result '%s' in environment variable '%s'", result, store_result)
+
+    txn = rw.transport.transaction_begin()
+    rw.set_default_channel('output')
+    rw.send({ 'result': result }, transaction=txn)
+    rw.transport.ack(header, transaction=txn)
+    rw.transport.transaction_commit(txn)

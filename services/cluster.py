@@ -121,8 +121,8 @@ class DLSCluster(CommonService):
     jobnumber = result['stdout'].split()[2]
 
     # Send results onwards
-    rw.set_default_channel('default')
-    rw.send_to('default', { 'jobid': jobnumber }, transaction=txn)
+    rw.set_default_channel('job_submitted')
+    rw.send({ 'jobid': jobnumber }, transaction=txn)
 
     self._transport.transaction_commit(txn)
     self.log.info("Submitted job %s to %s", str(jobnumber), cluster)

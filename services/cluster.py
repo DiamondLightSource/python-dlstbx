@@ -96,7 +96,7 @@ class DLSCluster(CommonService):
       self.log.debug("Writing recipe environment to %s", recipeenvironment)
       commands = commands.replace('$RECIPEENV', recipeenvironment)
       with open(recipeenvironment, 'w') as fh:
-        json.dump(rw.environment, fh
+        json.dump(rw.environment, fh,
                   sort_keys=True, indent=2, separators=(',', ': '))
     if 'workingdir' in parameters:
       workingdir = parameters['workingdir']

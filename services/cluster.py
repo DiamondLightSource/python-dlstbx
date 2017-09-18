@@ -104,7 +104,7 @@ class DLSCluster(CommonService):
       self.log.debug("Storing serialized recipe wrapper in %s", recipewrapper)
       commands = commands.replace('$RECIPEWRAP', recipewrapper)
       with open(recipewrapper, 'w') as fh:
-        json.dump({ 'recipe': rw.recipe,
+        json.dump({ 'recipe': rw.recipe.recipe,
                     'recipe-pointer': rw.recipe_pointer,
                     'environment': rw.environment,
                     'recipe-path': rw.recipe_path,

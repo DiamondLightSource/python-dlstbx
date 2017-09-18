@@ -31,7 +31,7 @@ def run(args):
   params = multi_xia2_recipe['job_parameters']
   if 'multi_xia2' in params:
     job_parameters = params['multi_xia2']
-  else
+  else:
     job_parameters = params['xia2']
   for param, values in job_parameters.iteritems():
     if param == 'images':

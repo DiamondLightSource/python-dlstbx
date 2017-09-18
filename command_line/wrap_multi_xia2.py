@@ -41,13 +41,13 @@ def run(args):
       values = [values]
     for v in values:
       command.append('%s=%s' %(param, v))
-  if environmentmode:
-    if environment.get('d_min'):
-      command.append('xia2.settings.resolution.d_min=%s' % environment['d_min'])
-    if environment.get('spacegroup'):
-      command.append('xia2.settings.space_group=%s' % environment['spacegroup'])
-    if environment.get('unit_cell'):
-      command.append('xia2.settings.unit_cell=%s' % environment['unit_cell'])
+  if params.get('ispyb_parameters'):
+    if params['ispyb_parameters'].get('d_min'):
+      command.append('xia2.settings.resolution.d_min=%s' % params['ispyb_parameters']['d_min'])
+    if params['ispyb_parameters'].get('spacegroup'):
+      command.append('xia2.settings.space_group=%s' % params['ispyb_parameters']['spacegroup'])
+    if params['ispyb_parameters'].get('unit_cell'):
+      command.append('xia2.settings.unit_cell=%s' % params['ispyb_parameters']['unit_cell'])
 
   # run xia2 in working directory
 

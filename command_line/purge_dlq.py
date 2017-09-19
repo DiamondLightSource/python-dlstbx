@@ -17,7 +17,7 @@ import workflows
 from workflows.transport.stomp_transport import StompTransport
 
 if __name__ == '__main__':
-  parser = OptionParser(usage="dlstbx.go [options] dcid")
+  parser = OptionParser(usage="dlstbx.purge_dlq [options]")
 
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")

@@ -89,8 +89,8 @@ def run(cmdline_args):
 
   parser.add_option("--wrap", action="store", dest="wrapper", type="choice",
                     metavar="WRAP", default=None,
-                    choices=['xia2-dials'],
-                    help="Object to be wrapped (valid choices: xia2-dials)")
+                    choices=['xia2'],
+                    help="Object to be wrapped (valid choices: xia2)")
   parser.add_option("--recipewrapper", action="store", dest="recipewrapper",
                     metavar="RW", default=None,
                     help="A serialized recipe wrapper file " \
@@ -124,7 +124,7 @@ def run(cmdline_args):
   transport.connect()
   st = StatusNotifications(transport.broadcast_status, options.wrapper)
 
-  instance = dlstbx.zocalo.wrapper.xia2.Xia2DialsWrapper()
+  instance = dlstbx.zocalo.wrapper.xia2.Xia2Wrapper()
 
   if options.recipewrapper:
     with open(options.recipewrapper, 'r') as fh:

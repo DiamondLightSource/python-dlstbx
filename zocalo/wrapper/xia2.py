@@ -8,9 +8,9 @@ import glob
 import shutil
 from dials.util import procrunner
 
-logger = logging.getLogger('dlstbx.wrap.dials_xia2')
+logger = logging.getLogger('dlstbx.wrap.xia2')
 
-class Xia2DialsWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
   def construct_commandline(self, params):
     '''Construct xia2 command line.

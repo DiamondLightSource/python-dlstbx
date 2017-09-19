@@ -1,36 +1,38 @@
-def main(args):
-  from dlstbx.ispybtbx import ispybtbx, ispyb_filter
-  import json
-  i = ispybtbx()
+# Returns the parameter dictionary that is available in recipes for a
+# given data processing ID or reprocessing ID.
+
+from __future__ import absolute_import, division
+from dlstbx.ispybtbx import ispyb_filter
+from optparse import OptionParser, SUPPRESS_HELP
+import pprint
+import sys
+
+if __name__ == '__main__':
+  parser = OptionParser(usage="dlstbx.find_in_ispyb [options] dcid")
+  parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+
+  parser.add_option("-p", "--reprocessing", dest="reprocess",
+      action="store_true", default=False,
+      help="Means a reprocessing ID is given rather than a data collection ID")
+  (options, args) = parser.parse_args(sys.argv[1:])
 
   for arg in args:
-    try:
-      dc_id = int(arg)
-      dc_info = i.get_dc_info(dc_id)
-      start, end = i.dc_info_to_start_end(dc_info)
+    if int(arg) > 0:
+      parameters = {}
+      if options.reprocess:
+        parameters['ispyb_process'] = int(arg)
+      else:
+        parameters['ispyb_dcid'] = int(arg)
+      message, parameters = ispyb_filter({}, parameters)
+      pprint.pprint(parameters)
 
-      message = { }
-      parameters = {'ispyb_dcid': dc_id}
-
-      message, parameters = ispyb_filter(message, parameters)
-
-      import datetime
-      for k, v in parameters['ispyb_dc_info'].iteritems():
-        if type(v) == datetime.datetime:
-           parameters['ispyb_dc_info'][k] = str(v)
-
-      print json.dumps(parameters)
-    except ValueError, e:
+    else:
+      # Not sure what this is.
       path = arg
       if not path.endswith('/'):
         path += '/'
+      i = ispybtbx()
       dc_ids = i.find_dc_id(path)
       print path
       for dc_id in dc_ids:
         print dc_id
-
-if __name__ == '__main__':
-  import sys
-  args = sys.argv[1:]
-  main(args)
-

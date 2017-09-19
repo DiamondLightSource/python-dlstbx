@@ -40,7 +40,7 @@ class Xia2DialsWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     return command
 
-  def send_results_to_ispyb(self, params):
+  def send_results_to_ispyb(self):
     logger.debug("Reading xia2 results")
     from xia2.command_line.ispyb_json import ispyb_object
 
@@ -67,11 +67,16 @@ class Xia2DialsWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug("Replacing temporary zocalo paths with correct destination paths")
     message = recursive_replace(message, '/tmp/zocalo/', '/processed/')
 
-    dcid = int(params.get('dcid'))
+    dcid = int(self.recwrap.recipe_step['job_parameters']['dcid'])
     assert dcid > 0, "Invalid data collection ID given."
     logger.debug("Writing to data collection ID %s", str(dcid))
     for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
       container['AutoProcIntegration']['dataCollectionId'] = dcid
+
+    # Use existing AutoProcProgramID
+    if self.recwrap.environment.get('ispyb_autoprocprogram_id'):
+      container['AutoProcProgramContainer']['AutoProcProgram'] = \
+        self.recwrap.environment['ispyb_autoprocprogram_id']
 
     logger.debug("Sending %s", str(message))
     self.recwrap.transport.send('ispyb', message)
@@ -128,7 +133,7 @@ class Xia2DialsWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     os.chdir(results_directory)
 
     if os.path.exists('xia2.json'):
-      self.send_results_to_ispyb(params)
+      self.send_results_to_ispyb()
 
     os.chdir(cwd)
 

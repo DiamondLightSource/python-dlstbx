@@ -75,7 +75,7 @@ class Xia2DialsWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     # Use existing AutoProcProgramID
     if self.recwrap.environment.get('ispyb_autoprocprogram_id'):
-      container['AutoProcProgramContainer']['AutoProcProgram'] = \
+      message['AutoProcProgramContainer']['AutoProcProgram'] = \
         self.recwrap.environment['ispyb_autoprocprogram_id']
 
     logger.debug("Sending %s", str(message))

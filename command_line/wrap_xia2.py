@@ -65,7 +65,7 @@ def run(args):
     if os.path.isfile(src):
       logger.debug('Copying %s to %s' %(src, dst))
       shutil.copyfile(src, dst)
-    elif f in ('DataFiles', 'Harvest', 'LogFiles') and os.path.isdir(src):
+    elif f in ('DataFiles', 'LogFiles') and os.path.isdir(src):
       logger.debug('Copying %s to %s recursively' %(src, dst))
       shutil.copytree(src, dst)
 

@@ -118,7 +118,7 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if not os.path.exists(results_directory):
       os.makedirs(results_directory)
 
-    for subdir in ('DataFiles', 'Harvest', 'LogFiles'):
+    for subdir in ('DataFiles', 'LogFiles'):
       src = os.path.join(working_directory, subdir)
       dst = os.path.join(results_directory, subdir)
       if os.path.exists(src):

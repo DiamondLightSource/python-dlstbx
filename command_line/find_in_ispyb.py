@@ -1,6 +1,14 @@
 # Returns the parameter dictionary that is available in recipes for a
 # given data processing ID or reprocessing ID.
 
+# Examples:
+#
+# dlstbx.find_in_ispyb 1956161
+#   show available dictionary for DCID
+#
+# dlstbx.find_in_ispyb -p 95
+#   show available dictionary for reprocessing ID
+
 from __future__ import absolute_import, division
 from dlstbx.ispybtbx import ispyb_filter
 from optparse import OptionParser, SUPPRESS_HELP

@@ -44,16 +44,8 @@ class Xia2DialsWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug("Reading xia2 results")
     from xia2.command_line.ispyb_json import ispyb_object
 
-    messages = []
-    sources = []
-
-    messages.append(ispyb_object())
-    sources.append(os.path.join(os.getcwd(), 'xia2.txt'))
-
-    dcid_present = all( \
-      all( container.get('AutoProcIntegration', {}).get('dataCollectionId') for container in \
-           message.get('AutoProcScalingContainer', {}).get('AutoProcIntegrationContainer', []) ) \
-      for message in messages )
+    message = ispyb_object()
+    source = os.path.join(os.getcwd(), 'xia2.txt')
 
     def recursive_replace(thing, old, new):
       '''Recursive string replacement in data structures.'''
@@ -73,20 +65,18 @@ class Xia2DialsWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       return _recursive_apply(thing)
 
     logger.debug("Replacing temporary zocalo paths with correct destination paths")
-    messages = recursive_replace(messages, '/tmp/zocalo/', '/processed/')
+    message = recursive_replace(message, '/tmp/zocalo/', '/processed/')
 
     dcid = int(params.get('dcid'))
     assert dcid > 0, "Invalid data collection ID given."
     logger.debug("Writing to data collection ID %s", str(dcid))
-    for message in messages:
-      for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
-        container['AutoProcIntegration']['dataCollectionId'] = dcid
+    for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
+      container['AutoProcIntegration']['dataCollectionId'] = dcid
 
-    for message in messages:
-      logger.debug("Sending %s", str(message))
-      self.recwrap.transport.send('ispyb', message)
+    logger.debug("Sending %s", str(message))
+    self.recwrap.transport.send('ispyb', message)
 
-    logger.info("Processing information from %s attached to data collection %s", ", ".join(sources), str(dcid))
+    logger.info("Processing information from %s attached to data collection %s", source, str(dcid))
 
   def run(self):
     assert hasattr(self, 'recwrap'), \

@@ -116,21 +116,14 @@ def test_filter_function():
 
 def test_retrieve_reprocessing_information():
   msg = {}
-  param = { 'ispyb_process': 52 }
+  param = { 'ispyb_process': 95 }
   msg, param = ispyb_filter(msg, param)
-  assert msg == {}
-  assert {
-      'ispyb_process': 52,
-      'ispyb_process_data': mock.ANY,
-  } == param
-  assert {
-      u'comments': mock.ANY,
-      u'dataCollectionId': 1912795,
-      u'displayName': mock.ANY,
-      u'lastUpdateMessage': mock.ANY,
-      u'lastUpdateTimestamp': mock.ANY,
-      u'recordTimestamp': mock.ANY,
-      u'reprocessingId': 52,
-      u'startedTimestamp': mock.ANY,
-      u'status': mock.ANY
-  } == param['ispyb_process_data']
+  assert msg == { 'recipes': ['ispyb-xia2-dials'] }
+  assert param['ispyb_process'] == 95
+  assert param['ispyb_reprocessing_data']
+  assert param['ispyb_reprocessing_data']['comments']
+  assert param['ispyb_reprocessing_data']['dataCollectionId'] == 1956161
+  assert param['ispyb_reprocessing_data']['displayName']
+  assert param['ispyb_reprocessing_data']['recipe'] == 'xia2-dials'
+  assert param['ispyb_reprocessing_data']['recordTimestamp']
+  assert param['ispyb_reprocessing_data']['reprocessingId'] == 95

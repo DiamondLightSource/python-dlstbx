@@ -1,7 +1,6 @@
 
 from __future__ import division
 
-
 def get_env():
   from os import environ
   env = {}

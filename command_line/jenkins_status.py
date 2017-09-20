@@ -1,11 +1,13 @@
 from __future__ import division
-import colorama
+
 import json
 import signal
 import sys
 import threading
 import time
 import urllib
+
+import colorama
 
 class Jenkins():
   def __init__(self):

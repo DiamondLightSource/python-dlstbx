@@ -1,7 +1,9 @@
 from __future__ import absolute_import, division
-from dials.command_line.find_spots_server import work
+
 import logging
+
 import workflows.recipe
+from dials.command_line.find_spots_server import work
 from workflows.services.common_service import CommonService
 
 class DLSPerImageAnalysis(CommonService):

@@ -1,4 +1,5 @@
 import timeit
+
 from junit_xml import TestCase
 
 class Result(TestCase):

@@ -1,14 +1,15 @@
 # EIGER emulator
 
-import fabio
 import hashlib
 import json
-import lz4
-from optparse import OptionParser, SUPPRESS_HELP
 import os
 import random
 import sys
 import time
+from optparse import SUPPRESS_HELP, OptionParser
+
+import fabio
+import lz4
 import zmq
 
 print("Current libzmq version is %s" % zmq.zmq_version())

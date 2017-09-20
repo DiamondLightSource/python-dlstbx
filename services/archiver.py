@@ -1,13 +1,15 @@
 from __future__ import absolute_import, division
-from datetime import datetime
+
 import errno
 import itertools
 import os
 import os.path
+import xml.etree.cElementTree as ET
+from datetime import datetime
+from xml.etree.cElementTree import Element, ElementTree
+
 import workflows.recipe
 from workflows.services.common_service import CommonService
-import xml.etree.cElementTree as ET
-from xml.etree.cElementTree import Element, ElementTree
 
 class DLSArchiver(CommonService):
   '''A service that generates dropfiles for data collections.'''
@@ -165,4 +167,3 @@ class DLSArchiver(CommonService):
 
     self._transport.transaction_commit(txn)
     self.log.info("Done.")
-

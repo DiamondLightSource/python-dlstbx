@@ -4,11 +4,13 @@
 #
 
 from __future__ import absolute_import, division
-from optparse import OptionParser, SUPPRESS_HELP
+
 import os
 import random
 import sys
 import time
+from optparse import SUPPRESS_HELP, OptionParser
+
 import workflows
 from workflows.transport.stomp_transport import StompTransport
 

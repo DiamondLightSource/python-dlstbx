@@ -1,5 +1,6 @@
 import sys
 import time
+
 for i in range(1000):
   for j in range(60):
     sys.stdout.write('\r')

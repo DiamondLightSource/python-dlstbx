@@ -1,11 +1,13 @@
 from __future__ import absolute_import, division
+
 import json
 import os.path
 import threading
 import time
-from workflows.services.common_service import CommonService
+
 from dials.util.procrunner import run_process
 from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
+from workflows.services.common_service import CommonService
 
 class DLSController(CommonService):
   '''A service to supervise other services, start new instances and shut down

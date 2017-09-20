@@ -1,10 +1,11 @@
 from __future__ import absolute_import, division
 
-from dlstbx.zocalo.controller.strategy.simple import SimpleStrategy
-from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
+import uuid
+
 import mock
 import pytest
-import uuid
+from dlstbx.zocalo.controller.strategy.simple import SimpleStrategy
+from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
 
 service = mock.sentinel.service_name
 

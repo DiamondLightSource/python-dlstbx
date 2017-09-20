@@ -1,8 +1,8 @@
 from __future__ import absolute_import, division
 
 import dlstbx.system_test
-from dlstbx.system_test.common import CommonSystemTest
 import pytest
+from dlstbx.system_test.common import CommonSystemTest
 
 def test_validation_should_fail_on_syntax_error_in_function():
   '''Here we test that the validation of system tests actually works.

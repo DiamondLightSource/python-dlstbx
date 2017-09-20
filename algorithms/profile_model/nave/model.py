@@ -9,8 +9,9 @@
 #  included in the root directory of this package.
 
 from __future__ import division
-from libtbx.phil import parse
+
 from dials.algorithms.profile_model.interface import ProfileModelIface
+from libtbx.phil import parse
 
 phil_scope = parse('''
   nave {

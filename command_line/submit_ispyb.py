@@ -4,13 +4,15 @@
 #
 
 from __future__ import division
-from dlstbx import enable_graylog
-from dlstbx.util.colorstreamhandler import ColorStreamHandler
-from optparse import OptionParser, SUPPRESS_HELP
+
 import logging
 import os
 import sys
+from optparse import SUPPRESS_HELP, OptionParser
+
 import workflows
+from dlstbx import enable_graylog
+from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from workflows.transport.stomp_transport import StompTransport
 
 # Example: dlstbx.submit_ispyb --xia2 1515302

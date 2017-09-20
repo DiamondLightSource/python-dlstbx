@@ -1,5 +1,5 @@
-from __future__ import division
 # LIBTBX_SET_DISPATCHER_NAME dlstbx.plot_reflections
+from __future__ import division
 
 import iotbx.phil
 

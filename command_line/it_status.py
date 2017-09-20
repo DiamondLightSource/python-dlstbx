@@ -3,12 +3,14 @@
 # LIBTBX_SET_DISPATCHER_NAME it.status
 
 from __future__ import absolute_import, division
+
 import datetime
+import logging
+import sys
+from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
+
 import dlstbx.profiling
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
-import logging
-from optparse import OptionGroup, OptionParser, SUPPRESS_HELP
-import sys
 
 parser = OptionParser(
   usage='it.status [options] [issue | issuegroup.]*'

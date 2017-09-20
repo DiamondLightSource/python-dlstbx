@@ -1,7 +1,9 @@
 from __future__ import absolute_import, division
-from dlstbx.system_test.common import CommonSystemTest
+
 import numbers
 import os
+
+from dlstbx.system_test.common import CommonSystemTest
 from workflows.recipe import Recipe
 
 class PerImageAnalysisService(CommonSystemTest):

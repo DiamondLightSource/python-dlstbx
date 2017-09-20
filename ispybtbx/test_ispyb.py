@@ -1,7 +1,9 @@
 from __future__ import absolute_import, division
+
 from datetime import datetime
-from dlstbx.ispybtbx import ispybtbx, ispyb_filter
+
 import mock
+from dlstbx.ispybtbx import ispyb_filter, ispybtbx
 
 ds = {
   "gphl_C2": 1397955,
@@ -132,4 +134,3 @@ def test_retrieve_reprocessing_information():
       u'startedTimestamp': mock.ANY,
       u'status': mock.ANY
   } == param['ispyb_process_data']
-

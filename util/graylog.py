@@ -5,8 +5,9 @@
 #  g = GraylogAPI('/dls_sw/apps/zocalo/secrets/credentials-log.cfg')
 
 from __future__ import absolute_import, division
-import ConfigParser
+
 import base64
+import ConfigParser
 import datetime
 import json
 import urllib2

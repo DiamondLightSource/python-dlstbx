@@ -1,6 +1,9 @@
 
-from math import cos, sin, pi, atan2, sqrt, exp
+from math import atan2, cos, exp, pi, sin, sqrt
 
+from dials.array_family import flex
+from matplotlib import pylab
+from scitbx import matrix
 
 theta0 = pi
 r0 = 1.0
@@ -9,11 +12,9 @@ yc = r0 * sin(theta0)
 sigma = 0.05
 k = 0.5#2.5
 
-from scitbx import matrix
 cov = matrix.sqr((0.01, 0.005,
                   0.005, 0.01)).inverse()
 
-from dials.array_family import flex
 
 pab = flex.double(flex.grid(200, 200))
 for j in range(200):
@@ -33,6 +34,5 @@ for j in range(200):
     # pb = 1
     pab[j,i] = pa*pb
 
-from matplotlib import pylab
 pylab.imshow(pab.as_numpy_array())
 pylab.show()

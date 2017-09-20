@@ -1,9 +1,10 @@
 from __future__ import absolute_import, division
 
-from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
 from itertools import count
+
 import mock
 import pytest
+from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
 
 @mock.patch('dlstbx.zocalo.controller.strategyenvironment.dlstbx.zocalo.controller.strategy.simple.SimpleStrategy')
 def test_can_define_set_of_strategies_ignoring_errors(st):

@@ -15,4 +15,3 @@ if __name__ == '__main__':
       from isort.main import main
 
     sys.exit(main())
-

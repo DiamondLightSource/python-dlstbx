@@ -1,9 +1,9 @@
 
+from math import exp, sqrt
+
+from dials.array_family import flex
+from matplotlib import pylab
 from scitbx import matrix
-from math import sqrt, exp
-
-
-
 
 e1 = matrix.col((1, 0)).normalize()
 e2 = matrix.col((1, 2)).normalize()
@@ -19,7 +19,6 @@ SIG = matrix.sqr((
   0, 0.1**2))
 SIG1 = SIG.inverse()
 
-from dials.array_family import flex
 data1 = flex.double(flex.grid(100, 100))
 data2 = flex.double(flex.grid(100, 100))
 
@@ -46,7 +45,6 @@ for j in range(100):
 
 print flex.max(flex.abs(data1 - data2))
 
-from matplotlib import pylab
 pylab.imshow(data2.as_numpy_array(), origin='bottom')
 pylab.show()
 pylab.imshow(data1.as_numpy_array(), origin='bottom')

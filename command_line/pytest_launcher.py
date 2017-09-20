@@ -1,6 +1,7 @@
 # LIBTBX_SET_DISPATCHER_NAME py.test
-import pytest
 import sys
+
+import pytest
 
 # modify sys.argv so the command line help shows the right executable name
 sys.argv[0] = 'py.test'

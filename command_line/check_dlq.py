@@ -1,15 +1,17 @@
 from __future__ import absolute_import, division
 
+import sys
+import time
+import uuid
+from optparse import SUPPRESS_HELP, OptionParser
+
+import workflows.transport
+
 #
 # dlstbx.check_dlq
 #   Check number of messages in dead letter queues
 #
 
-from optparse import OptionParser, SUPPRESS_HELP
-import sys
-import time
-import uuid
-import workflows.transport
 
 class QueueStatus():
   '''Monitor ActiveMQ queue activity.'''

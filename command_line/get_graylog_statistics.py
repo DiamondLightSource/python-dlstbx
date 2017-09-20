@@ -1,9 +1,11 @@
 from __future__ import absolute_import, division
+
+import logging
+import time
+
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.graylog import GraylogAPI
 from dlstbx.util.rrdtool import RRDTool
-import logging
-import time
 
 loglevels = {
   2: 'critical',

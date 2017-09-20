@@ -10,10 +10,12 @@
 #   show available dictionary for reprocessing ID
 
 from __future__ import absolute_import, division
-from dlstbx.ispybtbx import ispyb_filter
-from optparse import OptionParser, SUPPRESS_HELP
+
 import pprint
 import sys
+from optparse import SUPPRESS_HELP, OptionParser
+
+from dlstbx.ispybtbx import ispyb_filter
 
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.find_in_ispyb [options] dcid")

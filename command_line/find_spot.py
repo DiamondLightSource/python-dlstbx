@@ -1,6 +1,7 @@
 # LIBTBX_SET_DISPATCHER_NAME dials.find_spot
 
 import random
+
 row = random.randrange(24)
 column = random.randrange(80)
 

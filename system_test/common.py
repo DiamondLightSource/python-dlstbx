@@ -1,8 +1,10 @@
 from __future__ import absolute_import, division
+
 import logging
-import mock
 import string
 import uuid
+
+import mock
 
 class SafeDict(dict):
   '''A dictionary that returns undefined keys as {keyname}.

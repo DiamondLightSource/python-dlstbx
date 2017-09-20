@@ -4,18 +4,20 @@
 #
 
 from __future__ import absolute_import, division
+
 import curses
-from dlstbx.util.version import dlstbx_version
 import logging
-from optparse import OptionParser, SUPPRESS_HELP
-from pprint import pprint
 import re
 import sys
 import threading
 import time
+from optparse import SUPPRESS_HELP, OptionParser
+from pprint import pprint
+
 import workflows
-from workflows.services.common_service import CommonService
 import workflows.transport
+from dlstbx.util.version import dlstbx_version
+from workflows.services.common_service import CommonService
 
 class Monitor(object):
   '''A sample implementation of a status monitor showing all running services'''
@@ -400,4 +402,3 @@ if __name__ == '__main__':
   if options.nofancy:
     monitor.border_chars = monitor.border_chars_text
   monitor.run()
-

@@ -5,12 +5,14 @@
 
 # LIBTBX_SET_DISPATCHER_NAME ispyb.reprocessing
 
-from __future__ import division, absolute_import
-from optparse import OptionGroup, OptionParser, SUPPRESS_HELP
+from __future__ import absolute_import, division
+
 import pprint
 import sys
-import ispyb
+from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
+
 import dlstbx
+import ispyb
 
 # Display stored information:
 #   ispyb.reprocessing 73

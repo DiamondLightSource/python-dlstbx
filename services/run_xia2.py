@@ -1,9 +1,11 @@
 from __future__ import absolute_import, division
-from workflows.services.common_service import CommonService
-from dials.util.procrunner import run_process
+
 import os
 import random
 import string
+
+from dials.util.procrunner import run_process
+from workflows.services.common_service import CommonService
 
 class DLSRunXia2(CommonService):
   '''A service to run xia2 processing.'''

@@ -3,19 +3,21 @@
 # LIBTBX_SET_DISPATCHER_NAME it.report
 
 from __future__ import absolute_import, division
+
 import datetime
-from dials.util.procrunner import run_process
-import dlstbx.profiling
-from dlstbx.util.colorstreamhandler import ColorStreamHandler
 import getpass
 import json
 import logging
 import os
 import re
-from subprocess import call
 import sys
 import tempfile
 import time
+from subprocess import call
+
+import dlstbx.profiling
+from dials.util.procrunner import run_process
+from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
 # Set this to false before changing the script
 live = True

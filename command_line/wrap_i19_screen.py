@@ -3,7 +3,9 @@ import json
 import logging
 import os
 import shutil
+
 from dials.util import procrunner
+
 logger = logging.getLogger('dlstbx.wrap_i19_screen')
 
 def run(args):
@@ -51,4 +53,3 @@ if __name__ == '__main__':
   logging.basicConfig(level=logging.DEBUG)
   import sys
   run(sys.argv[1:])
-

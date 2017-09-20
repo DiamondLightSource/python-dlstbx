@@ -3,7 +3,9 @@ import json
 import logging
 import os
 import shutil
+
 from dials.util import procrunner
+
 logger = logging.getLogger('dlstbx.wrap_autoPROC')
 
 def get_rotation_axis_text(image):

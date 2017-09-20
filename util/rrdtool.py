@@ -1,8 +1,10 @@
 from __future__ import absolute_import, division
-from dials.util.procrunner import run_process
+
 import logging
 import os
 import re
+
+from dials.util.procrunner import run_process
 
 log = logging.getLogger('dlstbx.util.rrdtool')
 

@@ -51,7 +51,9 @@
 # THE SOFTWARE.
 
 from __future__ import absolute_import, division
+
 import logging
+import platform
 
 class _AnsiColorStreamHandler(logging.StreamHandler):
     DEFAULT = '\x1b[0m'
@@ -146,7 +148,6 @@ class _WinColorStreamHandler(logging.StreamHandler):
         self._set_color(self.FOREGROUND_WHITE)
 
 # select ColorStreamHandler based on platform
-import platform
 if platform.system() == 'Windows':
     ColorStreamHandler = _WinColorStreamHandler
 else:

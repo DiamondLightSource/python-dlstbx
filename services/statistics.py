@@ -1,9 +1,11 @@
 from __future__ import absolute_import, division
-from dlstbx.util.rrdtool import RRDTool
+
 import errno
 import os
 import Queue
 import time
+
+from dlstbx.util.rrdtool import RRDTool
 from workflows.services.common_service import CommonService
 
 class DLSStatistics(CommonService):

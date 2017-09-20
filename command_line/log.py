@@ -1,10 +1,12 @@
 from __future__ import absolute_import, division
-from dlstbx.util.colorstreamhandler import ColorStreamHandler
+
 import json
 import logging
-from optparse import OptionParser, SUPPRESS_HELP
 import sys
 import time
+from optparse import SUPPRESS_HELP, OptionParser
+
+from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from workflows.transport.stomp_transport import StompTransport
 
 class DLSLog():

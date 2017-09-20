@@ -38,4 +38,3 @@ class Factory(object):
       assert(reflections is not None)
       model = Factory.compute(params.profile, experiments, reflections)
     return model
-

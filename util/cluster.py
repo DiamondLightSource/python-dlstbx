@@ -1,10 +1,12 @@
 from __future__ import absolute_import, division
-from datetime import datetime
-from dials.util.procrunner import run_process
+
 import multiprocessing
 import os
 import threading
 import time
+from datetime import datetime
+
+from dials.util.procrunner import run_process
 
 _DLS_Load_Cluster = ". /etc/profile.d/modules.sh ; module load global/cluster"
 _DLS_Load_Testcluster = ". /etc/profile.d/modules.sh ; module load global/testcluster"

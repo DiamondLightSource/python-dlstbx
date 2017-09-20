@@ -1,13 +1,15 @@
 from __future__ import absolute_import, division
-import dlstbx
+
 import json
 import os
 import re
 import time
 import timeit
 import uuid
-from workflows.services.common_service import CommonService
+
+import dlstbx
 import workflows.recipe
+from workflows.services.common_service import CommonService
 
 class DLSDispatcher(CommonService):
   '''Single point of contact service that takes in job meta-information

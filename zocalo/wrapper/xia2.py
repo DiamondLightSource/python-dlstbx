@@ -1,11 +1,11 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division
 
-import dlstbx.zocalo.wrapper
-
+import glob
 import logging
 import os
-import glob
 import shutil
+
+import dlstbx.zocalo.wrapper
 from dials.util import procrunner
 
 logger = logging.getLogger('dlstbx.wrap.xia2')

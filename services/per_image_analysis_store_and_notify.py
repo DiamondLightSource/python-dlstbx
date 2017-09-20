@@ -1,8 +1,10 @@
 from __future__ import absolute_import, division
+
+import logging
+
+import workflows.recipe
 from dials.command_line.find_spots_client import response_to_xml
 from dials.util.procrunner import run_process
-import logging
-import workflows.recipe
 from workflows.services.common_service import CommonService
 
 class DLSPerImageAnalysisSAN(CommonService):

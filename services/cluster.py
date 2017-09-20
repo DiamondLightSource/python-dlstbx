@@ -1,13 +1,15 @@
 from __future__ import absolute_import, division
-from collections import Counter
-from dials.util.procrunner import run_process
-import dlstbx.util.cluster
+
 import errno
 import json
 import logging
 import os
 import time
+from collections import Counter
+
+import dlstbx.util.cluster
 import workflows.recipe
+from dials.util.procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSCluster(CommonService):

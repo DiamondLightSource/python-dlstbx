@@ -1,5 +1,7 @@
 
-from math import acos, atan2, sqrt, cos, sin, tan
+from math import acos, atan2, cos, sin, sqrt, tan
+
+from matplotlib import pylab
 
 x = []
 y = []
@@ -43,7 +45,6 @@ for xx, yy in zip(x, y):
   y1.append(r*sin(t)*sin(p))
   z1.append(r*cos(t))
 
-from matplotlib import pylab
 # pylab.plot(x, y)
 # pylab.show()
 

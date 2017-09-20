@@ -1,7 +1,9 @@
 from __future__ import division
+
 import json
 import sys
 import time
+
 import zmq
 
 print("Current libzmq version is %s" % zmq.zmq_version())

@@ -1,7 +1,8 @@
 from __future__ import division
+
+import libtbx.load_env
 from libtbx import test_utils
 from libtbx.test_utils.pytest import discover
-import libtbx.load_env
 
 # To write tests for dlstbx:
 

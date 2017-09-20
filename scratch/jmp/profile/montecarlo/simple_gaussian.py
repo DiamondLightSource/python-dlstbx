@@ -1,7 +1,9 @@
 
 
-from random import normalvariate
 from math import sqrt
+from random import normalvariate
+
+from matplotlib import pylab
 
 s1 = 3
 s2 = 6
@@ -35,7 +37,6 @@ for i in range(100000):
   xx.append(x1+x2)
 
 
-from matplotlib import pylab
 pylab.hist(xx, bins=100)
 pylab.show()
 

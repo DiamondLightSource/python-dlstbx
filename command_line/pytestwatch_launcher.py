@@ -1,10 +1,11 @@
 # LIBTBX_SET_DISPATCHER_NAME ptw
 import sys
 
+from pkg_resources import DistributionNotFound, load_entry_point
+
 # modify sys.argv so the command line help shows the right executable name
 sys.argv[0] = 'ptw'
 
-from pkg_resources import load_entry_point, DistributionNotFound
 
 if __name__ == '__main__':
   try:

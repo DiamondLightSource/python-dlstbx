@@ -1,12 +1,13 @@
 from __future__ import absolute_import, division
 
-import dlstbx.zocalo.controller.strategy.simple
-import dlstbx.zocalo.controller.strategy.queue_dynamic
-import dlstbx.zocalo.controller.strategy.queue_static
 import logging
 import threading
 import time
 import uuid
+
+import dlstbx.zocalo.controller.strategy.queue_dynamic
+import dlstbx.zocalo.controller.strategy.queue_static
+import dlstbx.zocalo.controller.strategy.simple
 
 class StrategyEnvironment(object):
   # From the view of the controller strategy each service and service slot

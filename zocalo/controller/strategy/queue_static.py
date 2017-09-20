@@ -1,7 +1,8 @@
 from __future__ import absolute_import, division
 
-import dlstbx.zocalo.controller.strategyenvironment
 import logging
+
+import dlstbx.zocalo.controller.strategyenvironment
 
 def _filter_active(instances):
   return { host: instance for host, instance in instances.iteritems()

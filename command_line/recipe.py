@@ -4,9 +4,10 @@
 #
 
 from __future__ import division
-from optparse import OptionParser, SUPPRESS_HELP
+
 import json
 import sys
+from optparse import SUPPRESS_HELP, OptionParser
 
 # Example: dlstbx.recipe 527189
 

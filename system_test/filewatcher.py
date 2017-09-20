@@ -1,8 +1,10 @@
 from __future__ import absolute_import, division
-from dlstbx.system_test.common import CommonSystemTest
+
+import os.path
+
 import dlstbx.util
 import mock
-import os.path
+from dlstbx.system_test.common import CommonSystemTest
 from workflows.recipe import Recipe
 
 tmpdir = dlstbx.util.dls_tmp_folder_date()

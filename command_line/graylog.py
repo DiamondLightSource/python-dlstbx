@@ -4,15 +4,17 @@
 #
 
 from __future__ import absolute_import, division
+
 import base64
-from dlstbx.util.colorstreamhandler import ColorStreamHandler
-from dlstbx.util.graylog import GraylogAPI
 import json
-from optparse import OptionParser, SUPPRESS_HELP
 import string
 import sys
 import time
 import urllib2
+from optparse import SUPPRESS_HELP, OptionParser
+
+from dlstbx.util.colorstreamhandler import ColorStreamHandler
+from dlstbx.util.graylog import GraylogAPI
 
 log_levels = {
     0: {'name': 'emerg', 'color': ColorStreamHandler.CRITICAL },

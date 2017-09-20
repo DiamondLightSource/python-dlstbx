@@ -11,16 +11,18 @@
 # To run a live server you must specify '--live'
 
 from __future__ import division
-from dlstbx import enable_graylog
-import dlstbx.util
-from dlstbx.util.colorstreamhandler import ColorStreamHandler
-from dlstbx.util.version import dlstbx_version
+
 import logging
 import os
 import sys
+
+import dlstbx.util
 import workflows
 import workflows.contrib.start_service
 import workflows.logging
+from dlstbx import enable_graylog
+from dlstbx.util.colorstreamhandler import ColorStreamHandler
+from dlstbx.util.version import dlstbx_version
 
 class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
   __frontendref = None

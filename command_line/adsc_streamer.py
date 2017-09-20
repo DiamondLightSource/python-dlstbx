@@ -2,15 +2,16 @@
 """
 """
 
-from detectorSubscriber import DetectorSubscriber
-from beamline import variables as blconfig
-import logbook
 import os
 import sys
+import time
+
+import click
+import logbook
 import lz4
 import numpy
-import click
-import time
+from beamline import variables as blconfig
+from detectorSubscriber import DetectorSubscriber
 
 logger = logbook.Logger(os.path.basename(__file__))
 logbook.StreamHandler(sys.stdout).push_application()

@@ -3,24 +3,26 @@
 #   Wraps a command so that its status can be tracked in zocalo
 #
 
-from __future__ import division, absolute_import
-from dlstbx import enable_graylog
-import dlstbx.util
-from dlstbx.util.colorstreamhandler import ColorStreamHandler
-from dlstbx.util.version import dlstbx_version
-import dlstbx.zocalo.wrapper.xia2
+from __future__ import absolute_import, division
+
 import json
 import logging
 import os
-from optparse import OptionParser, SUPPRESS_HELP
 import sys
 import threading
+from optparse import SUPPRESS_HELP, OptionParser
+
+import dlstbx.util
+import dlstbx.zocalo.wrapper.xia2
 import workflows
 import workflows.recipe.wrapper
 import workflows.services.common_service
 import workflows.transport
-from workflows.transport.stomp_transport import StompTransport
 import workflows.util
+from dlstbx import enable_graylog
+from dlstbx.util.colorstreamhandler import ColorStreamHandler
+from dlstbx.util.version import dlstbx_version
+from workflows.transport.stomp_transport import StompTransport
 
 class StatusNotifications(threading.Thread):
   def __init__(self, send_function, taskname):

@@ -1,5 +1,6 @@
 
 from __future__ import division
+
 from libtbx.phil import parse
 
 phil_scope = parse('''

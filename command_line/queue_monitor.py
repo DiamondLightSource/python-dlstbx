@@ -1,20 +1,20 @@
-from __future__ import absolute_import, division
-
 #
 # dlstbx.queue_monitor
 #   Monitor queue utilization
 #
+from __future__ import absolute_import, division
 
 import copy
 import curses
 import locale
 import math
-from optparse import OptionParser, SUPPRESS_HELP
 import re
 import sys
 import threading
 import time
 import uuid
+from optparse import SUPPRESS_HELP, OptionParser
+
 import workflows
 import workflows.transport
 

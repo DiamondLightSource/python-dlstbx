@@ -1,12 +1,14 @@
 from __future__ import absolute_import, division
 
-import dlstbx
-from dlstbx.util.result import Result
-import dlstbx.system_test
-from dlstbx.util.colorstreamhandler import ColorStreamHandler
 import logging
 import sys
 import time
+
+import dlstbx
+import dlstbx.system_test
+import junit_xml
+from dlstbx.util.colorstreamhandler import ColorStreamHandler
+from dlstbx.util.result import Result
 from workflows.transport.stomp_transport import StompTransport
 
 # Set up logging to console and graylog
@@ -189,7 +191,6 @@ for testname, test in tests.iteritems():
         test[1].early += 1
 
 # Export results
-import junit_xml
 ts = junit_xml.TestSuite("dlstbx.system_test",
                          [r for _, r in tests.itervalues()] + [unexpected_messages])
 with open('output.xml', 'w') as f:

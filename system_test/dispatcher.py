@@ -1,8 +1,10 @@
 from __future__ import absolute_import, division
-from dlstbx.system_test.common import CommonSystemTest
+
 import json
-import mock
 import os.path
+
+import mock
+from dlstbx.system_test.common import CommonSystemTest
 from workflows.recipe import Recipe
 
 class DispatcherService(CommonSystemTest):

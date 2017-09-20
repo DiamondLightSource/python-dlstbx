@@ -5,7 +5,7 @@
 #
 
 from __future__ import division
-from optparse import OptionParser, SUPPRESS_HELP
+
 import errno
 import json
 import os
@@ -13,6 +13,8 @@ import Queue
 import re
 import sys
 import time
+from optparse import SUPPRESS_HELP, OptionParser
+
 import workflows
 from workflows.transport.stomp_transport import StompTransport
 

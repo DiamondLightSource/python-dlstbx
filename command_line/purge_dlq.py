@@ -79,7 +79,7 @@ if __name__ == '__main__':
   stomp.connect()
   stomp.subscribe(dlqprefix + '.>', receive_dlq_message, acknowledgement=True)
   try:
-    idlequeue.get(True, 1)
+    idlequeue.get(True, 3)
     while True:
       idlequeue.get(True, 0.1)
   except Queue.Empty:

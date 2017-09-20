@@ -6,6 +6,9 @@ column = random.randrange(80)
 
 for x in range(24):
   if x == row:
-    print " " * column + "."
+    if column < 40:
+      print " " * column + ". <--- it's here"
+    else:
+      print " " * (column - 15) + "it's here ---> ."
   else:
     print

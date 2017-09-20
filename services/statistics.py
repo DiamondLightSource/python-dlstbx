@@ -174,7 +174,7 @@ class DLSStatistics(CommonService):
       'cluster': self.rrd.create(
           'cluster-utilization-live-general.rrd', [ '--step', '60' ]
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('slot-total', 'slot-broken', 'slot-used-h', 'slot-used-m', 'slot-used-l') ]
-        + daydata + fortnightdata
+        + daydata + weekdata + monthdata
       ),
       'clusterbacklog': self.rrd.create(
           'cluster-jobswaiting-live.rrd', [ '--step', '60' ]
@@ -186,12 +186,12 @@ class DLSStatistics(CommonService):
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('cpu-slot-total', 'cpu-slot-broken', 'cpu-slot-used-h', 'cpu-slot-used-m', 'cpu-slot-used-l') ]
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('gpu-slot-total', 'gpu-slot-broken', 'gpu-slot-used-h', 'gpu-slot-used-m', 'gpu-slot-used-l') ]
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('admin-total', 'admin-broken', 'admin-used') ]
-        + daydata + fortnightdata
+        + daydata + weekdata + monthdata
       ),
       'testcluster': self.rrd.create(
           'cluster-utilization-test-general.rrd', [ '--step', '60' ]
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('slot-total', 'slot-broken', 'slot-used-h', 'slot-used-m', 'slot-used-l') ]
-        + daydata + fortnightdata
+        + daydata + weekdata + monthdata
       ),
       'testclusterbacklog': self.rrd.create(
           'cluster-jobswaiting-test.rrd', [ '--step', '60' ]
@@ -203,7 +203,7 @@ class DLSStatistics(CommonService):
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('cpu-slot-total', 'cpu-slot-broken', 'cpu-slot-used-h', 'cpu-slot-used-m', 'cpu-slot-used-l') ]
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('gpu-slot-total', 'gpu-slot-broken', 'gpu-slot-used-h', 'gpu-slot-used-m', 'gpu-slot-used-l') ]
         + [ 'DS:%s:GAUGE:180:0:U' % name for name in ('admin-total', 'admin-broken', 'admin-used') ]
-        + daydata + fortnightdata
+        + daydata + weekdata + monthdata
       ),
     }
 

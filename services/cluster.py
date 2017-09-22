@@ -166,7 +166,8 @@ class DLSCluster(CommonService):
 
   def calculate_cluster_statistics(self, joblist, queuelist, cluster, timestamp):
     self.log.debug('Processing %s cluster statistics', cluster)
-    pending_jobs = Counter(map(lambda j: j['queue'].split('@@')[0] if '@@' in j['queue'] else j['queue'], filter(lambda j: j['state'] == 'pending', joblist)))
+    pending_jobs = Counter(map(lambda j: j['queue'].split('@@')[0] if '@@' in j['queue'] else j['queue'],
+                           filter(lambda j: j['state'] == 'pending' and 'h' not in j['statecode'], joblist)))
     waiting_jobs_per_queue = { queue: pending_jobs[queue] for queue in set(map(lambda q: q['class'], queuelist)) | set(pending_jobs) }
     self.report_statistic(waiting_jobs_per_queue, description='waiting-jobs-per-queue',
                           cluster=cluster, timestamp=timestamp)

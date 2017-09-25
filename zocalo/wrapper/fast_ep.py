@@ -16,7 +16,7 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     command = ['fast_ep']
 
-    for param, values in params.iteritems():
+    for param, values in params['fast_ep'].iteritems():
       if not isinstance(values, (list, tuple)):
         values = [values]
       for v in values:

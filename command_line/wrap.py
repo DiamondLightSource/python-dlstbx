@@ -12,7 +12,7 @@ import sys
 import threading
 from optparse import SUPPRESS_HELP, OptionParser
 
-import dlstbx.util
+import dlstbx.zocalo.wrapper
 import dlstbx.zocalo.wrapper.xia2
 import workflows
 import workflows.recipe.wrapper
@@ -83,6 +83,12 @@ def run(cmdline_args):
     default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
   StompTransport.load_configuration_file(default_configuration)
 
+  known_wrappers = {
+    'dummy': dlstbx.zocalo.wrapper.DummyWrapper,
+    'fast_ep': dlstbx.zocalo.wrapper.xia2.Xia2Wrapper, # temporary placeholder
+    'xia2': dlstbx.zocalo.wrapper.xia2.Xia2Wrapper,
+  }
+
   # Set up parser
   parser = OptionParser(
     usage='dlstbx.wrap [options]'
@@ -91,8 +97,8 @@ def run(cmdline_args):
 
   parser.add_option("--wrap", action="store", dest="wrapper", type="choice",
                     metavar="WRAP", default=None,
-                    choices=['xia2'],
-                    help="Object to be wrapped (valid choices: xia2)")
+                    choices=list(known_wrappers),
+                    help="Object to be wrapped (valid choices: %s)" % ", ".join(known_wrappers))
   parser.add_option("--recipewrapper", action="store", dest="recipewrapper",
                     metavar="RW", default=None,
                     help="A serialized recipe wrapper file " \
@@ -126,8 +132,10 @@ def run(cmdline_args):
   transport.connect()
   st = StatusNotifications(transport.broadcast_status, options.wrapper)
 
-  instance = dlstbx.zocalo.wrapper.xia2.Xia2Wrapper()
+  # Instantiate chosen wrapper
+  instance = known_wrappers[options.wrapper]()
 
+  # If specified, read in a serialized recipewrapper
   if options.recipewrapper:
     with open(options.recipewrapper, 'r') as fh:
       recwrap = workflows.recipe.wrapper.RecipeWrapper(
@@ -142,12 +150,14 @@ def run(cmdline_args):
 
   try:
     if instance.run():
+      log.info('successfully finished processing')
       instance.success('Finished processing')
     else:
+      log.info('processing failed')
       instance.failure('Processing failed')
     st.set_status(workflows.services.common_service.Status.END)
   except KeyboardInterrupt:
-    print("\nShutdown via Ctrl+C")
+    log.info('Shutdown via Ctrl+C')
     st.set_status(workflows.services.common_service.Status.END)
   except Exception as e:
     log.error(str(e), exc_info=True)
@@ -160,5 +170,4 @@ def run(cmdline_args):
   st.join()
 
 if __name__ == '__main__':
-  logging.basicConfig(level=logging.DEBUG)
   run(sys.argv[1:])

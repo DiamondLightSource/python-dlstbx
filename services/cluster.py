@@ -112,9 +112,14 @@ class DLSCluster(CommonService):
                     'recipe-path': rw.recipe_path,
                   }, fh,
                   sort_keys=True, indent=2, separators=(',', ': '))
-    if 'workingdir' in parameters:
-      workingdir = parameters['workingdir']
-      self._recursive_mkdir(workingdir)
+
+    if 'workingdir' not in parameters or not parameters['workingdir'].startswith('/'):
+      self.log.error("No absolute working directory specified. Will not run cluster job")
+      self._transport.transaction_abort(txn)
+      self._transport.nack(header)
+      return
+    workingdir = parameters['workingdir']
+    self._recursive_mkdir(workingdir)
 
     submission = [
       ". /etc/profile.d/modules.sh",
@@ -127,7 +132,7 @@ class DLSCluster(CommonService):
       "EOF"
     ]
     self.log.debug("Commands: %s", commands)
-    self.log.debug("CWD: %s", parameters.get('workingdir'))
+    self.log.debug("CWD: %s", workingdir)
     self.log.debug(str(rw.recipe_step))
     result = run_process(["/bin/bash"], stdin = "\n".join(submission))
     assert result['exitcode'] == 0

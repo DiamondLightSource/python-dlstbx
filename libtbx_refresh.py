@@ -18,6 +18,8 @@ except Exception:
 
 try:
   import libtbx.pip
+  libtbx.pip.require('ispyb', '>=0.13')
+  libtbx.pip.require('mock', '>=2.0')
   libtbx.pip.require('workflows', '>=0.54')
 except ImportError:
   print "\n" * 10 + "meh. update your cctbx maybe" + "\n" * 10

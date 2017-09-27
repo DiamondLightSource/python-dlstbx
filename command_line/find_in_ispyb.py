@@ -24,6 +24,12 @@ if __name__ == '__main__':
   parser.add_option("-p", "--reprocessing", dest="reprocess",
       action="store_true", default=False,
       help="Means a reprocessing ID is given rather than a data collection ID")
+  parser.add_option("-f", "--file", dest="recipefile", metavar="FILE",
+      action="store", type="string", default="",
+      help="Fill in recipe contained in this file with information from ISPyB.")
+  parser.add_option("--recipe-pointer", dest="recipepointer", metavar="FILE",
+      action="store", type="int", default=None,
+      help="A recipe pointer to output a recipe wrapper.")
   (options, args) = parser.parse_args(sys.argv[1:])
 
   for arg in args:
@@ -34,7 +40,23 @@ if __name__ == '__main__':
       else:
         parameters['ispyb_dcid'] = int(arg)
       message, parameters = ispyb_filter({}, parameters)
-      pprint.pprint(parameters)
+
+      if options.recipefile:
+        import json
+        import workflows.recipe
+        with open(options.recipefile, 'rb') as f:
+          recipe = workflows.recipe.Recipe(json.load(f))
+        recipe.apply_parameters(parameters)
+        if options.recipepointer:
+          d = {
+            'recipe':recipe.recipe,
+            'recipe-pointer': options.recipepointer, 'recipe-path': [], 'environment': {}
+          }
+        else:
+          d = recipe.recipe
+        print json.dumps(d, indent=2)
+      else:
+        pprint.pprint(parameters)
 
     else:
       # Not sure what this is.

@@ -15,6 +15,7 @@ from optparse import SUPPRESS_HELP, OptionParser
 import dlstbx.zocalo.wrapper
 import dlstbx.zocalo.wrapper.fast_ep
 import dlstbx.zocalo.wrapper.xia2
+import dlstbx.zocalo.wrapper.xia2_strategy
 import workflows
 import workflows.recipe.wrapper
 import workflows.services.common_service
@@ -88,6 +89,7 @@ def run(cmdline_args):
     'dummy': dlstbx.zocalo.wrapper.DummyWrapper,
     'fast_ep': dlstbx.zocalo.wrapper.fast_ep.FastEPWrapper,
     'xia2': dlstbx.zocalo.wrapper.xia2.Xia2Wrapper,
+    'xia2.strategy': dlstbx.zocalo.wrapper.xia2_strategy.Xia2StrategyWrapper,
   }
 
   # Set up parser

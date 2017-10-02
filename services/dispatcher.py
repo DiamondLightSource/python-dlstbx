@@ -69,6 +69,7 @@ class DLSDispatcher(CommonService):
         fh.write('\n\nRecipe object:\n')
         json.dump(recipewrap.recipe.recipe, fh, sort_keys=True, skipkeys=True, default=str,
                   indent=2, separators=(',', ': '))
+        fh.write('\n')
       self.log.debug('Message saved in logbook at %s', log_entry)
     except Exception:
       self.log.warning('Could not write message to logbook', exc_info=True)

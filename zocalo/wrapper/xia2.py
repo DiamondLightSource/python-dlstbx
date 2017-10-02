@@ -65,7 +65,11 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       return _recursive_apply(thing)
 
     logger.debug("Replacing temporary zocalo paths with correct destination paths")
-    message = recursive_replace(message, '/tmp/zocalo/', '/processed/')
+    message = recursive_replace(
+        message,
+        self.recwrap.recipe_step['job_parameters']['working_directory'],
+        self.recwrap.recipe_step['job_parameters']['results_directory']
+      )
 
     dcid = int(self.recwrap.recipe_step['job_parameters']['dcid'])
     assert dcid > 0, "Invalid data collection ID given."

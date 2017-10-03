@@ -9,7 +9,9 @@ from __future__ import absolute_import, division
 import base64
 import ConfigParser
 import datetime
+import dateutil.parser
 import json
+import pytz
 import urllib2
 
 class GraylogAPI():
@@ -123,6 +125,27 @@ class GraylogAPI():
                      "sort=timestamp%3Aasc"
                      .format(from_time=from_time, stream=self.stream, level=self.level)
         )
+
+  def get_history_statistics(self):
+    first_message = self._get(
+      "search/universal/absolute?"
+      "query=%2A&"
+      "from=1970-01-01%2000%3A00%3A00&"
+      "to=2031-01-01%2012%3A00%3A00&"
+      "filter=streams%3A{stream}&"
+      "limit=1&"
+      "sort=timestamp%3Aasc"
+      .format(stream=self.stream)
+    )
+    if not first_message['success']:
+      return False
+    first_timestamp = first_message['parsed']['messages'][0]['message']['timestamp']
+    log_range = (pytz.utc.localize( datetime.datetime.utcnow() ) - dateutil.parser.parse(first_timestamp)).total_seconds()
+    log_range_days = log_range / 24 / 3600
+    log_range_weeks = log_range / 24 / 3600 / 7
+    stream_message_count = first_message['parsed']['total_results']
+    return { 'range': { 'seconds': log_range, 'days': log_range_days, 'weeks': log_range_weeks },
+             'message_count': stream_message_count }
 
   def gather_log_levels_histogram_since(self, from_timestamp):
     ts = self.epoch_to_graylog(from_timestamp)

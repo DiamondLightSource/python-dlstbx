@@ -6,7 +6,6 @@ import os
 import os.path
 import xml.etree.cElementTree as ET
 from datetime import datetime
-from xml.etree.cElementTree import Element, ElementTree
 
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -59,7 +58,7 @@ class DLSArchiver(CommonService):
     _, _, beamline, _, _, visit_id = filepaths[0:6]
     visit_id_u = visit_id.upper()
 
-    icat = Element('icat')
+    icat = ET.Element('icat')
     icat.set('version', '1.0 RC6')
     icat.set('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance')
     icat.set('xsi:noNamespaceSchemaLocation', 'icatXSD.xsd')

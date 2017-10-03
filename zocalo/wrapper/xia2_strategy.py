@@ -47,7 +47,72 @@ class Xia2StrategyWrapper(Xia2Wrapper):
     return command
 
   def send_results_to_ispyb(self):
-    pass
+
+    json_to_ispyb_columns = {
+      'description': 'comments',
+      'name': 'shortComments',
+      'spacegroup': 'spacegroup',
+      'resolution': 'resolution',
+      'distance': None,
+      'i_sigma': None,
+      'completeness': 'completeness',
+      'redundancy': None,
+      'transmission': 'transmission',
+      'total_exposure_time': None,
+      'total_data_collection_time': None,
+      'cell_a': 'unitCell_a',
+      'cell_b': 'unitCell_b',
+      'cell_c': 'unitCell_c',
+      'cell_alpha': 'unitCell_alpha',
+      'cell_beta': 'unitCell_beta',
+      'cell_gamma': 'unitCell_gamma',
+      'mosaicity': 'mosaicity',
+      'phi_start': 'axisStart',
+      'phi_end': 'axisEnd',
+      'number_of_images': 'numberOfImages',
+      'phi_width': 'oscillationRange',
+      'exposure_time': 'exposureTime',
+      'overlaps': None,
+      'dmin': 'rankingResolution'
+    }
+
+    dcid = int(self.recwrap.recipe_step['job_parameters']['dcid'])
+    assert dcid > 0, 'Invalid data collection ID given.'
+    logger.info('Writing to data collection ID %s', str(dcid))
+    json_file = 'strategy/strategies.json'
+    assert os.path.isfile(json_file)
+    import json
+    with open(json_file, 'rb') as f:
+      results_all = json.load(f)
+
+    from dlstbx.ispybtbx import ispybtbx
+    ispyb_conn = ispybtbx()
+    for name, d in results_all.iteritems():
+      screening_results = {}
+      for src_k, dest_k in json_to_ispyb_columns.iteritems():
+        if src_k in d:
+          screening_results[dest_k] = d[src_k]
+
+      screening_results['rotationAxis'] = 'omega'
+      screening_results['shortComments'] = name
+      screening_results['programVersion'] = 'xia2.strategy'
+      screening_results['dataCollectionId'] = dcid
+      screening_results['program'] = 'BEST'
+      screening_results['wedgeNumber'] = '1'
+      screening_results.setdefault('rankingResolution', 'NULL')
+      ispyb_conn.insert_screening_results(dcid, screening_results)
+
+    return
+    # debugging code to interrogate results in database
+    columns = ['Screening.programversion', 'Screening.comments']
+    for s in ('a', 'b', 'c', 'alpha', 'beta', 'gamma'):
+      columns.append('ScreeningOutputLattice.unitCell_%s' %s)
+    for s in ('axisStart', 'axisEnd', 'oscillationRange', 'numberOfImages',
+              'completeness', 'resolution', 'exposureTime'):
+      columns.append('ScreeningStrategySubWedge.%s' %s)
+    for r in ispyb_conn.get_screening_results([dcid], columns=columns):
+      logger.info(r)
+
 
   def run(self):
     assert hasattr(self, 'recwrap'), \
@@ -126,8 +191,6 @@ strategy {
           strategy_lifespan=strategy_lifespan,
           gentle_strategy_lifespan=gentle_strategy_lifespan)
 
-    #return True
-
     result = procrunner.run_process(
       command, timeout=params.get('timeout'),
       print_stdout=False, print_stderr=False)
@@ -146,7 +209,7 @@ strategy {
     if not os.path.exists(results_directory):
       os.makedirs(results_directory)
 
-    for subdir in ('DataFiles', 'LogFiles'):
+    for subdir in ('DataFiles', 'LogFiles', 'strategy'):
       src = os.path.join(working_directory, subdir)
       dst = os.path.join(results_directory, subdir)
       if os.path.exists(src):
@@ -160,8 +223,13 @@ strategy {
 
     os.chdir(results_directory)
 
-    #if os.path.exists('xia2.json'):
-    #  self.send_results_to_ispyb()
+    if os.path.exists('strategy/strategies.json'):
+      logger.info('sending results to ispby')
+      self.send_results_to_ispyb()
+    else:
+      logger.warning(
+        'Expected output file does not exist: %s/strategy/strategies.json'
+        %results_directory)
 
     os.chdir(cwd)
 

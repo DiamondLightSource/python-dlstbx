@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division
 
+import errno
 import json
 import os
 import re
@@ -119,9 +120,15 @@ class DLSDispatcher(CommonService):
               recipes.append(workflows.recipe.Recipe(recipe=rcp.read()))
           except ValueError, e:
             raise ValueError("Error reading recipe '%s': %s" % (recipefile, str(e)))
+          except IOError, e:
+            if e.errno == errno.ENOENT:
+              self.log.error("Message references non-existing recipe '%s'", recipefile)
+              self._transport.nack(header)
+              return
+            raise
 
       if not recipes:
-        self.log.warning("Message contains no valid recipies or pointers to recipies")
+        self.log.error("Message contains no valid recipies or pointers to recipies")
         self._transport.nack(header)
         return
 

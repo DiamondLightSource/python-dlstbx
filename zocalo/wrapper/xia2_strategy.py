@@ -102,17 +102,84 @@ class Xia2StrategyWrapper(Xia2Wrapper):
       screening_results.setdefault('rankingResolution', 'NULL')
       ispyb_conn.insert_screening_results(dcid, screening_results)
 
-    return
-    # debugging code to interrogate results in database
-    columns = ['Screening.programversion', 'Screening.comments']
-    for s in ('a', 'b', 'c', 'alpha', 'beta', 'gamma'):
-      columns.append('ScreeningOutputLattice.unitCell_%s' %s)
-    for s in ('axisStart', 'axisEnd', 'oscillationRange', 'numberOfImages',
-              'completeness', 'resolution', 'exposureTime'):
-      columns.append('ScreeningStrategySubWedge.%s' %s)
-    for r in ispyb_conn.get_screening_results([dcid], columns=columns):
-      logger.info(r)
+    import glob
+    json_files = glob.glob('strategy/[0-9]*_align_crystal.json')
+    logger.debug('Found %s' %str(json_files))
+    for f in json_files:
+      self.insert_alignment_result_into_ispyb(f)
 
+  def insert_alignment_result_into_ispyb(self, json_file):
+    smargon = False
+    found_solutions = False
+
+    dcid = int(self.recwrap.recipe_step['job_parameters']['dcid'])
+    assert dcid > 0, 'Invalid data collection ID given.'
+
+    from dlstbx.ispybtbx import ispybtbx
+    ispyb_conn = ispybtbx()
+
+    with open(json_file, 'rb') as f:
+      import json
+      d = json.load(f)
+
+      solutions = d['solutions']
+      gonio = d['goniometer']
+      axis_names = gonio['names']
+
+      kappa_name = None
+      chi_name = None
+      phi_name = None
+      for name in axis_names:
+        if 'kappa' in name.lower():
+          kappa_name = name
+        elif 'chi' in name.lower():
+          chi_name = name
+        elif 'phi' in name.lower():
+          phi_name = name
+      assert [chi_name, kappa_name].count(None) == 1
+      assert phi_name is not None
+
+      for solution_id, soln in enumerate(solutions):
+        if chi_name is not None:
+          chi = soln.get(chi_name)
+        else: chi = None
+        if kappa_name is not None:
+          kappa = soln.get(kappa_name)
+        else: kappa = None
+        phi = soln.get(phi_name)
+        settings = soln.get('settings')
+        assert [chi, kappa].count(None) == 1
+        assert phi is not None
+        assert settings is not None
+        settings_str = '[%s]' %(
+          ', '.join('(%s, %s)' %(str(v1), str(v2))
+                    for v1, v2 in settings))
+
+        if kappa is not None and kappa < 0:
+          continue # only insert strategies with positive kappa
+        if chi is not None and (chi < 0 or chi > 45):
+          continue # only insert strategies with 0 < chi > 45
+        if phi < 0:
+          phi += 360 # make phi always positive
+        if kappa is not None:
+          kappa = '%.2f' %kappa
+        elif chi is not None:
+          chi = '%.2f' %chi
+        phi = '%.2f' %phi
+
+        result = {'dataCollectionId': dcid,
+                  'program': 'dials.align_crystal',
+                  'shortComments': 'dials.align_crystal %i' %solution_id,
+                  'comments': settings_str,
+                  'phi': phi,
+        }
+        if kappa is not None:
+          result['kappa'] = kappa
+        elif chi is not None:
+          result['chi'] = chi
+
+        logger.debug('Inserting alignment result into ISPyB: %s' %str(result))
+        ispyb_conn.insert_alignment_result(result)
 
   def run(self):
     assert hasattr(self, 'recwrap'), \
@@ -137,11 +204,11 @@ class Xia2StrategyWrapper(Xia2Wrapper):
     transmission = float(params['strategy']['transmission'])
     wavelength = float(params['strategy']['wavelength'])
     beamline = params['strategy']['beamline']
-    logger.info('transmission: %s' %transmission)
-    logger.info('wavelength: %s' %wavelength)
+    logger.debug('transmission: %s' %transmission)
+    logger.debug('wavelength: %s' %wavelength)
     strategy_lifespan = round((lifespan * (100 / transmission)) * (wavelength/0.979)**-3, 0)
     gentle_strategy_lifespan = round((lifespan * (100 / transmission)) * (wavelength/0.979)**-3 / 10, 0)
-    logger.info('lifespan: %s' %lifespan)
+    logger.debug('lifespan: %s' %lifespan)
 
     if beamline == 'i24':
       min_exposure = 0.01

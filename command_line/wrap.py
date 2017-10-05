@@ -13,6 +13,7 @@ import threading
 from optparse import SUPPRESS_HELP, OptionParser
 
 import dlstbx.zocalo.wrapper
+import dlstbx.zocalo.wrapper.edna
 import dlstbx.zocalo.wrapper.fast_ep
 import dlstbx.zocalo.wrapper.xia2
 import dlstbx.zocalo.wrapper.xia2_strategy
@@ -90,6 +91,7 @@ def run(cmdline_args):
     'fast_ep': dlstbx.zocalo.wrapper.fast_ep.FastEPWrapper,
     'xia2': dlstbx.zocalo.wrapper.xia2.Xia2Wrapper,
     'xia2.strategy': dlstbx.zocalo.wrapper.xia2_strategy.Xia2StrategyWrapper,
+    'edna': dlstbx.zocalo.wrapper.edna.EdnaWrapper,
   }
 
   # Set up parser

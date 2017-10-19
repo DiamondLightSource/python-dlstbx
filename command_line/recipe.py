@@ -13,7 +13,7 @@ from optparse import SUPPRESS_HELP, OptionParser
 
 if __name__ == '__main__':
   if len(sys.argv) != 2:
-    raise RuntimeError, '%s $DCID' % sys.argv[0]
+    raise RuntimeError('%s $DCID' % sys.argv[0])
 
   dcid = int(sys.argv[1])
 

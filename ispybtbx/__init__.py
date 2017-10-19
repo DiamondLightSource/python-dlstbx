@@ -642,6 +642,6 @@ def work(dc_ids):
 if __name__ == '__main__':
   import sys
   if len(sys.argv) == 1:
-    raise RuntimeError, 'for this mode of testing pass list of DCID on CL'
+    raise RuntimeError('for this mode of testing pass list of DCID on CL')
   else:
     work(map(int, sys.argv[1:]))

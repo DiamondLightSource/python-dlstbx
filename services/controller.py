@@ -333,7 +333,7 @@ class DLSController(CommonService):
           self.log.info('Successfully started new instance of %s', service)
           return True
         self.log.info('Could not start %s with %s', service, str(attempt))
-      except Exception, e:
+      except Exception as e:
         self.log.info('Failed to start %s with %s, error: %s', service, str(attempt), str(e), exc_info=True)
     self.log.warning('Could not start %s, all available options exhausted', service)
     return False

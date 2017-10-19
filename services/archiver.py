@@ -94,7 +94,7 @@ class DLSArchiver(CommonService):
 
       try:
         stat = os.stat(filename)
-      except OSError, e:
+      except OSError as e:
         if e.errno == errno.ENOENT:
           files_not_found.append(filename)
         else:

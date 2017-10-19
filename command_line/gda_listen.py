@@ -18,11 +18,8 @@ if __name__ == '__main__':
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 
   # override default stomp host
-  try:
-    StompTransport.load_configuration_file(
-      '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
-  except workflows.WorkflowsError, e:
-    raise
+  StompTransport.load_configuration_file(
+    '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg')
 
   StompTransport.add_command_line_options(parser)
   (options, args) = parser.parse_args(sys.argv[1:])

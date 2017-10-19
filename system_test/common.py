@@ -91,7 +91,7 @@ class CommonSystemTest(object):
       messages[name] = { 'send': [], 'expect': [], 'timers': [], 'errors': [] }
       try:
         function()
-      except Exception, e:
+      except Exception:
         import traceback
         messages[name]['errors'].append(traceback.format_exc())
     return messages

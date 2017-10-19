@@ -118,9 +118,9 @@ class DLSDispatcher(CommonService):
           try:
             with open(os.path.join(self.recipe_basepath, recipefile + '.json'), 'r') as rcp:
               recipes.append(workflows.recipe.Recipe(recipe=rcp.read()))
-          except ValueError, e:
+          except ValueError as e:
             raise ValueError("Error reading recipe '%s': %s" % (recipefile, str(e)))
-          except IOError, e:
+          except IOError as e:
             if e.errno == errno.ENOENT:
               self.log.error("Message references non-existing recipe '%s'", recipefile)
               self._transport.nack(header)

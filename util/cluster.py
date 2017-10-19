@@ -90,7 +90,7 @@ class Cluster():
       try:
         retval = getattr(self, function)(*args, **kwargs)
         self._pipe_subprocess.send({'value': retval})
-      except Exception, e:
+      except Exception as e:
         import sys, traceback
         # Keep a formatted copy of the trace for passing in serialized form
         trace = [ "  %s" % line for line in traceback.format_exception(*sys.exc_info()) ]

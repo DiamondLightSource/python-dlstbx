@@ -55,7 +55,7 @@ class JMXAPI(object):
     params = ','.join(key + '=' + value for key, value in kwargs.items())
     url = path + ':' + params
     return self._get(url)
- 
+
   def _get(self, url):
     complete_url = self.url + url
     req = urllib2.Request(complete_url, headers={"Accept": "application/json"})

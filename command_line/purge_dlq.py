@@ -4,7 +4,7 @@
 #   in a temporary directory.
 #
 
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
 import errno
 import json
@@ -29,10 +29,7 @@ if __name__ == '__main__':
     default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
     dlqprefix = 'zocdev'
   # override default stomp host
-  try:
-    StompTransport.load_configuration_file(default_configuration)
-  except workflows.WorkflowsError as e:
-    print "Error: %s\n" % str(e)
+  StompTransport.load_configuration_file(default_configuration)
 
   StompTransport.add_command_line_options(parser)
   (options, args) = parser.parse_args([ '--stomp-prfx=DLQ' ] + sys.argv[1:])
@@ -73,8 +70,9 @@ if __name__ == '__main__':
 
     with open(os.path.join(filepath, filename), 'w') as fh:
       fh.write(json.dumps(dlqmsg, indent=2, sort_keys=True))
-    print "Message %s (%s) exported." % \
-          ( header['message-id'], time.strftime('%Y-%m-%d %H:%M:%S', timestamp) )
+    print("Message {id} ({timestamp}) exported:\n  {filename}".format(
+          id=header['message-id'], timestamp=time.strftime('%Y-%m-%d %H:%M:%S', timestamp),
+          filename=os.path.join(filepath, filename)))
     stomp.ack(header)
     idlequeue.put_nowait('done')
 
@@ -85,4 +83,4 @@ if __name__ == '__main__':
     while True:
       idlequeue.get(True, 0.1)
   except Queue.Empty:
-    print "Done."
+    print("Done.")

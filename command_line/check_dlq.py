@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import sys
 import time
@@ -62,10 +62,10 @@ class QueueStatus():
       return
 
     if self.dlq_messages > 0:
-      print "Total of %d DLQ messages found" % self.dlq_messages
+      print("Total of %d DLQ messages found" % self.dlq_messages)
       sys.exit(1)
     else:
-      print "No DLQ messages found"
+      print("No DLQ messages found")
       sys.exit(0)
 
   def process_report(self, header, message):
@@ -94,7 +94,7 @@ class QueueStatus():
 
     if destination.startswith('queue://DLQ.'):
       if report.get('size'):
-        print "DLQ for %s contains %d entries" % (destination.replace('queue://DLQ.',''), report['size'])
+        print("DLQ for %s contains %d entries" % (destination.replace('queue://DLQ.',''), report['size']))
         self.dlq_messages += report['size']
 
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
 from dials.util.version import get_git_version
 
@@ -49,4 +49,4 @@ def dlstbx_version():
   return version
 
 if __name__ == '__main__':
-  print dlstbx_version()
+  print(dlstbx_version())

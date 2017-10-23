@@ -3,7 +3,7 @@
 #   'tail' equivalent for graylog messages
 #
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import base64
 import json
@@ -100,7 +100,7 @@ if __name__ == '__main__':
   try:
     level = [ 'a', 'c', 'e', 'w', 'n', 'i', 'd' ].index(options.level.lower()[0]) + 1
   except ValueError:
-    print "Invalid loglevel specified."
+    print("Invalid loglevel specified.")
     sys.exit(1)
 
   g = GraylogAPI('/dls_sw/apps/zocalo/secrets/credentials-log.cfg')
@@ -114,7 +114,7 @@ if __name__ == '__main__':
         sys.stdout.flush()
         time.sleep(0.7)
     except KeyboardInterrupt:
-      print
+      print()
   else:
     for message in g.get_all_messages(time=options.time):
       sys.stdout.write(format(message))

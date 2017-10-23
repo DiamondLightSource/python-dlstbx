@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import json
 import logging
@@ -43,10 +43,10 @@ class DLSLog():
     '''Process a log message'''
     if not isinstance(message, dict) or 'message' not in message:
       self.setcolor(logging.ERROR)
-      print "=" * 80
-      print "Unknown message:"
-      print message
-      print "=" * 80
+      print("=" * 80)
+      print("Unknown message:")
+      print(message)
+      print("=" * 80)
       self.resetcolor()
     else:
       if message['name'] == 'dlstbx.services.cluster.stats': return # Filter cluster statistics messages
@@ -58,17 +58,17 @@ class DLSLog():
         self.last_info = [message.get(x) for x in ('workflows_host', 'workflows_service', 'workflows_status')]
         self.last_info_messages = 0
         self.setbold()
-        print "====== {workflows_host}{service_description} ======".format(**message)
+        print("====== {workflows_host}{service_description} ======".format(**message))
         self.resetcolor()
       self.last_info_messages += 1
       self.setcolor(message.get('levelno', 0))
       if message.get('exc_text'):
-        print "{name}: {msg}{service_description}".format(**message)
-        print message.get('exc_text')
+        print("{name}: {msg}{service_description}".format(**message))
+        print(message.get('exc_text'))
       else:
         if message['levelno'] >= logging.WARN:
-          print "{pathname}:{lineno}{service_description}".format(**message)
-        print "{name}: {msg}".format(**message)
+          print("{pathname}:{lineno}{service_description}".format(**message))
+        print("{name}: {msg}".format(**message))
 #     print json.dumps(message, indent=2)
       self.resetcolor()
 
@@ -97,4 +97,4 @@ if __name__ == '__main__':
       time.sleep(5)
   except KeyboardInterrupt:
     logviewer.resetcolor()
-    print
+    print()

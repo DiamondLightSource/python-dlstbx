@@ -1,10 +1,10 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 import os
 
 try:
   from dlstbx.util.version import dlstbx_version
-  print dlstbx_version()
+  print(dlstbx_version())
 except Exception:
   pass
 
@@ -27,4 +27,4 @@ try:
   libtbx.pkg_utils.require('graypy', '>=0.2.14')
   libtbx.pkg_utils.require('colorama') # is still used in one place
 except ImportError:
-  print "\n" * 10 + "meh. update your cctbx maybe" + "\n" * 10
+  print("\n" * 10 + "meh. update your cctbx maybe" + "\n" * 10)

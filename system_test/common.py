@@ -60,10 +60,10 @@ class CommonSystemTest(object):
     self.validation = True
     try:
       for name, function in self.enumerate_test_functions():
-        print "validating", name
+        self.log.info("validating %s" % name)
         function()
         self.guid = str(uuid.uuid4()) # rotate guid for next function
-        print "OK"
+        self.log.info("OK")
     finally:
       # Restore messaging functions
       for name, function in original_functions:

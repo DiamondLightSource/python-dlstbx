@@ -5,13 +5,11 @@
 
 # LIBTBX_SET_DISPATCHER_NAME ispyb.reprocessing
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
-import pprint
 import sys
 from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
 
-import dlstbx
 import ispyb
 
 # Display stored information:
@@ -69,14 +67,13 @@ if __name__ == '__main__':
   (options, args) = parser.parse_args(sys.argv[1:])
 
   if not args:
-    print "No reprocessing ID specified\n"
+    print("No reprocessing ID specified\n")
     parser.print_help()
     sys.exit(0)
   if len(args) > 1:
-    print "Only one reprocessing ID can be specified"
+    print("Only one reprocessing ID can be specified")
     sys.exit(1)
 
-  dlstbx.ensure_ispyb_version(required="0.12")
   driver = ispyb.get_driver(ispyb.Backend.DATABASE_MYSQL)
   i = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
   # because read access is only available with this login
@@ -98,7 +95,7 @@ if __name__ == '__main__':
         status=options.result,
       )
     except ispyb.exception.UpdateFailed:
-      print "Error: Could not create processing program.\n"
+      print("Error: Could not create processing program.\n")
       exit_code = 1
 
   elif options.update:
@@ -110,34 +107,34 @@ if __name__ == '__main__':
         update_message=options.status,
       )
     except ispyb.exception.UpdateFailed:
-      print "Error: Could not update processing status.\n"
+      print("Error: Could not update processing status.\n")
       exit_code = 1
 
   try:
     rp = i.get_reprocessing_id(rpid)
   except ispyb.exception.ISPyBNoResultException:
-    print "Reprocessing ID %s not found" % rpid
+    print("Reprocessing ID %s not found" % rpid)
     sys.exit(1)
-  print '''Reprocessing ID {reprocessingId}:
+  print('''Reprocessing ID {reprocessingId}:
 
        Name: {displayName}
      Recipe: {recipe}
    Comments: {comments}
  Primary DC: {dataCollectionId}
-    Defined: {recordTimestamp}'''.format(**rp)
+    Defined: {recordTimestamp}'''.format(**rp))
 
   if options.verbose:
     params = i.get_reprocessing_parameters(rpid)
     if params:
       maxlen = max(max(map(len, params)), 11)
-      print "\n Parameters:"
-      print '\n'.join("%%%ds: %%s" % maxlen % (key, params[key]) for key in sorted(params))
+      print("\n Parameters:")
+      print('\n'.join("%%%ds: %%s" % maxlen % (key, params[key]) for key in sorted(params)))
 
-    print "\n     Sweeps:",
-    print ('\n' + ' ' * 13).join(map(
+    print("\n     Sweeps: ", end='')
+    print(('\n' + ' ' * 13).join(map(
         lambda sweep:
           "DCID {dataCollectionId:7}  images{startImage:5} -{endImage:5}".format(**sweep),
-        i.get_reprocessing_sweeps(rpid)))
+        i.get_reprocessing_sweeps(rpid))))
 
   processing_programs = i.get_processing_instances_for_reprocessing_id(rpid)
   if processing_programs:
@@ -154,4 +151,4 @@ if __name__ == '__main__':
     print_format += "\n  Last Info: {processingMessage}"
 
     for autoproc_instance in processing_programs:
-      print print_format.format(**autoproc_instance)
+      print(print_format.format(**autoproc_instance))

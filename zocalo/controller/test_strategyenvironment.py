@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 from itertools import count
 
@@ -103,7 +103,7 @@ def test_service_instances_are_allocated_correctly():
   ]
 
   for prior, req_inst, allocation in expected_allocation_changes:
-    print "Testing allocation for %d required instances given %s" % (req_inst, str(prior))
+    print("Testing allocation for %d required instances given %s" % (req_inst, str(prior)))
     se = generate_test_strategy_environment(prior)
     assessment = mock.Mock()
     assessment.assess.return_value = { 'required': { 'count': req_inst } }

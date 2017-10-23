@@ -1,8 +1,7 @@
-from __future__ import division
+from __future__ import absolute_import, division, print_function
 
-import libtbx.load_env
-from libtbx import test_utils
 from libtbx.test_utils.pytest import discover
+tst_list = discover()
 
 # To write tests for dlstbx:
 
@@ -12,16 +11,7 @@ from libtbx.test_utils.pytest import discover
 
 # To run dlstbx tests:
 
-# A. libtbx.run_tests_parallel as usual
-#   or, much better:
-# B. run 'py.test' inside dlstbx directory
+# run 'pytest' inside dlstbx directory
 
-tst_list = discover("dlstbx")
-
-def run():
-  build_dir = libtbx.env.under_build("dlstbx")
-  dist_dir = libtbx.env.dist_path("dlstbx")
-  test_utils.run_tests(build_dir, dist_dir, tst_list)
-
-if (__name__ == "__main__"):
-  run()
+# For more information see:
+#   https://github.com/dials/dials/wiki/pytest

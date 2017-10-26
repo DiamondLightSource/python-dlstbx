@@ -4,7 +4,7 @@
 # Point to a configuration file to use it, eg:
 #  g = GraylogAPI('/dls_sw/apps/zocalo/secrets/credentials-log.cfg')
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import base64
 import ConfigParser

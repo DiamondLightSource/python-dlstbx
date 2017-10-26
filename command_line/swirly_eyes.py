@@ -2,7 +2,7 @@
 #
 # LIBTBX_SET_DISPATCHER_NAME dials.swirly_eyes
 
-from __future__ import division
+from __future__ import absolute_import, division
 
 import re
 import sys

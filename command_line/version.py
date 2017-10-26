@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import absolute_import, division
 
 from dlstbx.util.version import dlstbx_version
 

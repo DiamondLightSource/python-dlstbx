@@ -3,7 +3,7 @@
 #   Propose recipes to be run on $DCID
 #
 
-from __future__ import division
+from __future__ import absolute_import, division
 
 import json
 import sys

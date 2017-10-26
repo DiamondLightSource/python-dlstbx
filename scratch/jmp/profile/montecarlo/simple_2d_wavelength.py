@@ -1,3 +1,4 @@
+from __future__ import absolute_import, division, print_function
 
 def quantile(m, s, x):
   from scipy.special import erfinv

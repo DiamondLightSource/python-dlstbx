@@ -1,3 +1,4 @@
+from __future__ import absolute_import, division
 
 def almost_equal(a, b, eps=1e-7):
   return abs(a - b) < eps

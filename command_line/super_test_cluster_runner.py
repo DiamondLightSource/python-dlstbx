@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division
+
 #!/bin/env python
 
 if __name__ == '__main__':

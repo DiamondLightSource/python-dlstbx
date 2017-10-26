@@ -1,3 +1,8 @@
+from __future__ import absolute_import, division, print_function
+
+import json
+import os
+
 #!/usr/bin/python
 #
 # API for access to the zocalo profiling database, which includes DLS
@@ -8,8 +13,6 @@
 #   dials.python -m pip install mysql-connector
 #
 
-import json
-import os
 
 class database(object):
   def __init__(self):

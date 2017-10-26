@@ -7,7 +7,7 @@
 #  jmx.java.lang(type="Memory")
 #  jmx.org.apache.activemq(type="Broker", brokerName="localhost/TotalConsumerCount")
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import base64
 import ConfigParser

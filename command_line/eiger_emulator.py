@@ -1,4 +1,4 @@
-# EIGER emulator
+from __future__ import absolute_import, division
 
 import hashlib
 import json
@@ -11,6 +11,10 @@ from optparse import SUPPRESS_HELP, OptionParser
 import fabio
 import lz4
 import zmq
+
+# EIGER emulator
+
+
 
 print("Current libzmq version is %s" % zmq.zmq_version())
 print("Current  pyzmq version is %s" % zmq.__version__)

@@ -2,7 +2,7 @@
 # dlstbx.queue_monitor
 #   Monitor queue utilization
 #
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import copy
 import curses

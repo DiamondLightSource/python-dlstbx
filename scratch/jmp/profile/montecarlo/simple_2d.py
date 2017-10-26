@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division
+
 #
 # Simple test to do a montecarlo integration of a 2d gaussian moving through a
 # circle.

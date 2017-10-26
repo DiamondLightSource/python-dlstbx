@@ -7,10 +7,10 @@ import shutil
 
 import dlstbx.zocalo.wrapper
 from dials.util import procrunner
+from dlstbx.zocalo.wrapper.xia2 import Xia2Wrapper
 
 logger = logging.getLogger('dlstbx.wrap.xia2_strategy')
 
-from dlstbx.zocalo.wrapper.xia2 import Xia2Wrapper
 
 class Xia2StrategyWrapper(Xia2Wrapper):
 

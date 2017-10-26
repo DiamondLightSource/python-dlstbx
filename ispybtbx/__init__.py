@@ -1,4 +1,9 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division
+
+import json
+import logging
+import os
+import uuid
 
 # Temporary API to ISPyB while I wait for a proper one using stored procedures
 # - beware here be dragons, written by a hacker who is not a database wonk.
@@ -13,10 +18,6 @@ try:
   import mysql.connector # installed by ispyb
 except ImportError:
   raise ImportError('ISPyB module not found. Run python -m pip install ispyb')
-import logging
-import json
-import os
-import uuid
 
 with open('/dls_sw/apps/zocalo/secrets/ispyb-login.json', 'r') as sauce:
   secret_ingredients = json.load(sauce)

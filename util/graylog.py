@@ -9,10 +9,11 @@ from __future__ import absolute_import, division
 import base64
 import ConfigParser
 import datetime
-import dateutil.parser
 import json
-import pytz
 import urllib2
+
+import dateutil.parser
+import pytz
 
 class GraylogAPI():
   last_seen_message = None

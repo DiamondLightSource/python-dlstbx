@@ -1,8 +1,9 @@
 from __future__ import absolute_import, division
+
 import datetime
 import errno
-import re
 import os
+import re
 import stat
 
 def _create_tmp_folder(tmp_folder):

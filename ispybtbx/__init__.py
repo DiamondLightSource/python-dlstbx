@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import json
 import logging
@@ -10,14 +10,14 @@ import uuid
 #
 # Dependencies:
 #
-#   dials.python -m pip install ispyb --upgrade
+#   dials.python -m pip install "ispyb<1" --upgrade
 #
 
 try:
   import ispyb
   import mysql.connector # installed by ispyb
 except ImportError:
-  raise ImportError('ISPyB module not found. Run python -m pip install ispyb')
+  raise ImportError('ISPyB module not found. Run python -m pip install "ispyb<1"')
 
 with open('/dls_sw/apps/zocalo/secrets/ispyb-login.json', 'r') as sauce:
   secret_ingredients = json.load(sauce)
@@ -630,7 +630,7 @@ def work(dc_ids):
   i = ispybtbx()
 
   for dc_id in dc_ids:
-    print i.get_space_group_and_cell(dc_id)
+    print(i.get_space_group_and_cell(dc_id))
     message = { }
     parameters = {'ispyb_dcid': dc_id}
     message, parameters = ispyb_filter(message, parameters)

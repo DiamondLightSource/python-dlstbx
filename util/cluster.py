@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import multiprocessing
 import os
@@ -116,7 +116,6 @@ class Cluster():
     result = run_process(command=['/bin/bash', '-l'], timeout=10,
         stdin=command + "\nset\n", print_stdout=False, print_stderr=False, environ=blank_environment)
     if result['timeout'] or result['exitcode'] != 0:
-      print result
       raise RuntimeError('Could not load cluster environment\n%s' % str(result))
 
     environment = {}
@@ -325,35 +324,35 @@ if __name__ == '__main__':
   from pprint import pprint
   test_id = tc.qsub('/bin/bash', [ '-c', 'touch markerfile.' + str(uuid.uuid4()) + '; sleep 10; ls -la' ])
   real_id = rc.qsub('/bin/bash', [ '-c', 'touch markerfile.' + str(uuid.uuid4()) + '; sleep 10; ls -la' ])
-  print "Submitted job #%s to the cluster and #%s to the testcluster" % (real_id, test_id)
+  print("Submitted job #%s to the cluster and #%s to the testcluster" % (real_id, test_id))
 
   joblist, _ = stats.run_on(rc, arguments=['-r', '-u', '*'])
   joblist = filter(lambda j: j['ID'] == int(real_id), joblist)
   if len(joblist) < 1:
-    print "Could not read back information about this job ID from cluster"
+    print("Could not read back information about this job ID from cluster")
   else:
     if len(joblist) > 1:
-      print "Found more than one job with this ID on cluster"
+      print("Found more than one job with this ID on cluster")
       pprint(joblist)
     else:
-      print "Job information on cluster:"
+      print("Job information on cluster:")
       pprint(joblist[0])
 
   joblist, _ = stats.run_on(tc, arguments=['-r', '-u', '*'])
   joblist = filter(lambda j: j['ID'] == int(test_id), joblist)
   if len(joblist) < 1:
-    print "Could not read back information about this job ID from testcluster"
+    print("Could not read back information about this job ID from testcluster")
   else:
     if len(joblist) > 1:
-      print "Found more than one job with this ID on testcluster"
+      print("Found more than one job with this ID on testcluster")
       pprint(joblist)
     else:
-      print "Job information on testcluster:"
+      print("Job information on testcluster:")
       pprint(joblist[0])
 
   for x in xrange(4):
     time.sleep(4)
-    print "Cluster",     rc.qstat(real_id)
-    print "Testcluster", tc.qstat(test_id)
+    print("Cluster",     rc.qstat(real_id))
+    print("Testcluster", tc.qstat(test_id))
   tc.close()
   rc.close()

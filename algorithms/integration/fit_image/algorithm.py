@@ -8,7 +8,7 @@
 #  This code is distributed under the BSD license, a copy of which is
 #  included in the root directory of this package.
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 class IntegrationAlgorithm(object):
   ''' A class to perform profile fitting '''
@@ -70,7 +70,7 @@ class IntegrationAlgorithm(object):
     if self._debug:
       import cPickle as pickle
       filename = 'debug_%d.pickle' % job_id()
-      print 'Saving debugging information to %s' % filename
+      print('Saving debugging information to %s' % filename)
       reference = [profiles.data(i) for i in range(len(profiles))]
       rprofiles = []
       for r in reflections:

@@ -74,7 +74,7 @@ if __name__ == '__main__':
     print("Only one reprocessing ID can be specified")
     sys.exit(1)
 
-  driver = ispyb.get_driver(ispyb.Backend.DATABASE_MYSQL)
+  driver = ispyb.legacy_get_driver(ispyb.legacy_Backend.DATABASE_MYSQL)
   i = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
   # because read access is only available with this login
   isp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
@@ -94,7 +94,7 @@ if __name__ == '__main__':
         update_message=options.status,
         status=options.result,
       )
-    except ispyb.exception.UpdateFailed:
+    except ispyb.legacy.exception.UpdateFailed:
       print("Error: Could not create processing program.\n")
       exit_code = 1
 
@@ -106,13 +106,13 @@ if __name__ == '__main__':
         update_time=options.updatetime,
         update_message=options.status,
       )
-    except ispyb.exception.UpdateFailed:
+    except ispyb.legacy.exception.UpdateFailed:
       print("Error: Could not update processing status.\n")
       exit_code = 1
 
   try:
     rp = i.get_reprocessing_id(rpid)
-  except ispyb.exception.ISPyBNoResultException:
+  except ispyb.legacy.exception.ISPyBNoResultException:
     print("Reprocessing ID %s not found" % rpid)
     sys.exit(1)
   print('''Reprocessing ID {reprocessingId}:

@@ -16,7 +16,7 @@ class DLSISPyB(CommonService):
   def initializing(self):
     '''Subscribe the ISPyB connector queue. Received messages must be
        acknowledged.'''
-    driver = ispyb.get_driver(ispyb.Backend.DATABASE_MYSQL)
+    driver = ispyb.legacy_get_driver(ispyb.legacy_Backend.DATABASE_MYSQL)
     self.ispybdb = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
     self.ispybdbsp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.log.info("ISPyB connector starting with ispyb v%s", ispyb.__version__)
@@ -60,7 +60,7 @@ class DLSISPyB(CommonService):
             update_message=message
           )
         self.log.info("Updating program %s status: '%s' with result %s", ppid, message, result)
-      except ispyb.exception.ISPyBException as e:
+      except ispyb.legacy.exception.ISPyBException as e:
         self.log.warning("Updating program %s status: '%s' caused exception '%s'.",
                          ppid, message, e, exc_info=True)
         result = None
@@ -80,7 +80,7 @@ class DLSISPyB(CommonService):
                      environment=environment)
         self.log.info("Registered new processing program '%s' for reprocessing id '%s' with command line '%s' and environment '%s' with result '%s'.",
                       program, rpid, cmdline, environment, result)
-      except ispyb.exception.ISPyBException as e:
+      except ispyb.legacy.exception.ISPyBException as e:
         self.log.warning("Registering new processing program '%s' for reprocessing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
                          program, rpid, cmdline, environment, e, exc_info=True)
         result = None

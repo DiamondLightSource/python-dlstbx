@@ -34,9 +34,8 @@ class ispybtbx(object):
     self.legacy_init()
 
     self.log = logging.getLogger('dlstbx.ispybtbx')
-    api = ispyb.get_driver(ispyb.Backend.DATABASE_MYSQL)
+    api = ispyb.legacy_get_driver(ispyb.legacy_Backend.DATABASE_MYSQL)
     self.db = api(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
-    self.dbsp = api(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.log.debug('ISPyB objects set up')
 
   def __call__(self, message, parameters):
@@ -53,7 +52,7 @@ class ispybtbx(object):
               })
         parameters['ispyb_images'] = ','.join(sweep['dataCollection']['ispyb_image'] for sweep in parameters['ispyb_reprocessing_sweeps'])
         parameters['ispyb_reprocessing_parameters']  = self.db.get_reprocessing_parameters(reprocessing_id)
-      except ispyb.exception.ISPyBNoResultException:
+      except ispyb.legacy_exception.ISPyBNoResultException:
         self.log.warning("Reprocessing ID %s not found", str(reprocessing_id))
     return message, parameters
 

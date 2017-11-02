@@ -2,7 +2,7 @@
 #
 # LIBTBX_SET_DISPATCHER_NAME it.status
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import datetime
 import logging
@@ -50,7 +50,7 @@ def store_status():
 
 def prune_database():
   dlstbx.profiling.database().prune()
-  print "Database successfully pruned"
+  print("Database successfully pruned")
 
 def display_status(issues):
   global error_exists
@@ -83,9 +83,9 @@ def display_status(issues):
       if not options.quiet:
         if options.verbosity > 0 or group != 'Information':
           setbold()
-          print "\n%d %s message%s:" % (len(select), group, '' if len(select) == 1 else 's')
+          print("\n%d %s message%s:" % (len(select), group, '' if len(select) == 1 else 's'))
         else:
-          print "\n%d %s message%s (omitted)" % (len(select), group, '' if len(select) == 1 else 's')
+          print("\n%d %s message%s (omitted)" % (len(select), group, '' if len(select) == 1 else 's'))
       if group == 'Information' and (options.quiet or options.verbosity == 0):
         continue
       if group == 'Error':
@@ -105,15 +105,15 @@ def display_status(issues):
           age = "%.1f hrs ago" % (age / 60 / 60)
         if s['Level'] > 0:
           setbold()
-        print base_indent + s['Source'] + ":",
+        print(base_indent + s['Source'] + ":", end=" ")
         resetcolor()
         setcolor(colour)
-        print " %s (%s)" % (s['Message'], age)
+        print(" %s (%s)" % (s['Message'], age))
         indent = base_indent + (len(s['Source']) + 2) * ' '
         if s['MessageBody'] and not options.quiet and (group != 'Information' or options.verbosity > 2):
-          print indent + s['MessageBody'].replace('\n', '\n' + indent)
+          print(indent + s['MessageBody'].replace('\n', '\n' + indent))
         if s['URL'] and (group != 'Information' or options.verbosity > 1) and not (options.quiet > 1):
-          print indent + s['URL']
+          print(indent + s['URL'])
   resetcolor()
 
 if options.prune:

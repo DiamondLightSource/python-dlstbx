@@ -3,7 +3,7 @@
 #   Wraps a command so that its status can be tracked in zocalo
 #
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import json
 import logging
@@ -126,7 +126,7 @@ def run(cmdline_args):
 
   # Instantiate specific wrapper
   if not options.wrapper:
-    print "A wrapper object must be specified."
+    print("A wrapper object must be specified.")
     sys.exit(1)
 
   # Enable logging to graylog

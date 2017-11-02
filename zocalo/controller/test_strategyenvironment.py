@@ -124,7 +124,7 @@ def test_ordering_service_instances_prefers_newer_workflows_versions():
                 { 'workflows': [ 0, 30 ] },
                 { } ]
   se = generate_test_strategy_environment()
-  assert [ instances[k] for k in 4,1,3,0,2 ] == se.order_instances(instances)
+  assert [ instances[k] for k in (4,1,3,0,2) ] == se.order_instances(instances)
   assert [ instances[k] for k in 2,0,3,1,4 ] == se.order_instances(instances, reverse=True)
 
 def test_ordering_service_instances_prefers_newer_dlstbx_versions_when_same_workflows_version():

@@ -3,7 +3,7 @@
 #   Process a datacollection
 #
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import json
 import sys
@@ -48,7 +48,7 @@ if __name__ == '__main__':
   try:
     StompTransport.load_configuration_file(default_configuration)
   except workflows.WorkflowsError as e:
-    print "Error: %s\n" % str(e)
+    print("Error: %s\n" % str(e))
 
   StompTransport.add_command_line_options(parser)
   (options, args) = parser.parse_args(sys.argv[1:])
@@ -59,7 +59,7 @@ if __name__ == '__main__':
             }
 
   if not options.recipe and not options.recipefile and not (options.default and not options.nodcid) and not options.reprocess:
-    print "No recipes specified."
+    print("No recipes specified.")
     sys.exit(1)
 
   if options.recipefile:
@@ -68,24 +68,24 @@ if __name__ == '__main__':
 
   if options.nodcid:
     if options.recipe:
-      print "Running recipes", options.recipe
+      print("Running recipes", options.recipe)
     if options.recipefile:
-      print "Running recipe from file", options.recipefile
-    print "without specified data collection."
+      print("Running recipe from file", options.recipefile)
+    print("without specified data collection.")
     stomp.connect()
     stomp.send(
       'processing_recipe',
       message
     )
-    print "\nSubmitted."
+    print("\nSubmitted.")
     sys.exit(0)
 
   if not args:
-    print "No data collection IDs specified."
+    print("No data collection IDs specified.")
     sys.exit(1)
 
   if len(args) > 1:
-    print "Only a single data collection ID can be specified."
+    print("Only a single data collection ID can be specified.")
     sys.exit(1)
 
   dcid = int(args[0])
@@ -95,13 +95,13 @@ if __name__ == '__main__':
     # Given ID is a reprocessing ID. Nothing else needs to be specified.
     stomp.connect()
     if options.recipe:
-      print "Running recipes", options.recipe
+      print("Running recipes", options.recipe)
     message['parameters']['ispyb_process'] = dcid
     stomp.send(
       'processing_recipe',
       message
     )
-    print "\nReprocessing task submitted for ID %d." % dcid
+    print("\nReprocessing task submitted for ID %d." % dcid)
     sys.exit(0)
 
   if options.default:
@@ -113,15 +113,15 @@ if __name__ == '__main__':
     message['recipes'] = list( (set(message['recipes']) | set(default_recipes)) - set(options.disable) )
 
   if message['recipes']:
-    print "Running recipes", message['recipes']
+    print("Running recipes", message['recipes'])
 
   if options.recipefile:
-    print "Running recipe from file", options.recipefile
+    print("Running recipe from file", options.recipefile)
 
   if not message['recipes'] and not message.get('custom_recipe'):
-    print "No recipes specified."
+    print("No recipes specified.")
     sys.exit(1)
-  print "for data collection", dcid
+  print("for data collection", dcid)
   message['parameters']['ispyb_dcid'] = dcid
 
   if options.autoprocscalingid:
@@ -134,4 +134,4 @@ if __name__ == '__main__':
     'processing_recipe',
     message
   )
-  print "\nSubmitted."
+  print("\nSubmitted.")

@@ -2,7 +2,7 @@
 #
 # LIBTBX_SET_DISPATCHER_NAME dials.swirly_eyes
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import re
 import sys
@@ -36,8 +36,8 @@ options, args = parser.parse_args()
 
 while options.forever:
   l = swirly_lines.pop(0)
-  print l
+  print(l)
   swirly_lines.append(l)
   time.sleep(0.05)
-print swirly
+print(swirly)
 sys.stdout.write("\033[0m")

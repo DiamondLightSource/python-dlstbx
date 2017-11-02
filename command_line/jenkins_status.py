@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import json
 import signal
@@ -131,7 +131,7 @@ class Jenkins():
       sys.stdout.write(jobcolor + colorama.Style.BRIGHT)
       if not (building or recent or queued):
         sys.stdout.write(jobcolor)
-      print " " + job + progress + teststatus
+      print(" " + job + progress + teststatus)
 
     self._redraw_lock.release()
 
@@ -174,12 +174,12 @@ class Jenkins():
       prev_status = self._status
       self.reset_cursor()
       self.write_status(blink=(iteration % 2) > 0)
-      print "%s   [%d]" % (colorama.Style.RESET_ALL + colorama.Style.DIM, iteration)
+      print("%s   [%d]" % (colorama.Style.RESET_ALL + colorama.Style.DIM, iteration))
       if iteration > 24*3600:
-        print "Exiting after 24 hours"
+        print("Exiting after 24 hours")
         sys.exit(0)
 
 try:
   Jenkins().run()
 except KeyboardInterrupt:
-  print colorama.Style.RESET_ALL
+  print(colorama.Style.RESET_ALL)

@@ -36,7 +36,7 @@ class DLSDispatcher(CommonService):
 
     if self._environment.get('live'):
       try:
-        os.makedirs(self._logbook, 0775)
+        os.makedirs(self._logbook, 0o775)
       except OSError:
         pass # Ignore if exists
       if not os.access(self._logbook, os.R_OK | os.W_OK | os.X_OK):

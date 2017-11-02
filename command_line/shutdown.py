@@ -3,7 +3,7 @@
 #   Stop a dlstbx service
 #
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import json
 import sys
@@ -39,8 +39,8 @@ if __name__ == '__main__':
   stomp = StompTransport()
 
   if not len(args):
-    print "Need to specify one or more services to shut down."
-    print "Format: hostname.pid"
+    print("Need to specify one or more services to shut down.")
+    print("Format: hostname.pid")
     sys.exit(1)
 
   stomp.connect()
@@ -57,4 +57,4 @@ if __name__ == '__main__':
       'command',
       message
     )
-    print "Shutting down", host
+    print("Shutting down", host)

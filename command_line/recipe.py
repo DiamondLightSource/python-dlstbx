@@ -3,7 +3,7 @@
 #   Propose recipes to be run on $DCID
 #
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import json
 import sys
@@ -24,4 +24,4 @@ if __name__ == '__main__':
 
   message, parameters = ispyb_filter(message, parameters)
 
-  print ' '.join(message['default_recipe'])
+  print(' '.join(message['default_recipe']))

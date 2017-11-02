@@ -93,8 +93,7 @@ class DLSStatistics(CommonService):
       return
 
     # Process and acknowledge messages
-    # Acknowledge outside TXN for now, https://issues.apache.org/jira/browse/AMQ-6796
-#    txn = self._transport.transaction_begin()
+    txn = self._transport.transaction_begin()
 
     ignore = lambda x: None
 
@@ -114,8 +113,8 @@ class DLSStatistics(CommonService):
       else:
         self.log.warning('Discarding %d statistics records of unknown type %s', len(records[key]), key)
       for header in headers:
-        self._transport.ack(header) # , transaction=txn)
-#    self._transport.transaction_commit(txn)
+        self._transport.ack(header, transaction=txn)
+    self._transport.transaction_commit(txn)
 
     self.log.debug("Processed %d records", sum(len(r) for r in records.itervalues()))
 

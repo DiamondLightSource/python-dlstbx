@@ -2,6 +2,8 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
+import libtbx.pkg_utils
+
 try:
   from dlstbx.util.version import dlstbx_version
   print(dlstbx_version())
@@ -16,7 +18,6 @@ try:
 except Exception:
   pass
 
-import libtbx.pkg_utils
 libtbx.pkg_utils.require('mock', '>=2.0')
 libtbx.pkg_utils.require('pytest', '>=3.1')
 libtbx.pkg_utils.require('ispyb', '>=0.16,<1.0')

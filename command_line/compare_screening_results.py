@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import libtbx.phil
 
@@ -21,7 +21,7 @@ def run(args):
   visit_name = args[0]
   ispyb_conn = ispybtbx()
   sessionid = ispyb_conn.get_bl_sessionid_from_visit_name(visit_name)
-  print sessionid
+  print(sessionid)
 
   sql_str = """
 select datacollectionid
@@ -33,7 +33,7 @@ where DataCollection.sessionid = %s
   results = ispyb_conn.execute(sql_str)
   from libtbx.utils import flat_list
   dc_ids = flat_list(results)
-  print dc_ids
+  print(dc_ids)
 
   columns = [
     'Screening.dataCollectionId',
@@ -60,7 +60,7 @@ where DataCollection.sessionid = %s
   rows.insert(0, field_names)
 
   from libtbx import table_utils
-  print table_utils.format(rows=rows, has_header=True)
+  print(table_utils.format(rows=rows, has_header=True))
 
   from scitbx.array_family import flex
 

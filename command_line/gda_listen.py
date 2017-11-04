@@ -3,7 +3,7 @@
 #   Listen to all status messages for GDA
 #
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import sys
 import time
@@ -28,12 +28,12 @@ if __name__ == '__main__':
   stomp.connect()
 
   def consume_message(header, message):
-    print "\nReceived on %s:" % header['destination']
-    print message.get('summary')
+    print("\nReceived on %s:" % header['destination'])
+    print(message.get('summary'))
     if message.get('URL'):
-      print message['URL']
+      print(message['URL'])
     if message.get('text'):
-      print message['text']
+      print(message['text'])
 
   stomp.subscribe_broadcast('transient.report.>', consume_message)
 
@@ -41,4 +41,4 @@ if __name__ == '__main__':
     while True:
       time.sleep(60)
   except KeyboardInterrupt:
-    print "\nDone."
+    print("\nDone.")

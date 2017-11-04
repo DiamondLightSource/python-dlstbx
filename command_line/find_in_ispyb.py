@@ -9,7 +9,7 @@
 # dlstbx.find_in_ispyb -p 95
 #   show available dictionary for reprocessing ID
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import pprint
 import sys
@@ -54,7 +54,7 @@ if __name__ == '__main__':
           }
         else:
           d = recipe.recipe
-        print json.dumps(d, indent=2)
+        print(json.dumps(d, indent=2))
       else:
         pprint.pprint(parameters)
 
@@ -65,6 +65,6 @@ if __name__ == '__main__':
         path += '/'
       i = ispybtbx()
       dc_ids = i.find_dc_id(path)
-      print path
+      print(path)
       for dc_id in dc_ids:
-        print dc_id
+        print(dc_id)

@@ -80,8 +80,8 @@ class QueueStatus():
           name = entry['string']
           del(entry['string'])
       if len(entry) == 1:
-        value_type = entry.iterkeys().next()
-        report[name] = entry.itervalues().next()
+        value_type = next(entry.iterkeys())
+        report[name] = next(entry.itervalues())
         if value_type in ('long', 'int'):
           report[name] = int(report[name])
         if isinstance(report[name], list) and len(report[name]) == 1:

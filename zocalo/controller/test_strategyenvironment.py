@@ -125,7 +125,7 @@ def test_ordering_service_instances_prefers_newer_workflows_versions():
                 { } ]
   se = generate_test_strategy_environment()
   assert [ instances[k] for k in (4,1,3,0,2) ] == se.order_instances(instances)
-  assert [ instances[k] for k in 2,0,3,1,4 ] == se.order_instances(instances, reverse=True)
+  assert [ instances[k] for k in (2,0,3,1,4) ] == se.order_instances(instances, reverse=True)
 
 def test_ordering_service_instances_prefers_newer_dlstbx_versions_when_same_workflows_version():
   instances = [ { 'dlstbx': [ 0, 30 ] },
@@ -135,8 +135,8 @@ def test_ordering_service_instances_prefers_newer_dlstbx_versions_when_same_work
                 { 'dlstbx': [ 0, 23 ], 'workflows': [0, 10] },
                 { } ]
   se = generate_test_strategy_environment()
-  assert [ instances[k] for k in 5,1,3,0,2,4 ] == se.order_instances(instances)
-  assert [ instances[k] for k in 4,2,0,3,1,5 ] == se.order_instances(instances, reverse=True)
+  assert [ instances[k] for k in (5,1,3,0,2,4) ] == se.order_instances(instances)
+  assert [ instances[k] for k in (4,2,0,3,1,5) ] == se.order_instances(instances, reverse=True)
 
 def test_ordering_service_instances_prefers_toolserver_instances():
   instances = [ { 'dlstbx': [ 0, 30 ], 'host': 'somewhere.diamond.ac.uk' },
@@ -145,5 +145,5 @@ def test_ordering_service_instances_prefers_toolserver_instances():
                 { 'dlstbx': [ 0, 30 ], 'host': 'cs04r-sc-vserv-123.diamond.ac.uk' },
                 { } ]
   se = generate_test_strategy_environment()
-  assert [ instances[k] for k in 4,2,1,0,3 ] == se.order_instances(instances)
-  assert [ instances[k] for k in 3,0,1,2,4 ] == se.order_instances(instances, reverse=True)
+  assert [ instances[k] for k in (4,2,1,0,3) ] == se.order_instances(instances)
+  assert [ instances[k] for k in (3,0,1,2,4) ] == se.order_instances(instances, reverse=True)

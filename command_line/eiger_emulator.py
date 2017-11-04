@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import hashlib
 import json
@@ -47,7 +47,7 @@ if options.exposure_time < 1 / 133:
   options.exposure_time = 1 / 133
 
 if not os.path.exists(options.filename):
-  print "Use -f to point to an image file. Use --help to see command line options"
+  print("Use -f to point to an image file. Use --help to see command line options")
   sys.exit(1)
 
 # Read image data

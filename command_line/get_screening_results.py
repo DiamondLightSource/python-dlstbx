@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 def run(args):
   from dlstbx.ispybtbx import ispybtbx
@@ -23,7 +23,7 @@ def run(args):
   rows.insert(0, field_names)
 
   from libtbx import table_utils
-  print table_utils.format(rows=rows, has_header=True)
+  print(table_utils.format(rows=rows, has_header=True))
 
 if __name__ == '__main__':
   import sys

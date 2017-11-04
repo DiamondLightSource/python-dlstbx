@@ -3,7 +3,7 @@
 #   Write information to ISPyB
 #
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import logging
 import os
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     sys.exit(0)
 
   if not options.xia2 and not options.json:
-    print "You need to specify something to be sent to ISPyB."
+    print("You need to specify something to be sent to ISPyB.")
     sys.exit(1)
 
   # Set up logging to console and graylog

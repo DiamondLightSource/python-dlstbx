@@ -1,5 +1,5 @@
 # LIBTBX_SET_DISPATCHER_NAME dlstbx.plot_reflections
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import iotbx.phil
 
@@ -27,10 +27,10 @@ def run(args):
   stills = datablock.extract_stills()
 
   if sweeps is not None and len(sweeps):
-    print len(sweeps)
+    print(len(sweeps))
     imagesets = sweeps
   if stills is not None:
-    print len(stills)
+    print(len(stills))
     imagesets = [stills[i:i+1] for i in range(len(stills))]
 
   args = unhandled

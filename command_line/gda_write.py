@@ -3,7 +3,7 @@
 #   Write status messages to GDA
 #
 
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import os
 import random
@@ -120,9 +120,9 @@ if __name__ == '__main__':
     }
     destination = "transient.report.%s.%s.status.%s" % (beamline(), visit(), application())
 
-    print "Sending message %d: %s" % (msgno, message)
-    print "to %s\n" % destination
+    print("Sending message %d: %s" % (msgno, message))
+    print("to %s\n" % destination)
 
     stomp.broadcast( destination, message )
 
-  print "\nDone."
+  print("\nDone.")

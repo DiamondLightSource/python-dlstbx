@@ -1,0 +1,50 @@
+import pytest
+
+def test_no_new_python3_incompatible_code_is_introduced_into_this_module():
+
+  # Name of the module to be tested
+  import dlstbx as module_under_test
+
+  # File containing list of excluded files
+  allowed_broken_files_list = '.known-python3-violations'
+
+  
+  # Mask all *PYTHON* variables from environment - Python3 will not like cctbx python settings
+  import os
+  environ_override = { k: '' for k in list(os.environ) if 'PYTHON' in k }
+
+  from dials.util.procrunner import run_process
+  module_path = module_under_test.__path__[0]
+  try:
+    result = run_process(['python3', '-m', 'compileall', '-x', '\.git', '-q', module_path], environ=environ_override, print_stdout=False)
+  except OSError as e:
+    if e.errno == 2:
+      pytest.skip('No python3 interpreter available')
+    raise
+
+  if result['stderr']:
+    pytest.fail('Python3 compilation exited with unexpected STDERR output')
+
+  if not result['exitcode']: # No compilation errors
+    return
+
+  errors = map(lambda x: x.replace(module_path + os.path.sep, '').strip(), result['stdout'].split('***'))
+  errors = filter(lambda x: "'" in x, errors)
+  broken_files = { error.split("'")[1]: error for error in errors }
+
+  exclusion_file = os.path.join(module_path, allowed_broken_files_list)
+  with open(exclusion_file + '.log', 'w') as fh:
+    fh.write("\n".join(sorted(broken_files)))
+  if os.path.exists(exclusion_file):
+    with open(exclusion_file, 'r') as fh:
+      excluded_files = fh.read().splitlines()
+    broken_files = { filename: broken_files[filename] for filename in broken_files if filename not in excluded_files }
+
+  if not broken_files: # No syntax violations in new files
+    return
+
+  for filename in sorted(broken_files):
+    print broken_files[filename]
+    print "\n"
+
+  pytest.fail("{} file[s] contain newly introduced Python3 syntax errors".format(len(broken_files)))

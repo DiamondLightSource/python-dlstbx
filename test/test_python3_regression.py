@@ -1,3 +1,7 @@
+from __future__ import absolute_import, division, print_function
+
+import os
+
 import pytest
 
 def test_no_new_python3_incompatible_code_is_introduced_into_this_module():
@@ -8,9 +12,7 @@ def test_no_new_python3_incompatible_code_is_introduced_into_this_module():
   # File containing list of excluded files
   allowed_broken_files_list = '.known-python3-violations'
 
-  
   # Mask all *PYTHON* variables from environment - Python3 will not like cctbx python settings
-  import os
   environ_override = { k: '' for k in list(os.environ) if 'PYTHON' in k }
 
   from dials.util.procrunner import run_process
@@ -44,7 +46,6 @@ def test_no_new_python3_incompatible_code_is_introduced_into_this_module():
     return
 
   for filename in sorted(broken_files):
-    print broken_files[filename]
-    print "\n"
+    print(broken_files[filename], end="\n\n")
 
   pytest.fail("{} file[s] contain newly introduced Python3 syntax errors".format(len(broken_files)))

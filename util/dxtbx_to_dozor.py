@@ -1,4 +1,5 @@
 from __future__ import division
+from __future__ import print_function
 
 def dxtbx_to_dozor(hdr):
 
@@ -61,4 +62,4 @@ if __name__ == '__main__':
   from dxtbx import load
   import sys
   for img in sys.argv[1:]:
-    print dxtbx_to_dozor(load(img))
+    print(dxtbx_to_dozor(load(img)))

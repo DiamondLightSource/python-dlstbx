@@ -31,7 +31,7 @@ def dxtbx_to_dozor(hdr):
   dozor['fraction_polarization'] = 0.990
 
   dozor['detector'] = '### FIXME'
-  dozor['exposure_time'] = scan.get_exposure_times()[0]
+  dozor['exposure'] = scan.get_exposure_times()[0]
   dozor['detector_distance'] = origin.dot(normal)
   dozor['X-ray_wavelength'] = beam.get_wavelength()
 
@@ -58,8 +58,44 @@ def dxtbx_to_dozor(hdr):
 
   return dozor
 
+def write_dozor_input(dozor_params, fout):
+  template = '''job single
+detector {detector:s}
+exposure {exposure:.3f}
+spot_size {spot_size:d}
+detector_distance {detector_distance:.3f}
+X-ray_wavelength {X-ray_wavelength:.5f}
+fraction_polarization {fraction_polarization:.3f}
+pixel_min {pixel_min:f}
+pixel_max {pixel_max:f}
+ix_min {ix_min:d}
+ix_max {ix_max:d}
+iy_min {iy_min:d}
+iy_max {iy_max:d}
+orgx {orgy:.2f}
+orgy {orgy:.2f}
+oscillation_range {oscillation_range:.3f}
+image_step {image_step:.3f}
+starting_angle {starting_angle:.3f}
+first_image_number {first_image_number:d}
+number_images {number_images:d}
+name_template_image {name_template_image:s}
+end
+'''
+
+  print(dozor_params)
+
+  text = template.format(**dozor_params)
+  if not fout is '-':
+    open(fout, 'w').write(text)
+  else:
+    print(text)
+
+def parse_dozor_output(output):
+  pass
+
 if __name__ == '__main__':
   from dxtbx import load
   import sys
   for img in sys.argv[1:]:
-    print(dxtbx_to_dozor(load(img)))
+    write_dozor_input(dxtbx_to_dozor(load(img)), '-')

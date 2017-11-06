@@ -200,63 +200,39 @@ class Xia2StrategyWrapper(Xia2Wrapper):
       os.makedirs(working_directory)
     os.chdir(working_directory)
 
-    lifespan = params['strategy']['lifespan']
-    transmission = float(params['strategy']['transmission'])
-    wavelength = float(params['strategy']['wavelength'])
-    beamline = params['strategy']['beamline']
-    logger.debug('transmission: %s' %transmission)
-    logger.debug('wavelength: %s' %wavelength)
-    strategy_lifespan = round((lifespan * (100 / transmission)) * (wavelength/0.979)**-3, 0)
-    gentle_strategy_lifespan = round((lifespan * (100 / transmission)) * (wavelength/0.979)**-3 / 10, 0)
-    logger.debug('lifespan: %s' %lifespan)
-
-    if beamline == 'i24':
-      min_exposure = 0.01
-    elif beamline == 'i03':
-      min_exposure = 0.01
-    else:
-      min_exposure = 0.04
 
     with open('strategy.phil', 'wb') as f:
-      print >> f, """
+      for strategy in params['strategy']:
+        lifespan = strategy['lifespan']
+        transmission = float(strategy['transmission'])
+        wavelength = float(strategy['wavelength'])
+        beamline = strategy['beamline']
+        logger.debug('transmission: %s' %transmission)
+        logger.debug('wavelength: %s' %wavelength)
+        logger.debug('lifespan: %s' %lifespan)
+        gentle = strategy['gentle']
+        if gentle:
+          max_total_exposure = round((lifespan * (100 / transmission)) * (wavelength/0.979)**-3 / 10, 0)
+        else:
+          max_total_exposure = round((lifespan * (100 / transmission)) * (wavelength/0.979)**-3, 0)
+        min_exposure = strategy['min_exposure'].get(beamline, strategy['min_exposure']['default'])
+        print >> f, """
 strategy {
-  name = "native"
-  description = "Standard Native Dataset Multiplicity=3 I/sig=2 Maxlifespan=%(strategy_lifespan)ss"
+  name = "%(name)s"
+  description = "%(description)s: Multiplicity=%(multiplicity).0f I/sig=%(i_over_sigi).0f Maxlifespan=%(max_total_exposure)ss"
   min_exposure = %(min_exposure)s
-  multiplicity = 3.0
-  i_over_sigi = 2.0
-  max_total_exposure = %(strategy_lifespan)s
+  multiplicity = %(multiplicity).1f
+  i_over_sigi = %(i_over_sigi).1f
+  max_total_exposure = %(max_total_exposure)s
+  anomalous = %(anomalous)s
 }
-strategy {
-  name = "anomalous"
-  description = "Standard Anomalous Dataset Multiplicity=3 I/sig=2 Maxlifespan=%(strategy_lifespan)ss"
-  min_exposure = %(min_exposure)s
-  multiplicity = 3.0
-  i_over_sigi = 2.0
-  max_total_exposure = %(strategy_lifespan)s
-  anomalous = True
-}
-strategy {
-  name = "high multiplicity"
-  description = "Strategy with target multiplicity=16 I/sig=2 Maxlifespan=%(strategy_lifespan)ss"
-  min_exposure = %(min_exposure)s
-  multiplicity = 16.0
-  i_over_sigi = 2.0
-  max_total_exposure = %(strategy_lifespan)s
-  anomalous = True
-}
-strategy {
-  name = "gentle"
-  description = "Gentle: Target Multiplicity=2 I/sig=2 Maxlifespan=%(gentle_strategy_lifespan)ss"
-  min_exposure = %(min_exposure)s
-  multiplicity = 2.0
-  i_over_sigi = 2.0
-  max_total_exposure = %(gentle_strategy_lifespan)s
-  anomalous = True
-}
-""" %dict(min_exposure=min_exposure,
-          strategy_lifespan=strategy_lifespan,
-          gentle_strategy_lifespan=gentle_strategy_lifespan)
+""" %dict(name=strategy['name'],
+          description=strategy['description'],
+          multiplicity=strategy['multiplicity'],
+          i_over_sigi=strategy['i_over_sigi'],
+          min_exposure=min_exposure,
+          max_total_exposure=max_total_exposure,
+          anomalous=strategy['anomalous'])
 
     result = procrunner.run_process(
       command, timeout=params.get('timeout'),

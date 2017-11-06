@@ -28,4 +28,3 @@ if (not env_etc.no_boost_python and hasattr(env_etc, "boost_adaptbx_include")):
 		"scitbx_boost_python",
 		"boost_python"])
 
-    #env.SConscript('algorithms/SConscript', exports={ 'env' : env })

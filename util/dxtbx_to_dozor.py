@@ -1,6 +1,15 @@
 from __future__ import division
 from __future__ import print_function
 
+def detector_to_dozor(detector):
+  size = detector.get_image_size()
+
+  size0_to_name = {2463:'pilatus6m',
+                   1475:'pilatus2m',
+                   2070:'eiger2m'}
+
+  return size0_to_name[size[0]]
+
 def dxtbx_to_dozor(hdr):
 
   from scitbx import matrix
@@ -30,7 +39,7 @@ def dxtbx_to_dozor(hdr):
   # hard coded things...
   dozor['fraction_polarization'] = 0.990
 
-  dozor['detector'] = 'pilatus6m'
+  dozor['detector'] = detector_to_dozor(detector)
   dozor['exposure'] = scan.get_exposure_times()[0]
   dozor['detector_distance'] = origin.dot(normal)
   dozor['X-ray_wavelength'] = beam.get_wavelength()

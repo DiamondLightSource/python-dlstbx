@@ -70,7 +70,7 @@ def display_status(issues):
   status = db.get_infrastructure_status()
   status = sorted(status, key=lambda s:-s['Level'])
   if issues:
-    prefixes = filter(lambda x: x.endswith('.'), issues)
+    prefixes = map(lambda x: x.rstrip('.') + '.', issues)
     status = filter(lambda x: x['Source'] in issues or any(map(lambda y: x['Source'].startswith(y), prefixes)), status)
 
   for group, colour in (('Error', logging.ERROR), \

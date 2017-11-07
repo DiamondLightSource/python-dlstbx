@@ -41,7 +41,7 @@ def scanner(arg):
 
   write_dozor_input(dozor, 'dozor.in')
 
-  command = ['dozor.rh6', 'dozor.in']
+  command = ['dozor', 'dozor.in']
 
   result = procrunner.run_process(
     command, timeout=3600.0,
@@ -52,7 +52,7 @@ def scanner(arg):
   results = parse_dozor_output(result['stdout'])
 
   for image in sorted(results):
-    print(image, results[image])
+    print('%4d' % image, '%6.3f %6.3f %6.3f' % tuple(results[image]))
 
   return results
 

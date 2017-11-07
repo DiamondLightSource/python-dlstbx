@@ -98,9 +98,9 @@ def parse_dozor_output(output):
       image = int(tokens[0])
       scores = map(float, tokens[-3:])
       dozor_scores[image] = scores
-    except ValueError, e:
+    except ValueError as e:
       continue
-    except IndexError, e:
+    except IndexError as e:
       continue
   return dozor_scores
 

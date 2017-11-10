@@ -8,7 +8,10 @@ from dials.util.procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSPerImageAnalysisSAN(CommonService):
-  '''A service that stores and notifies (S&N) for per-image-analysis results.'''
+  '''A service that stores and notifies (S&N) for per-image-analysis results.
+     Well at least that is what it once did. We now do the storing and notifying properly via ISPyB.
+     It still creates preview images for the first image of a data collection and writes image locations to latest_image_location.txt.
+  '''
 
   # Human readable service name
   _service_name = "DLS PIA Store-and-Notify"
@@ -38,7 +41,7 @@ class DLSPerImageAnalysisSAN(CommonService):
 
     self.log.debug(PIA_xml)
 
-    command = ['/bin/bash', '/dls_sw/apps/mx-scripts/misc/dials/imgScreen_LocalServerV2.sh',
+    command = ['/bin/bash', '/dls_sw/apps/mx-scripts/misc/dials/imgScreen_LocalServerV3.sh',
                filename, 'NA', str(image_number), str(is_gridscan), str(dcid)]
 
     self.log.debug("Running %s", str(command))

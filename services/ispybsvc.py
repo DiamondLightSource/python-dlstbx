@@ -177,6 +177,8 @@ class DLSISPyB(CommonService):
         gdahost = rw.recipe_step['parameters']['notify-gda']
         if '{' in gdahost:
           self.log.warning('Could not notify GDA, %s is not a valid hostname', gdahost)
+        elif gdahost == 'mx-control':
+          pass # skip
         elif result is None:
           self.log.info('Could not notify GDA, stored procedure returned \'None\'')
         else:

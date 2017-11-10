@@ -52,13 +52,12 @@ class DLSISPyB(CommonService):
 
     txn = rw.transport.transaction_begin()
     rw.set_default_channel('output')
-    result = getattr(self, 'do_' + command)(rw, txn)
+    result = getattr(self, 'do_' + command)(rw, message, txn)
 
     store_result = rw.recipe_step['parameters'].get('store_result')
     if store_result and result and 'return_value' in result:
       rw.environment[store_result] = result['return_value']
       self.log.debug("Storing result '%s' in environment variable '%s'", result['return_value'], store_result)
-
     if result and result.get('success'):
       rw.send({ 'result': result.get('return_value') }, transaction=txn)
       rw.transport.ack(header, transaction=txn)
@@ -69,7 +68,7 @@ class DLSISPyB(CommonService):
       rw.transport.nack(header, transaction=txn)
     rw.transport.transaction_commit(txn)
 
-  def do_update_processing_status(self, rw, txn):
+  def do_update_processing_status(self, rw, message, txn):
     ppid = self.parse_value(rw, 'program_id')
     message = rw.recipe_step['parameters'].get('message')
     start_time = rw.recipe_step['parameters'].get('start_time')
@@ -90,7 +89,7 @@ class DLSISPyB(CommonService):
                        ppid, message, e, exc_info=True)
       return { 'success': False }
 
-  def do_register_processing(self, rw, txn):
+  def do_register_processing(self, rw, message, txn):
     program = rw.recipe_step['parameters'].get('program')
     cmdline = rw.recipe_step['parameters'].get('cmdline')
     environment = rw.recipe_step['parameters'].get('environment')
@@ -110,3 +109,53 @@ class DLSISPyB(CommonService):
       self.log.warning("Registering new processing program '%s' for reprocessing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
                        program, rpid, cmdline, environment, e, exc_info=True)
       return { 'success': False }
+
+  def do_store_per_image_analysis_results(self, rw, message, txn):
+    params = self.ispyb_mx.get_quality_indicators_params()
+
+    from pprint import pprint
+    pprint(rw.recipe_step)
+    pprint(message)
+
+    params['datacollectionid'] = rw.recipe_step['parameters'].get('dcid')
+    if not params['datacollectionid']:
+      self.log.error('DataCollectionID missing from recipe')
+      return { 'success': False }
+
+    params['image_number'] = message.get('file-number')
+    if not params['image_number']:
+      self.log.error('Image number missing from message')
+      return { 'success': False }
+
+    params['dozor_score'] = message.get('dozor_score')
+    params['spot_total'] = message.get('n_spots_total')
+    if params['spot_total'] is not None:
+      params['in_res_total'] = params['spot_total']
+      params['icerings'] = 0
+      params['maxunitcell'] = 0
+      params['pctsaturationtop50peaks'] = 0
+      params['inresolutionovrlspots'] = 0
+      params['binpopcutoffmethod2res'] = 0
+    elif params['dozor_score'] is None:
+      self.log.error('Message contains neither dozor score nor spot count')
+      return { 'success': False }
+
+    params['totalintegratedsignal'] = message.get('total_intensity')
+    params['good_bragg_candidates'] = message.get('n_spots_no_ice')
+    params['method1_res'] = message.get('estimated_d_min')
+    params['method2_res'] = message.get('estimated_d_min')
+
+    params['programid'] = "65228265" # dummy value
+
+    self.log.debug("Writing PIA results to database: %s", params)
+
+    try:
+      result = self.ispyb_mx.upsert_quality_indicators(list(params.values()))
+      pprint(result)
+      pass
+    except ispyb.exception.ISPyBWriteFailed as e:
+      self.log.error('Database says no: %s', e, exc_info=True)
+      return { 'success': False }
+    else:
+      self.log.info("PIA record %s written", result)
+      return { 'success': True, 'return_value': result }

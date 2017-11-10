@@ -131,7 +131,7 @@ class ispybtbx(object):
     results = self.execute('SELECT bs.beamlineName FROM BLSession bs INNER JOIN DataCollectionGroup dcg ON dcg.sessionId = bs.sessionId INNER JOIN DataCollection dc ON dc.dataCollectionGroupId = dcg.dataCollectionGroupId WHERE dc.dataCollectionId = %s;' % str(dc_id))
     assert(len(results) == 1)
     result = results[0][0]
-    return results
+    return result
 
   def get_pia_results(self, dc_ids, columns=None):
     if columns is not None:

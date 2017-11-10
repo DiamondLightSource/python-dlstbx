@@ -39,8 +39,6 @@ class DLSPerImageAnalysisSAN(CommonService):
     is_gridscan = rw.recipe_step.get('parameters', {}).get('gridscan') in ('True', 'true', 1)
     dcid = rw.recipe_step.get('parameters', {}).get('dcid', '')
 
-    self.log.debug(PIA_xml)
-
     command = ['/bin/bash', '/dls_sw/apps/mx-scripts/misc/dials/imgScreen_LocalServerV3.sh',
                filename, 'NA', str(image_number), str(is_gridscan), str(dcid)]
 
@@ -53,7 +51,7 @@ class DLSPerImageAnalysisSAN(CommonService):
       self.log.warning(result)
       # Reject message
       rw.transport.nack(header)
-      self.log.warning("PIA results for %s could not be written to database", filename)
+      self.log.warning("Could not run imgScreen on %s", filename)
       return
     else:
       self.log.debug(result)
@@ -69,4 +67,7 @@ class DLSPerImageAnalysisSAN(CommonService):
     rw.send_to('result', PIA_xml, transaction=txn)
 
     rw.transport.transaction_commit(txn)
-    self.log.info("PIA results for %s written to database", filename)
+    if image_number == 1:
+      self.log.info("Successfully ran imgScreen on %s", filename)
+    else:
+      self.log.debug("Successfully ran imgScreen on %s", filename)

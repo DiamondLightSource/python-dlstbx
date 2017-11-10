@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import ispyb
 import ispyb.factory
+from dials.util.procrunner import run_process
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -113,10 +114,6 @@ class DLSISPyB(CommonService):
   def do_store_per_image_analysis_results(self, rw, message, txn):
     params = self.ispyb_mx.get_quality_indicators_params()
 
-    from pprint import pprint
-    pprint(rw.recipe_step)
-    pprint(message)
-
     params['datacollectionid'] = rw.recipe_step['parameters'].get('dcid')
     if not params['datacollectionid']:
       self.log.error('DataCollectionID missing from recipe')
@@ -150,9 +147,27 @@ class DLSISPyB(CommonService):
     self.log.debug("Writing PIA results to database: %s", params)
 
     try:
+#     result = "159956186" # for testing
       result = self.ispyb_mx.upsert_quality_indicators(list(params.values()))
-      pprint(result)
-      pass
+      if 'notify-gda' in rw.recipe_step['parameters']:
+        gdahost = rw.recipe_step['parameters']['notify-gda']
+        if '{' in gdahost:
+          self.log.warning('Could not notify GDA, %s is not a valid hostname', gdahost)
+        elif result is None:
+          self.log.info('Could not notify GDA, stored procedure returned \'None\'')
+        else:
+          # now do mx-scripty notification of GDA
+          try:
+            udp_result = run_process(['python',
+                                      '/dls_sw/apps/mx-scripts/misc/simple_udp.py',
+                                      gdahost, '9876', 'ISPYB:ImageQualityIndicators,' + result],
+                                      timeout=5, print_stdout=False, print_stderr=False)
+            if udp_result['exitcode'] != 0 or udp_result['timeout'] or udp_result['stdout'] == '' or udp_result['stderr'] != '':
+              self.log.warning('GDA notification failed\n%s', udp_result)
+            else:
+              self.log.debug('GDA notification took %.2f seconds', udp_result['runtime'])
+          except Exception as e:
+            self.log.warning('Could not notify GDA: %s', e, exc_info=True)
     except ispyb.exception.ISPyBWriteFailed as e:
       self.log.error('Database says no: %s', e, exc_info=True)
       return { 'success': False }

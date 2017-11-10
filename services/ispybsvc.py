@@ -198,5 +198,5 @@ class DLSISPyB(CommonService):
       self.log.error('Database says no: %s', e, exc_info=True)
       return { 'success': False }
     else:
-      self.log.info("PIA record %s written", result)
+      self.log.debug("PIA record %s written", result)
       return { 'success': True, 'return_value': result }

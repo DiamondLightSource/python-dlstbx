@@ -26,7 +26,8 @@ class DLSISPyB(CommonService):
     self.log.debug("ISPyB connector starting")
     workflows.recipe.wrap_subscribe(
         self._transport, 'ispyb_connector', # will become 'ispyb' in far future
-        self.receive_msg, acknowledgement=True, log_extender=self.extend_log)
+        self.receive_msg, acknowledgement=True, log_extender=self.extend_log,
+        allow_non_recipe_messages=True)
 
   @staticmethod
   def parse_value(rw, parameter):
@@ -40,6 +41,26 @@ class DLSISPyB(CommonService):
 
   def receive_msg(self, rw, header, message):
     '''Do something with ISPyB.'''
+
+    if not rw:
+      # Incoming message is not a recipe message. Simple messages can be valid
+      if not isinstance(message, dict) or not message.get('parameters') or not message.get('content'):
+        self.log.warning('Rejected invalid simple message')
+        self._transport.nack(header)
+        return
+
+      # Create a wrapper-like object that can be passed to functions
+      # as if a recipe wrapper was present.
+      class RW_mock(object):
+        def dummy(self, *args, **kwargs):
+          pass
+      rw = RW_mock()
+      rw.transport = self._transport
+      rw.recipe_step = { 'parameters': message['parameters'] }
+      rw.environment = {}
+      rw.set_default_channel = rw.dummy
+      rw.send = rw.dummy
+      message = message['content']
 
     command = rw.recipe_step['parameters'].get('ispyb_command')
     if not command:
@@ -114,6 +135,9 @@ class DLSISPyB(CommonService):
   def do_store_per_image_analysis_results(self, rw, message, txn):
     params = self.ispyb_mx.get_quality_indicators_params()
 
+#   from pprint import pprint
+#   pprint(message)
+
     params['datacollectionid'] = rw.recipe_step['parameters'].get('dcid')
     if not params['datacollectionid']:
       self.log.error('DataCollectionID missing from recipe')
@@ -149,7 +173,7 @@ class DLSISPyB(CommonService):
     try:
 #     result = "159956186" # for testing
       result = self.ispyb_mx.upsert_quality_indicators(list(params.values()))
-      if 'notify-gda' in rw.recipe_step['parameters']:
+      if rw.recipe_step['parameters'].get('notify-gda'):
         gdahost = rw.recipe_step['parameters']['notify-gda']
         if '{' in gdahost:
           self.log.warning('Could not notify GDA, %s is not a valid hostname', gdahost)
@@ -160,7 +184,7 @@ class DLSISPyB(CommonService):
           try:
             udp_result = run_process(['python',
                                       '/dls_sw/apps/mx-scripts/misc/simple_udp.py',
-                                      gdahost, '9876', 'ISPYB:ImageQualityIndicators,' + result],
+                                      gdahost, '9876', 'ISPYB:ImageQualityIndicators,' + str(result)],
                                       timeout=5, print_stdout=False, print_stderr=False)
             if udp_result['exitcode'] != 0 or udp_result['timeout'] or udp_result['stdout'] == '' or udp_result['stderr'] != '':
               self.log.warning('GDA notification failed\n%s', udp_result)

@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
+import os.path
+
 import ispyb
 import ispyb.factory
 from dials.util.procrunner import run_process
@@ -131,6 +133,30 @@ class DLSISPyB(CommonService):
       self.log.warning("Registering new processing program '%s' for reprocessing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
                        program, rpid, cmdline, environment, e, exc_info=True)
       return { 'success': False }
+
+  def do_add_datacollection_attachment(self, rw, message, txn):
+    params = {}
+    params['parentid'] = message.get('dcid')
+    params['file_name'] = message.get('filename')
+    params['file_path'] = message.get('filepath')
+
+    if not os.path.isfile(params['file_path']):
+      self.log.warning("Not adding attachment '%s' to data collection: File does not exist", params['file_path'])
+      return False
+
+    params['file_type'] = str(message.get('filetype', '')).lower()
+    if params['file_type'] not in ('snapshot', 'log', 'xy', 'recip'):
+      self.log.warning("Attachment type '%s' unknown, defaulting to 'log'", params['file_type'])
+      params['file_type'] = 'log'
+
+    self.log.info("Not writing data collection attachment %s for DCID %s to database: Operation not supported" % \
+                  (params['file_name'], params['parentid']))
+#   self.log.debug("Writing program attachment to database: %s", params)
+
+#   result = self.ispyb_mx.upsert_program_attachment(list(params.values()))
+    result = 0
+
+    return { 'success': True, 'return_value': result }
 
   def do_store_per_image_analysis_results(self, rw, message, txn):
     params = self.ispyb_mx.get_quality_indicators_params()

@@ -7,6 +7,18 @@ import sys
 from optparse import SUPPRESS_HELP, OptionParser
 from workflows.transport.stomp_transport import StompTransport
 
+# Example STDIN to create a AutoProcProgramAttachment entry:
+#
+# {
+#   "parameters": { "ispyb_command": "add_program_attachment" },
+#   "content": { "programid": 67755667,
+#                "filename": "xia2.error",
+#                "filepath": "/full/path/to/an/existing/file",
+#                "filetype": "log"
+#              }
+# }
+#
+
 if __name__ == '__main__':
   parser = OptionParser(usage="ispyb.rpc [options]")
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)

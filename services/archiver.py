@@ -29,11 +29,11 @@ class DLSArchiver(CommonService):
 
   @staticmethod
   def rangifier(numbers):
-    '''Convert lists into lists of ranges. Copied from are_all_images_there.py'''
-    ranges = lambda l:map(lambda x:(x[0][1], x[-1][1]),
-                          map(lambda (x,y):list(y), itertools.groupby(enumerate(l),
-                                                                      lambda (x,y):x-y)))
-    return list(ranges(numbers))
+    '''Convert lists into lists of ranges.'''
+    numbers = sorted(set(numbers))
+    for _, group in itertools.groupby(enumerate(numbers), lambda t: t[1] - t[0]):
+      group = list(group)
+      yield group[0][1], group[-1][1]
 
   def archive_dcid(self, rw, header, message):
     '''Archive collected datafiles connected to a data collection.'''

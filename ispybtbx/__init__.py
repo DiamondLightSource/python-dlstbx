@@ -52,7 +52,7 @@ class ispybtbx(object):
               })
         parameters['ispyb_images'] = ','.join(sweep['dataCollection']['ispyb_image'] for sweep in parameters['ispyb_reprocessing_sweeps'])
         parameters['ispyb_reprocessing_parameters']  = self.db.get_reprocessing_parameters(reprocessing_id)
-      except ispyb.legacy_exception.ISPyBNoResultException:
+      except ispyb.legacy.exception.ISPyBNoResultException:
         self.log.warning("Reprocessing ID %s not found", str(reprocessing_id))
     return message, parameters
 

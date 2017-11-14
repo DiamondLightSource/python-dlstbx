@@ -136,16 +136,16 @@ class DLSISPyB(CommonService):
 
   def do_add_program_attachment(self, rw, message, txn):
     params = self.ispyb_mx.get_program_attachment_params()
-    params['parentid'] = message.get('programid', rw.recipe_step['parameters'].get('programid'))
-    params['file_name'] = message.get('filename', rw.recipe_step['parameters'].get('filename'))
-    params['file_path'] = message.get('filepath', rw.recipe_step['parameters'].get('filepath'))
+    params['parentid'] = message.get('program_id', rw.recipe_step['parameters'].get('program_id'))
+    params['file_name'] = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
+    params['file_path'] = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
 
     if not os.path.isfile(params['file_path']):
       self.log.warning("Not adding attachment '%s' to data processing: File does not exist",
                        params['file_path'])
       return False
 
-    params['file_type'] = str(message.get('filetype', rw.recipe_step['parameters'].get('filetype', ''))).lower()
+    params['file_type'] = str(message.get('file_type', rw.recipe_step['parameters'].get('file_type', ''))).lower()
     if params['file_type'] not in ('log', 'result', 'graph'):
       self.log.warning("Attachment type '%s' unknown, defaulting to 'log'", params['file_type'])
       params['file_type'] = 'log'
@@ -158,15 +158,15 @@ class DLSISPyB(CommonService):
   def do_add_datacollection_attachment(self, rw, message, txn):
     params = {}
     params['parentid'] = message.get('dcid', rw.recipe_step['parameters'].get('dcid'))
-    params['file_name'] = message.get('filename', rw.recipe_step['parameters'].get('filename'))
-    params['file_path'] = message.get('filepath', rw.recipe_step['parameters'].get('filepath'))
+    params['file_name'] = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
+    params['file_path'] = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
 
     if not os.path.isfile(params['file_path']):
       self.log.warning("Not adding attachment '%s' to data collection: File does not exist",
                        params['file_path'])
       return False
 
-    params['file_type'] = str(message.get('filetype', rw.recipe_step['parameters'].get('filetype', ''))).lower()
+    params['file_type'] = str(message.get('file_type', rw.recipe_step['parameters'].get('file_type', ''))).lower()
     if params['file_type'] not in ('snapshot', 'log', 'xy', 'recip'):
       self.log.warning("Attachment type '%s' unknown, defaulting to 'log'", params['file_type'])
       params['file_type'] = 'log'

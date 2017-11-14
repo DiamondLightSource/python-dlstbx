@@ -11,10 +11,10 @@ from workflows.transport.stomp_transport import StompTransport
 #
 # {
 #   "parameters": { "ispyb_command": "add_program_attachment" },
-#   "content": { "programid": 67755667,
-#                "filename": "xia2.error",
-#                "filepath": "/full/path/to/an/existing/file",
-#                "filetype": "log"
+#   "content": { "program_id": 67755667,
+#                "file_name": "xia2.error",
+#                "file_path": "/full/path/to/an/existing/file",
+#                "file_type": "log"
 #              }
 # }
 #

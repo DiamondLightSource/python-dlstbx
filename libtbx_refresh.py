@@ -1,20 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
-import os
-
 import libtbx.pkg_utils
 
 try:
   from dlstbx.util.version import dlstbx_version
   print(dlstbx_version())
-except Exception:
-  pass
-
-try:
-  from dials.framework import env
-  import libtbx.load_env
-  path = libtbx.env.dist_path("dlstbx")
-  env.cache.add(os.path.join(path, "extensions"))
 except Exception:
   pass
 

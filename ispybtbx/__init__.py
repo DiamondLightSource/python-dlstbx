@@ -10,14 +10,14 @@ import uuid
 #
 # Dependencies:
 #
-#   dials.python -m pip install "ispyb<1" --upgrade
+#   dials.python -m pip install ispyb --upgrade
 #
 
 try:
   import ispyb
   import mysql.connector # installed by ispyb
 except ImportError:
-  raise ImportError('ISPyB module not found. Run python -m pip install "ispyb<1"')
+  raise ImportError('ISPyB module not found. Run python -m pip install ispyb')
 
 with open('/dls_sw/apps/zocalo/secrets/ispyb-login.json', 'r') as sauce:
   secret_ingredients = json.load(sauce)

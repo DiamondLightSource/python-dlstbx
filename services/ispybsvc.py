@@ -233,16 +233,13 @@ class DLSISPyB(CommonService):
         elif result is None:
           self.log.info('Could not notify GDA, stored procedure returned \'None\'')
         else:
-          # now do mx-scripty notification of GDA
+          # now notify GDA in mx-scripty manner
           try:
-            udp_result = run_process(['python',
-                                      '/dls_sw/apps/mx-scripts/misc/simple_udp.py',
-                                      gdahost, '9876', 'ISPYB:ImageQualityIndicators,' + str(result)],
-                                      timeout=5, print_stdout=False, print_stderr=False)
-            if udp_result['exitcode'] != 0 or udp_result['timeout'] or udp_result['stdout'] == '' or udp_result['stderr'] != '':
-              self.log.warning('GDA notification failed\n%s', udp_result)
-            else:
-              self.log.debug('GDA notification took %.2f seconds', udp_result['runtime'])
+            import time
+            start = time.time()
+            import dlstbx.util.gda
+            dlstbx.util.gda.notify(gdahost, 9876, 'ISPYB:ImageQualityIndicators,' + str(result))
+            self.log.debug('GDA notification took %.2f seconds (python)', time.time() - start)
           except Exception as e:
             self.log.warning('Could not notify GDA: %s', e, exc_info=True)
     except ispyb.exception.ISPyBWriteFailed as e:

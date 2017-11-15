@@ -11,6 +11,7 @@ import sys
 from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
 
 import ispyb
+import ispyb.legacy.exception
 
 # Display stored information:
 #   ispyb.reprocessing 73

@@ -139,6 +139,19 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if os.path.exists('xia2.json'):
       self.send_results_to_ispyb()
 
+    logfiles = [ 'xia2.txt', 'xia2.error' ]
+    logfiles = filter(os.path.isfile, logfiles)
+    for result_file in logfiles:
+      self.record_result_individual_file({
+        'file_path': os.path.join(results_directory, result_file),
+        'file_name': os.path.basename(result_file),
+        'file_type': 'log',
+      })
+
+    allfiles = logfiles
+    if allfiles:
+      self.record_result_all_files(allfiles) # format tbd
+
     os.chdir(cwd)
 
     return result['exitcode'] == 0

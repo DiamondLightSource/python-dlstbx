@@ -29,6 +29,14 @@ class BaseWrapper(object):
   def run(self):
     raise NotImplementedError()
 
+  def record_result_individual_file(self, payload=''):
+    if getattr(self, 'recwrap', None):
+      self.recwrap.send_to('result-individual-file', payload)
+
+  def record_result_all_files(self, payload=''):
+    if getattr(self, 'recwrap', None):
+      self.recwrap.send_to('result-all-files', payload)
+
 class DummyWrapper(BaseWrapper):
   def run(self):
     logging.getLogger('dlstbx.zocalo.wrapper.DummyWrapper').info( \

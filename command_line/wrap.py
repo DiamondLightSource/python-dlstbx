@@ -13,6 +13,7 @@ import threading
 from optparse import SUPPRESS_HELP, OptionParser
 
 import dlstbx.zocalo.wrapper
+import dlstbx.zocalo.wrapper.dozor
 import dlstbx.zocalo.wrapper.edna
 import dlstbx.zocalo.wrapper.fast_ep
 import dlstbx.zocalo.wrapper.xia2
@@ -87,6 +88,7 @@ def run(cmdline_args):
   StompTransport.load_configuration_file(default_configuration)
 
   known_wrappers = {
+    'dozor': dlstbx.zocalo.wrapper.dozor.DozorWrapper,
     'dummy': dlstbx.zocalo.wrapper.DummyWrapper,
     'fast_ep': dlstbx.zocalo.wrapper.fast_ep.FastEPWrapper,
     'xia2': dlstbx.zocalo.wrapper.xia2.Xia2Wrapper,

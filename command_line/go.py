@@ -15,7 +15,10 @@ from workflows.transport.stomp_transport import StompTransport
 # Example: dlstbx.go -r example-xia2 527189
 
 if __name__ == '__main__':
-  parser = OptionParser(usage="dlstbx.go [options] dcid")
+  parser = OptionParser(usage="dlstbx.go [options] dcid",
+                        description="Triggers processing of a standard " \
+    "recipe, of an arbitrary recipe from a local file, of default recipes " \
+    "for a data collection ID, or of an entry in the ISPyB processing table.")
 
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-r", "--recipe", dest="recipe", metavar="RCP",

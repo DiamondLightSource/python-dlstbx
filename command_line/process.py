@@ -21,7 +21,8 @@ def fail(text):
   sys.exit(1)
 
 if __name__ == '__main__':
-  parser = OptionParser(usage="dlstbx.process -r RCP -n NAME [options] DCID:START-END [..]")
+  parser = OptionParser(usage="dlstbx.process -r RCP -n NAME [options] DCID:START-END [..]",
+                        description="Creates an entry in the ISPyB processing table")
 
   available_recipes = filter(lambda r: r.startswith('ispyb-') and r.endswith('.json'), os.listdir('/dls_sw/apps/zocalo/live/recipes'))
   available_recipes = sorted(map(lambda r: r[6:-5], available_recipes))

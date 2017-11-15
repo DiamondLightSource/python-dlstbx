@@ -77,7 +77,7 @@ class DozorWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     for image in sorted(results):
       print('%4d' % image, '%6.3f %6.3f %6.3f' % tuple(results[image]))
       self.recwrap.send_to('image-analysis-results', {
-          'image_number': image,
+          'file-number': image,
           'dozor_score': tuple(results[image])[0],
         })
 

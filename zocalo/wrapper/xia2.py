@@ -131,8 +131,12 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       else:
         logger.warning('Expected output directory does not exist: %s', src)
 
+    allfiles = []
     for f in glob.glob(os.path.join(working_directory, '*.*')):
       shutil.copy(f, results_directory)
+      allfiles.append(os.path.join(results_directory, f))
+
+    # Send results to various listeners
 
     os.chdir(results_directory)
 
@@ -140,17 +144,15 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       self.send_results_to_ispyb()
 
     logfiles = [ 'xia2.txt', 'xia2.error' ]
-    logfiles = filter(os.path.isfile, logfiles)
-    for result_file in logfiles:
+    for result_file in filter(os.path.isfile, logfiles):
       self.record_result_individual_file({
         'file_path': os.path.join(results_directory, result_file),
         'file_name': os.path.basename(result_file),
         'file_type': 'log',
       })
 
-    allfiles = logfiles
     if allfiles:
-      self.record_result_all_files(allfiles) # format tbd
+      self.record_result_all_files({ 'files': allfiles })
 
     os.chdir(cwd)
 

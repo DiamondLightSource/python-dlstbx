@@ -1,55 +1,51 @@
-#%Module1.0#####################################################################
+#%Module1.0###################################################################
 ##
 ## Loads up standard directories
 ##
-proc ModulesHelp { } {
-	global softwaredir
-	global localTEMP
-	global networkTEMP
 
-        puts stderr "\tThis module loads up standard directories"
-        puts stderr "\n\tNetworked $networkTEMP and \nlocal $localTEMP temp"
-        puts stderr "\n\tand software standard location $softwaredir\n"
+proc ModulesHelp { } {
+  global softwaredir
+  global localTEMP
+  global networkTEMP
+
+  puts stderr "\tThis module loads up standard directories"
+  puts stderr "\n\tNetworked $networkTEMP and \nlocal $localTEMP temp"
+  puts stderr "\n\tand software standard location $softwaredir\n"
 }
 
 module-whatis   "should be loaded for each application"
 
-#set the directories:
-set 	softwaredir 	/dls_sw/apps
-set	localTEMP	/tmp/$env(USER)
-#emergency hack 15/07/11 redirect networkTMP to user home area - further 
-# modified by GW to allow for user is gda
-#set	networkTEMP	/dls/tmp/$env(USER)
-#emergency modification by kdf51254 on 21/04/15 to set networkTEMP for 'diatrain' account
-# create unique tmpdir on /dls/tmp
+# set the directories:
+set softwaredir /dls_sw/apps
+set localTEMP	/tmp/$env(USER)
+set networkTEMP	/dls/tmp/$env(USER)
 
 if {[string compare $env(USER) "gda"] == 0 || [string compare $env(USER) "gda2"] == 0} then {
- set    networkTEMP	/dls/tmp/$env(USER)
+  set networkTEMP /dls/tmp/$env(USER)
 } elseif { $env(USER) eq "diatrain" } {
- if { [ module-info mode load ] } {
-   set  networkTEMP [exec mktemp --tmpdir=/dls/tmp -d]
-   puts stderr "networkTEMP is $networkTEMP"
- } else {
-   set  networkTEMP $env(networkTEMP)
- }
+  if { [ module-info mode load ] } {
+    set networkTEMP [exec mktemp --tmpdir=/dls/tmp -d]
+    puts stderr "networkTEMP is $networkTEMP"
+  } else {
+    set networkTEMP $env(networkTEMP)
+  }
 } else {
- set    networkTEMP     /home/$env(USER)/tmp
+  set networkTEMP /home/$env(USER)/tmp
 }
 
-#puts stderr "$networkTEMP\n"
-#export them
+# export them
 setenv 	softwaredir 	$softwaredir
 setenv	localTEMP	$localTEMP
 setenv	networkTEMP	$networkTEMP
 
-#create them if they are not there
+# create them if they are not there
 
 if { [ module-info mode load ] } {
-	if { ! [ file exists $localTEMP ] } {
-       		file mkdir $localTEMP
-	}
-  	if { ! [ file exists $networkTEMP ] } {
-		file mkdir $networkTEMP
-	}
+  if { ! [ file exists $localTEMP ] } {
+    file mkdir $localTEMP
+  }
+  if { ! [ file exists $networkTEMP ] } {
+    file mkdir $networkTEMP
+  }
 }
 

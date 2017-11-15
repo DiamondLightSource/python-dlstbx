@@ -52,7 +52,8 @@ _diffrn_detector.diffrn_id
 _diffrn_detector.id
 _diffrn_detector.type
 _diffrn_detector.number_of_axes
- %(beamline)s %(detector_id)s '%(detector_name)s' 3
+_diffrn_detector.layer_thickness
+ %(beamline)s %(detector_id)s '%(detector_name)s' 3 1.000
 
 loop_
 _diffrn_detector_axis.detector_id

@@ -1,11 +1,11 @@
-from __future__ import division, print_function
+from __future__ import absolute_import, division, print_function
+
+import sys
+
 from dials.util import procrunner
-
-from dlstbx.util.dxtbx_to_dozor import (dxtbx_to_dozor, write_dozor_input,
-                                        parse_dozor_output)
-
-from dxtbx.datablock import DataBlockTemplateImporter
-from dxtbx.datablock import DataBlockFactory
+from dlstbx.util.dxtbx_to_dozor import (dxtbx_to_dozor, parse_dozor_output,
+                                        write_dozor_input)
+from dxtbx.datablock import DataBlockFactory, DataBlockTemplateImporter
 
 def scanner(arg):
 
@@ -43,9 +43,15 @@ def scanner(arg):
 
   command = ['dozor', 'dozor.in']
 
-  result = procrunner.run_process(
-    command, timeout=3600.0,
-    print_stdout=False, print_stderr=False)
+  try:
+    result = procrunner.run_process(
+      command, timeout=3600.0,
+      print_stdout=False, print_stderr=False)
+  except OSError as e:
+    if e.errno == 2:
+      print("dozor not found. Did you module load dozor?")
+      sys.exit(1)
+    raise
 
   # results are a dictionary keyed by image number, containing main score,
   # spot score and observed resolution

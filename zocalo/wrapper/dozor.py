@@ -35,7 +35,8 @@ class DozorWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       return
     patternlen = max(int(r.group(1)), 1)
     template = template[:r.start()] + ("#" * patternlen) + template[r.end():]
-    
+    logger.info("Running dozor for '%s'", template)
+
     start = int(params.get('start', 0))
     end = int(params.get('end', 0))
     importer = DataBlockTemplateImporter([template], 0)
@@ -67,15 +68,19 @@ class DozorWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 
+    os.chdir(cwd)
+
     # results are a dictionary keyed by image number, containing main score,
     # spot score and observed resolution
     results = parse_dozor_output(result['stdout'])
 
     for image in sorted(results):
       print('%4d' % image, '%6.3f %6.3f %6.3f' % tuple(results[image]))
+      self.recwrap.send_to('image-analysis-results', {
+          'image_number': image,
+          'dozor_score': tuple(results[image])[0],
+        })
 
-    # Send results to various listeners
-
-    os.chdir(cwd)
+    logger.info('Dozor done.')
 
     return result['exitcode'] == 0

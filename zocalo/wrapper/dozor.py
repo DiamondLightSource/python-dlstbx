@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import logging
 import os
+import re
 
 import dlstbx.zocalo.wrapper
 from dials.util import procrunner
@@ -27,6 +28,14 @@ class DozorWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     # Generate dozor input file
     template = params['pattern']
+    # Convert ISPyB %d pattern to dxtbx #### pattern
+    r = re.search('%([0-9]*)d', template)
+    if not r:
+      logger.error("Could not parse template pattern '%s'", template)
+      return
+    patternlen = max(int(r.group(1)), 1)
+    template = template[:r.start()] + ("#" * patternlen) + template[r.end():]
+    
     start = int(params.get('start', 0))
     end = int(params.get('end', 0))
     importer = DataBlockTemplateImporter([template], 0)

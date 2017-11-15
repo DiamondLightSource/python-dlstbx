@@ -32,8 +32,11 @@ class DLSISPyB(CommonService):
         allow_non_recipe_messages=True)
 
   @staticmethod
-  def parse_value(rw, parameter):
-    base_value = rw.recipe_step['parameters'].get(parameter)
+  def parse_value(rw, message, parameter):
+    if isinstance(message, dict):
+      base_value = message.get(parameter, rw.recipe_step['parameters'].get(parameter))
+    else:
+      base_value = rw.recipe_step['parameters'].get(parameter)
     if not base_value or '$' not in base_value:
       return base_value
     for key in rw.environment:
@@ -93,7 +96,7 @@ class DLSISPyB(CommonService):
     rw.transport.transaction_commit(txn)
 
   def do_update_processing_status(self, rw, message, txn):
-    ppid = self.parse_value(rw, 'program_id')
+    ppid = self.parse_value(rw, message, 'program_id')
     message = rw.recipe_step['parameters'].get('message')
     start_time = rw.recipe_step['parameters'].get('start_time')
     update_time = rw.recipe_step['parameters'].get('update_time')
@@ -136,7 +139,7 @@ class DLSISPyB(CommonService):
 
   def do_add_program_attachment(self, rw, message, txn):
     params = self.ispyb_mx.get_program_attachment_params()
-    params['parentid'] = message.get('program_id', rw.recipe_step['parameters'].get('program_id'))
+    params['parentid'] = self.parse_value(rw, message, 'program_id')
     params['file_name'] = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
     params['file_path'] = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
 
@@ -157,7 +160,7 @@ class DLSISPyB(CommonService):
 
   def do_add_datacollection_attachment(self, rw, message, txn):
     params = {}
-    params['parentid'] = message.get('dcid', rw.recipe_step['parameters'].get('dcid'))
+    params['parentid'] = self.parse_value(rw, message, 'dcid')
     params['file_name'] = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
     params['file_path'] = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
 

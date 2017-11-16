@@ -10,6 +10,74 @@ from datetime import datetime
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
+class Dropfile(object):
+  '''A class encapsulating the XML dropfile tree as it is built up.'''
+
+  def __init__(self, visit, beamline, datasetname):
+    '''Create the basic XML structure from given information.'''
+    self._closed = False
+
+    self._xml = ET.Element('icat')
+    self._xml.set('version', '1.0 RC6')
+    self._xml.set('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance')
+    self._xml.set('xsi:noNamespaceSchemaLocation', 'icatXSD.xsd')
+
+    study = ET.SubElement(self._xml, 'study')
+    investigation = ET.SubElement(study, 'investigation')
+    ET.SubElement(investigation, 'inv_number').text = visit.split('-')[0] if '-' in visit else visit
+    ET.SubElement(investigation, 'visit_id').text = visit
+    ET.SubElement(investigation, 'instrument').text = beamline
+    ET.SubElement(investigation, 'title').text = 'dont need it'
+    ET.SubElement(investigation, 'inv_type').text = 'experiment'
+
+    self._dataset = ET.SubElement(investigation, 'dataset')
+    ET.SubElement(self._dataset, 'name').text = datasetname
+    ET.SubElement(self._dataset, 'dataset_type').text = 'EXPERIMENT_RAW'
+    ET.SubElement(self._dataset, 'description').text = 'unknown'
+
+  def add(self, filename):
+    '''Add a file to the dropfile.
+       Will throw an exception if the file does not exist.'''
+    assert not self._closed
+    stat = os.stat(filename)
+    df = ET.SubElement(self._dataset, 'datafile')
+    ET.SubElement(df, 'name').text = os.path.basename(filename)
+    ET.SubElement(df, 'location').text = filename
+    ET.SubElement(df, 'description').text = 'unknown'
+    ET.SubElement(df, 'datafile_version').text = '1.0'
+    ET.SubElement(df, 'datafile_create_time').text = \
+        datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%dT%H:%M:%S")
+    ET.SubElement(df, 'datafile_modify_time').text = \
+        datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%dT%H:%M:%S")
+        # both are set to time of last modification
+    ET.SubElement(df, 'file_size').text = str(stat.st_size)
+
+  def close(self):
+    '''Do not accept any more entries for this dropfile.'''
+    self._closed = True
+    def indent(elem, level=0):
+      i = "\n" + level*"  "
+      if len(elem):
+        if not elem.text or not elem.text.strip():
+          elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+          elem.tail = i
+        for elem in elem:
+          indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+          elem.tail = i
+      else:
+        if level and (not elem.tail or not elem.tail.strip()):
+          elem.tail = i
+    indent(self._xml)
+
+  def to_string(self):
+    '''Return the dropfile as formatted XML string.'''
+    if not self._closed:
+      self.close()
+    return '<?xml version="1.0" ?>\n' + ET.tostring(self._xml)
+
+
 class DLSArchiver(CommonService):
   '''A service that generates dropfiles for data collections.'''
 
@@ -56,24 +124,10 @@ class DLSArchiver(CommonService):
 
     filepaths = subrecipe['parameters']['pattern'].split('/')
     _, _, beamline, _, _, visit_id = filepaths[0:6]
-    visit_id_u = visit_id.upper()
 
-    icat = ET.Element('icat')
-    icat.set('version', '1.0 RC6')
-    icat.set('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance')
-    icat.set('xsi:noNamespaceSchemaLocation', 'icatXSD.xsd')
-    study = ET.SubElement(icat, 'study')
-    investigation = ET.SubElement(study, 'investigation')
-    ET.SubElement(investigation, 'inv_number').text = visit_id_u.split('-')[0]
-    ET.SubElement(investigation, 'visit_id').text = visit_id_u
-    ET.SubElement(investigation, 'instrument').text = beamline
-    ET.SubElement(investigation, 'title').text = 'dont need it'
-    ET.SubElement(investigation, 'inv_type').text = 'experiment'
-
-    dataset = ET.SubElement(investigation, 'dataset')
-    ET.SubElement(dataset, 'name').text = '/'.join(filepaths[6:-1]) or 'topdir'
-    ET.SubElement(dataset, 'dataset_type').text = 'EXPERIMENT_RAW'
-    ET.SubElement(dataset, 'description').text = 'unknown'
+    df = Dropfile(visit_id.upper(),
+                        beamline,
+                        '/'.join(filepaths[6:-1]) or 'topdir')
 
     message_out = { 'success': 0, 'failed': 0 }
     files_not_found = []
@@ -93,7 +147,7 @@ class DLSArchiver(CommonService):
       filename = subrecipe['parameters']['pattern'] % x
 
       try:
-        stat = os.stat(filename)
+        df.add(filename)
       except OSError as e:
         if e.errno == errno.ENOENT:
           files_not_found.append(filename)
@@ -105,18 +159,7 @@ class DLSArchiver(CommonService):
             self.log.warning("Could not archive %s", filename, exc_info=True)
         message_out['failed'] += 1
         continue
-      self.log.debug("Archiving %s", filename)
-      df = ET.SubElement(dataset, 'datafile')
-      ET.SubElement(df, 'name').text = filename.split('/')[-1]
-      ET.SubElement(df, 'location').text = filename
-      ET.SubElement(df, 'description').text = 'unknown'
-      ET.SubElement(df, 'datafile_version').text = '1.0'
-      ET.SubElement(df, 'datafile_create_time').text = \
-        datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%dT%H:%M:%S")
-      ET.SubElement(df, 'datafile_modify_time').text = \
-        datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%dT%H:%M:%S")
-        # both are set to time of last modification
-      ET.SubElement(df, 'file_size').text = str(stat.st_size)
+      self.log.debug("Archived %s", filename)
       message_out['success'] += 1
     if files_not_found:
       self.log.info("The following files were not found:\n%s", "\n".join(files_not_found))
@@ -127,23 +170,7 @@ class DLSArchiver(CommonService):
       else:
         self.log.warning("Failed to archive %d files", message_out['failed'])
 
-    def indent(elem, level=0):
-      i = "\n" + level*"  "
-      if len(elem):
-        if not elem.text or not elem.text.strip():
-          elem.text = i + "  "
-        if not elem.tail or not elem.tail.strip():
-          elem.tail = i
-        for elem in elem:
-          indent(elem, level+1)
-        if not elem.tail or not elem.tail.strip():
-          elem.tail = i
-      else:
-        if level and (not elem.tail or not elem.tail.strip()):
-          elem.tail = i
-    indent(icat)
-
-    xml_string = '<?xml version="1.0" ?>\n' + ET.tostring(icat)
+    xml_string = df.to_string()
     dropfile = subrecipe['parameters'].get('dropfile')
     if dropfile == '{dropfile_override}':
       dropfile = None

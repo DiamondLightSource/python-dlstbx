@@ -160,7 +160,7 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       })
 
     if allfiles:
-      self.record_result_all_files({ 'files': allfiles })
+      self.record_result_all_files({ 'filelist': allfiles })
 
     os.chdir(cwd)
 

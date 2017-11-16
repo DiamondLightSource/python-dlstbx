@@ -11,11 +11,13 @@
 
 from __future__ import absolute_import, division, print_function
 
+import json
 import pprint
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
 
 from dlstbx.ispybtbx import ispyb_filter
+import workflows.recipe
 
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.find_in_ispyb [options] dcid")
@@ -33,38 +35,24 @@ if __name__ == '__main__':
   (options, args) = parser.parse_args(sys.argv[1:])
 
   for arg in args:
-    if int(arg) > 0:
-      parameters = {}
-      if options.reprocess:
-        parameters['ispyb_process'] = int(arg)
-      else:
-        parameters['ispyb_dcid'] = int(arg)
-      message, parameters = ispyb_filter({}, parameters)
-
-      if options.recipefile:
-        import json
-        import workflows.recipe
-        with open(options.recipefile, 'rb') as f:
-          recipe = workflows.recipe.Recipe(json.load(f))
-        recipe.apply_parameters(parameters)
-        if options.recipepointer:
-          d = {
-            'recipe':recipe.recipe,
-            'recipe-pointer': options.recipepointer, 'recipe-path': [], 'environment': {}
-          }
-        else:
-          d = recipe.recipe
-        print(json.dumps(d, indent=2))
-      else:
-        pprint.pprint(parameters)
-
+    parameters = {}
+    if options.reprocess:
+      parameters['ispyb_process'] = int(arg)
     else:
-      # Not sure what this is.
-      path = arg
-      if not path.endswith('/'):
-        path += '/'
-      i = ispybtbx()
-      dc_ids = i.find_dc_id(path)
-      print(path)
-      for dc_id in dc_ids:
-        print(dc_id)
+      parameters['ispyb_dcid'] = int(arg)
+    message, parameters = ispyb_filter({}, parameters)
+
+    if options.recipefile:
+      with open(options.recipefile, 'rb') as f:
+        recipe = workflows.recipe.Recipe(json.load(f))
+      recipe.apply_parameters(parameters)
+      if options.recipepointer:
+        d = {
+          'recipe':recipe.recipe,
+          'recipe-pointer': options.recipepointer, 'recipe-path': [], 'environment': {}
+        }
+      else:
+        d = recipe.recipe
+      print(json.dumps(d, indent=2))
+    else:
+      pprint.pprint(parameters)

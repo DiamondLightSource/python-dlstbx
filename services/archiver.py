@@ -94,6 +94,9 @@ class DLSArchiver(CommonService):
     workflows.recipe.wrap_subscribe(
         self._transport, 'archive.pattern',
         self.archive_dcid, acknowledgement=True, log_extender=self.extend_log)
+    workflows.recipe.wrap_subscribe(
+        self._transport, 'archive.filelist',
+        self.archive_filelist, acknowledgement=True, log_extender=self.extend_log)
 
   @staticmethod
   def rangifier(numbers):
@@ -110,11 +113,11 @@ class DLSArchiver(CommonService):
     txn = self._transport.transaction_begin()
     self._transport.ack(header, transaction=txn)
 
-    # Extract the recipe
-    subrecipe = rw.recipe_step
-    self.log.info("Attempting to archive %s", subrecipe['parameters']['pattern'])
+    # Extract parameters from the recipe
+    params = rw.recipe_step['parameters']
+    self.log.info("Attempting to archive %s", params['pattern'])
 
-    settings = subrecipe['parameters'].copy()
+    settings = params.copy()
     if isinstance(message, dict):
       for field in ('multipart', 'pattern-start'):
         if 'archive-' + field in message:
@@ -122,7 +125,7 @@ class DLSArchiver(CommonService):
 
     file_range_limit = int(settings.get('limit-files', 0))
 
-    filepaths = subrecipe['parameters']['pattern'].split('/')
+    filepaths = params['pattern'].split('/')
     _, _, beamline, _, _, visit_id = filepaths[0:6]
 
     df = Dropfile(visit_id.upper(),
@@ -144,7 +147,7 @@ class DLSArchiver(CommonService):
           }, transaction=txn)
         break
 
-      filename = subrecipe['parameters']['pattern'] % x
+      filename = params['pattern'] % x
 
       try:
         df.add(filename)
@@ -153,7 +156,7 @@ class DLSArchiver(CommonService):
           files_not_found.append(filename)
         else:
           # Report all missing files as warnings unless recipe says otherwise
-          if rw.recipe_step['parameters'].get('log-file-warnings-as-info'):
+          if params.get('log-file-warnings-as-info'):
             self.log.info("Could not archive %s", filename, exc_info=True)
           else:
             self.log.warning("Could not archive %s", filename, exc_info=True)
@@ -165,20 +168,125 @@ class DLSArchiver(CommonService):
       self.log.info("The following files were not found:\n%s", "\n".join(files_not_found))
     self.log.info("%d files archived", message_out['success'])
     if message_out['failed']:
-      if rw.recipe_step['parameters'].get('log-summary-warning-as-info'):
+      if params.get('log-summary-warning-as-info'):
         self.log.info("Failed to archive %d files", message_out['failed'])
       else:
         self.log.warning("Failed to archive %d files", message_out['failed'])
 
     xml_string = df.to_string()
-    dropfile = subrecipe['parameters'].get('dropfile')
+    dropfile = params.get('dropfile')
     if dropfile == '{dropfile_override}':
       dropfile = None
-    if not dropfile and all(k in subrecipe['parameters'] for k in ('dropfile-dir', 'dropfile-filename')):
-      dropfile = os.path.join(subrecipe['parameters']['dropfile-dir'], subrecipe['parameters']['dropfile-filename'])
+    if not dropfile and all(k in params for k in ('dropfile-dir', 'dropfile-filename')):
+      dropfile = os.path.join(params['dropfile-dir'], params['dropfile-filename'])
     if dropfile:
       timestamp = datetime.strftime(datetime.now(), "%Y%m%d-%H%M%S")
       multipart_label = '-' + str(settings['multipart']) if settings.get('multipart') else ''
+      dropfile = dropfile.format(visit_id=visit_id, beamline=beamline, timestamp=timestamp, multipart=multipart_label)
+      if message_out['success']:
+        with open(dropfile, 'w') as fh:
+          fh.write(xml_string)
+        self.log.info("Written dropfile XML to %s", dropfile)
+      else:
+        self.log.info("Skipped writing empty dropfile XML to %s", dropfile)
+    message_out['xml'] = xml_string
+
+    rw.set_default_channel('dropfile')
+    rw.send_to('dropfile', message_out, transaction=txn)
+
+    self._transport.transaction_commit(txn)
+    self.log.info("Done.")
+
+  def archive_filelist(self, rw, header, message):
+    '''Archive an arbitrary list of files.'''
+
+    # Extract parameters
+    params = rw.recipe_step['parameters']
+    if isinstance(message, dict):
+      multipart = message.get('archive-multipart', 1)
+      filelist = message.get('filelist', params.get('filelist', []))
+    else:
+      multipart = None
+      filelist = params.get('filelist', [])
+    if not isinstance(filelist, list):
+      self.log.error("Expected list of files to archive. Received %s.", str(type(filelist)))
+      self._transport.nack(header)
+      return
+    if not filelist:
+      self.log.warn("Attempted to archive an empty list of files.")
+      self._transport.nack(header)
+      return
+    self.log.info("Attempting to archive list of %d files, starting with %s", len(filelist), filelist[0])
+    file_range_limit = int(params.get('limit-files', 0))
+
+    filepaths = filelist[0].split('/')
+    beamline = 'unknown'
+    visit_id = 'unknown'
+    try:
+      beamline = filepaths[2]
+      visit_id = filepaths[6]
+    except IndexError:
+      pass
+    visit_id = params.get('visit', visit_id)
+    beamline = params.get('beamline', beamline)
+
+    # Conditionally acknowledge receipt of the message
+    txn = self._transport.transaction_begin()
+    self._transport.ack(header, transaction=txn)
+
+    # Archive files
+    df = Dropfile(visit_id.upper(),
+                  beamline,
+                  '/'.join(filepaths[6:-1]) or 'topdir')
+
+    message_out = { 'success': 0, 'failed': 0 }
+    files_not_found = []
+    for n, filename in enumerate(filelist):
+      if file_range_limit and message_out['success'] >= file_range_limit:
+        # Test for limit at beginning, not end, so >= 1 file remains
+        self.log.info("Reached dropfile limit of %d entries, splitting job.", file_range_limit)
+        # limit reached - bail out
+        if not multipart:
+          multipart = 1
+        rw.checkpoint({
+            'archive-multipart': multipart + 1,
+            'filelist': filelist[n:],
+          }, transaction=txn)
+        break
+
+      try:
+        df.add(filename)
+      except OSError as e:
+        if e.errno == errno.ENOENT:
+          files_not_found.append(filename)
+        else:
+          # Report all missing files as warnings unless recipe says otherwise
+          if params.get('log-file-warnings-as-info'):
+            self.log.info("Could not archive %s", filename, exc_info=True)
+          else:
+            self.log.warning("Could not archive %s", filename, exc_info=True)
+        message_out['failed'] += 1
+        continue
+      self.log.debug("Archived %s", filename)
+      message_out['success'] += 1
+    if files_not_found:
+      self.log.info("The following files were not found:\n%s", "\n".join(files_not_found))
+    self.log.info("%d files archived", message_out['success'])
+    if message_out['failed']:
+      if params.get('log-summary-warning-as-info'):
+        self.log.info("Failed to archive %d files", message_out['failed'])
+      else:
+        self.log.warning("Failed to archive %d files", message_out['failed'])
+
+    xml_string = df.to_string()
+    dropfile = params.get('dropfile')
+    if dropfile == '{dropfile_override}':
+      dropfile = None
+    if not dropfile and all(k in params for k in ('dropfile-dir', 'dropfile-filename')):
+      dropfile = os.path.join(params['dropfile-dir'], params['dropfile-filename'])
+    if dropfile:
+      timestamp = datetime.strftime(datetime.now(), "%Y%m%d-%H%M%S")
+      multipart_label = '-' + str(multipart) if multipart else ''
       dropfile = dropfile.format(visit_id=visit_id, beamline=beamline, timestamp=timestamp, multipart=multipart_label)
       if message_out['success']:
         with open(dropfile, 'w') as fh:

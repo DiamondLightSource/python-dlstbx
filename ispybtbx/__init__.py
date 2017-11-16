@@ -27,6 +27,8 @@ def _clean_(path):
   return path.replace(2*os.sep, os.sep)
 
 def _prefix_(template):
+  if not template:
+    return template
   return template.split('#')[0]
 
 class ispybtbx(object):
@@ -123,12 +125,15 @@ class ispybtbx(object):
                            'datacollectionid=%s;', dc_id)
     labels = self.columns['DataCollection']
     result = { }
-    for l, r in zip(labels, results[0]):
-      result[l] = r
+    if results:
+      for l, r in zip(labels, results[0]):
+        result[l] = r
     return result
 
   def get_beamline_from_dcid(self, dc_id):
     results = self.execute('SELECT bs.beamlineName FROM BLSession bs INNER JOIN DataCollectionGroup dcg ON dcg.sessionId = bs.sessionId INNER JOIN DataCollection dc ON dc.dataCollectionGroupId = dcg.dataCollectionGroupId WHERE dc.dataCollectionId = %s;' % str(dc_id))
+    if not results:
+      return None
     assert(len(results) == 1)
     result = results[0][0]
     return result
@@ -256,7 +261,9 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
     return sorted(dc_ids)
 
   def dc_info_to_filename_pattern(self, dc_info):
-    template = dc_info['fileTemplate']
+    template = dc_info.get('fileTemplate')
+    if not template:
+      return None
     fmt = '%%0%dd' % template.count('#')
     prefix = template.split('#')[0]
     suffix = template.split('#')[-1]
@@ -267,20 +274,29 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
     directory = dc_info['imageDirectory']
     if image_number:
       return os.path.join(directory, template % image_number)
-    return os.path.join(directory, template % dc_info['startImageNumber'])
+    if dc_info['startImageNumber']:
+      return os.path.join(directory, template % dc_info['startImageNumber'])
+    return None
 
   def dc_info_to_start_end(self, dc_info):
-    start = dc_info['startImageNumber']
-    number = dc_info['numberOfImages']
-    end = start + number - 1
+    start = dc_info.get('startImageNumber')
+    number = dc_info.get('numberOfImages')
+    if start is None or number is None:
+      end = None
+    else:
+      end = start + number - 1
     return start, end
 
   def dc_info_is_grid_scan(self, dc_info):
-    if dc_info['numberOfImages'] > 1 and dc_info['axisRange'] == 0.0:
-      return True
-    return False
+    number_of_images = dc_info.get('numberOfImages')
+    axis_range = dc_info.get('axisRange')
+    if number_of_images is None or axis_range is None:
+      return None
+    return number_of_images > 1 and axis_range == 0.0
 
   def dc_info_is_screening(self, dc_info):
+    if dc_info.get('numberOfImages') == None:
+      return None
     if dc_info['numberOfImages'] == 1:
       return True
     if dc_info['numberOfImages'] > 1 and dc_info['overlap'] != 0.0:
@@ -288,9 +304,11 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
     return False
 
   def dc_info_is_rotation_scan(self, dc_info):
-    if dc_info['overlap'] == 0.0 and dc_info['axisRange'] > 0:
-      return True
-    return False
+    overlap = dc_info.get('overlap')
+    axis_range = dc_info.get('axisRange')
+    if overlap is None or axis_range is None:
+      return None
+    return overlap == 0.0 and axis_range > 0
 
   def classify_dc(self, dc_info):
     return {'grid':self.dc_info_is_grid_scan(dc_info),
@@ -305,7 +323,8 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
     return os.sep.join(directory.split(os.sep)[:6]).strip()
 
   def dc_info_to_working_directory(self, dc_info, taskname):
-    prefix = _prefix_(dc_info['fileTemplate'])
+    prefix = _prefix_(dc_info.get('fileTemplate'))
+    if not prefix: return None
     directory = dc_info['imageDirectory']
     visit = self.data_folder_to_visit(directory)
     rest = directory.replace(visit, '')
@@ -316,7 +335,8 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
       return os.path.join(root, dc_info['uuid'])
 
   def dc_info_to_results_directory(self, dc_info, taskname):
-    prefix = _prefix_(dc_info['fileTemplate'])
+    prefix = _prefix_(dc_info.get('fileTemplate'))
+    if not prefix: return None
     directory = dc_info['imageDirectory']
     visit = self.data_folder_to_visit(directory)
     rest = directory.replace(visit, '')
@@ -540,10 +560,10 @@ def ispyb_filter(message, parameters):
   start, end = i.dc_info_to_start_end(dc_info)
   parameters['ispyb_image_first'] = start
   parameters['ispyb_image_last'] = end
-  parameters['ispyb_image_template'] = dc_info['fileTemplate']
-  parameters['ispyb_image_directory'] = dc_info['imageDirectory']
+  parameters['ispyb_image_template'] = dc_info.get('fileTemplate')
+  parameters['ispyb_image_directory'] = dc_info.get('imageDirectory')
   parameters['ispyb_image_pattern'] = i.dc_info_to_filename_pattern(dc_info)
-  if not parameters.get('ispyb_image'):
+  if not parameters.get('ispyb_image') and start is not None and end is not None:
     parameters['ispyb_image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
                                               start, end)
   parameters['ispyb_working_directory'] = i.dc_info_to_working_directory(
@@ -566,7 +586,10 @@ def ispyb_filter(message, parameters):
     message['default_recipe'] = ['per-image-analysis-rotation', 'strategy-edna', 'strategy-mosflm', 'strategy-xia2']
     return message, parameters
 
-  assert(dc_class['rotation'])
+  if not dc_class['rotation']:
+    # possibly EM dataset
+    message['default_recipe'] = [ ]
+    return message, parameters
 
   # for the moment we do not want multi-xia2 for /dls/mx i.e. VMXi
   # beware if other projects start using this directory structure will

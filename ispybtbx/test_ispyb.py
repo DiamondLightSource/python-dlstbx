@@ -11,6 +11,8 @@ ds = {
   "weak_ins_4": 1383040,
   "sg_set": 1308505,
   "i19_screening": 1396413,
+  "cryo_em" : 2097825,
+  "borken_dcid": 2091234,
 }
 
 def test_ispyb_recipe_filtering_does_not_affect_messages_without_ispyb_content():
@@ -50,6 +52,13 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
     'dummy_param': mock.sentinel.dummy_param
   }
 
+def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples():
+  for example, dcid in ds.iteritems():
+    message = {}
+    parameters = { 'ispyb_dcid': dcid }
+    message, parameters = ispyb_filter(message, parameters)
+    assert message == { 'default_recipe': mock.ANY }
+    assert len(parameters) > 10
 
 def test_fetch_datacollect_group_from_ispyb():
   i = ispybtbx()
@@ -69,7 +78,7 @@ def test_get_datacollection_information():
   dc_id = ds['gphl_C2']
   dc_info = i.get_dc_info(dc_id)
 # for k, v in dc_info.iteritems():
-#   print k, v
+#   print(k, v)
   assert dc_info['fileTemplate'] == "TRP_M1S6_4_####.cbf"
   assert dc_info['imageDirectory'] == "/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/"
   assert dc_info['startTime'] == datetime(2016, 10, 7, 11, 47, 13)
@@ -82,6 +91,25 @@ def test_get_datacollection_information():
   assert dc_info['imagePrefix'] == "TRP_M1S6"
   assert dc_info['wavelength'] == 0.979493
   assert dc_info['resolution'] == 1.5
+
+def test_get_datacollection_information_for_em():
+  i = ispybtbx()
+  dc_id = ds['cryo_em']
+  dc_info = i.get_dc_info(dc_id)
+# for k, v in dc_info.iteritems():
+#   print(k, v)
+  assert dc_info['fileTemplate'] == "FoilHole_16386978_Data_16392706_16392707_20171017_0929-55644#####.mrc"
+  assert dc_info['imageDirectory'] == "/dls/m02/data/2017/cm16766-5/processed/cm16766-5_20171110_1424/Runs/000002_ProtImportMovies/extra"
+  assert dc_info['startTime'] == datetime(2017, 11, 10, 14, 27, 7)
+  assert dc_info['endTime'] == datetime(2017, 11, 14, 11, 28, 20)
+  assert dc_info['startImageNumber'] == None # because EM
+  assert dc_info['numberOfImages'] == None # because EM
+  assert dc_info['overlap'] == None # because EM
+  assert dc_info['axisRange'] == None # because EM
+  assert dc_info['dataCollectionId'] == dc_id
+  assert dc_info['imagePrefix'] == None # because EM
+  assert dc_info['wavelength'] == 0.0196875
+  assert dc_info['resolution'] == None # because EM
 
 def test_datacollection_classification():
   i = ispybtbx()

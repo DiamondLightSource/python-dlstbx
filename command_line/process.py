@@ -81,8 +81,7 @@ if __name__ == '__main__':
   else:
     dcid = imagesweeps[0]['dcid']
 
-# i = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
-  i = ispyb.factory.create_connection('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
+  i = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
   i_mx = ispyb.factory.create_data_area(ispyb.factory.DataAreaType.MXPROCESSING, i)
 
   jp = i_mx.get_job_params()
@@ -92,19 +91,9 @@ if __name__ == '__main__':
   jp['datacollectionid'] = dcid
   jp['display_name'] = options.name
   jp['recipe'] = options.recipe
+# pprint(jp)
 
-  def dummy(params):
-    return 12345
-  i_mx.upsert_job = dummy
-  i_mx.upsert_job_parameter = dummy
-  i_mx.upsert_job_image_sweep = dummy
-  print("="*50)
-  print("This command is not implemented yet")
-  print("="*50)
-
-  pprint(jp)
-
-  jobid = i_mx.upsert_job(jp)
+  jobid = i_mx.upsert_job(jp.values())
   print("Created JobID={}".format(jobid))
   for key, value in parameters:
     jpp = i_mx.get_job_parameter_params()
@@ -112,8 +101,8 @@ if __name__ == '__main__':
     jpp['job_id'] = jobid
     jpp['parameter_key'] = key
     jpp['parameter_value'] = value
-    pprint(jpp)
-    jppid = i_mx.upsert_job_parameter(jpp)
+#   pprint(jpp)
+    jppid = i_mx.upsert_job_parameter(jpp.values())
     print("Created JPP={}".format(jppid))
 
   for sweep in imagesweeps:
@@ -123,8 +112,8 @@ if __name__ == '__main__':
     jisp['datacollectionid'] = sweep['dcid']
     jisp['start_image'] = sweep['start']
     jisp['end_image'] = sweep['end']
-    pprint(jisp)
-    jispid = i_mx.upsert_job_image_sweep(jisp)
+#   pprint(jisp)
+    jispid = i_mx.upsert_job_image_sweep(jisp.values())
     print("Created JISP={}".format(jispid))
 
   print("All done. Processing job {} created".format(jobid))

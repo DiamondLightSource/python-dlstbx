@@ -116,7 +116,7 @@ if __name__ == '__main__':
   except ispyb.legacy.exception.ISPyBNoResultException:
     print("Reprocessing ID %s not found" % rpid)
     sys.exit(1)
-  print('''Reprocessing ID {reprocessingId}:
+  print('''Reprocessing ID {processingJobId}:
 
        Name: {displayName}
      Recipe: {recipe}

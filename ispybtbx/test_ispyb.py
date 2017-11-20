@@ -155,4 +155,4 @@ def test_retrieve_reprocessing_information():
   assert param['ispyb_reprocessing_data']['displayName']
   assert param['ispyb_reprocessing_data']['recipe'] == 'xia2-dials'
   assert param['ispyb_reprocessing_data']['recordTimestamp']
-  assert param['ispyb_reprocessing_data']['reprocessingId'] == 95
+  assert param['ispyb_reprocessing_data']['processingJobId'] == 95

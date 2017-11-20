@@ -176,9 +176,9 @@ class DLSISPyB(CommonService):
 
     self.log.info("Not writing data collection attachment %s for DCID %s to database: Operation not supported" % \
                   (params['file_name'], params['parentid']))
-#   self.log.debug("Writing program attachment to database: %s", params)
+#   self.log.debug("Writing data collection attachment to database: %s", params)
 
-#   result = self.ispyb_mx.upsert_program_attachment(list(params.values()))
+#   result = self.ispyb_mx.upsert_???_attachment(list(params.values()))
     result = 0
 
     return { 'success': True, 'return_value': result }

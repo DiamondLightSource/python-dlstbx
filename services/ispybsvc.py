@@ -5,6 +5,7 @@ import os.path
 import ispyb
 import ispyb.factory
 from dials.util.procrunner import run_process
+import dlstbx.util.gda
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -235,11 +236,7 @@ class DLSISPyB(CommonService):
         else:
           # now notify GDA in mx-scripty manner
           try:
-            import time
-            start = time.time()
-            import dlstbx.util.gda
             dlstbx.util.gda.notify(gdahost, 9876, 'ISPYB:ImageQualityIndicators,' + str(result))
-            self.log.debug('GDA notification took %.2f seconds (python)', time.time() - start)
           except Exception as e:
             self.log.warning('Could not notify GDA: %s', e, exc_info=True)
     except ispyb.exception.ISPyBWriteFailed as e:

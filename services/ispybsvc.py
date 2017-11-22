@@ -220,8 +220,6 @@ class DLSISPyB(CommonService):
 
     params['programid'] = "65228265" # dummy value
 
-    self.log.debug("Writing PIA results to database: %s", params)
-
     try:
 #     result = "159956186" # for testing
       result = self.ispyb_mx.upsert_quality_indicators(list(params.values()))
@@ -240,7 +238,7 @@ class DLSISPyB(CommonService):
           except Exception as e:
             self.log.warning('Could not notify GDA: %s', e, exc_info=True)
     except ispyb.exception.ISPyBWriteFailed as e:
-      self.log.error('Database says no: %s', e, exc_info=True)
+      self.log.error("Could not write PIA results %s to database: %s", params, e, exc_info=True)
       return { 'success': False }
     else:
       self.log.debug("PIA record %s written", result)

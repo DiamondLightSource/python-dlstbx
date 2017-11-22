@@ -222,7 +222,7 @@ class DLSISPyB(CommonService):
 
     try:
 #     result = "159956186" # for testing
-      result = self.ispyb_mx.upsert_quality_indicators(list(params.values()))
+      result = self._retry_mysql_call(self.ispyb_mx.upsert_quality_indicators, list(params.values()))
       if rw.recipe_step['parameters'].get('notify-gda'):
         gdahost = rw.recipe_step['parameters']['notify-gda']
         if '{' in gdahost:
@@ -243,3 +243,17 @@ class DLSISPyB(CommonService):
     else:
       self.log.debug("PIA record %s written", result)
       return { 'success': True, 'return_value': result }
+
+  @staticmethod
+  def _retry_mysql_call(function, *args, **kwargs):
+    tries = 0
+    while True:
+      try:
+        return function(*args, **kwargs)
+      except mysql.connector.errors.InternalError:
+        tries = tries + 1
+        if tries < 3:
+          self.log.warning("ISPyB call %s try %d failed with %s", function, tries, e, exc_info=True)
+          continue
+        else:
+          raise

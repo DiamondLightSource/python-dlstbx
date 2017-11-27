@@ -1,5 +1,5 @@
 #
-# dlstbx.purge_dlq
+# dlstbx.dlq_purge
 #   Retrieve all dead letter queue messages from ActiveMQ and store them
 #   in a temporary directory.
 #
@@ -19,7 +19,7 @@ import workflows
 from workflows.transport.stomp_transport import StompTransport
 
 if __name__ == '__main__':
-  parser = OptionParser(usage="dlstbx.purge_dlq [options]")
+  parser = OptionParser(usage="dlstbx.dlq_purge [options]")
 
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")

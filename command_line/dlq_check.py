@@ -8,7 +8,7 @@ from optparse import SUPPRESS_HELP, OptionParser
 import workflows.transport
 
 #
-# dlstbx.check_dlq
+# dlstbx.dlq_check
 #   Check number of messages in dead letter queues
 #
 
@@ -99,7 +99,7 @@ class QueueStatus():
 
 if __name__ == '__main__':
   parser = OptionParser(
-    usage='dlstbx.check_dlq [options]'
+    usage='dlstbx.dlq_check [options]'
   )
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-n", "--namespace", dest="namespace",

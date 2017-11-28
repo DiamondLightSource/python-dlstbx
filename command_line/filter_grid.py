@@ -40,7 +40,7 @@ phil_scope = parse('''
         profiles = *expon *chi2_low chi2_high rayleigh gengamma   
             .help = "List of used distribution functions"
             .type = choice(multi=True)
-        plots = *score *spots
+        plots = score spots
             .help = "Show histograms with score values and/or # spots per image"
             .type = choice(multi=True)
         profile_plots = []

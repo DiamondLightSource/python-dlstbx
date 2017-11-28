@@ -89,10 +89,10 @@ params, options = parser.parse_args()
 
 def merge_test_stats(all_stats):
     
-    best_htest_stats = {}
-    for img, htest_stats in all_stats.items():
-        best_htest_stats[img] = max([v for v in htest_stats.itervalues()], key=lambda t: t[0][1])
-    return best_htest_stats
+    best_test_stats = {}
+    for img, test_stats in all_stats.items():
+        best_test_stats[img] = max([v for v in test_stats.values()], key=lambda t: t[1])
+    return best_test_stats
 
 
 def calc_stats(resol_dict, dfunc, dparams={}, func_name='N/A'):
@@ -142,10 +142,10 @@ def calc_stats(resol_dict, dfunc, dparams={}, func_name='N/A'):
 def output_stats(test_stats, dfunc_name):
 
     lst_ = list(test_stats.items())
-    thres_pval = lambda (_, v): True if params.filter_grid.show_all else v[1] > params.filter_grid.threshold
+    thres_pval = lambda v: True if params.filter_grid.show_all else v[1][1] > params.filter_grid.threshold
     thres_lst = [rec for rec in lst_ if thres_pval(rec)]
-    ks_results_img = sorted(thres_lst, key=lambda (s, _): s, reverse=False)[:]
-    ks_results_spots = sorted(thres_lst, key=lambda (_, v): v[-1], reverse=True)[:]
+    ks_results_img = sorted(thres_lst, key=lambda v: v[0], reverse=False)[:]
+    ks_results_spots = sorted(thres_lst, key=lambda v: v[1][-1], reverse=True)[:]
     
     from libtbx import table_utils
     for results, caption in [(ks_results_img, '%s results: sorted by image number' % dfunc_name),
@@ -175,7 +175,7 @@ def plot_stats(stats, images=None, title=''):
             width = 0.8 / len(stat_names)
             for idx, i in enumerate(img_list):
                 img_idx.append(idx)
-                val = stats[i][st][0][1]
+                val = stats[i][st][1]
                 try:
                     vals.append(-1./ log10(val))
                 except:
@@ -213,8 +213,8 @@ def cross_ksstat(data_dict, images):
         ks_stats[(img1, img2)] = (D12, p_val12)
 
     max_res_num = min(1000, len(data_dict))
-    ks_results_D    = sorted(list(ks_stats.items()), key=lambda (_, v): v[0], reverse=False)[:max_res_num]
-    ks_results_pval = sorted(list(ks_stats.items()), key=lambda (_, v): v[1], reverse=True)[:max_res_num]
+    ks_results_D    = sorted(list(ks_stats.items()), key=lambda v: v[1][0], reverse=False)[:max_res_num]
+    ks_results_pval = sorted(list(ks_stats.items()), key=lambda v: v[1][1], reverse=True)[:max_res_num]
         
     #print'_' * 80
     #print "Results correlations: best D"

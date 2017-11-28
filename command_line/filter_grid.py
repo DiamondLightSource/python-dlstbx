@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+#
+# LIBTBX_SET_DISPATCHER_NAME dials.filter_grid
 
 from dials.array_family import flex
 from dials.command_line.find_spots import phil_scope

@@ -37,7 +37,7 @@ phil_scope = parse('''
         sample = 60
             .help = "Number of sampled spots for KS-test or dof(bins) in Chi^2 test"
             .type = int(value_min=1)
-        profiles = *expon *chi2_low chi2_high rayleigh gengamma   
+        profiles = *expon *chi2_low chi2_high rayleigh gengamma
             .help = "List of used distribution functions"
             .type = choice(multi=True)
         plots = score spots
@@ -54,9 +54,9 @@ phil_scope = parse('''
         gengamma {
             shape = 3.0
                 .type = float(value_min=0)
-                .help = "Scale value used to set parameters c = shape, a = 1 / shape
-                         in the generalised Gamma distribution
-                         abs(c) * x**(c*a-1) * exp(-x**c) / gamma(a)"
+                .help = "Scale value used to set parameters c = shape, a = 1 / shape"
+                        " in the generalised Gamma distribution"
+                        " abs(c) * x**(c*a-1) * exp(-x**c) / gamma(a)"
         }
         chi2_low {
             k = 1.0

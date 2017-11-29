@@ -1,9 +1,10 @@
 #
-# ispyb.reprocessing
-#   Get/set information about reprocessing jobs
+# ispyb.job
+#   Get/set information about processing jobs
 #
 
 # LIBTBX_SET_DISPATCHER_NAME ispyb.reprocessing
+# LIBTBX_SET_DISPATCHER_NAME ispyb.job
 
 from __future__ import absolute_import, division, print_function
 
@@ -14,25 +15,25 @@ import ispyb
 import ispyb.legacy.exception
 
 # Display stored information:
-#   ispyb.reprocessing 73
-#   ispyb.reprocessing 73 -v  # show full record
+#   ispyb.job 73
+#   ispyb.job 73 -v  # show full record
 
 # Create new processing program row:
-#   ispyb.reprocessing 73 -c -p "program" -s "starting up..."
+#   ispyb.job 73 -c -p "program" -s "starting up..."
 
 # Update stored information:
-#   ispyb.reprocessing 73 -u 1234 -s "running..."
-#   ispyb.reprocessing 73 -u 1234 -s "things are happening" --update-time "2017-08-25"
-#   ispyb.reprocessing 73 -u 1234 -s "completed successfully" -r success
-#   ispyb.reprocessing 73 -u 1234 -s "everything is broken" -r failure
+#   ispyb.job 73 -u 1234 -s "running..."
+#   ispyb.job 73 -u 1234 -s "things are happening" --update-time "2017-08-25"
+#   ispyb.job 73 -u 1234 -s "completed successfully" -r success
+#   ispyb.job 73 -u 1234 -s "everything is broken" -r failure
 
 if __name__ == '__main__':
-  parser = OptionParser(usage="ispyb.reprocessing [options] rpid")
+  parser = OptionParser(usage="ispyb.job [options] rpid")
 
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-v", "--verbose",
       action="store_true", dest="verbose", default=False,
-      help="show full reprocessing record")
+      help="show full job record")
   parser.add_option("-c", "--create", dest="create",
       action="store_true", default=False,
       help="create a new processing program entry for the rpid")
@@ -54,7 +55,7 @@ if __name__ == '__main__':
       help="set an environment string for processing entry")
   group.add_option("-r", "--result", dest="result",
       action="store", type="choice", default=None, choices=['success', 'failure'],
-      help="set a reprocessing result: success, failure.")
+      help="set a job result: success, failure.")
   group.add_option("-s", "--status", dest="status",
       action="store", type="string", default=None,
       help="set program status information")
@@ -68,11 +69,11 @@ if __name__ == '__main__':
   (options, args) = parser.parse_args(sys.argv[1:])
 
   if not args:
-    print("No reprocessing ID specified\n")
+    print("No job ID specified\n")
     parser.print_help()
     sys.exit(0)
   if len(args) > 1:
-    print("Only one reprocessing ID can be specified")
+    print("Only one job ID can be specified")
     sys.exit(1)
 
   driver = ispyb.legacy_get_driver(ispyb.legacy_Backend.DATABASE_MYSQL)

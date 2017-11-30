@@ -227,7 +227,7 @@ class DLSCluster(CommonService):
       corestats[nodetype]['used-low']    = corestats[nodetype]['free_for_medium'] - corestats[nodetype]['free_for_low']
       for k, v in corestats[nodetype].items():
         corestats[k] = corestats.get(k, 0) + v
-    corestats['admin']['used'] = corestats['admin']['total'] - corestats['admin']['free']
+    corestats['admin']['used'] = corestats['admin']['total'] - corestats['admin']['free'] - corestats['admin']['broken']
 
     self.report_statistic(corestats, description='utilization',
                           cluster=cluster, timestamp=timestamp)

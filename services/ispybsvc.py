@@ -6,6 +6,7 @@ import ispyb
 import ispyb.factory
 from dials.util.procrunner import run_process
 import dlstbx.util.gda
+import mysql.connector
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -237,6 +238,11 @@ class DLSISPyB(CommonService):
             dlstbx.util.gda.notify(gdahost, 9876, 'ISPYB:ImageQualityIndicators,' + str(result))
           except Exception as e:
             self.log.warning('Could not notify GDA: %s', e, exc_info=True)
+          # further, notify GDA in mx-scripty manner
+          try:
+            dlstbx.util.gda.notify(gdahost, 9877, "IQI:{p[datacollectionid]}:{p[image_number]}".format(p=params))
+          except Exception as e:
+            self.log.warning('Could not notify GDA: %s', e, exc_info=True)
     except ispyb.exception.ISPyBWriteFailed as e:
       self.log.error("Could not write PIA results %s to database: %s", params, e, exc_info=True)
       return { 'success': False }
@@ -244,8 +250,7 @@ class DLSISPyB(CommonService):
       self.log.debug("PIA record %s written", result)
       return { 'success': True, 'return_value': result }
 
-  @staticmethod
-  def _retry_mysql_call(function, *args, **kwargs):
+  def _retry_mysql_call(self, function, *args, **kwargs):
     tries = 0
     while True:
       try:

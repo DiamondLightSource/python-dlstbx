@@ -12,7 +12,7 @@ import sys
 from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
 
 import ispyb
-import ispyb.legacy.exception
+import ispyb.exception
 
 # Display stored information:
 #   ispyb.job 73
@@ -96,7 +96,7 @@ if __name__ == '__main__':
         update_message=options.status,
         status=options.result,
       )
-    except ispyb.legacy.exception.UpdateFailed:
+    except ispyb.exception.ISPyBWriteFailed:
       print("Error: Could not create processing program.\n")
       exit_code = 1
 
@@ -108,13 +108,13 @@ if __name__ == '__main__':
         update_time=options.updatetime,
         update_message=options.status,
       )
-    except ispyb.legacy.exception.UpdateFailed:
+    except ispyb.exception.ISPyBWriteFailed:
       print("Error: Could not update processing status.\n")
       exit_code = 1
 
   try:
     rp = i.get_reprocessing_id(rpid)
-  except ispyb.legacy.exception.ISPyBNoResultException:
+  except ispyb.exception.ISPyBNoResultException:
     print("Reprocessing ID %s not found" % rpid)
     sys.exit(1)
   print('''Reprocessing ID {processingJobId}:

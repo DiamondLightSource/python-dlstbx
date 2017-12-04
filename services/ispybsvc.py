@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import os.path
 
 import ispyb
+import ispyb.exception
 import ispyb.factory
 from dials.util.procrunner import run_process
 import dlstbx.util.gda
@@ -113,7 +114,7 @@ class DLSISPyB(CommonService):
         )
       self.log.info("Updating program %s status: '%s' with result %s", ppid, message, result)
       return { 'success': True, 'return_value': result }
-    except ispyb.legacy.exception.ISPyBException as e:
+    except ispyb.exception.ISPyBException as e:
       self.log.warning("Updating program %s status: '%s' caused exception '%s'.",
                        ppid, message, e, exc_info=True)
       return { 'success': False }
@@ -134,7 +135,7 @@ class DLSISPyB(CommonService):
       self.log.info("Registered new processing program '%s' for reprocessing id '%s' with command line '%s' and environment '%s' with result '%s'.",
                     program, rpid, cmdline, environment, result)
       return { 'success': True, 'return_value': result }
-    except ispyb.legacy.exception.ISPyBException as e:
+    except ispyb.exception.ISPyBException as e:
       self.log.warning("Registering new processing program '%s' for reprocessing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
                        program, rpid, cmdline, environment, e, exc_info=True)
       return { 'success': False }

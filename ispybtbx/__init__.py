@@ -5,19 +5,12 @@ import logging
 import os
 import uuid
 
+import ispyb
+import ispyb.exception
+import mysql.connector # installed by ispyb
+
 # Temporary API to ISPyB while I wait for a proper one using stored procedures
 # - beware here be dragons, written by a hacker who is not a database wonk.
-#
-# Dependencies:
-#
-#   dials.python -m pip install ispyb --upgrade
-#
-
-try:
-  import ispyb
-  import mysql.connector # installed by ispyb
-except ImportError:
-  raise ImportError('ISPyB module not found. Run python -m pip install ispyb')
 
 with open('/dls_sw/apps/zocalo/secrets/ispyb-login.json', 'r') as sauce:
   secret_ingredients = json.load(sauce)
@@ -54,7 +47,7 @@ class ispybtbx(object):
               })
         parameters['ispyb_images'] = ','.join(sweep['dataCollection']['ispyb_image'] for sweep in parameters['ispyb_reprocessing_sweeps'])
         parameters['ispyb_reprocessing_parameters']  = self.db.get_reprocessing_parameters(reprocessing_id)
-      except ispyb.legacy.exception.ISPyBNoResultException:
+      except ispyb.exception.ISPyBNoResultException:
         self.log.warning("Reprocessing ID %s not found", str(reprocessing_id))
     return message, parameters
 

@@ -42,6 +42,9 @@ for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
       except TypeError:
         pass
 
-libtbx.pkg_utils.define_entry_points({
+try:
+ libtbx.pkg_utils.define_entry_points({
   'workflows.services': sorted(service_list),
-})
+ })
+except AttributeError:
+ pass # DIALS 1.8 backwards compatibility

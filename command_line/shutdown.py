@@ -10,6 +10,7 @@ import sys
 from optparse import SUPPRESS_HELP, OptionParser
 
 import workflows
+import workflows.services
 from workflows.transport.stomp_transport import StompTransport
 
 # Example: dlstbx.shutdown computer.12345
@@ -23,6 +24,12 @@ if __name__ == '__main__':
 #     action="store_true", default=False,
 #     help="Stop all dlstbx services (use with caution)")
 
+  known_services = workflows.services.get_known_services()
+  parser.add_option("-s", "--service", dest="services", metavar="SVC",
+      action="append", default=[],
+      help="Stop all instances of a service. Use 'none' for instances without "
+           "loaded service. Known services: " + \
+           ", ".join(known_services))
   parser.add_option("--test", action="store_true", dest="test",
                     help="Run in ActiveMQ testing namespace (zocdev, default)")
   parser.add_option("--live", action="store_true", dest="test",
@@ -38,9 +45,10 @@ if __name__ == '__main__':
   (options, args) = parser.parse_args(sys.argv[1:])
   stomp = StompTransport()
 
-  if not len(args):
+  if not options.services and not len(args):
     print("Need to specify one or more services to shut down.")
-    print("Format: hostname.pid")
+    print("Either specify service groups with -s or specify specific instances")
+    print("as: hostname.pid")
     sys.exit(1)
 
   stomp.connect()
@@ -58,3 +66,17 @@ if __name__ == '__main__':
       message
     )
     print("Shutting down", host)
+
+  for service in options.services:
+    if service.lower() == 'none':
+      # Special case for placeholder instances
+      service = None
+    message = { 'command' : 'shutdown',
+                'service': service,
+              }
+
+    stomp.broadcast(
+      'command',
+      message
+    )
+    print("Stopping all instances of", service)

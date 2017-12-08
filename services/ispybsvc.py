@@ -256,7 +256,7 @@ class DLSISPyB(CommonService):
     while True:
       try:
         return function(*args, **kwargs)
-      except mysql.connector.errors.InternalError:
+      except mysql.connector.errors.InternalError as e:
         tries = tries + 1
         if tries < 3:
           self.log.warning("ISPyB call %s try %d failed with %s", function, tries, e, exc_info=True)

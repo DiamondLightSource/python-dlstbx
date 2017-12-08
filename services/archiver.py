@@ -40,6 +40,10 @@ class Dropfile(object):
        Will throw an exception if the file does not exist.'''
     assert not self._closed
     stat = os.stat(filename)
+    if stat.st_size > 3 * 1024 * 1024 * 1024 * 1024:
+      self.log.error("Cannot archive file %s. Files larger than 3 TB are not supported by the archiving infrastructure (%s bytes).",
+                     filename, str(stat.st_size))
+      raise OSError('file too large for archiving')
     df = ET.SubElement(self._dataset, 'datafile')
     ET.SubElement(df, 'name').text = os.path.basename(filename)
     ET.SubElement(df, 'location').text = filename

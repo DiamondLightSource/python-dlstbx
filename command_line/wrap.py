@@ -133,6 +133,7 @@ def run(cmdline_args):
 
   # Enable logging to graylog
   enable_graylog()
+  log.info('Starting wrapper for %s with recipewrapper file %s', options.wrapper, options.recipewrapper)
 
   # Connect to transport and start sending notifications
   transport = workflows.transport.lookup(options.transport)()
@@ -154,6 +155,7 @@ def run(cmdline_args):
   instance.prepare('Starting processing')
 
   st.set_status(workflows.services.common_service.Status.PROCESSING)
+  log.info('Setup complete, starting processing')
 
   try:
     if instance.run():
@@ -175,6 +177,7 @@ def run(cmdline_args):
 
   st.shutdown()
   st.join()
+  log.debug('Terminating')
 
 if __name__ == '__main__':
   run(sys.argv[1:])

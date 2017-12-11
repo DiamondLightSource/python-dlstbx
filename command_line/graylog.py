@@ -42,7 +42,7 @@ def format_message(verbosity):
     return log_levels[message['level']]['color'] + \
            format_string( \
              "{timestamp} {facility}\n"
-             "                         {full_message}\n",
+             "                         {message}\n",
              message
            ) + ColorStreamHandler.DEFAULT
 
@@ -50,26 +50,36 @@ def format_message(verbosity):
     return log_levels[message['level']]['color'] + \
            format_string( \
              "{timestamp} {facility} {source} - {workflows_service}\n"
-             "                         {full_message}\n",
+             "                         {message}\n",
              message
            ) + ColorStreamHandler.DEFAULT
 
   def format_verbose(message):
+    if message.get('full_message') and message['full_message'] == message.get('message'):
+      message['full_message'] = ''
+    else:
+      message['full_message'] = message['full_message'] + '\n'
     return format_string( \
              "{timestamp} {facility} {source} - {workflows_service}\n"
              "{file}:{line} ({function})\n"
              + log_levels[message['level']]['color'] +
-             "{full_message}\n\n",
+             "{message}\n" +
+             "{full_message}\n",
              message
            ) + ColorStreamHandler.DEFAULT
 
   def format_xverbose(message):
+    if message.get('full_message') and message['full_message'] == message.get('message'):
+      message['full_message'] = ''
+    else:
+      message['full_message'] = message['full_message'] + '\n'
     return format_string( \
              "{timestamp} {facility} {source} - {workflows_service}\n"
              "workflows {workflows_workflows}  {workflows_dlstbx}  Status:{workflows_statustext}  {process_name}:{thread_name}\n"
              "{file}:{line} ({function})\n"
              + log_levels[message['level']]['color'] +
-             "{full_message}\n\n",
+             "{message}\n" +
+             "{full_message}\n",
              message
            ) + ColorStreamHandler.DEFAULT
 

@@ -18,6 +18,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 from collections import OrderedDict
+import json
 logger = logging.getLogger(libtbx.env.dispatcher_name)
 
 # Set the phil scope
@@ -139,6 +140,23 @@ def calc_stats(resol_dict, dfunc, dparams={}, func_name='N/A'):
     return {'ks': ks_stats, 'chi2': chi2_stats}
 
 
+def output_json(results, filename):
+
+    dct = {'images': [],
+           'stat': [],
+           'pval': [],
+           'spots': []
+           }
+    for img, (D, pval, spots) in results.items():
+        dct['images'].append(img)
+        dct['stat'].append(D)
+        dct['pval'].append(pval)
+        dct['spots'].append(spots)
+        
+    with open('.'.join([filename, 'json']), 'w') as f:
+        json.dump(dct, f)
+
+
 def output_stats(test_stats, dfunc_name):
 
     lst_ = list(test_stats.items())
@@ -151,10 +169,10 @@ def output_stats(test_stats, dfunc_name):
     for results, caption in [(ks_results_img, '%s results: sorted by image number' % dfunc_name),
                              (ks_results_spots,'%s results: sorted by number of spots' % dfunc_name)]:
         rows = [['Image', 'Stat.', 'P-value', '# spots'],]
-        rows.extend([['%d'   % img,
+        rows.extend([['%d' % img,
                       '%g' % D,
                       '%g' % pval,
-                      '%d'   % counts,
+                      '%d' % counts,
                       ] for img,(D, pval, counts) in results])
         print()
         print(caption)
@@ -175,8 +193,8 @@ def plot_stats(stats, images=None, title=''):
             width = 0.8 / len(stat_names)
             for idx, i in enumerate(img_list):
                 img_idx.append(idx)
-                val = stats[i][st][1]
                 try:
+                    val = stats[i][st][1]
                     vals.append(-1./ log10(val))
                 except:
                     vals.append(0.)
@@ -311,6 +329,7 @@ if __name__ == '__main__':
     for func_name  in params.filter_grid.profiles:
         test_dict = distribution_dict[func_name](resol_dict, func_name=func_name)
         output_stats(test_dict[sc], func_name)
+        output_json(test_dict[sc], '_'.join([func_name, sc, 'stats']))
         for k, v in test_dict[sc].items():
             try:
                 all_stats[k].update({func_name: v})
@@ -319,7 +338,8 @@ if __name__ == '__main__':
 
     merged_stats = merge_test_stats(all_stats)
     all_results = output_stats(merged_stats, 'Total')
-    
+    output_json(merged_stats, 'merged_results')
+
     for res, plot_title in zip(all_results,
                                ('Results sorted per image number',
                                 'Results sorted per # of spots')):

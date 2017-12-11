@@ -7,9 +7,6 @@ import os
 # API for access to the zocalo profiling database, which includes DLS
 # infrastructure status information.
 
-statlog = logging.getLogger('ithealth.service-status')
-statlog.setLevel(logging.DEBUG)
-
 class database(object):
   def __init__(self):
     _secret_configuration = '/dls_sw/apps/zocalo/secrets/sql-zocalo-profiling.json'
@@ -71,12 +68,14 @@ class database(object):
       'VALUES (%s, %s, %s, %s, %s, %s)',
       (source, level, message, fullmessage, url, ext))
     self.commit()
+    statlog = logging.getLogger('ithealth.' + source)
+    statlog.setLevel(logging.DEBUG)
     logdest = statlog.debug
     if level > 9:
       logdest = statlog.warning
     if level > 19:
       logdest = statlog.error
-    logdest("{source}: {message}".format(source=source, message=message))
+    logdest(message, extra={'fullmessage': fullmessage})
 
   def prune(self):
     self.execute('DELETE FROM infrastructure_status WHERE (TO_SECONDS(NOW()) - TO_SECONDS(Timestamp)) > 24 * 3600;')

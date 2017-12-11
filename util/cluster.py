@@ -312,7 +312,8 @@ class ClusterStatistics():
        :return a list of job and a list of queue dictionaries otherwise.
     '''
     result = cluster.qstat_xml(arguments=arguments)
-    assert not result['timeout'] and result['exitcode'] == 0, 'Could not run qstat on cluster: %s' % (result.get('stderr', '') or result.get('stdout', ''))
+    assert not result['timeout'] and result['exitcode'] == 0, 'Could not run qstat on cluster. timeout: %s, exitcode: %s, Output: %s' % \
+                                                              (str(result.get('timeout')), str(result.get('exitcode')), result.get('stderr', '') or result.get('stdout', ''))
     return self.parse_string(result['stdout'])
 
 

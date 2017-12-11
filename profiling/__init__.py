@@ -1,18 +1,14 @@
 from __future__ import absolute_import, division, print_function
 
 import json
+import logging
 import os
 
-#!/usr/bin/python
-#
 # API for access to the zocalo profiling database, which includes DLS
 # infrastructure status information.
-#
-# Dependencies:
-#
-#   dials.python -m pip install mysql-connector
-#
 
+statlog = logging.getLogger('ithealth.service-status')
+statlog.setLevel(logging.DEBUG)
 
 class database(object):
   def __init__(self):
@@ -75,6 +71,12 @@ class database(object):
       'VALUES (%s, %s, %s, %s, %s, %s)',
       (source, level, message, fullmessage, url, ext))
     self.commit()
+    logdest = statlog.debug
+    if level > 9:
+      logdest = statlog.warning
+    if level > 19:
+      logdest = statlog.error
+    logdest("{source}: {message}".format(source=source, message=message))
 
   def prune(self):
     self.execute('DELETE FROM infrastructure_status WHERE (TO_SECONDS(NOW()) - TO_SECONDS(Timestamp)) > 24 * 3600;')

@@ -158,7 +158,7 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logfiles = [ 'xia2.html', 'xia2.error' ]
     for result_file in filter(os.path.isfile, logfiles):
       self.record_result_individual_file({
-        'file_path': os.path.join(results_directory, result_file),
+        'file_path': results_directory,
         'file_name': os.path.basename(result_file),
         'file_type': 'log',
       })

@@ -145,10 +145,10 @@ class DLSISPyB(CommonService):
     params['parentid'] = self.parse_value(rw, message, 'program_id')
     params['file_name'] = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
     params['file_path'] = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
+    fqpn = os.path.join(params['file_path'], params['file_name'])
 
-    if not os.path.isfile(params['file_path']):
-      self.log.warning("Not adding attachment '%s' to data processing: File does not exist",
-                       params['file_path'])
+    if not os.path.isfile(fqpn):
+      self.log.warning("Not adding attachment '%s' to data processing: File does not exist", str(fqpn))
       return False
 
     params['file_type'] = str(message.get('file_type', rw.recipe_step['parameters'].get('file_type', ''))).lower()
@@ -166,10 +166,10 @@ class DLSISPyB(CommonService):
     params['parentid'] = self.parse_value(rw, message, 'dcid')
     params['file_name'] = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
     params['file_path'] = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
+    fqpn = os.path.join(params['file_path'], params['file_name'])
 
-    if not os.path.isfile(params['file_path']):
-      self.log.warning("Not adding attachment '%s' to data collection: File does not exist",
-                       params['file_path'])
+    if not os.path.isfile(fqpn):
+      self.log.warning("Not adding attachment '%s' to data collection: File does not exist", str(fqpn))
       return False
 
     params['file_type'] = str(message.get('file_type', rw.recipe_step['parameters'].get('file_type', ''))).lower()

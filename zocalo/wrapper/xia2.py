@@ -151,7 +151,7 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if os.path.exists('xia2.json'):
       self.send_results_to_ispyb()
 
-    logfiles = [ 'xia2.txt', 'xia2.error' ]
+    logfiles = [ 'xia2.html', 'xia2.txt', 'xia2.error' ]
     for result_file in filter(os.path.isfile, logfiles):
       self.record_result_individual_file({
         'file_path': os.path.join(results_directory, result_file),

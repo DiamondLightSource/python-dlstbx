@@ -45,6 +45,10 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     from xia2.command_line.ispyb_json import ispyb_object
 
     message = ispyb_object()
+    # Do not accept log entries from the object, we add those separately
+    message['AutoProcProgramContainer']['AutoProcProgramAttachment'] = filter(
+       lambda x: x.get('fileType') != 'Log', message['AutoProcProgramContainer']['AutoProcProgramAttachment'])
+
     source = os.path.join(os.getcwd(), 'xia2.txt')
 
     def recursive_replace(thing, old, new):

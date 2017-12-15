@@ -160,10 +160,8 @@ def output_json(results, filename):
 def output_stats(test_stats, dfunc_name):
 
     lst_ = list(test_stats.items())
-    thres_pval = lambda v: True if params.filter_grid.show_all else v[1][1] > params.filter_grid.threshold
-    thres_lst = [rec for rec in lst_ if thres_pval(rec)]
-    ks_results_img = sorted(thres_lst, key=lambda v: v[0], reverse=False)[:]
-    ks_results_spots = sorted(thres_lst, key=lambda v: v[1][-1], reverse=True)[:]
+    ks_results_img = sorted(lst_, key=lambda v: v[0], reverse=False)[:]
+    ks_results_spots = sorted(lst_, key=lambda v: v[1][-1], reverse=True)[:]
     
     from libtbx import table_utils
     for results, caption in [(ks_results_img, '%s results: sorted by image number' % dfunc_name),
@@ -255,6 +253,7 @@ def cross_ksstat(data_dict, images):
         
     return ks_results_D, ks_results_pval
 
+
 if __name__ == '__main__':
   
     datablocks = flatten_datablocks(params.input.datablock)
@@ -326,11 +325,14 @@ if __name__ == '__main__':
                       
     all_stats = {}
     sc = params.filter_grid.scoring
+    thres_pval = lambda v: True if params.filter_grid.show_all else v[1] > params.filter_grid.threshold
     for func_name  in params.filter_grid.profiles:
-        test_dict = distribution_dict[func_name](resol_dict, func_name=func_name)
-        output_stats(test_dict[sc], func_name)
-        output_json(test_dict[sc], '_'.join([func_name, sc, 'stats']))
-        for k, v in test_dict[sc].items():
+        test_dict = dict((k, v) for k, v
+                         in distribution_dict[func_name](resol_dict, func_name=func_name)[sc].items()
+                         if thres_pval(v))
+        output_stats(test_dict, func_name)
+        output_json(test_dict, '_'.join([func_name, sc, 'stats']))
+        for k, v in test_dict.items():
             try:
                 all_stats[k].update({func_name: v})
             except:

@@ -64,7 +64,7 @@ phil_scope = parse('''
                 .type = float(value_min=0)
                 .help = "k degrees of freedom parameter in the Chi^2 distribution"
         }
-        
+
         chi2_high {
             k = 3.0
                 .type = float(value_min=0)
@@ -86,10 +86,10 @@ parser = OptionParser(
   read_datablocks_from_images=True)
 
 params, options = parser.parse_args()
-    
+
 
 def merge_test_stats(all_stats):
-    
+
     best_test_stats = {}
     for img, test_stats in all_stats.items():
         best_test_stats[img] = max([v for v in test_stats.values()], key=lambda t: t[1])
@@ -133,7 +133,7 @@ def calc_stats(resol_dict, dfunc, dparams={}, func_name='N/A'):
         chi_sq, p_chisq = chisquare([hist_vals[i] for i in sel_idx],
                                     [calc_vals[i] for i in sel_idx])
         chi2_stats[img] = (chi_sq, p_chisq, len(resol_dict[img]))
-        
+
         ks_D, ks_pval = stats.kstest(perc, cdf_)
         ks_stats[img] = (ks_D, ks_pval, len(resol_dict[img]))
 
@@ -152,7 +152,7 @@ def output_json(results, filename):
         dct['stat'].append(D)
         dct['pval'].append(pval)
         dct['spots'].append(spots)
-        
+
     with open('.'.join([filename, 'json']), 'w') as f:
         json.dump(dct, f)
 
@@ -162,7 +162,7 @@ def output_stats(test_stats, dfunc_name):
     lst_ = list(test_stats.items())
     ks_results_img = sorted(lst_, key=lambda v: v[0], reverse=False)[:]
     ks_results_spots = sorted(lst_, key=lambda v: v[1][-1], reverse=True)[:]
-    
+
     from libtbx import table_utils
     for results, caption in [(ks_results_img, '%s results: sorted by image number' % dfunc_name),
                              (ks_results_spots,'%s results: sorted by number of spots' % dfunc_name)]:
@@ -175,12 +175,12 @@ def output_stats(test_stats, dfunc_name):
         print()
         print(caption)
         print(table_utils.format(rows, has_header=True,))
-    
+
     return ks_results_img, ks_results_spots
 
-    
+
 def plot_stats(stats, images=None, title=''):
-    
+
     stat_names = stats[stats.keys()[0]].keys()
     img_list = images if images else range(max(stats.keys()))
     if 'score' in params.filter_grid.plots:
@@ -220,7 +220,7 @@ def plot_stats(stats, images=None, title=''):
 
 
 def cross_ksstat(data_dict, images):
-    
+
     ks_stats = {}
     for img1, img2 in combinations(data_dict.keys(), 2):
         lst1_ = data_dict[img1]
@@ -231,17 +231,17 @@ def cross_ksstat(data_dict, images):
     max_res_num = min(1000, len(data_dict))
     ks_results_D    = sorted(list(ks_stats.items()), key=lambda v: v[1][0], reverse=False)[:max_res_num]
     ks_results_pval = sorted(list(ks_stats.items()), key=lambda v: v[1][1], reverse=True)[:max_res_num]
-        
+
     #print'_' * 80
     #print "Results correlations: best D"
     #pprint(ks_results_D)
     #print "Results correlations: best p-values"
     #pprint(ks_results_pval)
     #set_idx = set([v for v,_ in ks_results_pval]).intersection([v for v,_ in ks_results_D])
-    #ks_results_total = [ (idx, st) for (idx, st) in ks_results_D if idx in set_idx] 
+    #ks_results_total = [ (idx, st) for (idx, st) in ks_results_D if idx in set_idx]
     #print "Results Correlations: overall "
     #pprint(ks_results_total)
-    
+
     map_D = np.zeros([max(images), max(images)])
     map_pval = np.zeros([max(images), max(images)])
     for i, j in ks_stats:
@@ -250,31 +250,31 @@ def cross_ksstat(data_dict, images):
     im = ax.imshow(map_pval, interpolation='spline16', cmap=cm.afmhot)
     fig.colorbar(im, ax=ax)
     plt.show()
-        
+
     return ks_results_D, ks_results_pval
 
 
 if __name__ == '__main__':
-  
+
     datablocks = flatten_datablocks(params.input.datablock)
-  
+
     if len(datablocks) == 0:
         parser.print_help()
         exit()
-  
+
     assert(len(datablocks) == 1)
-  
+
     datablock = datablocks[0]
     imagesets = datablock.extract_imagesets()
-  
+
     assert(len(imagesets) == 1)
-  
+
     imageset = imagesets[0]
-  
+
     #images = imageset.indices()
     detector = imageset.get_detector()
     beam = imageset.get_beam()
-  
+
     # Configure the logging
     log.config(
       params.verbosity,
@@ -284,45 +284,45 @@ if __name__ == '__main__':
     resol_dict = {}
     reflections = flex.reflection_table.from_observations(
       datablock, params)
-    
+
     for refl in reflections:
         x, y, z = refl['xyzobs.px.value']
         frame = int(ceil(z))
         resol = 1. / detector[0].get_resolution_at_pixel(beam.get_s0(), (x, y))**2
         try:
-            resol_dict[frame].append(resol) 
+            resol_dict[frame].append(resol)
         except KeyError:
-            resol_dict[frame] = [resol,] 
+            resol_dict[frame] = [resol,]
 
     rayleigh_func = partial(calc_stats,
                             dfunc=stats.rayleigh)
-    
+
     gengamma_shape = params.distribution.gengamma.shape
     gengamma_func = partial(calc_stats,
                             dfunc=stats.gengamma,
                             dparams=OrderedDict([('a', 1. / gengamma_shape),
                                                  ('c', gengamma_shape)]))
-    
+
     chi2_low_scale = params.distribution.chi2_low.k
     chi2_low_func = partial(calc_stats,
                         dfunc=stats.chi2, dparams=OrderedDict([('df', chi2_low_scale),]))
-    
+
     chi2_high_scale = params.distribution.chi2_high.k
     chi2_high_func = partial(calc_stats,
                         dfunc=stats.chi2, dparams=OrderedDict([('df', chi2_high_scale),]))
-    
+
     expon_func = partial(calc_stats,
                          dfunc=stats.expon)
 
     #cross_ksstat(resol_dict, imageset.indices())
-    
+
     distribution_dict = {'expon': expon_func,
                          'rayleigh': rayleigh_func,
                          'chi2_low': chi2_low_func,
                          'chi2_high': chi2_high_func,
                          'gengamma': gengamma_func
                          }
-                      
+
     all_stats = {}
     sc = params.filter_grid.scoring
     thres_pval = lambda v: True if params.filter_grid.show_all else v[1] > params.filter_grid.threshold

@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import glob
 import logging
@@ -216,7 +216,7 @@ class Xia2StrategyWrapper(Xia2Wrapper):
         else:
           max_total_exposure = round((lifespan * (100 / transmission)) * (wavelength/0.979)**-3, 0)
         min_exposure = strategy['min_exposure'].get(beamline, strategy['min_exposure']['default'])
-        print >> f, """
+        f.write("""
 strategy {
   name = "%(name)s"
   description = "%(description)s: Multiplicity=%(multiplicity).0f I/sig=%(i_over_sigi).0f Maxlifespan=%(max_total_exposure)ss"
@@ -226,13 +226,13 @@ strategy {
   max_total_exposure = %(max_total_exposure)s
   anomalous = %(anomalous)s
 }
-""" %dict(name=strategy['name'],
+""" % dict(name=strategy['name'],
           description=strategy['description'],
           multiplicity=strategy['multiplicity'],
           i_over_sigi=strategy['i_over_sigi'],
           min_exposure=min_exposure,
           max_total_exposure=max_total_exposure,
-          anomalous=strategy['anomalous'])
+          anomalous=strategy['anomalous']))
 
     result = procrunner.run_process(
       command, timeout=params.get('timeout'),

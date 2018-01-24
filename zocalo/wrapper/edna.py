@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import absolute_import, division, print_function
 
 import glob
 import logging
@@ -64,13 +64,13 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if not os.path.exists(EDNAStrategy1):
       os.mkdir(EDNAStrategy1)
     with open('%s.xml' %EDNAStrategy1, 'wb') as f:
-      print >> f, self.make_edna_xml(
+      f.write(self.make_edna_xml(
         complexity=None, multiplicity=3, i_over_sig_i=2,
         lifespan=strategy_lifespan, min_osc_range=0.1,
-        min_exposure=min_exposure, anomalous=False)
+        min_exposure=min_exposure, anomalous=False))
     short_comments = "EDNAStrategy1 Standard Native Dataset Multiplicity=3 I/sig=2 Maxlifespan=%s s" %strategy_lifespan
     with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
-      print >> f, short_comments
+      f.write(short_comments)
 
     #
     #Strategy 2 Bog Standard with Anom
@@ -79,13 +79,13 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if not os.path.exists(EDNAStrategy2):
       os.mkdir(EDNAStrategy2)
     with open('%s.xml' %EDNAStrategy2, 'wb') as f:
-      print >> f, self.make_edna_xml(
+      f.write(self.make_edna_xml(
         complexity=None, multiplicity=3, i_over_sig_i=2,
         lifespan=strategy_lifespan, min_osc_range=0.1,
-        min_exposure=min_exposure, anomalous=True)
+        min_exposure=min_exposure, anomalous=True))
     short_comments = "EDNAStrategy2 Standard Anomalous Dataset Multiplicity=3 I/sig=2 Maxlifespan=%s s" %strategy_lifespan
     with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
-      print >> f, short_comments
+      f.write(short_comments)
 
     #
     #Strategy 3 high multiplicity
@@ -94,13 +94,13 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if not os.path.exists(EDNAStrategy3):
       os.mkdir(EDNAStrategy3)
     with open('%s.xml' %EDNAStrategy3, 'wb') as f:
-      print >> f, self.make_edna_xml(
+      f.write(self.make_edna_xml(
         complexity=None, multiplicity=16, i_over_sig_i=2,
         lifespan=strategy_lifespan, min_osc_range=0.1,
-        min_exposure=min_exposure, anomalous=False)
+        min_exposure=min_exposure, anomalous=False))
     short_comments = "EDNAStrategy3 strategy with target multiplicity=16 I/sig=2 Maxlifespan=%s s" %strategy_lifespan
     with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
-      print >> f, short_comments
+      f.write(short_comments)
 
     #
     #Strategy 4
@@ -109,13 +109,13 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if not os.path.exists(EDNAStrategy4):
       os.mkdir(EDNAStrategy4)
     with open('%s.xml' %EDNAStrategy4, 'wb') as f:
-      print >> f, self.make_edna_xml(
+      f.write(self.make_edna_xml(
         complexity=None, multiplicity=2, i_over_sig_i=2,
         lifespan=gentle_strategy_lifespan, min_osc_range=0.1,
-        min_exposure=min_exposure, anomalous=False)
+        min_exposure=min_exposure, anomalous=False))
     short_comments = "EDNAStrategy4 Gentle: Target Multiplicity=2 and target I/Sig 2 Maxlifespan=%s s" %gentle_strategy_lifespan
     with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
-      print >> f, short_comments
+      f.write(short_comments)
 
     return result['exitcode'] == 0
 
@@ -131,11 +131,11 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     from cStringIO import StringIO
     s = StringIO()
     #1) Echo out the header
-    print >> s, """<?xml version=\"1.0\" ?>
-<XSDataInputInterfacev2_2>"""
+    s.write("""<?xml version=\"1.0\" ?>
+<XSDataInputInterfacev2_2>""")
 
     #2) Echo out the diffractionPlan
-    print >> s, """        <diffractionPlan>
+    s.write("""        <diffractionPlan>
             <anomalousData>
                 <value>%(anomalous)i</value>
             </anomalousData>
@@ -153,13 +153,13 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
             </minExposureTimePerImage>
             <maxExposureTimePerDataCollection>
                 <value>%(lifespan)s</value>
-            </maxExposureTimePerDataCollection>""" %dict(
-             anomalous=anomalous,
-             complexity=complexity,
-             i_over_sig_i=i_over_sig_i,
-             multiplicity=multiplicity,
-             min_exposure=min_exposure,
-             lifespan=lifespan)
+            </maxExposureTimePerDataCollection>
+""" %dict( anomalous=anomalous,
+           complexity=complexity,
+           i_over_sig_i=i_over_sig_i,
+           multiplicity=multiplicity,
+           min_exposure=min_exposure,
+           lifespan=lifespan))
 
     #logger.info('spacegroup: %s' %params.get('spacegroup'))
     #space_group = params.get('spacegroup')
@@ -167,7 +167,7 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     #  print >> s, """            <forcedSpaceGroup>
     #              <value>%s</value>
     #          </forcedSpaceGroup>""" %space_group
-    print >> s, "        </diffractionPlan>"
+    print("        </diffractionPlan>", file=s)
 
 
     #3) Echo out the full path for each image.
@@ -188,28 +188,28 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.info('%s %s:%s' %(image_pattern, image_first, image_last))
     for i_image in range(image_first, image_last+1):
       image_file_name = os.path.join(image_directory, image_pattern % i_image)
-      print >> s, """    <imagePath>
+      print("""    <imagePath>
             <path>
                 <value>%s</value>
             </path>
-        </imagePath>""" %image_file_name
+        </imagePath>""" %image_file_name, file=s)
 
     #4) Echo out the beam and flux (if we know them)
     flux = float(params['strategy']['flux'])
     beam_size_x = float(params['strategy']['beam_size_x'])
     beam_size_y = float(params['strategy']['beam_size_y'])
     if flux:
-      print >> s, """    <flux>
+      print("""    <flux>
             <value>%s</value>
-        </flux>""" %flux
+        </flux>""" %flux, file=s)
     if beam_size_x:
-      print >> s, """    <beamSizeX>
+      print("""    <beamSizeX>
             <value>%s</value>
-        </beamSizeX>""" %beam_size_x
+        </beamSizeX>""" %beam_size_x, file=s)
     if beam_size_y:
-      print >> s, """    <beamSizeY>
+      print("""    <beamSizeY>
             <value>%s</value>
-        </beamSizeY>""" %beam_size_y
+        </beamSizeY>""" %beam_size_y, file=s)
 
 #    #5) Echo out omega,kappa,phi (if we know them)
 #    if [ "${Omega}" != "" ] ; then
@@ -229,6 +229,6 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 #    fi
 
     #6) and close
-    print >> s, "</XSDataInputInterfacev2_2>"
+    print("</XSDataInputInterfacev2_2>", file=s)
 
     return s.getvalue()

@@ -16,11 +16,11 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     command = ['fast_ep']
 
-    for param, values in params['fast_ep'].iteritems():
-      if not isinstance(values, (list, tuple)):
-        values = [values]
-      for v in values:
-        command.append('%s=%s' % (param, v))
+    for param, value in params['fast_ep'].iteritems():
+      logging.info('Parameter %s: %s' % (param, str(value)))
+      if param == 'rlims':
+        value = ','.join([str(r) for r in value])
+      command.append('%s=%s' % (param, value))
 
     return command
 

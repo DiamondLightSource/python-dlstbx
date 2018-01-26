@@ -225,7 +225,7 @@ class ArchiverService(CommonSystemTest):
                              'pattern-end': 50,
                              'log-summary-warning-as-info': True,
                            },
-             'output': { 'dropfile': 2, 'missing_files_all': 2, 'missing_files': 2 },
+             'output': { 'dropfile': 2, 'missing_files_within': 2, 'missing_files': 2 },
            },
         2: { 'service': 'DLS System Test',
              'queue': 'transient.system_test.' + self.guid

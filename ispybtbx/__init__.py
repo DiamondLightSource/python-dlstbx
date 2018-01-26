@@ -228,7 +228,7 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
   def get_edge_data(self, dc_id):
 
     def __energy_offset(row):
-      energy =   row['wavelength']
+      energy = 12398.42 / row['wavelength']
       pk_energy = row['peakenergy']
       if_energy = row['inflectionenergy']
 

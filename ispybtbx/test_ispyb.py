@@ -10,6 +10,8 @@ ds = {
   "i04_BAG": 527189,
   "weak_ins_4": 1383040,
   "sg_set": 1308505,
+  'seq_set': 2207772,
+  'edge_set': 1722897,
   "i19_screening": 1396413,
   "cryo_em" : 2097825,
   "borken_dcid": 2091234,
@@ -137,6 +139,23 @@ def test_obtain_space_group():
   dc_id = ds['sg_set']
   sg = i.get_space_group(dc_id)
   assert sg == 'P212121'
+
+def test_obtain_sequence():
+  i = ispybtbx()
+  dc_id = ds['seq_set']
+  seq = i.get_sequence(dc_id)
+  assert seq == "GPDKPVIKMYQIGDKPDNLDELLANANKIIEEKVGAKLDIQYLGWGDYGKKMSVITSSGENYDIAFADNYIVNAQKGAYADLTELYKKEGKDLYKALDPAYIK" \
+                "GNTVNGKIYAVPVAANVASSQNFAFNGTLLAKYGIDISGVTSYETLEPVLKQIKEKAPDVVPFAIGKVFIPSDNFDYPVANGLPFVIDLEGDTTKVVNRYEVPRFKEHLKTLHKFYE" \
+                "AGYIPKDVATSDTSFDLQQDTWFVREETVGPADYGNSLLSRVANKDIQIKPITNFIKKNQTTQVANFVISNNSKNKEKSMEILNLLNTNPELLNGLVYGPEGKNWEKIEGKENRVRV" \
+                "LDGYKGNTHMGGWNTGNNWILYINENVTDQQIENSKKELAEAKESPALGFIFNTDNVKSEISAIANTMQQFDTAINTGTVDPDKAIPELMEKLKSEGAYEKVLNEMQKQYDEFLKNKK"
+
+def test_obtain_edge_data():
+  i = ispybtbx()
+  dc_id = ds['edge_set']
+  param = i.get_edge_data(dc_id)
+  assert param['energyscanid'] == 52476
+  assert param['atom_type'] == 'Se'
+  assert param['edge_position'] == 'peak'
 
 def test_filter_function():
   msg = {}

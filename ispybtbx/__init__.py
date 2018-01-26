@@ -225,6 +225,102 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
 
     return spacegroup, cell
 
+  def get_edge_data(self, dc_id):
+
+    def __energy_offset(row):
+      energy =   row['wavelength']
+      pk_energy = row['peakenergy']
+      if_energy = row['inflectionenergy']
+
+      return min(abs(pk_energy - energy),
+                 abs(if_energy - energy))
+
+    def __select_edge_position(wl, peak, infl):
+      e0 = 12398.42 / wl
+      if e0 > peak + 30.:
+          return 'hrem'
+      if e0 < infl - 30.:
+          return 'lrem'
+      if abs(e0 - infl) < abs(e0 - peak):
+          return 'infl'
+      return 'peak'
+
+    s = '''SELECT 
+    EnergyScan.energyscanid,
+    EnergyScan.element,
+    EnergyScan.peakenergy,
+    EnergyScan.peakfprime,
+    EnergyScan.peakfdoubleprime,
+    EnergyScan.inflectionenergy,
+    EnergyScan.inflectionfprime,
+    EnergyScan.inflectionfdoubleprime,
+    DataCollection.wavelength,
+    BLSample.blsampleid as dcidsample,
+    BLSampleProtein.blsampleid as protsample
+FROM
+    DataCollection
+        INNER JOIN
+    BLSample ON BLSample.blsampleid = DataCollection.blsampleid
+        INNER JOIN
+    Crystal ON Crystal.crystalid = BLSample.crystalid
+        INNER JOIN
+    Protein ON Protein.proteinid = Crystal.proteinid
+        INNER JOIN
+    Crystal CrystalProtein ON Protein.proteinid = CrystalProtein.proteinid
+        INNER JOIN
+    BLSample BLSampleProtein ON CrystalProtein.crystalid = BLSampleProtein.crystalid
+        INNER JOIN
+    EnergyScan ON DataCollection.sessionid = EnergyScan.sessionid
+        AND BLSampleProtein.blsampleid = EnergyScan.blsampleid
+WHERE
+    DataCollection.datacollectionid = %s
+        AND EnergyScan.element IS NOT NULL
+'''
+    all_rows = self.execute(s, dc_id)
+    rows = [r for r in all_rows if r['dcidsampleid'] == r['protsampleid']]
+    if not rows:
+      rows = all_rows
+    try:
+      energy_scan = min(rows, key=__energy_offset)
+      edge_position = __select_edge_position(energy_scan['wavelength'],
+                                             energy_scan['peakenergy'],
+                                             energy_scan['inflectionenergy'])
+      res = {'atom_type' : energy_scan['element'],
+             'edge_position' : edge_position,
+             }
+      if edge_position == 'peak':
+        res.update({'fp': energy_scan['peakfprime'],
+                    'fpp': energy_scan['peakfdoubleprime']})
+      else:
+        if edge_position == 'infl':
+            res.update({'fp': energy_scan['inflectionfprime'],
+                        'fpp': energy_scan['inflectionfdoubleprime']})
+    except:
+        res = {}
+    return res
+
+  def get_sequence(self, dc_id):
+
+    s = '''SELECT 
+    Protein.sequence
+FROM
+    DataCollection
+        INNER JOIN
+    BLSample ON BLSample.blsampleid = DataCollection.blsampleid
+        INNER JOIN
+    Crystal ON Crystal.crystalid = BLSample.crystalid
+        INNER JOIN
+    Protein ON Protein.proteinid = Crystal.proteinid
+WHERE
+    DataCollection.datacollectionid = %s
+'''
+    row = self.execute(s, dc_id)
+    try:
+      seq = row[0]['sequence']
+    except:
+      seq = None
+    return seq
+
   def get_matching_dcids_by_folder(self, dc_id):
     matches = self.execute('SELECT datacollectionid FROM DataCollection '
                            'WHERE imageDirectory=(SELECT imageDirectory FROM DataCollection '

@@ -255,8 +255,8 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
     EnergyScan.inflectionfprime,
     EnergyScan.inflectionfdoubleprime,
     DataCollection.wavelength,
-    BLSample.blsampleid as dcidsample,
-    BLSampleProtein.blsampleid as protsample
+    BLSample.blsampleid as dcidsampleid,
+    BLSampleProtein.blsampleid as protsampleid
 FROM
     DataCollection
         INNER JOIN
@@ -276,7 +276,18 @@ WHERE
     DataCollection.datacollectionid = %s
         AND EnergyScan.element IS NOT NULL
 '''
-    all_rows = self.execute(s, dc_id)
+    labels = ('energyscanid',
+              'element',
+              'peakenergy',
+              'peakfprime',
+              'peakfdoubleprime',
+              'inflectionenergy',
+              'inflectionfprime',
+              'inflectionfdoubleprime',
+              'wavelength',
+              'dcidsampleid',
+              'protsampleid')
+    all_rows = [dict(zip(labels, r)) for r in self.execute(s, dc_id)]
     rows = [r for r in all_rows if r['dcidsampleid'] == r['protsampleid']]
     if not rows:
       rows = all_rows
@@ -316,7 +327,7 @@ WHERE
 '''
     row = self.execute(s, dc_id)
     try:
-      seq = row[0]['sequence']
+      seq = row[0][0]
     except:
       seq = None
     return seq

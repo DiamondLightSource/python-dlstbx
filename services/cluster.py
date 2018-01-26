@@ -241,4 +241,4 @@ class DLSCluster(CommonService):
     }
     data_pack.update(data)
     self._transport.broadcast('transient.statistics.cluster', data_pack)
-    self._transport.send('statistics.cluster', data_pack)
+    self._transport.send('statistics.cluster', data_pack, persistent=False)

@@ -296,7 +296,8 @@ WHERE
       edge_position = __select_edge_position(energy_scan['wavelength'],
                                              energy_scan['peakenergy'],
                                              energy_scan['inflectionenergy'])
-      res = {'atom_type' : energy_scan['element'],
+      res = {'energyscanid' : energy_scan['energyscanid'],
+             'atom_type' : energy_scan['element'],
              'edge_position' : edge_position,
              }
       if edge_position == 'peak':

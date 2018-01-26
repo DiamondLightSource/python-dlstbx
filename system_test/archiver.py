@@ -225,7 +225,7 @@ class ArchiverService(CommonSystemTest):
                              'pattern-end': 50,
                              'log-summary-warning-as-info': True,
                            },
-             'output': 2
+             'output': { 'dropfile': 2, 'missing_files_all': 2, 'missing_files': 2 },
            },
         2: { 'service': 'DLS System Test',
              'queue': 'transient.system_test.' + self.guid
@@ -257,6 +257,15 @@ class ArchiverService(CommonSystemTest):
       recipe_path=[ 1 ],
       recipe_pointer=2,
       payload={ 'failed': 5, 'success': 6, 'xml': xmldata },
+      timeout=60,
+    )
+
+    self.expect_recipe_message(
+      environment={ 'ID': self.guid },
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=2,
+      payload=[ recipe[1]['parameters']['pattern'] % x for x in (46, 47, 48, 49, 50) ],
       timeout=60,
     )
 

@@ -138,6 +138,7 @@ class DLSArchiver(CommonService):
 
     message_out = { 'success': 0, 'failed': 0 }
     files_not_found = []
+    files_found_past_missing_file = False
     for x in range(int(settings['pattern-start']), int(settings['pattern-end']) + 1):
       if file_range_limit and message_out['success'] >= file_range_limit:
         # Test for limit at beginning, not end, so >= 1 file remains
@@ -155,6 +156,7 @@ class DLSArchiver(CommonService):
 
       try:
         df.add(filename)
+        files_found_past_missing_file = bool(files_not_found)
       except OSError as e:
         if e.errno == errno.ENOENT:
           files_not_found.append(filename)
@@ -169,7 +171,10 @@ class DLSArchiver(CommonService):
       self.log.debug("Archived %s", filename)
       message_out['success'] += 1
     if files_not_found:
-      self.log.info("The following files were not found:\n%s", "\n".join(files_not_found))
+      if files_found_past_missing_file:
+        self.log.error("The following files were not found. Files are missing from within the pattern!\n", "\n".join(files_not_found))
+      else:
+        self.log.info("The following files were not found:\n%s", "\n".join(files_not_found))
     self.log.info("%d files archived", message_out['success'])
     if message_out['failed']:
       if params.get('log-summary-warning-as-info'):

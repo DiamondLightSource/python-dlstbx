@@ -14,11 +14,12 @@ class BigEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     '''Construct big_ep command line.
        Takes job parameter dictionary, returns array.'''
 
-    command = ['cctbx.python',
-               '/dls_sw/apps/mx-scripts/auto-big-ep/auto_big_ep.py']
+    command = ['/dls_sw/apps/mx-scripts/auto-big-ep/zoc-bigep.sh']
 
-    for param, value in params['big_ep'].iteritems():
-      command.append('--%s %s' % (param, value))
+    for value in ('autoproc_id',
+                  'uid',
+                  'beamline'):
+      command.append(' %s' % (params['big_ep'][value]))
 
     return command
 

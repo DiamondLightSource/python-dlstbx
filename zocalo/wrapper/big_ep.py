@@ -14,7 +14,7 @@ class BigEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     '''Construct big_ep command line.
        Takes job parameter dictionary, returns array.'''
 
-    command = ['/dls_sw/apps/mx-scripts/auto-big-ep/zoc-bigep.sh']
+    command = ['sh', '/dls_sw/apps/mx-scripts/auto-big-ep/zoc-bigep.sh']
 
     for value in ('autoproc_id',
                   'uid',

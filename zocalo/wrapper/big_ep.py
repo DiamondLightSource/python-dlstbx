@@ -5,6 +5,7 @@ import os
 
 import dlstbx.zocalo.wrapper
 from dials.util import procrunner
+from datetime import datetime
 
 logger = logging.getLogger('dlstbx.wrap.big_ep')
 
@@ -14,15 +15,12 @@ class BigEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     '''Construct big_ep command line.
        Takes job parameter dictionary, returns array.'''
 
-    command = ['sh', '/dls_sw/apps/mx-scripts/auto-big-ep/zoc-bigep.sh']
-
-    for value in ('autoproc_id',
-                  'uid',
-                  'beamline'):
-      command.append(' %s' % (params['big_ep'][value]))
+    command = ['sh', '/dls_sw/apps/mx-scripts/auto-big-ep/zoc-bigep.sh',
+               params['big_ep']['autoproc_id'],
+               '%4d%02d%02d_%02d%02d%02d' % tuple(datetime.now().timetuple()[:6]),
+               params['big_ep']['beamline']]
 
     return command
-
 
   def run(self):
     assert hasattr(self, 'recwrap'), \

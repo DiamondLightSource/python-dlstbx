@@ -11,6 +11,9 @@ class ActiveMQAPI(object):
   def __init__(self, configuration_file):
     self.jmx = dlstbx.util.jmxstats.JMXAPI(configuration_file)
 
+    # List of supported variables:
+    # curl -XGET --user rrdapi:**password** http://cs04r-sc-vserv-69:80/api/jolokia/list | python -m json.tool
+
   def getStorePercentUsage(self):
     result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost/StorePercentUsage")
     assert result['status'] == 200

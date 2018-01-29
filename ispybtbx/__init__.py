@@ -597,6 +597,52 @@ WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s
       raise RuntimeError('chi or kappa values must be provided')
     self.commit()
 
+  def insert_fastep_phasing_results(self, values):
+    self.execute('SET @recordTimeStamp = CURRENT_TIMESTAMP');
+    self.execute('INSERT INTO PhasingAnalysis'
+                  '(recordTimeStamp)'
+                  'VALUES'
+                  '(@recordTimeStamp);')
+    self.execute('SET @phasingAnalysisId = LAST_INSERT_ID();')
+    self.execute('INSERT INTO PhasingProgramRun'
+                 '(phasingCommandLine, phasingPrograms, phasingStatus)'
+                 'VALUES'
+                 '(%(phasingCommandLine)s, %(phasingPrograms)s, %(phasingStatus)s);',
+                 values['PhasingProgramRun'])
+    self.execute('SET @phasingProgramRunId = LAST_INSERT_ID();')
+    self.execute('INSERT INTO PhasingProgramAttachment'
+                 '(phasingProgramRunId, fileType, fileName, filePath, recordTimeStamp)'
+                 'VALUES'
+                 '(@phasingProgramRunId, %(fileType)s, %(fileName)s, %(filePath)s, @recordTimeStamp);',
+                 values['PhasingProgramAttachment'])
+    self.execute('INSERT INTO Phasing'
+                 '(phasingAnalysisId, phasingProgramRunId, spaceGroupId, method, solventContent, enantiomorph, lowRes, highRes, recordTimeStamp)'
+                 'VALUES'
+                 '(@phasingAnalysisId, @phasingProgramRunId, %(spaceGroupId)s, %(method)s, %(solventContent)s, %(enantiomorph)s, %(lowRes)s, %(highRes)s, @recordTimeStamp);',
+                 values['Phasing'])
+    self.execute('INSERT INTO PreparePhasingData'
+                 '(phasingAnalysisId, phasingProgramRunId, spaceGroupId, lowRes, highRes, recordTimeStamp)'
+                 'VALUES'
+                 '(@phasingAnalysisId, @phasingProgramRunId, %(spaceGroupId)s, %(lowRes)s, %(highRes)s, @recordTimeStamp);',
+                 values['PreparePhasingData'])
+    self.execute('INSERT INTO SubstructureDetermination'
+                 '(phasingAnalysisId, phasingProgramRunId, spaceGroupId, method, lowRes, highRes, recordTimeStamp)'
+                 'VALUES'
+                 '(@phasingAnalysisId, @phasingProgramRunId, %(spaceGroupId)s, %(method)s, %(lowRes)s, %(highRes)s, @recordTimeStamp);',
+                 values['SubstructureDetermination'])
+    self.execute('INSERT INTO Phasing_has_Scaling'
+                 '(phasingAnalysisId, autoProcScalingId, recordTimeStamp)'
+                 'VALUES'
+                 '(@phasingAnalysisId, %s, @recordTimeStamp);', (values['autoProcScalingId'],))
+    self.execute('SET @phasingHasScalingId = LAST_INSERT_ID();')
+    for stats in values['phasingStatistics']:
+      self.execute('INSERT INTO PhasingStatistics'
+                   '(phasingHasScalingId1, numberOfBins, binNumber, lowRes, highRes, metric, statisticsValue, nReflections, recordTimeStamp)'
+                   'VALUES'
+                   '(@phasingHasScalingId, %(numberOfBins)s, %(binNumber)s, %(lowRes)s, %(highRes)s, %(metric)s, %(statisticsValue)s, %(nReflections)s, @recordTimeStamp);',
+                   stats)
+    self.commit()
+
   def get_visit_name_from_dcid(self, dc_id):
     sql_str = '''
 SELECT proposalcode, proposalnumber, visit_number

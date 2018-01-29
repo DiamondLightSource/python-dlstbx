@@ -1,6 +1,8 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
+from optparse import SUPPRESS_HELP, OptionParser
+import sys
 import time
 
 import dlstbx.util.jmxstats
@@ -84,4 +86,25 @@ def setup_logging(level=logging.INFO):
 
 setup_logging(logging.INFO)
 amq = ActiveMQAPI('/dls_sw/apps/zocalo/secrets/credentials-jmx-access.cfg')
-ActiveMQRRD(api=amq).update()
+
+if __name__ == '__main__':
+  parser = OptionParser(usage="dlstbx.get_activemq_statistics [options]",
+                        description="Collects statistics from an ActiveMQ server")
+
+  parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+  parser.add_option("--rrd", action="store_true", default=False,
+      help="Collect all information and store it in an RRD file for aggregation")
+  parser.add_option("-r", "--read", dest="keys", action="append", default=[], metavar="KEY",
+      help="Read named value from ActiveMQ server")
+  (options, args) = parser.parse_args(sys.argv[1:])
+
+  if options.rrd:
+    ActiveMQRRD(api=amq).update()
+
+  if options.keys:
+    available_keys = { k[3:].lower():k for k in dir(amq) if k.startswith('get') }
+    for name in options.keys:
+      fn = available_keys.get(name.lower())
+      if fn:
+        value = getattr(amq, fn)()
+        print("%s:%s" % (name, str(value)))

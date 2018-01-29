@@ -16,8 +16,8 @@ import pprint
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
 
-from dlstbx.ispybtbx import ispyb_filter
 import workflows.recipe
+from dlstbx.ispybtbx import ispyb_filter
 
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.find_in_ispyb [options] dcid")

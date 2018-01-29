@@ -2,13 +2,13 @@ from __future__ import absolute_import, division, print_function
 
 import os.path
 
+import dlstbx.util.gda
 import ispyb
 import ispyb.exception
 import ispyb.factory
-from dials.util.procrunner import run_process
-import dlstbx.util.gda
 import mysql.connector
 import workflows.recipe
+from dials.util.procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSISPyB(CommonService):

@@ -2,27 +2,28 @@
 #
 # LIBTBX_SET_DISPATCHER_NAME dials.filter_grid
 
-from dials.array_family import flex
-from dials.command_line.find_spots import phil_scope
-from dials.util import log
-from dials.util.options import OptionParser
-from dials.util.options import flatten_datablocks
+import json
+import logging
+from collections import OrderedDict
 from functools import partial
 from itertools import combinations
 from math import ceil, log10
-from matplotlib import cm
-from scipy import stats, mean
-from scipy.stats.stats import chisquare
+
 import libtbx.load_env
-import logging
 import matplotlib.pyplot as plt
 import numpy as np
-from collections import OrderedDict
-import json
-logger = logging.getLogger(libtbx.env.dispatcher_name)
-
+from dials.array_family import flex
+from dials.command_line.find_spots import phil_scope
+from dials.util import log
+from dials.util.options import OptionParser, flatten_datablocks
 # Set the phil scope
 from libtbx.phil import parse
+from matplotlib import cm
+from scipy import mean, stats
+from scipy.stats.stats import chisquare
+
+logger = logging.getLogger(libtbx.env.dispatcher_name)
+
 phil_scope = parse('''
 
     filter_grid {

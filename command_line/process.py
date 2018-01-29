@@ -5,14 +5,14 @@
 
 from __future__ import absolute_import, division, print_function
 
+import os
+import re
+import sys
+from optparse import SUPPRESS_HELP, OptionParser
+from pprint import pprint
+
 import ispyb
 import ispyb.factory
-import sys
-import os
-from optparse import SUPPRESS_HELP, OptionParser
-import re
-
-from pprint import pprint
 
 # Example: dlstbx.process -n "zocalo development" -r xia2-3dii 1724968:1-100
 

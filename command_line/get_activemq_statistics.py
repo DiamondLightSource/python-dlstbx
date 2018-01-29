@@ -1,9 +1,9 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
-from optparse import SUPPRESS_HELP, OptionParser
 import sys
 import time
+from optparse import SUPPRESS_HELP, OptionParser
 
 import dlstbx.util.jmxstats
 from dlstbx.util.colorstreamhandler import ColorStreamHandler

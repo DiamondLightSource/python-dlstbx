@@ -13,10 +13,10 @@ import threading
 from optparse import SUPPRESS_HELP, OptionParser
 
 import dlstbx.zocalo.wrapper
+import dlstbx.zocalo.wrapper.big_ep
 import dlstbx.zocalo.wrapper.dozor
 import dlstbx.zocalo.wrapper.edna
 import dlstbx.zocalo.wrapper.fast_ep
-import dlstbx.zocalo.wrapper.big_ep
 import dlstbx.zocalo.wrapper.xia2
 import dlstbx.zocalo.wrapper.xia2_strategy
 import workflows

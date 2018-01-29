@@ -7,7 +7,7 @@ import uuid
 
 import ispyb
 import ispyb.exception
-import mysql.connector # installed by ispyb
+import mysql.connector  # installed by ispyb
 
 # Temporary API to ISPyB while I wait for a proper one using stored procedures
 # - beware here be dragons, written by a hacker who is not a database wonk.
@@ -245,7 +245,7 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
           return 'infl'
       return 'peak'
 
-    s = '''SELECT 
+    s = '''SELECT
     EnergyScan.energyscanid,
     EnergyScan.element,
     EnergyScan.peakenergy,
@@ -313,7 +313,7 @@ WHERE
 
   def get_sequence(self, dc_id):
 
-    s = '''SELECT 
+    s = '''SELECT
     Protein.sequence
 FROM
     DataCollection

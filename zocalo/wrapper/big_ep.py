@@ -2,10 +2,10 @@ from __future__ import absolute_import, division, print_function
 
 import logging
 import os
+from datetime import datetime
 
 import dlstbx.zocalo.wrapper
 from dials.util import procrunner
-from datetime import datetime
 
 logger = logging.getLogger('dlstbx.wrap.big_ep')
 

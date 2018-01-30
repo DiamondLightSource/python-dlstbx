@@ -19,37 +19,40 @@ libtbx.pkg_utils.require('colorama') # is still used in one place
 
 # --- workflows service registration exploration ---
 
-import imp, pkgutil
+import ast
+import imp
 import dlstbx.services
-import os
-import sys
-import workflows.services.common_service
+import pkgutil
 
 print("Enumerating services:")
 service_list = []
 for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
-  if not name.startswith('test_'):
+  if not name.startswith('test_') and not name.startswith('_'):
     try:
       fid, pathname, desc = imp.find_module(name, dlstbx.services.__path__)
-      module = imp.load_module(name, fid, pathname, desc)
-    except Exception as e:
-      print("  *** Could not enumerate %s: %s" % (name, str(e).split('\n')[0]))
-      module = None
-    finally:
-      if fid:
-        fid.close()
-    for class_candidate in dir(module):
-      try:
-        if issubclass(getattr(module, class_candidate), workflows.services.common_service.CommonService) \
-           and getattr(module, class_candidate) != workflows.services.common_service.CommonService:
-          service_list.append("{classname} = dlstbx.services.{modulename}:{classname}".format(classname=class_candidate, modulename=module.__name__))
-          print("  found", class_candidate)
-      except TypeError:
-        pass
+    except Exception:
+      pass
+    if not fid:
+      print("  *** Could not read %s" % name)
+      continue
+    content = fid.read()
+    fid.close()
+    try:
+      parsetree = ast.parse(content)
+    except Exception:
+      print("  *** Could not parse %s" % name)
+      continue
+    for top_level_def in parsetree.body:
+      if isinstance(top_level_def, ast.ClassDef) and \
+          'CommonService' in (baseclass.id for baseclass in top_level_def.bases):
+        classname = top_level_def.name
+        modulename = 'dlstbx.services.%s' % name
+        service_list.append("{classname} = dlstbx.services.{modulename}:{classname}".format(classname=classname, modulename=modulename))
+        print("  found", classname)
 
 try:
- libtbx.pkg_utils.define_entry_points({
-  'workflows.services': sorted(service_list),
- })
+  libtbx.pkg_utils.define_entry_points({
+    'workflows.services': sorted(service_list),
+  })
 except AttributeError:
- pass # DIALS 1.8 backwards compatibility
+  pass # DIALS 1.8 backwards compatibility

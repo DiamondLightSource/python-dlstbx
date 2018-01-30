@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
+import sys
+
 def enable_graylog():
   '''Central function to set up graylog handler in logging module.'''
   import logging
@@ -56,3 +58,16 @@ def enable_graylog():
                                level_names=True)
   logger = logging.getLogger()
   logger.addHandler(graylog)
+
+class Buck():
+  '''A buck, which can be passed.'''
+
+  def Pass(self):
+    try:
+      raise Exception()
+    except Exception:
+      frame = sys.exc_info()[2].tb_frame.f_back.f_locals
+      references = [var for var in frame if frame[var] == self]
+      for ref in references:
+        del frame[ref]
+      print("...aand it's gone.")

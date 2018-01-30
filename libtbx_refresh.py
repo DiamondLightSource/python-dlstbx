@@ -31,7 +31,7 @@ for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
     try:
       fid, pathname, desc = imp.find_module(name, dlstbx.services.__path__)
     except Exception:
-      pass
+      fid = None
     if not fid:
       print("  *** Could not read %s" % name)
       continue

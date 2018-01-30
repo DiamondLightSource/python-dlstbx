@@ -29,10 +29,15 @@ print("Enumerating services:")
 service_list = []
 for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
   if not name.startswith('test_'):
-    fid, pathname, desc = imp.find_module(name, dlstbx.services.__path__)
-    module = imp.load_module(name, fid, pathname, desc)
-    if fid:
-      fid.close()
+    try:
+      fid, pathname, desc = imp.find_module(name, dlstbx.services.__path__)
+      module = imp.load_module(name, fid, pathname, desc)
+    except Exception as e:
+      print("  *** Could not enumerate %s: %s" % (name, str(e).split('\n')[0]))
+      module = None
+    finally:
+      if fid:
+        fid.close()
     for class_candidate in dir(module):
       try:
         if issubclass(getattr(module, class_candidate), workflows.services.common_service.CommonService) \

@@ -54,7 +54,7 @@ def enable_graylog():
         'Could not monkey-patch graypy')
 
   # Create and enable graylog handler
-  graylog = graypy.GELFHandler('graylog.diamond.ac.uk', 12203, \
+  graylog = graypy.GELFHandler('graylog2.diamond.ac.uk', 12258, \
                                level_names=True)
   logger = logging.getLogger()
   logger.addHandler(graylog)

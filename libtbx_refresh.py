@@ -46,8 +46,7 @@ for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
       if isinstance(top_level_def, ast.ClassDef) and \
           'CommonService' in (baseclass.id for baseclass in top_level_def.bases):
         classname = top_level_def.name
-        modulename = 'dlstbx.services.%s' % name
-        service_list.append("{classname} = dlstbx.services.{modulename}:{classname}".format(classname=classname, modulename=modulename))
+        service_list.append("{classname} = dlstbx.services.{modulename}:{classname}".format(classname=classname, modulename=name))
         print("  found", classname)
 
 try:

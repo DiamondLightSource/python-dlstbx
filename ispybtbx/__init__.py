@@ -365,6 +365,9 @@ WHERE
     template = dc_info.get('fileTemplate')
     if not template:
       return None
+    # .nxs files record the template in this way... 
+    if template.count('#') == 0:
+      return template
     fmt = '%%0%dd' % template.count('#')
     prefix = template.split('#')[0]
     suffix = template.split('#')[-1]
@@ -373,6 +376,10 @@ WHERE
   def dc_info_to_filename(self, dc_info, image_number=None):
     template = self.dc_info_to_filename_pattern(dc_info)
     directory = dc_info['imageDirectory']
+
+    # for .nxs files
+    if not '#' in template:
+      return os.path.join(directory, template)
     if image_number:
       return os.path.join(directory, template % image_number)
     if dc_info['startImageNumber']:

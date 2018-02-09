@@ -378,7 +378,7 @@ WHERE
     directory = dc_info['imageDirectory']
 
     # for .nxs files
-    if not '#' in template:
+    if not '%%' in template:
       return os.path.join(directory, template)
     if image_number:
       return os.path.join(directory, template % image_number)

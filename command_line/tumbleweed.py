@@ -3,7 +3,8 @@ from __future__ import absolute_import, division, print_function
 import sys
 import time
 
-for i in range(1000):
+try:
+ for i in range(1000):
   for j in range(60):
     sys.stdout.write('\r')
     sys.stdout.write('[' + j * ' ' + '@' + (60-j) * ' ' + ']')
@@ -15,3 +16,5 @@ for i in range(1000):
     sys.stdout.write('[' + j * ' ' + '@' + (60-j) * ' ' + ']')
     sys.stdout.flush()
     time.sleep(0.03)
+except KeyboardInterrupt:
+  print()

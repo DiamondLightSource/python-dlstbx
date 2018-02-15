@@ -16,6 +16,7 @@ import dlstbx.zocalo.wrapper
 import dlstbx.zocalo.wrapper.big_ep
 import dlstbx.zocalo.wrapper.dozor
 import dlstbx.zocalo.wrapper.edna
+import dlstbx.zocalo.wrapper.fast_dp
 import dlstbx.zocalo.wrapper.fast_ep
 import dlstbx.zocalo.wrapper.xia2
 import dlstbx.zocalo.wrapper.xia2_strategy
@@ -91,6 +92,7 @@ def run(cmdline_args):
   known_wrappers = {
     'dozor': dlstbx.zocalo.wrapper.dozor.DozorWrapper,
     'dummy': dlstbx.zocalo.wrapper.DummyWrapper,
+    'fast_dp': dlstbx.zocalo.wrapper.fast_dp.FastDPWrapper,
     'fast_ep': dlstbx.zocalo.wrapper.fast_ep.FastEPWrapper,
     'big_ep': dlstbx.zocalo.wrapper.big_ep.BigEPWrapper,
     'xia2': dlstbx.zocalo.wrapper.xia2.Xia2Wrapper,

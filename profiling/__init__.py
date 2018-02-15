@@ -4,6 +4,8 @@ import json
 import logging
 import os
 
+import mysql.connector
+
 # API for access to the zocalo profiling database, which includes DLS
 # infrastructure status information.
 
@@ -11,11 +13,6 @@ class database(object):
   def __init__(self):
     _secret_configuration = '/dls_sw/apps/zocalo/secrets/sql-zocalo-profiling.json'
     _secret_ingredients = json.load(open(_secret_configuration, 'r'))
-
-    try:
-      import mysql.connector
-    except ImportError:
-      raise ImportError('MySQL connector module not found. Run python -m pip install "mysql-connector<2.2.3"')
 
     self.conn = mysql.connector.connect(
         host=_secret_ingredients['host'],
@@ -80,10 +77,3 @@ class database(object):
   def prune(self):
     self.execute('DELETE FROM infrastructure_status WHERE (TO_SECONDS(NOW()) - TO_SECONDS(Timestamp)) > 24 * 3600;')
     self.commit()
-
-if __name__ == '__main__':
-  import pprint
-  pp = pprint.PrettyPrinter(indent=2).pprint
-
-  db = database()
-  pp(db.get_infrastructure_status())

@@ -1,5 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
+import ast
+import imp
+import pkgutil
+
+import dlstbx.services
 import libtbx.pkg_utils
 
 try:
@@ -19,10 +24,6 @@ libtbx.pkg_utils.require('colorama') # is still used in one place
 
 # --- workflows service registration exploration ---
 
-import ast
-import imp
-import dlstbx.services
-import pkgutil
 
 print("Enumerating services:")
 service_list = []

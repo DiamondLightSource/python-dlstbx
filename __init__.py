@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 
-def enable_graylog():
+def enable_graylog(host='graylog2.diamond.ac.uk', port=12208):
   '''Central function to set up graylog handler in logging module.'''
   import logging
   try:
@@ -54,8 +54,7 @@ def enable_graylog():
         'Could not monkey-patch graypy')
 
   # Create and enable graylog handler
-  graylog = graypy.GELFHandler('graylog2.diamond.ac.uk', 12208, \
-                               level_names=True)
+  graylog = graypy.GELFHandler(host, port, level_names=True)
   logger = logging.getLogger()
   logger.addHandler(graylog)
 

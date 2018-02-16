@@ -30,17 +30,6 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     return command
 
-  def send_results_to_ispyb(self, json_file):
-    return # dummy function for now
-
-#   from dlstbx.ispybtbx import ispybtbx
-#   ispyb_conn = ispybtbx()
-#
-    with open(json_file, 'rb') as f:
-      ispyb_data = json.load(f)
-#   logger.debug('Inserting fast_dp results into ISPyB: %s' % str(ispyb_data))
-#   ispyb_conn.insert_fastep_phasing_results(ispyb_data)
-
   def run(self):
     assert hasattr(self, 'recwrap'), \
       "No recipewrapper object found"
@@ -91,8 +80,10 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     json_file = 'fast_dp.json'
     if os.path.exists(json_file):
-      logger.info('Sending fast_dp results to ISPyB')
-      self.send_results_to_ispyb(json_file)
+      logger.debug('Forwarding fast_dp results to ISPyB')
+      with open(json_file, 'rb') as fh:
+        json_data = json.load(fh)
+      self.recwrap.send_to('ispyb-results', json_data)
     else:
       logger.warning('Expected output file %s does not exist' % json_file)
 

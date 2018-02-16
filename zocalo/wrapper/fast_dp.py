@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import json
 import logging
 import os
+import shutil
 
 import dlstbx.zocalo.wrapper
 from dials.util import procrunner
@@ -15,7 +16,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     '''Construct fast_dp command line.
        Takes job parameter dictionary, returns array.'''
 
-    command = ['fast_dp']
+    command = ['fast_dp', '--atom=S']
 
     command.append(params['fast_dp']['filename'])
 

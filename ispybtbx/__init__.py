@@ -720,7 +720,8 @@ def ispyb_filter(message, parameters):
 
   if 'ispyb_reprocessing_data' in parameters and \
       parameters['ispyb_reprocessing_data']['recipe'] and \
-      not message.get('recipes'):
+      not message.get('recipes') and \
+      not message.get('custom_recipe'):
     # Prefix recipe name coming from ispyb/synchweb with 'ispyb-'
     message['recipes'] = [ 'ispyb-' + parameters['ispyb_reprocessing_data']['recipe'] ]
     return message, parameters

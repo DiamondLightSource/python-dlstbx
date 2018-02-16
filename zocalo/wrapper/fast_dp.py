@@ -30,7 +30,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     return command
 
-  def send_resuls_to_ispyb(self, json_file):
+  def send_results_to_ispyb(self, json_file):
     return # dummy function for now
 
 #   from dlstbx.ispybtbx import ispybtbx

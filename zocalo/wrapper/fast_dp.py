@@ -67,8 +67,8 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     allfiles = []
     for filename in ('fast_dp.log', 'fast_dp.error'):
-      dst = os.path.join(results_directory, filename)
       if os.path.exists(filename):
+        dst = os.path.join(results_directory, filename)
         logger.debug('Copying %s to %s' % (filename, dst))
         shutil.copy(filename, dst)
         allfiles.append(dst)
@@ -78,14 +78,13 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           'file_type': 'log',
         })
 
-    json_file = 'fast_dp.json'
-    if os.path.exists(json_file):
-      logger.debug('Forwarding fast_dp results to ISPyB')
-      with open(json_file, 'rb') as fh:
+    # Forward JSON results if possible
+    if os.path.exists('fast_dp.json'):
+      with open('fast_dp.json', 'rb') as fh:
         json_data = json.load(fh)
-      self.recwrap.send_to('ispyb-results', json_data)
+      self.recwrap.send_to('result-json', json_data)
     else:
-      logger.warning('Expected output file %s does not exist' % json_file)
+      logger.warning('Expected JSON output file missing')
 
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })

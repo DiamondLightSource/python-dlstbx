@@ -14,6 +14,10 @@ from workflows.transport.stomp_transport import StompTransport
 
 # Example: dlstbx.go -r example-xia2 527189
 
+def lazy_pprint(*args, **kwargs):
+  from pprint import pprint
+  pprint(*args, **kwargs)
+
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.go [options] dcid",
                         description="Triggers processing of a standard " \
@@ -42,6 +46,9 @@ if __name__ == '__main__':
   parser.add_option("-p", "--reprocessing", dest="reprocess",
       action="store_true", default=False,
       help="Means a reprocessing ID is given rather than a data collection ID")
+  parser.add_option("-v", "--verbose", dest="verbose",
+      action="store_true", default=False,
+      help="Show raw message before sending")
 
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
@@ -75,6 +82,8 @@ if __name__ == '__main__':
     if options.recipefile:
       print("Running recipe from file", options.recipefile)
     print("without specified data collection.")
+    if options.verbose:
+      lazy_pprint(message)
     stomp.connect()
     stomp.send(
       'processing_recipe',
@@ -96,10 +105,12 @@ if __name__ == '__main__':
 
   if options.reprocess:
     # Given ID is a reprocessing ID. Nothing else needs to be specified.
-    stomp.connect()
     if options.recipe:
       print("Running recipes", options.recipe)
     message['parameters']['ispyb_process'] = dcid
+    if options.verbose:
+      lazy_pprint(message)
+    stomp.connect()
     stomp.send(
       'processing_recipe',
       message
@@ -132,6 +143,8 @@ if __name__ == '__main__':
     assert apsid > 0, "Invalid auto processing scaling ID given."
     message['parameters']['ispyb_autoprocscalingid'] = apsid
 
+  if options.verbose:
+    lazy_pprint(message)
   stomp.connect()
   stomp.send(
     'processing_recipe',

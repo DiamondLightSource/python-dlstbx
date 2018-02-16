@@ -759,9 +759,10 @@ def ispyb_filter(message, parameters):
 
   related_images = []
 
-  parameters['ispyb_images'] = ''
-
-  for dc in related:
+  if not parameters.get('ispyb_images'):
+   # may have been set via __call__ for reprocessing jobs
+   parameters['ispyb_images'] = ''
+   for dc in related:
 
     # FIXME logic: should this exclude dc > dc_id?
     if dc == dc_id:

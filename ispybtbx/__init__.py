@@ -365,14 +365,18 @@ WHERE
     template = dc_info.get('fileTemplate')
     if not template:
       return None
+    if '#' not in template:
+      return template
     fmt = '%%0%dd' % template.count('#')
     prefix = template.split('#')[0]
     suffix = template.split('#')[-1]
     return prefix + fmt + suffix
 
   def dc_info_to_filename(self, dc_info, image_number=None):
-    template = self.dc_info_to_filename_pattern(dc_info)
     directory = dc_info['imageDirectory']
+    template = self.dc_info_to_filename_pattern(dc_info)
+    if '%' not in template:
+      return os.path.join(directory, template)
     if image_number:
       return os.path.join(directory, template % image_number)
     if dc_info['startImageNumber']:

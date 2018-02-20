@@ -18,6 +18,7 @@ import dlstbx.zocalo.wrapper.dozor
 import dlstbx.zocalo.wrapper.edna
 import dlstbx.zocalo.wrapper.fast_dp
 import dlstbx.zocalo.wrapper.fast_ep
+import dlstbx.zocalo.wrapper.spot_counts_per_image
 import dlstbx.zocalo.wrapper.xia2
 import dlstbx.zocalo.wrapper.xia2_strategy
 import workflows
@@ -98,6 +99,7 @@ def run(cmdline_args):
     'xia2': dlstbx.zocalo.wrapper.xia2.Xia2Wrapper,
     'xia2.strategy': dlstbx.zocalo.wrapper.xia2_strategy.Xia2StrategyWrapper,
     'edna': dlstbx.zocalo.wrapper.edna.EdnaWrapper,
+    'spotcounts': dlstbx.zocalo.wrapper.spot_counts_per_image.SCPIWrapper,
   }
 
   # Set up parser

@@ -731,7 +731,10 @@ def ispyb_filter(message, parameters):
     return message, parameters
 
   if dc_class['grid']:
-    message['default_recipe'] = ['per-image-analysis-gridscan']
+    if parameters['ispyb_beamline'] == 'i02-2':
+      message['default_recipe'] = ['vmxi-spot-counts-per-image']
+    else:
+      message['default_recipe'] = ['per-image-analysis-gridscan']
     return message, parameters
 
   if dc_class['screen']:

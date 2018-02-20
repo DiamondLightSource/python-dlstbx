@@ -8,7 +8,6 @@ import ispyb.exception
 import ispyb.factory
 import mysql.connector
 import workflows.recipe
-from dials.util.procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSISPyB(CommonService):

@@ -11,6 +11,92 @@ from dials.util import procrunner
 logger = logging.getLogger('dlstbx.wrap.fast_dp')
 
 class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+  @staticmethod
+  def xml_to_dict(filename):
+    def make_dict_from_tree(element_tree):
+        """Traverse the given XML element tree to convert it into a dictionary.
+
+        :param element_tree: An XML element tree
+        :type element_tree: xml.etree.ElementTree
+        :rtype: dict
+        """
+        def internal_iter(tree, accum):
+            """Recursively iterate through the elements of the tree accumulating
+            a dictionary result.
+
+            :param tree: The XML element tree
+            :type tree: xml.etree.ElementTree
+            :param accum: Dictionary into which data is accumulated
+            :type accum: dict
+            :rtype: dict
+            """
+            if tree is None:
+                return accum
+            if tree.getchildren():
+                accum[tree.tag] = {}
+                for each in tree.getchildren():
+                    result = internal_iter(each, {})
+                    if each.tag in accum[tree.tag]:
+                            if not isinstance(accum[tree.tag][each.tag], list):
+                            accum[tree.tag][each.tag] = [
+                                accum[tree.tag][each.tag]
+                            ]
+                        accum[tree.tag][each.tag].append(result[each.tag])
+                    else:
+                        accum[tree.tag].update(result)
+            else:
+                accum[tree.tag] = tree.text
+            return accum
+        return internal_iter(element_tree, {})
+    import xml.etree.ElementTree
+    return make_dict_from_tree(xml.etree.ElementTree.parse(filename).getroot())
+
+  def send_results_to_ispyb(self):
+    logger.debug("Reading fast_dp results")
+    message = xml_to_dict("fast_dp.xml")
+    # Do not accept log entries from the object, we add those separately
+    message['AutoProcProgramContainer']['AutoProcProgramAttachment'] = filter(
+       lambda x: x.get('fileType') != 'Log', message['AutoProcProgramContainer']['AutoProcProgramAttachment'])
+
+    def recursive_replace(thing, old, new):
+      '''Recursive string replacement in data structures.'''
+
+      def _recursive_apply(item):
+        '''Internal recursive helper function.'''
+        if isinstance(item, basestring):
+          return item.replace(old, new)
+        if isinstance(item, dict):
+          return { _recursive_apply(key): _recursive_apply(value) for
+                   key, value in item.items() }
+        if isinstance(item, tuple):
+          return tuple(_recursive_apply(list(item)))
+        if isinstance(item, list):
+          return [ _recursive_apply(x) for x in item ]
+        return item
+      return _recursive_apply(thing)
+
+    logger.debug("Replacing temporary zocalo paths with correct destination paths")
+    message = recursive_replace(
+        message,
+        self.recwrap.recipe_step['job_parameters']['working_directory'],
+        self.recwrap.recipe_step['job_parameters']['results_directory']
+      )
+
+    dcid = int(self.recwrap.recipe_step['job_parameters']['dcid'])
+    assert dcid > 0, "Invalid data collection ID given."
+    logger.debug("Writing to data collection ID %s", str(dcid))
+    for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
+      container['AutoProcIntegration']['dataCollectionId'] = dcid
+
+    # Use existing AutoProcProgramID
+    if self.recwrap.environment.get('ispyb_autoprocprogram_id'):
+      message['AutoProcProgramContainer']['AutoProcProgram'] = \
+        self.recwrap.environment['ispyb_autoprocprogram_id']
+
+    logger.debug("Sending %s", str(message))
+    self.recwrap.transport.send('ispyb', message)
+
+    logger.info("Saved fast_dp information for data collection %s", str(dcid))
 
   def construct_commandline(self, params):
     '''Construct fast_dp command line.
@@ -78,13 +164,21 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           'file_type': 'log',
         })
 
-    # Forward JSON results if possible
-    if os.path.exists('fast_dp.json'):
-      with open('fast_dp.json', 'rb') as fh:
-        json_data = json.load(fh)
-      self.recwrap.send_to('result-json', json_data)
+# Correct way:
+#    # Forward JSON results if possible
+#    if os.path.exists('fast_dp.json'):
+#      with open('fast_dp.json', 'rb') as fh:
+#        json_data = json.load(fh)
+#      self.recwrap.send_to('result-json', json_data)
+#    else:
+#      logger.warning('Expected JSON output file missing')
+
+# Wrong way:
+    dst = os.path.join(results_directory, 'fast_dp.xml')
+    if os.path.exists('fast_dp.xml'):
+      self.send_results_to_ispyb()
     else:
-      logger.warning('Expected JSON output file missing')
+      logger.warning('Expected output file fast_dp.xml missing')
 
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })

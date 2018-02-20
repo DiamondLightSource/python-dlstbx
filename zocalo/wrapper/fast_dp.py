@@ -85,6 +85,8 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     dcid = int(self.recwrap.recipe_step['job_parameters']['dcid'])
     assert dcid > 0, "Invalid data collection ID given."
     logger.debug("Writing to data collection ID %s", str(dcid))
+    if isinstance(message['AutoProcScalingContainer']['AutoProcIntegrationContainer'], dict):  # Make it a list regardless
+      message['AutoProcScalingContainer']['AutoProcIntegrationContainer'] = [message['AutoProcScalingContainer']['AutoProcIntegrationContainer']]
     for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
       container['AutoProcIntegration']['dataCollectionId'] = dcid
 

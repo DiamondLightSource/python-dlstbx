@@ -53,7 +53,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
   def send_results_to_ispyb(self):
     logger.debug("Reading fast_dp results")
-    message = self.xml_to_dict("fast_dp.xml")
+    message = self.xml_to_dict("fast_dp.xml")['AutoProcContainer']
     # Do not accept log entries from the object, we add those separately
     message['AutoProcProgramContainer']['AutoProcProgramAttachment'] = filter(
        lambda x: x.get('fileType') != 'Log', message['AutoProcProgramContainer']['AutoProcProgramAttachment'])

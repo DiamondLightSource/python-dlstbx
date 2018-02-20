@@ -37,7 +37,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
                 for each in tree.getchildren():
                     result = internal_iter(each, {})
                     if each.tag in accum[tree.tag]:
-                            if not isinstance(accum[tree.tag][each.tag], list):
+                        if not isinstance(accum[tree.tag][each.tag], list):
                             accum[tree.tag][each.tag] = [
                                 accum[tree.tag][each.tag]
                             ]

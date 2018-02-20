@@ -8,6 +8,7 @@ import ispyb.exception
 import ispyb.factory
 import mysql.connector
 import workflows.recipe
+from dials.util.procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSISPyB(CommonService):
@@ -172,16 +173,24 @@ class DLSISPyB(CommonService):
       return False
 
     params['file_type'] = str(message.get('file_type', rw.recipe_step['parameters'].get('file_type', ''))).lower()
-    if params['file_type'] not in ('snapshot', 'log', 'xy', 'recip'):
+    if params['file_type'] not in ('snapshot', 'log', 'xy', 'recip', 'pia'):
       self.log.warning("Attachment type '%s' unknown, defaulting to 'log'", params['file_type'])
       params['file_type'] = 'log'
 
-    self.log.info("Not writing data collection attachment %s for DCID %s to database: Operation not supported" % \
-                  (params['file_name'], params['parentid']))
+#######################
+#   Correct way:
 #   self.log.debug("Writing data collection attachment to database: %s", params)
-
 #   result = self.ispyb_mx.upsert_???_attachment(list(params.values()))
-    result = 0
+#######################
+#   Wrong way:
+    self.log.info("Writing data collection attachment %s for DCID %s to database using hacky workaround. SCI-6268" % \
+                    (params['file_name'], params['parentid']))
+    result = run_process(['/dls_sw/apps/mx-scripts/bin/StoreReciprocalLatticeCSV.sh', params['parentid'], fqpn, params['file_type']],
+                         print_stdout=True, print_stderr=True)
+    if result['exitcode'] != 0:
+      self.log.warning("DCID attachment write failed:\n%s\n%s" % (result['stdout'], result['stderr']))
+    result = result['exitcode']
+#######################
 
     return { 'success': True, 'return_value': result }
 

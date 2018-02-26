@@ -27,10 +27,6 @@ class DLSFileWatcher(CommonService):
   def watch_files(self, rw, header, message):
     '''Check for presence of files.'''
 
-    # Conditionally acknowledge receipt of the message
-    txn = rw.transport.transaction_begin()
-    rw.transport.ack(header, transaction=txn)
-
     # Check if message body contains partial results from a previous run
     status = { 'seen-files': 0, 'start-time': time.time() }
     if isinstance(message, dict):
@@ -40,6 +36,18 @@ class DLSFileWatcher(CommonService):
     pattern = rw.recipe_step['parameters']['pattern']
     pattern_start = int(rw.recipe_step['parameters']['pattern-start'])
     filecount = int(rw.recipe_step['parameters']['pattern-end']) - pattern_start + 1
+
+    # Sanity check received message
+    try:
+      pattern % 0
+    except TypeError:
+      self.log.error("Rejecting message with non-conforming pattern string: %s", pattern)
+      rw.transport.nack(header)
+      return
+
+    # Conditionally acknowledge receipt of the message
+    txn = rw.transport.transaction_begin()
+    rw.transport.ack(header, transaction=txn)
 
     self.log.debug("Waiting %.1f seconds for %s\n%d of %d files seen so far",
         time.time()-status['start-time'],

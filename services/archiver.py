@@ -206,7 +206,7 @@ class DLSArchiver(CommonService):
     rw.send_to('dropfile', message_out, transaction=txn)
 
     self._transport.transaction_commit(txn)
-    self.log.info("Done.")
+    self.log.debug("Done.")
 
   def archive_filelist(self, rw, header, message):
     '''Archive an arbitrary list of files.'''

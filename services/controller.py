@@ -328,6 +328,8 @@ class DLSController(CommonService):
       try:
         attempt['service'] = service
         attempt['tag'] = tag
+        if 'module' in instance and 'module' not in attempt:
+          attempt['module'] = instance['module']
         launch_function = getattr(self, 'launch_' + attempt.get('type'))
         if launch_function(**attempt):
           self.log.info('Successfully started new instance of %s', service)

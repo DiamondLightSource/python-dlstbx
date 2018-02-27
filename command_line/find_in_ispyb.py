@@ -37,8 +37,10 @@ if __name__ == '__main__':
   for arg in args:
     parameters = {}
     if options.reprocess:
+      print("Processing ID:", arg)
       parameters['ispyb_process'] = int(arg)
     else:
+      print("Data collection ID:", arg)
       parameters['ispyb_dcid'] = int(arg)
     message, parameters = ispyb_filter({}, parameters)
 
@@ -56,3 +58,6 @@ if __name__ == '__main__':
       print(json.dumps(d, indent=2))
     else:
       pprint.pprint(parameters)
+    if message.get('default_recipe'):
+      print("Default recipes:", ", ".join(sorted(message['default_recipe'])))
+    print()

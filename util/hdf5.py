@@ -33,4 +33,4 @@ def find_all_references(startfile):
       else:
         unchecked_files.add(linked_file)
 
-  return list(known_files)
+  return sorted(known_files)

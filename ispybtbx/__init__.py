@@ -732,7 +732,7 @@ def ispyb_filter(message, parameters):
 
   if dc_class['grid']:
     if parameters['ispyb_beamline'] == 'i02-2':
-      message['default_recipe'] = ['vmxi-spot-counts-per-image']
+      message['default_recipe'] = ['archive-nexus', 'vmxi-spot-counts-per-image']
     else:
       message['default_recipe'] = ['per-image-analysis-gridscan']
     return message, parameters
@@ -791,7 +791,7 @@ def ispyb_filter(message, parameters):
       'processing-autoproc', 'processing-rlv']
 
   if parameters['ispyb_beamline'] == 'i02-2':
-    message['default_recipe'] = [ 'processing-xia2-dials' ]
+    message['default_recipe'] = [ 'archive-nexus', 'processing-xia2-dials' ]
 
   if parameters['ispyb_images']:
     message['default_recipe'].append('processing-multi-xia2-dials')

@@ -22,6 +22,8 @@ class Dropfile(object):
     self._xml.set('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance')
     self._xml.set('xsi:noNamespaceSchemaLocation', 'icatXSD.xsd')
 
+    visit = visit.upper()
+
     study = ET.SubElement(self._xml, 'study')
     investigation = ET.SubElement(study, 'investigation')
     ET.SubElement(investigation, 'inv_number').text = visit.split('-')[0] if '-' in visit else visit

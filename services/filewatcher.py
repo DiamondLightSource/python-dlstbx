@@ -104,7 +104,8 @@ class DLSFileWatcher(CommonService):
       self.log.info("All %d files found for %s after %.1f seconds.",
         filecount,
         rw.recipe_step['parameters']['pattern'],
-        time.time()-status['start-time'])
+        time.time()-status['start-time'],
+        extra={"delay": time.time()-status['start-time']})
 
       # Notify for 'finally' outcome
       rw.send_to('finally', {

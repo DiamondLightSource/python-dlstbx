@@ -127,7 +127,7 @@ for test, _ in tests.itervalues():
     for message in test['send']:
       if message.get('queue'):
         logger.debug("Sending message to %s", message['queue'])
-        transport.send(message['queue'], message['message'], headers=message['headers'])
+        transport.send(message['queue'], message['message'], headers=message['headers'], persistent=False)
       if message.get('topic'):
         logger.debug("Broadcasting message to %s", message['topic'])
         transport.broadcast(message['topic'], message['message'], headers=message['headers'])

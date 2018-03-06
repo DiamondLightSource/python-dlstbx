@@ -165,7 +165,7 @@ while keep_waiting:
   if timer_events:
     wait_to = min(wait_to, timer_events[0][0])
     keep_waiting = True
-  if time.time() > last_message + 0.5:
+  if time.time() > last_message + 5:
     logger.info("Waited %5.1fs." % (time.time() - start_time))
     last_message = time.time()
   time.sleep(max(0.01, wait_to - time.time()))

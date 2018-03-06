@@ -58,6 +58,9 @@ def enable_graylog(host='graylog2.diamond.ac.uk', port=12208):
   logger = logging.getLogger()
   logger.addHandler(graylog)
 
+  # Return the handler, which may be useful to attach filters to it.
+  return graylog
+
 class Buck():
   '''A buck, which can be passed.'''
 

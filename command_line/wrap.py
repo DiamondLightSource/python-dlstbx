@@ -138,7 +138,7 @@ def run(cmdline_args):
     sys.exit(1)
 
   # Enable logging to graylog
-  enable_graylog()
+  graylog_handler = enable_graylog()
   log.info('Starting wrapper for %s with recipewrapper file %s', options.wrapper, options.recipewrapper)
 
   # Connect to transport and start sending notifications
@@ -157,6 +157,14 @@ def run(cmdline_args):
           transport=transport,
       )
     instance.set_recipe_wrapper(recwrap)
+
+  if rw.environment.get('ID'):
+    # If recipe ID available then include that in all future log messages
+    class ContextFilter(logging.Filter):
+      def filter(self, record):
+        record.recipe_ID = rw.environment['ID']
+        return True
+    graylog_handler.addFilter(ContextFilter())
 
   instance.prepare('Starting processing')
 

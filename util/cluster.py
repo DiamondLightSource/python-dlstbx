@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import logging
 import multiprocessing
 import os
 import threading
@@ -10,6 +11,8 @@ from dials.util.procrunner import run_process
 
 _DLS_Load_Cluster = ". /etc/profile.d/modules.sh ; module load global/cluster"
 _DLS_Load_Testcluster = ". /etc/profile.d/modules.sh ; module load global/testcluster"
+
+log = logging.getLogger('dlstbx.util.cluster')
 
 class Cluster():
   '''DRMAA access to DLS computing clusters'''
@@ -156,7 +159,7 @@ class Cluster():
                         self.drmaa.JobState.FAILED: 'job finished, but failed'}
     return decodestatus[self.session.jobStatus(jobid)]
 
-  def _qstat_xml(self, arguments=None, timeout=10):
+  def _qstat_xml(self, arguments=None, timeout=30, warn_after=10):
     '''Run a qstat command against the cluster
        :param arguments: List of command line parameters
        :param timeout: maximum execution time
@@ -165,6 +168,12 @@ class Cluster():
     if not arguments: arguments = []
     result = run_process(command=['qstat', '-xml'] + arguments, timeout=timeout,
         stdin='', print_stdout=False, print_stderr=False)
+    if result['timeout']:
+      log.error('failed to read cluster statistics after %.1f seconds', result['runtime'])
+    elif result['runtime'] > warn_after:
+      log.warn('reading cluster statistics took %.1f seconds', result['runtime'])
+    else:
+      log.debug('reading cluster statistics took %.1f seconds', result['runtime'])
     return result
 
   def _qsub(self, command, arguments, job_params=None):

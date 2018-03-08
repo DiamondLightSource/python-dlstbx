@@ -32,16 +32,16 @@ phil_scope = parse('''
         scoring = *ks chi2
             .help = "Use either Kolmogorov-Smirnov or Chi^2 goodness-of-fit test"
             .type = choice
-        threshold = 0.005
+        threshold = 0.01
             .help = "Significance level of p-value in  acceptance test"
             .type = float(value_min=0)
         min_spots = 20
             .help = "Minimal number of spots per image"
             .type = int
-        sample = 60
+        sample = 30
             .help = "Number of sampled spots for KS-test or dof(bins) in Chi^2 test"
             .type = int(value_min=1)
-        profiles = *expon *chi2_low chi2_high rayleigh gengamma
+        profiles = *expon *chi2_low *chi2_high *rayleigh *gengamma
             .help = "List of used distribution functions"
             .type = choice(multi=True)
         plots = score spots
@@ -78,13 +78,24 @@ phil_scope = parse('''
 
 ''', process_includes=True)
 
+spotfinder_phil_scope = parse('''
+    spotfinder {
+        filter {
+            d_min = 3.0
+                .type = float(value_min=0)
+            d_max = 20.0
+                .type = float(value_min=0)
+        }
+    }
+
+''', process_includes=True)
 
 usage = "%s [options] image_*.cbf" % (
   libtbx.env.dispatcher_name)
 
 parser = OptionParser(
   usage=usage,
-  phil=phil_scope,
+  phil=phil_scope.fetch(sources=[spotfinder_phil_scope,]),
   read_datablocks=True,
   read_datablocks_from_images=True)
 

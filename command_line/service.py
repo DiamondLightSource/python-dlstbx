@@ -59,7 +59,6 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
     self.log.debug('Loading dlstbx workflows plugins')
 
     dlstbx = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    workflows.load_plugins([os.path.join(dlstbx, 'services')])
 
     self.log.debug('Loading dlstbx credentials')
 

@@ -24,8 +24,7 @@ libtbx.pkg_utils.require('colorama') # is still used in one place
 
 # --- workflows service registration exploration ---
 
-
-print("Enumerating services:")
+print("Enumerating workflow services:")
 service_list = []
 for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
   if not name.startswith('test_') and not name.startswith('_'):
@@ -49,10 +48,6 @@ for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
         classname = top_level_def.name
         service_list.append("{classname} = dlstbx.services.{modulename}:{classname}".format(classname=classname, modulename=name))
         print("  found", classname)
-
-try:
-  libtbx.pkg_utils.define_entry_points({
-    'workflows.services': sorted(service_list),
-  })
-except AttributeError:
-  pass # DIALS 1.8 backwards compatibility
+libtbx.pkg_utils.define_entry_points({
+  'workflows.services': sorted(service_list),
+})

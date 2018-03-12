@@ -152,7 +152,7 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     os.chdir(results_directory)
 
-    if os.path.exists('xia2.json'):
+    if not result['exitcode'] and not os.path.isfile('xia2.error') and os.path.exists('xia2.json'):
       self.send_results_to_ispyb()
 
     logfiles = [ 'xia2.html', 'xia2.error' ]

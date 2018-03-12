@@ -21,6 +21,7 @@ libtbx.pkg_utils.require('drmaa')
 libtbx.pkg_utils.require('junit_xml')
 libtbx.pkg_utils.require('graypy', '>=0.2.14')
 libtbx.pkg_utils.require('colorama') # is still used in one place
+libtbx.pkg_utils.require('procrunner', '>=0.2.0')
 
 # --- workflows service registration exploration ---
 

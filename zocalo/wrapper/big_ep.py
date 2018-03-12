@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 
 import dlstbx.zocalo.wrapper
-from dials.util import procrunner
+import procrunner
 
 logger = logging.getLogger('dlstbx.wrap.big_ep')
 

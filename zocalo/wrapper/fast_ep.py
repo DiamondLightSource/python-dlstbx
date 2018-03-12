@@ -4,7 +4,7 @@ import logging
 import os
 
 import dlstbx.zocalo.wrapper
-from dials.util import procrunner
+import procrunner
 
 logger = logging.getLogger('dlstbx.wrap.fast_ep')
 

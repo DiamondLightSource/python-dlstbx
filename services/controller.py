@@ -5,7 +5,7 @@ import os.path
 import threading
 import time
 
-from dials.util.procrunner import run_process
+from procrunner import run_process
 from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
 from workflows.services.common_service import CommonService
 
@@ -344,7 +344,7 @@ class DLSController(CommonService):
     assert service
     result = run_process(
       [ self.service_launch_script, service ],
-      environ={
+      environment_override={
         'CLUSTER': cluster,
         'QUEUE': queue,
         'DIALS': module,

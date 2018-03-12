@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import libtbx.load_env
-from libtbx.procrunner import run_process
+from procrunner import run_process
 import xml.etree.ElementTree
 
 _h5dump = libtbx.env.under_base('bin/h5dump')

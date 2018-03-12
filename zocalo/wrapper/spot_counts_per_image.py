@@ -5,7 +5,7 @@ import os
 import shutil
 
 import dlstbx.zocalo.wrapper
-from dials.util.procrunner import run_process
+from procrunner import run_process
 
 logger = logging.getLogger('dlstbx.wrap.spot_counts_per_image')
 

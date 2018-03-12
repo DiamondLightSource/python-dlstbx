@@ -6,7 +6,7 @@ import logging
 import os
 import shutil
 
-from dials.util import procrunner
+import procrunner
 
 logger = logging.getLogger('dlstbx.wrap_xia2')
 

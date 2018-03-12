@@ -4,7 +4,7 @@ import logging
 import os
 import re
 
-from dials.util.procrunner import run_process
+from procrunner import run_process
 
 log = logging.getLogger('dlstbx.util.rrdtool')
 
@@ -15,7 +15,7 @@ def run_rrdtool(command):
     "rrdtool " + command
   ])
   result = run_process(["/bin/bash"], stdin=stdin,
-                       environ={'LD_LIBRARY_PATH':''},
+                       environment_override={'LD_LIBRARY_PATH':''},
                        print_stdout=False)
   if result['exitcode'] or result['stderr']:
     log.warning('Command rrdtool %s resulted in exitcode %d with error:\n%s', command, result['exitcode'], result['stderr'])

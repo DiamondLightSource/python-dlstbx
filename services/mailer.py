@@ -4,7 +4,7 @@ import os.path
 import pprint
 
 import workflows.recipe
-from libtbx.procrunner import run_process
+from procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSMailer(CommonService):

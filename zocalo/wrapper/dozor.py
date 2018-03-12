@@ -5,7 +5,7 @@ import os
 import re
 
 import dlstbx.zocalo.wrapper
-from dials.util import procrunner
+import procrunner
 from dlstbx.util.dxtbx_to_dozor import (dxtbx_to_dozor, parse_dozor_output,
                                         write_dozor_input)
 from dxtbx.datablock import DataBlockFactory, DataBlockTemplateImporter

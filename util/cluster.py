@@ -7,7 +7,7 @@ import threading
 import time
 from datetime import datetime
 
-from dials.util.procrunner import run_process
+from procrunner import run_process
 
 _DLS_Load_Cluster = ". /etc/profile.d/modules.sh ; module load global/cluster"
 _DLS_Load_Testcluster = ". /etc/profile.d/modules.sh ; module load global/testcluster"
@@ -117,7 +117,7 @@ class Cluster():
                                  os.environ) }
 
     result = run_process(command=['/bin/bash', '-l'], timeout=10,
-        stdin=command + "\nset\n", print_stdout=False, print_stderr=False, environ=blank_environment)
+        stdin=command + "\nset\n", print_stdout=False, print_stderr=False, environment_override=blank_environment)
     if result['timeout'] or result['exitcode'] != 0:
       raise RuntimeError('Could not load cluster environment\n%s' % str(result))
 

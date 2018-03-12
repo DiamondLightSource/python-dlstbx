@@ -9,7 +9,7 @@ from collections import Counter
 
 import dlstbx.util.cluster
 import workflows.recipe
-from dials.util.procrunner import run_process
+from procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSCluster(CommonService):

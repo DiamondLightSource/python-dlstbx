@@ -6,7 +6,7 @@ import logging
 import os
 import shutil
 
-from dials.util import procrunner
+import procrunner
 
 logger = logging.getLogger('dlstbx.wrap_autoPROC')
 
@@ -69,7 +69,7 @@ def run(args):
   logger.info('working directory: %s' % working_directory)
   result = procrunner.run_process(
     command, timeout=params.get('timeout'),
-    print_stdout=True, print_stderr=True, environ=ap_env)
+    print_stdout=True, print_stderr=True, environment_override=ap_env)
 
   logger.info('command: %s', ' '.join(result['command']))
   logger.info('timeout: %s', result['timeout'])

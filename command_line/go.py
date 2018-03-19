@@ -57,7 +57,7 @@ if __name__ == '__main__':
   # override default stomp host
   try:
     StompTransport.load_configuration_file(default_configuration)
-  except workflows.WorkflowsError as e:
+  except workflows.Error as e:
     print("Error: %s\n" % str(e))
 
   StompTransport.add_command_line_options(parser)

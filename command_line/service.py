@@ -100,20 +100,6 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
       logging.getLogger('workflows').setLevel(logging.DEBUG)
     self.options = options
 
-  def on_transport_preparation(self, transport):
-    self.log.info('Attaching ActiveMQ logging to transport')
-    def logging_call(record):
-      if transport.is_connected():
-        try:
-          record = record.__dict__['records']
-        except:
-          record = record.__dict__
-        transport.broadcast('transient.log', record)
-    amq_handler = workflows.logging.CallbackHandler(logging_call)
-    if not self.options.verbose:
-      amq_handler.setLevel(logging.INFO)
-    logging.getLogger().addHandler(amq_handler)
-
   def before_frontend_construction(self, kwargs):
     kwargs['verbose_service'] = True
     kwargs['environment'] = kwargs.get('environment', {})
@@ -121,6 +107,19 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
     return kwargs
 
   def on_frontend_preparation(self, frontend):
+    self.log.info('Attaching ActiveMQ logging to transport')
+    def logging_call(record):
+      if frontend._transport.is_connected():
+        try:
+          record = record.__dict__['records']
+        except:
+          record = record.__dict__
+        frontend._transport.broadcast('transient.log', record)
+    amq_handler = workflows.logging.CallbackHandler(logging_call)
+    if not self.options.verbose:
+      amq_handler.setLevel(logging.INFO)
+    logging.getLogger().addHandler(amq_handler)
+
     if self.options.service_restart:
       frontend.restart_service = True
 

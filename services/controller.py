@@ -5,8 +5,8 @@ import os.path
 import threading
 import time
 
-from procrunner import run_process
 from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
+from procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSController(CommonService):

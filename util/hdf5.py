@@ -1,9 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
 import os
+import xml.etree.ElementTree
+
 import libtbx.load_env
 from procrunner import run_process
-import xml.etree.ElementTree
 
 _h5dump = libtbx.env.under_base('bin/h5dump')
 

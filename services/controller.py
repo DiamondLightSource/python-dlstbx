@@ -353,6 +353,8 @@ class DLSController(CommonService):
       timeout=15,
     )
     self.log.debug('Cluster launcher script for %s returned result: %s', service, json.dumps(result))
+    # Trying to start jobs can be very time intensive, ensure the master status is not lost during balancing
+    self.self_check()
     return result.get('exitcode') == 0
 
   def launch_testcluster(self, **kwargs):

@@ -21,6 +21,7 @@ class DLSController(CommonService):
   master = False
   master_last_checked = 0
   master_since = 0
+  _sync_subscription_id = None
 
   # The controller should continuously check itself to ensure it does sensible
   # things.
@@ -65,6 +66,7 @@ class DLSController(CommonService):
       self.strategy_file = '/dls_sw/apps/zocalo/controller-strategy-test.json'
       self.service_launch_script = '/dls_sw/apps/zocalo/test_launch_service'
       self.namespace = 'zocdev'
+    self._transport.subscription_callback_set_intercept(self.transport_interceptor)
 
     # Listen to service announcements to build picture of running services.
     self._transport.subscribe_broadcast('transient.status',
@@ -79,6 +81,23 @@ class DLSController(CommonService):
     # surveying after 20 seconds of listening in.
     self.last_survey = time.time() + 20
     self._register_idle(3, self.survey_operations)
+
+  def transport_interceptor(self, callback):
+    '''Override the default transport interceptor as follows:
+       Incoming messages are still put on the main service queue as before,
+       but if the message is from the synchronization channel then update the
+       last seen timer immediately before processing the message in the main
+       thread.
+       The ID of the synchronization channel is kept in
+       self._sync_subscription_id.
+    '''
+    original_interceptor = self._transport_interceptor(callback)
+    def recognize_synchronization_message(header, message):
+      if self._sync_subscription_id and header.get('subscription') == self._sync_subscription_id:
+        # Synchronization message detected
+        self.master_last_checked = time.time()
+      return original_interceptor(header, message)
+    return recognize_synchronization_message
 
   def survey_operations(self):
     '''Check the overall data processing infrastructure state and ensure that
@@ -134,10 +153,12 @@ class DLSController(CommonService):
             # Connect to a synchronization channel. This is used to determine
             # master controller status.
             self._set_name("DLS Controller (Standby)")
-            self._transport.subscribe('transient.controller',
-                                      self.receive_sync_msg,
-                                      exclusive=True,
-                                      transformation=True)
+            self._sync_subscription_id = str(self._transport.subscribe(
+                'transient.controller',
+                self.receive_sync_msg,
+                exclusive=True,
+                transformation=True,
+            ))
             self.log.debug('Controller may now become master')
 
           self.timestamp_strategies_loaded = strategies_file_timestamp

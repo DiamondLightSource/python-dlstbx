@@ -22,6 +22,7 @@ class DLSController(CommonService):
   master_last_checked = 0
   master_since = 0
   _sync_subscription_id = None
+  _status_subscription_id = None
 
   # The controller should continuously check itself to ensure it does sensible
   # things.
@@ -69,9 +70,11 @@ class DLSController(CommonService):
     self._transport.subscription_callback_set_intercept(self.transport_interceptor)
 
     # Listen to service announcements to build picture of running services.
-    self._transport.subscribe_broadcast('transient.status',
-                                        self.receive_status_msg,
-                                        retroactive=True)
+    self._status_subscription_id = str(self._transport.subscribe_broadcast(
+        'transient.status',
+        self.receive_status_msg,
+        retroactive=True,
+    ))
 
     # Listen to queue status reports for information on queue utilization.
     self._transport.subscribe_broadcast('transient.queue_status',
@@ -96,6 +99,9 @@ class DLSController(CommonService):
       if self._sync_subscription_id and header.get('subscription') == self._sync_subscription_id:
         # Synchronization message detected
         self.master_last_checked = time.time()
+      if self._sync_subscription_id and header.get('subscription') == self._status_subscription_id:
+        # Status message detected
+        self.last_status_seen = time.time()
       return original_interceptor(header, message)
     return recognize_synchronization_message
 

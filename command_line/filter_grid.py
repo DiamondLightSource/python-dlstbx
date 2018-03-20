@@ -10,16 +10,18 @@ from collections import OrderedDict
 from functools import partial
 from itertools import combinations
 from math import ceil, log10
+from time import time
 
 import libtbx.load_env
 import matplotlib.pyplot as plt
 import numpy as np
 from dials.array_family import flex
-from dials.command_line.find_spots import phil_scope
 from dials.util import log
+from dials.util.ascii_art import spot_counts_per_image_plot
 from dials.util.options import OptionParser, flatten_datablocks
 # Set the phil scope
 from libtbx.phil import parse
+from libtbx.utils import Sorry
 from matplotlib import cm
 from scipy import mean, stats
 from scipy.stats.stats import chisquare
@@ -270,35 +272,87 @@ def cross_ksstat(data_dict, images):
 
 if __name__ == '__main__':
 
-    datablocks = flatten_datablocks(params.input.datablock)
-
-    if len(datablocks) == 0:
-        parser.print_help()
-        exit()
-
-    assert(len(datablocks) == 1)
-
-    datablock = datablocks[0]
-    imagesets = datablock.extract_imagesets()
-
-    assert(len(imagesets) == 1)
-
-    imageset = imagesets[0]
-
-    #images = imageset.indices()
-    detector = imageset.get_detector()
-    beam = imageset.get_beam()
+    start_time = time()
 
     # Configure the logging
     log.config(
-      params.verbosity,
-      info=params.output.log,
-      debug=params.output.debug_log)
+        params.verbosity,
+        info=params.output.log,
+        debug=params.output.debug_log)
 
-    resol_dict = {}
+    from dials.util.version import dials_version
+    logger.info(dials_version())
+
+    # Log the diff phil
+    diff_phil = parser.diff_phil.as_str()
+    if diff_phil is not '':
+        logger.info('The following parameters have been modified:\n')
+        logger.info(diff_phil)
+
+    # Ensure we have a data block
+    datablocks = flatten_datablocks(params.input.datablock)
+    if len(datablocks) == 0:
+        parser.print_help()
+        exit()
+    elif len(datablocks) != 1:
+        raise Sorry('only 1 datablock can be processed at a time')
+    datablock = datablocks[0]
+
+    # Loop through all the imagesets and find the strong spots
     reflections = flex.reflection_table.from_observations(
-      datablock, params)
+        datablock, params)
 
+    # Delete the shoeboxes
+    if not params.output.shoeboxes:
+        del reflections['shoebox']
+
+    # ascii spot count per image plot
+    for i, imageset in enumerate(datablock.extract_imagesets()):
+        ascii_plot = spot_counts_per_image_plot(
+            reflections.select(reflections['id'] == i))
+        if len(ascii_plot):
+            logger.info('\nHistogram of per-image spot count for imageset %i:' %i)
+            logger.info(ascii_plot)
+
+    # Save the reflections to file
+    logger.info('\n' + '-' * 80)
+    reflections.as_pickle(params.output.reflections)
+    logger.info('Saved {0} reflections to {1}'.format(
+        len(reflections), params.output.reflections))
+
+    # Save the datablock
+    if params.output.datablock:
+        from dxtbx.datablock import DataBlockDumper
+        logger.info('Saving datablocks to {0}'.format(
+            params.output.datablock))
+        dump = DataBlockDumper(datablocks)
+        dump.as_file(params.output.datablock)
+
+    # Print some per image statistics
+    if params.per_image_statistics:
+        from dials.algorithms.spot_finding import per_image_analysis
+        from cStringIO import StringIO
+        s = StringIO()
+        for i, imageset in enumerate(datablock.extract_imagesets()):
+            print >> s, "Number of centroids per image for imageset %i:" %i
+            stats = per_image_analysis.stats_imageset(
+                imageset, reflections.select(reflections['id'] == i),
+                resolution_analysis=False)
+            per_image_analysis.print_table(stats, out=s)
+        logger.info(s.getvalue())
+
+    # Print the time
+    logger.info("Time Taken: %f" % (time() - start_time))
+    
+    imagesets = datablock.extract_imagesets()
+    assert(len(imagesets) == 1)
+    imageset = imagesets[0]
+    
+    #images = imageset.indices()
+    detector = imageset.get_detector()
+    beam = imageset.get_beam()
+    
+    resol_dict = {}
     for refl in reflections:
         x, y, z = refl['xyzobs.px.value']
         frame = int(ceil(z))

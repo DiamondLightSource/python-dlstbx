@@ -226,6 +226,18 @@ class StrategyEnvironment(object):
       log_change(len(selected_for_removal), 'HOLD', '/dev/null')
     self.log.debug("Allocation for %s with %d instances needed: %s", str(service), instances_needed, str(count_instances.values()))
 
+  def watched_queues(self):
+    '''Retrieve a list of all queues that need to be watched for the service
+       strategies.'''
+    queues = set()
+    with self.lock:
+      for service, strategy in self.strategies.items():
+        if hasattr(strategy, 'watch_queues'):
+          for queue in strategy.watch_queues():
+            self.log.debug("Instance strategy for service %s wants to watch queue %s", service, queue)
+            queues.add(queue)
+    return sorted(queues)
+
   def update_allocation(self, queue_statistics=None):
     '''Check with each registered strategy whether any changes are required.'''
     def log_change(instance, s_from, s_to):

@@ -34,8 +34,10 @@ class QueueStaticStrategy():
     if minimum and maximum:
       assert int(minimum) <= int(maximum), 'minimum instances of service %s must be below or equal to maximum' % service
 
-  def assess(self, environment):
+  def watch_queues(self):
+    return [ self.queue_name ]
 
+  def assess(self, environment):
     assert isinstance(environment, dict), 'passed environment is invalid'
     queue_size = environment.get('queues',{}).get(self.queue_name,{}).get('size', 0)
     ideal_level = queue_size * self.multiplier

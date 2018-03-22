@@ -344,7 +344,13 @@ class DLSController(CommonService):
     retrigger = threading.Timer(4, self.queue_introspection_trigger)
     retrigger.daemon = True
     retrigger.start()
-    self._transport.send('ActiveMQ.Statistics.Destination.' + self.namespace + '.>', '', headers = { 'JMSReplyTo': 'queue://' + self.namespace + '.transient.controller' }, ignore_namespace=True, persistent=False)
+    for queue in self._se.watched_queues():
+      self._transport.send(
+          'ActiveMQ.Statistics.Destination.' + self.namespace + '.' + queue,
+          '',
+          headers = { 'JMSReplyTo': 'queue://' + self.namespace + '.transient.controller' },
+          ignore_namespace=True,
+          persistent=False)
 
   def start_service(self, instance, init):
     if not init:

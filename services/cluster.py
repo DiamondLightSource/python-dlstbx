@@ -61,7 +61,7 @@ class DLSCluster(CommonService):
   def _recursive_mkdir(path):
     try:
       os.makedirs(path)
-    except OSError as exc:  # Python >2.5
+    except OSError as exc:
       if exc.errno == errno.EEXIST and os.path.isdir(path):
         pass
       else:
@@ -87,14 +87,30 @@ class DLSCluster(CommonService):
 
     if 'recipefile' in parameters:
       recipefile = parameters['recipefile']
-      self._recursive_mkdir(os.path.dirname(recipefile))
+      try:
+        self._recursive_mkdir(os.path.dirname(recipefile))
+      except OSError as e:
+        if exc.errno == errno.ENOENT:
+          self.log.error('Error in underlying filesystem: %s', str(e), exc_info=True)
+          self._transport.transaction_abort(txn)
+          self._transport.nack(header)
+          return
+        raise
       self.log.debug("Writing recipe to %s", recipefile)
       commands = commands.replace('$RECIPEFILE', recipefile)
       with open(recipefile, 'w') as fh:
         fh.write(rw.recipe.pretty())
     if 'recipeenvironment' in parameters:
       recipeenvironment = parameters['recipeenvironment']
-      self._recursive_mkdir(os.path.dirname(recipeenvironment))
+      try:
+        self._recursive_mkdir(os.path.dirname(recipeenvironment))
+      except OSError as e:
+        if exc.errno == errno.ENOENT:
+          self.log.error('Error in underlying filesystem: %s', str(e), exc_info=True)
+          self._transport.transaction_abort(txn)
+          self._transport.nack(header)
+          return
+        raise
       self.log.debug("Writing recipe environment to %s", recipeenvironment)
       commands = commands.replace('$RECIPEENV', recipeenvironment)
       with open(recipeenvironment, 'w') as fh:
@@ -102,7 +118,15 @@ class DLSCluster(CommonService):
                   sort_keys=True, indent=2, separators=(',', ': '))
     if 'recipewrapper' in parameters:
       recipewrapper = parameters['recipewrapper']
-      self._recursive_mkdir(os.path.dirname(recipewrapper))
+      try:
+        self._recursive_mkdir(os.path.dirname(recipewrapper))
+      except OSError as e:
+        if exc.errno == errno.ENOENT:
+          self.log.error('Error in underlying filesystem: %s', str(e), exc_info=True)
+          self._transport.transaction_abort(txn)
+          self._transport.nack(header)
+          return
+        raise
       self.log.debug("Storing serialized recipe wrapper in %s", recipewrapper)
       commands = commands.replace('$RECIPEWRAP', recipewrapper)
       with open(recipewrapper, 'w') as fh:

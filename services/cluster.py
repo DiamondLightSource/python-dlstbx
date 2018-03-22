@@ -90,7 +90,7 @@ class DLSCluster(CommonService):
       try:
         self._recursive_mkdir(os.path.dirname(recipefile))
       except OSError as e:
-        if exc.errno == errno.ENOENT:
+        if e.errno == errno.ENOENT:
           self.log.error('Error in underlying filesystem: %s', str(e), exc_info=True)
           self._transport.transaction_abort(txn)
           self._transport.nack(header)
@@ -105,7 +105,7 @@ class DLSCluster(CommonService):
       try:
         self._recursive_mkdir(os.path.dirname(recipeenvironment))
       except OSError as e:
-        if exc.errno == errno.ENOENT:
+        if e.errno == errno.ENOENT:
           self.log.error('Error in underlying filesystem: %s', str(e), exc_info=True)
           self._transport.transaction_abort(txn)
           self._transport.nack(header)
@@ -121,7 +121,7 @@ class DLSCluster(CommonService):
       try:
         self._recursive_mkdir(os.path.dirname(recipewrapper))
       except OSError as e:
-        if exc.errno == errno.ENOENT:
+        if e.errno == errno.ENOENT:
           self.log.error('Error in underlying filesystem: %s', str(e), exc_info=True)
           self._transport.transaction_abort(txn)
           self._transport.nack(header)

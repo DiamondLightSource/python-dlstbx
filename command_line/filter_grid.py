@@ -40,6 +40,9 @@ phil_scope = parse('''
         min_spots = 20
             .help = "Minimal number of spots per image"
             .type = int
+        min_spot_size = 3
+            .help = "Minimal spot size setting for selecting reflections"
+            .type = int(value_min=1)
         sample = 30
             .help = "Number of sampled spots for KS-test or dof(bins) in Chi^2 test"
             .type = int(value_min=1)
@@ -83,6 +86,8 @@ phil_scope = parse('''
 spotfinder_phil_scope = parse('''
     spotfinder {
         filter {
+            min_spot_size = 1
+                .type = int(value_min=1)
             d_min = 3.0
                 .type = float(value_min=0)
             d_max = 20.0
@@ -145,9 +150,9 @@ def calc_stats(resol_dict, dfunc, dparams={}, func_name='N/A'):
             plt.legend()
             plt.show()
 
-        sel_idx = [i for i, v in enumerate(zip(hist_vals, calc_vals)) if max(v) > 5]
-        chi_sq, p_chisq = chisquare([hist_vals[i] for i in sel_idx],
-                                    [calc_vals[i] for i in sel_idx])
+        sel_idx = [idx for idx, val in enumerate(zip(hist_vals, calc_vals)) if max(val) > 5]
+        chi_sq, p_chisq = chisquare([hist_vals[idx] for idx in sel_idx],
+                                    [calc_vals[idx] for idx in sel_idx])
         chi2_stats[img] = (chi_sq, p_chisq, len(resol_dict[img]))
 
         ks_D, ks_pval = stats.kstest(perc, cdf_)
@@ -302,10 +307,6 @@ if __name__ == '__main__':
     reflections = flex.reflection_table.from_observations(
         datablock, params)
 
-    # Delete the shoeboxes
-    if not params.output.shoeboxes:
-        del reflections['shoebox']
-
     # ascii spot count per image plot
     for i, imageset in enumerate(datablock.extract_imagesets()):
         ascii_plot = spot_counts_per_image_plot(
@@ -352,16 +353,6 @@ if __name__ == '__main__':
     detector = imageset.get_detector()
     beam = imageset.get_beam()
     
-    resol_dict = {}
-    for refl in reflections:
-        x, y, z = refl['xyzobs.px.value']
-        frame = int(ceil(z))
-        resol = 1. / detector[0].get_resolution_at_pixel(beam.get_s0(), (x, y))**2
-        try:
-            resol_dict[frame].append(resol)
-        except KeyError:
-            resol_dict[frame] = [resol,]
-
     rayleigh_func = partial(calc_stats,
                             dfunc=stats.rayleigh)
 
@@ -382,30 +373,48 @@ if __name__ == '__main__':
     expon_func = partial(calc_stats,
                          dfunc=stats.expon)
 
-    #cross_ksstat(resol_dict, imageset.indices())
-
-    distribution_dict = {'expon': expon_func,
-                         'rayleigh': rayleigh_func,
-                         'chi2_low': chi2_low_func,
-                         'chi2_high': chi2_high_func,
-                         'gengamma': gengamma_func
-                         }
-
-    all_stats = {}
-    sc = params.filter_grid.scoring
-    thres_pval = lambda v: True if params.filter_grid.show_all else v[1] > params.filter_grid.threshold
-    for func_name  in params.filter_grid.profiles:
-        test_dict = dict((k, v) for k, v
-                         in distribution_dict[func_name](resol_dict, func_name=func_name)[sc].items()
-                         if thres_pval(v))
-        output_stats(test_dict, func_name)
-        output_json(test_dict, '_'.join([func_name, sc, 'stats']))
-        for k, v in test_dict.items():
+    for try_spot_size in range(params.filter_grid.min_spot_size, 0, -1):
+        logger.info("Searching for reflections using min_spot_size = %d" % try_spot_size)
+        resol_dict = {}
+        for refl in reflections:
+            if max(refl['shoebox'].size()) < try_spot_size:
+                continue
+            x, y, z = refl['xyzobs.px.value']
+            frame = int(ceil(z))
+            resol = 1. / detector[0].get_resolution_at_pixel(beam.get_s0(), (x, y))**2
             try:
-                all_stats[k].update({func_name: v})
-            except:
-                all_stats[k] = {func_name: v}
-
+                resol_dict[frame].append(resol)
+            except KeyError:
+                resol_dict[frame] = [resol,]
+    
+        #cross_ksstat(resol_dict, imageset.indices())
+    
+        distribution_dict = {'expon': expon_func,
+                             'rayleigh': rayleigh_func,
+                             'chi2_low': chi2_low_func,
+                             'chi2_high': chi2_high_func,
+                             'gengamma': gengamma_func
+                             }
+    
+        all_stats = {}
+        sc = params.filter_grid.scoring
+        thres_pval = lambda v: True if params.filter_grid.show_all else v[1] > params.filter_grid.threshold
+        for func_name  in params.filter_grid.profiles:
+            test_dict = dict((k, v) for k, v
+                             in distribution_dict[func_name](resol_dict, func_name=func_name)[sc].items()
+                             if thres_pval(v))
+	    if test_dict:
+                output_stats(test_dict, func_name)
+                output_json(test_dict, '_'.join([func_name, sc, 'stats']))
+            for k, v in test_dict.items():
+                try:
+                    all_stats[k].update({func_name: v})
+                except:
+                    all_stats[k] = {func_name: v}
+        if all_stats:
+            break
+        else:
+            logger.info("No results found using min_spot_size = %d" % try_spot_size)
     merged_stats = merge_test_stats(all_stats)
     all_results = output_stats(merged_stats, 'Total')
     output_json(merged_stats, 'merged_results')

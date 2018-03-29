@@ -403,7 +403,7 @@ if __name__ == '__main__':
             test_dict = dict((k, v) for k, v
                              in distribution_dict[func_name](resol_dict, func_name=func_name)[sc].items()
                              if thres_pval(v))
-	    if test_dict:
+        if test_dict:
                 output_stats(test_dict, func_name)
                 output_json(test_dict, '_'.join([func_name, sc, 'stats']))
             for k, v in test_dict.items():

@@ -25,7 +25,9 @@ def check_dlq(namespace=None):
       brokerName="localhost",
       destinationType="Queue",
       destinationName="DLQ.%s*" % namespace)
-  assert result['status'] == 200
+  if result['status'] == 404:
+    return {}
+  assert result['status'] == 200, result
 
   def extract_queue_name(namestring):
     namestringdict = {

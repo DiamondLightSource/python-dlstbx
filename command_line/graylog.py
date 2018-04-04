@@ -30,27 +30,28 @@ log_levels = {
 def format_message(verbosity):
   class SafeDict(dict):
     '''A dictionary that returns empty strings for undefined keys.'''
-    @staticmethod
-    def __missing__(key):
+    def __missing__(self, key):
       '''Return an empty string.'''
-      return ''
+      assert key != 'level'
+      return { 'BOLD': ColorStreamHandler.BOLD,
+               'DEFAULT': ColorStreamHandler.DEFAULT,
+               'LEVEL': log_levels[self['level']]['color'],
+             }.get(key, '')
 
   def format_string(fstring, message):
     return string.Formatter().vformat(fstring, (), SafeDict(message))
 
   def format_default(message):
-    return log_levels[message['level']]['color'] + \
-           format_string( \
-             "{timestamp} {facility}\n"
-             "                         {message}\n",
+    return format_string( \
+             "{localtime:%Y-%m-%d %H:%M:%S}.{timestamp_msec}{LEVEL} {facility}\n"
+             "                        {message}\n",
              message
            ) + ColorStreamHandler.DEFAULT
 
   def format_source(message):
-    return log_levels[message['level']]['color'] + \
-           format_string( \
-             "{timestamp} {facility} {source} - {workflows_service}\n"
-             "                         {message}\n",
+    return format_string( \
+             "{localtime:%Y-%m-%d %H:%M:%S}.{timestamp_msec}{LEVEL} {DEFAULT}{BOLD}{facility}{DEFAULT}{LEVEL} {source} {DEFAULT}{workflows_service}{LEVEL}\n"
+             "                        {message}\n",
              message
            ) + ColorStreamHandler.DEFAULT
 
@@ -60,10 +61,9 @@ def format_message(verbosity):
     else:
       message['full_message'] = message['full_message'] + '\n'
     return format_string( \
-             "{timestamp} {facility} {source} - {workflows_service}\n"
-             "{file}:{line} ({function})\n"
-             + log_levels[message['level']]['color'] +
-             "{message}\n" +
+             "{localtime:%Y-%m-%d %H:%M:%S}.{timestamp_msec} {BOLD}{facility}{DEFAULT}{LEVEL} {source} {DEFAULT}{workflows_service}\n"
+             "{file}{SourceClassName}:{line}{SourceLineNumber} ({function}{SourceMethodName})\n"
+             "{LEVEL}{message}\n" +
              "{full_message}\n",
              message
            ) + ColorStreamHandler.DEFAULT
@@ -74,18 +74,18 @@ def format_message(verbosity):
     else:
       message['full_message'] = message['full_message'] + '\n'
     return format_string( \
-             "{timestamp} {facility} {source} - {workflows_service}\n"
-             "workflows {workflows_workflows}  {workflows_dlstbx}  Status:{workflows_statustext}  {process_name}:{thread_name}\n"
-             "{file}:{line} ({function})\n"
-             + log_levels[message['level']]['color'] +
-             "{message}\n" +
+             "{localtime} {BOLD}{facility}{DEFAULT}{LEVEL} {source} {DEFAULT}{workflows_service}\n"
+             "{process_name}:{thread_name}{Thread}  Status:{workflows_statustext}  workflows {workflows_workflows}  {workflows_dlstbx}\n"
+             "{file}{SourceClassName}:{line}{SourceLineNumber} ({function}{SourceMethodName})\n"
+             "{LEVEL}{message}\n" +
              "{full_message}\n",
              message
            ) + ColorStreamHandler.DEFAULT
 
   def format_raw(message):
-    return message['timestamp'] + "\n" + log_levels[message['level']]['color'] + \
-           "\n".join("%23s: %s" % (key, str(message[key]).replace("\n", "\n" + " " * 23 + "| ")) for key in sorted(message) if not key.startswith('gl2_')) + \
+    return str(message['localtime']) + "\n" + log_levels[message['level']]['color'] + \
+           "\n".join("%23s: %s" % (key, str(message[key]).replace("\n", "\n" + " " * 23 + "| ")) for key in sorted(message)
+                     if not key.startswith('gl2_') and key not in ('localtime', 'stream', 'streams', 'timestamp_msec')) + \
            "\n\n" + ColorStreamHandler.DEFAULT
 
   formats = [ format_default, format_source, format_verbose, format_xverbose, format_raw ]

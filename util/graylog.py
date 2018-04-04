@@ -15,6 +15,8 @@ import urllib2
 import dateutil.parser
 import pytz
 
+local_timezone = dateutil.tz.gettz('Europe/London')
+
 class GraylogAPI():
   last_seen_message = None
   last_seen_timestamp = None
@@ -80,6 +82,10 @@ class GraylogAPI():
     if messages:
       self.last_seen_message = messages[-1]['_id']
       self.last_seen_timestamp = messages[-1]['timestamp']
+    for m in messages:
+      m['localtime'] = dateutil.parser.parse(m['timestamp']).astimezone(local_timezone)
+      m['timestamp_msec'] = m['timestamp'][-4:-1]
+      # alternatively: m['localtime'].strftime('%f')[:-3]
     return messages
 
   def get_all_messages(self, time=600):

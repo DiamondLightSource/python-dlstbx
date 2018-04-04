@@ -230,6 +230,8 @@ class DLSISPyB(CommonService):
 
     params['programid'] = "65228265" # dummy value
 
+    self.log.debug("Writing PIA record for image %r in DCID %s", params['image_number'], params['datacollectionid'])
+
     try:
 #     result = "159956186" # for testing
       result = self._retry_mysql_call(self.ispyb_mx.upsert_quality_indicators, list(params.values()))
@@ -242,12 +244,10 @@ class DLSISPyB(CommonService):
         elif result is None:
           self.log.info('Could not notify GDA, stored procedure returned \'None\'')
         else:
-          # now notify GDA in mx-scripty manner
-          try:
-            dlstbx.util.gda.notify(gdahost, 9876, 'ISPYB:ImageQualityIndicators,' + str(result))
-          except Exception as e:
-            self.log.warning('Could not notify GDA: %s', e, exc_info=True)
-          # further, notify GDA in mx-scripty manner
+          # We no longer notify in the legacy legacy manner on port 9876 because
+          # there is no ImageQualityIndicatorID column any more, so str(result)
+          # will always be 1, so this is no longer useful.
+          # We still notify in the legacy manner by sending a UDP package with DCID+imagenumber
           try:
             dlstbx.util.gda.notify(gdahost, 9877, "IQI:{p[datacollectionid]}:{p[image_number]}".format(p=params))
           except Exception as e:
@@ -256,7 +256,6 @@ class DLSISPyB(CommonService):
       self.log.error("Could not write PIA results %s to database: %s", params, e, exc_info=True)
       return { 'success': False }
     else:
-      self.log.debug("PIA record %s written", result)
       return { 'success': True, 'return_value': result }
 
   def _retry_mysql_call(self, function, *args, **kwargs):

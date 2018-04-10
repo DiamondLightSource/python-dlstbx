@@ -17,9 +17,9 @@ class CommonSystemTest(object):
      the Diamond Light Source data analysis framework.
   '''
 
-  guid = str(uuid.uuid4())
-  '''A random unique identifier for tests. A new one will be generated for
-     each invocation of a test function.'''
+  guid = 'T-12345678-1234-1234-1234-1234567890ab'
+  '''A random unique identifier for tests. A new one will be generated on class
+     initialization and for each invocation of a test function.'''
 
   parameters = SafeDict()
   '''Set of known test parameters. Generally only a unique test identifier,
@@ -41,6 +41,15 @@ class CommonSystemTest(object):
   def __init__(self, dev_mode=False):
     '''Constructor via which the development mode can be set.'''
     self.development_mode = dev_mode
+    self.rotate_guid()
+
+  def rotate_guid(self):
+    '''Generate a new unique ID for the test. Prepend 'T-' to a GUID to
+       distinguish between IDs used in system tests and IDs used for live
+       processing. This helps for example when interpreting logs, as system test
+       messages will show up in isolation rather than as part of a processing
+       pipeline.'''
+    self.guid = 'T-' + str(uuid.uuid4())
 
   def enumerate_test_functions(self):
     '''Returns a list of (name, function) tuples for all declared test
@@ -62,7 +71,7 @@ class CommonSystemTest(object):
       for name, function in self.enumerate_test_functions():
         self.log.info("validating %s" % name)
         function()
-        self.guid = str(uuid.uuid4()) # rotate guid for next function
+        self.rotate_guid() # rotate guid for next function
         self.log.info("OK")
     finally:
       # Restore messaging functions
@@ -78,7 +87,7 @@ class CommonSystemTest(object):
 
     messages = {}
     for name, function in self.enumerate_test_functions():
-      self.guid = str(uuid.uuid4())
+      self.rotate_guid()
       self.parameters['guid'] = self.guid
       def messaging(direction, **kwargs):
         if direction not in messages[name]:

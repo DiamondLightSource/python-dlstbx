@@ -57,10 +57,6 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
     # initialize logging
     self.setup_logging()
 
-    self.log.debug('Loading dlstbx workflows plugins')
-
-    dlstbx = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
     self.log.debug('Loading dlstbx credentials')
 
     # change settings when in live mode

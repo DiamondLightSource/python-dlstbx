@@ -15,13 +15,13 @@ except Exception:
 
 libtbx.pkg_utils.require('mock', '>=2.0')
 libtbx.pkg_utils.require('pytest', '>=3.1')
-libtbx.pkg_utils.require('ispyb', '>=4.5,<4.6')
+libtbx.pkg_utils.require('ispyb', '>=4.6,<4.7')
 libtbx.pkg_utils.require('workflows', '>=0.66')
 libtbx.pkg_utils.require('drmaa')
 libtbx.pkg_utils.require('junit_xml')
 libtbx.pkg_utils.require('graypy', '>=0.2.14')
 libtbx.pkg_utils.require('colorama') # is still used in one place
-libtbx.pkg_utils.require('procrunner', '>=0.2.0')
+libtbx.pkg_utils.require('procrunner', '>=0.4.0')
 
 # --- workflows service registration exploration ---
 

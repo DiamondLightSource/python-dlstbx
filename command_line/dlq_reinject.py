@@ -24,7 +24,8 @@ if __name__ == '__main__':
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
-  if '--test' in sys.argv:
+  redirect_live_to_testing = '--test' in sys.argv
+  if redirect_live_to_testing:
     default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
   # override default stomp host
   StompTransport.load_configuration_file(default_configuration)
@@ -61,8 +62,10 @@ if __name__ == '__main__':
       send_function = stomp.broadcast
     else:
       sys.exit("Cannot process message, unknown message mechanism")
+    if redirect_live_to_testing and destination[2].startswith('zocalo.'):
+      destination[2] = destination[2].replace('zocalo.', 'zocdev.', 1)
     header = dlqmsg['header']
-    for drop_field in ('content-length', 'destination', 'expires', 'message-id', 'original-destination', 'originalExpiration', 'subscription', 'timestamp'):
+    for drop_field in ('content-length', 'destination', 'expires', 'message-id', 'original-destination', 'originalExpiration', 'subscription', 'timestamp', 'redelivered'):
       if drop_field in header:
         del header[drop_field]
     send_function(destination[2], dlqmsg['message'], headers=header, ignore_namespace=True)

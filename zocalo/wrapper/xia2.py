@@ -132,6 +132,8 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       if os.path.exists(src):
         logger.debug('Copying %s to %s' % (src, dst))
         shutil.copytree(src, dst)
+      elif result['exitcode']:
+        logger.info('Expected output directory does not exist (non-zero exitcode): %s', src)
       else:
         logger.warning('Expected output directory does not exist: %s', src)
 

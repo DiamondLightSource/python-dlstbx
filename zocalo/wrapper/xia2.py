@@ -159,8 +159,8 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       link_path = os.sep.join(path_elements[:-2] + [params['results_symlink']])
       # because symlink can't be overwritten, create a temporary symlink in the child directory
       # and then rename on top of potentially existing one in the parent directory.
-      tmp_link = os.sep.join(path_elements[:-1] + [params['results_symlink']])
-      os.symlink(path_elements[-1], tmp_link)
+      tmp_link = os.sep.join(path_elements[:-1] + ['.tmp.' + params['results_symlink']])
+      os.symlink(os.sep.join(path_elements[-2:]), tmp_link)
       os.rename(tmp_link, link_path)
 
     if not result['exitcode'] and not os.path.isfile('xia2.error') and os.path.exists('xia2.json'):

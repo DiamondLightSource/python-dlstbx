@@ -11,16 +11,8 @@ import os
 import sys
 import threading
 from optparse import SUPPRESS_HELP, OptionParser
+import pkg_resources
 
-import dlstbx.zocalo.wrapper
-import dlstbx.zocalo.wrapper.big_ep
-import dlstbx.zocalo.wrapper.dozor
-import dlstbx.zocalo.wrapper.edna
-import dlstbx.zocalo.wrapper.fast_dp
-import dlstbx.zocalo.wrapper.fast_ep
-import dlstbx.zocalo.wrapper.spot_counts_per_image
-import dlstbx.zocalo.wrapper.xia2
-import dlstbx.zocalo.wrapper.xia2_strategy
 import workflows
 import workflows.recipe.wrapper
 import workflows.services.common_service
@@ -90,17 +82,7 @@ def run(cmdline_args):
     default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
   StompTransport.load_configuration_file(default_configuration)
 
-  known_wrappers = {
-    'dozor': dlstbx.zocalo.wrapper.dozor.DozorWrapper,
-    'dummy': dlstbx.zocalo.wrapper.DummyWrapper,
-    'fast_dp': dlstbx.zocalo.wrapper.fast_dp.FastDPWrapper,
-    'fast_ep': dlstbx.zocalo.wrapper.fast_ep.FastEPWrapper,
-    'big_ep': dlstbx.zocalo.wrapper.big_ep.BigEPWrapper,
-    'xia2': dlstbx.zocalo.wrapper.xia2.Xia2Wrapper,
-    'xia2.strategy': dlstbx.zocalo.wrapper.xia2_strategy.Xia2StrategyWrapper,
-    'edna': dlstbx.zocalo.wrapper.edna.EdnaWrapper,
-    'spotcounts': dlstbx.zocalo.wrapper.spot_counts_per_image.SCPIWrapper,
-  }
+  known_wrappers = { e.name: e.load for e in pkg_resources.iter_entry_points('dlstbx.wrappers') }
 
   # Set up parser
   parser = OptionParser(
@@ -147,7 +129,7 @@ def run(cmdline_args):
   st = StatusNotifications(transport.broadcast_status, options.wrapper)
 
   # Instantiate chosen wrapper
-  instance = known_wrappers[options.wrapper]()
+  instance = known_wrappers[options.wrapper]()()
 
   # If specified, read in a serialized recipewrapper
   if options.recipewrapper:

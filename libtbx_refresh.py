@@ -51,9 +51,6 @@ for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
         print("  found", classname)
 libtbx.pkg_utils.define_entry_points({
   'workflows.services': sorted(service_list),
-})
-
-libtbx.pkg_utils.define_entry_points({
   'dlstbx.wrappers': sorted([
     'dozor = dlstbx.zocalo.wrapper.dozor:DozorWrapper',
     'dummy = dlstbx.zocalo.wrapper:DummyWrapper',

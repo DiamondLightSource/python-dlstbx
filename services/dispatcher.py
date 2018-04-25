@@ -112,7 +112,13 @@ class DLSDispatcher(CommonService):
       # Process message
       recipes = []
       if message.get('custom_recipe'):
-        recipes.append(workflows.recipe.Recipe(recipe=json.dumps(message['custom_recipe'])))
+        try:
+          recipes.append(workflows.recipe.Recipe(recipe=json.dumps(message['custom_recipe'])))
+        except Exception as e:
+          self.log.error("Rejected message containing a custom recipe that caused parsing errors: %s",
+              str(e), exc_info=True)
+          self._transport.nack(header)
+          return
       if message.get('recipes'):
         for recipefile in message['recipes']:
           try:

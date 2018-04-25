@@ -154,6 +154,16 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     os.chdir(results_directory)
 
+    if params.get('results_symlink'):
+      path_elements = results_directory.split(os.sep)
+      link_path = os.sep.join(path_elements[:-1] + [params['results_symlink']])
+      # because symlink can't be overwritten, create a temporary symlink
+      # and then rename on top of potentially existing one.
+      import uuid
+      tmp_link = os.sep.join(path_elements[:-1] + [params['results_symlink'] + str(uuid.uuid4())])
+      os.symlink(path_elements[-1], tmp_link)
+      os.rename(tmp_link, link_path)
+
     if not result['exitcode'] and not os.path.isfile('xia2.error') and os.path.exists('xia2.json'):
       self.send_results_to_ispyb()
 

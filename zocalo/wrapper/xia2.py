@@ -156,11 +156,10 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     if params.get('results_symlink'):
       path_elements = results_directory.split(os.sep)
-      link_path = os.sep.join(path_elements[:-1] + [params['results_symlink']])
-      # because symlink can't be overwritten, create a temporary symlink
-      # and then rename on top of potentially existing one.
-      import uuid
-      tmp_link = os.sep.join(path_elements[:-1] + [params['results_symlink'] + str(uuid.uuid4())])
+      link_path = os.sep.join(path_elements[:-2] + [params['results_symlink']])
+      # because symlink can't be overwritten, create a temporary symlink in the child directory
+      # and then rename on top of potentially existing one in the parent directory.
+      tmp_link = os.sep.join(path_elements[:-1] + [params['results_symlink']])
       os.symlink(path_elements[-1], tmp_link)
       os.rename(tmp_link, link_path)
 

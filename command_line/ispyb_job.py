@@ -34,14 +34,48 @@ if __name__ == '__main__':
   parser.add_option("-v", "--verbose",
       action="store_true", dest="verbose", default=False,
       help="show full job record")
-  parser.add_option("-c", "--create", dest="create",
+
+  group = OptionGroup(parser, "Processing job options",
+      "These options can be used to create or modify "
+      "a processing/reprocessing job.")
+  group.add_option("--new", dest="new",
+      action="store_true", default=False,
+      help="create a new processing job. If --new is specified you must not specify another rpid")
+  group.add_option("--dcid", dest="dcid",
+      action="store", type="string", default=None,
+      help="set the primary data collection ID for the processing job")
+  group.add_option("--display", dest="display",
+      action="store", type="string", default=None,
+      help="set the display name of the processing job")
+  group.add_option("--comment", dest="comment",
+      action="store", type="string", default=None,
+      help="set a comment string for the processing job")
+  group.add_option("--recipe", dest="recipe",
+      action="store", type="string", default=None,
+      help="set a recipe for the processing job")
+  group.add_option("--source", dest="source",
+      action="store", type="choice", default='user', choices=['user', 'automatic'],
+      help="set whether the processing job was triggered by a 'user' (default) or by 'automatic' processing")
+  group.add_option("--add-param", dest="parameter",
+      action="append", type="string", default=[], metavar="KEY:VALUE",
+      help="any number of 'KEY:VALUE' pair strings to add to a processing job")
+  group.add_option("--add-sweep", dest="sweep",
+      action="append", type="string", default=[], metavar="DCID:START:END",
+      help="any number of image ranges of any data collection ID to add to a processing job")
+  parser.add_option_group(group)
+
+  group = OptionGroup(parser, "Processing program options",
+      "These options can be used to create or update "
+      "processing program entries belonging to a processing job.")
+  group.add_option("-c", "--create", dest="create",
       action="store_true", default=False,
       help="create a new processing program entry for the rpid")
-  parser.add_option("-u", "--update", dest="update",
+  group.add_option("-u", "--update", dest="update",
       action="store", type="int", default=None,
       help="update an existing processing program entry")
+  parser.add_option_group(group)
 
-  group = OptionGroup(parser, "Processing entry options",
+  group = OptionGroup(parser, "Processing program attributes",
       "These options can be used when creating or updating "
       "processing program entries.")
   group.add_option("-p", "--program", dest="program",
@@ -55,7 +89,7 @@ if __name__ == '__main__':
       help="set an environment string for processing entry")
   group.add_option("-r", "--result", dest="result",
       action="store", type="choice", default=None, choices=['success', 'failure'],
-      help="set a job result: success, failure.")
+      help="set a job result: success, failure")
   group.add_option("-s", "--status", dest="status",
       action="store", type="string", default=None,
       help="set program status information")

@@ -79,13 +79,15 @@ class SCPIWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         success = False
 
     if foundfiles:
+      logger.debug('Notifying for found files: %s', str(foundfiles))
       self.record_result_all_files({ 'filelist': foundfiles })
 
     # Identify selection of PIA results to send on
-    selections = [ k for k in rw.recipe_step['output'].iterkeys()
+    selections = [ k for k in self.recwrap.recipe_step['output'].iterkeys()
                    if isinstance(k, basestring) and k.startswith('select-') ]
     selections = { int(k[7:]): k for k in selections }
 
+    logger.debug('Processing grouped per-image-analysis statistics')
     json_data = {'total_intensity': []}
     if os.path.exists('args.json'):
       with open('args.json') as fp:
@@ -106,5 +108,6 @@ class SCPIWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
             1 + round(filenumber * (m-1) // imagecount) \
                 * imagecount // (m-1)):
           self.recwrap.send_to(dest, pia)
+    logger.debug('Done.')
 
     return success

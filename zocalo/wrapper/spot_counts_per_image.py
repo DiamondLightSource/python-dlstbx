@@ -79,7 +79,7 @@ class SCPIWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         success = False
 
     if foundfiles:
-      logger.debug('Notifying for found files: %s', str(foundfiles))
+      logger.info('Notifying for found files: %s', str(foundfiles))
       self.record_result_all_files({ 'filelist': foundfiles })
 
     # Identify selection of PIA results to send on
@@ -87,10 +87,10 @@ class SCPIWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
                    if isinstance(k, basestring) and k.startswith('select-') ]
     selections = { int(k[7:]): k for k in selections }
 
-    logger.debug('Processing grouped per-image-analysis statistics')
+    logger.info('Processing grouped per-image-analysis statistics')
     json_data = {'total_intensity': []}
-    if os.path.exists('args.json'):
-      with open('args.json') as fp:
+    if os.path.exists('%s.json' % prefix):
+      with open('%s.json' % prefix) as fp:
         json_data = json.load(fp)
     pia_keys = json_data.keys()
     imagecount = len(json_data['total_intensity'])
@@ -100,6 +100,7 @@ class SCPIWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
       # Send result for every image
       self.recwrap.send_to('every', pia)
+      print("Every:", pia)
 
       # Send result for image selections
       for m, dest in selections.iteritems():
@@ -108,6 +109,7 @@ class SCPIWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
             1 + round(filenumber * (m-1) // imagecount) \
                 * imagecount // (m-1)):
           self.recwrap.send_to(dest, pia)
-    logger.debug('Done.')
+          print("Select:", pia)
+    logger.info('Done.')
 
     return success

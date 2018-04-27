@@ -791,7 +791,7 @@ def ispyb_filter(message, parameters):
       'processing-autoproc', 'processing-rlv']
 
   if parameters['ispyb_beamline'] == 'i02-2':
-    message['default_recipe'] = [ 'archive-nexus', 'processing-xia2-dials' ]
+    message['default_recipe'] = [ 'archive-nexus', 'processing-xia2-dials', 'vmxi-per-image-analysis' ]
 
   if parameters['ispyb_images']:
     message['default_recipe'].append('processing-multi-xia2-dials')

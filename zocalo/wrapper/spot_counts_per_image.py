@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
+import itertools
+import json
 import logging
 import os
 import shutil
@@ -32,7 +34,8 @@ class SCPIWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     for command in (
           ['dials.import', params['data'] ],
           ['dials.find_spots', 'datablock.json'] + nproc,
-          ['dials.spot_counts_per_image', 'datablock.json', 'strong.pickle', 'json=%s.json' % prefix, 'split_json=True'],
+          ['dials.spot_counts_per_image', 'datablock.json', 'strong.pickle',
+           'json=%s.json' % prefix, 'joint_json=True', 'split_json=True'],
         ):
       result = run_process(
         command, timeout=params.get('timeout'),
@@ -77,5 +80,31 @@ class SCPIWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     if foundfiles:
       self.record_result_all_files({ 'filelist': foundfiles })
+
+    # Identify selection of PIA results to send on
+    selections = [ k for k in rw.recipe_step['output'].iterkeys()
+                   if isinstance(k, basestring) and k.startswith('select-') ]
+    selections = { int(k[7:]): k for k in selections }
+
+    json_data = {'total_intensity': []}
+    if os.path.exists('args.json'):
+      with open('args.json') as fp:
+        json_data = json.load(fp)
+    pia_keys = json_data.keys()
+    imagecount = len(json_data['total_intensity'])
+    for filenumber, image_values in enumerate(itertools.izip(*json_data.itervalues()), 1):
+      pia = dict(zip(pia_keys, image_values))
+      pia['file-number'] = filenumber
+
+      # Send result for every image
+      self.recwrap.send_to('every', pia)
+
+      # Send result for image selections
+      for m, dest in selections.iteritems():
+        if filenumber in (
+            imagecount,
+            1 + round(filenumber * (m-1) // imagecount) \
+                * imagecount // (m-1)):
+          self.recwrap.send_to(dest, pia)
 
     return success

@@ -8,11 +8,18 @@
 
 from __future__ import absolute_import, division, print_function
 
+import re
+import os
 import sys
 from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
 
 import ispyb
+import ispyb.factory
 import ispyb.exception
+
+# Create a new processing job:
+#   ispyb.job --new --display "Dataprocessor 2000" --comment "The best program in the universe" \
+#             --recipe dp2000 --add-param "space_group:P 21 21 21" --add-sweep 1234:1:600
 
 # Display stored information:
 #   ispyb.job 73
@@ -27,8 +34,72 @@ import ispyb.exception
 #   ispyb.job 73 -u 1234 -s "completed successfully" -r success
 #   ispyb.job 73 -u 1234 -s "everything is broken" -r failure
 
+def create_processing_job(i, options):
+  if not options.sweeps:
+    sys.exit("When creating a processing job you must specify at least one data collection sweep")
+
+  sweeps = []
+  for s in options.sweeps:
+    match = re.match(r"([0-9]+):([0-9]+):([0-9]+)", s)
+    if not match:
+      sys.exit("Invalid sweep specification: " + s)
+    values = tuple(map(int, match.groups()))
+    if not all(map(lambda value: value > 0, values)) or values[2] < values[1]:
+      sys.exit("Invalid sweep specification: " + s)
+    sweeps.append(values)
+
+  parameters = []
+  for p in options.parameters:
+    if ':' not in p:
+      sys.exit("Invalid parameter specification: " + p)
+    parameters.append(p.split(':', 1))
+
+  i_mx = ispyb.factory.create_data_area(ispyb.factory.DataAreaType.MXPROCESSING, i)
+
+  jp = i_mx.get_job_params()
+  # _job_params = StrictOrderedDict([('id', None), ('datacollectionid', None), ('display_name', None), ('comments', None), ('recipe', None), ('automatic', None)])
+  jp['automatic'] = options.source == 'automatic'
+  jp['comments'] = options.comment
+  jp['datacollectionid'] = options.dcid or sweeps[0][0]
+  jp['display_name'] = options.display
+  jp['recipe'] = options.recipe
+  print("Creating database entries...")
+
+  jobid = i_mx.upsert_job(jp.values())
+  print("  JobID={}".format(jobid))
+  for key, value in parameters:
+    jpp = i_mx.get_job_parameter_params()
+    # _job_parameter_params = StrictOrderedDict([('id', None), ('job_id', None), ('parameter_key', None), ('parameter_value', None)])
+    jpp['job_id'] = jobid
+    jpp['parameter_key'] = key
+    jpp['parameter_value'] = value
+    jppid = i_mx.upsert_job_parameter(jpp.values())
+    print("  JPP={}".format(jppid))
+
+  for sweep in sweeps:
+    jisp = i_mx.get_job_image_sweep_params()
+    # _job_image_sweep_params = StrictOrderedDict([('id', None), ('job_id', None), ('datacollectionid', None), ('start_image', None), ('end_image', None)])
+    jisp['job_id'] = jobid
+    jisp['datacollectionid'] = sweep[0]
+    jisp['start_image'] = sweep[1]
+    jisp['end_image'] = sweep[2]
+    jispid = i_mx.upsert_job_image_sweep(jisp.values())
+    print("  JISP={}".format(jispid))
+
+  print("All done. Processing job {} created".format(jobid))
+  print()
+  print("To trigger the processing job you now need to run:")
+  print("  dlstbx.go -r {}".format(jobid))
+  print()
+
+  return jobid
+
 if __name__ == '__main__':
-  parser = OptionParser(usage="ispyb.job [options] rpid")
+  parser = OptionParser(usage="ispyb.job [options] rpid",
+                        description="Command line tool to manipulate ISPyB processing table entries.")
+
+  available_recipes = filter(lambda r: r.startswith('ispyb-') and r.endswith('.json'), os.listdir('/dls_sw/apps/zocalo/live/recipes'))
+  available_recipes = sorted(map(lambda r: r[6:-5], available_recipes))
 
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-v", "--verbose",
@@ -43,7 +114,7 @@ if __name__ == '__main__':
       help="create a new processing job. If --new is specified you must not specify another rpid")
   group.add_option("--dcid", dest="dcid",
       action="store", type="string", default=None,
-      help="set the primary data collection ID for the processing job")
+      help="set the primary data collection ID for the processing job (default: DCID of first sweep)")
   group.add_option("--display", dest="display",
       action="store", type="string", default=None,
       help="set the display name of the processing job")
@@ -51,17 +122,19 @@ if __name__ == '__main__':
       action="store", type="string", default=None,
       help="set a comment string for the processing job")
   group.add_option("--recipe", dest="recipe",
-      action="store", type="string", default=None,
-      help="set a recipe for the processing job")
+      action="store", type="choice", default=None, choices=available_recipes,
+      help="set a recipe for the processing job. Recipe name must correspond to a filename " \
+           "(plus ispyb- prefix and .json extension) in /dls_sw/apps/zocalo/live/recipes: %s" % ", ".join(available_recipes))
   group.add_option("--source", dest="source",
       action="store", type="choice", default='user', choices=['user', 'automatic'],
       help="set whether the processing job was triggered by a 'user' (default) or by 'automatic' processing")
-  group.add_option("--add-param", dest="parameter",
+  group.add_option("--add-param", dest="parameters",
       action="append", type="string", default=[], metavar="KEY:VALUE",
-      help="any number of 'KEY:VALUE' pair strings to add to a processing job")
-  group.add_option("--add-sweep", dest="sweep",
+      help="add a 'KEY:VALUE' pair string parameter to a processing job")
+  group.add_option("--add-sweep", dest="sweeps",
       action="append", type="string", default=[], metavar="DCID:START:END",
-      help="any number of image ranges of any data collection ID to add to a processing job")
+      help="add an image range from a sweep of any data collection ID to the processing job. " \
+           "Each job must have at least one sweep")
   parser.add_option_group(group)
 
   group = OptionGroup(parser, "Processing program options",
@@ -102,22 +175,32 @@ if __name__ == '__main__':
   parser.add_option_group(group)
   (options, args) = parser.parse_args(sys.argv[1:])
 
-  if not args:
-    print("No job ID specified\n")
+  if not args and not options.new:
+    if sys.argv[1:]:
+      print("No job ID specified\n")
     parser.print_help()
     sys.exit(0)
   if len(args) > 1:
-    print("Only one job ID can be specified")
-    sys.exit(1)
+    sys.exit("Only one job ID can be specified")
+  if options.new and args:
+    sys.exit("Can not create a new job ID when a job ID is specified")
+  if options.new and options.update:
+    sys.exit("Can not update a program when creating a new job ID")
 
   driver = ispyb.legacy_get_driver(ispyb.legacy_Backend.DATABASE_MYSQL)
-  i = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+  i_legacy = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
   # because read access is only available with this login
   isp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
   # because stored procedures are only available with that login
-  rpid = args[0]
+  i = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
+  # because this is new
 
   exit_code = 0
+
+  if options.new:
+    rpid = create_processing_job(i, options)
+  else:
+    rpid = args[0]
 
   if options.create:
     try:
@@ -147,7 +230,7 @@ if __name__ == '__main__':
       exit_code = 1
 
   try:
-    rp = i.get_reprocessing_id(rpid)
+    rp = i_legacy.get_reprocessing_id(rpid)
   except ispyb.exception.ISPyBNoResultException:
     print("Reprocessing ID %s not found" % rpid)
     sys.exit(1)
@@ -160,7 +243,7 @@ if __name__ == '__main__':
     Defined: {recordTimestamp}'''.format(**rp))
 
   if options.verbose:
-    params = i.get_reprocessing_parameters(rpid)
+    params = i_legacy.get_reprocessing_parameters(rpid)
     if params:
       maxlen = max(max(map(len, params)), 11)
       print("\n Parameters:")
@@ -170,9 +253,9 @@ if __name__ == '__main__':
     print(('\n' + ' ' * 13).join(map(
         lambda sweep:
           "DCID {dataCollectionId:7}  images{startImage:5} -{endImage:5}".format(**sweep),
-        i.get_reprocessing_sweeps(rpid))))
+        i_legacy.get_reprocessing_sweeps(rpid))))
 
-  processing_programs = i.get_processing_instances_for_reprocessing_id(rpid)
+  processing_programs = i_legacy.get_processing_instances_for_reprocessing_id(rpid)
   if processing_programs:
     print_format = "             {processingPrograms} (#{autoProcProgramId}, {readableStatus})"
     print_format = "\nProgram #{autoProcProgramId}: {processingPrograms}, {readableStatus}"

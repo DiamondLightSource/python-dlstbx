@@ -31,11 +31,16 @@ class DLSPerImageAnalysis(CommonService):
     # Extract the filename
     filename = message['file']
 
-    self.log.debug("Running PIA on %s", filename)
+    # Set up PIA parameters
+    parameters = rw.recipe_step.get('parameters', None)
+    if parameters:
+      parameters = ['{k}={v}'.format(k=k, v=v) for k, v in parameters.iteritems()]
+    else:
+      parameters = ['d_max=40']
 
     # Do the per-image-analysis
-    cl = ['d_max=40']
-    results = work(filename, cl=cl)
+    self.log.debug("Running PIA on %s with parameters %s", filename, parameters)
+    results = work(filename, cl=parameters)
 
     # Pass through all file* fields
     for key in filter(lambda x: x.startswith('file'), message):

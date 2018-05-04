@@ -34,19 +34,37 @@ import ispyb.exception
 #   ispyb.job 73 -u 1234 -s "completed successfully" -r success
 #   ispyb.job 73 -u 1234 -s "everything is broken" -r failure
 
-def create_processing_job(i, options):
-  if not options.sweeps:
-    sys.exit("When creating a processing job you must specify at least one data collection sweep")
-
+def create_processing_job(i, options, i_legacy):
   sweeps = []
   for s in options.sweeps:
-    match = re.match(r"([0-9]+):([0-9]+):([0-9]+)", s)
+    match = re.match(r"^([0-9]+):([0-9]+):([0-9]+)$", s)
     if not match:
       sys.exit("Invalid sweep specification: " + s)
     values = tuple(map(int, match.groups()))
     if not all(map(lambda value: value > 0, values)) or values[2] < values[1]:
       sys.exit("Invalid sweep specification: " + s)
     sweeps.append(values)
+
+  if options.dcid:
+    match = re.match(r"^([0-9]+)$", options.dcid)
+    if not match:
+      sys.exit("Invalid data collection id: " + s)
+    dcid = int(options.dcid)
+  else:
+    dcid = None
+
+  if not sweeps:
+    if not dcid:
+      sys.exit("When creating a processing job you must specify at least one data collection sweep or a DCID")
+
+    dc_info = i_legacy.get_datacollection_id(dcid)
+    start = dc_info.get('startImageNumber')
+    number = dc_info.get('numberOfImages')
+    if not start or not number:
+      sys.exit("Can not automatically infer data collection sweep for this DCID")
+    end = start + number - 1
+    sweeps = [ (dcid, start, end) ]
+    print("Using images %d to %d for data collection sweep" % (start, end))
 
   parameters = []
   for p in options.parameters:
@@ -60,7 +78,7 @@ def create_processing_job(i, options):
   # _job_params = StrictOrderedDict([('id', None), ('datacollectionid', None), ('display_name', None), ('comments', None), ('recipe', None), ('automatic', None)])
   jp['automatic'] = options.source == 'automatic'
   jp['comments'] = options.comment
-  jp['datacollectionid'] = options.dcid or sweeps[0][0]
+  jp['datacollectionid'] = dcid or sweeps[0][0]
   jp['display_name'] = options.display
   jp['recipe'] = options.recipe
   print("Creating database entries...")
@@ -134,7 +152,8 @@ if __name__ == '__main__':
   group.add_option("--add-sweep", dest="sweeps",
       action="append", type="string", default=[], metavar="DCID:START:END",
       help="add an image range from a sweep of any data collection ID to the processing job. " \
-           "Each job must have at least one sweep")
+           "Each job must have at least one sweep. " \
+           "If no sweep is defined all images from the primary data collection ID are used")
   parser.add_option_group(group)
 
   group = OptionGroup(parser, "Processing program options",
@@ -198,7 +217,7 @@ if __name__ == '__main__':
   exit_code = 0
 
   if options.new:
-    rpid = create_processing_job(i, options)
+    rpid = create_processing_job(i, options, i_legacy)
   else:
     rpid = args[0]
 

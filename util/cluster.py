@@ -159,7 +159,7 @@ class Cluster():
                         self.drmaa.JobState.FAILED: 'job finished, but failed'}
     return decodestatus[self.session.jobStatus(jobid)]
 
-  def _qstat_xml(self, arguments=None, timeout=30, warn_after=10):
+  def _qstat_xml(self, arguments=None, timeout=45, warn_after=20):
     '''Run a qstat command against the cluster
        :param arguments: List of command line parameters
        :param timeout: maximum execution time

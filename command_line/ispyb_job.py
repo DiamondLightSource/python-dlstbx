@@ -16,6 +16,7 @@ from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
 import ispyb
 import ispyb.factory
 import ispyb.exception
+import procrunner
 
 # Create a new processing job:
 #   ispyb.job --new --display "Dataprocessor 2000" --comment "The best program in the universe" \
@@ -106,9 +107,17 @@ def create_processing_job(i, options, i_legacy):
 
   print("All done. Processing job {} created".format(jobid))
   print()
-  print("To trigger the processing job you now need to run:")
-  print("  dlstbx.go -p {}".format(jobid))
-  print()
+  if options.trigger:
+    result = procrunner.run(['dlstbx.go', '-p', str(jobid)])
+    if result['exitcode'] or result['stderr']:
+      sys.exit("Error triggering processing job")
+    print("Successfully triggered processing job")
+    print()
+
+  else:
+    print("To trigger the processing job you now need to run:")
+    print("  dlstbx.go -p {}".format(jobid))
+    print()
 
   return jobid
 
@@ -154,6 +163,9 @@ if __name__ == '__main__':
       help="add an image range from a sweep of any data collection ID to the processing job. " \
            "Each job must have at least one sweep. " \
            "If no sweep is defined all images from the primary data collection ID are used")
+  group.add_option("--trigger", dest="trigger",
+      action="store_true", default=False,
+      help="start the processing job immediately after creation")
   parser.add_option_group(group)
 
   group = OptionGroup(parser, "Processing program options",

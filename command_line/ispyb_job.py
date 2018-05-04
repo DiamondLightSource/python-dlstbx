@@ -20,7 +20,7 @@ import procrunner
 
 # Create a new processing job:
 #   ispyb.job --new --display "Dataprocessor 2000" --comment "The best program in the universe" \
-#             --recipe dp2000 --add-param "space_group:P 21 21 21" --add-sweep 1234:1:600
+#             --recipe dp2000 --add-param "spacegroup:P 21 21 21" --add-sweep 1234:1:600
 
 # Display stored information:
 #   ispyb.job 73

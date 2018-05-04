@@ -120,3 +120,6 @@ if __name__ == '__main__':
   print()
   print("To trigger the processing job you now need to run:")
   print("  dlstbx.go -r {}".format(jobid))
+
+print()
+print("Warning: dlstbx.process is deprecated and will be removed soon. Use ispyb.job instead")

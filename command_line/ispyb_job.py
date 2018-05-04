@@ -107,7 +107,7 @@ def create_processing_job(i, options, i_legacy):
   print("All done. Processing job {} created".format(jobid))
   print()
   print("To trigger the processing job you now need to run:")
-  print("  dlstbx.go -r {}".format(jobid))
+  print("  dlstbx.go -p {}".format(jobid))
   print()
 
   return jobid

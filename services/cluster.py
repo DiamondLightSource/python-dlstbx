@@ -43,10 +43,6 @@ class DLSCluster(CommonService):
   def run_submit_job(self, rw, header, message):
     '''Submit cluster job according to message.'''
 
-    # Conditionally acknowledge receipt of the message
-    txn = self._transport.transaction_begin()
-    self._transport.ack(header, transaction=txn)
-
     parameters = rw.recipe_step['parameters']
     commands = parameters['cluster_commands']
     if not isinstance(commands, basestring):
@@ -65,7 +61,6 @@ class DLSCluster(CommonService):
       except OSError as e:
         if e.errno == errno.ENOENT:
           self.log.error('Error in underlying filesystem: %s', str(e), exc_info=True)
-          self._transport.transaction_abort(txn)
           self._transport.nack(header)
           return
         raise
@@ -80,7 +75,6 @@ class DLSCluster(CommonService):
       except OSError as e:
         if e.errno == errno.ENOENT:
           self.log.error('Error in underlying filesystem: %s', str(e), exc_info=True)
-          self._transport.transaction_abort(txn)
           self._transport.nack(header)
           return
         raise
@@ -96,7 +90,6 @@ class DLSCluster(CommonService):
       except OSError as e:
         if e.errno == errno.ENOENT:
           self.log.error('Error in underlying filesystem: %s', str(e), exc_info=True)
-          self._transport.transaction_abort(txn)
           self._transport.nack(header)
           return
         raise
@@ -112,7 +105,6 @@ class DLSCluster(CommonService):
 
     if 'workingdir' not in parameters or not parameters['workingdir'].startswith('/'):
       self.log.error("No absolute working directory specified. Will not run cluster job")
-      self._transport.transaction_abort(txn)
       self._transport.nack(header)
       return
     workingdir = parameters['workingdir']
@@ -136,9 +128,14 @@ class DLSCluster(CommonService):
     assert "has been submitted" in result['stdout']
     jobnumber = result['stdout'].split()[2]
 
+    # Conditionally acknowledge receipt of the message
+    txn = self._transport.transaction_begin()
+    self._transport.ack(header, transaction=txn)
+
     # Send results onwards
     rw.set_default_channel('job_submitted')
     rw.send({ 'jobid': jobnumber }, transaction=txn)
 
+    # Commit transaction
     self._transport.transaction_commit(txn)
     self.log.info("Submitted job %s to %s", str(jobnumber), cluster)

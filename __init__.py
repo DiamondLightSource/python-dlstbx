@@ -73,3 +73,13 @@ class Buck():
       for ref in references:
         del frame[ref]
       print("...aand it's gone.")
+
+  def __repr__(self):
+    try:
+      raise Exception()
+    except Exception:
+      frame = sys.exc_info()[2].tb_frame.f_back.f_locals
+      references = [var for var in frame if frame[var] == self]
+      for ref in references:
+        del frame[ref]
+      return("<Buck instance at %s...aand it's gone>" % hex(id(self))[:-1])

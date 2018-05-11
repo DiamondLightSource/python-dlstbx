@@ -63,23 +63,24 @@ def enable_graylog(host='graylog2.diamond.ac.uk', port=12208):
 
 class Buck():
   '''A buck, which can be passed.'''
+  def __init__(self, name='Buck'):
+    self._name = name
+
+  def _debuck(self, frame):
+    references = [var for var in frame if frame[var] == self]
+    for ref in references:
+      del frame[ref]
 
   def Pass(self):
     try:
       raise Exception()
     except Exception:
-      frame = sys.exc_info()[2].tb_frame.f_back.f_locals
-      references = [var for var in frame if frame[var] == self]
-      for ref in references:
-        del frame[ref]
+      self._debuck(sys.exc_info()[2].tb_frame.f_back.f_locals)
       print("...aand it's gone.")
 
   def __repr__(self):
     try:
       raise Exception()
     except Exception:
-      frame = sys.exc_info()[2].tb_frame.f_back.f_locals
-      references = [var for var in frame if frame[var] == self]
-      for ref in references:
-        del frame[ref]
-      return("<Buck instance at %s...aand it's gone>" % hex(id(self))[:-1])
+      self._debuck(sys.exc_info()[2].tb_frame.f_back.f_locals)
+      return("<%s instance at %s...aand it's gone>" % (self._name, hex(id(self))[:-1]))

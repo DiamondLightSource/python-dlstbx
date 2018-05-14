@@ -24,10 +24,6 @@ class DLSPerImageAnalysis(CommonService):
   def per_image_analysis(self, rw, header, message):
     '''Run PIA on one image.'''
 
-    # Conditionally acknowledge receipt of the message
-    txn = rw.transport.transaction_begin()
-    rw.transport.ack(header, transaction=txn)
-
     # Extract the filename
     filename = message['file']
 
@@ -40,12 +36,21 @@ class DLSPerImageAnalysis(CommonService):
 
     # Do the per-image-analysis
     self.log.debug("Running PIA on %s with parameters %s", filename, parameters)
-    results = work(filename, cl=parameters)
+    try:
+      results = work(filename, cl=parameters)
+    except Exception as e:
+      self.log.error("PIA failed with %r", e, exc_info=True)
+      rw.transport.nack(header)
+      return
 
     # Pass through all file* fields
     for key in filter(lambda x: x.startswith('file'), message):
       results[key] = message[key]
     self.log.debug(str(results))
+
+    # Conditionally acknowledge receipt of the message
+    txn = rw.transport.transaction_begin()
+    rw.transport.ack(header, transaction=txn)
 
     # Send results onwards
     rw.set_default_channel('result')

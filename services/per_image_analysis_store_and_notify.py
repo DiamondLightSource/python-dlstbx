@@ -39,13 +39,13 @@ class DLSPerImageAnalysisSAN(CommonService):
     is_gridscan = rw.recipe_step.get('parameters', {}).get('gridscan') in ('True', 'true', 1)
     dcid = rw.recipe_step.get('parameters', {}).get('dcid', '')
 
-    command = ['/bin/bash', '/dls_sw/apps/mx-scripts/misc/dials/imgScreen_LocalServerV3.sh',
+    command = ['/bin/bash', '/dls_sw/apps/mx-scripts/misc/dials/imgScreen_LocalServerV4.sh',
                filename, 'NA', str(image_number), str(is_gridscan), str(dcid)]
 
     self.log.debug("Running %s", str(command))
 
     # Run bash script which stores and notifies for XML
-    result = run_process(command, stdin=PIA_xml, print_stdout=True, print_stderr=True)
+    result = run_process(command, print_stdout=True, print_stderr=True)
 
     if result['exitcode'] != 0:
       self.log.warning(result)

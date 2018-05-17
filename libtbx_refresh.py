@@ -52,15 +52,16 @@ for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
 libtbx.pkg_utils.define_entry_points({
   'workflows.services': sorted(service_list),
   'dlstbx.wrappers': sorted([
+    'big_ep = dlstbx.zocalo.wrapper.big_ep:BigEPWrapper',
     'dozor = dlstbx.zocalo.wrapper.dozor:DozorWrapper',
     'dummy = dlstbx.zocalo.wrapper:DummyWrapper',
+    'edna = dlstbx.zocalo.wrapper.edna:EdnaWrapper',
     'fast_dp = dlstbx.zocalo.wrapper.fast_dp:FastDPWrapper',
     'fast_ep = dlstbx.zocalo.wrapper.fast_ep:FastEPWrapper',
-    'big_ep = dlstbx.zocalo.wrapper.big_ep:BigEPWrapper',
+    'i19screen = dlstbx.zocalo.wrapper.i19screen:I19ScreenWrapper',
+    'spotcounts = dlstbx.zocalo.wrapper.spot_counts_per_image:SCPIWrapper',
     'xia2 = dlstbx.zocalo.wrapper.xia2:Xia2Wrapper',
     'xia2.strategy = dlstbx.zocalo.wrapper.xia2_strategy:Xia2StrategyWrapper',
-    'edna = dlstbx.zocalo.wrapper.edna:EdnaWrapper',
-    'spotcounts = dlstbx.zocalo.wrapper.spot_counts_per_image:SCPIWrapper',
   ]),
 })
 

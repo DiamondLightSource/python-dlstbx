@@ -27,7 +27,7 @@ class I19ScreenWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     command.append(params['screen-selection'])
 
     # run i19.screen
-    result = procrunner.run_process(
+    result = procrunner.run(
       command, timeout=params.get('timeout'),
       print_stdout=False, print_stderr=False)
 
@@ -46,12 +46,19 @@ class I19ScreenWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if not os.path.exists(results_directory):
       os.makedirs(results_directory)
 
-    defaultfiles = ('i19.screen.log', 'dials-report.html',
-                    'experiments_with_profile_model.json', 'predicted.pickle')
+    defaultfiles = ['i19.screen.log']
+    if os.path.exists('indexed.pickle'):
+      defaultfiles.append('indexed.pickle')
+      defaultfiles.append('experiments.json')
+      defaultfiles.append('dials-report.html')
+    elif os.path.exists('strong.pickle'):
+      defaultfiles.append('strong.pickle')
+      defaultfiles.append('datablock.json')
+      if os.path.exists('all_spots.pickle'):
+        defaultfiles.append('all_spots.pickle')
+
     foundfiles = []
     for filename in params.get('keep_files', defaultfiles):
-      filename = prefix + '_' + filename + '.json'
-
       if os.path.exists(filename):
         dst = os.path.join(results_directory, filename)
         logger.debug('Copying %s to %s' % (filename, dst))
@@ -60,7 +67,7 @@ class I19ScreenWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         self.record_result_individual_file({
           'file_path': results_directory,
           'file_name': filename,
-          'file_type': 'pia',
+          'file_type': 'log' if filename.endswith('.log') or filename.endswith('.html') else 'result',
         })
       else:
         logger.warning('Expected output file %s missing', filename)

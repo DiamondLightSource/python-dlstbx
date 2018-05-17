@@ -77,6 +77,22 @@ class I19ScreenWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       logger.info('Notifying for found files: %s', str(foundfiles))
       self.record_result_all_files({ 'filelist': foundfiles })
 
+    if params.get('results_symlink'):
+      # Create symbolic link above working directory
+      path_elements = results_directory.split(os.sep)
+
+      # Full path to the symbolic link
+      link_path = os.sep.join(path_elements[:-2] + [params['results_symlink']])
+
+      # Only write symbolic link if a symbolic link is created or overwritten
+      # Do not overwrite real files, do not touch real directories
+      if not os.path.exists(link_path) or os.path.islink(link_path):
+        # because symlink can't be overwritten, create a temporary symlink in the child directory
+        # and then rename on top of potentially existing one in the parent directory.
+        tmp_link = os.sep.join(path_elements[:-1] + ['.tmp.' + params['results_symlink']])
+        os.symlink(os.sep.join(path_elements[-2:]), tmp_link)
+        os.rename(tmp_link, link_path)
+
     logger.info('Done.')
 
     return success

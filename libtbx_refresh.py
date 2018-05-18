@@ -64,5 +64,3 @@ libtbx.pkg_utils.define_entry_points({
     'xia2.strategy = dlstbx.zocalo.wrapper.xia2_strategy:Xia2StrategyWrapper',
   ]),
 })
-
-

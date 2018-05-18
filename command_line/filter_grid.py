@@ -344,15 +344,15 @@ if __name__ == '__main__':
 
     # Print the time
     logger.info("Time Taken: %f" % (time() - start_time))
-    
+
     imagesets = datablock.extract_imagesets()
     assert(len(imagesets) == 1)
     imageset = imagesets[0]
-    
+
     #images = imageset.indices()
     detector = imageset.get_detector()
     beam = imageset.get_beam()
-    
+
     rayleigh_func = partial(calc_stats,
                             dfunc=stats.rayleigh)
 
@@ -386,16 +386,16 @@ if __name__ == '__main__':
                 resol_dict[frame].append(resol)
             except KeyError:
                 resol_dict[frame] = [resol,]
-    
+
         #cross_ksstat(resol_dict, imageset.indices())
-    
+
         distribution_dict = {'expon': expon_func,
                              'rayleigh': rayleigh_func,
                              'chi2_low': chi2_low_func,
                              'chi2_high': chi2_high_func,
                              'gengamma': gengamma_func
                              }
-    
+
         all_stats = {}
         sc = params.filter_grid.scoring
         thres_pval = lambda v: True if params.filter_grid.show_all else v[1] > params.filter_grid.threshold

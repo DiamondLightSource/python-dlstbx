@@ -105,8 +105,8 @@ class DLSXRayCentering(CommonService):
           numBoxesX=cd['steps_x'],
           numBoxesY=cd['steps_y'],
           snaked=bool(gridinfo.get('snaked')),
-          boxSizeXPixels=float(gridinfo.get('pixelsPerMicronX')),
-          boxSizeYPixels=float(gridinfo.get('pixelsPerMicronY')),
+          boxSizeXPixels=1000 * gridinfo['dx_mm'] / gridinfo['pixelsPerMicronX'],
+          boxSizeYPixels=1000 * gridinfo['dy_mm'] / gridinfo['pixelsPerMicronY'],
           topLeft=(float(gridinfo.get('snapshot_offsetXPixel')),
                    float(gridinfo.get('snapshot_offsetYPixel'))),
         )

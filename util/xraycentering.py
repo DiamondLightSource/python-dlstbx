@@ -32,7 +32,7 @@ def main(data, numBoxesX=14, numBoxesY=11, snaked=True, boxSizeXPixels=1.25, box
     data = zip(*sorted(data))[1]
 #    best_image, maximum_spots = max(data.items(), key=lambda d: d[1])
     maximum_spots = max(data)
-    best_image = data.index(maximum_spots)
+    best_image = data.index(maximum_spots) + 1
     if maximum_spots == 0:
       results["message"] = "No good images found"
       return results
@@ -41,7 +41,7 @@ def main(data, numBoxesX=14, numBoxesY=11, snaked=True, boxSizeXPixels=1.25, box
     results['best_image'] = best_image
     results['reflections_in_best_image'] = maximum_spots
     f.write("There are %d reflections in image no %d.\n" % (maximum_spots, best_image))
-    selected_images = [ n for n, s in enumerate(data) if s >= 0.5 * maximum_spots ]
+    selected_images = [ n + 1 for n, s in enumerate(data) if s >= 0.5 * maximum_spots ]
 #  ist(filter(lambda n, d: s >= 0.5*maximum_spots, enumerate(data)))
     f.write("selected_images: "+str(selected_images)+"\n")
     results['selected_images'] = selected_images

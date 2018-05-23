@@ -114,7 +114,7 @@ class DLSXRayCentering(CommonService):
         # Write result file
         if parameters.get('output'):
           self.log.info('Writing X-Ray centering results for DCID %d to %s', dcid, parameters['output'])
-          with open(parameters['output'], 'w') as fh:
+          with open(os.path.normpath(parameters['output']), 'w') as fh:
             json.dump(result, fh, sort_keys=True)
 
 #       transaction.start()

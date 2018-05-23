@@ -19,76 +19,75 @@ def main(data, numBoxesX=14, numBoxesY=11, snaked=True, boxSizeXPixels=1.25, box
   results['topLeft'] = topLeft
   f = StringIO()
 
-  if True:
-    f.write("numBoxesX/Y: "+str(numBoxesX)+", "+str(numBoxesY)+"\n")
-    f.write("boxSizeX/YPixels: "+str(boxSizeXPixels)+", "+str(boxSizeYPixels)+"\n")
-    f.write("topLeft: "+str(topLeft)+"\n")
-    data = zip(*sorted(data))[1]
-    maximum_spots = max(data)
-    best_image = data.index(maximum_spots) + 1
-    if maximum_spots == 0:
-      results["message"] = "No good images found"
-      return results
-      results["message"] = "The crystal is not diffracting"
-      return results
-    results['best_image'] = best_image
-    results['reflections_in_best_image'] = maximum_spots
-    f.write("There are %d reflections in image no %d.\n" % (maximum_spots, best_image))
+  f.write("numBoxesX/Y: "+str(numBoxesX)+", "+str(numBoxesY)+"\n")
+  f.write("boxSizeX/YPixels: "+str(boxSizeXPixels)+", "+str(boxSizeYPixels)+"\n")
+  f.write("topLeft: "+str(topLeft)+"\n")
+  data = zip(*sorted(data))[1]
+  maximum_spots = max(data)
+  best_image = data.index(maximum_spots) + 1
+  if maximum_spots == 0:
+    results["message"] = "No good images found"
+    return results
+    results["message"] = "The crystal is not diffracting"
+    return results
+  results['best_image'] = best_image
+  results['reflections_in_best_image'] = maximum_spots
+  f.write("There are %d reflections in image no %d.\n" % (maximum_spots, best_image))
 
-    if snaked:
-      def unsnake(x):
-        row = x // numBoxesX
-        if row % 2 == 1:
-          return x + numBoxesX - 2 * (x % numBoxesX) - 1
-        else:
-          return x
-      data = [ data[unsnake(x)] for x in range(len(data)) ]
+  if snaked:
+    def unsnake(x):
+      row = x // numBoxesX
+      if row % 2 == 1:
+        return x + numBoxesX - 2 * (x % numBoxesX) - 1
+      else:
+        return x
+    data = [ data[unsnake(x)] for x in range(len(data)) ]
 
-    f.write("grid: \n")
-    for row in range(numBoxesY):
-      f.write("[")
-      f.write(", ".join(
-          "%3d" % data[row * numBoxesX + col]
-          if data[row * numBoxesX + col] >= 0.5 * maximum_spots
-          else ' - '
-          for col in range(numBoxesX)
-      ))
-      f.write("]\n")
+  f.write("grid: \n")
+  for row in range(numBoxesY):
+    f.write("[")
+    f.write(", ".join(
+        "%3d" % data[row * numBoxesX + col]
+        if data[row * numBoxesX + col] >= 0.5 * maximum_spots
+        else ' - '
+        for col in range(numBoxesX)
+    ))
+    f.write("]\n")
 
-    data = [ x if x >= 0.5*maximum_spots else 0 for x in data ]
+  data = [ x if x >= 0.5*maximum_spots else 0 for x in data ]
 
-    rc = []
-    for i, d in enumerate(data):
-      if d:
-        row=int(i/numBoxesX)
-        col=(i%numBoxesX)
-        rc.append((row, col))
+  rc = []
+  for i, d in enumerate(data):
+    if d:
+      row=int(i/numBoxesX)
+      col=(i%numBoxesX)
+      rc.append((row, col))
 
-    def gridtoindex(g):
-      return data[g[0] * numBoxesX + g[1] + 1]
+  def gridtoindex(g):
+    return data[g[0] * numBoxesX + g[1] + 1]
 
-    regions, best_region = findRegion(rc, gridtoindex)
-    f.write("regions: "+str(regions)+"\n")
-    f.write("best_region: "+str(best_region)+"\n")
-    results['best_region'] = best_region
-    sum_x, sum_y = 0,0
-    for key in best_region:
-      sum_x=sum_x+(key[1]+.5)
-      sum_y=sum_y+(key[0]+.5)
-    f.write("sum_x, sum_y, len(best_region): "+str(sum_x)+" "+str(sum_y)+" "+str(len(best_region))+"\n")
-    results['sum_x'] = sum_x
-    results['sum_y'] = sum_y
-    centre_x=topLeft[0]+sum_x/len(best_region)*boxSizeXPixels
-    centre_y=topLeft[1]+sum_y/len(best_region)*boxSizeYPixels
-    centre_x_box = sum_x/len(best_region)
-    centre_y_box = sum_y/len(best_region)
-    f.write("centre_x,centre_y="+str(centre_x)+","+str(centre_y))
-    results['centre_x'] = centre_x
-    results['centre_y'] = centre_y
-    results['centre_x_box'] = centre_x_box
-    results['centre_y_box'] = centre_y_box
-    results['status'] = 'ok'
-    results['message'] = 'ok'
+  regions, best_region = findRegion(rc, gridtoindex)
+  f.write("regions: "+str(regions)+"\n")
+  f.write("best_region: "+str(best_region)+"\n")
+  results['best_region'] = best_region
+  sum_x, sum_y = 0,0
+  for key in best_region:
+    sum_x=sum_x+(key[1]+.5)
+    sum_y=sum_y+(key[0]+.5)
+  f.write("sum_x, sum_y, len(best_region): "+str(sum_x)+" "+str(sum_y)+" "+str(len(best_region))+"\n")
+  results['sum_x'] = sum_x
+  results['sum_y'] = sum_y
+  centre_x = topLeft[0]+sum_x/len(best_region)*boxSizeXPixels
+  centre_y = topLeft[1]+sum_y/len(best_region)*boxSizeYPixels
+  centre_x_box = sum_x/len(best_region)
+  centre_y_box = sum_y/len(best_region)
+  f.write("centre_x,centre_y="+str(centre_x)+","+str(centre_y))
+  results['centre_x'] = centre_x
+  results['centre_y'] = centre_y
+  results['centre_x_box'] = centre_x_box
+  results['centre_y_box'] = centre_y_box
+  results['status'] = 'ok'
+  results['message'] = 'ok'
   return results, f.getvalue()
 
 def getSurround(cell):
@@ -106,48 +105,48 @@ def getSurround(cell):
 def findRegion(rc, g2i):
   regions={}
   for cell in rc:
-          found = False
-          for region in regions.values():
-                  if cell in region:
-                          found = True
-                          break
-          if found:
-                  continue
-          surround = getSurround(cell)
-          added = False
-          for key in regions.keys():
-                  if len(surround.intersection(regions[key])) > 0:
-                          regions[key].append(cell)
-                          added = True
-                          break
-          if added:
-                  continue
-          regions[cell]=[cell]
+    found = False
+    for region in regions.values():
+      if cell in region:
+        found = True
+        break
+    if found:
+      continue
+    surround = getSurround(cell)
+    added = False
+    for key in regions.keys():
+      if len(surround.intersection(regions[key])) > 0:
+        regions[key].append(cell)
+        added = True
+        break
+    if added:
+      continue
+    regions[cell]=[cell]
   for key in regions.keys():
-          if key not in regions.keys(): #might have deleted it
-                  continue
-          for cell in regions[key]:
-                  surround = getSurround(cell)
-                  for key2 in regions.keys():
-                          if key == key2:
-                                  continue
-                          if len(surround.intersection(regions[key2])) > 0:
-                                  regions[key].extend(regions[key2])
-                                  del(regions[key2])
+    if key not in regions.keys(): #might have deleted it
+      continue
+    for cell in regions[key]:
+      surround = getSurround(cell)
+      for key2 in regions.keys():
+        if key == key2:
+          continue
+        if len(surround.intersection(regions[key2])) > 0:
+          regions[key].extend(regions[key2])
+          del(regions[key2])
   length=0
   sum1=0
   for k in regions:
-          sum2=0
-          if len(regions[k]) > length:
-                  (index, length)=(k, len(regions[k]))
-                  for cell in regions[k]:
-                          sum1 += g2i(cell)
-          if len(regions[k]) == length:
-                  for cell in regions[k]:
-                          sum2 += g2i(cell)
-                  if sum2 > sum1:
-                          sum1 = sum2
-                          (index, length)=(k, len(regions[k]))
+    sum2=0
+    if len(regions[k]) > length:
+      (index, length)=(k, len(regions[k]))
+      for cell in regions[k]:
+        sum1 += g2i(cell)
+    if len(regions[k]) == length:
+      for cell in regions[k]:
+        sum2 += g2i(cell)
+      if sum2 > sum1:
+        sum1 = sum2
+        (index, length)=(k, len(regions[k]))
   best_region=regions[index]
   return regions, best_region
 
@@ -156,6 +155,3 @@ if __name__ == "__main__":
   print(stdout)
   print("---")
   print(json.dumps(results, sort_keys=True))
-#       with open("Dials5AResults.json","w") as f2:
-#               results = main(spot_file, numBoxesX, numBoxesY, snaked, boxSizeXPixels, boxSizeYPixels, topLeft)
-#               json.dump(results, f2, sort_keys=True)

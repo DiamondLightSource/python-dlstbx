@@ -10,6 +10,8 @@ data = [(2, 73), (1, 0), (4, 119), (3, 187), (5, 2), (6, 0), (8, 0), (7, 0), (9,
 
 def main(data, numBoxesX=14, numBoxesY=11, snaked=True, boxSizeXPixels=1.25, boxSizeYPixels=1.25, topLeft=(396.2, 241.2)):
   results = { "centre_x": 0, "centre_y": 0, "status": "fail", "message": ""}
+  numBoxesX = int(numBoxesX)
+  numBoxesY = int(numBoxesY)
   results['numBoxesX'] = numBoxesX
   results['numBoxesY'] = numBoxesY
   results['boxSizeXPixels'] = boxSizeXPixels

@@ -4,7 +4,10 @@ import json
 import os.path
 import threading
 import time
+import sys
 
+import dlstbx.util.xraycentering
+import workflows.recipe
 from workflows.services.common_service import CommonService
 
 class DLSXRayCentering(CommonService):
@@ -15,26 +18,26 @@ class DLSXRayCentering(CommonService):
   _logger_name = 'dlstbx.services.xray-centering'
 
   def initializing(self):
-    '''Try to exclusively subscribe to the x-ray centering queue.'''
+    '''Try to exclusively subscribe to the x-ray centering queue. Received messages must be acknowledged.
+       Exclusive subscription enables a single process to do the 'reduce' step, aggregating many messages
+       that belong together.
+    '''
     self.log.info("X-Ray centering service starting up")
 
     self._centering_data = {}
     self._centering_lock = threading.Lock()
 
     self._register_idle(60, self.garbage_collect)
-#   need to make this a recipe subscription
-    self._transport.subscribe(
-#   need to tell AMQ server to send unlimited pending messages to this queue
-        'xray-centering',
-        self.add_pia_result,
-        exclusive=True,
-    )
+    workflows.recipe.wrap_subscribe(self._transport, 'reduce.xray_centering',
+        self.add_pia_result, acknowledgement=True, exclusive=True, log_extender=self.extend_log)
+#   need to restart AMQ server to enable reduce policy
 
   def garbage_collect(self):
     '''Throw away partial scan results after a while.'''
-    self.log.debug('Garbage collect')
+#   mostly pointless until reduce policy in place
+#   self.log.debug('Garbage collect')
 
-    with self._centering_lock:
+#    with self._centering_lock:
     # for dcid in centering_data:
     #   if last_seen > 15 minutes:
     #     transaction.start()
@@ -43,25 +46,89 @@ class DLSXRayCentering(CommonService):
     #     transaction.commit()
     #     remove dcid
     #     # could do this partially outside of lock, but probably does not matter
-      pass
 
-#   need to make this a recipe subscription
-  def add_pia_result(self, header, message):
-    '''Process incoming PIA result. Acquire lock for centering results dictionary before updating.'''
-    self.log.debug('Received PIA result')
-    # log message should include image number, count, total
-    self.last_status_seen = time.time()
+  def add_pia_result(self, rw, header, message):
+    '''Process incoming PIA result.'''
+
+    parameters = rw.recipe_step.get('parameters', None)
+    if not parameters or not parameters.get('dcid'):
+      self.log.error('X-ray centering service called without recipe parameters')
+      rw.transport.nack(header)
+      return
+    gridinfo = rw.recipe_step.get('gridinfo', None)
+    if not gridinfo or not isinstance(gridinfo, dict):
+      print(gridinfo)
+      self.log.error('X-ray centering service called without grid information')
+      sys.exit(1)
+      rw.transport.nack(header)
+      return
+    dcid = int(parameters['dcid'])
+
+    if not message or not message.get('file-number') or message.get('n_spots_total') is None:
+      self.log.error('X-ray centering service called without valid payload')
+      rw.transport.nack(header)
+      return
+    file_number = message['file-number']
+    spots_count = message['n_spots_total']
 
     with self._centering_lock:
-      self._centering_data['thing'] = (header, message)
-#     update last_seen time for dcid
-#     if all_results_there:
-#       do_centering_thing()
+      if dcid in self._centering_data:
+        cd = self._centering_data[dcid]
+      else:
+        cd = {
+            'steps_x': gridinfo.get('steps_x'),
+            'steps_y': gridinfo.get('steps_y'),
+            'images_seen': 0,
+            'headers': [],
+            'data': [],
+        }
+        cd['image_count'] = cd['steps_x'] * cd['steps_y']
+        self._centering_data[dcid] = cd
+        self.log.info('First record arrived for X-ray centering on DCID {dcid}, '
+                      '{cd[steps_x]} x {cd[steps_y]} grid, {cd[image_count]} images in total'.format(
+                          dcid=dcid, cd=cd))
+
+#     Correct way of handling this requires reduce policy to be in place. x_x
+#     cd['headers'].append(header)
+      rw.transport.ack(header)
+
+      cd['images_seen'] += 1
+      cd['last_activity'] = time.time()
+      self.log.debug('Received PIA result for DCID %d image %d, %d of %d expected results',
+          dcid, file_number, cd['images_seen'], cd['image_count'])
+      cd['data'].append((file_number, spots_count))
+
+      if cd['images_seen'] == cd['image_count']:
+        self.log.info('All records arrived for X-ray centering on DCID %d', dcid)
+        result, output = dlstbx.util.xraycentering.main(
+          cd['data'],
+          numBoxesX=cd['steps_x'],
+          numBoxesY=cd['steps_y'],
+          snaked=bool(gridinfo.get('snaked')),
+          boxSizeXPixels=float(gridinfo.get('pixelsPerMicronX')),
+          boxSizeYPixels=float(gridinfo.get('pixelsPerMicronY')),
+          topLeft=(float(gridinfo.get('snapshot_offsetXPixel')),
+                   float(gridinfo.get('snapshot_offsetYPixel'))),
+        )
+
+        # Write result file
+        if parameters.get('output'):
+          self.log.info('Writing X-Ray centering results for DCID %d to %s', dcid, parameters['output'])
+          with open(parameters['output'], 'w') as fh:
+            json.dump(result, fh, sort_keys=True)
+
 #       transaction.start()
 #       ack_all_messages()
-#       send_result_to_default+success_output()
+
+        # Send results onwards
+        rw.set_default_channel('success')
+        rw.send_to('success', result) # transaction=txn)
 #       transaction.commit()
-#       remove dcid
+
+        print(result)
+        print(output)
+
+        del self._centering_data[dcid]
 
 #   if last_garbage_collection > 60 seconds:
 #     self.garbage_collect()

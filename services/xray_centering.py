@@ -1,7 +1,8 @@
 from __future__ import absolute_import, division, print_function
 
+import errno
 import json
-import os.path
+import os
 import threading
 import time
 import sys
@@ -114,7 +115,15 @@ class DLSXRayCentering(CommonService):
         # Write result file
         if parameters.get('output'):
           self.log.info('Writing X-Ray centering results for DCID %d to %s', dcid, parameters['output'])
-          with open(os.path.normpath(parameters['output']), 'w') as fh:
+          path = os.path.dirname(parameters['output'])
+          try:
+            os.makedirs(path)
+          except OSError as exc:
+            if exc.errno == errno.EEXIST and os.path.isdir(path):
+              pass
+            else:
+              raise
+          with open(parameters['output'], 'w') as fh:
             json.dump(result, fh, sort_keys=True)
 
 #       transaction.start()

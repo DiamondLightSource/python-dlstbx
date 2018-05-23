@@ -20,17 +20,10 @@ def main(data, numBoxesX=14, numBoxesY=11, snaked=True, boxSizeXPixels=1.25, box
   f = StringIO()
 
   if True:
-    ns, vs = zip(*filter(lambda x: bool(x[1]), data))
-    results['ns'] = ns
-    results['vs'] = vs
-    f.write("ns: "+str(ns)+"\n")
-    f.write("vs: "+str(vs)+"\n")
     f.write("numBoxesX/Y: "+str(numBoxesX)+", "+str(numBoxesY)+"\n")
     f.write("boxSizeX/YPixels: "+str(boxSizeXPixels)+", "+str(boxSizeYPixels)+"\n")
     f.write("topLeft: "+str(topLeft)+"\n")
-#    data = dict(data)
     data = zip(*sorted(data))[1]
-#    best_image, maximum_spots = max(data.items(), key=lambda d: d[1])
     maximum_spots = max(data)
     best_image = data.index(maximum_spots) + 1
     if maximum_spots == 0:
@@ -41,23 +34,15 @@ def main(data, numBoxesX=14, numBoxesY=11, snaked=True, boxSizeXPixels=1.25, box
     results['best_image'] = best_image
     results['reflections_in_best_image'] = maximum_spots
     f.write("There are %d reflections in image no %d.\n" % (maximum_spots, best_image))
-    selected_images = [ n + 1 for n, s in enumerate(data) if s >= 0.5 * maximum_spots ]
-#  ist(filter(lambda n, d: s >= 0.5*maximum_spots, enumerate(data)))
-    f.write("selected_images: "+str(selected_images)+"\n")
-    results['selected_images'] = selected_images
 
     if snaked:
       def unsnake(x):
-#        row = (x - 1) // numBoxesX
         row = x // numBoxesX
         if row % 2 == 1:
-#         return x + numBoxesX - 1 - 2 * ((x-1) % numBoxesX)
           return x + numBoxesX - 2 * (x % numBoxesX) - 1
         else:
           return x
       data = [ data[unsnake(x)] for x in range(len(data)) ]
-#      data = { unsnake(x): data[x] for x in data }
-#      data = unsnake_data
 
     f.write("grid: \n")
     for row in range(numBoxesY):
@@ -77,12 +62,9 @@ def main(data, numBoxesX=14, numBoxesY=11, snaked=True, boxSizeXPixels=1.25, box
       if d:
         row=int(i/numBoxesX)
         col=(i%numBoxesX)
-#      row=int((i-1)/numBoxesX)
-#      col=((i-1)%numBoxesX)
         rc.append((row, col))
 
     def gridtoindex(g):
- #     return data[g[0] * numBoxesX + g[1]]
       return data[g[0] * numBoxesX + g[1] + 1]
 
     regions, best_region = findRegion(rc, gridtoindex)

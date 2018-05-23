@@ -62,6 +62,21 @@ class ispybtbx(object):
     dc['ispyb_image'] = '%s:%d:%d' % (self.dc_info_to_filename(dc, image_number=start), start, end)
     return dc
 
+  def get_gridscan_info(self, dcgid):
+    '''Extract GridInfo table contents for a DC group ID.'''
+    def get_gridinfo(self, dcgid):
+      with self._db_cc() as cursor:
+        cursor.run("SELECT * "
+                   "FROM GridInfo "
+                   "WHERE dataCollectionGroupId = %s "
+                   "LIMIT 1;", dcgid)
+        result = cursor.fetchone()
+      if result:
+        return result
+      raise ispyb.exception.ISPyBNoResultException()
+    self.db.__class__.get_gridinfo = get_gridinfo # Yes, this code is *that* bad.
+    return self.db.get_gridinfo(dcgid)
+
   def legacy_init(self):
     self.conn = mysql.connector.connect(
         host=secret_ingredients['host'],

@@ -7,7 +7,7 @@ import threading
 import time
 import sys
 
-import dlstbx.util.xraycentering
+import dlstbx.util.xray_centering
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -101,7 +101,7 @@ class DLSXRayCentering(CommonService):
 
       if cd['images_seen'] == cd['image_count']:
         self.log.info('All records arrived for X-ray centering on DCID %d', dcid)
-        result, output = dlstbx.util.xraycentering.main(
+        result, output = dlstbx.util.xray_centering.main(
           cd['data'],
           numBoxesX=cd['steps_x'],
           numBoxesY=cd['steps_y'],

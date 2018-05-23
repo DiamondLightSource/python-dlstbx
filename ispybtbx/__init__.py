@@ -724,6 +724,13 @@ def ispyb_filter(message, parameters):
   dc_class = i.classify_dc(dc_info)
   parameters['ispyb_dc_class'] = dc_class
   start, end = i.dc_info_to_start_end(dc_info)
+  if dc_class['grid'] and dc_info['dataCollectionGroupId']:
+    try:
+      parameters['ispyb_dc_info']['gridinfo'] = i.get_gridscan_info(dc_info['dataCollectionGroupId'])
+      # FIXME: timestamps can not be JSON-serialized
+      del(parameters['ispyb_dc_info']['gridinfo']['recordTimeStamp'])
+    except ispyb.exception.ISPyBNoResultException:
+      pass
   parameters['ispyb_image_first'] = start
   parameters['ispyb_image_last'] = end
   parameters['ispyb_image_template'] = dc_info.get('fileTemplate')

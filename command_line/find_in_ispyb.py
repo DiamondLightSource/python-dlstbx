@@ -29,7 +29,7 @@ if __name__ == '__main__':
   parser.add_option("-f", "--file", dest="recipefile", metavar="FILE",
       action="store", type="string", default="",
       help="Fill in recipe contained in this file with information from ISPyB.")
-  parser.add_option("--recipe-pointer", dest="recipepointer", metavar="FILE",
+  parser.add_option("--recipe-pointer", dest="recipepointer", metavar="NUMBER",
       action="store", type="int", default=None,
       help="A recipe pointer to output a recipe wrapper.")
   (options, args) = parser.parse_args(sys.argv[1:])

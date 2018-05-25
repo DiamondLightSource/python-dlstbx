@@ -62,5 +62,6 @@ libtbx.pkg_utils.define_entry_points({
     'spotcounts = dlstbx.zocalo.wrapper.spot_counts_per_image:SCPIWrapper',
     'xia2 = dlstbx.zocalo.wrapper.xia2:Xia2Wrapper',
     'xia2.strategy = dlstbx.zocalo.wrapper.xia2_strategy:Xia2StrategyWrapper',
+    'multi_crystal_scale = dlstbx.zocalo.wrapper.multi_crystal_scale:MultiCrystalScaleWrapper',
   ]),
 })

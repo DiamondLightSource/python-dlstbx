@@ -82,6 +82,7 @@ class RLVWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         foundfiles.append(dst)
         self.record_result_individual_file({
           'file_path': results_directory,
+          'file_name': filename,
           'file_type': 'recip',
         })
       else:

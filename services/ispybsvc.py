@@ -28,6 +28,7 @@ class DLSISPyB(CommonService):
     self.ispybdbsp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.ispyb = ispyb.factory.create_connection('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.ispyb_mx = ispyb.factory.create_data_area(ispyb.factory.DataAreaType.MXPROCESSING, self.ispyb)
+    self.ispyb_mac = ispyb.factory.create_data_area(ispyb.factory.DataAreaType.MXACQUISITION, self.ispyb)
     self.log.debug("ISPyB connector starting")
     workflows.recipe.wrap_subscribe(
         self._transport, 'ispyb_connector', # will become 'ispyb' in far future
@@ -162,14 +163,15 @@ class DLSISPyB(CommonService):
     return { 'success': True, 'return_value': result }
 
   def do_add_datacollection_attachment(self, rw, message, txn):
-    params = {}
-    params['parentid'] = self.parse_value(rw, message, 'dcid')
-    params['file_name'] = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
-    params['file_path'] = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
-    fqpn = os.path.join(params['file_path'], params['file_name'])
+    params = self.ispyb_mac.get_data_collection_file_attachment_params()
 
-    if not os.path.isfile(fqpn):
-      self.log.warning("Not adding attachment '%s' to data collection: File does not exist", str(fqpn))
+    params['parentid'] = self.parse_value(rw, message, 'dcid')
+    file_name = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
+    file_path = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
+    params['file_full_path'] = os.path.join(file_path, file_name)
+
+    if not os.path.isfile(params['file_full_path']):
+      self.log.warning("Not adding attachment '%s' to data collection: File does not exist", str(params['file_full_path']))
       return False
 
     params['file_type'] = str(message.get('file_type', rw.recipe_step['parameters'].get('file_type', ''))).lower()
@@ -177,20 +179,8 @@ class DLSISPyB(CommonService):
       self.log.warning("Attachment type '%s' unknown, defaulting to 'log'", params['file_type'])
       params['file_type'] = 'log'
 
-#######################
-#   Correct way:
-#   self.log.debug("Writing data collection attachment to database: %s", params)
-#   result = self.ispyb_mx.upsert_???_attachment(list(params.values()))
-#######################
-#   Wrong way:
-    self.log.info("Writing data collection attachment %s for DCID %s to database using hacky workaround. SCI-6268" % \
-                    (params['file_name'], params['parentid']))
-    result = run_process(['/dls_sw/apps/mx-scripts/bin/StoreReciprocalLatticeCSV.sh', params['parentid'], fqpn, params['file_type']],
-                         print_stdout=True, print_stderr=True)
-    if result['exitcode'] != 0:
-      self.log.warning("DCID attachment write failed:\n%s\n%s" % (result['stdout'], result['stderr']))
-    result = result['exitcode']
-#######################
+    self.log.debug("Writing data collection attachment to database: %s", params)
+    result = self.ispyb_mac.upsert_data_collection_file_attachment(list(params.values()))
 
     return { 'success': True, 'return_value': result }
 

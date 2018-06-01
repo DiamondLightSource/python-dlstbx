@@ -59,6 +59,7 @@ libtbx.pkg_utils.define_entry_points({
     'fast_dp = dlstbx.zocalo.wrapper.fast_dp:FastDPWrapper',
     'fast_ep = dlstbx.zocalo.wrapper.fast_ep:FastEPWrapper',
     'i19screen = dlstbx.zocalo.wrapper.i19screen:I19ScreenWrapper',
+    'rlv = dlstbx.zocalo.wrapper.rlv:RLVWrapper',
     'spotcounts = dlstbx.zocalo.wrapper.spot_counts_per_image:SCPIWrapper',
     'xia2 = dlstbx.zocalo.wrapper.xia2:Xia2Wrapper',
     'xia2.strategy = dlstbx.zocalo.wrapper.xia2_strategy:Xia2StrategyWrapper',

@@ -48,6 +48,11 @@ class StrategyEnvironment(object):
   def update_strategies(self, strategy_list):
     new_strategies = { svc['service']: self.load_strategy(svc) for svc in strategy_list }
     new_launchers = { svc['service']: svc['launch'] for svc in strategy_list if 'launch' in svc }
+    for svc in strategy_list:
+      if 'launch' in svc and 'module' in svc:
+        for l in new_launchers[svc['service']]:
+          if 'module' not in l:
+            l['module'] = svc['module']
     with self.lock:
       self.strategies = new_strategies
       self.launchers = new_launchers

@@ -58,7 +58,7 @@ class DLSCluster(CommonService):
       submission_params = "-P %s %s" % (parameters['cluster_project'], submission_params)
       self.log.debug("Using cluster project %s for submission", parameters['cluster_project'])
     else:
-      self.log.info("No cluster project set for job (%s)", repr(parameters.get('cluster_project')))
+      self.log.warning("No cluster project set for job (%s)", repr(parameters.get('cluster_project')))
     commands = commands.replace('$RECIPEPOINTER', str(rw.recipe_pointer))
 
     if 'recipefile' in parameters:

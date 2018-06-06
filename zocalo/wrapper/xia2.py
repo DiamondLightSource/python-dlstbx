@@ -75,7 +75,9 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         self.recwrap.recipe_step['job_parameters']['results_directory']
       )
 
-    dcid = int(self.recwrap.recipe_step['job_parameters']['dcid'])
+    dcid = self.recwrap.recipe_step['job_parameters'].get('dcid')
+    assert dcid, "No data collection ID specified."
+    dcid = int(dcid)
     assert dcid > 0, "Invalid data collection ID given."
     logger.debug("Writing to data collection ID %s", str(dcid))
     for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:

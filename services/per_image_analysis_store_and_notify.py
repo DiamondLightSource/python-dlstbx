@@ -35,26 +35,31 @@ class DLSPerImageAnalysisSAN(CommonService):
 
     # Create XML from PIA result
     PIA_xml = response_to_xml(message)
-    image_number = message['file-number']
-    is_gridscan = rw.recipe_step.get('parameters', {}).get('gridscan') in ('True', 'true', 1)
+    image_number = message['file-number'] # first image is always 1
+    image_file_number = message.get('file-pattern-index') or image_number # first image can be, say, 901
     dcid = rw.recipe_step.get('parameters', {}).get('dcid', '')
 
-    command = ['/bin/bash', '/dls_sw/apps/mx-scripts/misc/dials/imgScreen_LocalServerV4.sh',
-               filename, 'NA', str(image_number), str(is_gridscan), str(dcid)]
-
-    self.log.debug("Running %s", str(command))
-
-    # Run bash script which stores and notifies for XML
-    result = run_process(command, print_stdout=True, print_stderr=True)
-
-    if result['exitcode'] != 0:
-      self.log.warning(result)
-      # Reject message
-      rw.transport.nack(header)
-      self.log.warning("Could not run imgScreen on %s", filename)
-      return
+    beamline = filename.split(os.path.sep)[2]
+    if beamline in ('mx', 'i19-1', 'i19-2'):
+      self.log.debug("Not running on VMXi or i19 data")
+    elif str(image_number) != '1':
+      self.log.debug("Not running on subsequent images")
     else:
-      self.log.debug(result)
+      command = ['/bin/bash', '/dls_sw/apps/mx-scripts/bin/img2jpgv15',
+                 filename, beamline, str(image_file_number), str(dcid)]
+
+      self.log.debug("Running %s", str(command))
+
+      # Run bash script which stores and notifies for XML
+      result = run_process(command, print_stdout=True, print_stderr=True)
+
+      if result['exitcode'] != 0:
+        self.log.warning("Could not run imgScreen on %s:\n%s", filename, str(result))
+        # Reject message
+        rw.transport.nack(header)
+        return
+      else:
+        self.log.debug(str(result))
 
     # Begin transaction
     txn = rw.transport.transaction_begin()

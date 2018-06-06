@@ -20,6 +20,9 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     for param, values in params['xia2'].iteritems():
       if param == 'images':
+        if not values:
+          # This may be empty if related data collections are requested, but no related DCs were found
+          continue
         param = 'image'
         values = values.split(',')
       if not isinstance(values, (list, tuple)):

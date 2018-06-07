@@ -14,7 +14,6 @@ import sys
 from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
 
 import ispyb
-import ispyb.factory
 import ispyb.exception
 import procrunner
 
@@ -73,9 +72,7 @@ def create_processing_job(i, options, i_legacy):
       sys.exit("Invalid parameter specification: " + p)
     parameters.append(p.split(':', 1))
 
-  i_mx = ispyb.factory.create_data_area(ispyb.factory.DataAreaType.MXPROCESSING, i)
-
-  jp = i_mx.get_job_params()
+  jp = i.mx_processing.get_job_params()
   # _job_params = StrictOrderedDict([('id', None), ('datacollectionid', None), ('display_name', None), ('comments', None), ('recipe', None), ('automatic', None)])
   jp['automatic'] = options.source == 'automatic'
   jp['comments'] = options.comment
@@ -84,25 +81,25 @@ def create_processing_job(i, options, i_legacy):
   jp['recipe'] = options.recipe
   print("Creating database entries...")
 
-  jobid = i_mx.upsert_job(jp.values())
+  jobid = i.mx_processing.upsert_job(jp.values())
   print("  JobID={}".format(jobid))
   for key, value in parameters:
-    jpp = i_mx.get_job_parameter_params()
+    jpp = i.mx_processing.get_job_parameter_params()
     # _job_parameter_params = StrictOrderedDict([('id', None), ('job_id', None), ('parameter_key', None), ('parameter_value', None)])
     jpp['job_id'] = jobid
     jpp['parameter_key'] = key
     jpp['parameter_value'] = value
-    jppid = i_mx.upsert_job_parameter(jpp.values())
+    jppid = i.mx_processing.upsert_job_parameter(jpp.values())
     print("  JPP={}".format(jppid))
 
   for sweep in sweeps:
-    jisp = i_mx.get_job_image_sweep_params()
+    jisp = i.mx_processing.get_job_image_sweep_params()
     # _job_image_sweep_params = StrictOrderedDict([('id', None), ('job_id', None), ('datacollectionid', None), ('start_image', None), ('end_image', None)])
     jisp['job_id'] = jobid
     jisp['datacollectionid'] = sweep[0]
     jisp['start_image'] = sweep[1]
     jisp['end_image'] = sweep[2]
-    jispid = i_mx.upsert_job_image_sweep(jisp.values())
+    jispid = i.mx_processing.upsert_job_image_sweep(jisp.values())
     print("  JISP={}".format(jispid))
 
   print("All done. Processing job {} created".format(jobid))

@@ -5,7 +5,6 @@ import os.path
 import dlstbx.util.gda
 import ispyb
 import ispyb.exception
-import ispyb.factory
 import mysql.connector
 import workflows.recipe
 from procrunner import run_process
@@ -26,9 +25,7 @@ class DLSISPyB(CommonService):
     self.log.info("ISPyB connector using ispyb v%s", ispyb.__version__)
     driver = ispyb.legacy_get_driver(1)
     self.ispybdbsp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
-    self.ispyb = ispyb.factory.create_connection('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
-    self.ispyb_mx = ispyb.factory.create_data_area(ispyb.factory.DataAreaType.MXPROCESSING, self.ispyb)
-    self.ispyb_mac = ispyb.factory.create_data_area(ispyb.factory.DataAreaType.MXACQUISITION, self.ispyb)
+    self.ispyb = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.log.debug("ISPyB connector starting")
     workflows.recipe.wrap_subscribe(
         self._transport, 'ispyb_connector', # will become 'ispyb' in far future
@@ -142,7 +139,7 @@ class DLSISPyB(CommonService):
       return { 'success': False }
 
   def do_add_program_attachment(self, rw, message, txn):
-    params = self.ispyb_mx.get_program_attachment_params()
+    params = self.ispyb.mx_processing.get_program_attachment_params()
     params['parentid'] = self.parse_value(rw, message, 'program_id')
     params['file_name'] = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
     params['file_path'] = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
@@ -159,11 +156,11 @@ class DLSISPyB(CommonService):
 
     self.log.debug("Writing program attachment to database: %s", params)
 
-    result = self.ispyb_mx.upsert_program_attachment(list(params.values()))
+    result = self.ispyb.mx_processing.upsert_program_attachment(list(params.values()))
     return { 'success': True, 'return_value': result }
 
   def do_add_datacollection_attachment(self, rw, message, txn):
-    params = self.ispyb_mac.get_data_collection_file_attachment_params()
+    params = self.ispyb.mx_acquisition.get_data_collection_file_attachment_params()
 
     params['parentid'] = self.parse_value(rw, message, 'dcid')
     file_name = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
@@ -180,12 +177,12 @@ class DLSISPyB(CommonService):
       params['file_type'] = 'log'
 
     self.log.debug("Writing data collection attachment to database: %s", params)
-    result = self.ispyb_mac.upsert_data_collection_file_attachment(list(params.values()))
+    result = self.ispyb.mx_acquisition.upsert_data_collection_file_attachment(list(params.values()))
 
     return { 'success': True, 'return_value': result }
 
   def do_store_per_image_analysis_results(self, rw, message, txn):
-    params = self.ispyb_mx.get_quality_indicators_params()
+    params = self.ispyb.mx_processing.get_quality_indicators_params()
 
 #   from pprint import pprint
 #   pprint(message)
@@ -224,7 +221,7 @@ class DLSISPyB(CommonService):
 
     try:
 #     result = "159956186" # for testing
-      result = self._retry_mysql_call(self.ispyb_mx.upsert_quality_indicators, list(params.values()))
+      result = self._retry_mysql_call(self.ispyb.mx_processing.upsert_quality_indicators, list(params.values()))
       if rw.recipe_step['parameters'].get('notify-gda'):
         gdahost = rw.recipe_step['parameters']['notify-gda']
         if '{' in gdahost:

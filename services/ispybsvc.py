@@ -24,7 +24,7 @@ class DLSISPyB(CommonService):
     '''Subscribe the ISPyB connector queue. Received messages must be
        acknowledged. Prepare ISPyB database connection.'''
     self.log.info("ISPyB connector using ispyb v%s", ispyb.__version__)
-    driver = ispyb.legacy_get_driver(ispyb.legacy_Backend.DATABASE_MYSQL)
+    driver = ispyb.legacy_get_driver(1)
     self.ispybdbsp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.ispyb = ispyb.factory.create_connection('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.ispyb_mx = ispyb.factory.create_data_area(ispyb.factory.DataAreaType.MXPROCESSING, self.ispyb)

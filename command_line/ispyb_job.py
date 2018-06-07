@@ -218,7 +218,7 @@ if __name__ == '__main__':
   if options.new and options.update:
     sys.exit("Can not update a program when creating a new job ID")
 
-  driver = ispyb.legacy_get_driver(ispyb.legacy_Backend.DATABASE_MYSQL)
+  driver = ispyb.legacy_get_driver(1)
   i_legacy = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
   # because read access is only available with this login
   isp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')

@@ -29,7 +29,7 @@ class ispybtbx(object):
     self.legacy_init()
 
     self.log = logging.getLogger('dlstbx.ispybtbx')
-    api = ispyb.legacy_get_driver(ispyb.legacy_Backend.DATABASE_MYSQL)
+    api = ispyb.legacy_get_driver(1)
     self.db = api(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
     self.log.debug('ISPyB objects set up')
 

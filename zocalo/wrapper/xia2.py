@@ -145,7 +145,7 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     allfiles = []
     for f in glob.glob(os.path.join(working_directory, '*.*')):
       shutil.copy(f, results_directory)
-      allfiles.append(os.path.join(results_directory, f))
+      allfiles.append(os.path.join(results_directory, os.path.basename(f)))
 
     if result['exitcode'] and not os.path.isfile(os.path.join(results_directory, 'xia2.error')):
       with open(os.path.join(results_directory, 'xia2.error'), 'w') as fh:

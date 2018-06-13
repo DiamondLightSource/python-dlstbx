@@ -29,8 +29,7 @@ class ispybtbx(object):
     self.legacy_init()
 
     self.log = logging.getLogger('dlstbx.ispybtbx')
-    api = ispyb.legacy_get_driver(1)
-    self.db = api(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+    self.db = ispyb.legacy_get_driver(1)(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
     self.log.debug('ISPyB objects set up')
 
   def __call__(self, message, parameters):

@@ -1,8 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
-import os
-
 import logging
+import os
 
 import workflows.recipe
 from dials.command_line.find_spots_client import response_to_xml
@@ -12,7 +11,7 @@ from workflows.services.common_service import CommonService
 class DLSPerImageAnalysisSAN(CommonService):
   '''A service that stores and notifies (S&N) for per-image-analysis results.
      Well at least that is what it once did. We now do the storing and notifying properly via ISPyB.
-     It still creates preview images for the first image of a data collection and writes image locations to latest_image_location.txt.
+     It still creates preview images for the first image of a data collection.
   '''
 
   # Human readable service name

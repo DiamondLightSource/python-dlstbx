@@ -34,7 +34,7 @@ import procrunner
 #   ispyb.job 73 -u 1234 -s "completed successfully" -r success
 #   ispyb.job 73 -u 1234 -s "everything is broken" -r failure
 
-def create_processing_job(i, options, i_legacy):
+def create_processing_job(i, options):
   sweeps = []
   for s in options.sweeps:
     match = re.match(r"^([0-9]+):([0-9]+):([0-9]+)$", s)
@@ -57,9 +57,9 @@ def create_processing_job(i, options, i_legacy):
     if not dcid:
       sys.exit("When creating a processing job you must specify at least one data collection sweep or a DCID")
 
-    dc_info = i_legacy.get_datacollection_id(dcid)
-    start = dc_info.get('startImageNumber')
-    number = dc_info.get('numberOfImages')
+    dc_info = i.mx_acquisition.get_data_collection(dcid)
+    start = dc_info.image_start_number
+    number = dc_info.image_count
     if not start or not number:
       sys.exit("Can not automatically infer data collection sweep for this DCID")
     end = start + number - 1
@@ -216,7 +216,6 @@ if __name__ == '__main__':
     sys.exit("Can not update a program when creating a new job ID")
 
   driver = ispyb.legacy_get_driver(1)
-  i_legacy = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
   # because read access is only available with this login
   isp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
   # because stored procedures are only available with that login
@@ -226,7 +225,7 @@ if __name__ == '__main__':
   exit_code = 0
 
   if options.new:
-    rpid = create_processing_job(i, options, i_legacy)
+    rpid = create_processing_job(i, options)
   else:
     rpid = args[0]
 
@@ -257,45 +256,44 @@ if __name__ == '__main__':
       print("Error: Could not update processing status.\n")
       exit_code = 1
 
+  rp = i.mx_processing.get_processing_job(rpid)
   try:
-    rp = i_legacy.get_reprocessing_id(rpid)
+    rp.load()
   except ispyb.exception.ISPyBNoResultException:
     print("Reprocessing ID %s not found" % rpid)
     sys.exit(1)
-  print('''Reprocessing ID {processingJobId}:
+  print('''Reprocessing ID {0.jobid}:
 
-       Name: {displayName}
-     Recipe: {recipe}
-   Comments: {comments}
- Primary DC: {dataCollectionId}
-    Defined: {recordTimestamp}'''.format(**rp))
+       Name: {0.name}
+     Recipe: {0.recipe}
+   Comments: {0.comment}
+ Primary DC: {0.DCID}
+    Defined: {0.timestamp}'''.format(rp))
 
   if options.verbose:
-    params = i_legacy.get_reprocessing_parameters(rpid)
-    if params:
-      maxlen = max(max(map(len, params)), 11)
+    if rp.parameters:
+      maxlen = max(max(map(len, dict(rp.parameters))), 11)
       print("\n Parameters:")
-      print('\n'.join("%%%ds: %%s" % maxlen % (key, params[key]) for key in sorted(params)))
+      print('\n'.join("%%%ds: %%s" % maxlen % (p[0], p[1]) for p in sorted(rp.parameters)))
 
-    print("\n     Sweeps: ", end='')
-    print(('\n' + ' ' * 13).join(map(
-        lambda sweep:
-          "DCID {dataCollectionId:7}  images{startImage:5} -{endImage:5}".format(**sweep),
-        i_legacy.get_reprocessing_sweeps(rpid))))
+    if rp.sweeps:
+      print("\n     Sweeps: ", end='')
+      print(('\n' + ' ' * 13).join(map(
+          lambda sweep:
+            "DCID {0.DCID:7}  images{0.start:5} -{0.end:5}".format(sweep),
+          rp.sweeps)))
 
-  processing_programs = i_legacy.get_processing_instances_for_reprocessing_id(rpid)
-  if processing_programs:
-    print_format = "             {processingPrograms} (#{autoProcProgramId}, {readableStatus})"
-    print_format = "\nProgram #{autoProcProgramId}: {processingPrograms}, {readableStatus}"
+  if rp.programs:
+    print_format = "\nProgram #{0.appid}: {0.program}, {0.status_text}"
 
     if options.verbose:
-      print_format += "\n    Command: {processingCommandLine}"
-      print_format += "\nEnvironment: {processingEnvironment}"
-      print_format += "\n    Defined: {recordTimeStamp}"
-      print_format += "\n    Started: {processingStartTime}"
-      print_format += "\nLast Update: {processingEndTime}"
+      print_format += "\n    Command: {0.command}"
+      print_format += "\nEnvironment: {0.environment}"
+      print_format += "\n    Defined: {0.time_defined}"
+      print_format += "\n    Started: {0.time_start}"
+      print_format += "\nLast Update: {0.time_end}"
 
-    print_format += "\n  Last Info: {processingMessage}"
+    print_format += "\n  Last Info: {0.message}"
 
-    for autoproc_instance in processing_programs:
-      print(print_format.format(**autoproc_instance))
+    for program in rp.programs:
+      print(print_format.format(program))

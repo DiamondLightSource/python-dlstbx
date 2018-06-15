@@ -46,7 +46,7 @@ class DLSPerImageAnalysisSAN(CommonService):
     elif str(image_number) != '1':
       self.log.debug("Not running on subsequent images")
     else:
-      command = ['/bin/bash', '/dls_sw/apps/mx-scripts/bin/img2jpgv15',
+      command = ['/bin/bash', '/dls_sw/apps/mx-scripts/bin/img2jpgv15-zocalo',
                  filename, beamline, str(image_file_number), str(dcid)]
 
       self.log.debug("Running %s", str(command))

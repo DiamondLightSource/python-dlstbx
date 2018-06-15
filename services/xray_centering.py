@@ -7,6 +7,7 @@ import threading
 import time
 import sys
 
+import dlstbx.util.symlink
 import dlstbx.util.xray_centering
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -124,6 +125,9 @@ class DLSXRayCentering(CommonService):
               raise
           with open(parameters['output'], 'w') as fh:
             json.dump(result, fh, sort_keys=True)
+          if parameters.get('results_symlink'):
+            # Create symbolic link above working directory
+            dlstbx.util.symlink.create_parent_symlink(path, parameters['results_symlink'])
 
         # Write human-readable result file
         if parameters.get('log'):

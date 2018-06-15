@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 
+import dlstbx.util.symlink
 import dlstbx.zocalo.wrapper
 import procrunner
 
@@ -160,19 +161,8 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     os.chdir(results_directory)
 
     if params.get('results_symlink'):
-      path_elements = results_directory.split(os.sep)
-
-      # Full path to the symbolic link
-      link_path = os.sep.join(path_elements[:-2] + [params['results_symlink']])
-
-      # Only write symbolic link if a symbolic link is created or overwritten
-      # Do not overwrite real files, do not touch real directories
-      if not os.path.exists(link_path) or os.path.islink(link_path):
-        # because symlink can't be overwritten, create a temporary symlink in the child directory
-        # and then rename on top of potentially existing one in the parent directory.
-        tmp_link = os.sep.join(path_elements[:-1] + ['.tmp.' + params['results_symlink']])
-        os.symlink(os.sep.join(path_elements[-2:]), tmp_link)
-        os.rename(tmp_link, link_path)
+      # Create symbolic link above working directory
+      dlstbx.util.symlink.create_parent_symlink(results_directory, params['results_symlink'])
 
     if not result['exitcode'] and not os.path.isfile('xia2.error') and os.path.exists('xia2.json'):
       self.send_results_to_ispyb()

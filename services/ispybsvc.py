@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import os.path
+import time
 
 import dlstbx.util.gda
 import ispyb
@@ -47,6 +48,14 @@ class DLSISPyB(CommonService):
 
   def receive_msg(self, rw, header, message):
     '''Do something with ISPyB.'''
+
+    if header.get('redelivered') == 'true':
+      # A redelivered message may just have been processed in a parallel instance,
+      # which was connected to a different database server in the DB cluster. If
+      # we were to process it immediately we may run into a DB synchronization
+      # fault. Avoid this by giving the DB cluster a bit of time to settle.
+      self.log.debug('Received redelivered message, holding for a second.')
+      time.sleep(1)
 
     if not rw:
       # Incoming message is not a recipe message. Simple messages can be valid

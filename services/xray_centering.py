@@ -28,25 +28,26 @@ class DLSXRayCentering(CommonService):
     self._centering_data = {}
     self._centering_lock = threading.Lock()
 
+    self._next_garbage_collection = time.time() + 60
     self._register_idle(60, self.garbage_collect)
     workflows.recipe.wrap_subscribe(self._transport, 'reduce.xray_centering',
         self.add_pia_result, acknowledgement=True, exclusive=True, log_extender=self.extend_log)
-#   need to restart AMQ server to enable reduce policy
 
   def garbage_collect(self):
     '''Throw away partial scan results after a while.'''
-#   mostly pointless until reduce policy in place
-#   self.log.debug('Garbage collect')
-
-#    with self._centering_lock:
-    # for dcid in centering_data:
-    #   if last_seen > 15 minutes:
-    #     transaction.start()
-    #     ack_all_messages()
-    #     send_something_to_abort_output()
-    #     transaction.commit()
-    #     remove dcid
-    #     # could do this partially outside of lock, but probably does not matter
+    self._next_garbage_collection = time.time() + 60
+    with self._centering_lock:
+      for dcid in list(self._centering_data):
+        age = time.time() - self._centering_data[dcid]['last_activity']
+        if age > 15 * 60:
+          self.log.info('Expiring X-Ray Centering session for DCID %r', dcid)
+          rw = self._centering_data[dcid]['recipewrapper']
+          txn = rw.transport.transaction_begin()
+          for header in self._centering_data[dcid]['headers']:
+            rw.transport.ack(header, transaction=txn)
+          rw.send_to('abort', {}, transaction=txn)
+          rw.transport.transaction_commit(txn)
+          del self._centering_data[dcid]
 
   def add_pia_result(self, rw, header, message):
     '''Process incoming PIA result.'''
@@ -58,9 +59,7 @@ class DLSXRayCentering(CommonService):
       return
     gridinfo = rw.recipe_step.get('gridinfo', None)
     if not gridinfo or not isinstance(gridinfo, dict):
-      print(gridinfo)
       self.log.error('X-ray centering service called without grid information')
-      sys.exit(1)
       rw.transport.nack(header)
       return
     dcid = int(parameters['dcid'])
@@ -82,6 +81,7 @@ class DLSXRayCentering(CommonService):
             'images_seen': 0,
             'headers': [],
             'data': [],
+            'recipewrapper': rw,
         }
         cd['image_count'] = cd['steps_x'] * cd['steps_y']
         self._centering_data[dcid] = cd
@@ -89,12 +89,9 @@ class DLSXRayCentering(CommonService):
                       '{cd[steps_x]} x {cd[steps_y]} grid, {cd[image_count]} images in total'.format(
                           dcid=dcid, cd=cd))
 
-#     Correct way of handling this requires reduce policy to be in place. x_x
-#     cd['headers'].append(header)
-      rw.transport.ack(header)
-
       cd['images_seen'] += 1
       cd['last_activity'] = time.time()
+      cd['headers'].append(header)
       self.log.debug('Received PIA result for DCID %d image %d, %d of %d expected results',
           dcid, file_number, cd['images_seen'], cd['image_count'])
       cd['data'].append((file_number, spots_count))
@@ -126,18 +123,17 @@ class DLSXRayCentering(CommonService):
           with open(parameters['output'], 'w') as fh:
             json.dump(result, fh, sort_keys=True)
 
-#       transaction.start()
-#       ack_all_messages()
+        # Acknowledge all messages
+        txn = rw.transport.transaction_begin()
+        for h in cd['headers']:
+          rw.transport.ack(h, transaction=txn)
 
         # Send results onwards
         rw.set_default_channel('success')
-        rw.send_to('success', result) # transaction=txn)
-#       transaction.commit()
-
-        print(result)
-        print(output)
+        rw.send_to('success', result, transaction=txn)
+        rw.transport.transaction_commit(txn)
 
         del self._centering_data[dcid]
 
-#   if last_garbage_collection > 60 seconds:
-#     self.garbage_collect()
+    if self._next_garbage_collection < time.time():
+      self.garbage_collect()

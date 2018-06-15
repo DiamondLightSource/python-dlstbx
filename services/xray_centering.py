@@ -103,11 +103,13 @@ class DLSXRayCentering(CommonService):
           numBoxesX=cd['steps_x'],
           numBoxesY=cd['steps_y'],
           snaked=bool(gridinfo.get('snaked')),
+          orientation=gridinfo.get('orientation'),
           boxSizeXPixels=1000 * gridinfo['dx_mm'] / gridinfo['pixelsPerMicronX'],
           boxSizeYPixels=1000 * gridinfo['dy_mm'] / gridinfo['pixelsPerMicronY'],
           topLeft=(float(gridinfo.get('snapshot_offsetXPixel')),
                    float(gridinfo.get('snapshot_offsetYPixel'))),
         )
+        self.log.debug(output)
 
         # Write result file
         if parameters.get('output'):
@@ -122,6 +124,19 @@ class DLSXRayCentering(CommonService):
               raise
           with open(parameters['output'], 'w') as fh:
             json.dump(result, fh, sort_keys=True)
+
+        # Write human-readable result file
+        if parameters.get('log'):
+          path = os.path.dirname(parameters['log'])
+          try:
+            os.makedirs(path)
+          except OSError as exc:
+            if exc.errno == errno.EEXIST and os.path.isdir(path):
+              pass
+            else:
+              raise
+          with open(parameters['log'], 'w') as fh:
+            fh.write(output)
 
         # Acknowledge all messages
         txn = rw.transport.transaction_begin()

@@ -175,3 +175,10 @@ def test_retrieve_reprocessing_information():
   assert param['ispyb_reprocessing_data']['recipe'] == 'xia2-dials'
   assert param['ispyb_reprocessing_data']['recordTimestamp']
   assert param['ispyb_reprocessing_data']['processingJobId'] == 95
+  assert param['ispyb_reprocessing_parameters'] == { 'd_min': '1.7' }
+  assert param['ispyb_reprocessing_sweeps'] == [{
+      'dataCollection': mock.ANY,
+      'dataCollectionId': 1956161,
+      'startImage': 20,
+      'endImage': 580,
+  }]

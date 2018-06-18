@@ -24,6 +24,12 @@ def _prefix_(template):
     return template
   return template.split('#')[0]
 
+def _ispyb_api():
+  if not hasattr(_ispyb_api, 'instance'):
+    setattr(_ispyb_api, 'instance',
+        ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg'))
+  return _ispyb_api.instance
+
 class ispybtbx(object):
   def __init__(self):
     self.legacy_init()
@@ -696,10 +702,11 @@ def ispyb_filter(message, parameters):
 
   message, parameters = i(message, parameters)
 
-  if not 'ispyb_dcid' in parameters:
-    if 'ispyb_reprocessing_data' in parameters and \
-       'dataCollectionId' in parameters['ispyb_reprocessing_data']:
-      parameters['ispyb_dcid'] = parameters['ispyb_reprocessing_data']['dataCollectionId']
+  processingjob_id = parameters.get('ispyb_reprocessing_id', parameters.get('ispyb_process'))
+  if processingjob_id:
+    parameters['ispyb_processing_job'] = _ispyb_api().mx_processing.get_processing_job(processingjob_id)
+    if not 'ispyb_dcid' in parameters:
+      parameters['ispyb_dcid'] = parameters['ispyb_processing_job'].DCID
 
   if not 'ispyb_dcid' in parameters:
     return message, parameters
@@ -736,12 +743,12 @@ def ispyb_filter(message, parameters):
   parameters['ispyb_results_directory'] = i.dc_info_to_results_directory(
     dc_info, '')
 
-  if 'ispyb_reprocessing_data' in parameters and \
-      parameters['ispyb_reprocessing_data']['recipe'] and \
+  if 'ispyb_processing_job' in parameters and \
+      parameters['ispyb_processing_job'].recipe and \
       not message.get('recipes') and \
       not message.get('custom_recipe'):
     # Prefix recipe name coming from ispyb/synchweb with 'ispyb-'
-    message['recipes'] = [ 'ispyb-' + parameters['ispyb_reprocessing_data']['recipe'] ]
+    message['recipes'] = [ 'ispyb-' + parameters['ispyb_processing_job'].recipe ]
     return message, parameters
 
   if dc_class['grid']:

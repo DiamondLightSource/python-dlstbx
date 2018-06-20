@@ -6,7 +6,9 @@
 from __future__ import absolute_import, division, print_function
 
 import base64
+import datetime
 import json
+import socket
 import string
 import sys
 import time
@@ -119,8 +121,16 @@ if __name__ == '__main__':
   if options.follow:
     try:
       while True:
-        for message in g.get_messages(time=options.time):
-          sys.stdout.write(format(message))
+        try:
+          for message in g.get_messages(time=options.time):
+            sys.stdout.write(format(message))
+        except (socket.error, urllib2.URLError) as e:
+          sys.stdout.write(
+              '{DEFAULT}{localtime:%Y-%m-%d %H:%M:%S} Graylog update failed: {exception}\n'.format(
+                  DEFAULT=ColorStreamHandler.DEFAULT,
+                  localtime=datetime.datetime.now(),
+                  exception=str(e),
+          ))
         sys.stdout.flush()
         time.sleep(0.7)
     except KeyboardInterrupt:

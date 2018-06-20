@@ -66,7 +66,7 @@ def main(data, numBoxesX=14, numBoxesY=11, snaked=True, boxSizeXPixels=1.25, box
       rc.append((row, col))
 
   def gridtoindex(g):
-    return data[g[0] * numBoxesX + g[1] + 1]
+    return data[g[0] * numBoxesX + g[1]]
 
   regions, best_region = findRegion(rc, gridtoindex)
   output += "regions: "+str(regions)+"\n"

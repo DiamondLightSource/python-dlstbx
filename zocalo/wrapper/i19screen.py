@@ -51,7 +51,8 @@ class I19ScreenWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if os.path.exists('indexed.pickle'):
       defaultfiles.append('indexed.pickle')
       defaultfiles.append('experiments.json')
-      defaultfiles.append('dials-report.html')
+      if os.path.exists('dials-report.html'):
+        defaultfiles.append('dials-report.html')
     elif os.path.exists('strong.pickle'):
       defaultfiles.append('strong.pickle')
       defaultfiles.append('datablock.json')

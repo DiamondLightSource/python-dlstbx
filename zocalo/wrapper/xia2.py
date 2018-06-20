@@ -176,28 +176,30 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       })
 
     datafiles_path = os.path.join(results_directory, 'DataFiles')
-    for result_file in os.listdir(datafiles_path):
-      file_type = 'result'
-      if result_file.endswith(('.log', '.txt')):
-        file_type = 'log'
-      self.record_result_individual_file({
-        'file_path': datafiles_path,
-        'file_name': result_file,
-        'file_type': file_type,
-      })
-      allfiles.append(os.path.join(datafiles_path, result_file))
+    if os.path.exists(datafiles_path):
+      for result_file in os.listdir(datafiles_path):
+        file_type = 'result'
+        if result_file.endswith(('.log', '.txt')):
+          file_type = 'log'
+        self.record_result_individual_file({
+          'file_path': datafiles_path,
+          'file_name': result_file,
+          'file_type': file_type,
+        })
+        allfiles.append(os.path.join(datafiles_path, result_file))
 
     logfiles_path = os.path.join(results_directory, 'LogFiles')
-    for result_file in os.listdir(logfiles_path):
-      file_type = 'log'
-      if result_file.endswith(('.png',)):
-        file_type = 'graph'
-      self.record_result_individual_file({
-        'file_path': logfiles_path,
-        'file_name': result_file,
-        'file_type': file_type,
-      })
-      allfiles.append(os.path.join(logfiles_path, result_file))
+    if os.path.exists(logfiles_path):
+      for result_file in os.listdir(logfiles_path):
+        file_type = 'log'
+        if result_file.endswith(('.png',)):
+          file_type = 'graph'
+        self.record_result_individual_file({
+          'file_path': logfiles_path,
+          'file_name': result_file,
+          'file_type': file_type,
+        })
+        allfiles.append(os.path.join(logfiles_path, result_file))
 
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })

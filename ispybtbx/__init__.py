@@ -760,6 +760,7 @@ def ispyb_filter(message, parameters):
 
   if dc_class['screen']:
     message['default_recipe'] = ['per-image-analysis-rotation', 'strategy-edna', 'strategy-mosflm', 'strategy-xia2']
+    parameters['ispyb_images'] = ''
     return message, parameters
 
   if not dc_class['rotation']:

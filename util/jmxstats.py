@@ -51,9 +51,11 @@ class JMXAPI(object):
     except AttributeError:
       return JMXAPIPath(attribute, self._call)
 
-  def _call(self, path, *args, **kwargs):
+  def _call(self, path, attribute=None, *args, **kwargs):
     params = ','.join(key + '=' + value for key, value in kwargs.items())
     url = path + ':' + params
+    if attribute:
+      url = url + '/' + attribute
     return self._get(url)
 
   def _get(self, url):
@@ -71,9 +73,9 @@ if __name__ == "__main__":
    from pprint import pprint
    mem = jmx.java.lang(type="Memory")
    pprint(mem)
-   consumers = jmx.org.apache.activemq(type="Broker", brokerName="localhost/TotalConsumerCount")
+   consumers = jmx.org.apache.activemq(type="Broker", brokerName="localhost", attribute="TotalConsumerCount")
    pprint(consumers)
    health = jmx.org.apache.activemq(type="Broker", brokerName="localhost", service="Health")
    pprint(health)
-   queuestats = jmx.org.apache.activemq(type="Broker", brokerName="localhost", destinationType="Queue", destinationName="zocalo.transient.controller")
+   queuestats = jmx.org.apache.activemq(type="Broker", brokerName="localhost", destinationType="Queue", destinationName="zocalo.transient.controller", attribute="QueueSize")
    pprint(queuestats)

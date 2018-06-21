@@ -101,11 +101,18 @@ class DLSFileWatcher(CommonService):
     # Are we done?
     if status['seen-files'] == filecount:
       # Happy days
+
+      extra_log = { "delay": time.time()-status['start-time'] }
+      if rw.recipe_step['parameters'].get('expected-per-image-delay'):
+        # Estimate unexpected delay
+        expected_delay = float(rw.recipe_step['parameters']['expected-per-image-delay']) * filecount
+        extra_log['unexpected_delay'] = max(0, extra_log['delay'] - expected_delay)
+
       self.log.info("All %d files found for %s after %.1f seconds.",
         filecount,
         rw.recipe_step['parameters']['pattern'],
         time.time()-status['start-time'],
-        extra={"delay": time.time()-status['start-time']})
+        extra=extra_log)
 
       # Notify for 'finally' outcome
       rw.send_to('finally', {

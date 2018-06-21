@@ -6,6 +6,22 @@ import time
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
+def is_file_selected(file_number, selection, total_files):
+  '''Checks if item number 'file_number' is in a list of 'selection'
+     evenly spread out items out of a list of 'total_files' items,
+     without constructing the full list of selected items.
+
+     :param: file_number: positive number between 1 and total_files
+     :param: selection: number of files to be selected out of total_files
+     :param: total_files: number of total files
+     :return: True if file_number would be selected, False otherwise.
+  '''
+  return total_files <= selection or \
+      file_number in (
+          total_files,
+          1 + round(file_number * (selection-1) // total_files) * total_files // (selection-1),
+      )
+
 class DLSFileWatcher(CommonService):
   '''A service that waits for files to arrive on disk and notifies interested
      parties when they do, or don't.'''
@@ -92,10 +108,7 @@ class DLSFileWatcher(CommonService):
 
       # Notify for selections
       for m, dest in selections.iteritems():
-        if status['seen-files'] in (
-            filecount,
-            1 + round(status['seen-files'] * (m-1) // filecount) \
-                * filecount // (m-1)):
+        if is_file_selected(status['seen-files'], m, filecount):
           rw.send_to(dest, notification_record, transaction=txn)
 
     # Are we done?

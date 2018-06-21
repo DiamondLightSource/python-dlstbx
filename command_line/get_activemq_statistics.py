@@ -17,22 +17,22 @@ class ActiveMQAPI(object):
     # curl -XGET --user rrdapi:**password** http://cs04r-sc-vserv-69:80/api/jolokia/list | python -m json.tool
 
   def getStorePercentUsage(self):
-    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost/StorePercentUsage")
+    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost", attribute="StorePercentUsage")
     assert result['status'] == 200
     return result['value']
 
   def getTempPercentUsage(self):
-    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost/TempPercentUsage")
+    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost", attribute="TempPercentUsage")
     assert result['status'] == 200
     return result['value']
 
   def getMemoryPercentUsage(self):
-    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost/MemoryPercentUsage")
+    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost", attribute="MemoryPercentUsage")
     assert result['status'] == 200
     return result['value']
 
   def getConnectionsCount(self):
-    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost/CurrentConnectionsCount")
+    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost", attribute="CurrentConnectionsCount")
     assert result['status'] == 200
     return result['value']
 

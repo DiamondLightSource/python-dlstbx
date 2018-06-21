@@ -137,7 +137,7 @@ class DLSFileWatcher(CommonService):
       self._transport.transaction_commit(txn)
       return
 
-    message_delay = None
+    message_delay = rw.recipe_step['parameters'].get('burst-wait')
     if files_found == 0:
       # If no files were found, check timeout conditions.
       if status['seen-files'] == 0:
@@ -178,7 +178,10 @@ class DLSFileWatcher(CommonService):
         return
 
       # If no timeouts are triggered, set a minimum waiting time.
-      message_delay = 1
+      if message_delay:
+        message_delay = max(1, message_delay)
+      else:
+        message_delay = 1
       self.log.debug("No files found this time")
     else:
       # Otherwise note last time progress was made

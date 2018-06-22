@@ -45,7 +45,8 @@ class FilewatcherService(CommonSystemTest):
                          'select-30': 5, # Select
                          '20': 6,        # Specific
                          'finally': 7,   # End-of-job
-                         'timeout': 8    # Should not be triggered here
+                         'timeout': 8,   # Should not be triggered here
+                         'any': 9,       # End-of-job if at least one file was found
                        }
            },
         2: { 'queue': 'transient.system_test.' + self.guid + '.pass.2' },
@@ -55,6 +56,7 @@ class FilewatcherService(CommonSystemTest):
         6: { 'queue': 'transient.system_test.' + self.guid + '.pass.6' },
         7: { 'queue': 'transient.system_test.' + self.guid + '.pass.7' },
         8: { 'queue': 'transient.system_test.' + self.guid + '.pass.8' },
+        9: { 'queue': 'transient.system_test.' + self.guid + '.pass.9' },
         'start': [ (1, '') ]
       }
     recipe = Recipe(recipe)
@@ -156,6 +158,18 @@ class FilewatcherService(CommonSystemTest):
 
     # No timeout message should be sent
 
+    # Any ==============================
+
+    self.expect_recipe_message(
+      environment={ 'ID': self.guid },
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=9,
+      payload={ 'files-expected': 200,
+                'files-seen': 200 },
+      min_wait=65,
+      timeout=150,
+    )
 
   def test_failure_notification_immediate(self):
     '''Send a recipe to the filewatcher. Do not create any files and wait for
@@ -181,7 +195,8 @@ class FilewatcherService(CommonSystemTest):
                          'select-30': 5, # Should not be triggered here
                          '20': 6,        # Should not be triggered here
                          'finally': 7,   # End-of-job
-                         'timeout': 8    # Ran into a timeout condition
+                         'timeout': 8,   # Ran into a timeout condition
+                         'any': 9,       # Should not be triggered here
                        }
            },
         2: { 'queue': 'transient.system_test.' + self.guid + '.fail.2' },
@@ -191,6 +206,7 @@ class FilewatcherService(CommonSystemTest):
         6: { 'queue': 'transient.system_test.' + self.guid + '.fail.6' },
         7: { 'queue': 'transient.system_test.' + self.guid + '.fail.7' },
         8: { 'queue': 'transient.system_test.' + self.guid + '.fail.8' },
+        9: { 'queue': 'transient.system_test.' + self.guid + '.fail.9' },
         'start': [ (1, '') ]
       }
     recipe = Recipe(recipe)
@@ -227,7 +243,6 @@ class FilewatcherService(CommonSystemTest):
       timeout=80,
     )
 
-
     # Timeout ==========================
 
     self.expect_recipe_message(
@@ -239,6 +254,11 @@ class FilewatcherService(CommonSystemTest):
       min_wait=55,
       timeout=80,
     )
+
+    # Any ==============================
+
+    # No messages should be sent
+
 
   def create_delayed_failure_file(self):
     '''Create one file for the test.'''
@@ -269,7 +289,8 @@ class FilewatcherService(CommonSystemTest):
                          'select-30': 5, # Should not be triggered here
                          '20': 6,        # Should not be triggered here
                          'finally': 7,   # End-of-job
-                         'timeout': 8    # Ran into a timeout condition
+                         'timeout': 8,   # Ran into a timeout condition
+                         'any': 9,       # End-of-job if at least one file was found
                        }
            },
         2: { 'queue': 'transient.system_test.' + self.guid + '.semi.2' },
@@ -279,6 +300,7 @@ class FilewatcherService(CommonSystemTest):
         6: { 'queue': 'transient.system_test.' + self.guid + '.semi.6' },
         7: { 'queue': 'transient.system_test.' + self.guid + '.semi.7' },
         8: { 'queue': 'transient.system_test.' + self.guid + '.semi.8' },
+        9: { 'queue': 'transient.system_test.' + self.guid + '.semi.9' },
         'start': [ (1, '') ]
       }
     recipe = Recipe(recipe)
@@ -351,6 +373,19 @@ class FilewatcherService(CommonSystemTest):
       min_wait=25,
       timeout=55,
     )
+
+    # Any ==============================
+
+    self.expect_recipe_message(
+      environment={ 'ID': self.guid },
+      recipe=recipe,
+      recipe_path=[ 1 ],
+      recipe_pointer=9,
+      payload={ 'files-expected': 200, 'files-seen': 1 },
+      min_wait=25,
+      timeout=55,
+    )
+
 
 if __name__ == "__main__":
   FilewatcherService().validate()

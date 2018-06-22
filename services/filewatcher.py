@@ -127,7 +127,10 @@ class DLSFileWatcher(CommonService):
         time.time()-status['start-time'],
         extra=extra_log)
 
-      # Notify for 'finally' outcome
+      rw.send_to('any', {
+                    'files-expected': filecount,
+                    'files-seen': status['seen-files'],
+                 }, transaction=txn)
       rw.send_to('finally', {
                     'files-expected': filecount,
                     'files-seen': status['seen-files'],
@@ -168,6 +171,13 @@ class DLSFileWatcher(CommonService):
                         'file-number': status['seen-files'] + 1,
                         'file-pattern-index': pattern_start + status['seen-files'],
                         'success': False }, transaction=txn)
+        # Notify for 'any' target if any file was seen
+        if status['seen-files']:
+          rw.send_to('any', {
+                  'files-expected': filecount,
+                  'files-seen': status['seen-files'],
+              }, transaction=txn)
+
         # Notify for 'finally' outcome
         rw.send_to('finally', {
                       'files-expected': filecount,

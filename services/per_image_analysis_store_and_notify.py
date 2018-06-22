@@ -41,8 +41,8 @@ class DLSPerImageAnalysisSAN(CommonService):
     dcid = rw.recipe_step.get('parameters', {}).get('dcid', '')
 
     beamline = filename.split(os.path.sep)[2]
-    if beamline in ('mx', 'i19-1', 'i19-2'):
-      self.log.debug("Not running on VMXi or i19 data")
+    if beamline in ('mx',):
+      self.log.debug("Not running on VMXi data")
     elif str(image_number) != '1':
       self.log.debug("Not running on subsequent images")
     else:

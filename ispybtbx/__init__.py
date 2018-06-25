@@ -447,29 +447,23 @@ WHERE
 
     return os.sep.join(directory.split(os.sep)[:6]).strip()
 
-  def dc_info_to_working_directory(self, dc_info, taskname):
+  def dc_info_to_working_directory(self, dc_info):
     prefix = _prefix_(dc_info.get('fileTemplate'))
     if not prefix: return None
     directory = dc_info['imageDirectory']
     visit = self.data_folder_to_visit(directory)
     rest = directory.replace(visit, '')
     root = _clean_(os.sep.join([visit, 'tmp', 'zocalo', rest, prefix]))
-    if taskname:
-      return os.path.join(root, '%s-%s' % (taskname, dc_info['uuid']))
-    else:
-      return os.path.join(root, dc_info['uuid'])
+    return os.path.join(root, dc_info['uuid'])
 
-  def dc_info_to_results_directory(self, dc_info, taskname):
+  def dc_info_to_results_directory(self, dc_info):
     prefix = _prefix_(dc_info.get('fileTemplate'))
     if not prefix: return None
     directory = dc_info['imageDirectory']
     visit = self.data_folder_to_visit(directory)
     rest = directory.replace(visit, '')
     root = _clean_(os.sep.join([visit, 'processed', rest, prefix]))
-    if taskname:
-      return os.path.join(root, '%s-%s' % (taskname, dc_info['uuid']))
-    else:
-      return os.path.join(root, dc_info['uuid'])
+    return os.path.join(root, dc_info['uuid'])
 
   def insert_screening_results(self, dc_id, values):
     keys = (
@@ -717,7 +711,7 @@ def ispyb_filter(message, parameters):
   dc_id = parameters['ispyb_dcid']
 
   dc_info = i.get_dc_info(dc_id)
-  dc_info['uuid'] = str(uuid.uuid4())
+  dc_info['uuid'] = parameters.get('guid') or str(uuid.uuid4())
   parameters['ispyb_beamline'] = i.get_beamline_from_dcid(dc_id)
   parameters['ispyb_dc_info'] = dc_info
   dc_class = i.classify_dc(dc_info)
@@ -738,10 +732,8 @@ def ispyb_filter(message, parameters):
   if not parameters.get('ispyb_image') and start is not None and end is not None:
     parameters['ispyb_image'] = '%s:%d:%d' % (i.dc_info_to_filename(dc_info),
                                               start, end)
-  parameters['ispyb_working_directory'] = i.dc_info_to_working_directory(
-    dc_info, '')
-  parameters['ispyb_results_directory'] = i.dc_info_to_results_directory(
-    dc_info, '')
+  parameters['ispyb_working_directory'] = i.dc_info_to_working_directory(dc_info)
+  parameters['ispyb_results_directory'] = i.dc_info_to_results_directory(dc_info)
 
   if 'ispyb_processing_job' in parameters and \
       parameters['ispyb_processing_job'].recipe and \

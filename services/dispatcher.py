@@ -88,14 +88,11 @@ class DLSDispatcher(CommonService):
       self._transport.nack(header)
       return
 
-    # Generate merged and individual recipe IDs if required.
-    # 'guid' is a recipe-individual ID,
-    # 'guid_merged' is identical across all recipes started at the same time,
-    # and is attached to log records.
-    # If 'guid' is already defined it overrides both.
-    generate_individual_recipe_guids = not parameters.get('guid')
+    # Unless 'guid' is already defined then generate a unique recipe IDs for
+    # this request, which is attached to all downstream log records and can
+    # be used to determine unique file paths.
     recipe_id = parameters.get('guid') or str(uuid.uuid4())
-    parameters['guid_merged'] = recipe_id
+    parameters['guid'] = recipe_id
 
     # From here on add the global ID to all log messages
     with self.extend_log('recipe_ID', recipe_id):
@@ -141,8 +138,6 @@ class DLSDispatcher(CommonService):
       full_recipe = workflows.recipe.Recipe()
       for recipe in recipes:
         recipe.validate()
-        if generate_individual_recipe_guids:
-          parameters['guid'] = str(uuid.uuid4())
         recipe.apply_parameters(parameters)
         full_recipe = full_recipe.merge(recipe)
 

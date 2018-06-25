@@ -201,7 +201,7 @@ class DLSISPyB(CommonService):
       self.log.error('DataCollectionID missing from recipe')
       return { 'success': False }
 
-    params['image_number'] = message.get('file-number')
+    params['image_number'] = message.get('file-pattern-index', message.get('file-number'))
     if not params['image_number']:
       self.log.error('Image number missing from message')
       return { 'success': False }

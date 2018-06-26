@@ -84,8 +84,8 @@ class QueueStatus():
         if self.last_gather + self.gather_interval < time.time():
           self.gather()
 
-      # Check if screen was re-sized (True or False)
-      resize = curses.is_term_resized(curs_y, curs_x)
+        # Check if screen was re-sized (True or False)
+        resize = curses.is_term_resized(curs_y, curs_x)
 
         # Redraw in new layout if terminal window has been resized
         stdscr.clear()

@@ -12,11 +12,10 @@ import re
 import sys
 import threading
 import time
-import uuid
 from optparse import SUPPRESS_HELP, OptionParser
 
-import workflows
-import workflows.transport
+import dlstbx.util.jmxstats
+jmx = dlstbx.util.jmxstats.JMXAPI()
 
 locale.setlocale(locale.LC_ALL, '')
 
@@ -29,28 +28,6 @@ class QueueStatus():
   status = {}
   lock = threading.Lock()
 
-  # Unique ID for this queue status monitor
-  uuid = str(uuid.uuid4())
-  report_queue = 'transient.qmonitor.' + uuid
-  namespace = ''
-
-  def __init__(self, transport=None):
-    '''Set up monitor and connect to the network transport layer'''
-    if transport is None or isinstance(transport, basestring):
-      self._transport = workflows.transport.lookup(transport)()
-    else:
-      self._transport = transport()
-    assert self._transport.connect(), "Could not connect to transport layer"
-    self._transport.subscribe(self.report_queue, self.process_report, transformation=True)
-#   self._transport.subscribe_broadcast('ActiveMQ.Advisory.>', self.activemq_advisory, ignore_namespace=True)
-
-    try:
-      # Get namespace for introspection
-      self.namespace = self._transport.get_namespace() + '.'
-    except AttributeError:
-      # use '' if get_namespace() is not offered by this transport method
-      self.namespace = ''
-
   def run(self):
     '''A wrapper for the real _run() function to cleanly enable/disable the
        curses environment.'''
@@ -58,8 +35,20 @@ class QueueStatus():
 
   def gather(self):
     self.last_gather = time.time()
-    self._transport.broadcast('ActiveMQ.Statistics.Destination.' + self.namespace + 'transient.status', '', headers = { 'JMSReplyTo': self.namespace + self.report_queue }, ignore_namespace=True )
-    self._transport.send('ActiveMQ.Statistics.Destination.' + self.namespace + '>', '', headers = { 'JMSReplyTo': self.namespace + self.report_queue }, ignore_namespace=True )
+    queues = jmx.org.apache.activemq(type="Broker", brokerName="localhost", destinationType="Queue", destinationName="*")
+    if 'value' in queues:
+      for destination in queues['value']:
+        queues['value'][destination]
+        dest = destination[destination.index('destinationName='):]
+        dest = (dest.split(',')[0])[16:]
+        self.process_report(queues['value'][destination], destination, dest)
+    topics = jmx.org.apache.activemq(type="Broker", brokerName="localhost", destinationType="Topic", destinationName="*")
+    if 'value' in topics:
+      for destination in topics['value']:
+        topics['value'][destination]
+        dest = destination[destination.index('destinationName='):]
+        dest = (dest.split(',')[0])[16:]
+        self.process_report(topics['value'][destination], destination, dest)
 
   @staticmethod
   def formatnumber(stdscr, number):
@@ -95,8 +84,8 @@ class QueueStatus():
         if self.last_gather + self.gather_interval < time.time():
           self.gather()
 
-        # Check if screen was re-sized (True or False)
-        resize = curses.is_term_resized(curs_y, curs_x)
+      # Check if screen was re-sized (True or False)
+      resize = curses.is_term_resized(curs_y, curs_x)
 
         # Redraw in new layout if terminal window has been resized
         stdscr.clear()
@@ -211,37 +200,22 @@ class QueueStatus():
     except KeyboardInterrupt:
       return
 
-  def process_report(self, header, message):
-    report = {}
-    for entry in message['map']['entry']:
-      if 'string' in entry:
-        if isinstance(entry['string'], list):
-          name = entry['string'].pop(0)
-        else:
-          name = entry['string']
-          del(entry['string'])
-      if len(entry) == 1:
-        value_type = next(entry.iterkeys())
-        report[name] = next(entry.itervalues())
-        if value_type in ('long', 'int'):
-          report[name] = int(report[name])
-        if isinstance(report[name], list) and len(report[name]) == 1:
-          report[name] = report[name][0]
-      else:
-        report[name] = entry
-    destination = report.get('destinationName')
-    if not destination: return
-    if destination.endswith(self.report_queue): return
-
+  def process_report(self, report, destination, dest):
     self.last_gather = time.time()
-
-    shortdest = destination.replace('queue://' + self.namespace, '').replace('topic://' + self.namespace, '').replace('uk.ac.diamond.', 'u.a.d.').replace('transient.', 't.')
+    shortdest = dest.replace('uk.ac.diamond.', 'u.a.d.').replace('transient.', 't.')
     shortdest = re.sub('([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', '\\1-(..)', shortdest)
     report['shortdest'] = shortdest
     report['last-seen'] = time.time()
 
     with self.lock:
       last_status = self.status.get(destination, {})
+      report['size'] = report['QueueSize']
+      report['enqueueCount'] = report['EnqueueCount']
+      report['dequeueCount'] = report['DequeueCount']
+      report['consumerCount'] = report['ConsumerCount']
+      report['producerCount'] = report['ProducerCount']
+      report['inflightCount'] = report['InFlightCount']
+      report['destinationName'] = destination
       for key in ('size', 'enqueueCount', 'dequeueCount', 'consumerCount', 'producerCount', 'inflightCount'):
         if key in last_status:
           report['change-' + key] = report.get(key, 0) - last_status[key]
@@ -313,19 +287,12 @@ if __name__ == '__main__':
     usage='dlstbx.queue_monitor [options]'
   )
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-  parser.add_option("-t", "--transport", dest="transport", metavar="TRN",
-      default="stomp", help="Transport mechanism, default '%default'")
 
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
   if '--test' in sys.argv:
     default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
 
-  # override default stomp host
-  from workflows.transport.stomp_transport import StompTransport
-  StompTransport.load_configuration_file(default_configuration)
-
-  workflows.transport.add_command_line_options(parser)
   (options, args) = parser.parse_args()
 
-  QueueStatus(transport=options.transport).run()
+  QueueStatus().run()

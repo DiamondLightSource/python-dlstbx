@@ -10,8 +10,8 @@ from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.rrdtool import RRDTool
 
 class ActiveMQAPI(object):
-  def __init__(self, configuration_file):
-    self.jmx = dlstbx.util.jmxstats.JMXAPI(configuration_file)
+  def __init__(self):
+    self.jmx = dlstbx.util.jmxstats.JMXAPI()
 
     # List of supported variables:
     # curl -XGET --user rrdapi:**password** http://cs04r-sc-vserv-69:80/api/jolokia/list | python -m json.tool
@@ -85,7 +85,7 @@ def setup_logging(level=logging.INFO):
   logging.getLogger('dlstbx').setLevel(level)
 
 setup_logging(logging.INFO)
-amq = ActiveMQAPI('/dls_sw/apps/zocalo/secrets/credentials-jmx-access.cfg')
+amq = ActiveMQAPI()
 
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.get_activemq_statistics [options]",

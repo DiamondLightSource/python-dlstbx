@@ -32,7 +32,7 @@ class JMXAPIPath(object):
 class JMXAPI(object):
   '''Access to JMX via the Joloika/REST API to obtain monitoring information
      from a running JVM.'''
-  def __init__(self, configfile):
+  def __init__(self, configfile='/dls_sw/apps/zocalo/secrets/credentials-jmx-access.cfg'):
     cfgparser = ConfigParser.ConfigParser(allow_no_value=True)
     if not cfgparser.read(configfile):
       raise RuntimeError('Could not read from configuration file %s' % configfile)
@@ -69,7 +69,7 @@ class JMXAPI(object):
     return json.load(handler)
 
 if __name__ == "__main__":
-   jmx = JMXAPI('/dls_sw/apps/zocalo/secrets/credentials-jmx-access.cfg')
+   jmx = JMXAPI()
    from pprint import pprint
    mem = jmx.java.lang(type="Memory")
    pprint(mem)

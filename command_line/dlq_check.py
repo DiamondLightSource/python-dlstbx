@@ -13,8 +13,7 @@ import dlstbx.util.jmxstats
 def check_dlq(namespace=None):
   '''Monitor ActiveMQ queue activity.'''
 
-  configfile = '/dls_sw/apps/zocalo/secrets/credentials-jmx-access.cfg'
-  jmx = dlstbx.util.jmxstats.JMXAPI(configfile)
+  jmx = dlstbx.util.jmxstats.JMXAPI()
   if namespace:
     namespace = namespace + "."
   else:
@@ -24,7 +23,8 @@ def check_dlq(namespace=None):
       type="Broker",
       brokerName="localhost",
       destinationType="Queue",
-      destinationName="DLQ.%s*" % namespace)
+      destinationName="DLQ.%s*" % namespace,
+      attribute="QueueSize")
   if result['status'] == 404:
     return {}
   assert result['status'] == 200, result

@@ -61,8 +61,11 @@ class DLSXRayCentering(CommonService):
     gridinfo = rw.recipe_step.get('gridinfo', None)
     if not gridinfo or not isinstance(gridinfo, dict):
       self.log.error('X-ray centering service called without grid information')
-      rw.transport.ack(header) ### Temporarily accept (=ignore) those 1x1 grid scans without information
-                               ### until MXSW-841 is fixed.
+      ### Temporarily accept (=ignore) those 1x1 grid scans without information
+      ### until https://jira.diamond.ac.uk/browse/I04_1-320
+      ### or https://jira.diamond.ac.uk/browse/MXSW-841
+      ### is fixed. #TODO
+      rw.transport.ack(header)
 #     rw.transport.nack(header)
       return
     dcid = int(parameters['dcid'])

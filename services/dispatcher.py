@@ -49,7 +49,7 @@ class DLSDispatcher(CommonService):
     self._transport.subscribe('processing_recipe', self.process, acknowledgement=True)
 
   def record_to_logbook(self, guid, header, message, recipewrap):
-    basepath = os.path.join(self._logbook, time.strftime('%Y-%m-%d'))
+    basepath = os.path.join(self._logbook, time.strftime('%Y-%m'))
     clean_guid = re.sub('[^a-z0-9A-Z\-]+', '', guid, re.UNICODE)
     if not clean_guid or len(clean_guid) < 3:
       self.log.warning('Message with non-conforming guid %s not written to logbook', guid)

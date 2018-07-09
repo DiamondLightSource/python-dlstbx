@@ -51,7 +51,7 @@ if __name__ == '__main__':
   parser.add_option("--test", action="store_true", dest="test", default=False,
       help="Run in ActiveMQ testing (zocdev) namespace")
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
-  allow_stomp_fallback = True # and not any('stomp' in s.lower() for s in sys.argv)
+  allow_stomp_fallback = not any('stomp' in s.lower() for s in sys.argv)
   if '--test' in sys.argv:
     default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
     allow_stomp_fallback = False

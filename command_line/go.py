@@ -6,17 +6,15 @@
 from __future__ import absolute_import, division, print_function
 
 import json
+import os
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
+from pprint import pprint
 
 import workflows
 from workflows.transport.stomp_transport import StompTransport
 
 # Example: dlstbx.go -r example-xia2 527189
-
-def lazy_pprint(*args, **kwargs):
-  from pprint import pprint
-  pprint(*args, **kwargs)
 
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.go [options] dcid",
@@ -50,19 +48,45 @@ if __name__ == '__main__':
       action="store_true", default=False,
       help="Show raw message before sending")
 
-  parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
+  parser.add_option("--test", action="store_true", dest="test", default=False,
+      help="Run in ActiveMQ testing (zocdev) namespace")
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
+  allow_stomp_fallback = True # and not any('stomp' in s.lower() for s in sys.argv)
   if '--test' in sys.argv:
     default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
+    allow_stomp_fallback = False
   # override default stomp host
   try:
     StompTransport.load_configuration_file(default_configuration)
   except workflows.Error as e:
     print("Error: %s\n" % str(e))
+    allow_stomp_fallback = False
 
   StompTransport.add_command_line_options(parser)
   (options, args) = parser.parse_args(sys.argv[1:])
-  stomp = StompTransport()
+
+  def send_to_stomp_or_defer(message):
+    if options.verbose:
+      pprint(message)
+    try:
+      stomp = StompTransport()
+      stomp.connect()
+      stomp.send('processing_recipe', message)
+    except (KeyboardInterrupt, SyntaxError, AssertionError, AttributeError, ImportError, TypeError, ValueError):
+      raise
+    except Exception as e:
+      if not allow_stomp_fallback:
+        raise
+      print("\n\n")
+      import traceback
+      traceback.print_exc()
+      print("\n\nAttempting to store message in fallback location")
+      message_serialized = json.dumps(message, indent=2) + "\n"
+      import uuid
+      fallback = os.path.join('/dls_sw/apps/zocalo/dropfiles', str(uuid.uuid4()))
+      with open(fallback, 'w') as fh:
+        fh.write(message_serialized)
+      print("Message successfully stored in %s" % fallback)
 
   message = { 'recipes': options.recipe,
               'parameters': {},
@@ -82,13 +106,7 @@ if __name__ == '__main__':
     if options.recipefile:
       print("Running recipe from file", options.recipefile)
     print("without specified data collection.")
-    if options.verbose:
-      lazy_pprint(message)
-    stomp.connect()
-    stomp.send(
-      'processing_recipe',
-      message
-    )
+    send_to_stomp_or_defer(message)
     print("\nSubmitted.")
     sys.exit(0)
 
@@ -108,13 +126,7 @@ if __name__ == '__main__':
     if options.recipe:
       print("Running recipes", options.recipe)
     message['parameters']['ispyb_process'] = dcid
-    if options.verbose:
-      lazy_pprint(message)
-    stomp.connect()
-    stomp.send(
-      'processing_recipe',
-      message
-    )
+    send_to_stomp_or_defer(message)
     print("\nReprocessing task submitted for ID %d." % dcid)
     sys.exit(0)
 
@@ -143,11 +155,5 @@ if __name__ == '__main__':
     assert apsid > 0, "Invalid auto processing scaling ID given."
     message['parameters']['ispyb_autoprocscalingid'] = apsid
 
-  if options.verbose:
-    lazy_pprint(message)
-  stomp.connect()
-  stomp.send(
-    'processing_recipe',
-    message
-  )
+  send_to_stomp_or_defer(message)
   print("\nSubmitted.")

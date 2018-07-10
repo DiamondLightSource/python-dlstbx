@@ -41,6 +41,9 @@ if __name__ == '__main__':
   parser.add_option("--not", dest="disable",
       action="append", default=[],
       help="Do not run this recipe. Only evaluated when --default is used")
+  parser.add_option("--drop", dest="dropfile",
+      action="store_true", default=False,
+      help=SUPPRESS_HELP) # Write directly to file, do not attempt to send via stomp
   parser.add_option("-p", "--reprocessing", dest="reprocess",
       action="store_true", default=False,
       help="Means a reprocessing ID is given rather than a data collection ID")
@@ -65,9 +68,19 @@ if __name__ == '__main__':
   StompTransport.add_command_line_options(parser)
   (options, args) = parser.parse_args(sys.argv[1:])
 
+  def write_message_to_dropfile(message):
+    message_serialized = json.dumps(message, indent=2) + "\n"
+    import uuid
+    fallback = os.path.join('/dls_sw/apps/zocalo/dropfiles', str(uuid.uuid4()))
+    with open(fallback, 'w') as fh:
+      fh.write(message_serialized)
+    print("Message successfully stored in %s" % fallback)
+
   def send_to_stomp_or_defer(message):
     if options.verbose:
       pprint(message)
+    if allow_stomp_fallback and options.dropfile:
+      return write_message_to_dropfile(message)
     try:
       stomp = StompTransport()
       stomp.connect()
@@ -81,12 +94,7 @@ if __name__ == '__main__':
       import traceback
       traceback.print_exc()
       print("\n\nAttempting to store message in fallback location")
-      message_serialized = json.dumps(message, indent=2) + "\n"
-      import uuid
-      fallback = os.path.join('/dls_sw/apps/zocalo/dropfiles', str(uuid.uuid4()))
-      with open(fallback, 'w') as fh:
-        fh.write(message_serialized)
-      print("Message successfully stored in %s" % fallback)
+      write_message_to_dropfile(message)
 
   message = { 'recipes': options.recipe,
               'parameters': {},

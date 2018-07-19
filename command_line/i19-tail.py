@@ -9,7 +9,6 @@ import sys
 import threading
 import time
 import procrunner
-from pprint import pprint
 
 start = time.time()
 
@@ -36,7 +35,7 @@ def ensure_we_are_in_visit_directory():
   os.chdir('zocalo')
 
 def header(text):
-  print()
+  print("\n" * 3)
   print(text)
   print('=' * len(text))
 
@@ -52,7 +51,6 @@ def recursively_find_most_current_directory(base):
   if 'i19.screen' in entries:
     return os.path.join(base, 'i19.screen')
 
-  print(base, ':', entries)
   dir_ages = { directory: os.path.getmtime(directory)
                for directory in (os.path.join(base, entry) for entry in entries) }
   newest_entry = (None, 0)
@@ -89,22 +87,25 @@ class tail_log(threading.Thread):
       else:
         if self._closing: break
     la.flush()
-    print("\nTHREAD TERMINATED!\n")
+    print("." * 76)
 
 active_tail = None
-next_i19_log = None
+waiting_for_log = None
 try:
   while time.time() < start + (24 * 3600): # Set up a 24hr runtime limit
-    pprint(threading.enumerate())
-    if not next_i19_log:
-      next_i19_log = recursively_find_most_current_directory(base_directory)
-    if next_i19_log:
+    new_i19_log = recursively_find_most_current_directory(base_directory)
+    if new_i19_log:
       if active_tail:
         active_tail.close()
         active_tail = None
-      if os.path.exists(os.path.join(next_i19_log, 'i19.screen.log')):
-        active_tail = tail_log(next_i19_log)
-        next_i19_log = None
+      waiting_for_log = new_i19_log
+      if not os.path.exists(os.path.join(waiting_for_log, 'i19.screen.log')):
+        print("\n\n\nNew i19.screen directory found at %s, waiting for new log to appear" % \
+            os.path.dirname(os.path.dirname(waiting_for_log)))
+    if waiting_for_log:
+      if os.path.exists(os.path.join(waiting_for_log, 'i19.screen.log')):
+        active_tail = tail_log(waiting_for_log)
+        waiting_for_log = None
     time.sleep(5)
 except KeyboardInterrupt:
   print()

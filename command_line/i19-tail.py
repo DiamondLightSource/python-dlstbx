@@ -2,13 +2,13 @@ from __future__ import absolute_import, division, print_function
 
 # LIBTBX_SET_DISPATCHER_NAME i19.tail
 
+import codecs
 import os
 import re
 import select
 import sys
 import threading
 import time
-import procrunner
 
 start = time.time()
 
@@ -65,6 +65,30 @@ def recursively_find_most_current_directory(base):
     most_recent_dir = newest_entry
     return recursively_find_most_current_directory(most_recent_dir[0])
 
+class _LineAggregator(object):
+  '''Buffer that can be filled with stream data and will aggregate complete
+     lines.'''
+  def __init__(self):
+    '''Create aggregator object.'''
+    self._buffer = ''
+    self._decoder = codecs.getincrementaldecoder('utf-8')('replace')
+  def add(self, data):
+    '''Add a single character to buffer. If one or more full lines are found,
+       print them (if desired) and pass to callback function.'''
+    data = self._decoder.decode(data)
+    if not data: return
+    self._buffer += data
+    if '\n' in data:
+      to_print, remainder = self._buffer.rsplit('\n')
+      print(to_print)
+      self._buffer = remainder
+  def flush(self):
+    '''Print/send any remaining data to callback function.'''
+    self._buffer += self._decoder.decode(b'', final=True)
+    if self._buffer:
+        print(self._buffer)
+    self._buffer = ''
+
 class tail_log(threading.Thread):
   def __init__(self, path):
     threading.Thread.__init__(self)
@@ -78,14 +102,12 @@ class tail_log(threading.Thread):
     self._closing = True
 
   def run(self):
-    la = procrunner._LineAggregator(print_line=True, callback=None)
+    la = _LineAggregator()
     while not self._closing:
       if select.select([self._fh], [], [], 0.1)[0]:
         char = self._fh.read(1)
         if char:
           la.add(char)
-      else:
-        if self._closing: break
     la.flush()
     print("." * 76)
 

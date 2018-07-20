@@ -93,23 +93,28 @@ class tail_log(threading.Thread):
   def __init__(self, path):
     threading.Thread.__init__(self)
     self.daemon = True
-    header(os.path.dirname(os.path.dirname(path)))
-    self._fh = open(os.path.join(path, 'i19.screen.log'))
     self._closing = False
+    self._path = path
     self.start()
 
   def close(self):
     self._closing = True
 
   def run(self):
-    la = _LineAggregator()
-    while not self._closing:
-      if select.select([self._fh], [], [], 0.1)[0]:
-        char = self._fh.read(1)
+    header(os.path.dirname(os.path.dirname(self._path)))
+    with open(os.path.join(self._path, 'i19.screen.log')) as fh:
+      start = time.time()
+      la = _LineAggregator()
+      while not self._closing and time.time() < start + 900:
+        char = fh.read(1)
         if char:
           la.add(char)
-    la.flush()
-    print("." * 76)
+        else:
+          time.sleep(0.3)
+      la.flush()
+      if time.time() >= start + 900:
+        print(" (stopped watching file after 15 minutes)")
+      print("." * 76)
 
 active_tail = None
 waiting_for_log = None

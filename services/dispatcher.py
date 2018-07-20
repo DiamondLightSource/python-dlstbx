@@ -137,7 +137,12 @@ class DLSDispatcher(CommonService):
 
       full_recipe = workflows.recipe.Recipe()
       for recipe in recipes:
-        recipe.validate()
+        try:
+          recipe.validate()
+        except workflows.Error as e:
+          self.log.error("Recipe failed validation. %s", str(e), exc_info=True)
+          self._transport.nack(header)
+          return
         recipe.apply_parameters(parameters)
         full_recipe = full_recipe.merge(recipe)
 

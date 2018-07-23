@@ -13,6 +13,7 @@ from pprint import pprint
 
 import workflows
 from workflows.transport.stomp_transport import StompTransport
+import workflows.recipe
 
 # Example: dlstbx.go -r example-xia2 527189
 
@@ -106,7 +107,9 @@ if __name__ == '__main__':
 
   if options.recipefile:
     with open(options.recipefile, 'r') as fh:
-      message['custom_recipe'] = json.load(fh)
+      custom_recipe = workflows.recipe.Recipe(json.load(fh))
+    custom_recipe.validate()
+    message['custom_recipe'] = custom_recipe.recipe
 
   if options.nodcid:
     if options.recipe:

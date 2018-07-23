@@ -62,11 +62,11 @@ class GraylogAPI():
   def epoch_to_graylog(timestamp):
     return datetime.datetime.fromtimestamp(timestamp).isoformat().replace('T', ' ')
 
-  def get_messages(self, time=600):
+  def get_messages(self, time=600, query=None):
     if self.last_seen_timestamp:
-      update = self.absolute_update()
+      update = self.absolute_update(query=query)
     else:
-      update = self.relative_update(time=time)
+      update = self.relative_update(time=time, query=query)
       self.last_seen_timestamp = update['parsed']['to']
     if not update['success']:
       return
@@ -88,10 +88,10 @@ class GraylogAPI():
       # alternatively: m['localtime'].strftime('%f')[:-3]
     return messages
 
-  def get_all_messages(self, time=600):
+  def get_all_messages(self, time=600, query=None):
     messages = True
     while messages:
-      messages = self.get_messages(time=time)
+      messages = self.get_messages(time=time, query=query)
       for message in messages:
         yield message
 
@@ -111,26 +111,30 @@ class GraylogAPI():
                              level=level, level_op=level_op)
         )
 
-  def relative_update(self, time=600):
+  def relative_update(self, time=600, query=None):
+    if not query:
+      query='level:<={level}'
     return self._get("search/universal/relative?"
-                     "query=level:%3C={level}&"
+                     "query={query}&"
                      "range={time}&"
                      "filter=streams%3A{stream}&"
                      "sort=timestamp%3Aasc"
-                     .format(time=time, stream=self.stream, level=self.level)
+                     .format(time=time, stream=self.stream, query=urllib2.quote(query.format(level=self.level)))
         )
 
-  def absolute_update(self, from_time=None):
+  def absolute_update(self, from_time=None, query=None):
+    if not query:
+      query='level:<={level}'
     if not from_time:
       from_time = self.last_seen_timestamp
     from_time = from_time.replace(':', '%3A')
     return self._get("search/universal/absolute?"
-                     "query=level:%3C={level}&"
+                     "query={query}&"
                      "from={from_time}&"
                      "to=2031-01-01%2012%3A00%3A00&"
                      "filter=streams%3A{stream}&"
                      "sort=timestamp%3Aasc"
-                     .format(from_time=from_time, stream=self.stream, level=self.level)
+                     .format(from_time=from_time, stream=self.stream, query=urllib2.quote(query.format(level=self.level)))
         )
 
   def get_history_statistics(self):

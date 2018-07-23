@@ -57,7 +57,7 @@ def create_processing_job(i, options):
     if not dcid:
       sys.exit("When creating a processing job you must specify at least one data collection sweep or a DCID")
 
-    dc_info = i.mx_acquisition.get_data_collection(dcid)
+    dc_info = i.get_data_collection(dcid)
     start = dc_info.image_start_number
     number = dc_info.image_count
     if not start or not number:

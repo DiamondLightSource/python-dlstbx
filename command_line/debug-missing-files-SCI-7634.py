@@ -75,8 +75,9 @@ def debug_message(message):
   sys.stdout.write(format_default(message))
   print("Recipe file   :", recipe_file)
   print("DCID          :", dcid)
-  print("Files found   :", found)
-  print("Files expected:", dc.image_count)
+  print("Files         : %s%d of %d%s found " % (
+      ColorStreamHandler.CRITICAL if found > 0 else ColorStreamHandler.ERROR,
+      found, dc.image_count, ColorStreamHandler.DEFAULT))
   print("Comment       :", data.get('parameters', {}).get('ispyb_dc_info', {}).get('comments'))
   print("Status        :", dc.status)
   print()

@@ -51,8 +51,8 @@ def format_default(message):
 isp = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
 
 def debug_message(message):
-  m = re.search('\(([0-9]+) files found', message['message'])
-  found = int(m.group(1))
+  m = re.search('for (/[^(]+) timed .*\(([0-9]+) files found', message['message'])
+  found = int(m.group(2))
   recipe_file = '/dls/tmp/zocalo/dispatcher/{l:%Y-%m}/{r:.2}/{r}'.format(l=message['localtime'], r=message['recipe_ID'])
   with open(recipe_file) as fh:
     json_data = None
@@ -71,9 +71,11 @@ def debug_message(message):
     return
   if dcid in borken_DCIDs:
     return
+  visit = m.group(1).split('/')[5]
   borken_DCIDs[dcid] = True
   sys.stdout.write(format_default(message))
   print("Recipe file   :", recipe_file)
+  print("SynchWeb      : https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dcid}".format(dcid=dcid, visit=visit))
   print("DCID          :", dcid)
   print("Files         : %s%d of %d%s found " % (
       ColorStreamHandler.CRITICAL if found > 0 else ColorStreamHandler.ERROR,

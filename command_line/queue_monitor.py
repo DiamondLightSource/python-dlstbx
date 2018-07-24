@@ -4,278 +4,140 @@
 #
 from __future__ import absolute_import, division, print_function
 
-import copy
-import curses
-import locale
-import math
+import logging
 import re
-import threading
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
 import dlstbx.util.jmxstats
 jmx = dlstbx.util.jmxstats.JMXAPI()
 
-locale.setlocale(locale.LC_ALL, '')
+logger = logging.getLogger('dlstbx.queue_monitor')
+
 
 class QueueStatus():
   '''Monitor ActiveMQ queue activity.'''
 
-  # Dictionary of all known queues
   gather_interval = 5
   status = {}
-  lock = threading.Lock()
 
   def run(self):
-    '''A wrapper for the real _run() function to cleanly enable/disable the
-       curses environment.'''
-    curses.wrapper(self._run)
+    '''Obtain statistics and print status. In a loop.'''
+    while True:
+      self.update_status()
+      self.print_status()
+      time.sleep(self.gather_interval)
 
-  def gather(self):
+  def get_queue_and_topic_info(self):
     attributes = ['QueueSize', 'EnqueueCount', 'DequeueCount', 'InFlightCount']
-    queues = jmx.org.apache.activemq(type="Broker", brokerName="localhost", destinationType="Queue", destinationName="*", attribute=','.join(attributes))
+    queues = jmx.org.apache.activemq(type="Broker", brokerName="localhost", destinationType="Queue", destinationName="*")
+    queue_info, topic_info = {}, {}
     if 'value' in queues:
       for destination in queues['value']:
         dest = destination[destination.index('destinationName='):]
         dest = (dest.split(',')[0])[16:]
         if dest.startswith('ActiveMQ.Advisory.'): continue
-        self.process_report(queues['value'][destination], destination, dest)
+        queue_info[dest] = queues['value'][destination]
+    else:
+      logger.warning('Could not obtain queue status via JMX.\n%r', queues)
     topics = jmx.org.apache.activemq(type="Broker", brokerName="localhost", destinationType="Topic", destinationName="*", attribute=','.join(attributes))
     if 'value' in topics:
       for destination in topics['value']:
         dest = destination[destination.index('destinationName='):]
         dest = (dest.split(',')[0])[16:]
         if dest.startswith('ActiveMQ.Advisory.'): continue
-        self.process_report(topics['value'][destination], destination, dest)
+        topic_info[dest] = topics['value'][destination]
+    else:
+      logger.warning('Could not obtain topic status via JMX.\n%r', topics)
+    return queue_info, topic_info
 
-  def _run(self, stdscr):
+  def update_status(self):
+    previous = self.status
+    self.status = { 'queue': {}, 'topic': {} }
+    for dtype, destinations in zip(('queue', 'topic'), self.get_queue_and_topic_info()):
+      for dname, dinfo in destinations.items():
+        self.status[dtype][dname] = dinfo
+        shortdest = dname.replace('uk.ac.diamond.', 'u.a.d.').replace('transient.', 't.')
+        shortdest = re.sub('([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', '\\1-(..)', shortdest)
+        dinfo['shortdest'] = shortdest
+        dinfo['relevance'] = dinfo['QueueSize'] + dinfo['InFlightCount']
+
+        last_status = previous.get(dtype, {}).get(dname, {})
+        # Find change
+        for key in ('QueueSize', 'EnqueueCount', 'DequeueCount', 'InFlightCount'):
+          dinfo['change-' + key] = dinfo.get(key, 0) - last_status.get(key, dinfo.get(key, 0))
+
+          # Find change trend (2nd derivative)
+          dinfo['changehist-' + key] = dinfo['change-' + key] \
+                                           - last_status.get('change-' + key, dinfo['change-' + key])
+
+        if last_status:
+          dinfo['relevance'] += last_status['relevance'] // 2 \
+                              + max(0, dinfo['change-EnqueueCount']) \
+                              + max(0, dinfo['changehist-EnqueueCount']) \
+                              + max(0, dinfo['change-DequeueCount'])
+
+  def print_status(self):
     '''Main display function'''
-    curses.use_default_colors()
-    curses.curs_set(False)
-    curses.init_pair(1, curses.COLOR_RED, -1)
-    curses.init_pair(2, curses.COLOR_BLACK, -1)
-    curses.init_pair(3, curses.COLOR_GREEN, -1)
-    curses.init_pair(4, curses.COLOR_YELLOW, -1)
-    curses.init_pair(5, curses.COLOR_BLUE, -1)
-    curs_y, curs_x = stdscr.getmaxyx()
 
-    def arrow(change):
-      if change >= 3:
-        stdscr.addstr(u'\u2b08'.encode('utf-8'), curses.color_pair(3) + curses.A_BOLD)
-      elif change >= 2:
-        stdscr.addstr(u'\u2197'.encode('utf-8'), curses.color_pair(3) + curses.A_BOLD)
-      elif change >= 1:
-        stdscr.addstr(u'\u2197'.encode('utf-8'), curses.color_pair(3))
-      elif change <= -3:
-        stdscr.addstr(u'\u2b0a'.encode('utf-8'), curses.color_pair(1) + curses.A_BOLD)
-      elif change <= -2:
-        stdscr.addstr(u'\u2198'.encode('utf-8'), curses.color_pair(1) + curses.A_BOLD)
-      elif change <= -1:
-        stdscr.addstr(u'\u2198'.encode('utf-8'), curses.color_pair(1))
+    longest = {}
+    for key in ('shortdest', 'change-EnqueueCount', 'QueueSize', 'InFlightCount', 'change-DequeueCount'):
+      longest[key] = max(len(str(self.status[dtype][d][key]))
+                         for dtype in ('queue', 'topic')
+                         for d in self.status[dtype])
 
-    if True:
-      while True:
-        self.gather()
+    c_gray = '\x1b[30m'
+    c_red = '\x1b[31m'
+    c_green = '\x1b[32m'
+    c_yellow = '\x1b[33m'
+    c_blue = '\x1b[34m'
+    c_cyan = '\x1b[34m'
+    c_reset = '\x1b[0m'
+    c_bold = '\x1b[1m'
 
-        # Check if screen was re-sized (True or False)
-        resize = curses.is_term_resized(curs_y, curs_x)
+    line = "{0[shortdest]:{longest[shortdest]}}  " \
+           "{colour[input]}{0[change-EnqueueCount]:{longest[change-EnqueueCount]}} " \
+           ">{colour[hold]}[ {filter_zero[QueueSize]:{longest[QueueSize]}} | {colour[flight]}{filter_zero[InFlightCount]:<{longest[InFlightCount]}}{colour[hold]} ]" \
+           "{colour[output]}> {filter_zero[change-DequeueCount]:<{longest[change-DequeueCount]}}{colour[reset]}"
+#   line +=  " -- {0[relevance]}{colour[reset]}"
 
-        # Redraw in new layout if terminal window has been resized
-        stdscr.clear()
-        stdscr.scrollok(True)
-        if resize is True:
-          curs_y, curs_x = stdscr.getmaxyx()
-          curses.resizeterm(curs_y, curs_x)
-        rows = curses.LINES
+    print("\033[H\033[J", end='')
+    queue_sep = '{header}ActiveMQ status: {highlight}{queues}{header} queues containing {highlight}{messages}{header} messages{reset}'.format(
+          messages=sum(q['QueueSize'] for q in self.status['queue'].values()),
+          queues=len(self.status['queue']),
+          highlight=c_bold+c_yellow, reset=c_reset, header=c_reset+c_yellow,
+        )
+    topic_sep = '\n{header}ActiveMQ status: {highlight}{topics}{header} topics{reset}'.format(
+          topics=len(self.status['topic']),
+          highlight=c_bold+c_yellow, reset=c_reset, header=c_reset+c_yellow,
+        )
 
-        # Expire old destinations, select destinations to show
-        with self.lock:
-          destinations = self.status.keys()
-          self.status = {k: self.status[k] for k in destinations if self.status[k].get('last-seen', 0) + (self.gather_interval * 3) >= time.time()}
-          status_list = self.status.values()
-        status_list = filter(lambda s:s['relevance'] > 0, status_list)
-        status_list.sort(key=lambda s:s['relevance'], reverse=True)
+    for dtype, header in (('queue', queue_sep), ('topic', topic_sep)):
+      print(header)
+      destinations = filter(lambda d:self.status[dtype][d]['relevance'] > 0, self.status[dtype])
+      destinations.sort(key=lambda d:self.status[dtype][d]['shortdest'])
+      destinations.sort(key=lambda d:self.status[dtype][d]['relevance'], reverse=True)
 
-        stdscr.addstr(0, 0, 'DLS Zocalo queue monitor', curses.color_pair(4))
-        if curses.COLS > 55:
-          stdscr.addstr(0, 30, 'queues:', curses.color_pair(4))
-          stdscr.addstr(0, 38, str(len(status_list)), curses.color_pair(3))
-        if curses.COLS > 67:
-          stdscr.addstr(0, 47, 'messages:', curses.color_pair(4))
-          stdscr.addstr(0, 57, str(sum(s['size'] for s in status_list)), curses.color_pair(3))
-#       stdscr.addstr(0, 0, 'DLS', curses.A_BOLD + curses.color_pair(4))
+      for dname in destinations:
+        colour = {
+            'input': c_green if self.status[dtype][dname]['change-EnqueueCount'] else c_gray,
+            'hold': c_blue if self.status[dtype][dname]['QueueSize'] else c_gray,
+            'flight': c_blue if self.status[dtype][dname]['QueueSize'] or self.status[dtype][dname]['InFlightCount'] else c_gray,
+            'output': c_green if self.status[dtype][dname]['change-DequeueCount'] else c_gray,
+            'reset': c_reset,
+        }
+        filter_zero = {
+            key: self.status[dtype][dname][key] if self.status[dtype][dname][key] > 0 else ''
+            for key in ('change-DequeueCount', 'InFlightCount', 'QueueSize')
+        }
+        print(line.format(self.status[dtype][dname], longest=longest, colour=colour, filter_zero=filter_zero))
 
-        reserved_rows = 1
-        status_list = copy.deepcopy(status_list[:(rows - reserved_rows)])
-        if not status_list:
-          stdscr.refresh()
-          time.sleep(0.2)
-          continue
-
-        for s in status_list:
-          if s['destinationName'].startswith('topic://'):
-            s['shortdestlen'] = len(s['shortdest']) + 1
-            s['shortdest'] = s['shortdest'].encode('utf-8') + u'\u29d3'.encode('utf-8')
-
-        longestname = max(s.get('shortdestlen', len(s['shortdest'])) for s in status_list)
-        for n, s in enumerate(status_list):
-          stdscr.move(reserved_rows + n, longestname - s.get('shortdestlen', len(s['shortdest'])))
-          stdscr.addstr(s['shortdest'])
-
-        col = longestname + 1
-        longestenq = max(len(str(s.get('change-enqueueCount', 0))) for s in status_list)
-        for n, s in enumerate(status_list):
-          stdscr.move(reserved_rows + n, col + longestenq - len(str(s.get('change-enqueueCount', 0))))
-          enqueued = s.get('change-enqueueCount')
-          if enqueued > 0:
-            stdscr.addstr(str(enqueued), curses.color_pair(3))
-          elif enqueued == 0:
-            stdscr.addstr('0', curses.color_pair(2))
-          if s.get('changediffhist-enqueueCount'):
-            stdscr.move(reserved_rows + n, col + longestenq)
-            arrow(s.get('changediffhist-enqueueCount', 0))
-#          stdscr.move(reserved_rows + n, col + longestenq + 5)
-#          stdscr.addstr(str(s.get('changediffhist-enqueueCount', '')))
-
-        col += longestenq + 1
-        longestsize = max(len(str(s.get('size', 0))) for s in status_list)
-        for n, s in enumerate(status_list):
-          stdscr.move(reserved_rows + n, col)
-          if s.get('change-enqueueCount') > 0:
-            stdscr.addstr(u'\u25b6'.encode('utf-8'), curses.color_pair(3))
-          else:
-            stdscr.addstr(u'\u25b6'.encode('utf-8'), curses.color_pair(2))
-          if s.get('size') > 0:
-            stdscr.addstr(u'\u2772'.encode('utf-8'), curses.color_pair(5) + curses.A_BOLD)
-            stdscr.move(reserved_rows + n, col + 2 + longestsize - len(str(s['size'])))
-            if s.get('change-enqueueCount') > 0 and s.get('change-dequeueCount') == 0:
-              stdscr.addstr(str(s['size']), curses.color_pair(1) + curses.A_BOLD)
-            else:
-              stdscr.addstr(str(s['size']), curses.color_pair(5))
-            arrow(s.get('changehist-size', 0))
-          else:
-            stdscr.addstr(u'\u2772'.encode('utf-8'), curses.color_pair(2) + curses.A_BOLD)
-
-        col += longestsize + 3
-        longestflight = max(len(str(s.get('inflightCount', 0))) for s in status_list)
-        for n, s in enumerate(status_list):
-          stdscr.move(reserved_rows + n, col)
-          if s.get('size') > 0:
-            stdscr.addstr('|', curses.color_pair(5) + curses.A_BOLD)
-          else:
-            stdscr.addstr('|', curses.color_pair(2) + curses.A_BOLD)
-          if s.get('inflightCount', 0) > 0:
-            stdscr.move(reserved_rows + n, col + 1 + longestflight - len(str(s['inflightCount'])))
-            stdscr.addstr(str(s['inflightCount']), curses.color_pair(5))
-            arrow(s.get('changehist-inflightCount'))
-          stdscr.move(reserved_rows + n, col + longestflight + 2)
-          if s.get('size') > 0:
-            stdscr.addstr(u'\u2773'.encode('utf-8'), curses.color_pair(5) + curses.A_BOLD)
-          else:
-            stdscr.addstr(u'\u2773'.encode('utf-8'), curses.color_pair(2) + curses.A_BOLD)
-
-        col += longestflight + 3
-        for n, s in enumerate(status_list):
-          stdscr.move(reserved_rows + n, col)
-          dequeued = s.get('change-dequeueCount')
-          if not dequeued:
-            stdscr.addstr(u'\u25b6'.encode('utf-8'), curses.color_pair(2))
-          elif dequeued > 0:
-            stdscr.addstr(u'\u25b6'.encode('utf-8'), curses.color_pair(3))
-            stdscr.addstr(str(dequeued), curses.color_pair(3))
-            arrow(s.get('changediffhist-dequeueCount', 0))
-          elif dequeued == 0:
-            stdscr.addstr(u'\u25b60'.encode('utf-8'), curses.color_pair(2))
-
-#         stdscr.addstr(reserved_rows + n, curses.COLS - 7, "%6.1f" % s['relevance'])
-        stdscr.refresh()
-        time.sleep(self.gather_interval)
-
-  def process_report(self, report, destination, dest):
-    shortdest = dest.replace('uk.ac.diamond.', 'u.a.d.').replace('transient.', 't.')
-    shortdest = re.sub('([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', '\\1-(..)', shortdest)
-    report['shortdest'] = shortdest
-    report['last-seen'] = time.time()
-
-    with self.lock:
-      last_status = self.status.get(destination, {})
-      report['size'] = report['QueueSize']
-      report['enqueueCount'] = report['EnqueueCount']
-      report['dequeueCount'] = report['DequeueCount']
-      report['inflightCount'] = report['InFlightCount']
-      report['destinationName'] = destination
-      for key in ('size', 'enqueueCount', 'dequeueCount', 'inflightCount'):
-        if key in last_status:
-          report['change-' + key] = report.get(key, 0) - last_status[key]
-
-        # Find change trend (2nd derivative)
-        report['changehist-' + key] = last_status.get('changehist-' + key, 0)
-        if 'change-' + key in report:
-          change = report['change-' + key]
-          # This is the absolute change in the value since the last update
-          if change < 0:
-            report['changehist-' + key] = max(report['changehist-' + key] - 1, -3)
-          elif change > 0:
-            report['changehist-' + key] = min(report['changehist-' + key] + 1, 3)
-          elif report['changehist-' + key] > 0.5:
-            report['changehist-' + key] -= 0.5
-          elif report['changehist-' + key] < -0.5:
-            report['changehist-' + key] += 0.5
-          else:
-            report['changehist-' + key] = 0
-        # Find change trend trend (3nd derivative)
-        report['changediffhist-' + key] = last_status.get('changediffhist-' + key, 0)
-        if 'change-' + key in last_status:
-          change = report['change-' + key] - last_status['change-' + key]
-          # This is the change in the (change in the value) since the last update
-          if change < 0:
-            report['changediffhist-' + key] = max(report['changediffhist-' + key] - 1, -3)
-          elif change > 0:
-            report['changediffhist-' + key] = min(report['changediffhist-' + key] + 1, 3)
-          elif report['changediffhist-' + key] > 0.5:
-            report['changediffhist-' + key] -= 0.5
-          elif report['changediffhist-' + key] < -0.5:
-            report['changediffhist-' + key] += 0.5
-          else:
-            report['changediffhist-' + key] = 0
-
-      # Define a sort order by traffic levels (large numbers, large changes == important)
-      relevance = last_status.get('relevance', 0) / 2
-      for key in ('size', 'enqueueCount', 'dequeueCount'):
-        for qualifier in ('', 'change-'):
-          relevance = relevance + math.log(1 + abs(report.get(qualifier + key, 0)))
-        for qualifier in ('changehist-', 'changediffhist-'):
-          relevance = relevance + (abs(report.get(qualifier + key, 0)))
-      report['relevance'] = relevance
-
-      self.status[destination] = report
-
-#averageEnqueueTime :  0
-#averageMessageSize :  0
-#brokerId :  [u'ID:cs04r-sc-vserv-128.diamond.ac.uk-45333-1480578321703-0:1']
-#brokerName :  [u'localhost']
-#consumerCount :  1
-#dequeueCount :  1
-#destinationName :  [u'queue://zocdev.transient.system_test.c01d6377-2e4c-4bbb-8e7e-c93bcd839568.6']
-#dispatchCount :  0
-#enqueueCount :  1
-#expiredCount :  1
-#inflightCount :  0
-#maxEnqueueTime :  0
-#memoryLimit :  668309914
-#memoryPercentUsage :  0
-#memoryUsage :  0
-#messagesCached :  0
-#minEnqueueTime :  0
-#producerCount :  0
-#size :  0
 
 if __name__ == '__main__':
   parser = OptionParser(usage='dlstbx.queue_monitor')
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-  parser.add_option("--test", action="store_true", dest="test", help=SUPPRESS_HELP)
   (options, args) = parser.parse_args()
   try:
     QueueStatus().run()
   except KeyboardInterrupt:
-    pass
+    print('\x1b[0m')

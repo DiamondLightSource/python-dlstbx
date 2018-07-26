@@ -83,6 +83,7 @@ def debug_message(message):
   print("Comment       :", data.get('parameters', {}).get('ispyb_dc_info', {}).get('comments'))
   print("Status        :", dc.status)
   print()
+  return True
 
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.graylog [options]")
@@ -92,9 +93,24 @@ if __name__ == '__main__':
   (options, args) = parser.parse_args(sys.argv[1:])
 
   g = GraylogAPI('/dls_sw/apps/zocalo/secrets/credentials-log.cfg')
+  failure_count = 0
   for message in g.get_all_messages(time=options.time, query='facility:dlstbx.services.filewatcher AND message:"timed out after" AND level:<6'):
     try:
-      debug_message(message)
+      if debug_message(message):
+        failure_count = failure_count + 1
     except Exception as e:
       sys.stdout.write(format_default(message))
       print(str(e))
+
+  if failure_count:
+    if options.time > 86400 * 3:
+      readable_time = '%d days' % (options.time // 86400)
+    elif options.time > 86400:
+      readable_time = '%.1f days' % (options.time / 86400)
+    elif options.time > 36000:
+      readable_time = '%d hours' % (options.time // 3600)
+    elif options.time > 3600:
+      readable_time = '%.1f hours' % (options.time / 3600)
+    else:
+      readable_time = '%d seconds' % options.time
+    print("%d incidents in the last %s" % (failure_count, readable_time))

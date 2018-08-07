@@ -51,8 +51,6 @@ def format_default(message):
 isp = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
 
 def debug_message(message):
-  m = re.search('for (/[^(]+) timed .*\(([0-9]+) files found', message['message'])
-  found = int(m.group(2))
   recipe_file = '/dls/tmp/zocalo/dispatcher/{l:%Y-%m}/{r:.2}/{r}'.format(l=message['localtime'], r=message['recipe_ID'])
   with open(recipe_file) as fh:
     json_data = None
@@ -66,15 +64,24 @@ def debug_message(message):
     assert json_data, 'No JSON data decoded'
   data = json.loads(json_data)
   dcid = data.get('parameters', {}).get('ispyb_dcid')
-  dc = isp.get_data_collection(dcid)
-  if dc.status == 'DataCollection Stopped':
-    return
-  if dcid in borken_DCIDs:
-    return
-  visit = m.group(1).split('/')[5]
-  borken_DCIDs[dcid] = True
+  if dcid:
+    dc = isp.get_data_collection(dcid)
+    if dc.status == 'DataCollection Stopped':
+      return
+    if dcid in borken_DCIDs:
+      return
   sys.stdout.write(format_default(message))
   print("Recipe file   :", recipe_file)
+  m = re.search('for (/[^(]+) timed .*\(([0-9]+) files found', message['message'])
+  if not m:
+    print("Regular expression does not match")
+    return True
+  if not dcid:
+    print("No DCID information present")
+    return True
+  found = int(m.group(2))
+  visit = m.group(1).split('/')[5]
+  borken_DCIDs[dcid] = True
   print("SynchWeb      : https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dcid}".format(dcid=dcid, visit=visit))
   print("DCID          :", dcid)
   print("Files         : %s%d of %d%s found " % (

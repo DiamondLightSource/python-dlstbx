@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import dlstbx.util.jmxstats
 import json
 import os.path
 import threading
@@ -68,6 +69,9 @@ class DLSController(CommonService):
       self.service_launch_script = '/dls_sw/apps/zocalo/test_launch_service'
       self.namespace = 'zocdev'
     self._transport.subscription_callback_set_intercept(self.transport_interceptor)
+
+    # Set up ActiveMQ JMX interface
+    self._jmx = dlstbx.util.jmxstats.JMXAPI()
 
     # Listen to service announcements to build picture of running services.
     self._status_subscription_id = str(self._transport.subscribe_broadcast(
@@ -252,25 +256,12 @@ class DLSController(CommonService):
 
   def receive_sync_msg(self, header, message):
     '''When a synchronization message is received, then this instance is currently
-       the master controller. Messages may be ActiveMQ Advisory messages, which
-       describe the status of one queue. In this case aggregate the information.'''
+       the master controller.'''
     self.master_last_checked = time.time()
     if not self.master:
       self.master_enable()
 
-    if header.get('type') == 'Advisory' and \
-       isinstance(message, dict) and \
-       (int(header.get('timestamp', '0')) / 1000) >= (time.time()-60):
-      report = self.parse_advisory(message.get('map', {}).get('entry', []))
-      if report:
-        destination = report.get('destinationName')
-        if destination and destination.startswith('queue://' + self.namespace):
-          destination = destination[8 + len(self.namespace) + 1:]
-          report['timestamp'] = int(header['timestamp']) / 1000
-          with self._lock:
-            self.queue_status[destination] = report
-        self.cleanup_and_broadcast_queue_status()
-
+    self.cleanup_and_broadcast_queue_status()
     self.survey_operations() # includes self_check()
 
   def receive_queue_status(self, header, message):
@@ -296,28 +287,6 @@ class DLSController(CommonService):
       self.queue_status = { dest: data for dest, data in self.queue_status.iteritems()
                             if data['timestamp'] >= cutoff }
       self._transport.broadcast('transient.queue_status', self.queue_status)
-
-  @staticmethod
-  def parse_advisory(message):
-    '''Convert ActiveMQ JSON Advisory to Python dictionary.'''
-    report = {}
-    for entry in message:
-      if 'string' in entry:
-        if isinstance(entry['string'], list):
-          name = entry['string'].pop(0)
-        else:
-          name = entry['string']
-          del(entry['string'])
-      if len(entry) == 1:
-        value_type = next(entry.iterkeys())
-        report[name] = next(entry.itervalues())
-        if value_type in ('long', 'int'):
-          report[name] = int(report[name])
-        if isinstance(report[name], list) and len(report[name]) == 1:
-          report[name] = report[name][0]
-      else:
-        report[name] = entry
-    return report
 
   def master_enable(self):
     '''Promote this service instance to master controller.'''
@@ -345,12 +314,18 @@ class DLSController(CommonService):
     retrigger.daemon = True
     retrigger.start()
     for queue in self._se.watched_queues():
-      self._transport.send(
-          'ActiveMQ.Statistics.Destination.' + self.namespace + '.' + queue,
-          '',
-          headers = { 'JMSReplyTo': 'queue://' + self.namespace + '.transient.controller' },
-          ignore_namespace=True,
-          persistent=False)
+      qstat = self._jmx.org.apache.activemq(
+          type="Broker",
+          brokerName="localhost",
+          destinationType="Queue",
+          destinationName=self.namespace + '.' + queue,
+          attribute=','.join(('QueueSize', 'EnqueueCount', 'DequeueCount', 'InFlightCount')),
+      )
+      if qstat and qstat['status'] == 200:
+        report = qstat['value']
+        report['timestamp'] = qstat['timestamp']
+        with self._lock:
+          self.queue_status[queue] = report
 
   def start_service(self, instance, init):
     if not init:

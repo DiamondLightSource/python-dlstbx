@@ -39,7 +39,7 @@ class QueueStaticStrategy():
 
   def assess(self, environment):
     assert isinstance(environment, dict), 'passed environment is invalid'
-    queue_size = environment.get('queues',{}).get(self.queue_name,{}).get('size', 0)
+    queue_size = environment.get('queues',{}).get(self.queue_name,{}).get('QueueSize', 0)
     ideal_level = queue_size * self.multiplier
     self.log.debug("Queue size for %s is %d. Estimated number of instances required: %.1f", self.queue_name, queue_size, ideal_level)
     ideal_level = int(ideal_level + 0.9)

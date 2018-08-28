@@ -215,9 +215,8 @@ if __name__ == '__main__':
   if options.new and options.update:
     sys.exit("Can not update a program when creating a new job ID")
 
-  driver = ispyb.legacy_get_driver(1)
   # because read access is only available with this login
-  isp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
+  isp = ispyb.legacy_get_driver(1)(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
   # because stored procedures are only available with that login
   i = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
   # because this is new

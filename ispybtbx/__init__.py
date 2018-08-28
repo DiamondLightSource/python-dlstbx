@@ -35,7 +35,6 @@ class ispybtbx(object):
     self.legacy_init()
 
     self.log = logging.getLogger('dlstbx.ispybtbx')
-    self.db = ispyb.legacy_get_driver(1)(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
     self.log.debug('ISPyB objects set up')
 
   def __call__(self, message, parameters):
@@ -43,44 +42,52 @@ class ispybtbx(object):
     if reprocessing_id:
       parameters['ispyb_process'] = reprocessing_id
       try:
-        parameters['ispyb_reprocessing_data'] = self.db.get_reprocessing_id(reprocessing_id)
-        parameters['ispyb_reprocessing_sweeps']  = self.db.get_reprocessing_sweeps(reprocessing_id)
-        for sweep in parameters['ispyb_reprocessing_sweeps']:
-          sweep['dataCollection'] = self.rich_get_datacollection(sweep['dataCollectionId'],
-              { 'start_image': sweep['startImage'],
-                'end_image': sweep['endImage'],
-              })
-        parameters['ispyb_images'] = ','.join(sweep['dataCollection']['ispyb_image'] for sweep in parameters['ispyb_reprocessing_sweeps'])
-        parameters['ispyb_reprocessing_parameters']  = self.db.get_reprocessing_parameters(reprocessing_id)
+        rp = _ispyb_api().get_processing_job(reprocessing_id)
+        parameters['ispyb_reprocessing_data'] = {
+            'dataCollectionId': rp.DCID,
+            'displayName': rp.name,
+            'recipe': rp.recipe,
+            'recordTimestamp': rp.timestamp,
+            'processingJobId': reprocessing_id,
+            'comments': rp.comment,
+            'automatic': 1 if rp.automatic else 0,
+        }
+        parameters['ispyb_images'] = ','.join(
+            "%s:%d:%d" % (
+                sweep.data_collection.file_template_full_python % sweep.start,
+                sweep.start,
+                sweep.end,
+            )
+            for sweep in rp.sweeps
+        )
+        parameters['ispyb_reprocessing_parameters'] = {
+            k: v.value for k, v in dict(rp.parameters).items()
+        }
       except ispyb.exception.ISPyBNoResultException:
         self.log.warning("Reprocessing ID %s not found", str(reprocessing_id))
     return message, parameters
 
-  def rich_get_datacollection(self, dcid, override=None):
-    '''Retrieve data collection information from database and create derived fields.'''
-    dc = self.db.get_datacollection_id(dcid)
-    if not override:
-      override = {}
-    start, end = self.dc_info_to_start_end(dc)
-    start = override.get('start_image', start)
-    end = override.get('end_image', end)
-    dc['ispyb_image'] = '%s:%d:%d' % (self.dc_info_to_filename(dc, image_number=start), start, end)
-    return dc
-
   def get_gridscan_info(self, dcgid):
     '''Extract GridInfo table contents for a DC group ID.'''
-    def get_gridinfo(self, dcgid):
-      with self._db_cc() as cursor:
-        cursor.run("SELECT * "
-                   "FROM GridInfo "
-                   "WHERE dataCollectionGroupId = %s "
-                   "LIMIT 1;", dcgid)
-        result = cursor.fetchone()
-      if result:
-        return result
-      raise ispyb.exception.ISPyBNoResultException()
-    self.db.__class__.get_gridinfo = get_gridinfo # Yes, this code is *that* bad.
-    return self.db.get_gridinfo(dcgid)
+    newgrid = _ispyb_api().get_data_collection_group(dcgid).gridinfo
+    # GridInfo is not supported yet in stable
+    import ispyb.model.__future__
+    ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+    return {
+        'steps_x': newgrid.steps_x,
+        'steps_y': newgrid.steps_y,
+        'dx_mm': newgrid.dx_mm,
+        'dy_mm': newgrid.dy_mm,
+        'orientation': newgrid.orientation,
+        'snaked': newgrid.snaked,
+        'snapshot_offsetXPixel': newgrid.snapshot_offset_pixel_x,
+        'snapshot_offsetYPixel': newgrid.snapshot_offset_pixel_y,
+        'recordTimeStamp': newgrid.timestamp,
+        'gridInfoId': newgrid.id,
+        'pixelsPerMicronX': newgrid.pixels_per_micron_x,
+        'pixelsPerMicronY': newgrid.pixels_per_micron_y,
+        'dataCollectionGroupId': newgrid.dcgid,
+    }
 
   def legacy_init(self):
     self.conn = mysql.connector.connect(

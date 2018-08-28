@@ -24,8 +24,7 @@ class DLSISPyB(CommonService):
     '''Subscribe the ISPyB connector queue. Received messages must be
        acknowledged. Prepare ISPyB database connection.'''
     self.log.info("ISPyB connector using ispyb v%s", ispyb.__version__)
-    driver = ispyb.legacy_get_driver(1)
-    self.ispybdbsp = driver(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
+    self.ispybdbsp = ispyb.legacy_get_driver(1)(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.ispyb = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.log.debug("ISPyB connector starting")
     workflows.recipe.wrap_subscribe(
@@ -240,9 +239,6 @@ class DLSISPyB(CommonService):
         elif result is None:
           self.log.info('Could not notify GDA, stored procedure returned \'None\'')
         else:
-          # We no longer notify in the legacy legacy manner on port 9876 because
-          # there is no ImageQualityIndicatorID column any more, so str(result)
-          # will always be 1, so this is no longer useful.
           # We still notify in the legacy manner by sending a UDP package with DCID+imagenumber
           try:
             dlstbx.util.gda.notify(gdahost, 9877, "IQI:{p[datacollectionid]}:{p[image_number]}".format(p=params))

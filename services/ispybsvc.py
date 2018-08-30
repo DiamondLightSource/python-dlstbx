@@ -24,7 +24,6 @@ class DLSISPyB(CommonService):
     '''Subscribe the ISPyB connector queue. Received messages must be
        acknowledged. Prepare ISPyB database connection.'''
     self.log.info("ISPyB connector using ispyb v%s", ispyb.__version__)
-    self.ispybdbsp = ispyb.legacy_get_driver(1)(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.ispyb = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
     self.log.debug("ISPyB connector starting")
     workflows.recipe.wrap_subscribe(
@@ -111,12 +110,12 @@ class DLSISPyB(CommonService):
     update_time = rw.recipe_step['parameters'].get('update_time')
     status = rw.recipe_step['parameters'].get('status')
     try:
-      result = self.ispybdbsp.update_processing_status(
-          ppid,
-          status=status,
-          start_time=start_time,
-          update_time=update_time,
-          update_message=message
+      result = self.ispyb.mx_processing.upsert_program_ex(
+          program_id=ppid,
+          status={'success':1, 'failure':0}.get(status),
+          time_start=start_time,
+          time_update=update_time,
+          message=message
         )
       self.log.info("Updating program %s status: '%s' with result %s", ppid, message, result)
       return { 'success': True, 'return_value': result }
@@ -133,16 +132,17 @@ class DLSISPyB(CommonService):
       environment = ', '.join('%s=%s' % (key, value) for key, value in environment.iteritems())
     rpid = rw.recipe_step['parameters'].get('rpid')
     try:
-      result = self.ispybdbsp.add_processing_program(
-                   reprocessing_id=rpid,
-                   command_line=cmdline,
-                   programs=program,
-                   environment=environment)
-      self.log.info("Registered new processing program '%s' for reprocessing id '%s' with command line '%s' and environment '%s' with result '%s'.",
+      result = self.ispyb.mx_processing.upsert_program_ex(
+          job_id=rpid,
+          name=program,
+          command=cmdline,
+          environment=environment,
+      )
+      self.log.info("Registered new program '%s' for processing id '%s' with command line '%s' and environment '%s' with result '%s'.",
                     program, rpid, cmdline, environment, result)
       return { 'success': True, 'return_value': result }
     except ispyb.exception.ISPyBException as e:
-      self.log.warning("Registering new processing program '%s' for reprocessing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
+      self.log.warning("Registering new program '%s' for processing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
                        program, rpid, cmdline, environment, e, exc_info=True)
       return { 'success': False }
 

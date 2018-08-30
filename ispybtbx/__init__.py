@@ -43,15 +43,6 @@ class ispybtbx(object):
       parameters['ispyb_process'] = reprocessing_id
       try:
         rp = _ispyb_api().get_processing_job(reprocessing_id)
-        parameters['ispyb_reprocessing_data'] = {
-            'dataCollectionId': rp.DCID,
-            'displayName': rp.name,
-            'recipe': rp.recipe,
-            'recordTimestamp': rp.timestamp,
-            'processingJobId': reprocessing_id,
-            'comments': rp.comment,
-            'automatic': 1 if rp.automatic else 0,
-        }
         parameters['ispyb_images'] = ','.join(
             "%s:%d:%d" % (
                 sweep.data_collection.file_template_full_python % sweep.start,

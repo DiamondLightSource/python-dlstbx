@@ -183,11 +183,4 @@ def test_retrieve_reprocessing_information():
   assert sweep.end == 580
 
   ## legacy:
-  assert param['ispyb_reprocessing_data']
-  assert param['ispyb_reprocessing_data']['comments']
-  assert param['ispyb_reprocessing_data']['dataCollectionId'] == 1956161
-  assert param['ispyb_reprocessing_data']['displayName']
-  assert param['ispyb_reprocessing_data']['recipe'] == 'xia2-dials'
-  assert param['ispyb_reprocessing_data']['recordTimestamp']
-  assert param['ispyb_reprocessing_data']['processingJobId'] == 95
   assert param['ispyb_reprocessing_parameters'] == { 'd_min': '1.7' }

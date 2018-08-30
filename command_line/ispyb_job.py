@@ -215,12 +215,7 @@ if __name__ == '__main__':
   if options.new and options.update:
     sys.exit("Can not update a program when creating a new job ID")
 
-  # because read access is only available with this login
-  isp = ispyb.legacy_get_driver(1)(config_file='/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
-  # because stored procedures are only available with that login
   i = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
-  # because this is new
-
   exit_code = 0
 
   if options.new:
@@ -230,14 +225,14 @@ if __name__ == '__main__':
 
   if options.create:
     try:
-      isp.add_processing_program(
-        reprocessing_id=rpid, programs=options.program,
-        command_line=options.cmdline,
-        environment=options.environment,
-        start_time=options.starttime,
-        update_time=options.updatetime,
-        update_message=options.status,
-        status=options.result,
+      i.mx_processing.upsert_program_ex(
+          job_id=rpid, name=options.program,
+          command=options.cmdline,
+          environment=options.environment,
+          time_start=options.starttime,
+          time_update=options.updatetime,
+          message=options.status,
+          status={'success':1, 'failure':0}.get(options.result),
       )
     except ispyb.exception.ISPyBWriteFailed:
       print("Error: Could not create processing program.\n")
@@ -245,11 +240,12 @@ if __name__ == '__main__':
 
   elif options.update:
     try:
-      isp.update_processing_status(
-        options.update, status=options.result,
-        start_time=options.updatetime,
-        update_time=options.updatetime,
-        update_message=options.status,
+      i.mx_processing.upsert_program_ex(
+          program_id=options.update,
+          status={'success':1, 'failure':0}.get(options.result),
+          time_start=options.updatetime,
+          time_update=options.updatetime,
+          message=options.status,
       )
     except ispyb.exception.ISPyBWriteFailed:
       print("Error: Could not update processing status.\n")
@@ -283,14 +279,14 @@ if __name__ == '__main__':
           rp.sweeps)))
 
   if rp.programs:
-    print_format = "\nProgram #{0.appid}: {0.program}, {0.status_text}"
+    print_format = "\nProgram #{0.app_id}: {0.name}, {0.status_text}"
 
     if options.verbose:
       print_format += "\n    Command: {0.command}"
       print_format += "\nEnvironment: {0.environment}"
       print_format += "\n    Defined: {0.time_defined}"
       print_format += "\n    Started: {0.time_start}"
-      print_format += "\nLast Update: {0.time_end}"
+      print_format += "\nLast Update: {0.time_update}"
 
     print_format += "\n  Last Info: {0.message}"
 

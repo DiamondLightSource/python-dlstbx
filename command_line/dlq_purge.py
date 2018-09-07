@@ -19,7 +19,7 @@ import workflows
 from workflows.transport.stomp_transport import StompTransport
 
 if __name__ == '__main__':
-  parser = OptionParser(usage="dlstbx.dlq_purge [options]")
+  parser = OptionParser(usage="dlstbx.dlq_purge [options] [queue [queue ...]]")
 
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
@@ -77,7 +77,11 @@ if __name__ == '__main__':
     idlequeue.put_nowait('done')
 
   stomp.connect()
-  stomp.subscribe(dlqprefix + '.>', receive_dlq_message, acknowledgement=True)
+  if not args:
+    args = [ dlqprefix + '.>' ]
+  for queue in args:
+    print("Looking for DLQ messages in " + queue)
+    stomp.subscribe(queue, receive_dlq_message, acknowledgement=True)
   try:
     idlequeue.get(True, 3)
     while True:

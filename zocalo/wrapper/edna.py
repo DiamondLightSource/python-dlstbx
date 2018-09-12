@@ -42,80 +42,55 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       os.makedirs(working_directory)
     os.chdir(working_directory)
 
-    lifespan = params['strategy']['lifespan']
-    transmission = float(params['strategy']['transmission'])
-    wavelength = float(params['strategy']['wavelength'])
-    beamline = params['strategy']['beamline']
+    sparams = params['strategy']
+    lifespan = sparams['lifespan']
+    transmission = float(sparams['transmission'])
+    wavelength = float(sparams['wavelength'])
+    beamline = sparams['beamline']
     logger.debug('transmission: %s' %transmission)
     logger.debug('wavelength: %s' %wavelength)
     strategy_lifespan = round((lifespan * (100 / transmission)) * (wavelength/0.979)**-3, 0)
     gentle_strategy_lifespan = round((lifespan * (100 / transmission)) * (wavelength/0.979)**-3 / 10, 0)
     logger.debug('lifespan: %s' %lifespan)
 
-    if beamline == 'i24':
-      min_exposure = 0.01
-    elif beamline == 'i03':
-      min_exposure = 0.01
-    else:
-      min_exposure = 0.04
+    min_exposure = sparams['min_exposure'].get(
+      beamline, sparams['min_exposure']['default'])
 
-
-    EDNAStrategy1 = os.path.join(working_directory, 'EDNAStrategy1')
-    if not os.path.exists(EDNAStrategy1):
-      os.mkdir(EDNAStrategy1)
-    with open('%s.xml' %EDNAStrategy1, 'wb') as f:
+    multiplicity = sparams['multiplicity']
+    i_over_sig_i = sparams['i_over_sig_i']
+    EDNAStrategy = os.path.join(working_directory, 'EDNAStrategy')
+    if not os.path.exists(EDNAStrategy):
+      os.mkdir(EDNAStrategy)
+    with open('%s.xml' %EDNAStrategy, 'wb') as f:
       f.write(self.make_edna_xml(
-        complexity=None, multiplicity=3, i_over_sig_i=2,
+        complexity=None, multiplicity=multiplicity,
+        i_over_sig_i=i_over_sig_i,
         lifespan=strategy_lifespan, min_osc_range=0.1,
-        min_exposure=min_exposure, anomalous=False))
-    short_comments = "EDNAStrategy1 Standard Native Dataset Multiplicity=3 I/sig=2 Maxlifespan=%s s" %strategy_lifespan
+        min_exposure=min_exposure, anomalous=sparams['anomalous']))
+    short_comments = "EDNAStrategy1 Standard Native Dataset Multiplicity=%s I/sig=%s Maxlifespan=%s s" %(
+      strategy_lifespan, multiplicity, i_over_sig_i)
     with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
       f.write(short_comments)
 
-    #
-    #Strategy 2 Bog Standard with Anom
-    #
-    EDNAStrategy2 = os.path.join(working_directory, 'EDNAStrategy2')
-    if not os.path.exists(EDNAStrategy2):
-      os.mkdir(EDNAStrategy2)
-    with open('%s.xml' %EDNAStrategy2, 'wb') as f:
-      f.write(self.make_edna_xml(
-        complexity=None, multiplicity=3, i_over_sig_i=2,
-        lifespan=strategy_lifespan, min_osc_range=0.1,
-        min_exposure=min_exposure, anomalous=True))
-    short_comments = "EDNAStrategy2 Standard Anomalous Dataset Multiplicity=3 I/sig=2 Maxlifespan=%s s" %strategy_lifespan
-    with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
-      f.write(short_comments)
+    edna_home = os.environ['EDNA_HOME']
+    commands = ['%s/kernel/bin/edna-plugin-launcher' % edna_home,
+       '--execute', 'EDPluginControlInterfacev1_2', '--DEBUG',
+       '--inputFile', 'EDNAStrategy.xml', '--outputFile results.xml']
+    result = procrunner.run_process(
+      commands,
+      timeout=params.get('timeout', 3600),
+      print_stdout=True, print_stderr=True)
 
-    #
-    #Strategy 3 high multiplicity
-    #
-    EDNAStrategy3 = os.path.join(working_directory, 'EDNAStrategy3')
-    if not os.path.exists(EDNAStrategy3):
-      os.mkdir(EDNAStrategy3)
-    with open('%s.xml' %EDNAStrategy3, 'wb') as f:
-      f.write(self.make_edna_xml(
-        complexity=None, multiplicity=16, i_over_sig_i=2,
-        lifespan=strategy_lifespan, min_osc_range=0.1,
-        min_exposure=min_exposure, anomalous=False))
-    short_comments = "EDNAStrategy3 strategy with target multiplicity=16 I/sig=2 Maxlifespan=%s s" %strategy_lifespan
-    with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
-      f.write(short_comments)
+    logger.info('command: %s', ' '.join(result['command']))
+    logger.info('timeout: %s', result['timeout'])
+    logger.info('time_start: %s', result['time_start'])
+    logger.info('time_end: %s', result['time_end'])
+    logger.info('runtime: %s', result['runtime'])
+    logger.info('exitcode: %s', result['exitcode'])
+    logger.debug(result['stdout'])
+    logger.debug(result['stderr'])
 
-    #
-    #Strategy 4
-    #
-    EDNAStrategy4 = os.path.join(working_directory, 'EDNAStrategy4')
-    if not os.path.exists(EDNAStrategy4):
-      os.mkdir(EDNAStrategy4)
-    with open('%s.xml' %EDNAStrategy4, 'wb') as f:
-      f.write(self.make_edna_xml(
-        complexity=None, multiplicity=2, i_over_sig_i=2,
-        lifespan=gentle_strategy_lifespan, min_osc_range=0.1,
-        min_exposure=min_exposure, anomalous=False))
-    short_comments = "EDNAStrategy4 Gentle: Target Multiplicity=2 and target I/Sig 2 Maxlifespan=%s s" %gentle_strategy_lifespan
-    with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
-      f.write(short_comments)
+    os.chdir(cwd)
 
     return result['exitcode'] == 0
 

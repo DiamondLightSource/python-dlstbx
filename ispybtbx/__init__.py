@@ -45,7 +45,7 @@ class ispybtbx(object):
         rp = _ispyb_api().get_processing_job(reprocessing_id)
         parameters['ispyb_images'] = ','.join(
             "%s:%d:%d" % (
-                sweep.data_collection.file_template_full_python % sweep.start,
+                sweep.data_collection.file_template_full_python % sweep.start if '%' in sweep.data_collection.file_template_full_python else sweep.data_collection.file_template_full_python,
                 sweep.start,
                 sweep.end,
             )

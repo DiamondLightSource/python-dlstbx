@@ -72,10 +72,11 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
       f.write(short_comments)
 
+    os.chdir(EDNAStrategy)
     edna_home = os.environ['EDNA_HOME']
     commands = ['%s/kernel/bin/edna-plugin-launcher' % edna_home,
        '--execute', 'EDPluginControlInterfacev1_2', '--DEBUG',
-       '--inputFile', 'EDNAStrategy.xml', '--outputFile results.xml']
+       '--inputFile', os.path.join(working_directory, 'EDNAStrategy.xml'), '--outputFile results.xml']
     result = procrunner.run_process(
       commands,
       timeout=params.get('timeout', 3600),
@@ -93,7 +94,7 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     edna2html = os.path.join(edna_home, 'libraries/EDNA2html-0.0.10a/EDNA2html')
     commands = [
       edna2html,
-      '--title=%s' % short_comments,
+      '--title="%s"' % short_comments,
       '--run_basename=%s/EDNAStrategy' % working_directory,
       '--portable',
       '--basename=%s/summary' % working_directory

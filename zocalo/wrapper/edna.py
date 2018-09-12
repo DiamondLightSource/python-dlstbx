@@ -63,7 +63,7 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       os.mkdir(EDNAStrategy)
     with open('%s.xml' %EDNAStrategy, 'wb') as f:
       f.write(self.make_edna_xml(
-        complexity=None, multiplicity=multiplicity,
+        complexity='none', multiplicity=multiplicity,
         i_over_sig_i=i_over_sig_i,
         lifespan=strategy_lifespan, min_osc_range=0.1,
         min_exposure=min_exposure, anomalous=sparams['anomalous']))
@@ -76,6 +76,28 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     commands = ['%s/kernel/bin/edna-plugin-launcher' % edna_home,
        '--execute', 'EDPluginControlInterfacev1_2', '--DEBUG',
        '--inputFile', 'EDNAStrategy.xml', '--outputFile results.xml']
+    result = procrunner.run_process(
+      commands,
+      timeout=params.get('timeout', 3600),
+      print_stdout=True, print_stderr=True)
+
+    logger.info('command: %s', ' '.join(result['command']))
+    logger.info('timeout: %s', result['timeout'])
+    logger.info('time_start: %s', result['time_start'])
+    logger.info('time_end: %s', result['time_end'])
+    logger.info('runtime: %s', result['runtime'])
+    logger.info('exitcode: %s', result['exitcode'])
+    logger.debug(result['stdout'])
+    logger.debug(result['stderr'])
+
+    edna2html = os.path.join(edna_home, 'libraries/EDNA2html-0.0.10a/EDNA2html')
+    commands = [
+      edna2html,
+      '--title=%s' % short_comments,
+      '--run_basename=%s/EDNAStrategy' % working_directory,
+      '--portable',
+      '--basename=%s/summary' % working_directory
+    ]
     result = procrunner.run_process(
       commands,
       timeout=params.get('timeout', 3600),

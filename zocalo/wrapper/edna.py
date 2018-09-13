@@ -8,7 +8,7 @@ import shutil
 import dlstbx.zocalo.wrapper
 import procrunner
 
-logger = logging.getLogger('dlstbx.wrap.xia2_strategy')
+logger = logging.getLogger('dlstbx.wrap.edna')
 
 class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 

@@ -67,12 +67,15 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         i_over_sig_i=i_over_sig_i,
         lifespan=strategy_lifespan, min_osc_range=0.1,
         min_exposure=min_exposure, anomalous=sparams['anomalous']))
-    short_comments = "EDNAStrategy1 Standard Native Dataset Multiplicity=%s I/sig=%s Maxlifespan=%s s" %(
-      strategy_lifespan, multiplicity, i_over_sig_i)
+    short_comments = "%s Multiplicity=%s I/sig=%s Maxlifespan=%s s" %(
+      sparams['description'], multiplicity, i_over_sig_i, strategy_lifespan)
     with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
       f.write(short_comments)
 
     os.chdir(EDNAStrategy)
+    os.environ['DCID'] = params['dcid']
+    os.environ['SHORT_COMMENTS'] = sparams['name']
+    os.environ['COMMENTS'] = short_comments
     edna_home = os.environ['EDNA_HOME']
     commands = ['%s/kernel/bin/edna-plugin-launcher' % edna_home,
        '--execute', 'EDPluginControlInterfacev1_2', '--DEBUG',

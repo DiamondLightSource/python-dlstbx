@@ -31,8 +31,6 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     command = self.construct_commandline(params)
     logger.info(command)
 
-    # run xia2 in working directory
-
     cwd = os.path.abspath(os.curdir)
 
     working_directory = os.path.abspath(params['working_directory'])
@@ -77,9 +75,12 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     os.environ['SHORT_COMMENTS'] = sparams['name']
     os.environ['COMMENTS'] = short_comments
     edna_home = os.environ['EDNA_HOME']
+    strategy_xml = os.path.join(working_directory, 'EDNAStrategy.xml')
+    results_xml = os.path.join(working_directory, 'results.xml')
     commands = ['%s/kernel/bin/edna-plugin-launcher' % edna_home,
        '--execute', 'EDPluginControlInterfacev1_2', '--DEBUG',
-       '--inputFile', os.path.join(working_directory, 'EDNAStrategy.xml'), '--outputFile results.xml']
+       '--inputFile', strategy_xml,
+       '--outputFile', results_xml]
     result = procrunner.run_process(
       commands,
       timeout=params.get('timeout', 3600),
@@ -94,6 +95,8 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 
+    # generate two different html pages
+    # not sure which if any of these are actually used/required
     edna2html = os.path.join(edna_home, 'libraries/EDNA2html-0.0.10a/EDNA2html')
     commands = [
       edna2html,
@@ -117,6 +120,8 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stderr'])
 
     os.chdir(cwd)
+
+    self.edna2html(results_xml)
 
     return result['exitcode'] == 0
 
@@ -233,3 +238,22 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     print("</XSDataInputInterfacev2_2>", file=s)
 
     return s.getvalue()
+
+  @staticmethod
+  def edna2html(result_xml):
+    import os, sys
+    sys.path.append(os.path.join(os.environ["EDNA_HOME"],"kernel","src"))
+    from EDFactoryPluginStatic import EDFactoryPluginStatic
+    EDFactoryPluginStatic.loadModule("XSDataInterfacev1_2")
+    from XSDataInterfacev1_2 import XSDataResultInterface
+    xsDataResultInterface = XSDataResultInterface.parseFile(result_xml)
+    characterisationResult = xsDataResultInterface.resultCharacterisation
+    EDFactoryPluginStatic.loadModule("XSDataSimpleHTMLPagev1_0")
+    from XSDataSimpleHTMLPagev1_0 import XSDataInputSimpleHTMLPage
+    xsDataInputSimpleHTMLPage = XSDataInputSimpleHTMLPage()
+    xsDataInputSimpleHTMLPage.characterisationResult = characterisationResult
+    edPluginHTML = EDFactoryPluginStatic.loadPlugin("EDPluginExecSimpleHTMLPagev1_0")
+    edPluginHTML.dataInput = xsDataInputSimpleHTMLPage
+    edPluginHTML.executeSynchronous()
+    xsDataResult = edPluginHTML.dataOutput
+    logger.info(xsDataResult.pathToHTMLFile.path.value)

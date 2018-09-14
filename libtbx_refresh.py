@@ -61,6 +61,7 @@ libtbx.pkg_utils.define_entry_points({
     'i19screen = dlstbx.zocalo.wrapper.i19screen:I19ScreenWrapper',
     'mosflm_strategy = dlstbx.zocalo.wrapper.mosflm_strategy:MosflmStrategyWrapper',
     'rlv = dlstbx.zocalo.wrapper.rlv:RLVWrapper',
+    'snmct = dlstbx.zocalo.wrapper.snmct:SNMCTWrapper',
     'spotcounts = dlstbx.zocalo.wrapper.spot_counts_per_image:SCPIWrapper',
     'xia2 = dlstbx.zocalo.wrapper.xia2:Xia2Wrapper',
     'xia2.strategy = dlstbx.zocalo.wrapper.xia2_strategy:Xia2StrategyWrapper',

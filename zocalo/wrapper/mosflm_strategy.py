@@ -117,91 +117,73 @@ class MosflmStrategyWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
   @staticmethod
   def insertXOalignStrategies(dcid, xoalign_log):
 
-    def insert_alignment_result(conn, dcid, program, comments, short_comments,
-                                chi=None, kappa=None, phi=None):
-      assert phi is not None
-      assert [chi, kappa].count(None) == 1
-
-      mx_screening = conn.mx_screening
-      screening_params = mx_screening.get_screening_params()
-
-      screening_params['dcid'] = dcid
-      screening_params['program_version'] = program
-      screening_params['comments'] = comments
-      screening_params['short_comments'] = short_comments
-
-      screeningId = mx_screening.insert_screening(list(screening_params.values()))
-      assert screeningId is not None
-
-      output_params = mx_screening.get_screening_output_params()
-      output_params['screening_id'] = screeningId
-      #output_params['alignment_success'] = 1 ???
-      screeningOutputId = mx_screening.insert_screening_output(list(output_params.values()))
-      assert screeningOutputId is not None
-
-      strategy_params = mx_screening.get_screening_strategy_params()
-      strategy_params['screening_output_id'] = screeningOutputId
-      strategy_params['program'] = program
-      screeningStrategyId = mx_screening.insert_screening_strategy(list(strategy_params.values()))
-      assert screeningStrategyId is not None
-
-      wedge_params = mx_screening.get_screening_strategy_wedge_params()
-      wedge_params['screening_strategy_id'] = screeningStrategyId
-      wedge_params['chi'] = chi
-      wedge_params['kappa'] = kappa
-      wedge_params['phi'] = phi
-      screeningStrategyWedgeId = mx_screening.insert_screening_strategy_wedge(list(wedge_params.values()))
-      assert screeningStrategyWedgeId is not None
-
-      #sub_wedge_params = mx_screening.get_screening_strategy_sub_wedge_params_params()
-
     assert os.path.isfile(xoalign_log)
     with open(xoalign_log, 'rb') as f:
-
       smargon = False
       found_solutions = False
 
-      import ispyb
-      ispyb_config = os.getenv('ISPYB_CONFIG_FILE')
-      with ispyb.open(ispyb_config) as conn:
+      for line in f.readlines():
+        if 'Independent Solutions' in line:
+          found_solutions = True
+          if 'SmarGon' in line:
+            smargon = True
+          continue
 
-          for line in f.readlines():
-            if 'Independent Solutions' in line:
-              found_solutions = True
-              if 'SmarGon' in line:
-                smargon = True
-              continue
+        if not found_solutions:
+          continue
 
-            if not found_solutions:
-              continue
+        kappa = None
+        chi = None
+        phi = None
+        tokens = line.split()
+        if len(tokens) < 4:
+          continue
 
-            kappa = None
-            chi = None
-            phi = None
-            tokens = line.split()
-            if len(tokens) < 4:
-              continue
+        solution_id = int(tokens[0])
+        angles = [float(t) for t in tokens[1:3]]
+        if smargon:
+          chi, phi = angles
+        else:
+          kappa, phi = angles
+        settings_str = ' '.join(tokens[3:]).replace("'", "")
+        MosflmStrategyWrapper.insert_alignment_result_into_ispyb(
+          dcid, 'XOalign', settings_str, 'XOalign %i' %solution_id,
+          chi=chi, kappa=kappa, phi=phi)
 
-            solution_id = int(tokens[0])
-            angles = [float(t) for t in tokens[1:3]]
-            if smargon:
-              chi, phi = angles
-            else:
-              kappa, phi = angles
-            settings_str = ' '.join(tokens[3:]).replace("'", "")
+  @staticmethod
+  def insert_alignment_result_into_ispyb(
+    dcid, program, comments, short_comments,
+    chi=None, kappa=None, phi=None):
 
-            if kappa is not None and kappa < 0:
-              continue # only insert strategies with positive kappa
-            if chi is not None and (chi < 0 or chi > 45):
-              continue # only insert strategies with 0 < chi > 45
-            if phi < 0:
-              phi += 360 # make phi always positive
-            if kappa is not None:
-              kappa = '%.3f' %kappa
-            elif chi is not None:
-              chi = '%.3f' %chi
-            phi = '%.3f' %phi
+    assert dcid > 0, 'Invalid data collection ID given.'
 
-            insert_alignment_result(
-              conn, dcid, 'XOalign', settings_str, 'XOalign %i' %solution_id,
-              chi=chi, kappa=kappa, phi=phi)
+    from dlstbx.ispybtbx import ispybtbx
+    ispyb_conn = ispybtbx()
+
+    assert [chi, kappa].count(None) == 1
+    assert phi is not None
+    if kappa is not None and kappa < 0:
+      return # only insert strategies with positive kappa
+    if chi is not None and (chi < 0 or chi > 45):
+      return # only insert strategies with 0 < chi > 45
+    if phi < 0:
+      phi += 360 # make phi always positive
+    if kappa is not None:
+      kappa = '%.2f' %kappa
+    elif chi is not None:
+      chi = '%.2f' %chi
+    phi = '%.2f' %phi
+
+    result = {'dataCollectionId': dcid,
+              'program': program,
+              'shortComments': short_comments,
+              'comments': comments,
+              'phi': phi,
+    }
+    if kappa is not None:
+      result['kappa'] = kappa
+    elif chi is not None:
+      result['chi'] = chi
+
+    logger.debug('Inserting alignment result into ISPyB: %s' %str(result))
+    ispyb_conn.insert_alignment_result(result)

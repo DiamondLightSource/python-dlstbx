@@ -4,6 +4,7 @@ import glob
 import logging
 import os
 import shutil
+import sys
 
 import dlstbx.zocalo.wrapper
 import procrunner
@@ -12,30 +13,16 @@ logger = logging.getLogger('dlstbx.wrap.edna')
 
 class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
-  def construct_commandline(self, params):
-    '''Construct EDNA command line.
-       Takes job parameter dictionary, returns array.'''
-
-    command = ['edna']
-
-    return command
-
-  def send_results_to_ispyb(self):
-    return
-
   def run(self):
     assert hasattr(self, 'recwrap'), \
       "No recipewrapper object found"
 
     params = self.recwrap.recipe_step['job_parameters']
-    command = self.construct_commandline(params)
-    logger.info(command)
 
     cwd = os.path.abspath(os.curdir)
 
     working_directory = os.path.abspath(params['working_directory'])
-    results_directory = os.path.abspath(params['results_directory'])
-    logger.info('working_directory: %s' %working_directory)
+    logger.info('working_directory: %s' % working_directory)
     if not os.path.exists(working_directory):
       os.makedirs(working_directory)
     os.chdir(working_directory)
@@ -241,7 +228,6 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
   @staticmethod
   def edna2html(result_xml):
-    import os, sys
     sys.path.append(os.path.join(os.environ["EDNA_HOME"],"kernel","src"))
     from EDFactoryPluginStatic import EDFactoryPluginStatic
     EDFactoryPluginStatic.loadModule("XSDataInterfacev1_2")

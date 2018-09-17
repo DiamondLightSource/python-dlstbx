@@ -250,6 +250,54 @@ class DLSISPyB(CommonService):
     else:
       return { 'success': True, 'return_value': result }
 
+  def do_insert_alignment_result(self, rw, message, txn):
+    try:
+      program = message.get('program', '')
+      chi = message.get('chi')
+      phi = message.get('phi')
+      kappa = message.get('kappa')
+
+      assert phi is not None
+      assert [chi, kappa].count(None) == 1
+
+      mx_screening = self.ispyb.mx_screening
+      screening_params = mx_screening.get_screening_params()
+
+      screening_params['dcid'] = message['dataCollectionId']
+      screening_params['program_version'] = program
+      screening_params['comments'] = message.get('comments', '')
+      screening_params['short_comments'] = message.get('shortComments', '')
+
+      screeningId = mx_screening.insert_screening(list(screening_params.values()))
+      assert screeningId is not None
+
+      output_params = mx_screening.get_screening_output_params()
+      output_params['screening_id'] = screeningId
+      screeningOutputId = mx_screening.insert_screening_output(list(output_params.values()))
+      assert screeningOutputId is not None
+
+      strategy_params = mx_screening.get_screening_strategy_params()
+      strategy_params['screening_output_id'] = screeningOutputId
+      strategy_params['program'] = program
+      screeningStrategyId = mx_screening.insert_screening_strategy(list(strategy_params.values()))
+      assert screeningStrategyId is not None
+
+      wedge_params = mx_screening.get_screening_strategy_wedge_params()
+      wedge_params['screening_strategy_id'] = screeningStrategyId
+      wedge_params['chi'] = chi
+      wedge_params['kappa'] = kappa
+      wedge_params['phi'] = phi
+      screeningStrategyWedgeId = mx_screening.insert_screening_strategy_wedge(list(wedge_params.values()))
+      assert screeningStrategyWedgeId is not None
+
+      self.log.info("Inserted alignment results with IDs %s, %s, %s, %s",
+          str(screeningId), str(screeningOutputId), str(screeningStrategyId), str(screeningStrategyWedgeId))
+      return { 'success': True }
+    except (ispyb.exception.ISPyBException, AssertionError) as e:
+      self.log.warning("Inserting alignment results: '%s' caused exception '%s'.",
+                       message, e, exc_info=True)
+      return { 'success': False }
+
   def _retry_mysql_call(self, function, *args, **kwargs):
     tries = 0
     while True:

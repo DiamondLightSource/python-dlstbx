@@ -1,9 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
-import glob
 import logging
 import os
-import shutil
 
 import dlstbx.zocalo.wrapper
 import procrunner
@@ -90,15 +88,15 @@ class MosflmStrategyWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       datum="-D %s,%s,%s" % (phi, chi, omega)
     else:
       datum=""
-    #os.environ['BEAMLINE'] = params['beamline'] # this needs setting before a call to module load xdsme/graeme
-    os.environ['XOALIGN_CALIB'] = '/dls_sw/%s/etc/xoalign_config.py' % params['beamline']
     xoalign_py = '/dls_sw/apps/xdsme/graemewinter-xdsme/bin/Linux_i586/XOalign.py'
     commands = [xoalign_py, datum, mosflm_index_mat]
     print(' '.join(commands))
     result = procrunner.run_process(
       commands,
       timeout=params.get('timeout', 3600),
-      print_stdout=True, print_stderr=True)
+      print_stdout=True, print_stderr=True,
+      environment={'XOALIGN_CALIB': '/dls_sw/%s/etc/xoalign_config.py' % params['beamline']},
+    )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
@@ -114,8 +112,7 @@ class MosflmStrategyWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     self.insertXOalignStrategies(params['dcid'], 'XOalign.log')
     return result
 
-  @staticmethod
-  def insertXOalignStrategies(dcid, xoalign_log):
+  def insertXOalignStrategies(self, dcid, xoalign_log):
 
     assert os.path.isfile(xoalign_log)
     with open(xoalign_log, 'rb') as f:
@@ -146,20 +143,15 @@ class MosflmStrategyWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         else:
           kappa, phi = angles
         settings_str = ' '.join(tokens[3:]).replace("'", "")
-        MosflmStrategyWrapper.insert_alignment_result_into_ispyb(
+        self.send_alignment_result_to_ispyb(
           dcid, 'XOalign', settings_str, 'XOalign %i' %solution_id,
           chi=chi, kappa=kappa, phi=phi)
 
-  @staticmethod
-  def insert_alignment_result_into_ispyb(
+  def send_alignment_result_to_ispyb(self,
     dcid, program, comments, short_comments,
     chi=None, kappa=None, phi=None):
 
     assert dcid > 0, 'Invalid data collection ID given.'
-
-    from dlstbx.ispybtbx import ispybtbx
-    ispyb_conn = ispybtbx()
-
     assert [chi, kappa].count(None) == 1
     assert phi is not None
     if kappa is not None and kappa < 0:
@@ -186,4 +178,4 @@ class MosflmStrategyWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       result['chi'] = chi
 
     logger.debug('Inserting alignment result into ISPyB: %s' %str(result))
-    ispyb_conn.insert_alignment_result(result)
+    self.recwrap.send_to('alignment-result', result)

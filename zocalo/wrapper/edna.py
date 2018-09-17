@@ -1,9 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
-import glob
 import logging
 import os
-import shutil
 import sys
 
 import dlstbx.zocalo.wrapper
@@ -58,9 +56,6 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       f.write(short_comments)
 
     os.chdir(EDNAStrategy)
-    os.environ['DCID'] = params['dcid']
-    os.environ['SHORT_COMMENTS'] = sparams['name']
-    os.environ['COMMENTS'] = short_comments
     edna_home = os.environ['EDNA_HOME']
     strategy_xml = os.path.join(working_directory, 'EDNAStrategy.xml')
     results_xml = os.path.join(working_directory, 'results.xml')
@@ -71,7 +66,13 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     result = procrunner.run_process(
       commands,
       timeout=params.get('timeout', 3600),
-      print_stdout=True, print_stderr=True)
+      print_stdout=True, print_stderr=True,
+      environment={
+          'COMMENTS': short_comments,
+          'DCID': params['dcid'],
+          'SHORT_COMMENTS': sparams['name'],
+      },
+    )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
@@ -95,7 +96,8 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     result = procrunner.run_process(
       commands,
       timeout=params.get('timeout', 3600),
-      print_stdout=True, print_stderr=True)
+      print_stdout=True, print_stderr=True,
+    )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])

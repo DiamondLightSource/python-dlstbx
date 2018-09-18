@@ -207,13 +207,8 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         </beamSizeY>""" %beam_size_y, file=s)
 
     #5) Echo out omega,kappa,phi (if we know them)
-    chi = params.get('chi')
-    kappa = params.get('kappa')
-    omega = params.get('omega')
-    phi = params.get('phi')
-
     for axis in ('chi', 'kappa', 'omega', 'phi'):
-      angle = params.get(axis)
+      angle = params['strategy'].get(axis)
       if angle is not None:
         print("""
     <%s>

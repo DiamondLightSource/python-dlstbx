@@ -123,33 +123,31 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     anomalous = 1 if anomalous else 0
 
-    from cStringIO import StringIO
-    s = StringIO()
     #1) Echo out the header
-    s.write("""<?xml version=\"1.0\" ?>
-<XSDataInputInterfacev2_2>""")
+    output = '<?xml version="1.0" ?><XSDataInputInterfacev2_2>'
 
     #2) Echo out the diffractionPlan
-    s.write("""        <diffractionPlan>
-            <anomalousData>
-                <value>%(anomalous)i</value>
-            </anomalousData>
-            <complexity>
-                <value>%(complexity)s</value>
-            </complexity>
-            <aimedIOverSigmaAtHighestResolution>
-                <value>%(i_over_sig_i)s</value>
-            </aimedIOverSigmaAtHighestResolution>
-            <aimedMultiplicity>
-                <value>%(multiplicity)s</value>
-            </aimedMultiplicity>
-            <minExposureTimePerImage>
-                <value>%(min_exposure)s</value>
-            </minExposureTimePerImage>
-            <maxExposureTimePerDataCollection>
-                <value>%(lifespan)s</value>
-            </maxExposureTimePerDataCollection>
-""" %dict( anomalous=anomalous,
+    output = output + '''
+<diffractionPlan>
+  <anomalousData>
+    <value>%(anomalous)i</value>
+  </anomalousData>
+  <complexity>
+    <value>%(complexity)s</value>
+  </complexity>
+  <aimedIOverSigmaAtHighestResolution>
+    <value>%(i_over_sig_i)s</value>
+  </aimedIOverSigmaAtHighestResolution>
+  <aimedMultiplicity>
+    <value>%(multiplicity)s</value>
+  </aimedMultiplicity>
+  <minExposureTimePerImage>
+    <value>%(min_exposure)s</value>
+  </minExposureTimePerImage>
+  <maxExposureTimePerDataCollection>
+    <value>%(lifespan)s</value>
+  </maxExposureTimePerDataCollection>
+''' % dict( anomalous=anomalous,
            complexity=complexity,
            i_over_sig_i=i_over_sig_i,
            multiplicity=multiplicity,
@@ -162,8 +160,7 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     #  print >> s, """            <forcedSpaceGroup>
     #              <value>%s</value>
     #          </forcedSpaceGroup>""" %space_group
-    print("        </diffractionPlan>", file=s)
-
+    output = output + '</diffractionPlan>'
 
     #3) Echo out the full path for each image.
 
@@ -183,42 +180,31 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.info('%s %s:%s' %(image_pattern, image_first, image_last))
     for i_image in range(image_first, image_last+1):
       image_file_name = os.path.join(image_directory, image_pattern % i_image)
-      print("""    <imagePath>
-            <path>
-                <value>%s</value>
-            </path>
-        </imagePath>""" %image_file_name, file=s)
+      output = output + '''
+<imagePath><path><value>%s</value></path></imagePath>
+''' % image_file_name
 
     #4) Echo out the beam and flux (if we know them)
     flux = float(params['strategy']['flux'])
     beam_size_x = float(params['strategy']['beam_size_x'])
     beam_size_y = float(params['strategy']['beam_size_y'])
     if flux:
-      print("""    <flux>
-            <value>%s</value>
-        </flux>""" %flux, file=s)
+      output = output + "<flux><value>%s</value></flux>" % flux
     if beam_size_x:
-      print("""    <beamSizeX>
-            <value>%s</value>
-        </beamSizeX>""" %beam_size_x, file=s)
+      output = output + "<beamSizeX><value>%s</value></beamSizeX>" % beam_size_x
     if beam_size_y:
-      print("""    <beamSizeY>
-            <value>%s</value>
-        </beamSizeY>""" %beam_size_y, file=s)
+      output = output + "<beamSizeY><value>%s</value></beamSizeY>" % beam_size_y
 
     #5) Echo out omega,kappa,phi (if we know them)
     for axis in ('chi', 'kappa', 'omega', 'phi'):
       angle = params['strategy'].get(axis)
       if angle is not None:
-        print("""
-    <%s>
-        <value>%s</value>
-    </%s>""" % (axis, angle, axis)
+        output = output + "<%s><value>%s</value></%s>" % (axis, angle, axis)
 
     #6) and close
-    print("</XSDataInputInterfacev2_2>", file=s)
+    output = output + "</XSDataInputInterfacev2_2>"
 
-    return s.getvalue()
+    return output
 
   @staticmethod
   def edna2html(result_xml):

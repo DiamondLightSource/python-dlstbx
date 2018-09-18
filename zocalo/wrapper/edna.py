@@ -67,7 +67,7 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       commands,
       timeout=params.get('timeout', 3600),
       print_stdout=True, print_stderr=True,
-      environment={
+      environment_override={
           'COMMENTS': short_comments,
           'DCID': params['dcid'],
           'SHORT_COMMENTS': sparams['name'],

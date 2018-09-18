@@ -95,7 +95,7 @@ class MosflmStrategyWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       commands,
       timeout=params.get('timeout', 3600),
       print_stdout=True, print_stderr=True,
-      environment={'XOALIGN_CALIB': '/dls_sw/%s/etc/xoalign_config.py' % params['beamline']},
+      environment_override={'XOALIGN_CALIB': '/dls_sw/%s/etc/xoalign_config.py' % params['beamline']},
     )
 
     logger.info('command: %s', ' '.join(result['command']))

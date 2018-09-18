@@ -65,15 +65,18 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
        '--execute', 'EDPluginControlInterfacev1_2', '--DEBUG',
        '--inputFile', strategy_xml,
        '--outputFile', results_xml]
+    env_d = {
+          'COMMENTS': short_comments,
+          'DCID': params['dcid'],
+          'SHORT_COMMENTS': sparams['name'],
+    }
+    if beamline == 'i24':
+      env_d['EDNA_SITE'] = 'DLS_i24'
     result = procrunner.run_process(
       commands,
       timeout=params.get('timeout', 3600),
       print_stdout=True, print_stderr=True,
-      environment_override={
-          'COMMENTS': short_comments,
-          'DCID': params['dcid'],
-          'SHORT_COMMENTS': sparams['name'],
-      },
+      environment_override=env_d,
     )
 
     logger.info('command: %s', ' '.join(result['command']))

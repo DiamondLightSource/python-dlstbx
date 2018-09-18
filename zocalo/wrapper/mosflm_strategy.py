@@ -81,10 +81,9 @@ class MosflmStrategyWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     kappa = params.get('kappa')
     omega = params.get('omega')
     phi = params.get('phi')
-    print(chi, kappa, omega, phi)
-    if kappa is not None:
+    if kappa != 'None':
       datum="-D %s,%s,%s" % (phi, kappa, omega)
-    elif chi is not None:
+    elif chi != 'None':
       datum="-D %s,%s,%s" % (phi, chi, omega)
     else:
       datum=""

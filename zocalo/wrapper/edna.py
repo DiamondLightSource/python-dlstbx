@@ -206,22 +206,19 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
             <value>%s</value>
         </beamSizeY>""" %beam_size_y, file=s)
 
-#    #5) Echo out omega,kappa,phi (if we know them)
-#    if [ "${Omega}" != "" ] ; then
-#    echo "    <omega>
-#            <value>${Omega}</value>
-#        </omega>"
-#    fi
-#    if [ "${Kappa}" != "" ] ; then
-#    echo "    <kappa>
-#            <value>${Kappa}</value>
-#        </kappa>"
-#    fi
-#    if [ "${Phi}" != "" ] ; then
-#    echo "    <phi>
-#            <value>${Phi}</value>
-#        </phi>"
-#    fi
+    #5) Echo out omega,kappa,phi (if we know them)
+    chi = params.get('chi')
+    kappa = params.get('kappa')
+    omega = params.get('omega')
+    phi = params.get('phi')
+
+    for axis in ('chi', 'kappa', 'omega', 'phi'):
+      angle = params.get(axis)
+      if angle is not None:
+        print("""
+    <%s>
+        <value>%s</value>
+    </%s>""" % (axis, angle, axis)
 
     #6) and close
     print("</XSDataInputInterfacev2_2>", file=s)

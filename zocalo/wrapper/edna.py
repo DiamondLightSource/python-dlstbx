@@ -25,6 +25,8 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       os.makedirs(working_directory)
     os.chdir(working_directory)
 
+    self.generate_modified_headers()
+
     sparams = params['strategy']
     lifespan = sparams['lifespan']
     transmission = float(sparams['transmission'])
@@ -113,6 +115,40 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     self.edna2html(results_xml)
 
     return result['exitcode'] == 0
+
+  def generate_modified_headers(self,):
+    params = self.recwrap.recipe_step['job_parameters']
+
+    def behead(cif_in, cif_out):
+      logger.info('Writing modified file %s to %s' % (cif_in, cif_out))
+      import os
+      assert os.path.exists(cif_in)
+      assert not os.path.exists(cif_out)
+
+      data = open(cif_in, 'rb').read()
+
+      if '# This and all subsequent lines will' in data:
+        head = data.split('# This and all subsequent lines will')[0]
+        tail = data.split('CBF_BYTE_OFFSET little_endian')[-1]
+        data = head + tail
+
+      open(cif_out, 'wb').write(data)
+
+      return
+
+    working_directory = os.path.abspath(params['working_directory'])
+    tmpdir = os.path.join(working_directory, 'image-tmp')
+    os.makedirs(tmpdir)
+
+    template = os.path.join(params['image_directory'],  params['image_template'])
+
+    import glob
+    g = glob.glob(template.replace('#', '?'))
+    for f in g:
+      behead(f, os.path.join(tmpdir, os.path.basename(f)))
+
+    params['orig_image_directory'] = params['image_directory']
+    params['image_directory'] = tmpdir
 
   def make_edna_xml(self, complexity, multiplicity, i_over_sig_i,
                     lifespan, min_osc_range, min_exposure, anomalous=False):

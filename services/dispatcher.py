@@ -102,7 +102,13 @@ class DLSDispatcher(CommonService):
       # At this point external helper functions should be called,
       # eg. ISPyB database lookups
       from dlstbx.ispybtbx import ispyb_filter
-      message, parameters = ispyb_filter(message, parameters)
+      try:
+        message, parameters = ispyb_filter(message, parameters)
+      except Exception as e:
+        self.log.error("Rejected message due to ISPyB filter error: %s",
+            str(e), exc_info=True)
+        self._transport.nack(header)
+        return
       self.log.debug("Mangled processing request:\n" + str(message))
       self.log.debug("Mangled processing parameters:\n" + str(parameters))
 

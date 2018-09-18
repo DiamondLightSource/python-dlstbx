@@ -802,12 +802,22 @@ def ispyb_filter(message, parameters):
     parameters['ispyb_images'] = ','.join(related_images)
 
   message['default_recipe'] = [
-      'per-image-analysis-rotation', 'processing-fast-dp',
-      'processing-xia2-3dii', 'processing-xia2-dials',
-      'processing-autoproc', 'processing-rlv']
+      'per-image-analysis-rotation',
+      'processing-autoproc',
+      'processing-fast-dp',
+      'processing-rlv',
+      'processing-xia2-3dii',
+      'processing-xia2-dials',
+      'processing-xia2-dials-full',
+  ]
 
   if parameters['ispyb_beamline'] == 'i02-2':
-    message['default_recipe'] = [ 'archive-nexus', 'processing-xia2-dials', 'vmxi-per-image-analysis' ]
+    message['default_recipe'] = [
+        'archive-nexus',
+        'processing-xia2-dials',
+        'processing-xia2-dials-full',
+        'vmxi-per-image-analysis',
+    ]
 
   if parameters['ispyb_images']:
     message['default_recipe'].append('processing-multi-xia2-dials')

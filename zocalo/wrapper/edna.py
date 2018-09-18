@@ -147,12 +147,12 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
   <maxExposureTimePerDataCollection>
     <value>%(lifespan)s</value>
   </maxExposureTimePerDataCollection>
-''' % dict( anomalous=anomalous,
+''' % dict(anomalous=anomalous,
            complexity=complexity,
            i_over_sig_i=i_over_sig_i,
            multiplicity=multiplicity,
            min_exposure=min_exposure,
-           lifespan=lifespan))
+           lifespan=lifespan)
 
     #logger.info('spacegroup: %s' %params.get('spacegroup'))
     #space_group = params.get('spacegroup')

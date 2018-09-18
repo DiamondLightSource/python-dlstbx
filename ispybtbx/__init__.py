@@ -64,6 +64,8 @@ class ispybtbx(object):
     # GridInfo is not supported yet in stable
     import ispyb.model.__future__
     ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+    if not newgrid:
+      return {} # This is no grid scan.
     return {
         'steps_x': newgrid.steps_x,
         'steps_y': newgrid.steps_y,
@@ -717,9 +719,11 @@ def ispyb_filter(message, parameters):
   start, end = i.dc_info_to_start_end(dc_info)
   if dc_class['grid'] and dc_info['dataCollectionGroupId']:
     try:
-      parameters['ispyb_dc_info']['gridinfo'] = i.get_gridscan_info(dc_info['dataCollectionGroupId'])
-      # FIXME: timestamps can not be JSON-serialized
-      del(parameters['ispyb_dc_info']['gridinfo']['recordTimeStamp'])
+      gridinfo = i.get_gridscan_info(dc_info['dataCollectionGroupId'])
+      if gridinfo:
+        # FIXME: timestamps can not be JSON-serialized
+        del(gridinfo['recordTimeStamp'])
+        parameters['ispyb_dc_info']['gridinfo'] = gridinfo
     except ispyb.exception.ISPyBNoResultException:
       pass
   parameters['ispyb_image_first'] = start

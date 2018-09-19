@@ -53,6 +53,19 @@ class StatusNotifications(threading.Thread):
     self.lock.notify()
     self.lock.release()
 
+  @property
+  def taskname(self):
+    '''Returns the name displayed on service monitors for this task.'''
+    return self.status_dict['task']
+
+  @taskname.setter
+  def taskname(self, value):
+    '''Set/update the name displayed on service monitors for this task.'''
+    self.lock.acquire()
+    self.status_dict['task'] = value
+    self.lock.notify()
+    self.lock.release()
+
   def shutdown(self):
     self._keep_running = False
 
@@ -130,6 +143,7 @@ def run(cmdline_args):
 
   # Instantiate chosen wrapper
   instance = known_wrappers[options.wrapper]()()
+  instance.status_thread = st
 
   # If specified, read in a serialized recipewrapper
   if options.recipewrapper:

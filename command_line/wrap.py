@@ -140,13 +140,13 @@ def run(cmdline_args):
       )
     instance.set_recipe_wrapper(recwrap)
 
-  if recwrap.environment.get('ID'):
-    # If recipe ID available then include that in all future log messages
-    class ContextFilter(logging.Filter):
-      def filter(self, record):
-        record.recipe_ID = recwrap.environment['ID']
-        return True
-    graylog_handler.addFilter(ContextFilter())
+    if recwrap.environment.get('ID'):
+      # If recipe ID available then include that in all future log messages
+      class ContextFilter(logging.Filter):
+        def filter(self, record):
+          record.recipe_ID = recwrap.environment['ID']
+          return True
+      graylog_handler.addFilter(ContextFilter())
 
   instance.prepare('Starting processing')
 

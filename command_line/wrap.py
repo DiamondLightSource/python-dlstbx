@@ -162,8 +162,9 @@ def run(cmdline_args):
           return True
       graylog_handler.addFilter(ContextFilter())
 
-    if recwrap.recipe_step.get('parameters', {}).get('task_information'):
-      st.taskname += " (" + str(recwrap.recipe_step['parameters']['task_information']) + ")"
+    if recwrap.recipe_step.get('wrapper', {}).get('task_information'):
+      # If the recipe contains an extra task_information field then add this to the status display
+      st.taskname += " (" + str(recwrap.recipe_step['wrapper']['task_information']) + ")"
 
   instance.prepare('Starting processing')
 

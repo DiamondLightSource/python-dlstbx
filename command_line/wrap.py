@@ -162,6 +162,9 @@ def run(cmdline_args):
           return True
       graylog_handler.addFilter(ContextFilter())
 
+    if recwrap.recipe_step.get('parameters', {}).get('task_information'):
+      st.taskname += " (" + str(recwrap.recipe_step['parameters']['task_information']) + ")"
+
   instance.prepare('Starting processing')
 
   st.set_status(workflows.services.common_service.Status.PROCESSING)

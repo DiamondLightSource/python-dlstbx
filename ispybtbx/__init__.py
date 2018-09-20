@@ -30,6 +30,13 @@ def _ispyb_api():
         ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg'))
   return _ispyb_api.instance
 
+future_enabled = False
+def _enable_future():
+  if future_enabled: return
+  import ispyb.model.__future__
+  ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+  future_enabled = True
+
 class ispybtbx(object):
   def __init__(self):
     self.legacy_init()
@@ -62,8 +69,7 @@ class ispybtbx(object):
     '''Extract GridInfo table contents for a DC group ID.'''
     newgrid = _ispyb_api().get_data_collection_group(dcgid).gridinfo
     # GridInfo is not supported yet in stable
-    import ispyb.model.__future__
-    ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+    _enable_future()
     if not newgrid:
       return {} # This is no grid scan.
     return {

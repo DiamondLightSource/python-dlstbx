@@ -32,6 +32,7 @@ def _ispyb_api():
 
 future_enabled = False
 def _enable_future():
+  global future_enabled
   if future_enabled: return
   import ispyb.model.__future__
   ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')

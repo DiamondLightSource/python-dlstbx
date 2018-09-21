@@ -164,7 +164,8 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       # Create symbolic link above working directory
       dlstbx.util.symlink.create_parent_symlink(results_directory, params['results_symlink'])
 
-    if not result['exitcode'] and not os.path.isfile('xia2.error') and os.path.exists('xia2.json'):
+    if not result['exitcode'] and not os.path.isfile('xia2.error') and os.path.exists('xia2.json') \
+        and not params.get('do_not_write_to_ispyb'):
       self.send_results_to_ispyb()
 
     logfiles = [ 'xia2.html', 'xia2.error' ]

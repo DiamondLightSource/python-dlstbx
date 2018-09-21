@@ -104,8 +104,8 @@ if __name__ == '__main__':
                     help="Keep showing log messages as they come in.")
   parser.add_option("--level", dest="level", default="info",
                     help="Show messages with this loglevel and higher. Valid options: alert, critical, error, warning, notice, info, debug")
-  parser.add_option("--time", dest="time", default=600, type="int",
-                    help="Start showing messages from this many seconds back in time.")
+  parser.add_option("--time", dest="time", default="600",
+                    help="Start showing messages from this far back in time. Seconds if no unit (s/m/h/d/w) specified.")
   parser.add_option("-v", "--verbose", dest="verbose", default=0, action="count",
                     help="Show more detail (can be specified multiple times)")
   (options, args) = parser.parse_args(sys.argv[1:])
@@ -113,8 +113,18 @@ if __name__ == '__main__':
   try:
     level = [ 'a', 'c', 'e', 'w', 'n', 'i', 'd' ].index(options.level.lower()[0]) + 1
   except ValueError:
-    print("Invalid loglevel specified.")
-    sys.exit(1)
+    sys.exit("Invalid loglevel specified.")
+
+  if options.time.isdigit():
+    options.time = int(options.time)
+  elif options.time[:-1].isdigit():
+    calculated_time = int(options.time[:-1]) * \
+        { 's': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800 }.get(options.time[-1].lower(), 0)
+    if not calculated_time:
+      sys.exit("error: option --time: invalid value '%s'" % options.time)
+    options.time = calculated_time
+  else:
+    sys.exit("error: option --time: invalid value '%s'" % options.time)
 
   g = GraylogAPI('/dls_sw/apps/zocalo/secrets/credentials-log.cfg')
   g.level = level

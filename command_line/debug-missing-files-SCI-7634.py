@@ -95,9 +95,20 @@ def debug_message(message):
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.graylog [options]")
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-  parser.add_option("--time", dest="time", default=24 * 60 * 60, type="int",
-                    help="Start showing messages from this many seconds back in time.")
+  parser.add_option("--time", dest="time", default="86400",
+                    help="Start showing messages from this far back in time. Seconds if no unit (s/m/h/d/w) specified.")
   (options, args) = parser.parse_args(sys.argv[1:])
+
+  if options.time.isdigit():
+    options.time = int(options.time)
+  elif options.time[:-1].isdigit():
+    calculated_time = int(options.time[:-1]) * \
+        { 's': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800 }.get(options.time[-1].lower(), 0)
+    if not calculated_time:
+      sys.exit("error: option --time: invalid value '%s'" % options.time)
+    options.time = calculated_time
+  else:
+    sys.exit("error: option --time: invalid value '%s'" % options.time)
 
   g = GraylogAPI('/dls_sw/apps/zocalo/secrets/credentials-log.cfg')
   failure_count = 0

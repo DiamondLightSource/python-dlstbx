@@ -61,22 +61,39 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     edna_home = os.environ['EDNA_HOME']
     strategy_xml = os.path.join(working_directory, 'EDNAStrategy.xml')
     results_xml = os.path.join(working_directory, 'results.xml')
-    commands = ['%s/kernel/bin/edna-plugin-launcher' % edna_home,
-       '--execute', 'EDPluginControlInterfacev1_2', '--DEBUG',
-       '--inputFile', strategy_xml,
-       '--outputFile', results_xml]
-    env_d = {
-          'COMMENTS': short_comments,
-          'DCID': params['dcid'],
-          'SHORT_COMMENTS': sparams['name'],
-    }
-    if beamline == 'i24':
-      env_d['EDNA_SITE'] = 'DLS_i24'
+    wrap_edna_sh = os.path.join(working_directory, 'wrap_edna.sh')
+    with open(wrap_edna_sh, 'wb') as f:
+      if beamline == 'i24':
+        edna_site = 'export EDNA_SITE=DLS_i24'
+      else:
+        edna_site = ''
+      f.write('''\
+module load global/cluster
+module load edna/20140709-auto
+module load oracle/instantclient-11.2
+export DCID=%(dcid)s
+export COMMENTS="%(comments)s"
+export SHORT_COMMENTS="%(short_comments)s"
+%(edna_site)s
+${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
+  --execute EDPluginControlInterfacev1_2 --DEBUG \
+  --inputFile %(input_file)s \
+  --outputFile %(output_file)s''' % dict(
+        comments=short_comments,
+        short_comments=sparams['name'],
+        dcid=params['dcid'],
+        edna_site=edna_site,
+        input_file=strategy_xml,
+        output_file=results_xml
+      ))
+    commands = [
+      'sh', wrap_edna_sh,
+      strategy_xml, results_xml]
+    logger.info(' '.join(commands))
     result = procrunner.run_process(
       commands,
       timeout=params.get('timeout', 3600),
       print_stdout=True, print_stderr=True,
-      environment_override=env_d,
     )
 
     logger.info('command: %s', ' '.join(result['command']))

@@ -94,6 +94,12 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
       commands,
       timeout=params.get('timeout', 3600),
       print_stdout=True, print_stderr=True,
+      environment_override={
+          'LD_LIBRARY_PATH': '',
+          'LOADEDMODULES': '',
+          'PYTHONPATH': '',
+          '_LMFILES_': '',
+      },
     )
 
     logger.info('command: %s', ' '.join(result['command']))

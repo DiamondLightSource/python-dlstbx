@@ -15,7 +15,7 @@ except Exception:
 
 libtbx.pkg_utils.require('mock', '>=2.0')
 libtbx.pkg_utils.require('pytest', '>=3.1')
-libtbx.pkg_utils.require('ispyb', '>=4.11.1,<4.12')
+libtbx.pkg_utils.require('ispyb', '>=4.12,<4.13')
 libtbx.pkg_utils.require('workflows', '>=0.66')
 libtbx.pkg_utils.require('drmaa')
 libtbx.pkg_utils.require('junit_xml')

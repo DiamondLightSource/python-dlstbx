@@ -170,7 +170,6 @@ class DLSArchiver(CommonService):
             self.log.warning("Could not archive %s", filename, exc_info=True)
         message_out['failed'] += 1
         continue
-      self.log.debug("Archived %s", filename)
       message_out['success'] += 1
     if files_not_found:
       if files_found_past_missing_file:
@@ -179,7 +178,6 @@ class DLSArchiver(CommonService):
       else:
         self.log.info("The following files were not found:\n%s", "\n".join(files_not_found))
       rw.send_to('missing_files', files_not_found, transaction=txn)
-    self.log.info("%d files archived", message_out['success'])
     if message_out['failed']:
       if params.get('log-summary-warning-as-info'):
         self.log.info("Failed to archive %d files", message_out['failed'])
@@ -190,7 +188,7 @@ class DLSArchiver(CommonService):
     dropfile = params.get('dropfile')
     if dropfile == '{dropfile_override}':
       dropfile = None
-    if not dropfile and all(k in params for k in ('dropfile-dir', 'dropfile-filename')):
+    if not dropfile and params.get('dropfile-dir') and params.get('dropfile-filename'):
       dropfile = os.path.join(params['dropfile-dir'], params['dropfile-filename'])
     if dropfile:
       timestamp = datetime.strftime(datetime.now(), "%Y%m%d-%H%M%S")
@@ -208,7 +206,7 @@ class DLSArchiver(CommonService):
     rw.send_to('dropfile', message_out, transaction=txn)
 
     self._transport.transaction_commit(txn)
-    self.log.debug("Done.")
+    self.log.info("%d files archived", message_out['success'])
 
   def archive_filelist(self, rw, header, message):
     '''Archive an arbitrary list of files.'''

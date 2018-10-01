@@ -103,7 +103,7 @@ class DB:
             logging.getLogger().exception("DB: error ping'ing database server :-(")
             ping_error = True
         else:
-            if ping_res <> [('ping',)]:
+            if ping_res != [('ping',)]:
                 logging.getLogger().error("DB: error ping'ing database server: %s :-( " % str(ping_res))
                 ping_error = True
 

@@ -359,8 +359,6 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
     row = retrieve_datacollection_values(_db, _dbschema, src_sessionid, _src_dir, _src_prefix, _src_run_number)
     src_dcid = int(row['datacollectionid'])
     src_dcgid = int(row['datacollectiongroupid'])
-    logging.getLogger().debug("(ANS) Source DCID %d, Source DCGID %d" % (src_dcid, src_dcgid))
-
     start_img_number = int(row['startimagenumber'])
     src_xtal_snapshot_path = [row['xtalsnapshotfullpath1'], row['xtalsnapshotfullpath2'], row['xtalsnapshotfullpath3'], row['xtalsnapshotfullpath4']]
 
@@ -584,6 +582,12 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
     logging.getLogger().debug('(bash script) %s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]))
     subprocess.check_call(['%s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]) ], shell=True)
     _db.disposeCursor(_db.cursor)
+
+    # Log datacollectionid to beamline specific location
+    with open("/dls/tmp/" + _beamline + "/dc_sim.log","a+") as f:
+        f.write(str(datacollectionid) + " : " + nowstr +"\n")
+        print("Data collection logged in: " + "/dls/tmp/" + _beamline + "/dc_sim.log")
+        output_dict = {"beamline": _beamline, "date": nowstr, "dcid": str(datacollectionid)}
 
 def printHelp(msg=None):
     if msg != None:

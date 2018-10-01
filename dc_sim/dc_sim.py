@@ -12,9 +12,11 @@
 #       at appropriate times.
 #
 
+from __future__ import print_function
+from __future__ import absolute_import
 import sys, os, os.path, subprocess, shutil, MySQLdb, logging
 import tempfile
-import mydb
+from . import mydb
 import getopt
 import re
 import errno
@@ -408,7 +410,7 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
             logging.getLogger().debug("(filesystem) Creating a temporary blsample XML file in the /tmp folder")
 
             blsample_xml = populate_blsample_xml_template(bls_row)
-            print blsample_xml
+            print(blsample_xml)
 
             f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='blsample', dir='/tmp', delete=False)
             xml_fname = f.name
@@ -551,7 +553,7 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
     nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
 
     dc_xml = dc_endtime_temp_xml % (datacollectionid, nowstr)
-    print dc_xml
+    print(dc_xml)
     f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='datacollection', dir='/tmp', delete=False)
     xml_fname = f.name
     f.write(dc_xml)
@@ -568,7 +570,7 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
     nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
 
     dcg_xml = dcg_endtime_temp_xml % (datacollectiongroupid, nowstr)
-    print dcg_xml
+    print(dcg_xml)
     f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='datacollectiongroup', dir='/tmp', delete=False)
     xml_fname = f.name
     f.write(dcg_xml)
@@ -618,7 +620,7 @@ if __name__ == '__main__':
             ["dbserver_srcdir=", "dbserver_host=", "dbserver_port=", "dbhost=", "dbuser=", "dbschema=", "tnsname=",\
             "debug", "help", "data_src_dir=", "src_dir=", "src_run_number=", "src_prefix=", "dest_dir=", "dest_prefix=", "log_file=",\
             "automatic_processing=", "use_sample_id="])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         sys.exit("Cannot read command-line parameters: %s" % str(e))
 
     # Default parameters

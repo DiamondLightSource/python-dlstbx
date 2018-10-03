@@ -111,6 +111,15 @@ class DLSFileWatcher(CommonService):
         if is_file_selected(status['seen-files'], m, filecount):
           rw.send_to(dest, notification_record, transaction=txn)
 
+    if files_found:
+      self.log.debug(
+          "Found %d files in pattern %s with pattern indices between %d and %d",
+          files_found,
+          pattern,
+          pattern_start + status['seen-files'] - files_found,
+          pattern_start + status['seen-files'] - 1,
+      )
+
     # Are we done?
     if status['seen-files'] == filecount:
       # Happy days

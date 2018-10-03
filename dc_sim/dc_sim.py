@@ -589,7 +589,8 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
     with open("/dls/tmp/" + _beamline + "/dc_sim.log","a+") as f:
         f.write(str(datacollectionid) + " : " + nowstr +"\n")
         print("Data collection logged in: " + "/dls/tmp/" + _beamline + "/dc_sim.log")
-        output_dict = {"beamline": _beamline, "date": nowstr, "dcid": str(datacollectionid)}
+        sim_output_dict = {"beamline": _beamline, "date": nowstr, "dcid": str(datacollectionid)}
+        return sim_output_dict
 
 def printHelp(msg=None):
     if msg != None:

@@ -348,7 +348,15 @@ def retrieve_max_dcnumber(_db, _dbschema, _sessionid, _dest_dir, _dest_prefix):
                              _db.cursor, True, True, False)
     return rows[0][0]
 
-
+def scenario(test_name):
+    '''provide the test scenario'''
+    import definitions as df
+    if scenario in df.tests:
+        source_directory = df.tests[scenario]['src_dir']
+        destination_directory = df.dest_dir()
+        source_prefix = df.tests[scenario]['src_prefix']
+        source_run_numbers = df.tests[scenario]['src_run_num']
+        return [source_directory, destination_directory, source_prefix, source_run_numbers]
 
 
 def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
@@ -799,5 +807,15 @@ if __name__ == '__main__':
     db.connect()
 
     db.cursor=db.createCursor()
+    
+    # Fetch scenario data from definitions by accessing temp_simulation function
+         
+    src_dir_overwrite = scenario(test_name)[0]
+    dest_dir_overwrite = scenario(test_name)[1]
 
-    simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id, auto_proc)
+    for src_run_num_overwrite in scenario(test_name)[3]:
+        for src_prefix_overwrite in scenario(test_name)[2]:      
+            simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir_overwrite, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir_overwrite, sample_id, auto_proc)
+
+
+

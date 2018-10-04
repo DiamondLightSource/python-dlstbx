@@ -53,6 +53,7 @@ libtbx.pkg_utils.define_entry_points({
   'workflows.services': sorted(service_list),
   'dlstbx.wrappers': sorted([
     'big_ep = dlstbx.zocalo.wrapper.big_ep:BigEPWrapper',
+    'dc_sim = dlstbx.zocalo.wrapper.dc_sim:DCSimWrapper',
     'dozor = dlstbx.zocalo.wrapper.dozor:DozorWrapper',
     'dummy = dlstbx.zocalo.wrapper:DummyWrapper',
     'edna = dlstbx.zocalo.wrapper.edna:EdnaWrapper',

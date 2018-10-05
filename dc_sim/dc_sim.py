@@ -352,12 +352,16 @@ def scenario(test_name):
     '''provide the test scenario'''
     import definitions as df
     if scenario in df.tests:
-        source_directory = df.tests[scenario]['src_dir']
+        source_directory = df.tests[test_name]['src_dir']
         destination_directory = df.dest_dir()
-        source_prefix = df.tests[scenario]['src_prefix']
-        source_run_numbers = df.tests[scenario]['src_run_num']
+        source_prefix = df.tests[test_name]['src_prefix']
+        source_run_numbers = df.tests[test_name]['src_run_num']
         valid_scenario = test_name in df.tests
-        return [source_directory, destination_directory, source_prefix, source_run_numbers, valid_scenario]
+        if 'use_sample_id' in df.tests[test_name]:
+            sample_id = df.tests[test_name]['use_sample_id']
+        else:
+            sample_id = None
+        return [source_directory, destination_directory, source_prefix, source_run_numbers, valid_scenario, sample_id]
 
 
 def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
@@ -814,9 +818,13 @@ if __name__ == '__main__':
     if scenario(test_name)[4]:     
         src_dir_overwrite = scenario(test_name)[0]
         dest_dir_overwrite = scenario(test_name)[1]
+        sample_id_overwrite = scenario(test_name)[5]
         for src_run_num_overwrite in scenario(test_name)[3]:
             for src_prefix_overwrite in scenario(test_name)[2]:      
-                simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir_overwrite, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir_overwrite, sample_id, auto_proc)
+                simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir_overwrite, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir_overwrite, sample_id_overwrite, auto_proc)
+    
+    else:
+        sys.exit("Not a valid test scenario")
 
 
 

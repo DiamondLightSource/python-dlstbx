@@ -1,21 +1,4 @@
 from pytest import approx
-import os
-import datetime as dt
-
-
-def dest_dir():
-    '''Determines destination directory - assumes machine is a beamline'''
-    beamline = os.uname()[1].split('-')[0]
-    year = dt.datetime.now().year
-    month = dt.datetime.now().month
-    day = dt.datetime.now().day
-    hour = dt.datetime.now().hour
-    minute = dt.datetime.now().minute
-    second = dt.datetime.now().second
-    for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(beamline, year)):
-        if cm_dir.startswith('nt18231'):
-            return '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/fake{6}{7}{8}'.format(beamline, year, cm_dir, year, month, day, hour, minute, second)   
-
 
 
 

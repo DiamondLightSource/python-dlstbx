@@ -46,7 +46,6 @@ class DLSPerImageAnalysis(CommonService):
     # Pass through all file* fields
     for key in filter(lambda x: x.startswith('file'), message):
       results[key] = message[key]
-    self.log.debug(str(results))
 
     # Conditionally acknowledge receipt of the message
     txn = rw.transport.transaction_begin()

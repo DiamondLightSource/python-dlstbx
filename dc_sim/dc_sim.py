@@ -356,7 +356,8 @@ def scenario(test_name):
         destination_directory = df.dest_dir()
         source_prefix = df.tests[scenario]['src_prefix']
         source_run_numbers = df.tests[scenario]['src_run_num']
-        return [source_directory, destination_directory, source_prefix, source_run_numbers]
+        valid_scenario = test_name in df.tests
+        return [source_directory, destination_directory, source_prefix, source_run_numbers, valid_scenario]
 
 
 def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
@@ -809,13 +810,13 @@ if __name__ == '__main__':
     db.cursor=db.createCursor()
     
     # Fetch scenario data from definitions by accessing scenario function
-         
-    src_dir_overwrite = scenario(test_name)[0]
-    dest_dir_overwrite = scenario(test_name)[1]
-
-    for src_run_num_overwrite in scenario(test_name)[3]:
-        for src_prefix_overwrite in scenario(test_name)[2]:      
-            simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir_overwrite, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir_overwrite, sample_id, auto_proc)
+    
+    if scenario(test_name)[4]:     
+        src_dir_overwrite = scenario(test_name)[0]
+        dest_dir_overwrite = scenario(test_name)[1]
+        for src_run_num_overwrite in scenario(test_name)[3]:
+            for src_prefix_overwrite in scenario(test_name)[2]:      
+                simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir_overwrite, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir_overwrite, sample_id, auto_proc)
 
 
 

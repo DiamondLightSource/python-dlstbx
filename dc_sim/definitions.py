@@ -2,8 +2,6 @@ from pytest import approx
 import os
 import datetime as dt
 
-dbserver_host = 'sci-serv3'
-dbserver_port = 1994
 
 def dest_dir():
     '''Determines destination directory - assumes machine is a beamline'''
@@ -17,6 +15,8 @@ def dest_dir():
     for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(beamline, year)):
         if cm_dir.startswith('nt18231'):
             return '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/fake{6}{7}{8}'.format(beamline, year, cm_dir, year, month, day, hour, minute, second)   
+
+
 
 
 tests = {

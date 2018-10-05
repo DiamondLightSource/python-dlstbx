@@ -351,7 +351,7 @@ def retrieve_max_dcnumber(_db, _dbschema, _sessionid, _dest_dir, _dest_prefix):
 def scenario(test_name):
     '''provide the test scenario'''
     import definitions as df
-    if scenario in df.tests:
+    if test_name in df.tests:
         source_directory = df.tests[test_name]['src_dir']
         destination_directory = df.dest_dir()
         source_prefix = df.tests[test_name]['src_prefix']

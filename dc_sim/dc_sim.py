@@ -350,6 +350,8 @@ def retrieve_max_dcnumber(_db, _dbschema, _sessionid, _dest_dir, _dest_prefix):
 
 def dest_dir(_beamline):
     '''Determines destination directory'''
+    import uuid
+    random_str = str(uuid.uuid4())
     year = datetime.datetime.now().year
     month = datetime.datetime.now().month
     day = datetime.datetime.now().day
@@ -358,7 +360,7 @@ def dest_dir(_beamline):
     second = datetime.datetime.now().second
     for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(_beamline, year)):
         if cm_dir.startswith('nt18231'):
-            return '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/fake{6}{7}{8}'.format(_beamline, year, cm_dir, year, month, day, hour, minute, second)   
+            return '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/{6}{7}{8}-{9}'.format(_beamline, year, cm_dir, year, month, day, hour, minute, second, random_str)
 
 
 def scenario(_test_name):

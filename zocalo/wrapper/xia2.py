@@ -148,14 +148,6 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       shutil.copy(f, results_directory)
       allfiles.append(os.path.join(results_directory, os.path.basename(f)))
 
-    if result['exitcode'] and not os.path.isfile(os.path.join(results_directory, 'xia2.error')):
-      with open(os.path.join(results_directory, 'xia2.error'), 'w') as fh:
-        fh.write("(stdout/stderr output obtained by xia2 wrapper)\n\n")
-        fh.write(result['stdout'])
-        fh.write("\n\n----- ^^ STDOUT ^^ --- vv STDERR vv -----\n\n")
-        fh.write(result['stderr'])
-      allfiles.append(os.path.join(results_directory, 'xia2.error'))
-
     # Send results to various listeners
 
     os.chdir(results_directory)

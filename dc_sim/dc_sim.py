@@ -593,7 +593,7 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
     subprocess.check_call(['%s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]) ], shell=True)
     _db.disposeCursor(_db.cursor)
 
-    # Log datacollectionid to beamline specific location
+    # Log datacollectionid to beamline specific location and ouput useful data into dictionary
     with open("/dls/tmp/" + _beamline + "/dc_sim.log","a+") as f:
         f.write(str(datacollectionid) + " : " + nowstr +"\n")
         print("Data collection logged in: " + "/dls/tmp/" + _beamline + "/dc_sim.log")
@@ -808,7 +808,7 @@ if __name__ == '__main__':
 
     db.cursor=db.createCursor()
     
-    # Fetch scenario data from definitions by accessing temp_simulation function
+    # Fetch scenario data from definitions by accessing scenario function
          
     src_dir_overwrite = scenario(test_name)[0]
     dest_dir_overwrite = scenario(test_name)[1]

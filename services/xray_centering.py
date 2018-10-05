@@ -53,20 +53,20 @@ class DLSXRayCentering(CommonService):
   def add_pia_result(self, rw, header, message):
     '''Process incoming PIA result.'''
 
-    parameters = rw.recipe_step.get('parameters', None)
+    parameters = rw.recipe_step.get('parameters')
     if not parameters or not parameters.get('dcid'):
       self.log.error('X-ray centering service called without recipe parameters')
       rw.transport.nack(header)
       return
-    gridinfo = rw.recipe_step.get('gridinfo', None)
+    gridinfo = rw.recipe_step.get('gridinfo')
     if not gridinfo or not isinstance(gridinfo, dict):
-      self.log.error('X-ray centering service called without grid information')
-      ### Temporarily accept (=ignore) those 1x1 grid scans without information
-      ### until https://jira.diamond.ac.uk/browse/I04_1-320
-      ### or https://jira.diamond.ac.uk/browse/MXSW-841
-      ### is fixed. #TODO
-      rw.transport.ack(header)
-#     rw.transport.nack(header)
+      if rw.recipe_step.get('comment') and 'Diffraction grid scan of 1 by 1 images' in rw.recipe_step['comment']:
+        self.log.info('X-ray centering service received 1x1 grid scan without information')
+        ### https://jira.diamond.ac.uk/browse/I04_1-320
+        rw.transport.ack(header)
+      else:
+        self.log.error('X-ray centering service called without grid information')
+        rw.transport.nack(header)
       return
     dcid = int(parameters['dcid'])
 

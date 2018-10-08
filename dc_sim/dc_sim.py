@@ -648,7 +648,7 @@ if __name__ == '__main__':
         opts, args = getopt.gnu_getopt(sys.argv, "hp:d", \
             ["dbserver_srcdir=", "dbserver_host=", "dbserver_port=", "dbhost=", "dbuser=", "dbschema=", "tnsname=",\
             "debug", "help", "data_src_dir=", "src_dir=", "src_run_number=", "src_prefix=", "dest_dir=", "dest_prefix=", "log_file=",\
-            "automatic_processing=", "use_sample_id=", "test_name=", "dest_beamline="])
+            "automatic_processing=", "use_sample_id=", "test_name=", "beamline="])
     except getopt.GetoptError as e:
         sys.exit("Cannot read command-line parameters: %s" % str(e))
 
@@ -672,7 +672,7 @@ if __name__ == '__main__':
     sample_id = None
     log_file = None
     test_name = None
-    dest_beamline = None
+    beamline = None
     debug = False
     auto_proc = "Yes"
 
@@ -712,8 +712,8 @@ if __name__ == '__main__':
             log_file = a
         elif o == "--test_name":        
             test_name = a
-        elif o == "--dest_beamline":
-            dest_beamline = a
+        elif o == "--beamline":
+            beamline = a
         elif o in ("-d", "--debug"):
             debug = True
         elif o in ("-h", "--help"):
@@ -835,7 +835,8 @@ if __name__ == '__main__':
     db.cursor=db.createCursor()
     
     # Calculate the destination directory - get beamline as command line parameter
-    dest_dir_overwrite = dest_dir(dest_beamline)
+    dest_dir_overwrite = dest_dir(beamline)
+    dest_beamline_overwrite = beamline
 
     # Fetch scenario data from definitions by accessing scenario function
     if scenario(test_name)!= False:     
@@ -843,7 +844,7 @@ if __name__ == '__main__':
         sample_id_overwrite = scenario(test_name)[3]
         for src_run_num_overwrite in scenario(test_name)[2]:
             for src_prefix_overwrite in scenario(test_name)[1]:      
-                simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir_overwrite, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir_overwrite, sample_id_overwrite, auto_proc)
+                simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline_overwrite, data_src_dir, src_dir_overwrite, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir_overwrite, sample_id_overwrite, auto_proc)
     
     else:
         sys.exit("Not a valid test scenario")

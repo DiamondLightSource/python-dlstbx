@@ -647,7 +647,7 @@ if __name__ == '__main__':
     try:
         opts, args = getopt.gnu_getopt(sys.argv, "hp:d", \
             ["dbserver_srcdir=", "dbserver_host=", "dbserver_port=", "dbhost=", "dbuser=", "dbschema=", "tnsname=",\
-            "debug", "help", "data_src_dir=", "src_run_number=", "src_prefix=", "dest_prefix=", "log_file=",\
+            "debug", "help", "data_src_dir=", "dest_prefix=", "log_file=",\
             "automatic_processing=", "test_name=", "beamline="])
     except getopt.GetoptError as e:
         sys.exit("Cannot read command-line parameters: %s" % str(e))
@@ -695,10 +695,6 @@ if __name__ == '__main__':
             dest_prefix = a
         elif o == "--data_src_dir":
             data_src_dir = a
-        elif o == "--src_prefix":
-            src_prefix = a
-        elif o == "--src_run_number":
-            src_run_number = int(a)
         elif o == "--log_file":
             log_file = a
         elif o == "--test_name":        
@@ -720,15 +716,12 @@ if __name__ == '__main__':
     if scenario(test_name)!= False:     
         src_dir = scenario(test_name)[0]
         sample_id = scenario(test_name)[3]
+        src_prefix = scenario(test_name)[1]
     else:
         sys.exit("Not a valid test scenario")
 
     # Calculate the destination directory - get beamline as command line parameter
     dest_dir = dest_dir(beamline)
-
-    # If not dest prefix given, then use src prefix as dest prefix
-    if dest_prefix is None:
-        dest_prefix = src_prefix
 
     # Checks for mandatory parameters
     if src_dir is None:
@@ -835,10 +828,12 @@ if __name__ == '__main__':
     db.cursor=db.createCursor()
     
 
-
-    for src_run_num_overwrite in scenario(test_name)[2]:
-        for src_prefix_overwrite in scenario(test_name)[1]:      
-            simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir, sample_id, auto_proc)
+    for src_run_number in scenario(test_name)[2]:
+        for src_prefix in scenario(test_name)[1]:
+            if dest_prefix is None:
+                dest_prefix = src_prefix
+                   
+            simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id, auto_proc)
 
 
 

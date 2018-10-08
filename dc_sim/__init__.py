@@ -647,7 +647,7 @@ if __name__ == '__main__':
     try:
         opts, args = getopt.gnu_getopt(sys.argv, "hp:d", \
             ["dbserver_srcdir=", "dbserver_host=", "dbserver_port=", "dbhost=", "dbuser=", "dbschema=", "tnsname=",\
-            "debug", "help", "data_src_dir=", "src_dir=", "src_run_number=", "src_prefix=", "dest_dir=", "dest_prefix=", "log_file=",\
+            "debug", "help", "data_src_dir=", "src_run_number=", "src_prefix=", "dest_prefix=", "log_file=",\
             "automatic_processing=", "use_sample_id=", "test_name=", "beamline="])
     except getopt.GetoptError as e:
         sys.exit("Cannot read command-line parameters: %s" % str(e))
@@ -691,17 +691,10 @@ if __name__ == '__main__':
             dbschema = str(a)
         elif o in ("-p", "--tnsname"):
             tnsname = str(a)
-        elif o == "--dest_dir":
-            dest_dir = a
-            # Remove any trailing "/" character
-            if dest_dir[-1] == '/':
-                dest_dir = a[:-1]
         elif o == "--dest_prefix":
             dest_prefix = a
         elif o == "--data_src_dir":
             data_src_dir = a
-        elif o == "--src_dir":
-            src_dir = a
         elif o == "--src_prefix":
             src_prefix = a
         elif o == "--src_run_number":
@@ -725,6 +718,15 @@ if __name__ == '__main__':
             else:
                 auto_proc = "Yes"
 
+    # Fetch scenario data from definitions by accessing scenario function
+    if scenario(test_name)!= False:     
+        src_dir = scenario(test_name)[0]
+        sample_id_overwrite = scenario(test_name)[3]
+    else:
+        sys.exit("Not a valid test scenario")
+
+    # Calculate the destination directory - get beamline as command line parameter
+    dest_dir = dest_dir(beamline)
 
     # If not dest prefix given, then use src prefix as dest prefix
     if dest_prefix is None:
@@ -834,20 +836,11 @@ if __name__ == '__main__':
 
     db.cursor=db.createCursor()
     
-    # Calculate the destination directory - get beamline as command line parameter
-    dest_dir_overwrite = dest_dir(beamline)
-    dest_beamline_overwrite = beamline
 
-    # Fetch scenario data from definitions by accessing scenario function
-    if scenario(test_name)!= False:     
-        src_dir_overwrite = scenario(test_name)[0]
-        sample_id_overwrite = scenario(test_name)[3]
-        for src_run_num_overwrite in scenario(test_name)[2]:
-            for src_prefix_overwrite in scenario(test_name)[1]:      
-                simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline_overwrite, data_src_dir, src_dir_overwrite, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir_overwrite, sample_id_overwrite, auto_proc)
-    
-    else:
-        sys.exit("Not a valid test scenario")
+
+    for src_run_num_overwrite in scenario(test_name)[2]:
+        for src_prefix_overwrite in scenario(test_name)[1]:      
+            simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir, sample_id_overwrite, auto_proc)
 
 
 

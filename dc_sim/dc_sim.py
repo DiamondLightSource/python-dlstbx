@@ -648,7 +648,7 @@ if __name__ == '__main__':
         opts, args = getopt.gnu_getopt(sys.argv, "hp:d", \
             ["dbserver_srcdir=", "dbserver_host=", "dbserver_port=", "dbhost=", "dbuser=", "dbschema=", "tnsname=",\
             "debug", "help", "data_src_dir=", "src_dir=", "src_run_number=", "src_prefix=", "dest_dir=", "dest_prefix=", "log_file=",\
-            "automatic_processing=", "use_sample_id="])
+            "automatic_processing=", "use_sample_id=", "test_name=", "dest_beamline="])
     except getopt.GetoptError as e:
         sys.exit("Cannot read command-line parameters: %s" % str(e))
 
@@ -671,6 +671,8 @@ if __name__ == '__main__':
     dest_dir = None
     sample_id = None
     log_file = None
+    test_name = None
+    dest_beamline = None
     debug = False
     auto_proc = "Yes"
 
@@ -708,6 +710,10 @@ if __name__ == '__main__':
             sample_id = int(a)
         elif o == "--log_file":
             log_file = a
+        elif o == "--test_name":        
+            test_name = a
+        elif o == "--dest_beamline":
+            dest_beamline = a
         elif o in ("-d", "--debug"):
             debug = True
         elif o in ("-h", "--help"):
@@ -829,7 +835,7 @@ if __name__ == '__main__':
     db.cursor=db.createCursor()
     
     # Calculate the destination directory - get beamline as command line parameter
-    dest_dir_overwrite = dest_dir(beamline)
+    dest_dir_overwrite = dest_dir(dest_beamline)
 
     # Fetch scenario data from definitions by accessing scenario function
     if scenario(test_name)!= False:     

@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import logging
 
+import dlstbx.dc_sim
 import dlstbx.zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.dc_sim')
@@ -12,27 +13,20 @@ class DCSimWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       "No recipewrapper object found"
 
     params = self.recwrap.recipe_step['job_parameters']
-
-#######################################
-
     beamline = params['beamline']
     scenario = params['scenario']
     logger.info("Running simulated data collection '%s' on beamline '%s'", scenario, beamline)
 
-##################################################
+    # Simulate the data collection
+    dcids = dlstbx.dc_sim.magic_function(test_name=scenario, beamline=beamline)
 
-    # Simulate a data collection here
-    # running $scenario on $beamline
-    # saving the result dictionary in $result
-    result = { }
+    result = { 'beamline': beamline, 'scenario': scenario, 'DCIDs': dcids }
 
-##################################################
-
-    if bool(result):
+    if dcids:
       logger.info("Simulated data collection completed with result:\n%s", repr(result))
       self.success(result)
     else:
       logger.warn("Simulated data collection failed")
       self.failure(result)
 
-    return bool(result)
+    return bool(dcids)

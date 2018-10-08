@@ -16,7 +16,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 import sys, os, os.path, subprocess, shutil, MySQLdb, logging
 import tempfile
-from . import mydb
+import dlstbx.dc_sim.mydb
 import getopt
 import re
 import errno
@@ -365,7 +365,7 @@ def dest_dir(_beamline):
 
 def scenario(_test_name):
     '''provide the test scenario, returns False if test is not valid'''
-    import definitions as df
+    import dlstbx.dc_sim.definitions as df
     if _test_name in df.tests:
         source_directory = df.tests[_test_name]['src_dir']
         source_prefix = df.tests[_test_name]['src_prefix']
@@ -825,7 +825,7 @@ if __name__ == '__main__':
     config.read( "/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg" )
 
     conf = "prod"
-    db = mydb.DB(user=config.get(conf, 'user'),
+    db = dlstbx.dc_sim.mydb.DB(user=config.get(conf, 'user'),
                  passwd=config.get(conf, 'pw'),
                  host=config.get(conf, 'host'),
                  db=config.get(conf, 'db'),

@@ -648,7 +648,7 @@ if __name__ == '__main__':
         opts, args = getopt.gnu_getopt(sys.argv, "hp:d", \
             ["dbserver_srcdir=", "dbserver_host=", "dbserver_port=", "dbhost=", "dbuser=", "dbschema=", "tnsname=",\
             "debug", "help", "data_src_dir=", "src_run_number=", "src_prefix=", "dest_prefix=", "log_file=",\
-            "automatic_processing=", "use_sample_id=", "test_name=", "beamline="])
+            "automatic_processing=", "test_name=", "beamline="])
     except getopt.GetoptError as e:
         sys.exit("Cannot read command-line parameters: %s" % str(e))
 
@@ -699,8 +699,6 @@ if __name__ == '__main__':
             src_prefix = a
         elif o == "--src_run_number":
             src_run_number = int(a)
-        elif o == "--use_sample_id":
-            sample_id = int(a)
         elif o == "--log_file":
             log_file = a
         elif o == "--test_name":        
@@ -721,7 +719,7 @@ if __name__ == '__main__':
     # Fetch scenario data from definitions by accessing scenario function
     if scenario(test_name)!= False:     
         src_dir = scenario(test_name)[0]
-        sample_id_overwrite = scenario(test_name)[3]
+        sample_id = scenario(test_name)[3]
     else:
         sys.exit("Not a valid test scenario")
 
@@ -840,7 +838,7 @@ if __name__ == '__main__':
 
     for src_run_num_overwrite in scenario(test_name)[2]:
         for src_prefix_overwrite in scenario(test_name)[1]:      
-            simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir, sample_id_overwrite, auto_proc)
+            simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix_overwrite, src_run_num_overwrite, dest_prefix, dest_visit_dir, dest_dir, sample_id, auto_proc)
 
 
 

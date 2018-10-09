@@ -378,7 +378,7 @@ def scenario(_test_name):
 
 def simulate(_db, _dbschema,
              _dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_prefix, _src_run_number,
-             _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id, _auto_proc):
+             _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id, _auto_proc='yes'):
     logging.getLogger().debug("(SQL) Getting the source sessionid")
     src_sessionid = retrieve_sessionid(_db, _dbschema, _src_visit)
 
@@ -614,7 +614,7 @@ def simulate(_db, _dbschema,
         f.write(str(datacollectionid) + " : " + nowstr +"\n")
         print("Data collection logged in: " + "/dls/tmp/" + _beamline + "/dc_sim.log")
         sim_output_dict = {"beamline": _beamline, "date": nowstr, "dcid": str(datacollectionid)}
-        return sim_output_dict
+        return str(datacollectionid)
 
 def printHelp(msg=None):
     if msg != None:
@@ -638,13 +638,14 @@ def printHelp(msg=None):
           "--src_dir=/dls/i03/data/2013/cm5926-1/0130/thau3 "\
           "--dest_dir=/dls/p45/data/2013/cm5952-2 --src_run_number=1 --src_prefix=test")
 
+def call(test_name, beamline):
 
 if __name__ == '__main__':
     try:
         opts, args = getopt.gnu_getopt(sys.argv, "hp:d", \
-            ["dbserver_host=", "dbserver_port=", "dbschema=",\
+            ["dbschema=",\
             "debug", "help", "data_src_dir=", "dest_prefix=",\
-            "automatic_processing=", "test_name=", "beamline="])
+            "test_name=", "beamline="])
     except getopt.GetoptError as e:
         sys.exit("Cannot read command-line parameters: %s" % str(e))
 
@@ -666,7 +667,6 @@ if __name__ == '__main__':
     test_name = None
     beamline = None
     debug = False
-    auto_proc = "Yes"
 
     for o, a in opts:
         if o in ("-p", "--dbschema"):
@@ -684,11 +684,6 @@ if __name__ == '__main__':
         elif o in ("-h", "--help"):
             printHelp()
             sys.exit(0)
-        elif o == "--automatic_processing":
-            if a in ("No", "no", "NO"):
-                auto_proc = "No"
-            else:
-                auto_proc = "Yes"
 
     # Fetch scenario data from definitions by accessing scenario function
     if scenario(test_name)!= False:     
@@ -786,7 +781,7 @@ if __name__ == '__main__':
             if dest_prefix is None:
                 dest_prefix = src_prefix
                    
-            simulate(db, dbschema, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id, auto_proc)
+            simulate(db, dbschema, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id)
 
 
 

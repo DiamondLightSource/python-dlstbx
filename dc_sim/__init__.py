@@ -647,7 +647,7 @@ if __name__ == '__main__':
     try:
         opts, args = getopt.gnu_getopt(sys.argv, "hp:d", \
             ["dbserver_srcdir=", "dbserver_host=", "dbserver_port=", "dbschema=",\
-            "debug", "help", "data_src_dir=", "dest_prefix=", "log_file=",\
+            "debug", "help", "data_src_dir=", "dest_prefix=",\
             "automatic_processing=", "test_name=", "beamline="])
     except getopt.GetoptError as e:
         sys.exit("Cannot read command-line parameters: %s" % str(e))
@@ -670,7 +670,6 @@ if __name__ == '__main__':
     dest_visit = None
     dest_dir = None
     sample_id = None
-    log_file = None
     test_name = None
     beamline = None
     debug = False
@@ -689,8 +688,6 @@ if __name__ == '__main__':
             dest_prefix = a
         elif o == "--data_src_dir":
             data_src_dir = a
-        elif o == "--log_file":
-            log_file = a
         elif o == "--test_name":        
             test_name = a
         elif o == "--beamline":
@@ -771,15 +768,6 @@ if __name__ == '__main__':
     hdlr = logging.StreamHandler(sys.stdout)
     hdlr.setFormatter(formatter)
     logging.getLogger().addHandler(hdlr)
-
-    # Add file logging
-    try:
-        if log_file is not None:
-            hdlr2 = RotatingFileHandler(filename=log_file, maxBytes=1000000, backupCount=10) # 'a', 4194304, 10)
-            hdlr2.setFormatter(formatter)
-            logging.getLogger().addHandler(hdlr2)
-    except:
-        logging.getLogger().exception("dc_sim: problem setting the file logging using file %s :-(" % log_file)
 
     # Sanity checks
     dbserver_client_path = os.path.join(dbserver_srcdir, 'DbserverClient.py')

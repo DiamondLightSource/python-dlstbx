@@ -89,5 +89,62 @@ tests = {
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
   
-                }
+                 },
+
+        'protk-au-insitu': {
+                 'src'    : '/dls/i24/data/2017/nr16818-47/Josh/InSitu/CrystalQuickX/ProtK/Au',
+                 'src_run_num'   : (1,),
+                 'src_prefix' : ('ProtK_InSitu_Au_47_1','ProtK_InSitu_Au_47_2','ProtK_InSitu_Au_47_3','ProtK_InSitu_Au_47_4','ProtK_InSitu_Au_47_5'
+                                 'ProtK_InSitu_Au_47_6','ProtK_InSitu_Au_47_7','ProtK_InSitu_Au_47_8','ProtK_InSitu_Au_47_9','ProtK_InSitu_Au_47_10'),
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
+
+        'example-sad': {
+                 'src'    : '/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1',
+                 'src_run_num'   : (1,),
+                 'src_prefix' : ('X1_weak_M1S1',),
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
+         
+        'example-sad-multi': {
+                 'src'    : '/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1',
+                 'src_run_num'   : (1,3),
+                 'src_prefix' : ('X1_strong_M1S1',),
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
+
+        'screening': {
+                 'src'    : '/dls/i04/data/2017/cm16781-1/20170223/group1/Thaum/Th_4',
+                 'src_run_num'   : (1,),
+                 'src_prefix' : ('Th_4',),
+                 'use_sample_id' : 790048,
+                 'debug' : True,
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
+        'screening-i24': {
+                 'src'    : '/dls/i24/data/2017/cm16788-3/screening/hewl/hewl_1',
+                 'src_run_num'   : (1,),
+                 'src_prefix' : ('hewl_1',),
+                 'use_sample_id' : 1018393,
+                 'debug' : True,
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
+
+        'screening-smargon': {
+                 'src'    : '/dls/i04/data/2017/cm16781-1/20170316/Thaum/Th_4',
+                 'src_run_num'   : (2,),
+                 'src_prefix' : ('Th_4',),
+                 'use_sample_id' : 790048,
+                 'debug' : True,
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 }
+
+                    
+
         }

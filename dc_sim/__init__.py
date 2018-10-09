@@ -376,7 +376,7 @@ def scenario(_test_name):
         return False
 
 
-def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
+def simulate(_db, _dbschema, _dbserver_host, _dbserver_port,
              _dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_prefix, _src_run_number,
              _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id, _auto_proc):
     logging.getLogger().debug("(SQL) Getting the source sessionid")
@@ -444,7 +444,7 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
 
             # Ingest the blsample.xml file data using the DbserverClient
             logging.getLogger().debug("(dbserver) Ingest the blsample XML")
-            subprocess.check_call([os.path.join(_dbserver_srcdir, 'DbserverClient.py'), '-h', _dbserver_host, \
+            subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', _dbserver_host, \
                              '-p', str(_dbserver_port), '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
             # Extract the blsampleId from the output
@@ -471,7 +471,7 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
 
     # Ingest the DataCollectionGroup.xml file data using the DbserverClient
     logging.getLogger().debug("(dbserver) Ingest the datacollectiongroup XML")
-    subprocess.check_call([os.path.join(_dbserver_srcdir, 'DbserverClient.py'), '-h', _dbserver_host, \
+    subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', _dbserver_host, \
                              '-p', str(_dbserver_port), '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
     # Extract the datacollectiongroupId from the output
@@ -501,7 +501,7 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
 
         # Ingest the GridInfo.xml file data using the DbserverClient
         logging.getLogger().debug("(dbserver) Ingest the gridinfo XML")
-        subprocess.check_call([os.path.join(_dbserver_srcdir, 'DbserverClient.py'), '-h', _dbserver_host, \
+        subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', _dbserver_host, \
                              '-p', str(_dbserver_port), '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
         # Extract the gridinfoId from the output
@@ -528,7 +528,7 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
 
     # Ingest the DataCollection.xml file data using the DbserverClient
     logging.getLogger().debug("(dbserver) Ingest the datacollection XML")
-    subprocess.check_call([os.path.join(_dbserver_srcdir, 'DbserverClient.py'), '-h', _dbserver_host, \
+    subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', _dbserver_host, \
                              '-p', str(_dbserver_port), '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
     # Extract the datacollectionId from the output
@@ -586,7 +586,7 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
 
     # Ingest the DataCollection.xml file data using the DbserverClient
     logging.getLogger().debug("(dbserver) Ingest the datacollection XML to update with the d.c. end time")
-    subprocess.check_call([os.path.join(_dbserver_srcdir, 'DbserverClient.py'), '-h', _dbserver_host, \
+    subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', _dbserver_host, \
                              '-p', str(_dbserver_port), '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
 
@@ -603,7 +603,7 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
 
     # Ingest the DataCollectionGroup.xml file data using the DbserverClient
     logging.getLogger().debug("(dbserver) Ingest the datacollectiongroup XML to update with the d.c.g. end time")
-    subprocess.check_call([os.path.join(_dbserver_srcdir, 'DbserverClient.py'), '-h', _dbserver_host, \
+    subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', _dbserver_host, \
                              '-p', str(_dbserver_port), '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
     logging.getLogger().debug('(bash script) %s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]))
@@ -642,14 +642,13 @@ def printHelp(msg=None):
 if __name__ == '__main__':
     try:
         opts, args = getopt.gnu_getopt(sys.argv, "hp:d", \
-            ["dbserver_srcdir=", "dbserver_host=", "dbserver_port=", "dbschema=",\
+            ["dbserver_host=", "dbserver_port=", "dbschema=",\
             "debug", "help", "data_src_dir=", "dest_prefix=",\
             "automatic_processing=", "test_name=", "beamline="])
     except getopt.GetoptError as e:
         sys.exit("Cannot read command-line parameters: %s" % str(e))
 
     # Default parameters
-    dbserver_srcdir = DBSERVER_SRCDIR
     dbserver_host = DBSERVER_HOST
     dbserver_port = str(DBSERVER_PORT)
     dbhost = DATABASE_HOST
@@ -672,9 +671,7 @@ if __name__ == '__main__':
     auto_proc = "Yes"
 
     for o, a in opts:
-        if o =="--dbserver_srcdir":
-            dbserver_srcdir = a
-        elif o =="--dbserver_host":
+        if o =="--dbserver_host":
             dbserver_host = a
         elif o in ("-p", "--dbserver_port"):
             dbserver_port = str(a)
@@ -765,11 +762,6 @@ if __name__ == '__main__':
     hdlr.setFormatter(formatter)
     logging.getLogger().addHandler(hdlr)
 
-    # Sanity checks
-    dbserver_client_path = os.path.join(dbserver_srcdir, 'DbserverClient.py')
-    if not os.path.exists(dbserver_client_path):
-        logging.getLogger().error("The file %s was not found. Is dbserver_srcdir correct?" % dbserver_client_path)
-        sys.exit()
 
     start_script = "%s/RunAtStartOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
     if not os.path.exists(start_script):
@@ -800,7 +792,7 @@ if __name__ == '__main__':
             if dest_prefix is None:
                 dest_prefix = src_prefix
                    
-            simulate(db, dbschema, dbserver_srcdir, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id, auto_proc)
+            simulate(db, dbschema, dbserver_host, dbserver_port, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id, auto_proc)
 
 
 

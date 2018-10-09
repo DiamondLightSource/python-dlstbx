@@ -330,8 +330,7 @@ def retrieve_blsample_values(_db, _dbschema, _src_blsampleid):
 
 def retrieve_no_images(_db, _dbschema, _dcid):
     no_images = None
-    rows = _db.doQuery("SELECT numberOfImages from %s.DataCollection where datacollectionid=%d" % (_dbschema, _dcid), \
-                       _db.cursor, True, True, False)
+    rows = _db.doQuery("SELECT numberOfImages from %s.DataCollection where datacollectionid=%d" % (_dbschema, _dcid))
     if rows[0][0] is None:
         sys.exit("Could not find the number of images for datacollectionid %d" % _dcid)
     if int(rows[0][0]) is 0:
@@ -343,8 +342,7 @@ def retrieve_max_dcnumber(_db, _dbschema, _sessionid, _dest_dir, _dest_prefix):
                              "FROM %s.DataCollection "\
                              "WHERE sessionid=%d "\
                              "AND imagedirectory='%s' "\
-                             "AND imageprefix='%s'" % (_dbschema,_sessionid,_dest_dir+"/", _dest_prefix),\
-                             _db.cursor, True, True, False)
+                             "AND imageprefix='%s'" % (_dbschema,_sessionid,_dest_dir+"/", _dest_prefix))
     return rows[0][0]
 
 def dest_dir(_beamline):

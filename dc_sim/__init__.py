@@ -33,7 +33,7 @@ TNSNAME='ws096'
 MX_SCRIPTS_BINDIR='/dls_sw/apps/mx-scripts/bin'
 DBSERVER_SRCDIR='/dls_sw/apps/mx-scripts/ispyb-dbserver/src'
 DBSERVER_HOST='sci-serv3'
-DBSERVER_PORT=1994
+DBSERVER_PORT='1994'
 DBSCHEMA='ispyb'
 
 def f(_v):

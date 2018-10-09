@@ -14,14 +14,13 @@
 
 from __future__ import print_function
 from __future__ import absolute_import
-import sys, os, os.path, subprocess, shutil, MySQLdb, logging
+import sys, os, os.path, subprocess, shutil, logging
 import tempfile
 import dlstbx.dc_sim.mydb
 import getopt
 import re
 import errno
 import datetime
-import ConfigParser
 
 # "Globals"
 logger = None
@@ -611,7 +610,6 @@ def simulate(_db, _dbschema, _dbserver_srcdir, _dbserver_host, _dbserver_port,
 
     logging.getLogger().debug('(bash script) %s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]))
     subprocess.check_call(['%s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]) ], shell=True)
-    _db.disposeCursor(_db.cursor)
 
     # Log datacollectionid to beamline specific location and ouput useful data into dictionary
     with open("/dls/tmp/" + _beamline + "/dc_sim.log","a+") as f:
@@ -796,18 +794,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().error("Creating directory %s failed" % dest_dir)
 
-    config = ConfigParser.RawConfigParser(allow_no_value=True)
-    config.read( "/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg" )
-
-    conf = "prod"
-    db = dlstbx.dc_sim.mydb.DB(user=config.get(conf, 'user'),
-                 passwd=config.get(conf, 'pw'),
-                 host=config.get(conf, 'host'),
-                 db=config.get(conf, 'db'),
-                 port=config.get(conf, 'port'))
-    db.connect()
-
-    db.cursor=db.createCursor()
+    db = dlstbx.dc_sim.mydb.DB()
     
 
     for src_run_number in scenario(test_name)[2]:

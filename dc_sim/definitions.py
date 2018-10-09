@@ -36,7 +36,7 @@ tests = {
        'example-i04': {
                 'src'    : '/dls/i04/data/2017/cm16781-4/20171015/Thaum/Th_3',
                 'src_run_num'   : (1,),
-                'src_prefix' : 'Th_3',
+                'src_prefix' : ('Th_3',),
                 'debug' : True,
                 'use_sample_id' : 790046,
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 

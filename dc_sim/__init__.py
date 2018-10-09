@@ -646,7 +646,7 @@ def printHelp(msg=None):
 if __name__ == '__main__':
     try:
         opts, args = getopt.gnu_getopt(sys.argv, "hp:d", \
-            ["dbserver_srcdir=", "dbserver_host=", "dbserver_port=", "dbhost=", "dbuser=", "dbschema=", "tnsname=",\
+            ["dbserver_srcdir=", "dbserver_host=", "dbserver_port=", "dbschema=",\
             "debug", "help", "data_src_dir=", "dest_prefix=", "log_file=",\
             "automatic_processing=", "test_name=", "beamline="])
     except getopt.GetoptError as e:
@@ -683,14 +683,8 @@ if __name__ == '__main__':
             dbserver_host = a
         elif o in ("-p", "--dbserver_port"):
             dbserver_port = str(a)
-        elif o in ("-p", "--dbhost"):
-            dbhost = str(a)
-        elif o in ("-p", "--dbuser"):
-            dbuser = str(a)
         elif o in ("-p", "--dbschema"):
             dbschema = str(a)
-        elif o in ("-p", "--tnsname"):
-            tnsname = str(a)
         elif o == "--dest_prefix":
             dest_prefix = a
         elif o == "--data_src_dir":

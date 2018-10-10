@@ -345,19 +345,19 @@ def retrieve_max_dcnumber(_db, _dbschema, _sessionid, _dest_dir, _dest_prefix):
                              "AND imageprefix='%s'" % (_dbschema,_sessionid,_dest_dir+"/", _dest_prefix))
     return rows[0][0]
 
-def dest_dir(_beamline):
-    '''Determines destination directory'''
-    import uuid
-    random_str = str(uuid.uuid4())
-    year = datetime.datetime.now().year
-    month = datetime.datetime.now().month
-    day = datetime.datetime.now().day
-    hour = datetime.datetime.now().hour
-    minute = datetime.datetime.now().minute
-    second = datetime.datetime.now().second
-    for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(_beamline, year)):
-        if cm_dir.startswith('nt18231'):
-            return '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/{6}{7}{8}-{9}'.format(_beamline, year, cm_dir, year, month, day, hour, minute, second, random_str)
+#def dest_dir(_beamline):
+#    '''Determines destination directory'''
+#    import uuid
+#    random_str = str(uuid.uuid4())
+#    year = datetime.datetime.now().year
+#    month = datetime.datetime.now().month
+#    day = datetime.datetime.now().day
+#    hour = datetime.datetime.now().hour
+#    minute = datetime.datetime.now().minute
+#    second = datetime.datetime.now().second
+#    for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(_beamline, year)):
+#        if cm_dir.startswith('nt18231'):
+#            return '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/{6}{7}{8}-{9}'.format(_beamline, year, cm_dir, year, month, day, hour, minute, second, random_str)
 
 
 def scenario(_test_name):
@@ -640,8 +640,19 @@ def call_sim(test_name, beamline):
     else:
         sys.exit("Not a valid test scenario")
 
-    # Calculate the destination directory - get beamline as command line parameter
-    dest_dir = dest_dir(beamline)
+    # Calculate the destination directory
+    import uuid
+    random_str = str(uuid.uuid4())
+    year = datetime.datetime.now().year
+    month = datetime.datetime.now().month
+    day = datetime.datetime.now().day
+    hour = datetime.datetime.now().hour
+    minute = datetime.datetime.now().minute
+    second = datetime.datetime.now().second
+    for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(_beamline, year)):
+        if cm_dir.startswith('nt18231'):
+            dest_dir = '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/{6}{7}{8}-{9}'.format(_beamline, year, cm_dir, year, month, day, hour, minute, second, random_str)
+    #dest_dir = dest_dir(beamline)
 
     # Set mandatory parameters
     data_src_dir = src_dir    

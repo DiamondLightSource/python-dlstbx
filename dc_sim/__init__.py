@@ -692,14 +692,14 @@ def call_sim(test_name, beamline):
         sys.exit("ERROR: The dest_dir parameter does not appear to contain a valid visit directory.")
 
     # Configure logging
-    if debug == True:
-        log.setLevel(logging.DEBUG)
-    else:
-        log.setLevel(logging.INFO)
-    formatter = logging.Formatter('* %(asctime)s [id=%(thread)d] <%(levelname)s> %(message)s')
-    hdlr = logging.StreamHandler(sys.stdout)
-    hdlr.setFormatter(formatter)
-    log.addHandler(hdlr)
+    #if debug == True:
+    log.setLevel(logging.DEBUG)
+    #else:
+    #    log.setLevel(logging.INFO)
+    #formatter = logging.Formatter('* %(asctime)s [id=%(thread)d] <%(levelname)s> %(message)s')
+    #hdlr = logging.StreamHandler(sys.stdout)
+    #hdlr.setFormatter(formatter)
+    #log.addHandler(hdlr)
 
 
     start_script = "%s/RunAtStartOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)

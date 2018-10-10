@@ -616,28 +616,6 @@ def simulate(_db, _dbschema,
         #sim_output_dict = {"beamline": _beamline, "date": nowstr, "dcid": str(datacollectionid)}
         return datacollectionid
 
-def printHelp(msg=None):
-    if msg != None:
-        print("Error: %s" % msg)
-    print("Options:")
-    print("  --host=<hostname>")
-    print("  --port=<port number>")
-    print("  --data_src_dir=<dirctory containing images>")
-    print("  --src_dir=<datacollection source directory>")
-    print("  --src_prefix=<source datacollection prefix>")
-    print("  --src_run_number=<source datacollection run number>")
-    print("  --dest_dir=<datacollection destination directory>")
-    print("  --dest_prefix=<destination prefix>")
-    print("  --automatic_processing=<Yes|No>")
-    print("  -d or --debug")
-    print("  --help")
-    print("")
-    print("Example: ")
-    print("python dc_sim.py --dbserver_host=sci-serv3 --dbserver_port=1994 --dbhost=duoserv12 "\
-          "--dbuser=ispyb4a_db --dbschema=ispyb4a_db --tnsname=ispyb "\
-          "--src_dir=/dls/i03/data/2013/cm5926-1/0130/thau3 "\
-          "--dest_dir=/dls/p45/data/2013/cm5952-2 --src_run_number=1 --src_prefix=test")
-
 def call_sim(test_name, beamline):
 
     # Default parameters

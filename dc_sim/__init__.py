@@ -647,7 +647,6 @@ def call_sim(test_name, beamline):
     dbschema = DBSCHEMA
 
     data_src_dir = None
-    src_run_number = None
     dest_visit_dir = None
     dest_prefix = None
     dest_visit = None

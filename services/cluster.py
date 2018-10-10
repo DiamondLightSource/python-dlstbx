@@ -128,9 +128,9 @@ class DLSCluster(CommonService):
       "EOF"
     ]
     self.log.debug("Commands: %s", commands)
-    self.log.debug("CWD: %s", workingdir)
+    self.log.debug("Working directory: %s", workingdir)
     self.log.debug(str(rw.recipe_step))
-    result = run_process(["/bin/bash"], stdin = "\n".join(submission))
+    result = run_process(["/bin/bash"], stdin = "\n".join(submission), working_directory=workingdir)
     assert result['exitcode'] == 0
     assert "has been submitted" in result['stdout']
     jobnumber = result['stdout'].split()[2]

@@ -644,9 +644,7 @@ def call_sim(test_name, beamline):
     dest_dir = dest_dir(beamline)
 
     # Set mandatory parameters
-    data_src_dir = src_dir
-    dest_prefix = src_prefix    
-        
+    data_src_dir = src_dir    
 
     # Extract necessary info from the source directory path
     src_beamline = None
@@ -720,6 +718,7 @@ def call_sim(test_name, beamline):
 
     for src_run_number in scenario(test_name)[2]:
         for src_prefix in scenario(test_name)[1]:
+            dest_prefix = src_prefix
             dcid = simulate(db, dbschema, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id)
             return dcid_list.append(dcid)
 

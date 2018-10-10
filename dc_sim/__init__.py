@@ -646,15 +646,11 @@ def call_sim(test_name, beamline):
     tnsname = TNSNAME
     dbschema = DBSCHEMA
 
-    src_dir = None
     data_src_dir = None
     src_run_number = None
-    src_prefix = None
     dest_visit_dir = None
     dest_prefix = None
     dest_visit = None
-    dest_dir = None
-    sample_id = None
     debug = False
 
 

@@ -613,8 +613,8 @@ def simulate(_db, _dbschema,
     with open("/dls/tmp/" + _beamline + "/dc_sim.log","a+") as f:
         f.write(str(datacollectionid) + " : " + nowstr +"\n")
         print("Data collection logged in: " + "/dls/tmp/" + _beamline + "/dc_sim.log")
-        sim_output_dict = {"beamline": _beamline, "date": nowstr, "dcid": str(datacollectionid)}
-        return str(datacollectionid)
+        #sim_output_dict = {"beamline": _beamline, "date": nowstr, "dcid": str(datacollectionid)}
+        return datacollectionid
 
 def printHelp(msg=None):
     if msg != None:
@@ -651,6 +651,7 @@ def call_sim(test_name, beamline):
     dest_visit_dir = None
     dest_prefix = None
     dest_visit = None
+    dcid_list = []
     debug = False
 
 
@@ -750,7 +751,7 @@ def call_sim(test_name, beamline):
             if dest_prefix is None:
                 dest_prefix = src_prefix
                    
-            simulate(db, dbschema, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id)
-
+            dcid = simulate(db, dbschema, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id)
+            return dcid_list.append(dcid)
 
 

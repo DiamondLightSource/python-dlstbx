@@ -23,7 +23,7 @@ import errno
 import datetime
 
 # "Globals"
-logger = None
+log = logging.getLogger(‘dlstbx.dc_sim’)
 
 # Constants
 DATABASE_HOST='ws096'
@@ -379,38 +379,38 @@ def scenario(_test_name):
 def simulate(_db, _dbschema,
              _dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_prefix, _src_run_number,
              _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id, _auto_proc='Yes'):
-    logging.getLogger().debug("(SQL) Getting the source sessionid")
+    log.debug("(SQL) Getting the source sessionid")
     src_sessionid = retrieve_sessionid(_db, _dbschema, _src_visit)
 
-    logging.getLogger().debug("(SQL) Getting values from the source datacollection record")
+    log.debug("(SQL) Getting values from the source datacollection record")
     row = retrieve_datacollection_values(_db, _dbschema, src_sessionid, _src_dir, _src_prefix, _src_run_number)
     src_dcid = int(row['datacollectionid'])
     src_dcgid = int(row['datacollectiongroupid'])
     start_img_number = int(row['startimagenumber'])
     src_xtal_snapshot_path = [row['xtalsnapshotfullpath1'], row['xtalsnapshotfullpath2'], row['xtalsnapshotfullpath3'], row['xtalsnapshotfullpath4']]
 
-    logging.getLogger().debug("(SQL) Getting the number of images")
+    log.debug("(SQL) Getting the number of images")
     no_images = retrieve_no_images(_db, _dbschema, src_dcid)
-    logging.getLogger().debug("(ANS) Got %d" % no_images)
+    log.debug("(ANS) Got %d" % no_images)
 
     # Get the sessionid for the dest_visit
-    logging.getLogger().debug("(SQL) Getting the destination sessionid")
+    log.debug("(SQL) Getting the destination sessionid")
     sessionid = retrieve_sessionid(_db, _dbschema, _dest_visit)
 
     # Get the highest run number for the datacollections of this dest_visit with the particular img.dir and prefix
-    logging.getLogger().debug("(SQL) Getting the currently highest run number for this img. directory + prefix")
+    log.debug("(SQL) Getting the currently highest run number for this img. directory + prefix")
     run_number = retrieve_max_dcnumber(_db, _dbschema, sessionid, _dest_dir, _dest_prefix)
     if run_number is None:
         run_number = 1
     else:
         run_number = int(run_number) + 1
 
-    logging.getLogger().debug("(SQL) Getting values from the source datacollectiongroup record")
+    log.debug("(SQL) Getting values from the source datacollectiongroup record")
     dcg_row = retrieve_datacollection_group_values(_db, _dbschema, src_dcgid)
 
     src_blsampleid = dcg_row['blsampleid']
 
-    logging.getLogger().debug("(filesystem) Copy the xtal snapshot(s) (if any) from source to target directories")
+    log.debug("(filesystem) Copy the xtal snapshot(s) (if any) from source to target directories")
     dest_xtal_snapshot_path = ["", "", "", ""]
     for x in xrange(0, 4):
         if src_xtal_snapshot_path[x] is not None:
@@ -418,7 +418,7 @@ def simulate(_db, _dbschema,
                 png = re.sub("^.*/(.*)$", _dest_dir + r"/\1", src_xtal_snapshot_path[x])
                 dest_xtal_snapshot_path[x] = re.sub("^"+_dest_visit_dir, _dest_visit_dir+"/jpegs", png)
                 dir = os.path.dirname(dest_xtal_snapshot_path[x])
-                logging.getLogger().debug("(filesystem) ... 'mkdir -p' %s" % dir)
+                log.debug("(filesystem) ... 'mkdir -p' %s" % dir)
                 mkdir_p(dir)
                 logging.getLogger().debug("(filesystem) ... copying %s to %s" % (src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x]))
                 copy_via_temp_file(src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x])
@@ -428,11 +428,11 @@ def simulate(_db, _dbschema,
     if src_blsampleid != None:
         if _sample_id is None:
 
-            logging.getLogger().debug("(SQL) Getting values from the source blsample record")
+            log.debug("(SQL) Getting values from the source blsample record")
             bls_row = retrieve_blsample_values(_db, _dbschema, int(src_blsampleid))
 
             # Produce a BLSample.xml file from the template
-            logging.getLogger().debug("(filesystem) Creating a temporary blsample XML file in the /tmp folder")
+            log.debug("(filesystem) Creating a temporary blsample XML file in the /tmp folder")
 
             blsample_xml = populate_blsample_xml_template(bls_row)
             print(blsample_xml)
@@ -443,12 +443,12 @@ def simulate(_db, _dbschema,
             f.close()
 
             # Ingest the blsample.xml file data using the DbserverClient
-            logging.getLogger().debug("(dbserver) Ingest the blsample XML")
+            log.debug("(dbserver) Ingest the blsample XML")
             subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
                              '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
             # Extract the blsampleId from the output
-            logging.getLogger().debug("(filesystem) Read the returned blsampleid from output file")
+            log.debug("(filesystem) Read the returned blsampleid from output file")
             f = file('/tmp/test.log', 'r')
             xml = f.read()
             m = re.search("<blSampleId>(\d+)</blSampleId>", xml)
@@ -461,7 +461,7 @@ def simulate(_db, _dbschema,
             blsample_id = _sample_id
 
     # Prouce a DataCollectionGroup.xml file from the template
-    logging.getLogger().debug("(filesystem) Creating a temporary datacollectiongroup XML file in the /tmp folder")
+    log.debug("(filesystem) Creating a temporary datacollectiongroup XML file in the /tmp folder")
     dcg_xml = populate_dcg_xml_template(dcg_row, sessionid, blsample_id)
 
     f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='datacollectiongroup', dir='/tmp', delete=False)
@@ -470,12 +470,12 @@ def simulate(_db, _dbschema,
     f.close()
 
     # Ingest the DataCollectionGroup.xml file data using the DbserverClient
-    logging.getLogger().debug("(dbserver) Ingest the datacollectiongroup XML")
+    log.debug("(dbserver) Ingest the datacollectiongroup XML")
     subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
                              '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
     # Extract the datacollectiongroupId from the output
-    logging.getLogger().debug("(filesystem) Read the returned datacollectiongroupid from output file")
+    log.debug("(filesystem) Read the returned datacollectiongroupid from output file")
     f=file('/tmp/test.log', 'r')
     xml = f.read()
     datacollectiongroupid = None
@@ -491,7 +491,7 @@ def simulate(_db, _dbschema,
 
     # Prouce a GridInfo.xml file from the template if the source DataCollectionGroup has one:
     if gi_row is not None:
-        logging.getLogger().debug("(filesystem) Creating a temporary gridinfo XML file in the /tmp folder")
+        log.debug("(filesystem) Creating a temporary gridinfo XML file in the /tmp folder")
         dcg_xml = populate_grid_info_xml_template(gi_row, datacollectiongroupid)
 
         f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='gridinfo', dir='/tmp', delete=False)
@@ -500,12 +500,12 @@ def simulate(_db, _dbschema,
         f.close()
 
         # Ingest the GridInfo.xml file data using the DbserverClient
-        logging.getLogger().debug("(dbserver) Ingest the gridinfo XML")
+        log.debug("(dbserver) Ingest the gridinfo XML")
         subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
                              '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
         # Extract the gridinfoId from the output
-        logging.getLogger().debug("(filesystem) Read the returned gridinfoid from output file")
+        log.debug("(filesystem) Read the returned gridinfoid from output file")
         f=file('/tmp/test.log', 'r')
         xml = f.read()
         gridinfoid = None
@@ -516,7 +516,7 @@ def simulate(_db, _dbschema,
             sys.exit("No gridinfoid found in output")
 
     # Produce a DataCollection.xml file from the template and use the new run number
-    logging.getLogger().debug("(filesystem) Creating a temporary datacollection XML file in the /tmp folder")
+    log.debug("(filesystem) Creating a temporary datacollection XML file in the /tmp folder")
     dc_xml = populate_dc_xml_template(row, sessionid, datacollectiongroupid, no_images, _dest_dir+"/", _dest_prefix,
                                       run_number, dest_xtal_snapshot_path, blsample_id)
     # print dc_xml
@@ -527,12 +527,12 @@ def simulate(_db, _dbschema,
     f.close()
 
     # Ingest the DataCollection.xml file data using the DbserverClient
-    logging.getLogger().debug("(dbserver) Ingest the datacollection XML")
+    log.debug("(dbserver) Ingest the datacollection XML")
     subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
                              '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
     # Extract the datacollectionId from the output
-    logging.getLogger().debug("(filesystem) Read the returned datacollectionid from output file")
+    log.debug("(filesystem) Read the returned datacollectionid from output file")
     f=file('/tmp/test.log', 'r')
     xml = f.read()
     datacollectionid = None
@@ -546,7 +546,7 @@ def simulate(_db, _dbschema,
                      str(datacollectionid), _dest_visit_dir, _dest_prefix + '_' + str(run_number) + "_####.cbf",\
                      _dest_dir + '/', _dest_prefix + '_' + str(run_number) + '_', 'cbf']
 
-    logging.getLogger().debug('(bash script) %s/RunAtStartOfCollect-%s.sh %s %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5], run_at_params[6]))
+    log.debug('(bash script) %s/RunAtStartOfCollect-%s.sh %s %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5], run_at_params[6]))
     subprocess.check_call(['%s/RunAtStartOfCollect-%s.sh %s %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5], run_at_params[6])], shell=True)
 
     # Also copy images one by one from source to destination directory.
@@ -559,7 +559,7 @@ def simulate(_db, _dbschema,
         dest_fname = "%s_%d_%s.cbf" % (_dest_prefix, run_number, str(img_number))
         src = os.path.join(_data_src_dir, src_fname)
         target = os.path.join(_dest_dir, dest_fname)
-        logging.getLogger().info("(filesystem) Copy file %s to %s" % (src, target))
+        log.info("(filesystem) Copy file %s to %s" % (src, target))
         copy_via_temp_file(src, target)
 
         # Run bash script
@@ -569,7 +569,7 @@ def simulate(_db, _dbschema,
 
         image_params = ['automaticProcessing_' + _auto_proc, str(datacollectionid), _dest_visit_dir,\
                          str(x), os.path.join(_dest_dir, dest_fname), 'cbf']
-        logging.getLogger().debug('(bash script) %s/RunAfterEveryImage-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, image_params[0], image_params[1], image_params[2], image_params[3], image_params[4], image_params[5]))
+        log.debug('(bash script) %s/RunAfterEveryImage-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, image_params[0], image_params[1], image_params[2], image_params[3], image_params[4], image_params[5]))
         subprocess.check_call(['%s/RunAfterEveryImage-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, image_params[0], image_params[1], image_params[2], image_params[3], image_params[4], image_params[5])] + image_params, shell=True)
 
 
@@ -585,7 +585,7 @@ def simulate(_db, _dbschema,
     f.close()
 
     # Ingest the DataCollection.xml file data using the DbserverClient
-    logging.getLogger().debug("(dbserver) Ingest the datacollection XML to update with the d.c. end time")
+    log.debug("(dbserver) Ingest the datacollection XML to update with the d.c. end time")
     subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
                              '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
@@ -602,11 +602,11 @@ def simulate(_db, _dbschema,
     f.close()
 
     # Ingest the DataCollectionGroup.xml file data using the DbserverClient
-    logging.getLogger().debug("(dbserver) Ingest the datacollectiongroup XML to update with the d.c.g. end time")
+    log.debug("(dbserver) Ingest the datacollectiongroup XML to update with the d.c.g. end time")
     subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
                              '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
-    logging.getLogger().debug('(bash script) %s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]))
+    log.debug('(bash script) %s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]))
     subprocess.check_call(['%s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]) ], shell=True)
 
     # Log datacollectionid to beamline specific location and ouput useful data into dictionary
@@ -692,37 +692,36 @@ def call_sim(test_name, beamline):
         sys.exit("ERROR: The dest_dir parameter does not appear to contain a valid visit directory.")
 
     # Configure logging
-    logger = logging.getLogger()
     if debug == True:
-        logger.setLevel(logging.DEBUG)
+        log.setLevel(logging.DEBUG)
     else:
-        logger.setLevel(logging.INFO)
+        log.setLevel(logging.INFO)
     formatter = logging.Formatter('* %(asctime)s [id=%(thread)d] <%(levelname)s> %(message)s')
     hdlr = logging.StreamHandler(sys.stdout)
     hdlr.setFormatter(formatter)
-    logging.getLogger().addHandler(hdlr)
+    log.addHandler(hdlr)
 
 
     start_script = "%s/RunAtStartOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
     if not os.path.exists(start_script):
-        logging.getLogger().error("The file %s was not found." % start_script)
+        log.error("The file %s was not found." % start_script)
         sys.exit()
     per_img_script = "%s/RunAfterEveryImage-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
     if not os.path.exists(per_img_script):
-        logging.getLogger().error("The file %s was not found." % per_img_script)
+        log.error("The file %s was not found." % per_img_script)
         sys.exit()
     end_script = "%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
     if not os.path.exists(end_script):
-        logging.getLogger().error("The file %s was not found." % end_script)
+        log.error("The file %s was not found." % end_script)
         sys.exit()
 
     # Create destination directory
-    logging.getLogger().debug("Creating directory %s" % dest_dir)
+    log.debug("Creating directory %s" % dest_dir)
     mkdir_p(dest_dir)
     if os.path.isdir(dest_dir):
-        logging.getLogger().info("Directory %s created successfully" % dest_dir)
+        log.info("Directory %s created successfully" % dest_dir)
     else:
-        logging.getLogger().error("Creating directory %s failed" % dest_dir)
+        log.error("Creating directory %s failed" % dest_dir)
 
     db = dlstbx.dc_sim.mydb.DB()
     

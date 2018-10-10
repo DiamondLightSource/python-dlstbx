@@ -378,7 +378,7 @@ def scenario(_test_name):
 
 def simulate(_db, _dbschema,
              _dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_prefix, _src_run_number,
-             _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id, _auto_proc='yes'):
+             _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id, _auto_proc='Yes'):
     logging.getLogger().debug("(SQL) Getting the source sessionid")
     src_sessionid = retrieve_sessionid(_db, _dbschema, _src_visit)
 
@@ -638,16 +638,7 @@ def printHelp(msg=None):
           "--src_dir=/dls/i03/data/2013/cm5926-1/0130/thau3 "\
           "--dest_dir=/dls/p45/data/2013/cm5952-2 --src_run_number=1 --src_prefix=test")
 
-def call(test_name, beamline):
-
-if __name__ == '__main__':
-    try:
-        opts, args = getopt.gnu_getopt(sys.argv, "hp:d", \
-            ["dbschema=",\
-            "debug", "help", "data_src_dir=", "dest_prefix=",\
-            "test_name=", "beamline="])
-    except getopt.GetoptError as e:
-        sys.exit("Cannot read command-line parameters: %s" % str(e))
+def call_sim(test_name, beamline):
 
     # Default parameters
     dbhost = DATABASE_HOST
@@ -664,26 +655,8 @@ if __name__ == '__main__':
     dest_visit = None
     dest_dir = None
     sample_id = None
-    test_name = None
-    beamline = None
     debug = False
 
-    for o, a in opts:
-        if o in ("-p", "--dbschema"):
-            dbschema = str(a)
-        elif o == "--dest_prefix":
-            dest_prefix = a
-        elif o == "--data_src_dir":
-            data_src_dir = a
-        elif o == "--test_name":        
-            test_name = a
-        elif o == "--beamline":
-            beamline = a
-        elif o in ("-d", "--debug"):
-            debug = True
-        elif o in ("-h", "--help"):
-            printHelp()
-            sys.exit(0)
 
     # Fetch scenario data from definitions by accessing scenario function
     if scenario(test_name)!= False:     

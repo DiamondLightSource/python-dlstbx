@@ -19,14 +19,14 @@ tests = {
                     },
    
         'gridscan2': {
-                'src'    : '/dls/i04/data/2016/cm14452-2/20160425/grid/protein-1-cm14452-2/thermo_10',
+                'src_dir'  : '/dls/i04/data/2016/cm14452-2/20160425/grid/protein-1-cm14452-2/thermo_10',
                 'src_run_num'   : (3,),
                 'src_prefix' : ('thermo_10',),
                 'results': { }
                      },
 
        'high-multiplicity': {
-                'src'    : '/dls/i03/data/2012/cm5698-4/therm2',
+                'src_dir'    : '/dls/i03/data/2012/cm5698-4/therm2',
                 'src_run_num'   : (1,),
                 'src_prefix' : ('thermc',),
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
@@ -34,7 +34,7 @@ tests = {
                      },
 
        'example-i04': {
-                'src'    : '/dls/i04/data/2017/cm16781-4/20171015/Thaum/Th_3',
+                'src_dir'    : '/dls/i04/data/2017/cm16781-4/20171015/Thaum/Th_3',
                 'src_run_num'   : (1,),
                 'src_prefix' : ('Th_3',),
                 'debug' : True,
@@ -44,7 +44,7 @@ tests = {
                       },
 
        'example-i23': {
-                'src'    : '/dls/i23/data/2017/cm16790-4/20171012/germanate_4p5keV',
+                'src_dir'    : '/dls/i23/data/2017/cm16790-4/20171012/germanate_4p5keV',
                 'src_run_num'   : (1,),
                 'src_prefix' : ('data_A',),
                 'debug' : True,
@@ -54,7 +54,7 @@ tests = {
                       },
 
        'example-ins': {
-                'src'    : '/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2',
+                'src_dir'    : '/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2',
                 'src_run_num'   : (2,),
                 'src_prefix' : ('INS2',),
                 'debug' : True,
@@ -63,7 +63,7 @@ tests = {
                       },
 
        'example-ins-2': {
-                'src'    : '/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2',
+                'src_dir'    : '/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2',
                 'src_run_num'   : (2,),
                 'src_prefix' : ('INS2',),
                 'debug' : True,
@@ -73,7 +73,7 @@ tests = {
                         },
 
        'mad-multi': {
-                'src'    : '/dls/i04/data/2017/cm16781-1/20170111/ZnMAD',
+                'src_dir'    : '/dls/i04/data/2017/cm16781-1/20170111/ZnMAD',
                 'src_run_num'   : (1,),
                 'src_prefix' : ('sp0092_Zn_pk', 'sp0092_Zn_if', 'sp0092_Zn_hrm'),
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
@@ -81,7 +81,7 @@ tests = {
                     },
        
        'native': {
-                'src'    : '/dls/i03/data/2017/cm16791-1/20170221/gw/20170221/INS2',
+                'src_dir'    : '/dls/i03/data/2017/cm16791-1/20170221/gw/20170221/INS2',
                 'src_run_num'   : (1,),
                 'src_prefix' : ('INS2_29_2',),
                 'debug' : True,
@@ -92,7 +92,7 @@ tests = {
                  },
 
         'protk-au-insitu': {
-                 'src'    : '/dls/i24/data/2017/nr16818-47/Josh/InSitu/CrystalQuickX/ProtK/Au',
+                 'src_dir'    : '/dls/i24/data/2017/nr16818-47/Josh/InSitu/CrystalQuickX/ProtK/Au',
                  'src_run_num'   : (1,),
                  'src_prefix' : ('ProtK_InSitu_Au_47_1','ProtK_InSitu_Au_47_2','ProtK_InSitu_Au_47_3','ProtK_InSitu_Au_47_4','ProtK_InSitu_Au_47_5'
                                  'ProtK_InSitu_Au_47_6','ProtK_InSitu_Au_47_7','ProtK_InSitu_Au_47_8','ProtK_InSitu_Au_47_9','ProtK_InSitu_Au_47_10'),
@@ -101,7 +101,7 @@ tests = {
                  },
 
         'example-sad': {
-                 'src'    : '/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1',
+                 'src_dir'    : '/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1',
                  'src_run_num'   : (1,),
                  'src_prefix' : ('X1_weak_M1S1',),
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
@@ -109,7 +109,7 @@ tests = {
                  },
          
         'example-sad-multi': {
-                 'src'    : '/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1',
+                 'src_dir'    : '/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1',
                  'src_run_num'   : (1,3),
                  'src_prefix' : ('X1_strong_M1S1',),
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
@@ -117,7 +117,7 @@ tests = {
                  },
 
         'screening': {
-                 'src'    : '/dls/i04/data/2017/cm16781-1/20170223/group1/Thaum/Th_4',
+                 'src_dir'    : '/dls/i04/data/2017/cm16781-1/20170223/group1/Thaum/Th_4',
                  'src_run_num'   : (1,),
                  'src_prefix' : ('Th_4',),
                  'use_sample_id' : 790048,
@@ -126,7 +126,7 @@ tests = {
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
         'screening-i24': {
-                 'src'    : '/dls/i24/data/2017/cm16788-3/screening/hewl/hewl_1',
+                 'src_dir'    : '/dls/i24/data/2017/cm16788-3/screening/hewl/hewl_1',
                  'src_run_num'   : (1,),
                  'src_prefix' : ('hewl_1',),
                  'use_sample_id' : 1018393,
@@ -136,15 +136,47 @@ tests = {
                  },
 
         'screening-smargon': {
-                 'src'    : '/dls/i04/data/2017/cm16781-1/20170316/Thaum/Th_4',
+                 'src_dir'    : '/dls/i04/data/2017/cm16781-1/20170316/Thaum/Th_4',
                  'src_run_num'   : (2,),
                  'src_prefix' : ('Th_4',),
                  'use_sample_id' : 790048,
                  'debug' : True,
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
-                 }
+                 },
+        'trp-multi': {
+                 'src_dir'    : '/dls/i04/data/2013/nt5966-4/20131007/TRP/P1_X6',
+                 'src_run_num'   : (1,2,3,4),
+                 'src_prefix' : ('TRP_M1S6',),
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
+         
+        'i04-83': {
+                 'src_dir'    : '/dls/i04/data/2017/cm16781-1/20170111/autocollect/sp0092',
+                 'src_run_num'   : (1,),
+                 'src_prefix' : ('s_4',),
+                 'debug' : True,
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
 
-                    
+        'sane-example-big': {
+                 'src_dir'    : '/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2',
+                 'src_run_num'   : (2,),
+                 'src_prefix' : ('INS2',),
+                 'debug' : True,
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
+
+        'sane-example-native': {
+                 'src_dir'    : '/dls/i03/data/2017/cm16791-1/20170221/gw/20170221/INS2',
+                 'src_run_num'   : (1,),
+                 'src_prefix' : ('INS2_29_2',),
+                 'debug' : True,
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 }
 
         }

@@ -651,8 +651,8 @@ def call_sim(test_name, beamline):
     dest_visit_dir = None
     dest_prefix = None
     dest_visit = None
-    dcid_list = []
     debug = False
+    dcid_list = []
 
 
     # Fetch scenario data from definitions by accessing scenario function
@@ -666,9 +666,10 @@ def call_sim(test_name, beamline):
     # Calculate the destination directory - get beamline as command line parameter
     dest_dir = dest_dir(beamline)
 
-    # Checks for mandatory parameters
-    if data_src_dir is None:
-        data_src_dir = src_dir
+    # Set mandatory parameters
+    data_src_dir = src_dir
+    dest_prefix = src_prefix    
+        
 
     # Extract necessary info from the source directory path
     src_beamline = None
@@ -742,9 +743,6 @@ def call_sim(test_name, beamline):
 
     for src_run_number in scenario(test_name)[2]:
         for src_prefix in scenario(test_name)[1]:
-            if dest_prefix is None:
-                dest_prefix = src_prefix
-                   
             dcid = simulate(db, dbschema, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id)
             return dcid_list.append(dcid)
 

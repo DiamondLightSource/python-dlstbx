@@ -18,7 +18,7 @@ class DCSimWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.info("Running simulated data collection '%s' on beamline '%s'", scenario, beamline)
 
     # Simulate the data collection
-    dcids = dlstbx.dc_sim.magic_function(test_name=scenario, beamline=beamline)
+    dcids = dlstbx.dc_sim.call_sim(test_name=scenario, beamline=beamline)
 
     result = { 'beamline': beamline, 'scenario': scenario, 'DCIDs': dcids }
 

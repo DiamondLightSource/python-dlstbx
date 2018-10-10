@@ -649,7 +649,7 @@ def call_sim(test_name, beamline):
     hour = datetime.datetime.now().hour
     minute = datetime.datetime.now().minute
     second = datetime.datetime.now().second
-    for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(_beamline, year)):
+    for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(beamline, year)):
         if cm_dir.startswith('nt18231'):
             dest_dir = '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/{6}{7}{8}-{9}'.format(beamline, year, cm_dir, year, month, day, hour, minute, second, random_str)
     #dest_dir = dest_dir(beamline)

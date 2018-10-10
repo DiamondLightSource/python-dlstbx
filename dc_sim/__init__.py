@@ -667,12 +667,6 @@ def call_sim(test_name, beamline):
     dest_dir = dest_dir(beamline)
 
     # Checks for mandatory parameters
-    if src_dir is None:
-        printHelp("src_dir is a mandatory parameter")
-        sys.exit(0)
-    elif dest_dir is None:
-        printHelp("dest_dir is a mandatory parameter")
-        sys.exit(0)
     if data_src_dir is None:
         data_src_dir = src_dir
 

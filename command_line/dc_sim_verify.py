@@ -15,6 +15,9 @@ import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
+import dlstbx.util.result
+import ispyb
+import junit_xml
 import workflows.recipe
 from workflows.transport.stomp_transport import StompTransport
 
@@ -26,15 +29,64 @@ def wait_until_idle(timelimit):
   except Queue.Empty:
     return
 
-def process_result(header, message):
+def check_test_outcome(test):
+
+  ##############################
+  #
+  # vvv  Work happens here  vvv
+
+  print(test)
+
+  # To get the test name:
+  # print(test['scenario'])
+  # To get the list of DCIDs:
+  # print(test['DCIDs'])
+
+  # 3 possible outcomes
+
+  # If the test has been successful
+  # test['success'] = True
+
+  # If the test has failed
+  # test['success'] = False
+  # test['reason'] = "A description why this test is broken. \n Can have multiple lines"
+
+  # If you can't say for certain (eg. because results are missing)
+  # don't make any changes to the dictionary
+
+  # ^^^  Work happens here  ^^^
+  #
+  ##############################
+
+results_queue = 'reduce.dc_sim'
+stomp = None
+test_results = {}
+test_timeout = 3600
+transaction = None
+
+def process_result(rw, header, message):
+  if not transaction: return # subscription has ended
   idlequeue.put_nowait('start')
 
-  print(message)
-  ##############################
-  #
-  #      Work happens here
-  #
-  ##############################
+  # Acknowledge all received messages within transaction
+  stomp.ack(header, transaction=transaction)
+
+  if message.get('success') is None:
+    message['success'] = None
+    check_test_outcome(message)
+
+  if message['success'] is None and message['time_end'] > time.time() - test_timeout:
+    message['success'] = False
+    message['reason'] = 'No valid results appeared within timeout'
+
+  test_history = test_results.setdefault((message['beamline'], message['scenario']), [])
+  test_history.append(message)
+
+  # Keep only ongoing tests and the most recent test result as long as that is newer than 3 days
+  definitive_outcomes = list(map(lambda t: t['time_end'], filter(lambda t: t['success'] is not None, test_history)))
+  if definitive_outcomes:
+    most_recent_outcome = max(most_recent_outcome, time.time() - 3 * 24 * 3600)
+    test_history = list(filter(lambda t: t['success'] is None or t['time_end'] >= most_recent_outcome, test_history))
 
   idlequeue.put_nowait('done')
 
@@ -54,10 +106,55 @@ if __name__ == '__main__':
   stomp = StompTransport()
   stomp.connect()
 
-  txn = stomp.transaction_begin()
-#  sid = workflows.recipe.wrap_subscribe(stomp, 'reduce.dc_sim', process_result, acknowledgement=True, exclusive=True)
-  sid = stomp.subscribe("reduce.dc_sim", process_result, acknowledgement=True, exclusive=True)
+  txn = transaction = stomp.transaction_begin()
+  sid = workflows.recipe.wrap_subscribe(
+      stomp, results_queue, process_result,
+      acknowledgement=True, exclusive=True,
+      allow_non_recipe_messages=True,
+  )
   wait_until_idle(3)
-  stomp.unsubscribe(sid)
-  wait_until_idle(1)
+#  stomp.unsubscribe(sid) ### Currently workflows wrap subscriptions do not allow unsubscribing.
+                          ### https://github.com/DiamondLightSource/python-workflows/issues/17
+  # Stop processing any further messages
+  transaction = None
+  wait_until_idle(0.3)
+
+  # Put messages back on results queue, but without recipe bulk
+  # Create JUnit result records
+  junit_results = []
+  for test_history in test_results.values():
+    relevant_test = None
+    for test in test_history:
+      stomp.send(results_queue, test, transaction=txn)
+      if not relevant_test:
+        relevant_test = test
+      elif test['success'] is not None and relevant_test['success'] is None:
+        relevant_test = test
+      elif test['time_start'] > relevant_test['time_start']:
+        relevant_test = test
+    if not relevant_test:
+      continue
+    r = dlstbx.util.result.Result()
+    r.set_name(relevant_test['scenario'])
+    r.set_classname(relevant_test['beamline'])
+    r.log_message('Started at {start}, finished at {end}, took {elapsed} seconds.'.format(
+        start=relevant_test['time_start'],
+        end=relevant_test['time_end'],
+        elapsed=relevant_test['time_end'] - relevant_test['time_start'],
+    ))
+    r.set_time(relevant_test['time_end'] - relevant_test['time_start'])
+    if relevant_test['success'] is None:
+      r.log_skip('No results arrived yet')
+    elif relevant_test['success'] is True:
+      r.log_message('Test successful')
+    else:
+      r.log_error(relevant_test.get('reason', 'Test failed'))
+    junit_results.append(r)
+
+  # Export results
+  ts = junit_xml.TestSuite("Simulated data collections", junit_results)
+  with open('output.xml', 'w') as f:
+    junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
+
+  # Done.
   stomp.transaction_commit(txn)

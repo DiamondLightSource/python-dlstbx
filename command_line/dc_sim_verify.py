@@ -6,11 +6,8 @@
 
 from __future__ import absolute_import, division, print_function
 
-import errno
-import json
-import os
+import datetime
 import Queue
-import re
 import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
@@ -136,10 +133,10 @@ if __name__ == '__main__':
       continue
     r = dlstbx.util.result.Result()
     r.set_name(relevant_test['scenario'])
-    r.set_classname(relevant_test['beamline'])
-    r.log_message('Started at {start}, finished at {end}, took {elapsed} seconds.'.format(
-        start=relevant_test['time_start'],
-        end=relevant_test['time_end'],
+    r.set_classname("{test[beamline]}.{test[scenario]}".format(test=relevant_test))
+    r.log_message('Started at {start:%Y-%m-%d %H:%M:%S}, finished at {end:%Y-%m-%d %H:%M:%S}, took {elapsed:.1f} seconds.'.format(
+        start=datetime.datetime.fromtimestamp(relevant_test['time_start']),
+        end=datetime.datetime.fromtimestamp(relevant_test['time_end']),
         elapsed=relevant_test['time_end'] - relevant_test['time_start'],
     ))
     r.set_time(relevant_test['time_end'] - relevant_test['time_start'])

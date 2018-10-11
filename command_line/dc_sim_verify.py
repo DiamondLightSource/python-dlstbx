@@ -139,13 +139,13 @@ if __name__ == '__main__':
         end=datetime.datetime.fromtimestamp(relevant_test['time_end']),
         elapsed=relevant_test['time_end'] - relevant_test['time_start'],
     ))
-    r.set_time(relevant_test['time_end'] - relevant_test['time_start'])
     if relevant_test['success'] is None:
       r.log_skip('No results arrived yet')
     elif relevant_test['success'] is True:
       r.log_message('Test successful')
     else:
       r.log_error(relevant_test.get('reason', 'Test failed'))
+    r.set_time(relevant_test['time_end'] - relevant_test['time_start'])
     junit_results.append(r)
 
   # Export results

@@ -610,8 +610,6 @@ def call_sim(test_name, beamline):
     tnsname = TNSNAME
     dbschema = DBSCHEMA
 
-    data_src_dir = None
-    dest_visit_dir = None
     dest_prefix = None
     dest_visit = None
     debug = False
@@ -628,6 +626,7 @@ def call_sim(test_name, beamline):
 
     # Calculate the destination directory
     import uuid
+    dest_dir = None
     random_str = str(uuid.uuid4())
     year = datetime.datetime.now().year
     month = datetime.datetime.now().month
@@ -637,10 +636,13 @@ def call_sim(test_name, beamline):
     second = datetime.datetime.now().second
     for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(beamline, year)):
         if cm_dir.startswith('nt18231'):
+            dest_visit = cm_dir
             dest_dir = '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/{6}{7}{8}-{9}'.format(beamline, year, cm_dir, year, month, day, hour, minute, second, random_str)
 
     # Set mandatory parameters
-    data_src_dir = src_dir    
+    data_src_dir = src_dir  
+    dest_visit_dir = '/dls/{0}/data/{1}/{2}'.format(beamline,year,dest_visit)
+    dest_beamline = beamline
 
     # Extract necessary info from the source directory path
     src_beamline = None
@@ -658,23 +660,6 @@ def call_sim(test_name, beamline):
 
     if (src_beamline is None) or (src_visit_dir is None) or (src_visit is None):
         sys.exit("ERROR: The src_dir parameter does not appear to contain a valid visit directory.")
-
-    # Extract necessary info from the destination directory path
-    dest_beamline = None
-    m1 = re.search("(/dls/(\S+?)/data/\d+/)(\S+)", dest_dir)
-    if m1:
-        dest_beamline = m1.groups()[1]
-        subdir = m1.groups()[2]
-        m2 = re.search("^(\S+?)/", subdir)
-        if m2:
-            dest_visit = m2.groups()[0]
-            dest_visit_dir = m1.groups()[0] + dest_visit
-        elif (subdir is not None) and (subdir != ""):
-            dest_visit = subdir
-            dest_visit_dir = m1.groups()[0] + dest_visit
-
-    if (dest_beamline is None) or (dest_visit_dir is None) or (dest_visit is None):
-        sys.exit("ERROR: The dest_dir parameter does not appear to contain a valid visit directory.")
 
     log.setLevel(logging.DEBUG)
 

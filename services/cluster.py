@@ -115,7 +115,12 @@ class DLSCluster(CommonService):
       self._transport.nack(header)
       return
     workingdir = parameters['workingdir']
-    self._recursive_mkdir(workingdir)
+    try:
+      self._recursive_mkdir(workingdir)
+    except OSError as e:
+      self.log.error("Could not create working directory: %s", str(e), exc_info=True)
+      self._transport.nack(header)
+      return
 
     submission = [
       ". /etc/profile.d/modules.sh",

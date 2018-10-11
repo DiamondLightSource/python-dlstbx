@@ -1,14 +1,22 @@
 from __future__ import absolute_import, division, print_function
 
+try:
+  import configparser
+except ImportError:
+  import ConfigParser as configparser
+
 import logging
 
-import ispyb
+import ispyb.connector.mysqlsp.main
 
 log = logging.getLogger('dlstbx.dc_sim')
 
 class DB:
   def __init__(self):
-    self.i = ispyb.open('/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg')
+    config = configparser.RawConfigParser(allow_no_value=True)
+    assert config.read('/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg')
+    credentials = dict(config.items('prod'))
+    self.i = ispyb.connector.mysqlsp.main.ISPyBMySQLSPConnector(**credentials)
     self.cursor = self.i.create_cursor()
 
   def doQuery(self, querystr):

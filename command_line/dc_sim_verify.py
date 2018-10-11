@@ -17,6 +17,9 @@ import ispyb
 import junit_xml
 import workflows.recipe
 from workflows.transport.stomp_transport import StompTransport
+import ispyb.model.__future__
+import dlstbx.dc_sim.definitions as df
+
 
 idlequeue = Queue.Queue()
 def wait_until_idle(timelimit):
@@ -28,12 +31,32 @@ def wait_until_idle(timelimit):
 
 def check_test_outcome(test):
 
+  ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+  db = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
+  data_collection = db.get_data_collection(test['DCIDs'])
+
+  # Storing separate integrations
+  fast_dp = data_collection.integrations[0].unit_cell
+  xia2_3dii = data_collection.integrations[1].unit_cell
+  xia2_dials = data_collection.integrations[2].unit_cell
+  ap = data_collection.integrations[3].unit_cell
+  ap_staraniso = data_collection.integrations[4].unit_cell
+
+
+  # Testing against definitions
+  scenario = test['scenario']  
+
+  for integration in [fast_dp, xia2_3dii, xia2_dials, ap, ap_staraniso]:
+    print(df.tests[scenario]['results']['a'] == integration.a)
+    print(df.tests[scenario]['results']['b'] == integration.b)
+    print(df.tests[scenario]['results']['c'] == integration.c)
+    print(df.tests[scenario]['results']['alpha'] == integration.alpha)
+    print(df.tests[scenario]['results']['beta'] == integration.beta)
+    print(df.tests[scenario]['results']['gamma'] == integration.gamma)
+
   ##############################
   #
   # vvv  Work happens here  vvv
-
-  print(test)
-
   # To get the test name:
   # print(test['scenario'])
   # To get the list of DCIDs:

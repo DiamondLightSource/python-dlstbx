@@ -345,20 +345,6 @@ def retrieve_max_dcnumber(_db, _dbschema, _sessionid, _dest_dir, _dest_prefix):
                              "AND imageprefix='%s'" % (_dbschema,_sessionid,_dest_dir+"/", _dest_prefix))
     return rows[0][0]
 
-#def dest_dir(_beamline):
-#    '''Determines destination directory'''
-#    import uuid
-#    random_str = str(uuid.uuid4())
-#    year = datetime.datetime.now().year
-#    month = datetime.datetime.now().month
-#    day = datetime.datetime.now().day
-#    hour = datetime.datetime.now().hour
-#    minute = datetime.datetime.now().minute
-#    second = datetime.datetime.now().second
-#    for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(_beamline, year)):
-#        if cm_dir.startswith('nt18231'):
-#            return '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/{6}{7}{8}-{9}'.format(_beamline, year, cm_dir, year, month, day, hour, minute, second, random_str)
-
 
 def scenario(_test_name):
     '''provide the test scenario, returns False if test is not valid'''
@@ -652,7 +638,6 @@ def call_sim(test_name, beamline):
     for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(beamline, year)):
         if cm_dir.startswith('nt18231'):
             dest_dir = '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/{6}{7}{8}-{9}'.format(beamline, year, cm_dir, year, month, day, hour, minute, second, random_str)
-    #dest_dir = dest_dir(beamline)
 
     # Set mandatory parameters
     data_src_dir = src_dir    
@@ -691,16 +676,7 @@ def call_sim(test_name, beamline):
     if (dest_beamline is None) or (dest_visit_dir is None) or (dest_visit is None):
         sys.exit("ERROR: The dest_dir parameter does not appear to contain a valid visit directory.")
 
-    # Configure logging
-    #if debug == True:
     log.setLevel(logging.DEBUG)
-    #else:
-    #    log.setLevel(logging.INFO)
-    #formatter = logging.Formatter('* %(asctime)s [id=%(thread)d] <%(levelname)s> %(message)s')
-    #hdlr = logging.StreamHandler(sys.stdout)
-    #hdlr.setFormatter(formatter)
-    #log.addHandler(hdlr)
-
 
     start_script = "%s/RunAtStartOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
     if not os.path.exists(start_script):

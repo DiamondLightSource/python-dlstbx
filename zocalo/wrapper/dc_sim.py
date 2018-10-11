@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
+import time
 
 import dlstbx.dc_sim
 import dlstbx.zocalo.wrapper
@@ -17,10 +18,15 @@ class DCSimWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     scenario = params['scenario']
     logger.info("Running simulated data collection '%s' on beamline '%s'", scenario, beamline)
 
+    start = time.time()
+
     # Simulate the data collection
     dcids = dlstbx.dc_sim.call_sim(test_name=scenario, beamline=beamline)
 
-    result = { 'beamline': beamline, 'scenario': scenario, 'DCIDs': dcids }
+    result = {
+        'beamline': beamline, 'scenario': scenario, 'DCIDs': dcids,
+        'time_start': start, 'time_end': time.time(),
+    }
 
     if dcids:
       logger.info("Simulated data collection completed with result:\n%s", repr(result))

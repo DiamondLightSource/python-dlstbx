@@ -610,10 +610,8 @@ def call_sim(test_name, beamline):
     tnsname = TNSNAME
     dbschema = DBSCHEMA
 
-    dest_prefix = None
     dest_visit = None
     debug = False
-    dcid_list = []
 
 
     # Fetch scenario data from definitions by accessing scenario function
@@ -686,7 +684,8 @@ def call_sim(test_name, beamline):
 
     db = dlstbx.dc_sim.mydb.DB()
     
-
+    # Call simulate
+    dcid_list = []
     for src_run_number in scenario(test_name)[2]:
         for src_prefix in scenario(test_name)[1]:
             dest_prefix = src_prefix

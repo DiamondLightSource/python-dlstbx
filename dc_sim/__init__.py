@@ -23,7 +23,7 @@ import errno
 import datetime
 
 # "Globals"
-log = logging.getLogger(‘dlstbx.dc_sim’)
+log = logging.getLogger('dlstbx.dc_sim')
 
 # Constants
 DATABASE_HOST='ws096'

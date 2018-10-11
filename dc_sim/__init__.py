@@ -730,6 +730,6 @@ def call_sim(test_name, beamline):
         for src_prefix in scenario(test_name)[1]:
             dest_prefix = src_prefix
             dcid = simulate(db, dbschema, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id)
-            return dcid_list.append(dcid)
-
+            dcid_list.append(dcid)
+    return dcid_list
 

@@ -15,7 +15,7 @@ import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
-import workflows
+import workflows.recipe
 from workflows.transport.stomp_transport import StompTransport
 
 idlequeue = Queue.Queue()
@@ -29,7 +29,7 @@ def wait_until_idle(timelimit):
 def process_result(header, message):
   idlequeue.put_nowait('start')
 
-  print(message)  
+  print(message)
   ##############################
   #
   #      Work happens here
@@ -44,10 +44,8 @@ if __name__ == '__main__':
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
   default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-live.cfg'
-  dlqprefix = 'zocalo'
   if '--test' in sys.argv:
     default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
-    dlqprefix = 'zocdev'
   # override default stomp host
   StompTransport.load_configuration_file(default_configuration)
 
@@ -57,10 +55,9 @@ if __name__ == '__main__':
   stomp.connect()
 
   txn = stomp.transaction_begin()
-  sid = stomp.subscribe("transient.destination", process_result, acknowledgement=True, exclusive=True)
+#  sid = workflows.recipe.wrap_subscribe(stomp, 'reduce.dc_sim', process_result, acknowledgement=True, exclusive=True)
+  sid = stomp.subscribe("reduce.dc_sim", process_result, acknowledgement=True, exclusive=True)
   wait_until_idle(3)
   stomp.unsubscribe(sid)
   wait_until_idle(1)
   stomp.transaction_commit(txn)
-
-

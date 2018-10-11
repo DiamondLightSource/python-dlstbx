@@ -33,6 +33,5 @@ class DCSimWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     else:
       logger.error("Simulated data collection failed")
 
-    self.recwrap.set_default_channel('dc_sim')
     self.recwrap.send_to('dc_sim', result)
     return bool(dcids)

@@ -72,7 +72,7 @@ def process_result(rw, header, message):
     message['success'] = None
     check_test_outcome(message)
 
-  if message['success'] is None and message['time_end'] > time.time() - test_timeout:
+  if message['success'] is None and message['time_end'] < time.time() - test_timeout:
     message['success'] = False
     message['reason'] = 'No valid results appeared within timeout'
 
@@ -82,7 +82,7 @@ def process_result(rw, header, message):
   # Keep only ongoing tests and the most recent test result as long as that is newer than 3 days
   definitive_outcomes = list(map(lambda t: t['time_end'], filter(lambda t: t['success'] is not None, test_history)))
   if definitive_outcomes:
-    most_recent_outcome = max(most_recent_outcome, time.time() - 3 * 24 * 3600)
+    most_recent_outcome = max(definitive_outcomes + [time.time() - 3 * 24 * 3600])
     test_history = list(filter(lambda t: t['success'] is None or t['time_end'] >= most_recent_outcome, test_history))
 
   idlequeue.put_nowait('done')
@@ -148,10 +148,12 @@ if __name__ == '__main__':
     r.set_time(relevant_test['time_end'] - relevant_test['time_start'])
     junit_results.append(r)
 
+  # Done.
+  stomp.transaction_commit(txn)
+
   # Export results
   ts = junit_xml.TestSuite("Simulated data collections", junit_results)
   with open('output.xml', 'w') as f:
     junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
 
-  # Done.
-  stomp.transaction_commit(txn)
+  wait_until_idle(0.3)

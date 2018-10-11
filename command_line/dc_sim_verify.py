@@ -26,6 +26,18 @@ def wait_until_idle(timelimit):
   except Queue.Empty:
     return
 
+def process_result(header, message):
+  idlequeue.put_nowait('start')
+
+  print(message)  
+  ##############################
+  #
+  #      Work happens here
+  #
+  ##############################
+
+  idlequeue.put_nowait('done')
+
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.dc_sim_verify [options]")
 
@@ -45,19 +57,10 @@ if __name__ == '__main__':
   stomp.connect()
 
   txn = stomp.transaction_begin()
-  sid = stomp.subscribe(queue, process_result, acknowledgement=True, exclusive=True)
+  sid = stomp.subscribe("transient.destination", process_result, acknowledgement=True, exclusive=True)
   wait_until_idle(3)
   stomp.unsubscribe(sid)
   wait_until_idle(1)
   stomp.transaction_commit(txn)
 
-def process_result(message, header):
-  idlequeue.put_nowait('start')
 
-  ##############################
-  #
-  #      Work happens here
-  #
-  ##############################
-
-  idlequeue.put_nowait('done')

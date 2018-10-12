@@ -48,6 +48,9 @@ if __name__ == '__main__':
   parser.add_option("-p", "--reprocessing", dest="reprocess",
       action="store_true", default=False,
       help="Means a reprocessing ID is given rather than a data collection ID")
+  parser.add_option("-s", "--set", dest="parameters",
+      action="append", default=[], metavar="KEY=VALUE",
+      help="Set an additional variable for recipe evaluation")
   parser.add_option("-v", "--verbose", dest="verbose",
       action="store_true", default=False,
       help="Show raw message before sending")
@@ -100,6 +103,11 @@ if __name__ == '__main__':
   message = { 'recipes': options.recipe,
               'parameters': {},
             }
+  for kv in options.parameters:
+    if '=' not in kv:
+      sys.exit("Invalid variable specification '{}'".format(kv))
+    key, value = kv.split('=', 1)
+    message['parameters'][key] = value
 
   if not options.recipe and not options.recipefile and not (options.default and not options.nodcid) and not options.reprocess:
     print("No recipes specified.")

@@ -110,8 +110,7 @@ if __name__ == '__main__':
     message['parameters'][key] = value
 
   if not options.recipe and not options.recipefile and not (options.default and not options.nodcid) and not options.reprocess:
-    print("No recipes specified.")
-    sys.exit(1)
+    sys.exit("No recipes specified.")
 
   if options.recipefile:
     with open(options.recipefile, 'r') as fh:
@@ -130,12 +129,10 @@ if __name__ == '__main__':
     sys.exit(0)
 
   if not args:
-    print("No data collection IDs specified.")
-    sys.exit(1)
+    sys.exit("No data collection IDs specified.")
 
   if len(args) > 1:
-    print("Only a single data collection ID can be specified.")
-    sys.exit(1)
+    sys.exit("Only a single data collection ID can be specified.")
 
   dcid = int(args[0])
   assert dcid > 0, "Invalid data collection ID given."
@@ -164,8 +161,7 @@ if __name__ == '__main__':
     print("Running recipe from file", options.recipefile)
 
   if not message['recipes'] and not message.get('custom_recipe'):
-    print("No recipes specified.")
-    sys.exit(1)
+    sys.exit("No recipes specified.")
   print("for data collection", dcid)
   message['parameters']['ispyb_dcid'] = dcid
 

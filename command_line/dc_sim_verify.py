@@ -42,17 +42,23 @@ def check_test_outcome(test):
   ap = data_collection.integrations[3].unit_cell
   ap_staraniso = data_collection.integrations[4].unit_cell
 
-
   # Testing against definitions
-  scenario = test['scenario']  
+  scenario = test['scenario']
 
   for integration in [fast_dp, xia2_3dii, xia2_dials, ap, ap_staraniso]:
-    print(df.tests[scenario]['results']['a'] == integration.a)
-    print(df.tests[scenario]['results']['b'] == integration.b)
-    print(df.tests[scenario]['results']['c'] == integration.c)
-    print(df.tests[scenario]['results']['alpha'] == integration.alpha)
-    print(df.tests[scenario]['results']['beta'] == integration.beta)
-    print(df.tests[scenario]['results']['gamma'] == integration.gamma)
+    a = df.tests[scenario]['results']['a'] == integration.a
+    b = df.tests[scenario]['results']['b'] == integration.b
+    c = df.tests[scenario]['results']['c'] == integration.c
+    alpha = df.tests[scenario]['results']['alpha'] == integration.alpha
+    beta = df.tests[scenario]['results']['beta'] == integration.beta
+    gamma = df.tests[scenario]['results']['gamma'] == integration.gamma
+    if a and b and c and alpha and beta and gamma:
+      test['success'] = True
+    else:
+      test['success'] = False
+      test['reason'] = 'a - {0}, b -{1}, c -{2}, alpha - {3}, beta - {4}, gamma - {5}'.format(a,b,c,alpha,beta,gamma)
+    
+    print(test)
 
   ##############################
   #

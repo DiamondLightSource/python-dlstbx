@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import copy
 import errno
 import json
 import os
@@ -48,7 +49,7 @@ class DLSDispatcher(CommonService):
 
     self._transport.subscribe('processing_recipe', self.process, acknowledgement=True)
 
-  def record_to_logbook(self, guid, header, message, recipewrap):
+  def record_to_logbook(self, guid, header, original_message, message, recipewrap):
     basepath = os.path.join(self._logbook, time.strftime('%Y-%m'))
     clean_guid = re.sub('[^a-z0-9A-Z\-]+', '', guid, re.UNICODE)
     if not clean_guid or len(clean_guid) < 3:
@@ -59,12 +60,15 @@ class DLSDispatcher(CommonService):
     except OSError:
       pass # Ignore if exists
     try:
-      log_entry = os.path.join(basepath, clean_guid[:2], clean_guid)
+      log_entry = os.path.join(basepath, clean_guid[:2], clean_guid[2:])
       with open(log_entry, 'w') as fh:
         fh.write('Incoming message header:\n')
         json.dump(header, fh, sort_keys=True, skipkeys=True, default=str,
                   indent=2, separators=(',', ': '))
         fh.write('\n\nIncoming message body:\n')
+        json.dump(original_message, fh, sort_keys=True, skipkeys=True, default=str,
+                  indent=2, separators=(',', ': '))
+        fh.write('\n\nParsed message body:\n')
         json.dump(message, fh, sort_keys=True, skipkeys=True, default=str,
                   indent=2, separators=(',', ': '))
         fh.write('\n\nRecipe object:\n')
@@ -93,6 +97,10 @@ class DLSDispatcher(CommonService):
     # be used to determine unique file paths.
     recipe_id = parameters.get('guid') or str(uuid.uuid4())
     parameters['guid'] = recipe_id
+
+    # If we are fully logging requests then make a copy of the original message
+    if self._logbook:
+      original_message = copy.deepcopy(message)
 
     # From here on add the global ID to all log messages
     with self.extend_log('recipe_ID', recipe_id):
@@ -164,7 +172,7 @@ class DLSDispatcher(CommonService):
 
       # Write information to logbook if applicable
       if self._logbook:
-        self.record_to_logbook(recipe_id, header, message, rw)
+        self.record_to_logbook(recipe_id, header, original_message, message, rw)
 
       # Commit transaction
       self._transport.transaction_commit(txn)

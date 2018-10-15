@@ -5,8 +5,10 @@
 
 from __future__ import absolute_import, division, print_function
 
+import getpass
 import json
 import os
+import socket
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
@@ -72,23 +74,31 @@ if __name__ == '__main__':
   StompTransport.add_command_line_options(parser)
   (options, args) = parser.parse_args(sys.argv[1:])
 
-  def write_message_to_dropfile(message):
-    message_serialized = json.dumps(message, indent=2) + "\n"
+  def generate_headers():
+    return {
+      'dlstbx.go.user': getpass.getuser(),
+      'dlstbx.go.host': socket.gethostname(),
+    }
+
+  def write_message_to_dropfile(message, headers):
+    message_serialized = json.dumps({'headers': headers, 'message': message}, indent=2) + "\n"
     import uuid
     fallback = os.path.join('/dls_sw/apps/zocalo/dropfiles', str(uuid.uuid4()))
     with open(fallback, 'w') as fh:
       fh.write(message_serialized)
     print("Message successfully stored in %s" % fallback)
 
-  def send_to_stomp_or_defer(message):
+  def send_to_stomp_or_defer(message, headers=None):
+    if not headers:
+      headers = generate_headers()
     if options.verbose:
       pprint(message)
     if allow_stomp_fallback and options.dropfile:
-      return write_message_to_dropfile(message)
+      return write_message_to_dropfile(message, headers)
     try:
       stomp = StompTransport()
       stomp.connect()
-      stomp.send('processing_recipe', message)
+      stomp.send('processing_recipe', message, headers=headers)
     except (KeyboardInterrupt, SyntaxError, AssertionError, AttributeError, ImportError, TypeError, ValueError):
       raise
     except Exception as e:
@@ -98,7 +108,7 @@ if __name__ == '__main__':
       import traceback
       traceback.print_exc()
       print("\n\nAttempting to store message in fallback location")
-      write_message_to_dropfile(message)
+      write_message_to_dropfile(message, headers)
 
   message = { 'recipes': options.recipe,
               'parameters': {},

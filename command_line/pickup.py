@@ -26,8 +26,10 @@ for f in files:
   print("Sending " + f)
 
   with open(os.path.join('/dls_sw/apps/zocalo/dropfiles', f)) as fh:
-    message = json.load(fh)
-  stomp.send('processing_recipe', message)
+    data = json.load(fh)
+    message = data['message']
+    headers = data['headers']
+  stomp.send('processing_recipe', message, headers=headers)
   os.remove(os.path.join('/dls_sw/apps/zocalo/dropfiles', f))
   print("Done")
   time.sleep(1)

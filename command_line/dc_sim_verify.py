@@ -44,20 +44,27 @@ def check_test_outcome(test):
 
   # Testing against definitions
   scenario = test['scenario']
+  test_results = []
 
   for integration in [fast_dp, xia2_3dii, xia2_dials, ap, ap_staraniso]:
-    a = df.tests[scenario]['results']['a'] != integration.a
+    a = df.tests[scenario]['results']['a'] == integration.a
     b = df.tests[scenario]['results']['b'] == integration.b
     c = df.tests[scenario]['results']['c'] == integration.c
     alpha = df.tests[scenario]['results']['alpha'] == integration.alpha
     beta = df.tests[scenario]['results']['beta'] == integration.beta
-    gamma = df.tests[scenario]['results']['gamma'] == integration.gamma
-    if a and b and c and alpha and beta and gamma:
-      test['success'] = True
-    else:
-      pass
-      #test['success'] = False
-      #test['reason'] = 'a - {0}, b -{1}, c -{2}, alpha - {3}, beta - {4}, gamma - {5}'.format(a,b,c,alpha,beta,gamma)
+    gamma = df.tests[scenario]['results']['gamma'] == integration.gamma  
+    test_results.append([a, b, c, alpha, beta, gamma])
+  
+  if (test_results[0][0] and test_results[0][1] and test_results[0][2] and test_results[0][3] and test_results[0][4] and test_results[0][5]
+  and test_results[1][0] and test_results[1][1] and test_results[1][2] and test_results[1][3] and test_results[1][4] and test_results[1][5]
+  and test_results[2][0] and test_results[2][1] and test_results[2][2] and test_results[2][3] and test_results[2][4] and test_results[2][5]
+  and test_results[3][0] and test_results[3][1] and test_results[3][2] and test_results[3][3] and test_results[3][4] and test_results[3][5]
+  and test_results[4][0] and test_results[4][1] and test_results[4][2] and test_results[4][3] and test_results[4][4] and test_results[4][5]):
+  
+     test['success'] = True
+  else:
+    pass
+  
 
   ##############################
   #

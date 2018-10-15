@@ -1,11 +1,13 @@
 from __future__ import absolute_import, division, print_function
 
+import logging
 import os
 import xml.etree.ElementTree
 
 import libtbx.load_env
 from procrunner import run_process
 
+log = logging.getLogger('dlstbx.util.hdf5')
 _h5dump = libtbx.env.under_base('bin/h5dump')
 
 def get_external_references(filename):
@@ -22,14 +24,19 @@ def find_all_references(startfile):
   startfile = os.path.abspath(startfile)
   known_files = set()
   unchecked_files = set([startfile])
+  invalid_files = set()
 
   while unchecked_files:
     filename = unchecked_files.pop()
     filepath = os.path.dirname(filename)
+    if not os.path.exists(filename):
+      log.warning('Can not find references from file %s. This file does not exist.', filename)
+      invalid_files.add(filename)
+      continue
     known_files.add(filename)
     for linked_file in get_external_references(filename):
       linked_file = os.path.abspath(os.path.join(filepath, linked_file))
-      if linked_file in known_files:
+      if linked_file in known_files or linked_file in invalid_files:
         continue
       else:
         unchecked_files.add(linked_file)

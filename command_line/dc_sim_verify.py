@@ -53,17 +53,13 @@ def check_test_outcome(test):
     alpha = df.tests[scenario]['results']['alpha'] == integration.alpha
     beta = df.tests[scenario]['results']['beta'] == integration.beta
     gamma = df.tests[scenario]['results']['gamma'] == integration.gamma  
-    test_results.append([a, b, c, alpha, beta, gamma])
+    test_results.extend([a, b, c, alpha, beta, gamma])
   
-  if (test_results[0][0] and test_results[0][1] and test_results[0][2] and test_results[0][3] and test_results[0][4] and test_results[0][5]
-  and test_results[1][0] and test_results[1][1] and test_results[1][2] and test_results[1][3] and test_results[1][4] and test_results[1][5]
-  and test_results[2][0] and test_results[2][1] and test_results[2][2] and test_results[2][3] and test_results[2][4] and test_results[2][5]
-  and test_results[3][0] and test_results[3][1] and test_results[3][2] and test_results[3][3] and test_results[3][4] and test_results[3][5]
-  and test_results[4][0] and test_results[4][1] and test_results[4][2] and test_results[4][3] and test_results[4][4] and test_results[4][5]):
-  
+  if all(test_results):
      test['success'] = True
   else:
-    pass
+    pass  
+
   
 
   ##############################

@@ -74,9 +74,6 @@ class MosflmStrategyWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       result = self.run_xoalign(os.path.join(working_directory, 'mosflm_index.mat'))
 
     # copy output files to result directory
-    results_directory = params['results_directory']
-    results_directory = os.path.abspath(
-      os.path.join(results_directory, '../../simple_strategy'))
     if not os.path.exists(results_directory):
       os.makedirs(results_directory)
     logger.info('Copying results from %s to %s' % (working_directory, results_directory))

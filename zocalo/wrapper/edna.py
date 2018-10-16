@@ -142,9 +142,7 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     self.edna2html(results_xml)
 
     # copy output files to result directory
-    results_directory = params['results_directory']
-    results_directory = os.path.abspath(
-      os.path.join(results_directory, '../../edna'))
+    results_directory = os.path.abspath(params['results_directory'])
     logger.info('Copying results from %s to %s' % (working_directory, results_directory))
     if not os.path.exists(results_directory):
       os.makedirs(results_directory)

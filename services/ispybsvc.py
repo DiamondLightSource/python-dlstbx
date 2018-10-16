@@ -124,6 +124,21 @@ class DLSISPyB(CommonService):
                        ppid, message, e, exc_info=True)
       return { 'success': False }
 
+  def do_store_dimple_failure(self, rw, message, txn):
+    params = self.ispyb.mx_processing.get_run_params()
+    params['parentid'] = self.parse_value(rw, message, 'scaling_id')
+    params['pipeline'] = 'dimple'
+    params['success'] = 0
+    params['message'] = 'Unknown error'
+    params['run_dir'] = self.parse_value(rw, message, 'directory')
+    try:
+      result = self.ispyb.mx_processing.upsert_run(params.values())
+      return { 'success': True, 'return_value': result }
+    except ispyb.exception.ISPyBException as e:
+      self.log.warning("Updating DIMPLE failure for %s caused exception '%s'.",
+                       params['parentid'], e, exc_info=True)
+      return { 'success': False }
+
   def do_register_processing(self, rw, message, txn):
     program = rw.recipe_step['parameters'].get('program')
     cmdline = rw.recipe_step['parameters'].get('cmdline')

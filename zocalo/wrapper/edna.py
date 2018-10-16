@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import logging
 import os
+import shutil
 import sys
 
 import dlstbx.zocalo.wrapper
@@ -140,6 +141,20 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
 
     self.edna2html(results_xml)
 
+    # copy output files to result directory
+    results_directory = params['results_directory']
+    results_directory = os.path.abspath(
+      os.path.join(results_directory, '../../edna'))
+    logger.info('Copying results from %s to %s' % (working_directory, results_directory))
+    if not os.path.exists(results_directory):
+      os.makedirs(results_directory)
+
+    shutil.copytree(
+      os.path.join(working_directory, 'EDNAStrategy'),
+      os.path.join(results_directory, 'EDNA%s' % sparams['name']))
+    shutil.copyfile(
+      os.path.join(working_directory, 'EDNAStrategy.xml'),
+      os.path.join(results_directory, 'EDNA%s.xml' % sparams['name']))
     return result['exitcode'] == 0
 
   def generate_modified_headers(self,):

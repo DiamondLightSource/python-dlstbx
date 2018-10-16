@@ -155,6 +155,11 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     shutil.copyfile(
       os.path.join(working_directory, 'EDNAStrategy.xml'),
       os.path.join(results_directory, 'EDNA%s.xml' % sparams['name']))
+    for fname in ('summary.html', 'results.xml'):
+      src = os.path.join(working_directory, fname)
+      dst = os.path.join(results_directory, fname)
+      if os.path.exists(src) and not os.path.exists(dst):
+        shutil.copyfile(src, dst)
     return result['exitcode'] == 0
 
   def generate_modified_headers(self,):

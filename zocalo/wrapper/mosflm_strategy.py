@@ -75,11 +75,10 @@ class MosflmStrategyWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     # copy output files to result directory
     results_directory = params['results_directory']
-    if not os.path.exists(results_directory):
-      os.makedirs(results_directory)
-
     results_directory = os.path.abspath(
       os.path.join(results_directory, '../../simple_strategy'))
+    if not os.path.exists(results_directory):
+      os.makedirs(results_directory)
     logger.info('Copying results from %s to %s' % (working_directory, results_directory))
     distutils.dir_util.copy_tree(working_directory, results_directory)
 

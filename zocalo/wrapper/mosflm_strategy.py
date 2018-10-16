@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import distutils.dir_util
 import logging
 import os
 
@@ -71,6 +72,17 @@ class MosflmStrategyWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     beamline = params['beamline']
     if beamline in ('i03', 'i04'):
       result = self.run_xoalign(os.path.join(working_directory, 'mosflm_index.mat'))
+
+    # copy output files to result directory
+    results_directory = params['results_directory']
+    if not os.path.exists(results_directory):
+      os.makedirs(results_directory)
+
+    results_directory = os.path.abspath(
+      os.path.join(results_directory, '../../simple_strategy'))
+    logger.info('Copying results from %s to %s' % (working_directory, results_directory))
+    distutils.dir_util.copy_tree(working_directory, results_directory)
+
     return result['exitcode'] == 0
 
   def run_xoalign(self, mosflm_index_mat):

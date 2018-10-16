@@ -33,32 +33,37 @@ def check_test_outcome(test):
 
   ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
   db = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
-  data_collection = db.get_data_collection(test['DCIDs'])
   
-  # Storing separate integrations
-  fast_dp = data_collection.integrations[0].unit_cell
-  xia2_3dii = data_collection.integrations[1].unit_cell
-  xia2_dials = data_collection.integrations[2].unit_cell
-  ap = data_collection.integrations[3].unit_cell
-  ap_staraniso = data_collection.integrations[4].unit_cell
-
-  # Testing against definitions
-  scenario = test['scenario']
   test_results = []
 
-  for integration in [fast_dp, xia2_3dii, xia2_dials, ap, ap_staraniso]:
-    a = df.tests[scenario]['results']['a'] == integration.a
-    b = df.tests[scenario]['results']['b'] == integration.b
-    c = df.tests[scenario]['results']['c'] == integration.c
-    alpha = df.tests[scenario]['results']['alpha'] == integration.alpha
-    beta = df.tests[scenario]['results']['beta'] == integration.beta
-    gamma = df.tests[scenario]['results']['gamma'] == integration.gamma  
-    test_results.extend([a, b, c, alpha, beta, gamma])
+  for dcid in test['DCIDs']:
+    data_collection = db.get_data_collection(dcid)
   
+    # Storing separate integrations
+    fast_dp = data_collection.integrations[0].unit_cell
+    xia2_3dii = data_collection.integrations[1].unit_cell
+    xia2_dials = data_collection.integrations[2].unit_cell
+    ap = data_collection.integrations[3].unit_cell
+    ap_staraniso = data_collection.integrations[4].unit_cell
+   
+    # Testing against definitions
+    scenario = test['scenario']
+  
+    for integration in [fast_dp, xia2_3dii, xia2_dials, ap, ap_staraniso]:
+      a = df.tests[scenario]['results']['a'] == integration.a
+      b = df.tests[scenario]['results']['b'] == integration.b
+      c = df.tests[scenario]['results']['c'] == integration.c
+      alpha = df.tests[scenario]['results']['alpha'] == integration.alpha
+      beta = df.tests[scenario]['results']['beta'] == integration.beta
+      gamma = df.tests[scenario]['results']['gamma'] == integration.gamma  
+      test_results.extend([a, b, c, alpha, beta, gamma])
+           
+
   if all(test_results):
-     test['success'] = True
+    test['success'] = True
   else:
-    pass  
+    pass
+
 
   
 

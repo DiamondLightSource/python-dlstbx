@@ -62,9 +62,9 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       working_directory,
       fast_dp_directory
     ]
-    print(' '.join(command))
     result = procrunner.run_process(
       command,
+      working_directory=working_directory,
       print_stdout=True, print_stderr=True)
 
   def run(self):
@@ -74,21 +74,17 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     self._params = self.recwrap.recipe_step['job_parameters']
 
     command = self.construct_commandline()
-
     if command is None:
       return
-
-    # run dimple in working directory
-
-    cwd = os.path.abspath(os.curdir)
 
     working_directory = os.path.abspath(self._params['working_directory'])
     if not os.path.exists(working_directory):
       os.makedirs(working_directory)
-    os.chdir(working_directory)
 
     result = procrunner.run_process(
-      command, timeout=self._params.get('timeout'),
+      command,
+      working_directory=working_directory,
+      timeout=self._params.get('timeout'),
       print_stdout=True, print_stderr=True)
 
     logger.info('command: %s', ' '.join(result['command']))
@@ -103,7 +99,5 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.info('Sending dimple results to ISPyB')
     self.send_results_to_ispyb(
       working_directory, os.path.dirname(self._params['dimple']['data']))
-
-    os.chdir(cwd)
 
     return result['exitcode'] == 0

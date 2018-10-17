@@ -17,14 +17,10 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       "No recipewrapper object found"
 
     params = self.recwrap.recipe_step['job_parameters']
-
-    cwd = os.path.abspath(os.curdir)
-
     working_directory = os.path.abspath(params['working_directory'])
     logger.info('working_directory: %s' % working_directory)
     if not os.path.exists(working_directory):
       os.makedirs(working_directory)
-    os.chdir(working_directory)
 
     self.generate_modified_headers()
 
@@ -58,7 +54,6 @@ class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
       f.write(short_comments)
 
-    os.chdir(EDNAStrategy)
     edna_home = os.environ['EDNA_HOME']
     strategy_xml = os.path.join(working_directory, 'EDNAStrategy.xml')
     results_xml = os.path.join(working_directory, 'results.xml')
@@ -93,6 +88,7 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     logger.info(' '.join(commands))
     result = procrunner.run_process(
       commands,
+      working_directory=EDNAStrategy,
       timeout=params.get('timeout', 3600),
       print_stdout=True, print_stderr=True,
       environment_override={
@@ -124,6 +120,7 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     ]
     result = procrunner.run_process(
       commands,
+      working_directory=working_directory,
       timeout=params.get('timeout', 3600),
       print_stdout=True, print_stderr=True,
     )
@@ -136,8 +133,6 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     logger.info('exitcode: %s', result['exitcode'])
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
-
-    os.chdir(cwd)
 
     self.edna2html(results_xml)
 

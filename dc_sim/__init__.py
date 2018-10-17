@@ -1,26 +1,26 @@
-#!/usr/bin/env python
+# Functions to simulate a data collection
 #
-#    A program to simulate a data collection
-#
-#    PLEASE NOTE:
-#    This script must run as user gda2, and should probably run on a control machine
-#
-#    This program will:
-#     * insert new entries into the datacollection table using the DbserverClient.py script
-#     * copy images from the source data collection
-#     * run the scripts RunAtStartOfDataCollection.sh, RunAfterEveryImage.sh, and RunAtEndOfDataCollection.sh
-#       at appropriate times.
-#
+# This will:
+# * insert new entries into the datacollection table using the DbserverClient.py script
+# * copy images from the source data collection
+# * run the scripts RunAtStartOfDataCollection.sh, RunAfterEveryImage.sh, and RunAtEndOfDataCollection.sh
+#   at appropriate times.
 
-from __future__ import print_function
-from __future__ import absolute_import
-import sys, os, os.path, subprocess, shutil, logging
-import tempfile
-import dlstbx.dc_sim.mydb
-import getopt
-import re
-import errno
+from __future__ import absolute_import, division, print_function
+
 import datetime
+import errno
+import logging
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import uuid
+
+import dlstbx.dc_sim.mydb
+
 
 # "Globals"
 log = logging.getLogger('dlstbx.dc_sim')

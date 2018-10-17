@@ -289,6 +289,13 @@ if __name__ == '__main__':
       print_format += "\nLast Update: {0.time_update}"
 
     print_format += "\n  Last Info: {0.message}"
+    attachment_format = " Attachment: {0[fileName]} ({0[fileType]})"
 
     for program in rp.programs:
       print(print_format.format(program))
+
+      if options.verbose:
+        attachments = i.mx_processing.retrieve_program_attachments_for_program_id(program.app_id)
+        if attachments:
+          for attachment in attachments:
+            print(attachment_format.format(attachment))

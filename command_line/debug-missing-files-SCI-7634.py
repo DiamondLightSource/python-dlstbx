@@ -51,7 +51,9 @@ def format_default(message):
 isp = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
 
 def debug_message(message):
-  recipe_file = '/dls/tmp/zocalo/dispatcher/{l:%Y-%m}/{r:.2}/{r}'.format(l=message['localtime'], r=message['recipe_ID'])
+  recipe_file = '/dls/tmp/zocalo/dispatcher/{l:%Y-%m}/{rpre}/{rmain}'.format(l=message['localtime'], rpre=message['recipe_ID'][:2], rmain=message['recipe_ID'][2:])
+  if not os.path.exists(recipe_file):
+    recipe_file = '/dls/tmp/zocalo/dispatcher/{l:%Y-%m}/{r:.2}/{r}'.format(l=message['localtime'], r=message['recipe_ID'])
   with open(recipe_file) as fh:
     json_data = None
     for line in fh:
@@ -66,7 +68,7 @@ def debug_message(message):
   dcid = data.get('parameters', {}).get('ispyb_dcid')
   if dcid:
     dc = isp.get_data_collection(dcid)
-    if dc.status == 'DataCollection Stopped':
+    if dc.status and dc.status != 'DataCollection Successful':
       return
     if dcid in borken_DCIDs:
       return

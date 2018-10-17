@@ -60,6 +60,7 @@ libtbx.pkg_utils.define_entry_points({
     'fast_dp = dlstbx.zocalo.wrapper.fast_dp:FastDPWrapper',
     'fast_ep = dlstbx.zocalo.wrapper.fast_ep:FastEPWrapper',
     'dimple = dlstbx.zocalo.wrapper.dimple:DimpleWrapper',
+    'anode = dlstbx.zocalo.wrapper.anode:AnodeWrapper',
     'i19screen = dlstbx.zocalo.wrapper.i19screen:I19ScreenWrapper',
     'mosflm_strategy = dlstbx.zocalo.wrapper.mosflm_strategy:MosflmStrategyWrapper',
     'rlv = dlstbx.zocalo.wrapper.rlv:RLVWrapper',

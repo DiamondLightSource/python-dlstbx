@@ -35,7 +35,8 @@ def check_test_outcome(test):
   db = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
   
   test_results = []
-
+  values_in_db = [] 
+ 
   for dcid in test['DCIDs']:
     data_collection = db.get_data_collection(dcid)
   
@@ -57,13 +58,16 @@ def check_test_outcome(test):
       beta = df.tests[scenario]['results']['beta'] == integration.beta
       gamma = df.tests[scenario]['results']['gamma'] == integration.gamma  
       test_results.extend([a, b, c, alpha, beta, gamma])
+      values_in_db.extend([integration.a, integration.b ,integration.c ,integration.alpha ,integration.beta ,integration.gamma])
+
            
   # Process the results list after all tests have been completed, decide if value of 'success' is altered
   if all(test_results):
     test['success'] = True
+  elif all(values_in_db) and not all(test_results):
+    test['success'] = False
   else:
     pass
-
 
   
 

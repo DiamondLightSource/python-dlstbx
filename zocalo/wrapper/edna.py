@@ -144,8 +144,10 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     # copy output files to result directory
     results_directory = os.path.abspath(params['results_directory'])
     logger.info('Copying results from %s to %s' % (working_directory, results_directory))
-    if not os.path.exists(results_directory):
+    try:
       os.makedirs(results_directory)
+    except OSError:
+      pass # it'll be fine
 
     shutil.copytree(
       os.path.join(working_directory, 'EDNAStrategy'),

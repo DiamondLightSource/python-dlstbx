@@ -104,18 +104,14 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     params = self.recwrap.recipe_step['job_parameters']
     command = self.construct_commandline(params)
 
-    # run xia2 in working directory
-
-    cwd = os.path.abspath(os.curdir)
-
     working_directory = params['working_directory']
     if not os.path.exists(working_directory):
       os.makedirs(working_directory)
-    os.chdir(working_directory)
 
     result = procrunner.run_process(
       command, timeout=params.get('timeout'),
-      print_stdout=False, print_stderr=False)
+      print_stdout=False, print_stderr=False,
+      working_directory=working_directory)
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
@@ -150,6 +146,8 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     # Send results to various listeners
 
+    # Part of the result parsing requires to be in result directory
+    cwd = os.path.abspath(os.curdir)
     os.chdir(results_directory)
 
     if params.get('results_symlink'):

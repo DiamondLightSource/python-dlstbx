@@ -69,8 +69,6 @@ class ispybtbx(object):
   def get_gridscan_info(self, dcgid):
     '''Extract GridInfo table contents for a DC group ID.'''
     newgrid = _ispyb_api().get_data_collection_group(dcgid).gridinfo
-    # GridInfo is not supported yet in stable
-    _enable_future()
     if not newgrid:
       return {} # This is no grid scan.
     return {
@@ -82,7 +80,7 @@ class ispybtbx(object):
         'snaked': newgrid.snaked,
         'snapshot_offsetXPixel': newgrid.snapshot_offset_pixel_x,
         'snapshot_offsetYPixel': newgrid.snapshot_offset_pixel_y,
-        'recordTimeStamp': newgrid.timestamp,
+#       'recordTimeStamp': newgrid.timestamp,
         'gridInfoId': newgrid.id,
         'pixelsPerMicronX': newgrid.pixels_per_micron_x,
         'pixelsPerMicronY': newgrid.pixels_per_micron_y,
@@ -729,7 +727,8 @@ def ispyb_filter(message, parameters):
       gridinfo = i.get_gridscan_info(dc_info['dataCollectionGroupId'])
       if gridinfo:
         # FIXME: timestamps can not be JSON-serialized
-        del(gridinfo['recordTimeStamp'])
+        if 'recordTimeStamp' in gridinfo:
+          del(gridinfo['recordTimeStamp'])
         parameters['ispyb_dc_info']['gridinfo'] = gridinfo
     except ispyb.exception.ISPyBNoResultException:
       pass

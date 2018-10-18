@@ -3,10 +3,7 @@ import ispyb
 import ispyb.model.__future__
 import dlstbx.dc_sim.definitions as df
 
-def check_test_outcome(test):
-
-  ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
-  db = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
+def check_test_outcome(test, db):
   
   test_results = []
   values_in_db = [] 
@@ -43,5 +40,11 @@ def check_test_outcome(test):
   else:
     pass
 
+  print(test_results, values_in_db)
+
 if __name__ == '__main__':
-  check_test_outcome({'time_start': 1539264122.187212, 'scenario': 'native', 'success': None, 'time_end': 1539264176.104456, 'DCIDs': [2960726,2960621], 'beamline': 'i03'})
+
+  ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+  db = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')  
+  
+  check_test_outcome({'time_start': 1539264122.187212, 'scenario': 'native', 'success': None, 'time_end': 1539264176.104456, 'DCIDs': [2960726,2960621], 'beamline': 'i03'}, db)

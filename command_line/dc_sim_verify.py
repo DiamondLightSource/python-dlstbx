@@ -71,7 +71,7 @@ def process_result(rw, header, message):
     message['success'] = None
     ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
     db = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')  
-    check.check_test_outcome(message, db)
+    dlstbx.dc_sim.check.check_test_outcome(message, db)
 
   if message['success'] is None and message['time_end'] < time.time() - test_timeout:
     message['success'] = False

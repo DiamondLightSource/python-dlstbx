@@ -24,7 +24,7 @@ def check_test_outcome(test, db):
     scenario = test['scenario']
   
     for integration in [fast_dp, xia2_3dii, xia2_dials, ap, ap_staraniso]:
-      if not df.tests[scenario]['results']['a'] == integration.unit_cell.a:
+      if not df.tests[scenario]['results']['a'] != integration.unit_cell.a:
         failed_tests.append('a: {0} outside range {1} program {2} DCID:{3}'.format(integration.unit_cell.a, df.tests[scenario]['results']['a'], integration.program, dcid))
       if not df.tests[scenario]['results']['b'] == integration.unit_cell.b:
         failed_tests.append('b: {0} outside range {1} program {2} DCID:{3}'.format(integration.unit_cell.b, df.tests[scenario]['results']['b'], integration.program.name, dcid))
@@ -37,10 +37,11 @@ def check_test_outcome(test, db):
       if not df.tests[scenario]['results']['gamma'] == integration.unit_cell.gamma:
         failed_tests.append('gamma: {0} outside range {1} program {2} DCID:{3}'.format(integration.unit_cell.gamma, df.tests[scenario]['results']['gamma'], integration.program.name, dcid))  
       #test_results.extend([a, b, c, alpha, beta, gamma])
-      #values_in_db.extend([integration.a, integration.b ,integration.c ,integration.alpha ,integration.beta ,integration.gamma])
+      values_in_db.extend([integration.unit_cell.a, integration.unit_cell.b ,integration.unit_cell.c ,integration.unit_cell.alpha ,integration.unit_cell.beta ,integration.unit_cell.gamma])
 
            
-  # check if there are any failed tests and update the message 
+  # Update 'success key'
+ 
   if not failed_tests:
     test['success'] = True
 
@@ -48,10 +49,11 @@ def check_test_outcome(test, db):
     test['success'] = False
     test['reason'] = '-'.join(failed_tests)
     
-  else:
-    pass
+  elif None in values_in_db:
+    test['success'] = None  
 
   #print(test_results, values_in_db)
+  print(values_in_db)
   print(test)
 
 if __name__ == '__main__':

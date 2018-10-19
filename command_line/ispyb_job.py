@@ -295,7 +295,9 @@ if __name__ == '__main__':
       print(print_format.format(program))
 
       if options.verbose:
-        attachments = i.mx_processing.retrieve_program_attachments_for_program_id(program.app_id)
-        if attachments:
+        try:
+          attachments = i.mx_processing.retrieve_program_attachments_for_program_id(program.app_id)
           for attachment in attachments:
             print(attachment_format.format(attachment))
+        except ispyb.exception.ISPyBNoResultException:
+          pass

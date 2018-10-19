@@ -49,7 +49,7 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     from xia2.command_line.ispyb_json import zocalo_object
 
     cwd = os.path.abspath(os.curdir)
-    os.chdir(results_directory)
+    os.chdir(self.recwrap.recipe_step['job_parameters']['results_directory'])
     # Part of the result parsing requires to be in result directory
     message = zocalo_object()
     os.chdir(cwd)

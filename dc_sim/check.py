@@ -29,11 +29,12 @@ def check_test_outcome(test, db):
           
       if not failed_tests and len(data_collection.integrations) == 5:
         test['success'] = True
+      elif not failed_tests and len(data_collection.integrations) < 5:
+        test['success'] = None
       elif failed_tests:
         test['success'] = False
         test['reason'] = ' - '.join(failed_tests)
-      elif len(data_collection.integrations)<5:
-        test['success'] = None 
+
       
     else:
       test['success'] = None

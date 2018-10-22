@@ -6,9 +6,7 @@ import dlstbx.dc_sim.definitions as df
 
 def check_test_outcome(test, db):
   
-  values_in_db = []
   failed_tests = []
-  all_integrations = []   
 
   for dcid in test['DCIDs']:
     data_collection = db.get_data_collection(dcid)
@@ -27,25 +25,20 @@ def check_test_outcome(test, db):
           failed_tests.append('beta: {0} outside range {1}, program: {2}, DCID:{3}'.format(integration.unit_cell.beta, df.tests[scenario]['results']['beta'], integration.program.name, dcid))
         if not df.tests[scenario]['results']['gamma'] == integration.unit_cell.gamma:
           failed_tests.append('gamma: {0} outside range {1}, program: {2}, DCID:{3}'.format(integration.unit_cell.gamma, df.tests[scenario]['results']['gamma'], integration.program.name, dcid))  
-      
-        all_integrations.append(df.tests[scenario]['results']['a'] == integration.unit_cell.a and df.tests[scenario]['results']['b'] == integration.unit_cell.b and df.tests[scenario]['results']['c'] == integration.unit_cell.c and df.tests[scenario]['results']['alpha'] == integration.unit_cell.alpha and df.tests[scenario]['results']['beta'] == integration.unit_cell.beta and df.tests[scenario]['results']['gamma'] == integration.unit_cell.gamma)
             
-      if not failed_tests:
+          
+      if not failed_tests and len(data_collection.integrations) == 5:
         test['success'] = True
       elif failed_tests:
         test['success'] = False
         test['reason'] = ' - '.join(failed_tests)
-      elif not all_integrations:
+      elif len(data_collection.integrations)<5:
         test['success'] = None 
       
-    
     else:
       test['success'] = None
     
 
-  #values_in_db.extend([integration.unit_cell.a, integration.unit_cell.b ,integration.unit_cell.c ,integration.unit_cell.alpha ,integration.unit_cell.beta ,integration.unit_cell.gamma])
-  
-  print(all_integrations)
   print(test)
 
 if __name__ == '__main__':

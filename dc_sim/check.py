@@ -6,13 +6,11 @@ import dlstbx.dc_sim.definitions as df
 
 def check_test_outcome(test, db):
   
-  test_results = []
   values_in_db = []
   failed_tests = []   
 
   for dcid in test['DCIDs']:
     data_collection = db.get_data_collection(dcid)
-    # Test against definitions and accumulate test results as a list of booleans
     scenario = test['scenario']
     for integration in data_collection.integrations:
       if integration: 
@@ -28,20 +26,24 @@ def check_test_outcome(test, db):
           failed_tests.append('beta: {0} outside range {1}, program: {2}, DCID:{3}'.format(integration.unit_cell.beta, df.tests[scenario]['results']['beta'], integration.program.name, dcid))
         if not df.tests[scenario]['results']['gamma'] == integration.unit_cell.gamma:
           failed_tests.append('gamma: {0} outside range {1}, program: {2}, DCID:{3}'.format(integration.unit_cell.gamma, df.tests[scenario]['results']['gamma'], integration.program.name, dcid))  
-        #test_results.extend([a, b, c, alpha, beta, gamma])
-        #values_in_db.extend([integration.unit_cell.a, integration.unit_cell.b ,integration.unit_cell.c ,integration.unit_cell.alpha ,integration.unit_cell.beta ,integration.unit_cell.gamma])
+        
+        values_in_db.extend([integration.unit_cell.a, integration.unit_cell.b ,integration.unit_cell.c ,integration.unit_cell.alpha ,integration.unit_cell.beta ,integration.unit_cell.gamma])
+        
+        if not failed_tests:
+          test['success'] = True
+        
+        elif failed_tests:
+          test['success'] = False
+          test['reason'] = ' - '.join(failed_tests)        
+        
       else:
-        test['success'] = None     
-  # Update 'success key'
+        test['success'] = None
+
+
+
   
-  if not failed_tests:
-    test['success'] = True
+
   
-  elif failed_tests:
-    test['success'] = False
-    test['reason'] = ' - '.join(failed_tests)
-  
-  #print(test_results, values_in_db)
   #print(values_in_db)
   print(test)
 

@@ -86,7 +86,6 @@ class DLSFileWatcher(CommonService):
           'file-number': status['seen-files'] + 1,
           'file-pattern-index': pattern_start + status['seen-files'],
       }
-      self.log.debug("Found %s", filename)
 
       files_found += 1
       status['seen-files'] += 1

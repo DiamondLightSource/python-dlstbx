@@ -7,6 +7,7 @@ import dlstbx.dc_sim.definitions as df
 def check_test_outcome(test, db):
   
   failed_tests = []
+  expected_integrations = 5
 
   for dcid in test['DCIDs']:
     data_collection = db.get_data_collection(dcid)
@@ -27,9 +28,9 @@ def check_test_outcome(test, db):
           failed_tests.append('gamma: {0} outside range {1}, program: {2}, DCID:{3}'.format(integration.unit_cell.gamma, df.tests[scenario]['results']['gamma'], integration.program.name, dcid))  
             
           
-      if not failed_tests and len(data_collection.integrations) == 5:
+      if not failed_tests and len(data_collection.integrations) == expected_integrations:
         test['success'] = True
-      elif not failed_tests and len(data_collection.integrations) < 5:
+      elif not failed_tests and len(data_collection.integrations) < expected_integrations:
         test['success'] = None
       elif failed_tests:
         test['success'] = False

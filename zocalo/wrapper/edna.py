@@ -262,7 +262,11 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
 ''' % image_file_name
 
     #4) Echo out the beam and flux (if we know them)
-    flux = float(params['strategy']['flux'])
+    flux = params['strategy']['flux']
+    try:
+      flux = float(flux)
+    except ValueError:
+      flux = None
     beam_size_x = float(params['strategy']['beam_size_x'])
     beam_size_y = float(params['strategy']['beam_size_y'])
     if flux:

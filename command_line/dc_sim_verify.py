@@ -117,13 +117,16 @@ if __name__ == '__main__':
   transaction = None
   wait_until_idle(0.3)
 
+  # Show all known test results
+  from pprint import pprint
+  pprint(test_results)
+
   # Put messages back on results queue, but without recipe bulk
   # Create JUnit result records
   junit_results = []
   for test_history in test_results.values():
     relevant_test = None
     for test in test_history:
-      print("Sending on results for", test)
       stomp.send(results_queue, test, transaction=txn)
       if not relevant_test:
         relevant_test = test

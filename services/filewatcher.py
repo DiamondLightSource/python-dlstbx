@@ -110,18 +110,18 @@ class DLSFileWatcher(CommonService):
         if is_file_selected(status['seen-files'], m, filecount):
           rw.send_to(dest, notification_record, transaction=txn)
 
-    if files_found:
+    # Are we done?
+    if status['seen-files'] == filecount:
+      # Happy days
+
       self.log.debug(
-          "Found %d files in pattern %s with pattern indices between %d and %d",
+          "%d files found for %s with indices %d-%d (all %d files found)",
           files_found,
           pattern,
           pattern_start + status['seen-files'] - files_found,
           pattern_start + status['seen-files'] - 1,
+          filecount,
       )
-
-    # Are we done?
-    if status['seen-files'] == filecount:
-      # Happy days
 
       extra_log = { "delay": time.time()-status['start-time'] }
       if rw.recipe_step['parameters'].get('expected-per-image-delay'):
@@ -204,9 +204,11 @@ class DLSFileWatcher(CommonService):
     else:
       # Otherwise note last time progress was made
       status['last-seen'] = time.time()
-      self.log.info("%d files found for %s (total: %d out of %d) within %.1f seconds",
+      self.log.info("%d files found for %s with indices %d-%d (total: %d out of %d) within %.1f seconds",
         files_found,
         rw.recipe_step['parameters']['pattern'],
+        pattern_start + status['seen-files'] - files_found,
+        pattern_start + status['seen-files'] - 1,
         status['seen-files'], filecount,
         time.time()-status['start-time'])
 

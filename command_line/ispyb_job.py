@@ -297,7 +297,8 @@ if __name__ == '__main__':
       if options.verbose:
         try:
           attachments = i.mx_processing.retrieve_program_attachments_for_program_id(program.app_id)
-          for attachment in attachments:
-            print(attachment_format.format(attachment))
+          for filetype in sorted(set(map(lambda a: a['fileType'], attachments))):
+            for attachment in sorted(filter(lambda a: a['fileType'] == filetype, attachments), key=lambda a: a['fileName']):
+              print(" {att[fileType]:>10s}: {att[fileName]}".format(att=attachment))
         except ispyb.exception.ISPyBNoResultException:
           pass

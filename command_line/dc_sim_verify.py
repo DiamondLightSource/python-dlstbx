@@ -28,8 +28,6 @@ def wait_until_idle(timelimit):
   except Queue.Empty:
     return
 
-  
-
   ##############################
   #
   # vvv  Work happens here  vvv
@@ -69,13 +67,15 @@ def process_result(rw, header, message):
 
   if message.get('success') is None:
     message['success'] = None
-    ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
-    db = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')  
-    dlstbx.dc_sim.check.check_test_outcome(message, db)
+    print("Verifying", message)
+    with ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg') as db:
+      ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+      dlstbx.dc_sim.check.check_test_outcome(message, db)
 
   if message['success'] is None and message['time_end'] < time.time() - test_timeout:
     message['success'] = False
     message['reason'] = 'No valid results appeared within timeout'
+    print("Rejecting with timeout:", message)
 
   test_history = test_results.setdefault((message['beamline'], message['scenario']), [])
   test_history.append(message)
@@ -123,6 +123,7 @@ if __name__ == '__main__':
   for test_history in test_results.values():
     relevant_test = None
     for test in test_history:
+      print("Sending on results for", test)
       stomp.send(results_queue, test, transaction=txn)
       if not relevant_test:
         relevant_test = test

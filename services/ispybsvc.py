@@ -100,7 +100,9 @@ class DLSISPyB(CommonService):
 #     rw.send_to(...)
 #     rw.transport.ack(header, transaction=txn)
     else:
-      rw.transport.nack(header, transaction=txn)
+      rw.transport.transaction_abort(txn)
+      rw.transport.nack(header)
+      return
     rw.transport.transaction_commit(txn)
 
   def do_update_processing_status(self, rw, message, txn):

@@ -164,6 +164,13 @@ class DLSISPyB(CommonService):
   def do_add_program_attachment(self, rw, message, txn):
     params = self.ispyb.mx_processing.get_program_attachment_params()
     params['parentid'] = self.parse_value(rw, message, 'program_id')
+    try:
+      programid = int(params['parentid'])
+    except ValueError:
+      programid = None
+    if not programid:
+      self.log.warning("Encountered invalid program ID '%s'", params['parentid'])
+      return False
     params['file_name'] = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
     params['file_path'] = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
     fqpn = os.path.join(params['file_path'], params['file_name'])

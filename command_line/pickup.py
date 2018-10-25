@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import time
+from optparse import OptionParser, SUPPRESS_HELP
 
 from workflows.transport.stomp_transport import StompTransport
 

@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import datetime
 import Queue
+import re
 import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
@@ -20,13 +21,7 @@ from workflows.transport.stomp_transport import StompTransport
 import dlstbx.dc_sim.check
 
 
-idlequeue = Queue.Queue()
-def wait_until_idle(timelimit):
-  try:
-    while True:
-      idlequeue.get(True, timelimit)
-  except Queue.Empty:
-    return
+processqueue = Queue.Queue()
 
   ##############################
   #
@@ -53,40 +48,12 @@ def wait_until_idle(timelimit):
   ##############################
 
 results_queue = 'reduce.dc_sim'
-stomp = None
 test_results = {}
-test_timeout = 3600
-transaction = None
+test_timeout = 3600 # fail scenarios that have not succeeded after 1 hour
+forget_test_after = 3 * 24 * 3600 # forget test after 3 days
 
 def process_result(rw, header, message):
-  if not transaction: return # subscription has ended
-  idlequeue.put_nowait('start')
-
-  # Acknowledge all received messages within transaction
-  stomp.ack(header, transaction=transaction)
-
-  if message.get('success') is None:
-    message['success'] = None
-    print("Verifying", message)
-    with ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg') as db:
-      ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
-      dlstbx.dc_sim.check.check_test_outcome(message, db)
-
-  if message['success'] is None and message['time_end'] < time.time() - test_timeout:
-    message['success'] = False
-    message['reason'] = 'No valid results appeared within timeout'
-    print("Rejecting with timeout:", message)
-
-  test_history = test_results.setdefault((message['beamline'], message['scenario']), [])
-  test_history.append(message)
-
-  # Keep only ongoing tests and the most recent test result as long as that is newer than 3 days
-  definitive_outcomes = list(map(lambda t: t['time_end'], filter(lambda t: t['success'] is not None, test_history)))
-  if definitive_outcomes:
-    most_recent_outcome = max(definitive_outcomes + [time.time() - 3 * 24 * 3600])
-    test_history = list(filter(lambda t: t['success'] is None or t['time_end'] >= most_recent_outcome, test_history))
-
-  idlequeue.put_nowait('done')
+  processqueue.put((header, message))
 
 if __name__ == '__main__':
   parser = OptionParser(usage="dlstbx.dc_sim_verify [options]")
@@ -103,62 +70,131 @@ if __name__ == '__main__':
   (options, args) = parser.parse_args(sys.argv[1:])
   stomp = StompTransport()
   stomp.connect()
+  txn = stomp.transaction_begin()
 
-  txn = transaction = stomp.transaction_begin()
+  ispyb_conn = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
+  ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+
   sid = workflows.recipe.wrap_subscribe(
       stomp, results_queue, process_result,
       acknowledgement=True, exclusive=True,
       allow_non_recipe_messages=True,
   )
-  wait_until_idle(3)
-#  stomp.unsubscribe(sid) ### Currently workflows wrap subscriptions do not allow unsubscribing.
-                          ### https://github.com/DiamondLightSource/python-workflows/issues/17
-  # Stop processing any further messages
-  transaction = None
-  wait_until_idle(0.3)
+
+  try:
+    while True:
+      header, message = processqueue.get(True, 3)
+      # Acknowledge all received messages within transaction
+      stomp.ack(header, transaction=txn)
+
+      if message.get('summary'):
+        # aggregated test information
+        for beamline_scenario_string in message['summary']:
+          test_results.setdefault(beamline_scenario_string, []).extend(
+              message['summary'][beamline_scenario_string]
+          )
+        continue
+      else:
+        test_results.setdefault("{m[beamline]}-{m[scenario]}".format(m=message), []).append(message)
+
+  except Queue.Empty:
+    pass # No more messages coming in
+#   stomp.unsubscribe(sid) ### Currently workflows wrap subscriptions do not allow unsubscribing.
+                         ### https://github.com/DiamondLightSource/python-workflows/issues/17
+  # Further messages are are not processed and will be redelivered to the next instance
+
+  def filter_testruns(runlist):
+    """Filter out all historic test runs older then forget_test_after
+       and all test runs that are older than the most recent run that
+       ended in a result."""
+    # Forget everything older than forget_test_after
+    forget_all_before = time.time() - forget_test_after
+    runlist = list(filter(lambda t: t['time_end'] > forget_all_before, runlist))
+
+    unfinished = list(filter(lambda t: t.get('success') is None, runlist))
+    finished = list(filter(lambda t: t.get('success') is not None, runlist))
+
+    # Keep the single most recent test run that has a result...
+    if finished:
+      latest_outcome = max(map(lambda t: t['time_end'], finished))
+      finished = list(filter(lambda t: t['time_end'] == latest_outcome, finished))
+      if finished:
+        finished = [finished[0]]
+
+    # ...and all test runs that have not yet finished
+    return finished + unfinished
+  test_results = { setting: filter_testruns(testruns) for setting, testruns in test_results.items() }
+
+  # Forget tests where all test runs have expired
+  for key in list(test_results):
+    if not test_results[key]:
+      del test_results[key]
+
+  # Check all test runs that do not yet have a definite outcome
+  for testruns in test_results.values():
+    for testrun in testruns:
+      if testrun.get('success') is None:
+        print("Verifying", testrun)
+        dlstbx.dc_sim.check.check_test_outcome(testrun, ispyb_conn)
+      if testrun.get('success') is None and testrun['time_end'] < time.time() - test_timeout:
+        print("Rejecting with timeout:", testrun)
+        testrun['success'] = False
+        testrun['reason'] = 'No valid results appeared within timeout'
 
   # Show all known test results
   from pprint import pprint
   pprint(test_results)
 
-  # Put messages back on results queue, but without recipe bulk
+  # Put result summary back on results queue
+  stomp.send(results_queue, { "summary": test_results }, transaction=txn)
+  stomp.transaction_commit(txn)
+
+  def synchweb_url(dcid):
+    directory = ispyb_conn.get_data_collection(dcid).file_directory
+    visit = re.search(r'/([a-z]{2}[0-9]{4,5}-[0-9]+)/', directory)
+    if not visit:
+      return ''
+    visit = visit.group(1)
+    return 'https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dcid}'.format(visit=visit, dcid=dcid)
+
   # Create JUnit result records
   junit_results = []
-  for test_history in test_results.values():
-    relevant_test = None
-    for test in test_history:
-      stomp.send(results_queue, test, transaction=txn)
-      if not relevant_test:
-        relevant_test = test
-      elif test['success'] is not None and relevant_test['success'] is None:
-        relevant_test = test
-      elif test['time_start'] > relevant_test['time_start']:
-        relevant_test = test
-    if not relevant_test:
-      continue
+  for testruns in test_results.values():
     r = dlstbx.util.result.Result()
-    r.set_name(relevant_test['scenario'])
-    r.set_classname("{test[beamline]}.{test[scenario]}".format(test=relevant_test))
-    r.log_message('Started at {start:%Y-%m-%d %H:%M:%S}, finished at {end:%Y-%m-%d %H:%M:%S}, took {elapsed:.1f} seconds.'.format(
-        start=datetime.datetime.fromtimestamp(relevant_test['time_start']),
-        end=datetime.datetime.fromtimestamp(relevant_test['time_end']),
-        elapsed=relevant_test['time_end'] - relevant_test['time_start'],
-    ))
-    if relevant_test['success'] is None:
-      r.log_skip('No results arrived yet')
-    elif relevant_test['success'] is True:
-      r.log_message('Test successful')
+    r.set_name(testruns[0]['scenario'])
+    r.set_classname("{test[beamline]}.{test[scenario]}".format(test=testruns[0]))
+    for test in testruns:
+      if test.get('success') in (False, True):
+        r.log_message('Started at {start:%Y-%m-%d %H:%M:%S}, finished at {end:%Y-%m-%d %H:%M:%S}, took {elapsed:.1f} seconds.'.format(
+            start=datetime.datetime.fromtimestamp(test['time_start']),
+            end=datetime.datetime.fromtimestamp(test['time_end']),
+            elapsed=test['time_end'] - test['time_start'],
+        ))
+        if test['success']:
+          r.log_message('Test successful')
+        else:
+          r.log_error(test.get('reason', 'Test failed'))
+        if len(testruns) > 1:
+          r.log_message('%d further run(s) of this test ongoing' % len(testruns) - 1)
+        for dcid in test['DCIDs']:
+          r.log_message(synchweb_url(dcid))
+        r.set_time(test['time_end'] - test['time_start'])
+        break
     else:
-      r.log_error(relevant_test.get('reason', 'Test failed'))
-    r.set_time(relevant_test['time_end'] - relevant_test['time_start'])
+      r.log_message('Started at {start:%Y-%m-%d %H:%M:%S}, finished at {end:%Y-%m-%d %H:%M:%S}, took {elapsed:.1f} seconds.'.format(
+          start=datetime.datetime.fromtimestamp(testruns[0]['time_start']),
+          end=datetime.datetime.fromtimestamp(testruns[0]['time_end']),
+          elapsed=testruns[0]['time_end'] - testruns[0]['time_start'],
+      ))
+      r.log_skip('Waiting on results, %d instance(s) of this test ongoing' % len(testruns))
+      for dcid in test['DCIDs']:
+        r.log_message(synchweb_url(dcid))
+      r.set_time(testruns[0]['time_end'] - testruns[0]['time_start'])
     junit_results.append(r)
-
-  # Done.
-  stomp.transaction_commit(txn)
 
   # Export results
   ts = junit_xml.TestSuite("Simulated data collections", junit_results)
   with open('output.xml', 'w') as f:
     junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
 
-  wait_until_idle(0.3)
+  time.sleep(0.3)

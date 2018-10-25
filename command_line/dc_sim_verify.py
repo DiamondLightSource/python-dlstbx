@@ -175,7 +175,7 @@ if __name__ == '__main__':
         else:
           r.log_error(test.get('reason', 'Test failed'))
         if len(testruns) > 1:
-          r.log_message('%d further run(s) of this test ongoing' % len(testruns) - 1)
+          r.log_message('%d further run(s) of this test ongoing' % (len(testruns) - 1))
         for dcid in test['DCIDs']:
           r.log_message(synchweb_url(dcid))
         r.set_time(test['time_end'] - test['time_start'])

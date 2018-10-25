@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 
 import dlstbx.dc_sim.mydb
@@ -600,7 +601,13 @@ def simulate(_db, _dbschema,
         f.write(str(datacollectionid) + " : " + nowstr +"\n")
         print("Data collection logged in: " + "/dls/tmp/" + _beamline + "/dc_sim.log")
         #sim_output_dict = {"beamline": _beamline, "date": nowstr, "dcid": str(datacollectionid)}
-        return datacollectionid
+
+    time.sleep(600)
+    # RunAtEndOfCollect terminates immediately but spawns shell scripts that continue to run in the background.
+    # One of that is running fast_dp synchronously. If we terminate as soon as possible then those background
+    # tasks are killed because the cluster job that runs this code finishes, which kills all spawned processes.
+
+    return datacollectionid
 
 def call_sim(test_name, beamline):
 

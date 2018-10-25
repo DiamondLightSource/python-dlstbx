@@ -36,6 +36,39 @@ class ActiveMQAPI(object):
     assert result['status'] == 200
     return result['value']
 
+  @property
+  def _VMMemoryInfo(self):
+    if not hasattr(self, '_vmmeminfo'):
+      result = self.jmx.java.lang(type="Memory", attribute="HeapMemoryUsage,NonHeapMemoryUsage")
+      assert result['status'] == 200
+      self._vmmeminfo = result['value']
+    return self._vmmeminfo
+
+  def getHeapMemoryCommitted(self):
+    return self._VMMemoryInfo['HeapMemoryUsage']['committed']
+
+  def getHeapMemoryInitial(self):
+    return self._VMMemoryInfo['HeapMemoryUsage']['init']
+
+  def getHeapMemoryMaximum(self):
+    return self._VMMemoryInfo['HeapMemoryUsage']['init']
+
+  def getHeapMemoryUsed(self):
+    return self._VMMemoryInfo['HeapMemoryUsage']['init']
+
+  def getNonHeapMemoryCommitted(self):
+    return self._VMMemoryInfo['NonHeapMemoryUsage']['committed']
+
+  def getNonHeapMemoryInitial(self):
+    return self._VMMemoryInfo['NonHeapMemoryUsage']['init']
+
+  def getNonHeapMemoryMaximum(self):
+    return self._VMMemoryInfo['NonHeapMemoryUsage']['init']
+
+  def getNonHeapMemoryUsed(self):
+    return self._VMMemoryInfo['NonHeapMemoryUsage']['init']
+
+
 class ActiveMQRRD(object):
   def __init__(self, path='.', api=None):
     self.rrd = RRDTool(path)

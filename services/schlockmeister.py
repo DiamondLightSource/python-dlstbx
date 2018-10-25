@@ -34,7 +34,7 @@ class DLSSchlockmeister(CommonService):
 
   def initializing(self):
     '''Subscribe to all queues. Received messages must be acknowledged.
-       Only receive messages that have been delivered 7 times in the past.
+       Only receive messages that have been delivered 5 times in the past.
        Get messages without pre-processing, as this may have caused the crash.
     '''
 
@@ -145,7 +145,7 @@ class DLSSchlockmeister(CommonService):
         self.log.debug("subscribing to %s", destination)
         self.known_queues[destination]['subscription'] = \
             self._transport.subscribe(destination, self.quarantine, acknowledgement=True,
-                                      selector="JMSXDeliveryCount>7", disable_mangling=True)
+                                      selector="JMSXDeliveryCount>5", disable_mangling=True)
 
   def garbage_collect(self):
     '''Delayed unsubscribe from lists that are without other subscribers.

@@ -44,8 +44,9 @@ for f in file_info.values():
     data = json.load(fh)
     f['message'] = data['message']
     f['headers'] = data['headers']
-  f['originating-host'] = headers.get('dlstbx.go.host')
-  f['priority'] = sum(map(lambda r: recipe_priorities.get(r, 0), message.get('recipes', [])))
+  f['originating-host'] = f['headers'].get('dlstbx.go.host')
+  f['recipes'] = ','.join(f['message'].get('recipes', []))
+  f['priority'] = sum(map(lambda r: recipe_priorities.get(r, 0), f['message'].get('recipes', [])))
   f['last-touch'] = os.path.getmtime(f['filename'])
   if hosts.get(f['originating-host'], {}).get('last-touch', 0) < f['last-touch']:
     hosts[f['originating-host']] = f
@@ -56,7 +57,7 @@ for f in hosts.values():
 count = 0
 file_count = len(file_info)
 for f in sorted(file_info, key=lambda f: file_info[f]['priority'], reverse=True):
-  print("Sending " + f)
+  print("Sending {f} from host {finfo[originating-host]} with recipes {finfo[recipes]}".format(f=f, finfo=file_info[f]))
   stomp.send('processing_recipe', file_info[f]['message'], headers=file_info[f]['headers'])
   os.remove(file_info[f]['filename'])
   count = count + 1

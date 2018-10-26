@@ -90,6 +90,45 @@ def test_check_should_return_PASS_if_all_processing_results_are_good():
   assert result['success'] is True
 
 
+def test_check_should_return_PASS_if_all_processing_results_are_good_no_matter_what_other_programs_say():
+  db, result = make_dummy_db_and_test_dictionary(
+      'i03',
+      'native',
+      { 2960726: [ (p, True) for p in all_programs ] + [ ( 'random program', False ) ] },
+  )
+
+  dlstbx.dc_sim.check.check_test_outcome(result, db)
+
+  assert result['success'] is True
+
+
+#@pytest.mark.parametrize('program', all_programs)
+def test_check_should_ignore_invalid_results_if_another_valid_result_exists_from_the_same_program():
+  program = all_programs[3]
+
+  # case where only a single program returned results: outcome should be undecided
+  db, result = make_dummy_db_and_test_dictionary(
+      'i03',
+      'native',
+      { 2960726: [ (program, True), (program, False) ] },
+  )
+
+  dlstbx.dc_sim.check.check_test_outcome(result, db)
+
+  assert result['success'] is None
+
+  # case where all programs passed: outcome should be PASS
+  db, result = make_dummy_db_and_test_dictionary(
+      'i03',
+      'native',
+      { 2960726: [ (program, False) ] + [ (p, True) for p in all_programs ] },
+  )
+
+  dlstbx.dc_sim.check.check_test_outcome(result, db)
+
+  assert result['success'] is True
+
+
 def test_check_should_return_FAIL_if_all_processing_results_are_bad():
   db, result = make_dummy_db_and_test_dictionary(
       'i03',
@@ -139,4 +178,24 @@ def test_check_should_return_FAIL_if_a_single_processing_result_is_bad(broken_pr
   assert result['reason']
   # and the broken program should be mentioned
   assert broken_program in result['reason']
+
+
+#@pytest.mark.parametrize('missing_program', all_programs)
+#@pytest.mark.parametrize('added_program', all_programs + ['random program'])
+def test_check_should_not_be_confused_by_other_programs_appearing_instead_of_known_programs():
+  missing_program = 'xia2 3dii'
+  added_program = 'some random program'
+
+  program_list = set(all_programs)
+  program_list.remove(missing_program)
+  program_list.add(added_program)
+  db, result = make_dummy_db_and_test_dictionary(
+      'i03',
+      'native',
+      { 2960726: [ (p, True) for p in program_list ] },
+  )
+
+  dlstbx.dc_sim.check.check_test_outcome(result, db)
+
+  assert result['success'] is None
 

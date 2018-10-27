@@ -14,7 +14,7 @@ class ArchiverService(CommonSystemTest):
     recipe = {
         1: { 'service': 'DLS Archiver',
              'queue': 'archive.pattern',
-             'parameters': { 'pattern': '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_%03d.img',
+             'parameters': { 'pattern': '/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_%03d.img',
                              'pattern-start': 1,
                              'pattern-end': '10',
                            },
@@ -56,7 +56,7 @@ class ArchiverService(CommonSystemTest):
   def test_list_archive_a_set_of_existing_files(self):
     '''Generate a dropfile for a small set of files, and compare against a saved copy.'''
 
-    files = [ '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_%03d.img' % i for i in range(1, 11) ]
+    files = [ '/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_%03d.img' % i for i in range(1, 11) ]
     recipe = {
         1: { 'service': 'DLS Archiver',
              'queue': 'archive.filelist',
@@ -104,7 +104,7 @@ class ArchiverService(CommonSystemTest):
     recipe = {
         1: { 'service': 'DLS Archiver',
              'queue': 'archive.pattern',
-             'parameters': { 'pattern': '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_%03d.img',
+             'parameters': { 'pattern': '/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_%03d.img',
                              'pattern-start': 1,
                              'pattern-end': '10',
                              'limit-files': 6,
@@ -159,7 +159,7 @@ class ArchiverService(CommonSystemTest):
   def test_list_split_set_of_existing_files_into_multiple_archives(self):
     '''Generate multiple dropfiles for a set of files, and compare against saved copies.'''
 
-    files = [ '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_%03d.img' % i for i in range(1, 11) ]
+    files = [ '/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_%03d.img' % i for i in range(1, 11) ]
     recipe = {
         1: { 'service': 'DLS Archiver',
              'queue': 'archive.filelist',
@@ -220,7 +220,7 @@ class ArchiverService(CommonSystemTest):
     recipe = {
         1: { 'service': 'DLS Archiver',
              'queue': 'archive.pattern',
-             'parameters': { 'pattern': '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_%03d.img',
+             'parameters': { 'pattern': '/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_%03d.img',
                              'pattern-start': '40',
                              'pattern-end': 50,
                              'log-summary-warning-as-info': True,
@@ -272,7 +272,7 @@ class ArchiverService(CommonSystemTest):
   def test_list_archive_a_set_of_partially_missing_files(self):
     '''Generate a dropfile for a small set of files, some of which are missing, and compare against a saved copy.'''
 
-    files = [ '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_%03d.img' % i for i in range(40, 51) ]
+    files = [ '/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_%03d.img' % i for i in range(40, 51) ]
     recipe = {
         1: { 'service': 'DLS Archiver',
              'queue': 'archive.filelist',

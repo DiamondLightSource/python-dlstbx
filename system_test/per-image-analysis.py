@@ -69,7 +69,7 @@ class PerImageAnalysisService(CommonSystemTest):
              'queue': 'transient.system_test.' + self.guid
            },
         'start': [
-           (1, { 'file': '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_007.img',
+           (1, { 'file': '/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_007.img',
                  'file-number': 1,
                  'file-pattern-index': 7 }),
         ]
@@ -109,7 +109,7 @@ class PerImageAnalysisService(CommonSystemTest):
              'queue': 'transient.system_test.' + self.guid
            },
         'start': [
-           (1, { 'file': '/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_007.img',
+           (1, { 'file': '/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_007.img',
                  'file-number': 1,
                  'file-pattern-index': 7 }),
         ]

@@ -4,7 +4,7 @@
     <investigation>
       <inv_number>INSULIN_1_%03D.IMG</inv_number>
       <visit_id>INSULIN_1_%03D.IMG</visit_id>
-      <instrument>mx-scratch</instrument>
+      <instrument>science</instrument>
       <title>dont need it</title>
       <inv_type>experiment</inv_type>
       <dataset>
@@ -13,7 +13,7 @@
         <description>unknown</description>
         <datafile>
           <name>insulin_1_040.img</name>
-          <location>/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_040.img</location>
+          <location>/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_040.img</location>
           <description>unknown</description>
           <datafile_version>1.0</datafile_version>
           <datafile_create_time>2017-03-13T15:58:51</datafile_create_time>
@@ -22,7 +22,7 @@
         </datafile>
         <datafile>
           <name>insulin_1_041.img</name>
-          <location>/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_041.img</location>
+          <location>/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_041.img</location>
           <description>unknown</description>
           <datafile_version>1.0</datafile_version>
           <datafile_create_time>2017-03-13T15:58:52</datafile_create_time>
@@ -31,7 +31,7 @@
         </datafile>
         <datafile>
           <name>insulin_1_042.img</name>
-          <location>/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_042.img</location>
+          <location>/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_042.img</location>
           <description>unknown</description>
           <datafile_version>1.0</datafile_version>
           <datafile_create_time>2017-03-13T15:58:52</datafile_create_time>
@@ -40,7 +40,7 @@
         </datafile>
         <datafile>
           <name>insulin_1_043.img</name>
-          <location>/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_043.img</location>
+          <location>/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_043.img</location>
           <description>unknown</description>
           <datafile_version>1.0</datafile_version>
           <datafile_create_time>2017-03-13T15:58:53</datafile_create_time>
@@ -49,7 +49,7 @@
         </datafile>
         <datafile>
           <name>insulin_1_044.img</name>
-          <location>/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_044.img</location>
+          <location>/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_044.img</location>
           <description>unknown</description>
           <datafile_version>1.0</datafile_version>
           <datafile_create_time>2017-03-13T15:58:53</datafile_create_time>
@@ -58,7 +58,7 @@
         </datafile>
         <datafile>
           <name>insulin_1_045.img</name>
-          <location>/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_045.img</location>
+          <location>/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_045.img</location>
           <description>unknown</description>
           <datafile_version>1.0</datafile_version>
           <datafile_create_time>2017-03-13T15:58:54</datafile_create_time>

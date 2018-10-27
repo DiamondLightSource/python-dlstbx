@@ -4,7 +4,7 @@
     <investigation>
       <inv_number>INSULIN_1_%03D.IMG</inv_number>
       <visit_id>INSULIN_1_%03D.IMG</visit_id>
-      <instrument>mx-scratch</instrument>
+      <instrument>science</instrument>
       <title>dont need it</title>
       <inv_type>experiment</inv_type>
       <dataset>
@@ -13,7 +13,7 @@
         <description>unknown</description>
         <datafile>
           <name>insulin_1_007.img</name>
-          <location>/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_007.img</location>
+          <location>/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_007.img</location>
           <description>unknown</description>
           <datafile_version>1.0</datafile_version>
           <datafile_create_time>2017-03-13T15:58:35</datafile_create_time>
@@ -22,7 +22,7 @@
         </datafile>
         <datafile>
           <name>insulin_1_008.img</name>
-          <location>/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_008.img</location>
+          <location>/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_008.img</location>
           <description>unknown</description>
           <datafile_version>1.0</datafile_version>
           <datafile_create_time>2017-03-13T15:58:36</datafile_create_time>
@@ -31,7 +31,7 @@
         </datafile>
         <datafile>
           <name>insulin_1_009.img</name>
-          <location>/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_009.img</location>
+          <location>/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_009.img</location>
           <description>unknown</description>
           <datafile_version>1.0</datafile_version>
           <datafile_create_time>2017-03-13T15:58:36</datafile_create_time>
@@ -40,7 +40,7 @@
         </datafile>
         <datafile>
           <name>insulin_1_010.img</name>
-          <location>/dls/mx-scratch/zocalo/testdata-insulin/insulin_1_010.img</location>
+          <location>/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_010.img</location>
           <description>unknown</description>
           <datafile_version>1.0</datafile_version>
           <datafile_create_time>2017-03-13T15:58:37</datafile_create_time>

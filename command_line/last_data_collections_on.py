@@ -5,10 +5,10 @@
 
 from __future__ import absolute_import, division, print_function
 
-import re
 import os
+import re
 import sys
-from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
+from optparse import SUPPRESS_HELP, OptionParser
 
 import ispyb
 import ispyb.model.__future__
@@ -19,9 +19,9 @@ if __name__ == '__main__':
                         description="Command line tool to view most recent data collections.")
 
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-# parser.add_option("-v", "--verbose",
-#     action="store_true", dest="verbose", default=False,
-#     help="show full job record")
+  parser.add_option("-n", "--collections",
+      action="store", dest="limit", default=20, type="int", metavar="N",
+      help="show the last N collections for each beamline")
   (options, args) = parser.parse_args(sys.argv[1:])
 
   if not args:
@@ -30,7 +30,8 @@ if __name__ == '__main__':
 
   with ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg') as i:
     ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
-    for beamline in args:
+    for n, beamline in enumerate(args):
+      if n: print()
       with ispyb.model.__future__._db_cc() as cursor:
         cursor.run(
             'SELECT DataCollection.dataCollectionId,'
@@ -41,9 +42,9 @@ if __name__ == '__main__':
             ' FROM DataCollection'
             ' JOIN BLSession ON DataCollection.SESSIONID = BLSession.sessionID'
             ' JOIN Proposal ON BLSession.proposalId = Proposal.proposalId'
-            ' WHERE BLSession.beamLineName = %s AND DataCollection.axisRange != 0'
+            ' WHERE BLSession.beamLineName = %s AND DataCollection.axisRange != 0 AND Proposal.proposalCode != "nt"'
             ' ORDER BY DataCollection.startTime DESC'
-            ' LIMIT 20;', beamline)
-        print('\n Beamline {beamline:6} --DCID-- ---visit---'.format(beamline=beamline))
+            ' LIMIT %s;', beamline, options.limit)
+        print(' Beamline {beamline:6} --DCID-- ---visit---'.format(beamline=beamline))
         for row in cursor.fetchall():
           print('{startTime:%Y-%m-%d %H:%M} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images   {fileTemplate}'''.format(**row))

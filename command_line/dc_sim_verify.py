@@ -145,9 +145,10 @@ if __name__ == '__main__':
   from pprint import pprint
   pprint(test_results)
 
-  # Put result summary back on results queue
-  stomp.send(results_queue, { "summary": test_results }, transaction=txn)
-  stomp.transaction_commit(txn)
+  # If there are results then put summary back on results queue
+  if test_results:
+    stomp.send(results_queue, { "summary": test_results }, transaction=txn)
+    stomp.transaction_commit(txn)
 
   def synchweb_url(dcid):
     directory = ispyb_conn.get_data_collection(dcid).file_directory

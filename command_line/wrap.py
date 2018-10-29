@@ -48,10 +48,9 @@ class StatusNotifications(threading.Thread):
     return self.status_dict
 
   def set_status(self, status):
-    self.lock.acquire()
-    self.status_dict['status'], self.status_dict['statustext'] = status.intval, status.description
-    self.lock.notify()
-    self.lock.release()
+    with self.lock:
+      self.status_dict['status'], self.status_dict['statustext'] = status.intval, status.description
+      self.lock.notify()
 
   @property
   def taskname(self):
@@ -61,21 +60,19 @@ class StatusNotifications(threading.Thread):
   @taskname.setter
   def taskname(self, value):
     '''Set/update the name displayed on service monitors for this task.'''
-    self.lock.acquire()
-    self.status_dict['task'] = value
-    self.lock.notify()
-    self.lock.release()
+    with self.lock:
+      self.status_dict['task'] = value
+      self.lock.notify()
 
   def shutdown(self):
     self._keep_running = False
 
   def run(self):
-    self.lock.acquire()
-    self.send_status(self.get_status())
-    while self._keep_running:
-      self.lock.wait(3)
+    with self.lock:
       self.send_status(self.get_status())
-    self.lock.release()
+      while self._keep_running:
+        self.lock.wait(3)
+        self.send_status(self.get_status())
 
 def run(cmdline_args):
   # Enable logging to console

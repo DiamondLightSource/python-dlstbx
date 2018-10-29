@@ -99,8 +99,7 @@ if __name__ == '__main__':
 
   except Queue.Empty:
     pass # No more messages coming in
-#   stomp.unsubscribe(sid) ### Currently workflows wrap subscriptions do not allow unsubscribing.
-                         ### https://github.com/DiamondLightSource/python-workflows/issues/17
+  stomp.unsubscribe(sid)
   # Further messages are are not processed and will be redelivered to the next instance
 
   def filter_testruns(runlist):

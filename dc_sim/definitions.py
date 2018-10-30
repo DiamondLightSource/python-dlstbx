@@ -37,7 +37,6 @@ tests = {
                 'src_dir'    : '/dls/i04/data/2017/cm16781-4/20171015/Thaum/Th_3',
                 'src_run_num'   : (1,),
                 'src_prefix' : ('Th_3',),
-                'debug' : True,
                 'use_sample_id' : 790046,
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
@@ -47,7 +46,6 @@ tests = {
                 'src_dir'    : '/dls/i23/data/2017/cm16790-4/20171012/germanate_4p5keV',
                 'src_run_num'   : (1,),
                 'src_prefix' : ('data_A',),
-                'debug' : True,
                 'use_sample_id' : 1172864,
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
@@ -57,7 +55,6 @@ tests = {
                 'src_dir'    : '/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2',
                 'src_run_num'   : (2,),
                 'src_prefix' : ('INS2',),
-                'debug' : True,
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                       },
@@ -66,7 +63,6 @@ tests = {
                 'src_dir'    : '/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2',
                 'src_run_num'   : (2,),
                 'src_prefix' : ('INS2',),
-                'debug' : True,
                 'use_sample_id' : 434837,
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
@@ -84,7 +80,6 @@ tests = {
                 'src_dir'    : '/dls/i03/data/2017/cm16791-1/20170221/gw/20170221/INS2',
                 'src_run_num'   : (1,),
                 'src_prefix' : ('INS2_29_2',),
-                'debug' : True,
                 'use_sample_id' : 787559,
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
@@ -121,7 +116,6 @@ tests = {
                  'src_run_num'   : (1,),
                  'src_prefix' : ('Th_4',),
                  'use_sample_id' : 790048,
-                 'debug' : True,
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
@@ -130,7 +124,6 @@ tests = {
                  'src_run_num'   : (1,),
                  'src_prefix' : ('hewl_1',),
                  'use_sample_id' : 1018393,
-                 'debug' : True,
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
@@ -140,7 +133,6 @@ tests = {
                  'src_run_num'   : (2,),
                  'src_prefix' : ('Th_4',),
                  'use_sample_id' : 790048,
-                 'debug' : True,
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
@@ -156,7 +148,6 @@ tests = {
                  'src_dir'    : '/dls/i04/data/2017/cm16781-1/20170111/autocollect/sp0092',
                  'src_run_num'   : (1,),
                  'src_prefix' : ('s_4',),
-                 'debug' : True,
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
@@ -165,7 +156,6 @@ tests = {
                  'src_dir'    : '/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2',
                  'src_run_num'   : (2,),
                  'src_prefix' : ('INS2',),
-                 'debug' : True,
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
@@ -174,7 +164,6 @@ tests = {
                  'src_dir'    : '/dls/i03/data/2017/cm16791-1/20170221/gw/20170221/INS2',
                  'src_run_num'   : (1,),
                  'src_prefix' : ('INS2_29_2',),
-                 'debug' : True,
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  }

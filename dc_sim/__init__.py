@@ -618,7 +618,6 @@ def call_sim(test_name, beamline):
     dbschema = DBSCHEMA
 
     dest_visit = None
-    debug = False
 
 
     # Fetch scenario data from definitions by accessing scenario function

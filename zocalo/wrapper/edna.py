@@ -145,10 +145,10 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
       pass # it'll be fine
 
     source_dir = py.path.local(working_directory) / 'EDNAStrategy'
-    dest_dir = py.path.local(results_directory) / 'EDNA%s' % str(sparams['name'])
+    dest_dir = py.path.local(results_directory) / ('EDNA%s' % sparams['name'])
     source_dir.copy(dest_dir)
     src = py.path(working_directory) / 'EDNAStrategy.xml'
-    dst = py.path(results_directory) / 'EDNA%s.xml' % str(sparams['name'])
+    dst = py.path(results_directory) / ('EDNA%s.xml' % sparams['name'])
     src.copy(dst)
     for fname in ('summary.html', 'results.xml'):
       src = py.path(working_directory) / fname

@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import logging
 import os
-import shutil
+import py
 import sys
 
 import dlstbx.zocalo.wrapper
@@ -144,17 +144,17 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     except OSError:
       pass # it'll be fine
 
-    shutil.copytree(
-      os.path.join(working_directory, 'EDNAStrategy'),
-      os.path.join(results_directory, 'EDNA%s' % sparams['name']))
-    shutil.copyfile(
-      os.path.join(working_directory, 'EDNAStrategy.xml'),
-      os.path.join(results_directory, 'EDNA%s.xml' % sparams['name']))
+    source_dir = py.path.local(working_directory) / 'EDNAStrategy'
+    dest_dir = py.path.local(results_directory) / 'EDNAStrategy'
+    source_dir.copy(dest_dir)
+    src = py.path(working_directory) / 'EDNAStrategy.xml'
+    dst = py.path(results_directory) / 'EDNA%s.xml' % sparams['name']
+    src.copy(dst)
     for fname in ('summary.html', 'results.xml'):
-      src = os.path.join(working_directory, fname)
-      dst = os.path.join(results_directory, fname)
-      if os.path.exists(src) and not os.path.exists(dst):
-        shutil.copyfile(src, dst)
+      src = py.path(working_directory) / fname
+      dst = py.path(results_directory) / fname
+      if src.check() and not dst.check():
+        src.copy(dst)
     return result['exitcode'] == 0
 
   def generate_modified_headers(self,):

@@ -129,11 +129,11 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     working_directory = params['working_directory']
     if not os.path.exists(working_directory):
       os.makedirs(working_directory)
-    os.chdir(working_directory)
 
     result = procrunner.run_process(
       command, timeout=params.get('timeout'),
-      print_stdout=False, print_stderr=False)
+      print_stdout=False, print_stderr=False,
+      working_directory=working_directory)
 
     if os.path.exists('fast_dp.error'):
       # fast_dp anomaly: exit code 0 and no stderr output still means failure if error file exists

@@ -101,7 +101,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     ispyb_xml = os.path.join(working_directory, 'autoPROC.xml')
     if os.path.exists(scaled_unmerged_mtz) and os.path.exists(ispyb_xml):
       self.run_iotbx_merging_statistics(
-        scaled_unmerged_mtz, ispyb_xml, json_file):
+        scaled_unmerged_mtz, ispyb_xml, json_file)
 
     # move summary_inlined.html to summary.html
     inlined_html = os.path.join(working_directory, 'summary_inlined.html')

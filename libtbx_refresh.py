@@ -52,7 +52,7 @@ for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
 libtbx.pkg_utils.define_entry_points({
   'workflows.services': sorted(service_list),
   'dlstbx.wrappers': sorted([
-    'autoproc = dlstbx.zocalo.wrapper.big_ep:autoPROCWrapper',
+    'autoproc = dlstbx.zocalo.wrapper.autoPROC:autoPROCWrapper',
     'big_ep = dlstbx.zocalo.wrapper.big_ep:BigEPWrapper',
     'dc_sim = dlstbx.zocalo.wrapper.dc_sim:DCSimWrapper',
     'dozor = dlstbx.zocalo.wrapper.dozor:DozorWrapper',

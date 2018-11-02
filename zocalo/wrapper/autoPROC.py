@@ -19,6 +19,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     '''Construct autoPROC command line.
        Takes job parameter dictionary, returns array.'''
 
+    working_directory = params['working_directory']
     image_template = params['autoproc']['image_template']
     image_directory = params['autoproc']['image_directory']
     image_first = params['autoproc']['image_first']
@@ -31,7 +32,8 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     crystal = prefix.replace('_', '').replace(' ', '').replace('-', '')
     project = os.path.split(image_template)[-2].replace('_', '').replace(' ', '').replace('-', '')
 
-    first_image_path = image_pattern % int(image_first)
+    first_image_path = os.path.join(
+      image_directory, image_pattern % int(image_first))
     rotation_axis = ''
     with open(first_image_path, 'rb') as f:
       for line in f.readlines():
@@ -72,14 +74,13 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     # disable control sequence parameters from autoPROC output
     # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
-    environment_override={
-      'autoPROC_HIGHLIGHT': 'no',
-    },
 
     result = procrunner.run_process(
       command, timeout=params.get('timeout'),
-      print_stdout=False, print_stderr=False,
-      environment_override=environment_override,
+      print_stdout=True, print_stderr=True,
+      environment_override={
+        'autoPROC_HIGHLIGHT': 'no',
+      },
       working_directory=working_directory)
 
     logger.info('command: %s', ' '.join(result['command']))

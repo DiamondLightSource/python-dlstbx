@@ -142,7 +142,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       ".mtz": "result"
     }
     keep = {
-      "summary.tar.gz": "result,
+      "summary.tar.gz": "result",
       "iotbx-merging-stats.json": "graph"
     }
     files = os.listdir(working_directory)
@@ -216,7 +216,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       'AutoProcIntegration'])
     integration = document.find(pattern)
     if integration is None:
-      print 'Could not find %s in %s' %(pattern, infile)
+      print('Could not find %s in %s' % (pattern, infile))
     else:
       beamX = integration.find('refinedXBeam')
       beamY = integration.find('refinedYBeam')
@@ -236,7 +236,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       '/'.join(['AutoProcScalingContainer', 'AutoProcScaling',
                 'StaranisoEllipsoid']))
     if programs is None:
-      print 'Could not find %s in %s' %(pattern, infile)
+      print('Could not find %s in %s' % (pattern, infile))
     elif staranisoellipsoid is not None:
       programs.text = 'autoPROC+STARANISO'
     else:

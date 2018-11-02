@@ -153,18 +153,41 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if not os.path.exists(results_directory):
       os.makedirs(results_directory)
 
+    keep = []
+    keep_ext = {
+      ".INP": None,
+      ".log": 'log',
+      ".txt": "log",
+      ".error": "log",
+      ".LP": "log",
+      ".HKL": "result",
+      ".sca": "result",
+      ".mtz": "result"
+    }
+    keep = {
+      "fast_dp-report.json": "graph",
+      "iotbx-merging-stats.json": "graph"
+    }
+    files = os.listdir(working_directory)
+    for filename in files:
+      ext = os.path.splitext(filename)[-1]
+      if ext in keep_ext:
+        keep[filename] = keep_ext[ext]
+
     allfiles = []
-    for filename in ('fast_dp.log', 'fast_dp.error'):
-      if os.path.exists(filename):
+    for filename, filetype in keep.iteritems():
+      filenamefull = os.path.join(working_directory, filename)
+      if os.path.exists(filenamefull):
         dst = os.path.join(results_directory, filename)
-        logger.debug('Copying %s to %s' % (filename, dst))
-        shutil.copy(filename, dst)
+        logger.debug('Copying %s to %s' % (filenamefull, dst))
+        shutil.copy(filenamefull, dst)
         allfiles.append(dst)
-        self.record_result_individual_file({
-          'file_path': results_directory,
-          'file_name': filename,
-          'file_type': 'log',
-        })
+        if filetype is not None:
+          self.record_result_individual_file({
+            'file_path': results_directory,
+            'file_name': filename,
+            'file_type': filetype,
+          })
 
 # Correct way:
 #    # Forward JSON results if possible

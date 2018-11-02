@@ -42,7 +42,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       beamline_macro = "-M DiamondI23"
     elif beamline == "i04":
       beamline_macro = "-M DiamondI04"
-    else
+    else:
       beamline_macro = ""
 
     command = [

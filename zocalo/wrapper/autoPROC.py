@@ -182,9 +182,10 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     return result['exitcode'] == 0
 
+  @staticmethod
   def run_iotbx_merging_statistics(scaled_unmerged_mtz, ispyb_xml, json_file):
     import iotbx.merging_statistics
-    i_obs = iotbx.merging_statistics.select_data(scaled_unmerged_mtz, data_labels=None)
+    i_obs = iotbx.merging_statistics.select_data(str(scaled_unmerged_mtz), data_labels=None)
     i_obs = i_obs.customized_copy(anomalous_flag=True, info=i_obs.info())
     result = iotbx.merging_statistics.dataset_statistics(
       i_obs=i_obs,

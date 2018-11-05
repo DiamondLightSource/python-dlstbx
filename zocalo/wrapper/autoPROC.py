@@ -14,7 +14,7 @@ from dlstbx.zocalo.wrapper.fast_dp import FastDPWrapper
 
 class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
-  def send_results_to_ispyb(self, xml_file):
+  def send_results_to_ispyb(self, xml_file, use_existing_autoprocprogram_id=True):
     logger.debug("Reading autoPROC results")
     message = FastDPWrapper.xml_to_dict(xml_file)['AutoProcContainer']
     # Do not accept log entries from the object, we add those separately
@@ -54,7 +54,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       container['AutoProcIntegration']['dataCollectionId'] = dcid
 
     # Use existing AutoProcProgramID
-    if self.recwrap.environment.get('ispyb_autoprocprogram_id'):
+    if use_existing_autoprocprogram_id and self.recwrap.environment.get('ispyb_autoprocprogram_id'):
       message['AutoProcProgramContainer']['AutoProcProgram'] = \
         self.recwrap.environment['ispyb_autoprocprogram_id']
 
@@ -223,7 +223,8 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           })
 
     self.send_results_to_ispyb(ispyb_dls_xml)
-    self.send_results_to_ispyb(staraniso_ispyb_dls_xml)
+    self.send_results_to_ispyb(
+      staraniso_ispyb_dls_xml, use_existing_autoprocprogram_id=False)
 
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })

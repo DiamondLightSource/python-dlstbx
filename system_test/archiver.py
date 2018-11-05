@@ -61,7 +61,7 @@ class ArchiverService(CommonSystemTest):
         1: { 'service': 'DLS Archiver',
              'queue': 'archive.filelist',
              'parameters': { 'filelist': files,
-                             'visit': 'INSULIN_1_%03D.IMG',
+                             'visit': 'DIALS',
                            },
              'output': 2
            },
@@ -164,7 +164,7 @@ class ArchiverService(CommonSystemTest):
         1: { 'service': 'DLS Archiver',
              'queue': 'archive.filelist',
              'parameters': { 'filelist': files,
-                             'visit': 'INSULIN_1_%03D.IMG',
+                             'visit': 'DIALS',
                              'limit-files': 6,
                            },
              'output': 2
@@ -277,7 +277,7 @@ class ArchiverService(CommonSystemTest):
         1: { 'service': 'DLS Archiver',
              'queue': 'archive.filelist',
              'parameters': { 'filelist': files,
-                             'visit': 'INSULIN_1_%03D.IMG',
+                             'visit': 'DIALS',
                              'log-summary-warning-as-info': True,
                            },
              'output': 2

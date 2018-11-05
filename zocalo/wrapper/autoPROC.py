@@ -34,11 +34,6 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     first_image_path = os.path.join(
       image_directory, image_pattern % int(image_first))
-    rotation_axis = ''
-    with open(first_image_path, 'rb') as f:
-      for line in f.readlines():
-        if 'Oscillation_axis' in line and 'SLOW' in line:
-          rotation_axis = 'autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"'
 
     command = [
       'process', '-xml',
@@ -47,7 +42,6 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       '-M', 'HighResCutOnCChalf',
       'autoPROC_CreateSummaryImageHrefLink="no"',
       'autoPROC_Summary2Base64_Run="yes"',
-      rotation_axis,
       'StopIfSubdirExists="no"',
       '-d', working_directory,
     ]
@@ -56,6 +50,12 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       command.extend(['-M', 'DiamondI23'])
     elif beamline == 'i04':
       command.extend(['-M', 'DiamondI04'])
+
+    with open(first_image_path, 'rb') as f:
+      for line in f.readlines():
+        if 'Oscillation_axis' in line and 'SLOW' in line:
+          command.append(
+            'autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"')
 
     return command
 

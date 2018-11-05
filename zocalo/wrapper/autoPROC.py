@@ -92,6 +92,14 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 
+    ## http://jira.diamond.ac.uk/browse/I04_1-56 delete softlinks
+    #echo "Deleting all soft links found in $localtemp"
+    #find $localtemp -type l -exec rm '{}' \;
+    #echo "Done deleting"
+
+    #cd $jobdir
+    #tar -xzvf summary.tar.gz
+
     #Visit=`basename ${3}`
     ## put history into the log files
     #echo "Attempting to add history to mtz files"
@@ -109,6 +117,11 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if os.path.exists(inlined_html):
       shutil.move(inlined_html, os.path.join(working_directory, 'summary.html'))
 
+    # copy output files to result directory
+    results_directory = params['results_directory']
+    if not os.path.exists(results_directory):
+      os.makedirs(results_directory)
+
     autoproc_xml = os.path.join(working_directory, 'autoPROC.xml')
     ispyb_dls_xml = os.path.join(working_directory, 'ispyb_dls.xml')
     if os.path.exists(autoproc_xml):
@@ -124,11 +137,6 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         outfile.write(infile.read().replace(
           working_directory, results_directory))
       self.fix_xml(staraniso_ispyb_dls_xml)
-
-    # copy output files to result directory
-    results_directory = params['results_directory']
-    if not os.path.exists(results_directory):
-      os.makedirs(results_directory)
 
     keep_ext = {
       ".INP": None,
@@ -207,6 +215,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     filePath.text = os.path.dirname(json_file)
     tree.write(ispyb_xml)
 
+  @staticmethod
   def fix_xml(xml_file):
     from xml.etree import ElementTree
 
@@ -217,7 +226,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       'AutoProcIntegration'])
     integration = document.find(pattern)
     if integration is None:
-      print('Could not find %s in %s' % (pattern, infile))
+      print('Could not find %s in %s' % (pattern, xml_file))
     else:
       beamX = integration.find('refinedXBeam')
       beamY = integration.find('refinedYBeam')
@@ -237,7 +246,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       '/'.join(['AutoProcScalingContainer', 'AutoProcScaling',
                 'StaranisoEllipsoid']))
     if programs is None:
-      print('Could not find %s in %s' % (pattern, infile))
+      print('Could not find %s in %s' % (pattern, xml_file))
     elif staranisoellipsoid is not None:
       programs.text = 'autoPROC+STARANISO'
     else:

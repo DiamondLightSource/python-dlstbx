@@ -10,10 +10,58 @@ import procrunner
 
 logger = logging.getLogger('dlstbx.wrap.autoPROC')
 
+from dlstbx.zocalo.wrapper.fast_dp import FastDPWrapper
+
 class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
   def send_results_to_ispyb(self, xml_file):
-    pass
+    logger.debug("Reading autoPROC results")
+    message = FastDPWrapper.xml_to_dict(xml_file)['AutoProcContainer']
+    # Do not accept log entries from the object, we add those separately
+    message['AutoProcProgramContainer']['AutoProcProgramAttachment'] = filter(
+       lambda x: x.get('fileType') != 'Log', message['AutoProcProgramContainer']['AutoProcProgramAttachment'])
+
+    def recursive_replace(thing, old, new):
+      '''Recursive string replacement in data structures.'''
+
+      def _recursive_apply(item):
+        '''Internal recursive helper function.'''
+        if isinstance(item, basestring):
+          return item.replace(old, new)
+        if isinstance(item, dict):
+          return { _recursive_apply(key): _recursive_apply(value) for
+                   key, value in item.items() }
+        if isinstance(item, tuple):
+          return tuple(_recursive_apply(list(item)))
+        if isinstance(item, list):
+          return [ _recursive_apply(x) for x in item ]
+        return item
+      return _recursive_apply(thing)
+
+    logger.debug("Replacing temporary zocalo paths with correct destination paths")
+    message = recursive_replace(
+        message,
+        self.recwrap.recipe_step['job_parameters']['working_directory'],
+        self.recwrap.recipe_step['job_parameters']['results_directory']
+      )
+
+    dcid = int(self.recwrap.recipe_step['job_parameters']['dcid'])
+    assert dcid > 0, "Invalid data collection ID given."
+    logger.debug("Writing to data collection ID %s", str(dcid))
+    if isinstance(message['AutoProcScalingContainer']['AutoProcIntegrationContainer'], dict):  # Make it a list regardless
+      message['AutoProcScalingContainer']['AutoProcIntegrationContainer'] = [message['AutoProcScalingContainer']['AutoProcIntegrationContainer']]
+    for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
+      container['AutoProcIntegration']['dataCollectionId'] = dcid
+
+    # Use existing AutoProcProgramID
+    if self.recwrap.environment.get('ispyb_autoprocprogram_id'):
+      message['AutoProcProgramContainer']['AutoProcProgram'] = \
+        self.recwrap.environment['ispyb_autoprocprogram_id']
+
+    logger.debug("Sending %s", str(message))
+    self.recwrap.transport.send('ispyb', message)
+
+    logger.info("Saved autoPROC information for data collection %s", str(dcid))
 
   def construct_commandline(self, params):
     '''Construct autoPROC command line.

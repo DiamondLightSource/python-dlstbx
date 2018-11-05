@@ -54,8 +54,8 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     with open(first_image_path, 'rb') as f:
       for line in f.readlines():
         if 'Oscillation_axis' in line and 'SLOW' in line:
-          command.append(
-            'autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"')
+          command.append('autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"')
+          break
 
     return command
 

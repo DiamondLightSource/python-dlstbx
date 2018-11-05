@@ -138,6 +138,8 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.info('exitcode: %s', result['exitcode'])
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
+    with open(os.path.join(working_directory, 'autoPROC.log'), 'wb') as f:
+      f.write(result['stdout'])
 
     ## http://jira.diamond.ac.uk/browse/I04_1-56 delete softlinks
     #echo "Deleting all soft links found in $localtemp"
@@ -188,6 +190,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     keep_ext = {
       ".INP": None,
       ".xml": None,
+      ".png": None,
       ".log": "log",
       ".html": "log",
       ".pdf": "log",

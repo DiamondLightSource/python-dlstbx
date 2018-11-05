@@ -40,15 +40,8 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         if 'Oscillation_axis' in line and 'SLOW' in line:
           rotation_axis = 'autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"'
 
-    if beamline == "i23":
-      beamline_macro = "-M DiamondI23"
-    elif beamline == "i04":
-      beamline_macro = "-M DiamondI04"
-    else:
-      beamline_macro = ""
-
     command = [
-      'process', '-xml', beamline_macro,
+      'process', '-xml',
       '-Id', ','.join((crystal, image_directory, image_template, image_first, image_last)),
       'autoPROC_XdsKeyword_MAXIMUM_NUMBER_OF_PROCESSORS=12',
       '-M', 'HighResCutOnCChalf',
@@ -58,6 +51,12 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       'StopIfSubdirExists="no"',
       '-d', working_directory,
     ]
+
+    if beamline == 'i23':
+      command.extend(['-M', 'DiamondI23'])
+    elif beamline == 'i04':
+      command.extend(['-M', 'DiamondI04'])
+
     return command
 
   def run(self):

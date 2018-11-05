@@ -51,9 +51,9 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     import xml.etree.ElementTree
     return make_dict_from_tree(xml.etree.ElementTree.parse(filename).getroot())
 
-  def send_results_to_ispyb(self):
+  def send_results_to_ispyb(self, xml_file):
     logger.debug("Reading fast_dp results")
-    message = self.xml_to_dict("fast_dp.xml")['AutoProcContainer']
+    message = self.xml_to_dict(xml_file)['AutoProcContainer']
     # Do not accept log entries from the object, we add those separately
     message['AutoProcProgramContainer']['AutoProcProgramAttachment'] = filter(
        lambda x: x.get('fileType') != 'Log', message['AutoProcProgramContainer']['AutoProcProgramAttachment'])
@@ -199,11 +199,11 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 #      logger.warning('Expected JSON output file missing')
 
 # Wrong way:
-    dst = os.path.join(results_directory, 'fast_dp.xml')
-    if os.path.exists('fast_dp.xml'):
-      self.send_results_to_ispyb()
+    xml_file = os.path.join(working_directory, 'fast_dp.xml')
+    if os.path.exists(xml_file):
+      self.send_results_to_ispyb(xml_file)
     else:
-      logger.warning('Expected output file fast_dp.xml missing')
+      logger.warning('Expected output file %s missing' % xml_file)
 
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })

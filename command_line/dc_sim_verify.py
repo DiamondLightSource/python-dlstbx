@@ -23,30 +23,6 @@ import dlstbx.dc_sim.check
 
 processqueue = Queue.Queue()
 
-  ##############################
-  #
-  # vvv  Work happens here  vvv
-  # To get the test name:
-  # print(test['scenario'])
-  # To get the list of DCIDs:
-  # print(test['DCIDs'])
-
-  # 3 possible outcomes
-
-  # If the test has been successful
-  # test['success'] = True
-
-  # If the test has failed
-  # test['success'] = False
-  # test['reason'] = "A description why this test is broken. \n Can have multiple lines"
-
-  # If you can't say for certain (eg. because results are missing)
-  # don't make any changes to the dictionary
-
-  # ^^^  Work happens here  ^^^
-  #
-  ##############################
-
 results_queue = 'reduce.dc_sim'
 test_results = {}
 test_timeout = 3600 # fail scenarios that have not succeeded after 1 hour
@@ -135,6 +111,12 @@ if __name__ == '__main__':
       if testrun.get('success') is None:
         print("Verifying", testrun)
         dlstbx.dc_sim.check.check_test_outcome(testrun, ispyb_conn)
+        # 3 possible outcomes:
+        # The test can be successful (testrun['success'] = True)
+        # it can fail (testrun['success'] = False; testrun['reason'] set)
+        # or it can be inconclusive (eg. because results are missing)
+        # in which case no changes are made
+
       if testrun.get('success') is None and testrun['time_end'] < time.time() - test_timeout:
         print("Rejecting with timeout:", testrun)
         testrun['success'] = False
@@ -147,7 +129,7 @@ if __name__ == '__main__':
   # If there are results then put summary back on results queue
   if test_results:
     stomp.send(results_queue, { "summary": test_results }, transaction=txn)
-    stomp.transaction_commit(txn)
+  stomp.transaction_commit(txn)
 
   def synchweb_url(dcid):
     directory = ispyb_conn.get_data_collection(dcid).file_directory

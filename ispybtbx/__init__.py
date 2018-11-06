@@ -703,7 +703,7 @@ def ispyb_filter(message, parameters):
 
   processingjob_id = parameters.get('ispyb_reprocessing_id', parameters.get('ispyb_process'))
   if processingjob_id:
-    parameters['ispyb_processing_job'] = _ispyb_api().mx_processing.get_processing_job(processingjob_id)
+    parameters['ispyb_processing_job'] = _ispyb_api().get_processing_job(processingjob_id)
     if not 'ispyb_dcid' in parameters:
       parameters['ispyb_dcid'] = parameters['ispyb_processing_job'].DCID
 

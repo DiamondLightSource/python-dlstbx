@@ -251,7 +251,7 @@ if __name__ == '__main__':
       print("Error: Could not update processing status.\n")
       exit_code = 1
 
-  rp = i.mx_processing.get_processing_job(rpid)
+  rp = i.get_processing_job(rpid)
   try:
     rp.load()
   except ispyb.exception.ISPyBNoResultException:

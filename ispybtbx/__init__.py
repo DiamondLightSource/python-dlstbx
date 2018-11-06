@@ -820,6 +820,7 @@ def ispyb_filter(message, parameters):
   if parameters['ispyb_beamline'] == 'i02-2':
     message['default_recipe'] = [
         'archive-nexus',
+        'processing-fast-dp',
         'processing-xia2-dials',
         'processing-xia2-dials-full',
         'vmxi-per-image-analysis',

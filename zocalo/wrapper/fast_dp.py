@@ -111,7 +111,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       if params['ispyb_parameters'].get('d_min'):
         command.append('--resolution-low=%s' % params['ispyb_parameters']['d_min'])
       if params['ispyb_parameters'].get('spacegroup'):
-        command.append('--spacegroup.space_group=%s' % params['ispyb_parameters']['spacegroup'])
+        command.append('--spacegroup=%s' % params['ispyb_parameters']['spacegroup'])
       if params['ispyb_parameters'].get('unit_cell'):
         command.append('--cell=%s' % params['ispyb_parameters']['unit_cell'])
 

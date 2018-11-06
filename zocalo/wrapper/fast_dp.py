@@ -7,6 +7,7 @@ import shutil
 
 import dlstbx.zocalo.wrapper
 import procrunner
+import py
 
 logger = logging.getLogger('dlstbx.wrap.fast_dp')
 
@@ -104,9 +105,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     '''Construct fast_dp command line.
        Takes job parameter dictionary, returns array.'''
 
-    command = ['fast_dp', '--atom=S']
-
-    command.append(params['fast_dp']['filename'])
+    command = ['fast_dp', '--atom=S', '-l', 'durin-plugin.so', params['fast_dp']['filename']]
 
     if params.get('ispyb_parameters'):
       if params['ispyb_parameters'].get('d_min'):
@@ -119,11 +118,14 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     return command
 
   def run(self):
-    assert hasattr(self, 'recwrap'), \
-      "No recipewrapper object found"
+    assert hasattr(self, 'recwrap'), "No recipewrapper object found"
 
     params = self.recwrap.recipe_step['job_parameters']
     command = self.construct_commandline(params)
+
+    if params.get('synchweb_ticks'):
+      logger.debug('Setting SynchWeb status to swirl')
+      py.path.local(params['synchweb_ticks']).ensure()
 
     # run fast_dp in working directory
     working_directory = params['working_directory']
@@ -139,6 +141,20 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       # fast_dp anomaly: exit code 0 and no stderr output still means failure if error file exists
       result['exitcode'] = 1
 
+    if params.get('synchweb_ticks'):
+      synchweb_stub = \
+          'The fast_dp autoprocessing results have moved.\n' + \
+          'They can now be found in the directory {results}.'
+      if not result['exitcode'] and params.get('synchweb_ticks_magic'):
+        synchweb_stub += '\n\nThe following line is a marker for scripts interpreting processing results:\n# {stub}'
+        logger.debug('Setting SynchWeb status to success')
+      else:
+        logger.debug('Setting SynchWeb status to failure')
+      py.path.local(params['synchweb_ticks']).write_text(
+          synchweb_stub.format(results=results_directory, stub=params.get('synchweb_ticks_magic')),
+          'utf-8',
+      )
+
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
@@ -153,7 +169,6 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if not os.path.exists(results_directory):
       os.makedirs(results_directory)
 
-    keep = []
     keep_ext = {
       ".INP": None,
       ".log": 'log',
@@ -203,7 +218,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if os.path.exists(xml_file):
       self.send_results_to_ispyb(xml_file)
     else:
-      logger.warning('Expected output file %s missing' % xml_file)
+      logger.warning('Expected output file %s missing', xml_file)
 
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })

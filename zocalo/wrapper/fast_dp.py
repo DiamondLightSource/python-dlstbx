@@ -123,14 +123,21 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     params = self.recwrap.recipe_step['job_parameters']
     command = self.construct_commandline(params)
 
-    if params.get('synchweb_ticks'):
-      logger.debug('Setting SynchWeb status to swirl')
-      py.path.local(params['synchweb_ticks']).ensure()
-
     working_directory = params['working_directory']
     results_directory = params['results_directory']
     py.path.local(working_directory).ensure(dir=True)
+
+    # create results directory and symlink immediately rather than later, so that the
+    # SynchWeb ticks hack can be in place from the start
     py.path.local(results_directory).ensure(dir=True)
+    if params.get('results_symlink'):
+      # Create symbolic link above working directory
+      dlstbx.util.symlink.create_parent_symlink(results_directory, params['results_symlink'])
+
+    # Create SynchWeb ticks hack file. This will be overwritten with the real log later
+    if params.get('synchweb_ticks'):
+      logger.debug('Setting SynchWeb status to swirl')
+      py.path.local(params['synchweb_ticks']).ensure()
 
     # run fast_dp in working directory
     result = procrunner.run_process(
@@ -141,19 +148,6 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if os.path.exists('fast_dp.error'):
       # fast_dp anomaly: exit code 0 and no stderr output still means failure if error file exists
       result['exitcode'] = 1
-
-    if params.get('synchweb_ticks'):
-      synchweb_stub = \
-          'The fast_dp autoprocessing results have moved.\n' + \
-          'They can now be found in the directory {results}.'
-      if not result['exitcode'] and params.get('synchweb_ticks_magic'):
-        synchweb_stub += '\n\nThe following line is a marker for scripts interpreting processing results:\n# {stub}'
-        logger.debug('Setting SynchWeb status to success')
-      else:
-        logger.debug('Setting SynchWeb status to failure')
-      py.path.local(params['synchweb_ticks']).write(
-          synchweb_stub.format(results=results_directory, stub=params.get('synchweb_ticks_magic')),
-      )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])

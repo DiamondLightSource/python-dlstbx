@@ -105,6 +105,16 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           command.append('autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"')
           break
 
+    if params.get('ispyb_parameters'):
+      if params['ispyb_parameters'].get('d_min'):
+        # Can we set just d_min alone?
+        # -R <reslow> <reshigh>
+        pass
+      if params['ispyb_parameters'].get('spacegroup'):
+        command.append('symm=%s' % params['ispyb_parameters']['spacegroup'])
+      if params['ispyb_parameters'].get('unit_cell'):
+        command.append('cell=%s' % params['ispyb_parameters']['unit_cell'])
+
     return command
 
   def run(self):

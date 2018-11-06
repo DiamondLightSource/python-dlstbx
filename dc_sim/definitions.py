@@ -83,7 +83,6 @@ tests = {
                 'use_sample_id' : 787559,
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
-  
                  },
 
         'protk-au-insitu': {
@@ -159,13 +158,5 @@ tests = {
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
-
-        'sane-example-native': {
-                 'src_dir'    : '/dls/i03/data/2017/cm16791-1/20170221/gw/20170221/INS2',
-                 'src_run_num'   : (1,),
-                 'src_prefix' : ('INS2_29_2',),
-                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
-                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
-                 }
 
         }

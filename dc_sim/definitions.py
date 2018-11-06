@@ -42,7 +42,7 @@ tests = {
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                       },
 
-       'example-i23': {
+       'i23-germanate': {
                 'src_dir'    : '/dls/i23/data/2017/cm16790-4/20171012/germanate_4p5keV',
                 'src_run_num'   : (1,),
                 'src_prefix' : ('data_A',),
@@ -94,19 +94,19 @@ tests = {
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
 
-        'example-sad': {
+        'sad': {
                  'src_dir'    : '/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1',
                  'src_run_num'   : (1,),
                  'src_prefix' : ('X1_weak_M1S1',),
-                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
-         
-        'example-sad-multi': {
+
+        'sad-multi': {
                  'src_dir'    : '/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1',
                  'src_run_num'   : (1,3),
                  'src_prefix' : ('X1_strong_M1S1',),
-                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
 
@@ -118,6 +118,7 @@ tests = {
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
+
         'screening-i24': {
                  'src_dir'    : '/dls/i24/data/2017/cm16788-3/screening/hewl/hewl_1',
                  'src_run_num'   : (1,),
@@ -135,6 +136,7 @@ tests = {
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
+
         'trp-multi': {
                  'src_dir'    : '/dls/i04/data/2013/nt5966-4/20131007/TRP/P1_X6',
                  'src_run_num'   : (1,2,3,4),
@@ -142,7 +144,7 @@ tests = {
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100), 
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
-         
+
         'i04-83': {
                  'src_dir'    : '/dls/i04/data/2017/cm16781-1/20170111/autocollect/sp0092',
                  'src_run_num'   : (1,),

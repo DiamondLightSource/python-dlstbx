@@ -83,8 +83,7 @@ def populate_blsample_xml_template(_row):
 
 
 def populate_dcg_xml_template(_row, _sessionid, _blsample_id):
-    now = datetime.datetime.now()
-    nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
+    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     blsample_id_elem = ""
     if _blsample_id != None:
         blsample_id_elem = "<blSampleId>%d</blSampleId>\n" % _blsample_id
@@ -118,8 +117,7 @@ def populate_grid_info_xml_template(_row, _dcgid):
 def populate_dc_xml_template(_row, _sessionid, _dcg_id, _no_images,
                              _dir, _prefix, _run_number, _xtal_snapshot_path,
                              _blsample_id):
-    now = datetime.datetime.now()
-    nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
+    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     suffix = _row['imagesuffix']
     file_template = "%s_%d_####.%s" %(_prefix, _run_number, suffix)
     blsample_id_elem = ""
@@ -561,8 +559,7 @@ def simulate(_db, _dbschema,
 
 
     # Populate a datacollection XML file
-    now = datetime.datetime.now()
-    nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
+    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     dc_xml = dc_endtime_temp_xml % (datacollectionid, nowstr)
     print(dc_xml)
@@ -578,8 +575,7 @@ def simulate(_db, _dbschema,
 
 
     # Populate a datacollectiongroup XML file
-    now = datetime.datetime.now()
-    nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
+    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     dcg_xml = dcg_endtime_temp_xml % (datacollectiongroupid, nowstr)
     print(dcg_xml)
@@ -619,33 +615,28 @@ def call_sim(test_name, beamline):
 
     dest_visit = None
 
-
     # Fetch scenario data from definitions by accessing scenario function
-    if scenario(test_name)!= False:     
-        src_dir = scenario(test_name)[0]
-        sample_id = scenario(test_name)[3]
-        src_prefix = scenario(test_name)[1]
+    if scenario(test_name):
+      src_dir = scenario(test_name)[0]
+      sample_id = scenario(test_name)[3]
+      src_prefix = scenario(test_name)[1]
     else:
-        sys.exit("Not a valid test scenario")
+      sys.exit("%s is not a valid test scenario" % test_name)
 
     # Calculate the destination directory
-    import uuid
     dest_dir = None
-    random_str = str(uuid.uuid4())
-    year = datetime.datetime.now().year
-    month = datetime.datetime.now().month
-    day = datetime.datetime.now().day
-    hour = datetime.datetime.now().hour
-    minute = datetime.datetime.now().minute
-    second = datetime.datetime.now().second
-    for cm_dir in os.listdir('/dls/{0}/data/{1}'.format(beamline, year)):
-        if cm_dir.startswith('nt18231'):
-            dest_visit = cm_dir
-            dest_dir = '/dls/{0}/data/{1}/{2}/tmp/{3}-{4}-{5}/{6}{7}{8}-{9}'.format(beamline, year, cm_dir, year, month, day, hour, minute, second, random_str)
+    now = datetime.datetime.now()
+    for cm_dir in os.listdir('/dls/{beamline}/data/{now:%Y}'.format(beamline=beamline, now=now)):
+      if cm_dir.startswith('nt18231'):
+        dest_visit = cm_dir
+        dest_dir_fmt = '/dls/{beamline}/data/{now:%Y}/{cm_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}'
+        dest_dir = dest_dir_fmt.format(beamline=beamline, now=now, cm_dir=cm_dir, random=str(uuid.uuid4())[:8])
+        break
 
     # Set mandatory parameters
-    data_src_dir = src_dir  
-    dest_visit_dir = '/dls/{0}/data/{1}/{2}'.format(beamline,year,dest_visit)
+    data_src_dir = src_dir
+    dest_visit_dir = '/dls/{beamline}/data/{now:%Y}/{dest_visit}'.format(
+        beamline=beamline, now=now, dest_visit=dest_visit)
     dest_beamline = beamline
 
     # Extract necessary info from the source directory path

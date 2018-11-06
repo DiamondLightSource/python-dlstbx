@@ -151,9 +151,8 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         logger.debug('Setting SynchWeb status to success')
       else:
         logger.debug('Setting SynchWeb status to failure')
-      py.path.local(params['synchweb_ticks']).write_text(
+      py.path.local(params['synchweb_ticks']).write(
           synchweb_stub.format(results=results_directory, stub=params.get('synchweb_ticks_magic')),
-          'utf-8',
       )
 
     logger.info('command: %s', ' '.join(result['command']))

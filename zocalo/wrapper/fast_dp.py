@@ -127,11 +127,12 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       logger.debug('Setting SynchWeb status to swirl')
       py.path.local(params['synchweb_ticks']).ensure()
 
-    # run fast_dp in working directory
     working_directory = params['working_directory']
-    if not os.path.exists(working_directory):
-      os.makedirs(working_directory)
+    results_directory = params['results_directory']
+    py.path.local(working_directory).ensure(dir=True)
+    py.path.local(results_directory).ensure(dir=True)
 
+    # run fast_dp in working directory
     result = procrunner.run_process(
       command, timeout=params.get('timeout'),
       print_stdout=False, print_stderr=False,
@@ -165,10 +166,6 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stderr'])
 
     # copy output files to result directory
-    results_directory = params['results_directory']
-    if not os.path.exists(results_directory):
-      os.makedirs(results_directory)
-
     keep_ext = {
       ".INP": None,
       ".log": 'log',

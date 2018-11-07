@@ -126,18 +126,19 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     working_directory = params['working_directory']
     results_directory = params['results_directory']
+
+    # Create working directory with symbolic link
     py.path.local(working_directory).ensure(dir=True)
-
-    # create results directory and symlink immediately rather than later, so that the
-    # SynchWeb ticks hack can be in place from the start
-    py.path.local(results_directory).ensure(dir=True)
     if params.get('results_symlink'):
-      # Create symbolic link above working directory
-      dlstbx.util.symlink.create_parent_symlink(results_directory, params['results_symlink'])
+      dlstbx.util.symlink.create_parent_symlink(working_directory, params['results_symlink'])
 
-    # Create SynchWeb ticks hack file. This will be overwritten with the real log later
+    # Create SynchWeb ticks hack file. This will be overwritten with the real log later.
+    # For this we need to create the results directory and symlink immediately.
     if params.get('synchweb_ticks'):
       logger.debug('Setting SynchWeb status to swirl')
+      if params.get('results_symlink'):
+        py.path.local(results_directory).ensure(dir=True)
+        dlstbx.util.symlink.create_parent_symlink(results_directory, params['results_symlink'])
       py.path.local(params['synchweb_ticks']).ensure()
 
     # run fast_dp in working directory
@@ -159,6 +160,11 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 
+    # Create results directory and symlink if they don't already exist
+    py.path.local(results_directory).ensure(dir=True)
+    if params.get('results_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(results_directory, params['results_symlink'])
+
     # copy output files to result directory
     keep_ext = {
       ".INP": None,
@@ -168,11 +174,11 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       ".LP": "log",
       ".HKL": "result",
       ".sca": "result",
-      ".mtz": "result"
+      ".mtz": "result",
     }
     keep = {
       "fast_dp-report.json": "graph",
-      "iotbx-merging-stats.json": "graph"
+      "iotbx-merging-stats.json": "graph",
     }
     files = os.listdir(working_directory)
     for filename in files:

@@ -101,7 +101,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     #self.recwrap.transport.send('ispyb', message)
 
     import ispyb
-    from ispyb.xmltools import mx_data_reduction_to_ispyb, xml_file_to_dict
+    from ispyb.xmltools import mx_data_reduction_to_ispyb
     # see also /dls_sw/apps/python/anaconda/1.7.0/64/bin/mxdatareduction2ispyb.py
     ispyb_config_file = os.environ.get('ISPYB_CONFIG_FILE')
     with ispyb.open(ispyb_config_file) as conn:

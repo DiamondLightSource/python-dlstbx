@@ -168,6 +168,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     # copy output files to result directory
     keep_ext = {
       ".INP": None,
+      ".xml": None,
       ".log": 'log',
       ".txt": "log",
       ".error": "log",

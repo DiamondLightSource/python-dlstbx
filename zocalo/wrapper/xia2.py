@@ -126,7 +126,7 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     results_directory = params['results_directory']
     if params['ispyb_parameters'].get('spacegroup'):
-      results_directory.append(params['ispyb_parameters'].get('spacegroup'))
+      results_directory += params['ispyb_parameters'].get('spacegroup')
     if not os.path.exists(results_directory):
       os.makedirs(results_directory)
 

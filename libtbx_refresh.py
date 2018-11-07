@@ -23,6 +23,10 @@ libtbx.pkg_utils.require('graypy', '>=0.3.1')
 libtbx.pkg_utils.require('colorama') # is still used in one place
 libtbx.pkg_utils.require('procrunner', '>=0.8.0')
 
+# Eiger stream work, SCI-7786
+libtbx.pkg_utils.require('pyzmq')
+libtbx.pkg_utils.require('confluent-kafka')
+
 # --- workflows service registration exploration ---
 
 print("Enumerating workflow services:")

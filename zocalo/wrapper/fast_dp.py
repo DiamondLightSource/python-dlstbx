@@ -92,13 +92,34 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
       container['AutoProcIntegration']['dataCollectionId'] = dcid
 
-    # Use existing AutoProcProgramID
-    if self.recwrap.environment.get('ispyb_autoprocprogram_id'):
-      message['AutoProcProgramContainer']['AutoProcProgram'] = \
-        self.recwrap.environment['ispyb_autoprocprogram_id']
+    ## Use existing AutoProcProgramID
+    #if self.recwrap.environment.get('ispyb_autoprocprogram_id'):
+    #  message['AutoProcProgramContainer']['AutoProcProgram'] = \
+    #    self.recwrap.environment['ispyb_autoprocprogram_id']
 
     logger.debug("Sending %s", str(message))
-    self.recwrap.transport.send('ispyb', message)
+    #self.recwrap.transport.send('ispyb', message)
+
+    import ispyb
+    from ispyb.xmltools import mx_data_reduction_to_ispyb, xml_file_to_dict
+    # see also /dls_sw/apps/python/anaconda/1.7.0/64/bin/mxdatareduction2ispyb.py
+    ispyb_config_file = os.environ.get('ISPYB_CONFIG_FILE')
+    with ispyb.open(ispyb_config_file) as conn:
+      (app_id, ap_id, scaling_id, integration_id) = mx_data_reduction_to_ispyb(
+        message, dcid, conn.mx_processing)
+
+    # Write results to xml_out_file
+    ispyb_ids_xml = os.path.join(
+      self.recwrap.recipe_step['job_parameters']['working_directory'],
+      'ispyb_ids.xml')
+    with open(ispyb_ids_xml, 'wb') as f:
+      f.write(
+        '<?xml version="1.0" encoding="ISO-8859-1"?>'\
+        '<dbstatus><autoProcProgramId>%d</autoProcProgramId>'\
+        '<autoProcId>%d</autoProcId>'\
+        '<autoProcScalingId>%d</autoProcScalingId>'\
+        '<autoProcIntegrationId>%d</autoProcIntegrationId>'\
+        '<code>ok</code></dbstatus>' % (app_id, ap_id, scaling_id, integration_id))
 
     logger.info("Saved fast_dp information for data collection %s", str(dcid))
 

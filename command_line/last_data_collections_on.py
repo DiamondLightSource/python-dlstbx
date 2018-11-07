@@ -19,6 +19,9 @@ if __name__ == '__main__':
                         description="Command line tool to view most recent data collections.")
 
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+  parser.add_option("-l", "--link",
+      action="store_true", dest="link", default=False,
+      help="show SynchWeb links for each data collection")
   parser.add_option("-n", "--collections",
       action="store", dest="limit", default=20, type="int", metavar="N",
       help="show the last N collections for each beamline")
@@ -47,4 +50,6 @@ if __name__ == '__main__':
             ' LIMIT %s;', beamline, options.limit)
         print(' Beamline {beamline:6} --DCID-- ---visit---'.format(beamline=beamline))
         for row in cursor.fetchall():
-          print('{startTime:%Y-%m-%d %H:%M} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images   {fileTemplate}'''.format(**row))
+          print('{startTime:%Y-%m-%d %H:%M} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images   {fileTemplate}'.format(**row))
+          if options.link:
+            print(' ' * 52 + 'https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dataCollectionId}/ty/dc\n'.format(**row))

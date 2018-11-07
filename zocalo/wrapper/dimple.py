@@ -5,6 +5,7 @@ import os
 
 import dlstbx.zocalo.wrapper
 import procrunner
+import shutil
 
 logger = logging.getLogger('dlstbx.wrap.dimple')
 
@@ -98,6 +99,15 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     logger.info('Sending dimple results to ISPyB')
     self.send_results_to_ispyb(
-      working_directory, os.path.dirname(self._params['dimple']['data']))
+      working_directory, os.path.dirname(
+        os.path.abspath(self._params['dimple']['data'])))
+
+    # copy output files to result directory
+    results_directory = os.path.abspath(self._params['results_directory'])
+    if not os.path.exists(results_directory):
+      logger.info('Copying results to %s', results_directory)
+      shutil.copytree(working_directory, results_directory)
+    else:
+      logger.info('Results directory already exists: %s', results_directory)
 
     return result['exitcode'] == 0

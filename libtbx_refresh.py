@@ -24,8 +24,9 @@ libtbx.pkg_utils.require('colorama') # is still used in one place
 libtbx.pkg_utils.require('procrunner', '>=0.8.0')
 
 # Eiger stream work, SCI-7786
-libtbx.pkg_utils.require('pyzmq')
 libtbx.pkg_utils.require('confluent-kafka')
+libtbx.pkg_utils.require('msgpack')
+libtbx.pkg_utils.require('pyzmq')
 
 # --- workflows service registration exploration ---
 

@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import sys
 
+import msgpack
 from confluent_kafka import Consumer, KafkaError
 
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
@@ -28,6 +29,12 @@ while True:
             print(msg.error())
             break
 
-    print('Received {:7} bytes: {}'.format(len(msg.value()), msg.value()[0:10]))
+    if msg.value()[0:3] == 'msg':
+      print("Messagepack detected")
+      mm = msgpack.unpackb(msg.value()[3:], raw=False)
+      for n, msg in enumerate(mm):
+        print('Received multipack message {} with {:7} bytes: {}'.format(n, len(msg), msg[0:10]))
+    else:
+      print('Received {:7} bytes: {}'.format(len(msg.value()), msg.value()[0:10]))
 
 c.close()

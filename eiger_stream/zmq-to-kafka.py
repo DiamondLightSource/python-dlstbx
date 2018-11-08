@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 from confluent_kafka import Producer
+import msgpack
 import zmq
 
 def delivery_report(err, msg):
@@ -22,8 +23,10 @@ consumer_receiver.connect("tcp://127.0.0.1:9999")
 
 while True:
     p.poll(0)
-    data = consumer_receiver.recv()
+    data = consumer_receiver.recv_multipart()
     # Trigger any available delivery report callbacks from previous produce() calls
+    p.poll(0)
+    data = 'msg' + msgpack.packb(data, use_bin_type=True)
     p.poll(0)
 
     # Asynchronously produce a message, the delivery report callback

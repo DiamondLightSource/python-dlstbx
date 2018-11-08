@@ -3,7 +3,7 @@
 # This will:
 # * insert new entries into the datacollection table using the DbserverClient.py script
 # * copy images from the source data collection
-# * run the scripts RunAtStartOfDataCollection.sh, RunAfterEveryImage.sh, and RunAtEndOfDataCollection.sh
+# * run the scripts RunAtStartOfDataCollection.sh and RunAtEndOfDataCollection.sh
 #   at appropriate times.
 
 from __future__ import absolute_import, division, print_function
@@ -547,17 +547,6 @@ def simulate(_db, _dbschema,
         log.info("(filesystem) Copy file %s to %s" % (src, target))
         copy_via_temp_file(src, target)
 
-        # Run bash script
-        # automaticProcessing_Yes 4310 /dls/i03/data/2008/0-0 98 /dls/i03/data/2008/0-0/0611/test1_MS_2_098.img img
-
-        # FIXME in here optionally trigger ZOCALO processing
-
-        image_params = ['automaticProcessing_' + _auto_proc, str(datacollectionid), _dest_visit_dir,\
-                         str(x), os.path.join(_dest_dir, dest_fname), 'cbf']
-        log.debug('(bash script) %s/RunAfterEveryImage-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, image_params[0], image_params[1], image_params[2], image_params[3], image_params[4], image_params[5]))
-        subprocess.check_call(['%s/RunAfterEveryImage-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, image_params[0], image_params[1], image_params[2], image_params[3], image_params[4], image_params[5])] + image_params, shell=True)
-
-
     # Populate a datacollection XML file
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -661,10 +650,6 @@ def call_sim(test_name, beamline):
     start_script = "%s/RunAtStartOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
     if not os.path.exists(start_script):
         log.error("The file %s was not found." % start_script)
-        sys.exit()
-    per_img_script = "%s/RunAfterEveryImage-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
-    if not os.path.exists(per_img_script):
-        log.error("The file %s was not found." % per_img_script)
         sys.exit()
     end_script = "%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
     if not os.path.exists(end_script):

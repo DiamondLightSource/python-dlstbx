@@ -25,6 +25,7 @@ while True:
     p.poll(0)
     data = consumer_receiver.recv_multipart()
     # Trigger any available delivery report callbacks from previous produce() calls
+    print("Received %d part multipart message" % len(data))
     p.poll(0)
     data = 'msg' + msgpack.packb(data, use_bin_type=True)
     p.poll(0)
@@ -32,7 +33,7 @@ while True:
     # Asynchronously produce a message, the delivery report callback
     # will be triggered from poll() above, or flush() below, when the message has
     # been successfully delivered or failed permanently.
-    print("Received %d bytes" % len(data))
+    print("Sending on %d bytes" % len(data))
     p.produce('test', data, callback=delivery_report)
     p.poll(0)
 

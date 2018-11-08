@@ -8,8 +8,16 @@ def consumer():
     consumer_receiver = context.socket(zmq.PULL)
     consumer_receiver.connect("tcp://127.0.0.1:9999")
 
+    if False: # Receive messages parts individually
+      while True:
+        work = consumer_receiver.recv()
+        print("Received %d bytes" % len(work))
+        if len(work) < 1000: print(work)
+
     while True:
+        # Multipart message receiver
         work = consumer_receiver.recv_multipart()
-        print("Received {} parts of lengths: {}".format(len(work), [len(x) for x in work]))
+        print("Received {} parts of lengths: {}".format(len(work), list(map(len, work))))
+
 
 consumer()

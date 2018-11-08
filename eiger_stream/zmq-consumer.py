@@ -9,7 +9,7 @@ def consumer():
     consumer_receiver.connect("tcp://127.0.0.1:9999")
 
     while True:
-        work = consumer_receiver.recv()
-        print("Received %d bytes" % len(work))
+        work = consumer_receiver.recv_multipart()
+        print("Received {} parts of lengths: {}".format(len(work), [len(x) for x in work]))
 
 consumer()

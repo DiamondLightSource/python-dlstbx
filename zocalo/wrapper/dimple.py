@@ -17,7 +17,12 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     command = ['dimple']
 
-    mtz = os.path.abspath(self._params['dimple']['data'])
+    mtz = None
+    if self._params.get('ispyb_parameters'):
+      if self._params['ispyb_parameters'].get('data'):
+        mtz = os.path.abspath(self._params['ispyb_parameters'].get('data'))
+    if mtz is None:
+      mtz = os.path.abspath(self._params['dimple']['data'])
     pdb = self.get_matching_pdb()
     if not len(pdb):
       logger.info('Not running dimple as no PDB file available')
@@ -33,28 +38,37 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     return command
 
   def get_matching_pdb(self):
-    import ispyb.model.__future__
-    i = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
-    ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
-    dcid = self._params['dcid']
-    working_directory = os.path.abspath(self._params['working_directory'])
-    pdb = i.get_data_collection(dcid).pdb
-    results = []
-    for pdb in i.get_data_collection(dcid).pdb:
-      #logger.info(pdb.name, pdb.code, pdb.rawfile)
-      if pdb.code is not None:
-        results.append(pdb.code)
-      elif pdb.rawfile is not None:
-        assert pdb.name is not None
-        pdb_filepath = os.path.join(working_directory, '%s.pdb' % pdb.name)
-        with open(pdb_filepath, 'wb') as f:
-          f.write(pdb.rawfile)
-        results.append(pdb_filepath)
+    if self._params.get('ispyb_parameters'):
+      if self._params['ispyb_parameters'].get('pdb'):
+        results = self._params['ispyb_parameters'].get('pdb')
+        if isinstance(results, basestring):
+          results = [results]
+    else:
+      import ispyb.model.__future__
+      i = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
+      ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+      dcid = self._params['dcid']
+      working_directory = os.path.abspath(self._params['working_directory'])
+      results = []
+      for pdb in i.get_data_collection(dcid).pdb:
+        #logger.info(pdb.name, pdb.code, pdb.rawfile)
+        if pdb.code is not None:
+          results.append(pdb.code)
+        elif pdb.rawfile is not None:
+          assert pdb.name is not None
+          pdb_filepath = os.path.join(working_directory, '%s.pdb' % pdb.name)
+          with open(pdb_filepath, 'wb') as f:
+            f.write(pdb.rawfile)
+          results.append(pdb_filepath)
     return results
 
   @staticmethod
   def get_scaling_id(ispyb_ids_xml):
     '''Read the fast_dp output file, extract and return the autoProcScalingId'''
+    if self._params.get('ispyb_parameters'):
+      # this should eventually be the main way of getting scaling_id
+      if self._params['ispyb_parameters'].get('scaling_id'):
+        return self._params['ispyb_parameters'].get('scaling_id')
     import re
     if (not os.path.isfile(ispyb_ids_xml)) or (not os.access(ispyb_ids_xml, os.R_OK)):
       logger.warn("Either file %s is missing or is not readable" % ispyb_ids_xml)
@@ -162,7 +176,13 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     self.send_results_to_ispyb()
 
     # copy output files to result directory
-    results_directory = os.path.abspath(self._params['results_directory'])
+    results_directory = None
+    if self._params.get('ispyb_parameters'):
+      # this should eventually be the main way of getting scaling_id
+      if self._params['ispyb_parameters'].get('results_directory'):
+        results_directory = self._params['ispyb_parameters'].get('results_directory')
+    if results_directory is None:
+      results_directory = os.path.abspath(self._params['results_directory'])
     if not os.path.exists(results_directory):
       logger.info('Copying results to %s', results_directory)
       shutil.copytree(working_directory, results_directory)

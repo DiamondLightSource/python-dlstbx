@@ -62,13 +62,15 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           results.append(pdb_filepath)
     return results
 
-  @staticmethod
-  def get_scaling_id(ispyb_ids_xml):
+  def get_scaling_id(self):
     '''Read the fast_dp output file, extract and return the autoProcScalingId'''
     if self._params.get('ispyb_parameters'):
       # this should eventually be the main way of getting scaling_id
       if self._params['ispyb_parameters'].get('scaling_id'):
         return self._params['ispyb_parameters'].get('scaling_id')
+    ispyb_ids_xml = os.path.join(
+      os.path.dirname(os.path.abspath(self._params['dimple']['data'])),
+      'ispyb_ids.xml')
     import re
     if (not os.path.isfile(ispyb_ids_xml)) or (not os.access(ispyb_ids_xml, os.R_OK)):
       logger.warn("Either file %s is missing or is not readable" % ispyb_ids_xml)
@@ -90,10 +92,7 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     working_directory = os.path.abspath(self._params['working_directory'])
     log_file = os.path.join(working_directory, 'dimple.log')
-    ispyb_ids_xml = os.path.join(
-      os.path.dirname(os.path.abspath(self._params['dimple']['data'])),
-      'ispyb_ids.xml')
-    scaling_id = self.get_scaling_id(ispyb_ids_xml)
+    scaling_id = self.get_scaling_id()
 
     import ispyb
     import ConfigParser

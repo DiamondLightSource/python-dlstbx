@@ -97,6 +97,13 @@ class DLSISPyB(CommonService):
     if result and result.get('success'):
       rw.send({ 'result': result.get('return_value') }, transaction=txn)
       rw.transport.ack(header, transaction=txn)
+    elif result and result.get('checkpoint'):
+      rw.checkpoint(
+          result.get('return_value'),
+          delay=rw.recipe_step['parameters'].get('delay'),
+          transaction=txn,
+      )
+      rw.transport.ack(header, transaction=txn)
 #   elif rw.has_output_channel('error'):  # workflows does not support this atm
 #     rw.send_to(...)
 #     rw.transport.ack(header, transaction=txn)
@@ -322,6 +329,45 @@ class DLSISPyB(CommonService):
       self.log.warning("Inserting alignment results: '%s' caused exception '%s'.",
                        message, e, exc_info=True)
       return { 'success': False }
+
+  def do_multipart_message(self, rw, message, txn):
+    if not rw.environment.get('has_recipe_wrapper', True):
+      self.log.error("Multipart message call can not be used with simple messages")
+      return { 'success': False }
+
+    checkpoint = 1
+    commands = rw.recipe_step['parameters'].get('parts')
+    if isinstance(message, list) and message:
+      commands = message
+    elif isinstance(message, dict) and isinstance(message.get('commands'), list):
+      commands = message['commands']
+      checkpoint = message.get('checkpoint', 0) + 1
+    if not commands:
+      self.log.error("Received multipart message containing no commands")
+      return { 'success': False }
+
+    self.log.info("Processing multipart message in step %d with %d steps left", checkpoint, len(commands))
+
+    current_command = commands.pop(0)
+    self.log.info("Now doing: {}".format(current_command))
+
+    # idea: recipe or client specify a multi-stage operation,
+    # this is a list of API calls, for example
+    #   * do_upsert_processing
+    #   * do_insert_scaling
+    #   * do_upsert_integration
+    # each API call may have a return value that can be stored
+    # do_mm takes care of chaining and checkpointing
+
+    if not commands:
+      self.log.info("and done.")
+      return { 'success': False }
+
+    self.log.info("Checkpointing remaining %d steps", len(commands))
+    return {
+        'checkpoint': True,
+        'result': { 'checkpoint': checkpoint, 'return_value': commands },
+    }
 
   def _retry_mysql_call(self, function, *args, **kwargs):
     tries = 0

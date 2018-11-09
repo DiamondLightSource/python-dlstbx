@@ -61,6 +61,7 @@ class DLSISPyB(CommonService):
         self.log.warning('Rejected invalid simple message')
         self._transport.nack(header)
         return
+      self.log.debug('Received a simple message')
 
       # Create a wrapper-like object that can be passed to functions
       # as if a recipe wrapper was present.
@@ -70,7 +71,7 @@ class DLSISPyB(CommonService):
       rw = RW_mock()
       rw.transport = self._transport
       rw.recipe_step = { 'parameters': message['parameters'] }
-      rw.environment = {}
+      rw.environment = { 'has_recipe_wrapper': False }
       rw.set_default_channel = rw.dummy
       rw.send = rw.dummy
       message = message['content']

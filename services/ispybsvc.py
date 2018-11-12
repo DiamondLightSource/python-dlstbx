@@ -355,23 +355,31 @@ class DLSISPyB(CommonService):
   def do_multipart_message(self, rw, message, **kwargs):
     if not rw.environment.get('has_recipe_wrapper', True):
       self.log.error("Multipart message call can not be used with simple messages")
-      return { 'success': False }
+      return False
 
     checkpoint = 1
-    commands = rw.recipe_step['parameters'].get('parts')
-    if isinstance(message, list) and message:
-      commands = message
-    elif isinstance(message, dict) and isinstance(message.get('commands'), list):
-      commands = message['commands']
+    commands = rw.recipe_step['parameters'].get('ispyb_command_list')
+    if isinstance(message, dict) and isinstance(message.get('ispyb_command_list'), list):
+      commands = message['ispyb_command_list']
       checkpoint = message.get('checkpoint', 0) + 1
     if not commands:
       self.log.error("Received multipart message containing no commands")
-      return { 'success': False }
+      return False
 
     self.log.info("Processing multipart message in step %d with %d steps left", checkpoint, len(commands))
 
     current_command = commands.pop(0)
     self.log.info("Now doing: {}".format(current_command))
+
+    command = current_command.get('ispyb_command')
+    if not command:
+      self.log.error('Multipart command %s is not a valid ISPyB command', current_command)
+      return False
+    if not hasattr(self, 'do_' + command):
+      self.log.error('Received unknown ISPyB command (%s)', command)
+      return False
+
+    self.log.info("Calling {}".format(getattr(self, 'do_' + command)))
 
     # idea: recipe or client specify a multi-stage operation,
     # this is a list of API calls, for example
@@ -383,12 +391,15 @@ class DLSISPyB(CommonService):
 
     if not commands:
       self.log.info("and done.")
-      return { 'success': False }
+      return False
 
     self.log.info("Checkpointing remaining %d steps", len(commands))
     return {
         'checkpoint': True,
-        'result': { 'checkpoint': checkpoint, 'return_value': commands },
+        'return_value': {
+             'checkpoint': checkpoint,
+             'ispyb_command_list': commands,
+        },
     }
 
   def _retry_mysql_call(self, function, *args, **kwargs):

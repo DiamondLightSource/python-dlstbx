@@ -88,7 +88,7 @@ class DLSISPyB(CommonService):
 
     txn = rw.transport.transaction_begin()
     rw.set_default_channel('output')
-    result = getattr(self, 'do_' + command)(rw, message, txn)
+    result = getattr(self, 'do_' + command)(rw, message, transaction=txn)
 
     store_result = rw.recipe_step['parameters'].get('store_result')
     if store_result and result and 'return_value' in result:
@@ -113,7 +113,7 @@ class DLSISPyB(CommonService):
       return
     rw.transport.transaction_commit(txn)
 
-  def do_update_processing_status(self, rw, message, txn):
+  def do_update_processing_status(self, rw, message, **kwargs):
     ppid = self.parse_value(rw, message, 'program_id')
     message = rw.recipe_step['parameters'].get('message')
     start_time = rw.recipe_step['parameters'].get('start_time')
@@ -134,7 +134,7 @@ class DLSISPyB(CommonService):
                        ppid, message, e, exc_info=True)
       return { 'success': False }
 
-  def do_store_dimple_failure(self, rw, message, txn):
+  def do_store_dimple_failure(self, rw, message, **kwargs):
     params = self.ispyb.mx_processing.get_run_params()
     params['parentid'] = self.parse_value(rw, message, 'scaling_id')
     params['pipeline'] = 'dimple'
@@ -149,7 +149,7 @@ class DLSISPyB(CommonService):
                        params['parentid'], e, exc_info=True)
       return { 'success': False }
 
-  def do_register_processing(self, rw, message, txn):
+  def do_register_processing(self, rw, message, **kwargs):
     program = rw.recipe_step['parameters'].get('program')
     cmdline = rw.recipe_step['parameters'].get('cmdline')
     environment = rw.recipe_step['parameters'].get('environment')
@@ -171,7 +171,7 @@ class DLSISPyB(CommonService):
                        program, rpid, cmdline, environment, e, exc_info=True)
       return { 'success': False }
 
-  def do_add_program_attachment(self, rw, message, txn):
+  def do_add_program_attachment(self, rw, message, **kwargs):
     params = self.ispyb.mx_processing.get_program_attachment_params()
     params['parentid'] = self.parse_value(rw, message, 'program_id')
     try:
@@ -199,7 +199,7 @@ class DLSISPyB(CommonService):
     result = self.ispyb.mx_processing.upsert_program_attachment(list(params.values()))
     return { 'success': True, 'return_value': result }
 
-  def do_add_datacollection_attachment(self, rw, message, txn):
+  def do_add_datacollection_attachment(self, rw, message, **kwargs):
     params = self.ispyb.mx_acquisition.get_data_collection_file_attachment_params()
 
     params['parentid'] = self.parse_value(rw, message, 'dcid')
@@ -221,7 +221,7 @@ class DLSISPyB(CommonService):
 
     return { 'success': True, 'return_value': result }
 
-  def do_store_per_image_analysis_results(self, rw, message, txn):
+  def do_store_per_image_analysis_results(self, rw, message, **kwargs):
     params = self.ispyb.mx_processing.get_quality_indicators_params()
 
 #   from pprint import pprint
@@ -282,7 +282,7 @@ class DLSISPyB(CommonService):
     else:
       return { 'success': True, 'return_value': result }
 
-  def do_insert_alignment_result(self, rw, message, txn):
+  def do_insert_alignment_result(self, rw, message, **kwargs):
     try:
       program = message.get('program', '')
       chi = message.get('chi')
@@ -330,7 +330,7 @@ class DLSISPyB(CommonService):
                        message, e, exc_info=True)
       return { 'success': False }
 
-  def do_multipart_message(self, rw, message, txn):
+  def do_multipart_message(self, rw, message, **kwargs):
     if not rw.environment.get('has_recipe_wrapper', True):
       self.log.error("Multipart message call can not be used with simple messages")
       return { 'success': False }

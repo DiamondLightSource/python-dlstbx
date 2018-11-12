@@ -94,6 +94,14 @@ tests = {
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
 
+        'smargon-dcg': {
+                 'src_dir'    : '/dls/i03/data/2018/cm19644-4/20180912/chigroup/protk/',
+                 'src_run_num'   : (1,),
+                 'src_prefix' : ('protk_8', 'protk_9', 'protk_10'),
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
+
         'sad': {
                  'src_dir'    : '/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1',
                  'src_run_num'   : (1,),

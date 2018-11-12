@@ -45,7 +45,7 @@ class DLSISPyB(CommonService):
     if not rw:
       # Incoming message is not a recipe message. Simple messages can be valid
       if not isinstance(message, dict) or not message.get('parameters') or not message.get('content'):
-        self.log.warning('Rejected invalid simple message')
+        self.log.error('Rejected invalid simple message')
         self._transport.nack(header)
         return
       self.log.debug('Received a simple message')
@@ -65,11 +65,11 @@ class DLSISPyB(CommonService):
 
     command = rw.recipe_step['parameters'].get('ispyb_command')
     if not command:
-      self.log.warning('Received message is not a valid ISPyB command')
+      self.log.error('Received message is not a valid ISPyB command')
       rw.transport.nack(header)
       return
     if not hasattr(self, 'do_' + command):
-      self.log.warning('Received unknown ISPyB command (%s)', command)
+      self.log.error('Received unknown ISPyB command (%s)', command)
       rw.transport.nack(header)
       return
 
@@ -116,26 +116,26 @@ class DLSISPyB(CommonService):
       return
     rw.transport.transaction_commit(txn)
 
-  def do_update_processing_status(self, rw, message, parameters, **kwargs):
+  def do_update_processing_status(self, parameters, **kwargs):
     ppid = parameters('program_id')
-    message = rw.recipe_step['parameters'].get('message')
-    start_time = rw.recipe_step['parameters'].get('start_time')
-    update_time = rw.recipe_step['parameters'].get('update_time')
-    status = rw.recipe_step['parameters'].get('status')
+    message = parameters('message')
+    status = parameters('status')
     try:
       result = self.ispyb.mx_processing.upsert_program_ex(
           program_id=ppid,
           status={'success':1, 'failure':0}.get(status),
-          time_start=start_time,
-          time_update=update_time,
-          message=message
+          time_start=parameters('start_time'),
+          time_update=parameters('update_time'),
+          message=message,
         )
       self.log.info("Updating program %s status: '%s' with result %s", ppid, message, result)
       return { 'success': True, 'return_value': result }
     except ispyb.exception.ISPyBException as e:
-      self.log.warning("Updating program %s status: '%s' caused exception '%s'.",
-                       ppid, message, e, exc_info=True)
-      return { 'success': False }
+      self.log.error(
+          "Updating program %s status: '%s' caused exception '%s'.",
+          ppid, message, e, exc_info=True,
+      )
+      return False
 
   def do_store_dimple_failure(self, parameters, **kwargs):
     params = self.ispyb.mx_processing.get_run_params()
@@ -148,17 +148,19 @@ class DLSISPyB(CommonService):
       result = self.ispyb.mx_processing.upsert_run(params.values())
       return { 'success': True, 'return_value': result }
     except ispyb.exception.ISPyBException as e:
-      self.log.warning("Updating DIMPLE failure for %s caused exception '%s'.",
-                       params['parentid'], e, exc_info=True)
-      return { 'success': False }
+      self.log.error(
+          "Updating DIMPLE failure for %s caused exception '%s'.",
+          params['parentid'], e, exc_info=True,
+      )
+      return False
 
-  def do_register_processing(self, rw, parameters, **kwargs):
-    program = rw.recipe_step['parameters'].get('program')
-    cmdline = rw.recipe_step['parameters'].get('cmdline')
-    environment = rw.recipe_step['parameters'].get('environment')
+  def do_register_processing(self, parameters, **kwargs):
+    program = parameters('program')
+    cmdline = parameters('cmdline')
+    environment = parameters('environment')
     if isinstance(environment, dict):
-      environment = ', '.join('%s=%s' % (key, value) for key, value in environment.iteritems())
-    rpid = rw.recipe_step['parameters'].get('rpid')
+      environment = ', '.join('%s=%s' % (key, value) for key, value in environment.items())
+    rpid = parameters('rpid')
     try:
       result = self.ispyb.mx_processing.upsert_program_ex(
           job_id=rpid,
@@ -170,9 +172,11 @@ class DLSISPyB(CommonService):
                     program, rpid, cmdline, environment, result)
       return { 'success': True, 'return_value': result }
     except ispyb.exception.ISPyBException as e:
-      self.log.warning("Registering new program '%s' for processing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
-                       program, rpid, cmdline, environment, e, exc_info=True)
-      return { 'success': False }
+      self.log.error(
+          "Registering new program '%s' for processing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
+          program, rpid, cmdline, environment, e, exc_info=True,
+      )
+      return False
 
   def do_add_program_attachment(self, parameters, **kwargs):
     params = self.ispyb.mx_processing.get_program_attachment_params()
@@ -189,10 +193,10 @@ class DLSISPyB(CommonService):
     fqpn = os.path.join(params['file_path'], params['file_name'])
 
     if not os.path.isfile(fqpn):
-      self.log.warning("Not adding attachment '%s' to data processing: File does not exist", str(fqpn))
+      self.log.error("Not adding attachment '%s' to data processing: File does not exist", str(fqpn))
       return False
 
-    params['file_type'] = str(parameters('file_type', replace_variables=False)).lower()
+    params['file_type'] = str(parameters('file_type')).lower()
     if params['file_type'] not in ('log', 'result', 'graph'):
       self.log.warning("Attachment type '%s' unknown, defaulting to 'log'", params['file_type'])
       params['file_type'] = 'log'
@@ -211,37 +215,31 @@ class DLSISPyB(CommonService):
     params['file_full_path'] = os.path.join(file_path, file_name)
 
     if not os.path.isfile(params['file_full_path']):
-      self.log.warning("Not adding attachment '%s' to data collection: File does not exist", str(params['file_full_path']))
+      self.log.error("Not adding attachment '%s' to data collection: File does not exist", str(params['file_full_path']))
       return False
 
-    params['file_type'] = str(parameters('file_type', replace_variables=False)).lower()
+    params['file_type'] = str(parameters('file_type')).lower()
     if params['file_type'] not in ('snapshot', 'log', 'xy', 'recip', 'pia'):
       self.log.warning("Attachment type '%s' unknown, defaulting to 'log'", params['file_type'])
       params['file_type'] = 'log'
 
     self.log.debug("Writing data collection attachment to database: %s", params)
     result = self.ispyb.mx_acquisition.upsert_data_collection_file_attachment(list(params.values()))
-
     return { 'success': True, 'return_value': result }
 
-  def do_store_per_image_analysis_results(self, rw, message, **kwargs):
+  def do_store_per_image_analysis_results(self, parameters, **kwargs):
     params = self.ispyb.mx_processing.get_quality_indicators_params()
-
-#   from pprint import pprint
-#   pprint(message)
-
-    params['datacollectionid'] = rw.recipe_step['parameters'].get('dcid')
+    params['datacollectionid'] = parameters('dcid')
     if not params['datacollectionid']:
-      self.log.error('DataCollectionID missing from recipe')
-      return { 'success': False }
-
-    params['image_number'] = message.get('file-pattern-index', message.get('file-number'))
+      self.log.error('DataCollectionID not specified')
+      return False
+    params['image_number'] = parameters('file-pattern-index') or parameters('file-number')
     if not params['image_number']:
-      self.log.error('Image number missing from message')
-      return { 'success': False }
+      self.log.error('Image number not specified')
+      return False
 
-    params['dozor_score'] = message.get('dozor_score')
-    params['spot_total'] = message.get('n_spots_total')
+    params['dozor_score'] = parameters('dozor_score')
+    params['spot_total'] = parameters('n_spots_total')
     if params['spot_total'] is not None:
       params['in_res_total'] = params['spot_total']
       params['icerings'] = 0
@@ -251,13 +249,12 @@ class DLSISPyB(CommonService):
       params['binpopcutoffmethod2res'] = 0
     elif params['dozor_score'] is None:
       self.log.error('Message contains neither dozor score nor spot count')
-      return { 'success': False }
+      return False
 
-    params['totalintegratedsignal'] = message.get('total_intensity')
-    params['good_bragg_candidates'] = message.get('n_spots_no_ice')
-    params['method1_res'] = message.get('estimated_d_min')
-    params['method2_res'] = message.get('estimated_d_min')
-
+    params['totalintegratedsignal'] = parameters('total_intensity')
+    params['good_bragg_candidates'] = parameters('n_spots_no_ice')
+    params['method1_res'] = parameters('estimated_d_min')
+    params['method2_res'] = parameters('estimated_d_min')
     params['programid'] = "65228265" # dummy value
 
     self.log.debug("Writing PIA record for image %r in DCID %s", params['image_number'], params['datacollectionid'])
@@ -265,8 +262,8 @@ class DLSISPyB(CommonService):
     try:
 #     result = "159956186" # for testing
       result = self._retry_mysql_call(self.ispyb.mx_processing.upsert_quality_indicators, list(params.values()))
-      if rw.recipe_step['parameters'].get('notify-gda'):
-        gdahost = rw.recipe_step['parameters']['notify-gda']
+      gdahost = parameters('notify-gda')
+      if gdahost:
         if '{' in gdahost:
           self.log.warning('Could not notify GDA, %s is not a valid hostname', gdahost)
         elif gdahost == 'mx-control':
@@ -281,7 +278,7 @@ class DLSISPyB(CommonService):
             self.log.warning('Could not notify GDA: %s', e, exc_info=True)
     except ispyb.exception.ISPyBWriteFailed as e:
       self.log.error("Could not write PIA results %s to database: %s", params, e, exc_info=True)
-      return { 'success': False }
+      return False
     else:
       return { 'success': True, 'return_value': result }
 

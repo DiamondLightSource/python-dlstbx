@@ -353,6 +353,16 @@ class DLSISPyB(CommonService):
     return { 'success': True }
 
   def do_multipart_message(self, rw, message, **kwargs):
+    '''The multipart_message command allows the recipe or client to specify a
+       multi-stage operation. With this you can process a list of API calls,
+       for example
+         * do_upsert_processing
+         * do_insert_scaling
+         * do_upsert_integration
+       Each API call may have a return value that can be stored.
+       Multipart_message takes care of chaining and checkpointing to make the
+       overall call near-ACID compliant.'''
+
     if not rw.environment.get('has_recipe_wrapper', True):
       self.log.error("Multipart message call can not be used with simple messages")
       return False
@@ -366,11 +376,7 @@ class DLSISPyB(CommonService):
       self.log.error("Received multipart message containing no commands")
       return False
 
-    self.log.info("Processing multipart message in step %d with %d steps left", checkpoint, len(commands))
-
     current_command = commands.pop(0)
-    self.log.info("Now doing: {}".format(current_command))
-
     command = current_command.get('ispyb_command')
     if not command:
       self.log.error('Multipart command %s is not a valid ISPyB command', current_command)
@@ -378,29 +384,68 @@ class DLSISPyB(CommonService):
     if not hasattr(self, 'do_' + command):
       self.log.error('Received unknown ISPyB command (%s)', command)
       return False
+    self.log.info(
+        "Processing step %d of multipart message (%s) with %d further steps",
+        checkpoint, command, len(commands),
+    )
 
-    self.log.info("Calling {}".format(getattr(self, 'do_' + command)))
+    # Create a parameter lookup function specific to this step of the
+    # multipart message
+    def parameters(parameter, replace_variables=True):
+      '''Slight change in behaviour compared to 'parameters' in a direct call:
+         If the value is defined in the command list item then this takes
+         precedence. Otherwise we check the original message content. Finally
+         we look in parameters dictionary of the recipe step for the
+         multipart_message command.
+         String replacement rules apply as usual.'''
+      if parameter in current_command:
+        base_value = current_command[parameter]
+      elif isinstance(message, dict) and parameter in message:
+        base_value = message[parameter]
+      else:
+        base_value = rw.recipe_step['parameters'].get(parameter)
+      if not replace_variables or not base_value or '$' not in base_value:
+        return base_value
+      for key in rw.environment:
+        if '$' + key in base_value:
+          base_value = base_value.replace('$' + key, str(rw.environment[key]))
+      return base_value
+    kwargs['parameters'] = parameters
 
-    # idea: recipe or client specify a multi-stage operation,
-    # this is a list of API calls, for example
-    #   * do_upsert_processing
-    #   * do_insert_scaling
-    #   * do_upsert_integration
-    # each API call may have a return value that can be stored
-    # do_mm takes care of chaining and checkpointing
+    # Run the multipart step
+    result = getattr(self, 'do_' + command)(
+        rw=rw,
+        message=message,
+        **kwargs
+    )
+    self.log.info("Multipart call returned with result %s", result)
 
+    # Store step result if appropriate
+    store_result = current_command.get('store_result')
+    if store_result and result and 'return_value' in result:
+      rw.environment[store_result] = result['return_value']
+      self.log.debug("Storing result '%s' in environment variable '%s'", result['return_value'], store_result)
+
+    # If the step did not succeed then propagate failure
+    if not result or not result.get('success'):
+      self.log.debug("Multipart command failed")
+      return result
+
+    # If the multipart command is finished then propagate success
     if not commands:
       self.log.info("and done.")
-      return False
+      return result
 
+    # If there are more steps then checkpoint the current state
+    # and put it back on the queue
     self.log.info("Checkpointing remaining %d steps", len(commands))
-    return {
-        'checkpoint': True,
-        'return_value': {
-             'checkpoint': checkpoint,
-             'ispyb_command_list': commands,
-        },
-    }
+    if isinstance(message, dict):
+      checkpoint_dictionary = message
+    else:
+      checkpoint_dictionary = {}
+    checkpoint_dictionary['checkpoint'] = checkpoint
+    checkpoint_dictionary['ispyb_command_list'] = commands
+    return {'checkpoint': True, 'return_value': checkpoint_dictionary}
 
   def _retry_mysql_call(self, function, *args, **kwargs):
     tries = 0

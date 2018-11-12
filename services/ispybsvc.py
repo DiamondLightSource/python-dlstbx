@@ -31,19 +31,6 @@ class DLSISPyB(CommonService):
         self.receive_msg, acknowledgement=True, log_extender=self.extend_log,
         allow_non_recipe_messages=True)
 
-  @staticmethod
-  def parse_value(rw, message, parameter):
-    if isinstance(message, dict):
-      base_value = message.get(parameter, rw.recipe_step['parameters'].get(parameter))
-    else:
-      base_value = rw.recipe_step['parameters'].get(parameter)
-    if not base_value or '$' not in base_value:
-      return base_value
-    for key in rw.environment:
-      if '$' + key in base_value:
-        base_value = base_value.replace('$' + key, str(rw.environment[key]))
-    return base_value
-
   def receive_msg(self, rw, header, message):
     '''Do something with ISPyB.'''
 
@@ -88,7 +75,23 @@ class DLSISPyB(CommonService):
 
     txn = rw.transport.transaction_begin()
     rw.set_default_channel('output')
-    result = getattr(self, 'do_' + command)(rw, message, transaction=txn)
+    def parameters(parameter, replace_variables=True):
+      if isinstance(message, dict):
+        base_value = message.get(parameter, rw.recipe_step['parameters'].get(parameter))
+      else:
+        base_value = rw.recipe_step['parameters'].get(parameter)
+      if not replace_variables or not base_value or '$' not in base_value:
+        return base_value
+      for key in rw.environment:
+        if '$' + key in base_value:
+          base_value = base_value.replace('$' + key, str(rw.environment[key]))
+      return base_value
+    result = getattr(self, 'do_' + command)(
+        rw=rw,
+        message=message,
+        parameters=parameters,
+        transaction=txn,
+    )
 
     store_result = rw.recipe_step['parameters'].get('store_result')
     if store_result and result and 'return_value' in result:
@@ -113,8 +116,8 @@ class DLSISPyB(CommonService):
       return
     rw.transport.transaction_commit(txn)
 
-  def do_update_processing_status(self, rw, message, **kwargs):
-    ppid = self.parse_value(rw, message, 'program_id')
+  def do_update_processing_status(self, rw, message, parameters, **kwargs):
+    ppid = parameters('program_id')
     message = rw.recipe_step['parameters'].get('message')
     start_time = rw.recipe_step['parameters'].get('start_time')
     update_time = rw.recipe_step['parameters'].get('update_time')
@@ -134,13 +137,13 @@ class DLSISPyB(CommonService):
                        ppid, message, e, exc_info=True)
       return { 'success': False }
 
-  def do_store_dimple_failure(self, rw, message, **kwargs):
+  def do_store_dimple_failure(self, parameters, **kwargs):
     params = self.ispyb.mx_processing.get_run_params()
-    params['parentid'] = self.parse_value(rw, message, 'scaling_id')
+    params['parentid'] = parameters('scaling_id')
     params['pipeline'] = 'dimple'
     params['success'] = 0
     params['message'] = 'Unknown error'
-    params['run_dir'] = self.parse_value(rw, message, 'directory')
+    params['run_dir'] = parameters('directory')
     try:
       result = self.ispyb.mx_processing.upsert_run(params.values())
       return { 'success': True, 'return_value': result }
@@ -149,7 +152,7 @@ class DLSISPyB(CommonService):
                        params['parentid'], e, exc_info=True)
       return { 'success': False }
 
-  def do_register_processing(self, rw, message, **kwargs):
+  def do_register_processing(self, rw, parameters, **kwargs):
     program = rw.recipe_step['parameters'].get('program')
     cmdline = rw.recipe_step['parameters'].get('cmdline')
     environment = rw.recipe_step['parameters'].get('environment')
@@ -171,9 +174,9 @@ class DLSISPyB(CommonService):
                        program, rpid, cmdline, environment, e, exc_info=True)
       return { 'success': False }
 
-  def do_add_program_attachment(self, rw, message, **kwargs):
+  def do_add_program_attachment(self, parameters, **kwargs):
     params = self.ispyb.mx_processing.get_program_attachment_params()
-    params['parentid'] = self.parse_value(rw, message, 'program_id')
+    params['parentid'] = parameters('program_id')
     try:
       programid = int(params['parentid'])
     except ValueError:
@@ -181,15 +184,15 @@ class DLSISPyB(CommonService):
     if not programid:
       self.log.warning("Encountered invalid program ID '%s'", params['parentid'])
       return False
-    params['file_name'] = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
-    params['file_path'] = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
+    params['file_name'] = parameters('file_name', replace_variables=False)
+    params['file_path'] = parameters('file_path', replace_variables=False)
     fqpn = os.path.join(params['file_path'], params['file_name'])
 
     if not os.path.isfile(fqpn):
       self.log.warning("Not adding attachment '%s' to data processing: File does not exist", str(fqpn))
       return False
 
-    params['file_type'] = str(message.get('file_type', rw.recipe_step['parameters'].get('file_type', ''))).lower()
+    params['file_type'] = str(parameters('file_type', replace_variables=False)).lower()
     if params['file_type'] not in ('log', 'result', 'graph'):
       self.log.warning("Attachment type '%s' unknown, defaulting to 'log'", params['file_type'])
       params['file_type'] = 'log'
@@ -199,19 +202,19 @@ class DLSISPyB(CommonService):
     result = self.ispyb.mx_processing.upsert_program_attachment(list(params.values()))
     return { 'success': True, 'return_value': result }
 
-  def do_add_datacollection_attachment(self, rw, message, **kwargs):
+  def do_add_datacollection_attachment(self, parameters, **kwargs):
     params = self.ispyb.mx_acquisition.get_data_collection_file_attachment_params()
 
-    params['parentid'] = self.parse_value(rw, message, 'dcid')
-    file_name = message.get('file_name', rw.recipe_step['parameters'].get('file_name'))
-    file_path = message.get('file_path', rw.recipe_step['parameters'].get('file_path'))
+    params['parentid'] = parameters('dcid')
+    file_name = parameters('file_name', replace_variables=False)
+    file_path = parameters('file_path', replace_variables=False)
     params['file_full_path'] = os.path.join(file_path, file_name)
 
     if not os.path.isfile(params['file_full_path']):
       self.log.warning("Not adding attachment '%s' to data collection: File does not exist", str(params['file_full_path']))
       return False
 
-    params['file_type'] = str(message.get('file_type', rw.recipe_step['parameters'].get('file_type', ''))).lower()
+    params['file_type'] = str(parameters('file_type', replace_variables=False)).lower()
     if params['file_type'] not in ('snapshot', 'log', 'xy', 'recip', 'pia'):
       self.log.warning("Attachment type '%s' unknown, defaulting to 'log'", params['file_type'])
       params['file_type'] = 'log'
@@ -282,7 +285,7 @@ class DLSISPyB(CommonService):
     else:
       return { 'success': True, 'return_value': result }
 
-  def do_insert_alignment_result(self, rw, message, **kwargs):
+  def do_insert_alignment_result(self, message, **kwargs):
     try:
       program = message.get('program', '')
       chi = message.get('chi')

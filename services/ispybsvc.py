@@ -352,6 +352,29 @@ class DLSISPyB(CommonService):
     )
     return { 'success': True }
 
+  def do_register_integration(self, parameters, **kwargs):
+    self.log.info(
+        "Registering integration result record for DCID %s and APPID %s",
+        parameters('dcid'), parameters('program_id'),
+    )
+    params = self.ispyb.mx_processing.get_integration_params()
+    params['datacollectionid'] = parameters('dcid')
+    params['programid'] = parameters('program_id')
+    try:
+      autoProcIntegrationId = self.ispyb.mx_processing.upsert_integration(list(params.values()))
+      assert autoProcIntegrationId is not None
+    except (ispyb.exception.ISPyBException, AssertionError) as e:
+      self.log.error(
+          "Inserting integration record: '%s' caused exception '%s'.",
+          params, e, exc_info=True,
+      )
+      return False
+    self.log.info(
+        "Inserted integration record with ID %s",
+        autoProcIntegrationId,
+    )
+    return {'success': True, 'return_value': autoProcIntegrationId}
+
   def do_multipart_message(self, rw, message, **kwargs):
     '''The multipart_message command allows the recipe or client to specify a
        multi-stage operation. With this you can process a list of API calls,

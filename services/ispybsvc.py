@@ -375,6 +375,30 @@ class DLSISPyB(CommonService):
     )
     return {'success': True, 'return_value': autoProcIntegrationId}
 
+  def do_write_autoproc(self, parameters, **kwargs):
+    '''Write entry to the AutoProc table.'''
+    params = self.ispyb.mx_processing.get_processing_params()
+    params['id'] = parameters('autoproc_id') # will create a new record if undefined
+    params['parentid'] = parameters('program_id')
+    params['spacegroup'] = parameters('spacegroup')
+    params['refinedcell_a'] = parameters('unitcell_a')
+    params['refinedcell_b'] = parameters('unitcell_b')
+    params['refinedcell_c'] = parameters('unitcell_c')
+    params['refinedcell_alpha'] = parameters('unitcell_alpha')
+    params['refinedcell_beta'] = parameters('unitcell_beta')
+    params['refinedcell_gamma'] = parameters('unitcell_gamma')
+    try:
+      autoProcId = self.ispyb.mx_processing.upsert_processing(list(params.values()))
+      assert autoProcId is not None
+    except (ispyb.exception.ISPyBException, AssertionError) as e:
+      self.log.error(
+          "Writing AutoProc record '%s' caused exception '%s'.",
+          params, e, exc_info=True,
+      )
+      return False
+    self.log.info("Written AutoProc record with ID %s", autoProcId)
+    return {'success': True, 'return_value': autoProcId}
+
   def do_multipart_message(self, rw, message, **kwargs):
     '''The multipart_message command allows the recipe or client to specify a
        multi-stage operation. With this you can process a list of API calls,

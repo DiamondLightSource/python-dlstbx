@@ -352,27 +352,54 @@ class DLSISPyB(CommonService):
     )
     return { 'success': True }
 
-  def do_register_integration(self, parameters, **kwargs):
+  def do_register_integration(self, **kwargs):
+    # deprecated
+    return self.do_upsert_integration(**kwargs)
+
+  def do_upsert_integration(self, parameters, **kwargs):
+    '''Insert or update an AutoProcIntegration record.
+
+       Parameters, amongst others defined by the ISPyB API:
+       :dcid: related DataCollectionID
+       :integration_id: AutoProcIntegrationID, if defined will UPDATE otherwise INSERT
+       :program_id: related AutoProcProgramID
+       :scaling_id: related AutoProcScalingID
+
+       :returns: AutoProcIntegrationID
+
+       ISPyB-API call: upsert_integration
+    '''
     self.log.info(
-        "Registering integration result record for DCID %s and APPID %s",
-        parameters('dcid'), parameters('program_id'),
+        "Saving integration result record (%s) for DCID %s and APPID %s",
+        parameters('integration_id') or 'new', parameters('dcid'), parameters('program_id'),
     )
     params = self.ispyb.mx_processing.get_integration_params()
     params['datacollectionid'] = parameters('dcid')
+    params['id'] = parameters('integration_id')
+    params['parentid'] = parameters('scaling_id')
     params['programid'] = parameters('program_id')
+    for key in (
+        'anom',
+        'beam_vec_x', 'beam_vec_y', 'beam_vec_z',
+        'cell_a', 'cell_b', 'cell_c',
+        'cell_alpha', 'cell_beta', 'cell_gamma',
+        'start_image_no', 'end_image_no',
+        'refined_detector_dist',
+        'refined_xbeam', 'refined_ybeam',
+        'rot_axis_x', 'rot_axis_y', 'rot_axis_z',
+    ):
+      params[key] = parameters(key)
+
     try:
       autoProcIntegrationId = self.ispyb.mx_processing.upsert_integration(list(params.values()))
       assert autoProcIntegrationId is not None
     except (ispyb.exception.ISPyBException, AssertionError) as e:
       self.log.error(
-          "Inserting integration record: '%s' caused exception '%s'.",
-          params, e, exc_info=True,
+          "Encountered exception %s when attempting to insert/update integration record '%s'",
+          e, params, exc_info=True,
       )
       return False
-    self.log.info(
-        "Inserted integration record with ID %s",
-        autoProcIntegrationId,
-    )
+    self.log.info("Saved integration record ID %s", autoProcIntegrationId)
     return {'success': True, 'return_value': autoProcIntegrationId}
 
   def do_write_autoproc(self, parameters, **kwargs):

@@ -7,6 +7,7 @@ import dlstbx.util.gda
 import ispyb
 import ispyb.exception
 import mysql.connector
+import six
 import workflows.recipe
 from procrunner import run_process
 from workflows.services.common_service import CommonService
@@ -469,10 +470,6 @@ class DLSISPyB(CommonService):
           'res_lim_low',
       ):
         stats[shell][key] = parameters(shell).get(key)
-    from pprint import pprint
-    for k, v in stats.items():
-      print(k)
-      pprint(v)
     try:
       scalingId = self.ispyb.mx_processing.insert_scaling(
           autoProcId,
@@ -544,7 +541,9 @@ class DLSISPyB(CommonService):
         base_value = message[parameter]
       else:
         base_value = rw.recipe_step['parameters'].get(parameter)
-      if not replace_variables or not base_value or '$' not in base_value:
+      if not replace_variables or not base_value \
+          or not isinstance(base_value, six.string_types) \
+          or '$' not in base_value:
         return base_value
       for key in rw.environment:
         if '$' + key in base_value:

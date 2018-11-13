@@ -45,57 +45,48 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     return command
 
   def send_results_to_ispyb(self):
-    logger.debug("Reading xia2 results")
-    from xia2.command_line.ispyb_json import ispyb_object
+    logger.info("Reading xia2 results")
+    from xia2.command_line.ispyb_json import zocalo_object
+    z = zocalo_object()
 
-    message = ispyb_object()
-    # Do not accept log entries from the object, we add those separately
-    message['AutoProcProgramContainer']['AutoProcProgramAttachment'] = filter(
-       lambda x: x.get('fileType') != 'Log', message['AutoProcProgramContainer']['AutoProcProgramAttachment'])
+    ispyb_command_list = []
 
-    source = os.path.join(os.getcwd(), 'xia2.txt')
+    # Step 1: Add new record to AutoProc, keep the AutoProcID
+    register_autoproc = z['refined_results']
+    register_autoproc.update({
+        'ispyb_command': 'write_autoproc',
+        'autoproc_id': None,
+        'store_result': 'ispyb_autoproc_id',
+    })
+    ispyb_command_list.append(register_autoproc)
 
-    def recursive_replace(thing, old, new):
-      '''Recursive string replacement in data structures.'''
+    # Step 2: Store scaling results, linked to the AutoProcID
+    #         Keep the AutoProcScalingID
+    insert_scaling = z['scaling_statistics']
+    insert_scaling.update({
+        'ispyb_command': 'insert_scaling',
+        'autoproc_id': '$ispyb_autoproc_id',
+        'store_result': 'ispyb_autoprocscaling_id',
+    })
+    ispyb_command_list.append(insert_scaling)
 
-      def _recursive_apply(item):
-        '''Internal recursive helper function.'''
-        if isinstance(item, basestring):
-          return item.replace(old, new)
-        if isinstance(item, dict):
-          return { _recursive_apply(key): _recursive_apply(value) for
-                   key, value in item.items() }
-        if isinstance(item, tuple):
-          return tuple(_recursive_apply(list(item)))
-        if isinstance(item, list):
-          return [ _recursive_apply(x) for x in item ]
-        return item
-      return _recursive_apply(thing)
+    # Step 3: Store integration results, linking them to ScalingID
+    for n, integration in enumerate(z['integrations']):
+      integration.update({
+          'ispyb_command': 'upsert_integration',
+          'scaling_id': '$ispyb_autoprocscaling_id',
+      })
+      if n > 0:
+        # make sure only the first integration uses a specified integration ID
+        # and all subsequent integration results are written to a new record
+        integration['integration_id'] = None
+      ispyb_command_list.append(integration)
 
-    logger.debug("Replacing temporary zocalo paths with correct destination paths")
-    message = recursive_replace(
-        message,
-        self.recwrap.recipe_step['job_parameters']['working_directory'],
-        self.recwrap.recipe_step['job_parameters']['results_directory']
-      )
-
-    dcid = self.recwrap.recipe_step['job_parameters'].get('dcid')
-    assert dcid, "No data collection ID specified."
-    dcid = int(dcid)
-    assert dcid > 0, "Invalid data collection ID given."
-    logger.debug("Writing to data collection ID %s", str(dcid))
-    for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
-      container['AutoProcIntegration']['dataCollectionId'] = dcid
-
-    # Use existing AutoProcProgramID
-    if self.recwrap.environment.get('ispyb_autoprocprogram_id'):
-      message['AutoProcProgramContainer']['AutoProcProgram'] = \
-        self.recwrap.environment['ispyb_autoprocprogram_id']
-
-    logger.debug("Sending %s", str(message))
-    self.recwrap.transport.send('ispyb', message)
-
-    logger.info("Processing information from %s attached to data collection %s", source, str(dcid))
+    logger.info("Sending %s", str(ispyb_command_list))
+    self.recwrap.send_to('ispyb', {
+        'ispyb_command_list': ispyb_command_list,
+    })
+    logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
   def run(self):
     assert hasattr(self, 'recwrap'), \

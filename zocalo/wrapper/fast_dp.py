@@ -158,6 +158,28 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         print_stdout=True, print_stderr=True,
         working_directory=params['working_directory'])
 
+  def run_fast_ep(self, scaling_id):
+    params = self.recwrap.recipe_step['job_parameters']
+
+    #if go_fast_ep.sh
+    results_directory = os.path.abspath(params['results_directory'])
+    fast_dp_mtz = os.path.join(results_directory, 'fast_dp.mtz')
+    command = [
+      'ispyb.job', '--new', '--dcid',
+       '%s' % params['dcid'],
+       '--trigger',
+       '--recipe', 'postprocessing-fast-ep',
+       '--add-param=data:%s' % fast_dp_mtz,
+       '--add-param=results_directory:%s/dimple' % results_directory,
+       '--add-param=scaling_id:%s' % scaling_id,
+       '-v'
+    ]
+    # run ispyb.job to launch new fast_ep zocalo job
+    result = procrunner.run_process(
+      command, timeout=params.get('timeout'),
+      print_stdout=True, print_stderr=True,
+      working_directory=params['working_directory'])
+
   def construct_commandline(self, params):
     '''Construct fast_dp command line.
        Takes job parameter dictionary, returns array.'''
@@ -286,6 +308,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if os.path.exists(xml_file):
       self.send_results_to_ispyb(xml_file)
       self.run_dimple(self._scaling_id)
+      self.run_fast_ep(self._scaling_id)
     else:
       logger.warning('Expected output file %s missing', xml_file)
 

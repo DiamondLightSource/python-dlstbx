@@ -81,7 +81,9 @@ class DLSISPyB(CommonService):
         base_value = message.get(parameter, rw.recipe_step['parameters'].get(parameter))
       else:
         base_value = rw.recipe_step['parameters'].get(parameter)
-      if not replace_variables or not base_value or '$' not in base_value:
+      if not replace_variables or not base_value \
+          or not isinstance(base_value, six.string_types) \
+          or '$' not in base_value:
         return base_value
       for key in rw.environment:
         if '$' + key in base_value:

@@ -27,10 +27,6 @@ import dlstbx.dc_sim.mydb
 log = logging.getLogger('dlstbx.dc_sim')
 
 # Constants
-DATABASE_HOST='ws096'
-DATABASE_USER='ispyb4a_db'
-TNSNAME='ws096'
-
 MX_SCRIPTS_BINDIR='/dls_sw/apps/mx-scripts/bin'
 DBSERVER_SRCDIR='/dls_sw/apps/mx-scripts/ispyb-dbserver/src'
 DBSERVER_HOST='sci-serv3'
@@ -597,9 +593,6 @@ def simulate(_db, _dbschema,
 def call_sim(test_name, beamline):
 
     # Default parameters
-    dbhost = DATABASE_HOST
-    dbuser = DATABASE_USER
-    tnsname = TNSNAME
     dbschema = DBSCHEMA
 
     dest_visit = None

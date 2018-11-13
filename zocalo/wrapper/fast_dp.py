@@ -144,7 +144,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       fast_dp_mtz = os.path.join(results_directory, 'fast_dp.mtz')
       command = [
         'ispyb.job', '--new', '--dcid',
-         '%i' % params['dcid'],
+         '%s' % params['dcid'],
          '--trigger',
          '--recipe', 'postprocessing-dimple',
          '--add-param=data:%s' % fast_dp_mtz,

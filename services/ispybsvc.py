@@ -9,7 +9,6 @@ import ispyb.exception
 import mysql.connector
 import six
 import workflows.recipe
-from procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSISPyB(CommonService):

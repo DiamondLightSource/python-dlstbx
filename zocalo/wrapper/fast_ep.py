@@ -16,11 +16,11 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     command = ['fast_ep']
     mtz = None
-    if self._params.get('ispyb_parameters'):
-      if self._params['ispyb_parameters'].get('data'):
-        mtz = os.path.abspath(self._params['ispyb_parameters'].get('data'))
+    if params.get('ispyb_parameters'):
+      if params['ispyb_parameters'].get('data'):
+        mtz = os.path.abspath(params['ispyb_parameters'].get('data'))
     if mtz is None:
-      mtz = os.path.abspath(self._params['fast_ep']['data'])
+      mtz = os.path.abspath(params['fast_ep']['data'])
     assert mtz is not None
     command.append('data=%s' % mtz)
 
@@ -34,7 +34,7 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     return command
 
-  def send_resuls_to_ispyb(self, json_file):
+  def send_results_to_ispyb(self, json_file):
     from dlstbx.ispybtbx import ispybtbx
     ispyb_conn = ispybtbx()
 

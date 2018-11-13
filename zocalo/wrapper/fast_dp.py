@@ -239,7 +239,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       ".INP": None,
       ".xml": None,
       ".log": 'log',
-      ".html": 'html',
+      ".html": 'log',
       ".txt": "log",
       ".error": "log",
       ".LP": "log",

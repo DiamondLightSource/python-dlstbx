@@ -378,17 +378,18 @@ class DLSISPyB(CommonService):
   def do_write_autoproc(self, parameters, **kwargs):
     '''Write entry to the AutoProc table.'''
     params = self.ispyb.mx_processing.get_processing_params()
-    params['id'] = parameters('autoproc_id') # will create a new record if undefined
+    params['id'] = parameters('autoproc_id') # will create a new record
+                                             # if undefined
     params['parentid'] = parameters('program_id')
-    params['spacegroup'] = parameters('spacegroup')
-    params['refinedcell_a'] = parameters('unitcell_a')
-    params['refinedcell_b'] = parameters('unitcell_b')
-    params['refinedcell_c'] = parameters('unitcell_c')
-    params['refinedcell_alpha'] = parameters('unitcell_alpha')
-    params['refinedcell_beta'] = parameters('unitcell_beta')
-    params['refinedcell_gamma'] = parameters('unitcell_gamma')
+    for key in (
+        'spacegroup',
+        'refinedcell_a', 'refinedcell_b', 'refinedcell_c',
+        'refinedcell_alpha', 'refinedcell_beta', 'refinedcell_gamma',
+    ):
+      params[key] = parameters(key)
     try:
-      autoProcId = self.ispyb.mx_processing.upsert_processing(list(params.values()))
+      autoProcId = self.ispyb.mx_processing.upsert_processing(
+          list(params.values()))
       assert autoProcId is not None
     except (ispyb.exception.ISPyBException, AssertionError) as e:
       self.log.error(
@@ -398,6 +399,71 @@ class DLSISPyB(CommonService):
       return False
     self.log.info("Written AutoProc record with ID %s", autoProcId)
     return {'success': True, 'return_value': autoProcId}
+
+  def do_insert_scaling(self, parameters, **kwargs):
+    '''Write a 3-column scaling statistics table to the database.
+
+       Parameters:
+       :autoproc_id: AutoProcId, key to AutoProc table
+       :outerShell: dictionary containing scaling statistics
+       :innerShell: dictionary containing scaling statistics
+       :overall: dictionary containing scaling statistics
+
+       :returns: AutoProcScalingId
+
+       ISPyB-API call: insert_scaling
+    '''
+    autoProcId = parameters('autoproc_id')
+    stats = {
+        'outerShell': self.ispyb.mx_processing.get_outer_shell_scaling_params(),
+        'innerShell': self.ispyb.mx_processing.get_inner_shell_scaling_params(),
+        'overall': self.ispyb.mx_processing.get_overall_scaling_params(),
+    }
+    for shell in stats:
+      for key in (
+          'anom',
+          'anom_completeness',
+          'anom_multiplicity',
+          'cc_anom',
+          'cc_half',
+          'comments',
+          'completeness',
+          'fract_partial_bias',
+          'mean_i_sig_i',
+          'multiplicity',
+          'n_tot_obs',
+          'n_tot_unique_obs',
+          'r_meas_all_iplusi_minus',
+          'r_meas_within_iplusi_minus',
+          'r_merge',
+          'r_pim_all_iplusi_minus',
+          'r_pim_within_iplusi_minus',
+          'res_lim_high',
+          'res_lim_low',
+      ):
+        stats[shell][key] = parameters(shell).get(key)
+    from pprint import pprint
+    for k, v in stats.items():
+      print(k)
+      pprint(v)
+    try:
+      scalingId = self.ispyb.mx_processing.insert_scaling(
+          autoProcId,
+          list(stats['outerShell'].values()),
+          list(stats['innerShell'].values()),
+          list(stats['overall'].values()),
+      )
+      assert scalingId is not None
+    except (ispyb.exception.ISPyBException, AssertionError) as e:
+      self.log.error(
+          "Encountered exception %s when attempting to insert scaling "
+          "statistics '%s' for AutoProcId %s",
+          e, stats, autoProcId, exc_info=True,
+      )
+      return False
+    self.log.info("Written scaling statistics record %s for AutoProc ID %s",
+        scalingId, autoProcId)
+    return {'success': True, 'return_value': scalingId}
 
   def do_multipart_message(self, rw, message, **kwargs):
     '''The multipart_message command allows the recipe or client to specify a

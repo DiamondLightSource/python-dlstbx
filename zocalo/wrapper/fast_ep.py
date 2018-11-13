@@ -53,7 +53,7 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       '/dls_sw/apps/mx-scripts/dbserver/src/phasing2ispyb.py',
       '-s', 'sci-serv3', '-p', '1994', '--fix_sgids', '-d',
       '-i', xml_file,
-      '-f', self._mtz,
+      '-f', params['fast_ep']['data'],
       '-o', os.path.join(params['working_directory'], 'fast_ep_ispyb_ids.xml')
     ]
 
@@ -77,12 +77,10 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     assert hasattr(self, 'recwrap'), \
       "No recipewrapper object found"
 
-    if params.get('ispyb_parameters'):
-      if params['ispyb_parameters'].get('data'):
-        params['fast_ep']['data'] = os.path.abspath(params['ispyb_parameters']['data'])
-
     params = self.recwrap.recipe_step['job_parameters']
     if 'ispyb_parameters' in params:
+      if params['ispyb_parameters'].get('data'):
+        params['fast_ep']['data'] = os.path.abspath(params['ispyb_parameters']['data'])
       if params['ispyb_parameters'].get('check_go_fast_ep'):
         go_fast_ep = check_go_fast_ep(params['fast_ep']['data'])
         if not go_fast_ep:

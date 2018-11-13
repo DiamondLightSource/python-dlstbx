@@ -10,8 +10,8 @@ logger = logging.getLogger('dlstbx.wrap.fast_ep')
 
 class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
-  def check_go_fast_ep(self, mtz):
-    command = ['go_fast_ep', mtz]
+  def check_go_fast_ep(self, params):
+    command = ['go_fast_ep', params['fast_ep']['data']]
     result = procrunner.run_process(
       command, timeout=params.get('timeout'),
       print_stdout=True, print_stderr=True,
@@ -25,7 +25,7 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 
-    go_fast_ep = results['exitcode'] == 0
+    go_fast_ep = result['exitcode'] == 0
     if go_fast_ep:
       logger.info('Computer says go for fast_ep :)')
     else:
@@ -82,7 +82,7 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       if params['ispyb_parameters'].get('data'):
         params['fast_ep']['data'] = os.path.abspath(params['ispyb_parameters']['data'])
       if params['ispyb_parameters'].get('check_go_fast_ep'):
-        go_fast_ep = check_go_fast_ep(params['fast_ep']['data'])
+        go_fast_ep = self.check_go_fast_ep(params)
         if not go_fast_ep:
           return
     command = self.construct_commandline(params)

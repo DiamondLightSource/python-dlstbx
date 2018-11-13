@@ -15,8 +15,18 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
        Takes job parameter dictionary, returns array.'''
 
     command = ['fast_ep']
+    mtz = None
+    if self._params.get('ispyb_parameters'):
+      if self._params['ispyb_parameters'].get('data'):
+        mtz = os.path.abspath(self._params['ispyb_parameters'].get('data'))
+    if mtz is None:
+      mtz = os.path.abspath(self._params['fast_ep']['data'])
+    assert mtz is not None
+    command.append('data=%s' % mtz)
 
     for param, value in params['fast_ep'].iteritems():
+      if param == 'data':
+        continue
       logging.info('Parameter %s: %s' % (param, str(value)))
       if param == 'rlims':
         value = ','.join([str(r) for r in value])

@@ -38,18 +38,18 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     return command
 
   def get_matching_pdb(self):
+    results = []
     if self._params.get('ispyb_parameters'):
       if self._params['ispyb_parameters'].get('pdb'):
         results = self._params['ispyb_parameters'].get('pdb')
         if isinstance(results, basestring):
           results = [results]
-    else:
+    if not results:
       import ispyb.model.__future__
       i = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
       ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
       dcid = self._params['dcid']
       working_directory = os.path.abspath(self._params['working_directory'])
-      results = []
       for pdb in i.get_data_collection(dcid).pdb:
         #logger.info(pdb.name, pdb.code, pdb.rawfile)
         if pdb.code is not None:

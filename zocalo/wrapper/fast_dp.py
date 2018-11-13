@@ -216,6 +216,19 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 
+    command = [
+      'xia2.report',
+      'log_include=%s' % os.path.join(working_directory, 'fast_dp.log'),
+      'prefix=fast_dp',
+      'title=fast_dp',
+      'fast_dp_unmerged.mtz'
+    ]
+    # run fast_dp in working directory
+    result = procrunner.run_process(
+      command, timeout=params.get('timeout'),
+      print_stdout=False, print_stderr=False,
+      working_directory=working_directory)
+
     # Create results directory and symlink if they don't already exist
     py.path.local(results_directory).ensure(dir=True)
     if params.get('results_symlink'):
@@ -226,6 +239,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       ".INP": None,
       ".xml": None,
       ".log": 'log',
+      ".html": 'html',
       ".txt": "log",
       ".error": "log",
       ".LP": "log",

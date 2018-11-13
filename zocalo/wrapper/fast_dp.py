@@ -121,7 +121,42 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         '<autoProcIntegrationId>%d</autoProcIntegrationId>'\
         '<code>ok</code></dbstatus>' % (app_id, ap_id, scaling_id, integration_id))
 
+    self._scaling_id = scaling_id
     logger.info("Saved fast_dp information for data collection %s", str(dcid))
+
+  def run_dimple(self, scaling_id):
+
+    def has_matching_pdb():
+      import ispyb.model.__future__
+      i = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
+      ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+      dcid = self._params['dcid']
+      for pdb in i.get_data_collection(dcid).pdb:
+        if pdb.code is not None:
+          return True
+        elif pdb.rawfile is not None:
+          assert pdb.name is not None
+          return True
+      return False
+
+    if has_matching_pdb():
+      results_directory = os.path.abspath(self._params['results_directory'])
+      fast_dp_mtz = os.path.join(results_directory, 'fast_dp.mtz')
+      command = [
+        'ispyb.job', '--new', '--dcid',
+         '%i' % self._params['dcid'],
+         '--trigger',
+         '--recipe', 'postprocessing-dimple',
+         '--add-param=data:%s' % fast_dp_mtz,
+         '--add-param=results_directory:%s/dimple' % results_directory,
+         '--add-param=scaling_id:%s' % scaling_id,
+         '-v'
+      ]
+      # run ispyb.job to launch new dimple zocalo job
+      result = procrunner.run_process(
+        command, timeout=self._params.get('timeout'),
+        print_stdout=True, print_stderr=True,
+        working_directory=self._params['working_directory'])
 
   def construct_commandline(self, params):
     '''Construct fast_dp command line.
@@ -236,6 +271,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     xml_file = os.path.join(working_directory, 'fast_dp.xml')
     if os.path.exists(xml_file):
       self.send_results_to_ispyb(xml_file)
+      self.run_dimple(self._scaling_id)
     else:
       logger.warning('Expected output file %s missing', xml_file)
 

@@ -61,6 +61,7 @@ if __name__ == '__main__':
 
   messages = []
   sources = []
+  log.debug("Called with %s", str(sys.argv))
 
   for jsonfile in options.json:
     log.debug("Loading %s", jsonfile)
@@ -69,7 +70,7 @@ if __name__ == '__main__':
     sources.append(jsonfile)
 
   if options.xia2:
-    log.debug("Reading xia2 results")
+    log.debug("Reading xia2 results from %s", os.getcwd())
     from xia2.command_line.ispyb_json import ispyb_object
     messages.append(ispyb_object())
     sources.append(os.path.join(os.getcwd(), 'xia2.txt'))

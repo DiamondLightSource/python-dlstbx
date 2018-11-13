@@ -33,7 +33,7 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
   message, parameters = ispyb_filter(message, parameters)
 
   assert message == { 'dummy_msg': mock.sentinel.dummy_msg, 'default_recipe': mock.ANY }
-  for service in ['per-image-analysis-rotation', 'processing-fast-dp', 'processing-xia2-3dii', 'processing-xia2-dials', 'processing-multi-xia2-dials', 'processing-multi-xia2-3dii', 'processing-autoproc']:
+  for service in ['per-image-analysis-rotation', 'processing-fast-dp', 'processing-xia2-3dii', 'processing-xia2-dials', 'processing-autoproc']:
     assert service in message['default_recipe']
   assert parameters['ispyb_beamline'] == 'i03'
   assert parameters['ispyb_dcid'] == ds['gphl_C2']
@@ -45,7 +45,7 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
   assert parameters['ispyb_dc_info']['numberOfImages'] == 1800
   assert parameters['ispyb_image'] == '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800'
   assert parameters['ispyb_image_pattern'] == 'TRP_M1S6_4_%04d.cbf'
-  assert parameters['ispyb_images'] == '/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_1_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_2_0001.cbf:1:1800,/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_3_0001.cbf:1:1800'
+  assert parameters['ispyb_images'] == ''
   assert parameters['ispyb_results_directory'].startswith('/dls/i03/data/2016/cm14451-4/processed/tmp/2016-10-07/fake113556/TRP_M1S6_4_/')
   assert parameters['ispyb_working_directory'].startswith('/dls/i03/data/2016/cm14451-4/tmp/zocalo/tmp/2016-10-07/fake113556/TRP_M1S6_4_')
 

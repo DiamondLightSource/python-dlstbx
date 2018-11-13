@@ -125,12 +125,12 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.info("Saved fast_dp information for data collection %s", str(dcid))
 
   def run_dimple(self, scaling_id):
+    params = self.recwrap.recipe_step['job_parameters']
 
-    def has_matching_pdb():
+    def has_matching_pdb(dcid):
       import ispyb.model.__future__
       i = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
       ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
-      dcid = self._params['dcid']
       for pdb in i.get_data_collection(dcid).pdb:
         if pdb.code is not None:
           return True
@@ -139,12 +139,12 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           return True
       return False
 
-    if has_matching_pdb():
-      results_directory = os.path.abspath(self._params['results_directory'])
+    if has_matching_pdb(params['dcid']):
+      results_directory = os.path.abspath(params['results_directory'])
       fast_dp_mtz = os.path.join(results_directory, 'fast_dp.mtz')
       command = [
         'ispyb.job', '--new', '--dcid',
-         '%i' % self._params['dcid'],
+         '%i' % params['dcid'],
          '--trigger',
          '--recipe', 'postprocessing-dimple',
          '--add-param=data:%s' % fast_dp_mtz,
@@ -154,9 +154,9 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       ]
       # run ispyb.job to launch new dimple zocalo job
       result = procrunner.run_process(
-        command, timeout=self._params.get('timeout'),
+        command, timeout=params.get('timeout'),
         print_stdout=True, print_stderr=True,
-        working_directory=self._params['working_directory'])
+        working_directory=params['working_directory'])
 
   def construct_commandline(self, params):
     '''Construct fast_dp command line.

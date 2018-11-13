@@ -161,7 +161,6 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
   def run_fast_ep(self, scaling_id):
     params = self.recwrap.recipe_step['job_parameters']
 
-    #if go_fast_ep.sh
     results_directory = os.path.abspath(params['results_directory'])
     fast_dp_mtz = os.path.join(results_directory, 'fast_dp.mtz')
     command = [
@@ -170,6 +169,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
        '--trigger',
        '--recipe', 'postprocessing-fast-ep',
        '--add-param=data:%s' % fast_dp_mtz,
+       '--add-param=check_go_fast_ep:True',
        '--add-param=results_directory:%s/dimple' % results_directory,
        '--add-param=scaling_id:%s' % scaling_id,
        '-v'

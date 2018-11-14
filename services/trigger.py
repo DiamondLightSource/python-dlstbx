@@ -23,6 +23,7 @@ class DLSTrigger(CommonService):
     '''Subscribe to the trigger queue. Received messages must be acknowledged.'''
     workflows.recipe.wrap_subscribe(self._transport, 'trigger',
         self.trigger, acknowledgement=True, log_extender=self.extend_log)
+    self.ispyb = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
 
   def trigger(self, rw, header, message):
     '''Forward the trigger message to a specific trigger function.'''
@@ -42,7 +43,7 @@ class DLSTrigger(CommonService):
     rw.set_default_channel('output')
     def parameters(parameter, replace_variables=True):
       if isinstance(message, dict):
-        base_value = message.get(parameter, parms.get(parameter))
+        base_value = message.get(parameter, params.get(parameter))
       else:
         base_value = params.get(parameter)
       if not replace_variables or not base_value \
@@ -55,6 +56,7 @@ class DLSTrigger(CommonService):
       return base_value
     result = getattr(self, 'trigger_' + target)(
         rw=rw,
+        header=header,
         message=message,
         parameters=parameters,
         transaction=txn,
@@ -68,25 +70,59 @@ class DLSTrigger(CommonService):
       return
     rw.transport.transaction_commit(txn)
 
-  @staticmethod
-  def dimple_has_matching_pdb(dcid):
-    with ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg') as i:
-      import ispyb.model.__future__
-      ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
-      for pdb in i.get_data_collection(dcid).pdb:
-        if pdb.code is not None:
-          return True
-        elif pdb.rawfile is not None:
-          assert pdb.name is not None
-          return True
-      return False
-
-  def trigger_dimple(self, rw, header, parameters):
-    dcid = parameters.get('dcid')
+  def trigger_dimple(self, rw, header, parameters, **kwargs):
+    dcid = parameters('dcid')
     if not dcid:
       self.log.error('Dimple trigger failed: No DCID specified')
       return False
-    if not self.dimple_has_matching_pdb(dcid):
+
+    import ispyb.model.__future__
+    ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+
+    dc_info = self.ispyb.get_data_collection(dcid)
+    if not dc_info.pdb:
       self.log.info('Skipping dimple trigger: DCID has no associated PDB information')
       return {'success': True}
-    self.log.warn('Triggering dimple')
+
+    dimple_parameters = {
+        'data': parameters('mtz'),
+        'results_directory': parameters('results_directory'),
+        'scaling_id': parameters('scaling_id'),
+    }
+
+    jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+    jisp['datacollectionid'] = dcid
+    jisp['start_image'] = dc_info.image_start_number
+    jisp['end_image'] = dc_info.image_start_number + dc_info.image_count - 1
+
+    self.log.debug('Dimple trigger: Starting')
+
+    jp = self.ispyb.mx_processing.get_job_params()
+    jp['automatic'] = bool(parameters('automatic'))
+    jp['comments'] = parameters('comment')
+    jp['datacollectionid'] = dcid
+    jp['display_name'] = "DIMPLE"
+    jp['recipe'] = "postprocessing-dimple"
+    jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+    self.log.debug('Dimple trigger: generated JobID {}'.format(jobid))
+
+    for key, value in dimple_parameters.items():
+      jpp = self.ispyb.mx_processing.get_job_parameter_params()
+      jpp['job_id'] = jobid
+      jpp['parameter_key'] = key
+      jpp['parameter_value'] = value
+      jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+      self.log.debug('Dimple trigger: generated JobParameterID {}'.format(jppid))
+
+    jisp['job_id'] = jobid
+    jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
+    self.log.debug('Dimple trigger: generated JobImageSweepID {}'.format(jispid))
+
+    self.log.debug('Dimple trigger: Processing job {} created'.format(jobid))
+
+    message = { 'recipes': [], 'parameters': { 'ispyb_process': jobid } }
+    rw.transport.send('processing_recipe', message)
+
+    self.log.info('Dimple trigger: Processing job {} triggered'.format(jobid))
+
+    return {'success': True, 'return_value': jobid}

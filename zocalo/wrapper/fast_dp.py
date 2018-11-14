@@ -171,16 +171,16 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     # Create working directory with symbolic link
     working_directory.ensure(dir=True)
-    if params.get('results_symlink'):
-      dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['results_symlink'])
+    if params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['create_symlink'])
 
     # Create SynchWeb ticks hack file. This will be overwritten with the real log later.
     # For this we need to create the results directory and symlink immediately.
     if params.get('synchweb_ticks'):
       logger.debug('Setting SynchWeb status to swirl')
-      if params.get('results_symlink'):
+      if params.get('create_symlink'):
         results_directory.ensure(dir=True)
-        dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['results_symlink'])
+        dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
       py.path.local(params['synchweb_ticks']).ensure()
 
     # run fast_dp in working directory
@@ -218,8 +218,8 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     # Create results directory and symlink if they don't already exist
     results_directory.ensure(dir=True)
-    if params.get('results_symlink'):
-      dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['results_symlink'])
+    if params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
 
     # copy output files to result directory
     keep_ext = {

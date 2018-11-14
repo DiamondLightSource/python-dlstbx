@@ -109,9 +109,6 @@ class DLSISPyB(CommonService):
           transaction=txn,
       )
       rw.transport.ack(header, transaction=txn)
-#   elif rw.has_output_channel('error'):  # workflows does not support this atm
-#     rw.send_to(...)
-#     rw.transport.ack(header, transaction=txn)
     else:
       rw.transport.transaction_abort(txn)
       rw.transport.nack(header)

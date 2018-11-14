@@ -13,116 +13,80 @@ import py
 logger = logging.getLogger('dlstbx.wrap.fast_dp')
 
 class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
-  @staticmethod
-  def xml_to_dict(filename):
-    def make_dict_from_tree(element_tree):
-        """Traverse the given XML element tree to convert it into a dictionary.
+  def send_results_to_ispyb(self, z):
+    ispyb_command_list = []
 
-        :param element_tree: An XML element tree
-        :type element_tree: xml.etree.ElementTree
-        :rtype: dict
-        """
-        def internal_iter(tree, accum):
-            """Recursively iterate through the elements of the tree accumulating
-            a dictionary result.
+    # Step 1: Add new record to AutoProc, keep the AutoProcID
+    register_autoproc = {
+        'ispyb_command': 'write_autoproc',
+        'autoproc_id': None,
+        'store_result': 'ispyb_autoproc_id',
+        'spacegroup': z['spacegroup'],
+        'refinedcell_a': z['unit_cell'][0],
+        'refinedcell_b': z['unit_cell'][1],
+        'refinedcell_c': z['unit_cell'][2],
+        'refinedcell_alpha': z['unit_cell'][3],
+        'refinedcell_beta': z['unit_cell'][4],
+        'refinedcell_gamma': z['unit_cell'][5],
+    }
+    ispyb_command_list.append(register_autoproc)
 
-            :param tree: The XML element tree
-            :type tree: xml.etree.ElementTree
-            :param accum: Dictionary into which data is accumulated
-            :type accum: dict
-            :rtype: dict
-            """
-            if tree is None:
-                return accum
-            if tree.getchildren():
-                accum[tree.tag] = {}
-                for each in tree.getchildren():
-                    result = internal_iter(each, {})
-                    if each.tag in accum[tree.tag]:
-                        if not isinstance(accum[tree.tag][each.tag], list):
-                            accum[tree.tag][each.tag] = [
-                                accum[tree.tag][each.tag]
-                            ]
-                        accum[tree.tag][each.tag].append(result[each.tag])
-                    else:
-                        accum[tree.tag].update(result)
-            else:
-                accum[tree.tag] = tree.text
-            return accum
-        return internal_iter(element_tree, {})
-    import xml.etree.ElementTree
-    return make_dict_from_tree(xml.etree.ElementTree.parse(filename).getroot())
+    # Step 2: Store scaling results, linked to the AutoProcID
+    #         Keep the AutoProcScalingID
+    insert_scaling = z['scaling_statistics']
+    insert_scaling.update({
+        'ispyb_command': 'insert_scaling',
+        'autoproc_id': '$ispyb_autoproc_id',
+        'store_result': 'ispyb_autoprocscaling_id',
+    })
+    ispyb_command_list.append(insert_scaling)
 
-  def send_results_to_ispyb(self, xml_file):
-    logger.debug("Reading fast_dp results")
-    message = self.xml_to_dict(xml_file)['AutoProcContainer']
-    # Do not accept log entries from the object, we add those separately
-    message['AutoProcProgramContainer']['AutoProcProgramAttachment'] = filter(
-       lambda x: x.get('fileType') != 'Log', message['AutoProcProgramContainer']['AutoProcProgramAttachment'])
+    # Step 3: Store integration result, linked to the ScalingID
+    integration = {
+        'ispyb_command': 'upsert_integration',
+        'scaling_id': '$ispyb_autoprocscaling_id',
+        'cell_a': z['unit_cell'][0],
+        'cell_b': z['unit_cell'][1],
+        'cell_c': z['unit_cell'][2],
+        'cell_alpha': z['unit_cell'][3],
+        'cell_beta': z['unit_cell'][4],
+        'cell_gamma': z['unit_cell'][5],
+        'refined_xbeam': z['refined_beam'][0],
+        'refined_ybeam': z['refined_beam'][1],
+    }
+    ispyb_command_list.append(integration)
 
-    def recursive_replace(thing, old, new):
-      '''Recursive string replacement in data structures.'''
+    logger.info("Sending %s", str(ispyb_command_list))
+    self.recwrap.send_to('ispyb', {
+        'ispyb_command_list': ispyb_command_list,
+    })
+    logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
-      def _recursive_apply(item):
-        '''Internal recursive helper function.'''
-        if isinstance(item, basestring):
-          return item.replace(old, new)
-        if isinstance(item, dict):
-          return { _recursive_apply(key): _recursive_apply(value) for
-                   key, value in item.items() }
-        if isinstance(item, tuple):
-          return tuple(_recursive_apply(list(item)))
-        if isinstance(item, list):
-          return [ _recursive_apply(x) for x in item ]
-        return item
-      return _recursive_apply(thing)
-
-    logger.debug("Replacing temporary zocalo paths with correct destination paths")
-    message = recursive_replace(
-        message,
-        self.recwrap.recipe_step['job_parameters']['working_directory'],
-        self.recwrap.recipe_step['job_parameters']['results_directory']
-      )
-
-    dcid = int(self.recwrap.recipe_step['job_parameters']['dcid'])
-    assert dcid > 0, "Invalid data collection ID given."
-    logger.debug("Writing to data collection ID %s", str(dcid))
-    if isinstance(message['AutoProcScalingContainer']['AutoProcIntegrationContainer'], dict):  # Make it a list regardless
-      message['AutoProcScalingContainer']['AutoProcIntegrationContainer'] = [message['AutoProcScalingContainer']['AutoProcIntegrationContainer']]
-    for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
-      container['AutoProcIntegration']['dataCollectionId'] = dcid
-
-    ## Use existing AutoProcProgramID
-    #if self.recwrap.environment.get('ispyb_autoprocprogram_id'):
-    #  message['AutoProcProgramContainer']['AutoProcProgram'] = \
-    #    self.recwrap.environment['ispyb_autoprocprogram_id']
-
-    logger.debug("Sending %s", str(message))
-    #self.recwrap.transport.send('ispyb', message)
-
-    import ispyb
-    from ispyb.xmltools import mx_data_reduction_to_ispyb
-    # see also /dls_sw/apps/python/anaconda/1.7.0/64/bin/mxdatareduction2ispyb.py
-    ispyb_config_file = os.environ.get('ISPYB_CONFIG_FILE')
-    with ispyb.open(ispyb_config_file) as conn:
-      (app_id, ap_id, scaling_id, integration_id) = mx_data_reduction_to_ispyb(
-        message, dcid, conn.mx_processing)
-
-    # Write results to xml_out_file
-    ispyb_ids_xml = os.path.join(
-      self.recwrap.recipe_step['job_parameters']['working_directory'],
-      'ispyb_ids.xml')
-    with open(ispyb_ids_xml, 'wb') as f:
-      f.write(
-        '<?xml version="1.0" encoding="ISO-8859-1"?>'\
-        '<dbstatus><autoProcProgramId>%d</autoProcProgramId>'\
-        '<autoProcId>%d</autoProcId>'\
-        '<autoProcScalingId>%d</autoProcScalingId>'\
-        '<autoProcIntegrationId>%d</autoProcIntegrationId>'\
-        '<code>ok</code></dbstatus>' % (app_id, ap_id, scaling_id, integration_id))
-
-    self._scaling_id = scaling_id
-    logger.info("Saved fast_dp information for data collection %s", str(dcid))
+#    import ispyb
+#    from ispyb.xmltools import mx_data_reduction_to_ispyb
+#    # see also /dls_sw/apps/python/anaconda/1.7.0/64/bin/mxdatareduction2ispyb.py
+#    ispyb_config_file = os.environ.get('ISPYB_CONFIG_FILE')
+#    with ispyb.open(ispyb_config_file) as conn:
+#      (app_id, ap_id, scaling_id, integration_id) = mx_data_reduction_to_ispyb(
+#        message, dcid, conn.mx_processing)
+#
+#    # Write results to xml_out_file
+#    ispyb_ids_xml = os.path.join(
+#      self.recwrap.recipe_step['job_parameters']['working_directory'],
+#      'ispyb_ids.xml')
+#    with open(ispyb_ids_xml, 'wb') as f:
+#      f.write(
+#        '<?xml version="1.0" encoding="ISO-8859-1"?>'\
+#        '<dbstatus><autoProcProgramId>%d</autoProcProgramId>'\
+#        '<autoProcId>%d</autoProcId>'\
+#        '<autoProcScalingId>%d</autoProcScalingId>'\
+#        '<autoProcIntegrationId>%d</autoProcIntegrationId>'\
+#        '<code>ok</code></dbstatus>' % (app_id, ap_id, scaling_id, integration_id))
+#
+#    self._scaling_id = scaling_id
+#    logger.info("Saved fast_dp information for data collection %s", str(dcid))
+#    self.run_dimple(self._scaling_id)
+#    self.run_fast_ep(self._scaling_id)
 
   def run_dimple(self, scaling_id):
     params = self.recwrap.recipe_step['job_parameters']
@@ -292,23 +256,13 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           'file_type': filetype,
         })
 
-# Correct way:
-#    # Forward JSON results if possible
-#    if os.path.exists('fast_dp.json'):
-#      with open('fast_dp.json', 'rb') as fh:
-#        json_data = json.load(fh)
-#      self.recwrap.send_to('result-json', json_data)
-#    else:
-#      logger.warning('Expected JSON output file missing')
-
-# Wrong way:
-    xml_file = os.path.join(working_directory, 'fast_dp.xml')
-    if os.path.exists(xml_file):
-      self.send_results_to_ispyb(xml_file)
-      self.run_dimple(self._scaling_id)
-      self.run_fast_ep(self._scaling_id)
-    else:
-      logger.warning('Expected output file %s missing', xml_file)
+     # Forward JSON results if possible
+     if working_directory.join('fast_dp.json').check():
+       with working_directory.join('fast_dp.json').open('rb') as fh:
+         json_data = json.load(fh)
+       self.send_results_to_ispyb(json_data)
+     else:
+       logger.warning('Expected JSON output file missing')
 
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })

@@ -221,7 +221,7 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if params.get('create_symlink'):
       dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
 
-    # copy output files to result directory
+    # copy output files to result directory and attach them in ISPyB
     keep_ext = {
       ".INP": False,
       ".xml": False,
@@ -255,6 +255,8 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           'file_name': destination.basename,
           'file_type': filetype,
         })
+    if allfiles:
+      self.record_result_all_files({ 'filelist': allfiles })
 
     # Forward JSON results if possible
     if working_directory.join('fast_dp.json').check():
@@ -263,8 +265,5 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       self.send_results_to_ispyb(json_data)
     else:
       logger.warning('Expected JSON output file missing')
-
-    if allfiles:
-      self.record_result_all_files({ 'filelist': allfiles })
 
     return result['exitcode'] == 0

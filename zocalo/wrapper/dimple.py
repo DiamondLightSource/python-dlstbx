@@ -39,7 +39,6 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if not log_file.check():
       logger.error('Can not insert dimple results into ISPyB: dimple.log not found')
       return False
-    logger.debug('Inserting dimple phasing results into ISPyB')
     log = ConfigParser.RawConfigParser()
     log.read(log_file.strpath)
 
@@ -50,6 +49,8 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       logger.error('Can not write results to ISPyB: no scaling ID set (%r)', scaling_id)
       return False
     scaling_id = int(scaling_id)
+    logger.debug('Inserting dimple phasing results from %s into ISPyB for scaling_id %d',
+        self.results_directory.strpath, scaling_id)
 
     # see also /dls_sw/apps/python/anaconda/1.7.0/64/bin/dimple2ispyb.py
     with ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg') as conn:

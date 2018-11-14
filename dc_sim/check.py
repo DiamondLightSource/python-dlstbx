@@ -28,10 +28,11 @@ def check_test_outcome(test, db):
       expected_outcome = df.tests[test['scenario']]['results']
 
       for variable in ('a', 'b', 'c', 'alpha', 'beta', 'gamma'):
-        if expected_outcome[variable] != getattr(integration.unit_cell, variable):
+        outcome = getattr(integration.unit_cell, variable)
+        if outcome is None or expected_outcome[variable] != outcome:
           failure_reasons.append(error_explanation.format(
               variable=variable,
-              value=getattr(integration.unit_cell, variable),
+              value=outcome,
               expected=expected_outcome[variable],
               program=integration.program.name,
               dcid=dcid,

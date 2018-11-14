@@ -202,30 +202,30 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     params = self.recwrap.recipe_step['job_parameters']
     command = self.construct_commandline(params)
 
-    working_directory = params['working_directory']
-    results_directory = params['results_directory']
+    working_directory = py.path.local(params['working_directory'])
+    results_directory = py.path.local(params['results_directory'])
 
     # Create working directory with symbolic link
-    py.path.local(working_directory).ensure(dir=True)
+    working_directory.ensure(dir=True)
     if params.get('results_symlink'):
-      dlstbx.util.symlink.create_parent_symlink(working_directory, params['results_symlink'])
+      dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['results_symlink'])
 
     # Create SynchWeb ticks hack file. This will be overwritten with the real log later.
     # For this we need to create the results directory and symlink immediately.
     if params.get('synchweb_ticks'):
       logger.debug('Setting SynchWeb status to swirl')
       if params.get('results_symlink'):
-        py.path.local(results_directory).ensure(dir=True)
-        dlstbx.util.symlink.create_parent_symlink(results_directory, params['results_symlink'])
+        results_directory.ensure(dir=True)
+        dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['results_symlink'])
       py.path.local(params['synchweb_ticks']).ensure()
 
     # run fast_dp in working directory
     result = procrunner.run_process(
       command, timeout=params.get('timeout'),
       print_stdout=False, print_stderr=False,
-      working_directory=working_directory)
+      working_directory=working_directory.strpath)
 
-    if os.path.exists('fast_dp.error'):
+    if working_directory.join('fast_dp.error').check():
       # fast_dp anomaly: exit code 0 and no stderr output still means failure if error file exists
       result['exitcode'] = 1
 
@@ -238,28 +238,29 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 
-    command = [
-      'xia2.report',
-      'log_include=%s' % os.path.join(working_directory, 'fast_dp.log'),
-      'prefix=fast_dp',
-      'title=fast_dp',
-      'fast_dp_unmerged.mtz'
-    ]
-    # run fast_dp in working directory
-    result = procrunner.run_process(
-      command, timeout=params.get('timeout'),
-      print_stdout=False, print_stderr=False,
-      working_directory=working_directory)
+    if result['exitcode'] == 0:
+      command = [
+          'xia2.report',
+          'log_include=%s' % working_directory.join('fast_dp.log').strpath,
+          'prefix=fast_dp',
+          'title=fast_dp',
+          'fast_dp_unmerged.mtz'
+      ]
+      # run fast_dp in working directory
+      result = procrunner.run_process(
+          command, timeout=params.get('timeout'),
+          print_stdout=False, print_stderr=False,
+          working_directory=working_directory.strpath)
 
     # Create results directory and symlink if they don't already exist
-    py.path.local(results_directory).ensure(dir=True)
+    results_directory.ensure(dir=True)
     if params.get('results_symlink'):
-      dlstbx.util.symlink.create_parent_symlink(results_directory, params['results_symlink'])
+      dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['results_symlink'])
 
     # copy output files to result directory
     keep_ext = {
-      ".INP": None,
-      ".xml": None,
+      ".INP": False,
+      ".xml": False,
       ".log": 'log',
       ".html": 'log',
       ".txt": "log",
@@ -273,26 +274,23 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       "fast_dp-report.json": "graph",
       "iotbx-merging-stats.json": "graph",
     }
-    files = os.listdir(working_directory)
-    for filename in files:
-      ext = os.path.splitext(filename)[-1]
-      if ext in keep_ext:
-        keep[filename] = keep_ext[ext]
-
     allfiles = []
-    for filename, filetype in keep.iteritems():
-      filenamefull = os.path.join(working_directory, filename)
-      if os.path.exists(filenamefull):
-        dst = os.path.join(results_directory, filename)
-        logger.debug('Copying %s to %s' % (filenamefull, dst))
-        shutil.copy(filenamefull, dst)
-        allfiles.append(dst)
-        if filetype is not None:
-          self.record_result_individual_file({
-            'file_path': results_directory,
-            'file_name': filename,
-            'file_type': filetype,
-          })
+    for filename in working_directory.listdir():
+      filetype = keep_ext.get(filename.ext)
+      if filename.basename in keep:
+        filetype = keep[filename.basename]
+      if filetype is None:
+        continue
+      destination = results_directory.join(filename.basename)
+      logger.debug('Copying %s to %s' % (filename.strpath, destination.strpath))
+      allfiles.append(destination.strpath)
+      filename.copy(destination)
+      if filetype:
+        self.record_result_individual_file({
+          'file_path': destination.dirname,
+          'file_name': destination.basename,
+          'file_type': filetype,
+        })
 
 # Correct way:
 #    # Forward JSON results if possible

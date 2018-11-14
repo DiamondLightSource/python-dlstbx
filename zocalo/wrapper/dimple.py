@@ -18,32 +18,6 @@ logger = logging.getLogger('dlstbx.wrap.dimple')
 
 class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
-  def construct_commandline(self):
-    '''Construct dimple command line.
-       Takes job parameter dictionary, returns array.'''
-    mtz = self.params.get('ispyb_parameters', {}).get('data') \
-        or self.params['dimple']['data']
-    if not mtz:
-      logger.error('Could not identify on what data to run')
-      return False
-    mtz = os.path.abspath(mtz)
-    if not os.path.exists(mtz):
-      logger.error('Could not find data file to process')
-      return False
-    pdb = self.get_matching_pdb()
-    if not pdb:
-      logger.error('Not running dimple as no PDB file available')
-      return False
-
-    command = ['dimple', mtz] \
-        + pdb \
-        + [
-            self.working_directory.strpath,
-            # '--dls-naming',
-            '-fpng',
-          ]
-    return command
-
   def get_matching_pdb(self):
     results = []
     with ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg') as i:
@@ -120,8 +94,27 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     self.working_directory = py.path.local(self.params['working_directory'])
     self.results_directory = py.path.local(self.params['results_directory'])
 
-    command = self.construct_commandline()
-    if not command: return False
+    mtz = self.params.get('ispyb_parameters', {}).get('data') \
+        or self.params['dimple']['data']
+    if not mtz:
+      logger.error('Could not identify on what data to run')
+      return False
+    mtz = os.path.abspath(mtz)
+    if not os.path.exists(mtz):
+      logger.error('Could not find data file to process')
+      return False
+    pdb = self.get_matching_pdb()
+    if not pdb:
+      logger.error('Not running dimple as no PDB file available')
+      return False
+
+    command = ['dimple', mtz] \
+        + pdb \
+        + [
+            self.working_directory.strpath,
+            # '--dls-naming',
+            '-fpng',
+          ]
 
     self.working_directory.ensure(dir=True)
     if self.params.get('create_symlink'):
@@ -146,6 +139,10 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     self.results_directory.ensure(dir=True)
     if self.params.get('create_symlink'):
       dlstbx.util.symlink.create_parent_symlink(self.results_directory.strpath, self.params['create_symlink'])
+      mtzsymlink = os.path.join(os.path.dirname(mtz), self.params['create_symlink'])
+      if not os.path.exists(mtzsymlink):
+        deltapath = os.path.relpath(self.results_directory.strpath, os.path.dirname(mtz))
+        os.symlink(deltapath, mtzsymlink)
 
     logger.info('Copying DIMPLE results to %s', self.results_directory.strpath)
     for f in self.working_directory.listdir():

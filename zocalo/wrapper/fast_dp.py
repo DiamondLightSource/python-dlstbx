@@ -256,13 +256,13 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           'file_type': filetype,
         })
 
-     # Forward JSON results if possible
-     if working_directory.join('fast_dp.json').check():
-       with working_directory.join('fast_dp.json').open('rb') as fh:
-         json_data = json.load(fh)
-       self.send_results_to_ispyb(json_data)
-     else:
-       logger.warning('Expected JSON output file missing')
+    # Forward JSON results if possible
+    if working_directory.join('fast_dp.json').check():
+      with working_directory.join('fast_dp.json').open('rb') as fh:
+        json_data = json.load(fh)
+      self.send_results_to_ispyb(json_data)
+    else:
+      logger.warning('Expected JSON output file missing')
 
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })

@@ -33,7 +33,7 @@ class DLSTrigger(CommonService):
       self.log.error("No trigger target defined in recipe")
       rw.transport.nack(header)
       return
-    if not hasattr(self, 'trigger_' + target)
+    if not hasattr(self, 'trigger_' + target):
       self.log.error("Unknown target %s defined in recipe", target)
       rw.transport.nack(header)
       return

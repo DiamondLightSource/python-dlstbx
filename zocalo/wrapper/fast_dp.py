@@ -134,7 +134,6 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
        '--recipe', 'postprocessing-fast-ep',
        '--add-param=data:%s' % fast_dp_mtz,
        '--add-param=check_go_fast_ep:True',
-       '--add-param=results_directory:%s/dimple' % results_directory,
        '--add-param=scaling_id:%s' % scaling_id,
        '-v'
     ]

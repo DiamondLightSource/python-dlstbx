@@ -61,7 +61,7 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     return results
 
   def send_results_to_ispyb(self):
-    log_file = self.working_directory.join('dimple.log')
+    log_file = self.results_directory.join('dimple.log')
     if not log_file.check():
       logger.error('Can not insert dimple results into ISPyB: dimple.log not found')
       return False
@@ -82,7 +82,7 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       params = conn.mx_processing.get_run_params()
       params['parentid'] = scaling_id
       params['pipeline'] = 'dimple'
-      params['log_file'] = log_file
+      params['log_file'] = log_file.strpath
       params['success'] = 1
 
       starttime = log.get(log.sections()[1], 'start_time')
@@ -96,17 +96,17 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       params['r_start'] = log.getfloat('refmac5 restr', 'ini_overall_r')
       params['r_end'] = log.getfloat('refmac5 restr', 'overall_r')
       params['message'] = " ".join(log.get('find-blobs', 'info').split()[:4])
-      params['run_dir'] = self.working_directory.strpath
+      params['run_dir'] = self.results_directory.strpath
       dimple_args = log.get('workflow', 'args').split()
       params['input_MTZ_file'] = dimple_args[0]
       params['input_coord_file'] = dimple_args[1]
-      params['output_MTZ_file'] = self.working_directory.join('final.mtz').strpath
-      params['output_coord_file'] = self.working_directory.join('final.pdb').strpath
+      params['output_MTZ_file'] = self.results_directory.join('final.mtz').strpath
+      params['output_coord_file'] = self.results_directory.join('final.pdb').strpath
       params['cmd_line'] = log.get('workflow', 'prog') + ' ' + log.get('workflow', 'args').replace('\n', ' ')
       mr_id = conn.mx_processing.upsert_run(list(params.values()))
 
       for n in (1,2):
-        if self.working_directory.join('/blob{}v1.png'.format(n)).check():
+        if self.results_directory.join('/blob{}v1.png'.format(n)).check():
           blobparam = conn.mx_processing.get_run_blob_params()
           blobparam['parentid'] = mr_id
           blobparam['view1'] = 'blob{0}v1.png'.format(n)
@@ -124,8 +124,8 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if not command: return False
 
     self.working_directory.ensure(dir=True)
-    if params.get('create_symlink'):
-      dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['create_symlink'])
+    if self.params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(self.working_directory.strpath, self.params['create_symlink'])
 
     result = procrunner.run(
         command,
@@ -144,16 +144,16 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     # copy output files to result directory
     self.results_directory.ensure(dir=True)
-    if params.get('create_symlink'):
-      dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
+    if self.params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(self.results_directory.strpath, self.params['create_symlink'])
 
     logger.info('Copying DIMPLE results to %s', self.results_directory.strpath)
     for f in self.working_directory.listdir():
-      if f.filename.startswith('.'): continue
+      if f.basename.startswith('.'): continue
       f.copy(self.results_directory)
 
     logger.info('Sending dimple results to ISPyB')
-    if not self.send_results_to_ispyb():
+    if self.send_results_to_ispyb() is False:
       return False
 
     return result['exitcode'] == 0

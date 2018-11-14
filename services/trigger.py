@@ -86,7 +86,6 @@ class DLSTrigger(CommonService):
 
     dimple_parameters = {
         'data': parameters('mtz'),
-        'results_directory': parameters('results_directory'),
         'scaling_id': parameters('scaling_id'),
     }
 

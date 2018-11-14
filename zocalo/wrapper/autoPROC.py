@@ -10,13 +10,51 @@ import procrunner
 
 logger = logging.getLogger('dlstbx.wrap.autoPROC')
 
-from dlstbx.zocalo.wrapper.fast_dp import FastDPWrapper
+def xml_to_dict(filename):
+  def make_dict_from_tree(element_tree):
+      """Traverse the given XML element tree to convert it into a dictionary.
+
+      :param element_tree: An XML element tree
+      :type element_tree: xml.etree.ElementTree
+      :rtype: dict
+      """
+      def internal_iter(tree, accum):
+          """Recursively iterate through the elements of the tree accumulating
+          a dictionary result.
+
+          :param tree: The XML element tree
+          :type tree: xml.etree.ElementTree
+          :param accum: Dictionary into which data is accumulated
+          :type accum: dict
+          :rtype: dict
+          """
+          if tree is None:
+              return accum
+          if tree.getchildren():
+              accum[tree.tag] = {}
+              for each in tree.getchildren():
+                  result = internal_iter(each, {})
+                  if each.tag in accum[tree.tag]:
+                      if not isinstance(accum[tree.tag][each.tag], list):
+                          accum[tree.tag][each.tag] = [
+                              accum[tree.tag][each.tag]
+                          ]
+                      accum[tree.tag][each.tag].append(result[each.tag])
+                  else:
+                      accum[tree.tag].update(result)
+          else:
+              accum[tree.tag] = tree.text
+          return accum
+      return internal_iter(element_tree, {})
+  import xml.etree.ElementTree
+  return make_dict_from_tree(xml.etree.ElementTree.parse(filename).getroot())
+
 
 class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
   def send_results_to_ispyb(self, xml_file, use_existing_autoprocprogram_id=True):
     logger.debug("Reading autoPROC results")
-    message = FastDPWrapper.xml_to_dict(xml_file)['AutoProcContainer']
+    message = xml_to_dict(xml_file)['AutoProcContainer']
     # Do not accept log entries from the object, we add those separately
     message['AutoProcProgramContainer']['AutoProcProgramAttachment'] = filter(
        lambda x: x.get('fileType') != 'Log', message['AutoProcProgramContainer']['AutoProcProgramAttachment'])

@@ -39,7 +39,7 @@ class BigEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     command = self.construct_commandline(params)
     result = procrunner.run(
         command, timeout=params.get('timeout'),
-        print_stdout=False, print_stderr=False,
+        print_stdout=True, print_stderr=True,
         working_directory=working_directory.strpath,
     )
 

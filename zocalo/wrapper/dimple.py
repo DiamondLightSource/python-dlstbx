@@ -121,6 +121,19 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if self.params.get('create_symlink'):
       dlstbx.util.symlink.create_parent_symlink(self.working_directory.strpath, self.params['create_symlink'])
 
+    # Create SynchWeb ticks hack file. This will be deleted or replaced later.
+    # For this we need to create the results directory and its symlink immediately.
+    if self.params.get('synchweb_ticks'):
+      logger.debug('Setting SynchWeb status to swirl')
+      if self.params.get('create_symlink'):
+        self.results_directory.ensure(dir=True)
+        dlstbx.util.symlink.create_parent_symlink(self.results_directory.strpath, self.params['create_symlink'])
+        mtzsymlink = os.path.join(os.path.dirname(mtz), self.params['create_symlink'])
+        if not os.path.exists(mtzsymlink):
+          deltapath = os.path.relpath(self.results_directory.strpath, os.path.dirname(mtz))
+          os.symlink(deltapath, mtzsymlink)
+      py.path.local(self.params['synchweb_ticks']).ensure()
+
     result = procrunner.run(
         command,
         working_directory=self.working_directory.strpath,
@@ -136,7 +149,7 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 
-    # copy output files to result directory
+    logger.info('Copying DIMPLE results to %s', self.results_directory.strpath)
     self.results_directory.ensure(dir=True)
     if self.params.get('create_symlink'):
       dlstbx.util.symlink.create_parent_symlink(self.results_directory.strpath, self.params['create_symlink'])
@@ -144,14 +157,24 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       if not os.path.exists(mtzsymlink):
         deltapath = os.path.relpath(self.results_directory.strpath, os.path.dirname(mtz))
         os.symlink(deltapath, mtzsymlink)
-
-    logger.info('Copying DIMPLE results to %s', self.results_directory.strpath)
     for f in self.working_directory.listdir():
       if f.basename.startswith('.'): continue
+      for skip_extension in ('.pickle', '.py', '.r3d', '.sh'):
+        if f.ext = skip_extension: continue
       f.copy(self.results_directory)
 
     logger.info('Sending dimple results to ISPyB')
-    if self.send_results_to_ispyb() is False:
-      return False
+    success = self.send_results_to_ispyb() and result['exitcode'] == 0
+
+    # Update SynchWeb tick hack file
+    if self.params.get('synchweb_ticks'):
+#      if success:
+#        logger.debug('Removing SynchWeb hack file')
+#        py.path.local(self.params['synchweb_ticks']).remove()
+#      else:
+        logger.debug('Updating SynchWeb hack file to failure')
+        py.path.local(self.params['synchweb_ticks']).write(
+            'This file is used as a flag to synchweb to show the processing has failed'
+        )
 
     return result['exitcode'] == 0

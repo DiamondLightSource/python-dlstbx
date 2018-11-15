@@ -168,10 +168,10 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     # Update SynchWeb tick hack file
     if self.params.get('synchweb_ticks'):
-#      if success:
-#        logger.debug('Removing SynchWeb hack file')
-#        py.path.local(self.params['synchweb_ticks']).remove()
-#      else:
+      if success:
+        logger.debug('Removing SynchWeb hack file')
+        py.path.local(self.params['synchweb_ticks']).remove()
+      else:
         logger.debug('Updating SynchWeb hack file to failure')
         py.path.local(self.params['synchweb_ticks']).write(
             'This file is used as a flag to synchweb to show the processing has failed'

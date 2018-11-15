@@ -173,3 +173,27 @@ class DLSTrigger(CommonService):
     self.log.info('fast_ep trigger: Processing job {} triggered'.format(jobid))
 
     return {'success': True, 'return_value': jobid}
+
+  def trigger_big_ep(self, rw, header, parameters, **kwargs):
+    dcid = parameters('dcid')
+    if not dcid:
+      self.log.error('big_ep trigger failed: No DCID specified')
+      return False
+
+    scaling_id = parameters('scaling_id')
+    if not scaling_id:
+      self.log.error('big_ep trigger failed: No scaling_id specified')
+      return False
+
+    message = {
+      'parameters': {
+        'ispyb_autoprocscalingid': parameters('scaling_id'),
+        'ispyb_dcid': dcid
+      },
+      'recipes': ['postprocessing-big-ep']
+    }
+    rw.transport.send('processing_recipe', message)
+
+    self.log.info('big_ep triggered')
+
+    return {'success': True, 'return_value': None}

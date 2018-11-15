@@ -14,10 +14,11 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
   def check_go_fast_ep(self, params):
     command = ['go_fast_ep', params['fast_ep']['data']]
-    result = procrunner.run_process(
-      command, timeout=params.get('timeout'),
-      print_stdout=True, print_stderr=True,
-      working_directory=params['working_directory'])
+    result = procrunner.run(
+        command, timeout=params.get('timeout'),
+        print_stdout=True, print_stderr=True,
+        working_directory=params['working_directory'],
+    )
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
@@ -42,7 +43,7 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     for param, value in params['fast_ep'].iteritems():
       logging.info('Parameter %s: %s' % (param, str(value)))
       if param == 'rlims':
-        value = ','.join([str(r) for r in value])
+        value = ','.join(str(r) for r in value)
       command.append('%s=%s' % (param, value))
     command.append('xml=fast_ep.xml')
 
@@ -59,11 +60,11 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       '-o', os.path.join(params['working_directory'], 'fast_ep_ispyb_ids.xml')
     ]
 
-    result = procrunner.run_process(
-      command, timeout=params.get('timeout'),
-      print_stdout=True, print_stderr=True,
-      working_directory=params['working_directory'])
-
+    result = procrunner.run(
+        command, timeout=params.get('timeout'),
+        print_stdout=True, print_stderr=True,
+        working_directory=params['working_directory'],
+    )
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
@@ -72,25 +73,21 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.info('exitcode: %s', result['exitcode'])
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
-
     return result['exitcode'] == 0
 
   def run(self):
-    assert hasattr(self, 'recwrap'), \
-      "No recipewrapper object found"
-
+    assert hasattr(self, 'recwrap'), "No recipewrapper object found"
     params = self.recwrap.recipe_step['job_parameters']
+    working_directory = py.path.local(params['working_directory'])
+    results_directory = py.path.local(params['results_directory'])
+
     if 'ispyb_parameters' in params:
       if params['ispyb_parameters'].get('data'):
         params['fast_ep']['data'] = os.path.abspath(params['ispyb_parameters']['data'])
       if params['ispyb_parameters'].get('check_go_fast_ep'):
-        go_fast_ep = self.check_go_fast_ep(params)
-        if not go_fast_ep:
-          return
-    command = self.construct_commandline(params)
-
-    working_directory = py.path.local(params['working_directory'])
-    results_directory = py.path.local(params['results_directory'])
+        if not self.check_go_fast_ep(params):
+          logger.info("Skipping fast_ep (check_go_fast_ep == No)")
+          return False
 
     # Create working directory with symbolic link
     working_directory.ensure(dir=True)
@@ -106,11 +103,12 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
       py.path.local(params['synchweb_ticks']).ensure()
 
-    result = procrunner.run_process(
-      command, timeout=params.get('timeout'),
-      print_stdout=False, print_stderr=False,
-      working_directory=working_directory.strpath)
-
+    command = self.construct_commandline(params)
+    result = procrunner.run(
+        command, timeout=params.get('timeout'),
+        print_stdout=False, print_stderr=False,
+        working_directory=working_directory.strpath,
+    )
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
@@ -125,7 +123,7 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if params.get('create_symlink'):
       dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
 
-    # copy output files to result directory
+    logger.info('Copying fast_ep results to %s', results_directory.strpath)
     keep_ext = {
       ".xml": False,
       ".html": "log",
@@ -150,14 +148,13 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       if filetype is None:
         continue
       destination = results_directory.join(filename.basename)
-      logger.debug('Copying %s to %s' % (filename.strpath, destination.strpath))
-      allfiles.append(destination.strpath)
       filename.copy(destination)
+      allfiles.append(destination.strpath)
       if filetype:
         self.record_result_individual_file({
-          'file_path': destination.dirname,
-          'file_name': destination.basename,
-          'file_type': filetype,
+            'file_path': destination.dirname,
+            'file_name': destination.basename,
+            'file_type': filetype,
         })
 
     xml_file = working_directory.join('fast_ep.xml')
@@ -165,7 +162,10 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       logger.info('Sending fast_ep phasing results to ISPyB')
       self.send_results_to_ispyb(xml_file.strpath)
     else:
-      logger.warning(
-        'Expected output file does not exist: %s' % xml_file.strpath)
+      if result['exitcode']:
+        logger.info('fast_ep failed, no .xml output, thus not reporting to ISPyB')
+      else:
+        logger.error('Expected output file does not exist: %s' % xml_file.strpath)
+      return False
 
     return result['exitcode'] == 0

@@ -125,3 +125,51 @@ class DLSTrigger(CommonService):
     self.log.info('Dimple trigger: Processing job {} triggered'.format(jobid))
 
     return {'success': True, 'return_value': jobid}
+
+  def trigger_fast_ep(self, rw, header, parameters, **kwargs):
+    dcid = parameters('dcid')
+    if not dcid:
+      self.log.error('fast_ep trigger failed: No DCID specified')
+      return False
+    dc_info = self.ispyb.get_data_collection(dcid)
+
+    jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+    jisp['datacollectionid'] = dcid
+    jisp['start_image'] = dc_info.image_start_number
+    jisp['end_image'] = dc_info.image_start_number + dc_info.image_count - 1
+
+    jp = self.ispyb.mx_processing.get_job_params()
+    jp['automatic'] = bool(parameters('automatic'))
+    jp['comments'] = parameters('comment')
+    jp['datacollectionid'] = dcid
+    jp['display_name'] = "fast_ep"
+    jp['recipe'] = "postprocessing-fast-ep"
+    jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+    self.log.debug('fast_ep trigger: generated JobID {}'.format(jobid))
+
+    fast_ep_parameters = {
+        'check_go_fast_ep': bool(parameters('automatic')),
+        'data': parameters('mtz'),
+        'scaling_id': parameters('scaling_id'),
+    }
+
+    for key, value in fast_ep_parameters.items():
+      jpp = self.ispyb.mx_processing.get_job_parameter_params()
+      jpp['job_id'] = jobid
+      jpp['parameter_key'] = key
+      jpp['parameter_value'] = value
+      jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+      self.log.debug('fast_ep trigger: generated JobParameterID {}'.format(jppid))
+
+    jisp['job_id'] = jobid
+    jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
+    self.log.debug('fast_ep trigger: generated JobImageSweepID {}'.format(jispid))
+
+    self.log.debug('fast_ep trigger: Processing job {} created'.format(jobid))
+
+    message = { 'recipes': [], 'parameters': { 'ispyb_process': jobid } }
+    rw.transport.send('processing_recipe', message)
+
+    self.log.info('fast_ep trigger: Processing job {} triggered'.format(jobid))
+
+    return {'success': True, 'return_value': jobid}

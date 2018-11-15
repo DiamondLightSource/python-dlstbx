@@ -8,6 +8,7 @@ import shutil
 import dlstbx.util.symlink
 import dlstbx.zocalo.wrapper
 import procrunner
+import py
 
 logger = logging.getLogger('dlstbx.wrap.xia2')
 
@@ -89,21 +90,39 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
   def run(self):
-    assert hasattr(self, 'recwrap'), \
-      "No recipewrapper object found"
+    assert hasattr(self, 'recwrap'), "No recipewrapper object found"
 
     params = self.recwrap.recipe_step['job_parameters']
     command = self.construct_commandline(params)
 
-    working_directory = params['working_directory']
-    if not os.path.exists(working_directory):
-      os.makedirs(working_directory)
+    # Adjust all paths if a spacegroup is set in ISPyB
+    if params['ispyb_parameters'].get('spacegroup') and \
+        '/' not in params['ispyb_parameters']['spacegroup']:
+      for parameter in ('working_directory', 'results_directory', 'create_symlink'):
+        if parameter in params:
+          params[parameter] += '-' + params['ispyb_parameters']['spacegroup']
+      # only runs without space group are shown in SynchWeb overview
+      params['synchweb_ticks'] = None
 
-    result = procrunner.run_process(
-      command, timeout=params.get('timeout'),
-      print_stdout=False, print_stderr=False,
-      working_directory=working_directory)
+    working_directory = py.path.local(params['working_directory'])
+    results_directory = py.path.local(params['results_directory'])
 
+    # Create working directory with symbolic link
+    working_directory.ensure(dir=True)
+    if params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['create_symlink'])
+
+    # Create SynchWeb ticks hack file.
+    # For xia2 this is independent of the results directory
+    if params.get('synchweb_ticks'):
+      logger.debug('Setting SynchWeb status to swirl')
+      py.path.local(params['synchweb_ticks']).ensure()
+
+    result = procrunner.run(
+        command, timeout=params.get('timeout'),
+        print_stdout=False, print_stderr=False,
+        working_directory=working_directory.strpath,
+    )
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
@@ -114,80 +133,90 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stderr'])
 
     # copy output files to result directory
-
-    results_directory = params['results_directory']
-    if params['ispyb_parameters'].get('spacegroup'):
-      results_directory += params['ispyb_parameters'].get('spacegroup')
-    if not os.path.exists(results_directory):
-      os.makedirs(results_directory)
+    results_directory.ensure(dir=True)
+    if params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
 
     for subdir in ('DataFiles', 'LogFiles'):
-      src = os.path.join(working_directory, subdir)
-      dst = os.path.join(results_directory, subdir)
-      if os.path.exists(src):
-        logger.debug('Copying %s to %s' % (src, dst))
-        shutil.copytree(src, dst)
+      src = working_directory.join(subdir)
+      dst = results_directory.join(subdir)
+      if src.check():
+        logger.debug('Recursively copying %s to %s' % (src.strpath, dst.strpath))
+        src.copy(dst)
       elif result['exitcode']:
-        logger.info('Expected output directory does not exist (non-zero exitcode): %s', src)
+        logger.info('Expected output directory does not exist (non-zero exitcode): %s', src.strpath)
       else:
-        logger.warning('Expected output directory does not exist: %s', src)
+        logger.warning('Expected output directory does not exist: %s', src.strpath)
 
     allfiles = []
-    for f in glob.glob(os.path.join(working_directory, '*.*')):
-      shutil.copy(f, results_directory)
-      allfiles.append(os.path.join(results_directory, os.path.basename(f)))
+    for f in working_directory.listdir('*.*'):
+      if f.check(file=1, exists=1) and not f.basename.startswith('.'):
+        logger.debug('Copying %s to results directory', f.strpath)
+        f.copy(results_directory)
+        allfiles.append(results_directory.join(f.basename))
 
     # Send results to various listeners
+    logfiles = ('xia2.html', 'xia2.error')
+    for result_file in map(results_directory.join, logfiles):
+      if result_file.check():
+        self.record_result_individual_file({
+          'file_path': result_file.dirname,
+          'file_name': result_file.basename,
+          'file_type': 'log',
+        })
 
-    # Part of the result parsing requires to be in result directory
-    cwd = os.path.abspath(os.curdir)
-    os.chdir(results_directory)
-
-    if params.get('results_symlink'):
-      # Create symbolic link above working directory
-      dlstbx.util.symlink.create_parent_symlink(results_directory, params['results_symlink'])
-
-    if not result['exitcode'] and not os.path.isfile('xia2.error') and os.path.exists('xia2.json') \
-        and not params.get('do_not_write_to_ispyb'):
-      self.send_results_to_ispyb()
-
-    logfiles = [ 'xia2.html', 'xia2.error' ]
-    for result_file in filter(os.path.isfile, logfiles):
-      self.record_result_individual_file({
-        'file_path': results_directory,
-        'file_name': os.path.basename(result_file),
-        'file_type': 'log',
-      })
-
-    datafiles_path = os.path.join(results_directory, 'DataFiles')
-    if os.path.exists(datafiles_path):
-      for result_file in os.listdir(datafiles_path):
+    datafiles_path = results_directory.join('DataFiles')
+    if datafiles_path.check():
+      for result_file in datafiles_path.listdir():
         file_type = 'result'
-        if result_file.endswith(('.log', '.txt')):
+        if result_file.ext in ('.log', '.txt'):
           file_type = 'log'
         self.record_result_individual_file({
-          'file_path': datafiles_path,
-          'file_name': result_file,
+          'file_path': result_file.dirname,
+          'file_name': result_file.basename,
           'file_type': file_type,
         })
-        allfiles.append(os.path.join(datafiles_path, result_file))
+        allfiles.append(result_file.strpath)
 
-    logfiles_path = os.path.join(results_directory, 'LogFiles')
-    if os.path.exists(logfiles_path):
-      for result_file in os.listdir(logfiles_path):
+    logfiles_path = results_directory.join('LogFiles')
+    if logfiles_path.check():
+      for result_file in logfiles_path.listdir():
         file_type = 'log'
-        if result_file.endswith(('.png',)):
+        if result_file.ext == '.png':
           file_type = 'graph'
         self.record_result_individual_file({
-          'file_path': logfiles_path,
-          'file_name': result_file,
+          'file_path': result_file.dirname,
+          'file_name': result_file.basename,
           'file_type': file_type,
         })
-        allfiles.append(os.path.join(logfiles_path, result_file))
+        allfiles.append(result_file.strpath)
+
+    # Part of the result parsing requires to be in result directory
+    with results_directory.as_cwd():
+      if not result['exitcode'] and not os.path.isfile('xia2.error') and os.path.exists('xia2.json') \
+          and not params.get('do_not_write_to_ispyb'):
+        self.send_results_to_ispyb()
 
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })
 
-    os.chdir(cwd)
+    # Update SynchWeb ticks hack file.
+    if params.get('synchweb_ticks'):
+      if result['exitcode'] == 0:
+        logger.debug('Setting SynchWeb status to success')
+        py.path.local(params['synchweb_ticks']).write('''
+            The purpose of this file is only
+            to signal to SynchWeb that the
+            data were successfully processed.
+
+            # magic string: %s
+            ''' % params.get('synchweb_ticks_magic'))
+      else:
+        logger.debug('Setting SynchWeb status to failure')
+        py.path.local(params['synchweb_ticks']).write('''
+            The purpose of this file is only
+            to signal to SynchWeb that the
+            data processing has failed.
+            ''')
 
     return result['exitcode'] == 0

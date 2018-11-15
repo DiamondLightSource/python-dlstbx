@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import logging
 import os
+import py
 from datetime import datetime
 
 import dlstbx.zocalo.wrapper
@@ -27,20 +28,20 @@ class BigEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       "No recipewrapper object found"
 
     params = self.recwrap.recipe_step['job_parameters']
+    working_directory = py.path.local(params['working_directory'])
+    results_directory = py.path.local(params['results_directory'])
+
+    # Create working directory with symbolic link
+    working_directory.ensure(dir=True)
+    if params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['create_symlink'])
+
     command = self.construct_commandline(params)
-
-    # run big_ep in working directory
-
-    cwd = os.path.abspath(os.curdir)
-
-    working_directory = params['working_directory']
-    if not os.path.exists(working_directory):
-      os.makedirs(working_directory)
-    os.chdir(working_directory)
-
-    result = procrunner.run_process(
-      command, timeout=params.get('timeout'),
-      print_stdout=False, print_stderr=False)
+    result = procrunner.run(
+        command, timeout=params.get('timeout'),
+        print_stdout=False, print_stderr=False,
+        working_directory=working_directory.strpath,
+    )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
@@ -51,6 +52,11 @@ class BigEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 
-    os.chdir(cwd)
+    # Create results directory and symlink if they don't already exist
+    results_directory.ensure(dir=True)
+    if params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
+
+    # XXX what files do we want to keep?
 
     return result['exitcode'] == 0

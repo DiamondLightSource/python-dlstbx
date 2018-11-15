@@ -160,7 +160,10 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     xml_file = working_directory.join('fast_ep.xml')
     if xml_file.check():
+      xml_data = working_directory.join('fast_ep.xml').read()
+      xml_file = results_directory.join('fast_ep.xml')
       logger.info('Sending fast_ep phasing results to ISPyB')
+      xml_file.write(xml_data.replace(working_directory.strpath, results_directory.strpath))
       self.send_results_to_ispyb(xml_file.strpath)
     else:
       if result['exitcode']:

@@ -5,6 +5,7 @@ import os
 import py
 from datetime import datetime
 
+import dlstbx.util.symlink
 import dlstbx.zocalo.wrapper
 import procrunner
 

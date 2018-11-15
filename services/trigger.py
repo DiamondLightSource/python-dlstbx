@@ -187,7 +187,7 @@ class DLSTrigger(CommonService):
 
     message = {
       'parameters': {
-        'ispyb_autoprocscalingid': parameters('scaling_id'),
+        'ispyb_autoprocscalingid': scaling_id,
         'ispyb_dcid': dcid
       },
       'recipes': ['postprocessing-big-ep']
@@ -195,5 +195,23 @@ class DLSTrigger(CommonService):
     rw.transport.send('processing_recipe', message)
 
     self.log.info('big_ep triggered')
+
+    return {'success': True, 'return_value': None}
+
+  def trigger_snmct(self, rw, header, parameters, **kwargs):
+    dcid = parameters('dcid')
+    if not dcid:
+      self.log.error('snmct trigger failed: No DCID specified')
+      return False
+
+    message = {
+      'parameters': {
+        'ispyb_dcid': dcid
+      },
+      'recipes': ['postprocessing-snmct']
+    }
+    rw.transport.send('processing_recipe', message)
+
+    self.log.info('snmct triggered')
 
     return {'success': True, 'return_value': None}

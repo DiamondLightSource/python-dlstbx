@@ -160,7 +160,7 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     for f in self.working_directory.listdir():
       if f.basename.startswith('.'): continue
       for skip_extension in ('.pickle', '.py', '.r3d', '.sh'):
-        if f.ext = skip_extension: continue
+        if f.ext == skip_extension: continue
       f.copy(self.results_directory)
 
     logger.info('Sending dimple results to ISPyB')

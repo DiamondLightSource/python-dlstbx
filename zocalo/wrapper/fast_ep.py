@@ -135,6 +135,7 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       ".hkl": "result",
       ".sca": "result",
       ".mtz": "result",
+      ".pdb": "result",
     }
     keep = {
       "fast_ep.log": "log",

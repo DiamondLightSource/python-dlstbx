@@ -125,17 +125,18 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     logger.info('Copying fast_ep results to %s', results_directory.strpath)
     keep_ext = {
-      ".xml": False,
-      ".html": "log",
-      ".error": "log",
-      ".png": None,
-      ".sh": None,
-      ".ins": "result",
       ".cif": "result",
+      ".error": "log",
       ".hkl": "result",
-      ".sca": "result",
+      ".html": "log",
+      ".ins": "result",
+      ".lst": "log",
       ".mtz": "result",
       ".pdb": "result",
+      ".png": None,
+      ".sca": "result",
+      ".sh": None,
+      ".xml": False,
     }
     keep = {
       "fast_ep.log": "log",

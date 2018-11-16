@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import logging
 import py
 
+import dlstbx.util.symlink
 import dlstbx.zocalo.wrapper
 import procrunner
 

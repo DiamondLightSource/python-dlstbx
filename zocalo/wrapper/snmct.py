@@ -22,7 +22,7 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       appids = [self.get_appid(dcid) for dcid in dcids]
     logger.info('Found dcids: %s', str(dcids))
     logger.info('Found appids: %s', str(appids))
-    data_files = [self.get_data_files_for_appid(appid) for appid in appids]
+    data_files = [self.get_data_files_for_appid(appid) for appid in appids if appid is not None]
     for files in data_files:
       for f in files:
         command.append(f.strpath)
@@ -48,9 +48,12 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     dc = self.ispyb_conn.get_data_collection(dcid)
     for intgr in dc.integrations:
       prg = intgr.program
-      if prg.name != 'xia2 dials':
+      if ((prg.message != 'processing successful') or
+          (prg.name != 'xia2 dials')):
         continue
       appid[prg.time_update] = intgr.APPID
+    if not appid:
+      return None
     return appid.values()[0]
 
   def get_dcids(self, params):

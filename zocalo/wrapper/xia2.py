@@ -96,13 +96,14 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     command = self.construct_commandline(params)
 
     # Adjust all paths if a spacegroup is set in ISPyB
-    if params['ispyb_parameters'].get('spacegroup') and \
-        '/' not in params['ispyb_parameters']['spacegroup']:
-      for parameter in ('working_directory', 'results_directory', 'create_symlink'):
-        if parameter in params:
-          params[parameter] += '-' + params['ispyb_parameters']['spacegroup']
-      # only runs without space group are shown in SynchWeb overview
-      params['synchweb_ticks'] = None
+    if params.get('ispyb_parameters'):
+      if params['ispyb_parameters'].get('spacegroup') and \
+          '/' not in params['ispyb_parameters']['spacegroup']:
+        for parameter in ('working_directory', 'results_directory', 'create_symlink'):
+          if parameter in params:
+            params[parameter] += '-' + params['ispyb_parameters']['spacegroup']
+        # only runs without space group are shown in SynchWeb overview
+        params['synchweb_ticks'] = None
 
     working_directory = py.path.local(params['working_directory'])
     results_directory = py.path.local(params['results_directory'])

@@ -5,6 +5,7 @@ import logging
 import py
 import os
 
+import dlstbx.util.symlink
 import dlstbx.zocalo.wrapper
 import procrunner
 

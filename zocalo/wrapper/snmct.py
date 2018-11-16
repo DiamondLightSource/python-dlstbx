@@ -93,9 +93,23 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       logger.info('Found dcids: %s', str(dcids))
       logger.info('Found appids: %s', str(appids))
 
-    working_directory = py.path.local(params['working_directory'])
+    # Adjust all paths if a spacegroup is set in ISPyB
+    if params.get('ispyb_parameters'):
+      if params['ispyb_parameters'].get('spacegroup') and \
+          '/' not in params['ispyb_parameters']['spacegroup']:
+        for parameter in ('working_directory', 'results_directory', 'create_symlink'):
+          if parameter in params:
+            params[parameter] += '-' + params['ispyb_parameters']['spacegroup']
 
     command = self.construct_commandline(params)
+
+    working_directory = py.path.local(params['working_directory'])
+    results_directory = py.path.local(params['results_directory'])
+
+    # Create working directory with symbolic link
+    working_directory.ensure(dir=True)
+    if params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['create_symlink'])
 
     # run SNMCT in working directory
 
@@ -112,5 +126,40 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.info('exitcode: %s', result['exitcode'])
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
+
+    # copy output files to result directory
+    results_directory.ensure(dir=True)
+    if params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
+
+    keep_ext = {
+      '.png': None,
+      '.log': 'log',
+      '.json': None,
+      '.pickle': None,
+      '.mtz': None,
+      '.html': 'log',
+    }
+    keep = {
+    }
+    allfiles = []
+    for filename in working_directory.listdir():
+      filetype = keep_ext.get(filename.ext)
+      if filename.basename in keep:
+        filetype = keep[filename.basename]
+      if filetype is None:
+        continue
+      destination = results_directory.join(filename.basename)
+      logger.debug('Copying %s to %s' % (filename.strpath, destination.strpath))
+      allfiles.append(destination.strpath)
+      filename.copy(destination)
+      if filetype:
+        self.record_result_individual_file({
+          'file_path': destination.dirname,
+          'file_name': destination.basename,
+          'file_type': filetype,
+        })
+    if allfiles:
+      self.record_result_all_files({ 'filelist': allfiles })
 
     return result['exitcode'] == 0

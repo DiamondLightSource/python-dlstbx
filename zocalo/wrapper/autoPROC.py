@@ -157,8 +157,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     return command
 
   def run(self):
-    assert hasattr(self, 'recwrap'), \
-      "No recipewrapper object found"
+    assert hasattr(self, 'recwrap'), "No recipewrapper object found"
 
     params = self.recwrap.recipe_step['job_parameters']
 
@@ -182,7 +181,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if params.get('create_symlink'):
       dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['create_symlink'])
 
-    # Create SynchWeb ticks hack file. This will be overwritten with the real log later.
+    # Create SynchWeb ticks hack file.
     # For this we need to create the results directory and symlink immediately.
     if params.get('synchweb_ticks'):
       logger.debug('Setting SynchWeb status to swirl')
@@ -194,14 +193,14 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     # disable control sequence parameters from autoPROC output
     # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
 
-    result = procrunner.run_process(
+    result = procrunner.run(
       command, timeout=params.get('timeout'),
       print_stdout=True, print_stderr=True,
       environment_override={
         'autoPROC_HIGHLIGHT': 'no',
       },
-      working_directory=working_directory.strpath)
-
+      working_directory=working_directory.strpath,
+    )
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
@@ -210,8 +209,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.info('exitcode: %s', result['exitcode'])
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
-    with open(os.path.join(working_directory.strpath, 'autoPROC.log'), 'wb') as f:
-      f.write(result['stdout'])
+    working_directory.join('autoPROC.log').write(result['stdout'])
 
     ## http://jira.diamond.ac.uk/browse/I04_1-56 delete softlinks
     #echo "Deleting all soft links found in $localtemp"
@@ -299,6 +297,25 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     self.send_results_to_ispyb(ispyb_dls_xml.strpath)
     self.send_results_to_ispyb(
       staraniso_ispyb_dls_xml.strpath, use_existing_autoprocprogram_id=False)
+
+    # Update SynchWeb ticks hack file.
+    if params.get('synchweb_ticks'):
+      if result['exitcode'] == 0:
+        logger.debug('Setting SynchWeb status to success')
+        py.path.local(params['synchweb_ticks']).write('''
+            The purpose of this file is only
+            to signal to SynchWeb that the
+            data were successfully processed.
+
+            # magic string: %s
+            ''' % params.get('synchweb_ticks_magic'))
+      else:
+        logger.debug('Setting SynchWeb status to failure')
+        py.path.local(params['synchweb_ticks']).write('''
+            The purpose of this file is only
+            to signal to SynchWeb that the
+            data processing has failed.
+            '''
 
     return result['exitcode'] == 0
 

@@ -294,9 +294,11 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })
 
-    self.send_results_to_ispyb(ispyb_dls_xml.strpath)
-    self.send_results_to_ispyb(
-      staraniso_ispyb_dls_xml.strpath, use_existing_autoprocprogram_id=False)
+    if ispyb_dls_xml.check():
+      self.send_results_to_ispyb(ispyb_dls_xml.strpath)
+    if staraniso_xml.check():
+      self.send_results_to_ispyb(
+        staraniso_ispyb_dls_xml.strpath, use_existing_autoprocprogram_id=False)
 
     # Update SynchWeb ticks hack file.
     if params.get('synchweb_ticks'):

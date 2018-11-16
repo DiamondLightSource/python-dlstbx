@@ -17,11 +17,6 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     command = ['xia2.multi_crystal_scale']
 
     appids = params['appids']
-    if not appids:
-      dcids = self.get_dcids(params)
-      appids = [self.get_appid(dcid) for dcid in dcids]
-    logger.info('Found dcids: %s', str(dcids))
-    logger.info('Found appids: %s', str(appids))
     data_files = [self.get_data_files_for_appid(appid) for appid in appids if appid is not None]
     for files in data_files:
       for f in files:
@@ -57,18 +52,19 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     return appid.values()[0]
 
   def get_dcids(self, params):
-    this_dcid = params['dcid']
+    this_dcid = int(params['dcid'])
     dcids = params['dcids']
     if not dcids:
       command = [
         '/dls_sw/apps/mx-scripts/misc/GetAListOfAssociatedDCOnThisCrystalOrDir.sh',
-        this_dcid
+        '%i' % this_dcid
       ]
       result = procrunner.run_process(
         command, timeout=params.get('timeout'),
         working_directory=params['working_directory'],
         print_stdout=False, print_stderr=False)
-      dcids = result['stdout'].split()
+      dcids = [int(dcid) for dcid in result['stdout'].split()]
+      dcids = [dcid for dcid in dcids if dcid < this_dcid]
     return [this_dcid] + dcids
 
   def send_resuls_to_ispyb(self, json_file):
@@ -86,6 +82,16 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       "No recipewrapper object found"
 
     params = self.recwrap.recipe_step['job_parameters']
+
+    if not params['appids']:
+      dcids = self.get_dcids(params)
+      if len(dcids) == 1:
+        logger.info('Not running SNMCT: no related dcids for dcid %s' % dcids[0])
+        return
+      appids = [self.get_appid(dcid) for dcid in dcids]
+      params['appids'] = appids
+      logger.info('Found dcids: %s', str(dcids))
+      logger.info('Found appids: %s', str(appids))
 
     working_directory = py.path.local(params['working_directory'])
 

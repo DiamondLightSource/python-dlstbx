@@ -28,7 +28,7 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 
-    go_fast_ep = result['exitcode'] == 0
+    go_fast_ep = result['stdout'].strip() == 'Go'
     if go_fast_ep:
       logger.info('Computer says go for fast_ep :)')
     else:

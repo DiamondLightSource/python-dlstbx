@@ -315,7 +315,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
             The purpose of this file is only
             to signal to SynchWeb that the
             data processing has failed.
-            '''
+            ''')
 
     return result['exitcode'] == 0
 

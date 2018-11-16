@@ -160,7 +160,7 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           'file_name': destination.basename,
           'file_type': filetype,
         })
-    if allfiles:
+    #if allfiles:
       #self.record_result_all_files({ 'filelist': allfiles })
 
     return result['exitcode'] == 0

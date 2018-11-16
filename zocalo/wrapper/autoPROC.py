@@ -211,11 +211,6 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.debug(result['stderr'])
     working_directory.join('autoPROC.log').write(result['stdout'])
 
-    ## http://jira.diamond.ac.uk/browse/I04_1-56 delete softlinks
-    #echo "Deleting all soft links found in $localtemp"
-    #find $localtemp -type l -exec rm '{}' \;
-    #echo "Done deleting"
-
     #cd $jobdir
     #tar -xzvf summary.tar.gz
 

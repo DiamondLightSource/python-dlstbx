@@ -142,6 +142,8 @@ class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       "fast_ep.log": "log",
       "shelxc.log": "log",
     }
+    if working_directory.join('fast_ep.error').check():
+      result['exitcode'] = 1
     allfiles = []
     for filename in working_directory.listdir():
       filetype = keep_ext.get(filename.ext)

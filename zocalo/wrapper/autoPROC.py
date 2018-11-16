@@ -2,8 +2,8 @@ from __future__ import absolute_import, division, print_function
 
 import json
 import logging
+import py
 import os
-import shutil
 
 import dlstbx.zocalo.wrapper
 import procrunner
@@ -160,12 +160,35 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       "No recipewrapper object found"
 
     params = self.recwrap.recipe_step['job_parameters']
+
+    # Adjust all paths if a spacegroup is set in ISPyB
+    if params.get('ispyb_parameters'):
+      if params['ispyb_parameters'].get('spacegroup') and \
+          '/' not in params['ispyb_parameters']['spacegroup']:
+        for parameter in ('working_directory', 'results_directory', 'create_symlink'):
+          if parameter in params:
+            params[parameter] += '-' + params['ispyb_parameters']['spacegroup']
+        # only runs without space group are shown in SynchWeb overview
+        params['synchweb_ticks'] = None
+
     command = self.construct_commandline(params)
 
-    # run autoPROC in working directory
-    working_directory = params['working_directory']
-    if not os.path.exists(working_directory):
-      os.makedirs(working_directory)
+    working_directory = py.path.local(params['working_directory'])
+    results_directory = py.path.local(params['results_directory'])
+
+    # Create working directory with symbolic link
+    working_directory.ensure(dir=True)
+    if params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['create_symlink'])
+
+    # Create SynchWeb ticks hack file. This will be overwritten with the real log later.
+    # For this we need to create the results directory and symlink immediately.
+    if params.get('synchweb_ticks'):
+      logger.debug('Setting SynchWeb status to swirl')
+      if params.get('create_symlink'):
+        results_directory.ensure(dir=True)
+        dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
+      py.path.local(params['synchweb_ticks']).ensure()
 
     # disable control sequence parameters from autoPROC output
     # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
@@ -176,7 +199,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       environment_override={
         'autoPROC_HIGHLIGHT': 'no',
       },
-      working_directory=working_directory)
+      working_directory=working_directory.strpath)
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
@@ -186,7 +209,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     logger.info('exitcode: %s', result['exitcode'])
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
-    with open(os.path.join(working_directory, 'autoPROC.log'), 'wb') as f:
+    with open(os.path.join(working_directory.strpath, 'autoPROC.log'), 'wb') as f:
       f.write(result['stdout'])
 
     ## http://jira.diamond.ac.uk/browse/I04_1-56 delete softlinks
@@ -202,40 +225,38 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     #echo "Attempting to add history to mtz files"
     #find $jobdir -name '*.mtz' -exec /dls_sw/apps/mx-scripts/misc/AddHistoryToMTZ.sh $Beamline $Visit {} $2 autoPROC \;
 
-    json_file = os.path.join(working_directory, 'iotbx-merging-stats.json')
-    scaled_unmerged_mtz = os.path.join(working_directory, 'aimless_unmerged.mtz')
-    ispyb_xml = os.path.join(working_directory, 'autoPROC.xml')
-    if os.path.exists(scaled_unmerged_mtz) and os.path.exists(ispyb_xml):
+    json_file = working_directory.join('iotbx-merging-stats.json')
+    scaled_unmerged_mtz = working_directory.join('aimless_unmerged.mtz')
+    ispyb_xml = working_directory.join('autoPROC.xml')
+    if scaled_unmerged_mtz.check() and ispyb_xml.check():
       self.run_iotbx_merging_statistics(
-        scaled_unmerged_mtz, ispyb_xml, json_file)
+        scaled_unmerged_mtz.strpath, ispyb_xml.strpath, json_file.strpath)
 
     # move summary_inlined.html to summary.html
-    inlined_html = os.path.join(working_directory, 'summary_inlined.html')
-    if os.path.exists(inlined_html):
-      shutil.move(inlined_html, os.path.join(working_directory, 'summary.html'))
+    inlined_html = working_directory.join('summary_inlined.html')
+    if inlined_html.check():
+      inlined_html.move(working_directory.join('summary.html'))
 
     # copy output files to result directory
-    results_directory = params['results_directory']
-    if params['ispyb_parameters'].get('spacegroup'):
-      results_directory += params['ispyb_parameters'].get('spacegroup')
-    if not os.path.exists(results_directory):
-      os.makedirs(results_directory)
+    results_directory.ensure(dir=True)
+    if params.get('create_symlink'):
+      dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
 
-    autoproc_xml = os.path.join(working_directory, 'autoPROC.xml')
-    ispyb_dls_xml = os.path.join(working_directory, 'ispyb_dls.xml')
-    if os.path.exists(autoproc_xml):
-      with open(autoproc_xml, 'rb') as infile, open(ispyb_dls_xml, 'wb') as outfile:
+    autoproc_xml = working_directory.join('autoPROC.xml')
+    ispyb_dls_xml = working_directory.join('ispyb_dls.xml')
+    if autoproc_xml.check():
+      with autoproc_xml.open('rb') as infile, ispyb_dls_xml.open('wb') as outfile:
         outfile.write(infile.read().replace(
-          working_directory, results_directory))
-      self.fix_xml(ispyb_dls_xml)
+          working_directory.strpath, results_directory.strpath))
+      self.fix_xml(ispyb_dls_xml.strpath)
 
-    staraniso_xml = os.path.join(working_directory, 'autoPROC_staraniso.xml')
-    staraniso_ispyb_dls_xml = os.path.join(working_directory, 'staraniso_ispyb_dls.xml')
-    if os.path.exists(staraniso_xml):
-      with open(staraniso_xml, 'rb') as infile, open(staraniso_ispyb_dls_xml, 'wb') as outfile:
+    staraniso_xml = working_directory.join('autoPROC_staraniso.xml')
+    staraniso_ispyb_dls_xml = working_directory.join('staraniso_ispyb_dls.xml')
+    if staraniso_xml.check():
+      with staraniso_xml.open('rb') as infile, staraniso_ispyb_dls_xml.open('wb') as outfile:
         outfile.write(infile.read().replace(
-          working_directory, results_directory))
-      self.fix_xml(staraniso_ispyb_dls_xml)
+          working_directory.strpath, results_directory.strpath))
+      self.fix_xml(staraniso_ispyb_dls_xml.strpath)
 
     keep_ext = {
       ".INP": None,
@@ -254,33 +275,29 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       "summary.tar.gz": "result",
       "iotbx-merging-stats.json": "graph"
     }
-    files = os.listdir(working_directory)
-    for filename in files:
-      ext = os.path.splitext(filename)[-1]
-      if ext in keep_ext:
-        keep[filename] = keep_ext[ext]
-
     allfiles = []
-    for filename, filetype in keep.iteritems():
-      filenamefull = os.path.join(working_directory, filename)
-      if os.path.exists(filenamefull):
-        dst = os.path.join(results_directory, filename)
-        logger.debug('Copying %s to %s' % (filenamefull, dst))
-        shutil.copy(filenamefull, dst)
-        allfiles.append(dst)
-        if filetype is not None:
-          self.record_result_individual_file({
-            'file_path': results_directory,
-            'file_name': filename,
-            'file_type': filetype,
-          })
-
-    self.send_results_to_ispyb(ispyb_dls_xml)
-    self.send_results_to_ispyb(
-      staraniso_ispyb_dls_xml, use_existing_autoprocprogram_id=False)
-
+    for filename in working_directory.listdir():
+      filetype = keep_ext.get(filename.ext)
+      if filename.basename in keep:
+        filetype = keep[filename.basename]
+      if filetype is None:
+        continue
+      destination = results_directory.join(filename.basename)
+      logger.debug('Copying %s to %s' % (filename.strpath, destination.strpath))
+      allfiles.append(destination.strpath)
+      filename.copy(destination)
+      if filetype:
+        self.record_result_individual_file({
+          'file_path': destination.dirname,
+          'file_name': destination.basename,
+          'file_type': filetype,
+        })
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })
+
+    self.send_results_to_ispyb(ispyb_dls_xml.strpath)
+    self.send_results_to_ispyb(
+      staraniso_ispyb_dls_xml.strpath, use_existing_autoprocprogram_id=False)
 
     return result['exitcode'] == 0
 

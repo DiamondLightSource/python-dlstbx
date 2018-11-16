@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
-import os
+import py
 
 import dlstbx.zocalo.wrapper
 import procrunner
@@ -19,32 +19,39 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     appids = params['appids']
     if not appids:
       dcids = self.get_dcids(params)
-      appids = self.get_appids(dcids)
-    data_files = self.get_data_files_for_appids(appids)
-    for f in data_files:
-      command.append(f)
+      appids = [self.get_appid(dcid) for dcid in dcids]
+    logger.info('Found dcids: %s', str(dcids))
+    logger.info('Found appids: %s', str(appids))
+    data_files = [self.get_data_files_for_appid(appid) for appid in appids]
+    for files in data_files:
+      for f in files:
+        command.append(f.strpath)
 
     return command
 
-  def get_data_files_for_appids(self, appids):
+  def get_data_files_for_appid(self, appid):
     data_files = []
-    for appid in appids:
-      attachments = self.ispyb_conn.mx_processing.retrieve_program_attachments_for_program_id(appid)
-      for item in attachments:
-        if item['fileType'] == 'Result':
-          if (item['fileName'].endswith('experiments.json') or
-              item['fileName'].endswith('reflections.pickle')):
-            data_files.append(os.path.join(item['filePath'], item['fileName']))
+    logger.info('Retrieving program attachment for appid %s', appid)
+    attachments = self.ispyb_conn.mx_processing.retrieve_program_attachments_for_program_id(appid)
+    for item in attachments:
+      if item['fileType'] == 'Result':
+        if (item['fileName'].endswith('experiments.json') or
+            item['fileName'].endswith('reflections.pickle')):
+          data_files.append(py.path.local(item['filePath']).join(item['fileName']))
+    logger.info('Found the following files for appid %s:', appid)
+    logger.info(list(data_files))
+    assert len(data_files) == 2, data_files
     return data_files
 
-  def get_appids(self, dcids):
-    appids = []
-    for dcid in dcids:
-      dc = self.ispyb_conn.get_data_collection(dcid)
-      intgr = dc.integrations
-      for intgr in dc.integrations:
-        appids.append(intgr.APPID)
-    return appids
+  def get_appid(self, dcid):
+    appid = {}
+    dc = self.ispyb_conn.get_data_collection(dcid)
+    for intgr in dc.integrations:
+      prg = intgr.program
+      if prg.name != 'xia2 dials':
+        continue
+      appid[prg.time_update] = intgr.APPID
+    return appid.values()[0]
 
   def get_dcids(self, params):
     this_dcid = params['dcid']
@@ -77,9 +84,7 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     params = self.recwrap.recipe_step['job_parameters']
 
-    working_directory = params['working_directory']
-    if not os.path.exists(working_directory):
-      os.makedirs(working_directory)
+    working_directory = py.path.local(params['working_directory'])
 
     command = self.construct_commandline(params)
 
@@ -87,7 +92,7 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     result = procrunner.run_process(
       command, timeout=params.get('timeout'),
-      working_directory=params['working_directory'],
+      working_directory=working_directory.strpath,
       print_stdout=False, print_stderr=False)
 
     logger.info('command: %s', ' '.join(result['command']))

@@ -2,11 +2,13 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-def create_parent_symlink(destination_path, symlink_name, levels=2):
+def create_parent_symlink(destination_path, symlink_name, levels=2,
+    overwrite_symlink=False):
   '''Create a symbolic link in a parent directory,
      $levels levels above the link destination.
-     If a link already exists in that location it is overwritten. If a file
-     with the symlink name exists in the location it is left untouched.
+     If a link already exists in that location it can be overwritten.
+     If a file with the symlink name exists in the location it is left
+     untouched.
 
      :param destination_path: The full path that is the symlink destination.
      :param symlink_name: The name of the symbolic link to be created.
@@ -23,7 +25,8 @@ def create_parent_symlink(destination_path, symlink_name, levels=2):
 
   # Only write symbolic link if a symbolic link is created or overwritten
   # Do not overwrite real files, do not touch real directories
-  if not os.path.exists(link_path) or os.path.islink(link_path):
+  if not os.path.exists(link_path) or \
+      (overwrite_symlink and os.path.islink(link_path)):
     # because symlinks can't be overwritten, create a temporary symlink in the
     # child directory and then rename on top of potentially existing one in
     # the parent directory.

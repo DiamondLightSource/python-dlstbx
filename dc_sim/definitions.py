@@ -103,6 +103,15 @@ tests = {
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                      },
 
+        'inverse-beam' : {
+                'src_dir'  : '/dls/i23/data/2018/nr19737-17/20180510/lys6',
+                'src_run_num'   : (1,),
+                'src_prefix' : ('data_2200eV_A_1_', 'data_2200eV_B_1_'),
+                'dcg': True,
+                'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
+                            'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                     },
+
         'sad': {
                  'src_dir'    : '/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1',
                  'src_run_num'   : (1,),

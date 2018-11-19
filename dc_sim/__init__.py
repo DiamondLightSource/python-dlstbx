@@ -342,7 +342,7 @@ def retrieve_max_dcnumber(_db, _sessionid, _dest_dir, _dest_prefix):
 
 
 def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_prefix, _src_run_number,
-             _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id, _auto_proc='Yes',
+             _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id,
              data_collection_group_id=None):
     _db = dlstbx.dc_sim.mydb.DB()
 
@@ -511,7 +511,7 @@ def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_p
     else:
         sys.exit("No datacollectionid found in output")
 
-    run_at_params = ['automaticProcessing_' + _auto_proc,\
+    run_at_params = ['automaticProcessing_Yes',\
                      str(datacollectionid), _dest_visit_dir, _dest_prefix + '_' + str(run_number) + "_####.cbf",\
                      _dest_dir + '/', _dest_prefix + '_' + str(run_number) + '_', 'cbf']
 
@@ -577,7 +577,6 @@ def call_sim(test_name, beamline):
     src_dir = scenario['src_dir']
     sample_id = scenario.get('use_sample_id')
     src_prefix = scenario['src_prefix']
-    same_dcg = scenario.get('dcg', False)
 
     # Calculate the destination directory
     dest_dir = None
@@ -617,11 +616,11 @@ def call_sim(test_name, beamline):
     start_script = "%s/RunAtStartOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
     if not os.path.exists(start_script):
         log.error("The file %s was not found." % start_script)
-        sys.exit()
+        sys.exit(1)
     end_script = "%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
     if not os.path.exists(end_script):
         log.error("The file %s was not found." % end_script)
-        sys.exit()
+        sys.exit(1)
 
     # Create destination directory
     log.debug("Creating directory %s" % dest_dir)

@@ -142,6 +142,10 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       '.html': 'log',
     }
     keep = {
+      'scaled.mtz': 'result',
+      'scaled_unmerged.mtz': 'result',
+      'experiments_final.json': 'result',
+      'reflections_final.pickle': 'result',
     }
     allfiles = []
     for filename in working_directory.listdir():

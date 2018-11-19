@@ -341,25 +341,32 @@ def retrieve_max_dcnumber(_db, _dbschema, _sessionid, _dest_dir, _dest_prefix):
     return rows[0][0]
 
 
-def scenario(_test_name):
-    '''provide the test scenario, returns False if test is not valid'''
-    import dlstbx.dc_sim.definitions as df
-    if _test_name in df.tests:
-        source_directory = df.tests[_test_name]['src_dir']
-        source_prefix = df.tests[_test_name]['src_prefix']
-        source_run_numbers = df.tests[_test_name]['src_run_num']
-        if 'use_sample_id' in df.tests[_test_name]:
-            sample_id = df.tests[_test_name]['use_sample_id']
-        else:
-            sample_id = None
-        return [source_directory, source_prefix, source_run_numbers, sample_id]
-    else:
-        return False
+class scenario(object):
+    def __init__(self, _test_name):
+        '''provide the test scenario, returns False if test is not valid'''
+        self.source_directory = None
+        self.source_prefix = None
+        self.source_run_numbers = None
+        self.sample_id = None
+        self.same_data_collection_group = False
 
+        import dlstbx.dc_sim.definitions as df
+        if _test_name in df.tests:
+            self.source_directory = df.tests[_test_name]['src_dir']
+            self.source_prefix = df.tests[_test_name]['src_prefix']
+            self.source_run_numbers = df.tests[_test_name]['src_run_num']
+            self.sample_id = df.tests[_test_name].get('use_sample_id')
+            self.same_data_collection_group = df.tests[_test_name].get('dcg', False)
+
+    def is_valid(self):
+      return [self.source_directory,
+              self.source_prefix,
+              self.source_run_numbers].count(None) == 0
 
 def simulate(_db, _dbschema,
              _dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_prefix, _src_run_number,
-             _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id, _auto_proc='Yes'):
+             _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id, _auto_proc='Yes',
+             data_collection_group_id=None):
     log.debug("(SQL) Getting the source sessionid")
     src_sessionid = retrieve_sessionid(_db, _dbschema, _src_visit)
 
@@ -441,31 +448,33 @@ def simulate(_db, _dbschema,
         else:
             blsample_id = _sample_id
 
-    # Prouce a DataCollectionGroup.xml file from the template
-    log.debug("(filesystem) Creating a temporary datacollectiongroup XML file in the /tmp folder")
-    dcg_xml = populate_dcg_xml_template(dcg_row, sessionid, blsample_id)
+    if data_collection_group_id is None:
+        # Produce a DataCollectionGroup.xml file from the template
+        log.debug("(filesystem) Creating a temporary datacollectiongroup XML file in the /tmp folder")
+        dcg_xml = populate_dcg_xml_template(dcg_row, sessionid, blsample_id)
 
-    f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='datacollectiongroup', dir='/tmp', delete=False)
-    xml_fname = f.name
-    f.write(dcg_xml)
-    f.close()
+        f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='datacollectiongroup', dir='/tmp', delete=False)
+        xml_fname = f.name
+        f.write(dcg_xml)
+        f.close()
 
-    # Ingest the DataCollectionGroup.xml file data using the DbserverClient
-    log.debug("(dbserver) Ingest the datacollectiongroup XML")
-    subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
-                             '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
+        # Ingest the DataCollectionGroup.xml file data using the DbserverClient
+        log.debug("(dbserver) Ingest the datacollectiongroup XML")
+        subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
+                                 '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
 
-    # Extract the datacollectiongroupId from the output
-    log.debug("(filesystem) Read the returned datacollectiongroupid from output file")
-    f=file('/tmp/test.log', 'r')
-    xml = f.read()
-    datacollectiongroupid = None
-    m = re.search("<dataCollectionGroupId>(\d+)</dataCollectionGroupId>", xml)
-    if m:
-        datacollectiongroupid = int(m.groups()[0])
+        # Extract the datacollectiongroupId from the output
+        log.debug("(filesystem) Read the returned datacollectiongroupid from output file")
+        f=file('/tmp/test.log', 'r')
+        xml = f.read()
+        datacollectiongroupid = None
+        m = re.search("<dataCollectionGroupId>(\d+)</dataCollectionGroupId>", xml)
+        if m:
+            datacollectiongroupid = int(m.groups()[0])
+        else:
+            sys.exit("No datacollectiongroupid found in output")
     else:
-        sys.exit("No datacollectiongroupid found in output")
-
+      datacollectiongroupid = data_collection_group_id
 
     # Get the grid info values associated with the source dcg
     gi_row = retrieve_grid_info_values(_db, _dbschema, src_dcgid)
@@ -577,13 +586,7 @@ def simulate(_db, _dbschema,
     log.debug('(bash script) %s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]))
     subprocess.check_call(['%s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]) ], shell=True)
 
-    # Log datacollectionid to beamline specific location and ouput useful data into dictionary
-    with open("/dls/tmp/" + _beamline + "/dc_sim.log","a+") as f:
-        f.write(str(datacollectionid) + " : " + nowstr +"\n")
-        print("Data collection logged in: " + "/dls/tmp/" + _beamline + "/dc_sim.log")
-        #sim_output_dict = {"beamline": _beamline, "date": nowstr, "dcid": str(datacollectionid)}
-
-    return datacollectionid
+    return datacollectionid, datacollectiongroupid
 
 def call_sim(test_name, beamline):
 
@@ -593,12 +596,13 @@ def call_sim(test_name, beamline):
     dest_visit = None
 
     # Fetch scenario data from definitions by accessing scenario function
-    if scenario(test_name):
-      src_dir = scenario(test_name)[0]
-      sample_id = scenario(test_name)[3]
-      src_prefix = scenario(test_name)[1]
-    else:
+    _scenario = scenario(test_name)
+    if not _scenario.is_valid():
       sys.exit("%s is not a valid test scenario" % test_name)
+    src_dir = _scenario.source_directory
+    sample_id = _scenario.sample_id
+    src_prefix = _scenario.source_prefix
+    same_dcg = _scenario.same_data_collection_group
 
     # Calculate the destination directory
     dest_dir = None
@@ -653,13 +657,23 @@ def call_sim(test_name, beamline):
         log.error("Creating directory %s failed" % dest_dir)
 
     db = dlstbx.dc_sim.mydb.DB()
-    
+
     # Call simulate
     dcid_list = []
-    for src_run_number in scenario(test_name)[2]:
-        for src_prefix in scenario(test_name)[1]:
+    dcg_list = []
+    for src_run_number in _scenario.source_run_numbers:
+        for src_prefix in _scenario.source_prefix:
             dest_prefix = src_prefix
-            dcid = simulate(db, dbschema, dest_visit, dest_beamline, data_src_dir, src_dir, src_visit, src_prefix, src_run_number, dest_prefix, dest_visit_dir, dest_dir, sample_id)
+            if _scenario.same_data_collection_group and len(dcg_list):
+              dcg = dcg_list[0]
+            else:
+              dcg = None
+            dcid, dcg = simulate(
+                db, dbschema, dest_visit, dest_beamline, data_src_dir,
+                src_dir, src_visit, src_prefix, src_run_number,
+                dest_prefix, dest_visit_dir, dest_dir,
+                sample_id, data_collection_group_id=dcg)
             dcid_list.append(dcid)
+            dcg_list.append(dcg)
     return dcid_list
 

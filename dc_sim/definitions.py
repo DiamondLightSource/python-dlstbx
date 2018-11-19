@@ -98,6 +98,7 @@ tests = {
                 'src_dir'  : '/dls/i03/data/2018/cm19644-4/20180912/chigroup/protk',
                 'src_run_num'   : (8, 9, 10),
                 'src_prefix' : ('protk',),
+                'dcg': True,
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                      },

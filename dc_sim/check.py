@@ -27,6 +27,10 @@ def check_test_outcome(test, db):
       failure_reasons = []
       expected_outcome = df.tests[test['scenario']]['results']
 
+      if integration.unit_cell.a is None:
+        # No result registered, may still be running
+        continue
+
       for variable in ('a', 'b', 'c', 'alpha', 'beta', 'gamma'):
         outcome = getattr(integration.unit_cell, variable)
         if outcome is None or expected_outcome[variable] != outcome:
@@ -65,4 +69,4 @@ if __name__ == '__main__':
   ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
   db = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
 
-  check_test_outcome({'time_start': 1539264122.187212, 'scenario': 'native', 'success': None, 'time_end': 1539264176.104456, 'DCIDs': [2960726,2960621], 'beamline': 'i03'}, db)
+  check_test_outcome({'time_start': 1539264122.187212, 'scenario': 'native', 'success': None, 'time_end': 1539264176.104456, 'DCIDs': [3029691], 'beamline': 'i03'}, db)

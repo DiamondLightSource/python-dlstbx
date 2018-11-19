@@ -375,7 +375,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if not result['exitcode']:
       send_results = self.send_results_to_ispyb(
           staraniso_xml,
-          special_program_name='AutoPROC+STARANISO',
+          special_program_name='autoPROC+STARANISO',
           attachments=anisofiles,
       )
       if not send_results: result['exitcode'] = 1

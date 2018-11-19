@@ -32,7 +32,6 @@ MX_SCRIPTS_BINDIR='/dls_sw/apps/mx-scripts/bin'
 DBSERVER_SRCDIR='/dls_sw/apps/mx-scripts/ispyb-dbserver/src'
 DBSERVER_HOST='sci-serv3'
 DBSERVER_PORT='1994'
-DBSCHEMA='ispyb'
 
 def f(_v):
     if _v is None:
@@ -244,22 +243,22 @@ def mkdir_p(path):
             pass
         else: raise
 
-def retrieve_sessionid(_db, _dbschema, _visit):
+def retrieve_sessionid(_db, _visit):
     rows = _db.doQuery("SELECT s.sessionid "\
-                             "FROM %s.BLSession s "\
-                             "  INNER JOIN %s.Proposal p ON p.proposalid = s.proposalid "\
+                             "FROM BLSession s "\
+                             "  INNER JOIN Proposal p ON p.proposalid = s.proposalid "\
                              "WHERE concat(p.proposalcode, p.proposalnumber, '-', s.visit_number)= '%s'"\
-                              % (_dbschema,_dbschema,_visit))
+                              % (_visit, ))
     if rows[0][0] is None:
         sys.exit("Could not find sessionid for visit %s" % _visit)
     return int(rows[0][0])
 
 
-def retrieve_datacollection_group_values(_db, _dbschema, _src_dcgid):
+def retrieve_datacollection_group_values(_db, _src_dcgid):
     _db.cursor.execute("SELECT comments, blsampleid, experimenttype, starttime, endtime, crystalclass, detectormode, actualsamplebarcode, "\
                         "actualsampleslotincontainer, actualcontainerbarcode, actualcontainerslotinsc, workflowid, xtalsnapshotfullpath "\
-                        "FROM %s.DataCollectionGroup "\
-                        "WHERE datacollectiongroupid=%d" % (_dbschema, _src_dcgid))
+                        "FROM DataCollectionGroup "\
+                        "WHERE datacollectiongroupid=%d" % (_src_dcgid,))
 
     desc = [d[0] for d in _db.cursor.description]
     result = [dict(zip(desc,line)) for line in _db.cursor]
@@ -268,11 +267,11 @@ def retrieve_datacollection_group_values(_db, _dbschema, _src_dcgid):
         sys.exit("Could not find datacollectiongroup %s" % _src_dcgid)
     return result[0]
 
-def retrieve_grid_info_values(_db, _dbschema, _src_dcgid):
+def retrieve_grid_info_values(_db, _src_dcgid):
     _db.cursor.execute("SELECT dx_mm, dy_mm, steps_x, steps_y, pixelspermicronx, pixelspermicrony, "\
                        "snapshot_offsetxpixel, snapshot_offsetypixel, orientation "\
-            "FROM %s.GridInfo "\
-            "WHERE datacollectiongroupid=%d" % (_dbschema, _src_dcgid))
+            "FROM GridInfo "\
+            "WHERE datacollectiongroupid=%d" % (_src_dcgid,))
 
     desc = [d[0] for d in _db.cursor.description]
     result = [dict(zip(desc,line)) for line in _db.cursor]
@@ -281,7 +280,7 @@ def retrieve_grid_info_values(_db, _dbschema, _src_dcgid):
         return None
     return result[0]
 
-def retrieve_datacollection_values(_db, _dbschema, _sessionid, _dir, _prefix, _run_number):
+def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
     prefix_line = 'AND imageprefix is NULL '
     if not _prefix is None:
         prefix_line = "AND imageprefix='%s' " % _prefix
@@ -295,11 +294,11 @@ def retrieve_datacollection_values(_db, _dbschema, _sessionid, _dir, _prefix, _r
                        "slitgapvertical, slitgaphorizontal, transmission, synchrotronmode, "\
                        "rotationaxis, phistart, chistart, kappastart, omegastart, undulatorgap1, "\
                        "beamsizeatsamplex, beamsizeatsampley, flux, focalspotsizeatsamplex, focalspotsizeatsampley "\
-                       "FROM %s.DataCollection "\
+                       "FROM DataCollection "\
                        "WHERE sessionid=%d "\
                        "AND imagedirectory='%s' "\
                        "%s "\
-                       "AND datacollectionnumber=%d "% (_dbschema,_sessionid,_dir+"/", prefix_line, _run_number))
+                       "AND datacollectionnumber=%d "% (_sessionid,_dir+"/", prefix_line, _run_number))
 
     desc = [d[0] for d in _db.cursor.description]
     result = [dict(zip(desc,line)) for line in _db.cursor]
@@ -310,11 +309,11 @@ def retrieve_datacollection_values(_db, _dbschema, _sessionid, _dir, _prefix, _r
         sys.exit("Could not find the startimagenumber for the row")
     return result[0]
 
-def retrieve_blsample_values(_db, _dbschema, _src_blsampleid):
+def retrieve_blsample_values(_db, _src_blsampleid):
     _db.cursor.execute("SELECT blsampleid, name, code, location, holderlength, looplength, looptype, wirewidth, comments, "\
                        "blsamplestatus, isinsamplechanger, lastknowncenteringposition "\
-                       "FROM %s.BLSample "\
-                       "WHERE blsampleid=%d " % (_dbschema, _src_blsampleid))
+                       "FROM BLSample "\
+                       "WHERE blsampleid=%d " % (_src_blsampleid, ))
 
     desc = [d[0] for d in _db.cursor.description]
     result = [dict(zip(desc,line)) for line in _db.cursor]
@@ -324,56 +323,57 @@ def retrieve_blsample_values(_db, _dbschema, _src_blsampleid):
 
     return result[0]
 
-def retrieve_no_images(_db, _dbschema, _dcid):
+def retrieve_no_images(_db, _dcid):
     no_images = None
-    rows = _db.doQuery("SELECT numberOfImages from %s.DataCollection where datacollectionid=%d" % (_dbschema, _dcid))
+    rows = _db.doQuery("SELECT numberOfImages from DataCollection where datacollectionid=%d" % (_dcid,))
     if rows[0][0] is None:
         sys.exit("Could not find the number of images for datacollectionid %d" % _dcid)
     if int(rows[0][0]) is 0:
         sys.exit("Could not find the number of images for datacollectionid %d" % _dcid)
     return int(rows[0][0])
 
-def retrieve_max_dcnumber(_db, _dbschema, _sessionid, _dest_dir, _dest_prefix):
+def retrieve_max_dcnumber(_db, _sessionid, _dest_dir, _dest_prefix):
     rows = _db.doQuery("SELECT max(datacollectionnumber) "\
-                             "FROM %s.DataCollection "\
+                             "FROM DataCollection "\
                              "WHERE sessionid=%d "\
                              "AND imagedirectory='%s' "\
-                             "AND imageprefix='%s'" % (_dbschema,_sessionid,_dest_dir+"/", _dest_prefix))
+                             "AND imageprefix='%s'" % (_sessionid,_dest_dir+"/", _dest_prefix))
     return rows[0][0]
 
 
-def simulate(_db, _dbschema,
-             _dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_prefix, _src_run_number,
+def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_prefix, _src_run_number,
              _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id, _auto_proc='Yes',
              data_collection_group_id=None):
+    _db = dlstbx.dc_sim.mydb.DB()
+
     log.debug("(SQL) Getting the source sessionid")
-    src_sessionid = retrieve_sessionid(_db, _dbschema, _src_visit)
+    src_sessionid = retrieve_sessionid(_db, _src_visit)
 
     log.debug("(SQL) Getting values from the source datacollection record")
-    row = retrieve_datacollection_values(_db, _dbschema, src_sessionid, _src_dir, _src_prefix, _src_run_number)
+    row = retrieve_datacollection_values(_db, src_sessionid, _src_dir, _src_prefix, _src_run_number)
     src_dcid = int(row['datacollectionid'])
     src_dcgid = int(row['datacollectiongroupid'])
     start_img_number = int(row['startimagenumber'])
     src_xtal_snapshot_path = [row['xtalsnapshotfullpath1'], row['xtalsnapshotfullpath2'], row['xtalsnapshotfullpath3'], row['xtalsnapshotfullpath4']]
 
     log.debug("(SQL) Getting the number of images")
-    no_images = retrieve_no_images(_db, _dbschema, src_dcid)
+    no_images = retrieve_no_images(_db, src_dcid)
     log.debug("(ANS) Got %d" % no_images)
 
     # Get the sessionid for the dest_visit
     log.debug("(SQL) Getting the destination sessionid")
-    sessionid = retrieve_sessionid(_db, _dbschema, _dest_visit)
+    sessionid = retrieve_sessionid(_db, _dest_visit)
 
     # Get the highest run number for the datacollections of this dest_visit with the particular img.dir and prefix
     log.debug("(SQL) Getting the currently highest run number for this img. directory + prefix")
-    run_number = retrieve_max_dcnumber(_db, _dbschema, sessionid, _dest_dir, _dest_prefix)
+    run_number = retrieve_max_dcnumber(_db, sessionid, _dest_dir, _dest_prefix)
     if run_number is None:
         run_number = 1
     else:
         run_number = int(run_number) + 1
 
     log.debug("(SQL) Getting values from the source datacollectiongroup record")
-    dcg_row = retrieve_datacollection_group_values(_db, _dbschema, src_dcgid)
+    dcg_row = retrieve_datacollection_group_values(_db, src_dcgid)
 
     src_blsampleid = dcg_row['blsampleid']
 
@@ -396,7 +396,7 @@ def simulate(_db, _dbschema,
         if _sample_id is None:
 
             log.debug("(SQL) Getting values from the source blsample record")
-            bls_row = retrieve_blsample_values(_db, _dbschema, int(src_blsampleid))
+            bls_row = retrieve_blsample_values(_db, int(src_blsampleid))
 
             # Produce a BLSample.xml file from the template
             log.debug("(filesystem) Creating a temporary blsample XML file in the /tmp folder")
@@ -456,7 +456,7 @@ def simulate(_db, _dbschema,
       datacollectiongroupid = data_collection_group_id
 
     # Get the grid info values associated with the source dcg
-    gi_row = retrieve_grid_info_values(_db, _dbschema, src_dcgid)
+    gi_row = retrieve_grid_info_values(_db, src_dcgid)
 
     # Prouce a GridInfo.xml file from the template if the source DataCollectionGroup has one:
     if gi_row is not None:
@@ -631,8 +631,6 @@ def call_sim(test_name, beamline):
     else:
         log.error("Creating directory %s failed" % dest_dir)
 
-    db = dlstbx.dc_sim.mydb.DB()
-
     # Call simulate
     dcid_list = []
     dcg_list = []
@@ -644,7 +642,7 @@ def call_sim(test_name, beamline):
             else:
               dcg = None
             dcid, dcg = simulate(
-                db, DBSCHEMA, dest_visit, dest_beamline, data_src_dir,
+                dest_visit, dest_beamline, data_src_dir,
                 src_dir, src_visit, src_prefix, src_run_number,
                 dest_prefix, dest_visit_dir, dest_dir,
                 sample_id, data_collection_group_id=dcg)

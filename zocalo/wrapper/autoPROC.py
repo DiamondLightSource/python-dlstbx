@@ -2,8 +2,8 @@ from __future__ import absolute_import, division, print_function
 
 import json
 import logging
-import py
 import os
+import py
 
 import dlstbx.util.symlink
 import dlstbx.zocalo.wrapper
@@ -53,54 +53,145 @@ def xml_to_dict(filename):
 
 class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
-  def send_results_to_ispyb(self, xml_file, use_existing_autoprocprogram_id=True):
-    logger.debug("Reading autoPROC results")
-    message = xml_to_dict(xml_file)['AutoProcContainer']
-    # Do not accept log entries from the object, we add those separately
-    message['AutoProcProgramContainer']['AutoProcProgramAttachment'] = filter(
-       lambda x: x.get('fileType') != 'Log', message['AutoProcProgramContainer']['AutoProcProgramAttachment'])
+  def send_results_to_ispyb(self, xml_file, special_program_name=None, attachments=None):
+    if not xml_file.check(file=1, exists=1):
+      return False
+    logger.debug("Reading autoPROC results from %s", xml_file.strpath)
+    try:
+      message = xml_to_dict(xml_file.strpath)
+    except Exception as e:
+      logger.error("Could not read autoPROC file from %s: %s", xml_file.strpath, e, exc_info=True)
+      return False
+    if 'AutoProcContainer' not in message:
+      logger.error("No AutoProcContainer in autoPROC log file %s", xml_file.strpath)
+      return False
+    message = message['AutoProcContainer']
 
-    def recursive_replace(thing, old, new):
-      '''Recursive string replacement in data structures.'''
+    ispyb_command_list = []
 
-      def _recursive_apply(item):
-        '''Internal recursive helper function.'''
-        if isinstance(item, basestring):
-          return item.replace(old, new)
-        if isinstance(item, dict):
-          return { _recursive_apply(key): _recursive_apply(value) for
-                   key, value in item.items() }
-        if isinstance(item, tuple):
-          return tuple(_recursive_apply(list(item)))
-        if isinstance(item, list):
-          return [ _recursive_apply(x) for x in item ]
-        return item
-      return _recursive_apply(thing)
+    if special_program_name:
+      # Overwrite ispyb_autoprocprogram_id in the recipe wrapper
+      # environment for this step and any eventual downstream ones
+      params = self.recwrap.recipe_step['job_parameters']
+      rpid = params.get('ispyb_process', '')
+      if not rpid.isdigit():
+        rpid = ''
+      ispyb_command_list.append({
+          "ispyb_command": "register_processing",
+          "program": special_program_name,
+          "cmdline": special_program_name,
+          "environment": "",
+          "rpid": rpid,
+          "store_result": "ispyb_autoprocprogram_id"
+      })
 
-    logger.debug("Replacing temporary zocalo paths with correct destination paths")
-    message = recursive_replace(
-        message,
-        self.recwrap.recipe_step['job_parameters']['working_directory'],
-        self.recwrap.recipe_step['job_parameters']['results_directory']
-      )
+    # Step 1: Add new record to AutoProc, keep the AutoProcID
+    ispyb_command_list.append({
+        'ispyb_command': 'write_autoproc',
+        'autoproc_id': None,
+        'store_result': 'ispyb_autoproc_id',
+        'spacegroup': message['AutoProc']['spaceGroup'],
+        'refinedcell_a': message['AutoProc']['refinedCell_a'],
+        'refinedcell_b': message['AutoProc']['refinedCell_b'],
+        'refinedcell_c': message['AutoProc']['refinedCell_c'],
+        'refinedcell_alpha': message['AutoProc']['refinedCell_alpha'],
+        'refinedcell_beta': message['AutoProc']['refinedCell_beta'],
+        'refinedcell_gamma': message['AutoProc']['refinedCell_gamma'],
+    })
 
-    dcid = int(self.recwrap.recipe_step['job_parameters']['dcid'])
-    assert dcid > 0, "Invalid data collection ID given."
-    logger.debug("Writing to data collection ID %s", str(dcid))
-    if isinstance(message['AutoProcScalingContainer']['AutoProcIntegrationContainer'], dict):  # Make it a list regardless
-      message['AutoProcScalingContainer']['AutoProcIntegrationContainer'] = [message['AutoProcScalingContainer']['AutoProcIntegrationContainer']]
-    for container in message['AutoProcScalingContainer']['AutoProcIntegrationContainer']:
-      container['AutoProcIntegration']['dataCollectionId'] = dcid
+    # Step 2: Store scaling results, linked to the AutoProcID
+    #         Keep the AutoProcScalingID
+    insert_scaling = {
+        'ispyb_command': 'insert_scaling',
+        'autoproc_id': '$ispyb_autoproc_id',
+        'store_result': 'ispyb_autoprocscaling_id',
+    }
+    for statistics in message['AutoProcScalingContainer']['AutoProcScalingStatistics']:
+      insert_scaling[statistics['scalingStatisticsType']] = {
+          'anom_completeness': statistics['anomalousCompleteness'],
+          'anom_multiplicity': statistics['anomalousMultiplicity'],
+          'cc_anom': statistics['ccAnomalous'],
+          'cc_half': statistics['ccHalf'],
+          'completeness': statistics['completeness'],
+          'mean_i_sig_i': statistics['meanIOverSigI'],
+          'multiplicity': statistics['multiplicity'],
+          'n_tot_obs': statistics['nTotalObservations'],
+          'n_tot_unique_obs': statistics['nTotalUniqueObservations'],
+          'r_meas_all_iplusi_minus': statistics['rMeasAllIPlusIMinus'],
+          'r_meas_within_iplusi_minus': statistics['rMeasWithinIPlusIMinus'],
+          'r_merge': statistics['rMerge'],
+          'r_pim_all_iplusi_minus': statistics['rPimAllIPlusIMinus'],
+          'r_pim_within_iplusi_minus': statistics['rPimWithinIPlusIMinus'],
+          'res_lim_high': statistics['resolutionLimitHigh'],
+          'res_lim_low': statistics['resolutionLimitLow'],
+      }
+    ispyb_command_list.append(insert_scaling)
 
-    # Use existing AutoProcProgramID
-    if use_existing_autoprocprogram_id and self.recwrap.environment.get('ispyb_autoprocprogram_id'):
-      message['AutoProcProgramContainer']['AutoProcProgram'] = \
-        self.recwrap.environment['ispyb_autoprocprogram_id']
+    # Step 3: Store integration results, linking them to ScalingID
+    APIC = message['AutoProcScalingContainer']['AutoProcIntegrationContainer']
+    if isinstance(APIC, dict):  # Make it a list regardless
+      APIC = [APIC]
+    for n, container in enumerate(APIC):
+      int_result = container['AutoProcIntegration']
+      integration = {
+          'ispyb_command': 'upsert_integration',
+          'scaling_id': '$ispyb_autoprocscaling_id',
+          'beam_vec_x': int_result['beamVectorX'],
+          'beam_vec_y': int_result['beamVectorY'],
+          'beam_vec_z': int_result['beamVectorZ'],
+          'cell_a': int_result['cell_a'],
+          'cell_b': int_result['cell_b'],
+          'cell_c': int_result['cell_c'],
+          'cell_alpha': int_result['cell_alpha'],
+          'cell_beta': int_result['cell_beta'],
+          'cell_gamma': int_result['cell_gamma'],
+          'start_image_no': int_result['startImageNumber'],
+          'end_image_no': int_result['endImageNumber'],
+          'rot_axis_x': int_result['rotationAxisX'],
+          'rot_axis_y': int_result['rotationAxisY'],
+          'rot_axis_z': int_result['rotationAxisZ'],
+          'refined_xbeam': int_result['refinedXBeam'],
+          'refined_ybeam': int_result['refinedYBeam'],
+          'refined_detector_dist': int_result['refinedDetectorDistance'],
+      }
+      # autoPROC reports beam centre in px rather than mm
+      px_to_mm = 0.172
+      for beam_direction in ('refined_xbeam', 'refined_ybeam'):
+        if integration[beam_direction]:
+          integration[beam_direction] = float(integration[beam_direction]) * px_to_mm
 
-    logger.debug("Sending %s", str(message))
-    self.recwrap.transport.send('ispyb', message)
+      if n > 0 or special_program_name:
+        # make sure only the first integration of the original program
+        # uses the integration ID initially created in the recipe before
+        # processing started, and all subsequent integration results
+        # are written to a new record
+        integration['integration_id'] = None
+    ispyb_command_list.append(integration)
 
-    logger.info("Saved autoPROC information for data collection %s", str(dcid))
+    if attachments:
+      for filename, dirname, filetype in attachments:
+        ispyb_command_list.append({
+            "ispyb_command": "add_program_attachment",
+            "program_id": "$ispyb_autoprocprogram_id",
+            "file_name": filename,
+            "file_path": dirname,
+            "file_type": filetype,
+        })
+
+    if special_program_name:
+      ispyb_command_list.append({
+          "ispyb_command": "update_processing_status",
+          "program_id": "$ispyb_autoprocprogram_id",
+          "message": "processing successful",
+          "status": "success",
+      })
+
+    logger.info("Sending %s", str(ispyb_command_list))
+    self.recwrap.send_to('ispyb', {
+        'ispyb_command_list': ispyb_command_list,
+    })
+    logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+    return True
 
   def construct_commandline(self, params):
     '''Construct autoPROC command line.
@@ -192,7 +283,6 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     # disable control sequence parameters from autoPROC output
     # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
-
     result = procrunner.run(
       command, timeout=params.get('timeout'),
       print_stdout=True, print_stderr=True,
@@ -201,6 +291,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       },
       working_directory=working_directory.strpath,
     )
+
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
@@ -236,22 +327,6 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if params.get('create_symlink'):
       dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
 
-    autoproc_xml = working_directory.join('autoPROC.xml')
-    ispyb_dls_xml = working_directory.join('ispyb_dls.xml')
-    if autoproc_xml.check():
-      with autoproc_xml.open('rb') as infile, ispyb_dls_xml.open('wb') as outfile:
-        outfile.write(infile.read().replace(
-          working_directory.strpath, results_directory.strpath))
-      self.fix_xml(ispyb_dls_xml.strpath)
-
-    staraniso_xml = working_directory.join('autoPROC_staraniso.xml')
-    staraniso_ispyb_dls_xml = working_directory.join('staraniso_ispyb_dls.xml')
-    if staraniso_xml.check():
-      with staraniso_xml.open('rb') as infile, staraniso_ispyb_dls_xml.open('wb') as outfile:
-        outfile.write(infile.read().replace(
-          working_directory.strpath, results_directory.strpath))
-      self.fix_xml(staraniso_ispyb_dls_xml.strpath)
-
     keep_ext = {
       ".INP": None,
       ".xml": None,
@@ -269,7 +344,8 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       "summary.tar.gz": "result",
       "iotbx-merging-stats.json": "graph"
     }
-    allfiles = []
+    allfiles = [] # flat list
+    anisofiles = [] # tuples of file name, dir name, file type
     for filename in working_directory.listdir():
       filetype = keep_ext.get(filename.ext)
       if filename.basename in keep:
@@ -278,9 +354,13 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         continue
       destination = results_directory.join(filename.basename)
       logger.debug('Copying %s to %s' % (filename.strpath, destination.strpath))
-      allfiles.append(destination.strpath)
       filename.copy(destination)
-      if filetype:
+      if 'staraniso' in filename.basename:
+        anisofiles.append((destination.basename, destination.dirname, filetype))
+        print("RECORD ANISE", destination)
+      else:
+        allfiles.append(destination.strpath)
+        print("RECORD ALL", destination)
         self.record_result_individual_file({
           'file_path': destination.dirname,
           'file_name': destination.basename,
@@ -289,11 +369,18 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })
 
-    if ispyb_dls_xml.check():
-      self.send_results_to_ispyb(ispyb_dls_xml.strpath)
-    if staraniso_xml.check():
-      self.send_results_to_ispyb(
-        staraniso_ispyb_dls_xml.strpath, use_existing_autoprocprogram_id=False)
+    autoproc_xml = working_directory.join('autoPROC.xml')
+    staraniso_xml = working_directory.join('autoPROC_staraniso.xml')
+    if not result['exitcode']:
+      send_results = self.send_results_to_ispyb(autoproc_xml)
+      if not send_results: result['exitcode'] = 1
+    if not result['exitcode']:
+      send_results = self.send_results_to_ispyb(
+          staraniso_xml,
+          special_program_name='AutoPROC+STARANISO',
+          attachments=anisofiles,
+      )
+      if not send_results: result['exitcode'] = 1
 
     # Update SynchWeb ticks hack file.
     if params.get('synchweb_ticks'):
@@ -348,42 +435,3 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     filePath = ElementTree.SubElement(attachment, 'filePath')
     filePath.text = os.path.dirname(json_file)
     tree.write(ispyb_xml)
-
-  @staticmethod
-  def fix_xml(xml_file):
-    from xml.etree import ElementTree
-
-    document = ElementTree.parse(xml_file)
-
-    pattern = '/'.join([
-      'AutoProcScalingContainer', 'AutoProcIntegrationContainer',
-      'AutoProcIntegration'])
-    integration = document.find(pattern)
-    if integration is None:
-      print('Could not find %s in %s' % (pattern, xml_file))
-    else:
-      beamX = integration.find('refinedXBeam')
-      beamY = integration.find('refinedYBeam')
-      # autoPROC swaps X and Y compared to what we expect
-      x = float(beamY.text)
-      y = float(beamX.text)
-      # autoPROC reports beam centre in px rather than mm
-      px_to_mm = 0.172
-      beamX.text = str(x * px_to_mm)
-      beamY.text = str(y * px_to_mm)
-
-    pattern = '/'.join([
-      'AutoProcProgramContainer', 'AutoProcProgram',
-      'processingPrograms'])
-    programs = document.find(pattern)
-    staranisoellipsoid = document.find(
-      '/'.join(['AutoProcScalingContainer', 'AutoProcScaling',
-                'StaranisoEllipsoid']))
-    if programs is None:
-      print('Could not find %s in %s' % (pattern, xml_file))
-    elif staranisoellipsoid is not None:
-      programs.text = 'autoPROC+STARANISO'
-    else:
-      programs.text = 'autoPROC'
-
-    document.write(xml_file)

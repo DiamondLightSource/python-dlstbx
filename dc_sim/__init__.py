@@ -20,6 +20,7 @@ import tempfile
 import time
 import uuid
 
+import dlstbx.dc_sim.definitions
 import dlstbx.dc_sim.mydb
 
 
@@ -341,28 +342,6 @@ def retrieve_max_dcnumber(_db, _dbschema, _sessionid, _dest_dir, _dest_prefix):
     return rows[0][0]
 
 
-class scenario(object):
-    def __init__(self, _test_name):
-        '''provide the test scenario, returns False if test is not valid'''
-        self.source_directory = None
-        self.source_prefix = None
-        self.source_run_numbers = None
-        self.sample_id = None
-        self.same_data_collection_group = False
-
-        import dlstbx.dc_sim.definitions as df
-        if _test_name in df.tests:
-            self.source_directory = df.tests[_test_name]['src_dir']
-            self.source_prefix = df.tests[_test_name]['src_prefix']
-            self.source_run_numbers = df.tests[_test_name]['src_run_num']
-            self.sample_id = df.tests[_test_name].get('use_sample_id')
-            self.same_data_collection_group = df.tests[_test_name].get('dcg', False)
-
-    def is_valid(self):
-      return [self.source_directory,
-              self.source_prefix,
-              self.source_run_numbers].count(None) == 0
-
 def simulate(_db, _dbschema,
              _dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_prefix, _src_run_number,
              _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id, _auto_proc='Yes',
@@ -589,20 +568,16 @@ def simulate(_db, _dbschema,
     return datacollectionid, datacollectiongroupid
 
 def call_sim(test_name, beamline):
-
-    # Default parameters
-    dbschema = DBSCHEMA
-
     dest_visit = None
 
-    # Fetch scenario data from definitions by accessing scenario function
-    _scenario = scenario(test_name)
-    if not _scenario.is_valid():
+    scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
+    if not scenario:
       sys.exit("%s is not a valid test scenario" % test_name)
-    src_dir = _scenario.source_directory
-    sample_id = _scenario.sample_id
-    src_prefix = _scenario.source_prefix
-    same_dcg = _scenario.same_data_collection_group
+
+    src_dir = scenario['src_dir']
+    sample_id = scenario.get('use_sample_id')
+    src_prefix = scenario['src_prefix']
+    same_dcg = scenario.get('dcg', False)
 
     # Calculate the destination directory
     dest_dir = None
@@ -661,15 +636,15 @@ def call_sim(test_name, beamline):
     # Call simulate
     dcid_list = []
     dcg_list = []
-    for src_run_number in _scenario.source_run_numbers:
-        for src_prefix in _scenario.source_prefix:
+    for src_run_number in scenario['src_run_num']:
+        for src_prefix in scenario['src_prefix']:
             dest_prefix = src_prefix
-            if _scenario.same_data_collection_group and len(dcg_list):
+            if scenario.get('dcg') and len(dcg_list):
               dcg = dcg_list[0]
             else:
               dcg = None
             dcid, dcg = simulate(
-                db, dbschema, dest_visit, dest_beamline, data_src_dir,
+                db, DBSCHEMA, dest_visit, dest_beamline, data_src_dir,
                 src_dir, src_visit, src_prefix, src_run_number,
                 dest_prefix, dest_visit_dir, dest_dir,
                 sample_id, data_collection_group_id=dcg)

@@ -224,7 +224,7 @@ class DLSController(CommonService):
       return
 
     try:
-      instance['workflows'] = map(int, message['workflows'].split('.', 1))
+      instance['workflows'] = map(int, message['workflows'].split('.'))
     except Exception:
       self.log.debug('Could not parse workflows version sent by %s', instance['host'])
     try:

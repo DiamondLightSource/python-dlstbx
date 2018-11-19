@@ -180,11 +180,11 @@ def test_check_should_return_FAIL_if_a_single_processing_result_is_bad(broken_pr
   assert broken_program in result['reason']
 
 
-#@pytest.mark.parametrize('missing_program', all_programs)
-#@pytest.mark.parametrize('added_program', all_programs + ['random program'])
-def test_check_should_not_be_confused_by_other_programs_appearing_instead_of_known_programs():
-  missing_program = 'xia2 3dii'
-  added_program = 'some random program'
+@pytest.mark.parametrize('missing_program', all_programs)
+@pytest.mark.parametrize('added_program', all_programs + ['random program'])
+def test_check_should_not_be_confused_by_other_programs_appearing_instead_of_known_programs(missing_program, added_program):
+  if missing_program == added_program:
+    return
 
   program_list = set(all_programs)
   program_list.remove(missing_program)

@@ -123,7 +123,7 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     # Create SynchWeb ticks hack file. This will be deleted or replaced later.
     # For this we need to create the results directory and its symlink immediately.
-    if self.params.get('synchweb_ticks'):
+    if self.params.get('synchweb_ticks') and self.params.get('ispyb_parameters', {}).get('set_synchweb_status'):
       logger.debug('Setting SynchWeb status to swirl')
       if self.params.get('create_symlink'):
         self.results_directory.ensure(dir=True)
@@ -167,7 +167,7 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     success = self.send_results_to_ispyb() and result['exitcode'] == 0
 
     # Update SynchWeb tick hack file
-    if self.params.get('synchweb_ticks'):
+    if self.params.get('synchweb_ticks') and self.params.get('ispyb_parameters', {}).get('set_synchweb_status'):
       if success:
         logger.debug('Removing SynchWeb hack file')
         py.path.local(self.params['synchweb_ticks']).remove()

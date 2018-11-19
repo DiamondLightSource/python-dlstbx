@@ -88,6 +88,8 @@ class DLSTrigger(CommonService):
         'data': parameters('mtz'),
         'scaling_id': parameters('scaling_id'),
     }
+    if parameters('set_synchweb_status'):
+      dimple_parameters['set_synchweb_status'] = 1
 
     jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
     jisp['datacollectionid'] = dcid

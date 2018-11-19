@@ -357,10 +357,8 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       filename.copy(destination)
       if 'staraniso' in filename.basename:
         anisofiles.append((destination.basename, destination.dirname, filetype))
-        print("RECORD ANISE", destination)
       else:
         allfiles.append(destination.strpath)
-        print("RECORD ALL", destination)
         self.record_result_individual_file({
           'file_path': destination.dirname,
           'file_name': destination.basename,

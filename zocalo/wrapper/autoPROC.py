@@ -150,8 +150,9 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           'rot_axis_x': int_result['rotationAxisX'],
           'rot_axis_y': int_result['rotationAxisY'],
           'rot_axis_z': int_result['rotationAxisZ'],
-          'refined_xbeam': int_result['refinedXBeam'],
-          'refined_ybeam': int_result['refinedYBeam'],
+          # autoPROC swaps X and Y compared to what we expect
+          'refined_xbeam': int_result['refinedYBeam'],
+          'refined_ybeam': int_result['refinedXBeam'],
           'refined_detector_dist': int_result['refinedDetectorDistance'],
       }
       # autoPROC reports beam centre in px rather than mm

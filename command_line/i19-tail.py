@@ -59,7 +59,7 @@ def recursively_find_most_current_directory(base):
   newest_entry = (None, 0)
   if any(map(is_uuid, entries)):
     # if UUID directories in the path then do not descend any further
-    return (None, 0)
+    return None
   for entry in entries:
     directory = os.path.join(base, entry)
     last_modification = os.path.getmtime(directory)

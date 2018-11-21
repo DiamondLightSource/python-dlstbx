@@ -157,7 +157,7 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         allfiles.append(results_directory.join(f.basename))
 
     # Send results to various listeners
-    logfiles = ('xia2.html', 'xia2.error')
+    logfiles = ('xia2.html', 'xia2.txt', 'xia2.error')
     for result_file in map(results_directory.join, logfiles):
       if result_file.check():
         self.record_result_individual_file({

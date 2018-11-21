@@ -12,8 +12,7 @@ logger = logging.getLogger('dlstbx.wrap.i19_screen')
 
 class I19ScreenWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
   def run(self):
-    assert hasattr(self, 'recwrap'), \
-      "No recipewrapper object found"
+    assert hasattr(self, 'recwrap'), "No recipewrapper object found"
 
     params = self.recwrap.recipe_step['job_parameters']
 
@@ -21,6 +20,9 @@ class I19ScreenWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     working_directory = params['working_directory']
     if not os.path.exists(working_directory):
       os.makedirs(working_directory)
+    if params.get('create_symlink'):
+      # Create symbolic link above working directory
+      dlstbx.util.symlink.create_parent_symlink(working_directory, params['create_symlink'])
     os.chdir(working_directory)
 
     # construct i19.screen command line
@@ -79,9 +81,9 @@ class I19ScreenWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       logger.info('Notifying for found files: %s', str(foundfiles))
       self.record_result_all_files({ 'filelist': foundfiles })
 
-    if params.get('results_symlink'):
-      # Create symbolic link above working directory
-      dlstbx.util.symlink.create_parent_symlink(results_directory, params['results_symlink'])
+    if params.get('create_symlink'):
+      # Create symbolic link above results directory
+      dlstbx.util.symlink.create_parent_symlink(results_directory, params['create_symlink'])
 
     logger.info('Done.')
 

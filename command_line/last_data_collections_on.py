@@ -52,4 +52,4 @@ if __name__ == '__main__':
         for row in cursor.fetchall():
           print('{startTime:%Y-%m-%d %H:%M} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images   {fileTemplate}'.format(**row))
           if options.link:
-            print(' ' * 52 + 'https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dataCollectionId}/ty/dc\n'.format(**row))
+            print(' ' * 52 + 'https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dataCollectionId}\n'.format(**row))

@@ -10,6 +10,9 @@ import sys
 import threading
 import time
 
+def is_uuid(s):
+  return bool(re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', s))
+
 start = time.time()
 
 def ensure_we_are_in_visit_directory():
@@ -54,6 +57,9 @@ def recursively_find_most_current_directory(base):
   dir_ages = { directory: os.path.getmtime(directory)
                for directory in (os.path.join(base, entry) for entry in entries) }
   newest_entry = (None, 0)
+  if any(map(is_uuid, entries)):
+    # if UUID directories in the path then do not descend any further
+    return (None, 0)
   for entry in entries:
     directory = os.path.join(base, entry)
     last_modification = os.path.getmtime(directory)
@@ -101,7 +107,7 @@ class tail_log(threading.Thread):
     self._closing = True
 
   def run(self):
-    header(os.path.dirname(os.path.dirname(self._path)))
+    header(os.path.dirname(self._path))
     with open(os.path.join(self._path, 'i19.screen.log')) as fh:
       start = time.time()
       la = _LineAggregator()

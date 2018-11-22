@@ -45,31 +45,52 @@ def header(text):
 ensure_we_are_in_visit_directory()
 base_directory = os.getcwd()
 
-seen_dirs = {}
-most_recent_dir = (None, 0)
-
-def recursively_find_most_current_directory(base):
-  global most_recent_dir
-  entries = os.listdir(base)
+def find_i19_screen_or_newest_entry(directory):
+  entries = os.listdir(directory)
   if 'i19.screen' in entries:
-    return os.path.join(base, 'i19.screen')
-
-  dir_ages = { directory: os.path.getmtime(directory)
-               for directory in (os.path.join(base, entry) for entry in entries) }
-  newest_entry = (None, 0)
+    return os.path.join(directory, 'i19.screen')
   if any(map(is_uuid, entries)):
     # if UUID directories in the path then do not descend any further
     return None
-  for entry in entries:
-    directory = os.path.join(base, entry)
-    last_modification = os.path.getmtime(directory)
-    if seen_dirs.get(directory, 0) < last_modification:
-      seen_dirs[directory] = last_modification
-      if last_modification > newest_entry[1]:
-        newest_entry = (directory, last_modification)
-  if newest_entry[1] > most_recent_dir[1]:
-    most_recent_dir = newest_entry
-    return recursively_find_most_current_directory(most_recent_dir[0])
+  times = {
+      os.path.getmtime(os.path.join(directory, entry)): entry
+      for entry in entries
+      if os.path.isdir(os.path.join(directory, entry))
+  }
+  if not times:
+    return None
+  newest_entry = os.path.join(directory, times[max(times)])
+  return newest_entry
+
+def recursively_find_most_current_directory(base, last_known_path=None):
+  '''Recursively find the newest directory underneath 'base'.
+     Optionally also find any newer directories between 'base'
+     and 'last_known_path'.
+     Return a tuple of the most recent directory found and its
+     modification timestamp.'''
+  best_candidate = (None, 0)
+  newest_entry = find_i19_screen_or_newest_entry(base)
+  if newest_entry:
+    last_modification = os.path.getmtime(newest_entry)
+    if last_modification > best_candidate[1]:
+      best_candidate = (newest_entry, last_modification)
+    if os.path.basename(newest_entry) != 'i19.screen':
+      newest_entry = recursively_find_most_current_directory(newest_entry, None)
+      if newest_entry:
+        newest_entry, last_modification = newest_entry
+        if last_modification > best_candidate[1]:
+          best_candidate = (newest_entry, last_modification)
+  if last_known_path:
+    while last_known_path.startswith(base):
+      if os.path.basename(last_known_path) != 'i19.screen':
+        newest_entry = find_i19_screen_or_newest_entry(last_known_path)
+        if newest_entry:
+          last_modification = os.path.getmtime(newest_entry)
+          if last_modification > best_candidate[1]:
+            best_candidate = (newest_entry, last_modification)
+      last_known_path = os.path.dirname(last_known_path)
+  if best_candidate[1]:
+    return best_candidate
 
 class _LineAggregator(object):
   '''Buffer that can be filled with stream data and will aggregate complete
@@ -124,20 +145,24 @@ class tail_log(threading.Thread):
 
 active_tail = None
 waiting_for_log = None
+last_known_path = None
 try:
+  most_recent_dir = (None, 0)
   while time.time() < start + (24 * 3600): # Set up a 24hr runtime limit
-    new_i19_log = recursively_find_most_current_directory(base_directory)
-    if new_i19_log:
+    better_location = recursively_find_most_current_directory(base_directory, last_known_path)
+    if better_location[0].endswith('i19.screen') and better_location[1] > most_recent_dir[1]:
+      most_recent_dir = better_location
       if active_tail:
         active_tail.close()
         active_tail = None
-      waiting_for_log = new_i19_log
+      waiting_for_log = most_recent_dir[0]
       if not os.path.exists(os.path.join(waiting_for_log, 'i19.screen.log')):
         print("\n\n\nNew i19.screen directory found at %s, waiting for new log to appear" % \
-            os.path.dirname(os.path.dirname(waiting_for_log)))
+            os.path.dirname(waiting_for_log))
     if waiting_for_log:
       if os.path.exists(os.path.join(waiting_for_log, 'i19.screen.log')):
         active_tail = tail_log(waiting_for_log)
+        last_known_path = waiting_for_log
         waiting_for_log = None
     time.sleep(5)
 except KeyboardInterrupt:

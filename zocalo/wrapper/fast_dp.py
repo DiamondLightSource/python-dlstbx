@@ -66,7 +66,12 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     '''Construct fast_dp command line.
        Takes job parameter dictionary, returns array.'''
 
-    command = ['fast_dp', '--atom=S', '-l', 'durin-plugin.so', params['fast_dp']['filename']]
+    command = [
+      'fast_dp', '--atom=S',
+      '-j', '0', '-J', '18',
+       '-l', 'durin-plugin.so',
+      params['fast_dp']['filename']
+    ]
 
     if params.get('ispyb_parameters'):
       if params['ispyb_parameters'].get('d_min'):

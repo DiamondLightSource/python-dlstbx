@@ -567,8 +567,6 @@ SELECT %s
 FROM AutoProcIntegration
 INNER JOIN AutoProcProgram
 ON AutoProcIntegration.autoProcProgramId = AutoProcProgram.autoProcProgramId
-INNER JOIN AutoProcProgramAttachment
-ON AutoProcProgram.autoProcProgramId = AutoProcProgramAttachment.autoProcProgramId
 INNER JOIN AutoProcScaling_has_Int
 ON AutoProcIntegration.autoProcIntegrationId = AutoProcScaling_has_Int.autoProcIntegrationId
 INNER JOIN AutoProcScaling

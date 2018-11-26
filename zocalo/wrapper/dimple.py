@@ -140,6 +140,11 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         timeout=self.params.get('timeout'),
         print_stdout=True, print_stderr=True,
     )
+
+    # Hack to workaround dimple returning successful exitcode despite 'Giving up'
+    if 'Giving up' in result['stdout']:
+      result['exitcode'] = 1
+
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
@@ -163,8 +168,13 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         continue
       f.copy(self.results_directory)
 
-    logger.info('Sending dimple results to ISPyB')
-    success = self.send_results_to_ispyb() and result['exitcode'] == 0
+    if result['exitcode'] == 0:
+      logger.info('Sending dimple results to ISPyB')
+      # XXX This logic won't work as self.send_results_to_ispyb() returns None on success
+      success = self.send_results_to_ispyb() and result['exitcode'] == 0
+    else:
+      logger.error('dimple failed: %s/dimple.log' % self.working_directory)
+      success = False
 
     # Update SynchWeb tick hack file
     if self.params.get('synchweb_ticks') and self.params.get('ispyb_parameters', {}).get('set_synchweb_status'):

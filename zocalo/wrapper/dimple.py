@@ -173,7 +173,7 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       # XXX This logic won't work as self.send_results_to_ispyb() returns None on success
       success = self.send_results_to_ispyb() and result['exitcode'] == 0
     else:
-      logger.error('dimple failed: %s/dimple.log' % self.working_directory)
+      logger.warning('dimple failed: %s/dimple.log' % self.working_directory)
       success = False
 
     # Update SynchWeb tick hack file

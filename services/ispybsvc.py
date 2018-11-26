@@ -160,6 +160,9 @@ class DLSISPyB(CommonService):
     if isinstance(environment, dict):
       environment = ', '.join('%s=%s' % (key, value) for key, value in environment.items())
     rpid = parameters('rpid')
+    if rpid and not rpid.isdigit():
+      self.log.error("Invalid processing id '%s'" % rpid)
+      return False
     try:
       result = self.ispyb.mx_processing.upsert_program_ex(
           job_id=rpid,

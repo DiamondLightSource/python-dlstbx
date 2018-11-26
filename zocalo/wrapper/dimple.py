@@ -29,7 +29,7 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           results.append(pdb.code)
         elif pdb.rawfile is not None:
           assert pdb.name and '/' not in pdb.name, 'Invalid PDB file name'
-          pdb_filepath = working_directory.join('%s.pdb' % pdb.name)
+          pdb_filepath = self.working_directory.join('%s.pdb' % pdb.name)
           pdb_filepath.write(pdb.rawfile, ensure=True)
           results.append(pdb_filepath.strpath)
     return results

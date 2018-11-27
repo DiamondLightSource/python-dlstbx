@@ -99,9 +99,8 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if params.get('ispyb_parameters'):
       if params['ispyb_parameters'].get('spacegroup') and \
           '/' not in params['ispyb_parameters']['spacegroup']:
-        for parameter in ('working_directory', 'results_directory', 'create_symlink'):
-          if parameter in params:
-            params[parameter] += '-' + params['ispyb_parameters']['spacegroup']
+        if 'create_symlink' in params:
+          params['create_symlink'] += '-' + params['ispyb_parameters']['spacegroup']
         # only runs without space group are shown in SynchWeb overview
         params['synchweb_ticks'] = None
 

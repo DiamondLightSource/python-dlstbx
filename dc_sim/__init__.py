@@ -426,7 +426,6 @@ def retrieve_max_dcnumber(_db, _sessionid, _dest_dir, _dest_prefix):
 def simulate(
     _dest_visit,
     _beamline,
-    _data_src_dir,
     _src_dir,
     _src_visit,
     _src_prefix,
@@ -543,8 +542,8 @@ def simulate(
 
             # Extract the blsampleId from the output
             log.debug("(filesystem) Read the returned blsampleid from output file")
-            f = file("/tmp/test.log", "r")
-            xml = f.read()
+            with open("/tmp/test.log", "r") as fh:
+                xml = fh.read()
             m = re.search("<blSampleId>(\d+)</blSampleId>", xml)
             if m:
                 blsample_id = int(m.groups()[0])
@@ -589,8 +588,8 @@ def simulate(
         log.debug(
             "(filesystem) Read the returned datacollectiongroupid from output file"
         )
-        f = file("/tmp/test.log", "r")
-        xml = f.read()
+        with open("/tmp/test.log", "r") as fh:
+            xml = fh.read()
         datacollectiongroupid = None
         m = re.search("<dataCollectionGroupId>(\d+)</dataCollectionGroupId>", xml)
         if m:
@@ -636,8 +635,8 @@ def simulate(
 
         # Extract the gridinfoId from the output
         log.debug("(filesystem) Read the returned gridinfoid from output file")
-        f = file("/tmp/test.log", "r")
-        xml = f.read()
+        with open("/tmp/test.log", "r") as fh:
+            xml = fh.read()
         gridinfoid = None
         m = re.search("<gridInfoId>(\d+)</gridInfoId>", xml)
         if m:
@@ -688,8 +687,8 @@ def simulate(
 
     # Extract the datacollectionId from the output
     log.debug("(filesystem) Read the returned datacollectionid from output file")
-    f = file("/tmp/test.log", "r")
-    xml = f.read()
+    with open("/tmp/test.log", "r") as fh:
+        xml = fh.read()
     datacollectionid = None
     m = re.search("<dataCollectionId>(\d+)</dataCollectionId>", xml)
     if m:
@@ -747,7 +746,7 @@ def simulate(
             src_prefix = _src_prefix
         src_fname = "%s_%d_%s.cbf" % (src_prefix, _src_run_number, str(img_number))
         dest_fname = "%s_%d_%s.cbf" % (_dest_prefix, run_number, str(img_number))
-        src = os.path.join(_data_src_dir, src_fname)
+        src = os.path.join(_src_dir, src_fname)
         target = os.path.join(_dest_dir, dest_fname)
         log.info("(filesystem) Copy file %s to %s" % (src, target))
         copy_via_temp_file(src, target)
@@ -871,12 +870,10 @@ def call_sim(test_name, beamline):
         m2 = re.search("^(\S+?)/", subdir)
         if m2:
             src_visit = m2.groups()[0]
-            src_visit_dir = m1.groups()[0] + src_visit
-        elif (subdir is not None) and (subdir != ""):
+        elif subdir:
             src_visit = subdir
-            src_visit_dir = m1.groups()[0] + src_visit
 
-    if (src_visit_dir is None) or (src_visit is None):
+    if src_visit is None:
         sys.exit(
             "ERROR: The src_dir parameter does not appear to contain a valid visit directory."
         )
@@ -911,7 +908,6 @@ def call_sim(test_name, beamline):
             dcid, dcg = simulate(
                 dest_visit,
                 beamline,
-                src_dir,
                 src_dir,
                 src_visit,
                 src_prefix,

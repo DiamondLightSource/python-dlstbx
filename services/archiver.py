@@ -204,7 +204,7 @@ class DLSArchiver(CommonService):
 
     dropqueue = params.get('dropfile-queue')
     if dropqueue:
-      self._transport.send(dropqueue, xml_string, ignore_namespace=True, do_not_mangle=True)
+      self._transport.raw_send(dropqueue, xml_string, ignore_namespace=True)
 
     rw.set_default_channel('dropfile')
     rw.send_to('dropfile', message_out, transaction=txn)

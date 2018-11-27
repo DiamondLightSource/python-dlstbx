@@ -25,19 +25,21 @@ import dlstbx.dc_sim.mydb
 
 
 # "Globals"
-log = logging.getLogger('dlstbx.dc_sim')
+log = logging.getLogger("dlstbx.dc_sim")
 
 # Constants
-MX_SCRIPTS_BINDIR='/dls_sw/apps/mx-scripts/bin'
-DBSERVER_SRCDIR='/dls_sw/apps/mx-scripts/ispyb-dbserver/src'
-DBSERVER_HOST='sci-serv3'
-DBSERVER_PORT='1994'
+MX_SCRIPTS_BINDIR = "/dls_sw/apps/mx-scripts/bin"
+DBSERVER_SRCDIR = "/dls_sw/apps/mx-scripts/ispyb-dbserver/src"
+DBSERVER_HOST = "sci-serv3"
+DBSERVER_PORT = "1994"
+
 
 def f(_v):
     if _v is None:
-        return float('nan')
+        return float("nan")
     else:
         return float(_v)
+
 
 def i(_v):
     if _v is None:
@@ -45,32 +47,36 @@ def i(_v):
     else:
         return int(_v)
 
+
 def s(_v):
     if _v is None:
         return "null"
     else:
         return str(_v)
 
+
 def copy_via_temp_file(source, destination):
-  dest_dir, dest_file = os.path.split(destination)
-  temp_dest_file = '.tmp.' + dest_file
-  temp_destination = os.path.join(dest_dir, temp_dest_file)
-  shutil.copyfile(source, temp_destination)
-  os.rename(temp_destination, destination)
+    dest_dir, dest_file = os.path.split(destination)
+    temp_dest_file = ".tmp." + dest_file
+    temp_destination = os.path.join(dest_dir, temp_dest_file)
+    shutil.copyfile(source, temp_destination)
+    os.rename(temp_destination, destination)
+
 
 def populate_blsample_xml_template(_row):
     temp = blsample_xml % (
-        s(_row['name']),
-        s(_row['code']),
-        s(_row['location']),
-        f(_row['holderlength']),
-        f(_row['looplength']),
-        s(_row['looptype']),
-        f(_row['wirewidth']),
-        s(_row['comments']),
-        s(_row['blsamplestatus']),
-        i(_row['isinsamplechanger']),
-        s(_row['lastknowncenteringposition']))
+        s(_row["name"]),
+        s(_row["code"]),
+        s(_row["location"]),
+        f(_row["holderlength"]),
+        f(_row["looplength"]),
+        s(_row["looptype"]),
+        f(_row["wirewidth"]),
+        s(_row["comments"]),
+        s(_row["blsamplestatus"]),
+        i(_row["isinsamplechanger"]),
+        s(_row["lastknowncenteringposition"]),
+    )
 
     # remove lines with null, nan and -1 values:
     temp = re.sub("\<.*\>null\</.*\>\n", "", temp)
@@ -84,59 +90,113 @@ def populate_dcg_xml_template(_row, _sessionid, _blsample_id):
     if _blsample_id != None:
         blsample_id_elem = "<blSampleId>%d</blSampleId>\n" % _blsample_id
 
-    temp = dcg_temp_xml % (_sessionid, blsample_id_elem,
-                           s(_row['experimenttype']), nowstr,
-                           s(_row['crystalclass']), s(_row['detectormode']))
+    temp = dcg_temp_xml % (
+        _sessionid,
+        blsample_id_elem,
+        s(_row["experimenttype"]),
+        nowstr,
+        s(_row["crystalclass"]),
+        s(_row["detectormode"]),
+    )
 
     # remove lines with null, nan and -1 values:
     temp = re.sub("\<.*\>null\</.*\>\n", "", temp)
     temp = re.sub("\<.*\>nan\</.*\>\n", "", temp)
     return re.sub("\<.*\>-1\</.*\>\n", "", temp)
+
 
 def populate_grid_info_xml_template(_row, _dcgid):
     temp = grid_info_temp_xml % (
-        _dcgid, f(_row['dx_mm']),
-        f(_row['dy_mm']),
-        i(_row['steps_x']),
-        i(_row['steps_y']),
-        f(_row['pixelspermicronx']),
-        f(_row['pixelspermicrony']),
-        f(_row['snapshot_offsetxpixel']),
-        f(_row['snapshot_offsetypixel']),
-        s(_row['orientation']))
+        _dcgid,
+        f(_row["dx_mm"]),
+        f(_row["dy_mm"]),
+        i(_row["steps_x"]),
+        i(_row["steps_y"]),
+        f(_row["pixelspermicronx"]),
+        f(_row["pixelspermicrony"]),
+        f(_row["snapshot_offsetxpixel"]),
+        f(_row["snapshot_offsetypixel"]),
+        s(_row["orientation"]),
+    )
 
     # remove lines with null, nan and -1 values:
     temp = re.sub("\<.*\>null\</.*\>\n", "", temp)
     temp = re.sub("\<.*\>nan\</.*\>\n", "", temp)
     return re.sub("\<.*\>-1\</.*\>\n", "", temp)
 
-def populate_dc_xml_template(_row, _sessionid, _dcg_id, _no_images,
-                             _dir, _prefix, _run_number, _xtal_snapshot_path,
-                             _blsample_id):
+
+def populate_dc_xml_template(
+    _row,
+    _sessionid,
+    _dcg_id,
+    _no_images,
+    _dir,
+    _prefix,
+    _run_number,
+    _xtal_snapshot_path,
+    _blsample_id,
+):
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    suffix = _row['imagesuffix']
-    file_template = "%s_%d_####.%s" %(_prefix, _run_number, suffix)
-    blsample_id_elem = ""
-    if _blsample_id != None:
+    suffix = _row["imagesuffix"]
+    file_template = "%s_%d_####.%s" % (_prefix, _run_number, suffix)
+    if _blsample_id is None:
+        blsample_id_elem = ""
+    else:
         blsample_id_elem = "<blSampleId>%d</blSampleId>\n" % _blsample_id
 
-    temp = dc_temp_xml % (_sessionid, _dcg_id, blsample_id_elem, _run_number, nowstr, s(_row['runstatus']), f(_row['axisstart']),
-                          f(_row['axisend']), f(_row['axisrange']), f(_row['overlap']), _no_images, i(_row['startimagenumber']),
-                          i(_row['numberofpasses']), f(_row['exposuretime']), _dir, _prefix, suffix, file_template,
-                          f(_row['wavelength']), f(_row['resolution']), f(_row['detectordistance']), f(_row['xbeam']),
-                          f(_row['ybeam']), i(_row['printableforreport']), f(_row['slitgapvertical']),
-                          f(_row['slitgaphorizontal']), f(_row['transmission']), s(_row['synchrotronmode']),
-                          _xtal_snapshot_path[0], _xtal_snapshot_path[1], _xtal_snapshot_path[2], _xtal_snapshot_path[3],
-                          s(_row['rotationaxis']), f(_row['phistart']), f(_row['chistart']), f(_row['kappastart']),
-                          f(_row['omegastart']), f(_row['undulatorgap1']), f(_row['beamsizeatsamplex']),
-                          f(_row['beamsizeatsampley']), f(_row['flux']), i(_row['focalspotsizeatsamplex']), i(_row['focalspotsizeatsampley']))
+    temp = dc_temp_xml % (
+        _sessionid,
+        _dcg_id,
+        blsample_id_elem,
+        _run_number,
+        nowstr,
+        s(_row["runstatus"]),
+        f(_row["axisstart"]),
+        f(_row["axisend"]),
+        f(_row["axisrange"]),
+        f(_row["overlap"]),
+        _no_images,
+        i(_row["startimagenumber"]),
+        i(_row["numberofpasses"]),
+        f(_row["exposuretime"]),
+        _dir,
+        _prefix,
+        suffix,
+        file_template,
+        f(_row["wavelength"]),
+        f(_row["resolution"]),
+        f(_row["detectordistance"]),
+        f(_row["xbeam"]),
+        f(_row["ybeam"]),
+        i(_row["printableforreport"]),
+        f(_row["slitgapvertical"]),
+        f(_row["slitgaphorizontal"]),
+        f(_row["transmission"]),
+        s(_row["synchrotronmode"]),
+        _xtal_snapshot_path[0],
+        _xtal_snapshot_path[1],
+        _xtal_snapshot_path[2],
+        _xtal_snapshot_path[3],
+        s(_row["rotationaxis"]),
+        f(_row["phistart"]),
+        f(_row["chistart"]),
+        f(_row["kappastart"]),
+        f(_row["omegastart"]),
+        f(_row["undulatorgap1"]),
+        f(_row["beamsizeatsamplex"]),
+        f(_row["beamsizeatsampley"]),
+        f(_row["flux"]),
+        i(_row["focalspotsizeatsamplex"]),
+        i(_row["focalspotsizeatsampley"]),
+    )
 
     # remove lines with null, nan and -1 values:
     temp = re.sub("\<.*\>null\</.*\>\n", "", temp)
     temp = re.sub("\<.*\>nan\</.*\>\n", "", temp)
     return re.sub("\<.*\>-1\</.*\>\n", "", temp)
 
-blsample_xml = '''<?xml version="1.0" ?>
+
+blsample_xml = """<?xml version="1.0" ?>
 <BLSample>
 <name>%s</name>
 <code>%s</code>
@@ -149,9 +209,9 @@ blsample_xml = '''<?xml version="1.0" ?>
 <blSampleStatus>%s</blSampleStatus>
 <isInSampleChanger>%d</isInSampleChanger>
 <lastKnownCenteringPosition>%s</lastKnownCenteringPosition>
-</BLSample>'''
+</BLSample>"""
 
-dcg_temp_xml='''<?xml version="1.0" ?>
+dcg_temp_xml = """<?xml version="1.0" ?>
 <DataCollectionGroup>
 <sessionId>%d</sessionId>
 %s<comments>Simulated datacollection.</comments>
@@ -159,9 +219,9 @@ dcg_temp_xml='''<?xml version="1.0" ?>
 <startTime>%s</startTime>
 <crystalClass>%s</crystalClass>
 <detectorMode>%s</detectorMode>
-</DataCollectionGroup>'''
+</DataCollectionGroup>"""
 
-grid_info_temp_xml='''<?xml version="1.0" ?>
+grid_info_temp_xml = """<?xml version="1.0" ?>
 <GridInfo>
 <dataCollectionGroupId>%d</dataCollectionGroupId>
 <dx_mm>%.2f</dx_mm>
@@ -174,9 +234,9 @@ grid_info_temp_xml='''<?xml version="1.0" ?>
 <snapshot_offsetYPixel>%.4f</snapshot_offsetYPixel>
 <orientation>%s</orientation>
 </GridInfo>
-'''
+"""
 
-dc_temp_xml='''<?xml version="1.0" ?>
+dc_temp_xml = """<?xml version="1.0" ?>
 <DataCollection>
 <sessionId>%d</sessionId>
 <dataCollectionGroupId>%d</dataCollectionGroupId>
@@ -221,140 +281,181 @@ dc_temp_xml='''<?xml version="1.0" ?>
 <flux>%.6f</flux>
 <focalSpotSizeAtSampleX>%d</focalSpotSizeAtSampleX>
 <focalSpotSizeAtSampleY>%d</focalSpotSizeAtSampleY>
-</DataCollection>'''
+</DataCollection>"""
 
-dc_endtime_temp_xml='''<?xml version="1.0" ?>
+dc_endtime_temp_xml = """<?xml version="1.0" ?>
 <DataCollection>
 <dataCollectionId>%d</dataCollectionId>
 <endTime>%s</endTime>
-</DataCollection>'''
+</DataCollection>"""
 
-dcg_endtime_temp_xml='''<?xml version="1.0" ?>
+dcg_endtime_temp_xml = """<?xml version="1.0" ?>
 <DataCollectionGroup>
 <dataCollectionGroupId>%d</dataCollectionGroupId>
 <endTime>%s</endTime>
-</DataCollectionGroup>'''
+</DataCollectionGroup>"""
+
 
 def mkdir_p(path):
     try:
         os.makedirs(path)
-    except OSError as exc: # Python >2.5
+    except OSError as exc:  # Python >2.5
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass
-        else: raise
+        else:
+            raise
+
 
 def retrieve_sessionid(_db, _visit):
-    rows = _db.doQuery("SELECT s.sessionid "\
-                             "FROM BLSession s "\
-                             "  INNER JOIN Proposal p ON p.proposalid = s.proposalid "\
-                             "WHERE concat(p.proposalcode, p.proposalnumber, '-', s.visit_number)= '%s'"\
-                              % (_visit, ))
+    rows = _db.doQuery(
+        "SELECT s.sessionid "
+        "FROM BLSession s "
+        "  INNER JOIN Proposal p ON p.proposalid = s.proposalid "
+        "WHERE concat(p.proposalcode, p.proposalnumber, '-', s.visit_number)= '%s'"
+        % _visit
+    )
     if rows[0][0] is None:
         sys.exit("Could not find sessionid for visit %s" % _visit)
     return int(rows[0][0])
 
 
 def retrieve_datacollection_group_values(_db, _src_dcgid):
-    _db.cursor.execute("SELECT comments, blsampleid, experimenttype, starttime, endtime, crystalclass, detectormode, actualsamplebarcode, "\
-                        "actualsampleslotincontainer, actualcontainerbarcode, actualcontainerslotinsc, workflowid, xtalsnapshotfullpath "\
-                        "FROM DataCollectionGroup "\
-                        "WHERE datacollectiongroupid=%d" % (_src_dcgid,))
+    _db.cursor.execute(
+        "SELECT comments, blsampleid, experimenttype, starttime, endtime, crystalclass, detectormode, actualsamplebarcode, "
+        "actualsampleslotincontainer, actualcontainerbarcode, actualcontainerslotinsc, workflowid, xtalsnapshotfullpath "
+        "FROM DataCollectionGroup "
+        "WHERE datacollectiongroupid=%d" % _src_dcgid
+    )
 
     desc = [d[0] for d in _db.cursor.description]
-    result = [dict(zip(desc,line)) for line in _db.cursor]
+    result = [dict(zip(desc, line)) for line in _db.cursor]
 
     if len(result) == 0:
         sys.exit("Could not find datacollectiongroup %s" % _src_dcgid)
     return result[0]
 
+
 def retrieve_grid_info_values(_db, _src_dcgid):
-    _db.cursor.execute("SELECT dx_mm, dy_mm, steps_x, steps_y, pixelspermicronx, pixelspermicrony, "\
-                       "snapshot_offsetxpixel, snapshot_offsetypixel, orientation "\
-            "FROM GridInfo "\
-            "WHERE datacollectiongroupid=%d" % (_src_dcgid,))
+    _db.cursor.execute(
+        "SELECT dx_mm, dy_mm, steps_x, steps_y, pixelspermicronx, pixelspermicrony, "
+        "snapshot_offsetxpixel, snapshot_offsetypixel, orientation "
+        "FROM GridInfo "
+        "WHERE datacollectiongroupid=%d" % _src_dcgid
+    )
 
     desc = [d[0] for d in _db.cursor.description]
-    result = [dict(zip(desc,line)) for line in _db.cursor]
+    result = [dict(zip(desc, line)) for line in _db.cursor]
 
     if len(result) == 0:
         return None
     return result[0]
 
+
 def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
-    prefix_line = 'AND imageprefix is NULL '
-    if not _prefix is None:
+    if _prefix is None:
+        prefix_line = "AND imageprefix is NULL "
+    else:
         prefix_line = "AND imageprefix='%s' " % _prefix
 
-
-    _db.cursor.execute("SELECT datacollectionid, datacollectiongroupid, blsampleid, startimagenumber, "\
-                       "xtalsnapshotfullpath1, xtalsnapshotfullpath2, xtalsnapshotfullpath3, xtalsnapshotfullpath4, "\
-                       "runstatus, axisstart, axisend, axisrange, overlap, numberofimages, startimagenumber, "\
-                       "numberofpasses, exposuretime, imagesuffix, filetemplate, "\
-                       "wavelength, resolution, detectordistance, xbeam, ybeam, comments, printableforreport, "\
-                       "slitgapvertical, slitgaphorizontal, transmission, synchrotronmode, "\
-                       "rotationaxis, phistart, chistart, kappastart, omegastart, undulatorgap1, "\
-                       "beamsizeatsamplex, beamsizeatsampley, flux, focalspotsizeatsamplex, focalspotsizeatsampley "\
-                       "FROM DataCollection "\
-                       "WHERE sessionid=%d "\
-                       "AND imagedirectory='%s' "\
-                       "%s "\
-                       "AND datacollectionnumber=%d "% (_sessionid,_dir+"/", prefix_line, _run_number))
+    _db.cursor.execute(
+        "SELECT datacollectionid, datacollectiongroupid, blsampleid, startimagenumber, "
+        "xtalsnapshotfullpath1, xtalsnapshotfullpath2, xtalsnapshotfullpath3, xtalsnapshotfullpath4, "
+        "runstatus, axisstart, axisend, axisrange, overlap, numberofimages, startimagenumber, "
+        "numberofpasses, exposuretime, imagesuffix, filetemplate, "
+        "wavelength, resolution, detectordistance, xbeam, ybeam, comments, printableforreport, "
+        "slitgapvertical, slitgaphorizontal, transmission, synchrotronmode, "
+        "rotationaxis, phistart, chistart, kappastart, omegastart, undulatorgap1, "
+        "beamsizeatsamplex, beamsizeatsampley, flux, focalspotsizeatsamplex, focalspotsizeatsampley "
+        "FROM DataCollection "
+        "WHERE sessionid=%d "
+        "AND imagedirectory='%s' "
+        "%s "
+        "AND datacollectionnumber=%d "
+        % (_sessionid, _dir + "/", prefix_line, _run_number)
+    )
 
     desc = [d[0] for d in _db.cursor.description]
-    result = [dict(zip(desc,line)) for line in _db.cursor]
+    result = [dict(zip(desc, line)) for line in _db.cursor]
 
-    if result[0]['datacollectionid'] is None:
+    if result[0]["datacollectionid"] is None:
         sys.exit("Could not find the datacollectionid for visit %s" % _src_visit)
-    if result[0]['startimagenumber'] is None:
+    if result[0]["startimagenumber"] is None:
         sys.exit("Could not find the startimagenumber for the row")
     return result[0]
 
+
 def retrieve_blsample_values(_db, _src_blsampleid):
-    _db.cursor.execute("SELECT blsampleid, name, code, location, holderlength, looplength, looptype, wirewidth, comments, "\
-                       "blsamplestatus, isinsamplechanger, lastknowncenteringposition "\
-                       "FROM BLSample "\
-                       "WHERE blsampleid=%d " % (_src_blsampleid, ))
+    _db.cursor.execute(
+        "SELECT blsampleid, name, code, location, holderlength, looplength, looptype, wirewidth, comments, "
+        "blsamplestatus, isinsamplechanger, lastknowncenteringposition "
+        "FROM BLSample "
+        "WHERE blsampleid=%d " % _src_blsampleid
+    )
 
     desc = [d[0] for d in _db.cursor.description]
-    result = [dict(zip(desc,line)) for line in _db.cursor]
+    result = [dict(zip(desc, line)) for line in _db.cursor]
 
-    if result[0]['blsampleid'] is None:
+    if result[0]["blsampleid"] is None:
         sys.exit("Could not find the blsampleid for visit %s" % _src_visit)
 
     return result[0]
 
+
 def retrieve_no_images(_db, _dcid):
     no_images = None
-    rows = _db.doQuery("SELECT numberOfImages from DataCollection where datacollectionid=%d" % (_dcid,))
+    rows = _db.doQuery(
+        "SELECT numberOfImages from DataCollection where datacollectionid=%d" % _dcid
+    )
     if rows[0][0] is None:
         sys.exit("Could not find the number of images for datacollectionid %d" % _dcid)
     if int(rows[0][0]) is 0:
         sys.exit("Could not find the number of images for datacollectionid %d" % _dcid)
     return int(rows[0][0])
 
+
 def retrieve_max_dcnumber(_db, _sessionid, _dest_dir, _dest_prefix):
-    rows = _db.doQuery("SELECT max(datacollectionnumber) "\
-                             "FROM DataCollection "\
-                             "WHERE sessionid=%d "\
-                             "AND imagedirectory='%s' "\
-                             "AND imageprefix='%s'" % (_sessionid,_dest_dir+"/", _dest_prefix))
+    rows = _db.doQuery(
+        "SELECT max(datacollectionnumber) "
+        "FROM DataCollection "
+        "WHERE sessionid=%d "
+        "AND imagedirectory='%s' "
+        "AND imageprefix='%s'" % (_sessionid, _dest_dir + "/", _dest_prefix)
+    )
     return rows[0][0]
 
 
-def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_prefix, _src_run_number,
-             _dest_prefix, _dest_visit_dir, _dest_dir, _sample_id,
-             data_collection_group_id=None):
+def simulate(
+    _dest_visit,
+    _beamline,
+    _data_src_dir,
+    _src_dir,
+    _src_visit,
+    _src_prefix,
+    _src_run_number,
+    _dest_prefix,
+    _dest_visit_dir,
+    _dest_dir,
+    _sample_id,
+    data_collection_group_id=None,
+):
     _db = dlstbx.dc_sim.mydb.DB()
 
     log.debug("(SQL) Getting the source sessionid")
     src_sessionid = retrieve_sessionid(_db, _src_visit)
 
     log.debug("(SQL) Getting values from the source datacollection record")
-    row = retrieve_datacollection_values(_db, src_sessionid, _src_dir, _src_prefix, _src_run_number)
-    src_dcid = int(row['datacollectionid'])
-    src_dcgid = int(row['datacollectiongroupid'])
-    start_img_number = int(row['startimagenumber'])
-    src_xtal_snapshot_path = [row['xtalsnapshotfullpath1'], row['xtalsnapshotfullpath2'], row['xtalsnapshotfullpath3'], row['xtalsnapshotfullpath4']]
+    row = retrieve_datacollection_values(
+        _db, src_sessionid, _src_dir, _src_prefix, _src_run_number
+    )
+    src_dcid = int(row["datacollectionid"])
+    src_dcgid = int(row["datacollectiongroupid"])
+    start_img_number = int(row["startimagenumber"])
+    src_xtal_snapshot_path = [
+        row["xtalsnapshotfullpath1"],
+        row["xtalsnapshotfullpath2"],
+        row["xtalsnapshotfullpath3"],
+        row["xtalsnapshotfullpath4"],
+    ]
 
     log.debug("(SQL) Getting the number of images")
     no_images = retrieve_no_images(_db, src_dcid)
@@ -365,7 +466,9 @@ def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_p
     sessionid = retrieve_sessionid(_db, _dest_visit)
 
     # Get the highest run number for the datacollections of this dest_visit with the particular img.dir and prefix
-    log.debug("(SQL) Getting the currently highest run number for this img. directory + prefix")
+    log.debug(
+        "(SQL) Getting the currently highest run number for this img. directory + prefix"
+    )
     run_number = retrieve_max_dcnumber(_db, sessionid, _dest_dir, _dest_prefix)
     if run_number is None:
         run_number = 1
@@ -375,20 +478,29 @@ def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_p
     log.debug("(SQL) Getting values from the source datacollectiongroup record")
     dcg_row = retrieve_datacollection_group_values(_db, src_dcgid)
 
-    src_blsampleid = dcg_row['blsampleid']
+    src_blsampleid = dcg_row["blsampleid"]
 
-    log.debug("(filesystem) Copy the xtal snapshot(s) (if any) from source to target directories")
+    log.debug(
+        "(filesystem) Copy the xtal snapshot(s) (if any) from source to target directories"
+    )
     dest_xtal_snapshot_path = ["", "", "", ""]
     for x in xrange(0, 4):
         if src_xtal_snapshot_path[x] is not None:
             if os.path.exists(src_xtal_snapshot_path[x]):
                 png = re.sub("^.*/(.*)$", _dest_dir + r"/\1", src_xtal_snapshot_path[x])
-                dest_xtal_snapshot_path[x] = re.sub("^"+_dest_visit_dir, _dest_visit_dir+"/jpegs", png)
+                dest_xtal_snapshot_path[x] = re.sub(
+                    "^" + _dest_visit_dir, _dest_visit_dir + "/jpegs", png
+                )
                 dir = os.path.dirname(dest_xtal_snapshot_path[x])
                 log.debug("(filesystem) ... 'mkdir -p' %s" % dir)
                 mkdir_p(dir)
-                logging.getLogger().debug("(filesystem) ... copying %s to %s" % (src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x]))
-                copy_via_temp_file(src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x])
+                logging.getLogger().debug(
+                    "(filesystem) ... copying %s to %s"
+                    % (src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x])
+                )
+                copy_via_temp_file(
+                    src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x]
+                )
 
     # Get a blsampleId either from a copy of the blsample used by the src dc or use the blsampleId provided on the command-line
     blsample_id = None
@@ -399,24 +511,40 @@ def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_p
             bls_row = retrieve_blsample_values(_db, int(src_blsampleid))
 
             # Produce a BLSample.xml file from the template
-            log.debug("(filesystem) Creating a temporary blsample XML file in the /tmp folder")
+            log.debug(
+                "(filesystem) Creating a temporary blsample XML file in the /tmp folder"
+            )
 
             blsample_xml = populate_blsample_xml_template(bls_row)
             print(blsample_xml)
 
-            f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='blsample', dir='/tmp', delete=False)
+            f = tempfile.NamedTemporaryFile(
+                suffix=".xml", prefix="blsample", dir="/tmp", delete=False
+            )
             xml_fname = f.name
             f.write(blsample_xml)
             f.close()
 
             # Ingest the blsample.xml file data using the DbserverClient
             log.debug("(dbserver) Ingest the blsample XML")
-            subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
-                             '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
+            subprocess.check_call(
+                [
+                    os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
+                    "-h",
+                    DBSERVER_HOST,
+                    "-p",
+                    DBSERVER_PORT,
+                    "-i",
+                    xml_fname,
+                    "-d",
+                    "-o",
+                    "/tmp/test.log",
+                ]
+            )
 
             # Extract the blsampleId from the output
             log.debug("(filesystem) Read the returned blsampleid from output file")
-            f = file('/tmp/test.log', 'r')
+            f = file("/tmp/test.log", "r")
             xml = f.read()
             m = re.search("<blSampleId>(\d+)</blSampleId>", xml)
             if m:
@@ -429,22 +557,40 @@ def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_p
 
     if data_collection_group_id is None:
         # Produce a DataCollectionGroup.xml file from the template
-        log.debug("(filesystem) Creating a temporary datacollectiongroup XML file in the /tmp folder")
+        log.debug(
+            "(filesystem) Creating a temporary datacollectiongroup XML file in the /tmp folder"
+        )
         dcg_xml = populate_dcg_xml_template(dcg_row, sessionid, blsample_id)
 
-        f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='datacollectiongroup', dir='/tmp', delete=False)
+        f = tempfile.NamedTemporaryFile(
+            suffix=".xml", prefix="datacollectiongroup", dir="/tmp", delete=False
+        )
         xml_fname = f.name
         f.write(dcg_xml)
         f.close()
 
         # Ingest the DataCollectionGroup.xml file data using the DbserverClient
         log.debug("(dbserver) Ingest the datacollectiongroup XML")
-        subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
-                                 '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
+        subprocess.check_call(
+            [
+                os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
+                "-h",
+                DBSERVER_HOST,
+                "-p",
+                DBSERVER_PORT,
+                "-i",
+                xml_fname,
+                "-d",
+                "-o",
+                "/tmp/test.log",
+            ]
+        )
 
         # Extract the datacollectiongroupId from the output
-        log.debug("(filesystem) Read the returned datacollectiongroupid from output file")
-        f=file('/tmp/test.log', 'r')
+        log.debug(
+            "(filesystem) Read the returned datacollectiongroupid from output file"
+        )
+        f = file("/tmp/test.log", "r")
         xml = f.read()
         datacollectiongroupid = None
         m = re.search("<dataCollectionGroupId>(\d+)</dataCollectionGroupId>", xml)
@@ -453,29 +599,45 @@ def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_p
         else:
             sys.exit("No datacollectiongroupid found in output")
     else:
-      datacollectiongroupid = data_collection_group_id
+        datacollectiongroupid = data_collection_group_id
 
     # Get the grid info values associated with the source dcg
     gi_row = retrieve_grid_info_values(_db, src_dcgid)
 
     # Prouce a GridInfo.xml file from the template if the source DataCollectionGroup has one:
     if gi_row is not None:
-        log.debug("(filesystem) Creating a temporary gridinfo XML file in the /tmp folder")
+        log.debug(
+            "(filesystem) Creating a temporary gridinfo XML file in the /tmp folder"
+        )
         dcg_xml = populate_grid_info_xml_template(gi_row, datacollectiongroupid)
 
-        f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='gridinfo', dir='/tmp', delete=False)
+        f = tempfile.NamedTemporaryFile(
+            suffix=".xml", prefix="gridinfo", dir="/tmp", delete=False
+        )
         xml_fname = f.name
         f.write(dcg_xml)
         f.close()
 
         # Ingest the GridInfo.xml file data using the DbserverClient
         log.debug("(dbserver) Ingest the gridinfo XML")
-        subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
-                             '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
+        subprocess.check_call(
+            [
+                os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
+                "-h",
+                DBSERVER_HOST,
+                "-p",
+                DBSERVER_PORT,
+                "-i",
+                xml_fname,
+                "-d",
+                "-o",
+                "/tmp/test.log",
+            ]
+        )
 
         # Extract the gridinfoId from the output
         log.debug("(filesystem) Read the returned gridinfoid from output file")
-        f=file('/tmp/test.log', 'r')
+        f = file("/tmp/test.log", "r")
         xml = f.read()
         gridinfoid = None
         m = re.search("<gridInfoId>(\d+)</gridInfoId>", xml)
@@ -485,24 +647,49 @@ def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_p
             sys.exit("No gridinfoid found in output")
 
     # Produce a DataCollection.xml file from the template and use the new run number
-    log.debug("(filesystem) Creating a temporary datacollection XML file in the /tmp folder")
-    dc_xml = populate_dc_xml_template(row, sessionid, datacollectiongroupid, no_images, _dest_dir+"/", _dest_prefix,
-                                      run_number, dest_xtal_snapshot_path, blsample_id)
+    log.debug(
+        "(filesystem) Creating a temporary datacollection XML file in the /tmp folder"
+    )
+    dc_xml = populate_dc_xml_template(
+        row,
+        sessionid,
+        datacollectiongroupid,
+        no_images,
+        _dest_dir + "/",
+        _dest_prefix,
+        run_number,
+        dest_xtal_snapshot_path,
+        blsample_id,
+    )
     # print dc_xml
 
-    f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='datacollection', dir='/tmp', delete=False)
+    f = tempfile.NamedTemporaryFile(
+        suffix=".xml", prefix="datacollection", dir="/tmp", delete=False
+    )
     xml_fname = f.name
     f.write(dc_xml)
     f.close()
 
     # Ingest the DataCollection.xml file data using the DbserverClient
     log.debug("(dbserver) Ingest the datacollection XML")
-    subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
-                             '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
+    subprocess.check_call(
+        [
+            os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
+            "-h",
+            DBSERVER_HOST,
+            "-p",
+            DBSERVER_PORT,
+            "-i",
+            xml_fname,
+            "-d",
+            "-o",
+            "/tmp/test.log",
+        ]
+    )
 
     # Extract the datacollectionId from the output
     log.debug("(filesystem) Read the returned datacollectionid from output file")
-    f=file('/tmp/test.log', 'r')
+    f = file("/tmp/test.log", "r")
     xml = f.read()
     datacollectionid = None
     m = re.search("<dataCollectionId>(\d+)</dataCollectionId>", xml)
@@ -511,12 +698,47 @@ def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_p
     else:
         sys.exit("No datacollectionid found in output")
 
-    run_at_params = ['automaticProcessing_Yes',\
-                     str(datacollectionid), _dest_visit_dir, _dest_prefix + '_' + str(run_number) + "_####.cbf",\
-                     _dest_dir + '/', _dest_prefix + '_' + str(run_number) + '_', 'cbf']
+    run_at_params = [
+        "automaticProcessing_Yes",
+        str(datacollectionid),
+        _dest_visit_dir,
+        _dest_prefix + "_" + str(run_number) + "_####.cbf",
+        _dest_dir + "/",
+        _dest_prefix + "_" + str(run_number) + "_",
+        "cbf",
+    ]
 
-    log.debug('(bash script) %s/RunAtStartOfCollect-%s.sh %s %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5], run_at_params[6]))
-    subprocess.check_call(['%s/RunAtStartOfCollect-%s.sh %s %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5], run_at_params[6])], shell=True)
+    log.debug(
+        "(bash script) %s/RunAtStartOfCollect-%s.sh %s %s %s %s %s %s %s"
+        % (
+            MX_SCRIPTS_BINDIR,
+            _beamline,
+            run_at_params[0],
+            run_at_params[1],
+            run_at_params[2],
+            run_at_params[3],
+            run_at_params[4],
+            run_at_params[5],
+            run_at_params[6],
+        )
+    )
+    subprocess.check_call(
+        [
+            "%s/RunAtStartOfCollect-%s.sh %s %s %s %s %s %s %s"
+            % (
+                MX_SCRIPTS_BINDIR,
+                _beamline,
+                run_at_params[0],
+                run_at_params[1],
+                run_at_params[2],
+                run_at_params[3],
+                run_at_params[4],
+                run_at_params[5],
+                run_at_params[6],
+            )
+        ],
+        shell=True,
+    )
 
     # Also copy images one by one from source to destination directory.
     for x in xrange(start_img_number, start_img_number + no_images):
@@ -536,62 +758,126 @@ def simulate(_dest_visit, _beamline, _data_src_dir, _src_dir, _src_visit, _src_p
 
     dc_xml = dc_endtime_temp_xml % (datacollectionid, nowstr)
     print(dc_xml)
-    f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='datacollection', dir='/tmp', delete=False)
+    f = tempfile.NamedTemporaryFile(
+        suffix=".xml", prefix="datacollection", dir="/tmp", delete=False
+    )
     xml_fname = f.name
     f.write(dc_xml)
     f.close()
 
     # Ingest the DataCollection.xml file data using the DbserverClient
-    log.debug("(dbserver) Ingest the datacollection XML to update with the d.c. end time")
-    subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
-                             '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
-
+    log.debug(
+        "(dbserver) Ingest the datacollection XML to update with the d.c. end time"
+    )
+    subprocess.check_call(
+        [
+            os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
+            "-h",
+            DBSERVER_HOST,
+            "-p",
+            DBSERVER_PORT,
+            "-i",
+            xml_fname,
+            "-d",
+            "-o",
+            "/tmp/test.log",
+        ]
+    )
 
     # Populate a datacollectiongroup XML file
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     dcg_xml = dcg_endtime_temp_xml % (datacollectiongroupid, nowstr)
     print(dcg_xml)
-    f = tempfile.NamedTemporaryFile(suffix='.xml', prefix='datacollectiongroup', dir='/tmp', delete=False)
+    f = tempfile.NamedTemporaryFile(
+        suffix=".xml", prefix="datacollectiongroup", dir="/tmp", delete=False
+    )
     xml_fname = f.name
     f.write(dcg_xml)
     f.close()
 
     # Ingest the DataCollectionGroup.xml file data using the DbserverClient
-    log.debug("(dbserver) Ingest the datacollectiongroup XML to update with the d.c.g. end time")
-    subprocess.check_call([os.path.join(DBSERVER_SRCDIR, 'DbserverClient.py'), '-h', DBSERVER_HOST, \
-                             '-p', DBSERVER_PORT, '-i',  xml_fname, '-d', '-o', '/tmp/test.log'])
+    log.debug(
+        "(dbserver) Ingest the datacollectiongroup XML to update with the d.c.g. end time"
+    )
+    subprocess.check_call(
+        [
+            os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
+            "-h",
+            DBSERVER_HOST,
+            "-p",
+            DBSERVER_PORT,
+            "-i",
+            xml_fname,
+            "-d",
+            "-o",
+            "/tmp/test.log",
+        ]
+    )
 
-    log.debug('(bash script) %s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]))
-    subprocess.check_call(['%s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s' % (MX_SCRIPTS_BINDIR, _beamline, run_at_params[0], run_at_params[1], run_at_params[2], run_at_params[3], run_at_params[4], run_at_params[5]) ], shell=True)
+    log.debug(
+        "(bash script) %s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s"
+        % (
+            MX_SCRIPTS_BINDIR,
+            _beamline,
+            run_at_params[0],
+            run_at_params[1],
+            run_at_params[2],
+            run_at_params[3],
+            run_at_params[4],
+            run_at_params[5],
+        )
+    )
+    subprocess.check_call(
+        [
+            "%s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s"
+            % (
+                MX_SCRIPTS_BINDIR,
+                _beamline,
+                run_at_params[0],
+                run_at_params[1],
+                run_at_params[2],
+                run_at_params[3],
+                run_at_params[4],
+                run_at_params[5],
+            )
+        ],
+        shell=True,
+    )
 
     return datacollectionid, datacollectiongroupid
+
 
 def call_sim(test_name, beamline):
     dest_visit = None
 
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     if not scenario:
-      sys.exit("%s is not a valid test scenario" % test_name)
+        sys.exit("%s is not a valid test scenario" % test_name)
 
-    src_dir = scenario['src_dir']
-    sample_id = scenario.get('use_sample_id')
-    src_prefix = scenario['src_prefix']
+    src_dir = scenario["src_dir"]
+    sample_id = scenario.get("use_sample_id")
+    src_prefix = scenario["src_prefix"]
 
     # Calculate the destination directory
     dest_dir = None
     now = datetime.datetime.now()
-    for cm_dir in os.listdir('/dls/{beamline}/data/{now:%Y}'.format(beamline=beamline, now=now)):
-      if cm_dir.startswith('nt18231'):
-        dest_visit = cm_dir
-        dest_dir_fmt = '/dls/{beamline}/data/{now:%Y}/{cm_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}'
-        dest_dir = dest_dir_fmt.format(beamline=beamline, now=now, cm_dir=cm_dir, random=str(uuid.uuid4())[:8])
-        break
+    for cm_dir in os.listdir(
+        "/dls/{beamline}/data/{now:%Y}".format(beamline=beamline, now=now)
+    ):
+        if cm_dir.startswith("nt18231"):
+            dest_visit = cm_dir
+            dest_dir_fmt = "/dls/{beamline}/data/{now:%Y}/{cm_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
+            dest_dir = dest_dir_fmt.format(
+                beamline=beamline, now=now, cm_dir=cm_dir, random=str(uuid.uuid4())[:8]
+            )
+            break
 
     # Set mandatory parameters
     data_src_dir = src_dir
-    dest_visit_dir = '/dls/{beamline}/data/{now:%Y}/{dest_visit}'.format(
-        beamline=beamline, now=now, dest_visit=dest_visit)
+    dest_visit_dir = "/dls/{beamline}/data/{now:%Y}/{dest_visit}".format(
+        beamline=beamline, now=now, dest_visit=dest_visit
+    )
     dest_beamline = beamline
 
     # Extract necessary info from the source directory path
@@ -609,7 +895,9 @@ def call_sim(test_name, beamline):
             src_visit_dir = m1.groups()[0] + src_visit
 
     if (src_beamline is None) or (src_visit_dir is None) or (src_visit is None):
-        sys.exit("ERROR: The src_dir parameter does not appear to contain a valid visit directory.")
+        sys.exit(
+            "ERROR: The src_dir parameter does not appear to contain a valid visit directory."
+        )
 
     log.setLevel(logging.DEBUG)
 
@@ -633,19 +921,27 @@ def call_sim(test_name, beamline):
     # Call simulate
     dcid_list = []
     dcg_list = []
-    for src_run_number in scenario['src_run_num']:
-        for src_prefix in scenario['src_prefix']:
+    for src_run_number in scenario["src_run_num"]:
+        for src_prefix in scenario["src_prefix"]:
             dest_prefix = src_prefix
-            if scenario.get('dcg') and len(dcg_list):
-              dcg = dcg_list[0]
+            if scenario.get("dcg") and len(dcg_list):
+                dcg = dcg_list[0]
             else:
-              dcg = None
+                dcg = None
             dcid, dcg = simulate(
-                dest_visit, dest_beamline, data_src_dir,
-                src_dir, src_visit, src_prefix, src_run_number,
-                dest_prefix, dest_visit_dir, dest_dir,
-                sample_id, data_collection_group_id=dcg)
+                dest_visit,
+                dest_beamline,
+                data_src_dir,
+                src_dir,
+                src_visit,
+                src_prefix,
+                src_run_number,
+                dest_prefix,
+                dest_visit_dir,
+                dest_dir,
+                sample_id,
+                data_collection_group_id=dcg,
+            )
             dcid_list.append(dcid)
             dcg_list.append(dcg)
     return dcid_list
-

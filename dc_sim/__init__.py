@@ -24,8 +24,6 @@ import uuid
 import dlstbx.dc_sim.definitions
 import dlstbx.dc_sim.mydb
 
-
-# "Globals"
 log = logging.getLogger("dlstbx.dc_sim")
 
 # Constants
@@ -495,7 +493,7 @@ def simulate(
                 dir = os.path.dirname(dest_xtal_snapshot_path[x])
                 log.debug("(filesystem) ... 'mkdir -p' %s" % dir)
                 mkdir_p(dir)
-                logging.getLogger().debug(
+                log.debug(
                     "(filesystem) ... copying %s to %s"
                     % (src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x])
                 )
@@ -837,8 +835,6 @@ def simulate(
 
 
 def call_sim(test_name, beamline):
-    dest_visit = None
-
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     if not scenario:
         sys.exit("%s is not a valid test scenario" % test_name)
@@ -848,7 +844,6 @@ def call_sim(test_name, beamline):
     src_prefix = scenario["src_prefix"]
 
     # Calculate the destination directory
-    dest_dir = None
     now = datetime.datetime.now()
     for cm_dir in os.listdir(
         "/dls/{beamline}/data/{now:%Y}".format(beamline=beamline, now=now)
@@ -860,19 +855,18 @@ def call_sim(test_name, beamline):
                 beamline=beamline, now=now, cm_dir=cm_dir, random=str(uuid.uuid4())[:8]
             )
             break
+    else:
+      log.error('Could not determine destination directory')
+      sys.exit(1)
 
     # Set mandatory parameters
-    data_src_dir = src_dir
     dest_visit_dir = "/dls/{beamline}/data/{now:%Y}/{dest_visit}".format(
         beamline=beamline, now=now, dest_visit=dest_visit
     )
-    dest_beamline = beamline
 
     # Extract necessary info from the source directory path
-    src_beamline = None
     m1 = re.search("(/dls/(\S+?)/data/\d+/)(\S+)", src_dir)
     if m1:
-        src_beamline = m1.groups()[1]
         subdir = m1.groups()[2]
         m2 = re.search("^(\S+?)/", subdir)
         if m2:
@@ -882,29 +876,27 @@ def call_sim(test_name, beamline):
             src_visit = subdir
             src_visit_dir = m1.groups()[0] + src_visit
 
-    if (src_beamline is None) or (src_visit_dir is None) or (src_visit is None):
+    if (src_visit_dir is None) or (src_visit is None):
         sys.exit(
             "ERROR: The src_dir parameter does not appear to contain a valid visit directory."
         )
 
-    log.setLevel(logging.DEBUG)
-
-    start_script = "%s/RunAtStartOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
+    start_script = "%s/RunAtStartOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, beamline)
     if not os.path.exists(start_script):
-        log.error("The file %s was not found." % start_script)
+        log.error("The file %s was not found.", start_script)
         sys.exit(1)
-    end_script = "%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, dest_beamline)
+    end_script = "%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, beamline)
     if not os.path.exists(end_script):
-        log.error("The file %s was not found." % end_script)
+        log.error("The file %s was not found.", end_script)
         sys.exit(1)
 
     # Create destination directory
-    log.debug("Creating directory %s" % dest_dir)
+    log.debug("Creating directory %s", dest_dir)
     mkdir_p(dest_dir)
     if os.path.isdir(dest_dir):
-        log.info("Directory %s created successfully" % dest_dir)
+        log.info("Directory %s created successfully", dest_dir)
     else:
-        log.error("Creating directory %s failed" % dest_dir)
+        log.error("Creating directory %s failed", dest_dir)
 
     # Call simulate
     dcid_list = []
@@ -918,8 +910,8 @@ def call_sim(test_name, beamline):
                 dcg = None
             dcid, dcg = simulate(
                 dest_visit,
-                dest_beamline,
-                data_src_dir,
+                beamline,
+                src_dir,
                 src_dir,
                 src_visit,
                 src_prefix,

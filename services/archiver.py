@@ -202,6 +202,10 @@ class DLSArchiver(CommonService):
         self.log.info("Skipped writing empty dropfile XML to %s", dropfile)
     message_out['xml'] = xml_string
 
+    dropqueue = params.get('dropfile-queue')
+    if dropqueue:
+      self._transport.send(dropqueue, xml_string, ignore_namespace=True, do_not_mangle=True)
+
     rw.set_default_channel('dropfile')
     rw.send_to('dropfile', message_out, transaction=txn)
 

@@ -13,6 +13,7 @@ import errno
 import logging
 import os
 import re
+import procrunner
 import shutil
 import subprocess
 import sys
@@ -815,35 +816,22 @@ def simulate(
         ]
     )
 
-    log.debug(
-        "(bash script) %s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s"
-        % (
-            MX_SCRIPTS_BINDIR,
-            _beamline,
-            run_at_params[0],
-            run_at_params[1],
-            run_at_params[2],
-            run_at_params[3],
-            run_at_params[4],
-            run_at_params[5],
-        )
+    command = [ "%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, _beamline) ]
+    command.extend(run_at_params)
+    result = procrunner.run(
+        command, timeout=180,
+        print_stdout=True, print_stderr=True,
     )
-    subprocess.check_call(
-        [
-            "%s/RunAtEndOfCollect-%s.sh %s %s %s %s %s %s"
-            % (
-                MX_SCRIPTS_BINDIR,
-                _beamline,
-                run_at_params[0],
-                run_at_params[1],
-                run_at_params[2],
-                run_at_params[3],
-                run_at_params[4],
-                run_at_params[5],
-            )
-        ],
-        shell=True,
-    )
+    log.info('command: %s', ' '.join(result['command']))
+    log.info('timeout: %s', result['timeout'])
+    log.info('time_start: %s', result['time_start'])
+    log.info('time_end: %s', result['time_end'])
+    log.info('runtime: %s', result['runtime'])
+    log.info('exitcode: %s', result['exitcode'])
+    log.debug(result['stdout'])
+    log.debug(result['stderr'])
+    if result['exitcode'] != 0:
+      log.error("RunAtEndOfCollect failed with exit code %d", result['exitcode'])
 
     return datacollectionid, datacollectiongroupid
 

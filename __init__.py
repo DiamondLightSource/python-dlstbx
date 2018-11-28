@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 
-def enable_graylog()
+def enable_graylog():
   # Set up graylog logging using the zocalo.
   # Direct logs to the Data Analysis stream in graylog.
   import zocalo

@@ -6,6 +6,7 @@ import os
 import shutil
 
 import dlstbx.util.symlink
+from dlstbx.util.merging_statistics import get_merging_statistics
 import dlstbx.zocalo.wrapper
 import procrunner
 import py
@@ -147,6 +148,11 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           command, timeout=params.get('timeout'),
           print_stdout=False, print_stderr=False,
           working_directory=working_directory.strpath)
+
+      json_file = working_directory.join('iotbx-merging-stats.json')
+      with json_file.open('wb') as fh:
+        fh.write(get_merging_statistics(
+          str(working_directory.join('fast_dp_unmerged.mtz').strpath)).as_json())
 
     if working_directory.join('fast_dp.error').check():
       result['exitcode'] = 1

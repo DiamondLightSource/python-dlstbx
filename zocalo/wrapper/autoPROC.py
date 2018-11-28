@@ -6,6 +6,7 @@ import os
 import py
 
 import dlstbx.util.symlink
+from dlstbx.util.merging_statistics import get_merging_statistics
 import dlstbx.zocalo.wrapper
 import procrunner
 
@@ -314,8 +315,10 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     scaled_unmerged_mtz = working_directory.join('aimless_unmerged.mtz')
     ispyb_xml = working_directory.join('autoPROC.xml')
     if scaled_unmerged_mtz.check() and ispyb_xml.check():
-      self.run_iotbx_merging_statistics(
-        scaled_unmerged_mtz.strpath, ispyb_xml.strpath, json_file.strpath)
+      json_file = working_directory.join('iotbx-merging-stats.json')
+      with json_file.open('wb') as fh:
+        fh.write(get_merging_statistics(
+          str(working_directory.join('fast_dp_unmerged.mtz').strpath)).as_json())
 
     # move summary_inlined.html to summary.html
     inlined_html = working_directory.join('summary_inlined.html')
@@ -400,36 +403,3 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
             ''')
 
     return result['exitcode'] == 0
-
-  @staticmethod
-  def run_iotbx_merging_statistics(scaled_unmerged_mtz, ispyb_xml, json_file):
-    import iotbx.merging_statistics
-    i_obs = iotbx.merging_statistics.select_data(str(scaled_unmerged_mtz), data_labels=None)
-    i_obs = i_obs.customized_copy(anomalous_flag=True, info=i_obs.info())
-    result = iotbx.merging_statistics.dataset_statistics(
-      i_obs=i_obs,
-      n_bins=20,
-      anomalous=False,
-      use_internal_variance=False,
-      eliminate_sys_absent=False,
-      assert_is_not_unique_set_under_symmetry=False)
-    #result.show()
-    result.as_json(file_name=json_file)
-
-    from xml.etree import ElementTree
-    tree = ElementTree.parse(ispyb_xml)
-    root = tree.getroot()
-    container = root.find('AutoProcProgramContainer')
-    #print container
-    #for item in container:
-    #  print item
-    #help(container)
-    attachment = ElementTree.SubElement(container, 'AutoProcProgramAttachment')
-    #container.append(attachment)
-    fileType = ElementTree.SubElement(attachment, 'fileType')
-    fileType.text = 'Graph'
-    fileName = ElementTree.SubElement(attachment, 'fileName')
-    fileName.text = os.path.basename(json_file)
-    filePath = ElementTree.SubElement(attachment, 'filePath')
-    filePath.text = os.path.dirname(json_file)
-    tree.write(ispyb_xml)

@@ -13,3 +13,8 @@ try:
   print("workflows", workflows.__version__)
 except ImportError:
   pass
+try:
+  import zocalo
+  print("zocalo", zocalo.__version__)
+except ImportError:
+  pass

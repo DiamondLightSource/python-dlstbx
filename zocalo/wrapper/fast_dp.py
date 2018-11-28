@@ -106,11 +106,20 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
       py.path.local(params['synchweb_ticks']).ensure()
 
+    # Set appropriate environment variables for forkxds
+    environment = {}
+    if params.get('forkxds_queue'):
+      environment['FORKXDS_QUEUE'] = params['forkxds_queue']
+    if params.get('forkxds_project'):
+      environment['FORKXDS_PROJECT'] = params['forkxds_project']
+
     # run fast_dp in working directory
-    result = procrunner.run_process(
-      command, timeout=params.get('timeout'),
-      print_stdout=False, print_stderr=False,
-      working_directory=working_directory.strpath)
+    result = procrunner.run(
+        command, timeout=params.get('timeout'),
+        print_stdout=False, print_stderr=False,
+        working_directory=working_directory.strpath,
+        environment_override=environment,
+    )
 
     if working_directory.join('fast_dp.error').check():
       # fast_dp anomaly: exit code 0 and no stderr output still means failure if error file exists

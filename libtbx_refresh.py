@@ -19,7 +19,6 @@ libtbx.pkg_utils.require('ispyb', '>=4.13,<4.14')
 libtbx.pkg_utils.require('workflows', '>=1.1')
 libtbx.pkg_utils.require('drmaa')
 libtbx.pkg_utils.require('junit_xml')
-libtbx.pkg_utils.require('graypy', '>=0.3.1')
 libtbx.pkg_utils.require('colorama') # is still used in one place
 libtbx.pkg_utils.require('procrunner', '>=0.8.0')
 libtbx.pkg_utils.require('zocalo')

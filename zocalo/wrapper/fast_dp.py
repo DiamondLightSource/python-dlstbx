@@ -139,6 +139,9 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           print_stdout=False, print_stderr=False,
           working_directory=working_directory.strpath)
 
+    if working_directory.join('fast_dp.error').check():
+      result['exitcode'] = 1
+
     # Create results directory and symlink if they don't already exist
     results_directory.ensure(dir=True)
     if params.get('create_symlink'):
@@ -186,6 +189,8 @@ class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       with working_directory.join('fast_dp.json').open('rb') as fh:
         json_data = json.load(fh)
       self.send_results_to_ispyb(json_data)
+    elif result['exitcode']:
+      logger.info('fast_dp failed to process the dataset')
     else:
       logger.warning('Expected JSON output file missing')
 

@@ -35,7 +35,7 @@ class BigEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     proposal_code, proposal_number, visit_number \
       = ispyb_conn.get_visit_name_from_dcid(params['dcid'])
     if proposal_code in ('lb', 'in', 'sw'):
-      logger.info('Skipping big_ep for %s visit' % proposal_code)
+      logger.info('Skipping big_ep for %s visit', proposal_code)
       return
 
     working_directory = py.path.local(params['working_directory'])

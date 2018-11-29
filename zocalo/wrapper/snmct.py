@@ -254,6 +254,7 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
       'scaled_unmerged.mtz': 'result',
       'experiments_final.json': 'result',
       'reflections_final.pickle': 'result',
+      'iotbx-merging-stats.json': 'graph',
     }
     allfiles = []
     for filename in working_directory.listdir():

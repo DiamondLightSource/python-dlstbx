@@ -317,8 +317,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if scaled_unmerged_mtz.check() and ispyb_xml.check():
       json_file = working_directory.join('iotbx-merging-stats.json')
       with json_file.open('wb') as fh:
-        fh.write(get_merging_statistics(
-          str(working_directory.join('fast_dp_unmerged.mtz').strpath)).as_json())
+        fh.write(get_merging_statistics(scaled_unmerged_mtz.strpath).as_json())
 
     # move summary_inlined.html to summary.html
     inlined_html = working_directory.join('summary_inlined.html')

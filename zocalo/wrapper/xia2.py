@@ -182,8 +182,10 @@ class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     if logfiles_path.check():
       for result_file in logfiles_path.listdir():
         file_type = 'log'
-        if result_file.ext in ('.json', '.png'):
+        if result_file.ext == '.json':
           file_type = 'graph'
+        elif result_file.ext == '.png':
+          file_type = 'log'
         self.record_result_individual_file({
           'file_path': result_file.dirname,
           'file_name': result_file.basename,

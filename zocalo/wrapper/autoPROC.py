@@ -313,8 +313,7 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     json_file = working_directory.join('iotbx-merging-stats.json')
     scaled_unmerged_mtz = working_directory.join('aimless_unmerged.mtz')
-    ispyb_xml = working_directory.join('autoPROC.xml')
-    if scaled_unmerged_mtz.check() and ispyb_xml.check():
+    if scaled_unmerged_mtz.check():
       json_file = working_directory.join('iotbx-merging-stats.json')
       with json_file.open('wb') as fh:
         fh.write(

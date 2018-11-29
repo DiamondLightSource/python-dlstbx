@@ -212,15 +212,31 @@ class DLSTrigger(CommonService):
     if not dcid:
       self.log.error('snmct trigger failed: No DCID specified')
       return False
+    dc_info = self.ispyb.get_data_collection(dcid)
 
-    message = {
-      'parameters': {
-        'ispyb_dcid': dcid
-      },
-      'recipes': ['postprocessing-snmct']
-    }
+    jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+    jisp['datacollectionid'] = dcid
+    jisp['start_image'] = dc_info.image_start_number
+    jisp['end_image'] = dc_info.image_start_number + dc_info.image_count - 1
+
+    jp = self.ispyb.mx_processing.get_job_params()
+    jp['automatic'] = bool(parameters('automatic'))
+    jp['comments'] = parameters('comment')
+    jp['datacollectionid'] = dcid
+    jp['display_name'] = "xia2.multi_crystal_scale"
+    jp['recipe'] = "postprocessing-snmct"
+    jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+    self.log.debug('snmct trigger: generated JobID {}'.format(jobid))
+
+    jisp['job_id'] = jobid
+    jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
+    self.log.debug('snmct trigger: generated JobImageSweepID {}'.format(jispid))
+
+    self.log.debug('snmct trigger: Processing job {} created'.format(jobid))
+
+    message = { 'recipes': [], 'parameters': { 'ispyb_process': jobid } }
     rw.transport.send('processing_recipe', message)
 
-    self.log.info('snmct triggered')
+    self.log.info('snmct trigger: Processing job {} triggered'.format(jobid))
 
-    return {'success': True, 'return_value': None}
+    return {'success': True, 'return_value': jobid}

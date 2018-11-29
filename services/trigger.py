@@ -182,6 +182,13 @@ class DLSTrigger(CommonService):
       self.log.error('big_ep trigger failed: No DCID specified')
       return False
 
+    from dlstbx.ispybtbx import ispybtbx
+    ispyb_conn = ispybtbx()
+    proposal_code, _, _ = ispyb_conn.get_visit_name_from_dcid(dcid)
+    if proposal_code in ('lb', 'in', 'sw'):
+      logger.info('Skipping big_ep for %s visit', proposal_code)
+    return {'success': True}
+
     scaling_id = parameters('scaling_id')
     if not scaling_id:
       self.log.error('big_ep trigger failed: No scaling_id specified')

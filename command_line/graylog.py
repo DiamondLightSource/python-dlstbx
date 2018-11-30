@@ -106,6 +106,9 @@ if __name__ == '__main__':
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-f", "--follow", dest="follow", default=False, action="store_true",
                     help="Keep showing log messages as they come in.")
+  parser.add_option("-s", "--source", "--facility", dest="facility", default=[], action="append",
+                    help="Only show log messages from this facility. When specified"
+                         "multiple times will show messages from any one of them.")
   parser.add_option("--level", dest="level", default="info",
                     help="Show messages with this loglevel and higher. Valid options: alert, critical, error, warning, notice, info, debug")
   parser.add_option("--time", dest="time", default="600",
@@ -132,6 +135,10 @@ if __name__ == '__main__':
 
   g = GraylogAPI('/dls_sw/apps/zocalo/secrets/credentials-log.cfg')
   g.level = level
+  if options.facility:
+    g.filters.append(
+        "facility:(" + " OR ".join(options.facility) + ")"
+    )
   format = format_message(options.verbose)
   if options.follow:
     try:

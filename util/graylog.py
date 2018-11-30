@@ -24,6 +24,7 @@ class GraylogAPI():
   def __init__(self, configfile):
     cfgparser = ConfigParser.ConfigParser(allow_no_value=True)
     self.level = 6 # INFO
+    self.filters = []
     if not cfgparser.read(configfile):
       raise RuntimeError('Could not read from configuration file %s' % configfile)
     self.url = cfgparser.get('graylog', 'url')
@@ -88,10 +89,10 @@ class GraylogAPI():
       # alternatively: m['localtime'].strftime('%f')[:-3]
     return messages
 
-  def get_all_messages(self, time=600, query=None):
+  def get_all_messages(self, **kwargs):
     messages = True
     while messages:
-      messages = self.get_messages(time=time, query=query)
+      messages = self.get_messages(**kwargs)
       for message in messages:
         yield message
 
@@ -114,6 +115,11 @@ class GraylogAPI():
   def relative_update(self, time=600, query=None):
     if not query:
       query='level:<={level}'
+    if self.filters:
+      query = "({query}) AND ({filters})".format(
+          query=query,
+          filters=' AND '.join("({})".format(f) for f in self.filters),
+      )
     return self._get("search/universal/relative?"
                      "query={query}&"
                      "range={time}&"
@@ -125,6 +131,11 @@ class GraylogAPI():
   def absolute_update(self, from_time=None, query=None):
     if not query:
       query='level:<={level}'
+    if self.filters:
+      query = "({query}) AND ({filters})".format(
+          query=query,
+          filters=' AND '.join("({})".format(f) for f in self.filters),
+      )
     if not from_time:
       from_time = self.last_seen_timestamp
     from_time = from_time.replace(':', '%3A')

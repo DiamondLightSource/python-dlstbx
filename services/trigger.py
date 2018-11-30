@@ -228,9 +228,10 @@ class DLSTrigger(CommonService):
       print_stdout=False, print_stderr=False)
     dcids = [int(dcid) for dcid in result['stdout'].split()]
     dcids = [this_dcid] + [dcid for dcid in dcids if dcid < this_dcid]
-    self.log.info('Found dcids: %s', str(dcids))
+    self.log.info('snmct trigger: found dcids: %s', str(dcids))
     if len(dcids) == 1:
-      self.log.info('Not running SNMCT: no related dcids for dcid %s' % dcids[0])
+      self.log.info(
+        'snmct trigger: no related dcids for dcid %s' % dcids[0])
       return {'success': True}
 
     from dlstbx.ispybtbx import ispybtbx
@@ -252,9 +253,10 @@ class DLSTrigger(CommonService):
     # lookup appids for all dcids and exit early if only one found
     appids = [get_appid(dcid) for dcid in dcids]
     appids = [appid for appid in appids if appid is not None]
-    self.log.info('Found appids: %s', str(appids))
+    self.log.info('snmct trigger: found appids: %s', str(appids))
     if len(appids) <= 1:
-      self.log.info('Not running SNMCT: not enough related appids found for dcid %s' % dcids[0])
+      self.log.info(
+        'snmct trigger: not enough related appids found for dcid %s' % dcids[0])
       return {'success': True}
 
     dc_info = self.ispyb.get_data_collection(dcid)

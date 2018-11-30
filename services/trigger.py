@@ -270,7 +270,6 @@ class DLSTrigger(CommonService):
 
     for d in dcids:
       dc_info = self.ispyb.get_data_collection(d)
-      self.log.debug(d)
 
       jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
       jisp['datacollectionid'] = d

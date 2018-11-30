@@ -23,6 +23,8 @@ class DLSTrigger(CommonService):
     '''Subscribe to the trigger queue. Received messages must be acknowledged.'''
     workflows.recipe.wrap_subscribe(self._transport, 'trigger',
         self.trigger, acknowledgement=True, log_extender=self.extend_log)
+    import ispyb.model.__future__
+    ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
     self.ispyb = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
 
   def trigger(self, rw, header, message):
@@ -212,6 +214,49 @@ class DLSTrigger(CommonService):
     if not dcid:
       self.log.error('snmct trigger failed: No DCID specified')
       return False
+
+    # lookup related dcids and exit early if none found
+    this_dcid = int(dcid)
+    command = [
+      '/dls_sw/apps/mx-scripts/misc/GetAListOfAssociatedDCOnThisCrystalOrDir.sh',
+      '%i' % this_dcid
+    ]
+    result = run_process(
+      command,
+      #timeout=params.get('timeout'),
+      #working_directory=params['working_directory'],
+      print_stdout=False, print_stderr=False)
+    dcids = [int(dcid) for dcid in result['stdout'].split()]
+    dcids = [this_dcid] + [dcid for dcid in dcids if dcid < this_dcid]
+    self.log.info('Found dcids: %s', str(dcids))
+    if len(dcids) == 1:
+      self.log.info('Not running SNMCT: no related dcids for dcid %s' % dcids[0])
+      return {'success': True}
+
+    from dlstbx.ispybtbx import ispybtbx
+    ispyb_conn = ispybtbx()
+
+    def get_appid(dcid):
+      appid = {}
+      dc = self.ispyb.get_data_collection(dcid)
+      for intgr in dc.integrations:
+        prg = intgr.program
+        if ((prg.message != 'processing successful') or
+            (prg.name != 'xia2 dials')):
+          continue
+        appid[prg.time_update] = intgr.APPID
+      if not appid:
+        return None
+      return appid.values()[0]
+
+    # lookup appids for all dcids and exit early if only one found
+    appids = [get_appid(dcid) for dcid in dcids]
+    appids = [appid for appid in appids if appid is not None]
+    self.log.info('Found appids: %s', str(appids))
+    if len(appids) <= 1:
+      self.log.info('Not running SNMCT: not enough related appids found for dcid %s' % dcids[0])
+      return {'success': True}
+
     dc_info = self.ispyb.get_data_collection(dcid)
 
     jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
@@ -227,6 +272,18 @@ class DLSTrigger(CommonService):
     jp['recipe'] = "postprocessing-snmct"
     jobid = self.ispyb.mx_processing.upsert_job(jp.values())
     self.log.debug('snmct trigger: generated JobID {}'.format(jobid))
+
+    snmct_parameters = {
+      'appids': ','.join([str(a) for a in appids]),
+    }
+
+    for key, value in snmct_parameters.items():
+      jpp = self.ispyb.mx_processing.get_job_parameter_params()
+      jpp['job_id'] = jobid
+      jpp['parameter_key'] = key
+      jpp['parameter_value'] = value
+      jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+      self.log.debug('snmct trigger: generated JobParameterID {}'.format(jppid))
 
     jisp['job_id'] = jobid
     jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())

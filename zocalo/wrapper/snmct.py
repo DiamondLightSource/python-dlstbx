@@ -88,35 +88,6 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     assert len(data_files) == 2, data_files
     return data_files
 
-  def get_appid(self, dcid):
-    appid = {}
-    dc = self.ispyb_conn.get_data_collection(dcid)
-    for intgr in dc.integrations:
-      prg = intgr.program
-      if ((prg.message != 'processing successful') or
-          (prg.name != 'xia2 dials')):
-        continue
-      appid[prg.time_update] = intgr.APPID
-    if not appid:
-      return None
-    return appid.values()[0]
-
-  def get_dcids(self, params):
-    this_dcid = int(params['dcid'])
-    dcids = params['dcids']
-    if not dcids:
-      command = [
-        '/dls_sw/apps/mx-scripts/misc/GetAListOfAssociatedDCOnThisCrystalOrDir.sh',
-        '%i' % this_dcid
-      ]
-      result = procrunner.run_process(
-        command, timeout=params.get('timeout'),
-        working_directory=params['working_directory'],
-        print_stdout=False, print_stderr=False)
-      dcids = [int(dcid) for dcid in result['stdout'].split()]
-      dcids = [dcid for dcid in dcids if dcid < this_dcid]
-    return [this_dcid] + dcids
-
   def send_resuls_to_ispyb(self, json_file):
     from dlstbx.ispybtbx import ispybtbx
     ispyb_conn = ispybtbx()
@@ -133,20 +104,6 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     params = self.recwrap.recipe_step['job_parameters']
 
-    if not params['appids']:
-      dcids = self.get_dcids(params)
-      if len(dcids) == 1:
-        logger.info('Not running SNMCT: no related dcids for dcid %s' % dcids[0])
-        return
-      appids = [self.get_appid(dcid) for dcid in dcids]
-      appids = [appid for appid in appids if appid is not None]
-      params['appids'] = appids
-      logger.info('Found dcids: %s', str(dcids))
-      logger.info('Found appids: %s', str(appids))
-      if len(appids) <= 1:
-        logger.info('Not running SNMCT: not enough related appids found for dcid %s' % dcids[0])
-        return
-
     # Adjust all paths if a spacegroup is set in ISPyB
     if params.get('ispyb_parameters'):
       if params['ispyb_parameters'].get('spacegroup') and \
@@ -154,6 +111,10 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         for parameter in ('working_directory', 'results_directory', 'create_symlink'):
           if parameter in params:
             params[parameter] += '-' + params['ispyb_parameters']['spacegroup']
+      if params['ispyb_parameters'].get('appids'):
+        params['appids'] = params['ispyb_parameters']['appids']
+
+    assert len(params.get('appids', [])) > 1
 
     command = self.construct_commandline(params)
 

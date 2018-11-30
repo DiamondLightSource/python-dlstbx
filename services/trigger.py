@@ -216,21 +216,21 @@ class DLSTrigger(CommonService):
       return False
 
     # lookup related dcids and exit early if none found
-    this_dcid = int(dcid)
+    dcid = int(dcid)
     command = [
       '/dls_sw/apps/mx-scripts/misc/GetAListOfAssociatedDCOnThisCrystalOrDir.sh',
-      '%i' % this_dcid
+      '%i' % dcid
     ]
     result = run_process(
       command,
       #timeout=params.get('timeout'),
       #working_directory=params['working_directory'],
       print_stdout=False, print_stderr=False)
-    dcids = [int(dcid) for dcid in result['stdout'].split()]
-    dcids = [this_dcid] + [dcid for dcid in dcids if dcid < this_dcid]
+    dcids = [int(d) for d in result['stdout'].split()]
+    dcids = [dcid] + [d for d in dcids if d < dcid]
     if len(dcids) == 1:
       self.log.info(
-        'Skipping snmct trigger: no related dcids for dcid %s' % dcids[0])
+        'Skipping snmct trigger: no related dcids for dcid %s' % dcid)
       return {'success': True}
     self.log.info('snmct trigger: found dcids: %s', str(dcids))
 
@@ -251,11 +251,11 @@ class DLSTrigger(CommonService):
       return appid.values()[0]
 
     # lookup appids for all dcids and exit early if only one found
-    appids = [get_appid(dcid) for dcid in dcids]
+    appids = [get_appid(d) for d in dcids]
     appids = [appid for appid in appids if appid is not None]
     if len(appids) <= 1:
       self.log.info(
-        'Skipping snmct trigger: not enough related appids found for dcid %s' % dcids[0])
+        'Skipping snmct trigger: not enough related appids found for dcid %s' % dcid)
       return {'success': True}
     self.log.info('snmct trigger: found appids: %s', str(appids))
 

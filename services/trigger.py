@@ -259,13 +259,6 @@ class DLSTrigger(CommonService):
       return {'success': True}
     self.log.info('snmct trigger: found appids: %s', str(appids))
 
-    dc_info = self.ispyb.get_data_collection(dcid)
-
-    jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
-    jisp['datacollectionid'] = dcid
-    jisp['start_image'] = dc_info.image_start_number
-    jisp['end_image'] = dc_info.image_start_number + dc_info.image_count - 1
-
     jp = self.ispyb.mx_processing.get_job_params()
     jp['automatic'] = bool(parameters('automatic'))
     jp['comments'] = parameters('comment')
@@ -274,6 +267,19 @@ class DLSTrigger(CommonService):
     jp['recipe'] = "postprocessing-snmct"
     jobid = self.ispyb.mx_processing.upsert_job(jp.values())
     self.log.debug('snmct trigger: generated JobID {}'.format(jobid))
+
+    for d in dcids:
+      dc_info = self.ispyb.get_data_collection(d)
+      self.log.debug(d)
+
+      jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+      jisp['datacollectionid'] = d
+      jisp['start_image'] = dc_info.image_start_number
+      jisp['end_image'] = dc_info.image_start_number + dc_info.image_count - 1
+
+      jisp['job_id'] = jobid
+      jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
+      self.log.debug('snmct trigger: generated JobImageSweepID {}'.format(jispid))
 
     snmct_parameters = {
       'appids': ','.join([str(a) for a in appids]),
@@ -286,10 +292,6 @@ class DLSTrigger(CommonService):
       jpp['parameter_value'] = value
       jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
       self.log.debug('snmct trigger: generated JobParameterID {}'.format(jppid))
-
-    jisp['job_id'] = jobid
-    jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
-    self.log.debug('snmct trigger: generated JobImageSweepID {}'.format(jispid))
 
     self.log.debug('snmct trigger: Processing job {} created'.format(jobid))
 

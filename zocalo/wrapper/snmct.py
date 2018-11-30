@@ -112,7 +112,7 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           if parameter in params:
             params[parameter] += '-' + params['ispyb_parameters']['spacegroup']
       if params['ispyb_parameters'].get('appids'):
-        params['appids'] = params['ispyb_parameters']['appids']
+        params['appids'] = params['ispyb_parameters']['appids'].split(',')
 
     assert len(params.get('appids', [])) > 1
 

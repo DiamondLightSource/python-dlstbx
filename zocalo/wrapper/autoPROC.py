@@ -311,13 +311,12 @@ class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     #echo "Attempting to add history to mtz files"
     #find $jobdir -name '*.mtz' -exec /dls_sw/apps/mx-scripts/misc/AddHistoryToMTZ.sh $Beamline $Visit {} $2 autoPROC \;
 
-    json_file = working_directory.join('iotbx-merging-stats.json')
-    scaled_unmerged_mtz = working_directory.join('aimless_unmerged.mtz')
-    if scaled_unmerged_mtz.check():
+    if not result['exitcode']:
       json_file = working_directory.join('iotbx-merging-stats.json')
-      with json_file.open('wb') as fh:
-        fh.write(
-          get_merging_statistics(str(scaled_unmerged_mtz.strpath)).as_json())
+      scaled_unmerged_mtz = working_directory.join('aimless_unmerged.mtz')
+      if scaled_unmerged_mtz.check():
+        json_file.write(
+            get_merging_statistics(str(scaled_unmerged_mtz.strpath)).as_json())
 
     # move summary_inlined.html to summary.html
     inlined_html = working_directory.join('summary_inlined.html')

@@ -139,9 +139,13 @@ class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
         logger.info('Not running SNMCT: no related dcids for dcid %s' % dcids[0])
         return
       appids = [self.get_appid(dcid) for dcid in dcids]
+      appids = [appid for appid in appids if appid is not None]
       params['appids'] = appids
       logger.info('Found dcids: %s', str(dcids))
       logger.info('Found appids: %s', str(appids))
+      if len(appids) <= 1:
+        logger.info('Not running SNMCT: not enough related appids found for dcid %s' % dcids[0])
+        return
 
     # Adjust all paths if a spacegroup is set in ISPyB
     if params.get('ispyb_parameters'):

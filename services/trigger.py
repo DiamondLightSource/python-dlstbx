@@ -231,7 +231,7 @@ class DLSTrigger(CommonService):
     self.log.info('snmct trigger: found dcids: %s', str(dcids))
     if len(dcids) == 1:
       self.log.info(
-        'snmct trigger: no related dcids for dcid %s' % dcids[0])
+        'Skipping snmct trigger: no related dcids for dcid %s' % dcids[0])
       return {'success': True}
 
     from dlstbx.ispybtbx import ispybtbx
@@ -256,7 +256,7 @@ class DLSTrigger(CommonService):
     self.log.info('snmct trigger: found appids: %s', str(appids))
     if len(appids) <= 1:
       self.log.info(
-        'snmct trigger: not enough related appids found for dcid %s' % dcids[0])
+        'Skipping snmct trigger: not enough related appids found for dcid %s' % dcids[0])
       return {'success': True}
 
     dc_info = self.ispyb.get_data_collection(dcid)

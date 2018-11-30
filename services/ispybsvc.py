@@ -558,7 +558,7 @@ class DLSISPyB(CommonService):
         message=message,
         **kwargs
     )
-    self.log.info("Multipart call returned with result %s", result)
+    self.log.debug("Multipart call returned with result %s", result)
 
     # Store step result if appropriate
     store_result = current_command.get('store_result')
@@ -573,12 +573,12 @@ class DLSISPyB(CommonService):
 
     # If the multipart command is finished then propagate success
     if not commands:
-      self.log.info("and done.")
+      self.log.debug("and done.")
       return result
 
     # If there are more steps then checkpoint the current state
     # and put it back on the queue
-    self.log.info("Checkpointing remaining %d steps", len(commands))
+    self.log.debug("Checkpointing remaining %d steps", len(commands))
     if isinstance(message, dict):
       checkpoint_dictionary = message
     else:

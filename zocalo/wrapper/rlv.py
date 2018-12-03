@@ -26,47 +26,43 @@ class RLVWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     command = ['dials.import', 'template=%s' % params['template']]
     logger.info('command: %s', ' '.join(command))
     result = procrunner.run(
-      command, timeout=params.get('timeout'),
-      print_stdout=False, print_stderr=False)
+        command, timeout=params.get('timeout'),
+    )
     logger.info('time_start: %s', result['time_start'])
     logger.info('time_end: %s', result['time_end'])
     logger.info('runtime: %s', result['runtime'])
     logger.info('exitcode: %s', result['exitcode'])
-    logger.debug(result['stdout'])
-    logger.debug(result['stderr'])
-    success = result['exitcode'] == 0
+    if result['exitcode']:
+      logger.warning('Failed to import files %s', params['template'])
+      return False
 
-    if success:
-      # then find spots
-
-      command = ['dials.find_spots', 'datablock.json', 'nproc=20']
-      logger.info('command: %s', ' '.join(command))
-      result = procrunner.run(
+    # then find spots
+    command = ['dials.find_spots', 'datablock.json', 'nproc=' + str(os.getenv('NSLOTS', '20'))]
+    logger.info('command: %s', ' '.join(command))
+    result = procrunner.run(
         command, timeout=params.get('timeout'),
-        print_stdout=False, print_stderr=False)
-      logger.info('time_start: %s', result['time_start'])
-      logger.info('time_end: %s', result['time_end'])
-      logger.info('runtime: %s', result['runtime'])
-      logger.info('exitcode: %s', result['exitcode'])
-      logger.debug(result['stdout'])
-      logger.debug(result['stderr'])
-      success = result['exitcode'] == 0
+    )
+    logger.info('time_start: %s', result['time_start'])
+    logger.info('time_end: %s', result['time_end'])
+    logger.info('runtime: %s', result['runtime'])
+    logger.info('exitcode: %s', result['exitcode'])
+    if result['exitcode']:
+      logger.warning('Spotfinding failed on %s', params['template'])
+      return False
 
-    if success:
-      # then map to csv file
-
-      command = ['dev.dials.csv', 'dp=4', 'compress=true', 'csv=rl.csv.gz', 'datablock.json', 'strong.pickle']
-      logger.info('command: %s', ' '.join(command))
-      result = procrunner.run(
+    # then map to csv file
+    command = ['dev.dials.csv', 'dp=4', 'compress=true', 'csv=rl.csv.gz', 'datablock.json', 'strong.pickle']
+    logger.info('command: %s', ' '.join(command))
+    result = procrunner.run(
         command, timeout=params.get('timeout'),
-        print_stdout=False, print_stderr=False)
-      logger.info('time_start: %s', result['time_start'])
-      logger.info('time_end: %s', result['time_end'])
-      logger.info('runtime: %s', result['runtime'])
-      logger.info('exitcode: %s', result['exitcode'])
-      logger.debug(result['stdout'])
-      logger.debug(result['stderr'])
-      success = result['exitcode'] == 0
+    )
+    logger.info('time_start: %s', result['time_start'])
+    logger.info('time_end: %s', result['time_end'])
+    logger.info('runtime: %s', result['runtime'])
+    logger.info('exitcode: %s', result['exitcode'])
+    if result['exitcode']:
+      logger.warning('Generating .csv failed on %s', params['template'])
+      return False
 
     # copy output files to result directory
     results_directory = params['results_directory']
@@ -75,6 +71,7 @@ class RLVWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     defaultfiles = ['rl.csv.gz']
     foundfiles = []
+    success = True
     for filename in params.get('keep_files', defaultfiles):
       if os.path.exists(filename):
         dst = os.path.join(results_directory, filename)

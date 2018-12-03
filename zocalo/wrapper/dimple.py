@@ -45,9 +45,9 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
     scaling_id = self.params.get('scaling_id')
     if not str(scaling_id).isdigit():
       scaling_id = self.params.get('ispyb_parameters', {}).get('scaling_id')
-    if not str(scaling_id).isdigit():
-      logger.error('Can not write results to ISPyB: no scaling ID set (%r)', scaling_id)
-      return False
+      if not str(scaling_id).isdigit():
+        logger.error('Can not write results to ISPyB: no scaling ID set (%r)', scaling_id)
+        return False
     scaling_id = int(scaling_id)
     logger.debug('Inserting dimple phasing results from %s into ISPyB for scaling_id %d',
         self.results_directory.strpath, scaling_id)
@@ -88,6 +88,7 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
           blobparam['view2'] = 'blob{0}v2.png'.format(n)
           blobparam['view3'] = 'blob{0}v3.png'.format(n)
           mrblob_id = conn.mx_processing.upsert_run_blob(list(blobparam.values()))
+    return True
 
   def run(self):
     assert hasattr(self, 'recwrap'), "No recipewrapper object found"
@@ -170,8 +171,7 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
 
     if result['exitcode'] == 0:
       logger.info('Sending dimple results to ISPyB')
-      # XXX This logic won't work as self.send_results_to_ispyb() returns None on success
-      success = self.send_results_to_ispyb() and result['exitcode'] == 0
+      success = self.send_results_to_ispyb()
     else:
       logger.warning('dimple failed: %s/dimple.log' % self.working_directory)
       success = False
@@ -187,4 +187,4 @@ class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
             'This file is used as a flag to synchweb to show the processing has failed'
         )
 
-    return result['exitcode'] == 0
+    return success

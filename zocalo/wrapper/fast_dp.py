@@ -7,13 +7,13 @@ import shutil
 
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
-import dlstbx.zocalo.wrapper
 import procrunner
 import py
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.fast_dp')
 
-class FastDPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class FastDPWrapper(zocalo.wrapper.BaseWrapper):
   def send_results_to_ispyb(self, z):
     ispyb_command_list = []
 

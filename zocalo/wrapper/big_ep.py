@@ -6,12 +6,12 @@ import py
 from datetime import datetime
 
 import dlstbx.util.symlink
-import dlstbx.zocalo.wrapper
 import procrunner
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.big_ep')
 
-class BigEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class BigEPWrapper(zocalo.wrapper.BaseWrapper):
 
   def construct_commandline(self, params):
     '''Construct big_ep command line.

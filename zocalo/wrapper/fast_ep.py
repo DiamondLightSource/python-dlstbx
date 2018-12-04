@@ -5,12 +5,12 @@ import os
 import py
 
 import dlstbx.util.symlink
-import dlstbx.zocalo.wrapper
 import procrunner
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.fast_ep')
 
-class FastEPWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class FastEPWrapper(zocalo.wrapper.BaseWrapper):
 
   def check_go_fast_ep(self, params):
     command = ['go_fast_ep', params['fast_ep']['data']]

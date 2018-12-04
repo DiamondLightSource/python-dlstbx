@@ -7,8 +7,8 @@ import py
 
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
-import dlstbx.zocalo.wrapper
 import procrunner
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.autoPROC')
 
@@ -52,7 +52,7 @@ def xml_to_dict(filename):
   return make_dict_from_tree(xml.etree.ElementTree.parse(filename).getroot())
 
 
-class autoPROCWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
 
   def send_results_to_ispyb(self, xml_file, special_program_name=None, attachments=None):
     if not xml_file.check(file=1, exists=1):

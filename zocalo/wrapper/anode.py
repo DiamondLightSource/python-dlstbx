@@ -4,12 +4,12 @@ import logging
 import os
 import shutil
 
-import dlstbx.zocalo.wrapper
 import procrunner
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.anode')
 
-class AnodeWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class AnodeWrapper(zocalo.wrapper.BaseWrapper):
 
   def run(self):
     assert hasattr(self, 'recwrap'), \

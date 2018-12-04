@@ -3,12 +3,12 @@ from __future__ import absolute_import, division, print_function
 import logging
 import os
 
-import dlstbx.zocalo.wrapper
 import procrunner
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.multi_crystal_scale')
 
-class MultiCrystalScaleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class MultiCrystalScaleWrapper(zocalo.wrapper.BaseWrapper):
   def run(self):
     assert hasattr(self, 'recwrap'), \
       "No recipewrapper object found"

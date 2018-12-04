@@ -6,12 +6,12 @@ import logging
 import os
 import shutil
 
-import dlstbx.zocalo.wrapper
 from procrunner import run_process
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.spot_counts_per_image')
 
-class SCPIWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class SCPIWrapper(zocalo.wrapper.BaseWrapper):
   def run(self):
     assert hasattr(self, 'recwrap'), \
       "No recipewrapper object found"

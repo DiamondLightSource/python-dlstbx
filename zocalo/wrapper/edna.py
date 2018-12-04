@@ -5,12 +5,12 @@ import os
 import py
 import sys
 
-import dlstbx.zocalo.wrapper
 import procrunner
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.edna')
 
-class EdnaWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class EdnaWrapper(zocalo.wrapper.BaseWrapper):
 
   def run(self):
     assert hasattr(self, 'recwrap'), \

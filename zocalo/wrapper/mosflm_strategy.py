@@ -4,12 +4,12 @@ import distutils.dir_util
 import logging
 import os
 
-import dlstbx.zocalo.wrapper
 import procrunner
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.mosflm_strategy')
 
-class MosflmStrategyWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
 
   def run(self):
     assert hasattr(self, 'recwrap'), \

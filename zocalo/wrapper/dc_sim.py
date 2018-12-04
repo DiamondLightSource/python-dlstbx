@@ -4,11 +4,11 @@ import logging
 import time
 
 import dlstbx.dc_sim
-import dlstbx.zocalo.wrapper
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.dc_sim')
 
-class DCSimWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class DCSimWrapper(zocalo.wrapper.BaseWrapper):
   def run(self):
     assert hasattr(self, 'recwrap'), \
       "No recipewrapper object found"

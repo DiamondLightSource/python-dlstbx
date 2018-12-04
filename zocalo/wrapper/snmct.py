@@ -4,12 +4,12 @@ import logging
 import py
 
 import dlstbx.util.symlink
-import dlstbx.zocalo.wrapper
 import procrunner
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.snmct')
 
-class SNMCTWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class SNMCTWrapper(zocalo.wrapper.BaseWrapper):
 
   def send_results_to_ispyb(self, z):
     ispyb_command_list = []

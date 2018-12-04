@@ -8,15 +8,15 @@ import shutil
 import sys
 
 import dlstbx.util.symlink
-import dlstbx.zocalo.wrapper
 import ispyb
 import ispyb.model.__future__
 import procrunner
 import py
+import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.dimple')
 
-class DimpleWrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
   def get_matching_pdb(self):
     results = []

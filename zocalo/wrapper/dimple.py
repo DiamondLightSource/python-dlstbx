@@ -115,6 +115,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         + [
             self.working_directory.strpath,
             # '--dls-naming',
+            '--anode',
             '-fpng',
           ]
 

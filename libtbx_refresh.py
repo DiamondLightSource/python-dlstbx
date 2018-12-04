@@ -21,7 +21,7 @@ libtbx.pkg_utils.require('drmaa')
 libtbx.pkg_utils.require('junit_xml')
 libtbx.pkg_utils.require('colorama') # is still used in one place
 libtbx.pkg_utils.require('procrunner', '>=0.8.0')
-libtbx.pkg_utils.require('zocalo')
+libtbx.pkg_utils.require('zocalo', '>=0.3')
 
 # Eiger stream work, SCI-7786
 libtbx.pkg_utils.require('confluent-kafka')

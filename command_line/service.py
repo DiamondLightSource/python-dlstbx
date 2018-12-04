@@ -46,6 +46,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
 #   logging.getLogger('stomp.py').setLevel(logging.DEBUG)
     logging.getLogger('workflows').setLevel(logging.INFO)
     logging.getLogger('xia2').setLevel(logging.INFO)
+    logging.getLogger('zocalo').setLevel(logging.DEBUG)
 
     self.log = logging.getLogger('dlstbx.service')
     self.log.setLevel(logging.DEBUG)

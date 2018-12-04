@@ -176,7 +176,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
       ".mtz": "result",
     }
     keep = {
-      "fast_dp-report.json": "graph",
+      #"fast_dp-report.json": "graph",
       "iotbx-merging-stats.json": "graph",
     }
     allfiles = []

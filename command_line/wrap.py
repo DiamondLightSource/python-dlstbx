@@ -18,61 +18,11 @@ import workflows.recipe.wrapper
 import workflows.services.common_service
 import workflows.transport
 import workflows.util
+import zocalo.wrapper
 from dlstbx import enable_graylog
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.version import dlstbx_version
 from workflows.transport.stomp_transport import StompTransport
-
-class StatusNotifications(threading.Thread):
-  def __init__(self, send_function, taskname):
-    super(StatusNotifications, self).__init__(name="zocalo status notification")
-    self.daemon = True
-    self.lock = threading.Condition(threading.Lock())
-    self.send_status = send_function
-    self.status_dict = {
-      'host': workflows.util.generate_unique_host_id(),
-      'task': taskname,
-      'dlstbx': dlstbx_version(),
-      'workflows': workflows.version(),
-    }
-    for env in ('SGE_CELL', 'JOB_ID'):
-      if env in os.environ:
-        self.status_dict['cluster_' + env] = os.environ[env]
-    self.set_status(workflows.services.common_service.Status.STARTING)
-    self._keep_running = True
-    self.start()
-
-  def get_status(self):
-    '''Returns a dictionary containing all relevant status information to be
-       broadcast across the network.'''
-    return self.status_dict
-
-  def set_status(self, status):
-    with self.lock:
-      self.status_dict['status'], self.status_dict['statustext'] = status.intval, status.description
-      self.lock.notify()
-
-  @property
-  def taskname(self):
-    '''Returns the name displayed on service monitors for this task.'''
-    return self.status_dict['task']
-
-  @taskname.setter
-  def taskname(self, value):
-    '''Set/update the name displayed on service monitors for this task.'''
-    with self.lock:
-      self.status_dict['task'] = value
-      self.lock.notify()
-
-  def shutdown(self):
-    self._keep_running = False
-
-  def run(self):
-    with self.lock:
-      self.send_status(self.get_status())
-      while self._keep_running:
-        self.lock.wait(3)
-        self.send_status(self.get_status())
 
 def run(cmdline_args):
   # Enable logging to console
@@ -82,6 +32,7 @@ def run(cmdline_args):
   logging.getLogger('dlstbx').setLevel(logging.INFO)
   logging.getLogger('workflows').setLevel(logging.INFO)
   logging.getLogger('xia2').setLevel(logging.INFO)
+  logging.getLogger('zocalo').setLevel(logging.INFO)
   logging.getLogger().setLevel(logging.WARN)
   logging.getLogger().addHandler(console)
   log = logging.getLogger('dlstbx.wrap')
@@ -136,7 +87,11 @@ def run(cmdline_args):
   # Connect to transport and start sending notifications
   transport = workflows.transport.lookup(options.transport)()
   transport.connect()
-  st = StatusNotifications(transport.broadcast_status, options.wrapper)
+  st = zocalo.wrapper.StatusNotifications(transport.broadcast_status, options.wrapper)
+  st.set_static_status_field('dlstbx', dlstbx_version())
+  for env in ("SGE_CELL", "JOB_ID"):
+    if env in os.environ:
+      st.set_static_status_field("cluster_" + env, os.getenv(env))
 
   # Instantiate chosen wrapper
   instance = known_wrappers[options.wrapper]()()

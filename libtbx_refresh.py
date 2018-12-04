@@ -21,7 +21,7 @@ libtbx.pkg_utils.require('drmaa')
 libtbx.pkg_utils.require('junit_xml')
 libtbx.pkg_utils.require('colorama') # is still used in one place
 libtbx.pkg_utils.require('procrunner', '>=0.8.0')
-libtbx.pkg_utils.require('zocalo', '>=0.3')
+libtbx.pkg_utils.require('zocalo', '>=0.4')
 
 # Eiger stream work, SCI-7786
 libtbx.pkg_utils.require('confluent-kafka')
@@ -61,7 +61,6 @@ libtbx.pkg_utils.define_entry_points({
     'big_ep = dlstbx.zocalo.wrapper.big_ep:BigEPWrapper',
     'dc_sim = dlstbx.zocalo.wrapper.dc_sim:DCSimWrapper',
     'dozor = dlstbx.zocalo.wrapper.dozor:DozorWrapper',
-    'dummy = dlstbx.zocalo.wrapper:DummyWrapper',
     'edna = dlstbx.zocalo.wrapper.edna:EdnaWrapper',
     'fast_dp = dlstbx.zocalo.wrapper.fast_dp:FastDPWrapper',
     'fast_ep = dlstbx.zocalo.wrapper.fast_ep:FastEPWrapper',

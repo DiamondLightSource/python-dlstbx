@@ -29,7 +29,6 @@ class I19ScreenWrapper(zocalo.wrapper.BaseWrapper):
     # run i19.screen
     result = procrunner.run(
         command, timeout=params.get('timeout'),
-        print_stdout=False, print_stderr=False,
         working_directory=working_directory.strpath,
     )
     logger.info('command: %s', ' '.join(result['command']))

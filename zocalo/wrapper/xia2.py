@@ -6,13 +6,13 @@ import os
 import shutil
 
 import dlstbx.util.symlink
-import dlstbx.zocalo.wrapper
+import zocalo.wrapper
 import procrunner
 import py
 
 logger = logging.getLogger('dlstbx.wrap.xia2')
 
-class Xia2Wrapper(dlstbx.zocalo.wrapper.BaseWrapper):
+class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
 
   def construct_commandline(self, params):
     '''Construct xia2 command line.

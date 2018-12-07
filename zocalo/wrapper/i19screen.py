@@ -30,6 +30,7 @@ class I19ScreenWrapper(zocalo.wrapper.BaseWrapper):
     result = procrunner.run(
         command, timeout=params.get('timeout'),
         working_directory=working_directory.strpath,
+        environment_override={'PYTHONIOENCODING': 'UTF-8'},
     )
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])

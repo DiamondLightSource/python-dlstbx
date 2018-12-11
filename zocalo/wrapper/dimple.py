@@ -70,7 +70,10 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
       params['r_start'] = log.getfloat('refmac5 restr', 'ini_overall_r')
       params['r_end'] = log.getfloat('refmac5 restr', 'overall_r')
-      params['message'] = " ".join(log.get('find-blobs', 'info').split()[:4])
+      try:
+        params['message'] = " ".join(log.get('find-blobs', 'info').split()[:4])
+      except ConfigParser.NoSectionError:
+        params['message'] = "Unmodelled blobs not found"
       params['run_dir'] = self.results_directory.strpath
       dimple_args = log.get('workflow', 'args').split()
       params['input_MTZ_file'] = dimple_args[0]

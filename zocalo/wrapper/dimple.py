@@ -174,7 +174,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
       logger.info('Sending dimple results to ISPyB')
       success = self.send_results_to_ispyb()
     else:
-      logger.warning('dimple failed: %s/dimple.log' % self.working_directory)
+      logger.info('dimple failed: %s/dimple.log' % self.working_directory)
       success = False
 
     # Update SynchWeb tick hack file

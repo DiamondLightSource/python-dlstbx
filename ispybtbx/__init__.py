@@ -22,7 +22,10 @@ def _clean_(path):
 def _prefix_(template):
   if not template:
     return template
-  return template.split('#')[0]
+  if '#' in template:
+    return template.split('#')[0]
+  if template.endswith('_master.h5'):
+    return template[:-9]
 
 def _ispyb_api():
   if not hasattr(_ispyb_api, 'instance'):

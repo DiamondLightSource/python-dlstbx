@@ -17,8 +17,7 @@ class DLSNexusParser(CommonService):
   _logger_name = 'dlstbx.services.nexusparser'
 
   def initializing(self):
-    '''Subscribe to the filewatcher queue. Received messages must be
-       acknowledged.'''
+    '''Subscribe to a queue. Received messages must be acknowledged.'''
     self.log.info("Nexusparser starting")
     workflows.recipe.wrap_subscribe(
         self._transport, 'nexusparser.find_related_files',

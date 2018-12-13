@@ -41,8 +41,8 @@ class DLSImages(CommonService):
         filename = rw.recipe_step.get("parameters", {}).get("file")
         if isinstance(message, dict) and message.get("file"):
             filename = message["file"]
-        if not filename:
-            self.log.warn("No filename specified")
+        if not filename or filename == 'None':
+            self.log.info("Skipping thumbnail generation: filename not specified")
             rw.transport.ack(header)
             return
         if not os.path.exists(filename):

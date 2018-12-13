@@ -50,7 +50,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
       logger.debug(result['stdout'])
       logger.debug(result['stderr'])
       if result['exitcode'] != 0:
-        logger.error('Spot counting failed on %s during step %s', filename, command[0])
+        logger.error('Spot counting failed on %s during step %s', params['data'], command[0])
         break
 
     success = result['exitcode'] == 0

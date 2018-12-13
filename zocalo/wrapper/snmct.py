@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
+import itertools
 import py
 
 import dlstbx.util.symlink
@@ -67,10 +68,11 @@ class SNMCTWrapper(zocalo.wrapper.BaseWrapper):
     command = ['xia2.multi_crystal_scale']
 
     appids = params['appids']
-    data_files = [self.get_data_files_for_appid(appid) for appid in appids if appid is not None]
-    for files in data_files:
-      for f in files:
-        command.append(f.strpath)
+    data_files = itertools.chain.from_iterable(
+      [self.get_data_files_for_appid(appid)
+       for appid in appids if appid is not None])
+    for f in data_files:
+      command.append(f.strpath)
 
     return command
 
@@ -85,7 +87,11 @@ class SNMCTWrapper(zocalo.wrapper.BaseWrapper):
           data_files.append(py.path.local(item['filePath']).join(item['fileName']))
     logger.info('Found the following files for appid %s:', appid)
     logger.info(list(data_files))
-    assert len(data_files) == 2, data_files
+    if len(data_files) != 2:
+      logger.warning(
+        "Expected to find exactly 2 data files for appid %s (found %s)",
+        appid, len(data_files))
+      return []
     return data_files
 
   def send_resuls_to_ispyb(self, json_file):

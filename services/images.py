@@ -41,6 +41,10 @@ class DLSImages(CommonService):
         filename = rw.recipe_step.get("parameters", {}).get("file")
         if isinstance(message, dict) and message.get("file"):
             filename = message["file"]
+        if not filename:
+            self.log.warn("No filename specified")
+            rw.transport.ack(header)
+            return
         if not os.path.exists(filename):
             self.log.error("File %s not found", filename)
             rw.transport.nack(header)

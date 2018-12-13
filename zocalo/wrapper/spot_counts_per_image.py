@@ -50,6 +50,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
       logger.debug(result['stdout'])
       logger.debug(result['stderr'])
       if result['exitcode'] != 0:
+        logger.error('Spot counting failed on %s during step %s', filename, command[0])
         break
 
     success = result['exitcode'] == 0
@@ -61,6 +62,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
 
     defaultfiles = ('estimated_d_min', 'n_spots_total')
     foundfiles = []
+    filesmissing = False
     for filename in params.get('keep_files', defaultfiles):
       filename = prefix + '_' + filename + '.json'
 
@@ -75,8 +77,12 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
           'file_type': 'pia',
         })
       else:
-        logger.warning('Expected output file %s missing', filename)
-        success = False
+        filesmissing = True
+        if success:
+          logger.warning('Expected output file %s missing', filename)
+        else:
+          logger.info('Expected output file %s missing', filename)
+    success = success and not filesmissing
 
     if foundfiles:
       logger.info('Notifying for found files: %s', str(foundfiles))

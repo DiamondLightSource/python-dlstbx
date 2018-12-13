@@ -240,10 +240,9 @@ class DLSArchiver(CommonService):
     try:
       if filepaths[1:3] == ['dls', 'mx']:
         beamline = 'i02-2' # VMXi currently only beamline with new visit path structure
-        visit_id = filepaths[5]
       else:
         beamline = filepaths[2]
-        visit_id = filepaths[6]
+      visit_id = filepaths[5]
     except IndexError:
       pass
     visit_id = params.get('visit', visit_id)

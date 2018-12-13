@@ -22,6 +22,10 @@ def get_external_references(filename):
 
 def find_all_references(startfile):
   startfile = os.path.abspath(startfile)
+  if not os.path.exists(startfile):
+    log.error('Can not find references from file %s. This file does not exist.', filename)
+    return []
+
   known_files = set()
   unchecked_files = set([startfile])
   invalid_files = set()
@@ -30,7 +34,7 @@ def find_all_references(startfile):
     filename = unchecked_files.pop()
     filepath = os.path.dirname(filename)
     if not os.path.exists(filename):
-      log.warning('Can not find references from file %s. This file does not exist.', filename)
+      log.warning('Referenced file %s does not exist.', filename)
       invalid_files.add(filename)
       continue
     known_files.add(filename)

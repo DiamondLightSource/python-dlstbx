@@ -101,9 +101,9 @@ class DLSImages(CommonService):
         )
         if result["exitcode"]:
             self.log.error(
-                "Export bitmaps failed with exitcode %r:\n%r",
-                result["exitcode"],
-                result["stderr"],
+                "Export of {f} failed with exitcode {r[exitcode]}:\n{r[stderr]}".format(
+                    f=filename, r=result
+                )
             )
             rw.transport.nack(header)
             return

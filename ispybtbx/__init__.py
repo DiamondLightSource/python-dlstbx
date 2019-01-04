@@ -205,23 +205,17 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
     return container_type[0][0]
 
   def get_space_group(self, dc_id):
-    samples = self.execute('select blsampleid from DataCollection '
-                           'where datacollectionid=%s;', dc_id)
-    assert len(samples) == 1
-    if samples[0][0] is None:
+    spacegroups = self.execute(
+        "SELECT c.spaceGroup "
+        "FROM Crystal c "
+        "JOIN BLSample b ON (b.crystalId = c.crystalId) "
+        "JOIN DataCollection d ON (d.BLSAMPLEID = b.blSampleId) "
+        "WHERE d.DataCollectionID = %s "
+        "LIMIT 1;",
+        dc_id
+    )
+    if not spacegroups:
       return None
-    sample = samples[0][0]
-    crystals = self.execute('select crystalid from BLSample where '
-                            'blsampleid=%s;', sample)
-
-    if crystals[0][0] is None:
-      return None
-
-    crystal = crystals[0][0]
-
-    spacegroups = self.execute('select spacegroup from Crystal where '
-                               'crystalid=%s;', crystal)
-
     return spacegroups[0][0]
 
   def get_space_group_and_cell(self, dc_id):

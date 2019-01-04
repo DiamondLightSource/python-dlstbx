@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import errno
 import os
 import re
 
@@ -73,11 +74,17 @@ class DLSImages(CommonService):
         if not output:
             # split off extension
             output = filename[: filename.rindex(".")]
-            # find comissioning directory
+            # deduct image filename
             output = re.sub(
                 r"(/[a-z]{2}[0-9]{4,}-[0-9]+/)", r"\g<0>jpegs/", output, count=1
             )
             output = output + ".jpeg"
+            # create directory for image if necessary
+            try:
+                os.makedirs(os.path.dirname(output))
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    raise
         output_small = output[: output.rindex(".")] + ".thumb.jpeg"
 
         result = procrunner.run(

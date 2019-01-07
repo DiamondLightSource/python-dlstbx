@@ -32,6 +32,7 @@ libtbx.pkg_utils.require('pyzmq')
 
 print("Enumerating workflow services:")
 service_list = []
+service_list.append("DLSISPyBPIA = dlstbx.services.ispybsvc_pia:DLSISPyBPIA")
 for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
   if not name.startswith('test_') and not name.startswith('_'):
     try:

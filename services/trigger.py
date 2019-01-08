@@ -209,10 +209,10 @@ class DLSTrigger(CommonService):
 
     return {'success': True, 'return_value': None}
 
-  def trigger_snmct(self, rw, header, parameters, **kwargs):
+  def trigger_multiplex(self, rw, header, parameters, **kwargs):
     dcid = parameters('dcid')
     if not dcid:
-      self.log.error('snmct trigger failed: No DCID specified')
+      self.log.error('xia2.multiplex trigger failed: No DCID specified')
       return False
 
     # lookup related dcids and exit early if none found
@@ -230,9 +230,9 @@ class DLSTrigger(CommonService):
     dcids = [dcid] + [d for d in dcids if d < dcid]
     if len(dcids) == 1:
       self.log.info(
-        'Skipping snmct trigger: no related dcids for dcid %s' % dcid)
+        'Skipping xia2.multiplex trigger: no related dcids for dcid %s' % dcid)
       return {'success': True}
-    self.log.info('snmct trigger: found dcids: %s', str(dcids))
+    self.log.info('xia2.multiplex trigger: found dcids: %s', str(dcids))
 
     from dlstbx.ispybtbx import ispybtbx
     ispyb_conn = ispybtbx()
@@ -255,18 +255,18 @@ class DLSTrigger(CommonService):
     appids = [appid for appid in appids if appid is not None]
     if len(appids) <= 1:
       self.log.info(
-        'Skipping snmct trigger: not enough related appids found for dcid %s' % dcid)
+        'Skipping xia2.multiplex trigger: not enough related appids found for dcid %s' % dcid)
       return {'success': True}
-    self.log.info('snmct trigger: found appids: %s', str(appids))
+    self.log.info('xia2.multiplex trigger: found appids: %s', str(appids))
 
     jp = self.ispyb.mx_processing.get_job_params()
     jp['automatic'] = bool(parameters('automatic'))
     jp['comments'] = parameters('comment')
     jp['datacollectionid'] = dcid
-    jp['display_name'] = "xia2.multi_crystal_scale"
-    jp['recipe'] = "postprocessing-snmct"
+    jp['display_name'] = "xia2.multiplex"
+    jp['recipe'] = "postprocessing-xia2-multiplex"
     jobid = self.ispyb.mx_processing.upsert_job(jp.values())
-    self.log.debug('snmct trigger: generated JobID {}'.format(jobid))
+    self.log.debug('xia2.multiplex trigger: generated JobID {}'.format(jobid))
 
     for d in dcids:
       dc_info = self.ispyb.get_data_collection(d)
@@ -278,25 +278,25 @@ class DLSTrigger(CommonService):
 
       jisp['job_id'] = jobid
       jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
-      self.log.debug('snmct trigger: generated JobImageSweepID {}'.format(jispid))
+      self.log.debug('xia2.multiplex trigger: generated JobImageSweepID {}'.format(jispid))
 
-    snmct_parameters = {
+    multiplex_parameters = {
       'appids': ','.join([str(a) for a in appids]),
     }
 
-    for key, value in snmct_parameters.items():
+    for key, value in multiplex_parameters.items():
       jpp = self.ispyb.mx_processing.get_job_parameter_params()
       jpp['job_id'] = jobid
       jpp['parameter_key'] = key
       jpp['parameter_value'] = value
       jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
-      self.log.debug('snmct trigger: generated JobParameterID {}'.format(jppid))
+      self.log.debug('xia2.multiplex trigger: generated JobParameterID {}'.format(jppid))
 
-    self.log.debug('snmct trigger: Processing job {} created'.format(jobid))
+    self.log.debug('xia2.multiplex trigger: Processing job {} created'.format(jobid))
 
     message = { 'recipes': [], 'parameters': { 'ispyb_process': jobid } }
     rw.transport.send('processing_recipe', message)
 
-    self.log.info('snmct trigger: Processing job {} triggered'.format(jobid))
+    self.log.info('xia2.multiplex trigger: Processing job {} triggered'.format(jobid))
 
     return {'success': True, 'return_value': jobid}

@@ -8,9 +8,9 @@ import dlstbx.util.symlink
 import procrunner
 import zocalo.wrapper
 
-logger = logging.getLogger('dlstbx.wrap.snmct')
+logger = logging.getLogger('dlstbx.wrap.xia2.multiplex')
 
-class SNMCTWrapper(zocalo.wrapper.BaseWrapper):
+class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
 
   def send_results_to_ispyb(self, z):
     ispyb_command_list = []
@@ -62,10 +62,10 @@ class SNMCTWrapper(zocalo.wrapper.BaseWrapper):
     logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
   def construct_commandline(self, params):
-    '''Construct snmct command line.
+    '''Construct xia2.multiplex command line.
        Takes job parameter dictionary, returns array.'''
 
-    command = ['xia2.multi_crystal_scale']
+    command = ['xia2.multiplex']
 
     appids = params['appids']
     data_files = itertools.chain.from_iterable(
@@ -132,7 +132,7 @@ class SNMCTWrapper(zocalo.wrapper.BaseWrapper):
     if params.get('create_symlink'):
       dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['create_symlink'])
 
-    # run SNMCT in working directory
+    # run xia2.multiplex in working directory
 
     result = procrunner.run_process(
       command, timeout=params.get('timeout'),

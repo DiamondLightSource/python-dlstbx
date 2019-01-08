@@ -37,9 +37,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
           ['dials.spot_counts_per_image', 'datablock.json', 'strong.pickle',
            'json=%s.json' % prefix, 'joint_json=True', 'split_json=True'],
         ):
-      result = run_process(
-        command, timeout=params.get('timeout'),
-        print_stdout=False, print_stderr=False)
+      result = run_process(command, timeout=params.get('timeout'))
 
       logger.info('command: %s', ' '.join(result['command']))
       logger.info('timeout: %s', result['timeout'])

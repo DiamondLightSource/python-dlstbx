@@ -149,4 +149,4 @@ if __name__ == '__main__':
   from dxtbx.format import setup_hdf5_plugin_path
   setup_hdf5_plugin_path()
   import sys
-  make_cbf(sys.argv[1], 'fubar_%04d.cbf')
+  make_cbf(sys.argv[1], sys.argv[2])

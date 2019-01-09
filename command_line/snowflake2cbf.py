@@ -1,4 +1,6 @@
 from __future__ import division, print_function
+from dxtbx.format import setup_hdf5_plugin_path
+setup_hdf5_plugin_path()
 import h5py
 import shutil
 from dials.array_family import flex
@@ -146,7 +148,5 @@ X-Binary-Size-Padding: 0
   f.close()
 
 if __name__ == '__main__':
-  from dxtbx.format import setup_hdf5_plugin_path
-  setup_hdf5_plugin_path()
   import sys
   make_cbf(sys.argv[1], sys.argv[2])

@@ -21,7 +21,10 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
     logger.info('working_directory: %s' % working_directory.strpath)
     working_directory.ensure(dir=True)
 
-    self.generate_modified_headers()
+    if params['image_template'].endswith('.h5'):
+      self.hdf5_to_cbf()
+    else:
+      self.generate_modified_headers()
 
     sparams = params['strategy']
     lifespan = sparams['lifespan']
@@ -155,6 +158,20 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
       if src.check() and not dst.check():
         src.copy(dst)
     return result['exitcode'] == 0
+
+  def hdf5_to_cbf(self):
+    params = self.recwrap.recipe_step['job_parameters']
+    working_directory = py.path.local(params['working_directory'])
+    tmpdir = working_directory.join('image-tmp')
+    tmpdir.ensure(dir=True)
+    master_h5 = os.path.join(params['image_directory'], params['image_template'])
+    logger.info('Converting %s to cbf' % master_h5)
+    # XXX hdf5-to-cbf conversion goes here
+    prefix = params['image_template'].split('master.h5')[0]
+    params['image_pattern'] = prefix + '%04d.cbf'
+    logger.info('Image pattern: %s', params['image_pattern'])
+    params['orig_image_directory'] = params['image_directory']
+    params['image_directory'] = tmpdir
 
   def generate_modified_headers(self,):
     params = self.recwrap.recipe_step['job_parameters']

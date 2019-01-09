@@ -139,8 +139,8 @@ X-Binary-Size-Padding: 0
 ''' % (len(compressed), data.size(), data.focus()[1], data.focus()[0])
 
 
-    with open(template % (i + 1), 'wb') as fout:
-      print(template % (i + 1))
+    with open(template % (j + 1), 'wb') as fout:
+      print(template % (j + 1))
       fout.write(''.join(header) + header2 + start_tag + compressed)
 
 

@@ -17,10 +17,9 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
       "No recipewrapper object found"
 
     params = self.recwrap.recipe_step['job_parameters']
-    working_directory = os.path.abspath(params['working_directory'])
-    logger.info('working_directory: %s' % working_directory)
-    if not os.path.exists(working_directory):
-      os.makedirs(working_directory)
+    working_directory = py.path.local(params['working_directory'])
+    logger.info('working_directory: %s' % working_directory.strpath)
+    working_directory.ensure(dir=True)
 
     self.generate_modified_headers()
 
@@ -40,9 +39,8 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
 
     multiplicity = sparams['multiplicity']
     i_over_sig_i = sparams['i_over_sig_i']
-    EDNAStrategy = os.path.join(working_directory, 'EDNAStrategy')
-    if not os.path.exists(EDNAStrategy):
-      os.mkdir(EDNAStrategy)
+    EDNAStrategy = working_directory.join('EDNAStrategy')
+    EDNAStrategy.ensure(dir=True)
     with open('%s.xml' %EDNAStrategy, 'wb') as f:
       f.write(self.make_edna_xml(
         complexity='none', multiplicity=multiplicity,
@@ -51,14 +49,14 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
         min_exposure=min_exposure, anomalous=sparams['anomalous']))
     short_comments = "%s Multiplicity=%s I/sig=%s Maxlifespan=%s s" %(
       sparams['description'], multiplicity, i_over_sig_i, strategy_lifespan)
-    with open(os.path.join(working_directory, 'Strategy.txt'), 'wb') as f:
+    with working_directory.join('Strategy.txt').open('wb') as f:
       f.write(short_comments)
 
     edna_home = os.environ['EDNA_HOME']
-    strategy_xml = os.path.join(working_directory, 'EDNAStrategy.xml')
-    results_xml = os.path.join(working_directory, 'results.xml')
-    wrap_edna_sh = os.path.join(working_directory, 'wrap_edna.sh')
-    with open(wrap_edna_sh, 'wb') as f:
+    strategy_xml = working_directory.join('EDNAStrategy.xml')
+    results_xml = working_directory.join('results.xml')
+    wrap_edna_sh = working_directory.join('wrap_edna.sh')
+    with wrap_edna_sh.open('wb') as f:
       if beamline == 'i24':
         edna_site = 'export EDNA_SITE=DLS_i24'
       else:
@@ -83,12 +81,12 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
         output_file=results_xml
       ))
     commands = [
-      'sh', wrap_edna_sh,
-      strategy_xml, results_xml]
+      'sh', wrap_edna_sh.strpath,
+      strategy_xml.strpath, results_xml.strpath]
     logger.info(' '.join(commands))
     result = procrunner.run_process(
       commands,
-      working_directory=EDNAStrategy,
+      working_directory=EDNAStrategy.strpath,
       timeout=params.get('timeout', 3600),
       print_stdout=True, print_stderr=True,
       environment_override={
@@ -110,17 +108,17 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
 
     # generate two different html pages
     # not sure which if any of these are actually used/required
-    edna2html = os.path.join(edna_home, 'libraries/EDNA2html-0.0.10a/EDNA2html')
+    edna2html = edna_home.join('libraries/EDNA2html-0.0.10a/EDNA2html')
     commands = [
       edna2html,
       '--title="%s"' % short_comments,
-      '--run_basename=%s/EDNAStrategy' % working_directory,
+      '--run_basename=%s/EDNAStrategy' % working_directory.strpath,
       '--portable',
-      '--basename=%s/summary' % working_directory
+      '--basename=%s/summary' % working_directory.strpath
     ]
     result = procrunner.run_process(
       commands,
-      working_directory=working_directory,
+      working_directory=working_directory.strpath,
       timeout=params.get('timeout', 3600),
       print_stdout=True, print_stderr=True,
     )
@@ -137,10 +135,11 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     self.edna2html(results_xml)
 
     # copy output files to result directory
-    results_directory = os.path.abspath(params['results_directory'])
-    logger.info('Copying results from %s to %s' % (working_directory, results_directory))
+    results_directory = py.path.local(params['results_directory'])
+    logger.info('Copying results from %s to %s' % (
+                working_directory.strpath, results_directory.strpath))
     try:
-      os.makedirs(results_directory)
+      results_directory.ensure(dir=True)
     except OSError:
       pass # it'll be fine
 
@@ -177,16 +176,18 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
 
       return
 
-    working_directory = os.path.abspath(params['working_directory'])
-    tmpdir = os.path.join(working_directory, 'image-tmp')
-    os.makedirs(tmpdir)
+    working_directory = py.path.local(params['working_directory'])
+    tmpdir = working_directory.join('image-tmp')
+    tmpdir.ensure(dir=True)
 
-    template = os.path.join(params['image_directory'],  params['image_template'])
+    template = os.path.join(params['image_directory'], params['image_template'])
 
     import glob
     g = glob.glob(template.replace('#', '?'))
+    logger.info(template)
+    logger.info(g)
     for f in g:
-      behead(f, os.path.join(tmpdir, os.path.basename(f)))
+      behead(f, tmpdir.join(os.path.basename(f)).strpath)
 
     params['orig_image_directory'] = params['image_directory']
     params['image_directory'] = tmpdir
@@ -256,7 +257,7 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
 
     logger.info('%s %s:%s' %(image_pattern, image_first, image_last))
     for i_image in range(image_first, image_last+1):
-      image_file_name = os.path.join(image_directory, image_pattern % i_image)
+      image_file_name = image_directory.join(image_pattern % i_image)
       output = output + '''
 <imagePath><path><value>%s</value></path></imagePath>
 ''' % image_file_name

@@ -165,11 +165,22 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     tmpdir = working_directory.join('image-tmp')
     tmpdir.ensure(dir=True)
     master_h5 = os.path.join(params['image_directory'], params['image_template'])
-    logger.info('Converting %s to cbf' % master_h5)
-    # XXX hdf5-to-cbf conversion goes here
     prefix = params['image_template'].split('master.h5')[0]
     params['image_pattern'] = prefix + '%04d.cbf'
     logger.info('Image pattern: %s', params['image_pattern'])
+    logger.info(
+      'Converting %s to %s' % (master_h5, tmpdir.join(params['image_pattern'])))
+    result = procrunner.run_process(
+      ['dlstbx.snowflake2cbf', master_h5, params['image_pattern']],
+      working_directory=tmpdir.strpath,
+      timeout=params.get('timeout', 3600),
+    )
+    logger.info('command: %s', ' '.join(result['command']))
+    logger.info('timeout: %s', result['timeout'])
+    logger.info('time_start: %s', result['time_start'])
+    logger.info('time_end: %s', result['time_end'])
+    logger.info('runtime: %s', result['runtime'])
+    logger.info('exitcode: %s', result['exitcode'])
     params['orig_image_directory'] = params['image_directory']
     params['image_directory'] = tmpdir
 

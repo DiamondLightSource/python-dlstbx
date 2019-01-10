@@ -136,16 +136,18 @@ X-Binary-Element-Byte-Order: LITTLE_ENDIAN
 X-Binary-Number-of-Elements: %d
 X-Binary-Size-Fastest-Dimension: %d
 X-Binary-Size-Second-Dimension: %d
-X-Binary-Size-Padding: 0
+X-Binary-Size-Padding: 4095
 
 ''' % (len(compressed), data.size(), data.focus()[1], data.focus()[0])
 
+    padding = 4095 * chr(0) + '''--CIF-BINARY-FORMAT-SECTION----
+;'''
+
+    fout.write(''.join(header) + header2 + start_tag + compressed + padding)
 
     with open(template % (j + 1), 'wb') as fout:
       print(template % (j + 1))
       fout.write(''.join(header) + header2 + start_tag + compressed)
-
-
 
   f.close()
 

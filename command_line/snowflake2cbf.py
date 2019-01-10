@@ -143,11 +143,10 @@ X-Binary-Size-Padding: 4095
     padding = 4095 * chr(0) + '''--CIF-BINARY-FORMAT-SECTION----
 ;'''
 
-    fout.write(''.join(header) + header2 + start_tag + compressed + padding)
 
     with open(template % (j + 1), 'wb') as fout:
       print(template % (j + 1))
-      fout.write(''.join(header) + header2 + start_tag + compressed)
+      fout.write(''.join(header) + header2 + start_tag + compressed + padding)
 
   f.close()
 

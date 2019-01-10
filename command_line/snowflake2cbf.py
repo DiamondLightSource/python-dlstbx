@@ -117,7 +117,7 @@ def make_cbf(in_name, template):
     depth, height, width = f['/entry/data/data_%06d' % block].shape
     import numpy
     data = flex.int(numpy.int32(f['/entry/data/data_%06d' % block][i]))
-    good = data.as_1d() < 65536
+    good = data.as_1d() < 65535
     data.as_1d().set_selected(~good, -2)
     compressed = pack(data)
 

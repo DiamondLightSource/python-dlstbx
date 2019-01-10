@@ -1,3 +1,5 @@
+# LIBTBX_SET_DISPATCHER_NAME dlstbx.dlsnxs2cbf
+# LIBTBX_SET_DISPATCHER_NAME dlstbx.snowflake2cbf
 from __future__ import division, print_function
 from dxtbx.format import setup_hdf5_plugin_path
 setup_hdf5_plugin_path()

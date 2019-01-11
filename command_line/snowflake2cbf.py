@@ -1,4 +1,4 @@
-# LIBTBX_SET_DISPATCHER_NAME dlstbx.dlsnxs2cbf
+# LIBTBX_SET_DISPATCHER_NAME dlsnxs2cbf
 # LIBTBX_SET_DISPATCHER_NAME dlstbx.snowflake2cbf
 from __future__ import division, print_function
 from dxtbx.format import setup_hdf5_plugin_path
@@ -121,7 +121,7 @@ def make_cbf(in_name, template):
     data.as_1d().set_selected(~good, -2)
     compressed = pack(data)
 
-    header2 = '''
+    mime = '''
 
 _array_data.data
 ;
@@ -143,10 +143,10 @@ X-Binary-Size-Padding: 4095
     padding = 4095 * chr(0) + '''--CIF-BINARY-FORMAT-SECTION----
 ;'''
 
-
     with open(template % (j + 1), 'wb') as fout:
       print(template % (j + 1))
-      fout.write(''.join(header) + header2 + start_tag + compressed + padding)
+      fout.write((''.join(header) + mime).replace('\n', '\r\n'))
+      fout.write(start_tag + compressed + padding)
 
   f.close()
 

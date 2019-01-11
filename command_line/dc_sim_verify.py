@@ -26,7 +26,7 @@ processqueue = Queue.Queue()
 results_queue = 'reduce.dc_sim'
 test_results = {}
 test_timeout = 3600 # fail scenarios that have not succeeded after 1 hour
-forget_test_after = 3 * 24 * 3600 # forget test after 3 days
+forget_test_after = 2 * 24 * 3600 # forget test after 2 days
 
 def process_result(rw, header, message):
   processqueue.put((header, message))

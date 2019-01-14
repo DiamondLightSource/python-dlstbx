@@ -70,8 +70,6 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
     appids = params['appids']
 
     import ispyb
-    import ispyb.model.__future__
-    ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
     with ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg') as ispyb_conn:
       data_files = itertools.chain.from_iterable(
         self.get_data_files_for_appid(appid, ispyb_conn)

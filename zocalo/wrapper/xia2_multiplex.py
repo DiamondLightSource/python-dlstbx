@@ -68,18 +68,23 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
     command = ['xia2.multiplex']
 
     appids = params['appids']
-    data_files = itertools.chain.from_iterable(
-      [self.get_data_files_for_appid(appid)
-       for appid in appids if appid is not None])
-    for f in data_files:
-      command.append(f.strpath)
+
+    import ispyb
+    import ispyb.model.__future__
+    ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+    with ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg') as ispyb_conn:
+      data_files = itertools.chain.from_iterable(
+        self.get_data_files_for_appid(appid, ispyb_conn)
+         for appid in appids if appid is not None)
+      for f in data_files:
+        command.append(f.strpath)
 
     return command
 
-  def get_data_files_for_appid(self, appid):
+  def get_data_files_for_appid(self, appid, ispyb_conn):
     data_files = []
     logger.info('Retrieving program attachment for appid %s', appid)
-    attachments = self.ispyb_conn.mx_processing.retrieve_program_attachments_for_program_id(appid)
+    attachments = ispyb_conn.mx_processing.retrieve_program_attachments_for_program_id(appid)
     for item in attachments:
       if item['fileType'] == 'Result':
         if (item['fileName'].endswith('experiments.json') or
@@ -95,11 +100,6 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
     return data_files
 
   def run(self):
-    import ispyb
-    import ispyb.model.__future__
-    ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
-    self.ispyb_conn = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
-
     assert hasattr(self, 'recwrap'), \
       "No recipewrapper object found"
 

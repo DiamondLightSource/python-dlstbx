@@ -31,27 +31,34 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
     else:
       nproc = []
 
+    # Set up PIA parameters
+    parameters = params.get('find_spots')
+    if parameters:
+      parameters = ['{k}={v}'.format(k=k, v=v) for k, v in parameters.iteritems()]
+    else:
+      parameters = ['d_max=40']
+
+    success = True
     for command in (
           ['dials.import', params['data'] ],
-          ['dials.find_spots', 'datablock.json'] + nproc,
+          ['dials.find_spots', 'datablock.json'] + nproc + parameters,
           ['dials.spot_counts_per_image', 'datablock.json', 'strong.pickle',
            'json=%s.json' % prefix, 'joint_json=True', 'split_json=True'],
         ):
+      logger.info('Running command: %r', command)
       result = run_process(command, timeout=params.get('timeout'))
 
-      logger.info('command: %s', ' '.join(result['command']))
-      logger.info('timeout: %s', result['timeout'])
-      logger.info('time_start: %s', result['time_start'])
-      logger.info('time_end: %s', result['time_end'])
       logger.info('runtime: %s', result['runtime'])
-      logger.info('exitcode: %s', result['exitcode'])
-      logger.debug(result['stdout'])
-      logger.debug(result['stderr'])
-      if result['exitcode'] != 0:
+      if result['exitcode'] or result['timeout']:
+        logger.info('timeout: %s', result['timeout'])
+        logger.info('time_start: %s', result['time_start'])
+        logger.info('time_end: %s', result['time_end'])
+        logger.info('exitcode: %s', result['exitcode'])
+        logger.info(result['stdout'])
+        logger.info(result['stderr'])
         logger.error('Spot counting failed on %s during step %s', params['data'], command[0])
+        success = False
         break
-
-    success = result['exitcode'] == 0
 
     # copy output files to result directory
     results_directory = params['results_directory']

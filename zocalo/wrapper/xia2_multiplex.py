@@ -94,11 +94,6 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
       return []
     return data_files
 
-  def send_resuls_to_ispyb(self, json_file):
-    from dlstbx.ispybtbx import ispybtbx
-    ispyb_conn = ispybtbx()
-    return
-
   def run(self):
     import ispyb
     import ispyb.model.__future__

@@ -251,6 +251,10 @@ class DLSTrigger(CommonService):
       self.log.info(
         'Skipping xia2.multiplex trigger: not enough related appids found for dcid %s' % dcid)
       return {'success': True}
+    if len(appids) > 100:
+      self.log.info(
+        'Skipping xia2.multiplex trigger: too many related appids found for dcid %s' % dcid)
+      return {'success': True}
     self.log.info('xia2.multiplex trigger: found appids: %s', str(appids))
 
     jp = self.ispyb.mx_processing.get_job_params()

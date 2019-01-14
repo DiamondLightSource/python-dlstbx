@@ -78,9 +78,6 @@ class DLSTrigger(CommonService):
       self.log.error('Dimple trigger failed: No DCID specified')
       return False
 
-    import ispyb.model.__future__
-    ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
-
     dc_info = self.ispyb.get_data_collection(dcid)
     if not dc_info.pdb:
       self.log.info('Skipping dimple trigger: DCID has no associated PDB information')

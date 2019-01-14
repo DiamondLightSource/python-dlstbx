@@ -231,9 +231,6 @@ class DLSTrigger(CommonService):
       return {'success': True}
     self.log.info('xia2.multiplex trigger: found dcids: %s', str(dcids))
 
-    from dlstbx.ispybtbx import ispybtbx
-    ispyb_conn = ispybtbx()
-
     def get_appid(dcid):
       appid = {}
       dc = self.ispyb.get_data_collection(dcid)

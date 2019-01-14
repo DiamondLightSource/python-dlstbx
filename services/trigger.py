@@ -275,7 +275,7 @@ class DLSTrigger(CommonService):
       self.log.debug('xia2.multiplex trigger: generated JobImageSweepID {}'.format(jispid))
 
     multiplex_parameters = {
-      'appids': ','.join([str(a) for a in appids]),
+      'appids': ','.join(str(a) for a in appids),
     }
 
     for key, value in multiplex_parameters.items():

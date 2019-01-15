@@ -11,6 +11,34 @@ from dxtbx_format_nexus_ext import *
 sample = None
 datasets = []
 
+_mask = None
+
+def get_mask(nfast, nslow):
+  global _mask
+
+  if _mask:
+    return _mask
+
+  module_size_fast, module_size_slow = (1028, 512)
+  gap_size_fast, gap_size_slow = (12, 38)
+  n_fast, remainder = divmod(nfast, module_size_fast)
+  assert (n_fast - 1) * gap_size_fast == remainder
+
+  n_slow, remainder = divmod(nslow, module_size_slow)
+  assert (n_slow - 1) * gap_size_slow == remainder
+
+  mask = flex.bool(flex.grid(nslow, nfast), True)
+  blit = flex.bool(flex.grid(module_size_slow, module_size_fast), False)
+
+  for j in range(n_slow):
+    for i in range(n_fast):
+      o_i = i * (module_size_fast + gap_size_fast)
+      o_j = j * (module_size_slow + gap_size_slow)
+      mask.matrix_paste_block_in_place(blit, i_row=o_j, i_column=o_i)
+
+  _mask = mask
+  return _mask
+
 def depends_on(f):
 
   global sample
@@ -119,6 +147,11 @@ def make_cbf(in_name, template):
     data = flex.int(numpy.int32(f['/entry/data/data_%06d' % block][i]))
     good = data.as_1d() < 65535
     data.as_1d().set_selected(~good, -2)
+
+    # set the tile join regions to -1 - MOSFLM cares about this apparently
+    mask = get_mask(width, height)
+    data.as_1d().set_selected(mask.as_1d(), -1)
+
     compressed = pack(data)
 
     mime = '''

@@ -22,9 +22,11 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
     working_directory.ensure(dir=True)
 
     if params['image_template'].endswith('.h5'):
+      edna_module = 'edna/20140709-eiger-mod'
       self.hdf5_to_cbf()
     else:
       self.generate_modified_headers()
+      edna_module = 'edna/20140709-auto'
 
     sparams = params['strategy']
     lifespan = sparams['lifespan']
@@ -66,8 +68,7 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
         edna_site = ''
       f.write('''\
 module load global/cluster
-module load edna/20140709-auto
-module load oracle/instantclient-11.2
+module load %(edna_module)s
 export DCID=%(dcid)s
 export COMMENTS="%(comments)s"
 export SHORT_COMMENTS="%(short_comments)s"
@@ -78,10 +79,11 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
   --outputFile %(output_file)s''' % dict(
         comments=short_comments,
         short_comments=sparams['name'],
+        edna_module=edna_module,
         dcid=params['dcid'],
         edna_site=edna_site,
         input_file=strategy_xml,
-        output_file=results_xml
+        output_file=results_xml,
       ))
     commands = [
       'sh', wrap_edna_sh.strpath,

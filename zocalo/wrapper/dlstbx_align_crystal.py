@@ -11,11 +11,14 @@ import procrunner
 import py
 import zocalo.wrapper
 
+from dxtbx.serialize import load
+
 logger = logging.getLogger('dlstbx.wrap.dlstbx.align_crystal')
 
 class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
 
-  def insert_dials_align_strategies(self, dcid, results):
+  def insert_dials_align_strategies(
+      self, dcid, crystal_symmetry, results):
     solutions = results['solutions']
     gonio = results['goniometer']
     axis_names = gonio['names']
@@ -49,7 +52,9 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
       if primary_axis_type is not None:
         settings_str = '%s (%i-fold)' %(settings_str, int(primary_axis_type))
       self.send_alignment_result_to_ispyb(
-        dcid, 'dials.align_crystal',
+        dcid,
+        crystal_symmetry,
+        'dials.align_crystal',
         settings_str,
         'dials.align_crystal %i' %solution_id,
         chi=chi,
@@ -58,8 +63,8 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
       )
 
   def send_alignment_result_to_ispyb(self,
-    dcid, program, comments, short_comments,
-    chi=None, kappa=None, phi=None):
+      dcid, crystal_symmetry, program, comments, short_comments,
+      chi=None, kappa=None, phi=None):
 
     assert dcid > 0, 'Invalid data collection ID given.'
     assert [chi, kappa].count(None) == 1
@@ -86,6 +91,11 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
       result['kappa'] = kappa
     elif chi is not None:
       result['chi'] = chi
+
+    uc_params = crystal_symmetry.unit_cell().parameters()
+    for i, p in enumerate(('a','b','c','alpha','beta','gamma')):
+      result['unitcell%s' % p] = uc_params[i]
+    result['spacegroup'] = crystal_symmetry.space_group_info().type().lookup_symbol()
 
     logger.info('Inserting alignment result into ISPyB: %s' %str(result))
     self.recwrap.send_to('alignment-result', result)
@@ -198,11 +208,16 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     if allfiles:
       self.record_result_all_files({ 'filelist': allfiles })
 
+    assert working_directory.join('reindexed_experiments.json')
+    experiments = load.experiment_list(
+      working_directory.join('reindexed_experiments.json').strpath)
+    crystal_symmetry = experiments[0].crystal.get_crystal_symmetry()
     # Forward JSON results if possible
     if working_directory.join('align_crystal.json').check():
       with working_directory.join('align_crystal.json').open('rb') as fh:
         json_data = json.load(fh)
-        self.insert_dials_align_strategies(params['dcid'], json_data)
+        self.insert_dials_align_strategies(
+          params['dcid'], crystal_symmetry, json_data)
     elif result['exitcode']:
       logger.info('dlstbx.align_crystal failed to process the dataset')
     else:

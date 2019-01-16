@@ -4,6 +4,7 @@ import logging
 import json
 import os
 import py
+import shutil
 import sys
 
 import procrunner
@@ -67,7 +68,8 @@ class align_crystal(object):
       for k in solutions.keys():
         solutions[k]['experiments_file'] = 'bravais_setting_%d.json' % k
       soln = solutions[max(solutions.keys())]
-    experiments_json = soln['experiments_file']
+    experiments_json = 'reindexed_experiments.json'
+    shutil.copyfile(soln['experiments_file'], experiments_json)
     reflections_pickle = 'reindexed_reflections.pickle'
     self._reindex('indexed.pickle', soln['cb_op'])
     return experiments_json, reflections_pickle

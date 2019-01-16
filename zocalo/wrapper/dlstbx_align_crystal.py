@@ -14,8 +14,93 @@ import zocalo.wrapper
 logger = logging.getLogger('dlstbx.wrap.dlstbx.align_crystal')
 
 class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
-  def send_results_to_ispyb(self, z):
-    pass
+
+  def insert_dials_align_strategies(self, dcid, results):
+    solutions = results['solutions']
+    gonio = results['goniometer']
+    axis_names = gonio['names']
+
+    kappa_name = None
+    chi_name = None
+    phi_name = None
+    for name in axis_names:
+      if 'kappa' in name.lower():
+        kappa_name = name
+      elif 'chi' in name.lower():
+        chi_name = name
+      elif 'phi' in name.lower():
+        phi_name = name
+    assert [chi_name, kappa_name].count(None) == 1
+    assert phi_name is not None
+
+    for solution_id, soln in enumerate(solutions):
+      if chi_name is not None:
+        chi = soln.get(chi_name)
+      else: chi = None
+      if kappa_name is not None:
+        kappa = soln.get(kappa_name)
+      else: kappa = None
+      phi = soln.get(phi_name)
+      primary_axis = soln.get('primary_axis')[0]
+      primary_axis_type = soln.get('primary_axis_type')[0]
+      assert [chi, kappa].count(None) == 1
+      assert phi is not None
+      settings_str = '%s' %primary_axis
+      if primary_axis_type is not None:
+        settings_str = '%s (%i-fold)' %(settings_str, int(primary_axis_type))
+      if kappa is not None and kappa < 0:
+        continue # only insert strategies with positive kappa
+      if chi is not None and (chi < 0 or chi > 45):
+        continue # only insert strategies with 0 < chi > 45
+      if phi < 0:
+        phi += 360 # make phi always positive
+      if kappa is not None:
+        kappa = '%.2f' %kappa
+      elif chi is not None:
+        chi = '%.2f' %chi
+      phi = '%.2f' %phi
+
+    self.send_alignment_result_to_ispyb(
+      dcid, 'dials.align_crystal',
+      settings_str,
+      'dials.align_crystal %i' %solution_id,
+      chi=chi,
+      kappa=kappa,
+      phi=phi
+    )
+
+  def send_alignment_result_to_ispyb(self,
+    dcid, program, comments, short_comments,
+    chi=None, kappa=None, phi=None):
+
+    assert dcid > 0, 'Invalid data collection ID given.'
+    assert [chi, kappa].count(None) == 1
+    assert phi is not None
+    if kappa is not None and kappa < 0:
+      return # only insert strategies with positive kappa
+    if chi is not None and (chi < 0 or chi > 45):
+      return # only insert strategies with 0 < chi > 45
+    if phi < 0:
+      phi += 360 # make phi always positive
+    if kappa is not None:
+      kappa = '%.2f' %kappa
+    elif chi is not None:
+      chi = '%.2f' %chi
+    phi = '%.2f' %phi
+
+    result = {'dataCollectionId': dcid,
+              'program': program,
+              'shortComments': short_comments,
+              'comments': comments,
+              'phi': phi,
+    }
+    if kappa is not None:
+      result['kappa'] = kappa
+    elif chi is not None:
+      result['chi'] = chi
+
+    logger.debug('Inserting alignment result into ISPyB: %s' %str(result))
+    self.recwrap.send_to('alignment-result', result)
 
   def construct_commandline(self, params):
     '''Construct dlstbx.align_crystal command line.
@@ -129,7 +214,7 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     if working_directory.join('align_crystal.json').check():
       with working_directory.join('align_crystal.json').open('rb') as fh:
         json_data = json.load(fh)
-      self.send_results_to_ispyb(json_data)
+      self.insert_dials_align_strategies(params['dcid'], json_data)
     elif result['exitcode']:
       logger.info('dlstbx.align_crystal failed to process the dataset')
     else:

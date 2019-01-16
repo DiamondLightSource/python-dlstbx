@@ -99,7 +99,7 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     first = int(params['image_first'])
     last = int(params['image_last'])
     image_files = [
-      params['image_directory'].join(pattern % i).strpath
+      os.path.join(params['image_directory'], pattern % i)
       for i in range(first, last+1)
     ]
 
@@ -132,7 +132,7 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     logger.info('runtime: %s', result['runtime'])
     logger.info('exitcode: %s', result['exitcode'])
     params['orig_image_directory'] = params['image_directory']
-    params['image_directory'] = tmpdir
+    params['image_directory'] = tmpdir.strpath
 
   def run(self):
     assert hasattr(self, 'recwrap'), "No recipewrapper object found"

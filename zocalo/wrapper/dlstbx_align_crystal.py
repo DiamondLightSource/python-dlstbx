@@ -48,26 +48,14 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
       settings_str = '%s' %primary_axis
       if primary_axis_type is not None:
         settings_str = '%s (%i-fold)' %(settings_str, int(primary_axis_type))
-      if kappa is not None and kappa < 0:
-        continue # only insert strategies with positive kappa
-      if chi is not None and (chi < 0 or chi > 45):
-        continue # only insert strategies with 0 < chi > 45
-      if phi < 0:
-        phi += 360 # make phi always positive
-      if kappa is not None:
-        kappa = '%.2f' %kappa
-      elif chi is not None:
-        chi = '%.2f' %chi
-      phi = '%.2f' %phi
-
-    self.send_alignment_result_to_ispyb(
-      dcid, 'dials.align_crystal',
-      settings_str,
-      'dials.align_crystal %i' %solution_id,
-      chi=chi,
-      kappa=kappa,
-      phi=phi
-    )
+      self.send_alignment_result_to_ispyb(
+        dcid, 'dials.align_crystal',
+        settings_str,
+        'dials.align_crystal %i' %solution_id,
+        chi=chi,
+        kappa=kappa,
+        phi=phi
+      )
 
   def send_alignment_result_to_ispyb(self,
     dcid, program, comments, short_comments,
@@ -99,7 +87,7 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     elif chi is not None:
       result['chi'] = chi
 
-    logger.debug('Inserting alignment result into ISPyB: %s' %str(result))
+    logger.info('Inserting alignment result into ISPyB: %s' %str(result))
     self.recwrap.send_to('alignment-result', result)
 
   def construct_commandline(self, params):
@@ -214,7 +202,7 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     if working_directory.join('align_crystal.json').check():
       with working_directory.join('align_crystal.json').open('rb') as fh:
         json_data = json.load(fh)
-      self.insert_dials_align_strategies(params['dcid'], json_data)
+        self.insert_dials_align_strategies(params['dcid'], json_data)
     elif result['exitcode']:
       logger.info('dlstbx.align_crystal failed to process the dataset')
     else:

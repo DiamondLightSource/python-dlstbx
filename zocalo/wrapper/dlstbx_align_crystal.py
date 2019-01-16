@@ -22,11 +22,15 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
        Takes job parameter dictionary, returns array.'''
 
     template = params['image_template']
-    image_pattern = template.replace('#', '?')
-
-    command = [
-      'dlstbx.align_crystal', image_pattern,
+    pattern = params['image_pattern']
+    first = params['image_first']
+    last = params['image_last']
+    image_files = [
+      params['image_directory'].join(pattern % i)
+      for i in range(first, last+1)
     ]
+
+    command = ['dlstbx.align_crystal'] + image_files
 
     return command
 
@@ -78,7 +82,6 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
         command, timeout=params.get('timeout'),
         #print_stdout=False, print_stderr=False,
         working_directory=working_directory.strpath,
-        environment_override=environment,
     )
 
     logger.info('command: %s', ' '.join(result['command']))

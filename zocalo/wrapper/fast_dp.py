@@ -164,6 +164,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
 
     # copy output files to result directory and attach them in ISPyB
     keep_ext = {
+      ".cbf": False,
       ".INP": False,
       ".xml": False,
       ".log": 'log',

@@ -36,13 +36,14 @@ class Monitor(object):
   most_recent_version = {}
   '''Dictionary to hold software version information, so old versions can be highlighted.'''
 
-  def __init__(self, transport=None, version=None, test=False):
+  def __init__(self, filters=None, transport=None, version=None, test=False):
     '''Set up monitor and connect to the network transport layer'''
     if transport is None or isinstance(transport, basestring):
       self._transport = workflows.transport.lookup(transport)()
     else:
       self._transport = transport()
     assert self._transport.connect(), "Could not connect to transport layer"
+    self._filters = filters
     self._lock = threading.RLock()
     self._node_status = {}
     self.headline = "DLS " + ("ZocDEV" if test else "Zocalo") + " service monitor"
@@ -117,6 +118,9 @@ class Monitor(object):
 
   def update_status(self, header, message):
     '''Process incoming status message. Acquire lock for status dictionary before updating.'''
+    if self._filters:
+      if any(not f(message) for f in self._filters):
+        return # skip
     with self._lock:
       if message['host'] not in self._node_status or \
           int(header['timestamp']) >= self._node_status[message['host']]['last_seen']:
@@ -341,7 +345,7 @@ class Monitor(object):
 
 class RawMonitor(object):
   '''A minimalistic monitor that only displays raw status messages.'''
-  def __init__(self, transport=None, version=None, test=False):
+  def __init__(self, filters=None, transport=None, version=None, test=False):
     '''Set up monitor and connect to the network transport layer'''
     if transport is None or isinstance(transport, basestring):
       self._transport = workflows.transport.lookup(transport)()
@@ -349,6 +353,7 @@ class RawMonitor(object):
       self._transport = transport()
     assert self._transport.connect(), "Could not connect to transport layer"
     self._lock = threading.RLock()
+    self._filters = filters
     headline = "DLS " + ("ZocDEV" if test else "Zocalo") + " service monitor"
     if version:
       headline += " v%s" % version.split(' ')[1].split('-')[0]
@@ -356,6 +361,9 @@ class RawMonitor(object):
     print(headline)
 
   def print_status(self, header, message):
+    if self._filters:
+      if any(not f(message) for f in self._filters):
+        return # skip
     pprint(message)
 
   def run(self):
@@ -377,6 +385,8 @@ if __name__ == '__main__':
       default=False, help="Do not draw fancy borders")
   parser.add_option("-t", "--transport", dest="transport", metavar="TRN",
       default="stomp", help="Transport mechanism, default '%default'")
+  parser.add_option("--host", dest="hostfilter",
+      default=None, help="Filter to hosts matching this regular expression")
 
   parser.add_option("--test", action="store_true", dest="test", help="Run in ActiveMQ testing (zocdev) namespace")
   parser.add_option("--raw", action="store_true", dest="raw", help="Show raw status messages")
@@ -394,9 +404,18 @@ if __name__ == '__main__':
   monitor = Monitor
   if options.raw:
     monitor = RawMonitor
+
+  filters = []
+  if options.hostfilter:
+    matcher = re.compile(options.hostfilter)
+    def is_host_match(message):
+      return bool(matcher.search(message['host']))
+    filters.append(is_host_match)
+
   monitor = monitor(
       transport=options.transport,
       version=version,
+      filters=filters,
       test=options.test
     )
   if options.nofancy:

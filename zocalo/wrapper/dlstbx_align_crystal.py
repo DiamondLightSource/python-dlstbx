@@ -108,10 +108,10 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
 
     template = params['image_template']
     pattern = params['image_pattern']
-    first = params['image_first']
-    last = params['image_last']
+    first = int(params['image_first'])
+    last = int(params['image_last'])
     image_files = [
-      params['image_directory'].join(pattern % i)
+      params['image_directory'].join(pattern % i).strpath
       for i in range(first, last+1)
     ]
 

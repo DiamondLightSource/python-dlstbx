@@ -321,6 +321,26 @@ class DLSISPyB(CommonService):
       )
       return False
 
+    output_lattice_params = mx_screening.get_screening_output_lattice_params()
+    output_lattice_params['screening_output_id'] = screeningOutputId
+    output_lattice_params['unitcella'] = parameters('unitcella') or ''
+    output_lattice_params['unitcellb'] = parameters('unitcellb') or ''
+    output_lattice_params['unitcellc'] = parameters('unitcellc') or ''
+    output_lattice_params['unitcellalpha'] = parameters('unitcellalpha') or ''
+    output_lattice_params['unitcellbeta'] = parameters('unitcellbeta') or ''
+    output_lattice_params['unitcellgamma'] = parameters('unitcellgamma') or ''
+    output_lattice_params['spacegroup'] = parameters('spacegroup') or ''
+    try:
+      screeningOutputLatticeId = mx_screening.insert_screening_output_lattice(
+        list(output_lattice_params.values()))
+      assert screeningOutputLatticeId is not None
+    except (ispyb.exception.ISPyBException, AssertionError) as e:
+      self.log.error(
+          "Inserting screening output lattice: '%s' caused exception '%s'.",
+          output_lattice_params, e, exc_info=True,
+      )
+      return False
+
     strategy_params = mx_screening.get_screening_strategy_params()
     strategy_params['screening_output_id'] = screeningOutputId
     strategy_params['program'] = parameters('program') or ''

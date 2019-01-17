@@ -13,6 +13,11 @@ def check_test_outcome(test, db):
 
   error_explanation = '{variable}: {value} outside range {expected}, program: {program}, DCID:{dcid}'
 
+  expected_outcome = df.tests.get(test['scenario']).get('results')
+  if not expected_outcome:
+    print("Skipping unknown test scenario %s" % test['scenario'])
+    return
+
   for dcid in test['DCIDs']:
     outcomes = { program: { 'success': None } for program in all_programs }
 
@@ -25,7 +30,6 @@ def check_test_outcome(test, db):
         continue
 
       failure_reasons = []
-      expected_outcome = df.tests[test['scenario']]['results']
 
       if integration.unit_cell.a is None:
         # No result registered, may still be running

@@ -212,12 +212,8 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
     crystal = prefix.replace('_', '').replace(' ', '').replace('-', '')
     project = os.path.split(image_template)[-2].replace('_', '').replace(' ', '').replace('-', '')
 
-    first_image_path = os.path.join(
-      image_directory, image_pattern % int(image_first))
-
     command = [
       'process', '-xml',
-      '-Id', ','.join((crystal, image_directory, image_template, image_first, image_last)),
       'autoPROC_XdsKeyword_MAXIMUM_NUMBER_OF_PROCESSORS=12',
       '-M', 'HighResCutOnCChalf',
       'autoPROC_CreateSummaryImageHrefLink="no"',
@@ -226,16 +222,32 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
       '-d', working_directory,
     ]
 
+    if image_template.endswith('.h5'):
+      plugin_name = 'durin-plugin.so'
+      hdf5_lib = ''
+      for d in os.environ['PATH'].split(os.pathsep):
+        if os.path.exists(os.path.join(d, plugin_name)):
+          hdf5_lib='autoPROC_XdsKeyword_LIB=%s' % os.path.join(d, plugin_name)
+      if not hdf5_lib:
+        logger.warn("Couldn't find plugin %s in PATH" % plugin_name)
+      command.extend(['-h5', os.path.join(image_directory, image_template)])
+      if hdf5_lib:
+        command.append(hdf5_lib)
+    else:
+      command.extend([
+        '-Id', ','.join((crystal, image_directory, image_template, image_first, image_last))])
+      first_image_path = os.path.join(
+        image_directory, image_pattern % int(image_first))
+      with open(first_image_path, 'rb') as f:
+        for line in f.readlines():
+          if 'Oscillation_axis' in line and 'SLOW' in line:
+            command.append('autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"')
+            break
+
     if beamline == 'i23':
       command.extend(['-M', 'DiamondI23'])
     elif beamline == 'i04':
       command.extend(['-M', 'DiamondI04'])
-
-    with open(first_image_path, 'rb') as f:
-      for line in f.readlines():
-        if 'Oscillation_axis' in line and 'SLOW' in line:
-          command.append('autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"')
-          break
 
     if params.get('ispyb_parameters'):
       if params['ispyb_parameters'].get('d_min'):

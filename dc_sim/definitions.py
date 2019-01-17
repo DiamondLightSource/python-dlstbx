@@ -146,6 +146,15 @@ tests = {
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
 
+        'screening-i04-eiger': {
+                 'src_dir'    : '/dls/i04/data/2019/cm23004-1/20190114/Eiger/Se_Thaum/Se_Thaum_13',
+                 'src_run_num'   : (1,),
+                 'src_prefix' : ('Se_Thaum_13',),
+                 'use_sample_id' : 1976400,
+                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
+                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
+
         'screening-smargon': {
                  'src_dir'    : '/dls/i04/data/2017/cm16781-1/20170316/Thaum/Th_4',
                  'src_run_num'   : (2,),

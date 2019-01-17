@@ -137,7 +137,10 @@ def populate_dc_xml_template(
 ):
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     suffix = _row["imagesuffix"]
-    file_template = "%s_%d_####.%s" % (_prefix, _run_number, suffix)
+    if suffix == "h5":
+      file_template = "%s_%d_master.%s" % (_prefix, _run_number, suffix)
+    else:
+      file_template = "%s_%d_####.%s" % (_prefix, _run_number, suffix)
     if _blsample_id is None:
         blsample_id_elem = ""
     else:

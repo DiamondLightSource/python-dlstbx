@@ -448,6 +448,7 @@ def simulate(
     src_dcid = int(row["datacollectionid"])
     src_dcgid = int(row["datacollectiongroupid"])
     start_img_number = int(row["startimagenumber"])
+    filetemplate = row["filetemplate"]
     src_xtal_snapshot_path = [
         row["xtalsnapshotfullpath1"],
         row["xtalsnapshotfullpath2"],
@@ -700,10 +701,10 @@ def simulate(
         "automaticProcessing_Yes",
         str(datacollectionid),
         _dest_visit_dir,
-        _dest_prefix + "_" + str(run_number) + "_####.cbf",
+        filetemplate,
         _dest_dir + "/",
         _dest_prefix + "_" + str(run_number) + "_",
-        "cbf",
+        os.path.splitext(filetemplate)[-1],
     ]
 
     log.debug(
@@ -738,18 +739,31 @@ def simulate(
         shell=True,
     )
 
-    # Also copy images one by one from source to destination directory.
-    for x in xrange(start_img_number, start_img_number + no_images):
-        img_number = "%04d" % x
-        src_prefix = ""
-        if not _src_prefix is None:
-            src_prefix = _src_prefix
-        src_fname = "%s_%d_%s.cbf" % (src_prefix, _src_run_number, str(img_number))
-        dest_fname = "%s_%d_%s.cbf" % (_dest_prefix, run_number, str(img_number))
-        src = os.path.join(_src_dir, src_fname)
-        target = os.path.join(_dest_dir, dest_fname)
+    if filetemplate.endswith('.cbf'):
+      # Also copy images one by one from source to destination directory.
+      for x in xrange(start_img_number, start_img_number + no_images):
+          img_number = "%04d" % x
+          src_prefix = ""
+          if not _src_prefix is None:
+              src_prefix = _src_prefix
+          src_fname = "%s_%d_%s.cbf" % (src_prefix, _src_run_number, str(img_number))
+          dest_fname = "%s_%d_%s.cbf" % (_dest_prefix, run_number, str(img_number))
+          src = os.path.join(_src_dir, src_fname)
+          target = os.path.join(_dest_dir, dest_fname)
+          log.info("(filesystem) Copy file %s to %s" % (src, target))
+          copy_via_temp_file(src, target)
+    elif filetemplate.endswith('.h5'):
+      import glob
+      files = []
+      for ext in ('_*.h5', '.nxs'):
+        files.extend(glob.glob(os.path.join(
+          _src_dir, filetemplate.split('_master.h5')[0] + ext)))
+      for src in files:
+        target = os.path.join(_dest_dir, os.path.basename(src))
         log.info("(filesystem) Copy file %s to %s" % (src, target))
         copy_via_temp_file(src, target)
+    else:
+      raise RuntimeError('Unsupported file extension for %s' % filetemplate)
 
     # Populate a datacollection XML file
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

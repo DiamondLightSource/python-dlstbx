@@ -85,6 +85,15 @@ tests = {
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
 
+       'native-i04-eiger': {
+                'src_dir'    : '/dls/i04/data/2019/cm23004-1/20190109/Eiger/gw/Thaum/Thau_4',
+                'src_run_num'   : (1,),
+                'src_prefix' : ('Thau_4',),
+                'use_sample_id' : 1970253,
+                'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
+                            'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
+
         'protk-au-insitu': {
                  'src_dir'    : '/dls/i24/data/2017/nr16818-47/Josh/InSitu/CrystalQuickX/ProtK/Au',
                  'src_run_num'   : (1,),

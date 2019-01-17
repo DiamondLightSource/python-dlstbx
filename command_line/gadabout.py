@@ -51,9 +51,7 @@ if __name__ == "__main__":
     except workflows.Error as e:
         print("Error: %s\n" % str(e))
         allow_stomp_fallback = False
-
-    # StompTransport class can't deal with argparse, so skip next line
-    # StompTransport.add_command_line_options(parser)
+    StompTransport.add_command_line_options(parser)
     args = parser.parse_args(sys.argv[1:])
 
     # Pickup command can't deal with Gadabout messages, so...

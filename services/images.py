@@ -45,6 +45,7 @@ class DLSImages(CommonService):
         if isinstance(message, dict) and message.get("file"):
             filename = message["file"]
 
+        imageset_index = 1
         if not filename:
             # 'file' is a filename
             # 'input' is a xia2-type string, may need to remove :x:x suffix
@@ -52,7 +53,7 @@ class DLSImages(CommonService):
             if isinstance(message, dict) and message.get("input"):
                 filename = message["input"]
             if ":" in filename:
-                filename = filename.split(":")[0]
+                filename, imageset_index = filename.split(":")[0:2]
 
         if not filename or filename == "None":
             self.log.info("Skipping diffraction JPG generation: filename not specified")
@@ -91,7 +92,7 @@ class DLSImages(CommonService):
             [
                 "dials.export_bitmaps",
                 filename,
-                "imageset_index=1",
+                "imageset_index=%s" % imageset_index,
                 "format=jpeg",
                 "quality=95",
                 "binning=4",

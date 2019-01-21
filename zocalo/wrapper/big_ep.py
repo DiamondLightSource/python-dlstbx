@@ -3,9 +3,12 @@ from __future__ import absolute_import, division, print_function
 import logging
 import os
 import py
+import re
 from datetime import datetime
 
 import dlstbx.util.symlink
+import ispyb
+import ispyb.model.__future__
 import procrunner
 import zocalo.wrapper
 
@@ -30,12 +33,17 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
 
     params = self.recwrap.recipe_step['job_parameters']
 
-    from dlstbx.ispybtbx import ispybtbx
-    ispyb_conn = ispybtbx()
-    proposal_code, proposal_number, visit_number \
-      = ispyb_conn.get_visit_name_from_dcid(params['dcid'])
-    if proposal_code in ('lb', 'in', 'sw'):
-      logger.info('Skipping big_ep for %s visit', proposal_code)
+    with ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg') as conn:
+      ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
+      file_directory = conn.get_data_collection(params['dcid']).file_directory
+    visit_match = re.search(r'/([a-z]{2}[0-9]{4,5}-[0-9]+)/', file_directory)
+    try:
+      visit = visit_match.group(1)
+    except AttributeError:
+      logger.info('Cannot match visit pattern in path %s', file_directory)
+      return
+    if True in [pfx in visit for pfx in ('lb', 'in', 'sw')]:
+      logger.info('Skipping big_ep for %s visit', visit)
       return
 
     working_directory = py.path.local(params['working_directory'])

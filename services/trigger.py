@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import ispyb
 import logging
 import os
+import re
 
 import six
 import workflows.recipe
@@ -181,11 +182,15 @@ class DLSTrigger(CommonService):
       self.log.error('big_ep trigger failed: No DCID specified')
       return False
 
-    from dlstbx.ispybtbx import ispybtbx
-    ispyb_conn = ispybtbx()
-    proposal_code, _, _ = ispyb_conn.get_visit_name_from_dcid(dcid)
-    if proposal_code in ('lb', 'in', 'sw'):
-      self.log.info('Skipping big_ep for %s visit', proposal_code)
+    file_directory = self.ispyb.get_data_collection(dcid).file_directory
+    visit_match = re.search(r'/([a-z]{2}[0-9]{4,5}-[0-9]+)/', file_directory)
+    try:
+        visit = visit_match.group(1)
+    except AttributeError:
+      self.log.error('big_ep trigger failed: Cannot match visit pattern in path %s', file_directory)
+      return False
+    if True in [pfx in visit for pfx in ('lb', 'in', 'sw')]:
+      self.log.info('Skipping big_ep for %s visit', visit)
       return {'success': True}
 
     scaling_id = parameters('scaling_id')

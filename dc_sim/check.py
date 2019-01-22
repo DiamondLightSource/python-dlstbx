@@ -13,7 +13,7 @@ def check_test_outcome(test, db):
 
   error_explanation = '{variable}: {value} outside range {expected}, program: {program}, DCID:{dcid}'
 
-  expected_outcome = df.tests.get(test['scenario']).get('results')
+  expected_outcome = df.tests.get(test['scenario'], {}).get('results')
   if not expected_outcome:
     print("Skipping unknown test scenario %s" % test['scenario'])
     return

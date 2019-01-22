@@ -471,11 +471,15 @@ def simulate(
     log.debug(
         "(SQL) Getting the currently highest run number for this img. directory + prefix"
     )
-    run_number = retrieve_max_dcnumber(_db, sessionid, _dest_dir, _dest_prefix)
-    if run_number is None:
-        run_number = 1
+    if filetemplate.endswith('.h5'):
+        # Can't change the run number otherwise the link from the master.h5 to data_*.h5 will be incorrect
+        run_number = _src_run_number
     else:
-        run_number = int(run_number) + 1
+        run_number = retrieve_max_dcnumber(_db, sessionid, _dest_dir, _dest_prefix)
+        if run_number is None:
+            run_number = 1
+        else:
+            run_number = int(run_number) + 1
 
     log.debug("(SQL) Getting values from the source datacollectiongroup record")
     dcg_row = retrieve_datacollection_group_values(_db, src_dcgid)
@@ -758,11 +762,17 @@ def simulate(
     elif filetemplate.endswith('.h5'):
       import glob
       files = []
+      src_prefix = ""
+      if not _src_prefix is None:
+          src_prefix = _src_prefix
       for ext in ('_*.h5', '.nxs'):
         files.extend(glob.glob(os.path.join(
           _src_dir, filetemplate.split('_master.h5')[0] + ext)))
       for src in files:
-        target = os.path.join(_dest_dir, os.path.basename(src))
+        dest_fname = os.path.basename(src).replace(
+          "%s_%d" % (src_prefix, _src_run_number),
+          "%s_%d" % (_dest_prefix, run_number))
+        target = os.path.join(_dest_dir, dest_fname)
         log.info("(filesystem) Copy file %s to %s" % (src, target))
         copy_via_temp_file(src, target)
     else:

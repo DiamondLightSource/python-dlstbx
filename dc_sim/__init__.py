@@ -765,7 +765,7 @@ def simulate(
       src_prefix = ""
       if not _src_prefix is None:
           src_prefix = _src_prefix
-      for ext in ('_*.h5', '.nxs'):
+      for ext in ('_*.h5', '.nxs', '_meta.hdf5'):
         files.extend(glob.glob(os.path.join(
           _src_dir, filetemplate.split('_master.h5')[0] + ext)))
       for src in files:

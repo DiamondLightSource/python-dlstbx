@@ -26,6 +26,9 @@ def _prefix_(template):
     return template.split('#')[0]
   if template.endswith('_master.h5'):
     return template[:-9]
+  if '_' in template:
+    return template.rsplit('_', 1)[0] + '_'
+  return template
 
 def _ispyb_api():
   if not hasattr(_ispyb_api, 'instance'):

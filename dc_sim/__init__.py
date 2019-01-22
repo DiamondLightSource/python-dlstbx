@@ -861,24 +861,32 @@ def call_sim(test_name, beamline):
 
     # Calculate the destination directory
     now = datetime.datetime.now()
-    for cm_dir in os.listdir(
-        "/dls/{beamline}/data/{now:%Y}".format(beamline=beamline, now=now)
-    ):
-        if cm_dir.startswith("nt18231"):
-            dest_visit = cm_dir
-            dest_dir_fmt = "/dls/{beamline}/data/{now:%Y}/{cm_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
-            dest_dir = dest_dir_fmt.format(
-                beamline=beamline, now=now, cm_dir=cm_dir, random=str(uuid.uuid4())[:8]
-            )
-            break
+    if beamline == "i02-2":
+      dest_visit = "nt18231-22"
+      dest_visit_dir = "/dls/mx/data/nt18231/nt18231-22"
+      dest_dir_fmt = "{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
+      dest_dir = dest_dir_fmt.format(
+          beamline=beamline, now=now, dest_visit_dir=dest_visit_dir, random=str(uuid.uuid4())[:8]
+      )
     else:
-      log.error('Could not determine destination directory')
-      sys.exit(1)
+      for cm_dir in os.listdir(
+          "/dls/{beamline}/data/{now:%Y}".format(beamline=beamline, now=now)
+      ):
+          if cm_dir.startswith("nt18231"):
+              dest_visit = cm_dir
+              dest_dir_fmt = "/dls/{beamline}/data/{now:%Y}/{cm_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
+              dest_dir = dest_dir_fmt.format(
+                  beamline=beamline, now=now, cm_dir=cm_dir, random=str(uuid.uuid4())[:8]
+              )
+              break
+      else:
+        log.error('Could not determine destination directory')
+        sys.exit(1)
 
-    # Set mandatory parameters
-    dest_visit_dir = "/dls/{beamline}/data/{now:%Y}/{dest_visit}".format(
-        beamline=beamline, now=now, dest_visit=dest_visit
-    )
+      # Set mandatory parameters
+      dest_visit_dir = "/dls/{beamline}/data/{now:%Y}/{dest_visit}".format(
+          beamline=beamline, now=now, dest_visit=dest_visit
+      )
 
     # Extract necessary info from the source directory path
     m1 = re.search("(/dls/(\S+?)/data/\d+/)(\S+)", src_dir)
@@ -889,6 +897,11 @@ def call_sim(test_name, beamline):
             src_visit = m2.groups()[0]
         elif subdir:
             src_visit = subdir
+    else:
+        m1 = re.search("(/dls/mx/data/)(\S+)", src_dir)
+        if m1:
+            subdir = m1.groups()[1]
+            src_visit = subdir.split(os.sep)[1]
 
     if src_visit is None:
         sys.exit(

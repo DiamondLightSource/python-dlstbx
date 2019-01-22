@@ -94,6 +94,15 @@ tests = {
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
 
+       'vmxi-rotation': {
+                'src_dir'    : '/dls/mx/data/mx21314/mx21314-41/VMXi-AB0831/well_39/images/',
+                'src_run_num'   : (15722,),
+                'src_prefix' : ('image_',),
+                'use_sample_id' : 1982985,
+                'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
+                            'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
+                 },
+
         'protk-au-insitu': {
                  'src_dir'    : '/dls/i24/data/2017/nr16818-47/Josh/InSitu/CrystalQuickX/ProtK/Au',
                  'src_run_num'   : (1,),

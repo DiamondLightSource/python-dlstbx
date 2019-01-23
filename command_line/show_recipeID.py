@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, print_function
 
 import py
 import sys
+from datetime import datetime
 from optparse import SUPPRESS_HELP, OptionParser
 
 import dlstbx.util.colorstreamhandler
@@ -30,8 +31,8 @@ if __name__ == "__main__":
             recipe_file = d.join(recipe[0:2]).join(recipe[2:])
             if recipe_file.check():
                 print(
-                    "{c.BOLD}{c.GREEN}Recipe {recipe}{c.DEFAULT}".format(
-                        recipe=recipe, c=c
+                    "{c.BOLD}{c.GREEN}Recipe {recipe} ({timestamp:%Y-%m-%d %H:%M:%S}){c.DEFAULT}".format(
+                        recipe=recipe, c=c, timestamp=datetime.fromtimestamp(recipe_file.mtime())
                     )
                 )
                 for line in recipe_file.readlines(cr=False):

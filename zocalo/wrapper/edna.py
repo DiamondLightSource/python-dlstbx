@@ -113,7 +113,7 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
 
     # generate two different html pages
     # not sure which if any of these are actually used/required
-    edna2html = edna_home.join('libraries/EDNA2html-0.0.10a/EDNA2html')
+    edna2html = os.path.join(edna_home, 'libraries/EDNA2html-0.0.10a/EDNA2html')
     commands = [
       edna2html,
       '--title="%s"' % short_comments,
@@ -121,7 +121,7 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
       '--portable',
       '--basename=%s/summary' % working_directory.strpath
     ]
-    result = procrunner.run_process(
+    result = procrunner.run(
       commands,
       working_directory=working_directory.strpath,
       timeout=params.get('timeout', 3600),

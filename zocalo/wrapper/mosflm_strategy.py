@@ -46,33 +46,40 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
     )
 
     logger.info('command: %s', ' '.join(result['command']))
+    if result['exitcode']:
+      logger.info('exitcode: %s', result['exitcode'])
+      logger.info(result['stdout'])
+      logger.info(result['stderr'])
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
     logger.info('time_end: %s', result['time_end'])
     logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
-    logger.debug(result['stdout'])
-    logger.debug(result['stderr'])
 
-    # insert results into database
-    commands = [
-      '/dls_sw/apps/mx-scripts/auto-edna/insertMosflmStrategies1.sh',
-      params['dcid'],
-      'strategy.dat'
-    ]
-    result = procrunner.run(
-      commands,
-      timeout=params.get('timeout', 3600),
-    )
+    if not py.path.local(working_directory).join('strategy_native.log').check() \
+        or py.path.local(working_directory).join('strategy_native.log').size() == 0:
+      result['exitcode'] = 1
+      py.path.local(working_directory).join('strategy_native.log').write('failed to determine strategy')
 
-    logger.info('command: %s', ' '.join(result['command']))
-    logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
-    logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
-    logger.debug(result['stdout'])
-    logger.debug(result['stderr'])
+    if py.path.local(working_directory).join('strategy.dat').check():
+      # insert results into database
+      commands = [
+        '/dls_sw/apps/mx-scripts/auto-edna/insertMosflmStrategies1.sh',
+        params['dcid'],
+        'strategy.dat'
+      ]
+      result = procrunner.run(
+        commands,
+        timeout=params.get('timeout', 3600),
+      )
+
+      logger.info('command: %s', ' '.join(result['command']))
+      logger.info('timeout: %s', result['timeout'])
+      logger.info('time_start: %s', result['time_start'])
+      logger.info('time_end: %s', result['time_end'])
+      logger.info('runtime: %s', result['runtime'])
+      logger.info('exitcode: %s', result['exitcode'])
+      logger.debug(result['stdout'])
+      logger.debug(result['stderr'])
 
     beamline = params['beamline']
     if beamline in ('i03', 'i04'):

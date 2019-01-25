@@ -324,7 +324,7 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     from EDFactoryPluginStatic import EDFactoryPluginStatic
     EDFactoryPluginStatic.loadModule("XSDataInterfacev1_2")
     from XSDataInterfacev1_2 import XSDataResultInterface
-    xsDataResultInterface = XSDataResultInterface.parseFile(result_xml)
+    xsDataResultInterface = XSDataResultInterface.parseFile(result_xml.strpath)
     characterisationResult = xsDataResultInterface.resultCharacterisation
     EDFactoryPluginStatic.loadModule("XSDataSimpleHTMLPagev1_0")
     from XSDataSimpleHTMLPagev1_0 import XSDataInputSimpleHTMLPage

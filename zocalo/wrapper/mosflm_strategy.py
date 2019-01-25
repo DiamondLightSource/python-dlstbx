@@ -1,6 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-import distutils.dir_util
 import logging
 import os
 import py
@@ -21,11 +20,14 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
     cwd = os.path.abspath(os.curdir)
 
     working_directory = os.path.abspath(params['working_directory'])
-    results_directory = os.path.abspath(params['results_directory'])
+    results_directory = py.path.local(params['results_directory'])
     logger.info('working_directory: %s' %working_directory)
     if not os.path.exists(working_directory):
       os.makedirs(working_directory)
     os.chdir(working_directory)
+
+    # Set SynchWeb to swirl
+    results_directory.join('strategy_native.log').ensure()
 
     if params['image_pattern'].endswith('.h5'):
       self.snowflake2cbf()
@@ -34,15 +36,14 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
     image_pattern = params['image_pattern']
     image_first = int(params['image_first'])
     image_file_name = os.path.join(image_directory, image_pattern % image_first)
-    commands = [
-      'som.strategy', image_file_name]
+    commands = ['som.strategy', image_file_name]
     space_group = params.get('spacegroup')
     if space_group is not None:
       commands.append(space_group)
-    result = procrunner.run_process(
+    result = procrunner.run(
       commands,
       timeout=params.get('timeout', 3600),
-      print_stdout=True, print_stderr=True)
+    )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
@@ -59,10 +60,10 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
       params['dcid'],
       'strategy.dat'
     ]
-    result = procrunner.run_process(
+    result = procrunner.run(
       commands,
       timeout=params.get('timeout', 3600),
-      print_stdout=True, print_stderr=True)
+    )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
@@ -78,10 +79,8 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
       result = self.run_xoalign(os.path.join(working_directory, 'mosflm_index.mat'))
 
     # copy output files to result directory
-    if not os.path.exists(results_directory):
-      os.makedirs(results_directory)
-    logger.info('Copying results from %s to %s' % (working_directory, results_directory))
-    distutils.dir_util.copy_tree(working_directory, results_directory)
+    logger.info('Copying results from %s to %s' % (working_directory, results_directory.strpath))
+    py.path.local(working_directory).copy(results_directory)
 
     return result['exitcode'] == 0
 
@@ -96,7 +95,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
     logger.info('Image pattern: %s', params['image_pattern'])
     logger.info(
       'Converting %s to %s' % (master_h5, tmpdir.join(params['image_pattern'])))
-    result = procrunner.run_process(
+    result = procrunner.run(
       ['dlstbx.snowflake2cbf', master_h5, params['image_pattern']],
       working_directory=tmpdir.strpath,
       timeout=params.get('timeout', 3600),
@@ -126,15 +125,12 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
       datum=""
     xoalign_py = '/dls_sw/apps/xdsme/graemewinter-xdsme/bin/Linux_i586/XOalign.py'
     commands = [xoalign_py, datum, mosflm_index_mat]
-    print(' '.join(commands))
-    result = procrunner.run_process(
+    logger.info('command: %s', ' '.join(result['command']))
+    result = procrunner.run(
       commands,
       timeout=params.get('timeout', 3600),
-      print_stdout=True, print_stderr=True,
       environment_override={'XOALIGN_CALIB': '/dls_sw/%s/etc/xoalign_config.py' % params['beamline']},
     )
-
-    logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
     logger.info('time_end: %s', result['time_end'])
@@ -144,12 +140,11 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
     logger.debug(result['stderr'])
 
     with open('XOalign.log', 'wb') as f:
-      print(result['stdout'], file=f)
+      f.write(result['stdout'])
     self.insertXOalignStrategies(params['dcid'], 'XOalign.log')
     return result
 
   def insertXOalignStrategies(self, dcid, xoalign_log):
-
     assert os.path.isfile(xoalign_log)
     with open(xoalign_log, 'rb') as f:
       smargon = False

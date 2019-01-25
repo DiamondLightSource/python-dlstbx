@@ -87,88 +87,97 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
       })
 
     # Step 1: Add new record to AutoProc, keep the AutoProcID
-    ispyb_command_list.append({
-        'ispyb_command': 'write_autoproc',
-        'autoproc_id': None,
-        'store_result': 'ispyb_autoproc_id',
-        'spacegroup': message['AutoProc']['spaceGroup'],
-        'refinedcell_a': message['AutoProc']['refinedCell_a'],
-        'refinedcell_b': message['AutoProc']['refinedCell_b'],
-        'refinedcell_c': message['AutoProc']['refinedCell_c'],
-        'refinedcell_alpha': message['AutoProc']['refinedCell_alpha'],
-        'refinedcell_beta': message['AutoProc']['refinedCell_beta'],
-        'refinedcell_gamma': message['AutoProc']['refinedCell_gamma'],
-    })
+    if 'AutoProc' in message:
+        ispyb_command_list.append({
+            'ispyb_command': 'write_autoproc',
+            'autoproc_id': None,
+            'store_result': 'ispyb_autoproc_id',
+            'spacegroup': message['AutoProc']['spaceGroup'],
+            'refinedcell_a': message['AutoProc']['refinedCell_a'],
+            'refinedcell_b': message['AutoProc']['refinedCell_b'],
+            'refinedcell_c': message['AutoProc']['refinedCell_c'],
+            'refinedcell_alpha': message['AutoProc']['refinedCell_alpha'],
+            'refinedcell_beta': message['AutoProc']['refinedCell_beta'],
+            'refinedcell_gamma': message['AutoProc']['refinedCell_gamma'],
+        })
+    else:
+        logger.info('AutoProc record missing from AutoProc xml file')
 
     # Step 2: Store scaling results, linked to the AutoProcID
     #         Keep the AutoProcScalingID
-    insert_scaling = {
-        'ispyb_command': 'insert_scaling',
-        'autoproc_id': '$ispyb_autoproc_id',
-        'store_result': 'ispyb_autoprocscaling_id',
-    }
-    for statistics in message['AutoProcScalingContainer']['AutoProcScalingStatistics']:
-      insert_scaling[statistics['scalingStatisticsType']] = {
-          'anom_completeness': statistics['anomalousCompleteness'],
-          'anom_multiplicity': statistics['anomalousMultiplicity'],
-          'cc_anom': statistics['ccAnomalous'],
-          'cc_half': statistics['ccHalf'],
-          'completeness': statistics['completeness'],
-          'mean_i_sig_i': statistics['meanIOverSigI'],
-          'multiplicity': statistics['multiplicity'],
-          'n_tot_obs': statistics['nTotalObservations'],
-          'n_tot_unique_obs': statistics['nTotalUniqueObservations'],
-          'r_meas_all_iplusi_minus': statistics['rMeasAllIPlusIMinus'],
-          'r_meas_within_iplusi_minus': statistics['rMeasWithinIPlusIMinus'],
-          'r_merge': statistics['rMerge'],
-          'r_pim_all_iplusi_minus': statistics['rPimAllIPlusIMinus'],
-          'r_pim_within_iplusi_minus': statistics['rPimWithinIPlusIMinus'],
-          'res_lim_high': statistics['resolutionLimitHigh'],
-          'res_lim_low': statistics['resolutionLimitLow'],
-      }
-    ispyb_command_list.append(insert_scaling)
+    if 'AutoProcScalingStatistics' in message.get('AutoProcScalingContainer', {}):
+        insert_scaling = {
+            'ispyb_command': 'insert_scaling',
+            'autoproc_id': '$ispyb_autoproc_id',
+            'store_result': 'ispyb_autoprocscaling_id',
+        }
+        for statistics in message['AutoProcScalingContainer']['AutoProcScalingStatistics']:
+          insert_scaling[statistics['scalingStatisticsType']] = {
+              'anom_completeness': statistics['anomalousCompleteness'],
+              'anom_multiplicity': statistics['anomalousMultiplicity'],
+              'cc_anom': statistics['ccAnomalous'],
+              'cc_half': statistics['ccHalf'],
+              'completeness': statistics['completeness'],
+              'mean_i_sig_i': statistics['meanIOverSigI'],
+              'multiplicity': statistics['multiplicity'],
+              'n_tot_obs': statistics['nTotalObservations'],
+              'n_tot_unique_obs': statistics['nTotalUniqueObservations'],
+              'r_meas_all_iplusi_minus': statistics['rMeasAllIPlusIMinus'],
+              'r_meas_within_iplusi_minus': statistics['rMeasWithinIPlusIMinus'],
+              'r_merge': statistics['rMerge'],
+              'r_pim_all_iplusi_minus': statistics['rPimAllIPlusIMinus'],
+              'r_pim_within_iplusi_minus': statistics['rPimWithinIPlusIMinus'],
+              'res_lim_high': statistics['resolutionLimitHigh'],
+              'res_lim_low': statistics['resolutionLimitLow'],
+          }
+        ispyb_command_list.append(insert_scaling)
+    else:
+        logger.info('AutoProcScalingStatistics record missing from AutoProc xml file')
 
     # Step 3: Store integration results, linking them to ScalingID
-    APIC = message['AutoProcScalingContainer']['AutoProcIntegrationContainer']
-    if isinstance(APIC, dict):  # Make it a list regardless
-      APIC = [APIC]
-    for n, container in enumerate(APIC):
-      int_result = container['AutoProcIntegration']
-      integration = {
-          'ispyb_command': 'upsert_integration',
-          'scaling_id': '$ispyb_autoprocscaling_id',
-          'beam_vec_x': int_result['beamVectorX'],
-          'beam_vec_y': int_result['beamVectorY'],
-          'beam_vec_z': int_result['beamVectorZ'],
-          'cell_a': int_result['cell_a'],
-          'cell_b': int_result['cell_b'],
-          'cell_c': int_result['cell_c'],
-          'cell_alpha': int_result['cell_alpha'],
-          'cell_beta': int_result['cell_beta'],
-          'cell_gamma': int_result['cell_gamma'],
-          'start_image_no': int_result['startImageNumber'],
-          'end_image_no': int_result['endImageNumber'],
-          'rot_axis_x': int_result['rotationAxisX'],
-          'rot_axis_y': int_result['rotationAxisY'],
-          'rot_axis_z': int_result['rotationAxisZ'],
-          # autoPROC swaps X and Y compared to what we expect
-          'refined_xbeam': int_result['refinedYBeam'],
-          'refined_ybeam': int_result['refinedXBeam'],
-          'refined_detector_dist': int_result['refinedDetectorDistance'],
-      }
-      # autoPROC reports beam centre in px rather than mm
-      px_to_mm = 0.172
-      for beam_direction in ('refined_xbeam', 'refined_ybeam'):
-        if integration[beam_direction]:
-          integration[beam_direction] = float(integration[beam_direction]) * px_to_mm
+    if 'AutoProcIntegrationContainer' in message.get('AutoProcScalingContainer', {}):
+        APIC = message['AutoProcScalingContainer']['AutoProcIntegrationContainer']
+        if isinstance(APIC, dict):  # Make it a list regardless
+          APIC = [APIC]
+        for n, container in enumerate(APIC):
+          int_result = container['AutoProcIntegration']
+          integration = {
+              'ispyb_command': 'upsert_integration',
+              'scaling_id': '$ispyb_autoprocscaling_id',
+              'beam_vec_x': int_result['beamVectorX'],
+              'beam_vec_y': int_result['beamVectorY'],
+              'beam_vec_z': int_result['beamVectorZ'],
+              'cell_a': int_result['cell_a'],
+              'cell_b': int_result['cell_b'],
+              'cell_c': int_result['cell_c'],
+              'cell_alpha': int_result['cell_alpha'],
+              'cell_beta': int_result['cell_beta'],
+              'cell_gamma': int_result['cell_gamma'],
+              'start_image_no': int_result['startImageNumber'],
+              'end_image_no': int_result['endImageNumber'],
+              'rot_axis_x': int_result['rotationAxisX'],
+              'rot_axis_y': int_result['rotationAxisY'],
+              'rot_axis_z': int_result['rotationAxisZ'],
+              # autoPROC swaps X and Y compared to what we expect
+              'refined_xbeam': int_result['refinedYBeam'],
+              'refined_ybeam': int_result['refinedXBeam'],
+              'refined_detector_dist': int_result['refinedDetectorDistance'],
+          }
+          # autoPROC reports beam centre in px rather than mm
+          px_to_mm = 0.172
+          for beam_direction in ('refined_xbeam', 'refined_ybeam'):
+            if integration[beam_direction]:
+              integration[beam_direction] = float(integration[beam_direction]) * px_to_mm
 
-      if n > 0 or special_program_name:
-        # make sure only the first integration of the original program
-        # uses the integration ID initially created in the recipe before
-        # processing started, and all subsequent integration results
-        # are written to a new record
-        integration['integration_id'] = None
-    ispyb_command_list.append(integration)
+          if n > 0 or special_program_name:
+            # make sure only the first integration of the original program
+            # uses the integration ID initially created in the recipe before
+            # processing started, and all subsequent integration results
+            # are written to a new record
+            integration['integration_id'] = None
+        ispyb_command_list.append(integration)
+    else:
+        logger.info('AutoProcIntegrationContainer record missing from AutoProc xml file')
 
     if attachments:
       for filename, dirname, filetype in attachments:

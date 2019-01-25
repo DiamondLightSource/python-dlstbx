@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import glob
 import logging
 import os
 import py
@@ -190,10 +191,9 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     params = self.recwrap.recipe_step['job_parameters']
 
     def behead(cif_in, cif_out):
-      logger.info('Writing modified file %s to %s' % (cif_in, cif_out))
-      import os
+      logger.info('Writing modified file %s to %s' % (cif_in, cif_out.strpath))
       assert os.path.exists(cif_in)
-      assert not os.path.exists(cif_out)
+      assert not cif_out.check()
 
       data = open(cif_in, 'rb').read()
 
@@ -202,9 +202,7 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
         tail = data.split('CBF_BYTE_OFFSET little_endian')[-1]
         data = head + tail
 
-      open(cif_out, 'wb').write(data)
-
-      return
+      cif_out.write_binary(data)
 
     working_directory = py.path.local(params['working_directory'])
     tmpdir = working_directory.join('image-tmp')
@@ -212,12 +210,11 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
 
     template = os.path.join(params['image_directory'], params['image_template'])
 
-    import glob
     g = glob.glob(template.replace('#', '?'))
     logger.info(template)
     logger.info(g)
     for f in g:
-      behead(f, tmpdir.join(os.path.basename(f)).strpath)
+      behead(f, tmpdir.join(os.path.basename(f)))
 
     params['orig_image_directory'] = params['image_directory']
     params['image_directory'] = tmpdir

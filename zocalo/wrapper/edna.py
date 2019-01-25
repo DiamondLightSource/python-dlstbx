@@ -19,8 +19,13 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
 
     params = self.recwrap.recipe_step['job_parameters']
     working_directory = py.path.local(params['working_directory'])
+    results_directory = py.path.local(params['results_directory'])
     logger.info('working_directory: %s' % working_directory.strpath)
     working_directory.ensure(dir=True)
+    try: # set Synchweb to swirl
+     results_directory.join('summary.html').ensure()
+    except OSError:
+      pass # it'll be fine
 
     if params['image_template'].endswith('.h5'):
       edna_module = 'edna/20140709-eiger-mod'
@@ -141,13 +146,8 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     self.edna2html(results_xml)
 
     # copy output files to result directory
-    results_directory = py.path.local(params['results_directory'])
     logger.info('Copying results from %s to %s' % (
                 working_directory.strpath, results_directory.strpath))
-    try:
-      results_directory.ensure(dir=True)
-    except OSError:
-      pass # it'll be fine
 
     source_dir = py.path.local(working_directory) / 'EDNAStrategy'
     dest_dir = py.path.local(results_directory) / ('EDNA%s' % sparams['name'])

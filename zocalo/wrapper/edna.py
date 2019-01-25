@@ -149,16 +149,16 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     logger.info('Copying results from %s to %s' % (
                 working_directory.strpath, results_directory.strpath))
 
-    source_dir = py.path.local(working_directory) / 'EDNAStrategy'
-    dest_dir = py.path.local(results_directory) / ('EDNA%s' % sparams['name'])
+    source_dir = working_directory / 'EDNAStrategy'
+    dest_dir = results_directory / ('EDNA%s' % sparams['name'])
     source_dir.copy(dest_dir)
-    src = py.path.local(working_directory) / 'EDNAStrategy.xml'
-    dst = py.path.local(results_directory) / ('EDNA%s.xml' % sparams['name'])
+    src = working_directory / 'EDNAStrategy.xml'
+    dst = results_directory / ('EDNA%s.xml' % sparams['name'])
     src.copy(dst)
     for fname in ('summary.html', 'results.xml'):
-      src = py.path.local(working_directory) / fname
-      dst = py.path.local(results_directory) / fname
-      if src.check() and not dst.check():
+      src = working_directory / fname
+      dst = results_directory / fname
+      if src.check() and (not dst.check() or dst.size() == 0):
         src.copy(dst)
     return result['exitcode'] == 0
 

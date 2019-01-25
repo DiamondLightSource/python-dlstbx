@@ -87,7 +87,9 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
 
     # copy output files to result directory
     logger.info('Copying results from %s to %s' % (working_directory, results_directory.strpath))
-    py.path.local(working_directory).copy(results_directory)
+    for f in py.path.local(working_directory).listdir():
+      if not f.basename.startswith('.'):
+        f.copy(results_directory)
 
     return result['exitcode'] == 0
 

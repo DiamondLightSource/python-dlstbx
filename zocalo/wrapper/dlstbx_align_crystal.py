@@ -130,19 +130,22 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     logger.info('Image template: %s', params['image_template'])
     logger.info(
       'Converting %s to %s' % (master_h5, tmpdir.join(params['image_pattern'])))
-    result = procrunner.run_process(
+    result = procrunner.run(
       ['dlstbx.snowflake2cbf', master_h5, params['image_pattern']],
       working_directory=tmpdir.strpath,
       timeout=params.get('timeout', 3600),
     )
     logger.info('command: %s', ' '.join(result['command']))
+    if result['exitcode']:
+      logger.error("image conversion hdf5->cbf failed with:\n{result[stderr]}".format(result=result))
+      return False
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
     logger.info('time_end: %s', result['time_end'])
     logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
     params['orig_image_directory'] = params['image_directory']
     params['image_directory'] = tmpdir.strpath
+    return True
 
   def run(self):
     assert hasattr(self, 'recwrap'), "No recipewrapper object found"
@@ -150,7 +153,8 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     params = self.recwrap.recipe_step['job_parameters']
 
     if params['image_template'].endswith('.h5'):
-      self.hdf5_to_cbf()
+      if not self.hdf5_to_cbf():
+        return False
 
     command = self.construct_commandline(params)
 
@@ -163,16 +167,16 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     # run dlstbx.align_crystal in working directory
     result = procrunner.run(
         command, timeout=params.get('timeout'),
-        #print_stdout=False, print_stderr=False,
         working_directory=working_directory.strpath,
     )
-
+    if result['exitcode']:
+      logger.error("dlstbx.align_crystal failed with:\n{result[stderr]}".format(result=result))
+      return False
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
     logger.info('time_end: %s', result['time_end'])
     logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 

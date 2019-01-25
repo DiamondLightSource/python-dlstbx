@@ -67,7 +67,10 @@ def print_cbf_header(f, nn=0):
 
   T = f['/entry/instrument/detector/count_time'][()]
   L = f['/entry/instrument/beam/incident_wavelength'][()]
-  D = f['/entry/instrument/detector_distance'][()]
+  try:
+    D = f['/entry/instrument/detector_distance'][()]
+  except KeyError as e:
+    D = f['/entry/instrument/detector/detector_distance'][()]
   A = f['/entry/instrument/attenuator/attenuator_transmission'][()]
 
   omega = f['/entry/sample/transformations/omega'][()]

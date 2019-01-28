@@ -310,6 +310,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
       print_stdout=True, print_stderr=True,
       environment_override={
         'autoPROC_HIGHLIGHT': 'no',
+        'LD_LIBRARY_PATH': '',
       },
       working_directory=working_directory.strpath,
     )

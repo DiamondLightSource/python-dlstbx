@@ -134,7 +134,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
       datum=""
     xoalign_py = '/dls_sw/apps/xdsme/graemewinter-xdsme/bin/Linux_i586/XOalign.py'
     commands = [xoalign_py, datum, mosflm_index_mat]
-    logger.info('command: %s', ' '.join(result['command']))
+    logger.info('command: %s', ' '.join(commands))
     result = procrunner.run(
       commands,
       timeout=params.get('timeout', 3600),

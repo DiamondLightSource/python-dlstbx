@@ -45,7 +45,7 @@ class DLSPerImageAnalysisSAN(CommonService):
       rw.transport.ack(header)
       return
 
-    command = ['/bin/bash', '/dls_sw/apps/mx-scripts/bin/img2jpgv16-zocalo', filename]
+    command = ['/bin/bash', '/dls_sw/apps/mx-scripts/bin/img2jpgv17-zocalo', filename]
     self.log.debug("Running %s", str(command))
 
     # Run bash script which stores and notifies for XML

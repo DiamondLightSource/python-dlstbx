@@ -33,14 +33,13 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
         command.append('%s=%s' % (param, v))
 
     if params.get('ispyb_parameters'):
-      for param, value in params['ispyb_parameters'].iteritems():
-        if param == 'd_min':
-          param = 'xia2.settings.resolution.d_min'
-        elif param == 'spacegroup':
-          param = 'xia2.settings.space_group'
-        elif param == 'unit_cell':
-          param = 'xia2.settings.unit_cell'
-        command.append('%s=%s' % (param, value))
+            translation = {
+                "d_min": "xia2.settings.resolution.d_min",
+                "spacegroup": "xia2.settings.space_group",
+                "unit_cell": "xia2.settings.unit_cell",
+            }
+            for param, value in params["ispyb_parameters"].iteritems():
+                command.append(translation.get(param, param) + "=" + value)
 
     return command
 

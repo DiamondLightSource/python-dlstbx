@@ -37,7 +37,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
         if param == 'd_min':
           param = 'xia2.settings.resolution.d_min'
         elif param == 'spacegroup':
-          params = 'xia2.settings.space_group'
+          param = 'xia2.settings.space_group'
         elif param == 'unit_cell':
           param = 'xia2.settings.unit_cell'
         command.append('%s=%s' % (param, value))

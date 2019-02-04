@@ -6,6 +6,11 @@ import workflows.recipe
 from dials.command_line.find_spots_server import work
 from workflows.services.common_service import CommonService
 
+from confluent_kafka import Consumer, KafkaError
+# [[unassign] assign]
+# [seek]
+# consume
+
 class DLSStreamAnalysis(CommonService):
   '''A service that analyses individual images from a stream.'''
 

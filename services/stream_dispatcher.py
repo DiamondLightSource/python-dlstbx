@@ -8,14 +8,14 @@ import workflows.recipe
 from workflows.services.common_service import CommonService
 
 
-class DLSStreamDispatch(CommonService):
+class DLSStreamDispatcher(CommonService):
     """A service that triggers actions running on stream data."""
 
     # Human readable service name
     _service_name = "DLS Stream Dispatcher"
 
     # Logger name
-    _logger_name = "dlstbx.services.stream_dispatch"
+    _logger_name = "dlstbx.services.stream_dispatcher"
 
     def initializing(self):
         """Subscribe to the stream_analysis queue. Received messages must be acknowledged."""

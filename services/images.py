@@ -56,7 +56,9 @@ class DLSImages(CommonService):
                 filename, imageset_index = filename.split(":")[0:2]
 
         if not filename or filename == "None":
-            self.log.info("Skipping diffraction JPG generation: filename not specified")
+            self.log.debug(
+                "Skipping diffraction JPG generation: filename not specified"
+            )
             rw.transport.ack(header)
             return
         if not os.path.exists(filename):

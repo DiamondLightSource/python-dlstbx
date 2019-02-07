@@ -21,7 +21,7 @@ class DLSStreamDispatch(CommonService):
         """Subscribe to the stream_analysis queue. Received messages must be acknowledged."""
         workflows.recipe.wrap_subscribe(
             self._transport,
-            "stream_dispatch",
+            "stream_dispatcher",
             self.stream_dispatch,
             acknowledgement=True,
             log_extender=self.extend_log,
@@ -31,27 +31,27 @@ class DLSStreamDispatch(CommonService):
     def stream_dispatch(self, rw, header, message):
         """Set up stream analysis for specified stream."""
 
-        # Identify the data collection ID
-        dcid = rw.recipe_step.get("dcid")
-        if not dcid or not str(dcid).isdigit():
-            self.log.error(
-                "Missing or invalid data collection ID %r", dcid, exc_info=True
-            )
+        # Load and sanity-check parameters
+        params = rw.recipe_step.get("parameters", {})
+        try:
+            dcid = int(params.get("dcid"))
+        except (ValueError, TypeError):
+            dcid = 0
+        if dcid <= 0:
+            self.log.error("Missing or invalid data collection ID")
             rw.transport.nack(header)
             return
-
-        framecount = rw.recipe_step.get("framecount")
-        if not framecount or not str(framecount).isdigit():
-            self.log.error(
-                "Missing or invalid framecount %r", framecount, exc_info=True
-            )
+        try:
+            framecount = int(params.get("framecount"))
+        except (ValueError, TypeError):
+            framecount = 0
+        if framecount <= 0:
+            self.log.error("Missing or invalid framecount")
             rw.transport.nack(header)
             return
-        framecount = int(framecount)
-
-        activity = rw.recipe_step.get("activity")
+        activity = params.get("activity")
         if not activity:
-            self.log.error("Activity not defined", exc_info=True)
+            self.log.error("Activity not defined")
             rw.transport.nack(header)
             return
 
@@ -70,21 +70,22 @@ class DLSStreamDispatch(CommonService):
         kafka_update = {"DCID": dcid, "activity": activity, "timestamp": time.time()}
         self.kafka.produce(
             "hoggery.activity",
-            masgpack.packb(kafka_update, use_bin_type=True),
-            key=dcid,
+            msgpack.packb(kafka_update, use_bin_type=True),
+            key=str(dcid),
         )
 
         # Produce per-offset messages.
         # These may or may not correspond to frames, as EIGER streams do not guarantee ordering.
         for offset in range(framecount):
-            stream_cmd = {"dcid": dcid, "activity": activity, "offset": offset}
-            rw.send(frame_cmd, transaction=txn)
+            rw.send(
+                {"dcid": dcid, "activity": activity, "offset": offset}, transaction=txn
+            )
 
         # And dispatch
         self.kafka.flush()
         rw.transport.transaction_commit(txn)
         self.log.info(
-            "Stream analysis dispatched for DCID %d with activity %s on %d images",
+            "Stream analysis dispatched for DCID %r with activity %s on %d images",
             dcid,
             activity,
             framecount,

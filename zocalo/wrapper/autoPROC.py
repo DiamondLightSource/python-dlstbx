@@ -305,6 +305,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
 
     # disable control sequence parameters from autoPROC output
     # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
+    logger.info('command: %s', ' '.join(command))
     result = procrunner.run(
       command, timeout=params.get('timeout'),
       print_stdout=True, print_stderr=True,
@@ -315,7 +316,6 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
       working_directory=working_directory.strpath,
     )
 
-    logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
     logger.info('time_start: %s', result['time_start'])
     logger.info('time_end: %s', result['time_end'])

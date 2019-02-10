@@ -106,6 +106,8 @@ if __name__ == '__main__':
   parser.add_option("-?", action="help", help=SUPPRESS_HELP)
   parser.add_option("-f", "--follow", dest="follow", default=False, action="store_true",
                     help="Keep showing log messages as they come in.")
+  parser.add_option("-r", "--recipe", dest="recipe", default=None, action="store",
+                    help="Only show log messages relating to this recipe ID")
   parser.add_option("-s", "--source", "--facility", dest="facility", default=[], action="append",
                     help="Only show log messages from this facility. When specified"
                          "multiple times will show messages from any one of them.")
@@ -138,6 +140,10 @@ if __name__ == '__main__':
   if options.facility:
     g.filters.append(
         "facility:(" + " OR ".join(options.facility) + ")"
+    )
+  if options.recipe:
+    g.filters.append(
+        "recipe_ID:" + options.recipe
     )
   format = format_message(options.verbose)
   if options.follow:

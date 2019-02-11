@@ -52,6 +52,14 @@ if __name__ == "__main__":
         default=5,
         help="Wait this many seconds between deliveries",
     )
+    parser.add_option(
+        "--stop",
+        action="store",
+        dest="stop",
+        type=float,
+        default=60,
+        help="Stop if no message seen for this many seconds (0 = forever)",
+    )
     StompTransport.load_configuration_file(default_configuration)
 
     StompTransport.add_command_line_options(parser)
@@ -86,14 +94,17 @@ if __name__ == "__main__":
         }
     )
     drain_start = time.time()
+    idle_time = 0
     try:
         while True:
             try:
-                header, message = messages.get(True, 1)
+                header, message = messages.get(True, 0.1)
             except Queue.Empty:
+                idle_time = idle_time + 0.1
+                if options.stop and idle_time > options.stop:
+                    break
                 continue
-            from pprint import pprint
-
+            idle_time = 0
             print()
             try:
                 print(
@@ -127,6 +138,10 @@ if __name__ == "__main__":
             time.sleep(options.wait)
     except KeyboardInterrupt:
         sys.exit(
-            "Cancelling, %d message(s) drained, %d message(s) unprocessed in memory"
+            "\nCancelling, %d message(s) drained, %d message(s) unprocessed in memory"
             % (message_count, messages.qsize())
         )
+    print(
+        "%d message(s) drained, no message seen for %.1f seconds"
+        % (message_count, idle_time)
+    )

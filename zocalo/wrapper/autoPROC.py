@@ -232,6 +232,11 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
     ]
 
     if image_template.endswith('.h5'):
+      command.extend([
+          "-h5",
+          os.path.join(image_directory, image_template),
+          "DistributeBackgroundImagesForHdf5=no",
+      ])
       plugin_name = 'durin-plugin.so'
       hdf5_lib = ''
       for d in os.environ['PATH'].split(os.pathsep):
@@ -239,7 +244,6 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
           hdf5_lib='autoPROC_XdsKeyword_LIB=%s' % os.path.join(d, plugin_name)
       if not hdf5_lib:
         logger.warn("Couldn't find plugin %s in PATH" % plugin_name)
-      command.extend(['-h5', os.path.join(image_directory, image_template)])
       if hdf5_lib:
         command.append(hdf5_lib)
     else:

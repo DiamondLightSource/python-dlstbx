@@ -38,14 +38,14 @@ if __name__ == "__main__":
         "--kafka",
         dest="kafka",
         default="ws133",
-        help="Kafka server to connect to",
+        help="Kafka server to connect to (default: %default)",
     )
     parser.add_option(
         "-z",
         "--zeromq",
         dest="zeromq",
         default="tcp://127.0.0.1:9999",
-        help="ZeroMQ stream to connect to",
+        help="ZeroMQ stream to connect to (default: %default)",
     )
     parser.add_option(
         "--acqid",

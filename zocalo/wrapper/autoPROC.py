@@ -197,11 +197,13 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
           "status": "success",
       })
 
-    logger.info("Sending %s", str(ispyb_command_list))
+    if not ispyb_command_list:
+      logger.warning("no results to send to ISPyB")
+      return False
+    logger.info("Sending %d commands to ISPyB: %s", len(ispyb_command_list), str(ispyb_command_list))
     self.recwrap.send_to('ispyb', {
         'ispyb_command_list': ispyb_command_list,
     })
-    logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
     return True
 
   def construct_commandline(self, params):

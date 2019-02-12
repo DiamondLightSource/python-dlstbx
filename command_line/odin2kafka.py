@@ -54,9 +54,15 @@ if __name__ == "__main__":
         help="Set acquisition ID if not defined",
         type=int,
     )
+    parser.add_option(
+        "--acqid-override",
+        dest="override",
+        default=False,
+        action="store_true",
+        help="Override any given acquisition ID",
+    )
 
     (options, args) = parser.parse_args()
-
     dlstbx.enable_graylog()
     console = ColorStreamHandler()
     console.setLevel(logging.DEBUG)
@@ -85,7 +91,9 @@ if __name__ == "__main__":
             p.poll(0)
 
             header = data[0] = json.loads(data[0])
-            if not header.get("acqID"):
+            if options.override:
+                header["acqID"] = options.acqid
+            elif not header.get("acqID"):
                 header["acqID"] = options.acqid or header.get("series", 1)
             series = str(header["acqID"])
             if header.get("htype") in ("dheader-1.0", "dseries_end-1.0"):

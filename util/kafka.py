@@ -70,14 +70,14 @@ class ActivityWatcher(threading.Thread):
                     log.error("Invalid DCID in message:\n%s", repr(dcid), exc_info=True)
                     continue
                 del update["DCID"]
-                print("Received message:")
-                pprint(update)
+                # print("Received message:")
+                # pprint(update)
                 if not update.get("timestamp"):
                     update["timestamp"] = time.time()
                 with self._lock:
                     new = dcid not in self._status
                     self._status[dcid] = update
-                    pprint(self._status)
+                    # pprint(self._status)
                 if new and self._callback_new:
                     self._callback_new(dcid)
             except KeyboardInterrupt:

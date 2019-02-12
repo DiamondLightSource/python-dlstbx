@@ -3,8 +3,8 @@ from __future__ import absolute_import, division, print_function
 import py
 
 files = [
-  'end_of_series',
-  'frame_appendix',
+#  'end_of_series',
+#  'frame_appendix',
   'header1',
   'header2',
   'streamfile_1',

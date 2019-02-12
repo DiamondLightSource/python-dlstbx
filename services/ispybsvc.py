@@ -542,7 +542,7 @@ class DLSISPyB(CommonService):
     if not hasattr(self, 'do_' + command):
       self.log.error('Received unknown ISPyB command (%s)', command)
       return False
-    self.log.info(
+    self.log.debug(
         "Processing step %d of multipart message (%s) with %d further steps",
         checkpoint, command, len(commands),
     )
@@ -578,7 +578,6 @@ class DLSISPyB(CommonService):
         message=message,
         **kwargs
     )
-    self.log.debug("Multipart call returned with result %s", result)
 
     # Store step result if appropriate
     store_result = current_command.get('store_result')

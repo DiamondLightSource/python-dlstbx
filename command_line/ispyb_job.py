@@ -48,7 +48,7 @@ def create_processing_job(i, options):
   if options.dcid:
     match = re.match(r"^([0-9]+)$", options.dcid)
     if not match:
-      sys.exit("Invalid data collection id: " + s)
+      sys.exit("Invalid data collection id: " + options.dcid)
     dcid = int(options.dcid)
   else:
     dcid = None

@@ -50,8 +50,14 @@ for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
       print("  *** Could not parse %s" % name)
       continue
     for top_level_def in parsetree.body:
-      if isinstance(top_level_def, ast.ClassDef) and \
-          'CommonService' in (baseclass.id for baseclass in top_level_def.bases):
+      if not isinstance(top_level_def, ast.ClassDef):
+        continue
+      base_names = [
+        baseclass.id
+        for baseclass in top_level_def.bases
+        if isinstance(baseclass, ast.Name)
+      ]
+      if 'CommonService' in base_names:
         classname = top_level_def.name
         service_list.append("{classname} = dlstbx.services.{modulename}:{classname}".format(classname=classname, modulename=name))
         print("  found", classname)

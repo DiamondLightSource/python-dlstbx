@@ -1,33 +1,35 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
+import Queue
+import threading
 
 import confluent_kafka
 import dlstbx.util.kafka
+import dxtbx.format.FormatEigerStream
+import msgpack
 import workflows.recipe
 from dials.command_line.find_spots_server import work
 from workflows.services.common_service import CommonService
 
 
-class DLSStreamAnalysis(CommonService):
-    """A service that analyses individual images from a stream."""
+class _WorkerThread(threading.Thread):
+    """Per-Image-Analysis thread."""
 
-    # Human readable service name
-    _service_name = "DLS Stream-Analysis"
+    def __init__(self, dsa_instance):
+        threading.Thread.__init__(self)
+        self.queue = Queue.Queue()
+        self._DSA = dsa_instance
+        self.log = self._DSA.log
+        print("Subthread init")
 
-    # Logger name
-    _logger_name = "dlstbx.services.stream_analysis"
-
-    def initializing(self):
-        """Subscribe to the stream_analysis queue. Received messages must be acknowledged."""
-        logging.getLogger("dials").setLevel(logging.WARNING)
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "stream_analysis",
-            self.stream_analysis,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
+    def run(self):
+        print("Subthread live")
+        while True:
+            dcid, rw, header, message = self.queue.get(True)
+            print("Gobble")
+            # TODO: log extender
+            self.stream_analysis(rw, header, message)
 
     def stream_analysis(self, rw, header, message):
         """Run PIA on one image."""
@@ -53,8 +55,8 @@ class DLSStreamAnalysis(CommonService):
                 "message.max.bytes": 52428800,
             }
         )
-        topic = "hoggery.%d.data" % message["payload"]["dcid"]
-        offset = message["payload"]["offset"]
+        topic = "hoggery.%d.data" % message["dcid"]
+        offset = message["offset"]
         partitions = c.list_topics(topic=topic).topics[topic].partitions
         assignment = [
             confluent_kafka.TopicPartition(topic, tp, offset) for tp in partitions
@@ -101,4 +103,36 @@ class DLSStreamAnalysis(CommonService):
             mm[0]["acqID"],
             mm[0]["frame"],
             results["n_spots_total"],
+        )
+
+class DLSStreamAnalysis(CommonService):
+    """A service that analyses individual images from a stream."""
+
+    # Human readable service name
+    _service_name = "DLS Stream-Analysis"
+
+    # Logger name
+    _logger_name = "dlstbx.services.stream_analysis"
+
+    def initializing(self):
+        """Subscribe to stream activity log on Kafka."""
+        logging.getLogger("dials").setLevel(logging.WARNING)
+
+        self.worker = _WorkerThread(dsa_instance=self)
+        self.worker.start()
+        self.al = dlstbx.util.kafka.ActivityWatcher(callback_new=self.kafka_event_new)
+        self.al.start()
+
+    def kafka_event_new(self, dcid):
+        """When stream activity is detected on Kafka start listening on relevant queues for commands"""
+        self.log.info("Kafka event detected on DCID %i", dcid)
+        def p(rw, header, message):
+            self.log.info("Received command for DCID %i", dcid)
+            self.worker.queue.put((dcid, rw, header, message))
+        workflows.recipe.wrap_subscribe(
+            self._transport,
+            "transient.stream.%i" % dcid,
+            p,
+            acknowledgement=True,
+            log_extender=self.extend_log,
         )

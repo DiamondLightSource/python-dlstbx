@@ -72,7 +72,7 @@ def get_distance_in_mm(f):
   elif D.attrs['units'] == 'mm':
     pass
   else:
-    raise RuntimeError, 'unknown distance unit %s' % D.attrs['units']
+    raise RuntimeError('unknown distance unit %s' % D.attrs['units'])
   return d
 
 def print_cbf_header(f, nn=0):

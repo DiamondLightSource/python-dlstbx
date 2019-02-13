@@ -61,16 +61,27 @@ def depends_on(f):
 
   finder(f, path='')
 
+def get_distance_in_mm(f):
+  try:
+    D = f['/entry/instrument/detector_distance']
+  except KeyError as e:
+    D = f['/entry/instrument/detector/detector_distance']
+  d = D[()]
+  if D.attrs['units'] == 'm':
+    d *= 1000
+  elif D.attrs['units'] == 'mm':
+    pass
+  else:
+    raise RuntimeError, 'unknown distance unit %s' % D.attrs['units']
+  return d
+
 def print_cbf_header(f, nn=0):
 
   result = []
 
+  D = get_distance_in_mm(f)
   T = f['/entry/instrument/detector/count_time'][()]
   L = f['/entry/instrument/beam/incident_wavelength'][()]
-  try:
-    D = f['/entry/instrument/detector_distance'][()]
-  except KeyError as e:
-    D = f['/entry/instrument/detector/detector_distance'][()]
   A = f['/entry/instrument/attenuator/attenuator_transmission'][()]
 
   omega = f['/entry/sample/transformations/omega'][()]

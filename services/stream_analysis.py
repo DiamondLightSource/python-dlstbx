@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import logging
 import Queue
 import threading
+import time
 
 import confluent_kafka
 import dlstbx.util.kafka
@@ -37,7 +38,7 @@ class _WorkerThread(threading.Thread):
             try:
                 dcid, rw, header, message = job
                 retry = self.stream_analysis(rw, header, message)
-            except Exception:
+            except Exception as e:
                 self.log.error(
                     "Uncaught exception in analysis thread: %s", e, exc_info=True
                 )
@@ -64,19 +65,31 @@ class _WorkerThread(threading.Thread):
             {
                 "bootstrap.servers": "ws133",
                 "group.id": "mygroup",
-                "auto.offset.reset": "earliest",
+                "auto.offset.reset": "error",
                 "message.max.bytes": 52428800,
             }
         )
         topic = "hoggery.%d.data" % message["dcid"]
+        topic_info = c.list_topics(topic=topic).topics[topic]
+        if topic_info.error:
+            self.log.info("Topic unavailable, retry later (%s)", topic_info.error.str())
+            return True
+        partitions = topic_info.partitions
+        self.log.info("Topic has %d partitions", len(partitions))
         offset = message["offset"]
-        partitions = c.list_topics(topic=topic).topics[topic].partitions
         assignment = [
             confluent_kafka.TopicPartition(topic, tp, offset) for tp in partitions
         ]
         c.assign(assignment)
         m = c.consume(1)
-        self.log.debug("Received payload")
+        if len(m) != 1:
+            self.log.error("Received %d instead of 1 elements", len(m))
+            rw.transport.nack(header)
+            return
+        if m[0].error():
+            self.log.info("Error on reading, retry later (%s)", m[0].error().str())
+            return True
+        self.log.info("Received payload")
         mm = msgpack.unpackb(m[0].value(), raw=False, max_bin_len=10 * 1024 * 1024)
 
         # Do the per-image-analysis
@@ -92,7 +105,6 @@ class _WorkerThread(threading.Thread):
                 "streamfile_2": mm[1],
                 "streamfile_3": mm[2],
             }
-
             results = work(self.mockfile, cl=parameters)
         except Exception as e:
             self.log.error("PIA failed with %r", e, exc_info=True)

@@ -114,7 +114,7 @@ class _WorkerThread(threading.Thread):
         # Pass through all file* fields
         for key in filter(lambda x: x.startswith("file"), message):
             results[key] = message[key]
-        result["file-number"] = mm[0]["frame"]
+        results["file-number"] = mm[0]["frame"]
 
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin()

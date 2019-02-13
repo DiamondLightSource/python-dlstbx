@@ -23,21 +23,34 @@ class _WorkerThread(threading.Thread):
         self.log = self._DSA.log
         print("Subthread init")
 
+        # Set up mock image file
+        self.mockfile = "/dev/shm/eiger.stream"
+        with open(self.mockfile, "w") as fh:
+            fh.write("EIGERSTREAM")
+
     def run(self):
         print("Subthread live")
         while True:
-            dcid, rw, header, message = self.queue.get(True)
+            job = self.queue.get(True)
             print("Gobble")
             # TODO: log extender
-            self.stream_analysis(rw, header, message)
+            try:
+                dcid, rw, header, message = job
+                retry = self.stream_analysis(rw, header, message)
+            except Exception:
+                self.log.error(
+                    "Uncaught exception in analysis thread: %s", e, exc_info=True
+                )
+                # TODO: nack?
+                continue
+            if retry:
+                print("put back")
+                self.queue.put(job)
+                time.sleep(2)
+                # TODO: something more intelligent
 
     def stream_analysis(self, rw, header, message):
         """Run PIA on one image."""
-
-        # Set up mock image file
-        filename = "/dev/shm/eiger.stream"
-        with open(filename, "w") as fh:
-            fh.write("EIGERSTREAM")
 
         # Set up PIA parameters
         parameters = rw.recipe_step.get("parameters", None)
@@ -80,7 +93,7 @@ class _WorkerThread(threading.Thread):
                 "streamfile_3": mm[2],
             }
 
-            results = work(filename, cl=parameters)
+            results = work(self.mockfile, cl=parameters)
         except Exception as e:
             self.log.error("PIA failed with %r", e, exc_info=True)
             rw.transport.nack(header)
@@ -105,6 +118,7 @@ class _WorkerThread(threading.Thread):
             results["n_spots_total"],
         )
 
+
 class DLSStreamAnalysis(CommonService):
     """A service that analyses individual images from a stream."""
 
@@ -126,9 +140,11 @@ class DLSStreamAnalysis(CommonService):
     def kafka_event_new(self, dcid):
         """When stream activity is detected on Kafka start listening on relevant queues for commands"""
         self.log.info("Kafka event detected on DCID %i", dcid)
+
         def p(rw, header, message):
             self.log.info("Received command for DCID %i", dcid)
             self.worker.queue.put((dcid, rw, header, message))
+
         workflows.recipe.wrap_subscribe(
             self._transport,
             "transient.stream.%i" % dcid,

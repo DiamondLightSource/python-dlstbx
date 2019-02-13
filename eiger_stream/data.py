@@ -20,6 +20,10 @@ valid_things = {
   for filename in files
 }
 
+import pickle
+with open('/dls/science/users/wra62962/eigerstream.pickle', 'rb') as fh:
+  invalid_things = pickle.load(fh)
+
 if __name__ == '__main__':
   from pprint import pprint
   pprint(valid_things)

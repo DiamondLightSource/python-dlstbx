@@ -13,13 +13,14 @@ log = logging.getLogger("dlstbx.util.kafka")
 
 
 class ActivityWatcher(threading.Thread):
-    def __init__(self, callback_new=None):
+    def __init__(self, callback_new=None, from_timestamp=None):
         threading.Thread.__init__(self)
         self.daemon = True
         self._stop = False
         self._lock = threading.Lock()
         self._status = {}
         self._callback_new = callback_new
+        self._from_timestamp = from_timestamp
 
     def stop(self):
         self._stop = True
@@ -32,7 +33,17 @@ class ActivityWatcher(threading.Thread):
                 "auto.offset.reset": "earliest",
             }
         )
-        c.subscribe(["hoggery.activity"])
+        def set_start_offset(consumer, partitions):
+            if not self._from_timestamp:
+                return
+            print(partitions)
+            for p in partitions:
+                p.offset = self._from_timestamp * 1000
+            print(partitions)
+            offs = c.offsets_for_times(partitions)
+            print(offs)
+            consumer.assign(offs)
+        c.subscribe(["hoggery.activity"], on_assign=set_start_offset)
 
         while not self._stop:
             try:
@@ -49,7 +60,7 @@ class ActivityWatcher(threading.Thread):
                 try:
                     update = msgpack.unpackb(msg.value(), raw=False)
                 except TypeError:
-                    log.error(
+                    log.warning(
                         "Received invalid message:\n%s",
                         repr(msg.value()),
                         exc_info=True,
@@ -58,7 +69,7 @@ class ActivityWatcher(threading.Thread):
                 try:
                     dcid = update.get("DCID")
                 except AttributeError:
-                    log.error(
+                    log.warning(
                         "Unpacked message is not a dictionary:\n%s",
                         repr(update),
                         exc_info=True,
@@ -67,7 +78,7 @@ class ActivityWatcher(threading.Thread):
                 try:
                     dcid = int(dcid)
                 except ValueError:
-                    log.error("Invalid DCID in message:\n%s", repr(dcid), exc_info=True)
+                    log.warning("Invalid DCID in message:\n%s", repr(dcid), exc_info=True)
                     continue
                 del update["DCID"]
                 # print("Received message:")

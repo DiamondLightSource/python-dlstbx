@@ -115,6 +115,35 @@ edna-plugin-launcher \
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
 
+    # generate two different html pages
+    # not sure which if any of these are actually used/required
+    edna2html_home = '/dls_sw/apps/edna/edna-20140709'
+    edna2html = os.path.join(edna2html_home, 'libraries/EDNA2html-0.0.10a/EDNA2html'
+    commands = [
+      edna2html,
+      '--title="%s"' % short_comments,
+      '--run_basename=%s/EDNAStrategy' % working_directory.strpath,
+      '--portable',
+      '--basename=%s/summary' % working_directory.strpath
+    ]
+    result = procrunner.run(
+      commands,
+      working_directory=working_directory.strpath,
+      timeout=params.get('timeout', 3600),
+      print_stdout=True, print_stderr=True,
+    )
+
+    logger.info('command: %s', ' '.join(result['command']))
+    logger.info('timeout: %s', result['timeout'])
+    logger.info('time_start: %s', result['time_start'])
+    logger.info('time_end: %s', result['time_end'])
+    logger.info('runtime: %s', result['runtime'])
+    logger.info('exitcode: %s', result['exitcode'])
+    logger.debug(result['stdout'])
+    logger.debug(result['stderr'])
+
+    self.edna2html(edna2html_home, results_xml)
+
     # copy output files to result directory
     logger.info('Copying results from %s to %s' % (
                 working_directory.strpath, results_directory.strpath))
@@ -286,8 +315,8 @@ edna-plugin-launcher \
     return output
 
   @staticmethod
-  def edna2html(result_xml):
-    sys.path.append(os.path.join(os.environ["EDNA_HOME"],"kernel","src"))
+  def edna2html(edna_home, result_xml):
+    sys.path.append(os.path.join(edna_home,"kernel","src"))
     from EDFactoryPluginStatic import EDFactoryPluginStatic
     EDFactoryPluginStatic.loadModule("XSDataInterfacev1_2")
     from XSDataInterfacev1_2 import XSDataResultInterface

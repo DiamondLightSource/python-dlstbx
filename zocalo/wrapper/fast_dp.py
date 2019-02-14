@@ -115,9 +115,9 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
       environment['FORKXDS_PROJECT'] = params['forkxds_project']
 
     # run fast_dp in working directory
+    logger.info('Running command: %s', ' '.join(result['command']))
     result = procrunner.run(
         command, timeout=params.get('timeout'),
-        print_stdout=False, print_stderr=False,
         working_directory=working_directory.strpath,
         environment_override=environment,
     )
@@ -126,14 +126,13 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
       # fast_dp anomaly: exit code 0 and no stderr output still means failure if error file exists
       result['exitcode'] = 1
 
-    logger.info('command: %s', ' '.join(result['command']))
-    logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
-    logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
-    logger.debug(result['stdout'])
-    logger.debug(result['stderr'])
+    if result['timeout']:
+      logger.info('timeout: %s', result['timeout'])
+
+    logger.info(
+      "Execution took %s seconds and resulted in exitcode %s",
+      result['runtime'], result['exitcode'],
+    )
 
     if result['exitcode'] == 0:
       command = [
@@ -144,10 +143,14 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
           'fast_dp_unmerged.mtz'
       ]
       # run fast_dp in working directory
-      result = procrunner.run_process(
+      logger.info('Running command: %s', ' '.join(result['command']))
+      result = procrunner.run(
           command, timeout=params.get('timeout'),
-          print_stdout=False, print_stderr=False,
           working_directory=working_directory.strpath)
+      logger.info(
+        "Execution took %s seconds and resulted in exitcode %s",
+        result['runtime'], result['exitcode'],
+      )
 
       json_file = working_directory.join('iotbx-merging-stats.json')
       with json_file.open('wb') as fh:

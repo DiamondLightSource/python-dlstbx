@@ -28,7 +28,7 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
       pass # it'll be fine
 
     if params['image_template'].endswith('.h5'):
-      edna_module = 'edna/20140709-eiger-mod'
+      edna_module = 'edna/mx-20190213-auto'
       self.hdf5_to_cbf()
     else:
       self.generate_modified_headers()

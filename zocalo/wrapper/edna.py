@@ -29,10 +29,12 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
 
     if params['image_template'].endswith('.h5'):
       edna_module = 'edna/mx-20190213-auto'
+      complexity = 'min'
       self.hdf5_to_cbf()
     else:
       self.generate_modified_headers()
       edna_module = 'edna/20140709-auto'
+      complexity = 'none'
 
     sparams = params['strategy']
     lifespan = sparams['lifespan']
@@ -54,7 +56,7 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
     EDNAStrategy.ensure(dir=True)
     with open('%s.xml' %EDNAStrategy, 'wb') as f:
       f.write(self.make_edna_xml(
-        complexity='none', multiplicity=multiplicity,
+        complexity=complexity, multiplicity=multiplicity,
         i_over_sig_i=i_over_sig_i,
         lifespan=strategy_lifespan, min_osc_range=0.1,
         min_exposure=min_exposure, anomalous=sparams['anomalous']))

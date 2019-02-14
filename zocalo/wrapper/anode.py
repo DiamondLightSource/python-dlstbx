@@ -40,11 +40,11 @@ class AnodeWrapper(zocalo.wrapper.BaseWrapper):
     return result['exitcode'] == 0
 
   def run_mtz2sca(self, mtz_file, sca_file, working_directory):
-    result = procrunner.run_process(
+    result = procrunner.run(
       ['mtz2sca', mtz_file, sca_file],
       working_directory=working_directory,
       timeout=self._params.get('timeout'),
-      print_stdout=True, print_stderr=True)
+    )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
@@ -74,13 +74,13 @@ class AnodeWrapper(zocalo.wrapper.BaseWrapper):
     ])
 
     with open(os.path.join(working_directory, 'shelxc.log'), 'wb') as f:
-      result = procrunner.run_process(
+      result = procrunner.run(
         ['shelxc', 'anode_input'],
         stdin=stdin,
         callback_stdout=lambda x: print(x, file=f),
         working_directory=working_directory,
         timeout=self._params.get('timeout'),
-        print_stdout=True, print_stderr=True)
+      )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])
@@ -94,12 +94,12 @@ class AnodeWrapper(zocalo.wrapper.BaseWrapper):
 
   def run_anode(self, working_directory):
     with open(os.path.join(working_directory, 'anode.log'), 'wb') as f:
-      result = procrunner.run_process(
+      result = procrunner.run(
         ['anode', 'anode_input'],
         callback_stdout=lambda x: print(x, file=f),
         working_directory=working_directory,
         timeout=self._params.get('timeout'),
-        print_stdout=True, print_stderr=True)
+      )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])

@@ -5,9 +5,9 @@ import logging
 import os
 import re
 
+import procrunner
 import six
 import workflows.recipe
-from procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSTrigger(CommonService):
@@ -223,7 +223,7 @@ class DLSTrigger(CommonService):
       '/dls_sw/apps/mx-scripts/misc/GetAListOfAssociatedDCOnThisCrystalOrDir.sh',
       '%i' % dcid
     ]
-    result = run_process(
+    result = procrunner.run(
       command,
       #timeout=params.get('timeout'),
       #working_directory=params['working_directory'],

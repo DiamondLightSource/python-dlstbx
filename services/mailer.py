@@ -3,8 +3,8 @@ from __future__ import absolute_import, division, print_function
 import os.path
 import pprint
 
+import procrunner
 import workflows.recipe
-from procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSMailer(CommonService):
@@ -84,7 +84,7 @@ class DLSMailer(CommonService):
     # will not re-deliver the message inifinitely many times.
     self._transport.ack(header)
 
-    result = run_process(
+    result = procrunner.run(
         ['/bin/mail', '-s', subject] + recipients,
         environment_override={'from': sender},
         print_stderr=False,

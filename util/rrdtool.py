@@ -4,7 +4,7 @@ import logging
 import os
 import re
 
-from procrunner import run_process
+import procrunner
 
 log = logging.getLogger('dlstbx.util.rrdtool')
 
@@ -14,7 +14,7 @@ def run_rrdtool(command):
     "module load rrdtool",
     "rrdtool " + command
   ])
-  result = run_process(["/bin/bash"], stdin=stdin,
+  result = procrunner.run(["/bin/bash"], stdin=stdin,
                        environment_override={'LD_LIBRARY_PATH':''},
                        print_stdout=False)
   if result['exitcode'] or result['stderr']:

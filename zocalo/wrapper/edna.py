@@ -95,11 +95,10 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
       'sh', wrap_edna_sh.strpath,
       strategy_xml.strpath, results_xml.strpath]
     logger.info(' '.join(commands))
-    result = procrunner.run_process(
+    result = procrunner.run(
       commands,
       working_directory=EDNAStrategy.strpath,
       timeout=params.get('timeout', 3600),
-      print_stdout=True, print_stderr=True,
       environment_override={
           'LD_LIBRARY_PATH': '',
           'LOADEDMODULES': '',
@@ -173,7 +172,7 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     logger.info('Image pattern: %s', params['image_pattern'])
     logger.info(
       'Converting %s to %s' % (master_h5, tmpdir.join(params['image_pattern'])))
-    result = procrunner.run_process(
+    result = procrunner.run(
       ['dlstbx.snowflake2cbf', master_h5, params['image_pattern']],
       working_directory=tmpdir.strpath,
       timeout=params.get('timeout', 3600),

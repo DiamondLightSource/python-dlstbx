@@ -14,7 +14,7 @@ logger = logging.getLogger("dlstbx.align_crystal")
 
 def _run_command(args):
     logger.info("command: %s", " ".join(args))
-    result = procrunner.run_process(args, print_stdout=False, print_stderr=False)
+    result = procrunner.run(args, print_stdout=False, print_stderr=False)
 
     if result["exitcode"]:
         logger.info("exitcode: %s", result["exitcode"])

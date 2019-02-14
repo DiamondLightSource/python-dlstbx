@@ -127,10 +127,10 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
 
     # run xia2.multiplex in working directory
 
-    result = procrunner.run_process(
+    result = procrunner.run(
       command, timeout=params.get('timeout'),
       working_directory=working_directory.strpath,
-      print_stdout=False, print_stderr=False)
+    )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])

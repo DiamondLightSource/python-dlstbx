@@ -4,8 +4,8 @@ import errno
 import json
 import os
 
+import procrunner
 import workflows.recipe
-from procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSCluster(CommonService):
@@ -135,7 +135,7 @@ class DLSCluster(CommonService):
     self.log.debug("Commands: %s", commands)
     self.log.debug("Working directory: %s", workingdir)
     self.log.debug(str(rw.recipe_step))
-    result = run_process(["/bin/bash"], stdin = "\n".join(submission), working_directory=workingdir)
+    result = procrunner.run(["/bin/bash"], stdin = "\n".join(submission), working_directory=workingdir)
     assert result['exitcode'] == 0
     assert "has been submitted" in result['stdout']
     jobnumber = result['stdout'].split()[2]

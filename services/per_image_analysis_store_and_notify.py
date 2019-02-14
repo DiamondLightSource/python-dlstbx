@@ -3,8 +3,8 @@ from __future__ import absolute_import, division, print_function
 import logging
 import os
 
+import procrunner
 import workflows.recipe
-from procrunner import run_process
 from workflows.services.common_service import CommonService
 
 class DLSPerImageAnalysisSAN(CommonService):
@@ -49,7 +49,7 @@ class DLSPerImageAnalysisSAN(CommonService):
     self.log.debug("Running %s", str(command))
 
     # Run bash script which stores and notifies for XML
-    result = run_process(command, print_stdout=True, print_stderr=True)
+    result = procrunner.run(command)
 
     if result['exitcode'] != 0:
       self.log.warning("Could not run imgScreen on %s:\n%s", filename, str(result))

@@ -5,14 +5,14 @@ import os
 import xml.etree.ElementTree
 
 import libtbx.load_env
-from procrunner import run_process
+import procrunner
 
 log = logging.getLogger('dlstbx.util.hdf5')
 _h5dump = libtbx.env.under_base('bin/h5dump')
 
 def get_external_references(filename):
   command_line = [ _h5dump, '-H', '-x', filename ]
-  result = run_process(command_line, print_stdout=False, print_stderr=False)
+  result = procrunner.run(command_line, print_stdout=False, print_stderr=False)
   assert result['exitcode'] == 0, result
 
   xmlroot = xml.etree.ElementTree.fromstring(result['stdout'])

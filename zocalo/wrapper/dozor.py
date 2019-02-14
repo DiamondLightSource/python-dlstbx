@@ -54,10 +54,10 @@ class DozorWrapper(zocalo.wrapper.BaseWrapper):
       dozor['number_images'] = end - start + 1
     write_dozor_input(dozor, 'dozor.in')
 
-    result = procrunner.run_process(
+    result = procrunner.run(
       ['dozor', 'dozor.in'],
       timeout=params.get('timeout', 3600),
-      print_stdout=False, print_stderr=False)
+    )
 
     logger.info('command: %s', ' '.join(result['command']))
     logger.info('timeout: %s', result['timeout'])

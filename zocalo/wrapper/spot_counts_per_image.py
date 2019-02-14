@@ -6,7 +6,7 @@ import logging
 import os
 import shutil
 
-from procrunner import run_process
+import procrunner
 import zocalo.wrapper
 
 logger = logging.getLogger('dlstbx.wrap.spot_counts_per_image')
@@ -46,7 +46,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
            'json=%s.json' % prefix, 'joint_json=True', 'split_json=True'],
         ):
       logger.info('Running command: %r', command)
-      result = run_process(command, timeout=params.get('timeout'))
+      result = procrunner.run(command, timeout=params.get('timeout'))
 
       logger.info('runtime: %s', result['runtime'])
       if result['exitcode'] or result['timeout']:

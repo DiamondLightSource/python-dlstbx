@@ -7,7 +7,7 @@ import threading
 import time
 from datetime import datetime
 
-from procrunner import run_process
+import procrunner
 
 _DLS_Load_Cluster = ". /etc/profile.d/modules.sh ; module load global/cluster"
 _DLS_Load_Testcluster = ". /etc/profile.d/modules.sh ; module load global/testcluster"
@@ -116,7 +116,7 @@ class Cluster():
                           filter(lambda k: k.startswith('DRMAA_') or k.startswith('SGE_'),
                                  os.environ) }
 
-    result = run_process(command=['/bin/bash', '-l'], timeout=10,
+    result = procrunner.run(command=['/bin/bash', '-l'], timeout=10,
         stdin=command + "\nset\n", print_stdout=False, print_stderr=False, environment_override=blank_environment)
     if result['timeout'] or result['exitcode'] != 0:
       raise RuntimeError('Could not load cluster environment\n%s' % str(result))
@@ -166,7 +166,7 @@ class Cluster():
        :return: A result dictionary, containing stdout, stderr, exitcode, and more.
     '''
     if not arguments: arguments = []
-    result = run_process(command=['qstat', '-xml'] + arguments, timeout=timeout,
+    result = procrunner.run(command=['qstat', '-xml'] + arguments, timeout=timeout,
         stdin='', print_stdout=False, print_stderr=False)
     if result['timeout']:
       log.error('failed to read cluster statistics after %.1f seconds', result['runtime'])

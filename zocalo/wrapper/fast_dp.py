@@ -2,8 +2,6 @@ from __future__ import absolute_import, division, print_function
 
 import json
 import logging
-import os
-import shutil
 
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics

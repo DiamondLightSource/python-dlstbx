@@ -118,7 +118,7 @@ edna-plugin-launcher \
     # generate two different html pages
     # not sure which if any of these are actually used/required
     edna2html_home = '/dls_sw/apps/edna/edna-20140709'
-    edna2html = os.path.join(edna2html_home, 'libraries/EDNA2html-0.0.10a/EDNA2html'
+    edna2html = os.path.join(edna2html_home, 'libraries/EDNA2html-0.0.10a/EDNA2html')
     commands = [
       edna2html,
       '--title="%s"' % short_comments,

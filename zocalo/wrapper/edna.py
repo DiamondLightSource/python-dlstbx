@@ -63,7 +63,6 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
     with working_directory.join('Strategy.txt').open('wb') as f:
       f.write(short_comments)
 
-    edna_home = os.environ['EDNA_HOME']
     strategy_xml = working_directory.join('EDNAStrategy.xml')
     results_xml = working_directory.join('results.xml')
     wrap_edna_sh = working_directory.join('wrap_edna.sh')
@@ -79,7 +78,7 @@ export DCID=%(dcid)s
 export COMMENTS="%(comments)s"
 export SHORT_COMMENTS="%(short_comments)s"
 %(edna_site)s
-${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
+edna-plugin-launcher \
   --execute EDPluginControlInterfacev1_2 --DEBUG \
   --inputFile %(input_file)s \
   --outputFile %(output_file)s''' % dict(
@@ -115,34 +114,6 @@ ${EDNA_HOME}/kernel/bin/edna-plugin-launcher \
     logger.info('exitcode: %s', result['exitcode'])
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
-
-    # generate two different html pages
-    # not sure which if any of these are actually used/required
-    edna2html = os.path.join(edna_home, 'libraries/EDNA2html-0.0.10a/EDNA2html')
-    commands = [
-      edna2html,
-      '--title="%s"' % short_comments,
-      '--run_basename=%s/EDNAStrategy' % working_directory.strpath,
-      '--portable',
-      '--basename=%s/summary' % working_directory.strpath
-    ]
-    result = procrunner.run(
-      commands,
-      working_directory=working_directory.strpath,
-      timeout=params.get('timeout', 3600),
-      print_stdout=True, print_stderr=True,
-    )
-
-    logger.info('command: %s', ' '.join(result['command']))
-    logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
-    logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
-    logger.debug(result['stdout'])
-    logger.debug(result['stderr'])
-
-    self.edna2html(results_xml)
 
     # copy output files to result directory
     logger.info('Copying results from %s to %s' % (

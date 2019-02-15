@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function
 import json
 import logging
 import os
-import shutil
 
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
@@ -139,9 +138,9 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     if result['exitcode']:
       logger.error("image conversion hdf5->cbf failed with:\n{result[stderr]}".format(result=result))
       return False
-    logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
+    if result['timeout']:
+      logger.error("image conversion failed with timeout".format(result=result))
+      return False
     logger.info('runtime: %s', result['runtime'])
     params['orig_image_directory'] = params['image_directory']
     params['image_directory'] = tmpdir.strpath
@@ -165,20 +164,18 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     working_directory.ensure(dir=True)
 
     # run dlstbx.align_crystal in working directory
+    logger.info('running command: %s', ' '.join(command))
     result = procrunner.run(
         command, timeout=params.get('timeout'),
         working_directory=working_directory.strpath,
     )
     if result['exitcode']:
-      logger.error("dlstbx.align_crystal failed with:\n{result[stderr]}".format(result=result))
+      logger.info("dlstbx.align_crystal failed with:\n{result[stderr]}".format(result=result))
       return False
-    logger.info('command: %s', ' '.join(result['command']))
-    logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
+    if result['timeout']:
+      logger.info("dlstbx.align_crystal failed with timeout")
+      return False
     logger.info('runtime: %s', result['runtime'])
-    logger.debug(result['stdout'])
-    logger.debug(result['stderr'])
 
     # Create results directory and symlink if they don't already exist
     results_directory.ensure(dir=True)
@@ -220,10 +217,8 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
     if working_directory.join('align_crystal.json').check():
       with working_directory.join('align_crystal.json').open('rb') as fh:
         json_data = json.load(fh)
-        self.insert_dials_align_strategies(
+      self.insert_dials_align_strategies(
           params['dcid'], crystal_symmetry, json_data)
-    elif result['exitcode']:
-      logger.info('dlstbx.align_crystal failed to process the dataset')
     else:
       logger.warning('Expected JSON output file missing')
 

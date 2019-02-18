@@ -4,7 +4,6 @@ import ConfigParser
 from datetime import datetime
 import logging
 import os
-import shutil
 import sys
 
 import dlstbx.util.symlink
@@ -143,7 +142,6 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         command,
         working_directory=self.working_directory.strpath,
         timeout=self.params.get('timeout'),
-        print_stdout=True, print_stderr=True,
     )
 
     # Hack to workaround dimple returning successful exitcode despite 'Giving up'

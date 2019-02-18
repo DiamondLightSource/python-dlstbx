@@ -1,14 +1,12 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
-import os
 import py
 import re
 from datetime import datetime
 
 import dlstbx.util.symlink
 import ispyb
-import ispyb.model.__future__
 import procrunner
 import zocalo.wrapper
 
@@ -34,7 +32,6 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
     params = self.recwrap.recipe_step['job_parameters']
 
     with ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg') as conn:
-      ispyb.model.__future__.enable('/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg')
       file_directory = conn.get_data_collection(params['dcid']).file_directory
     visit_match = re.search(r'/([a-z]{2}[0-9]{4,5}-[0-9]+)/', file_directory)
     try:
@@ -55,20 +52,17 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
       dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['create_symlink'])
 
     command = self.construct_commandline(params)
+    logger.info('command: %s', ' '.join(command))
     result = procrunner.run(
         command, timeout=params.get('timeout'),
-        print_stdout=True, print_stderr=True,
         working_directory=working_directory.strpath,
     )
-
-    logger.info('command: %s', ' '.join(result['command']))
-    logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
+    if result['exitcode'] or result['timeout']:
+      logger.info('timeout: %s', result['timeout'])
+      logger.info('exitcode: %s', result['exitcode'])
+      logger.debug(result['stdout'])
+      logger.debug(result['stderr'])
     logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
-    logger.debug(result['stdout'])
-    logger.debug(result['stderr'])
 
     # Create results directory and symlink if they don't already exist
     results_directory.ensure(dir=True)

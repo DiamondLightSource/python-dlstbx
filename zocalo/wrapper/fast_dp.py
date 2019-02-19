@@ -113,7 +113,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
       environment['FORKXDS_PROJECT'] = params['forkxds_project']
 
     # run fast_dp in working directory
-    logger.info('Running command: %s', ' '.join(result['command']))
+    logger.info('Running command: %s', ' '.join(command))
     result = procrunner.run(
         command, timeout=params.get('timeout'),
         working_directory=working_directory.strpath,

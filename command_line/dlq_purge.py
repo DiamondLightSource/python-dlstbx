@@ -29,6 +29,7 @@ if __name__ == '__main__':
     default_configuration = '/dls_sw/apps/zocalo/secrets/credentials-testing.cfg'
     dlqprefix = 'zocdev'
   # override default stomp host
+  parser.add_option("--wait", action="store", dest="wait", type=float, help="Wait this many seconds for ActiveMQ replies")
   StompTransport.load_configuration_file(default_configuration)
 
   StompTransport.add_command_line_options(parser)
@@ -83,8 +84,8 @@ if __name__ == '__main__':
     print("Looking for DLQ messages in " + queue)
     stomp.subscribe(queue, receive_dlq_message, acknowledgement=True)
   try:
-    idlequeue.get(True, 3)
+    idlequeue.get(True, options.wait or 3)
     while True:
-      idlequeue.get(True, 0.1)
+      idlequeue.get(True, options.wait or 0.1)
   except Queue.Empty:
     print("Done.")

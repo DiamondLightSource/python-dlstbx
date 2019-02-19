@@ -95,7 +95,7 @@ edna-plugin-launcher \
     commands = [
       'sh', wrap_edna_sh.strpath,
       strategy_xml.strpath, results_xml.strpath]
-    logger.info(' '.join(commands))
+    logger.info('Running command: %s', ' '.join(commands))
     result = procrunner.run(
       commands,
       working_directory=EDNAStrategy.strpath,
@@ -107,15 +107,11 @@ edna-plugin-launcher \
           '_LMFILES_': '',
       },
     )
-
-    logger.info('command: %s', ' '.join(result['command']))
-    logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
-    logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
+    logger.info('EDNA terminated after %.1f seconds with exitcode %s and timeout %s',
+                result['runtime'], result['exitcode'], result['timeout'])
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
+    success = not result['exitcode'] and not result['timeout']
 
     # generate two different html pages
     # not sure which if any of these are actually used/required
@@ -128,21 +124,18 @@ edna-plugin-launcher \
       '--portable',
       '--basename=%s/summary' % working_directory.strpath
     ]
+    logger.info('Running command: %s', ' '.join(commands))
     result = procrunner.run(
       commands,
       working_directory=working_directory.strpath,
       timeout=params.get('timeout', 3600),
       print_stdout=True, print_stderr=True,
     )
-
-    logger.info('command: %s', ' '.join(result['command']))
-    logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
-    logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
+    logger.info('EDNA2HTML terminated after %.1f seconds with exitcode %s and timeout %s',
+                result['runtime'], result['exitcode'], result['timeout'])
     logger.debug(result['stdout'])
     logger.debug(result['stderr'])
+    success = success and not result['exitcode'] and not result['timeout']
 
     self.edna2html(edna2html_home, results_xml)
 
@@ -161,7 +154,7 @@ edna-plugin-launcher \
       dst = results_directory / fname
       if src.check() and (not dst.check() or dst.size() == 0):
         src.copy(dst)
-    return result['exitcode'] == 0
+    return success
 
   def hdf5_to_cbf(self):
     params = self.recwrap.recipe_step['job_parameters']
@@ -179,12 +172,8 @@ edna-plugin-launcher \
       working_directory=tmpdir.strpath,
       timeout=params.get('timeout', 3600),
     )
-    logger.info('command: %s', ' '.join(result['command']))
-    logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
-    logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
+    logger.info('EDNA snowflake conversion terminated after %.1f seconds with exitcode %s and timeout %s',
+                result['runtime'], result['exitcode'], result['timeout'])
     params['orig_image_directory'] = params['image_directory']
     params['image_directory'] = tmpdir
 

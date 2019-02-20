@@ -252,7 +252,7 @@ def populate_dc_xml_template(
         i(_row["focalspotsizeatsampley"]),
     )
     temp = temp.format(
-        comments="Simulated datacollection (}.".format(scenario_name)
+        comments="Simulated datacollection ({}).".format(scenario_name)
         if scenario_name
         else "Simulated datacollection."
     )

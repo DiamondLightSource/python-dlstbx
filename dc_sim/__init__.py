@@ -55,6 +55,53 @@ def s(_v):
         return str(_v)
 
 
+def call_dbserver(xml_input):
+    try:
+        f_in = tempfile.TemporaryFile(suffix=".xml", dir="/tmp", delete=False)
+        f_in_name = f_in.name
+        f_in.write(xml_input)
+        f_in.close()
+        f_out = tempfile.NamedTemporaryFile(suffix=".xml", dir="/tmp", delete=False)
+        f_out_name = f_out.name
+        f_out.close()
+
+        result = procrunner.run(
+            [
+                os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
+                "-h",
+                DBSERVER_HOST,
+                "-p",
+                DBSERVER_PORT,
+                "-i",
+                f_in_name,
+                "-d",
+                "-o",
+                f_out_name,
+            ]
+        )
+        assert not result["exitcode"]
+
+        with open(f_out_name, "r") as fh:
+            return fh.read()
+    finally:
+        try:
+            f_in.close()
+        except Exception:
+            pass
+        try:
+            f_out.close()
+        except Exception:
+            pass
+        try:
+            os.remove(f_in_name)
+        except Exception:
+            pass
+        try:
+            os.remove(f_out_name)
+        except Exception:
+            pass
+
+
 def copy_via_temp_file(source, destination):
     dest_dir, dest_file = os.path.split(destination)
     temp_dest_file = ".tmp." + dest_file
@@ -544,42 +591,13 @@ def simulate(
             log.debug("(SQL) Getting values from the source blsample record")
             bls_row = retrieve_blsample_values(_db, int(src_blsampleid))
 
-            # Produce a BLSample.xml file from the template
-            log.debug(
-                "(filesystem) Creating a temporary blsample XML file in the /tmp folder"
-            )
-
             blsample_xml = populate_blsample_xml_template(bls_row)
             print(blsample_xml)
 
-            f = tempfile.NamedTemporaryFile(
-                suffix=".xml", prefix="blsample", dir="/tmp", delete=False
-            )
-            xml_fname = f.name
-            f.write(blsample_xml)
-            f.close()
-
-            # Ingest the blsample.xml file data using the DbserverClient
+            # Ingest the blsample data using the DbserverClient
             log.debug("(dbserver) Ingest the blsample XML")
-            subprocess.check_call(
-                [
-                    os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
-                    "-h",
-                    DBSERVER_HOST,
-                    "-p",
-                    DBSERVER_PORT,
-                    "-i",
-                    xml_fname,
-                    "-d",
-                    "-o",
-                    "/tmp/test.log",
-                ]
-            )
+            xml = call_dbserver(blsample_xml)
 
-            # Extract the blsampleId from the output
-            log.debug("(filesystem) Read the returned blsampleid from output file")
-            with open("/tmp/test.log", "r") as fh:
-                xml = fh.read()
             m = re.search("<blSampleId>(\d+)</blSampleId>", xml)
             if m:
                 blsample_id = int(m.groups()[0])
@@ -590,42 +608,13 @@ def simulate(
             blsample_id = _sample_id
 
     if data_collection_group_id is None:
-        # Produce a DataCollectionGroup.xml file from the template
-        log.debug(
-            "(filesystem) Creating a temporary datacollectiongroup XML file in the /tmp folder"
-        )
+        # Produce a DataCollectionGroup xml blob from the template
         dcg_xml = populate_dcg_xml_template(dcg_row, sessionid, blsample_id)
 
-        f = tempfile.NamedTemporaryFile(
-            suffix=".xml", prefix="datacollectiongroup", dir="/tmp", delete=False
-        )
-        xml_fname = f.name
-        f.write(dcg_xml)
-        f.close()
-
-        # Ingest the DataCollectionGroup.xml file data using the DbserverClient
+        # Ingest the DataCollectionGroup xml data using the DbserverClient
         log.debug("(dbserver) Ingest the datacollectiongroup XML")
-        subprocess.check_call(
-            [
-                os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
-                "-h",
-                DBSERVER_HOST,
-                "-p",
-                DBSERVER_PORT,
-                "-i",
-                xml_fname,
-                "-d",
-                "-o",
-                "/tmp/test.log",
-            ]
-        )
+        xml = call_dbserver(dcg_xml)
 
-        # Extract the datacollectiongroupId from the output
-        log.debug(
-            "(filesystem) Read the returned datacollectiongroupid from output file"
-        )
-        with open("/tmp/test.log", "r") as fh:
-            xml = fh.read()
         datacollectiongroupid = None
         m = re.search("<dataCollectionGroupId>(\d+)</dataCollectionGroupId>", xml)
         if m:
@@ -638,41 +627,13 @@ def simulate(
     # Get the grid info values associated with the source dcg
     gi_row = retrieve_grid_info_values(_db, src_dcgid)
 
-    # Prouce a GridInfo.xml file from the template if the source DataCollectionGroup has one:
+    # Prouce a GridInfo xml blob from the template if the source DataCollectionGroup has one:
     if gi_row is not None:
-        log.debug(
-            "(filesystem) Creating a temporary gridinfo XML file in the /tmp folder"
-        )
-        dcg_xml = populate_grid_info_xml_template(gi_row, datacollectiongroupid)
-
-        f = tempfile.NamedTemporaryFile(
-            suffix=".xml", prefix="gridinfo", dir="/tmp", delete=False
-        )
-        xml_fname = f.name
-        f.write(dcg_xml)
-        f.close()
+        gridinfo_xml = populate_grid_info_xml_template(gi_row, datacollectiongroupid)
 
         # Ingest the GridInfo.xml file data using the DbserverClient
         log.debug("(dbserver) Ingest the gridinfo XML")
-        subprocess.check_call(
-            [
-                os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
-                "-h",
-                DBSERVER_HOST,
-                "-p",
-                DBSERVER_PORT,
-                "-i",
-                xml_fname,
-                "-d",
-                "-o",
-                "/tmp/test.log",
-            ]
-        )
-
-        # Extract the gridinfoId from the output
-        log.debug("(filesystem) Read the returned gridinfoid from output file")
-        with open("/tmp/test.log", "r") as fh:
-            xml = fh.read()
+        xml = call_dbserver(gridinfo_xml)
         gridinfoid = None
         m = re.search("<gridInfoId>(\d+)</gridInfoId>", xml)
         if m:
@@ -680,10 +641,7 @@ def simulate(
         else:
             sys.exit("No gridinfoid found in output")
 
-    # Produce a DataCollection.xml file from the template and use the new run number
-    log.debug(
-        "(filesystem) Creating a temporary datacollection XML file in the /tmp folder"
-    )
+    # Produce a DataCollection xml blob from the template and use the new run number
     dc_xml = populate_dc_xml_template(
         row,
         sessionid,
@@ -696,36 +654,10 @@ def simulate(
         blsample_id,
         scenario_name=scenario_name,
     )
-    # print dc_xml
 
-    f = tempfile.NamedTemporaryFile(
-        suffix=".xml", prefix="datacollection", dir="/tmp", delete=False
-    )
-    xml_fname = f.name
-    f.write(dc_xml)
-    f.close()
-
-    # Ingest the DataCollection.xml file data using the DbserverClient
+    # Ingest the DataCollection xml blob data using the DbserverClient
     log.debug("(dbserver) Ingest the datacollection XML")
-    subprocess.check_call(
-        [
-            os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
-            "-h",
-            DBSERVER_HOST,
-            "-p",
-            DBSERVER_PORT,
-            "-i",
-            xml_fname,
-            "-d",
-            "-o",
-            "/tmp/test.log",
-        ]
-    )
-
-    # Extract the datacollectionId from the output
-    log.debug("(filesystem) Read the returned datacollectionid from output file")
-    with open("/tmp/test.log", "r") as fh:
-        xml = fh.read()
+    xml = call_dbserver(dc_xml)
     datacollectionid = None
     m = re.search("<dataCollectionId>(\d+)</dataCollectionId>", xml)
     if m:
@@ -789,67 +721,27 @@ def simulate(
     else:
         raise RuntimeError("Unsupported file extension for %s" % filetemplate)
 
-    # Populate a datacollection XML file
+    # Populate a datacollection XML blob
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     dc_xml = dc_endtime_temp_xml % (datacollectionid, nowstr)
     print(dc_xml)
-    f = tempfile.NamedTemporaryFile(
-        suffix=".xml", prefix="datacollection", dir="/tmp", delete=False
-    )
-    xml_fname = f.name
-    f.write(dc_xml)
-    f.close()
-
-    # Ingest the DataCollection.xml file data using the DbserverClient
     log.debug(
         "(dbserver) Ingest the datacollection XML to update with the d.c. end time"
     )
-    subprocess.check_call(
-        [
-            os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
-            "-h",
-            DBSERVER_HOST,
-            "-p",
-            DBSERVER_PORT,
-            "-i",
-            xml_fname,
-            "-d",
-            "-o",
-            "/tmp/test.log",
-        ]
-    )
+    call_dbserver(dc_xml)
 
-    # Populate a datacollectiongroup XML file
+    # Populate a datacollectiongroup XML blob
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     dcg_xml = dcg_endtime_temp_xml % (datacollectiongroupid, nowstr)
     print(dcg_xml)
-    f = tempfile.NamedTemporaryFile(
-        suffix=".xml", prefix="datacollectiongroup", dir="/tmp", delete=False
-    )
-    xml_fname = f.name
-    f.write(dcg_xml)
-    f.close()
 
-    # Ingest the DataCollectionGroup.xml file data using the DbserverClient
+    # Ingest the DataCollectionGroup xml blob using the DbserverClient
     log.debug(
         "(dbserver) Ingest the datacollectiongroup XML to update with the d.c.g. end time"
     )
-    subprocess.check_call(
-        [
-            os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
-            "-h",
-            DBSERVER_HOST,
-            "-p",
-            DBSERVER_PORT,
-            "-i",
-            xml_fname,
-            "-d",
-            "-o",
-            "/tmp/test.log",
-        ]
-    )
+    call_dbserver(dcg_xml)
 
     command = ["%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, _beamline)]
     command.extend(run_at_params)

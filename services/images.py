@@ -129,7 +129,7 @@ class DLSImages(CommonService):
         if isinstance(message, dict) and message.get("file"):
             filename = message["file"]
         if not filename or filename == "None":
-            self.log.info("Skipping thumbnail generation: filename not specified")
+            self.log.debug("Skipping thumbnail generation: filename not specified")
             rw.transport.ack(header)
             return
         if not os.path.exists(filename):

@@ -57,7 +57,7 @@ def s(_v):
 
 def call_dbserver(xml_input):
     try:
-        f_in = tempfile.TemporaryFile(suffix=".xml", dir="/tmp", delete=False)
+        f_in = tempfile.NamedTemporaryFile(suffix=".xml", dir="/tmp", delete=False)
         f_in_name = f_in.name
         f_in.write(xml_input)
         f_in.close()

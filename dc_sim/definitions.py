@@ -1,6 +1,6 @@
+from __future__ import absolute_import, division, print_function
+
 from pytest import approx
-
-
 
 tests = {
         'gi-multi' : {
@@ -51,22 +51,13 @@ tests = {
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                       },
 
-       'example-ins': {
+    "insulin-2016": {
                 'src_dir'    : '/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2',
                 'src_run_num'   : (2,),
                 'src_prefix' : ('INS2',),
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
-                      },
-
-       'example-ins-2': {
-                'src_dir'    : '/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2',
-                'src_run_num'   : (2,),
-                'src_prefix' : ('INS2',),
-                'use_sample_id' : 434837,
-                'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
-                            'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
-                        },
+    },
 
        'mad-multi': {
                 'src_dir'    : '/dls/i04/data/2017/cm16781-1/20170111/ZnMAD',
@@ -197,13 +188,4 @@ tests = {
                  'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
                              'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },
-
-        'sane-example-big': {
-                 'src_dir'    : '/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2',
-                 'src_run_num'   : (2,),
-                 'src_prefix' : ('INS2',),
-                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
-                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
-                 },
-
         }

@@ -40,19 +40,16 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
     space_group = params.get('spacegroup')
     if space_group is not None:
       commands.append(space_group)
+    logger.info('command: %s', ' '.join(commands))
     result = procrunner.run(
       commands,
       timeout=params.get('timeout', 3600),
     )
-
-    logger.info('command: %s', ' '.join(result['command']))
     if result['exitcode']:
       logger.info('exitcode: %s', result['exitcode'])
       logger.info(result['stdout'])
       logger.info(result['stderr'])
     logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
     logger.info('runtime: %s', result['runtime'])
 
     if not py.path.local(working_directory).join('strategy_native.log').check() \
@@ -67,22 +64,20 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         params['dcid'],
         'strategy.dat'
       ]
-      result = procrunner.run(
+      logger.info('command: %s', ' '.join(commands))
+      insertresult = procrunner.run(
         commands,
         timeout=params.get('timeout', 3600),
       )
-
-      logger.info('command: %s', ' '.join(result['command']))
-      logger.info('timeout: %s', result['timeout'])
-      logger.info('time_start: %s', result['time_start'])
-      logger.info('time_end: %s', result['time_end'])
-      logger.info('runtime: %s', result['runtime'])
-      logger.info('exitcode: %s', result['exitcode'])
-      logger.debug(result['stdout'])
-      logger.debug(result['stderr'])
+      if insertresult['exitcode']:
+        logger.info('exitcode: %s', insertresult['exitcode'])
+        logger.info(insertresult['stdout'])
+        logger.info(insertresult['stderr'])
+      logger.info('timeout: %s', insertresult['timeout'])
+      logger.info('runtime: %s', insertresult['runtime'])
 
     beamline = params['beamline']
-    if beamline in ('i03', 'i04'):
+    if not result['exitcode'] and beamline in ('i03', 'i04'):
       result = self.run_xoalign(os.path.join(working_directory, 'mosflm_index.mat'))
 
     # copy output files to result directory
@@ -141,8 +136,6 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
       environment_override={'XOALIGN_CALIB': '/dls_sw/%s/etc/xoalign_config.py' % params['beamline']},
     )
     logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
     logger.info('runtime: %s', result['runtime'])
     logger.info('exitcode: %s', result['exitcode'])
     logger.debug(result['stdout'])

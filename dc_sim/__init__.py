@@ -1,15 +1,16 @@
 # Functions to simulate a data collection
 #
-# This will:
-# * insert new entries into the datacollection table using the DbserverClient.py script
-# * copy images from the source data collection
-# * run the scripts RunAtStartOfDataCollection.sh and RunAtEndOfDataCollection.sh
+# This
+# * inserts new entries into the datacollection table using the DbserverClient.py script
+# * copies images from the source data collection
+# * runs the scripts RunAtStartOfDataCollection.sh and RunAtEndOfDataCollection.sh
 #   at appropriate times.
 
 from __future__ import absolute_import, division, print_function
 
 import datetime
 import errno
+import glob
 import logging
 import os
 import re
@@ -98,6 +99,17 @@ def populate_dcg_xml_template(_row, _sessionid, _blsample_id):
         s(_row["detectormode"]),
     )
 
+    temp_format = dcg_temp_xml_format.format(
+        sessionid=_sessionid,
+        blsample_xml=blsample_id_elem,
+        comments="Simulated datacollection.",
+        experimenttype=s(_row["experimenttype"]),
+        starttime=nowstr,
+        crystalclass=s(_row["crystalclass"]),
+        detectormode=s(_row["detectormode"]),
+    )
+    assert temp == temp_format, "%s\n !=\n%s" % (temp, temp_format)
+
     # remove lines with null, nan and -1 values:
     temp = re.sub("\<.*\>null\</.*\>\n", "", temp)
     temp = re.sub("\<.*\>nan\</.*\>\n", "", temp)
@@ -134,13 +146,14 @@ def populate_dc_xml_template(
     _run_number,
     _xtal_snapshot_path,
     _blsample_id,
+    scenario_name=None,
 ):
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     suffix = _row["imagesuffix"]
     if suffix == "h5":
-      file_template = "%s_%d_master.%s" % (_prefix, _run_number, suffix)
+        file_template = "%s_%d_master.%s" % (_prefix, _run_number, suffix)
     else:
-      file_template = "%s_%d_####.%s" % (_prefix, _run_number, suffix)
+        file_template = "%s_%d_####.%s" % (_prefix, _run_number, suffix)
     if _blsample_id is None:
         blsample_id_elem = ""
     else:
@@ -191,6 +204,11 @@ def populate_dc_xml_template(
         i(_row["focalspotsizeatsamplex"]),
         i(_row["focalspotsizeatsampley"]),
     )
+    temp = temp.format(
+        comments="Simulated datacollection (}.".format(scenario_name)
+        if scenario_name
+        else "Simulated datacollection."
+    )
 
     # remove lines with null, nan and -1 values:
     temp = re.sub("\<.*\>null\</.*\>\n", "", temp)
@@ -221,6 +239,15 @@ dcg_temp_xml = """<?xml version="1.0" ?>
 <startTime>%s</startTime>
 <crystalClass>%s</crystalClass>
 <detectorMode>%s</detectorMode>
+</DataCollectionGroup>"""
+dcg_temp_xml_format = """<?xml version="1.0" ?>
+<DataCollectionGroup>
+<sessionId>{sessionid}</sessionId>
+{blsample_xml}<comments>{comments}</comments>
+<experimentType>{experimenttype}</experimentType>
+<startTime>{starttime}</startTime>
+<crystalClass>{crystalclass}</crystalClass>
+<detectorMode>{detectormode}</detectorMode>
 </DataCollectionGroup>"""
 
 grid_info_temp_xml = """<?xml version="1.0" ?>
@@ -262,7 +289,7 @@ dc_temp_xml = """<?xml version="1.0" ?>
 <detectorDistance>%.6f</detectorDistance>
 <xBeam>%.6f</xBeam>
 <yBeam>%.6f</yBeam>
-<comments>Simulated datacollection.</comments>
+<comments>{comments}</comments>
 <printableForReport>%d</printableForReport>
 <slitGapVertical>%.6f</slitGapVertical>
 <slitGapHorizontal>%.6f</slitGapHorizontal>
@@ -438,6 +465,7 @@ def simulate(
     _dest_dir,
     _sample_id,
     data_collection_group_id=None,
+    scenario_name=None,
 ):
     _db = dlstbx.dc_sim.mydb.DB()
 
@@ -471,7 +499,7 @@ def simulate(
     log.debug(
         "(SQL) Getting the currently highest run number for this img. directory + prefix"
     )
-    if filetemplate.endswith('.h5'):
+    if filetemplate.endswith(".h5"):
         # Can't change the run number otherwise the link from the master.h5 to data_*.h5 will be incorrect
         run_number = _src_run_number
     else:
@@ -490,7 +518,7 @@ def simulate(
         "(filesystem) Copy the xtal snapshot(s) (if any) from source to target directories"
     )
     dest_xtal_snapshot_path = ["", "", "", ""]
-    for x in xrange(0, 4):
+    for x in range(0, 4):
         if src_xtal_snapshot_path[x] is not None:
             if os.path.exists(src_xtal_snapshot_path[x]):
                 png = re.sub("^.*/(.*)$", _dest_dir + r"/\1", src_xtal_snapshot_path[x])
@@ -666,6 +694,7 @@ def simulate(
         run_number,
         dest_xtal_snapshot_path,
         blsample_id,
+        scenario_name=scenario_name,
     )
     # print dc_xml
 
@@ -714,69 +743,51 @@ def simulate(
         os.path.splitext(filetemplate)[-1],
     ]
 
-    log.debug(
-        "(bash script) %s/RunAtStartOfCollect-%s.sh %s %s %s %s %s %s %s"
-        % (
-            MX_SCRIPTS_BINDIR,
-            _beamline,
-            run_at_params[0],
-            run_at_params[1],
-            run_at_params[2],
-            run_at_params[3],
-            run_at_params[4],
-            run_at_params[5],
-            run_at_params[6],
-        )
-    )
-    subprocess.check_call(
-        [
-            "%s/RunAtStartOfCollect-%s.sh %s %s %s %s %s %s %s"
-            % (
-                MX_SCRIPTS_BINDIR,
-                _beamline,
-                run_at_params[0],
-                run_at_params[1],
-                run_at_params[2],
-                run_at_params[3],
-                run_at_params[4],
-                run_at_params[5],
-                run_at_params[6],
-            )
-        ],
-        shell=True,
-    )
+    command = ["%s/RunAtStartOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, _beamline)]
+    command.extend(run_at_params)
+    log.info("command: %s", " ".join(command))
+    result = procrunner.run(command, timeout=180)
+    log.info("runtime: %s", result["runtime"])
+    if result["exitcode"] or result["timeout"]:
+        log.info("timeout: %s", result["timeout"])
+        log.debug(result["stdout"])
+        log.debug(result["stderr"])
+        log.error("RunAtStartOfCollect failed with exit code %d", result["exitcode"])
 
-    if filetemplate.endswith('.cbf'):
-      # Also copy images one by one from source to destination directory.
-      for x in xrange(start_img_number, start_img_number + no_images):
-          img_number = "%04d" % x
-          src_prefix = ""
-          if not _src_prefix is None:
-              src_prefix = _src_prefix
-          src_fname = "%s_%d_%s.cbf" % (src_prefix, _src_run_number, str(img_number))
-          dest_fname = "%s_%d_%s.cbf" % (_dest_prefix, run_number, str(img_number))
-          src = os.path.join(_src_dir, src_fname)
-          target = os.path.join(_dest_dir, dest_fname)
-          log.info("(filesystem) Copy file %s to %s" % (src, target))
-          copy_via_temp_file(src, target)
-    elif filetemplate.endswith('.h5'):
-      import glob
-      files = []
-      src_prefix = ""
-      if not _src_prefix is None:
-          src_prefix = _src_prefix
-      for ext in ('_*.h5', '.nxs', '_meta.hdf5'):
-        files.extend(glob.glob(os.path.join(
-          _src_dir, filetemplate.split('_master.h5')[0] + ext)))
-      for src in files:
-        dest_fname = os.path.basename(src).replace(
-          "%s_%d" % (src_prefix, _src_run_number),
-          "%s_%d" % (_dest_prefix, run_number))
-        target = os.path.join(_dest_dir, dest_fname)
-        log.info("(filesystem) Copy file %s to %s" % (src, target))
-        copy_via_temp_file(src, target)
+    if filetemplate.endswith(".cbf"):
+        # Also copy images one by one from source to destination directory.
+        for x in range(start_img_number, start_img_number + no_images):
+            img_number = "%04d" % x
+            src_prefix = ""
+            if not _src_prefix is None:
+                src_prefix = _src_prefix
+            src_fname = "%s_%d_%s.cbf" % (src_prefix, _src_run_number, str(img_number))
+            dest_fname = "%s_%d_%s.cbf" % (_dest_prefix, run_number, str(img_number))
+            src = os.path.join(_src_dir, src_fname)
+            target = os.path.join(_dest_dir, dest_fname)
+            log.info("(filesystem) Copy file %s to %s" % (src, target))
+            copy_via_temp_file(src, target)
+    elif filetemplate.endswith(".h5"):
+        files = []
+        src_prefix = ""
+        if not _src_prefix is None:
+            src_prefix = _src_prefix
+        for ext in ("_*.h5", ".nxs", "_meta.hdf5"):
+            files.extend(
+                glob.glob(
+                    os.path.join(_src_dir, filetemplate.split("_master.h5")[0] + ext)
+                )
+            )
+        for src in files:
+            dest_fname = os.path.basename(src).replace(
+                "%s_%d" % (src_prefix, _src_run_number),
+                "%s_%d" % (_dest_prefix, run_number),
+            )
+            target = os.path.join(_dest_dir, dest_fname)
+            log.info("(filesystem) Copy file %s to %s" % (src, target))
+            copy_via_temp_file(src, target)
     else:
-      raise RuntimeError('Unsupported file extension for %s' % filetemplate)
+        raise RuntimeError("Unsupported file extension for %s" % filetemplate)
 
     # Populate a datacollection XML file
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -840,22 +851,16 @@ def simulate(
         ]
     )
 
-    command = [ "%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, _beamline) ]
+    command = ["%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, _beamline)]
     command.extend(run_at_params)
-    result = procrunner.run(
-        command, timeout=180,
-        print_stdout=True, print_stderr=True,
-    )
-    log.info('command: %s', ' '.join(result['command']))
-    log.info('timeout: %s', result['timeout'])
-    log.info('time_start: %s', result['time_start'])
-    log.info('time_end: %s', result['time_end'])
-    log.info('runtime: %s', result['runtime'])
-    log.info('exitcode: %s', result['exitcode'])
-    log.debug(result['stdout'])
-    log.debug(result['stderr'])
-    if result['exitcode'] != 0:
-      log.error("RunAtEndOfCollect failed with exit code %d", result['exitcode'])
+    log.info("command: %s", " ".join(command))
+    result = procrunner.run(command, timeout=180)
+    log.info("runtime: %s", result["runtime"])
+    if result["exitcode"] or result["timeout"]:
+        log.info("timeout: %s", result["timeout"])
+        log.debug(result["stdout"])
+        log.debug(result["stderr"])
+        log.error("RunAtEndOfCollect failed with exit code %d", result["exitcode"])
 
     return datacollectionid, datacollectiongroupid
 
@@ -872,31 +877,39 @@ def call_sim(test_name, beamline):
     # Calculate the destination directory
     now = datetime.datetime.now()
     if beamline == "i02-2":
-      dest_visit = "nt18231-22"
-      dest_visit_dir = "/dls/mx/data/nt18231/nt18231-22"
-      dest_dir_fmt = "{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
-      dest_dir = dest_dir_fmt.format(
-          beamline=beamline, now=now, dest_visit_dir=dest_visit_dir, random=str(uuid.uuid4())[:8]
-      )
+        dest_visit = "nt18231-22"
+        dest_visit_dir = "/dls/mx/data/nt18231/nt18231-22"
+        dest_dir_fmt = (
+            "{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
+        )
+        dest_dir = dest_dir_fmt.format(
+            beamline=beamline,
+            now=now,
+            dest_visit_dir=dest_visit_dir,
+            random=str(uuid.uuid4())[:8],
+        )
     else:
-      for cm_dir in os.listdir(
-          "/dls/{beamline}/data/{now:%Y}".format(beamline=beamline, now=now)
-      ):
-          if cm_dir.startswith("nt18231"):
-              dest_visit = cm_dir
-              dest_dir_fmt = "/dls/{beamline}/data/{now:%Y}/{cm_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
-              dest_dir = dest_dir_fmt.format(
-                  beamline=beamline, now=now, cm_dir=cm_dir, random=str(uuid.uuid4())[:8]
-              )
-              break
-      else:
-        log.error('Could not determine destination directory')
-        sys.exit(1)
+        for cm_dir in os.listdir(
+            "/dls/{beamline}/data/{now:%Y}".format(beamline=beamline, now=now)
+        ):
+            if cm_dir.startswith("nt18231"):
+                dest_visit = cm_dir
+                dest_dir_fmt = "/dls/{beamline}/data/{now:%Y}/{cm_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
+                dest_dir = dest_dir_fmt.format(
+                    beamline=beamline,
+                    now=now,
+                    cm_dir=cm_dir,
+                    random=str(uuid.uuid4())[:8],
+                )
+                break
+        else:
+            log.error("Could not determine destination directory")
+            sys.exit(1)
 
-      # Set mandatory parameters
-      dest_visit_dir = "/dls/{beamline}/data/{now:%Y}/{dest_visit}".format(
-          beamline=beamline, now=now, dest_visit=dest_visit
-      )
+        # Set mandatory parameters
+        dest_visit_dir = "/dls/{beamline}/data/{now:%Y}/{dest_visit}".format(
+            beamline=beamline, now=now, dest_visit=dest_visit
+        )
 
     # Extract necessary info from the source directory path
     m1 = re.search("(/dls/(\S+?)/data/\d+/)(\S+)", src_dir)
@@ -957,6 +970,7 @@ def call_sim(test_name, beamline):
                 dest_dir,
                 sample_id,
                 data_collection_group_id=dcg,
+                scenario_name=test_name,
             )
             dcid_list.append(dcid)
             dcg_list.append(dcg)

@@ -116,19 +116,18 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
       logger.debug('Setting SynchWeb status to swirl')
       py.path.local(params['synchweb_ticks']).ensure()
 
+    logger.info('command: %s', ' '.join(command))
     result = procrunner.run(
         command, timeout=params.get('timeout'),
-        print_stdout=False, print_stderr=False,
         working_directory=working_directory.strpath,
     )
-    logger.info('command: %s', ' '.join(result['command']))
-    logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
-    logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
-    logger.debug(result['stdout'])
-    logger.debug(result['stderr'])
+    success = not result['exitcode'] and not result['timeout']
+    if success:
+      logger.info('xia2 successful, took %.1f seconds', result['runtime'])
+    else:
+      logger.warning('xia2 failed with exitcode %s and timeout %s', result['exitcode'], result['timeout'])
+      logger.debug(result['stdout'])
+      logger.debug(result['stderr'])
 
     # copy output files to result directory
     results_directory.ensure(dir=True)
@@ -141,7 +140,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
       if src.check():
         logger.debug('Recursively copying %s to %s' % (src.strpath, dst.strpath))
         src.copy(dst)
-      elif result['exitcode']:
+      elif not success:
         logger.info('Expected output directory does not exist (non-zero exitcode): %s', src.strpath)
       else:
         logger.warning('Expected output directory does not exist: %s', src.strpath)
@@ -193,7 +192,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
 
     # Part of the result parsing requires to be in result directory
     with results_directory.as_cwd():
-      if not result['exitcode'] and not os.path.isfile('xia2.error') and os.path.exists('xia2.json') \
+      if success and not os.path.isfile('xia2.error') and os.path.exists('xia2.json') \
           and not params.get('do_not_write_to_ispyb'):
         self.send_results_to_ispyb()
 
@@ -202,7 +201,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
 
     # Update SynchWeb ticks hack file.
     if params.get('synchweb_ticks'):
-      if result['exitcode'] == 0:
+      if success:
         logger.debug('Setting SynchWeb status to success')
         py.path.local(params['synchweb_ticks']).write('''
             The purpose of this file is only
@@ -219,4 +218,4 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
             data processing has failed.
             ''')
 
-    return result['exitcode'] == 0
+    return success

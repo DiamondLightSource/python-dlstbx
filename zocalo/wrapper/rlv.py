@@ -28,13 +28,10 @@ class RLVWrapper(zocalo.wrapper.BaseWrapper):
     result = procrunner.run(
         command, timeout=params.get('timeout'),
     )
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
-    logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
-    if result['exitcode']:
-      logger.warning('Failed to import files %s', params['template'])
+    if result['exitcode'] or result['timeout']:
+      logger.warning('Failed to import files %s with exitcode %s and timeout %s', params['template'], result['exitcode'], result['timeout'])
       return False
+    logger.info('Import successful, took %.1f seconds', result['runtime'])
 
     # then find spots
     command = ['dials.find_spots', 'datablock.json', 'nproc=' + str(os.getenv('NSLOTS', '20'))]
@@ -42,13 +39,10 @@ class RLVWrapper(zocalo.wrapper.BaseWrapper):
     result = procrunner.run(
         command, timeout=params.get('timeout'),
     )
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
-    logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
-    if result['exitcode']:
-      logger.warning('Spotfinding failed on %s', params['template'])
+    if result['exitcode'] or result['timeout']:
+      logger.warning('Spotfinding failed on %s with exitcode %s and timeout %s', params['template'], result['exitcode'], result['timeout'])
       return False
+    logger.info('Spotfinding successful, took %.1f seconds', result['runtime'])
 
     # then map to csv file
     command = ['dev.dials.csv', 'dp=4', 'compress=true', 'csv=rl.csv.gz', 'datablock.json', 'strong.pickle']
@@ -56,13 +50,10 @@ class RLVWrapper(zocalo.wrapper.BaseWrapper):
     result = procrunner.run(
         command, timeout=params.get('timeout'),
     )
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
-    logger.info('runtime: %s', result['runtime'])
-    logger.info('exitcode: %s', result['exitcode'])
-    if result['exitcode']:
-      logger.warning('Generating .csv failed on %s', params['template'])
+    if result['exitcode'] or result['timeout']:
+      logger.warning('Generating .csv failed on %s with exitcode %s and timeout %s', params['template'], result['exitcode'], result['timeout'])
       return False
+    logger.info('CSV generation successful, took %.1f seconds', result['runtime'])
 
     # copy output files to result directory
     results_directory = params['results_directory']

@@ -34,33 +34,41 @@ print("Enumerating workflow services:")
 service_list = []
 service_list.append("DLSISPyBPIA = dlstbx.services.ispybsvc_pia:DLSISPyBPIA")
 for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
-  if not name.startswith('test_') and not name.startswith('_'):
+    if name.startswith("test_") or name.startswith("_"):
+        continue
     try:
-      fid, pathname, desc = imp.find_module(name, dlstbx.services.__path__)
+        fid, pathname, desc = imp.find_module(name, dlstbx.services.__path__)
     except Exception:
-      fid = None
+        fid = None
     if not fid:
-      print("  *** Could not read %s" % name)
-      continue
+        print("  *** Could not read %s" % name)
+        continue
+    if desc[0] == ".pyc":
+        print("  *** %s only present in compiled form, ignoring" % name)
+        continue
     content = fid.read()
     fid.close()
     try:
-      parsetree = ast.parse(content)
-    except Exception:
-      print("  *** Could not parse %s" % name)
-      continue
-    for top_level_def in parsetree.body:
-      if not isinstance(top_level_def, ast.ClassDef):
+        parsetree = ast.parse(content)
+    except Exception as e:
+        print("  *** Could not parse %s" % name)
         continue
-      base_names = [
-        baseclass.id
-        for baseclass in top_level_def.bases
-        if isinstance(baseclass, ast.Name)
-      ]
-      if 'CommonService' in base_names:
-        classname = top_level_def.name
-        service_list.append("{classname} = dlstbx.services.{modulename}:{classname}".format(classname=classname, modulename=name))
-        print("  found", classname)
+    for top_level_def in parsetree.body:
+        if not isinstance(top_level_def, ast.ClassDef):
+            continue
+        base_names = [
+            baseclass.id
+            for baseclass in top_level_def.bases
+            if isinstance(baseclass, ast.Name)
+        ]
+        if "CommonService" in base_names:
+            classname = top_level_def.name
+            service_list.append(
+                "{classname} = dlstbx.services.{modulename}:{classname}".format(
+                    classname=classname, modulename=name
+                )
+            )
+            print("  found", classname)
 libtbx.pkg_utils.define_entry_points({
   'workflows.services': sorted(service_list),
   'dlstbx.wrappers': sorted([

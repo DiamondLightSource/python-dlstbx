@@ -82,7 +82,7 @@ def format_message(verbosity):
       message['workflows_workflows'] = 'workflows ' + message['workflows_workflows']
     return format_string( \
              "{localtime} {BOLD}{facility}{DEFAULT}{LEVEL} {source} {DEFAULT}{workflows_service}\n"
-             "{process_name}:{thread_name}{Thread}  {workflows_statustext}  {workflows_workflows}  {workflows_dlstbx}\n"
+             "{process_name}:{thread_name}{Thread}  {workflows_statustext}  {workflows_workflows}  {workflows_dlstbx}  {recipe_ID}\n"
              "{file}{SourceClassName}:{line}{SourceLineNumber} ({function}{SourceMethodName})\n"
              "{LEVEL}{message}\n" +
              "{full_message}\n",

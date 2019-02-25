@@ -77,10 +77,10 @@ tests = {
                  },
 
        'native-i04-eiger': {
-                'src_dir'    : '/dls/i04/data/2019/cm23004-1/20190109/Eiger/gw/Thaum/Thau_4',
+                'src_dir'    : '/dls/i04/data/2019/cm23004-1/20190223/Thaum/Thau_16',
                 'src_run_num'   : (1,),
-                'src_prefix' : ('Thau_4',),
-                'use_sample_id' : 1970253,
+                'src_prefix' : ('Thau_16',),
+                'use_sample_id' : 1970289,
                 'results': {'a' : approx(100,abs=100), 'b' : approx(100,abs=100), 'c' : approx(100,abs=100),
                             'alpha' : approx(180, abs=180), 'beta' : approx(180, abs=180), 'gamma' : approx(180, abs=180)}
                  },

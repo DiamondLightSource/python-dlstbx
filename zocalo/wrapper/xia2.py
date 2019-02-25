@@ -125,7 +125,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
     if success:
       logger.info('xia2 successful, took %.1f seconds', result['runtime'])
     else:
-      logger.warning('xia2 failed with exitcode %s and timeout %s', result['exitcode'], result['timeout'])
+      logger.info('xia2 failed with exitcode %s and timeout %s', result['exitcode'], result['timeout'])
       logger.debug(result['stdout'])
       logger.debug(result['stderr'])
 

@@ -65,11 +65,6 @@ class DLSFileWatcher(CommonService):
     txn = rw.transport.transaction_begin()
     rw.transport.ack(header, transaction=txn)
 
-    self.log.debug("Waiting %.1f seconds for %s\n%d of %d files seen so far",
-        time.time()-status['start-time'],
-        rw.recipe_step['parameters']['pattern'],
-        status['seen-files'], filecount)
-
     # Identify selections to notify for
     selections = [ k for k in rw.recipe_step['output'].iterkeys()
                    if isinstance(k, basestring) and k.startswith('select-') ]
@@ -200,7 +195,12 @@ class DLSFileWatcher(CommonService):
         message_delay = max(1, message_delay)
       else:
         message_delay = 1
-      self.log.debug("No files found this time")
+      self.log.debug(
+          ("No further files found for {pattern} after a total time of {time:.1f} seconds\n"
+          "{files_seen} of {files_total} files seen so far").format(
+             time=time.time()-status['start-time'],
+         pattern=rw.recipe_step['parameters']['pattern'],
+         files_seen=status['seen-files'], files_total=filecount))
     else:
       # Otherwise note last time progress was made
       status['last-seen'] = time.time()

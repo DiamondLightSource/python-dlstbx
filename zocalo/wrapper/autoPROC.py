@@ -314,7 +314,6 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
     logger.info('command: %s', ' '.join(command))
     result = procrunner.run(
       command, timeout=params.get('timeout'),
-      print_stdout=True, print_stderr=True,
       environment_override={
         'autoPROC_HIGHLIGHT': 'no',
         'LD_LIBRARY_PATH': '',
@@ -323,8 +322,6 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
     )
 
     logger.info('timeout: %s', result['timeout'])
-    logger.info('time_start: %s', result['time_start'])
-    logger.info('time_end: %s', result['time_end'])
     logger.info('runtime: %s', result['runtime'])
     logger.info('exitcode: %s', result['exitcode'])
     logger.debug(result['stdout'])

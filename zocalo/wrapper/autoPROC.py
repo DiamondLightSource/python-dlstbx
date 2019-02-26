@@ -164,7 +164,12 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
               'refined_detector_dist': int_result['refinedDetectorDistance'],
           }
           # autoPROC reports beam centre in px rather than mm
-          px_to_mm = 0.172
+          params = self.recwrap.recipe_step['job_parameters']
+          image_template = params['autoproc']['image_template']
+          if image_template.endswith('.h5'):
+            px_to_mm = 0.075
+          else:
+            px_to_mm = 0.172
           for beam_direction in ('refined_xbeam', 'refined_ybeam'):
             if integration[beam_direction]:
               integration[beam_direction] = float(integration[beam_direction]) * px_to_mm

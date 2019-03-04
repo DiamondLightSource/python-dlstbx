@@ -6,166 +6,215 @@ import uuid
 
 import mock
 
+
 class SafeDict(dict):
-  '''A dictionary that returns undefined keys as {keyname}.
-     This can be used to selectively replace variables in datastructures.'''
-  def __missing__(self, key):
-    return '{' + key + '}'
+    """A dictionary that returns undefined keys as {keyname}.
+     This can be used to selectively replace variables in datastructures."""
+
+    def __missing__(self, key):
+        return "{" + key + "}"
+
 
 class CommonSystemTest(object):
-  '''Base class for system tests for Zocalo,
+    """Base class for system tests for Zocalo,
      the Diamond Light Source data analysis framework.
-  '''
+  """
 
-  guid = 'T-12345678-1234-1234-1234-1234567890ab'
-  '''A random unique identifier for tests. A new one will be generated on class
-     initialization and for each invocation of a test function.'''
+    guid = "T-12345678-1234-1234-1234-1234567890ab"
+    """A random unique identifier for tests. A new one will be generated on class
+     initialization and for each invocation of a test function."""
 
-  parameters = SafeDict()
-  '''Set of known test parameters. Generally only a unique test identifier,
-     parameters['guid'], will be set.'''
+    parameters = SafeDict()
+    """Set of known test parameters. Generally only a unique test identifier,
+     parameters['guid'], will be set."""
 
-  validation = False
-  '''Set to true when test functions are only called for validation rather than
-     testing. Think of this as 'dummy_mode'.'''
+    validation = False
+    """Set to true when test functions are only called for validation rather than
+     testing. Think of this as 'dummy_mode'."""
 
-  development_mode = False
-  '''A flag to distinguish between testing the live system and testing the
+    development_mode = False
+    """A flag to distinguish between testing the live system and testing the
      development system. This should be used only sparingly, after all tests
      should be as realistic as possible, but may be required in some places,
-     eg. to decide where to load external files from.'''
+     eg. to decide where to load external files from."""
 
-  log = logging.getLogger('dlstbx.system_test')
-  '''Common logger object.'''
+    log = logging.getLogger("dlstbx.system_test")
+    """Common logger object."""
 
-  def __init__(self, dev_mode=False):
-    '''Constructor via which the development mode can be set.'''
-    self.development_mode = dev_mode
-    self.rotate_guid()
+    def __init__(self, dev_mode=False):
+        """Constructor via which the development mode can be set."""
+        self.development_mode = dev_mode
+        self.rotate_guid()
 
-  def rotate_guid(self):
-    '''Generate a new unique ID for the test. Prepend 'T-' to a GUID to
+    def rotate_guid(self):
+        """Generate a new unique ID for the test. Prepend 'T-' to a GUID to
        distinguish between IDs used in system tests and IDs used for live
        processing. This helps for example when interpreting logs, as system test
        messages will show up in isolation rather than as part of a processing
-       pipeline.'''
-    self.guid = 'T-' + str(uuid.uuid4())
+       pipeline."""
+        self.guid = "T-" + str(uuid.uuid4())
 
-  def enumerate_test_functions(self):
-    '''Returns a list of (name, function) tuples for all declared test
-       functions in the class.'''
-    return [ (function, getattr(self, function))
-             for function in dir(self)
-             if function.startswith('test_') ]
+    def enumerate_test_functions(self):
+        """Returns a list of (name, function) tuples for all declared test
+       functions in the class."""
+        return [
+            (function, getattr(self, function))
+            for function in dir(self)
+            if function.startswith("test_")
+        ]
 
-  def validate(self):
-    '''Checks that all test functions parse correctly to pick up syntax errors.
-       Does run test functions with disabled messaging functions.'''
-    # Replace messaging functions by mock constructs
-    patch_functions = ['_add_timer', '_messaging']
-    original_functions = { (x, getattr(self, x)) for x in patch_functions }
-    for x in patch_functions:
-      setattr(self, x, mock.create_autospec(getattr(self, x)))
-    self.validation = True
-    try:
-      for name, function in self.enumerate_test_functions():
-        self.log.info("validating %s" % name)
-        function()
-        self.rotate_guid() # rotate guid for next function
-        self.log.info("OK")
-    finally:
-      # Restore messaging functions
-      for name, function in original_functions:
-        setattr(self, name, function)
-      self.validation = False
+    def validate(self):
+        """Checks that all test functions parse correctly to pick up syntax errors.
+       Does run test functions with disabled messaging functions."""
+        # Replace messaging functions by mock constructs
+        patch_functions = ["_add_timer", "_messaging"]
+        original_functions = {(x, getattr(self, x)) for x in patch_functions}
+        for x in patch_functions:
+            setattr(self, x, mock.create_autospec(getattr(self, x)))
+        self.validation = True
+        try:
+            for name, function in self.enumerate_test_functions():
+                self.log.info("validating %s" % name)
+                function()
+                self.rotate_guid()  # rotate guid for next function
+                self.log.info("OK")
+        finally:
+            # Restore messaging functions
+            for name, function in original_functions:
+                setattr(self, name, function)
+            self.validation = False
 
-  def collect_tests(self):
-    '''Runs all test functions and collects messaging information.
+    def collect_tests(self):
+        """Runs all test functions and collects messaging information.
        Returns a dictionary of
          { testname: { 'send': [], 'expect': [], 'timers': [], 'errors': [] } }.
-    '''
+    """
 
-    messages = {}
-    for name, function in self.enumerate_test_functions():
-      self.rotate_guid()
-      self.parameters['guid'] = self.guid
-      def messaging(direction, **kwargs):
-        if direction not in messages[name]:
-          raise RuntimeError('Invalid messaging call (%s)' % str(direction))
-        messages[name][direction].append(kwargs)
-      def timer(**kwargs):
-        messages[name]['timers'].append(kwargs)
-      self._messaging = messaging
-      self._add_timer = timer
-      messages[name] = { 'send': [], 'expect': [], 'timers': [], 'errors': [] }
-      try:
-        function()
-      except Exception:
-        import traceback
-        messages[name]['errors'].append(traceback.format_exc())
-    return messages
+        messages = {}
+        for name, function in self.enumerate_test_functions():
+            self.rotate_guid()
+            self.parameters["guid"] = self.guid
 
-  #
-  # -- Functions for use within tests ----------------------------------------
-  #
+            def messaging(direction, **kwargs):
+                if direction not in messages[name]:
+                    raise RuntimeError("Invalid messaging call (%s)" % str(direction))
+                messages[name][direction].append(kwargs)
 
-  def send_message(self, queue=None, topic=None, headers={}, message=""):
-    '''Use this function within tests to send messages to queues and topics.'''
-    assert queue or topic, 'Message queue or topic destination required'
-    self._messaging('send', queue=queue, topic=topic, headers=headers,
-                    message=message)
+            def timer(**kwargs):
+                messages[name]["timers"].append(kwargs)
 
-  def expect_message(self, queue=None, topic=None, headers=None, message=None, min_wait=0, timeout=10):
-    '''Use this function within tests to wait for messages to queues and topics.'''
-    assert queue or topic, 'Message queue or topic destination required'
-    assert not queue or not topic, 'Can only expect message on queue or topic, not both'
-    self._messaging('expect', queue=queue, topic=topic, headers=headers,
-                    message=message, min_wait=min_wait, timeout=timeout)
+            self._messaging = messaging
+            self._add_timer = timer
+            messages[name] = {"send": [], "expect": [], "timers": [], "errors": []}
+            try:
+                function()
+            except Exception:
+                import traceback
 
-  def expect_recipe_message(self, recipe, recipe_path, recipe_pointer, headers=None, payload=None, min_wait=0, timeout=10, queue=None, topic=None, environment=None):
-    '''Use this function within tests to wait for recipe-wrapped messages.'''
-    assert recipe, 'Recipe required'
-    if not (queue or topic):
-      assert recipe_pointer > 0, 'Recipe-pointer required'
-      assert recipe_pointer in recipe, 'Given recipe-pointer %s invalid' % str(recipe_pointer)
-      queue = recipe[recipe_pointer].get('queue')
-      topic = recipe[recipe_pointer].get('topic')
-      assert queue or topic, 'Message queue or topic destination required'
-    assert not queue or not topic, 'Can only expect message on queue or topic, not both'
-    if headers is None:
-      headers = { 'workflows-recipe': 'True' }
-    else:
-      headers = headers.copy()
-      headers['workflows-recipe'] = 'True'
-    if environment:
-      class dictionary_contains():
-        def __init__(self, d):
-          self.containsdict = d
-        def __eq__(self, other):
-          return self.containsdict.viewitems() <= other.viewitems()
-          # for Python3 : items() <= items()
-      environment = dictionary_contains(environment)
-    else:
-      environment = mock.ANY
-    expected_message = { 'payload': payload,
-                         'recipe': recipe,
-                         'recipe-path': recipe_path,
-                         'recipe-pointer': recipe_pointer,
-                         'environment': environment,
-                       }
-    self._messaging('expect', queue=queue, topic=topic, headers=headers,
-                    message=expected_message, min_wait=min_wait, timeout=timeout)
+                messages[name]["errors"].append(traceback.format_exc())
+        return messages
 
-  def timer_event(self, at_time=None, callback=None, args=None, kwargs=None):
-    if args is None: args = []
-    if kwargs is None: kwargs = {}
-    assert at_time, 'need to specify time for event'
-    assert callback, 'need to specify callback function'
-    self._add_timer(at_time=at_time, callback=callback,
-                    args=args, kwargs=kwargs)
+    #
+    # -- Functions for use within tests ----------------------------------------
+    #
 
-  def apply_parameters(self, item):
-    '''Recursively apply formatting to {item}s in a data structure, leaving
+    def send_message(self, queue=None, topic=None, headers={}, message=""):
+        """Use this function within tests to send messages to queues and topics."""
+        assert queue or topic, "Message queue or topic destination required"
+        self._messaging(
+            "send", queue=queue, topic=topic, headers=headers, message=message
+        )
+
+    def expect_message(
+        self, queue=None, topic=None, headers=None, message=None, min_wait=0, timeout=10
+    ):
+        """Use this function within tests to wait for messages to queues and topics."""
+        assert queue or topic, "Message queue or topic destination required"
+        assert (
+            not queue or not topic
+        ), "Can only expect message on queue or topic, not both"
+        self._messaging(
+            "expect",
+            queue=queue,
+            topic=topic,
+            headers=headers,
+            message=message,
+            min_wait=min_wait,
+            timeout=timeout,
+        )
+
+    def expect_recipe_message(
+        self,
+        recipe,
+        recipe_path,
+        recipe_pointer,
+        headers=None,
+        payload=None,
+        min_wait=0,
+        timeout=10,
+        queue=None,
+        topic=None,
+        environment=None,
+    ):
+        """Use this function within tests to wait for recipe-wrapped messages."""
+        assert recipe, "Recipe required"
+        if not (queue or topic):
+            assert recipe_pointer > 0, "Recipe-pointer required"
+            assert recipe_pointer in recipe, "Given recipe-pointer %s invalid" % str(
+                recipe_pointer
+            )
+            queue = recipe[recipe_pointer].get("queue")
+            topic = recipe[recipe_pointer].get("topic")
+            assert queue or topic, "Message queue or topic destination required"
+        assert (
+            not queue or not topic
+        ), "Can only expect message on queue or topic, not both"
+        if headers is None:
+            headers = {"workflows-recipe": "True"}
+        else:
+            headers = headers.copy()
+            headers["workflows-recipe"] = "True"
+        if environment:
+
+            class dictionary_contains:
+                def __init__(self, d):
+                    self.containsdict = d
+
+                def __eq__(self, other):
+                    return self.containsdict.viewitems() <= other.viewitems()
+                    # for Python3 : items() <= items()
+
+            environment = dictionary_contains(environment)
+        else:
+            environment = mock.ANY
+        expected_message = {
+            "payload": payload,
+            "recipe": recipe,
+            "recipe-path": recipe_path,
+            "recipe-pointer": recipe_pointer,
+            "environment": environment,
+        }
+        self._messaging(
+            "expect",
+            queue=queue,
+            topic=topic,
+            headers=headers,
+            message=expected_message,
+            min_wait=min_wait,
+            timeout=timeout,
+        )
+
+    def timer_event(self, at_time=None, callback=None, args=None, kwargs=None):
+        if args is None:
+            args = []
+        if kwargs is None:
+            kwargs = {}
+        assert at_time, "need to specify time for event"
+        assert callback, "need to specify callback function"
+        self._add_timer(at_time=at_time, callback=callback, args=args, kwargs=kwargs)
+
+    def apply_parameters(self, item):
+        """Recursively apply formatting to {item}s in a data structure, leaving
        undefined {item}s as they are.
 
        Examples:
@@ -180,38 +229,41 @@ class CommonSystemTest(object):
          parameters = { 'x':'3', 'y':'5' }
          recursively_replace_parameters( { '{x}': '{y}' } )
             => { '3': '5' }
-    '''
-    if isinstance(item, basestring):
-      return string.Formatter().vformat(item, (), self.parameters)
-    if isinstance(item, dict):
-      return { self.apply_parameters(key): self.apply_parameters(value) for
-               key, value in item.iteritems() }
-    if isinstance(item, tuple):
-      return tuple(self.apply_parameters(list(item)))
-    if isinstance(item, list):
-      return [ self.apply_parameters(x) for x in item ]
-    return item
+    """
+        if isinstance(item, basestring):
+            return string.Formatter().vformat(item, (), self.parameters)
+        if isinstance(item, dict):
+            return {
+                self.apply_parameters(key): self.apply_parameters(value)
+                for key, value in item.iteritems()
+            }
+        if isinstance(item, tuple):
+            return tuple(self.apply_parameters(list(item)))
+        if isinstance(item, list):
+            return [self.apply_parameters(x) for x in item]
+        return item
 
-  #
-  # -- Internal house-keeping functions --------------------------------------
-  #
+    #
+    # -- Internal house-keeping functions --------------------------------------
+    #
 
-  def _add_timer(self, *args, **kwargs):
-    raise NotImplementedError('Test functions can not be run directly')
+    def _add_timer(self, *args, **kwargs):
+        raise NotImplementedError("Test functions can not be run directly")
 
-  def _messaging(self, *args, **kwargs):
-    raise NotImplementedError('Test functions can not be run directly')
+    def _messaging(self, *args, **kwargs):
+        raise NotImplementedError("Test functions can not be run directly")
 
-  #
-  # -- Plugin-related function -----------------------------------------------
-  #
+    #
+    # -- Plugin-related function -----------------------------------------------
+    #
 
-  class __metaclass__(type):
-    '''Define metaclass function to keep a list of all subclasses. This enables
-       looking up service mechanisms by name.'''
-    def __init__(cls, name, base, attrs):
-      '''Add new subclass of CommonSystemTest to list of all known subclasses.'''
-      if not hasattr(cls, 'register'):
-        cls.register = {}
-      else:
-        cls.register[name] = cls
+    class __metaclass__(type):
+        """Define metaclass function to keep a list of all subclasses. This enables
+       looking up service mechanisms by name."""
+
+        def __init__(cls, name, base, attrs):
+            """Add new subclass of CommonSystemTest to list of all known subclasses."""
+            if not hasattr(cls, "register"):
+                cls.register = {}
+            else:
+                cls.register[name] = cls

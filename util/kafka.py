@@ -33,6 +33,7 @@ class ActivityWatcher(threading.Thread):
                 "auto.offset.reset": "earliest",
             }
         )
+
         def set_start_offset(consumer, partitions):
             if not self._from_timestamp:
                 return
@@ -43,6 +44,7 @@ class ActivityWatcher(threading.Thread):
             offs = c.offsets_for_times(partitions)
             print(offs)
             consumer.assign(offs)
+
         c.subscribe(["hoggery.activity"], on_assign=set_start_offset)
 
         while not self._stop:
@@ -78,7 +80,9 @@ class ActivityWatcher(threading.Thread):
                 try:
                     dcid = int(dcid)
                 except ValueError:
-                    log.warning("Invalid DCID in message:\n%s", repr(dcid), exc_info=True)
+                    log.warning(
+                        "Invalid DCID in message:\n%s", repr(dcid), exc_info=True
+                    )
                     continue
                 del update["DCID"]
                 # print("Received message:")

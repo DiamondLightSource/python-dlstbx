@@ -72,7 +72,9 @@ class _WorkerThread(threading.Thread):
         topic = "hoggery.%d.data" % message["dcid"]
         topic_info = c.list_topics(topic=topic).topics[topic]
         if topic_info.error:
-            self.log.info("Topic %s unavailable, retry later (%s)", topic, topic_info.error.str())
+            self.log.info(
+                "Topic %s unavailable, retry later (%s)", topic, topic_info.error.str()
+            )
             return True
         partitions = topic_info.partitions
         self.log.debug("Topic has %d partitions", len(partitions))
@@ -87,7 +89,12 @@ class _WorkerThread(threading.Thread):
             rw.transport.nack(header)
             return
         if m[0].error():
-            self.log.info("Error on reading from topic %s offset %d, retry later (%s)", topic, offset, m[0].error().str())
+            self.log.info(
+                "Error on reading from topic %s offset %d, retry later (%s)",
+                topic,
+                offset,
+                m[0].error().str(),
+            )
             return True
         self.log.debug("Received payload")
         mm = msgpack.unpackb(m[0].value(), raw=False, max_bin_len=10 * 1024 * 1024)

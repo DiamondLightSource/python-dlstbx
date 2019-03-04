@@ -10,29 +10,29 @@ import zocalo.wrapper
 import procrunner
 import py
 
-logger = logging.getLogger('dlstbx.wrap.xia2')
+logger = logging.getLogger("dlstbx.wrap.xia2")
+
 
 class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
+    def construct_commandline(self, params):
+        """Construct xia2 command line.
+       Takes job parameter dictionary, returns array."""
 
-  def construct_commandline(self, params):
-    '''Construct xia2 command line.
-       Takes job parameter dictionary, returns array.'''
+        command = ["xia2"]
 
-    command = ['xia2']
+        for param, values in params["xia2"].iteritems():
+            if param == "images":
+                if not values:
+                    # This may be empty if related data collections are requested, but no related DCs were found
+                    continue
+                param = "image"
+                values = values.split(",")
+            if not isinstance(values, (list, tuple)):
+                values = [values]
+            for v in values:
+                command.append("%s=%s" % (param, v))
 
-    for param, values in params['xia2'].iteritems():
-      if param == 'images':
-        if not values:
-          # This may be empty if related data collections are requested, but no related DCs were found
-          continue
-        param = 'image'
-        values = values.split(',')
-      if not isinstance(values, (list, tuple)):
-        values = [values]
-      for v in values:
-        command.append('%s=%s' % (param, v))
-
-    if params.get('ispyb_parameters'):
+        if params.get("ispyb_parameters"):
             translation = {
                 "d_min": "xia2.settings.resolution.d_min",
                 "spacegroup": "xia2.settings.space_group",
@@ -41,181 +41,221 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
             for param, value in params["ispyb_parameters"].iteritems():
                 command.append(translation.get(param, param) + "=" + value)
 
-    return command
+        return command
 
-  def send_results_to_ispyb(self):
-    logger.info("Reading xia2 results")
-    from xia2.command_line.ispyb_json import zocalo_object
-    z = zocalo_object()
+    def send_results_to_ispyb(self):
+        logger.info("Reading xia2 results")
+        from xia2.command_line.ispyb_json import zocalo_object
 
-    ispyb_command_list = []
+        z = zocalo_object()
 
-    # Step 1: Add new record to AutoProc, keep the AutoProcID
-    register_autoproc = z['refined_results']
-    register_autoproc.update({
-        'ispyb_command': 'write_autoproc',
-        'autoproc_id': None,
-        'store_result': 'ispyb_autoproc_id',
-    })
-    ispyb_command_list.append(register_autoproc)
+        ispyb_command_list = []
 
-    # Step 2: Store scaling results, linked to the AutoProcID
-    #         Keep the AutoProcScalingID
-    insert_scaling = z['scaling_statistics']
-    insert_scaling.update({
-        'ispyb_command': 'insert_scaling',
-        'autoproc_id': '$ispyb_autoproc_id',
-        'store_result': 'ispyb_autoprocscaling_id',
-    })
-    ispyb_command_list.append(insert_scaling)
+        # Step 1: Add new record to AutoProc, keep the AutoProcID
+        register_autoproc = z["refined_results"]
+        register_autoproc.update(
+            {
+                "ispyb_command": "write_autoproc",
+                "autoproc_id": None,
+                "store_result": "ispyb_autoproc_id",
+            }
+        )
+        ispyb_command_list.append(register_autoproc)
 
-    # Step 3: Store integration results, linking them to ScalingID
-    for n, integration in enumerate(z['integrations']):
-      integration.update({
-          'ispyb_command': 'upsert_integration',
-          'scaling_id': '$ispyb_autoprocscaling_id',
-      })
-      if n > 0:
-        # make sure only the first integration uses a specified integration ID
-        # and all subsequent integration results are written to a new record
-        integration['integration_id'] = None
-      ispyb_command_list.append(integration)
+        # Step 2: Store scaling results, linked to the AutoProcID
+        #         Keep the AutoProcScalingID
+        insert_scaling = z["scaling_statistics"]
+        insert_scaling.update(
+            {
+                "ispyb_command": "insert_scaling",
+                "autoproc_id": "$ispyb_autoproc_id",
+                "store_result": "ispyb_autoprocscaling_id",
+            }
+        )
+        ispyb_command_list.append(insert_scaling)
 
-    logger.info("Sending %s", str(ispyb_command_list))
-    self.recwrap.send_to('ispyb', {
-        'ispyb_command_list': ispyb_command_list,
-    })
-    logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+        # Step 3: Store integration results, linking them to ScalingID
+        for n, integration in enumerate(z["integrations"]):
+            integration.update(
+                {
+                    "ispyb_command": "upsert_integration",
+                    "scaling_id": "$ispyb_autoprocscaling_id",
+                }
+            )
+            if n > 0:
+                # make sure only the first integration uses a specified integration ID
+                # and all subsequent integration results are written to a new record
+                integration["integration_id"] = None
+            ispyb_command_list.append(integration)
 
-  def run(self):
-    assert hasattr(self, 'recwrap'), "No recipewrapper object found"
+        logger.info("Sending %s", str(ispyb_command_list))
+        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
-    params = self.recwrap.recipe_step['job_parameters']
-    command = self.construct_commandline(params)
+    def run(self):
+        assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
-    # Adjust all paths if a spacegroup is set in ISPyB
-    if params.get('ispyb_parameters'):
-      if params['ispyb_parameters'].get('spacegroup') and \
-          '/' not in params['ispyb_parameters']['spacegroup']:
-        if 'create_symlink' in params:
-          params['create_symlink'] += '-' + params['ispyb_parameters']['spacegroup']
-        # only runs without space group are shown in SynchWeb overview
-        params['synchweb_ticks'] = None
+        params = self.recwrap.recipe_step["job_parameters"]
+        command = self.construct_commandline(params)
 
-    working_directory = py.path.local(params['working_directory'])
-    results_directory = py.path.local(params['results_directory'])
+        # Adjust all paths if a spacegroup is set in ISPyB
+        if params.get("ispyb_parameters"):
+            if (
+                params["ispyb_parameters"].get("spacegroup")
+                and "/" not in params["ispyb_parameters"]["spacegroup"]
+            ):
+                if "create_symlink" in params:
+                    params["create_symlink"] += (
+                        "-" + params["ispyb_parameters"]["spacegroup"]
+                    )
+                # only runs without space group are shown in SynchWeb overview
+                params["synchweb_ticks"] = None
 
-    # Create working directory with symbolic link
-    working_directory.ensure(dir=True)
-    if params.get('create_symlink'):
-      dlstbx.util.symlink.create_parent_symlink(working_directory.strpath, params['create_symlink'])
+        working_directory = py.path.local(params["working_directory"])
+        results_directory = py.path.local(params["results_directory"])
 
-    # Create SynchWeb ticks hack file.
-    # For xia2 this is independent of the results directory
-    if params.get('synchweb_ticks'):
-      logger.debug('Setting SynchWeb status to swirl')
-      py.path.local(params['synchweb_ticks']).ensure()
+        # Create working directory with symbolic link
+        working_directory.ensure(dir=True)
+        if params.get("create_symlink"):
+            dlstbx.util.symlink.create_parent_symlink(
+                working_directory.strpath, params["create_symlink"]
+            )
 
-    logger.info('command: %s', ' '.join(command))
-    result = procrunner.run(
-        command, timeout=params.get('timeout'),
-        working_directory=working_directory.strpath,
-    )
-    success = not result['exitcode'] and not result['timeout']
-    if success:
-      logger.info('xia2 successful, took %.1f seconds', result['runtime'])
-    else:
-      logger.info('xia2 failed with exitcode %s and timeout %s', result['exitcode'], result['timeout'])
-      logger.debug(result['stdout'])
-      logger.debug(result['stderr'])
+        # Create SynchWeb ticks hack file.
+        # For xia2 this is independent of the results directory
+        if params.get("synchweb_ticks"):
+            logger.debug("Setting SynchWeb status to swirl")
+            py.path.local(params["synchweb_ticks"]).ensure()
 
-    # copy output files to result directory
-    results_directory.ensure(dir=True)
-    if params.get('create_symlink'):
-      dlstbx.util.symlink.create_parent_symlink(results_directory.strpath, params['create_symlink'])
+        logger.info("command: %s", " ".join(command))
+        result = procrunner.run(
+            command,
+            timeout=params.get("timeout"),
+            working_directory=working_directory.strpath,
+        )
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("xia2 successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "xia2 failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
 
-    for subdir in ('DataFiles', 'LogFiles'):
-      src = working_directory.join(subdir)
-      dst = results_directory.join(subdir)
-      if src.check():
-        logger.debug('Recursively copying %s to %s' % (src.strpath, dst.strpath))
-        src.copy(dst)
-      elif not success:
-        logger.info('Expected output directory does not exist (non-zero exitcode): %s', src.strpath)
-      else:
-        logger.warning('Expected output directory does not exist: %s', src.strpath)
+        # copy output files to result directory
+        results_directory.ensure(dir=True)
+        if params.get("create_symlink"):
+            dlstbx.util.symlink.create_parent_symlink(
+                results_directory.strpath, params["create_symlink"]
+            )
 
-    allfiles = []
-    for f in working_directory.listdir('*.*'):
-      if f.check(file=1, exists=1) and not f.basename.startswith('.'):
-        logger.debug('Copying %s to results directory', f.strpath)
-        f.copy(results_directory)
-        allfiles.append(results_directory.join(f.basename))
+        for subdir in ("DataFiles", "LogFiles"):
+            src = working_directory.join(subdir)
+            dst = results_directory.join(subdir)
+            if src.check():
+                logger.debug(
+                    "Recursively copying %s to %s" % (src.strpath, dst.strpath)
+                )
+                src.copy(dst)
+            elif not success:
+                logger.info(
+                    "Expected output directory does not exist (non-zero exitcode): %s",
+                    src.strpath,
+                )
+            else:
+                logger.warning(
+                    "Expected output directory does not exist: %s", src.strpath
+                )
 
-    # Send results to various listeners
-    logfiles = ('xia2.html', 'xia2.txt', 'xia2.error')
-    for result_file in map(results_directory.join, logfiles):
-      if result_file.check():
-        self.record_result_individual_file({
-          'file_path': result_file.dirname,
-          'file_name': result_file.basename,
-          'file_type': 'log',
-        })
+        allfiles = []
+        for f in working_directory.listdir("*.*"):
+            if f.check(file=1, exists=1) and not f.basename.startswith("."):
+                logger.debug("Copying %s to results directory", f.strpath)
+                f.copy(results_directory)
+                allfiles.append(results_directory.join(f.basename))
 
-    datafiles_path = results_directory.join('DataFiles')
-    if datafiles_path.check():
-      for result_file in datafiles_path.listdir():
-        file_type = 'result'
-        if result_file.ext in ('.log', '.txt'):
-          file_type = 'log'
-        self.record_result_individual_file({
-          'file_path': result_file.dirname,
-          'file_name': result_file.basename,
-          'file_type': file_type,
-        })
-        allfiles.append(result_file.strpath)
+        # Send results to various listeners
+        logfiles = ("xia2.html", "xia2.txt", "xia2.error")
+        for result_file in map(results_directory.join, logfiles):
+            if result_file.check():
+                self.record_result_individual_file(
+                    {
+                        "file_path": result_file.dirname,
+                        "file_name": result_file.basename,
+                        "file_type": "log",
+                    }
+                )
 
-    logfiles_path = results_directory.join('LogFiles')
-    if logfiles_path.check():
-      for result_file in logfiles_path.listdir():
-        file_type = 'log'
-        if result_file.ext == '.json':
-          file_type = 'graph'
-        elif result_file.ext == '.png':
-          file_type = 'log'
-        self.record_result_individual_file({
-          'file_path': result_file.dirname,
-          'file_name': result_file.basename,
-          'file_type': file_type,
-        })
-        allfiles.append(result_file.strpath)
+        datafiles_path = results_directory.join("DataFiles")
+        if datafiles_path.check():
+            for result_file in datafiles_path.listdir():
+                file_type = "result"
+                if result_file.ext in (".log", ".txt"):
+                    file_type = "log"
+                self.record_result_individual_file(
+                    {
+                        "file_path": result_file.dirname,
+                        "file_name": result_file.basename,
+                        "file_type": file_type,
+                    }
+                )
+                allfiles.append(result_file.strpath)
 
-    # Part of the result parsing requires to be in result directory
-    with results_directory.as_cwd():
-      if success and not os.path.isfile('xia2.error') and os.path.exists('xia2.json') \
-          and not params.get('do_not_write_to_ispyb'):
-        self.send_results_to_ispyb()
+        logfiles_path = results_directory.join("LogFiles")
+        if logfiles_path.check():
+            for result_file in logfiles_path.listdir():
+                file_type = "log"
+                if result_file.ext == ".json":
+                    file_type = "graph"
+                elif result_file.ext == ".png":
+                    file_type = "log"
+                self.record_result_individual_file(
+                    {
+                        "file_path": result_file.dirname,
+                        "file_name": result_file.basename,
+                        "file_type": file_type,
+                    }
+                )
+                allfiles.append(result_file.strpath)
 
-    if allfiles:
-      self.record_result_all_files({ 'filelist': allfiles })
+        # Part of the result parsing requires to be in result directory
+        with results_directory.as_cwd():
+            if (
+                success
+                and not os.path.isfile("xia2.error")
+                and os.path.exists("xia2.json")
+                and not params.get("do_not_write_to_ispyb")
+            ):
+                self.send_results_to_ispyb()
 
-    # Update SynchWeb ticks hack file.
-    if params.get('synchweb_ticks'):
-      if success:
-        logger.debug('Setting SynchWeb status to success')
-        py.path.local(params['synchweb_ticks']).write('''
+        if allfiles:
+            self.record_result_all_files({"filelist": allfiles})
+
+        # Update SynchWeb ticks hack file.
+        if params.get("synchweb_ticks"):
+            if success:
+                logger.debug("Setting SynchWeb status to success")
+                py.path.local(params["synchweb_ticks"]).write(
+                    """
             The purpose of this file is only
             to signal to SynchWeb that the
             data were successfully processed.
 
             # magic string: %s
-            ''' % params.get('synchweb_ticks_magic'))
-      else:
-        logger.debug('Setting SynchWeb status to failure')
-        py.path.local(params['synchweb_ticks']).write('''
+            """
+                    % params.get("synchweb_ticks_magic")
+                )
+            else:
+                logger.debug("Setting SynchWeb status to failure")
+                py.path.local(params["synchweb_ticks"]).write(
+                    """
             The purpose of this file is only
             to signal to SynchWeb that the
             data processing has failed.
-            ''')
+            """
+                )
 
-    return success
+        return success

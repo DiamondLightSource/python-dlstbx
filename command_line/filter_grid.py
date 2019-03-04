@@ -19,6 +19,7 @@ from dials.array_family import flex
 from dials.util import log
 from dials.util.ascii_art import spot_counts_per_image_plot
 from dials.util.options import OptionParser, flatten_datablocks
+
 # Set the phil scope
 from libtbx.phil import parse
 from libtbx.utils import Sorry
@@ -28,7 +29,8 @@ from scipy.stats.stats import chisquare
 
 logger = logging.getLogger(libtbx.env.dispatcher_name)
 
-phil_scope = parse('''
+phil_scope = parse(
+    """
 
     filter_grid {
         scoring = *ks chi2
@@ -81,9 +83,12 @@ phil_scope = parse('''
     }
     include scope dials.command_line.find_spots.phil_scope
 
-''', process_includes=True)
+""",
+    process_includes=True,
+)
 
-spotfinder_phil_scope = parse('''
+spotfinder_phil_scope = parse(
+    """
     spotfinder {
         filter {
             min_spot_size = 1
@@ -95,16 +100,18 @@ spotfinder_phil_scope = parse('''
         }
     }
 
-''', process_includes=True)
+""",
+    process_includes=True,
+)
 
-usage = "%s [options] image_*.cbf" % (
-  libtbx.env.dispatcher_name)
+usage = "%s [options] image_*.cbf" % (libtbx.env.dispatcher_name)
 
 parser = OptionParser(
-  usage=usage,
-  phil=phil_scope.fetch(sources=[spotfinder_phil_scope,]),
-  read_datablocks=True,
-  read_datablocks_from_images=True)
+    usage=usage,
+    phil=phil_scope.fetch(sources=[spotfinder_phil_scope]),
+    read_datablocks=True,
+    read_datablocks_from_images=True,
+)
 
 params, options = parser.parse_args()
 
@@ -117,17 +124,20 @@ def merge_test_stats(all_stats):
     return best_test_stats
 
 
-def calc_stats(resol_dict, dfunc, dparams={}, func_name='N/A'):
+def calc_stats(resol_dict, dfunc, dparams={}, func_name="N/A"):
 
     ks_stats = {}
     chi2_stats = {}
-    fparams = dict(zip(['f0', 'f1', 'f2'], dparams.values()))
+    fparams = dict(zip(["f0", "f1", "f2"], dparams.values()))
     for img, resol_list in resol_dict.items():
         if len(resol_list) < params.filter_grid.min_spots:
             continue
         lst_ = np.array(sorted(resol_list))
         ref_total = len(lst_)
-        perc = [np.percentile(lst_, p) for p in np.linspace(0, 100, params.filter_grid.sample)]
+        perc = [
+            np.percentile(lst_, p)
+            for p in np.linspace(0, 100, params.filter_grid.sample)
+        ]
 
         try:
             fit_vals = dfunc.fit(lst_, floc=0.0, **fparams)
@@ -138,43 +148,56 @@ def calc_stats(resol_dict, dfunc, dparams={}, func_name='N/A'):
             except:
                 _, _, _, fit_scale = fit_vals
 
-        hist_vals, hist_bins = np.histogram(lst_, bins=params.filter_grid.sample, density=False)
-        calc_vals = np.array([dfunc.pdf(mean([x1, x2]), loc=0.0, scale=fit_scale, **dparams) * (x2 - x1) * ref_total for x1, x2 in
-                              zip(hist_bins[:-1], hist_bins[1:])])
+        hist_vals, hist_bins = np.histogram(
+            lst_, bins=params.filter_grid.sample, density=False
+        )
+        calc_vals = np.array(
+            [
+                dfunc.pdf(mean([x1, x2]), loc=0.0, scale=fit_scale, **dparams)
+                * (x2 - x1)
+                * ref_total
+                for x1, x2 in zip(hist_bins[:-1], hist_bins[1:])
+            ]
+        )
 
         cdf_ = partial(dfunc.cdf, loc=0.0, scale=fit_scale, **dparams)
 
         if img in params.filter_grid.profile_plots:
-            plt.plot(hist_bins[1:], hist_vals, 'r--', linewidth=1, label='data')
-            plt.plot(hist_bins[1:], calc_vals, 'g--', linewidth=1,label=' '.join([func_name, str(img)]))
+            plt.plot(hist_bins[1:], hist_vals, "r--", linewidth=1, label="data")
+            plt.plot(
+                hist_bins[1:],
+                calc_vals,
+                "g--",
+                linewidth=1,
+                label=" ".join([func_name, str(img)]),
+            )
             plt.legend()
             plt.show()
 
-        sel_idx = [idx for idx, val in enumerate(zip(hist_vals, calc_vals)) if max(val) > 5]
-        chi_sq, p_chisq = chisquare([hist_vals[idx] for idx in sel_idx],
-                                    [calc_vals[idx] for idx in sel_idx])
+        sel_idx = [
+            idx for idx, val in enumerate(zip(hist_vals, calc_vals)) if max(val) > 5
+        ]
+        chi_sq, p_chisq = chisquare(
+            [hist_vals[idx] for idx in sel_idx], [calc_vals[idx] for idx in sel_idx]
+        )
         chi2_stats[img] = (chi_sq, p_chisq, len(resol_dict[img]))
 
         ks_D, ks_pval = stats.kstest(perc, cdf_)
         ks_stats[img] = (ks_D, ks_pval, len(resol_dict[img]))
 
-    return {'ks': ks_stats, 'chi2': chi2_stats}
+    return {"ks": ks_stats, "chi2": chi2_stats}
 
 
 def output_json(results, filename):
 
-    dct = {'images': [],
-           'stat': [],
-           'pval': [],
-           'spots': []
-           }
+    dct = {"images": [], "stat": [], "pval": [], "spots": []}
     for img, (D, pval, spots) in results.items():
-        dct['images'].append(img)
-        dct['stat'].append(D)
-        dct['pval'].append(pval)
-        dct['spots'].append(spots)
+        dct["images"].append(img)
+        dct["stat"].append(D)
+        dct["pval"].append(pval)
+        dct["spots"].append(spots)
 
-    with open('.'.join([filename, 'json']), 'w') as f:
+    with open(".".join([filename, "json"]), "w") as f:
         json.dump(dct, f)
 
 
@@ -185,26 +208,30 @@ def output_stats(test_stats, dfunc_name):
     ks_results_spots = sorted(lst_, key=lambda v: v[1][-1], reverse=True)[:]
 
     from libtbx import table_utils
-    for results, caption in [(ks_results_img, '%s results: sorted by image number' % dfunc_name),
-                             (ks_results_spots,'%s results: sorted by number of spots' % dfunc_name)]:
-        rows = [['Image', 'Stat.', 'P-value', '# spots'],]
-        rows.extend([['%d' % img,
-                      '%g' % D,
-                      '%g' % pval,
-                      '%d' % counts,
-                      ] for img,(D, pval, counts) in results])
+
+    for results, caption in [
+        (ks_results_img, "%s results: sorted by image number" % dfunc_name),
+        (ks_results_spots, "%s results: sorted by number of spots" % dfunc_name),
+    ]:
+        rows = [["Image", "Stat.", "P-value", "# spots"]]
+        rows.extend(
+            [
+                ["%d" % img, "%g" % D, "%g" % pval, "%d" % counts]
+                for img, (D, pval, counts) in results
+            ]
+        )
         print()
         print(caption)
-        print(table_utils.format(rows, has_header=True,))
+        print(table_utils.format(rows, has_header=True))
 
     return ks_results_img, ks_results_spots
 
 
-def plot_stats(stats, images=None, title=''):
+def plot_stats(stats, images=None, title=""):
 
     stat_names = stats[stats.keys()[0]].keys()
     img_list = images if images else range(max(stats.keys()))
-    if 'score' in params.filter_grid.plots:
+    if "score" in params.filter_grid.plots:
         fig, ax = plt.subplots()
         for stat_idx, st in enumerate(stat_names):
             img_idx = []
@@ -214,18 +241,23 @@ def plot_stats(stats, images=None, title=''):
                 img_idx.append(idx)
                 try:
                     val = stats[i][st][1]
-                    vals.append(-1./ log10(val))
+                    vals.append(-1.0 / log10(val))
                 except:
-                    vals.append(0.)
-            ax.bar(np.array(img_idx) + stat_idx*width, np.array(vals), label=st, width=width)
+                    vals.append(0.0)
+            ax.bar(
+                np.array(img_idx) + stat_idx * width,
+                np.array(vals),
+                label=st,
+                width=width,
+            )
         plt.xticks(img_idx, img_list, rotation=90)
-        yline= -1./ log10(params.filter_grid.threshold)
-        plt.axhline(y=yline, color='r')
-        ax.set(xlabel='Image', ylabel='Score', title=title)
+        yline = -1.0 / log10(params.filter_grid.threshold)
+        plt.axhline(y=yline, color="r")
+        ax.set(xlabel="Image", ylabel="Score", title=title)
         plt.legend()
         plt.show()
 
-    if 'spots' in params.filter_grid.plots:
+    if "spots" in params.filter_grid.plots:
         img_idx = []
         vals = []
         fig, ax = plt.subplots()
@@ -233,9 +265,9 @@ def plot_stats(stats, images=None, title=''):
             img_idx.append(idx)
             val = stats[i][stat_names[0]][1]
             vals.append(val)
-        ax.bar(np.array(img_idx), np.array(vals), label='Spots')
+        ax.bar(np.array(img_idx), np.array(vals), label="Spots")
         plt.xticks(img_idx, img_list, rotation=90)
-        ax.set(xlabel='Image', ylabel='# spots', title=title)
+        ax.set(xlabel="Image", ylabel="# spots", title=title)
         plt.legend()
         plt.show()
 
@@ -250,48 +282,50 @@ def cross_ksstat(data_dict, images):
         ks_stats[(img1, img2)] = (D12, p_val12)
 
     max_res_num = min(1000, len(data_dict))
-    ks_results_D    = sorted(list(ks_stats.items()), key=lambda v: v[1][0], reverse=False)[:max_res_num]
-    ks_results_pval = sorted(list(ks_stats.items()), key=lambda v: v[1][1], reverse=True)[:max_res_num]
+    ks_results_D = sorted(list(ks_stats.items()), key=lambda v: v[1][0], reverse=False)[
+        :max_res_num
+    ]
+    ks_results_pval = sorted(
+        list(ks_stats.items()), key=lambda v: v[1][1], reverse=True
+    )[:max_res_num]
 
-    #print'_' * 80
-    #print "Results correlations: best D"
-    #pprint(ks_results_D)
-    #print "Results correlations: best p-values"
-    #pprint(ks_results_pval)
-    #set_idx = set([v for v,_ in ks_results_pval]).intersection([v for v,_ in ks_results_D])
-    #ks_results_total = [ (idx, st) for (idx, st) in ks_results_D if idx in set_idx]
-    #print "Results Correlations: overall "
-    #pprint(ks_results_total)
+    # print'_' * 80
+    # print "Results correlations: best D"
+    # pprint(ks_results_D)
+    # print "Results correlations: best p-values"
+    # pprint(ks_results_pval)
+    # set_idx = set([v for v,_ in ks_results_pval]).intersection([v for v,_ in ks_results_D])
+    # ks_results_total = [ (idx, st) for (idx, st) in ks_results_D if idx in set_idx]
+    # print "Results Correlations: overall "
+    # pprint(ks_results_total)
 
     map_D = np.zeros([max(images), max(images)])
     map_pval = np.zeros([max(images), max(images)])
     for i, j in ks_stats:
         map_D[i][j], map_pval[i][j] = ks_stats[(i, j)]
     fig, ax = plt.subplots()
-    im = ax.imshow(map_pval, interpolation='spline16', cmap=cm.afmhot)
+    im = ax.imshow(map_pval, interpolation="spline16", cmap=cm.afmhot)
     fig.colorbar(im, ax=ax)
     plt.show()
 
     return ks_results_D, ks_results_pval
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     start_time = time()
 
     # Configure the logging
-    log.config(
-        params.verbosity,
-        info=params.output.log,
-        debug=params.output.debug_log)
+    log.config(params.verbosity, info=params.output.log, debug=params.output.debug_log)
 
     from dials.util.version import dials_version
+
     logger.info(dials_version())
 
     # Log the diff phil
     diff_phil = parser.diff_phil.as_str()
-    if diff_phil is not '':
-        logger.info('The following parameters have been modified:\n')
+    if diff_phil is not "":
+        logger.info("The following parameters have been modified:\n")
         logger.info(diff_phil)
 
     # Ensure we have a data block
@@ -300,32 +334,35 @@ if __name__ == '__main__':
         parser.print_help()
         exit()
     elif len(datablocks) != 1:
-        raise Sorry('only 1 datablock can be processed at a time')
+        raise Sorry("only 1 datablock can be processed at a time")
     datablock = datablocks[0]
 
     # Loop through all the imagesets and find the strong spots
-    reflections = flex.reflection_table.from_observations(
-        datablock, params)
+    reflections = flex.reflection_table.from_observations(datablock, params)
 
     # ascii spot count per image plot
     for i, imageset in enumerate(datablock.extract_imagesets()):
         ascii_plot = spot_counts_per_image_plot(
-            reflections.select(reflections['id'] == i))
+            reflections.select(reflections["id"] == i)
+        )
         if len(ascii_plot):
-            logger.info('\nHistogram of per-image spot count for imageset %i:' %i)
+            logger.info("\nHistogram of per-image spot count for imageset %i:" % i)
             logger.info(ascii_plot)
 
     # Save the reflections to file
-    logger.info('\n' + '-' * 80)
+    logger.info("\n" + "-" * 80)
     reflections.as_pickle(params.output.reflections)
-    logger.info('Saved {0} reflections to {1}'.format(
-        len(reflections), params.output.reflections))
+    logger.info(
+        "Saved {0} reflections to {1}".format(
+            len(reflections), params.output.reflections
+        )
+    )
 
     # Save the datablock
     if params.output.datablock:
         from dxtbx.datablock import DataBlockDumper
-        logger.info('Saving datablocks to {0}'.format(
-            params.output.datablock))
+
+        logger.info("Saving datablocks to {0}".format(params.output.datablock))
         dump = DataBlockDumper(datablocks)
         dump.as_file(params.output.datablock)
 
@@ -333,12 +370,15 @@ if __name__ == '__main__':
     if params.per_image_statistics:
         from dials.algorithms.spot_finding import per_image_analysis
         from cStringIO import StringIO
+
         s = StringIO()
         for i, imageset in enumerate(datablock.extract_imagesets()):
-            print >> s, "Number of centroids per image for imageset %i:" %i
+            print >> s, "Number of centroids per image for imageset %i:" % i
             stats = per_image_analysis.stats_imageset(
-                imageset, reflections.select(reflections['id'] == i),
-                resolution_analysis=False)
+                imageset,
+                reflections.select(reflections["id"] == i),
+                resolution_analysis=False,
+            )
             per_image_analysis.print_table(stats, out=s)
         logger.info(s.getvalue())
 
@@ -346,66 +386,80 @@ if __name__ == '__main__':
     logger.info("Time Taken: %f" % (time() - start_time))
 
     imagesets = datablock.extract_imagesets()
-    assert(len(imagesets) == 1)
+    assert len(imagesets) == 1
     imageset = imagesets[0]
 
-    #images = imageset.indices()
+    # images = imageset.indices()
     detector = imageset.get_detector()
     beam = imageset.get_beam()
 
-    rayleigh_func = partial(calc_stats,
-                            dfunc=stats.rayleigh)
+    rayleigh_func = partial(calc_stats, dfunc=stats.rayleigh)
 
     gengamma_shape = params.distribution.gengamma.shape
-    gengamma_func = partial(calc_stats,
-                            dfunc=stats.gengamma,
-                            dparams=OrderedDict([('a', 1. / gengamma_shape),
-                                                 ('c', gengamma_shape)]))
+    gengamma_func = partial(
+        calc_stats,
+        dfunc=stats.gengamma,
+        dparams=OrderedDict([("a", 1.0 / gengamma_shape), ("c", gengamma_shape)]),
+    )
 
     chi2_low_scale = params.distribution.chi2_low.k
-    chi2_low_func = partial(calc_stats,
-                        dfunc=stats.chi2, dparams=OrderedDict([('df', chi2_low_scale),]))
+    chi2_low_func = partial(
+        calc_stats, dfunc=stats.chi2, dparams=OrderedDict([("df", chi2_low_scale)])
+    )
 
     chi2_high_scale = params.distribution.chi2_high.k
-    chi2_high_func = partial(calc_stats,
-                        dfunc=stats.chi2, dparams=OrderedDict([('df', chi2_high_scale),]))
+    chi2_high_func = partial(
+        calc_stats, dfunc=stats.chi2, dparams=OrderedDict([("df", chi2_high_scale)])
+    )
 
-    expon_func = partial(calc_stats,
-                         dfunc=stats.expon)
+    expon_func = partial(calc_stats, dfunc=stats.expon)
 
     for try_spot_size in range(params.filter_grid.min_spot_size, 0, -1):
-        logger.info("Searching for reflections using min_spot_size = %d" % try_spot_size)
+        logger.info(
+            "Searching for reflections using min_spot_size = %d" % try_spot_size
+        )
         resol_dict = {}
         for refl in reflections:
-            if max(refl['shoebox'].size()) < try_spot_size:
+            if max(refl["shoebox"].size()) < try_spot_size:
                 continue
-            x, y, z = refl['xyzobs.px.value']
+            x, y, z = refl["xyzobs.px.value"]
             frame = int(ceil(z))
-            resol = 1. / detector[0].get_resolution_at_pixel(beam.get_s0(), (x, y))**2
+            resol = (
+                1.0 / detector[0].get_resolution_at_pixel(beam.get_s0(), (x, y)) ** 2
+            )
             try:
                 resol_dict[frame].append(resol)
             except KeyError:
-                resol_dict[frame] = [resol,]
+                resol_dict[frame] = [resol]
 
-        #cross_ksstat(resol_dict, imageset.indices())
+        # cross_ksstat(resol_dict, imageset.indices())
 
-        distribution_dict = {'expon': expon_func,
-                             'rayleigh': rayleigh_func,
-                             'chi2_low': chi2_low_func,
-                             'chi2_high': chi2_high_func,
-                             'gengamma': gengamma_func
-                             }
+        distribution_dict = {
+            "expon": expon_func,
+            "rayleigh": rayleigh_func,
+            "chi2_low": chi2_low_func,
+            "chi2_high": chi2_high_func,
+            "gengamma": gengamma_func,
+        }
 
         all_stats = {}
         sc = params.filter_grid.scoring
-        thres_pval = lambda v: True if params.filter_grid.show_all else v[1] > params.filter_grid.threshold
-        for func_name  in params.filter_grid.profiles:
-            test_dict = dict((k, v) for k, v
-                             in distribution_dict[func_name](resol_dict, func_name=func_name)[sc].items()
-                             if thres_pval(v))
+        thres_pval = (
+            lambda v: True
+            if params.filter_grid.show_all
+            else v[1] > params.filter_grid.threshold
+        )
+        for func_name in params.filter_grid.profiles:
+            test_dict = dict(
+                (k, v)
+                for k, v in distribution_dict[func_name](
+                    resol_dict, func_name=func_name
+                )[sc].items()
+                if thres_pval(v)
+            )
             if test_dict:
                 output_stats(test_dict, func_name)
-                output_json(test_dict, '_'.join([func_name, sc, 'stats']))
+                output_json(test_dict, "_".join([func_name, sc, "stats"]))
             for k, v in test_dict.items():
                 try:
                     all_stats[k].update({func_name: v})
@@ -416,13 +470,12 @@ if __name__ == '__main__':
         else:
             logger.info("No results found using min_spot_size = %d" % try_spot_size)
     merged_stats = merge_test_stats(all_stats)
-    all_results = output_stats(merged_stats, 'Total')
-    output_json(merged_stats, 'merged_results')
+    all_results = output_stats(merged_stats, "Total")
+    output_json(merged_stats, "merged_results")
 
-    for res, plot_title in zip(all_results,
-                               ('Results sorted per image number',
-                                'Results sorted per # of spots')):
+    for res, plot_title in zip(
+        all_results,
+        ("Results sorted per image number", "Results sorted per # of spots"),
+    ):
         images = [img_ for (img_, _) in res]
-        plot_stats(all_stats,
-                   images=images,
-                   title=plot_title)
+        plot_stats(all_stats, images=images, title=plot_title)

@@ -4,17 +4,20 @@ from dlstbx.util.version import dlstbx_version
 
 print(dlstbx_version())
 try:
-  import ispyb
-  print("ispyb", ispyb.__version__)
+    import ispyb
+
+    print("ispyb", ispyb.__version__)
 except ImportError:
-  pass
+    pass
 try:
-  import workflows
-  print("workflows", workflows.__version__)
+    import workflows
+
+    print("workflows", workflows.__version__)
 except ImportError:
-  pass
+    pass
 try:
-  import zocalo
-  print("zocalo", zocalo.__version__)
+    import zocalo
+
+    print("zocalo", zocalo.__version__)
 except ImportError:
-  pass
+    pass

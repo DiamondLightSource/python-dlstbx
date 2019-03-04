@@ -1,29 +1,30 @@
 from __future__ import absolute_import, division, print_function
 
 try:
-  import configparser
+    import configparser
 except ImportError:
-  import ConfigParser as configparser
+    import ConfigParser as configparser
 
 import logging
 
 import ispyb.connector.mysqlsp.main
 
-log = logging.getLogger('dlstbx.dc_sim')
+log = logging.getLogger("dlstbx.dc_sim")
+
 
 class DB:
-  def __init__(self):
-    config = configparser.RawConfigParser(allow_no_value=True)
-    assert config.read('/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg')
-    credentials = dict(config.items('prod'))
-    self.i = ispyb.connector.mysqlsp.main.ISPyBMySQLSPConnector(**credentials)
-    self.cursor = self.i.create_cursor()
+    def __init__(self):
+        config = configparser.RawConfigParser(allow_no_value=True)
+        assert config.read("/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg")
+        credentials = dict(config.items("prod"))
+        self.i = ispyb.connector.mysqlsp.main.ISPyBMySQLSPConnector(**credentials)
+        self.cursor = self.i.create_cursor()
 
-  def doQuery(self, querystr):
-    cursor = self.i.create_cursor()
-    log.debug("DB: %s", querystr)
-    try:
-      cursor.execute(querystr)
-      return cursor.fetchall()
-    finally:
-      cursor.close()
+    def doQuery(self, querystr):
+        cursor = self.i.create_cursor()
+        log.debug("DB: %s", querystr)
+        try:
+            cursor.execute(querystr)
+            return cursor.fetchall()
+        finally:
+            cursor.close()

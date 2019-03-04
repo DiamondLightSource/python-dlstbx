@@ -1,50 +1,57 @@
 from __future__ import absolute_import, division, print_function
 
+
 def hex2col(triplet):
-# print "RGB:", hex2rgb(triplet)
-# print "Ansi:", rgb2ansi(*hex2rgb(triplet))
-# return ansi2escape(rgb2ansi(*hex2rgb(triplet)))
-  return ansi2escape(nearestansi2rgb(*hex2rgb(triplet)))
+    # print "RGB:", hex2rgb(triplet)
+    # print "Ansi:", rgb2ansi(*hex2rgb(triplet))
+    # return ansi2escape(rgb2ansi(*hex2rgb(triplet)))
+    return ansi2escape(nearestansi2rgb(*hex2rgb(triplet)))
+
 
 def hex2rgb(triplet):
-  _NUMERALS = '0123456789abcdefABCDEF'
-  _HEXDEC = {v: int(v, 16) for v in (x+y for x in _NUMERALS for y in _NUMERALS)}
-  if triplet.startswith('#'):
-    triplet = triplet[1:]
-  return _HEXDEC[triplet[0:2]], _HEXDEC[triplet[2:4]], _HEXDEC[triplet[4:6]]
+    _NUMERALS = "0123456789abcdefABCDEF"
+    _HEXDEC = {v: int(v, 16) for v in (x + y for x in _NUMERALS for y in _NUMERALS)}
+    if triplet.startswith("#"):
+        triplet = triplet[1:]
+    return _HEXDEC[triplet[0:2]], _HEXDEC[triplet[2:4]], _HEXDEC[triplet[4:6]]
+
 
 def rgb2xyz(r, g, b):
-  def filter(val):
-    if val > 0.04045:
-      return ( ( val + 0.055 ) / 1.055 ) ** 2.4
-    else:
-      return val / 12.92
-  var_R = filter(r / 255) * 100
-  var_G = filter(g / 255) * 100
-  var_B = filter(b / 255) * 100
+    def filter(val):
+        if val > 0.04045:
+            return ((val + 0.055) / 1.055) ** 2.4
+        else:
+            return val / 12.92
 
-  # Observer = 2 deg, Illuminant = D65
-  X = var_R * 0.4124 + var_G * 0.3576 + var_B * 0.1805
-  Y = var_R * 0.2126 + var_G * 0.7152 + var_B * 0.0722
-  Z = var_R * 0.0193 + var_G * 0.1192 + var_B * 0.9505
-  return X, Y, Z
+    var_R = filter(r / 255) * 100
+    var_G = filter(g / 255) * 100
+    var_B = filter(b / 255) * 100
+
+    # Observer = 2 deg, Illuminant = D65
+    X = var_R * 0.4124 + var_G * 0.3576 + var_B * 0.1805
+    Y = var_R * 0.2126 + var_G * 0.7152 + var_B * 0.0722
+    Z = var_R * 0.0193 + var_G * 0.1192 + var_B * 0.9505
+    return X, Y, Z
+
 
 def xyz2cielab(x, y, z):
-  def filter(val):
-    if val > 0.008856:
-      return val ** (1/3)
-    else:
-      return (7.787 * val) + (16 / 116)
-  var_X = filter(x / 95.047) # Observer= 2 deg, Illuminant= D65
-  var_Y = filter(y / 100.000)
-  var_Z = filter(z / 108.883)
+    def filter(val):
+        if val > 0.008856:
+            return val ** (1 / 3)
+        else:
+            return (7.787 * val) + (16 / 116)
 
-  CIE_L = ( 116 * var_Y ) - 16
-  CIE_a = 500 * ( var_X - var_Y )
-  CIE_b = 200 * ( var_Y - var_Z )
-  return CIE_L, CIE_a, CIE_b
+    var_X = filter(x / 95.047)  # Observer= 2 deg, Illuminant= D65
+    var_Y = filter(y / 100.000)
+    var_Z = filter(z / 108.883)
 
-_ansitable = '''
+    CIE_L = (116 * var_Y) - 16
+    CIE_a = 500 * (var_X - var_Y)
+    CIE_b = 200 * (var_Y - var_Z)
+    return CIE_L, CIE_a, CIE_b
+
+
+_ansitable = """
   0 #000000  1 #800000  2 #008000  3 #808000  4 #000080  5 #800080
   6 #008080  7 #c0c0c0  8 #808080  9 #ff0000 10 #00ff00 11 #ffff00
  12 #0000ff 13 #ff00ff 14 #00ffff 15 #ffffff
@@ -88,46 +95,54 @@ _ansitable = '''
 238 #444444 239 #4e4e4e 240 #585858 241 #606060 242 #666666 243 #767676
 244 #808080 245 #8a8a8a 246 #949494 247 #9e9e9e 248 #a8a8a8 249 #b2b2b2
 250 #bcbcbc 251 #c6c6c6 252 #d0d0d0 253 #dadada 254 #e4e4e4 255 #eeeeee
-'''
+"""
 
-_ansitable = _ansitable.replace('\n', ' ').strip().split()
+_ansitable = _ansitable.replace("\n", " ").strip().split()
 _ansirgb, _ansilab = [], []
 for i in range(0, len(_ansitable), 2):
-  _ansirgb.append(hex2rgb(_ansitable[i+1]))
-  _ansilab.append(xyz2cielab(*rgb2xyz(*hex2rgb(_ansitable[i+1]))))
+    _ansirgb.append(hex2rgb(_ansitable[i + 1]))
+    _ansilab.append(xyz2cielab(*rgb2xyz(*hex2rgb(_ansitable[i + 1]))))
+
 
 def nearestansi2rgb(r, g, b):
-  def deltaE76(l1, a1, b1, l2, a2, b2):
-    return ((l1 - l2)**2) + ((a1 - a2)**2) + ((b1 - b2)**2)
-  def deltaE94(l1, a1, b1, l2, a2, b2):
-    xC1 = ( ( a1 ** 2 ) + ( b1 ** 2 ) ) ** 0.5
-    xC2 = ( ( a2 ** 2 ) + ( b2 ** 2 ) ) ** 0.5
-    xDL = l2 - l1
-    xDC = xC2 - xC1
-    xDE = ( ( ( l1 - l2 ) * ( l1 - l2 ) )
-          + ( ( a1 - a2 ) * ( a1 - a2 ) )
-          + ( ( b1 - b2 ) * ( b1 - b2 ) ) ) ** 0.5
-    if (xDE ** 0.5) > (abs( xDL ) ** 0.5) + (abs( xDC ) ** 0.5):
-      xDH = ( ( xDE * xDE ) - ( xDL * xDL ) - ( xDC * xDC ) ) ** 0.5
-    else:
-      xDH = 0
-    xSC = 1 + ( 0.045 * xC1 )
-    xSH = 1 + ( 0.015 * xC1 )
-    xDC /= xSC
-    xDH /= xSH
-    return xDL ** 2 + xDC ** 2 + xDH ** 2
-  l, a, b = xyz2cielab(*rgb2xyz(r, g, b))
-  distances = [ deltaE76(l, a, b, *col) for col in _ansilab ]
-# distances = [ deltaE94(l, a, b, *col) for col in _ansilab ]
-  from operator import itemgetter
-  return min(enumerate(distances), key=itemgetter(1))[0]
+    def deltaE76(l1, a1, b1, l2, a2, b2):
+        return ((l1 - l2) ** 2) + ((a1 - a2) ** 2) + ((b1 - b2) ** 2)
+
+    def deltaE94(l1, a1, b1, l2, a2, b2):
+        xC1 = ((a1 ** 2) + (b1 ** 2)) ** 0.5
+        xC2 = ((a2 ** 2) + (b2 ** 2)) ** 0.5
+        xDL = l2 - l1
+        xDC = xC2 - xC1
+        xDE = (
+            ((l1 - l2) * (l1 - l2)) + ((a1 - a2) * (a1 - a2)) + ((b1 - b2) * (b1 - b2))
+        ) ** 0.5
+        if (xDE ** 0.5) > (abs(xDL) ** 0.5) + (abs(xDC) ** 0.5):
+            xDH = ((xDE * xDE) - (xDL * xDL) - (xDC * xDC)) ** 0.5
+        else:
+            xDH = 0
+        xSC = 1 + (0.045 * xC1)
+        xSH = 1 + (0.015 * xC1)
+        xDC /= xSC
+        xDH /= xSH
+        return xDL ** 2 + xDC ** 2 + xDH ** 2
+
+    l, a, b = xyz2cielab(*rgb2xyz(r, g, b))
+    distances = [deltaE76(l, a, b, *col) for col in _ansilab]
+    # distances = [ deltaE94(l, a, b, *col) for col in _ansilab ]
+    from operator import itemgetter
+
+    return min(enumerate(distances), key=itemgetter(1))[0]
+
 
 def rgb2ansi(r, g, b):
-  def distance(r1, g1, b1, r2, g2, b2):
-    return ((r1 - r2)**2) + ((g1 - g2)**2) + ((b1 - b2)**2)
-  distances = [ distance(r, g, b, *col) for col in _ansirgb ]
-  from operator import itemgetter
-  return min(enumerate(distances), key=itemgetter(1))[0]
+    def distance(r1, g1, b1, r2, g2, b2):
+        return ((r1 - r2) ** 2) + ((g1 - g2) ** 2) + ((b1 - b2) ** 2)
+
+    distances = [distance(r, g, b, *col) for col in _ansirgb]
+    from operator import itemgetter
+
+    return min(enumerate(distances), key=itemgetter(1))[0]
+
 
 def ansi2escape(colnum):
-  return '\033[38;5;%dm' % colnum
+    return "\033[38;5;%dm" % colnum

@@ -9,163 +9,211 @@ import dlstbx.util.jmxstats
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.rrdtool import RRDTool
 
+
 class ActiveMQAPI(object):
-  def __init__(self):
-    self.jmx = dlstbx.util.jmxstats.JMXAPI()
+    def __init__(self):
+        self.jmx = dlstbx.util.jmxstats.JMXAPI()
 
-    # List of supported variables:
-    # curl -XGET --user rrdapi:**password** http://cs04r-sc-vserv-69:80/api/jolokia/list | python -m json.tool
+        # List of supported variables:
+        # curl -XGET --user rrdapi:**password** http://cs04r-sc-vserv-69:80/api/jolokia/list | python -m json.tool
 
-  def getStorePercentUsage(self):
-    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost", attribute="StorePercentUsage")
-    assert result['status'] == 200
-    return result['value']
+    def getStorePercentUsage(self):
+        result = self.jmx.org.apache.activemq(
+            type="Broker", brokerName="localhost", attribute="StorePercentUsage"
+        )
+        assert result["status"] == 200
+        return result["value"]
 
-  def getTempPercentUsage(self):
-    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost", attribute="TempPercentUsage")
-    assert result['status'] == 200
-    return result['value']
+    def getTempPercentUsage(self):
+        result = self.jmx.org.apache.activemq(
+            type="Broker", brokerName="localhost", attribute="TempPercentUsage"
+        )
+        assert result["status"] == 200
+        return result["value"]
 
-  def getMemoryPercentUsage(self):
-    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost", attribute="MemoryPercentUsage")
-    assert result['status'] == 200
-    return result['value']
+    def getMemoryPercentUsage(self):
+        result = self.jmx.org.apache.activemq(
+            type="Broker", brokerName="localhost", attribute="MemoryPercentUsage"
+        )
+        assert result["status"] == 200
+        return result["value"]
 
-  def getConnectionsCount(self):
-    result = self.jmx.org.apache.activemq(type="Broker", brokerName="localhost", attribute="CurrentConnectionsCount")
-    assert result['status'] == 200
-    return result['value']
+    def getConnectionsCount(self):
+        result = self.jmx.org.apache.activemq(
+            type="Broker", brokerName="localhost", attribute="CurrentConnectionsCount"
+        )
+        assert result["status"] == 200
+        return result["value"]
 
-  @property
-  def _VMMemoryInfo(self):
-    if not hasattr(self, '_vmmeminfo'):
-      result = self.jmx.java.lang(type="Memory", attribute="HeapMemoryUsage,NonHeapMemoryUsage")
-      assert result['status'] == 200
-      self._vmmeminfo = result['value']
-    return self._vmmeminfo
+    @property
+    def _VMMemoryInfo(self):
+        if not hasattr(self, "_vmmeminfo"):
+            result = self.jmx.java.lang(
+                type="Memory", attribute="HeapMemoryUsage,NonHeapMemoryUsage"
+            )
+            assert result["status"] == 200
+            self._vmmeminfo = result["value"]
+        return self._vmmeminfo
 
-  def getHeapMemoryCommitted(self):
-    return self._VMMemoryInfo['HeapMemoryUsage']['committed']
+    def getHeapMemoryCommitted(self):
+        return self._VMMemoryInfo["HeapMemoryUsage"]["committed"]
 
-  def getHeapMemoryInitial(self):
-    return self._VMMemoryInfo['HeapMemoryUsage']['init']
+    def getHeapMemoryInitial(self):
+        return self._VMMemoryInfo["HeapMemoryUsage"]["init"]
 
-  def getHeapMemoryMaximum(self):
-    return self._VMMemoryInfo['HeapMemoryUsage']['max']
+    def getHeapMemoryMaximum(self):
+        return self._VMMemoryInfo["HeapMemoryUsage"]["max"]
 
-  def getHeapMemoryUsed(self):
-    return self._VMMemoryInfo['HeapMemoryUsage']['used']
+    def getHeapMemoryUsed(self):
+        return self._VMMemoryInfo["HeapMemoryUsage"]["used"]
 
-  def getNonHeapMemoryCommitted(self):
-    return self._VMMemoryInfo['NonHeapMemoryUsage']['committed']
+    def getNonHeapMemoryCommitted(self):
+        return self._VMMemoryInfo["NonHeapMemoryUsage"]["committed"]
 
-  def getNonHeapMemoryInitial(self):
-    return self._VMMemoryInfo['NonHeapMemoryUsage']['init']
+    def getNonHeapMemoryInitial(self):
+        return self._VMMemoryInfo["NonHeapMemoryUsage"]["init"]
 
-  def getNonHeapMemoryMaximum(self):
-    return self._VMMemoryInfo['NonHeapMemoryUsage']['max']
+    def getNonHeapMemoryMaximum(self):
+        return self._VMMemoryInfo["NonHeapMemoryUsage"]["max"]
 
-  def getNonHeapMemoryUsed(self):
-    return self._VMMemoryInfo['NonHeapMemoryUsage']['used']
+    def getNonHeapMemoryUsed(self):
+        return self._VMMemoryInfo["NonHeapMemoryUsage"]["used"]
+
 
 class ActiveMQRRD(object):
-  def __init__(self, path='.', api=None):
-    self.rrd = RRDTool(path)
-    self.setup_rrd()
-    self.api_activemq = api
-    self.log = logging.getLogger('dlstbx.command_line.activemq_stats')
+    def __init__(self, path=".", api=None):
+        self.rrd = RRDTool(path)
+        self.setup_rrd()
+        self.api_activemq = api
+        self.log = logging.getLogger("dlstbx.command_line.activemq_stats")
 
-  def setup_rrd(self):
-    daydata       = [ 'RRA:%s:0.5:1:1440' % cls for cls in ('AVERAGE', 'MAX') ]
-    weekdata      = [ 'RRA:%s:0.5:3:3360' % cls for cls in ('AVERAGE', 'MAX') ]
-    monthdata     = [ 'RRA:%s:0.5:6:7440' % cls for cls in ('AVERAGE', 'MAX') ]
-    self.rrd_activemq = self.rrd.create(
-          'activemq-statistics.rrd', [ '--step', '60' ]
-        + [ 'DS:storageused:GAUGE:180:0:U',
-            'DS:tempused:GAUGE:180:0:U',
-            'DS:memoryused:GAUGE:180:0:U',
-            'DS:connections:GAUGE:180:0:U',
-          ]
-        + daydata + weekdata + monthdata
-      )
-    self.rrd_amqmemory = self.rrd.create(
-          'activemq-memory.rrd', [ '--step', '60' ]
-        + [ 'DS:heapinitial:GAUGE:180:0:U',
-            'DS:heapused:GAUGE:180:0:U',
-            'DS:heapcommitted:GAUGE:180:0:U',
-            'DS:heapmaximum:GAUGE:180:0:U',
-            'DS:nonheapinitial:GAUGE:180:0:U',
-            'DS:nonheapused:GAUGE:180:0:U',
-            'DS:nonheapcommitted:GAUGE:180:0:U',
-          ]
-        + daydata + weekdata + monthdata
-      )
+    def setup_rrd(self):
+        daydata = ["RRA:%s:0.5:1:1440" % cls for cls in ("AVERAGE", "MAX")]
+        weekdata = ["RRA:%s:0.5:3:3360" % cls for cls in ("AVERAGE", "MAX")]
+        monthdata = ["RRA:%s:0.5:6:7440" % cls for cls in ("AVERAGE", "MAX")]
+        self.rrd_activemq = self.rrd.create(
+            "activemq-statistics.rrd",
+            ["--step", "60"]
+            + [
+                "DS:storageused:GAUGE:180:0:U",
+                "DS:tempused:GAUGE:180:0:U",
+                "DS:memoryused:GAUGE:180:0:U",
+                "DS:connections:GAUGE:180:0:U",
+            ]
+            + daydata
+            + weekdata
+            + monthdata,
+        )
+        self.rrd_amqmemory = self.rrd.create(
+            "activemq-memory.rrd",
+            ["--step", "60"]
+            + [
+                "DS:heapinitial:GAUGE:180:0:U",
+                "DS:heapused:GAUGE:180:0:U",
+                "DS:heapcommitted:GAUGE:180:0:U",
+                "DS:heapmaximum:GAUGE:180:0:U",
+                "DS:nonheapinitial:GAUGE:180:0:U",
+                "DS:nonheapused:GAUGE:180:0:U",
+                "DS:nonheapcommitted:GAUGE:180:0:U",
+            ]
+            + daydata
+            + weekdata
+            + monthdata,
+        )
 
-  def update(self):
-    update_time = int(time.time())
-    self.log.info("Last known data point:    %d", self.rrd_activemq.last_update)
-    self.log.info("Current time:             %d", update_time)
-    if update_time - self.rrd_activemq.last_update <= 30:
-      self.log.info("No update required.")
-      return
-    if not self.api_activemq:
-      self.log.warn("ActiveMQ API not available.")
-      return
+    def update(self):
+        update_time = int(time.time())
+        self.log.info("Last known data point:    %d", self.rrd_activemq.last_update)
+        self.log.info("Current time:             %d", update_time)
+        if update_time - self.rrd_activemq.last_update <= 30:
+            self.log.info("No update required.")
+            return
+        if not self.api_activemq:
+            self.log.warn("ActiveMQ API not available.")
+            return
 
-    self.rrd_activemq.update([ [ update_time,
-                                 self.api_activemq.getStorePercentUsage(),
-                                 self.api_activemq.getTempPercentUsage(),
-                                 self.api_activemq.getMemoryPercentUsage(),
-                                 self.api_activemq.getConnectionsCount(),
-                               ] ])
-    self.rrd_amqmemory.update([ [ update_time,
-                                  self.api_activemq.getHeapMemoryInitial(),
-                                  self.api_activemq.getHeapMemoryUsed(),
-                                  self.api_activemq.getHeapMemoryCommitted(),
-                                  self.api_activemq.getHeapMemoryMaximum(),
-                                  self.api_activemq.getNonHeapMemoryInitial(),
-                                  self.api_activemq.getNonHeapMemoryUsed(),
-                                  self.api_activemq.getNonHeapMemoryCommitted(),
-                                ] ])
-    self.log.info("Updated to:               %d", self.rrd_activemq.last_update)
+        self.rrd_activemq.update(
+            [
+                [
+                    update_time,
+                    self.api_activemq.getStorePercentUsage(),
+                    self.api_activemq.getTempPercentUsage(),
+                    self.api_activemq.getMemoryPercentUsage(),
+                    self.api_activemq.getConnectionsCount(),
+                ]
+            ]
+        )
+        self.rrd_amqmemory.update(
+            [
+                [
+                    update_time,
+                    self.api_activemq.getHeapMemoryInitial(),
+                    self.api_activemq.getHeapMemoryUsed(),
+                    self.api_activemq.getHeapMemoryCommitted(),
+                    self.api_activemq.getHeapMemoryMaximum(),
+                    self.api_activemq.getNonHeapMemoryInitial(),
+                    self.api_activemq.getNonHeapMemoryUsed(),
+                    self.api_activemq.getNonHeapMemoryCommitted(),
+                ]
+            ]
+        )
+        self.log.info("Updated to:               %d", self.rrd_activemq.last_update)
+
 
 def setup_logging(level=logging.INFO):
-  console = ColorStreamHandler()
-  console.setLevel(level)
-  logger = logging.getLogger()
-  logger.setLevel(logging.WARN)
-  logger.addHandler(console)
-  logging.getLogger('dlstbx').setLevel(level)
+    console = ColorStreamHandler()
+    console.setLevel(level)
+    logger = logging.getLogger()
+    logger.setLevel(logging.WARN)
+    logger.addHandler(console)
+    logging.getLogger("dlstbx").setLevel(level)
+
 
 setup_logging(logging.INFO)
 amq = ActiveMQAPI()
 
-if __name__ == '__main__':
-  parser = OptionParser(usage="dlstbx.get_activemq_statistics [options]",
-                        description="Collects statistics from an ActiveMQ server")
+if __name__ == "__main__":
+    parser = OptionParser(
+        usage="dlstbx.get_activemq_statistics [options]",
+        description="Collects statistics from an ActiveMQ server",
+    )
 
-  parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-  parser.add_option("--rrd", action="store_true", default=False,
-      help="Collect all information and store it in an RRD file for aggregation")
-  parser.add_option("-r", "--read", dest="keys", action="append", default=[], metavar="KEY",
-      help="Read named value from ActiveMQ server")
-  (options, args) = parser.parse_args(sys.argv[1:])
+    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+    parser.add_option(
+        "--rrd",
+        action="store_true",
+        default=False,
+        help="Collect all information and store it in an RRD file for aggregation",
+    )
+    parser.add_option(
+        "-r",
+        "--read",
+        dest="keys",
+        action="append",
+        default=[],
+        metavar="KEY",
+        help="Read named value from ActiveMQ server",
+    )
+    (options, args) = parser.parse_args(sys.argv[1:])
 
-  if options.rrd:
-    ActiveMQRRD(api=amq).update()
+    if options.rrd:
+        ActiveMQRRD(api=amq).update()
 
-  if options.keys:
-    available_keys = { k[3:].lower():k for k in dir(amq) if k.startswith('get') }
-    for name in options.keys:
-      fn = available_keys.get(name.lower())
-      if fn:
-        value = getattr(amq, fn)()
-        print("%s:%s" % (name, str(value)))
+    if options.keys:
+        available_keys = {k[3:].lower(): k for k in dir(amq) if k.startswith("get")}
+        for name in options.keys:
+            fn = available_keys.get(name.lower())
+            if fn:
+                value = getattr(amq, fn)()
+                print("%s:%s" % (name, str(value)))
 
-  if not options.rrd and not options.keys:
-    def readable_memory(value):
-      return "{0:.1f} MB".format(value / 1024 / 1024)
-    print("""
+    if not options.rrd and not options.keys:
+
+        def readable_memory(value):
+            return "{0:.1f} MB".format(value / 1024 / 1024)
+
+        print(
+            """
 ActiveMQ connections: {connections}
 
 Storage statistics:
@@ -177,11 +225,12 @@ Virtual machine memory statistics:
    heap: using {heapused} of {heapmax}
    used memory outside of heap: {nonheapused}
 """.format(
-       connections=amq.getConnectionsCount(),
-       store=amq.getStorePercentUsage(),
-       temp=amq.getTempPercentUsage(),
-       memory=amq.getMemoryPercentUsage(),
-       heapused=readable_memory(amq.getHeapMemoryUsed()),
-       heapmax=readable_memory(amq.getHeapMemoryMaximum()),
-       nonheapused=readable_memory(amq.getNonHeapMemoryUsed()),
-    ))
+                connections=amq.getConnectionsCount(),
+                store=amq.getStorePercentUsage(),
+                temp=amq.getTempPercentUsage(),
+                memory=amq.getMemoryPercentUsage(),
+                heapused=readable_memory(amq.getHeapMemoryUsed()),
+                heapmax=readable_memory(amq.getHeapMemoryMaximum()),
+                nonheapused=readable_memory(amq.getNonHeapMemoryUsed()),
+            )
+        )

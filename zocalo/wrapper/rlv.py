@@ -8,84 +8,108 @@ import dlstbx.util.symlink
 import procrunner
 import zocalo.wrapper
 
-logger = logging.getLogger('dlstbx.wrap.rlv')
+logger = logging.getLogger("dlstbx.wrap.rlv")
+
 
 class RLVWrapper(zocalo.wrapper.BaseWrapper):
-  def run(self):
-    assert hasattr(self, 'recwrap'), \
-      "No recipewrapper object found"
+    def run(self):
+        assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
-    params = self.recwrap.recipe_step['job_parameters']
+        params = self.recwrap.recipe_step["job_parameters"]
 
-    # run in working directory
-    working_directory = params['working_directory']
-    if not os.path.exists(working_directory):
-      os.makedirs(working_directory)
-    os.chdir(working_directory)
+        # run in working directory
+        working_directory = params["working_directory"]
+        if not os.path.exists(working_directory):
+            os.makedirs(working_directory)
+        os.chdir(working_directory)
 
-    command = ['dials.import', 'template=%s' % params['template']]
-    logger.info('command: %s', ' '.join(command))
-    result = procrunner.run(
-        command, timeout=params.get('timeout'),
-    )
-    if result['exitcode'] or result['timeout']:
-      logger.warning('Failed to import files %s with exitcode %s and timeout %s', params['template'], result['exitcode'], result['timeout'])
-      return False
-    logger.info('Import successful, took %.1f seconds', result['runtime'])
+        command = ["dials.import", "template=%s" % params["template"]]
+        logger.info("command: %s", " ".join(command))
+        result = procrunner.run(command, timeout=params.get("timeout"))
+        if result["exitcode"] or result["timeout"]:
+            logger.warning(
+                "Failed to import files %s with exitcode %s and timeout %s",
+                params["template"],
+                result["exitcode"],
+                result["timeout"],
+            )
+            return False
+        logger.info("Import successful, took %.1f seconds", result["runtime"])
 
-    # then find spots
-    command = ['dials.find_spots', 'datablock.json', 'nproc=' + str(os.getenv('NSLOTS', '20'))]
-    logger.info('command: %s', ' '.join(command))
-    result = procrunner.run(
-        command, timeout=params.get('timeout'),
-    )
-    if result['exitcode'] or result['timeout']:
-      logger.warning('Spotfinding failed on %s with exitcode %s and timeout %s', params['template'], result['exitcode'], result['timeout'])
-      return False
-    logger.info('Spotfinding successful, took %.1f seconds', result['runtime'])
+        # then find spots
+        command = [
+            "dials.find_spots",
+            "datablock.json",
+            "nproc=" + str(os.getenv("NSLOTS", "20")),
+        ]
+        logger.info("command: %s", " ".join(command))
+        result = procrunner.run(command, timeout=params.get("timeout"))
+        if result["exitcode"] or result["timeout"]:
+            logger.warning(
+                "Spotfinding failed on %s with exitcode %s and timeout %s",
+                params["template"],
+                result["exitcode"],
+                result["timeout"],
+            )
+            return False
+        logger.info("Spotfinding successful, took %.1f seconds", result["runtime"])
 
-    # then map to csv file
-    command = ['dev.dials.csv', 'dp=4', 'compress=true', 'csv=rl.csv.gz', 'datablock.json', 'strong.pickle']
-    logger.info('command: %s', ' '.join(command))
-    result = procrunner.run(
-        command, timeout=params.get('timeout'),
-    )
-    if result['exitcode'] or result['timeout']:
-      logger.warning('Generating .csv failed on %s with exitcode %s and timeout %s', params['template'], result['exitcode'], result['timeout'])
-      return False
-    logger.info('CSV generation successful, took %.1f seconds', result['runtime'])
+        # then map to csv file
+        command = [
+            "dev.dials.csv",
+            "dp=4",
+            "compress=true",
+            "csv=rl.csv.gz",
+            "datablock.json",
+            "strong.pickle",
+        ]
+        logger.info("command: %s", " ".join(command))
+        result = procrunner.run(command, timeout=params.get("timeout"))
+        if result["exitcode"] or result["timeout"]:
+            logger.warning(
+                "Generating .csv failed on %s with exitcode %s and timeout %s",
+                params["template"],
+                result["exitcode"],
+                result["timeout"],
+            )
+            return False
+        logger.info("CSV generation successful, took %.1f seconds", result["runtime"])
 
-    # copy output files to result directory
-    results_directory = params['results_directory']
-    if not os.path.exists(results_directory):
-      os.makedirs(results_directory)
+        # copy output files to result directory
+        results_directory = params["results_directory"]
+        if not os.path.exists(results_directory):
+            os.makedirs(results_directory)
 
-    defaultfiles = ['rl.csv.gz']
-    foundfiles = []
-    success = True
-    for filename in params.get('keep_files', defaultfiles):
-      if os.path.exists(filename):
-        dst = os.path.join(results_directory, filename)
-        logger.debug('Copying %s to %s' % (filename, dst))
-        shutil.copy(filename, dst)
-        foundfiles.append(dst)
-        self.record_result_individual_file({
-          'file_path': results_directory,
-          'file_name': filename,
-          'file_type': 'recip',
-        })
-      else:
-        logger.warning('Expected output file %s missing', filename)
-        success = False
+        defaultfiles = ["rl.csv.gz"]
+        foundfiles = []
+        success = True
+        for filename in params.get("keep_files", defaultfiles):
+            if os.path.exists(filename):
+                dst = os.path.join(results_directory, filename)
+                logger.debug("Copying %s to %s" % (filename, dst))
+                shutil.copy(filename, dst)
+                foundfiles.append(dst)
+                self.record_result_individual_file(
+                    {
+                        "file_path": results_directory,
+                        "file_name": filename,
+                        "file_type": "recip",
+                    }
+                )
+            else:
+                logger.warning("Expected output file %s missing", filename)
+                success = False
 
-    if foundfiles:
-      logger.info('Notifying for found files: %s', str(foundfiles))
-      self.record_result_all_files({ 'filelist': foundfiles })
+        if foundfiles:
+            logger.info("Notifying for found files: %s", str(foundfiles))
+            self.record_result_all_files({"filelist": foundfiles})
 
-    if params.get('results_symlink'):
-      # Create symbolic link above working directory
-      dlstbx.util.symlink.create_parent_symlink(results_directory, params['results_symlink'])
+        if params.get("results_symlink"):
+            # Create symbolic link above working directory
+            dlstbx.util.symlink.create_parent_symlink(
+                results_directory, params["results_symlink"]
+            )
 
-    logger.info('Done.')
+        logger.info("Done.")
 
-    return success
+        return success

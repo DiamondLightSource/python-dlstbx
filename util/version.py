@@ -14,39 +14,43 @@ __dlstbx_version_default = "0.dev"
 # from the git repository. Otherwise it is read from the file '.gitversion' in
 # the module directory.
 
+
 def dlstbx_version():
-  '''Try to obtain the current git revision number
-     and store a copy in .gitversion'''
-  version = None
+    """Try to obtain the current git revision number
+     and store a copy in .gitversion"""
+    version = None
 
-  try:
-    import os
-    dlstbx_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    version_file = os.path.join(dlstbx_path, '.gitversion')
+    try:
+        import os
 
-    # 1. Try to access information in .git directory
-    #    Regenerate .gitversion if possible
-    if os.path.exists(os.path.join(dlstbx_path, '.git')):
-      try:
-        version = get_git_version(dlstbx_path)
-        with open(version_file, 'w') as gv:
-          gv.write(version)
-      except Exception:
-        if version == "": version = None
+        dlstbx_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        version_file = os.path.join(dlstbx_path, ".gitversion")
 
-    # 2. If .git directory missing or 'git describe' failed, read .gitversion
-    if (version is None) and os.path.exists(version_file):
-      with open(version_file, 'r') as gv:
-        version = gv.read().rstrip()
-  except Exception:
-    pass
+        # 1. Try to access information in .git directory
+        #    Regenerate .gitversion if possible
+        if os.path.exists(os.path.join(dlstbx_path, ".git")):
+            try:
+                version = get_git_version(dlstbx_path)
+                with open(version_file, "w") as gv:
+                    gv.write(version)
+            except Exception:
+                if version == "":
+                    version = None
 
-  if version is None:
-    version = __dlstbx_version_format % __dlstbx_version_default
-  else:
-    version = __dlstbx_version_format % version
+        # 2. If .git directory missing or 'git describe' failed, read .gitversion
+        if (version is None) and os.path.exists(version_file):
+            with open(version_file, "r") as gv:
+                version = gv.read().rstrip()
+    except Exception:
+        pass
 
-  return version
+    if version is None:
+        version = __dlstbx_version_format % __dlstbx_version_default
+    else:
+        version = __dlstbx_version_format % version
 
-if __name__ == '__main__':
-  print(dlstbx_version())
+    return version
+
+
+if __name__ == "__main__":
+    print(dlstbx_version())

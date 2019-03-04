@@ -32,7 +32,9 @@ if __name__ == "__main__":
             if recipe_file.check():
                 print(
                     "{c.BOLD}{c.GREEN}Recipe {recipe} ({timestamp:%Y-%m-%d %H:%M:%S}){c.DEFAULT}".format(
-                        recipe=recipe, c=c, timestamp=datetime.fromtimestamp(recipe_file.mtime())
+                        recipe=recipe,
+                        c=c,
+                        timestamp=datetime.fromtimestamp(recipe_file.mtime()),
                     )
                 )
                 for line in recipe_file.readlines(cr=False):

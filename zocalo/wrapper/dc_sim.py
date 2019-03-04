@@ -6,32 +6,41 @@ import time
 import dlstbx.dc_sim
 import zocalo.wrapper
 
-logger = logging.getLogger('dlstbx.wrap.dc_sim')
+logger = logging.getLogger("dlstbx.wrap.dc_sim")
+
 
 class DCSimWrapper(zocalo.wrapper.BaseWrapper):
-  def run(self):
-    assert hasattr(self, 'recwrap'), \
-      "No recipewrapper object found"
+    def run(self):
+        assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
-    params = self.recwrap.recipe_step['job_parameters']
-    beamline = params['beamline']
-    scenario = params['scenario']
-    logger.info("Running simulated data collection '%s' on beamline '%s'", scenario, beamline)
+        params = self.recwrap.recipe_step["job_parameters"]
+        beamline = params["beamline"]
+        scenario = params["scenario"]
+        logger.info(
+            "Running simulated data collection '%s' on beamline '%s'",
+            scenario,
+            beamline,
+        )
 
-    start = time.time()
+        start = time.time()
 
-    # Simulate the data collection
-    dcids = dlstbx.dc_sim.call_sim(test_name=scenario, beamline=beamline)
+        # Simulate the data collection
+        dcids = dlstbx.dc_sim.call_sim(test_name=scenario, beamline=beamline)
 
-    result = {
-        'beamline': beamline, 'scenario': scenario, 'DCIDs': dcids,
-        'time_start': start, 'time_end': time.time(),
-    }
+        result = {
+            "beamline": beamline,
+            "scenario": scenario,
+            "DCIDs": dcids,
+            "time_start": start,
+            "time_end": time.time(),
+        }
 
-    if dcids:
-      logger.info("Simulated data collection completed with result:\n%s", repr(result))
-    else:
-      logger.error("Simulated data collection failed")
+        if dcids:
+            logger.info(
+                "Simulated data collection completed with result:\n%s", repr(result)
+            )
+        else:
+            logger.error("Simulated data collection failed")
 
-    self.recwrap.send_to('dc_sim', result)
-    return bool(dcids)
+        self.recwrap.send_to("dc_sim", result)
+        return bool(dcids)

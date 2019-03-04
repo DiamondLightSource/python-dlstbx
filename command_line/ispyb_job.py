@@ -34,271 +34,422 @@ import procrunner
 #   ispyb.job 73 -u 1234 -s "completed successfully" -r success
 #   ispyb.job 73 -u 1234 -s "everything is broken" -r failure
 
+
 def create_processing_job(i, options):
-  sweeps = []
-  for s in options.sweeps:
-    match = re.match(r"^([0-9]+):([0-9]+):([0-9]+)$", s)
-    if not match:
-      sys.exit("Invalid sweep specification: " + s)
-    values = tuple(map(int, match.groups()))
-    if not all(map(lambda value: value > 0, values)) or values[2] < values[1]:
-      sys.exit("Invalid sweep specification: " + s)
-    sweeps.append(values)
+    sweeps = []
+    for s in options.sweeps:
+        match = re.match(r"^([0-9]+):([0-9]+):([0-9]+)$", s)
+        if not match:
+            sys.exit("Invalid sweep specification: " + s)
+        values = tuple(map(int, match.groups()))
+        if not all(map(lambda value: value > 0, values)) or values[2] < values[1]:
+            sys.exit("Invalid sweep specification: " + s)
+        sweeps.append(values)
 
-  if options.dcid:
-    match = re.match(r"^([0-9]+)$", options.dcid)
-    if not match:
-      sys.exit("Invalid data collection id: " + options.dcid)
-    dcid = int(options.dcid)
-  else:
-    dcid = None
+    if options.dcid:
+        match = re.match(r"^([0-9]+)$", options.dcid)
+        if not match:
+            sys.exit("Invalid data collection id: " + options.dcid)
+        dcid = int(options.dcid)
+    else:
+        dcid = None
 
-  if not sweeps:
-    if not dcid:
-      sys.exit("When creating a processing job you must specify at least one data collection sweep or a DCID")
+    if not sweeps:
+        if not dcid:
+            sys.exit(
+                "When creating a processing job you must specify at least one data collection sweep or a DCID"
+            )
 
-    dc_info = i.get_data_collection(dcid)
-    start = dc_info.image_start_number
-    number = dc_info.image_count
-    if not start or not number:
-      sys.exit("Can not automatically infer data collection sweep for this DCID")
-    end = start + number - 1
-    sweeps = [ (dcid, start, end) ]
-    print("Using images %d to %d for data collection sweep" % (start, end))
+        dc_info = i.get_data_collection(dcid)
+        start = dc_info.image_start_number
+        number = dc_info.image_count
+        if not start or not number:
+            sys.exit("Can not automatically infer data collection sweep for this DCID")
+        end = start + number - 1
+        sweeps = [(dcid, start, end)]
+        print("Using images %d to %d for data collection sweep" % (start, end))
 
-  parameters = []
-  for p in options.parameters:
-    if ':' not in p:
-      sys.exit("Invalid parameter specification: " + p)
-    parameters.append(p.split(':', 1))
+    parameters = []
+    for p in options.parameters:
+        if ":" not in p:
+            sys.exit("Invalid parameter specification: " + p)
+        parameters.append(p.split(":", 1))
 
-  jp = i.mx_processing.get_job_params()
-  # _job_params = StrictOrderedDict([('id', None), ('datacollectionid', None), ('display_name', None), ('comments', None), ('recipe', None), ('automatic', None)])
-  jp['automatic'] = options.source == 'automatic'
-  jp['comments'] = options.comment
-  jp['datacollectionid'] = dcid or sweeps[0][0]
-  jp['display_name'] = options.display
-  jp['recipe'] = options.recipe
-  print("Creating database entries...")
+    jp = i.mx_processing.get_job_params()
+    # _job_params = StrictOrderedDict([('id', None), ('datacollectionid', None), ('display_name', None), ('comments', None), ('recipe', None), ('automatic', None)])
+    jp["automatic"] = options.source == "automatic"
+    jp["comments"] = options.comment
+    jp["datacollectionid"] = dcid or sweeps[0][0]
+    jp["display_name"] = options.display
+    jp["recipe"] = options.recipe
+    print("Creating database entries...")
 
-  jobid = i.mx_processing.upsert_job(jp.values())
-  print("  JobID={}".format(jobid))
-  for key, value in parameters:
-    jpp = i.mx_processing.get_job_parameter_params()
-    # _job_parameter_params = StrictOrderedDict([('id', None), ('job_id', None), ('parameter_key', None), ('parameter_value', None)])
-    jpp['job_id'] = jobid
-    jpp['parameter_key'] = key
-    jpp['parameter_value'] = value
-    jppid = i.mx_processing.upsert_job_parameter(jpp.values())
-    print("  JPP={}".format(jppid))
+    jobid = i.mx_processing.upsert_job(jp.values())
+    print("  JobID={}".format(jobid))
+    for key, value in parameters:
+        jpp = i.mx_processing.get_job_parameter_params()
+        # _job_parameter_params = StrictOrderedDict([('id', None), ('job_id', None), ('parameter_key', None), ('parameter_value', None)])
+        jpp["job_id"] = jobid
+        jpp["parameter_key"] = key
+        jpp["parameter_value"] = value
+        jppid = i.mx_processing.upsert_job_parameter(jpp.values())
+        print("  JPP={}".format(jppid))
 
-  for sweep in sweeps:
-    jisp = i.mx_processing.get_job_image_sweep_params()
-    # _job_image_sweep_params = StrictOrderedDict([('id', None), ('job_id', None), ('datacollectionid', None), ('start_image', None), ('end_image', None)])
-    jisp['job_id'] = jobid
-    jisp['datacollectionid'] = sweep[0]
-    jisp['start_image'] = sweep[1]
-    jisp['end_image'] = sweep[2]
-    jispid = i.mx_processing.upsert_job_image_sweep(jisp.values())
-    print("  JISP={}".format(jispid))
+    for sweep in sweeps:
+        jisp = i.mx_processing.get_job_image_sweep_params()
+        # _job_image_sweep_params = StrictOrderedDict([('id', None), ('job_id', None), ('datacollectionid', None), ('start_image', None), ('end_image', None)])
+        jisp["job_id"] = jobid
+        jisp["datacollectionid"] = sweep[0]
+        jisp["start_image"] = sweep[1]
+        jisp["end_image"] = sweep[2]
+        jispid = i.mx_processing.upsert_job_image_sweep(jisp.values())
+        print("  JISP={}".format(jispid))
 
-  print("All done. Processing job {} created".format(jobid))
-  print()
-  if options.trigger:
-    result = procrunner.run(['dlstbx.go', '-p', str(jobid)])
-    if result['exitcode'] or result['stderr']:
-      sys.exit("Error triggering processing job")
-    print("Successfully triggered processing job")
+    print("All done. Processing job {} created".format(jobid))
     print()
+    if options.trigger:
+        result = procrunner.run(["dlstbx.go", "-p", str(jobid)])
+        if result["exitcode"] or result["stderr"]:
+            sys.exit("Error triggering processing job")
+        print("Successfully triggered processing job")
+        print()
 
-  else:
-    print("To trigger the processing job you now need to run:")
-    print("  dlstbx.go -p {}".format(jobid))
-    print()
+    else:
+        print("To trigger the processing job you now need to run:")
+        print("  dlstbx.go -p {}".format(jobid))
+        print()
 
-  return jobid
+    return jobid
 
-if __name__ == '__main__':
-  parser = OptionParser(usage="ispyb.job [options] rpid",
-                        description="Command line tool to manipulate ISPyB processing table entries.")
 
-  available_recipes = filter(lambda r: r.startswith('ispyb-') and r.endswith('.json'), os.listdir('/dls_sw/apps/zocalo/live/recipes'))
-  available_recipes = sorted(map(lambda r: r[6:-5], available_recipes))
+if __name__ == "__main__":
+    parser = OptionParser(
+        usage="ispyb.job [options] rpid",
+        description="Command line tool to manipulate ISPyB processing table entries.",
+    )
 
-  parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-  parser.add_option("-v", "--verbose",
-      action="store_true", dest="verbose", default=False,
-      help="show full job record")
+    available_recipes = filter(
+        lambda r: r.startswith("ispyb-") and r.endswith(".json"),
+        os.listdir("/dls_sw/apps/zocalo/live/recipes"),
+    )
+    available_recipes = sorted(map(lambda r: r[6:-5], available_recipes))
 
-  group = OptionGroup(parser, "Processing job options",
-      "These options can be used to create or modify "
-      "a processing/reprocessing job.")
-  group.add_option("--new", dest="new",
-      action="store_true", default=False,
-      help="create a new processing job. If --new is specified you must not specify another rpid")
-  group.add_option("--dcid", dest="dcid",
-      action="store", type="string", default=None,
-      help="set the primary data collection ID for the processing job (default: DCID of first sweep)")
-  group.add_option("--display", dest="display",
-      action="store", type="string", default=None,
-      help="set the display name of the processing job")
-  group.add_option("--comment", dest="comment",
-      action="store", type="string", default=None,
-      help="set a comment string for the processing job")
-  group.add_option("--recipe", dest="recipe",
-      action="store", type="choice", default=None, choices=available_recipes,
-      help="set a recipe for the processing job. Recipe name must correspond to a filename " \
-           "(plus ispyb- prefix and .json extension) in /dls_sw/apps/zocalo/live/recipes: %s" % ", ".join(available_recipes))
-  group.add_option("--source", dest="source",
-      action="store", type="choice", default='user', choices=['user', 'automatic'],
-      help="set whether the processing job was triggered by a 'user' (default) or by 'automatic' processing")
-  group.add_option("--add-param", dest="parameters",
-      action="append", type="string", default=[], metavar="KEY:VALUE",
-      help="add a 'KEY:VALUE' pair string parameter to a processing job")
-  group.add_option("--add-sweep", dest="sweeps",
-      action="append", type="string", default=[], metavar="DCID:START:END",
-      help="add an image range from a sweep of any data collection ID to the processing job. " \
-           "Each job must have at least one sweep. " \
-           "If no sweep is defined all images from the primary data collection ID are used")
-  group.add_option("--trigger", dest="trigger",
-      action="store_true", default=False,
-      help="start the processing job immediately after creation")
-  parser.add_option_group(group)
+    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+    parser.add_option(
+        "-v",
+        "--verbose",
+        action="store_true",
+        dest="verbose",
+        default=False,
+        help="show full job record",
+    )
 
-  group = OptionGroup(parser, "Processing program options",
-      "These options can be used to create or update "
-      "processing program entries belonging to a processing job.")
-  group.add_option("-c", "--create", dest="create",
-      action="store_true", default=False,
-      help="create a new processing program entry for the rpid")
-  group.add_option("-u", "--update", dest="update",
-      action="store", type="int", default=None,
-      help="update an existing processing program entry")
-  parser.add_option_group(group)
+    group = OptionGroup(
+        parser,
+        "Processing job options",
+        "These options can be used to create or modify "
+        "a processing/reprocessing job.",
+    )
+    group.add_option(
+        "--new",
+        dest="new",
+        action="store_true",
+        default=False,
+        help="create a new processing job. If --new is specified you must not specify another rpid",
+    )
+    group.add_option(
+        "--dcid",
+        dest="dcid",
+        action="store",
+        type="string",
+        default=None,
+        help="set the primary data collection ID for the processing job (default: DCID of first sweep)",
+    )
+    group.add_option(
+        "--display",
+        dest="display",
+        action="store",
+        type="string",
+        default=None,
+        help="set the display name of the processing job",
+    )
+    group.add_option(
+        "--comment",
+        dest="comment",
+        action="store",
+        type="string",
+        default=None,
+        help="set a comment string for the processing job",
+    )
+    group.add_option(
+        "--recipe",
+        dest="recipe",
+        action="store",
+        type="choice",
+        default=None,
+        choices=available_recipes,
+        help="set a recipe for the processing job. Recipe name must correspond to a filename "
+        "(plus ispyb- prefix and .json extension) in /dls_sw/apps/zocalo/live/recipes: %s"
+        % ", ".join(available_recipes),
+    )
+    group.add_option(
+        "--source",
+        dest="source",
+        action="store",
+        type="choice",
+        default="user",
+        choices=["user", "automatic"],
+        help="set whether the processing job was triggered by a 'user' (default) or by 'automatic' processing",
+    )
+    group.add_option(
+        "--add-param",
+        dest="parameters",
+        action="append",
+        type="string",
+        default=[],
+        metavar="KEY:VALUE",
+        help="add a 'KEY:VALUE' pair string parameter to a processing job",
+    )
+    group.add_option(
+        "--add-sweep",
+        dest="sweeps",
+        action="append",
+        type="string",
+        default=[],
+        metavar="DCID:START:END",
+        help="add an image range from a sweep of any data collection ID to the processing job. "
+        "Each job must have at least one sweep. "
+        "If no sweep is defined all images from the primary data collection ID are used",
+    )
+    group.add_option(
+        "--trigger",
+        dest="trigger",
+        action="store_true",
+        default=False,
+        help="start the processing job immediately after creation",
+    )
+    parser.add_option_group(group)
 
-  group = OptionGroup(parser, "Processing program attributes",
-      "These options can be used when creating or updating "
-      "processing program entries.")
-  group.add_option("-p", "--program", dest="program",
-      action="store", type="string", default=None,
-      help="set a program name for processing entry")
-  group.add_option("-l", "--cmdline", dest="cmdline",
-      action="store", type="string", default=None,
-      help="set full command line for processing entry")
-  group.add_option("-e", "--environment", dest="environment",
-      action="store", type="string", default=None,
-      help="set an environment string for processing entry")
-  group.add_option("-r", "--result", dest="result",
-      action="store", type="choice", default=None, choices=['success', 'failure'],
-      help="set a job result: success, failure")
-  group.add_option("-s", "--status", dest="status",
-      action="store", type="string", default=None,
-      help="set program status information")
-  group.add_option("--start-time", dest="starttime", metavar="TIMESTAMP",
-      action="store", type="string", default=None,
-      help="set the program start time (default: now)")
-  group.add_option("--update-time", dest="updatetime", metavar="TIMESTAMP",
-      action="store", type="string", default=None,
-      help="date the updated information (default: now)")
-  parser.add_option_group(group)
-  (options, args) = parser.parse_args(sys.argv[1:])
+    group = OptionGroup(
+        parser,
+        "Processing program options",
+        "These options can be used to create or update "
+        "processing program entries belonging to a processing job.",
+    )
+    group.add_option(
+        "-c",
+        "--create",
+        dest="create",
+        action="store_true",
+        default=False,
+        help="create a new processing program entry for the rpid",
+    )
+    group.add_option(
+        "-u",
+        "--update",
+        dest="update",
+        action="store",
+        type="int",
+        default=None,
+        help="update an existing processing program entry",
+    )
+    parser.add_option_group(group)
 
-  if not args and not options.new:
-    if sys.argv[1:]:
-      print("No job ID specified\n")
-    parser.print_help()
-    sys.exit(0)
-  if len(args) > 1:
-    sys.exit("Only one job ID can be specified")
-  if options.new and args:
-    sys.exit("Can not create a new job ID when a job ID is specified")
-  if options.new and options.update:
-    sys.exit("Can not update a program when creating a new job ID")
+    group = OptionGroup(
+        parser,
+        "Processing program attributes",
+        "These options can be used when creating or updating "
+        "processing program entries.",
+    )
+    group.add_option(
+        "-p",
+        "--program",
+        dest="program",
+        action="store",
+        type="string",
+        default=None,
+        help="set a program name for processing entry",
+    )
+    group.add_option(
+        "-l",
+        "--cmdline",
+        dest="cmdline",
+        action="store",
+        type="string",
+        default=None,
+        help="set full command line for processing entry",
+    )
+    group.add_option(
+        "-e",
+        "--environment",
+        dest="environment",
+        action="store",
+        type="string",
+        default=None,
+        help="set an environment string for processing entry",
+    )
+    group.add_option(
+        "-r",
+        "--result",
+        dest="result",
+        action="store",
+        type="choice",
+        default=None,
+        choices=["success", "failure"],
+        help="set a job result: success, failure",
+    )
+    group.add_option(
+        "-s",
+        "--status",
+        dest="status",
+        action="store",
+        type="string",
+        default=None,
+        help="set program status information",
+    )
+    group.add_option(
+        "--start-time",
+        dest="starttime",
+        metavar="TIMESTAMP",
+        action="store",
+        type="string",
+        default=None,
+        help="set the program start time (default: now)",
+    )
+    group.add_option(
+        "--update-time",
+        dest="updatetime",
+        metavar="TIMESTAMP",
+        action="store",
+        type="string",
+        default=None,
+        help="date the updated information (default: now)",
+    )
+    parser.add_option_group(group)
+    (options, args) = parser.parse_args(sys.argv[1:])
 
-  i = ispyb.open('/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg')
-  exit_code = 0
+    if not args and not options.new:
+        if sys.argv[1:]:
+            print("No job ID specified\n")
+        parser.print_help()
+        sys.exit(0)
+    if len(args) > 1:
+        sys.exit("Only one job ID can be specified")
+    if options.new and args:
+        sys.exit("Can not create a new job ID when a job ID is specified")
+    if options.new and options.update:
+        sys.exit("Can not update a program when creating a new job ID")
 
-  if options.new:
-    rpid = create_processing_job(i, options)
-  else:
-    rpid = args[0]
+    i = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
+    exit_code = 0
 
-  if options.create:
+    if options.new:
+        rpid = create_processing_job(i, options)
+    else:
+        rpid = args[0]
+
+    if options.create:
+        try:
+            i.mx_processing.upsert_program_ex(
+                job_id=rpid,
+                name=options.program,
+                command=options.cmdline,
+                environment=options.environment,
+                time_start=options.starttime,
+                time_update=options.updatetime,
+                message=options.status,
+                status={"success": 1, "failure": 0}.get(options.result),
+            )
+        except ispyb.exception.ISPyBWriteFailed:
+            print("Error: Could not create processing program.\n")
+            exit_code = 1
+
+    elif options.update:
+        try:
+            i.mx_processing.upsert_program_ex(
+                program_id=options.update,
+                status={"success": 1, "failure": 0}.get(options.result),
+                time_start=options.updatetime,
+                time_update=options.updatetime,
+                message=options.status,
+            )
+        except ispyb.exception.ISPyBWriteFailed:
+            print("Error: Could not update processing status.\n")
+            exit_code = 1
+
+    rp = i.get_processing_job(rpid)
     try:
-      i.mx_processing.upsert_program_ex(
-          job_id=rpid, name=options.program,
-          command=options.cmdline,
-          environment=options.environment,
-          time_start=options.starttime,
-          time_update=options.updatetime,
-          message=options.status,
-          status={'success':1, 'failure':0}.get(options.result),
-      )
-    except ispyb.exception.ISPyBWriteFailed:
-      print("Error: Could not create processing program.\n")
-      exit_code = 1
-
-  elif options.update:
-    try:
-      i.mx_processing.upsert_program_ex(
-          program_id=options.update,
-          status={'success':1, 'failure':0}.get(options.result),
-          time_start=options.updatetime,
-          time_update=options.updatetime,
-          message=options.status,
-      )
-    except ispyb.exception.ISPyBWriteFailed:
-      print("Error: Could not update processing status.\n")
-      exit_code = 1
-
-  rp = i.get_processing_job(rpid)
-  try:
-    rp.load()
-  except ispyb.exception.ISPyBNoResultException:
-    print("Reprocessing ID %s not found" % rpid)
-    sys.exit(1)
-  print('''Reprocessing ID {0.jobid}:
+        rp.load()
+    except ispyb.exception.ISPyBNoResultException:
+        print("Reprocessing ID %s not found" % rpid)
+        sys.exit(1)
+    print(
+        """Reprocessing ID {0.jobid}:
 
        Name: {0.name}
      Recipe: {0.recipe}
    Comments: {0.comment}
  Primary DC: {0.DCID}
-    Defined: {0.timestamp}'''.format(rp))
-
-  if options.verbose:
-    if rp.parameters:
-      maxlen = max(max(map(len, dict(rp.parameters))), 11)
-      print("\n Parameters:")
-      print('\n'.join("%%%ds: %%s" % maxlen % (p[0], p[1]) for p in sorted(rp.parameters)))
-
-    if rp.sweeps:
-      print("\n     Sweeps: ", end='')
-      print(('\n' + ' ' * 13).join(map(
-          lambda sweep:
-            "DCID {0.DCID:7}  images{0.start:5} -{0.end:5}".format(sweep),
-          rp.sweeps)))
-
-  if rp.programs:
-    print_format = "\nProgram #{0.app_id}: {0.name}, {0.status_text}"
+    Defined: {0.timestamp}""".format(
+            rp
+        )
+    )
 
     if options.verbose:
-      print_format += "\n    Command: {0.command}"
-      print_format += "\nEnvironment: {0.environment}"
-      print_format += "\n    Defined: {0.time_defined}"
-      print_format += "\n    Started: {0.time_start}"
-      print_format += "\nLast Update: {0.time_update}"
+        if rp.parameters:
+            maxlen = max(max(map(len, dict(rp.parameters))), 11)
+            print("\n Parameters:")
+            print(
+                "\n".join(
+                    "%%%ds: %%s" % maxlen % (p[0], p[1]) for p in sorted(rp.parameters)
+                )
+            )
 
-    print_format += "\n  Last Info: {0.message}"
-    attachment_format = " Attachment: {0[fileName]} ({0[fileType]})"
+        if rp.sweeps:
+            print("\n     Sweeps: ", end="")
+            print(
+                ("\n" + " " * 13).join(
+                    map(
+                        lambda sweep: "DCID {0.DCID:7}  images{0.start:5} -{0.end:5}".format(
+                            sweep
+                        ),
+                        rp.sweeps,
+                    )
+                )
+            )
 
-    for program in rp.programs:
-      print(print_format.format(program))
+    if rp.programs:
+        print_format = "\nProgram #{0.app_id}: {0.name}, {0.status_text}"
 
-      if options.verbose:
-        try:
-          attachments = i.mx_processing.retrieve_program_attachments_for_program_id(program.app_id)
-          for filetype in sorted(set(map(lambda a: a['fileType'], attachments))):
-            for attachment in sorted(filter(lambda a: a['fileType'] == filetype, attachments), key=lambda a: a['fileName']):
-              print(" {att[fileType]:>10s}: {att[fileName]}".format(att=attachment))
-        except ispyb.exception.ISPyBNoResultException:
-          pass
+        if options.verbose:
+            print_format += "\n    Command: {0.command}"
+            print_format += "\nEnvironment: {0.environment}"
+            print_format += "\n    Defined: {0.time_defined}"
+            print_format += "\n    Started: {0.time_start}"
+            print_format += "\nLast Update: {0.time_update}"
+
+        print_format += "\n  Last Info: {0.message}"
+        attachment_format = " Attachment: {0[fileName]} ({0[fileType]})"
+
+        for program in rp.programs:
+            print(print_format.format(program))
+
+            if options.verbose:
+                try:
+                    attachments = i.mx_processing.retrieve_program_attachments_for_program_id(
+                        program.app_id
+                    )
+                    for filetype in sorted(
+                        set(map(lambda a: a["fileType"], attachments))
+                    ):
+                        for attachment in sorted(
+                            filter(lambda a: a["fileType"] == filetype, attachments),
+                            key=lambda a: a["fileName"],
+                        ):
+                            print(
+                                " {att[fileType]:>10s}: {att[fileName]}".format(
+                                    att=attachment
+                                )
+                            )
+                except ispyb.exception.ISPyBNoResultException:
+                    pass

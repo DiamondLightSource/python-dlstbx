@@ -1,74 +1,75 @@
 from __future__ import absolute_import, division, print_function
 
+
 def detector_to_dozor(detector):
-  size = detector.get_image_size()
+    size = detector.get_image_size()
 
-  size0_to_name = {2463:'pilatus6m',
-                   1475:'pilatus2m',
-                   2070:'eiger2m'}
+    size0_to_name = {2463: "pilatus6m", 1475: "pilatus2m", 2070: "eiger2m"}
 
-  return size0_to_name[size[0]]
+    return size0_to_name[size[0]]
+
 
 def dxtbx_to_dozor(hdr):
 
-  from scitbx import matrix
+    from scitbx import matrix
 
-  scan = hdr.get_scan()
-  goniometer = hdr.get_goniometer()
-  beam = hdr.get_beam()
-  detector = hdr.get_detector()
+    scan = hdr.get_scan()
+    goniometer = hdr.get_goniometer()
+    beam = hdr.get_beam()
+    detector = hdr.get_detector()
 
-  # this will end badly for I23: but then DOZOR cannot work there anyway
-  assert len(detector) == 1
+    # this will end badly for I23: but then DOZOR cannot work there anyway
+    assert len(detector) == 1
 
-  detector = detector[0]
+    detector = detector[0]
 
-  origin = matrix.col(detector.get_origin())
-  fast = matrix.col(detector.get_fast_axis())
-  slow = matrix.col(detector.get_slow_axis())
-  normal = fast.cross(slow)
+    origin = matrix.col(detector.get_origin())
+    fast = matrix.col(detector.get_fast_axis())
+    slow = matrix.col(detector.get_slow_axis())
+    normal = fast.cross(slow)
 
-  pixel = detector.get_pixel_size()
+    pixel = detector.get_pixel_size()
 
-  dozor = { }
+    dozor = {}
 
-  # parameters which could be later overridden
-  dozor['spot_size'] = 3
+    # parameters which could be later overridden
+    dozor["spot_size"] = 3
 
-  # hard coded things...
-  dozor['fraction_polarization'] = 0.990
+    # hard coded things...
+    dozor["fraction_polarization"] = 0.990
 
-  dozor['detector'] = detector_to_dozor(detector)
-  dozor['exposure'] = scan.get_exposure_times()[0]
-  dozor['detector_distance'] = origin.dot(normal)
-  dozor['X-ray_wavelength'] = beam.get_wavelength()
+    dozor["detector"] = detector_to_dozor(detector)
+    dozor["exposure"] = scan.get_exposure_times()[0]
+    dozor["detector_distance"] = origin.dot(normal)
+    dozor["X-ray_wavelength"] = beam.get_wavelength()
 
-  dozor['pixel_min'] = int(round(detector.get_trusted_range()[0]))
-  dozor['pixel_max'] = int(round(detector.get_trusted_range()[1]))
+    dozor["pixel_min"] = int(round(detector.get_trusted_range()[0]))
+    dozor["pixel_max"] = int(round(detector.get_trusted_range()[1]))
 
-  # bad regions around the backstop? we do not have a mechanism for this at
-  # this time...
+    # bad regions around the backstop? we do not have a mechanism for this at
+    # this time...
 
-  dozor['ix_min'] = 0
-  dozor['ix_max'] = 1
-  dozor['iy_min'] = 0
-  dozor['iy_max'] = 1
+    dozor["ix_min"] = 0
+    dozor["ix_max"] = 1
+    dozor["iy_min"] = 0
+    dozor["iy_max"] = 1
 
-  dozor['orgx'], dozor['orgy'] = detector.get_beam_centre_px(beam.get_s0())
+    dozor["orgx"], dozor["orgy"] = detector.get_beam_centre_px(beam.get_s0())
 
-  dozor['starting_angle'], dozor['oscillation_range'] = scan.get_oscillation()
+    dozor["starting_angle"], dozor["oscillation_range"] = scan.get_oscillation()
 
-  image_range = scan.get_image_range()
+    image_range = scan.get_image_range()
 
-  dozor['first_image_number'] = image_range[0]
-  dozor['image_step'] = 1
-  dozor['number_images'] = image_range[1] - image_range[0] + 1
-  dozor['name_template_image'] = ''
+    dozor["first_image_number"] = image_range[0]
+    dozor["image_step"] = 1
+    dozor["number_images"] = image_range[1] - image_range[0] + 1
+    dozor["name_template_image"] = ""
 
-  return dozor
+    return dozor
+
 
 def write_dozor_input(dozor_params, fout):
-  template = '''job single
+    template = """job single
 detector {detector:s}
 exposure {exposure:.3f}
 spot_size {spot_size:d}
@@ -90,30 +91,33 @@ first_image_number {first_image_number:d}
 number_images {number_images:d}
 name_template_image {name_template_image:s}
 end
-'''
+"""
 
-  text = template.format(**dozor_params)
-  if not fout is '-':
-    open(fout, 'w').write(text)
-  else:
-    print(text)
+    text = template.format(**dozor_params)
+    if not fout is "-":
+        open(fout, "w").write(text)
+    else:
+        print(text)
+
 
 def parse_dozor_output(output):
-  dozor_scores = {}
-  for record in output.split('\n'):
-    tokens = record.split()
-    try:
-      image = int(tokens[0])
-      scores = map(float, tokens[-3:])
-      dozor_scores[image] = scores
-    except ValueError as e:
-      continue
-    except IndexError as e:
-      continue
-  return dozor_scores
+    dozor_scores = {}
+    for record in output.split("\n"):
+        tokens = record.split()
+        try:
+            image = int(tokens[0])
+            scores = map(float, tokens[-3:])
+            dozor_scores[image] = scores
+        except ValueError as e:
+            continue
+        except IndexError as e:
+            continue
+    return dozor_scores
 
-if __name__ == '__main__':
-  from dxtbx import load
-  import sys
-  for img in sys.argv[1:]:
-    write_dozor_input(dxtbx_to_dozor(load(img)), '-')
+
+if __name__ == "__main__":
+    from dxtbx import load
+    import sys
+
+    for img in sys.argv[1:]:
+        write_dozor_input(dxtbx_to_dozor(load(img)), "-")

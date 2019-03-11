@@ -70,7 +70,7 @@ def run(args):
     if not os.path.exists(working_directory):
         os.makedirs(working_directory)
     os.chdir(working_directory)
-    result = procrunner.run_process(
+    result = procrunner.run(
         command, timeout=params.get("timeout"), print_stdout=False, print_stderr=False
     )
 

@@ -46,7 +46,7 @@ def run(args):
     os.chdir(working_directory)
     logger.info("command: %s", " ".join(command))
     logger.info("working directory: %s" % working_directory)
-    result = procrunner.run_process(
+    result = procrunner.run(
         command, timeout=params.get("timeout"), print_stdout=False, print_stderr=False
     )
 

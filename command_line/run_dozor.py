@@ -48,7 +48,7 @@ def scanner(arg):
     command = ["dozor", "dozor.in"]
 
     try:
-        result = procrunner.run_process(
+        result = procrunner.run(
             command, timeout=3600.0, print_stdout=False, print_stderr=False
         )
     except OSError as e:

@@ -14,21 +14,6 @@ try:
 except Exception:
     pass
 
-libtbx.pkg_utils.require("mock", ">=2.0")
-libtbx.pkg_utils.require("pytest", ">=3.1")
-libtbx.pkg_utils.require("ispyb", ">=4.13,<4.14")
-libtbx.pkg_utils.require("workflows", ">=1.1")
-libtbx.pkg_utils.require("drmaa")
-libtbx.pkg_utils.require("junit_xml")
-libtbx.pkg_utils.require("colorama")  # is still used in one place
-libtbx.pkg_utils.require("procrunner", ">=0.8.0")
-libtbx.pkg_utils.require("zocalo", ">=0.5.1")
-
-# Eiger stream work, SCI-7786
-libtbx.pkg_utils.require("confluent-kafka")
-libtbx.pkg_utils.require("msgpack")
-libtbx.pkg_utils.require("pyzmq")
-
 # --- workflows service registration exploration ---
 
 print("Enumerating workflow services:")

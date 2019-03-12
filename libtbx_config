@@ -1,5 +1,20 @@
 {
   "modules_required_for_build": ["dials"],
-  "modules_required_for_use" : [],
+  "modules_required_for_use": [],
   "optional_modules": [],
+  "python_required": [
+    "colorama",  # is still used in one place
+    "drmaa",
+    "ispyb>=4.13,<4.14",
+    "junit_xml",
+    "mock>=2.0",
+    "procrunner>=0.8.0",
+    "pytest>=3.1",
+    "workflows>=1.1",
+    "zocalo>=0.5.1",
+    # Eiger stream work, SCI-7786
+    "confluent-kafka",
+    "msgpack",
+    "pyzmq",
+  ],
 }

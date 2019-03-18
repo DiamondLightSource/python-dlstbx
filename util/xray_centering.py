@@ -315,7 +315,7 @@ def findRegion(rc, g2i):
                     continue
                 if len(surround.intersection(regions[key2])) > 0:
                     regions[key].extend(regions[key2])
-                    del (regions[key2])
+                    del regions[key2]
     length = 0
     sum1 = 0
     for k in regions:

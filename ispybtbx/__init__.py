@@ -869,7 +869,7 @@ def ispyb_filter(message, parameters):
             if gridinfo:
                 # FIXME: timestamps can not be JSON-serialized
                 if "recordTimeStamp" in gridinfo:
-                    del (gridinfo["recordTimeStamp"])
+                    del gridinfo["recordTimeStamp"]
                 parameters["ispyb_dc_info"]["gridinfo"] = gridinfo
         except ispyb.exception.ISPyBNoResultException:
             pass

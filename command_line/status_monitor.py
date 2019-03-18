@@ -283,7 +283,7 @@ class Monitor(object):
             )
             obliterate.erase()
             obliterate.noutrefresh()
-            del (self.cards[number])
+            del self.cards[number]
             self._redraw_log_box()
 
     def _run(self, stdscr):
@@ -343,7 +343,7 @@ class Monitor(object):
                                 and "task" in status
                             )
                         ):
-                            del (self._node_status[host])
+                            del self._node_status[host]
                         else:
                             card = self._get_card(cardnumber)
                             if card:

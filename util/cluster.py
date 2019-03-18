@@ -42,7 +42,7 @@ class Cluster:
 
         # At this point must close the pipe that is unused by this process
         self._pipe_subprocess.close()
-        del (self._pipe_subprocess)
+        del self._pipe_subprocess
 
         self.qstat = self.create_remote_function_call("_qstat")
         self.qstat_xml = self.create_remote_function_call("_qstat_xml")
@@ -80,7 +80,7 @@ class Cluster:
 
         # First close the other pipe unused by this process
         self._pipe_main.close()
-        del (self._pipe_main)
+        del self._pipe_main
 
         # Load DRMAA
         for k, v in self.environment.iteritems():
@@ -111,7 +111,7 @@ class Cluster:
                 e.trace = "\n" + "\n".join(trace)
                 self._pipe_subprocess.send({"exception": e})
         self._pipe_subprocess.close()
-        del (self._pipe_subprocess)
+        del self._pipe_subprocess
 
     @classmethod
     def load_environment(cls, command):
@@ -160,7 +160,7 @@ class Cluster:
     def close(self):
         if hasattr(self, "_pipe_main"):
             self._pipe_main.close()
-            del (self._pipe_main)
+            del self._pipe_main
         if self._subprocess:
             self._subprocess.join()
             self._subprocess = None

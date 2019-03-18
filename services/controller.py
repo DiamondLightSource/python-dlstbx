@@ -65,11 +65,19 @@ class DLSController(CommonService):
             self.strategy_file = (
                 "/dls_sw/apps/zocalo/live/strategy/controller-strategy.json"
             )
+            self.scipion_launch_script = (
+                "/dls_sw/apps/zocalo/live/scipion/launch_service"
+            )
             self.service_launch_script = "/dls_sw/apps/zocalo/live/launch_service"
             self.namespace = "zocalo"
         else:
             self.strategy_file = "/dls_sw/apps/zocalo/controller-strategy-test.json"
-            self.service_launch_script = "/dls_sw/apps/zocalo/test_launch_service"
+            self.scipion_launch_script = (
+                "/dls_sw/apps/zocalo/live/scipion/launch_service_zocdev"
+            )
+            self.service_launch_script = (
+                "/dls_sw/apps/zocalo/live/launch_service_zocdev"
+            )
             self.namespace = "zocdev"
         self._transport.subscription_callback_set_intercept(self.transport_interceptor)
 
@@ -392,13 +400,7 @@ class DLSController(CommonService):
         return False
 
     def launch_cluster(
-        self,
-        service=None,
-        cluster="cluster",
-        queue="admin.q",
-        module="dials",
-        tag="",
-        **kwargs
+        self, service=None, cluster="cluster", queue="", module="", tag="", **kwargs
     ):
         assert service
         result = procrunner.run(
@@ -423,6 +425,29 @@ class DLSController(CommonService):
     def launch_testcluster(self, **kwargs):
         kwargs["cluster"] = "testcluster"
         return self.launch_cluster(**kwargs)
+
+    def launch_scipion(
+        self, service=None, cluster="", queue="", module="", tag="", **kwargs
+    ):
+        assert service
+        result = procrunner.run(
+            [self.scipion_launch_script, service],
+            environment_override={
+                "CLUSTER": cluster,
+                "QUEUE": queue,
+                "MODULE": module,
+                "TAG": tag,
+            },
+            timeout=15,
+        )
+        self.log.debug(
+            "Cluster launcher script for %s returned result: %s",
+            service,
+            json.dumps(result),
+        )
+        # Trying to start jobs can be very time intensive, ensure the master status is not lost during balancing
+        self.self_check()
+        return result.get("exitcode") == 0
 
     def kill_service(self, instance):
         self.log.info(

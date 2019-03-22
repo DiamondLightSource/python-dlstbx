@@ -11,7 +11,7 @@
     "procrunner>=0.8.0",
     "pytest>=3.1",
     "workflows>=1.1",
-    "zocalo>=0.5.1",
+    "zocalo>=0.5.3",
     # Eiger stream work, SCI-7786
     "confluent-kafka",
     "msgpack",

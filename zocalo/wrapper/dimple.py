@@ -205,7 +205,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         for f in self.working_directory.listdir():
             if f.basename.startswith("."):
                 continue
-            if any(f.ext == skipext for skipext in (".pickle", ".py", ".r3d", ".sh")):
+            if any(f.ext == skipext for skipext in (".pickle", ".r3d")):
                 continue
             f.copy(self.results_directory)
 

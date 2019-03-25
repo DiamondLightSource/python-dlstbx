@@ -60,6 +60,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         self, xml_file, special_program_name=None, attachments=None
     ):
         if not xml_file.check(file=1, exists=1):
+            logger.info("Expected file %s missing", xml_file.strpath)
             return False
         logger.debug("Reading autoPROC results from %s", xml_file.strpath)
         try:

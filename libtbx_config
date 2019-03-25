@@ -15,6 +15,6 @@
     # Eiger stream work, SCI-7786
     "confluent-kafka",
     "msgpack",
-    "pyzmq",
+    "pyzmq<18",
   ],
 }

@@ -69,6 +69,20 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
+    "i23-lysozyme": {
+        "src_dir": "/dls/i23/data/2019/nr23017-1/20190117/lys_c_4p5keV",
+        "src_run_num": (1,),
+        "src_prefix": ("data",),
+        "use_sample_id": 1998714,
+        "results": {
+            "a": approx(100, abs=100),
+            "b": approx(100, abs=100),
+            "c": approx(100, abs=100),
+            "alpha": approx(180, abs=180),
+            "beta": approx(180, abs=180),
+            "gamma": approx(180, abs=180),
+        },
+    },
     "insulin-2016": {
         "src_dir": "/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2",
         "src_run_num": (2,),

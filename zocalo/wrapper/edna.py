@@ -36,19 +36,23 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
             complexity = "none"
 
         sparams = params["strategy"]
-        lifespan = sparams["lifespan"]
         transmission = float(sparams["transmission"])
         wavelength = float(sparams["wavelength"])
         beamline = sparams["beamline"]
         logger.debug("transmission: %s" % transmission)
         logger.debug("wavelength: %s" % wavelength)
-        strategy_lifespan = round(
-            (lifespan * (100 / transmission)) * (wavelength / 0.979) ** -3, 0
+        lifespan = sparams["lifespan"].get(
+            beamline, sparams["lifespan"]["default"]
         )
-        gentle_strategy_lifespan = round(
-            (lifespan * (100 / transmission)) * (wavelength / 0.979) ** -3 / 10, 0
-        )
-        logger.debug("lifespan: %s" % lifespan)
+        if sparams["gentle"]:
+            strategy_lifespan = round(
+                (lifespan * (100 / transmission)) * (wavelength / 0.979) ** -3 / 10, 0
+            )
+        else:
+            strategy_lifespan = round(
+                (lifespan * (100 / transmission)) * (wavelength / 0.979) ** -3, 0
+            )
+        logger.debug("lifespan: %s" % strategy_lifespan)
 
         min_exposure = sparams["min_exposure"].get(
             beamline, sparams["min_exposure"]["default"]

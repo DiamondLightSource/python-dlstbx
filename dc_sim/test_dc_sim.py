@@ -13,15 +13,15 @@ all_programs = ["fast_dp", "xia2 3dii", "xia2 dials", "autoPROC", "autoPROC+STAR
 
 def make_dummy_db_and_test_dictionary(beamline, scenario, results):
     """
-  Helper function to create a dummy database interface and a dictionary to pass
-  to the check function.
+    Helper function to create a dummy database interface and a dictionary to pass
+    to the check function.
 
-  :param beamline: lower case string
-  :param scenario: scenario name as given in definitions
-  :param results: dictionary of DCID to list of results. Results are
-                  (string, boolean) tuples of program names
-                  and whether or not this test should be successful.
-  """
+    :param beamline: lower case string
+    :param scenario: scenario name as given in definitions
+    :param results: dictionary of DCID to list of results. Results are
+                    (string, boolean) tuples of program names
+                    and whether or not this test should be successful.
+    """
 
     test_dictionary = {
         "beamline": beamline,

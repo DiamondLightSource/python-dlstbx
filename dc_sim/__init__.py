@@ -453,9 +453,9 @@ def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
     desc = [d[0] for d in _db.cursor.description]
     result = [dict(zip(desc, line)) for line in _db.cursor]
 
-    if result[0]["datacollectionid"] is None:
+    if not result[0].get("datacollectionid"):
         sys.exit("Could not find the datacollectionid for visit %s" % _src_visit)
-    if result[0]["startimagenumber"] is None:
+    if not result[0].get("startimagenumber"):
         sys.exit("Could not find the startimagenumber for the row")
     return result[0]
 
@@ -471,7 +471,7 @@ def retrieve_blsample_values(_db, _src_blsampleid):
     desc = [d[0] for d in _db.cursor.description]
     result = [dict(zip(desc, line)) for line in _db.cursor]
 
-    if result[0]["blsampleid"] is None:
+    if not result[0].get("blsampleid"):
         sys.exit("Could not find the blsampleid for visit %s" % _src_visit)
 
     return result[0]
@@ -516,10 +516,10 @@ def simulate(
 ):
     _db = dlstbx.dc_sim.mydb.DB()
 
-    log.debug("(SQL) Getting the source sessionid")
+    log.debug("Getting the source SessionID")
     src_sessionid = retrieve_sessionid(_db, _src_visit)
+    log.debug("SessionID is %r", src_sessionid)
 
-    log.debug("(SQL) Getting values from the source datacollection record")
     row = retrieve_datacollection_values(
         _db, src_sessionid, _src_dir, _src_prefix, _src_run_number
     )
@@ -533,10 +533,10 @@ def simulate(
         row["xtalsnapshotfullpath3"],
         row["xtalsnapshotfullpath4"],
     ]
+    log.debug("Source dataset from DCID %r, DCGID %r, file template %r", src_dcid, src_dcgid, filetemplate)
 
-    log.debug("(SQL) Getting the number of images")
     no_images = retrieve_no_images(_db, src_dcid)
-    log.debug("(ANS) Got %d" % no_images)
+    log.debug("Source dataset has %d images" % no_images)
 
     # Get the sessionid for the dest_visit
     log.debug("(SQL) Getting the destination sessionid")

@@ -257,6 +257,19 @@ tests = {
         "use_sample_id": 790048,
         "results": {},
     },
+    "thermolysin-eiger": {
+        "src_dir": "/dls/i04/data/2019/cm23004-1/20190214/gw-edna-test/Thermolysin/Therm_6/",
+        "src_run_num": (2,),
+        "src_prefix": ("Therm_6",),
+        "results": {
+            "a": approx(100, abs=100),
+            "b": approx(100, abs=100),
+            "c": approx(100, abs=100),
+            "alpha": approx(180, abs=180),
+            "beta": approx(180, abs=180),
+            "gamma": approx(180, abs=180),
+        },
+    },
     "trp-multi": {
         "src_dir": "/dls/i04/data/2013/nt5966-4/20131007/TRP/P1_X6",
         "src_run_num": (1, 2, 3, 4),

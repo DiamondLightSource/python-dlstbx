@@ -68,7 +68,7 @@ def format_message(verbosity):
         )
 
     def format_verbose(message):
-        if message.get("full_message") and message["full_message"] == message.get(
+        if not message.get("full_message") or message["full_message"] == message.get(
             "message"
         ):
             message["full_message"] = ""
@@ -85,7 +85,7 @@ def format_message(verbosity):
         )
 
     def format_xverbose(message):
-        if message.get("full_message") and message["full_message"] == message.get(
+        if not message.get("full_message") or message["full_message"] == message.get(
             "message"
         ):
             message["full_message"] = ""

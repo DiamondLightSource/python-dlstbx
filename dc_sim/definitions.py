@@ -257,7 +257,7 @@ tests = {
         "use_sample_id": 790048,
         "results": {},
     },
-    "thermolysin-eiger": {
+    "thaumatin-eiger": { # Yes, it does say Thermolysin.
         "src_dir": "/dls/i04/data/2019/cm23004-1/20190214/gw-edna-test/Thermolysin/Therm_6/",
         "src_run_num": (2,),
         "src_prefix": ("Therm_6",),

@@ -630,6 +630,8 @@ INNER JOIN ScreeningStrategy
 ON ScreeningOutput.screeningOutputID = ScreeningStrategy.screeningOutputID
 INNER JOIN ScreeningStrategyWedge
 ON ScreeningStrategy.screeningStrategyID = ScreeningStrategyWedge.screeningStrategyID
+INNER JOIN ScreeningStrategySubWedge
+ON ScreeningStrategyWedge.screeningStrategyWedgeID = ScreeningStrategySubWedge.screeningStrategyWedgeID
 """
             % select_str
         )

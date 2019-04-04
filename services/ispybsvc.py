@@ -397,13 +397,13 @@ class DLSISPyB(CommonService):
         # output_params: ['id', 'screeningid', 'statusdescription', 'rejectedreflections', 'resolutionobtained', 'spotdeviationr', 'spotdeviationtheta', 'beamshiftx', 'beamshifty', 'numspotsfound', 'numspotsused', 'numspotsrejected', 'mosaicity', 'ioversigma', 'diffractionrings', 'mosaicityestimated', 'rankingresolution', 'program', 'dosetotal', 'totalexposuretime', 'totalrotationrange', 'totalnoimages', 'rfriedel', 'indexingsuccess', 'strategysuccess', 'alignmentsuccess']
         output_params = mx_screening.get_screening_output_params()
         output_params["screening_id"] = screeningId
-        output_params["mosaicity"] = parameters("mosaicity") or ""
+        output_params["mosaicity"] = parameters("mosaicity")
         output_params["mosaicityEstimated"] = 1 if parameters("mosaicity") else 0
         #output_params["screeningSuccess"] = 1
         output_params["indexingSuccess"] = 1
         output_params["strategySuccess"] = 1
         output_params["program"] = parameters("program") or ""
-        output_params["rankingResolution"] = parameters("rankingresolution") or ""
+        output_params["rankingResolution"] = parameters("rankingresolution")
         self.log.info("output_params: %s", output_params)
         try:
             screeningOutputId = mx_screening.insert_screening_output(
@@ -447,10 +447,10 @@ class DLSISPyB(CommonService):
         # strategy_params ['id', 'screeningoutputid', 'phistart', 'phiend', 'rotation', 'exposuretime', 'resolution', 'completeness', 'multiplicity', 'anomalous', 'program', 'rankingresolution', 'transmission']
         strategy_params = mx_screening.get_screening_strategy_params()
         strategy_params["screening_output_id"] = screeningOutputId
-        strategy_params["program"] = parameters("program") or ""
+        strategy_params["program"] = parameters("program")
         strategy_params["anomalous"] = parameters("anomalous") or 0
-        strategy_params["transmission"] = parameters("transmission") or ""
-        strategy_params["exposureTime"] = parameters("exposuretime") or ""
+        strategy_params["transmission"] = parameters("transmission")
+        strategy_params["exposureTime"] = parameters("exposuretime")
         self.log.info("strategy_params: %s", strategy_params)
         try:
             screeningStrategyId = mx_screening.insert_screening_strategy(
@@ -469,15 +469,15 @@ class DLSISPyB(CommonService):
         # wedge_params ['id', 'screeningstrategyid', 'wedgenumber', 'resolution', 'completeness', 'multiplicity', 'dosetotal', 'noimages', 'phi', 'kappa', 'chi', 'comments', 'wavelength']
         wedge_params = mx_screening.get_screening_strategy_wedge_params()
         wedge_params["screening_strategy_id"] = screeningStrategyId
-        wedge_params["phi"] = parameters("phi") or ""
-        wedge_params["chi"] = parameters("chi") or ""
-        wedge_params["kappa"] = parameters("kappa") or ""
+        wedge_params["phi"] = parameters("phi")
+        wedge_params["chi"] = parameters("chi")
+        wedge_params["kappa"] = parameters("kappa")
         wedge_params["wedgeNumber"] = parameters("wedgenumber") or "1"
-        wedge_params["resolution"] = parameters("resolution") or ""
-        wedge_params["completeness"] = parameters("completeness") or ""
-        wedge_params["multiplicity"] = parameters("multiplicity") or ""
-        wedge_params["dosetotal"] = parameters("dosetotal") or ""
-        wedge_params["noimages"] = parameters("noimages") or ""
+        wedge_params["resolution"] = parameters("resolution")
+        wedge_params["completeness"] = parameters("completeness")
+        wedge_params["multiplicity"] = parameters("multiplicity")
+        wedge_params["dosetotal"] = parameters("dosetotal")
+        wedge_params["noimages"] = parameters("noimages")
         self.log.info("wedge_params: %s", wedge_params)
         try:
             screeningStrategyWedgeId = mx_screening.insert_screening_strategy_wedge(
@@ -498,16 +498,16 @@ class DLSISPyB(CommonService):
         sub_wedge_params["screening_strategy_wedge_id"] = screeningStrategyWedgeId
         sub_wedge_params["subwedgenumber"] = "1"
         sub_wedge_params["rotationaxis"] = "omega"
-        sub_wedge_params["axisstart"] = parameters("phistart") or ""
-        sub_wedge_params["axisend"] = parameters("phiend") or ""
-        sub_wedge_params["exposuretime"] = parameters("exposuretime") or ""
-        sub_wedge_params["transmission"] = parameters("transmission") or ""
-        sub_wedge_params["oscillationrange"] = parameters("oscillationrange") or ""
-        sub_wedge_params["completeness"] = parameters("completeness") or ""
-        sub_wedge_params["multiplicity"] = parameters("multiplicity") or ""
-        sub_wedge_params["resolution"] = parameters("resolution") or ""
-        sub_wedge_params["dosetotal"] = parameters("dosetotal") or ""
-        sub_wedge_params["noimages"] = parameters("noimages") or ""
+        sub_wedge_params["axisstart"] = parameters("phistart")
+        sub_wedge_params["axisend"] = parameters("phiend")
+        sub_wedge_params["exposuretime"] = parameters("exposuretime")
+        sub_wedge_params["transmission"] = parameters("transmission")
+        sub_wedge_params["oscillationrange"] = parameters("oscillationrange")
+        sub_wedge_params["completeness"] = parameters("completeness")
+        sub_wedge_params["multiplicity"] = parameters("multiplicity")
+        sub_wedge_params["resolution"] = parameters("resolution")
+        sub_wedge_params["dosetotal"] = parameters("dosetotal")
+        sub_wedge_params["noimages"] = parameters("noimages")
         self.log.info("sub_wedge_params: %s", sub_wedge_params)
         try:
             screeningStrategySubWedgeId = mx_screening.insert_screening_strategy_sub_wedge(

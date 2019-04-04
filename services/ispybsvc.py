@@ -370,7 +370,7 @@ class DLSISPyB(CommonService):
             )
             return False
 
-        return do_insert_screening_results(self, parameters, **kwargs)
+        return self.do_insert_screening_result(parameters, **kwargs)
 
     def do_insert_screening_result(self, parameters, **kwargs):
         mx_screening = self.ispyb.mx_screening
@@ -378,9 +378,10 @@ class DLSISPyB(CommonService):
         # screening_params: ['id', 'dcgid', 'dcid', 'programversion', 'shortcomments', 'comments']
         screening_params = mx_screening.get_screening_params()
         screening_params["dcid"] = parameters("dataCollectionId")
-        screening_params["program_version"] = parameters("program") or ""
+        screening_params["program_version"] = parameters("program")
         screening_params["comments"] = parameters("comments") or ""
         screening_params["short_comments"] = parameters("shortComments") or ""
+        self.log.info("screening_params: %s", screening_params)
         try:
             screeningId = mx_screening.insert_screening(list(screening_params.values()))
             assert screeningId is not None
@@ -398,14 +399,12 @@ class DLSISPyB(CommonService):
         output_params["screening_id"] = screeningId
         output_params["mosaicity"] = parameters("mosaicity") or ""
         output_params["mosaicityEstimated"] = 1 if parameters("mosaicity") else 0
-        output_params["screeningSuccess"] = 1
+        #output_params["screeningSuccess"] = 1
         output_params["indexingSuccess"] = 1
         output_params["strategySuccess"] = 1
-        output_params["anomalous"] = parameters("anomalous") or 0
         output_params["program"] = parameters("program") or ""
         output_params["rankingResolution"] = parameters("rankingresolution") or ""
-        output_params["transmission"] = parameters("transmission") or ""
-        output_params["exposureTime"] = parameters("exposuretime") or ""
+        self.log.info("output_params: %s", output_params)
         try:
             screeningOutputId = mx_screening.insert_screening_output(
                 list(output_params.values())
@@ -430,6 +429,7 @@ class DLSISPyB(CommonService):
         output_lattice_params["unitcellbeta"] = parameters("unitcellbeta") or ""
         output_lattice_params["unitcellgamma"] = parameters("unitcellgamma") or ""
         output_lattice_params["spacegroup"] = parameters("spacegroup") or ""
+        self.log.info("output_lattice_params: %s", output_lattice_params)
         try:
             screeningOutputLatticeId = mx_screening.insert_screening_output_lattice(
                 list(output_lattice_params.values())
@@ -448,6 +448,10 @@ class DLSISPyB(CommonService):
         strategy_params = mx_screening.get_screening_strategy_params()
         strategy_params["screening_output_id"] = screeningOutputId
         strategy_params["program"] = parameters("program") or ""
+        strategy_params["anomalous"] = parameters("anomalous") or 0
+        strategy_params["transmission"] = parameters("transmission") or ""
+        strategy_params["exposureTime"] = parameters("exposuretime") or ""
+        self.log.info("strategy_params: %s", strategy_params)
         try:
             screeningStrategyId = mx_screening.insert_screening_strategy(
                 list(strategy_params.values())
@@ -474,6 +478,7 @@ class DLSISPyB(CommonService):
         wedge_params["multiplicity"] = parameters("multiplicity") or ""
         wedge_params["dosetotal"] = parameters("dosetotal") or ""
         wedge_params["noimages"] = parameters("noimages") or ""
+        self.log.info("wedge_params: %s", wedge_params)
         try:
             screeningStrategyWedgeId = mx_screening.insert_screening_strategy_wedge(
                 list(wedge_params.values())
@@ -487,12 +492,44 @@ class DLSISPyB(CommonService):
                 exc_info=True,
             )
             return False
+
+        # sub_wedge_params ['id', 'screeningstrategywedgeid', 'subwedgenumber', 'rotationaxis', 'axisstart', 'axisend', 'exposuretime', 'transmission', 'oscillationrange', 'completeness', 'multiplicity', 'resolution', 'dosetotal', 'noimages', 'comments']
+        sub_wedge_params = mx_screening.get_screening_strategy_sub_wedge_params()
+        sub_wedge_params["screening_strategy_wedge_id"] = screeningStrategyWedgeId
+        sub_wedge_params["subwedgenumber"] = "1"
+        sub_wedge_params["rotationaxis"] = "omega"
+        sub_wedge_params["axisstart"] = parameters("phistart") or ""
+        sub_wedge_params["axisend"] = parameters("phiend") or ""
+        sub_wedge_params["exposuretime"] = parameters("exposuretime") or ""
+        sub_wedge_params["transmission"] = parameters("transmission") or ""
+        sub_wedge_params["oscillationrange"] = parameters("oscillationrange") or ""
+        sub_wedge_params["completeness"] = parameters("completeness") or ""
+        sub_wedge_params["multiplicity"] = parameters("multiplicity") or ""
+        sub_wedge_params["resolution"] = parameters("resolution") or ""
+        sub_wedge_params["dosetotal"] = parameters("dosetotal") or ""
+        sub_wedge_params["noimages"] = parameters("noimages") or ""
+        self.log.info("sub_wedge_params: %s", sub_wedge_params)
+        try:
+            screeningStrategySubWedgeId = mx_screening.insert_screening_strategy_sub_wedge(
+                list(sub_wedge_params.values())
+            )
+            assert screeningStrategySubWedgeId is not None
+        except (ispyb.exception.ISPyBException, AssertionError) as e:
+            self.log.error(
+                "Inserting strategy sub wedge: '%s' caused exception '%s'.",
+                sub_wedge_params,
+                e,
+                exc_info=True,
+            )
+            return False
         self.log.info(
-            "Inserted alignment results with IDs %s, %s, %s, %s",
+            "Inserted screening results with IDs %s, %s, %s, %s, %s, %s",
             str(screeningId),
             str(screeningOutputId),
+            str(screeningOutputLatticeId),
             str(screeningStrategyId),
             str(screeningStrategyWedgeId),
+            str(screeningStrategySubWedgeId),
         )
         return {"success": True}
 

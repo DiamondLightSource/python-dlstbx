@@ -370,13 +370,17 @@ class DLSISPyB(CommonService):
             )
             return False
 
+        return do_insert_screening_results(self, parameters, **kwargs)
+
+    def do_insert_screening_result(self, parameters, **kwargs):
         mx_screening = self.ispyb.mx_screening
+
+        # screening_params: ['id', 'dcgid', 'dcid', 'programversion', 'shortcomments', 'comments']
         screening_params = mx_screening.get_screening_params()
         screening_params["dcid"] = parameters("dataCollectionId")
         screening_params["program_version"] = parameters("program") or ""
         screening_params["comments"] = parameters("comments") or ""
         screening_params["short_comments"] = parameters("shortComments") or ""
-
         try:
             screeningId = mx_screening.insert_screening(list(screening_params.values()))
             assert screeningId is not None
@@ -389,8 +393,19 @@ class DLSISPyB(CommonService):
             )
             return False
 
+        # output_params: ['id', 'screeningid', 'statusdescription', 'rejectedreflections', 'resolutionobtained', 'spotdeviationr', 'spotdeviationtheta', 'beamshiftx', 'beamshifty', 'numspotsfound', 'numspotsused', 'numspotsrejected', 'mosaicity', 'ioversigma', 'diffractionrings', 'mosaicityestimated', 'rankingresolution', 'program', 'dosetotal', 'totalexposuretime', 'totalrotationrange', 'totalnoimages', 'rfriedel', 'indexingsuccess', 'strategysuccess', 'alignmentsuccess']
         output_params = mx_screening.get_screening_output_params()
         output_params["screening_id"] = screeningId
+        output_params["mosaicity"] = parameters("mosaicity") or ""
+        output_params["mosaicityEstimated"] = 1 if parameters("mosaicity") else 0
+        output_params["screeningSuccess"] = 1
+        output_params["indexingSuccess"] = 1
+        output_params["strategySuccess"] = 1
+        output_params["anomalous"] = parameters("anomalous") or 0
+        output_params["program"] = parameters("program") or ""
+        output_params["rankingResolution"] = parameters("rankingresolution") or ""
+        output_params["transmission"] = parameters("transmission") or ""
+        output_params["exposureTime"] = parameters("exposuretime") or ""
         try:
             screeningOutputId = mx_screening.insert_screening_output(
                 list(output_params.values())
@@ -405,6 +420,7 @@ class DLSISPyB(CommonService):
             )
             return False
 
+        # output_lattice_params ['id', 'screeningoutputid', 'spacegroup', 'pointgroup', 'bravaislattice', 'raworientationmatrixax', 'raworientationmatrixay', 'raworientationmatrixaz', 'raworientationmatrixbx', 'raworientationmatrixby', 'raworientationmatrixbz', 'raworientationmatrixcx', 'raworientationmatrixcy', 'raworientationmatrixcz', 'unitcella', 'unitcellb', 'unitcellc', 'unitcellalpha', 'unitcellbeta', 'unitcellgamma', 'labelitindexing']
         output_lattice_params = mx_screening.get_screening_output_lattice_params()
         output_lattice_params["screening_output_id"] = screeningOutputId
         output_lattice_params["unitcella"] = parameters("unitcella") or ""
@@ -428,6 +444,7 @@ class DLSISPyB(CommonService):
             )
             return False
 
+        # strategy_params ['id', 'screeningoutputid', 'phistart', 'phiend', 'rotation', 'exposuretime', 'resolution', 'completeness', 'multiplicity', 'anomalous', 'program', 'rankingresolution', 'transmission']
         strategy_params = mx_screening.get_screening_strategy_params()
         strategy_params["screening_output_id"] = screeningOutputId
         strategy_params["program"] = parameters("program") or ""
@@ -445,11 +462,18 @@ class DLSISPyB(CommonService):
             )
             return False
 
+        # wedge_params ['id', 'screeningstrategyid', 'wedgenumber', 'resolution', 'completeness', 'multiplicity', 'dosetotal', 'noimages', 'phi', 'kappa', 'chi', 'comments', 'wavelength']
         wedge_params = mx_screening.get_screening_strategy_wedge_params()
         wedge_params["screening_strategy_id"] = screeningStrategyId
-        wedge_params["phi"] = phi
-        wedge_params["chi"] = chi
-        wedge_params["kappa"] = kappa
+        wedge_params["phi"] = parameters("phi") or ""
+        wedge_params["chi"] = parameters("chi") or ""
+        wedge_params["kappa"] = parameters("kappa") or ""
+        wedge_params["wedgeNumber"] = parameters("wedgenumber") or "1"
+        wedge_params["resolution"] = parameters("resolution") or ""
+        wedge_params["completeness"] = parameters("completeness") or ""
+        wedge_params["multiplicity"] = parameters("multiplicity") or ""
+        wedge_params["dosetotal"] = parameters("dosetotal") or ""
+        wedge_params["noimages"] = parameters("noimages") or ""
         try:
             screeningStrategyWedgeId = mx_screening.insert_screening_strategy_wedge(
                 list(wedge_params.values())

@@ -19,33 +19,31 @@ def run():
     import libtbx.load_env
 
     from dials.util.options import OptionParser
-    from dials.util.options import flatten_datablocks
+    from dials.util.options import flatten_experiments
 
     usage = "%s [options] datablock.json" % libtbx.env.dispatcher_name
 
     parser = OptionParser(
         usage=usage,
         phil=phil_scope,
-        read_datablocks=True,
-        read_datablocks_from_images=True,
+        read_experiments=True,
+        read_experiments_from_images=True,
         epilog=help_message,
     )
-
     params, options, args = parser.parse_args(
         show_diff_phil=True, return_unhandled=True
     )
+    experiments = flatten_experiments(params.input.experiments)
 
-    datablocks = flatten_datablocks(params.input.datablock)
-
-    if len(datablocks) == 0:
+    if len(experiments) == 0:
         parser.print_help()
-        return
+        exit(0)
 
-    if len(datablocks) > 1:
-        raise Sorry("Only one datablock can be processed at a time")
+    if len(experiments) > 1:
+        raise Sorry("Only one experiment can be processed at a time")
     else:
-        imagesets = datablocks[0].extract_imagesets()
-        assert len(imagesets) == 1
+        imagesets = experiments.imagesets()
+        assert len(imagesets) == 1, len(imagesets)
         imageset = imagesets[0]
 
     to_xds = xds.to_xds(imageset)

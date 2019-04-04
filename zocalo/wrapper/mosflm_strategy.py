@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import json
 import logging
 import os
 import py
@@ -59,19 +60,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
 
         if py.path.local(working_directory).join("strategy.dat").check():
             # insert results into database
-            commands = [
-                "/dls_sw/apps/mx-scripts/auto-edna/insertMosflmStrategies1.sh",
-                params["dcid"],
-                "strategy.dat",
-            ]
-            logger.info("command: %s", " ".join(commands))
-            insertresult = procrunner.run(commands, timeout=params.get("timeout", 3600))
-            if insertresult["exitcode"]:
-                logger.info("exitcode: %s", insertresult["exitcode"])
-                logger.info(insertresult["stdout"])
-                logger.info(insertresult["stderr"])
-            logger.info("timeout: %s", insertresult["timeout"])
-            logger.info("runtime: %s", insertresult["runtime"])
+            self.send_screening_result_to_ispyb(params["dcid"], "strategy.dat")
 
         beamline = params["beamline"]
         if not result["exitcode"] and beamline in ("i03", "i04"):
@@ -115,6 +104,58 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         logger.info("exitcode: %s", result["exitcode"])
         params["orig_image_directory"] = params["image_directory"]
         params["image_directory"] = tmpdir.strpath
+
+    def send_screening_result_to_ispyb(self, dcid, strategy_dat):
+
+        # example strategy.dat output:
+        #
+        # character,57.910,57.910,149.806,90.000,90.000,90.000,P4,0.55
+        # mosflm native,182.0,272.0,1.2,75,1.00,1.47
+        # mosflm anomalous,182.0,272.0,1.2,75,0.92,1.47
+
+        assert dcid > 0, "Invalid data collection ID given."
+
+        with open(strategy_dat, "rb") as f:
+            lines = f.readlines()
+            tokens = [line.strip().split(",") for line in lines]
+            logger.debug(tokens)
+
+        result_common = {
+            "dataCollectionId": dcid,
+            "unitcella": tokens[0][1],
+            "unitcellb": tokens[0][2],
+            "unitcellc": tokens[0][3],
+            "unitcellalpha": tokens[0][4],
+            "unitcellbeta": tokens[0][5],
+            "unitcellgamma": tokens[0][6],
+            "spacegroup": tokens[0][7],
+            "mosaicity": tokens[0][8],
+            "program": "MOSFLM",
+            "comments": None,
+        }
+        result_native = {
+            "shortComments": "MOSFLM native" ,
+            "phistart": tokens[1][1],
+            "phiend": tokens[1][2],
+            "oscillationrange": tokens[1][3],
+            "noimages": tokens[1][4],
+            "completeness": tokens[1][5],
+            "resolution": tokens[1][6],
+        }
+        result_anomalous = {
+            "shortComments": "MOSFLM anomalous" ,
+            "phistart": tokens[2][1],
+            "phiend": tokens[2][2],
+            "oscillationrange": tokens[2][3],
+            "noimages": tokens[2][4],
+            "completeness": tokens[2][5],
+            "resolution": tokens[2][6],
+        }
+
+        for result in (result_native, result_anomalous):
+            result = dict(result_common.items() + result.items())
+            logger.info("Inserting screening result into ISPyB: %s" % json.dumps(result))
+            self.recwrap.send_to("screening-result", result)
 
     def run_xoalign(self, mosflm_index_mat):
         print(mosflm_index_mat)

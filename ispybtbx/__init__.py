@@ -624,6 +624,8 @@ SELECT %s
 FROM Screening
 INNER JOIN ScreeningOutput
 ON Screening.screeningID = ScreeningOutput.screeningID
+INNER JOIN ScreeningOutputLattice
+ON ScreeningOutput.screeningOutputID = ScreeningOutputLattice.screeningOutputID
 INNER JOIN ScreeningStrategy
 ON ScreeningOutput.screeningOutputID = ScreeningStrategy.screeningOutputID
 INNER JOIN ScreeningStrategyWedge

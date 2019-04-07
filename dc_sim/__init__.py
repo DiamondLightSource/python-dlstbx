@@ -533,7 +533,12 @@ def simulate(
         row["xtalsnapshotfullpath3"],
         row["xtalsnapshotfullpath4"],
     ]
-    log.debug("Source dataset from DCID %r, DCGID %r, file template %r", src_dcid, src_dcgid, filetemplate)
+    log.debug(
+        "Source dataset from DCID %r, DCGID %r, file template %r",
+        src_dcid,
+        src_dcgid,
+        filetemplate,
+    )
 
     no_images = retrieve_no_images(_db, src_dcid)
     log.debug("Source dataset has %d images" % no_images)

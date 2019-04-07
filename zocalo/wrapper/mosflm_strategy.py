@@ -134,7 +134,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             "comments": None,
         }
         result_native = {
-            "shortComments": "MOSFLM native" ,
+            "shortComments": "MOSFLM native",
             "phistart": tokens[1][1],
             "phiend": tokens[1][2],
             "oscillationrange": tokens[1][3],
@@ -143,7 +143,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             "resolution": tokens[1][6],
         }
         result_anomalous = {
-            "shortComments": "MOSFLM anomalous" ,
+            "shortComments": "MOSFLM anomalous",
             "phistart": tokens[2][1],
             "phiend": tokens[2][2],
             "oscillationrange": tokens[2][3],
@@ -154,7 +154,9 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
 
         for result in (result_native, result_anomalous):
             result = dict(result_common.items() + result.items())
-            logger.info("Inserting screening result into ISPyB: %s" % json.dumps(result))
+            logger.info(
+                "Inserting screening result into ISPyB: %s" % json.dumps(result)
+            )
             self.recwrap.send_to("screening-result", result)
 
     def run_xoalign(self, mosflm_index_mat):

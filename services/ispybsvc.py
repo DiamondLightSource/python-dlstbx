@@ -399,7 +399,7 @@ class DLSISPyB(CommonService):
         output_params["screening_id"] = screeningId
         output_params["mosaicity"] = parameters("mosaicity")
         output_params["mosaicityEstimated"] = 1 if parameters("mosaicity") else 0
-        #output_params["screeningSuccess"] = 1
+        # output_params["screeningSuccess"] = 1
         output_params["indexingSuccess"] = 1
         output_params["strategySuccess"] = 1
         output_params["program"] = parameters("program") or ""

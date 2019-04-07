@@ -41,9 +41,7 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
         beamline = sparams["beamline"]
         logger.debug("transmission: %s" % transmission)
         logger.debug("wavelength: %s" % wavelength)
-        lifespan = sparams["lifespan"].get(
-            beamline, sparams["lifespan"]["default"]
-        )
+        lifespan = sparams["lifespan"].get(beamline, sparams["lifespan"]["default"])
         if sparams["gentle"]:
             strategy_lifespan = round(
                 (lifespan * (100 / transmission)) * (wavelength / 0.979) ** -3 / 10, 0

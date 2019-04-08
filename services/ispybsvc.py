@@ -376,7 +376,7 @@ class DLSISPyB(CommonService):
 
         # screening_params: ['id', 'dcgid', 'dcid', 'programversion', 'shortcomments', 'comments']
         screening_params = mx_screening.get_screening_params()
-        screening_params["dcid"] = parameters("dataCollectionId")
+        screening_params["dcid"] = parameters("dcid")
         screening_params["program_version"] = parameters("program")
         screening_params["comments"] = parameters("comments") or ""
         screening_params["short_comments"] = parameters("shortComments") or ""
@@ -443,93 +443,102 @@ class DLSISPyB(CommonService):
             )
             return False
 
-        # strategy_params ['id', 'screeningoutputid', 'phistart', 'phiend', 'rotation', 'exposuretime', 'resolution', 'completeness', 'multiplicity', 'anomalous', 'program', 'rankingresolution', 'transmission']
-        strategy_params = mx_screening.get_screening_strategy_params()
-        strategy_params["screening_output_id"] = screeningOutputId
-        strategy_params["program"] = parameters("program")
-        strategy_params["anomalous"] = parameters("anomalous") or 0
-        strategy_params["transmission"] = parameters("transmission")
-        strategy_params["exposureTime"] = parameters("exposuretime")
-        self.log.info("strategy_params: %s", strategy_params)
-        try:
-            screeningStrategyId = mx_screening.insert_screening_strategy(
-                list(strategy_params.values())
-            )
-            assert screeningStrategyId is not None
-        except (ispyb.ISPyBException, AssertionError) as e:
-            self.log.error(
-                "Inserting screening strategy: '%s' caused exception '%s'.",
-                strategy_params,
-                e,
-                exc_info=True,
-            )
-            return False
+        print(parameters("strategies"))
 
-        # wedge_params ['id', 'screeningstrategyid', 'wedgenumber', 'resolution', 'completeness', 'multiplicity', 'dosetotal', 'noimages', 'phi', 'kappa', 'chi', 'comments', 'wavelength']
-        wedge_params = mx_screening.get_screening_strategy_wedge_params()
-        wedge_params["screening_strategy_id"] = screeningStrategyId
-        wedge_params["phi"] = parameters("phi")
-        wedge_params["chi"] = parameters("chi")
-        wedge_params["kappa"] = parameters("kappa")
-        wedge_params["wedgeNumber"] = parameters("wedgenumber") or "1"
-        wedge_params["resolution"] = parameters("resolution")
-        wedge_params["completeness"] = parameters("completeness")
-        wedge_params["multiplicity"] = parameters("multiplicity")
-        wedge_params["dosetotal"] = parameters("dosetotal")
-        wedge_params["noimages"] = parameters("noimages")
-        self.log.info("wedge_params: %s", wedge_params)
-        try:
-            screeningStrategyWedgeId = mx_screening.insert_screening_strategy_wedge(
-                list(wedge_params.values())
-            )
-            assert screeningStrategyWedgeId is not None
-        except (ispyb.ISPyBException, AssertionError) as e:
-            self.log.error(
-                "Inserting strategy wedge: '%s' caused exception '%s'.",
-                wedge_params,
-                e,
-                exc_info=True,
-            )
+        if not parameters("strategies"):
             return False
+        for strategy in parameters("strategies"):
 
-        # sub_wedge_params ['id', 'screeningstrategywedgeid', 'subwedgenumber', 'rotationaxis', 'axisstart', 'axisend', 'exposuretime', 'transmission', 'oscillationrange', 'completeness', 'multiplicity', 'resolution', 'dosetotal', 'noimages', 'comments']
-        sub_wedge_params = mx_screening.get_screening_strategy_sub_wedge_params()
-        sub_wedge_params["screening_strategy_wedge_id"] = screeningStrategyWedgeId
-        sub_wedge_params["subwedgenumber"] = "1"
-        sub_wedge_params["rotationaxis"] = "omega"
-        sub_wedge_params["axisstart"] = parameters("phistart")
-        sub_wedge_params["axisend"] = parameters("phiend")
-        sub_wedge_params["exposuretime"] = parameters("exposuretime")
-        sub_wedge_params["transmission"] = parameters("transmission")
-        sub_wedge_params["oscillationrange"] = parameters("oscillationrange")
-        sub_wedge_params["completeness"] = parameters("completeness")
-        sub_wedge_params["multiplicity"] = parameters("multiplicity")
-        sub_wedge_params["resolution"] = parameters("resolution")
-        sub_wedge_params["dosetotal"] = parameters("dosetotal")
-        sub_wedge_params["noimages"] = parameters("noimages")
-        self.log.info("sub_wedge_params: %s", sub_wedge_params)
-        try:
-            screeningStrategySubWedgeId = mx_screening.insert_screening_strategy_sub_wedge(
-                list(sub_wedge_params.values())
-            )
-            assert screeningStrategySubWedgeId is not None
-        except (ispyb.ISPyBException, AssertionError) as e:
-            self.log.error(
-                "Inserting strategy sub wedge: '%s' caused exception '%s'.",
-                sub_wedge_params,
-                e,
-                exc_info=True,
-            )
-            return False
-        self.log.info(
-            "Inserted screening results with IDs %s, %s, %s, %s, %s, %s",
-            str(screeningId),
-            str(screeningOutputId),
-            str(screeningOutputLatticeId),
-            str(screeningStrategyId),
-            str(screeningStrategyWedgeId),
-            str(screeningStrategySubWedgeId),
-        )
+            # strategy_params ['id', 'screeningoutputid', 'phistart', 'phiend', 'rotation', 'exposuretime', 'resolution', 'completeness', 'multiplicity', 'anomalous', 'program', 'rankingresolution', 'transmission']
+            strategy_params = mx_screening.get_screening_strategy_params()
+            strategy_params["screening_output_id"] = screeningOutputId
+            strategy_params["program"] = strategy.get("program")
+            strategy_params["anomalous"] = strategy.get("anomalous") or 0
+            #strategy_params["transmission"] = strategy.get("transmission")
+            #strategy_params["exposureTime"] = strategy.get("exposuretime")
+            self.log.info("strategy_params: %s", strategy_params)
+            try:
+                screeningStrategyId = mx_screening.insert_screening_strategy(
+                    list(strategy_params.values())
+                )
+                assert screeningStrategyId is not None
+            except (ispyb.ISPyBException, AssertionError) as e:
+                self.log.error(
+                    "Inserting screening strategy: '%s' caused exception '%s'.",
+                    strategy_params,
+                    e,
+                    exc_info=True,
+                )
+                return False
+
+            for wedge in strategy.get("wedges"):
+                self.log.info("wedge: %s", wedge)
+                # wedge_params ['id', 'screeningstrategyid', 'wedgenumber', 'resolution', 'completeness', 'multiplicity', 'dosetotal', 'noimages', 'phi', 'kappa', 'chi', 'comments', 'wavelength']
+                wedge_params = mx_screening.get_screening_strategy_wedge_params()
+                wedge_params["screening_strategy_id"] = screeningStrategyId
+                wedge_params["phi"] = wedge.get("phi")
+                wedge_params["chi"] = wedge.get("chi")
+                wedge_params["kappa"] = wedge.get("kappa")
+                wedge_params["wedgeNumber"] = wedge.get("wedgenumber") or "1"
+                wedge_params["resolution"] = wedge.get("resolution")
+                wedge_params["completeness"] = wedge.get("completeness")
+                wedge_params["multiplicity"] = wedge.get("multiplicity")
+                wedge_params["dosetotal"] = wedge.get("dosetotal")
+                wedge_params["noimages"] = wedge.get("noimages")
+                self.log.info("wedge_params: %s", wedge_params)
+                try:
+                    screeningStrategyWedgeId = mx_screening.insert_screening_strategy_wedge(
+                        list(wedge_params.values())
+                    )
+                    assert screeningStrategyWedgeId is not None
+                except (ispyb.exception.ISPyBException, AssertionError) as e:
+                    self.log.error(
+                        "Inserting strategy wedge: '%s' caused exception '%s'.",
+                        wedge_params,
+                        e,
+                        exc_info=True,
+                    )
+                    return False
+
+                # sub_wedge_params ['id', 'screeningstrategywedgeid', 'subwedgenumber', 'rotationaxis', 'axisstart', 'axisend', 'exposuretime', 'transmission', 'oscillationrange', 'completeness', 'multiplicity', 'resolution', 'dosetotal', 'noimages', 'comments']
+                sub_wedge_params = mx_screening.get_screening_strategy_sub_wedge_params()
+                sub_wedge_params["screening_strategy_wedge_id"] = screeningStrategyWedgeId
+                sub_wedge_params["subwedgenumber"] = "1"
+                sub_wedge_params["rotationaxis"] = "omega"
+                sub_wedge_params["axisstart"] = wedge.get("axisstart")
+                sub_wedge_params["axisend"] = wedge.get("axisend")
+                sub_wedge_params["exposuretime"] = wedge.get("exposuretime")
+                sub_wedge_params["transmission"] = wedge.get("transmission")
+                sub_wedge_params["oscillationrange"] = wedge.get("oscillationrange")
+                sub_wedge_params["completeness"] = wedge.get("completeness")
+                sub_wedge_params["multiplicity"] = wedge.get("multiplicity")
+                sub_wedge_params["resolution"] = wedge.get("resolution")
+                sub_wedge_params["dosetotal"] = wedge.get("dosetotal")
+                sub_wedge_params["noimages"] = wedge.get("noimages")
+                sub_wedge_params["comments"] = wedge.get("comments")
+                self.log.info("sub_wedge_params: %s", sub_wedge_params)
+                try:
+                    screeningStrategySubWedgeId = mx_screening.insert_screening_strategy_sub_wedge(
+                        list(sub_wedge_params.values())
+                    )
+                    assert screeningStrategySubWedgeId is not None
+                except (ispyb.exception.ISPyBException, AssertionError) as e:
+                    self.log.error(
+                        "Inserting strategy sub wedge: '%s' caused exception '%s'.",
+                        sub_wedge_params,
+                        e,
+                        exc_info=True,
+                    )
+                    return False
+                self.log.info(
+                    "Inserted screening results with IDs %s, %s, %s, %s, %s, %s",
+                    str(screeningId),
+                    str(screeningOutputId),
+                    str(screeningOutputLatticeId),
+                    str(screeningStrategyId),
+                    str(screeningStrategyWedgeId),
+                    str(screeningStrategySubWedgeId),
+                )
         return {"success": True}
 
     def do_register_integration(self, **kwargs):

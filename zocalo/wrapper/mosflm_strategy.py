@@ -120,8 +120,27 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             tokens = [line.strip().split(",") for line in lines]
             logger.debug(tokens)
 
-        result_common = {
-            "dataCollectionId": dcid,
+        strategy_native = {
+            "comments": "MOSFLM native",
+            "axisstart": tokens[1][1],
+            "axisend": tokens[1][2],
+            "oscillationrange": tokens[1][3],
+            "noimages": tokens[1][4],
+            "completeness": tokens[1][5],
+            "resolution": tokens[1][6],
+        }
+        strategy_anomalous = {
+            "comments": "MOSFLM anomalous",
+            "axisstart": tokens[2][1],
+            "axisend": tokens[2][2],
+            "oscillationrange": tokens[2][3],
+            "noimages": tokens[2][4],
+            "completeness": tokens[2][5],
+            "resolution": tokens[2][6],
+        }
+
+        result = {
+            "dcid": dcid,
             "unitcella": tokens[0][1],
             "unitcellb": tokens[0][2],
             "unitcellc": tokens[0][3],
@@ -131,33 +150,16 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             "spacegroup": tokens[0][7],
             "mosaicity": tokens[0][8],
             "program": "MOSFLM",
-            "comments": None,
-        }
-        result_native = {
-            "shortComments": "MOSFLM native",
-            "phistart": tokens[1][1],
-            "phiend": tokens[1][2],
-            "oscillationrange": tokens[1][3],
-            "noimages": tokens[1][4],
-            "completeness": tokens[1][5],
-            "resolution": tokens[1][6],
-        }
-        result_anomalous = {
-            "shortComments": "MOSFLM anomalous",
-            "phistart": tokens[2][1],
-            "phiend": tokens[2][2],
-            "oscillationrange": tokens[2][3],
-            "noimages": tokens[2][4],
-            "completeness": tokens[2][5],
-            "resolution": tokens[2][6],
+            'strategies': [
+                {'anomalous': False, 'wedges': [strategy_native]},
+                {'anomalous': True, 'wedges': [strategy_anomalous]},
+            ]
         }
 
-        for result in (result_native, result_anomalous):
-            result = dict(result_common.items() + result.items())
-            logger.info(
-                "Inserting screening result into ISPyB: %s" % json.dumps(result)
-            )
-            self.recwrap.send_to("screening-result", result)
+        logger.info(
+            "Inserting screening result into ISPyB: %s" % json.dumps(result)
+        )
+        self.recwrap.send_to("screening-result", result)
 
     def run_xoalign(self, mosflm_index_mat):
         print(mosflm_index_mat)

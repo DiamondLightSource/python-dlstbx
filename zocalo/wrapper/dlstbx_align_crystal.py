@@ -117,6 +117,7 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
                 "wedgenumber": 1,
                 "phi": phi,
                 "chi": chi,
+                "comments": settings_str,
                 "ispyb_command": "insert_screening_strategy_wedge",
                 "screening_strategy_id": "$ispyb_screening_strategy_id_%i" % solution_id,
                 "store_result": "ispyb_screening_strategy_wedge_id_%i" % solution_id,

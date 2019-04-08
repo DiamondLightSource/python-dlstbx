@@ -6,7 +6,6 @@ import os
 import uuid
 
 import ispyb
-import ispyb.exception
 import mysql.connector  # installed by ispyb
 
 # Temporary API to ISPyB while I wait for a proper one using stored procedures
@@ -84,7 +83,7 @@ class ispybtbx(object):
                 parameters["ispyb_reprocessing_parameters"] = {
                     k: v.value for k, v in dict(rp.parameters).items()
                 }
-            except ispyb.exception.ISPyBNoResultException:
+            except ispyb.NoResult:
                 self.log.warning("Reprocessing ID %s not found", str(reprocessing_id))
         return message, parameters
 
@@ -875,7 +874,7 @@ def ispyb_filter(message, parameters):
                 if "recordTimeStamp" in gridinfo:
                     del gridinfo["recordTimeStamp"]
                 parameters["ispyb_dc_info"]["gridinfo"] = gridinfo
-        except ispyb.exception.ISPyBNoResultException:
+        except ispyb.NoResult:
             pass
     parameters["ispyb_image_first"] = start
     parameters["ispyb_image_last"] = end

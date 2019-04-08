@@ -14,7 +14,6 @@ import sys
 from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
 
 import ispyb
-import ispyb.exception
 import procrunner
 
 # Create a new processing job:
@@ -360,7 +359,7 @@ if __name__ == "__main__":
                 message=options.status,
                 status={"success": 1, "failure": 0}.get(options.result),
             )
-        except ispyb.exception.ISPyBWriteFailed:
+        except ispyb.ReadWriteError:
             print("Error: Could not create processing program.\n")
             exit_code = 1
 
@@ -373,14 +372,14 @@ if __name__ == "__main__":
                 time_update=options.updatetime,
                 message=options.status,
             )
-        except ispyb.exception.ISPyBWriteFailed:
+        except ispyb.ReadWriteError:
             print("Error: Could not update processing status.\n")
             exit_code = 1
 
     rp = i.get_processing_job(rpid)
     try:
         rp.load()
-    except ispyb.exception.ISPyBNoResultException:
+    except ispyb.NoResult:
         print("Reprocessing ID %s not found" % rpid)
         sys.exit(1)
     print(
@@ -451,5 +450,5 @@ if __name__ == "__main__":
                                     att=attachment
                                 )
                             )
-                except ispyb.exception.ISPyBNoResultException:
+                except ispyb.NoResult:
                     pass

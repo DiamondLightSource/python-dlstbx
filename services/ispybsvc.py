@@ -5,7 +5,6 @@ import time
 
 import dlstbx.util.gda
 import ispyb
-import ispyb.exception
 import mysql.connector
 import six
 import workflows.recipe
@@ -149,7 +148,7 @@ class DLSISPyB(CommonService):
                 "Updating program %s status: '%s' with result %s", ppid, message, result
             )
             return {"success": True, "return_value": result}
-        except ispyb.exception.ISPyBException as e:
+        except ispyb.ISPyBException as e:
             self.log.error(
                 "Updating program %s status: '%s' caused exception '%s'.",
                 ppid,
@@ -169,7 +168,7 @@ class DLSISPyB(CommonService):
         try:
             result = self.ispyb.mx_processing.upsert_run(params.values())
             return {"success": True, "return_value": result}
-        except ispyb.exception.ISPyBException as e:
+        except ispyb.ISPyBException as e:
             self.log.error(
                 "Updating DIMPLE failure for %s caused exception '%s'.",
                 params["parentid"],
@@ -203,7 +202,7 @@ class DLSISPyB(CommonService):
                 result,
             )
             return {"success": True, "return_value": result}
-        except ispyb.exception.ISPyBException as e:
+        except ispyb.ISPyBException as e:
             self.log.error(
                 "Registering new program '%s' for processing id '%s' with command line '%s' and environment '%s' caused exception '%s'.",
                 program,
@@ -346,7 +345,7 @@ class DLSISPyB(CommonService):
                         )
                     except Exception as e:
                         self.log.warning("Could not notify GDA: %s", e, exc_info=True)
-        except ispyb.exception.ISPyBWriteFailed as e:
+        except ispyb.ReadWriteError as e:
             self.log.error(
                 "Could not write PIA results %s to database: %s",
                 params,
@@ -385,7 +384,7 @@ class DLSISPyB(CommonService):
         try:
             screeningId = mx_screening.insert_screening(list(screening_params.values()))
             assert screeningId is not None
-        except (ispyb.exception.ISPyBException, AssertionError) as e:
+        except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
                 "Inserting screening results: '%s' caused exception '%s'.",
                 screening_params,
@@ -410,7 +409,7 @@ class DLSISPyB(CommonService):
                 list(output_params.values())
             )
             assert screeningOutputId is not None
-        except (ispyb.exception.ISPyBException, AssertionError) as e:
+        except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
                 "Inserting screening output: '%s' caused exception '%s'.",
                 output_params,
@@ -435,7 +434,7 @@ class DLSISPyB(CommonService):
                 list(output_lattice_params.values())
             )
             assert screeningOutputLatticeId is not None
-        except (ispyb.exception.ISPyBException, AssertionError) as e:
+        except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
                 "Inserting screening output lattice: '%s' caused exception '%s'.",
                 output_lattice_params,
@@ -457,7 +456,7 @@ class DLSISPyB(CommonService):
                 list(strategy_params.values())
             )
             assert screeningStrategyId is not None
-        except (ispyb.exception.ISPyBException, AssertionError) as e:
+        except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
                 "Inserting screening strategy: '%s' caused exception '%s'.",
                 strategy_params,
@@ -484,7 +483,7 @@ class DLSISPyB(CommonService):
                 list(wedge_params.values())
             )
             assert screeningStrategyWedgeId is not None
-        except (ispyb.exception.ISPyBException, AssertionError) as e:
+        except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
                 "Inserting strategy wedge: '%s' caused exception '%s'.",
                 wedge_params,
@@ -514,7 +513,7 @@ class DLSISPyB(CommonService):
                 list(sub_wedge_params.values())
             )
             assert screeningStrategySubWedgeId is not None
-        except (ispyb.exception.ISPyBException, AssertionError) as e:
+        except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
                 "Inserting strategy sub wedge: '%s' caused exception '%s'.",
                 sub_wedge_params,
@@ -588,7 +587,7 @@ class DLSISPyB(CommonService):
                 list(params.values())
             )
             assert autoProcIntegrationId is not None
-        except (ispyb.exception.ISPyBException, AssertionError) as e:
+        except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
                 "Encountered exception %s when attempting to insert/update integration record '%s'",
                 e,
@@ -620,7 +619,7 @@ class DLSISPyB(CommonService):
                 list(params.values())
             )
             assert autoProcId is not None
-        except (ispyb.exception.ISPyBException, AssertionError) as e:
+        except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
                 "Writing AutoProc record '%s' caused exception '%s'.",
                 params,
@@ -681,7 +680,7 @@ class DLSISPyB(CommonService):
                 list(stats["overall"].values()),
             )
             assert scalingId is not None
-        except (ispyb.exception.ISPyBException, AssertionError) as e:
+        except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
                 "Encountered exception %s when attempting to insert scaling "
                 "statistics '%s' for AutoProcId %s",

@@ -120,7 +120,10 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             tokens = [line.strip().split(",") for line in lines]
             logger.debug(tokens)
 
+        unitcella, unitcellb, unitcellc, unitcellalpha, unitcellbeta, unitcellgamma, spacegroup, mosaicity = tokens[0][1:9]
+
         strategy_native = {
+            "anomalous": False,
             "comments": "MOSFLM native",
             "axisstart": tokens[1][1],
             "axisend": tokens[1][2],
@@ -130,6 +133,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             "resolution": tokens[1][6],
         }
         strategy_anomalous = {
+            "anomalous": True,
             "comments": "MOSFLM anomalous",
             "axisstart": tokens[2][1],
             "axisend": tokens[2][2],
@@ -139,27 +143,89 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             "resolution": tokens[2][6],
         }
 
-        result = {
-            "dcid": dcid,
-            "unitcella": tokens[0][1],
-            "unitcellb": tokens[0][2],
-            "unitcellc": tokens[0][3],
-            "unitcellalpha": tokens[0][4],
-            "unitcellbeta": tokens[0][5],
-            "unitcellgamma": tokens[0][6],
-            "spacegroup": tokens[0][7],
-            "mosaicity": tokens[0][8],
-            "program": "MOSFLM",
-            'strategies': [
-                {'anomalous': False, 'wedges': [strategy_native]},
-                {'anomalous': True, 'wedges': [strategy_anomalous]},
-            ]
-        }
+        ispyb_command_list = []
 
-        logger.info(
-            "Inserting screening result into ISPyB: %s" % json.dumps(result)
-        )
-        self.recwrap.send_to("screening-result", result)
+        for i, strategy in enumerate([strategy_native, strategy_anomalous]):
+
+            # Step 1: Add new record to Screening table, keep the ScreeningId
+            d = {
+                "dcid": dcid,
+                "programversion": "mosflm",
+                "shortcomments": strategy["comments"],
+                "ispyb_command": "insert_screening",
+                "store_result": "ispyb_screening_id_%i" % i,
+            }
+            ispyb_command_list.append(d)
+
+            # Step 2: Store screeningOutput results, linked to the screeningId
+            #         Keep the screeningOutputId
+            d = {
+                "program": "mosflm",
+                "indexingsuccess": 1,
+                "strategysuccess": 1,
+                "ispyb_command": "insert_screening_output",
+                "screening_id": "$ispyb_screening_id_%i" % i,
+                "store_result": "ispyb_screening_output_id_%i" % i,
+            }
+            ispyb_command_list.append(d)
+
+            # Step 3: Store screeningOutputLattice results, linked to the screeningOutputId
+            #         Keep the screeningOutputLatticeId
+            d = {
+                'spacegroup': spacegroup,
+                'unitcella': unitcella,
+                'unitcellb': unitcellb,
+                'unitcellc': unitcellc,
+                'unitcellalpha': unitcellalpha,
+                'unitcellbeta': unitcellbeta,
+                'unitcellgamma': unitcellgamma,
+                "ispyb_command": "insert_screening_output_lattice",
+                "screening_output_id": "$ispyb_screening_output_id_%i" % i,
+                "store_result": "ispyb_screening_output_lattice_id_%i" % i,
+            }
+            ispyb_command_list.append(d)
+
+            # Step 4: Store screeningStrategy results, linked to the screeningOutputId
+            #         Keep the screeningStrategyId
+            d = {
+                'program': "Stepped transmission #%i" % (i + 1),
+                "anomalous": strategy["anomalous"],
+                "ispyb_command": "insert_screening_strategy",
+                "screening_output_id": "$ispyb_screening_output_id_%i" % i,
+                "store_result": "ispyb_screening_strategy_id_%i" % i,
+            }
+            ispyb_command_list.append(d)
+
+            # Step 5: Store screeningStrategyWedge results, linked to the screeningStrategyId
+            #         Keep the screeningStrategyWedgeId
+            d = {
+                "wedgenumber": 1,
+                "resolution": strategy["resolution"],
+                "completeness": strategy["completeness"],
+                "noimages": strategy["noimages"],
+                "ispyb_command": "insert_screening_strategy_wedge",
+                "screening_strategy_id": "$ispyb_screening_strategy_id_%i" % i,
+                "store_result": "ispyb_screening_strategy_wedge_id_%i" % i,
+            }
+            ispyb_command_list.append(d)
+
+            # Step 6: Store screeningStrategySubWedge results, linked to the screeningStrategyWedgeId
+            #         Keep the screeningStrategySubWedgeId
+            d = {
+                "subwedgenumber": 1,
+                "rotationaxis": "omega",
+                "ispyb_command": "insert_screening_strategy_sub_wedge",
+                "screening_strategy_wedge_id": "$ispyb_screening_strategy_wedge_id_%i" % i,
+                "store_result": "ispyb_screening_strategy_sub_wedge_id_%i" % i,
+            }
+            for k in ("resolution", "axisstart", "axisend", "oscillationrange",
+                      "noimages", "completeness"):
+                d[k] = strategy[k]
+            ispyb_command_list.append(d)
+
+        logger.info("Sending %s", json.dumps(ispyb_command_list, indent=2))
+        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
     def run_xoalign(self, mosflm_index_mat):
         print(mosflm_index_mat)
@@ -202,6 +268,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             smargon = False
             found_solutions = False
 
+            ispyb_command_list = []
             for line in f.readlines():
                 if "Independent Solutions" in line:
                     found_solutions = True
@@ -226,46 +293,66 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
                 else:
                     kappa, phi = angles
                 settings_str = " ".join(tokens[3:]).replace("'", "")
-                self.send_alignment_result_to_ispyb(
-                    dcid,
-                    "XOalign",
-                    settings_str,
-                    "XOalign %i" % solution_id,
-                    chi=chi,
-                    kappa=kappa,
-                    phi=phi,
-                )
 
-    def send_alignment_result_to_ispyb(
-        self, dcid, program, comments, short_comments, chi=None, kappa=None, phi=None
-    ):
+                if kappa is not None and kappa < 0:
+                    continue  # only insert strategies with positive kappa
+                if chi is not None and (chi < 0 or chi > 45):
+                    continue  # only insert strategies with 0 < chi > 45
+                if phi < 0:
+                    phi += 360  # make phi always positive
+                if kappa is not None:
+                    kappa = "%.2f" % kappa
+                elif chi is not None:
+                    chi = "%.2f" % chi
+                phi = "%.2f" % phi
 
-        assert dcid > 0, "Invalid data collection ID given."
-        assert [chi, kappa].count(None) == 1
-        assert phi is not None
-        if kappa is not None and kappa < 0:
-            return  # only insert strategies with positive kappa
-        if chi is not None and (chi < 0 or chi > 45):
-            return  # only insert strategies with 0 < chi > 45
-        if phi < 0:
-            phi += 360  # make phi always positive
-        if kappa is not None:
-            kappa = "%.2f" % kappa
-        elif chi is not None:
-            chi = "%.2f" % chi
-        phi = "%.2f" % phi
+                # Step 1: Add new record to Screening table, keep the ScreeningId
+                d = {
+                    "dcid": dcid,
+                    "programversion": "XOalign",
+                    "comments": settings_str,
+                    "shortcomments": "XOalign %i" % solution_id,
+                    "ispyb_command": "insert_screening",
+                    "store_result": "ispyb_screening_id_%i" % solution_id,
+                }
+                ispyb_command_list.append(d)
 
-        result = {
-            "dataCollectionId": dcid,
-            "program": program,
-            "shortComments": short_comments,
-            "comments": comments,
-            "phi": phi,
-        }
-        if kappa is not None:
-            result["kappa"] = kappa
-        elif chi is not None:
-            result["chi"] = chi
+                # Step 2: Store screeningOutput results, linked to the screeningId
+                #         Keep the screeningOutputId
+                d = {
+                    "program": "XOalign",
+                    "indexingsuccess": 1,
+                    "strategysuccess": 1,
+                    "alignmentsuccess": 1,
+                    "ispyb_command": "insert_screening_output",
+                    "screening_id": "$ispyb_screening_id_%i" % solution_id,
+                    "store_result": "ispyb_screening_output_id_%i" % solution_id,
+                }
+                ispyb_command_list.append(d)
 
-        logger.debug("Inserting alignment result into ISPyB: %s" % str(result))
-        self.recwrap.send_to("alignment-result", result)
+                # Step 3: Store screeningStrategy results, linked to the screeningOutputId
+                #         Keep the screeningStrategyId
+                d = {
+                    "program": "XOalign",
+                    "ispyb_command": "insert_screening_strategy",
+                    "screening_output_id": "$ispyb_screening_output_id_%i" % solution_id,
+                    "store_result": "ispyb_screening_strategy_id_%i" % solution_id,
+                }
+                ispyb_command_list.append(d)
+
+                # Step 4: Store screeningStrategyWedge results, linked to the screeningStrategyId
+                #         Keep the screeningStrategyWedgeId
+                d = {
+                    "wedgenumber": 1,
+                    "phi": phi,
+                    "chi": chi,
+                    "ispyb_command": "insert_screening_strategy_wedge",
+                    "screening_strategy_id": "$ispyb_screening_strategy_id_%i" % solution_id,
+                    "store_result": "ispyb_screening_strategy_wedge_id_%i" % solution_id,
+                }
+                ispyb_command_list.append(d)
+
+        logger.info("Sending %s", json.dumps(ispyb_command_list, indent=2))
+        self.recwrap.send_to("ispyb", {"ispyb_xoalign_command_list": ispyb_command_list})
+        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+

@@ -4,8 +4,6 @@ import json
 import logging
 import os
 
-import dlstbx.util.symlink
-from dlstbx.util.merging_statistics import get_merging_statistics
 import procrunner
 import py
 import zocalo.wrapper
@@ -51,65 +49,83 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
             settings_str = "%s" % primary_axis
             if primary_axis_type is not None:
                 settings_str = "%s (%i-fold)" % (settings_str, int(primary_axis_type))
-            self.send_alignment_result_to_ispyb(
-                dcid,
-                crystal_symmetry,
-                "dials.align_crystal",
-                settings_str,
-                "dials.align_crystal %i" % solution_id,
-                chi=chi,
-                kappa=kappa,
-                phi=phi,
+
+            if kappa is not None and kappa < 0:
+                continue  # only insert strategies with positive kappa
+            if chi is not None and (chi < 0 or chi > 45):
+                continue  # only insert strategies with 0 < chi > 45
+            if phi < 0:
+                phi += 360  # make phi always positive
+            if kappa is not None:
+                kappa = "%.2f" % kappa
+            elif chi is not None:
+                chi = "%.2f" % chi
+            phi = "%.2f" % phi
+
+            # Step 1: Add new record to Screening table, keep the ScreeningId
+            d = {
+                "dcid": dcid,
+                "programversion": "dials.align_crystal",
+                "comments": settings_str,
+                "shortcomments": "dials.align_crystal %i" % solution_id,
+                "ispyb_command": "insert_screening",
+                "store_result": "ispyb_screening_id_%i" % solution_id,
+            }
+            ispyb_command_list.append(d)
+
+            # Step 2: Store screeningOutput results, linked to the screeningId
+            #         Keep the screeningOutputId
+            d = {
+                "program": "dials.align_crystal",
+                "indexingsuccess": 1,
+                "strategysuccess": 1,
+                "alignmentsuccess": 1,
+                "ispyb_command": "insert_screening_output",
+                "screening_id": "$ispyb_screening_id_%i" % solution_id,
+                "store_result": "ispyb_screening_output_id_%i" % solution_id,
+            }
+            ispyb_command_list.append(d)
+
+            # Step 3: Store screeningOutputLattice results, linked to the screeningOutputId
+            #         Keep the screeningOutputLatticeId
+            d = {
+                "ispyb_command": "insert_screening_output_lattice",
+                "screening_output_id": "$ispyb_screening_output_id_%i" % solution_id,
+                "store_result": "ispyb_screening_output_lattice_id_%i" % solution_id,
+            }
+            uc_params = crystal_symmetry.unit_cell().parameters()
+            for i, p in enumerate(("a", "b", "c", "alpha", "beta", "gamma")):
+                d["unitcell%s" % p] = uc_params[i]
+            d["spacegroup"] = (
+                crystal_symmetry.space_group_info().type().lookup_symbol()
             )
+            ispyb_command_list.append(d)
 
-    def send_alignment_result_to_ispyb(
-        self,
-        dcid,
-        crystal_symmetry,
-        program,
-        comments,
-        short_comments,
-        chi=None,
-        kappa=None,
-        phi=None,
-    ):
+            # Step 4: Store screeningStrategy results, linked to the screeningOutputId
+            #         Keep the screeningStrategyId
+            d = {
+                "program": "dials.align_crystal %i" % solution_id,
+                "ispyb_command": "insert_screening_strategy",
+                "screening_output_id": "$ispyb_screening_output_id_%i" % solution_id,
+                "store_result": "ispyb_screening_strategy_id_%i" % solution_id,
+            }
+            ispyb_command_list.append(d)
 
-        assert dcid > 0, "Invalid data collection ID given."
-        assert [chi, kappa].count(None) == 1
-        assert phi is not None
-        if kappa is not None and kappa < 0:
-            return  # only insert strategies with positive kappa
-        if chi is not None and (chi < 0 or chi > 45):
-            return  # only insert strategies with 0 < chi > 45
-        if phi < 0:
-            phi += 360  # make phi always positive
-        if kappa is not None:
-            kappa = "%.2f" % kappa
-        elif chi is not None:
-            chi = "%.2f" % chi
-        phi = "%.2f" % phi
+            # Step 5: Store screeningStrategyWedge results, linked to the screeningStrategyId
+            #         Keep the screeningStrategyWedgeId
+            d = {
+                "wedgenumber": 1,
+                "phi": phi,
+                "chi": chi,
+                "ispyb_command": "insert_screening_strategy_wedge",
+                "screening_strategy_id": "$ispyb_screening_strategy_id_%i" % solution_id,
+                "store_result": "ispyb_screening_strategy_wedge_id_%i" % solution_id,
+            }
+            ispyb_command_list.append(d)
 
-        result = {
-            "dataCollectionId": dcid,
-            "program": program,
-            "shortComments": short_comments,
-            "comments": comments,
-            "phi": phi,
-        }
-        if kappa is not None:
-            result["kappa"] = kappa
-        elif chi is not None:
-            result["chi"] = chi
-
-        uc_params = crystal_symmetry.unit_cell().parameters()
-        for i, p in enumerate(("a", "b", "c", "alpha", "beta", "gamma")):
-            result["unitcell%s" % p] = uc_params[i]
-        result["spacegroup"] = (
-            crystal_symmetry.space_group_info().type().lookup_symbol()
-        )
-
-        logger.info("Inserting alignment result into ISPyB: %s" % str(result))
-        self.recwrap.send_to("alignment-result", result)
+        logger.info("Sending %s", json.dumps(ispyb_command_list, indent=2))
+        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
     def construct_commandline(self, params):
         """Construct dlstbx.align_crystal command line.

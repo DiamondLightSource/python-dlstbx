@@ -356,33 +356,15 @@ class DLSISPyB(CommonService):
         else:
             return {"success": True, "return_value": result}
 
-    def do_insert_alignment_result(self, parameters, **kwargs):
-        phi = parameters("phi")
-        chi = parameters("chi")
-        kappa = parameters("kappa")
-        if phi is None or [chi, kappa].count(None) != 1:
-            self.log.error(
-                "Invalid axis parameters for alignment results: phi=%s, chi=%s, kappa=%s",
-                phi,
-                chi,
-                kappa,
-            )
-            return False
-
-        return self.do_insert_screening_result(parameters, **kwargs)
-
-    def do_insert_screening_result(self, parameters, **kwargs):
-        mx_screening = self.ispyb.mx_screening
-
+    def do_insert_screening(self, parameters, **kwargs):
+        """Write entry to the Screening table."""
         # screening_params: ['id', 'dcgid', 'dcid', 'programversion', 'shortcomments', 'comments']
-        screening_params = mx_screening.get_screening_params()
-        screening_params["dcid"] = parameters("dcid")
-        screening_params["program_version"] = parameters("program")
-        screening_params["comments"] = parameters("comments") or ""
-        screening_params["short_comments"] = parameters("shortComments") or ""
+        screening_params = self.ispyb.mx_screening.get_screening_params()
+        for k in screening_params.keys():
+            screening_params[k] = parameters(k)
         self.log.info("screening_params: %s", screening_params)
         try:
-            screeningId = mx_screening.insert_screening(list(screening_params.values()))
+            screeningId = self.ispyb.mx_screening.insert_screening(list(screening_params.values()))
             assert screeningId is not None
         except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
@@ -392,20 +374,23 @@ class DLSISPyB(CommonService):
                 exc_info=True,
             )
             return False
+        self.log.info("Written Screening record with ID %s", screeningId)
+        return {"success": True, "return_value": screeningId}
 
+    def do_insert_screening_output(self, parameters, **kwargs):
+        """Write entry to the ScreeningOutput table."""
         # output_params: ['id', 'screeningid', 'statusdescription', 'rejectedreflections', 'resolutionobtained', 'spotdeviationr', 'spotdeviationtheta', 'beamshiftx', 'beamshifty', 'numspotsfound', 'numspotsused', 'numspotsrejected', 'mosaicity', 'ioversigma', 'diffractionrings', 'mosaicityestimated', 'rankingresolution', 'program', 'dosetotal', 'totalexposuretime', 'totalrotationrange', 'totalnoimages', 'rfriedel', 'indexingsuccess', 'strategysuccess', 'alignmentsuccess']
-        output_params = mx_screening.get_screening_output_params()
-        output_params["screening_id"] = screeningId
-        output_params["mosaicity"] = parameters("mosaicity")
+        output_params = self.ispyb.mx_screening.get_screening_output_params()
+        for k in output_params.keys():
+            output_params[k] = parameters(k)
+        output_params["screening_id"] = parameters("screening_id")
+        output_params["alignmentSuccess"] = 1 if parameters("alignmentSuccess") else 0
         output_params["mosaicityEstimated"] = 1 if parameters("mosaicity") else 0
-        # output_params["screeningSuccess"] = 1
         output_params["indexingSuccess"] = 1
         output_params["strategySuccess"] = 1
-        output_params["program"] = parameters("program") or ""
-        output_params["rankingResolution"] = parameters("rankingresolution")
         self.log.info("output_params: %s", output_params)
         try:
-            screeningOutputId = mx_screening.insert_screening_output(
+            screeningOutputId = self.ispyb.mx_screening.insert_screening_output(
                 list(output_params.values())
             )
             assert screeningOutputId is not None
@@ -417,20 +402,19 @@ class DLSISPyB(CommonService):
                 exc_info=True,
             )
             return False
+        self.log.info("Written ScreeningOutput record with ID %s", screeningOutputId)
+        return {"success": True, "return_value": screeningOutputId}
 
+    def do_insert_screening_output_lattice(self, parameters, **kwargs):
+        """Write entry to the ScreeningOutputLattice table."""
         # output_lattice_params ['id', 'screeningoutputid', 'spacegroup', 'pointgroup', 'bravaislattice', 'raworientationmatrixax', 'raworientationmatrixay', 'raworientationmatrixaz', 'raworientationmatrixbx', 'raworientationmatrixby', 'raworientationmatrixbz', 'raworientationmatrixcx', 'raworientationmatrixcy', 'raworientationmatrixcz', 'unitcella', 'unitcellb', 'unitcellc', 'unitcellalpha', 'unitcellbeta', 'unitcellgamma', 'labelitindexing']
-        output_lattice_params = mx_screening.get_screening_output_lattice_params()
-        output_lattice_params["screening_output_id"] = screeningOutputId
-        output_lattice_params["unitcella"] = parameters("unitcella") or ""
-        output_lattice_params["unitcellb"] = parameters("unitcellb") or ""
-        output_lattice_params["unitcellc"] = parameters("unitcellc") or ""
-        output_lattice_params["unitcellalpha"] = parameters("unitcellalpha") or ""
-        output_lattice_params["unitcellbeta"] = parameters("unitcellbeta") or ""
-        output_lattice_params["unitcellgamma"] = parameters("unitcellgamma") or ""
-        output_lattice_params["spacegroup"] = parameters("spacegroup") or ""
+        output_lattice_params = self.ispyb.mx_screening.get_screening_output_lattice_params()
+        for k in output_lattice_params.keys():
+            output_lattice_params[k] = parameters(k)
+        output_lattice_params["screening_output_id"] = parameters("screening_output_id")
         self.log.info("output_lattice_params: %s", output_lattice_params)
         try:
-            screeningOutputLatticeId = mx_screening.insert_screening_output_lattice(
+            screeningOutputLatticeId = self.ispyb.mx_screening.insert_screening_output_lattice(
                 list(output_lattice_params.values())
             )
             assert screeningOutputLatticeId is not None
@@ -442,104 +426,79 @@ class DLSISPyB(CommonService):
                 exc_info=True,
             )
             return False
+        return {"success": True, "return_value": screeningOutputLatticeId}
 
-        print(parameters("strategies"))
-
-        if not parameters("strategies"):
+    def do_insert_screening_strategy(self, parameters, **kwargs):
+        """Write entry to the ScreeningStrategy table."""
+        # strategy_params ['id', 'screeningoutputid', 'phistart', 'phiend', 'rotation', 'exposuretime', 'resolution', 'completeness', 'multiplicity', 'anomalous', 'program', 'rankingresolution', 'transmission']
+        strategy_params = self.ispyb.mx_screening.get_screening_strategy_params()
+        for k in strategy_params.keys():
+            strategy_params[k] = parameters(k)
+        strategy_params["screening_output_id"] = parameters("screening_output_id")
+        strategy_params["anomalous"] = parameters("anomalous") or 0
+        self.log.info("strategy_params: %s", strategy_params)
+        try:
+            screeningStrategyId = self.ispyb.mx_screening.insert_screening_strategy(
+                list(strategy_params.values())
+            )
+            assert screeningStrategyId is not None
+        except (ispyb.ISPyBException, AssertionError) as e:
+            self.log.error(
+                "Inserting screening strategy: '%s' caused exception '%s'.",
+                strategy_params,
+                e,
+                exc_info=True,
+            )
             return False
-        for strategy in parameters("strategies"):
+        return {"success": True, "return_value": screeningStrategyId}
 
-            # strategy_params ['id', 'screeningoutputid', 'phistart', 'phiend', 'rotation', 'exposuretime', 'resolution', 'completeness', 'multiplicity', 'anomalous', 'program', 'rankingresolution', 'transmission']
-            strategy_params = mx_screening.get_screening_strategy_params()
-            strategy_params["screening_output_id"] = screeningOutputId
-            strategy_params["program"] = strategy.get("program")
-            strategy_params["anomalous"] = strategy.get("anomalous") or 0
-            #strategy_params["transmission"] = strategy.get("transmission")
-            #strategy_params["exposureTime"] = strategy.get("exposuretime")
-            self.log.info("strategy_params: %s", strategy_params)
-            try:
-                screeningStrategyId = mx_screening.insert_screening_strategy(
-                    list(strategy_params.values())
-                )
-                assert screeningStrategyId is not None
-            except (ispyb.ISPyBException, AssertionError) as e:
-                self.log.error(
-                    "Inserting screening strategy: '%s' caused exception '%s'.",
-                    strategy_params,
-                    e,
-                    exc_info=True,
-                )
-                return False
+    def do_insert_screening_strategy_wedge(self, parameters, **kwargs):
+        """Write entry to the ScreeningStrategyWedge table."""
+        # wedge_params ['id', 'screeningstrategyid', 'wedgenumber', 'resolution', 'completeness', 'multiplicity', 'dosetotal', 'noimages', 'phi', 'kappa', 'chi', 'comments', 'wavelength']
+        wedge_params = self.ispyb.mx_screening.get_screening_strategy_wedge_params()
+        for k in wedge_params.keys():
+            wedge_params[k] = parameters(k)
+        wedge_params["screening_strategy_id"] = parameters("screening_strategy_id")
+        wedge_params["wedgenumber"] = parameters("wedgenumber") or "1"
+        self.log.info("wedge_params: %s", wedge_params)
+        try:
+            screeningStrategyWedgeId = self.ispyb.mx_screening.insert_screening_strategy_wedge(
+                list(wedge_params.values())
+            )
+            assert screeningStrategyWedgeId is not None
+        except (ispyb.exception.ISPyBException, AssertionError) as e:
+            self.log.error(
+                "Inserting strategy wedge: '%s' caused exception '%s'.",
+                wedge_params,
+                e,
+                exc_info=True,
+            )
+            return False
+        return {"success": True, "return_value": screeningStrategyWedgeId}
 
-            for wedge in strategy.get("wedges"):
-                self.log.info("wedge: %s", wedge)
-                # wedge_params ['id', 'screeningstrategyid', 'wedgenumber', 'resolution', 'completeness', 'multiplicity', 'dosetotal', 'noimages', 'phi', 'kappa', 'chi', 'comments', 'wavelength']
-                wedge_params = mx_screening.get_screening_strategy_wedge_params()
-                wedge_params["screening_strategy_id"] = screeningStrategyId
-                wedge_params["phi"] = wedge.get("phi")
-                wedge_params["chi"] = wedge.get("chi")
-                wedge_params["kappa"] = wedge.get("kappa")
-                wedge_params["wedgeNumber"] = wedge.get("wedgenumber") or "1"
-                wedge_params["resolution"] = wedge.get("resolution")
-                wedge_params["completeness"] = wedge.get("completeness")
-                wedge_params["multiplicity"] = wedge.get("multiplicity")
-                wedge_params["dosetotal"] = wedge.get("dosetotal")
-                wedge_params["noimages"] = wedge.get("noimages")
-                self.log.info("wedge_params: %s", wedge_params)
-                try:
-                    screeningStrategyWedgeId = mx_screening.insert_screening_strategy_wedge(
-                        list(wedge_params.values())
-                    )
-                    assert screeningStrategyWedgeId is not None
-                except (ispyb.exception.ISPyBException, AssertionError) as e:
-                    self.log.error(
-                        "Inserting strategy wedge: '%s' caused exception '%s'.",
-                        wedge_params,
-                        e,
-                        exc_info=True,
-                    )
-                    return False
-
-                # sub_wedge_params ['id', 'screeningstrategywedgeid', 'subwedgenumber', 'rotationaxis', 'axisstart', 'axisend', 'exposuretime', 'transmission', 'oscillationrange', 'completeness', 'multiplicity', 'resolution', 'dosetotal', 'noimages', 'comments']
-                sub_wedge_params = mx_screening.get_screening_strategy_sub_wedge_params()
-                sub_wedge_params["screening_strategy_wedge_id"] = screeningStrategyWedgeId
-                sub_wedge_params["subwedgenumber"] = "1"
-                sub_wedge_params["rotationaxis"] = "omega"
-                sub_wedge_params["axisstart"] = wedge.get("axisstart")
-                sub_wedge_params["axisend"] = wedge.get("axisend")
-                sub_wedge_params["exposuretime"] = wedge.get("exposuretime")
-                sub_wedge_params["transmission"] = wedge.get("transmission")
-                sub_wedge_params["oscillationrange"] = wedge.get("oscillationrange")
-                sub_wedge_params["completeness"] = wedge.get("completeness")
-                sub_wedge_params["multiplicity"] = wedge.get("multiplicity")
-                sub_wedge_params["resolution"] = wedge.get("resolution")
-                sub_wedge_params["dosetotal"] = wedge.get("dosetotal")
-                sub_wedge_params["noimages"] = wedge.get("noimages")
-                sub_wedge_params["comments"] = wedge.get("comments")
-                self.log.info("sub_wedge_params: %s", sub_wedge_params)
-                try:
-                    screeningStrategySubWedgeId = mx_screening.insert_screening_strategy_sub_wedge(
-                        list(sub_wedge_params.values())
-                    )
-                    assert screeningStrategySubWedgeId is not None
-                except (ispyb.exception.ISPyBException, AssertionError) as e:
-                    self.log.error(
-                        "Inserting strategy sub wedge: '%s' caused exception '%s'.",
-                        sub_wedge_params,
-                        e,
-                        exc_info=True,
-                    )
-                    return False
-                self.log.info(
-                    "Inserted screening results with IDs %s, %s, %s, %s, %s, %s",
-                    str(screeningId),
-                    str(screeningOutputId),
-                    str(screeningOutputLatticeId),
-                    str(screeningStrategyId),
-                    str(screeningStrategyWedgeId),
-                    str(screeningStrategySubWedgeId),
-                )
-        return {"success": True}
+    def do_insert_screening_strategy_sub_wedge(self, parameters, **kwargs):
+        """Write entry to the ScreeningStrategySubWedge table."""
+        # sub_wedge_params ['id', 'screeningstrategywedgeid', 'subwedgenumber', 'rotationaxis', 'axisstart', 'axisend', 'exposuretime', 'transmission', 'oscillationrange', 'completeness', 'multiplicity', 'resolution', 'dosetotal', 'noimages', 'comments']
+        sub_wedge_params = self.ispyb.mx_screening.get_screening_strategy_sub_wedge_params()
+        for k in sub_wedge_params.keys():
+            sub_wedge_params[k] = parameters(k)
+        sub_wedge_params["screening_strategy_wedge_id"] = parameters("screening_strategy_wedge_id")
+        sub_wedge_params["subwedgenumber"] = "1"
+        self.log.info("sub_wedge_params: %s", sub_wedge_params)
+        try:
+            screeningStrategySubWedgeId = self.ispyb.mx_screening.insert_screening_strategy_sub_wedge(
+                list(sub_wedge_params.values())
+            )
+            assert screeningStrategySubWedgeId is not None
+        except (ispyb.exception.ISPyBException, AssertionError) as e:
+            self.log.error(
+                "Inserting strategy sub wedge: '%s' caused exception '%s'.",
+                sub_wedge_params,
+                e,
+                exc_info=True,
+            )
+            return False
+        return {"success": True, "return_value": screeningStrategySubWedgeId}
 
     def do_register_integration(self, **kwargs):
         # deprecated

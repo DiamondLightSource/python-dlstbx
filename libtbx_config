@@ -5,7 +5,7 @@
   "python_required": [
     "colorama",  # is still used in one place
     "drmaa",
-    "ispyb>=4.13,<4.14",
+    "ispyb>=5.0,<5.1",
     "junit_xml",
     "mock>=2.0",
     "procrunner>=0.8.0",

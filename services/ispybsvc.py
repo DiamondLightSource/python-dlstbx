@@ -137,7 +137,7 @@ class DLSISPyB(CommonService):
         message = parameters("message")
         status = parameters("status")
         try:
-            result = self.ispyb.mx_processing.upsert_program(
+            result = self.ispyb.mx_processing.upsert_program_ex(
                 program_id=ppid,
                 status={"success": 1, "failure": 0}.get(status),
                 time_start=parameters("start_time"),
@@ -190,7 +190,7 @@ class DLSISPyB(CommonService):
             self.log.error("Invalid processing id '%s'" % rpid)
             return False
         try:
-            result = self.ispyb.mx_processing.upsert_program(
+            result = self.ispyb.mx_processing.upsert_program_ex(
                 job_id=rpid, name=program, command=cmdline, environment=environment
             )
             self.log.info(

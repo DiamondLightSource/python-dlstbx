@@ -349,7 +349,7 @@ if __name__ == "__main__":
 
     if options.create:
         try:
-            i.mx_processing.upsert_program(
+            i.mx_processing.upsert_program_ex(
                 job_id=rpid,
                 name=options.program,
                 command=options.cmdline,
@@ -365,7 +365,7 @@ if __name__ == "__main__":
 
     elif options.update:
         try:
-            i.mx_processing.upsert_program(
+            i.mx_processing.upsert_program_ex(
                 program_id=options.update,
                 status={"success": 1, "failure": 0}.get(options.result),
                 time_start=options.updatetime,

@@ -71,6 +71,7 @@ libtbx.pkg_utils.define_entry_points(
                 "dimple = dlstbx.zocalo.wrapper.dimple:DimpleWrapper",
                 "anode = dlstbx.zocalo.wrapper.anode:AnodeWrapper",
                 "i19screen = dlstbx.zocalo.wrapper.i19screen:I19ScreenWrapper",
+                "stepped_transmission_strategy = dlstbx.zocalo.wrapper.stepped_transmission_strategy:SteppedTransmissionWrapper",
                 "mosflm_strategy = dlstbx.zocalo.wrapper.mosflm_strategy:MosflmStrategyWrapper",
                 "rlv = dlstbx.zocalo.wrapper.rlv:RLVWrapper",
                 "xia2.multiplex = dlstbx.zocalo.wrapper.xia2_multiplex:Xia2MultiplexWrapper",

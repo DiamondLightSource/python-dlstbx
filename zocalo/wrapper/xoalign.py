@@ -18,31 +18,21 @@ class XOalignWrapper(zocalo.wrapper.BaseWrapper):
 
         cwd = os.path.abspath(os.curdir)
 
-        working_directory = os.path.abspath(params["working_directory"])
+        working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])
-        logger.info("working_directory: %s" % working_directory)
-        if not os.path.exists(working_directory):
-            os.makedirs(working_directory)
-        os.chdir(working_directory)
+
+        # Create working directory
+        working_directory.ensure(dir=True)
+
+        beamline = params["beamline"]
+        if beamline not in ("i03", "i04"):
+            # Only run XOalign on these beamlines
+            return True
 
         mosflm_index_mat = py.path.local(params["mosflm_index_mat"])
-        beamline = params["beamline"]
-        if mosflm_index_mat.check() and beamline in ("i03", "i04"):
-            result = self.run_xoalign(mosflm_index_mat.strpath)
+        if not mosflm_index_mat.check():
+            return False
 
-        # copy output files to result directory
-        logger.info(
-            "Copying results from %s to %s"
-            % (working_directory, results_directory.strpath)
-        )
-        for f in py.path.local(working_directory).listdir():
-            if not f.basename.startswith("."):
-                f.copy(results_directory)
-
-        return result["exitcode"] == 0
-
-    def run_xoalign(self, mosflm_index_mat):
-        params = self.recwrap.recipe_step["job_parameters"]
         chi = params.get("chi")
         kappa = params.get("kappa")
         omega = params.get("omega")
@@ -53,8 +43,9 @@ class XOalignWrapper(zocalo.wrapper.BaseWrapper):
             datum = "-D %s,%s,%s" % (phi, chi, omega)
         else:
             datum = ""
+
         xoalign_py = "/dls_sw/apps/xdsme/graemewinter-xdsme/bin/Linux_i586/XOalign.py"
-        commands = [xoalign_py, datum, mosflm_index_mat]
+        commands = [xoalign_py, datum, mosflm_index_mat.strpath]
         logger.info("command: %s", " ".join(commands))
         result = procrunner.run(
             commands,
@@ -62,6 +53,7 @@ class XOalignWrapper(zocalo.wrapper.BaseWrapper):
             environment_override={
                 "XOALIGN_CALIB": "/dls_sw/%s/etc/xoalign_config.py" % params["beamline"]
             },
+            working_directory=working_directory.strpath,
         )
         logger.info("timeout: %s", result["timeout"])
         logger.info("runtime: %s", result["runtime"])
@@ -72,7 +64,17 @@ class XOalignWrapper(zocalo.wrapper.BaseWrapper):
         with open("XOalign.log", "wb") as f:
             f.write(result["stdout"])
         self.insertXOalignStrategies(params["dcid"], "XOalign.log")
-        return result
+
+        # copy output files to result directory
+        logger.info(
+            "Copying results from %s to %s"
+            % (working_directory.strpath, results_directory.strpath)
+        )
+        for f in working_directory.listdir():
+            if not f.basename.startswith("."):
+                f.copy(results_directory)
+
+        return result["exitcode"] == 0
 
     def insertXOalignStrategies(self, dcid, xoalign_log):
         assert os.path.isfile(xoalign_log)

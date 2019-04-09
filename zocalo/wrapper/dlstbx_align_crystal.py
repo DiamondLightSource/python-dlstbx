@@ -14,6 +14,7 @@ logger = logging.getLogger("dlstbx.wrap.dlstbx.align_crystal")
 
 
 class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
+
     def insert_dials_align_strategies(self, dcid, crystal_symmetry, results):
         solutions = results["solutions"]
         gonio = results["goniometer"]
@@ -32,6 +33,7 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
         assert [chi_name, kappa_name].count(None) == 1
         assert phi_name is not None
 
+        ispyb_command_list = []
         for solution_id, soln in enumerate(solutions):
             if chi_name is not None:
                 chi = soln.get(chi_name)

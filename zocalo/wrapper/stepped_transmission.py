@@ -42,26 +42,18 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
 
         recipe_1 = [
             {
-                "comments": "Stepped transmission #1.1",
-                "wedgenumber": "1",
                 "transmission": t0 / 8,
                 "chi": "0",
             },
             {
-                "comments": "Stepped transmission #1.2",
-                "wedgenumber": "2",
                 "transmission": t0 / 4,
                 "chi": "0",
             },
             {
-                "comments": "Stepped transmission #1.3",
-                "wedgenumber": "3",
                 "transmission": t0 / 2,
                 "chi": "0",
             },
             {
-                "comments": "Stepped transmission #1.4",
-                "wedgenumber": "4",
                 "transmission": t0,
                 "chi": "0",
             },
@@ -70,38 +62,26 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
 
         recipe_2 = [
             {
-                "comments": "Stepped transmission #2.1",
-                "wedgenumber": "1",
                 "transmission": t0 / 8,
                 "chi": "0",
             },
             {
-                "comments": "Stepped transmission #2.2",
-                "wedgenumber": "2",
                 "transmission": t0 / 8,
                 "chi": "30",
             },
             {
-                "comments": "Stepped transmission #2.3",
-                "wedgenumber": "3",
                 "transmission": t0 / 4,
                 "chi": "0",
             },
             {
-                "comments": "Stepped transmission #2.4",
-                "wedgenumber": "4",
                 "transmission": t0 / 4,
                 "chi": "30",
             },
             {
-                "comments": "Stepped transmission #2.5",
-                "wedgenumber": "5",
                 "transmission": t0 / 2,
                 "chi": "0",
             },
             {
-                "comments": "Stepped transmission #2.6",
-                "wedgenumber": "6",
                 "transmission": t0 / 2,
                 "chi": "30",
             },
@@ -185,6 +165,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
                     "ispyb_command": "insert_screening_strategy_wedge",
                     "screening_strategy_id": "$ispyb_screening_strategy_id_%i" % i,
                     "store_result": "ispyb_screening_strategy_wedge_id_%i_%i" % (i, j),
+                    "comments": "Stepped transmission #%i.%i" % (i + 1, j + 1),
                 }
                 ispyb_command_list.append(d)
 
@@ -192,6 +173,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
                 #         Keep the screeningStrategySubWedgeId
                 d = {
                     "subwedgenumber": 1,
+                    "comments": "Stepped transmission #%i.%i" % (i + 1, j + 1),
                     "ispyb_command": "insert_screening_strategy_sub_wedge",
                     "screening_strategy_wedge_id": "$ispyb_screening_strategy_wedge_id_%i_%i"
                     % (i, j),

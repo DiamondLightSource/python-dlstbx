@@ -17,13 +17,8 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
         dcid = params["dcid"]
         beamline = params["beamline"]
         resolution = params["resolution"]
-        unitcella = params["unitcella"]
-        unitcellb = params["unitcellb"]
-        unitcellc = params["unitcellc"]
-        unitcellalpha = params["unitcellalpha"]
-        unitcellbeta = params["unitcellbeta"]
-        unitcellgamma = params["unitcellgamma"]
-        spacegroup = params["spacegroup"]
+        unit_cell = params["unit_cell"]
+        space_group = params["space_group"]
 
         # T0 = (20, 100) / wavelength ^ 2 for I03, 4 respectively
         # Recipe 1: T0 / 8, 4, 2, 1 x 3,600 @ 100 Hz @ 0.1 degrees @ distance of screening images
@@ -118,19 +113,18 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
             'dcid': dcid,
             'comments': 'Stepped transmission',
             'program': 'Stepped transmission',
-            'spacegroup': spacegroup,
-            'unitcella': unitcella,
-            'unitcellb': unitcellb,
-            'unitcellc': unitcellc,
-            'unitcellalpha': unitcellalpha,
-            'unitcellbeta': unitcellbeta,
-            'unitcellgamma': unitcellgamma,
+            'spacegroup': space_group,
+            'unitcella': unit_cell[0],
+            'unitcellb': unit_cell[1],
+            'unitcellc': unit_cell[2],
+            'unitcellalpha': unit_cell[3],
+            'unitcellbeta': unit_cell[4],
+            'unitcellgamma': unit_cell[5],
             'strategies': [
                 {'anomalous': False, 'wedges': recipe_1},
                 {'anomalous': False, 'wedges': recipe_2},
             ]
         }
-
 
         ispyb_command_list = []
 

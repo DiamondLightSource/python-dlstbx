@@ -17,12 +17,10 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        working_directory = os.path.abspath(params["working_directory"])
+        working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])
-        logger.info("working_directory: %s" % working_directory)
-        if not os.path.exists(working_directory):
-            os.makedirs(working_directory)
-        os.chdir(working_directory)
+        logger.info("working_directory: %s" % working_directory.strpath)
+        working_directory.ensure(dir=1)
 
         # Set SynchWeb to swirl
         results_directory.join("strategy_native.log").ensure()
@@ -39,7 +37,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         if space_group is not None:
             commands.append(space_group)
         logger.info("command: %s", " ".join(commands))
-        result = procrunner.run(commands, timeout=params.get("timeout", 3600))
+        result = procrunner.run(commands, timeout=params.get("timeout", 3600), working_directory=working_directory)
         if result["exitcode"]:
             logger.info("exitcode: %s", result["exitcode"])
             logger.info(result["stdout"])
@@ -47,16 +45,19 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         logger.info("timeout: %s", result["timeout"])
         logger.info("runtime: %s", result["runtime"])
 
+        if working_directory.join("mosflm_index.mat").check():
+            self.recwrap.send_to("indexing-solution", working_directory.join("mosflm_index.mat").strpath)
+
         if (
-            not py.path.local(working_directory).join("strategy_native.log").check()
-            or py.path.local(working_directory).join("strategy_native.log").size() == 0
+            not working_directory.join("strategy_native.log").check()
+            or working_directory.join("strategy_native.log").size() == 0
         ):
             result["exitcode"] = 1
-            py.path.local(working_directory).join("strategy_native.log").write(
+            working_directory.join("strategy_native.log").write(
                 "failed to determine strategy"
             )
 
-        strategy_dat = py.path.local(working_directory).join("strategy.dat")
+        strategy_dat = working_directory.join("strategy.dat")
         if strategy_dat.check():
             results = self.parse_strategy_dat(strategy_dat)
             self.recwrap.send_to("strategy", results)
@@ -66,9 +67,9 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         # copy output files to result directory
         logger.info(
             "Copying results from %s to %s"
-            % (working_directory, results_directory.strpath)
+            % (working_directory.strpath, results_directory.strpath)
         )
-        for f in py.path.local(working_directory).listdir():
+        for f in working_directory.listdir():
             if not f.basename.startswith("."):
                 f.copy(results_directory)
 
@@ -103,7 +104,6 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
                 "completeness": tokens[2][5],
                 "resolution": tokens[2][6],
             },
-            "strategy.dat": strategy_dat.strpath,
         }
 
     def snowflake2cbf(self):

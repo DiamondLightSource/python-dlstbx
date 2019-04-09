@@ -17,8 +17,6 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        cwd = os.path.abspath(os.curdir)
-
         working_directory = os.path.abspath(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])
         logger.info("working_directory: %s" % working_directory)
@@ -61,7 +59,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         strategy_dat = py.path.local(working_directory).join("strategy.dat")
         if strategy_dat.check():
             results = self.parse_strategy_dat(strategy_dat)
-            self.recwrap.send_to("mosflm-results", results)
+            self.recwrap.send_to("strategy", results)
             # insert results into database
             self.send_screening_result_to_ispyb(params["dcid"], results)
 

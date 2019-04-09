@@ -188,7 +188,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             # Step 4: Store screeningStrategy results, linked to the screeningOutputId
             #         Keep the screeningStrategyId
             d = {
-                'program': "Stepped transmission #%i" % (i + 1),
+                'program': "mosflm",
                 "anomalous": strategy["anomalous"],
                 "ispyb_command": "insert_screening_strategy",
                 "screening_output_id": "$ispyb_screening_output_id_%i" % i,
@@ -203,6 +203,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
                 "resolution": strategy["resolution"],
                 "completeness": strategy["completeness"],
                 "noimages": strategy["noimages"],
+                "comments": strategy["comments"],
                 "ispyb_command": "insert_screening_strategy_wedge",
                 "screening_strategy_id": "$ispyb_screening_strategy_id_%i" % i,
                 "store_result": "ispyb_screening_strategy_wedge_id_%i" % i,
@@ -214,6 +215,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             d = {
                 "subwedgenumber": 1,
                 "rotationaxis": "omega",
+                "comments": strategy["comments"],
                 "ispyb_command": "insert_screening_strategy_sub_wedge",
                 "screening_strategy_wedge_id": "$ispyb_screening_strategy_wedge_id_%i" % i,
                 "store_result": "ispyb_screening_strategy_sub_wedge_id_%i" % i,

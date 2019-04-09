@@ -5,7 +5,7 @@ import logging
 
 import zocalo.wrapper
 
-logger = logging.getLogger("dlstbx.wrap.stepped_transmission_strategy")
+logger = logging.getLogger("dlstbx.wrap.stepped_transmission")
 
 
 class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):

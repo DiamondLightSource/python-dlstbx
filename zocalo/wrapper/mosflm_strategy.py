@@ -37,7 +37,11 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         if space_group is not None:
             commands.append(space_group)
         logger.info("command: %s", " ".join(commands))
-        result = procrunner.run(commands, timeout=params.get("timeout", 3600), working_directory=working_directory)
+        result = procrunner.run(
+            commands,
+            timeout=params.get("timeout", 3600),
+            working_directory=working_directory,
+        )
         if result["exitcode"]:
             logger.info("exitcode: %s", result["exitcode"])
             logger.info(result["stdout"])
@@ -46,8 +50,10 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         logger.info("runtime: %s", result["runtime"])
 
         if working_directory.join("mosflm_index.mat").check():
-            self.recwrap.send_to("indexing-solution", working_directory.join("mosflm_index.mat").strpath)
-
+            self.recwrap.send_to(
+                "indexing-solution",
+                {"index.mat": working_directory.join("mosflm_index.mat").strpath},
+            )
         if (
             not working_directory.join("strategy_native.log").check()
             or working_directory.join("strategy_native.log").size() == 0
@@ -144,7 +150,9 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
 
         ispyb_command_list = []
 
-        for i, strategy in enumerate([results["strategy_native"], results["strategy_anomalous"]]):
+        for i, strategy in enumerate(
+            [results["strategy_native"], results["strategy_anomalous"]]
+        ):
 
             # Step 1: Add new record to Screening table, keep the ScreeningId
             d = {
@@ -171,13 +179,13 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             # Step 3: Store screeningOutputLattice results, linked to the screeningOutputId
             #         Keep the screeningOutputLatticeId
             d = {
-                'spacegroup': results["space_group"],
-                'unitcella': results["unit_cell"][0],
-                'unitcellb': results["unit_cell"][1],
-                'unitcellc': results["unit_cell"][2],
-                'unitcellalpha': results["unit_cell"][3],
-                'unitcellbeta': results["unit_cell"][4],
-                'unitcellgamma': results["unit_cell"][5],
+                "spacegroup": results["space_group"],
+                "unitcella": results["unit_cell"][0],
+                "unitcellb": results["unit_cell"][1],
+                "unitcellc": results["unit_cell"][2],
+                "unitcellalpha": results["unit_cell"][3],
+                "unitcellbeta": results["unit_cell"][4],
+                "unitcellgamma": results["unit_cell"][5],
                 "ispyb_command": "insert_screening_output_lattice",
                 "screening_output_id": "$ispyb_screening_output_id_%i" % i,
                 "store_result": "ispyb_screening_output_lattice_id_%i" % i,
@@ -187,7 +195,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             # Step 4: Store screeningStrategy results, linked to the screeningOutputId
             #         Keep the screeningStrategyId
             d = {
-                'program': "mosflm",
+                "program": "mosflm",
                 "anomalous": strategy["anomalous"],
                 "ispyb_command": "insert_screening_strategy",
                 "screening_output_id": "$ispyb_screening_output_id_%i" % i,
@@ -216,15 +224,21 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
                 "rotationaxis": "omega",
                 "comments": strategy["comments"],
                 "ispyb_command": "insert_screening_strategy_sub_wedge",
-                "screening_strategy_wedge_id": "$ispyb_screening_strategy_wedge_id_%i" % i,
+                "screening_strategy_wedge_id": "$ispyb_screening_strategy_wedge_id_%i"
+                % i,
                 "store_result": "ispyb_screening_strategy_sub_wedge_id_%i" % i,
             }
-            for k in ("resolution", "axisstart", "axisend", "oscillationrange",
-                      "noimages", "completeness"):
+            for k in (
+                "resolution",
+                "axisstart",
+                "axisend",
+                "oscillationrange",
+                "noimages",
+                "completeness",
+            ):
                 d[k] = strategy[k]
             ispyb_command_list.append(d)
 
         logger.info("Sending %s", json.dumps(ispyb_command_list, indent=2))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
         logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
-

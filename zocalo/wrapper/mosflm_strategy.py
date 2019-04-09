@@ -102,7 +102,8 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
                 "noimages": tokens[2][4],
                 "completeness": tokens[2][5],
                 "resolution": tokens[2][6],
-            }
+            },
+            "strategy.dat": strategy_dat.strpath,
         }
 
     def snowflake2cbf(self):

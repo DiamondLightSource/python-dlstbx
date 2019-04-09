@@ -24,7 +24,7 @@ def check_test_outcome(test, db):
 
     expected_outcome = df.tests.get(test["scenario"], {}).get("results")
 
-    if expected_outcome:
+    if expected_outcome == {}:
         print("Scenario %s is happy with any outcome." % test["scenario"])
         test["success"] = True
         return

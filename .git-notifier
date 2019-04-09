@@ -1,0 +1,9 @@
+# GIT change notifications sent out by DLS Jenkins
+
+sender=DLSTBX commit
+
+recipient=xia2.support
+recipient_domain=gmail.com
+
+replyto=xia2.support
+replyto_domain=gmail.com

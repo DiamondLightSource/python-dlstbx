@@ -207,6 +207,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
                     "noimages",
                     "rotationaxis",
                     "phi",
+                    "transmission",
                 ):
                     d[k] = wedge[k]
                 ispyb_command_list.append(d)

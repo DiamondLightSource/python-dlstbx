@@ -128,7 +128,7 @@ class DLSCluster(CommonService):
                         "recipe-pointer": rw.recipe_pointer,
                         "environment": rw.environment,
                         "recipe-path": rw.recipe_path,
-                        "payload": message,
+                        "payload": rw.payload,
                     },
                     fh,
                     sort_keys=True,

@@ -19,6 +19,11 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
         unit_cell = self.recwrap.payload["unit_cell"]
         space_group = self.recwrap.payload["space_group"]
 
+        beamline = params["beamline"]
+        if beamline not in ("i03", "i04"):
+            # Only generate SteppedTransmission strategy on these beamlines (i.e. beamline has Eiger)
+            return True
+
         # T0 = (20, 100) / wavelength ^ 2 for I03, 4 respectively
         # Recipe 1: T0 / 8, 4, 2, 1 x 3,600 @ 100 Hz @ 0.1 degrees @ distance of screening images
         # Recipe 2: T0 / 8, 4, 2 x 3,600 @ 100 Hz @ 0.1 degrees @ distance of screening images x X = 0, 30

@@ -3,12 +3,18 @@ from __future__ import absolute_import, division, print_function
 import sys
 
 
-def enable_graylog():
-    # Set up graylog logging using the zocalo.
-    # Direct logs to the Data Analysis stream in graylog.
+def enable_graylog(live=True):
+    """
+    Set up graylog logging using the zocalo.
+    In live mode direct logs to the Data Analysis stream in graylog.
+    Otherwise send logs to the general bucket.
+    """
     import zocalo
 
-    return zocalo.enable_graylog(host="graylog2.diamond.ac.uk", port=12208)
+    if live:
+        return zocalo.enable_graylog(host="graylog2.diamond.ac.uk", port=12208)
+    else:
+        return zocalo.enable_graylog()
 
 
 class Buck:

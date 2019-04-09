@@ -30,9 +30,10 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
     use_live_infrastructure = False
 
     def setup_logging(self):
-        """Initialize common logging framework. Everything is logged to central
-       graylog server. Depending on setting messages of DEBUG or INFO and higher
-       go to console."""
+        """Initialize common logging framework.
+           Everything is logged to the central graylog server.
+           Depending on setting messages of DEBUG or INFO and higher go to console.
+        """
         logger = logging.getLogger()
         logger.setLevel(logging.WARN)
 
@@ -44,7 +45,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         logging.getLogger("dials").setLevel(logging.INFO)
         logging.getLogger("dlstbx").setLevel(logging.DEBUG)
         logging.getLogger("dxtbx").setLevel(logging.INFO)
-        #   logging.getLogger('stomp.py').setLevel(logging.DEBUG)
+        # logging.getLogger('stomp.py').setLevel(logging.DEBUG)
         logging.getLogger("workflows").setLevel(logging.INFO)
         logging.getLogger("xia2").setLevel(logging.INFO)
         logging.getLogger("zocalo").setLevel(logging.DEBUG)
@@ -53,19 +54,19 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         self.log.setLevel(logging.DEBUG)
 
         # Enable logging to graylog
-        enable_graylog()
+        enable_graylog(live=self.use_live_infrastructure)
 
     def __init__(self):
-        # initialize logging
-        self.setup_logging()
-
-        self.log.debug("Loading dlstbx credentials")
-
         # change settings when in live mode
         default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
         if "--live" in sys.argv:
             self.use_live_infrastructure = True
             default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
+
+        # initialize logging
+        self.setup_logging()
+
+        self.log.debug("Loading dlstbx credentials")
 
         # override default stomp host
         from workflows.transport.stomp_transport import StompTransport

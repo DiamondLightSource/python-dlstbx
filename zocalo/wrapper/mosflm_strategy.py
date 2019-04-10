@@ -115,7 +115,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
     def snowflake2cbf(self):
         params = self.recwrap.recipe_step["job_parameters"]
         working_directory = py.path.local(params["working_directory"])
-        tmpdir = working_directory.join("image-tmp")
+        tmpdir = working_directory.join(".image-tmp")
         tmpdir.ensure(dir=True)
         master_h5 = os.path.join(params["image_directory"], params["image_pattern"])
         prefix = params["image_pattern"].split("master.h5")[0]

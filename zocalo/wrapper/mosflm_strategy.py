@@ -40,7 +40,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         result = procrunner.run(
             commands,
             timeout=params.get("timeout", 3600),
-            working_directory=working_directory,
+            working_directory=working_directory.strpath,
         )
         if result["exitcode"]:
             logger.info("exitcode: %s", result["exitcode"])

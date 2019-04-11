@@ -15,6 +15,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
         params = self.recwrap.recipe_step["job_parameters"]
         dcid = params["dcid"]
         beamline = params["beamline"]
+        wavelength = float(params["wavelength"])
         resolution = params["resolution"]
         unit_cell = self.recwrap.payload["unit_cell"]
         space_group = self.recwrap.payload["space_group"]
@@ -29,7 +30,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
         # Recipe 2: T0 / 8, 4, 2 x 3,600 @ 100 Hz @ 0.1 degrees @ distance of screening images x X = 0, 30
 
         beamline_t0 = {"i03": 20, "i04": 100}
-        t0 = beamline_t0[beamline]
+        t0 = beamline_t0[beamline] / (wavelength**2)
 
         recipe_base = {
             "resolution": resolution,

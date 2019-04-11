@@ -113,43 +113,43 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
 
         ispyb_command_list = []
 
-        # Step 1: Add new record to Screening table, keep the ScreeningId
-        d = {
-            "dcid": dcid,
-            "program": "Stepped transmission",
-            "comments": "Stepped transmission",
-            "ispyb_command": "insert_screening",
-            "store_result": "ispyb_screening_id",
-        }
-        ispyb_command_list.append(d)
-
-        # Step 2: Store screeningOutput results, linked to the screeningId
-        #         Keep the screeningOutputId
-        d = {
-            "program": "Stepped transmission",
-            "ispyb_command": "insert_screening_output",
-            "screening_id": "$ispyb_screening_id",
-            "store_result": "ispyb_screening_output_id",
-        }
-        ispyb_command_list.append(d)
-
-        # Step 3: Store screeningOutputLattice results, linked to the screeningOutputId
-        #         Keep the screeningOutputLatticeId
-        d = {
-            "spacegroup": space_group,
-            "unitcella": unit_cell[0],
-            "unitcellb": unit_cell[1],
-            "unitcellc": unit_cell[2],
-            "unitcellalpha": unit_cell[3],
-            "unitcellbeta": unit_cell[4],
-            "unitcellgamma": unit_cell[5],
-            "ispyb_command": "insert_screening_output_lattice",
-            "screening_output_id": "$ispyb_screening_output_id",
-            "store_result": "ispyb_screening_output_lattice_id",
-        }
-        ispyb_command_list.append(d)
-
         for i, wedges in enumerate([recipe_1, recipe_2]):
+
+            # Step 1: Add new record to Screening table, keep the ScreeningId
+            d = {
+                "dcid": dcid,
+                "program": "Stepped transmission %i" % (i + 1),
+                "comments": "Stepped transmission %i" % (i + 1),
+                "ispyb_command": "insert_screening",
+                "store_result": "ispyb_screening_id_%i" % i,
+            }
+            ispyb_command_list.append(d)
+
+            # Step 2: Store screeningOutput results, linked to the screeningId
+            #         Keep the screeningOutputId
+            d = {
+                "program": "Stepped transmission",
+                "ispyb_command": "insert_screening_output",
+                "screening_id": "$ispyb_screening_id_%i" % i,
+                "store_result": "ispyb_screening_output_id_%i" % i,
+            }
+            ispyb_command_list.append(d)
+
+            # Step 3: Store screeningOutputLattice results, linked to the screeningOutputId
+            #         Keep the screeningOutputLatticeId
+            d = {
+                "spacegroup": space_group,
+                "unitcella": unit_cell[0],
+                "unitcellb": unit_cell[1],
+                "unitcellc": unit_cell[2],
+                "unitcellalpha": unit_cell[3],
+                "unitcellbeta": unit_cell[4],
+                "unitcellgamma": unit_cell[5],
+                "ispyb_command": "insert_screening_output_lattice",
+                "screening_output_id": "$ispyb_screening_output_id_%i" % i,
+                "store_result": "ispyb_screening_output_lattice_id_%i" % i,
+            }
+            ispyb_command_list.append(d)
 
             # Step 4: Store screeningStrategy results, linked to the screeningOutputId
             #         Keep the screeningStrategyId
@@ -157,7 +157,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
                 "program": "Stepped transmission #%i" % (i + 1),
                 "anomalous": False,
                 "ispyb_command": "insert_screening_strategy",
-                "screening_output_id": "$ispyb_screening_output_id",
+                "screening_output_id": "$ispyb_screening_output_id_%i" % i,
                 "store_result": "ispyb_screening_strategy_id_%i" % i,
             }
             ispyb_command_list.append(d)

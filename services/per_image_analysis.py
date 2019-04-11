@@ -40,6 +40,8 @@ class DLSPerImageAnalysis(CommonService):
         else:
             parameters = ["d_max=40"]
 
+        self.log.debug("Starting PIA on %s", filename)
+
         # Do the per-image-analysis
         try:
             results = work(filename, cl=parameters)

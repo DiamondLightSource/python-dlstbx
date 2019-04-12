@@ -149,7 +149,7 @@ class tail_log(threading.Thread):
 
     def run(self):
         header(os.path.dirname(self._path))
-        with open(os.path.join(self._path, "i19.screen.log")) as fh:
+        with open(os.path.join(self._path, "screen19.log")) as fh:
             start = time.time()
             la = _LineAggregator()
             while not self._closing and time.time() < start + 900:
@@ -182,13 +182,13 @@ try:
                 active_tail.close()
                 active_tail = None
             waiting_for_log = most_recent_dir[0]
-            if not os.path.exists(os.path.join(waiting_for_log, "i19.screen.log")):
+            if not os.path.exists(os.path.join(waiting_for_log, "screen19.log")):
                 print(
                     "\n\n\nNew i19.screen directory found at %s, waiting for new log to appear"
                     % os.path.dirname(waiting_for_log)
                 )
         if waiting_for_log:
-            if os.path.exists(os.path.join(waiting_for_log, "i19.screen.log")):
+            if os.path.exists(os.path.join(waiting_for_log, "screen19.log")):
                 active_tail = tail_log(waiting_for_log)
                 last_known_path = waiting_for_log
                 waiting_for_log = None

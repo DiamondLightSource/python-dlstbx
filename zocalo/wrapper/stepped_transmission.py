@@ -30,7 +30,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
         # Recipe 2: T0 / 8, 4, 2 x 3,600 @ 100 Hz @ 0.1 degrees @ distance of screening images x X = 0, 30
 
         beamline_t0 = {"i03": 20, "i04": 100}
-        t0 = beamline_t0[beamline] / (wavelength**2)
+        t0 = beamline_t0[beamline] / (wavelength ** 2)
 
         recipe_base = {
             "resolution": resolution,
@@ -47,50 +47,20 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
         }
 
         recipe_1 = [
-            {
-                "transmission": t0 / 8,
-                "chi": "0",
-            },
-            {
-                "transmission": t0 / 4,
-                "chi": "0",
-            },
-            {
-                "transmission": t0 / 2,
-                "chi": "0",
-            },
-            {
-                "transmission": t0,
-                "chi": "0",
-            },
+            {"transmission": t0 / 8, "chi": "0"},
+            {"transmission": t0 / 4, "chi": "0"},
+            {"transmission": t0 / 2, "chi": "0"},
+            {"transmission": t0, "chi": "0"},
         ]
         recipe_1 = [dict(r.items() + recipe_base.items()) for r in recipe_1]
 
         recipe_2 = [
-            {
-                "transmission": t0 / 8,
-                "chi": "0",
-            },
-            {
-                "transmission": t0 / 8,
-                "chi": "30",
-            },
-            {
-                "transmission": t0 / 4,
-                "chi": "0",
-            },
-            {
-                "transmission": t0 / 4,
-                "chi": "30",
-            },
-            {
-                "transmission": t0 / 2,
-                "chi": "0",
-            },
-            {
-                "transmission": t0 / 2,
-                "chi": "30",
-            },
+            {"transmission": t0 / 8, "chi": "0"},
+            {"transmission": t0 / 8, "chi": "30"},
+            {"transmission": t0 / 4, "chi": "0"},
+            {"transmission": t0 / 4, "chi": "30"},
+            {"transmission": t0 / 2, "chi": "0"},
+            {"transmission": t0 / 2, "chi": "30"},
         ]
         recipe_2 = [dict(r.items() + recipe_base.items()) for r in recipe_2]
 

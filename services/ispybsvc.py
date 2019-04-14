@@ -364,7 +364,9 @@ class DLSISPyB(CommonService):
             screening_params[k] = parameters(k)
         self.log.info("screening_params: %s", screening_params)
         try:
-            screeningId = self.ispyb.mx_screening.insert_screening(list(screening_params.values()))
+            screeningId = self.ispyb.mx_screening.insert_screening(
+                list(screening_params.values())
+            )
             assert screeningId is not None
         except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
@@ -408,7 +410,9 @@ class DLSISPyB(CommonService):
     def do_insert_screening_output_lattice(self, parameters, **kwargs):
         """Write entry to the ScreeningOutputLattice table."""
         # output_lattice_params ['id', 'screeningoutputid', 'spacegroup', 'pointgroup', 'bravaislattice', 'raworientationmatrixax', 'raworientationmatrixay', 'raworientationmatrixaz', 'raworientationmatrixbx', 'raworientationmatrixby', 'raworientationmatrixbz', 'raworientationmatrixcx', 'raworientationmatrixcy', 'raworientationmatrixcz', 'unitcella', 'unitcellb', 'unitcellc', 'unitcellalpha', 'unitcellbeta', 'unitcellgamma', 'labelitindexing']
-        output_lattice_params = self.ispyb.mx_screening.get_screening_output_lattice_params()
+        output_lattice_params = (
+            self.ispyb.mx_screening.get_screening_output_lattice_params()
+        )
         for k in output_lattice_params.keys():
             output_lattice_params[k] = parameters(k)
         output_lattice_params["screening_output_id"] = parameters("screening_output_id")
@@ -479,10 +483,14 @@ class DLSISPyB(CommonService):
     def do_insert_screening_strategy_sub_wedge(self, parameters, **kwargs):
         """Write entry to the ScreeningStrategySubWedge table."""
         # sub_wedge_params ['id', 'screeningstrategywedgeid', 'subwedgenumber', 'rotationaxis', 'axisstart', 'axisend', 'exposuretime', 'transmission', 'oscillationrange', 'completeness', 'multiplicity', 'resolution', 'dosetotal', 'noimages', 'comments']
-        sub_wedge_params = self.ispyb.mx_screening.get_screening_strategy_sub_wedge_params()
+        sub_wedge_params = (
+            self.ispyb.mx_screening.get_screening_strategy_sub_wedge_params()
+        )
         for k in sub_wedge_params.keys():
             sub_wedge_params[k] = parameters(k)
-        sub_wedge_params["screening_strategy_wedge_id"] = parameters("screening_strategy_wedge_id")
+        sub_wedge_params["screening_strategy_wedge_id"] = parameters(
+            "screening_strategy_wedge_id"
+        )
         sub_wedge_params["subwedgenumber"] = "1"
         self.log.info("sub_wedge_params: %s", sub_wedge_params)
         try:

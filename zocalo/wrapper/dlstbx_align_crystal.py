@@ -14,7 +14,6 @@ logger = logging.getLogger("dlstbx.wrap.dlstbx.align_crystal")
 
 
 class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
-
     def insert_dials_align_strategies(self, dcid, crystal_symmetry, results):
         solutions = results["solutions"]
         gonio = results["goniometer"]
@@ -98,9 +97,7 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
             uc_params = crystal_symmetry.unit_cell().parameters()
             for i, p in enumerate(("a", "b", "c", "alpha", "beta", "gamma")):
                 d["unitcell%s" % p] = uc_params[i]
-            d["spacegroup"] = (
-                crystal_symmetry.space_group_info().type().lookup_symbol()
-            )
+            d["spacegroup"] = crystal_symmetry.space_group_info().type().lookup_symbol()
             ispyb_command_list.append(d)
 
             # Step 4: Store screeningStrategy results, linked to the screeningOutputId
@@ -121,7 +118,8 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
                 "chi": chi,
                 "comments": settings_str,
                 "ispyb_command": "insert_screening_strategy_wedge",
-                "screening_strategy_id": "$ispyb_screening_strategy_id_%i" % solution_id,
+                "screening_strategy_id": "$ispyb_screening_strategy_id_%i"
+                % solution_id,
                 "store_result": "ispyb_screening_strategy_wedge_id_%i" % solution_id,
             }
             ispyb_command_list.append(d)

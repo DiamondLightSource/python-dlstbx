@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import sys
-import threading
 from optparse import SUPPRESS_HELP, OptionParser
 import pkg_resources
 
@@ -90,6 +89,14 @@ def run(cmdline_args):
         + ", ".join(workflows.transport.get_known_transports())
         + " (default: %default)",
     )
+    parser.add_option(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        default=False,
+        help="Show debug level messages",
+    )
     workflows.transport.add_command_line_options(parser)
 
     # Parse command line arguments
@@ -99,6 +106,10 @@ def run(cmdline_args):
     if not options.wrapper:
         print("A wrapper object must be specified.")
         sys.exit(1)
+
+    if options.verbose:
+        console.setLevel(logging.DEBUG)
+        logging.getLogger("dlstbx").setLevel(logging.DEBUG)
 
     # Enable logging to graylog
     graylog_handler = enable_graylog()

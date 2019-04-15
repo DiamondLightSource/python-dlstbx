@@ -1,9 +1,9 @@
 from __future__ import absolute_import, division, print_function
 
-import json
 import logging
 import os
 import py
+import xml.etree.ElementTree
 
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
@@ -13,7 +13,12 @@ import zocalo.wrapper
 logger = logging.getLogger("dlstbx.wrap.autoPROC")
 
 
-def xml_to_dict(filename):
+def read_autoproc_xml(xml_file):
+    if not xml_file.check(file=1, exists=1):
+        logger.info("Expected file %s missing", xml_file.strpath)
+        return False
+    logger.debug("Reading autoPROC results from %s", xml_file.strpath)
+
     def make_dict_from_tree(element_tree):
         """Traverse the given XML element tree to convert it into a dictionary.
 
@@ -50,36 +55,29 @@ def xml_to_dict(filename):
 
         return internal_iter(element_tree, {})
 
-    import xml.etree.ElementTree
+    try:
+        xml_dict = make_dict_from_tree(
+            xml.etree.ElementTree.parse(xml_file.strpath).getroot()
+        )
+    except Exception as e:
+        logger.error(
+            "Could not read autoPROC file from %s: %s",
+            xml_file.strpath,
+            e,
+            exc_info=True,
+        )
+        return False
 
-    return make_dict_from_tree(xml.etree.ElementTree.parse(filename).getroot())
+    if "AutoProcContainer" not in xml_dict:
+        logger.error("No AutoProcContainer in autoPROC log file %s", xml_file.strpath)
+        return False
+    return xml_dict["AutoProcContainer"]
 
 
 class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
     def send_results_to_ispyb(
-        self, xml_file, special_program_name=None, attachments=None
+        self, autoproc_xml, special_program_name=None, attachments=None
     ):
-        if not xml_file.check(file=1, exists=1):
-            logger.info("Expected file %s missing", xml_file.strpath)
-            return False
-        logger.debug("Reading autoPROC results from %s", xml_file.strpath)
-        try:
-            message = xml_to_dict(xml_file.strpath)
-        except Exception as e:
-            logger.error(
-                "Could not read autoPROC file from %s: %s",
-                xml_file.strpath,
-                e,
-                exc_info=True,
-            )
-            return False
-        if "AutoProcContainer" not in message:
-            logger.error(
-                "No AutoProcContainer in autoPROC log file %s", xml_file.strpath
-            )
-            return False
-        message = message["AutoProcContainer"]
-
         ispyb_command_list = []
 
         if special_program_name:
@@ -101,19 +99,19 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             )
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
-        if "AutoProc" in message:
+        if "AutoProc" in autoproc_xml:
             ispyb_command_list.append(
                 {
                     "ispyb_command": "write_autoproc",
                     "autoproc_id": None,
                     "store_result": "ispyb_autoproc_id",
-                    "spacegroup": message["AutoProc"]["spaceGroup"],
-                    "refinedcell_a": message["AutoProc"]["refinedCell_a"],
-                    "refinedcell_b": message["AutoProc"]["refinedCell_b"],
-                    "refinedcell_c": message["AutoProc"]["refinedCell_c"],
-                    "refinedcell_alpha": message["AutoProc"]["refinedCell_alpha"],
-                    "refinedcell_beta": message["AutoProc"]["refinedCell_beta"],
-                    "refinedcell_gamma": message["AutoProc"]["refinedCell_gamma"],
+                    "spacegroup": autoproc_xml["AutoProc"]["spaceGroup"],
+                    "refinedcell_a": autoproc_xml["AutoProc"]["refinedCell_a"],
+                    "refinedcell_b": autoproc_xml["AutoProc"]["refinedCell_b"],
+                    "refinedcell_c": autoproc_xml["AutoProc"]["refinedCell_c"],
+                    "refinedcell_alpha": autoproc_xml["AutoProc"]["refinedCell_alpha"],
+                    "refinedcell_beta": autoproc_xml["AutoProc"]["refinedCell_beta"],
+                    "refinedcell_gamma": autoproc_xml["AutoProc"]["refinedCell_gamma"],
                 }
             )
         else:
@@ -121,13 +119,15 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
 
         # Step 2: Store scaling results, linked to the AutoProcID
         #         Keep the AutoProcScalingID
-        if "AutoProcScalingStatistics" in message.get("AutoProcScalingContainer", {}):
+        if "AutoProcScalingStatistics" in autoproc_xml.get(
+            "AutoProcScalingContainer", {}
+        ):
             insert_scaling = {
                 "ispyb_command": "insert_scaling",
                 "autoproc_id": "$ispyb_autoproc_id",
                 "store_result": "ispyb_autoprocscaling_id",
             }
-            for statistics in message["AutoProcScalingContainer"][
+            for statistics in autoproc_xml["AutoProcScalingContainer"][
                 "AutoProcScalingStatistics"
             ]:
                 insert_scaling[statistics["scalingStatisticsType"]] = {
@@ -155,10 +155,12 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             )
 
         # Step 3: Store integration results, linking them to ScalingID
-        if "AutoProcIntegrationContainer" in message.get(
+        if "AutoProcIntegrationContainer" in autoproc_xml.get(
             "AutoProcScalingContainer", {}
         ):
-            APIC = message["AutoProcScalingContainer"]["AutoProcIntegrationContainer"]
+            APIC = autoproc_xml["AutoProcScalingContainer"][
+                "AutoProcIntegrationContainer"
+            ]
             if isinstance(APIC, dict):  # Make it a list regardless
                 APIC = [APIC]
             for n, container in enumerate(APIC):
@@ -419,6 +421,12 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         if inlined_html.check():
             inlined_html.move(working_directory.join("summary.html"))
 
+        # attempt to read autoproc XML droppings
+        autoproc_xml = read_autoproc_xml(working_directory.join("autoPROC.xml"))
+        staraniso_xml = read_autoproc_xml(
+            working_directory.join("autoPROC_staraniso.xml")
+        )
+
         # copy output files to result directory
         results_directory.ensure(dir=True)
         if params.get("create_symlink"):
@@ -426,52 +434,64 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 results_directory.strpath, params["create_symlink"]
             )
 
-        keep_ext = {
-            ".INP": None,
-            ".xml": None,
-            ".png": None,
-            ".log": "log",
-            ".html": "log",
-            ".pdf": "log",
-            ".LP": "log",
-            ".dat": "result",
-            ".HKL": "result",
-            ".sca": "result",
-            ".mtz": "result",
+        copy_extensions = {
+            ".dat",
+            ".HKL",
+            ".html",
+            ".log",
+            ".LP",
+            ".mtz",
+            ".pdf",
+            ".sca",
         }
         keep = {"summary.tar.gz": "result", "iotbx-merging-stats.json": "graph"}
+        if autoproc_xml:
+            for entry in autoproc_xml.get("AutoProcProgramContainer", {}).get(
+                "AutoProcProgramAttachment", []
+            ):
+                keep[entry["fileName"]] = {"log": "log"}.get(
+                    entry["fileType"].lower(), "result"
+                )
+        if staraniso_xml:
+            for entry in staraniso_xml.get("AutoProcProgramContainer", {}).get(
+                "AutoProcProgramAttachment", []
+            ):
+                keep[entry["fileName"]] = {"log": "log"}.get(
+                    entry["fileType"].lower(), "result"
+                )
         allfiles = []  # flat list
         anisofiles = []  # tuples of file name, dir name, file type
         for filename in working_directory.listdir():
-            filetype = keep_ext.get(filename.ext)
-            if filename.basename in keep:
-                filetype = keep[filename.basename]
-            if filetype is None:
+            keep_as = keep.get(filename.basename, filename.ext in copy_extensions)
+            if not keep_as:
                 continue
             destination = results_directory.join(filename.basename)
-            logger.debug("Copying %s to %s" % (filename.strpath, destination.strpath))
+            logger.debug("Copying %s to %s", filename.strpath, destination.strpath)
             filename.copy(destination)
+            if keep_as == True:
+                continue  # only copy file, do not register in ISPyB
             if "staraniso" in filename.basename:
-                anisofiles.append((destination.basename, destination.dirname, filetype))
+                anisofiles.append((destination.basename, destination.dirname, keep_as))
             else:
                 allfiles.append(destination.strpath)
                 self.record_result_individual_file(
                     {
                         "file_path": destination.dirname,
                         "file_name": destination.basename,
-                        "file_type": filetype,
+                        "file_type": keep_as,
                     }
+                )
+                logger.debug(
+                    "Recording file %s as %s in ISPyB", destination.basename, keep_as
                 )
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
-        autoproc_xml = working_directory.join("autoPROC.xml")
-        staraniso_xml = working_directory.join("autoPROC_staraniso.xml")
         if not result["exitcode"]:
             send_results = self.send_results_to_ispyb(autoproc_xml)
             if not send_results:
                 result["exitcode"] = 1
-        if not result["exitcode"] and staraniso_xml.check():
+        if not result["exitcode"] and staraniso_xml:
             send_results = self.send_results_to_ispyb(
                 staraniso_xml,
                 special_program_name="autoPROC+STARANISO",

@@ -170,8 +170,11 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
                     d[k] = wedge[k]
                 ispyb_command_list.append(d)
 
-        logger.info("Sending %s", json.dumps(ispyb_command_list))
-        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+        if ispyb_command_list:
+            logger.debug("Sending %s", json.dumps(ispyb_command_list))
+            self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+            logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+        else:
+            logger.warn("No commands to send to ISPyB")
 
         return True

@@ -39,8 +39,10 @@ def run(cmdline_args):
 
     # Set up stomp defaults
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
+    use_live_infrastructure = True
     if "--test" in cmdline_args:
         default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
+        use_live_infrastructure = False
     StompTransport.load_configuration_file(default_configuration)
 
     known_wrappers = {
@@ -112,7 +114,7 @@ def run(cmdline_args):
         logging.getLogger("dlstbx").setLevel(logging.DEBUG)
 
     # Enable logging to graylog
-    graylog_handler = enable_graylog()
+    graylog_handler = enable_graylog(live=use_live_infrastructure)
     log.info(
         "Starting wrapper for %s with recipewrapper file %s",
         options.wrapper,

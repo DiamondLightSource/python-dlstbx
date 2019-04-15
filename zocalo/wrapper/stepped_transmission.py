@@ -83,7 +83,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
 
         ispyb_command_list = []
 
-        for i, wedges in enumerate([recipe_1, recipe_2]):
+        for i, wedges in enumerate([recipe_1, recipe_2][:1]):
 
             # Step 1: Add new record to Screening table, keep the ScreeningId
             d = {

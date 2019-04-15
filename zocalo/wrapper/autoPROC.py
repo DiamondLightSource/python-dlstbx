@@ -296,7 +296,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                         d, plugin_name
                     )
             if not hdf5_lib:
-                logger.warn("Couldn't find plugin %s in PATH" % plugin_name)
+                logger.warning("Couldn't find plugin %s in PATH" % plugin_name)
             if hdf5_lib:
                 command.append(hdf5_lib)
         else:

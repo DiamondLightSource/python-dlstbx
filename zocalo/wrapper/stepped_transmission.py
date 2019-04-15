@@ -175,6 +175,6 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
             self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
             logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
         else:
-            logger.warn("No commands to send to ISPyB")
+            logger.warning("No commands to send to ISPyB")
 
         return True

@@ -71,7 +71,13 @@ def read_autoproc_xml(xml_file):
     if "AutoProcContainer" not in xml_dict:
         logger.error("No AutoProcContainer in autoPROC log file %s", xml_file.strpath)
         return False
-    return xml_dict["AutoProcContainer"]
+
+    xml_dict = xml_dict["AutoProcContainer"]
+    appa = xml_dict.get("AutoProcProgramContainer", {}).get("AutoProcProgramAttachment")
+    if appa is not None and not isinstance(appa, list):
+        # If AutoPROC reports only a single attachment then it is not presented as a list
+        xml_dict["AutoProcProgramContainer"]["AutoProcProgramAttachment"] = [appa]
+    return xml_dict
 
 
 class autoPROCWrapper(zocalo.wrapper.BaseWrapper):

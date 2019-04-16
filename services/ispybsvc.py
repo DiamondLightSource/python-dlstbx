@@ -470,7 +470,7 @@ class DLSISPyB(CommonService):
                 list(wedge_params.values())
             )
             assert screeningStrategyWedgeId is not None
-        except (ispyb.exception.ISPyBException, AssertionError) as e:
+        except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
                 "Inserting strategy wedge: '%s' caused exception '%s'.",
                 wedge_params,
@@ -498,7 +498,7 @@ class DLSISPyB(CommonService):
                 list(sub_wedge_params.values())
             )
             assert screeningStrategySubWedgeId is not None
-        except (ispyb.exception.ISPyBException, AssertionError) as e:
+        except (ispyb.ISPyBException, AssertionError) as e:
             self.log.error(
                 "Inserting strategy sub wedge: '%s' caused exception '%s'.",
                 sub_wedge_params,

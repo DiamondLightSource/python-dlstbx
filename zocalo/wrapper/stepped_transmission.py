@@ -31,13 +31,18 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
 
         beamline_t0 = {"i03": 20, "i04": 100}
         t0 = beamline_t0[beamline] / (wavelength ** 2)
+        exposure = 1 / 100,  # 100 Hz
+        if t0 > 100:
+            # Can't have transmission > 100% so scale up exposure times instead
+            exposure *= t0/100
+            t0 = 100
 
         recipe_base = {
             "resolution": resolution,
             "axisstart": 0,
             "axisend": 360,
             "oscillationrange": 0.1,
-            "exposuretime": 1 / 100,  # 100 Hz
+            "exposuretime": exposure,
             "noimages": 3600,
             "rotationaxis": "omega",
             "mosaicity": None,

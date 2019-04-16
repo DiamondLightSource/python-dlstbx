@@ -132,7 +132,7 @@ class Cluster:
 
         result = procrunner.run(
             command=["/bin/bash", "-l"],
-            timeout=10,
+            timeout=20,
             stdin=command + "\nset\n",
             print_stdout=False,
             print_stderr=False,

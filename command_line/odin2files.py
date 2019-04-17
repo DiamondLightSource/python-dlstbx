@@ -6,7 +6,6 @@ import json
 import logging
 import re
 from optparse import SUPPRESS_HELP, OptionParser
-from pprint import pprint
 
 import dlstbx
 import ispyb
@@ -27,31 +26,10 @@ if __name__ == "__main__":
         "--zeromq",
         dest="zeromq",
         default="tcp://127.0.0.1:9999",
-        help="ZeroMQ stream to connect to (default: %default)",
+        help="ZeroMQ stream to connect to (default: %default)\nI03: tcp://cs04r-sc-serv-22:9009",
     )
-    parser.add_option(
-        "--dcid",
-        dest="dcid",
-        default=None,
-        help="Set data collection ID if not defined",
-        type=int,
-    )
-    parser.add_option(
-        "--dcid-override",
-        dest="override",
-        default=False,
-        action="store_true",
-        help="Override any given data collection ID",
-    )
-    parser.add_option(
-        "--dest-override",
-        dest="destoverride",
-        default=None,
-        help="Override destination path",
-    )
-
     (options, args) = parser.parse_args()
-    #   dlstbx.enable_graylog()
+    dlstbx.enable_graylog()
     console = ColorStreamHandler()
     console.setLevel(logging.DEBUG)
     logging.getLogger().addHandler(console)
@@ -69,49 +47,66 @@ if __name__ == "__main__":
     consumer_receiver.connect(options.zeromq)
     log.debug("ZeroMQ connection set up")
 
-    image_number = 0
+    last_dcid = None
+    last_destination = None
+    re_visit_base = re.compile("^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/")
     try:
         while True:
-            data = consumer_receiver.recv_multipart(copy=True)
-            header = data[0] = json.loads(data[0])
-            pprint(header)
-            if options.override:
-                header["acqID"] = options.dcid
-            elif not header.get("acqID"):
-                header["acqID"] = options.dcid or header.get("series", 1)
-            dcid = int(header["acqID"])
-            destination = None
-            if dcid:
-                image_directory = i.get_data_collection(dcid).file_directory
-                visit_base = re.search(
-                    "^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/", image_directory
+            try:
+                data = consumer_receiver.recv_multipart(copy=True)
+                header = data[0] = json.loads(data[0])
+                if not header.get("acqID"):
+                    log.error(
+                        "Received multipart message without DCID with sizes %r and content:\n%r",
+                        [len(x) for x in data],
+                        header,
+                    )
+                    continue
+                dcid = int(header["acqID"])
+                if dcid == last_dcid:
+                    destination = last_destination
+                else:
+                    image_directory = i.get_data_collection(dcid).file_directory
+                    visit_base = re_visit_base.search(image_directory)
+                    if not visit_base:
+                        log.error(
+                            "Could not find visit base directory for DCID %r, file directory %r",
+                            dcid,
+                            image_directory,
+                        )
+                        continue
+                    destination = (
+                        py.path.local(visit_base.group(1)) / "tmp" / "dump" / str(dcid)
+                    )
+                    last_dcid = dcid
+                    last_destination = destination
+                image_number = header.get("frame")
+                if image_number is not None:
+                    destination_file = "image%06d" % image_number
+                elif header.get("htype") == "dheader-1.0":
+                    destination_file = "header"
+                elif header.get("htype") == "dseries_end-1.0":
+                    destination_file = "end"
+                else:
+                    log.error(
+                        "Received undecypherable multipart message with sizes %r and content:\n%r",
+                        [len(x) for x in data],
+                        header,
+                    )
+                    continue
+                log.info(
+                    "Received %d part multipart message for %s (%d bytes)",
+                    len(data),
+                    destination_file,
+                    sum(len(x) for x in data),
                 )
-                if visit_base:
-                    destination = py.path.local(visit_base.group(1)) / "tmp" / "dump" / str(dcid)
-            if not destination:
-                destination = py.path.local("/dls/tmp/streamalysis")
-            if options.destoverride:
-                destination = py.path.local(options.destoverride)
-            log.info("Writing to %s", destination.strpath)
-            if header.get("htype") == "dheader-1.0":
-                destination_file = "header"
-                image_number = 0
-            elif header.get("htype") == "dseries_end-1.0":
-                destination_file = "end"
-            else:
-                image_number = image_number + 1
-                destination_file = "image%06d" % image_number
-            log.info(
-                "Received %d part multipart message for %s (%d bytes)",
-                len(data),
-                destination_file,
-                sum(len(x) for x in data),
-            )
-            serial_data = msgpack.packb(data, use_bin_type=True)
-            log.debug("Serialised to %d bytes", len(serial_data))
-            target_file = destination.join(destination_file)
-            log.debug("Writing to %s", target_file.strpath)
-            target_file.write_binary(serial_data, ensure=True)
-            log.info("Done")
+                serial_data = msgpack.packb(data, use_bin_type=True)
+                log.debug("Serialised to %d bytes", len(serial_data))
+                target_file = destination.join(destination_file)
+                log.debug("Writing to %s", target_file.strpath)
+                target_file.write_binary(serial_data, ensure=True)
+                log.info("Done")
+            except Exception:
+                log.error("Unhandled exception in odin2files", exc_info=True)
     except KeyboardInterrupt:
         pass

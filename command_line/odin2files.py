@@ -84,10 +84,10 @@ if __name__ == "__main__":
             if dcid:
                 image_directory = i.get_data_collection(dcid).file_directory
                 visit_base = re.search(
-                    "^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/", d.file_directory
+                    "^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/", image_directory
                 )
                 if visit_base:
-                    destination = py.path.local(visit_base) / "tmp" / "dump" / str(dcid)
+                    destination = py.path.local(visit_base.group(1)) / "tmp" / "dump" / str(dcid)
             if not destination:
                 destination = py.path.local("/dls/tmp/streamalysis")
             if options.destoverride:

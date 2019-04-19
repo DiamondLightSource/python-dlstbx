@@ -34,7 +34,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
         exposure = 1 / 100  # 100 Hz
         if t0 > 100:
             # Can't have transmission > 100% so scale up exposure times instead
-            exposure *= t0/100
+            exposure *= t0 / 100
             t0 = 100
 
         recipe_base = {

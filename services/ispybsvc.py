@@ -99,7 +99,11 @@ class DLSISPyB(CommonService):
                 or "$" not in base_value
             ):
                 return base_value
-            for key in rw.environment:
+            for key in sorted(rw.environment, key=len, reverse=True):
+                if "${" + key + "}" in base_value:
+                    base_value = base_value.replace("${" + key + "}", str(rw.environment[key]))
+                # Replace longest keys first, as the following replacement is
+                # not well-defined when one key is a prefix of another:
                 if "$" + key in base_value:
                     base_value = base_value.replace("$" + key, str(rw.environment[key]))
             return base_value

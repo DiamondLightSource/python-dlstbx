@@ -34,7 +34,6 @@ class ZMQReceiver(threading.Thread):
     def run(self):
         """Connect to the ZeroMQ stream."""
         self.closing = False
-        re_visit_base = re.compile("^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/")
 
         self.log.info("Connecting to ISPyB")
         self._ispyb = None
@@ -58,6 +57,7 @@ class ZMQReceiver(threading.Thread):
                 self._ispyb = None
 
     def _receiver_loop(self):
+        re_visit_base = re.compile("^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/")
         dcid_cache = {}
         while not self.closing:
             try:

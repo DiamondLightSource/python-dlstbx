@@ -95,9 +95,9 @@ class ZMQReceiver(threading.Thread):
                 destination_file = "image%06d" % (image_number + 1)
             elif header.get("htype") == "dheader-1.0":
                 destination_file = "header"
-                data[3] = None
-                data[5] = None
-                data[7] = None
+                data[3] = ""
+                data[5] = ""
+                data[7] = ""
             elif header.get("htype") == "dseries_end-1.0":
                 destination_file = "end"
             else:

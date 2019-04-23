@@ -531,7 +531,7 @@ WHERE
         if not prefix:
             return None
         directory = dc_info["imageDirectory"]
-        visit = self.get_visit_from_image_directory(directory)
+        visit = self.get_visit_directory_from_image_directory(directory)
         rest = directory[len(visit) + 1 :]
         return os.path.join(visit, "tmp", "zocalo", rest, prefix, dc_info["uuid"])
 
@@ -540,7 +540,7 @@ WHERE
         if not prefix:
             return None
         directory = dc_info["imageDirectory"]
-        visit = self.get_visit_from_image_directory(directory)
+        visit = self.get_visit_directory_from_image_directory(directory)
         rest = directory[len(visit) + 1 :]
         return os.path.join(visit, "processed", rest, prefix, dc_info["uuid"])
 

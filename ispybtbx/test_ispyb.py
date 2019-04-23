@@ -57,6 +57,8 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
     )
     assert parameters["ispyb_image_pattern"] == "TRP_M1S6_4_%04d.cbf"
     assert parameters["ispyb_images"] == ""
+    assert parameters["ispyb_visit"] == "cm14451-4"
+    assert parameters["ispyb_visit_directory"] == "/dls/i03/data/2016/cm14451-4"
     assert parameters["ispyb_results_directory"].startswith(
         "/dls/i03/data/2016/cm14451-4/processed/tmp/2016-10-07/fake113556/TRP_M1S6_4_/"
     )

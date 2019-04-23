@@ -726,11 +726,11 @@ class DLSISPyB(CommonService):
         # multipart message
         def parameters(parameter, replace_variables=True):
             """Slight change in behaviour compared to 'parameters' in a direct call:
-         If the value is defined in the command list item then this takes
-         precedence. Otherwise we check the original message content. Finally
-         we look in parameters dictionary of the recipe step for the
-         multipart_message command.
-         String replacement rules apply as usual."""
+            If the value is defined in the command list item then this takes
+            precedence. Otherwise we check the original message content. Finally
+            we look in parameters dictionary of the recipe step for the
+            multipart_message command.
+            String replacement rules apply as usual."""
             if parameter in current_command:
                 base_value = current_command[parameter]
             elif isinstance(message, dict) and parameter in message:
@@ -744,7 +744,11 @@ class DLSISPyB(CommonService):
                 or "$" not in base_value
             ):
                 return base_value
-            for key in rw.environment:
+            for key in sorted(rw.environment, key=len, reverse=True):
+                if "${" + key + "}" in base_value:
+                    base_value = base_value.replace("${" + key + "}", str(rw.environment[key]))
+                # Replace longest keys first, as the following replacement is
+                # not well-defined when one key is a prefix of another:
                 if "$" + key in base_value:
                     base_value = base_value.replace("$" + key, str(rw.environment[key]))
             return base_value

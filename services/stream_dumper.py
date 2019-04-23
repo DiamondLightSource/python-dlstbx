@@ -7,6 +7,7 @@ import time
 
 import ispyb
 import msgpack
+import py
 from workflows.services.common_service import CommonService
 import zmq
 
@@ -91,7 +92,7 @@ class ZMQReceiver(threading.Thread):
                 )
             image_number = header.get("frame")
             if image_number is not None:
-                destination_file = "image%06d" % image_number
+                destination_file = "image%06d" % (image_number + 1)
             elif header.get("htype") == "dheader-1.0":
                 destination_file = "header"
             elif header.get("htype") == "dseries_end-1.0":

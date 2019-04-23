@@ -156,7 +156,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
                 "title=fast_dp",
                 "fast_dp_unmerged.mtz",
             ]
-            # run fast_dp in working directory
+            # run xia2.report in working directory
             logger.info("Running command: %s", " ".join(command))
             result = procrunner.run(
                 command,

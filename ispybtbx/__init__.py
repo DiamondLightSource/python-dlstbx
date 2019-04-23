@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import json
 import logging
 import os
+import re
 import uuid
 
 import ispyb
@@ -15,10 +16,6 @@ with open("/dls_sw/apps/zocalo/secrets/ispyb-login.json", "r") as sauce:
     secret_ingredients = json.load(sauce)
 
 # convenience functions
-def _clean_(path):
-    return path.replace(2 * os.sep, os.sep)
-
-
 def _prefix_(template):
     if not template:
         return template
@@ -42,6 +39,7 @@ def _ispyb_api():
 
 
 future_enabled = False
+re_visit_base = re.compile("^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
 
 
 def _enable_future():
@@ -156,7 +154,7 @@ class ispybtbx(object):
 
     def find_dc_id(self, directory):
         results = self.execute(
-            "select datacollectionid from DataCollection where " "imagedirectory=%s;",
+            "select datacollectionid from DataCollection where imagedirectory=%s;",
             directory,
         )
         ids = [result[0] for result in results]
@@ -164,7 +162,7 @@ class ispybtbx(object):
 
     def get_dc_info(self, dc_id):
         results = self.execute(
-            "select * from DataCollection where " "datacollectionid=%s;", dc_id
+            "select * from DataCollection where datacollectionid=%s;", dc_id
         )
         labels = self.columns["DataCollection"]
         result = {}
@@ -257,7 +255,7 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
 
     def get_space_group_and_cell(self, dc_id):
         samples = self.execute(
-            "select blsampleid from DataCollection " "where datacollectionid=%s;", dc_id
+            "select blsampleid from DataCollection where datacollectionid=%s;", dc_id
         )
         assert len(samples) == 1
         if samples[0][0] is None:
@@ -265,7 +263,7 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
 
         sample = samples[0][0]
         crystals = self.execute(
-            "select crystalid from BLSample where " "blsampleid=%s;", sample
+            "select crystalid from BLSample where blsampleid=%s;", sample
         )
 
         if crystals[0][0] is None:
@@ -506,32 +504,45 @@ WHERE
             "rotation": self.dc_info_is_rotation_scan(dc_info),
         }
 
-    def data_folder_to_visit(self, directory):
-        """Extract visit directory, assumes the path structure goes something
-    like /dls/${beamline}/data/${year}/${visit} - 2016/11/03 this is a
-    valid assumption"""
+    @staticmethod
+    def get_visit_directory_from_image_directory(directory):
+        """/dls/${beamline}/data/${year}/${visit}/...
+        -> /dls/${beamline}/data/${year}/${visit}"""
+        if not directory:
+            return None
+        visit_base = re_visit_base.search(directory)
+        if not visit_base:
+            return None
+        return visit_base.group(1)
 
-        return os.sep.join(directory.split(os.sep)[:6]).strip()
+    @staticmethod
+    def get_visit_from_image_directory(directory):
+        """/dls/${beamline}/data/${year}/${visit}/...
+        -> ${visit}"""
+        if not directory:
+            return None
+        visit_base = re_visit_base.search(directory)
+        if not visit_base:
+            return None
+        return visit_base.group(2)
 
     def dc_info_to_working_directory(self, dc_info):
         prefix = _prefix_(dc_info.get("fileTemplate"))
         if not prefix:
             return None
         directory = dc_info["imageDirectory"]
-        visit = self.data_folder_to_visit(directory)
-        rest = directory.replace(visit, "")
-        root = _clean_(os.sep.join([visit, "tmp", "zocalo", rest, prefix]))
-        return os.path.join(root, dc_info["uuid"])
+        visit = self.get_visit_from_image_directory(directory)
+        rest = directory[len(visit) + 1 :]
+        return os.path.join(visit, "tmp", "zocalo", rest, prefix, dc_info["uuid"])
 
     def dc_info_to_results_directory(self, dc_info):
         prefix = _prefix_(dc_info.get("fileTemplate"))
         if not prefix:
             return None
         directory = dc_info["imageDirectory"]
-        visit = self.data_folder_to_visit(directory)
-        rest = directory.replace(visit, "")
-        root = _clean_(os.sep.join([visit, "processed", rest, prefix]))
-        return os.path.join(root, dc_info["uuid"])
+        visit = self.get_visit_from_image_directory(directory)
+        rest = directory[len(visit) + 1 :]
+        return os.path.join(visit, "processed", rest, prefix, dc_info["uuid"])
 
     def insert_screening_results(self, dc_id, values):
         keys = (
@@ -812,8 +823,6 @@ WHERE dc.dataCollectionId='%s'
         return proposal_code, proposal_number, visit_number
 
     def get_bl_sessionid_from_visit_name(self, visit_name):
-        import re
-
         m = re.match(r"([a-z][a-z])([\d]+)[-]([\d]+)", visit_name)
         assert m is not None
         assert len(m.groups()) == 3
@@ -887,6 +896,12 @@ def ispyb_filter(message, parameters):
             start,
             end,
         )
+    parameters["ispyb_visit"] = i.get_visit_from_image_directory(
+        dc_info.get("imageDirectory")
+    )
+    parameters["ispyb_visit_directory"] = i.get_visit_directory_from_image_directory(
+        dc_info.get("imageDirectory")
+    )
     parameters["ispyb_working_directory"] = i.dc_info_to_working_directory(dc_info)
     parameters["ispyb_results_directory"] = i.dc_info_to_results_directory(dc_info)
 

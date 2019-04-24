@@ -82,6 +82,7 @@ class QueueStatus:
                     shortdest,
                 )
                 dinfo["shortdest"] = shortdest
+                dinfo["shortdest.prefix"] = shortdest.split(".", 1)[0]
                 dinfo["relevance"] = dinfo["QueueSize"] + dinfo["InFlightCount"]
 
                 last_status = previous.get(dtype, {}).get(dname, {})
@@ -132,11 +133,12 @@ class QueueStatus:
         c_yellow = "\x1b[33m"
         c_blue = "\x1b[34m"
         c_cyan = "\x1b[34m"
+        c_magenta = "\x1b[35m"
         c_reset = "\x1b[0m"
         c_bold = "\x1b[1m"
 
         line = (
-            "{0[shortdest]:{longest[shortdest]}}  "
+            "{colour[namespace]}{0[shortdest]:{longest[shortdest]}}{colour[reset]}  "
             "{colour[input]}{0[change-EnqueueCount]:{longest[change-EnqueueCount]}} "
             ">{colour[hold]}[ {filter_zero[QueueSize]:{longest[QueueSize]}} | {colour[flight]}{filter_zero[InFlightCount]:<{longest[InFlightCount]}}{colour[hold]} ]"
             "{colour[output]}> {filter_zero[change-DequeueCount]:<{longest[change-DequeueCount]}}{colour[reset]}"
@@ -184,6 +186,9 @@ class QueueStatus:
                     if self.status[dtype][dname]["change-DequeueCount"]
                     else c_gray,
                     "reset": c_reset,
+                    "namespace": c_magenta
+                    if self.status[dtype][dname]["shortdest.prefix"] == "zocdev"
+                    else "",
                 }
                 filter_zero = {
                     key: self.status[dtype][dname][key]

@@ -36,7 +36,6 @@ class ZMQReceiver(threading.Thread):
         """Connect to the ZeroMQ stream."""
         self.closing = False
 
-        self.log.info("Connecting to ISPyB")
         self._ispyb = None
         try:
             self._ispyb = ispyb.open(
@@ -69,7 +68,7 @@ class ZMQReceiver(threading.Thread):
                 return
             header = data[0] = json.loads(data[0])
             if not header.get("acqID"):
-                self.log.debug(  # error(
+                self.log.error(
                     "Received multipart message without DCID with sizes %r and content:\n%r",
                     [len(x) for x in data],
                     header,
@@ -107,24 +106,15 @@ class ZMQReceiver(threading.Thread):
                     header,
                 )
                 continue
-            self.log.info(
-                "Received %d part multipart message for %s (%d bytes)",
-                len(data),
-                destination_file,
-                sum(len(x) for x in data),
-            )
             serial_data = msgpack.packb(data, use_bin_type=True)
-            self.log.debug("Serialised to %d bytes", len(serial_data))
             target_file = destination.join(destination_file)
-            self.log.debug("Writing to %s", target_file.strpath)
             target_file.write_binary(serial_data, ensure=True)
-            self.log.info("Done")
+            self.log.info("Written %d part multipart message for %s to %s (%d bytes)", len(data), destination_file, target_file.strpath, len(serial_data))
 
 
 class DLSStreamdumper(object):
-    """A service that triggers actions running on stream data."""
+    """A service that writes ZeroMQ stream messages to files."""
 
-    # Logger name
     _logger_name = "dlstbx.services.streamdumper"
 
     def __init__(self, *args, **kwargs):
@@ -136,7 +126,7 @@ class DLSStreamdumper(object):
         self.dumper_thread = ZMQReceiver(self.log, self._zmq_stream)
         self.dumper_thread.daemon = True
         self.dumper_thread.name = "ZMQ"
-        self.log.info("Starting ZMQ listener thread")
+        self.log.debug("Starting ZMQ listener thread")
         self.dumper_thread.start()
         # self._register_idle(0.1, self.countdown)
 

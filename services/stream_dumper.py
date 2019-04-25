@@ -77,6 +77,7 @@ class ZMQReceiver(threading.Thread):
             dcid = int(header["acqID"])
             destination = dcid_cache.get(dcid)
             if not destination:
+                self.log.debug("DCID %d seen for the first time. Checking ISPyB", dcid)
                 image_directory = self._ispyb.get_data_collection(dcid).file_directory
                 visit_base = re_visit_base.search(image_directory)
                 if not visit_base:
@@ -89,6 +90,7 @@ class ZMQReceiver(threading.Thread):
                 dcid_cache[dcid] = destination = (
                     py.path.local(visit_base.group(1)) / "tmp" / "dump" / str(dcid)
                 )
+                self.log.debug("DCID %d has destination %s", dcid, destination.strpath)
             image_number = header.get("frame")
             if image_number is not None:
                 destination_file = "image%06d" % (image_number + 1)
@@ -110,6 +112,7 @@ class ZMQReceiver(threading.Thread):
             target_file = destination.join(destination_file)
             target_file.write_binary(serial_data, ensure=True)
             self.log.info("Written %d part multipart message for %s to %s (%d bytes)", len(data), destination_file, target_file.strpath, len(serial_data))
+        self.log.info("Receiver thread terminating")
 
 
 class DLSStreamdumper(object):

@@ -15,10 +15,11 @@ import zmq
 
 
 class ZMQReceiver(threading.Thread):
-    def __init__(self, logger, zmq_stream):
+    def __init__(self, logger, zmq_stream, service_termination_call):
         super(ZMQReceiver, self).__init__()
         self.log = logger
         self.zmq_stream = zmq_stream
+        self._terminate_service = service_termination_call
 
     # @pysnooper.snoop()
     def shutdown(self):
@@ -51,6 +52,7 @@ class ZMQReceiver(threading.Thread):
             self._receiver_loop()
         except Exception as e:
             self.log.error("Unhandled exception %r", e, exc_info=True)
+            self._terminate_service()
         finally:
             if self._ispyb:
                 self._ispyb.disconnect()
@@ -77,7 +79,7 @@ class ZMQReceiver(threading.Thread):
                     header,
                 )
                 continue
-            if not header["acqID"].isdigit():
+            if not str(header["acqID"]).isdigit():
                 self.log.error(
                     "Dropped packet with non-numeric DCID %r", header["acqID"]
                 )
@@ -149,7 +151,7 @@ class DLSStreamdumper(object):
 
     def initializing(self):
         """Start ZMQ listener thread."""
-        self.dumper_thread = ZMQReceiver(self.log, self._zmq_stream)
+        self.dumper_thread = ZMQReceiver(self.log, self._zmq_stream, self._request_termination)
         self.dumper_thread.daemon = True
         self.dumper_thread.name = "ZMQ"
         self.log.debug("Starting ZMQ listener thread")

@@ -55,6 +55,9 @@ class ZMQReceiver(threading.Thread):
             if self._ispyb:
                 self._ispyb.disconnect()
                 self._ispyb = None
+            if self.zmq_context and not self.zmq_context.closed:
+                self.zmq_context.destroy()
+            self.zmq_context = None
 
     def _receiver_loop(self):
         re_visit_base = re.compile("^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/")
@@ -74,11 +77,26 @@ class ZMQReceiver(threading.Thread):
                     header,
                 )
                 continue
+            if not header["acqID"].isdigit():
+                self.log.error(
+                    "Dropped packet with non-numeric DCID %r", header["acqID"]
+                )
+                continue
             dcid = int(header["acqID"])
             destination = dcid_cache.get(dcid)
             if not destination:
                 self.log.debug("DCID %d seen for the first time. Checking ISPyB", dcid)
-                image_directory = self._ispyb.get_data_collection(dcid).file_directory
+                try:
+                    image_directory = self._ispyb.get_data_collection(
+                        dcid
+                    ).file_directory
+                except Exception:
+                    self.log.error(
+                        "Could not read information from ISPyB for DCID %d. Packet dropped.",
+                        dcid,
+                        exc_info=True,
+                    )
+                    continue
                 visit_base = re_visit_base.search(image_directory)
                 if not visit_base:
                     self.log.error(
@@ -111,9 +129,14 @@ class ZMQReceiver(threading.Thread):
             serial_data = msgpack.packb(data, use_bin_type=True)
             target_file = destination.join(destination_file)
             target_file.write_binary(serial_data, ensure=True)
-            self.log.info("Written %d part multipart message for %s to %s (%d bytes)", len(data), destination_file, target_file.strpath, len(serial_data))
+            self.log.info(
+                "Written %d part multipart message for %s to %s (%d bytes)",
+                len(data),
+                destination_file,
+                target_file.strpath,
+                len(serial_data),
+            )
         self.log.info("Receiver thread terminating")
-
 
 class DLSStreamdumper(object):
     """A service that writes ZeroMQ stream messages to files."""

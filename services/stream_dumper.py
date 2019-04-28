@@ -140,6 +140,7 @@ class ZMQReceiver(threading.Thread):
             )
         self.log.info("Receiver thread terminating")
 
+
 class DLSStreamdumper(object):
     """A service that writes ZeroMQ stream messages to files."""
 
@@ -151,7 +152,9 @@ class DLSStreamdumper(object):
 
     def initializing(self):
         """Start ZMQ listener thread."""
-        self.dumper_thread = ZMQReceiver(self.log, self._zmq_stream, self._request_termination)
+        self.dumper_thread = ZMQReceiver(
+            self.log, self._zmq_stream, self._request_termination
+        )
         self.dumper_thread.daemon = True
         self.dumper_thread.name = "ZMQ"
         self.log.debug("Starting ZMQ listener thread")

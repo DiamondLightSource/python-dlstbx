@@ -13,11 +13,59 @@ from __future__ import absolute_import, division, print_function
 
 import json
 import pprint
+import re
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
 
+import py
 import workflows.recipe
 from dlstbx.ispybtbx import ispyb_filter
+
+recipe_matcher = re.compile(
+    "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
+)
+
+
+def get_dcid_for_recipe_ID(recipe):
+    if not recipe_matcher.match(recipe):
+        return
+
+    base_path = py.path.local("/dls/tmp/zocalo/dispatcher")
+    candidates = base_path.listdir()
+    for d in filter(lambda x: x.check(dir=True), candidates):
+        recipe_file = d.join(recipe[0:2]).join(recipe[2:])
+        if recipe_file.check():
+            try:
+                lines = iter(recipe_file.readlines(cr=False))
+                while lines.next() != "Incoming message body:":
+                    pass
+                incoming_block = []
+
+                line = lines.next()
+                while line:
+                    incoming_block.append(line)
+                    line = lines.next()
+            except StopIteration:
+                sys.exit("Malformed recipe found in {}".format(recipe_file.strpath))
+
+            incoming_block = json.loads("\n".join(incoming_block))
+            if (
+                not isinstance(incoming_block, dict)
+                or "parameters" not in incoming_block
+                or not isinstance(incoming_block["parameters"], dict)
+            ):
+                sys.exit(
+                    "Recipe {} does not contain processing parameters".format(
+                        recipe_file.strpath
+                    )
+                )
+            parameters = incoming_block["parameters"]
+            if parameters.get("ispyb_dcid"):
+                return {"ispyb_dcid": parameters["ispyb_dcid"]}
+            sys.exit("Recipe {} does not reference a DCID".format(recipe_file.strpath))
+    else:
+        sys.exit("Recipe {} not found.".format(recipe))
+
 
 if __name__ == "__main__":
     parser = OptionParser(usage="dlstbx.find_in_ispyb [options] dcid")
@@ -53,13 +101,20 @@ if __name__ == "__main__":
     (options, args) = parser.parse_args(sys.argv[1:])
 
     for arg in args:
-        parameters = {}
-        if options.reprocess:
-            print("Processing ID:", arg)
-            parameters["ispyb_process"] = int(arg)
+        parameters = get_dcid_for_recipe_ID(arg)
+        if parameters:
+            print("Recipe ID:", arg)
         else:
-            print("Data collection ID:", arg)
-            parameters["ispyb_dcid"] = int(arg)
+            parameters = {}
+            if options.reprocess:
+                parameters["ispyb_process"] = int(arg)
+            else:
+                parameters["ispyb_dcid"] = int(arg)
+
+        if parameters.get("ispyb_process"):
+            print("Processing ID:", parameters["ispyb_process"])
+        else:
+            print("Data collection ID:", parameters["ispyb_dcid"])
         message, parameters = ispyb_filter({}, parameters)
 
         if options.recipefile:

@@ -31,7 +31,7 @@ log = logging.getLogger("dlstbx.dc_sim")
 # Constants
 MX_SCRIPTS_BINDIR = "/dls_sw/apps/mx-scripts/bin"
 DBSERVER_HOST = "sci-serv3"
-DBSERVER_PORT = "1994"
+DBSERVER_PORT = "2611"
 
 
 def f(_v):

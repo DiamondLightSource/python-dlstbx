@@ -59,7 +59,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             "-s",
             "sci-serv3",
             "-p",
-            "1994",
+            "2611",
             "--fix_sgids",
             "-d",
             "-i",

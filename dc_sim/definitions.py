@@ -17,12 +17,6 @@ tests = {
         },
     },
     "gridscan": {
-        "src_dir": "/dls/i04/data/2014/cm4952-4/20141015/grid/th1_2",
-        "src_run_num": (1,),
-        "src_prefix": ("grid1",),
-        "results": {},
-    },
-    "gridscan2": {
         "src_dir": "/dls/i04/data/2016/cm14452-2/20160425/grid/protein-1-cm14452-2/thermo_10",
         "src_run_num": (3,),
         "src_prefix": ("thermo_10",),

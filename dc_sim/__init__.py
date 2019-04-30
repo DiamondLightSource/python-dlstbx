@@ -22,6 +22,7 @@ import tempfile
 import time
 import uuid
 
+import dlstbx.dc_sim.dbserverclient
 import dlstbx.dc_sim.definitions
 import dlstbx.dc_sim.mydb
 
@@ -29,7 +30,6 @@ log = logging.getLogger("dlstbx.dc_sim")
 
 # Constants
 MX_SCRIPTS_BINDIR = "/dls_sw/apps/mx-scripts/bin"
-DBSERVER_SRCDIR = "/dls_sw/apps/mx-scripts/ispyb-dbserver/src"
 DBSERVER_HOST = "sci-serv3"
 DBSERVER_PORT = "1994"
 
@@ -55,59 +55,16 @@ def s(_v):
         return str(_v)
 
 
-def call_dbserver(xml_input):
-    try:
-        f_in = tempfile.NamedTemporaryFile(suffix=".xml", dir="/tmp", delete=False)
-        f_in_name = f_in.name
-        f_in.write(xml_input)
-        f_in.close()
-        f_out = tempfile.NamedTemporaryFile(suffix=".xml", dir="/tmp", delete=False)
-        f_out_name = f_out.name
-        f_out.close()
-
-        result = procrunner.run(
-            [
-                os.path.join(DBSERVER_SRCDIR, "DbserverClient.py"),
-                "-h",
-                DBSERVER_HOST,
-                "-p",
-                DBSERVER_PORT,
-                "-i",
-                f_in_name,
-                "-d",
-                "-o",
-                f_out_name,
-            ]
-        )
-        assert not result["exitcode"]
-
-        with open(f_out_name, "r") as fh:
-            return fh.read()
-    finally:
-        try:
-            f_in.close()
-        except Exception:
-            pass
-        try:
-            f_out.close()
-        except Exception:
-            pass
-        try:
-            os.remove(f_in_name)
-        except Exception:
-            pass
-        try:
-            os.remove(f_out_name)
-        except Exception:
-            pass
-
-
 def copy_via_temp_file(source, destination):
     dest_dir, dest_file = os.path.split(destination)
     temp_dest_file = ".tmp." + dest_file
     temp_destination = os.path.join(dest_dir, temp_dest_file)
     shutil.copyfile(source, temp_destination)
     os.rename(temp_destination, destination)
+
+
+def clean_nan_null_minusone(s):
+    return re.sub("\<[^<>]*\>(null|nan|-1)\</[^<>]*\>", "", s)
 
 
 def populate_blsample_xml_template(_row):
@@ -121,14 +78,12 @@ def populate_blsample_xml_template(_row):
         f(_row["wirewidth"]),
         s(_row["comments"]),
         s(_row["blsamplestatus"]),
-        i(_row["isinsamplechanger"]),
         s(_row["lastknowncenteringposition"]),
     )
 
     # remove lines with null, nan and -1 values:
-    temp = re.sub("\<.*\>null\</.*\>\n", "", temp)
-    temp = re.sub("\<.*\>nan\</.*\>\n", "", temp)
-    return re.sub("\<.*\>-1\</.*\>\n", "", temp)
+    temp = clean_nan_null_minusone(temp)
+    return temp
 
 
 def populate_dcg_xml_template(_row, _sessionid, _blsample_id):
@@ -137,16 +92,7 @@ def populate_dcg_xml_template(_row, _sessionid, _blsample_id):
     if _blsample_id != None:
         blsample_id_elem = "<blSampleId>%d</blSampleId>\n" % _blsample_id
 
-    temp = dcg_temp_xml % (
-        _sessionid,
-        blsample_id_elem,
-        s(_row["experimenttype"]),
-        nowstr,
-        s(_row["crystalclass"]),
-        s(_row["detectormode"]),
-    )
-
-    temp_format = dcg_temp_xml_format.format(
+    temp = dcg_temp_xml_format.format(
         sessionid=_sessionid,
         blsample_xml=blsample_id_elem,
         comments="Simulated datacollection.",
@@ -155,12 +101,10 @@ def populate_dcg_xml_template(_row, _sessionid, _blsample_id):
         crystalclass=s(_row["crystalclass"]),
         detectormode=s(_row["detectormode"]),
     )
-    assert temp == temp_format, "%s\n !=\n%s" % (temp, temp_format)
 
     # remove lines with null, nan and -1 values:
-    temp = re.sub("\<.*\>null\</.*\>\n", "", temp)
-    temp = re.sub("\<.*\>nan\</.*\>\n", "", temp)
-    return re.sub("\<.*\>-1\</.*\>\n", "", temp)
+    temp = clean_nan_null_minusone(temp)
+    return temp
 
 
 def populate_grid_info_xml_template(_row, _dcgid):
@@ -178,9 +122,8 @@ def populate_grid_info_xml_template(_row, _dcgid):
     )
 
     # remove lines with null, nan and -1 values:
-    temp = re.sub("\<.*\>null\</.*\>\n", "", temp)
-    temp = re.sub("\<.*\>nan\</.*\>\n", "", temp)
-    return re.sub("\<.*\>-1\</.*\>\n", "", temp)
+    temp = clean_nan_null_minusone(temp)
+    return temp
 
 
 def populate_dc_xml_template(
@@ -258,118 +201,119 @@ def populate_dc_xml_template(
     )
 
     # remove lines with null, nan and -1 values:
-    temp = re.sub("\<.*\>null\</.*\>\n", "", temp)
-    temp = re.sub("\<.*\>nan\</.*\>\n", "", temp)
-    return re.sub("\<.*\>-1\</.*\>\n", "", temp)
+    temp = clean_nan_null_minusone(temp)
+    return temp
 
 
-blsample_xml = """<?xml version="1.0" ?>
-<BLSample>
-<name>%s</name>
-<code>%s</code>
-<location>%s</location>
-<holderLength>%.2f</holderLength>
-<loopLength>%.2f</loopLength>
-<loopType>%s</loopType>
-<wireWidth>%.2f</wireWidth>
-<comments>%s</comments>
-<blSampleStatus>%s</blSampleStatus>
-<isInSampleChanger>%d</isInSampleChanger>
-<lastKnownCenteringPosition>%s</lastKnownCenteringPosition>
-</BLSample>"""
+blsample_xml = (
+    '<?xml version="1.0" encoding="ISO-8859-1"?>'
+    "<BLSample>"
+    "<name>%s</name>"
+    "<code>%s</code>"
+    "<location>%s</location>"
+    "<holderLength>%.6f</holderLength>"
+    "<loopLength>%.6f</loopLength>"
+    "<loopType>%s</loopType>"
+    "<wireWidth>%.6f</wireWidth>"
+    "<comments>%s</comments>"
+    "<blSampleStatus>%s</blSampleStatus>"
+    "<isInSampleChanger>False</isInSampleChanger>"
+    "<lastKnownCenteringPosition>%s</lastKnownCenteringPosition>"
+    "</BLSample>"
+)
 
-dcg_temp_xml = """<?xml version="1.0" ?>
-<DataCollectionGroup>
-<sessionId>%d</sessionId>
-%s<comments>Simulated datacollection.</comments>
-<experimentType>%s</experimentType>
-<startTime>%s</startTime>
-<crystalClass>%s</crystalClass>
-<detectorMode>%s</detectorMode>
-</DataCollectionGroup>"""
-dcg_temp_xml_format = """<?xml version="1.0" ?>
-<DataCollectionGroup>
-<sessionId>{sessionid}</sessionId>
-{blsample_xml}<comments>{comments}</comments>
-<experimentType>{experimenttype}</experimentType>
-<startTime>{starttime}</startTime>
-<crystalClass>{crystalclass}</crystalClass>
-<detectorMode>{detectormode}</detectorMode>
-</DataCollectionGroup>"""
+dcg_temp_xml_format = (
+    '<?xml version="1.0" encoding="ISO-8859-1"?>'
+    "<DataCollectionGroup>"
+    "<sessionId>{sessionid}</sessionId>"
+    "{blsample_xml}"
+    "<experimentType>{experimenttype}</experimentType>"
+    "<startTime>{starttime}</startTime>"
+    "<crystalClass>{crystalclass}</crystalClass>"
+    "<detectorMode>{detectormode}</detectorMode>"
+    "<comments>{comments}</comments>"
+    "</DataCollectionGroup>"
+)
 
-grid_info_temp_xml = """<?xml version="1.0" ?>
-<GridInfo>
-<dataCollectionGroupId>%d</dataCollectionGroupId>
-<dx_mm>%.2f</dx_mm>
-<dy_mm>%.2f</dy_mm>
-<steps_x>%d</steps_x>
-<steps_y>%d</steps_y>
-<pixelsPerMicronX>%.4f</pixelsPerMicronX>
-<pixelsPerMicronY>%.4f</pixelsPerMicronY>
-<snapshot_offsetXPixel>%.4f</snapshot_offsetXPixel>
-<snapshot_offsetYPixel>%.4f</snapshot_offsetYPixel>
-<orientation>%s</orientation>
-</GridInfo>
-"""
+grid_info_temp_xml = (
+    '<?xml version="1.0" encoding="ISO-8859-1"?>'
+    "<GridInfo>"
+    "<dataCollectionGroupId>%d</dataCollectionGroupId>"
+    "<dx_mm>%.2f</dx_mm>"
+    "<dy_mm>%.2f</dy_mm>"
+    "<steps_x>%d</steps_x>"
+    "<steps_y>%d</steps_y>"
+    "<pixelsPerMicronX>%.4f</pixelsPerMicronX>"
+    "<pixelsPerMicronY>%.4f</pixelsPerMicronY>"
+    "<snapshot_offsetXPixel>%.4f</snapshot_offsetXPixel>"
+    "<snapshot_offsetYPixel>%.4f</snapshot_offsetYPixel>"
+    "<orientation>%s</orientation>"
+    "</GridInfo>"
+)
+dc_temp_xml = (
+    '<?xml version="1.0" encoding="ISO-8859-1"?>'
+    "<DataCollection>"
+    "<sessionId>%d</sessionId>"
+    "<dataCollectionGroupId>%d</dataCollectionGroupId>"
+    "%s<dataCollectionNumber>%d</dataCollectionNumber>"
+    "<startTime>%s</startTime>"
+    "<runStatus>%s</runStatus>"
+    "<axisStart>%.2f</axisStart>"
+    "<axisEnd>%.2f</axisEnd>"
+    "<axisRange>%.2f</axisRange>"
+    "<overlap>%.2f</overlap>"
+    "<numberOfImages>%d</numberOfImages>"
+    "<startImageNumber>%d</startImageNumber>"
+    "<numberOfPasses>%d</numberOfPasses>"
+    "<exposureTime>%.3f</exposureTime>"
+    "<imageDirectory>%s</imageDirectory>"
+    "<imagePrefix>%s</imagePrefix>"
+    "<imageSuffix>%s</imageSuffix>"
+    "<fileTemplate>%s</fileTemplate>"
+    "<wavelength>%.6f</wavelength>"
+    "<resolution>%.2f</resolution>"
+    "<detectorDistance>%.6f</detectorDistance>"
+    "<xBeam>%.6f</xBeam>"
+    "<yBeam>%.6f</yBeam>"
+    "<comments>{comments}</comments>"
+    "<printableForReport>%d</printableForReport>"
+    "<slitGapVertical>%.6f</slitGapVertical>"
+    "<slitGapHorizontal>%.6f</slitGapHorizontal>"
+    "<transmission>%.6f</transmission>"
+    "<synchrotronMode>%s</synchrotronMode>"
+    "<xtalSnapshotFullPath1>%s</xtalSnapshotFullPath1>"
+    "<xtalSnapshotFullPath2>%s</xtalSnapshotFullPath2>"
+    "<xtalSnapshotFullPath3>%s</xtalSnapshotFullPath3>"
+    "<xtalSnapshotFullPath4>%s</xtalSnapshotFullPath4>"
+    "<rotationAxis>%s</rotationAxis>"
+    "<phiStart>%.1f</phiStart>"
+    "<chiStart>%.1f</chiStart>"
+    "<kappaStart>%.1f</kappaStart>"
+    "<omegaStart>%.1f</omegaStart>"
+    "<undulatorGap1>%.6f</undulatorGap1>"
+    "<beamSizeAtSampleX>%.2f</beamSizeAtSampleX>"
+    "<beamSizeAtSampleY>%.2f</beamSizeAtSampleY>"
+    "<flux>%.6f</flux>"
+    "<focalSpotSizeAtSampleX>%d</focalSpotSizeAtSampleX>"
+    "<focalSpotSizeAtSampleY>%d</focalSpotSizeAtSampleY>"
+    "</DataCollection>"
+)
 
-dc_temp_xml = """<?xml version="1.0" ?>
-<DataCollection>
-<sessionId>%d</sessionId>
-<dataCollectionGroupId>%d</dataCollectionGroupId>
-%s<dataCollectionNumber>%d</dataCollectionNumber>
-<startTime>%s</startTime>
-<runStatus>%s</runStatus>
-<axisStart>%.2f</axisStart>
-<axisEnd>%.2f</axisEnd>
-<axisRange>%.2f</axisRange>
-<overlap>%.2f</overlap>
-<numberOfImages>%d</numberOfImages>
-<startImageNumber>%d</startImageNumber>
-<numberOfPasses>%d</numberOfPasses>
-<exposureTime>%.3f</exposureTime>
-<imageDirectory>%s</imageDirectory>
-<imagePrefix>%s</imagePrefix>
-<imageSuffix>%s</imageSuffix>
-<fileTemplate>%s</fileTemplate>
-<wavelength>%.6f</wavelength>
-<resolution>%.2f</resolution>
-<detectorDistance>%.6f</detectorDistance>
-<xBeam>%.6f</xBeam>
-<yBeam>%.6f</yBeam>
-<comments>{comments}</comments>
-<printableForReport>%d</printableForReport>
-<slitGapVertical>%.6f</slitGapVertical>
-<slitGapHorizontal>%.6f</slitGapHorizontal>
-<transmission>%.6f</transmission>
-<synchrotronMode>%s</synchrotronMode>
-<xtalSnapshotFullPath1>%s</xtalSnapshotFullPath1>
-<xtalSnapshotFullPath2>%s</xtalSnapshotFullPath2>
-<xtalSnapshotFullPath3>%s</xtalSnapshotFullPath3>
-<xtalSnapshotFullPath4>%s</xtalSnapshotFullPath4>
-<rotationAxis>%s</rotationAxis>
-<phiStart>%.1f</phiStart>
-<chiStart>%.1f</chiStart>
-<kappaStart>%.1f</kappaStart>
-<omegaStart>%.1f</omegaStart>
-<undulatorGap1>%.6f</undulatorGap1>
-<beamSizeAtSampleX>%.2f</beamSizeAtSampleX>
-<beamSizeAtSampleY>%.2f</beamSizeAtSampleY>
-<flux>%.6f</flux>
-<focalSpotSizeAtSampleX>%d</focalSpotSizeAtSampleX>
-<focalSpotSizeAtSampleY>%d</focalSpotSizeAtSampleY>
-</DataCollection>"""
+dc_endtime_temp_xml = (
+    '<?xml version="1.0" encoding="ISO-8859-1"?>'
+    "<DataCollection>"
+    "<dataCollectionId>%d</dataCollectionId>"
+    "<endTime>%s</endTime>"
+    "</DataCollection>"
+)
 
-dc_endtime_temp_xml = """<?xml version="1.0" ?>
-<DataCollection>
-<dataCollectionId>%d</dataCollectionId>
-<endTime>%s</endTime>
-</DataCollection>"""
-
-dcg_endtime_temp_xml = """<?xml version="1.0" ?>
-<DataCollectionGroup>
-<dataCollectionGroupId>%d</dataCollectionGroupId>
-<endTime>%s</endTime>
-</DataCollectionGroup>"""
+dcg_endtime_temp_xml = (
+    '<?xml version="1.0" encoding="ISO-8859-1"?>'
+    "<DataCollectionGroup>"
+    "<dataCollectionGroupId>%d</dataCollectionGroupId>"
+    "<endTime>%s</endTime>"
+    "</DataCollectionGroup>"
+)
 
 
 def mkdir_p(path):
@@ -463,7 +407,7 @@ def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
 def retrieve_blsample_values(_db, _src_blsampleid):
     _db.cursor.execute(
         "SELECT blsampleid, name, code, location, holderlength, looplength, looptype, wirewidth, comments, "
-        "blsamplestatus, isinsamplechanger, lastknowncenteringposition "
+        "blsamplestatus, lastknowncenteringposition "
         "FROM BLSample "
         "WHERE blsampleid=%d " % _src_blsampleid
     )
@@ -515,6 +459,7 @@ def simulate(
     scenario_name=None,
 ):
     _db = dlstbx.dc_sim.mydb.DB()
+    dbsc = dlstbx.dc_sim.dbserverclient.DbserverClient(DBSERVER_HOST, DBSERVER_PORT)
 
     log.debug("Getting the source SessionID")
     src_sessionid = retrieve_sessionid(_db, _src_visit)
@@ -601,14 +546,7 @@ def simulate(
 
             # Ingest the blsample data using the DbserverClient
             log.debug("(dbserver) Ingest the blsample XML")
-            xml = call_dbserver(blsample_xml)
-
-            m = re.search("<blSampleId>(\d+)</blSampleId>", xml)
-            if m:
-                blsample_id = int(m.groups()[0])
-            else:
-                sys.exit("No blsampleid found in output")
-
+            blsample_id = dbsc.storeBLSample(blsample_xml)
         else:
             blsample_id = _sample_id
 
@@ -618,14 +556,7 @@ def simulate(
 
         # Ingest the DataCollectionGroup xml data using the DbserverClient
         log.debug("(dbserver) Ingest the datacollectiongroup XML")
-        xml = call_dbserver(dcg_xml)
-
-        datacollectiongroupid = None
-        m = re.search("<dataCollectionGroupId>(\d+)</dataCollectionGroupId>", xml)
-        if m:
-            datacollectiongroupid = int(m.groups()[0])
-        else:
-            sys.exit("No datacollectiongroupid found in output")
+        datacollectiongroupid = dbsc.storeDataCollectionGroup(dcg_xml)
     else:
         datacollectiongroupid = data_collection_group_id
 
@@ -638,13 +569,7 @@ def simulate(
 
         # Ingest the GridInfo.xml file data using the DbserverClient
         log.debug("(dbserver) Ingest the gridinfo XML")
-        xml = call_dbserver(gridinfo_xml)
-        gridinfoid = None
-        m = re.search("<gridInfoId>(\d+)</gridInfoId>", xml)
-        if m:
-            gridinfoid = int(m.groups()[0])
-        else:
-            sys.exit("No gridinfoid found in output")
+        gridinfoid = dbsc.storeGridInfo(gridinfo_xml)
 
     # Produce a DataCollection xml blob from the template and use the new run number
     dc_xml = populate_dc_xml_template(
@@ -662,13 +587,7 @@ def simulate(
 
     # Ingest the DataCollection xml blob data using the DbserverClient
     log.debug("(dbserver) Ingest the datacollection XML")
-    xml = call_dbserver(dc_xml)
-    datacollectionid = None
-    m = re.search("<dataCollectionId>(\d+)</dataCollectionId>", xml)
-    if m:
-        datacollectionid = int(m.groups()[0])
-    else:
-        sys.exit("No datacollectionid found in output")
+    datacollectionid = dbsc.storeDataCollection(dc_xml)
 
     run_at_params = [
         "automaticProcessing_Yes",
@@ -734,7 +653,7 @@ def simulate(
     log.debug(
         "(dbserver) Ingest the datacollection XML to update with the d.c. end time"
     )
-    call_dbserver(dc_xml)
+    dbsc.updateDbObject(dc_xml)
 
     # Populate a datacollectiongroup XML blob
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -746,7 +665,7 @@ def simulate(
     log.debug(
         "(dbserver) Ingest the datacollectiongroup XML to update with the d.c.g. end time"
     )
-    call_dbserver(dcg_xml)
+    dbsc.updateDbObject(dcg_xml)
 
     command = ["%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, _beamline)]
     command.extend(run_at_params)

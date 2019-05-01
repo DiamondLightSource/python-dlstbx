@@ -344,7 +344,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             if params["ispyb_parameters"].get("spacegroup"):
                 command.append("symm=%s" % params["ispyb_parameters"]["spacegroup"])
             if params["ispyb_parameters"].get("unit_cell"):
-                command.append("cell=%s" % params["ispyb_parameters"]["unit_cell"])
+                command.append("cell=%s" % params["ispyb_parameters"]["unit_cell"].replace(",", " "))
 
         return command
 

@@ -533,9 +533,11 @@ def simulate(
                     src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x]
                 )
 
+    log.info("539 src_blsampleid: %s", src_blsampleid)
+    log.info("539 _sample_id: %s", _sample_id)
     # Get a blsampleId either from a copy of the blsample used by the src dc or use the blsampleId provided on the command-line
     blsample_id = None
-    if src_blsampleid != None:
+    if src_blsampleid is not None:
         if _sample_id is None:
 
             log.debug("(SQL) Getting values from the source blsample record")
@@ -549,6 +551,8 @@ def simulate(
             blsample_id = dbsc.storeBLSample(blsample_xml)
         else:
             blsample_id = _sample_id
+    elif _sample_id is not None:
+        blsample_id = _sample_id
 
     if data_collection_group_id is None:
         # Produce a DataCollectionGroup xml blob from the template

@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import json
 import logging
+import os
 
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
@@ -66,7 +67,14 @@ class FastRDPWrapper(zocalo.wrapper.BaseWrapper):
         """Construct fast_rdp command line.
        Takes job parameter dictionary, returns array."""
 
-        command = ["fast_rdp", "--atom=S", params["fast_rdp"]["fast_dp_directory"]]
+        command = ["fast_rdp", "--atom=S"]
+
+        fast_dp_directory = params["fast_rdp"].get("fast_dp_directory")
+        if fast_dp_directory is None:
+            fast_dp_directory = params["ispyb_parameters"].get("fast_dp_directory")
+        assert fast_dp_directory is not None
+        assert os.path.isdir(fast_dp_directory)
+        command.append(fast_dp_directory)
 
         if params.get("ispyb_parameters"):
             if params["ispyb_parameters"].get("d_min"):

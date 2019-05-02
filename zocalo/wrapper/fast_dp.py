@@ -192,6 +192,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             ".cbf": False,
             ".INP": False,
             ".xml": False,
+            ".state": False,
             ".log": "log",
             ".html": "log",
             ".txt": "log",

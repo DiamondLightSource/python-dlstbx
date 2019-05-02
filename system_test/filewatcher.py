@@ -23,8 +23,10 @@ class FilewatcherService(CommonSystemTest):
         open(self.filepattern % self.filecount, "w").close()
 
     def test_success_notifications(self):
-        """Send a recipe to the filewatcher. Create 200 files and wait for the
-       appropriate notification messages."""
+        """
+        Send a recipe to the filewatcher. Create 200 files and wait for the
+        appropriate notification messages.
+        """
 
         self.create_temp_dir()
         self.filepattern = os.path.join(tmpdir, self.guid, "tst_%05d.cbf")
@@ -228,7 +230,8 @@ class FilewatcherService(CommonSystemTest):
 
     def test_failure_notification_immediate(self):
         """Send a recipe to the filewatcher. Do not create any files and wait for
-       the appropriate timeout notification messages."""
+        the appropriate timeout notification messages.
+        """
 
         self.create_temp_dir()
         failpattern = os.path.join(tmpdir, self.guid, "tst_fail_%05d.cbf")
@@ -328,8 +331,11 @@ class FilewatcherService(CommonSystemTest):
         open(self.delayed_fail_file, "w").close()
 
     def test_failure_notification_delayed(self):
-        """Send a recipe to the filewatcher. Creates a single file and waits for
-       the appropriate initial success and subsequent timeout notification messages."""
+        """
+        Send a recipe to the filewatcher. Creates a single file and waits for
+        the appropriate initial success and subsequent timeout notification
+        messages.
+        """
 
         self.create_temp_dir()
         semifailpattern = os.path.join(tmpdir, self.guid, "tst_semi_%05d.cbf")

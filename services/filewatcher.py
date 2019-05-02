@@ -8,15 +8,16 @@ from workflows.services.common_service import CommonService
 
 
 def is_file_selected(file_number, selection, total_files):
-    """Checks if item number 'file_number' is in a list of 'selection'
-     evenly spread out items out of a list of 'total_files' items,
-     without constructing the full list of selected items.
+    """
+    Checks if item number 'file_number' is in a list of 'selection'
+    evenly spread out items out of a list of 'total_files' items,
+    without constructing the full list of selected items.
 
-     :param: file_number: positive number between 1 and total_files
-     :param: selection: number of files to be selected out of total_files
-     :param: total_files: number of total files
-     :return: True if file_number would be selected, False otherwise.
-  """
+    :param: file_number: positive number between 1 and total_files
+    :param: selection: number of files to be selected out of total_files
+    :param: total_files: number of total files
+    :return: True if file_number would be selected, False otherwise.
+    """
     return total_files <= selection or file_number in (
         total_files,
         1
@@ -27,8 +28,10 @@ def is_file_selected(file_number, selection, total_files):
 
 
 class DLSFileWatcher(CommonService):
-    """A service that waits for files to arrive on disk and notifies interested
-     parties when they do, or don't."""
+    """
+    A service that waits for files to arrive on disk and notifies interested
+    parties when they do, or don't.
+    """
 
     # Human readable service name
     _service_name = "DLS Filewatcher"
@@ -37,8 +40,10 @@ class DLSFileWatcher(CommonService):
     _logger_name = "dlstbx.services.filewatcher"
 
     def initializing(self):
-        """Subscribe to the filewatcher queue. Received messages must be
-       acknowledged."""
+        """
+        Subscribe to the filewatcher queue. Received messages must be
+        acknowledged.
+        """
         self.log.info("Filewatcher starting")
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -50,7 +55,24 @@ class DLSFileWatcher(CommonService):
 
     def watch_files(self, rw, header, message):
         """Check for presence of files."""
+        if rw.recipe_step["parameters"].get("pattern"):
+            self.watch_files_pattern(rw, header, message)
+        elif rw.recipe_step["parameters"].get("list") is not None:
+            # self.watch_files_list(rw, header, message)
+            self.log.warning("Received unsupported message")
+            rw.transport.nack(header)
+        else:
+            self.log.error(
+                "Rejecting message with unknown watch target"
+            )
+            rw.transport.nack(header)
 
+
+    def watch_files_pattern(self, rw, header, message):
+        """
+        Watch for files where the names follow a linear numeric pattern,
+        eg. "template%05d.cbf" with indices 0 to 1800.
+        """
         # Check if message body contains partial results from a previous run
         status = {"seen-files": 0, "start-time": time.time()}
         if isinstance(message, dict):

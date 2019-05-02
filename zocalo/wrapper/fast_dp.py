@@ -81,7 +81,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
         if params.get("ispyb_parameters"):
             if params["ispyb_parameters"].get("d_min"):
                 command.append(
-                    "--resolution-low=%s" % params["ispyb_parameters"]["d_min"]
+                    "--resolution-high=%s" % params["ispyb_parameters"]["d_min"]
                 )
             if params["ispyb_parameters"].get("spacegroup"):
                 command.append(

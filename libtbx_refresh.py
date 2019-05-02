@@ -67,6 +67,7 @@ libtbx.pkg_utils.define_entry_points(
                 "dozor = dlstbx.zocalo.wrapper.dozor:DozorWrapper",
                 "edna = dlstbx.zocalo.wrapper.edna:EdnaWrapper",
                 "fast_dp = dlstbx.zocalo.wrapper.fast_dp:FastDPWrapper",
+                "fast_rdp = dlstbx.zocalo.wrapper.fast_rdp:FastRDPWrapper",
                 "fast_ep = dlstbx.zocalo.wrapper.fast_ep:FastEPWrapper",
                 "dimple = dlstbx.zocalo.wrapper.dimple:DimpleWrapper",
                 "anode = dlstbx.zocalo.wrapper.anode:AnodeWrapper",

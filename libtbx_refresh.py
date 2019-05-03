@@ -14,9 +14,12 @@ try:
 except Exception:
     pass
 
-import dials.precommitbx.nagger
+try:
+    import dials.precommitbx.nagger
 
-dials.precommitbx.nagger.nag()
+    dials.precommitbx.nagger.nag()
+except ImportError:
+    pass
 
 # --- workflows service registration exploration ---
 

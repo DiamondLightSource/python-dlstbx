@@ -51,7 +51,12 @@ class DLSCluster(CommonService):
             commands = "\n".join(commands)
 
         cluster = parameters.get("cluster")
-        if cluster not in ("cluster", "testcluster"):
+        if cluster not in ("cluster", "testcluster", "hamilton"):
+            if cluster:
+                self.log.warning(
+                    "Unknown cluster %s specified, defaulting to normal cluster",
+                    cluster,
+                )
             cluster = "cluster"
         submission_params = parameters.get("cluster_submission_parameters", "")
         if (

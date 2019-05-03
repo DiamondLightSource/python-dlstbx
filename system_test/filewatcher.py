@@ -22,7 +22,184 @@ class FilewatcherService(CommonSystemTest):
         self.filecount += 1
         open(self.filepattern % self.filecount, "w").close()
 
-    def test_success_notifications(self):
+    def disabled_test_list_success_notifications(self): # TODO
+        """
+        Send a recipe to the filewatcher based on a list of files.
+        Create 10 files and wait for the appropriate notification messages.
+        """
+
+        self.create_temp_dir()
+
+        self.names = [ 'apple', 'banana', 'cherry', 'date', 'elderberry', 'fig', 'grapefruit', 'hackberry', 'imbe', 'jackfruit' ]
+        self.filecount = 0
+
+        recipe = {
+            1: {
+                "service": "DLS Filewatcher",
+                "queue": "filewatcher",
+                "parameters": {
+                    "list": self.names,
+                    "burst-limit": 3,
+                    "timeout": 120,
+                    "timeout-first": 60,
+                },
+                "output": {
+                    "first": 2,  # First
+                    "every": 3,  # Every
+                    "last": 4,  # Last
+                    "select-3": 5,  # Select
+                    "7": 6,  # Specific
+                    "finally": 7,  # End-of-job
+                    "timeout": 8,  # Should not be triggered here
+                    "any": 9,  # End-of-job if at least one file was found
+                },
+            },
+            2: {"queue": "transient.system_test." + self.guid + ".pass.2"},
+            3: {"queue": "transient.system_test." + self.guid + ".pass.3"},
+            4: {"queue": "transient.system_test." + self.guid + ".pass.4"},
+            5: {"queue": "transient.system_test." + self.guid + ".pass.5"},
+            6: {"queue": "transient.system_test." + self.guid + ".pass.6"},
+            7: {"queue": "transient.system_test." + self.guid + ".pass.7"},
+            8: {"queue": "transient.system_test." + self.guid + ".pass.8"},
+            9: {"queue": "transient.system_test." + self.guid + ".pass.9"},
+            "start": [(1, "")],
+        }
+        recipe = Recipe(recipe)
+        recipe.validate()
+
+        self.send_message(
+            queue="filewatcher",
+            message={
+                "recipe": recipe.recipe,
+                "recipe-pointer": "1",
+                "environment": {"ID": self.guid},
+            },
+            headers={"workflows-recipe": True},
+        )
+
+        def create_first_five_files():
+            for file_number in range(0, 5):
+                open(self.names[file_number], "w").close()
+
+        def create_next_five_files():
+            for file_number in range(5,10):
+                open(self.names[file_number], "w").close()
+
+        # Create 5 files at t=5 seconds
+        self.timer_event(at_time=5, callback=create_first_five_files)
+
+        # Create 5 files at t=65 seconds
+        self.timer_event(at_time=65, callback=create_next_five_files)
+
+        # Now check for expected messages, marked in the recipe above:
+
+        # First ============================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=2,
+            payload={
+                "file": self.names[0],
+                "file-list-index": 1,
+            },
+            timeout=50,
+        )
+
+        # Every ============================
+
+        for file_number in range(10):
+            self.expect_recipe_message(
+                environment={"ID": self.guid},
+                recipe=recipe,
+                recipe_path=[1],
+                recipe_pointer=3,
+                payload={
+                    "file": self.names[file_number],
+                    "file-list-index": file_number + 1,
+                },
+                min_wait=4.5,
+                timeout=150,
+            )
+
+        # Last =============================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=4,
+            payload={
+                "file": self.names[9],
+                "file-list-index": 10,
+            },
+            min_wait=63,
+            timeout=150,
+        )
+
+        # Select ===========================
+
+        for file_number in (
+            1,
+            5,
+            10,
+        ):
+            self.expect_recipe_message(
+                environment={"ID": self.guid},
+                recipe=recipe,
+                recipe_path=[1],
+                recipe_pointer=5,
+                payload={
+                    "file": self.names[file_number-1],
+                    "file-list-index": file_number,
+                },
+                timeout=150,
+            )
+
+        # Specific =========================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=6,
+            payload={
+                "file": self.names[7-1],
+                "file-list-index": 7,
+            },
+            timeout=150,
+        )
+
+        # Finally ==========================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=7,
+            payload={"files-expected": 10, "files-seen": 10, "success": True},
+            min_wait=63,
+            timeout=150,
+        )
+
+        # Timeout ==========================
+
+        # No timeout message should be sent
+
+        # Any ==============================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=9,
+            payload={"files-expected": 10, "files-seen": 10},
+            min_wait=63,
+            timeout=150,
+        )
+
+    def _test_pattern_success_notifications(self):
         """
         Send a recipe to the filewatcher. Create 200 files and wait for the
         appropriate notification messages.
@@ -228,7 +405,7 @@ class FilewatcherService(CommonSystemTest):
             timeout=150,
         )
 
-    def test_failure_notification_immediate(self):
+    def _test_pattern_failure_notification_immediate(self):
         """Send a recipe to the filewatcher. Do not create any files and wait for
         the appropriate timeout notification messages.
         """
@@ -330,7 +507,7 @@ class FilewatcherService(CommonSystemTest):
         """Create one file for the test."""
         open(self.delayed_fail_file, "w").close()
 
-    def test_failure_notification_delayed(self):
+    def _test_pattern_failure_notification_delayed(self):
         """
         Send a recipe to the filewatcher. Creates a single file and waits for
         the appropriate initial success and subsequent timeout notification

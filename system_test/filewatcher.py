@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function
 import os.path
 
 import dlstbx.util
-import mock
 from dlstbx.system_test.common import CommonSystemTest
 from workflows.recipe import Recipe
 
@@ -22,7 +21,7 @@ class FilewatcherService(CommonSystemTest):
         self.filecount += 1
         open(self.filepattern % self.filecount, "w").close()
 
-    def disabled_test_list_success_notifications(self): # TODO
+    def test_list_success_notifications(self):
         """
         Send a recipe to the filewatcher based on a list of files.
         Create 10 files and wait for the appropriate notification messages.
@@ -30,7 +29,21 @@ class FilewatcherService(CommonSystemTest):
 
         self.create_temp_dir()
 
-        self.names = [ 'apple', 'banana', 'cherry', 'date', 'elderberry', 'fig', 'grapefruit', 'hackberry', 'imbe', 'jackfruit' ]
+        names = [
+            os.path.join(tmpdir, self.guid, f)
+            for f in (
+                "apple",
+                "banana",
+                "cherry",
+                "date",
+                "elderberry",
+                "fig",
+                "grapefruit",
+                "hackberry",
+                "imbe",
+                "jackfruit",
+            )
+        ]
         self.filecount = 0
 
         recipe = {
@@ -38,7 +51,7 @@ class FilewatcherService(CommonSystemTest):
                 "service": "DLS Filewatcher",
                 "queue": "filewatcher",
                 "parameters": {
-                    "list": self.names,
+                    "list": names,
                     "burst-limit": 3,
                     "timeout": 120,
                     "timeout-first": 60,
@@ -79,11 +92,11 @@ class FilewatcherService(CommonSystemTest):
 
         def create_first_five_files():
             for file_number in range(0, 5):
-                open(self.names[file_number], "w").close()
+                open(names[file_number], "w").close()
 
         def create_next_five_files():
-            for file_number in range(5,10):
-                open(self.names[file_number], "w").close()
+            for file_number in range(5, 10):
+                open(names[file_number], "w").close()
 
         # Create 5 files at t=5 seconds
         self.timer_event(at_time=5, callback=create_first_five_files)
@@ -100,10 +113,7 @@ class FilewatcherService(CommonSystemTest):
             recipe=recipe,
             recipe_path=[1],
             recipe_pointer=2,
-            payload={
-                "file": self.names[0],
-                "file-list-index": 1,
-            },
+            payload={"file": names[0], "file-list-index": 1},
             timeout=50,
         )
 
@@ -116,7 +126,7 @@ class FilewatcherService(CommonSystemTest):
                 recipe_path=[1],
                 recipe_pointer=3,
                 payload={
-                    "file": self.names[file_number],
+                    "file": names[file_number],
                     "file-list-index": file_number + 1,
                 },
                 min_wait=4.5,
@@ -130,28 +140,21 @@ class FilewatcherService(CommonSystemTest):
             recipe=recipe,
             recipe_path=[1],
             recipe_pointer=4,
-            payload={
-                "file": self.names[9],
-                "file-list-index": 10,
-            },
+            payload={"file": names[9], "file-list-index": 10},
             min_wait=63,
             timeout=150,
         )
 
         # Select ===========================
 
-        for file_number in (
-            1,
-            5,
-            10,
-        ):
+        for file_number in (1, 6, 10):
             self.expect_recipe_message(
                 environment={"ID": self.guid},
                 recipe=recipe,
                 recipe_path=[1],
                 recipe_pointer=5,
                 payload={
-                    "file": self.names[file_number-1],
+                    "file": names[file_number - 1],
                     "file-list-index": file_number,
                 },
                 timeout=150,
@@ -164,10 +167,7 @@ class FilewatcherService(CommonSystemTest):
             recipe=recipe,
             recipe_path=[1],
             recipe_pointer=6,
-            payload={
-                "file": self.names[7-1],
-                "file-list-index": 7,
-            },
+            payload={"file": names[7 - 1], "file-list-index": 7},
             timeout=150,
         )
 
@@ -199,7 +199,7 @@ class FilewatcherService(CommonSystemTest):
             timeout=150,
         )
 
-    def _test_pattern_success_notifications(self):
+    def test_pattern_success_notifications(self):
         """
         Send a recipe to the filewatcher. Create 200 files and wait for the
         appropriate notification messages.
@@ -405,7 +405,112 @@ class FilewatcherService(CommonSystemTest):
             timeout=150,
         )
 
-    def _test_pattern_failure_notification_immediate(self):
+    def test_list_failure_notification_immediate(self):
+        """Send a recipe to the filewatcher. Do not create any files and wait for
+        the appropriate timeout notification messages.
+        """
+
+        self.create_temp_dir()
+        names = [
+            os.path.join(tmpdir, self.guid, f)
+            for f in (
+                "apple",
+                "banana",
+                "cherry",
+                "date",
+                "elderberry",
+                "fig",
+                "grapefruit",
+                "hackberry",
+                "imbe",
+                "jackfruit",
+            )
+        ]
+
+        recipe = {
+            1: {
+                "service": "DLS Filewatcher",
+                "queue": "filewatcher",
+                "parameters": {
+                    "list": names,
+                    "burst-limit": 3,
+                    "timeout": 10,
+                    "timeout-first": 60,
+                    "log-timeout-as-info": True,
+                },
+                "output": {
+                    "first": 2,  # Should not be triggered here
+                    "every": 3,  # Should not be triggered here
+                    "last": 4,  # Should not be triggered here
+                    "select-3": 5,  # Should not be triggered here
+                    "7": 6,  # Should not be triggered here
+                    "finally": 7,  # End-of-job
+                    "timeout": 8,  # Ran into a timeout condition
+                    "any": 9,  # Should not be triggered here
+                },
+            },
+            2: {"queue": "transient.system_test." + self.guid + ".fail.2"},
+            3: {"queue": "transient.system_test." + self.guid + ".fail.3"},
+            4: {"queue": "transient.system_test." + self.guid + ".fail.4"},
+            5: {"queue": "transient.system_test." + self.guid + ".fail.5"},
+            6: {"queue": "transient.system_test." + self.guid + ".fail.6"},
+            7: {"queue": "transient.system_test." + self.guid + ".fail.7"},
+            8: {"queue": "transient.system_test." + self.guid + ".fail.8"},
+            9: {"queue": "transient.system_test." + self.guid + ".fail.9"},
+            "start": [(1, "")],
+        }
+        recipe = Recipe(recipe)
+        recipe.validate()
+
+        self.send_message(
+            queue="filewatcher",
+            message={
+                "recipe": recipe.recipe,
+                "recipe-pointer": "1",
+                "environment": {"ID": self.guid},
+            },
+            headers={"workflows-recipe": True},
+        )
+
+        # Check for expected messages, marked in the recipe above:
+
+        # First ============================
+        # Every ============================
+        # Last =============================
+        # Select ===========================
+        # Specific =========================
+
+        # No messages should be sent
+
+        # Finally ==========================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=7,
+            payload={"files-expected": 10, "files-seen": 0, "success": False},
+            min_wait=55,
+            timeout=90,
+        )
+
+        # Timeout ==========================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=8,
+            payload={"file": names[0], "file-list-index": 1, "success": False},
+            min_wait=55,
+            timeout=90,
+        )
+
+        # Any ==============================
+
+        # No messages should be sent
+
+    def test_pattern_failure_notification_immediate(self):
         """Send a recipe to the filewatcher. Do not create any files and wait for
         the appropriate timeout notification messages.
         """
@@ -503,11 +608,167 @@ class FilewatcherService(CommonSystemTest):
 
         # No messages should be sent
 
-    def create_delayed_failure_file(self):
-        """Create one file for the test."""
-        open(self.delayed_fail_file, "w").close()
+    def test_list_failure_notification_delayed(self):
+        """
+        Send a recipe to the filewatcher. Creates a single file and waits for
+        the appropriate initial success and subsequent timeout notification
+        messages.
+        """
 
-    def _test_pattern_failure_notification_delayed(self):
+        self.create_temp_dir()
+        names = [
+            os.path.join(tmpdir, self.guid, f)
+            for f in (
+                "apple",
+                "banana",
+                "cherry",
+                "date",
+                "elderberry",
+                "fig",
+                "grapefruit",
+                "hackberry",
+                "imbe",
+                "jackfruit",
+            )
+        ]
+
+        recipe = {
+            1: {
+                "service": "DLS Filewatcher",
+                "queue": "filewatcher",
+                "parameters": {
+                    "list": names,
+                    "burst-limit": 3,
+                    "timeout": 10,
+                    "timeout-first": 60,
+                    "log-timeout-as-info": True,
+                },
+                "output": {
+                    "first": 2,  # First
+                    "every": 3,  # Every
+                    "last": 4,  # Should not be triggered here
+                    "select-3": 5,  # Select
+                    "7": 6,  # Should not be triggered here
+                    "finally": 7,  # End-of-job
+                    "timeout": 8,  # Ran into a timeout condition
+                    "any": 9,  # End-of-job if at least one file was found
+                },
+            },
+            2: {"queue": "transient.system_test." + self.guid + ".semi.2"},
+            3: {"queue": "transient.system_test." + self.guid + ".semi.3"},
+            4: {"queue": "transient.system_test." + self.guid + ".semi.4"},
+            5: {"queue": "transient.system_test." + self.guid + ".semi.5"},
+            6: {"queue": "transient.system_test." + self.guid + ".semi.6"},
+            7: {"queue": "transient.system_test." + self.guid + ".semi.7"},
+            8: {"queue": "transient.system_test." + self.guid + ".semi.8"},
+            9: {"queue": "transient.system_test." + self.guid + ".semi.9"},
+            "start": [(1, "")],
+        }
+        recipe = Recipe(recipe)
+        recipe.validate()
+
+        self.send_message(
+            queue="filewatcher",
+            message={
+                "recipe": recipe.recipe,
+                "recipe-pointer": "1",
+                "environment": {"ID": self.guid},
+            },
+            headers={"workflows-recipe": True},
+        )
+
+        # Create first four files after 10 seconds
+        def create_four_files():
+            for file_number in range(0, 4):
+                open(names[file_number], "w").close()
+
+        self.timer_event(at_time=10, callback=create_four_files)
+
+        # Check for expected messages, marked in the recipe above:
+
+        # First ============================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=2,
+            payload={"file": names[0], "file-list-index": 1},
+            timeout=40,
+        )
+
+        # Every ============================
+
+        for file_number in range(4):
+            self.expect_recipe_message(
+                environment={"ID": self.guid},
+                recipe=recipe,
+                recipe_path=[1],
+                recipe_pointer=3,
+                payload={
+                    "file": names[file_number],
+                    "file-list-index": file_number + 1,
+                },
+                min_wait=9,
+                timeout=50,
+            )
+
+        # Last =============================
+
+        # No messages should be sent
+
+        # Select ===========================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=5,
+            payload={"file": names[0], "file-list-index": 1},
+            timeout=40,
+        )
+
+        # Specific =========================
+
+        # No messages should be sent
+
+        # Finally ==========================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=7,
+            payload={"files-expected": 10, "files-seen": 4, "success": False},
+            min_wait=15,
+            timeout=50,
+        )
+
+        # Timeout ==========================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=8,
+            payload={"file": names[4], "file-list-index": 5, "success": False},
+            min_wait=15,
+            timeout=50,
+        )
+
+        # Any ==============================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=9,
+            payload={"files-expected": 10, "files-seen": 4},
+            min_wait=15,
+            timeout=50,
+        )
+
+    def test_pattern_failure_notification_delayed(self):
         """
         Send a recipe to the filewatcher. Creates a single file and waits for
         the appropriate initial success and subsequent timeout notification
@@ -516,7 +777,7 @@ class FilewatcherService(CommonSystemTest):
 
         self.create_temp_dir()
         semifailpattern = os.path.join(tmpdir, self.guid, "tst_semi_%05d.cbf")
-        self.delayed_fail_file = semifailpattern % 5
+        delayed_fail_file = semifailpattern % 5
 
         recipe = {
             1: {
@@ -566,7 +827,10 @@ class FilewatcherService(CommonSystemTest):
         )
 
         # Create first file after 30 seconds
-        self.timer_event(at_time=30, callback=self.create_delayed_failure_file)
+        def create_delayed_failure_file():
+            open(delayed_fail_file, "w").close()
+
+        self.timer_event(at_time=30, callback=create_delayed_failure_file)
 
         # Check for expected messages, marked in the recipe above:
 
@@ -578,7 +842,7 @@ class FilewatcherService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=2,
             payload={
-                "file": self.delayed_fail_file,
+                "file": delayed_fail_file,
                 "file-number": 1,
                 "file-pattern-index": 5,
             },
@@ -594,7 +858,7 @@ class FilewatcherService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=3,
             payload={
-                "file": self.delayed_fail_file,
+                "file": delayed_fail_file,
                 "file-number": 1,
                 "file-pattern-index": 5,
             },

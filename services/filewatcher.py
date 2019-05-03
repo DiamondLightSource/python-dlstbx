@@ -58,15 +58,228 @@ class DLSFileWatcher(CommonService):
         if rw.recipe_step["parameters"].get("pattern"):
             self.watch_files_pattern(rw, header, message)
         elif rw.recipe_step["parameters"].get("list") is not None:
-            # self.watch_files_list(rw, header, message)
-            self.log.warning("Received unsupported message")
-            rw.transport.nack(header)
+            self.watch_files_list(rw, header, message)
         else:
-            self.log.error(
-                "Rejecting message with unknown watch target"
-            )
+            self.log.error("Rejecting message with unknown watch target")
             rw.transport.nack(header)
 
+    @staticmethod
+    def _parse_selections(outputs):
+        """
+        Returns a set integers for requested file selections.
+
+        :param: outputs: An iterable of strings. Those starting with "select-"
+                         are picked out and parsed as "select-$number".
+        :return: A dictionary of {$number: "select-$number"} entries.
+        """
+        # Identify selections to notify for
+        selections = [
+            k for k in outputs if isinstance(k, basestring) and k.startswith("select-")
+        ]
+        return {int(k[7:]): k for k in selections}
+
+    @staticmethod
+    def _notify_for_found_file(nth_file, filecount, selections, notify_function):
+        """
+        Sends notifications to relevant output streams.
+
+        :param: nth_file: Number of the seen file. 1 if this is the first seen file.
+        :param: filecount: Total number of files.
+        :param: selections: Dictionary of {int: str} entries pointing to output
+                            streams that should receive $int evenly spaced files
+                            out of all files.
+        :param: notify_function: Function called for each triggered output.
+        """
+
+        # Notify for first file
+        if nth_file == 1:
+            notify_function("first")
+
+        # Notify for every file
+        notify_function("every")
+
+        # Notify for last file
+        if nth_file == filecount:
+            notify_function("last")
+
+        # Notify for nth file
+        notify_function(nth_file)
+        notify_function(str(nth_file))
+
+        # Notify for selections
+        for m, dest in selections.iteritems():
+            if is_file_selected(nth_file, m, filecount):
+                notify_function(dest)
+
+    def watch_files_list(self, rw, header, message):
+        """
+        Watch for a given list of files.
+        """
+        # Check if message body contains partial results from a previous run
+        status = {"seen-files": 0, "start-time": time.time()}
+        if isinstance(message, dict):
+            status.update(message.get("filewatcher-status", {}))
+
+        # List files to wait for
+        filelist = rw.recipe_step["parameters"]["list"]
+        filecount = len(filelist)
+
+        # Identify selections to notify for
+        selections = self._parse_selections(rw.recipe_step["output"])
+
+        # Conditionally acknowledge receipt of the message
+        txn = rw.transport.transaction_begin()
+        rw.transport.ack(header, transaction=txn)
+
+        # Look for files
+        files_found = 0
+        while (
+            status["seen-files"] < filecount
+            and files_found < rw.recipe_step["parameters"].get("burst-limit", 100)
+            and os.path.isfile(filelist[status["seen-files"]])
+        ):
+            files_found += 1
+            status["seen-files"] += 1
+
+            def notify_function(output):
+                rw.send_to(
+                    output,
+                    {
+                        "file": filelist[status["seen-files"] - 1],
+                        "file-list-index": status["seen-files"],
+                    },
+                    transaction=txn,
+                )
+
+            self._notify_for_found_file(
+                status["seen-files"], filecount, selections, notify_function
+            )
+
+        # Are we done?
+        if status["seen-files"] == filecount:
+            # Happy days
+
+            self.log.info(
+                "All %d files in list found after %.1f seconds.",
+                filecount,
+                time.time() - status["start-time"],
+            )
+
+            rw.send_to(
+                "any",
+                {"files-expected": filecount, "files-seen": status["seen-files"]},
+                transaction=txn,
+            )
+            rw.send_to(
+                "finally",
+                {
+                    "files-expected": filecount,
+                    "files-seen": status["seen-files"],
+                    "success": True,
+                },
+                transaction=txn,
+            )
+
+            rw.transport.transaction_commit(txn)
+            return
+
+        message_delay = rw.recipe_step["parameters"].get("burst-wait")
+        if files_found == 0:
+            # If no files were found, check timeout conditions.
+            if status["seen-files"] == 0:
+                # For first file: relevant timeout is 'timeout-first', with fallback 'timeout', with fallback 1 hour
+                timeout = rw.recipe_step["parameters"].get(
+                    "timeout-first", rw.recipe_step["parameters"].get("timeout", 3600)
+                )
+                timed_out = (status["start-time"] + timeout) < time.time()
+            else:
+                # For subsequent files: relevant timeout is 'timeout', with fallback 1 hour
+                timeout = rw.recipe_step["parameters"].get("timeout", 3600)
+                timed_out = (status["last-seen"] + timeout) < time.time()
+            if timed_out:
+                # File watch operation has timed out.
+
+                # Report all timeouts as warnings unless the recipe specifies otherwise
+                timeoutlog = self.log.warning
+                if rw.recipe_step["parameters"].get("log-timeout-as-info"):
+                    timeoutlog = self.log.info
+
+                timeoutlog(
+                    "Filewatcher for file %s timed out after %.1f seconds (%d of %d files found, nothing seen for %.1f seconds)",
+                    filelist[status["seen-files"]],
+                    time.time() - status["start-time"],
+                    status["seen-files"],
+                    filecount,
+                    time.time() - status.get("last-seen", status["start-time"]),
+                )
+
+                # Notify for timeout
+                rw.send_to(
+                    "timeout",
+                    {
+                        "file": filelist[status["seen-files"]],
+                        "file-list-index": status["seen-files"] + 1,
+                        "success": False,
+                    },
+                    transaction=txn,
+                )
+                # Notify for 'any' target if any file was seen
+                if status["seen-files"]:
+                    rw.send_to(
+                        "any",
+                        {
+                            "files-expected": filecount,
+                            "files-seen": status["seen-files"],
+                        },
+                        transaction=txn,
+                    )
+
+                # Notify for 'finally' outcome
+                rw.send_to(
+                    "finally",
+                    {
+                        "files-expected": filecount,
+                        "files-seen": status["seen-files"],
+                        "success": False,
+                    },
+                    transaction=txn,
+                )
+                # Stop processing message
+                rw.transport.transaction_commit(txn)
+                return
+
+            # If no timeouts are triggered, set a minimum waiting time.
+            if message_delay:
+                message_delay = max(1, message_delay)
+            else:
+                message_delay = 1
+            self.log.debug(
+                (
+                    "No further files in list found after a total time of {time:.1f} seconds\n"
+                    "{files_seen} of {files_total} files seen so far"
+                ).format(
+                    time=time.time() - status["start-time"],
+                    files_seen=status["seen-files"],
+                    files_total=filecount,
+                )
+            )
+        else:
+            # Otherwise note last time progress was made
+            status["last-seen"] = time.time()
+            self.log.info(
+                "%d files with list indices %d-%d (out of %d) found within %.1f seconds",
+                files_found,
+                status["seen-files"] - files_found + 1,
+                status["seen-files"],
+                filecount,
+                time.time() - status["start-time"],
+            )
+
+        # Send results to myself for next round of processing
+        rw.checkpoint(
+            {"filewatcher-status": status}, delay=message_delay, transaction=txn
+        )
+        rw.transport.transaction_commit(txn)
 
     def watch_files_pattern(self, rw, header, message):
         """
@@ -93,17 +306,12 @@ class DLSFileWatcher(CommonService):
             rw.transport.nack(header)
             return
 
+        # Identify selections to notify for
+        selections = self._parse_selections(rw.recipe_step["output"])
+
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin()
         rw.transport.ack(header, transaction=txn)
-
-        # Identify selections to notify for
-        selections = [
-            k
-            for k in rw.recipe_step["output"].iterkeys()
-            if isinstance(k, basestring) and k.startswith("select-")
-        ]
-        selections = {int(k[7:]): k for k in selections}
 
         # Look for files
         files_found = 0
@@ -113,34 +321,24 @@ class DLSFileWatcher(CommonService):
             and os.path.isfile(pattern % (pattern_start + status["seen-files"]))
         ):
             filename = pattern % (pattern_start + status["seen-files"])
-            notification_record = {
-                "file": filename,
-                "file-number": status["seen-files"] + 1,
-                "file-pattern-index": pattern_start + status["seen-files"],
-            }
 
             files_found += 1
             status["seen-files"] += 1
 
-            # Notify for first file
-            if status["seen-files"] == 1:
-                rw.send_to("first", notification_record, transaction=txn)
+            def notify_function(output):
+                rw.send_to(
+                    output,
+                    {
+                        "file": filename,
+                        "file-number": status["seen-files"],
+                        "file-pattern-index": pattern_start + status["seen-files"] - 1,
+                    },
+                    transaction=txn,
+                )
 
-            # Notify for every file
-            rw.send_to("every", notification_record, transaction=txn)
-
-            # Notify for last file
-            if status["seen-files"] == filecount:
-                rw.send_to("last", notification_record, transaction=txn)
-
-            # Notify for nth file
-            rw.send_to(status["seen-files"], notification_record, transaction=txn)
-            rw.send_to(str(status["seen-files"]), notification_record, transaction=txn)
-
-            # Notify for selections
-            for m, dest in selections.iteritems():
-                if is_file_selected(status["seen-files"], m, filecount):
-                    rw.send_to(dest, notification_record, transaction=txn)
+            self._notify_for_found_file(
+                status["seen-files"], filecount, selections, notify_function
+            )
 
         # Are we done?
         if status["seen-files"] == filecount:
@@ -189,7 +387,7 @@ class DLSFileWatcher(CommonService):
                 transaction=txn,
             )
 
-            self._transport.transaction_commit(txn)
+            rw.transport.transaction_commit(txn)
             return
 
         message_delay = rw.recipe_step["parameters"].get("burst-wait")
@@ -254,7 +452,7 @@ class DLSFileWatcher(CommonService):
                     transaction=txn,
                 )
                 # Stop processing message
-                self._transport.transaction_commit(txn)
+                rw.transport.transaction_commit(txn)
                 return
 
             # If no timeouts are triggered, set a minimum waiting time.

@@ -14,6 +14,10 @@ try:
 except Exception:
     pass
 
+import dials.precommitbx.nagger
+
+dials.precommitbx.nagger.nag()
+
 # --- workflows service registration exploration ---
 
 print("Enumerating workflow services:")

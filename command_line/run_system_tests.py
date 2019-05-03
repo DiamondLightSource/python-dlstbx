@@ -19,7 +19,6 @@ console = ColorStreamHandler()
 #  console.setLevel(logging.INFO)
 logger.addHandler(console)
 logger.setLevel(logging.DEBUG)
-dlstbx.enable_graylog()
 logger = logging.getLogger("dlstbx.system_test")
 
 # Set up transport: override default stomp host
@@ -30,6 +29,11 @@ if "--test" in sys.argv:
     test_mode = True
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
     sys.argv = filter(lambda x: x != "--test", sys.argv)
+
+# Only log to graylog for live tests
+if not test_mode:
+    dlstbx.enable_graylog()
+
 StompTransport.load_configuration_file(default_configuration)
 
 transport = StompTransport()

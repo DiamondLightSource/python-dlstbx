@@ -93,6 +93,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
             # Step 1: Add new record to Screening table, keep the ScreeningId
             d = {
                 "dcid": dcid,
+                "programversion": "Stepped transmission %i" % (i + 1),
                 "program": "Stepped transmission %i" % (i + 1),
                 "comments": "Stepped transmission %i" % (i + 1),
                 "ispyb_command": "insert_screening",

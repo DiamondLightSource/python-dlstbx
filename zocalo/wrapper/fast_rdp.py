@@ -100,13 +100,19 @@ class FastRDPWrapper(zocalo.wrapper.BaseWrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        if "ispyb_parameters" in params and params["ispyb_parameters"].get("fast_dp_directory"):
-            params["fast_rdp"]["fast_dp_directory"] = params["ispyb_parameters"].get("fast_dp_directory")
+        if "ispyb_parameters" in params and params["ispyb_parameters"].get(
+            "fast_dp_directory"
+        ):
+            params["fast_rdp"]["fast_dp_directory"] = params["ispyb_parameters"].get(
+                "fast_dp_directory"
+            )
         if not params["fast_rdp"].get("fast_dp_directory"):
             logger.error("No fast_dp_directory provided for fast_rdp")
             return False
         if not os.path.isdir(params["fast_rdp"].get("fast_dp_directory")):
-            logger.error("%s is not a directory", params["fast_rdp"].get("fast_dp_directory"))
+            logger.error(
+                "%s is not a directory", params["fast_rdp"].get("fast_dp_directory")
+            )
             return False
 
         command = self.construct_commandline(params)

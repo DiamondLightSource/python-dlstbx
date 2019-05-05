@@ -53,7 +53,7 @@ class ArchiverService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=2,
             payload={"failed": 0, "success": 10, "xml": xmldata},
-            timeout=60,
+            timeout=120,
         )
 
     def test_list_archive_a_set_of_existing_files(self):
@@ -101,7 +101,7 @@ class ArchiverService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=2,
             payload={"failed": 0, "success": 10, "xml": xmldata},
-            timeout=60,
+            timeout=120,
         )
 
     def test_pattern_split_set_of_existing_files_into_multiple_archives(self):
@@ -156,7 +156,7 @@ class ArchiverService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=2,
             payload={"failed": 0, "success": 6, "xml": xmldata_1},
-            timeout=60,
+            timeout=120,
         )
 
         self.expect_recipe_message(
@@ -165,7 +165,7 @@ class ArchiverService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=2,
             payload={"failed": 0, "success": 4, "xml": xmldata_2},
-            timeout=60,
+            timeout=120,
         )
 
     def test_list_split_set_of_existing_files_into_multiple_archives(self):
@@ -220,7 +220,7 @@ class ArchiverService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=2,
             payload={"failed": 0, "success": 6, "xml": xmldata_1},
-            timeout=60,
+            timeout=120,
         )
 
         self.expect_recipe_message(
@@ -229,7 +229,7 @@ class ArchiverService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=2,
             payload={"failed": 0, "success": 4, "xml": xmldata_2},
-            timeout=60,
+            timeout=120,
         )
 
     def test_pattern_archive_a_set_of_partially_missing_files(self):
@@ -281,7 +281,7 @@ class ArchiverService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=2,
             payload={"failed": 5, "success": 6, "xml": xmldata},
-            timeout=60,
+            timeout=120,
         )
 
         self.expect_recipe_message(
@@ -292,7 +292,7 @@ class ArchiverService(CommonSystemTest):
             payload=[
                 recipe[1]["parameters"]["pattern"] % x for x in (46, 47, 48, 49, 50)
             ],
-            timeout=60,
+            timeout=120,
         )
 
     def test_list_archive_a_set_of_partially_missing_files(self):
@@ -344,7 +344,7 @@ class ArchiverService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=2,
             payload={"failed": 5, "success": 6, "xml": xmldata},
-            timeout=60,
+            timeout=120,
         )
 
 

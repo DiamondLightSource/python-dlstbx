@@ -61,7 +61,7 @@ class DLSCluster(CommonService):
         submission_params = parameters.get("cluster_submission_parameters", "")
         if (
             parameters.get("cluster_project")
-            and 1 < len(parameters["cluster_project"].strip()) < 8
+            and 1 < len(parameters["cluster_project"].strip())
             and "{" not in parameters["cluster_project"]
         ):
             submission_params = "-P %s %s" % (

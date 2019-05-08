@@ -9,8 +9,8 @@ import logging
 import os
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
+import time
 
-import workflows
 from dlstbx import enable_graylog
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from workflows.transport.stomp_transport import StompTransport
@@ -19,6 +19,13 @@ from workflows.transport.stomp_transport import StompTransport
 #     for https://ispyb.diamond.ac.uk/dc/visit/cm16788-1/id/1515302
 
 if __name__ == "__main__":
+    sys.stderr.write("=" * 79 + "\n")
+    sys.stderr.write("dlstbx.submit_ispyb is deprecated and will be removed soon!\n")
+    sys.stderr.write("=" * 79 + "\n")
+    deprecation_timer = (time.time() - 1557144000) / 3600 / 24
+    print("waiting %.1f seconds before continuing...\n\n" % deprecation_timer)
+    time.sleep(deprecation_timer)
+
     parser = OptionParser(usage="dlstbx.submit_ispyb [options] [dcid]")
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)

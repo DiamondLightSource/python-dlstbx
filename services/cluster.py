@@ -169,6 +169,7 @@ class DLSCluster(CommonService):
             commands,
             "EOF",
         ]
+        self.log.debug("Cluster submission parameters: %s", submission_params)
         self.log.debug("Commands: %s", commands)
         self.log.debug("Working directory: %s", workingdir)
         self.log.debug(str(rw.recipe_step))

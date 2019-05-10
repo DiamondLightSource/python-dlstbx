@@ -10,6 +10,7 @@
     "mock>=2.0",
     "procrunner>=1.0.0",
     "pytest>=3.1",
+    "pytest-mock",
     "workflows>=1.5",
     "zocalo>=0.5.3",
     # Eiger stream work, SCI-7786

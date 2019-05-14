@@ -1,27 +1,27 @@
 from __future__ import absolute_import, division, print_function
 
-import dlstbx.zocalo.controller.strategyenvironment
+import dlstbx.controller.strategyenvironment
 
 
 def _categorize(instances):
     result = {"preparing": {}, "running": {}, "disappearing": {}}
     sortinghat = {
-        dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_HOLD: result[
+        dlstbx.controller.strategyenvironment.StrategyEnvironment.S_HOLD: result[
             "preparing"
         ],
-        dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_PREPARE: result[
+        dlstbx.controller.strategyenvironment.StrategyEnvironment.S_PREPARE: result[
             "preparing"
         ],
-        dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_STARTING: result[
+        dlstbx.controller.strategyenvironment.StrategyEnvironment.S_STARTING: result[
             "preparing"
         ],
-        dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_RUNNING: result[
+        dlstbx.controller.strategyenvironment.StrategyEnvironment.S_RUNNING: result[
             "running"
         ],
-        dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_HOLDSHDN: result[
+        dlstbx.controller.strategyenvironment.StrategyEnvironment.S_HOLDSHDN: result[
             "disappearing"
         ],
-        dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_SHUTDOWN: result[
+        dlstbx.controller.strategyenvironment.StrategyEnvironment.S_SHUTDOWN: result[
             "disappearing"
         ],
     }

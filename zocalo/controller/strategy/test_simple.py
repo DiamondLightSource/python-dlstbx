@@ -4,8 +4,8 @@ import uuid
 
 import mock
 import pytest
-from dlstbx.zocalo.controller.strategy.simple import SimpleStrategy
-from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
+from dlstbx.controller.strategy.simple import SimpleStrategy
+from dlstbx.controller.strategyenvironment import StrategyEnvironment
 
 service = mock.sentinel.service_name
 

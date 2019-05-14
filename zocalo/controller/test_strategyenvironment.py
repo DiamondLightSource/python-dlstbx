@@ -4,11 +4,11 @@ from itertools import count
 
 import mock
 import pytest
-from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
+from dlstbx.controller.strategyenvironment import StrategyEnvironment
 
 
 @mock.patch(
-    "dlstbx.zocalo.controller.strategyenvironment.dlstbx.zocalo.controller.strategy.simple.SimpleStrategy"
+    "dlstbx.controller.strategyenvironment.dlstbx.controller.strategy.simple.SimpleStrategy"
 )
 def test_can_define_set_of_strategies_ignoring_errors(st):
     se = StrategyEnvironment()
@@ -70,7 +70,7 @@ def test_can_define_set_of_strategies_ignoring_errors(st):
     assert se.strategies == {"B": mock.sentinel.rv3}
 
 
-@mock.patch("dlstbx.zocalo.controller.strategyenvironment.uuid")
+@mock.patch("dlstbx.controller.strategyenvironment.uuid")
 def test_that_assessments_are_run_and_services_and_instances_are_created(uu):
     uu.uuid4 = count().next
 

@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import logging
 
-import dlstbx.zocalo.controller.strategyenvironment
+import dlstbx.controller.strategyenvironment
 
 
 def _filter_active(instances):
@@ -11,12 +11,12 @@ def _filter_active(instances):
         for host, instance in instances.iteritems()
         if instance["status"]
         in (
-            dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_HOLD,
-            dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_PREPARE,
-            dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_STARTING,
-            dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_RUNNING,
-            dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_HOLDSHDN,
-            dlstbx.zocalo.controller.strategyenvironment.StrategyEnvironment.S_SHUTDOWN,
+            dlstbx.controller.strategyenvironment.StrategyEnvironment.S_HOLD,
+            dlstbx.controller.strategyenvironment.StrategyEnvironment.S_PREPARE,
+            dlstbx.controller.strategyenvironment.StrategyEnvironment.S_STARTING,
+            dlstbx.controller.strategyenvironment.StrategyEnvironment.S_RUNNING,
+            dlstbx.controller.strategyenvironment.StrategyEnvironment.S_HOLDSHDN,
+            dlstbx.controller.strategyenvironment.StrategyEnvironment.S_SHUTDOWN,
         )
     }
 
@@ -36,7 +36,7 @@ class QueueDynamicStrategy:
         self.service_name = service
         self.queue_name = queue
         self.multiplier = multiplier
-        self.log = logging.getLogger("dlstbx.zocalo.controller.strategy.queuestatic")
+        self.log = logging.getLogger("dlstbx.controller.strategy.queuestatic")
 
         assert self.service_name, "service name not defined"
         assert self.queue_name, "no queue defined to watch"

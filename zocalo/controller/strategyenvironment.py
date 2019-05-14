@@ -5,9 +5,9 @@ import threading
 import time
 import uuid
 
-import dlstbx.zocalo.controller.strategy.queue_dynamic
-import dlstbx.zocalo.controller.strategy.queue_static
-import dlstbx.zocalo.controller.strategy.simple
+import dlstbx.controller.strategy.queue_dynamic
+import dlstbx.controller.strategy.queue_static
+import dlstbx.controller.strategy.simple
 
 
 class StrategyEnvironment(object):
@@ -28,16 +28,16 @@ class StrategyEnvironment(object):
 
     def __init__(self):
         self._classlist = {
-            "simple": dlstbx.zocalo.controller.strategy.simple.SimpleStrategy,
-            "queue_static": dlstbx.zocalo.controller.strategy.queue_static.QueueStaticStrategy,
-            "queue_dynamic": dlstbx.zocalo.controller.strategy.queue_dynamic.QueueDynamicStrategy,
+            "simple": dlstbx.controller.strategy.simple.SimpleStrategy,
+            "queue_static": dlstbx.controller.strategy.queue_static.QueueStaticStrategy,
+            "queue_dynamic": dlstbx.controller.strategy.queue_dynamic.QueueDynamicStrategy,
         }
         self.assessments = {}
         self.environment = {"instances": {}, "services": {}}
         self.strategies = {}
         self.launchers = {}
         self.lock = threading.Lock()
-        self.log = logging.getLogger("dlstbx.zocalo.controller.strategyenvironment")
+        self.log = logging.getLogger("dlstbx.controller.strategyenvironment")
         self.log.setLevel(logging.DEBUG)
 
     def load_strategy(self, strategy):

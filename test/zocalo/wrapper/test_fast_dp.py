@@ -1,11 +1,13 @@
+from __future__ import absolute_import, division, print_function
+
 import json
+
+import dlstbx.wrapper.fast_dp
 import mock
 import py.path
 import workflows
 import workflows.transport.common_transport
 import workflows.recipe.wrapper
-import dlstbx.zocalo.wrapper.fast_dp
-from dlstbx.zocalo.wrapper.fast_dp import FastDPWrapper
 
 
 def test_FastDPWrapper(mocker, tmpdir):
@@ -155,7 +157,7 @@ def test_FastDPWrapper(mocker, tmpdir):
         "dlstbx.util.symlink.create_parent_symlink", autospec=True
     )
     mock_procrunner = mocker.patch(
-        "dlstbx.zocalo.wrapper.fast_dp.procrunner.run", autospec=True
+        "dlstbx.wrapper.fast_dp.procrunner.run", autospec=True
     )
     mock_procrunner.return_value = {"timeout": None, "exitcode": 0, "runtime": 10}
     mock_ensure = mocker.patch.object(py.path.local, "ensure", autospec=True)
@@ -166,7 +168,7 @@ def test_FastDPWrapper(mocker, tmpdir):
         tmpdir.join("workdir", f) for f in expected_output_files
     ]
     mock_get_merging_statistics = mocker.patch.object(
-        dlstbx.zocalo.wrapper.fast_dp, "get_merging_statistics"
+        dlstbx.wrapper.fast_dp, "get_merging_statistics"
     )
     mock_get_merging_statistics.return_value.as_json.return_value = ""
     mock_transport = mock.create_autospec(
@@ -177,7 +179,7 @@ def test_FastDPWrapper(mocker, tmpdir):
     )
 
     # construct the wrapper and set the recipe wrapper
-    wrapper = FastDPWrapper()
+    wrapper = dlstbx.wrapper.fast_dp.FastDPWrapper()
     recwrap = workflows.recipe.wrapper.RecipeWrapper(
         message=recipewrap, transport=mock_transport
     )

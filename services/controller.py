@@ -7,7 +7,7 @@ import threading
 import time
 
 import procrunner
-from dlstbx.zocalo.controller.strategyenvironment import StrategyEnvironment
+from dlstbx.controller.strategyenvironment import StrategyEnvironment
 from workflows.services.common_service import CommonService
 
 

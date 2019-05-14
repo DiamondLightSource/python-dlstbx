@@ -2,15 +2,13 @@ from __future__ import absolute_import, division, print_function
 
 import json
 
-import dlstbx.wrapper.fast_dp
 import mock
-import py.path
-import workflows
-import workflows.transport.common_transport
-import workflows.recipe.wrapper
+import dlstbx.wrapper.fast_dp
+from dlstbx.wrapper.fast_dp import FastDPWrapper
 
 
-def test_FastDPWrapper(mocker, tmpdir):
+def test_FastDPWrapper(make_wrapper, tmpdir, mocker):
+
     image_path = "/dls/i04-1/data/2019/nt18231-19/tmp/2019-05-02/09-36-17-da63fb1b/INS2_29_2_1_0001.cbf:1:200"
     working_directory = tmpdir.join("work_dir")
     working_directory.ensure(dir=True)
@@ -152,43 +150,7 @@ def test_FastDPWrapper(mocker, tmpdir):
         "iotbx-merging-stats.json",
     ]
 
-    # setup various mocked functionality
-    mock_symlink = mocker.patch(
-        "dlstbx.util.symlink.create_parent_symlink", autospec=True
-    )
-    mock_procrunner = mocker.patch(
-        "dlstbx.wrapper.fast_dp.procrunner.run", autospec=True
-    )
-    mock_procrunner.return_value = {"timeout": None, "exitcode": 0, "runtime": 10}
-    mock_ensure = mocker.patch.object(py.path.local, "ensure", autospec=True)
-    mock_ensure.return_value = True
-    mock_copy = mocker.patch.object(py.path.local, "copy", autospec=True)
-    mock_listdir = mocker.patch.object(py.path.local, "listdir", autospec=True)
-    mock_listdir.return_value = [
-        tmpdir.join("workdir", f) for f in expected_output_files
-    ]
-    mock_get_merging_statistics = mocker.patch.object(
-        dlstbx.wrapper.fast_dp, "get_merging_statistics"
-    )
-    mock_get_merging_statistics.return_value.as_json.return_value = ""
-    mock_transport = mock.create_autospec(
-        workflows.transport.common_transport.CommonTransport
-    )
-    mock_send_to = mocker.patch.object(
-        workflows.recipe.wrapper.RecipeWrapper, "send_to"
-    )
-
-    # construct the wrapper and set the recipe wrapper
-    wrapper = dlstbx.wrapper.fast_dp.FastDPWrapper()
-    recwrap = workflows.recipe.wrapper.RecipeWrapper(
-        message=recipewrap, transport=mock_transport
-    )
-    wrapper.set_recipe_wrapper(recwrap)
-
-    # actually run the wrapper
-    wrapper.run()
-
-    # test expected calls to procrunner
+    # expected calls to procrunner
     expected_procrunner_calls = [
         mock.call(
             [
@@ -219,22 +181,6 @@ def test_FastDPWrapper(mocker, tmpdir):
             working_directory=working_directory.strpath,
         ),
     ]
-    mock_procrunner.assert_has_calls(expected_procrunner_calls)
-
-    # test expected symlink calls
-    expected_symlink_calls = [
-        mock.call(working_directory.strpath, "reprocessing-1219941-fastdp"),
-        mock.call(results_directory, "reprocessing-1219941-fastdp"),
-    ]
-    mock_symlink.assert_has_calls(expected_symlink_calls)
-
-    # test call to get_merging_statistics
-    mock_get_merging_statistics.assert_called_with(
-        working_directory.join("fast_dp_unmerged.mtz")
-    )
-
-    # check expected results files were copied to results directory
-    assert mock_copy.call_count == len(expected_output_files)
 
     # non-exhaustive list of output files
     expected_individual_files = {
@@ -242,15 +188,20 @@ def test_FastDPWrapper(mocker, tmpdir):
         "result": ["INTEGRATE.HKL", "fast_dp.mtz", "fast_dp_unmerged.mtz"],
         "graph": ["iotbx-merging-stats.json"],
     }
-    for file_type, files in expected_individual_files.items():
-        for file_name in files:
-            mock_send_to.assert_any_call(
-                "result-individual-file",
-                {
-                    "file_type": file_type,
-                    "file_name": file_name,
-                    "file_path": results_directory,
-                },
-            )
-    mock_send_to.assert_any_call("result-all-files", {"filelist": mock.ANY})
-    mock_send_to.assert_any_call("ispyb", {"ispyb_command_list": mock.ANY})
+
+    wrapper = make_wrapper(
+        FastDPWrapper,
+        recipewrap,
+        expected_output_files=expected_output_files,
+        expected_output_directories=None,
+        expected_individual_files=expected_individual_files,
+        expected_procrunner_calls=expected_procrunner_calls,
+    )
+    mock_get_merging_statistics = mocker.patch.object(
+        dlstbx.wrapper.fast_dp, "get_merging_statistics"
+    )
+    mock_get_merging_statistics.return_value.as_json.return_value = ""
+    wrapper.run()
+    wrapper.verify()
+    # test call to get_merging_statistics
+    mock_get_merging_statistics.assert_called_once()

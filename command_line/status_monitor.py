@@ -141,7 +141,10 @@ class Monitor(object):
                 self.log_box.refresh()
 
     def _is_most_recent_version(self, program, version):
-        vnum = tuple(int(i) for i in version.split("."))
+        try:
+            vnum = tuple(int(i) for i in version.split("."))
+        except ValueError:
+            return False
         if program not in self.most_recent_version:
             self.most_recent_version[program] = (version, vnum)
             return True
@@ -154,7 +157,10 @@ class Monitor(object):
         return False
 
     def _is_outdated_version(self, program, version):
-        vnum = tuple(int(i) for i in version.split("."))
+        try:
+            vnum = tuple(int(i) for i in version.split("."))
+        except ValueError:
+            return True
         if program == "dlstbx":
             return vnum < self.version_dlstbx
         elif program == "workflows":

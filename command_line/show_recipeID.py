@@ -24,7 +24,7 @@ if __name__ == "__main__":
     c = dlstbx.util.colorstreamhandler.ColorStreamHandler
     base_path = py.path.local("/dls/tmp/zocalo/dispatcher")
     candidates = base_path.listdir()
-    directories = list(filter(lambda x: x.check(dir=True), candidates))
+    directories = [x for x in candidates if x.check(dir=True)]
 
     for recipe in args:
         for d in directories:

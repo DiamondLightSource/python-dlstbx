@@ -38,7 +38,7 @@ def run(args):
         job_parameters = params["multi_xia2"]
     else:
         job_parameters = params["xia2"]
-    for param, values in job_parameters.iteritems():
+    for param, values in job_parameters.items():
         if param == "images":
             param = "image"
             values = values.split(",")

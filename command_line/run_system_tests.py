@@ -28,7 +28,7 @@ if "--test" in sys.argv:
     logger.info("Running on test configuration")
     test_mode = True
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
-    sys.argv = filter(lambda x: x != "--test", sys.argv)
+    sys.argv = [x for x in sys.argv if x != "--test"]
 
 # Only log to graylog for live tests
 if not test_mode:
@@ -52,7 +52,7 @@ logger.info("Found %d system test classes" % systest_count)
 if sys.argv[1:] and systest_count:
     systest_classes = {
         n: cls
-        for n, cls in systest_classes.iteritems()
+        for n, cls in systest_classes.items()
         if any(n.lower().startswith(v.lower()) for v in sys.argv[1:])
     }
     logger.info(
@@ -62,9 +62,9 @@ if sys.argv[1:] and systest_count:
     systest_count = len(systest_classes)
 
 tests = {}
-for classname, cls in systest_classes.iteritems():
+for classname, cls in systest_classes.items():
     logger.debug("Collecting tests from %s" % classname)
-    for testname, testsetting in cls(dev_mode=test_mode).collect_tests().iteritems():
+    for testname, testsetting in cls(dev_mode=test_mode).collect_tests().items():
         testresult = Result()
         testresult.set_name(testname)
         testresult.set_classname(classname)
@@ -85,7 +85,7 @@ print("")
 start_time = time.time()  # This is updated after sending all messages
 
 channels = {}
-for test, _ in tests.itervalues():
+for test, _ in tests.values():
     if not test.get("ignore"):
         for expectation in test["expect"]:
             channels[(expectation["queue"], expectation["topic"])] = channels.get(
@@ -108,7 +108,7 @@ def handle_receipt(header, message):
             if expected_message["message"] == message:
                 if expected_message.get("headers"):
                     headers_match = True
-                    for parameter, value in expected_message["headers"].iteritems():
+                    for parameter, value in expected_message["headers"].items():
                         if value != header.get(parameter):
                             headers_match = False
                     if not headers_match:
@@ -157,7 +157,7 @@ def handle_receipt(header, message):
     unexpected_messages.count += 1
 
 
-for queue, topic in channels.iterkeys():
+for queue, topic in channels.keys():
     logger.debug("Subscribing to %s" % queue)
     if queue:
         sub_id = transport.subscribe(queue, handle_receipt)
@@ -169,7 +169,7 @@ for queue, topic in channels.iterkeys():
 
 print("")
 
-for test, _ in tests.itervalues():
+for test, _ in tests.values():
     if not test.get("ignore"):
         for message in test["send"]:
             if message.get("queue"):
@@ -193,7 +193,7 @@ print("")
 start_time = time.time()
 
 timer_events = []
-for test, _ in tests.itervalues():
+for test, _ in tests.values():
     if not test.get("ignore"):
         for event in test["timers"]:
             event["at_time"] = event["at_time"] + start_time
@@ -224,7 +224,7 @@ while keep_waiting:
         last_message = time.time()
     time.sleep(max(0.01, wait_to - time.time()))
 
-    for testname, test in tests.iteritems():
+    for testname, test in tests.items():
         if not test[0].get("ignore"):
             for expectation in test[0]["expect"]:
                 if not expectation.get("received") and not expectation.get(
@@ -241,7 +241,7 @@ while keep_waiting:
                     else:
                         keep_waiting = True
 
-for testname, test in tests.iteritems():
+for testname, test in tests.items():
     if not test[0].get("ignore"):
         for expectation in test[0]["expect"]:
             if expectation.get("early"):
@@ -251,18 +251,18 @@ for testname, test in tests.iteritems():
 
 # Export results
 ts = junit_xml.TestSuite(
-    "dlstbx.system_test", [r for _, r in tests.itervalues()] + [unexpected_messages]
+    "dlstbx.system_test", [r for _, r in tests.values()] + [unexpected_messages]
 )
 with open("output.xml", "w") as f:
     junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
 
 print("")
 
-successes = sum(r.is_success() for _, r in tests.itervalues())
+successes = sum(r.is_success() for _, r in tests.values())
 logger.info(
     "System test run completed, %d of %d tests succeeded." % (successes, len(tests))
 )
-for a, b in tests.itervalues():
+for a, b in tests.values():
     if not b.is_success():
         if b.is_failure() and b.failure_output:
             logger.error(
@@ -277,7 +277,7 @@ for a, b in tests.itervalues():
                 % (
                     b.classname,
                     b.name,
-                    len(filter(lambda x: x.get("received"), a["expect"])),
+                    len([x for x in a["expect"] if x.get("received")]),
                     len(a["expect"]),
                     "(%d early)" % b.early if b.early else "",
                 )

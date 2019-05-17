@@ -34,7 +34,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
         # Set up PIA parameters
         parameters = params.get("find_spots")
         if parameters:
-            parameters = ["{k}={v}".format(k=k, v=v) for k, v in parameters.iteritems()]
+            parameters = ["{k}={v}".format(k=k, v=v) for k, v in parameters.items()]
         else:
             parameters = ["d_max=40"]
 
@@ -108,7 +108,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
         # Identify selection of PIA results to send on
         selections = [
             k
-            for k in self.recwrap.recipe_step["output"].iterkeys()
+            for k in self.recwrap.recipe_step["output"].keys()
             if isinstance(k, basestring) and k.startswith("select-")
         ]
         selections = {int(k[7:]): k for k in selections}
@@ -131,7 +131,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
             print("Every:", pia)
 
             # Send result for image selections
-            for m, dest in selections.iteritems():
+            for m, dest in selections.items():
                 if filenumber in (
                     imagecount,
                     1

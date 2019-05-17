@@ -111,7 +111,7 @@ class DLSClusterMonitor(CommonService):
         )
         waiting_jobs_per_queue = {
             queue: pending_jobs[queue]
-            for queue in set(map(lambda q: q["class"], queuelist)) | set(pending_jobs)
+            for queue in set(q["class"] for q in queuelist) | set(pending_jobs)
         }
         self.report_statistic(
             waiting_jobs_per_queue,

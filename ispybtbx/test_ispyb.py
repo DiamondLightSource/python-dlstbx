@@ -67,13 +67,13 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
     )
 
     non_ispyb_parameters = {
-        k: v for k, v in parameters.iteritems() if not k.startswith("ispyb_")
+        k: v for k, v in parameters.items() if not k.startswith("ispyb_")
     }
     assert non_ispyb_parameters == {"dummy_param": mock.sentinel.dummy_param}
 
 
 def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples():
-    for example, dcid in ds.iteritems():
+    for example, dcid in ds.items():
         message = {}
         parameters = {"ispyb_dcid": dcid}
         message, parameters = ispyb_filter(message, parameters)

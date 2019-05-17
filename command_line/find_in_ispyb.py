@@ -32,19 +32,21 @@ def get_dcid_for_recipe_ID(recipe):
 
     base_path = py.path.local("/dls/tmp/zocalo/dispatcher")
     candidates = base_path.listdir()
-    for d in filter(lambda x: x.check(dir=True), candidates):
+    for d in candidates:
+        if not d.check(dir=True):
+            continue
         recipe_file = d.join(recipe[0:2]).join(recipe[2:])
         if recipe_file.check():
             try:
                 lines = iter(recipe_file.readlines(cr=False))
-                while lines.next() != "Incoming message body:":
+                while next(lines) != "Incoming message body:":
                     pass
                 incoming_block = []
 
-                line = lines.next()
+                line = next(lines)
                 while line:
                     incoming_block.append(line)
-                    line = lines.next()
+                    line = next(lines)
             except StopIteration:
                 sys.exit("Malformed recipe found in {}".format(recipe_file.strpath))
 

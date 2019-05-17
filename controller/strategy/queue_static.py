@@ -8,7 +8,7 @@ import dlstbx.controller.strategyenvironment
 def _filter_active(instances):
     return {
         host: instance
-        for host, instance in instances.iteritems()
+        for host, instance in instances.items()
         if instance["status"]
         in (
             dlstbx.controller.strategyenvironment.StrategyEnvironment.S_HOLD,
@@ -21,7 +21,7 @@ def _filter_active(instances):
     }
 
 
-class QueueStaticStrategy:
+class QueueStaticStrategy(object):
     def __init__(
         self,
         service=None,

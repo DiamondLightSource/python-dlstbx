@@ -11,7 +11,6 @@ import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
-import workflows
 from workflows.transport.stomp_transport import StompTransport
 
 if __name__ == "__main__":
@@ -144,7 +143,7 @@ if __name__ == "__main__":
 
     stomp = StompTransport()
     stomp.connect()
-    for msgno in xrange(1, options.count + 1):
+    for msgno in range(1, options.count + 1):
         if msgno > 1:
             time.sleep(options.interval)
 

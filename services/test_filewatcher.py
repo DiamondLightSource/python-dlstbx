@@ -10,7 +10,7 @@ def test_file_selection(select_n_images):
     import dlstbx.services.filewatcher
 
     select_n_images = 250
-    for filecount in range(1, 255) + range(3600, 3700):
+    for filecount in list(range(1, 255)) + list(range(3600, 3700)):
         selection = lambda x: dlstbx.services.filewatcher.is_file_selected(
             x, select_n_images, filecount
         )

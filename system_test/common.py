@@ -235,7 +235,7 @@ class CommonSystemTest(object):
         if isinstance(item, dict):
             return {
                 self.apply_parameters(key): self.apply_parameters(value)
-                for key, value in item.iteritems()
+                for key, value in item.items()
             }
         if isinstance(item, tuple):
             return tuple(self.apply_parameters(list(item)))

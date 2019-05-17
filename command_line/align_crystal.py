@@ -78,12 +78,12 @@ def align_crystal(image_files, nproc=None):
         args = ["dials.refine_bravais_settings", experiments_json, indexed_pickle]
         result = _run_command(args)
         assert os.path.exists("bravais_summary.json")
-        with open("bravais_summary.json", "rb") as f:
+        with open("bravais_summary.json", "r") as f:
             d = json.load(f)
-            solutions = {int(k): v for k, v in d.items()}
-            for k in solutions.keys():
-                solutions[k]["experiments_file"] = "bravais_setting_%d.json" % k
-            soln = solutions[max(solutions.keys())]
+        solutions = {int(k): v for k, v in d.items()}
+        for k in solutions:
+            solutions[k]["experiments_file"] = "bravais_setting_%d.json" % k
+        soln = solutions[max(solutions)]
         experiments_json = "reindexed_experiments.json"
         shutil.copyfile(soln["experiments_file"], experiments_json)
         reflections_pickle = "reindexed_reflections.pickle"

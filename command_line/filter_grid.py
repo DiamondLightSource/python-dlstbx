@@ -120,7 +120,7 @@ def merge_test_stats(all_stats):
 
     best_test_stats = {}
     for img, test_stats in all_stats.items():
-        best_test_stats[img] = max([v for v in test_stats.values()], key=lambda t: t[1])
+        best_test_stats[img] = max(test_stats.values(), key=lambda t: t[1])
     return best_test_stats
 
 
@@ -142,10 +142,10 @@ def calc_stats(resol_dict, dfunc, dparams={}, func_name="N/A"):
         try:
             fit_vals = dfunc.fit(lst_, floc=0.0, **fparams)
             _, fit_scale = fit_vals
-        except:
+        except Exception:
             try:
                 _, _, fit_scale = fit_vals
-            except:
+            except Exception:
                 _, _, _, fit_scale = fit_vals
 
         hist_vals, hist_bins = np.histogram(
@@ -242,7 +242,7 @@ def plot_stats(stats, images=None, title=""):
                 try:
                     val = stats[i][st][1]
                     vals.append(-1.0 / log10(val))
-                except:
+                except Exception:
                     vals.append(0.0)
             ax.bar(
                 np.array(img_idx) + stat_idx * width,
@@ -371,7 +371,7 @@ if __name__ == "__main__":
 
         s = StringIO()
         for i, imageset in enumerate(datablock.extract_imagesets()):
-            print >> s, "Number of centroids per image for imageset %i:" % i
+            print("Number of centroids per image for imageset %i:" % i, file=s)
             stats = per_image_analysis.stats_imageset(
                 imageset,
                 reflections.select(reflections["id"] == i),
@@ -461,7 +461,7 @@ if __name__ == "__main__":
             for k, v in test_dict.items():
                 try:
                     all_stats[k].update({func_name: v})
-                except:
+                except Exception:
                     all_stats[k] = {func_name: v}
         if all_stats:
             break

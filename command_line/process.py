@@ -31,7 +31,7 @@ if __name__ == "__main__":
         lambda r: r.startswith("ispyb-") and r.endswith(".json"),
         os.listdir("/dls_sw/apps/zocalo/live/recipes"),
     )
-    available_recipes = sorted(map(lambda r: r[6:-5], available_recipes))
+    available_recipes = sorted(r[6:-5] for r in available_recipes)
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
     parser.add_option(

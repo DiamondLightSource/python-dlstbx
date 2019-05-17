@@ -455,7 +455,7 @@ class DLSTrigger(CommonService):
                 appid[prg.time_update] = intgr.APPID
             if not appid:
                 return None
-            return appid.values()[0]
+            return list(appid.values())[0]
 
         # lookup appids for all dcids and exit early if only one found
         appids = [get_appid(d) for d in dcids]

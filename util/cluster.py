@@ -133,10 +133,7 @@ class Cluster(object):
             return cls.cached_environment[command]
 
         blank_environment = {
-            k: ""
-            for k in filter(
-                lambda k: k.startswith("DRMAA_") or k.startswith("SGE_"), os.environ
-            )
+            k: "" for k in os.environ if k.startswith("DRMAA_") or k.startswith("SGE_")
         }
 
         result = procrunner.run(
@@ -435,9 +432,9 @@ class ClusterStatistics(object):
     def parse_xml(self, xmldom):
         """Given an XML object return a list of job and a list of queue dictionaries."""
         joblist = xmldom.getElementsByTagName("job_list")
-        joblist = map(self.parse_job_xml, joblist)
+        joblist = [self.parse_job_xml(j) for j in joblist]
         queuelist = xmldom.getElementsByTagName("Queue-List")
-        queuelist = map(self.parse_queue_xml, queuelist)
+        queuelist = [self.parse_queue_xml(q) for q in queuelist]
         return (joblist, queuelist)
 
     @staticmethod

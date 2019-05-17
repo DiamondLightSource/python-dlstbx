@@ -12,7 +12,7 @@ import ispyb.connector.mysqlsp.main
 log = logging.getLogger("dlstbx.dc_sim")
 
 
-class DB:
+class DB(object):
     def __init__(self):
         config = configparser.RawConfigParser(allow_no_value=True)
         assert config.read("/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg")

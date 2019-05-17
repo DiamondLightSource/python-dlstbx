@@ -133,9 +133,7 @@ class DLSStatistics(CommonService):
                 self._transport.ack(header)  # , transaction=txn)
         #    self._transport.transaction_commit(txn)
 
-        self.log.debug(
-            "Processed %d records", sum(len(r) for r in records.itervalues())
-        )
+        self.log.debug("Processed %d records", sum(len(r) for r in records.values()))
 
     @staticmethod
     def order_and_deduplicate(stats):

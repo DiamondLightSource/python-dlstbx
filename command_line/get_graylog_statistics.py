@@ -17,7 +17,7 @@ loglevels = {
 }
 
 
-class GraylogRRD:
+class GraylogRRD(object):
     def __init__(self, path=".", api=None):
         self.rrd = RRDTool(path)
         self.setup_rrd()

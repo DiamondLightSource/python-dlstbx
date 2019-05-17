@@ -11,7 +11,7 @@ def flatten_xml(xml, tag):
     return "".join("\n".join(i for t in xml.iter(tag) for i in t.itertext()))
 
 
-class DbserverClient:
+class DbserverClient(object):
     def __init__(self, _host, _port):
         self.DB_host = _host
         self.DB_port = _port
@@ -44,7 +44,7 @@ class DbserverClient:
         xml = None
         if response.status < 400 or response.status >= 600:
             lengthstr = response.getheader("Content-length")
-            if lengthstr != None:
+            if lengthstr is not None:
                 length = string.atoi(lengthstr)
                 xml = response.read(length)  # get the raw XML
                 print(xml)

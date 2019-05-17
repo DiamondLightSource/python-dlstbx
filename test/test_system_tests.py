@@ -81,6 +81,6 @@ def test_validate_all_system_tests():
      have syntax errors and properly call messaging functions."""
     dlstbx.system_test.load_all_tests()
 
-    for name, cls in dlstbx.system_test.get_all_tests().iteritems():
+    for name, cls in dlstbx.system_test.get_all_tests().items():
         print("Validating", name)
         cls().validate()

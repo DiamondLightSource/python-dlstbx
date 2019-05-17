@@ -322,7 +322,7 @@ class StrategyEnvironment(object):
             expiration_time = 15
             discarding_time = 30
             discard_instances = []
-            for key, instance in self.environment["instances"].iteritems():
+            for key, instance in self.environment["instances"].items():
                 if "status-set" not in instance:
                     instance["status-set"] = time.time()
                 if (
@@ -365,7 +365,7 @@ class StrategyEnvironment(object):
         startup = set()
         reassign = {}
         with self.lock:
-            for key, instance in self.environment["instances"].iteritems():
+            for key, instance in self.environment["instances"].items():
                 if instance["status"] == self.S_PREPARE:
                     startup.add(key)
                 if instance["status"] == self.S_SHUTDOWN:

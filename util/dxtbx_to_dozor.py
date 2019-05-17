@@ -94,10 +94,11 @@ end
 """
 
     text = template.format(**dozor_params)
-    if fout != "-":
-        open(fout, "w").write(text)
-    else:
+    if fout == "-":
         print(text)
+    else:
+        with open(fout, "w") as fh:
+            fh.write(text)
 
 
 def parse_dozor_output(output):
@@ -106,7 +107,7 @@ def parse_dozor_output(output):
         tokens = record.split()
         try:
             image = int(tokens[0])
-            scores = map(float, tokens[-3:])
+            scores = [float(t) for t in tokens[-3:]]
             dozor_scores[image] = scores
         except ValueError as e:
             continue

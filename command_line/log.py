@@ -1,6 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-import json
 import logging
 import sys
 import time
@@ -10,7 +9,7 @@ from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from workflows.transport.stomp_transport import StompTransport
 
 
-class DLSLog:
+class DLSLog(object):
     """Listens on ActiveMQ for log messages."""
 
     last_info = None
@@ -91,7 +90,6 @@ class DLSLog:
                 if message["levelno"] >= logging.WARN:
                     print("{pathname}:{lineno}{service_description}".format(**message))
                 print("{name}: {msg}".format(**message))
-            #     print json.dumps(message, indent=2)
             self.resetcolor()
 
 

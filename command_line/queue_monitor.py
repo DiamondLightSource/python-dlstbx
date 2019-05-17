@@ -16,7 +16,7 @@ jmx = dlstbx.util.jmxstats.JMXAPI()
 logger = logging.getLogger("dlstbx.queue_monitor")
 
 
-class QueueStatus:
+class QueueStatus(object):
     """Monitor ActiveMQ queue activity."""
 
     gather_interval = 5
@@ -162,9 +162,9 @@ class QueueStatus:
 
         for dtype, header in (("queue", queue_sep), ("topic", topic_sep)):
             print(header)
-            destinations = filter(
-                lambda d: self.status[dtype][d]["relevance"] > 0, self.status[dtype]
-            )
+            destinations = [
+                d for d in self.status[dtype] if self.status[dtype][d]["relevance"] > 0
+            ]
             destinations.sort(key=lambda d: self.status[dtype][d]["shortdest"])
             destinations.sort(
                 key=lambda d: self.status[dtype][d]["relevance"], reverse=True

@@ -322,7 +322,7 @@ edna-plugin-launcher \
 
         # 3) Echo out the full path for each image.
 
-        logger.info(str(params.keys()))
+        logger.info(str(list(params.keys())))
         image_directory = params["image_directory"]
         image_first = int(params["image_first"])
         image_last = int(params["image_last"])

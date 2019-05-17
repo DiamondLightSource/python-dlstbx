@@ -41,7 +41,7 @@ def create_processing_job(i, options):
         if not match:
             sys.exit("Invalid sweep specification: " + s)
         values = tuple(map(int, match.groups()))
-        if not all(map(lambda value: value > 0, values)) or values[2] < values[1]:
+        if not all(value > 0 for value in values) or values[2] < values[1]:
             sys.exit("Invalid sweep specification: " + s)
         sweeps.append(values)
 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         lambda r: r.startswith("ispyb-") and r.endswith(".json"),
         os.listdir("/dls_sw/apps/zocalo/live/recipes"),
     )
-    available_recipes = sorted(map(lambda r: r[6:-5], available_recipes))
+    available_recipes = sorted(r[6:-5] for r in available_recipes)
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
     parser.add_option(
@@ -438,11 +438,9 @@ if __name__ == "__main__":
                     attachments = i.mx_processing.retrieve_program_attachments_for_program_id(
                         program.app_id
                     )
-                    for filetype in sorted(
-                        set(map(lambda a: a["fileType"], attachments))
-                    ):
+                    for filetype in sorted(set(a["fileType"] for a in attachments)):
                         for attachment in sorted(
-                            filter(lambda a: a["fileType"] == filetype, attachments),
+                            (a for a in attachments if a["fileType"] == filetype),
                             key=lambda a: a["fileName"],
                         ):
                             print(

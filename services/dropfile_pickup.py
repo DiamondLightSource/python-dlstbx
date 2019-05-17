@@ -1,7 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-import errno
-import os
 import Queue
 import time
 
@@ -106,7 +104,7 @@ class DLSDropfilePickup(CommonService):
             "cluster-test-waiting-jobs-per-queue": self.stats_test_cluster_jobs_waiting,
         }
         for key in records:
-            headers, messages = zip(*records[key])
+            headers, messages = list(zip(*records[key]))
             if key in dispatch:
                 messages = self.order_and_deduplicate(messages)
                 dispatch[key](messages)
@@ -120,9 +118,7 @@ class DLSDropfilePickup(CommonService):
                 self._transport.ack(header)  # , transaction=txn)
         #    self._transport.transaction_commit(txn)
 
-        self.log.debug(
-            "Processed %d records", sum(len(r) for r in records.itervalues())
-        )
+        self.log.debug("Processed %d records", sum(len(r) for r in records.values()))
 
     @staticmethod
     def order_and_deduplicate(stats):
@@ -138,16 +134,18 @@ class DLSDropfilePickup(CommonService):
 
     def stats_live_cluster_utilization(self, stats):
         self.rrd_file["cluster"].update(
-            map(
-                lambda r: [
-                    r["statistic-timestamp"],
-                    r["total"],
-                    r["broken"],
-                    r["used-high"],
-                    r["used-medium"],
-                    r["used-low"],
-                ],
-                stats,
+            list(
+                map(
+                    lambda r: [
+                        r["statistic-timestamp"],
+                        r["total"],
+                        r["broken"],
+                        r["used-high"],
+                        r["used-medium"],
+                        r["used-low"],
+                    ],
+                    stats,
+                )
             )
         )
         if "admin" in stats[0]:
@@ -211,31 +209,35 @@ class DLSDropfilePickup(CommonService):
 
     def stats_live_cluster_jobs_waiting(self, stats):
         self.rrd_file["clusterbacklog"].update(
-            map(
-                lambda r: [
-                    r["statistic-timestamp"],
-                    r["admin.q"],
-                    r["bottom.q"],
-                    r["low.q"],
-                    r["medium.q"],
-                    r["high.q"],
-                ],
-                stats,
+            list(
+                map(
+                    lambda r: [
+                        r["statistic-timestamp"],
+                        r["admin.q"],
+                        r["bottom.q"],
+                        r["low.q"],
+                        r["medium.q"],
+                        r["high.q"],
+                    ],
+                    stats,
+                )
             )
         )
 
     def stats_test_cluster_jobs_waiting(self, stats):
         self.rrd_file["testclusterbacklog"].update(
-            map(
-                lambda r: [
-                    r["statistic-timestamp"],
-                    r["test-admin.q"],
-                    r["test-bottom.q"],
-                    r["test-low.q"],
-                    r["test-medium.q"],
-                    r["test-high.q"],
-                ],
-                stats,
+            list(
+                map(
+                    lambda r: [
+                        r["statistic-timestamp"],
+                        r["test-admin.q"],
+                        r["test-bottom.q"],
+                        r["test-low.q"],
+                        r["test-medium.q"],
+                        r["test-high.q"],
+                    ],
+                    stats,
+                )
             )
         )
 

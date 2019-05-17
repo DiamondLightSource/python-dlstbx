@@ -107,7 +107,7 @@ class DLSFileWatcher(CommonService):
         notify_function(str(nth_file))
 
         # Notify for selections
-        for m, dest in selections.iteritems():
+        for m, dest in selections.items():
             if is_file_selected(nth_file, m, filecount):
                 notify_function(dest)
 

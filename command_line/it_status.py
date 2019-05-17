@@ -106,11 +106,13 @@ def display_status(issues):
     status = db.get_infrastructure_status()
     status = sorted(status, key=lambda s: -s["Level"])
     if issues:
-        prefixes = map(lambda x: x.rstrip(".") + ".", issues)
-        status = filter(
-            lambda x: x["Source"] in issues
-            or any(map(lambda y: x["Source"].startswith(y), prefixes)),
-            status,
+        prefixes = [x.rstrip(".") + "." for x in issues]
+        status = list(
+            filter(
+                lambda x: x["Source"] in issues
+                or any(x["Source"].startswith(y) for y in prefixes),
+                status,
+            )
         )
 
     for group, colour in (
@@ -118,7 +120,7 @@ def display_status(issues):
         ("Warning", logging.WARNING),
         ("Information", logging.INFO),
     ):
-        select = filter(lambda s: s["Group"] == group, status)
+        select = [s for s in status if s["Group"] == group]
         if select:
             resetcolor()
             setcolor(colour)

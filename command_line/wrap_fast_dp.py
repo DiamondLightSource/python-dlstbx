@@ -27,14 +27,14 @@ def run(args):
     command = ["fast_dp", "-a", "S"]
     filename = None
     params = fast_dp_recipe["job_parameters"]
-    for param, values in params["fast_dp"].iteritems():
+    for param, values in params["fast_dp"].items():
         if param == "image":
             tokens = values.split(":")
             filename = tokens[0]
             start, end = int(tokens[1]), int(tokens[2])
             command.extend(["-1", str(start), "-N", str(end)])
 
-    assert not filename is None
+    assert filename is not None
     command.append(filename)
     # run fast_dp in working directory
 

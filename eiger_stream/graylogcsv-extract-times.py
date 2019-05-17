@@ -15,7 +15,7 @@ with open(
     "r",
 ) as fh:
     csvreader = csv.reader(fh)
-    fields = csvreader.next()
+    fields = next(csvreader)
     data = [
         {
             "time": datetime.strptime(l[0][:-1] + "000", "%Y-%m-%dT%H:%M:%S.%f"),

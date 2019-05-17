@@ -255,15 +255,19 @@ class DLSController(CommonService):
             return
 
         try:
-            instance["workflows"] = map(int, message["workflows"].split("."))
+            instance["workflows"] = [int(v) for v in message["workflows"].split(".")]
         except Exception:
             self.log.debug(
                 "Could not parse workflows version sent by %s", instance["host"]
             )
         try:
-            instance["dlstbx"] = map(
-                int, message["dlstbx"].split(" ", 2)[1].split("-", 1)[0].split(".", 1)
-            )
+            instance["dlstbx"] = [
+                int(v)
+                for v in message["dlstbx"]
+                .split(" ", 2)[1]
+                .split("-", 1)[0]
+                .split(".", 1)
+            ]
         except Exception:
             self.log.debug(
                 "Could not parse dlstbx version sent by %s", instance["host"]
@@ -328,7 +332,7 @@ class DLSController(CommonService):
         with self._lock:
             self.queue_status = {
                 dest: data
-                for dest, data in self.queue_status.iteritems()
+                for dest, data in self.queue_status.items()
                 if data["timestamp"] >= cutoff
             }
             self._transport.broadcast("transient.queue_status", self.queue_status)

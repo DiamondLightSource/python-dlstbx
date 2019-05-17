@@ -96,15 +96,15 @@ if __name__ == "__main__":
        ended in a result."""
         # Forget everything older than forget_test_after
         forget_all_before = time.time() - forget_test_after
-        runlist = list(filter(lambda t: t["time_end"] > forget_all_before, runlist))
+        runlist = [t for t in runlist if t["time_end"] > forget_all_before]
 
-        unfinished = list(filter(lambda t: t.get("success") is None, runlist))
-        finished = list(filter(lambda t: t.get("success") is not None, runlist))
+        unfinished = [t for t in runlist if t.get("success") is None]
+        finished = [t for t in runlist if t.get("success") is not None]
 
         # Keep the single most recent test run that has a result...
         if finished:
-            latest_outcome = max(map(lambda t: t["time_end"], finished))
-            finished = list(filter(lambda t: t["time_end"] == latest_outcome, finished))
+            latest_outcome = max(t["time_end"] for t in finished)
+            finished = [t for t in finished if t["time_end"] == latest_outcome]
             if finished:
                 finished = [finished[0]]
 

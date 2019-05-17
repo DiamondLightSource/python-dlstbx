@@ -18,7 +18,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
 
         command = ["xia2"]
 
-        for param, values in params["xia2"].iteritems():
+        for param, values in params["xia2"].items():
             if param == "images":
                 if not values:
                     # This may be empty if related data collections are requested, but no related DCs were found
@@ -36,7 +36,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
                 "spacegroup": "xia2.settings.space_group",
                 "unit_cell": "xia2.settings.unit_cell",
             }
-            for param, value in params["ispyb_parameters"].iteritems():
+            for param, value in params["ispyb_parameters"].items():
                 command.append(translation.get(param, param) + "=" + value)
 
         return command

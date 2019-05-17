@@ -83,7 +83,7 @@ for f in file_info.values():
     f["originating-host"] = f["headers"].get("dlstbx.go.host")
     f["recipes"] = ",".join(f["message"].get("recipes", []))
     f["priority"] = sum(
-        map(lambda r: recipe_priorities.get(r, 0), f["message"].get("recipes", []))
+        recipe_priorities.get(r, 0) for r in f["message"].get("recipes", [])
     )
     f["last-touch"] = os.path.getmtime(f["filename"])
     if hosts.get(f["originating-host"], {}).get("last-touch", 0) < f["last-touch"]:

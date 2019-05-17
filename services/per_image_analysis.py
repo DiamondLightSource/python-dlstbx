@@ -132,7 +132,7 @@ class DLSPerImageAnalysis(CommonService):
         runtime = time.time() - start
 
         # Pass through all file* fields
-        for key in filter(lambda x: x.startswith("file"), message):
+        for key in (x for x in message if x.startswith("file")):
             results[key] = message[key]
 
         # Conditionally acknowledge receipt of the message
@@ -221,7 +221,7 @@ class DLSPerImageAnalysis(CommonService):
             rw.send_to("every", message, transaction=txn)
 
             # Notify for selections
-            for m, dest in selections.iteritems():
+            for m, dest in selections.items():
                 if is_file_selected(n, m, count):
                     rw.send_to(dest, message, transaction=txn)
 

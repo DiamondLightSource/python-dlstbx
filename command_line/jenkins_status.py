@@ -10,7 +10,7 @@ import urllib
 import colorama
 
 
-class Jenkins:
+class Jenkins(object):
     def __init__(self):
         colorama.init()
         self._update_lock = threading.Lock()
@@ -192,7 +192,9 @@ class Jenkins:
             if self._update_required:
                 self._update_required = False
                 self._status = self.load_status()
-            if self._resize_detected or prev_status.keys() != self._status.keys():
+            if self._resize_detected or list(prev_status.keys()) != list(
+                self._status.keys()
+            ):
                 self._resize_detected = False
                 self.clear_screen()
             prev_status = self._status

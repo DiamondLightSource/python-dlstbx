@@ -59,7 +59,7 @@ if __name__ == "__main__":
         print("\n%3dx %s" % (known_traces[t]["count"], t))
         lines = known_traces[t]["full"].split("\n")
         if "-v" not in sys.argv:
-            lines = list(filter(lambda l: l.startswith("E"), lines))
+            lines = [l for l in lines if l.startswith("E")]
             if lines:
                 lines = [lines[-1]]
         for line in lines:

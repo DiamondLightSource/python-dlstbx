@@ -25,13 +25,13 @@ def _categorize(instances):
             "disappearing"
         ],
     }
-    for host, instance in instances.iteritems():
+    for host, instance in instances.items():
         if instance["status"] in sortinghat:
             sortinghat[instance["status"]][host] = instance
     return result
 
 
-class SimpleStrategy:
+class SimpleStrategy(object):
     def __init__(self, service=None, minimum=None, maximum=None, **kwargs):
         self.minimum = minimum
         self.maximum = maximum

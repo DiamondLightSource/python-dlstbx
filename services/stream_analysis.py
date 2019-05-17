@@ -56,7 +56,7 @@ class _WorkerThread(threading.Thread):
         # Set up PIA parameters
         parameters = rw.recipe_step.get("parameters", None)
         if parameters:
-            parameters = ["{k}={v}".format(k=k, v=v) for k, v in parameters.iteritems()]
+            parameters = ["{k}={v}".format(k=k, v=v) for k, v in parameters.items()]
         else:
             parameters = ["d_max=40"]
 
@@ -119,7 +119,7 @@ class _WorkerThread(threading.Thread):
             return
 
         # Pass through all file* fields
-        for key in filter(lambda x: x.startswith("file"), message):
+        for key in (x for x in message if x.startswith("file")):
             results[key] = message[key]
         results["file-number"] = mm[0]["frame"]
 

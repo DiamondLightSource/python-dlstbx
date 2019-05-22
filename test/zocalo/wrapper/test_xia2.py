@@ -14,7 +14,7 @@ def test_Xia2Wrapper(make_wrapper, tmpdir):
     results_directory = tmpdir.join("results_dir")
     results_directory.ensure(dir=True)
     py.path.local(
-        "/dls/i04/data/2019/nt18231-18/tmp/zocalo/tmp/2019-05-10/09-36-13-9495b73b/Therm_6_2_/xia2-dials/xia2.json"
+        "/dls/i04/data/2019/nt18231-18/processed/tmp/2019-05-10/09-36-13-9495b73b/Therm_6_2_/xia2-dials/xia2.json"
     ).copy(results_directory.join("xia2.json"))
     results_d = {
         u"refined_beam": [206.45053836697736, 211.11095943078706],

@@ -136,6 +136,7 @@ class DLSFileWatcher(CommonService):
         while (
             status["seen-files"] < filecount
             and files_found < rw.recipe_step["parameters"].get("burst-limit", 100)
+            and filelist[status["seen-files"]]
             and os.path.isfile(filelist[status["seen-files"]])
         ):
             files_found += 1
@@ -180,6 +181,48 @@ class DLSFileWatcher(CommonService):
                 transaction=txn,
             )
 
+            rw.transport.transaction_commit(txn)
+            return
+
+        if not filelist[status["seen-files"]]:
+            # 'None' value or empty string encountered. Stop watching here.
+
+            self.log.info(
+                "Filewatcher stopped after encountering empty value at position %d after %.1f seconds",
+                status["seen-files"] + 1,
+                time.time() - status["start-time"],
+            )
+
+            # Notify for error
+            rw.send_to(
+                "error",
+                {
+                    "file": filelist[status["seen-files"]],
+                    "file-list-index": status["seen-files"] + 1,
+                    "success": False,
+                },
+                transaction=txn,
+            )
+
+            # Notify for 'any' target if any file was seen
+            if status["seen-files"]:
+                rw.send_to(
+                    "any",
+                    {"files-expected": filecount, "files-seen": status["seen-files"]},
+                    transaction=txn,
+                )
+
+            # Notify for 'finally' outcome
+            rw.send_to(
+                "finally",
+                {
+                    "files-expected": filecount,
+                    "files-seen": status["seen-files"],
+                    "success": False,
+                },
+                transaction=txn,
+            )
+            # Stop processing message
             rw.transport.transaction_commit(txn)
             return
 

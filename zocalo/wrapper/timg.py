@@ -28,7 +28,7 @@ class TopazWrapper(zocalo.wrapper.BaseWrapper):
         #    timeout=params.get("timeout", 3600),
         #)
         with open("/dls/science/users/riw56156/zocalo_practice/test_python_output", "a+") as f:
-            f.write(str(datetime.datetime.now())
+            f.write(str(datetime.datetime.now()))
             f.write(" Written from Zocalo wrapper\n")
             f.write("Parameters: {}".format(params))
 

@@ -5,6 +5,7 @@ import os
 
 import procrunner
 import zocalo.wrapper
+import datetime
 
 logger = logging.getLogger("dlstbx.wrap.timg")
 
@@ -22,19 +23,23 @@ class TopazWrapper(zocalo.wrapper.BaseWrapper):
 
         logger.info("Running Tim's stuff")
 
-        result = procrunner.run(
-            ["/dls/science/users/riw56156/dls_topaz3/timscript"],
-            timeout=params.get("timeout", 3600),
-        )
+        #result = procrunner.run(
+        #    ["/dls/science/users/riw56156/dls_topaz3/timscript"],
+        #    timeout=params.get("timeout", 3600),
+        #)
+        with open("/dls/science/users/riw56156/zocalo_practice/test_python_output", "a+") as f:
+            f.write(str(datetime.datetime.now())
+            f.write(" Written from Zocalo wrapper\n")
+            f.write("Parameters: {}".format(params))
 
-        logger.info("command: %s", " ".join(result["command"]))
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("time_start: %s", result["time_start"])
-        logger.info("time_end: %s", result["time_end"])
-        logger.info("runtime: %s", result["runtime"])
-        logger.info("exitcode: %s", result["exitcode"])
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
+        #logger.info("command: %s", " ".join(result["command"]))
+        #logger.info("timeout: %s", result["timeout"])
+        #logger.info("time_start: %s", result["time_start"])
+        #logger.info("time_end: %s", result["time_end"])
+        #logger.info("runtime: %s", result["runtime"])
+        #logger.info("exitcode: %s", result["exitcode"])
+        #logger.debug(result["stdout"])
+        #logger.debug(result["stderr"])
 
         # self.recwrap.send_to(
         #         "image-analysis-results",

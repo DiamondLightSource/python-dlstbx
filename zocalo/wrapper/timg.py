@@ -28,9 +28,9 @@ class TopazWrapper(zocalo.wrapper.BaseWrapper):
         #    timeout=params.get("timeout", 3600),
         # )
         with open("/dls/tmp/riw56156/zocalo/python_test_output", "a+") as f:
-            f.write(str(datetime.datetime.now()))
+            f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             f.write(" Written from Zocalo wrapper\n")
-            f.write("Parameters: {}".format(params))
+            f.write("Parameters: {}\n".format(params))
 
         # logger.info("command: %s", " ".join(result["command"]))
         # logger.info("timeout: %s", result["timeout"])
@@ -46,4 +46,4 @@ class TopazWrapper(zocalo.wrapper.BaseWrapper):
         #         {"file-number": image, "dozor_score": tuple(results[image])[0]},
         # )
 
-        return result["exitcode"] == 0
+        return True

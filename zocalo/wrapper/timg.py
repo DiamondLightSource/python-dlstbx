@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function
 import logging
 import os
 
-# import procrunner
 import zocalo.wrapper
 import datetime
 
@@ -12,38 +11,28 @@ logger = logging.getLogger("dlstbx.wrap.timg")
 
 class TopazWrapper(zocalo.wrapper.BaseWrapper):
     def run(self):
+        # Check that a recipe wrapper has been passed
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
-        # run dozor in working directory
+        # Collect the job parameters - working directory and results directory usually expected
         params = self.recwrap.recipe_step["job_parameters"]
+
+        # Move to the working directory
         working_directory = params["working_directory"]
         if not os.path.exists(working_directory):
             os.makedirs(working_directory)
         os.chdir(working_directory)
 
-        logger.info("Running Tim's stuff")
+        # Logs to {name}.e{job_id} in the working directory of the recipe
+        logger.info("Running wrapper commands")
 
-        # result = procrunner.run(
-        #    ["/dls/science/users/riw56156/dls_topaz3/timscript"],
-        #    timeout=params.get("timeout", 3600),
-        # )
-        with open("/dls/tmp/riw56156/zocalo/python_test_output", "a+") as f:
+        # Write out the parameters to {results_directory}/wrapper_output
+        with open("{}/wrapper_output".format(params["results_directory"]), "a+") as f:
             f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-            f.write(" Written from Zocalo wrapper\n")
-            f.write("Parameters: {}\n".format(params))
+            f.write(" Written from simple Zocalo wrapper\n")
+            for key, value in params.iteritems():
+                print("{0}: {1}".format(key, value))
 
-        # logger.info("command: %s", " ".join(result["command"]))
-        # logger.info("timeout: %s", result["timeout"])
-        # logger.info("time_start: %s", result["time_start"])
-        # logger.info("time_end: %s", result["time_end"])
-        # logger.info("runtime: %s", result["runtime"])
-        # logger.info("exitcode: %s", result["exitcode"])
-        # logger.debug(result["stdout"])
-        # logger.debug(result["stderr"])
-
-        # self.recwrap.send_to(
-        #         "image-analysis-results",
-        #         {"file-number": image, "dozor_score": tuple(results[image])[0]},
-        # )
+        logging.info("Wrapper complete")
 
         return True

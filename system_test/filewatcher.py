@@ -677,12 +677,12 @@ class FilewatcherService(CommonSystemTest):
             headers={"workflows-recipe": True},
         )
 
-        # Create first four files after 10 seconds
+        # Create first four files after 5 seconds
         def create_four_files():
             for file_number in range(0, 4):
                 open(names[file_number], "w").close()
 
-        self.timer_event(at_time=10, callback=create_four_files)
+        self.timer_event(at_time=5, callback=create_four_files)
 
         # Check for expected messages, marked in the recipe above:
 
@@ -694,7 +694,7 @@ class FilewatcherService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=2,
             payload={"file": names[0], "file-list-index": 1},
-            timeout=40,
+            timeout=65,
         )
 
         # Every ============================
@@ -709,8 +709,8 @@ class FilewatcherService(CommonSystemTest):
                     "file": names[file_number],
                     "file-list-index": file_number + 1,
                 },
-                min_wait=9,
-                timeout=50,
+                min_wait=4,
+                timeout=80,
             )
 
         # Last =============================
@@ -725,7 +725,7 @@ class FilewatcherService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=5,
             payload={"file": names[0], "file-list-index": 1},
-            timeout=40,
+            timeout=80,
         )
 
         # Specific =========================
@@ -740,8 +740,8 @@ class FilewatcherService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=7,
             payload={"files-expected": 10, "files-seen": 4, "success": False},
-            min_wait=15,
-            timeout=50,
+            min_wait=14,
+            timeout=80,
         )
 
         # Timeout ==========================
@@ -752,8 +752,8 @@ class FilewatcherService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=8,
             payload={"file": names[4], "file-list-index": 5, "success": False},
-            min_wait=15,
-            timeout=50,
+            min_wait=14,
+            timeout=80,
         )
 
         # Any ==============================
@@ -764,8 +764,8 @@ class FilewatcherService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=9,
             payload={"files-expected": 10, "files-seen": 4},
-            min_wait=15,
-            timeout=50,
+            min_wait=14,
+            timeout=80,
         )
 
     def test_pattern_failure_notification_delayed(self):

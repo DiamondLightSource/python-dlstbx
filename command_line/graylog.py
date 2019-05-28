@@ -5,10 +5,8 @@
 
 from __future__ import absolute_import, division, print_function
 
-import base64
 import datetime
 import httplib
-import json
 import socket
 import string
 import sys
@@ -218,8 +216,8 @@ if __name__ == "__main__":
     if options.recipe:
         g.filters.append("recipe_ID:" + options.recipe)
     format = format_message(options.verbose)
-    if options.follow:
-        try:
+    try:
+        if options.follow:
             while True:
                 try:
                     for message in g.get_messages(time=options.time):
@@ -234,8 +232,8 @@ if __name__ == "__main__":
                     )
                 sys.stdout.flush()
                 time.sleep(0.7)
-        except KeyboardInterrupt:
-            print()
-    else:
-        for message in g.get_all_messages(time=options.time):
-            sys.stdout.write(format(message))
+        else:
+            for message in g.get_all_messages(time=options.time):
+                sys.stdout.write(format(message))
+    except KeyboardInterrupt:
+        print()

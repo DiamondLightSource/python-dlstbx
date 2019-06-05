@@ -1,0 +1,43 @@
+{% block model_table %}
+<table style="width: 800px; table-layout: fixed; border-top: 1px solid #cccccc; border-spacing: 0 5px;" cellspacing="0" cellpadding="0" width="800" bgcolor="#ebebeb">
+    <tr>
+        {% for ppl, data in model_data.items() %}
+        <td>
+            <table cellspacing="0" cellpadding="0" width="100%" bgcolor="#ebebeb">
+                <th
+                    style="background-color:  #ebebeb; border-top: 0px solid #000000; text-align: left; height: 50px;
+                           font-size: 14px; color: #575757; line-height: 200%; font-family: arial; text-decoration: none;" align="left">
+                           {{ ppl }}
+                </th>
+            <tbody>
+                <tr>
+                    <td align="left"><img src="cid:{{ppl}}_model" border="0"
+                        alt="Map/Model" align="left" height=200 /></td>
+                </tr>
+                <tr>
+                    <td align="left">
+                        <table style="width: 200px; border-spacing: 0 5px; font-size: 14px; font-family: arial;color: #575757;" width="200" bgcolor="#ebebeb">
+                            <tbody>
+                                <tr style="background: #ccc">
+                                    <th style="font-size: 12px; text-align: left;">Residues</th><td style="text-align: right; color: #000000;">{{ data.residues }}</td>
+                                </tr>
+                                <tr>
+                                    <th style="font-size: 12px; text-align: left;">Fragments</th><td style="text-align: right; color: #000000;">{{ data.frag }}</td>
+                                </tr>
+                                <tr style="background: #ccc">
+                                    <th style="font-size: 12px; text-align: left;">Max. Fragment</th><td style="text-align: right; color: #000000;">{{ data.max_frag }}</td>
+                                </tr>
+                                <tr>
+                                    <th style="font-size: 12px; text-align: left;">Map/Model CC</th><td style="text-align: right; color: #000000;">{{ data.mapcc }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            </tbody>
+            </table>
+        </td>
+        {% endfor %}
+    </tr>
+</table>
+{% endblock %}

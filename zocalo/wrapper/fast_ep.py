@@ -7,6 +7,7 @@ import py
 import dlstbx.util.symlink
 import procrunner
 import zocalo.wrapper
+import tempfile
 
 logger = logging.getLogger("dlstbx.wrap.fast_ep")
 
@@ -47,7 +48,6 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             if param == "rlims":
                 value = ",".join(str(r) for r in value)
             command.append("%s=%s" % (param, value))
-        command.append("xml=fast_ep.xml")
 
         return command
 
@@ -91,7 +91,10 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = self.recwrap.recipe_step["job_parameters"]
         working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
+        try:
+            results_directory = py.path.local(params["results_directory"])
+        except KeyError:
+            logger.info("Results directory not specified")
 
         if "ispyb_parameters" in params:
             if params["ispyb_parameters"].get("data"):
@@ -112,18 +115,30 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
 
         # Create SynchWeb ticks hack file. This will be overwritten with the real log later.
         # For this we need to create the results directory and symlink immediately.
-        if params.get("synchweb_ticks"):
-            logger.debug("Setting SynchWeb status to swirl")
-            if params.get("create_symlink"):
-                results_directory.ensure(dir=True)
-                dlstbx.util.symlink.create_parent_symlink(
-                    results_directory.strpath, params["create_symlink"]
-                )
-            py.path.local(params["synchweb_ticks"]).ensure()
+        try:
+            if params.get("synchweb_ticks"):
+                logger.debug("Setting SynchWeb status to swirl")
+                if params.get("create_symlink"):
+                    results_directory.ensure(dir=True)
+                    dlstbx.util.symlink.create_parent_symlink(
+                        results_directory.strpath, params["create_symlink"]
+                    )
+                py.path.local(params["synchweb_ticks"]).ensure()
+        except NameError:
+            logger.info(
+                "Setting SynchWeb symlinks ignored. Results directory unavailable."
+            )
 
         command = self.construct_commandline(params)
+        fp = tempfile.NamedTemporaryFile(
+            mode="w+t", dir=working_directory.strpath, delete=False
+        )
+        try:
+            fp.writelines(["module load fast_ep\n", " ".join(command)])
+        finally:
+            fp.close()
         result = procrunner.run(
-            command,
+            ["sh", fp.name],
             timeout=params.get("timeout"),
             print_stdout=False,
             print_stderr=False,
@@ -139,67 +154,74 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
         logger.debug(result["stderr"])
 
         # Create results directory and symlink if they don't already exist
-        results_directory.ensure(dir=True)
-        if params.get("create_symlink"):
-            dlstbx.util.symlink.create_parent_symlink(
-                results_directory.strpath, params["create_symlink"]
-            )
-
-        logger.info("Copying fast_ep results to %s", results_directory.strpath)
-        keep_ext = {
-            ".cif": "result",
-            ".error": "log",
-            ".hkl": "result",
-            ".html": "log",
-            ".ins": "result",
-            ".lst": "log",
-            ".mtz": "result",
-            ".pdb": "result",
-            ".png": None,
-            ".sca": "result",
-            ".sh": None,
-            ".xml": False,
-        }
-        keep = {"fast_ep.log": "log", "shelxc.log": "log"}
-        if working_directory.join("fast_ep.error").check():
-            result["exitcode"] = 1
-        allfiles = []
-        for filename in working_directory.listdir():
-            filetype = keep_ext.get(filename.ext)
-            if filename.basename in keep:
-                filetype = keep[filename.basename]
-            if filetype is None:
-                continue
-            destination = results_directory.join(filename.basename)
-            filename.copy(destination)
-            allfiles.append(destination.strpath)
-            if filetype:
-                self.record_result_individual_file(
-                    {
-                        "file_path": destination.dirname,
-                        "file_name": destination.basename,
-                        "file_type": filetype,
-                    }
+        try:
+            results_directory.ensure(dir=True)
+            if params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    results_directory.strpath, params["create_symlink"]
                 )
 
-        xml_file = working_directory.join("fast_ep.xml")
-        if xml_file.check():
-            xml_data = working_directory.join("fast_ep.xml").read()
-            xml_file = results_directory.join("fast_ep.xml")
-            logger.info("Sending fast_ep phasing results to ISPyB")
-            xml_file.write(
-                xml_data.replace(working_directory.strpath, results_directory.strpath)
+            logger.info("Copying fast_ep results to %s", results_directory.strpath)
+            keep_ext = {
+                ".cif": "result",
+                ".error": "log",
+                ".hkl": "result",
+                ".html": "log",
+                ".ins": "result",
+                ".lst": "log",
+                ".mtz": "result",
+                ".pdb": "result",
+                ".png": None,
+                ".sca": "result",
+                ".sh": None,
+                ".xml": False,
+            }
+            keep = {"fast_ep.log": "log", "shelxc.log": "log"}
+            if working_directory.join("fast_ep.error").check():
+                result["exitcode"] = 1
+            allfiles = []
+            for filename in working_directory.listdir():
+                filetype = keep_ext.get(filename.ext)
+                if filename.basename in keep:
+                    filetype = keep[filename.basename]
+                if filetype is None:
+                    continue
+                destination = results_directory.join(filename.basename)
+                filename.copy(destination)
+                allfiles.append(destination.strpath)
+                if filetype:
+                    self.record_result_individual_file(
+                        {
+                            "file_path": destination.dirname,
+                            "file_name": destination.basename,
+                            "file_type": filetype,
+                        }
+                    )
+
+            if "xml" in params["fast_ep"]:
+                xml_file = working_directory.join(params["fast_ep"]["xml"])
+                if xml_file.check():
+                    xml_data = working_directory.join(params["fast_ep"]["xml"]).read()
+                    logger.info("Sending fast_ep phasing results to ISPyB")
+                    xml_file.write(
+                        xml_data.replace(
+                            working_directory.strpath, results_directory.strpath
+                        )
+                    )
+                    self.send_results_to_ispyb(xml_file.strpath)
+                else:
+                    if result["exitcode"]:
+                        logger.info(
+                            "fast_ep failed, no .xml output, thus not reporting to ISPyB"
+                        )
+                    else:
+                        logger.error(
+                            "Expected output file does not exist: %s" % xml_file.strpath
+                        )
+                    return False
+        except NameError:
+            logger.info(
+                "Copying fast_ep results ignored. Results directory unavailable."
             )
-            self.send_results_to_ispyb(xml_file.strpath)
-        else:
-            if result["exitcode"]:
-                logger.info(
-                    "fast_ep failed, no .xml output, thus not reporting to ISPyB"
-                )
-            else:
-                logger.error(
-                    "Expected output file does not exist: %s" % xml_file.strpath
-                )
-            return False
 
         return result["exitcode"] == 0

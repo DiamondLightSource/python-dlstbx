@@ -1,0 +1,119 @@
+from __future__ import absolute_import, division, print_function
+
+import zocalo.wrapper
+import logging
+import py
+import os
+import dlstbx.util.symlink
+import procrunner
+import tempfile
+from dlstbx.util.shelxc import parse_shelxc_logs
+
+logger = logging.getLogger("dlstbx.wrap.xia2.to_shelxcde")
+
+
+class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
+    def run(self):
+        assert hasattr(self, "recwrap"), "No recipewrapper object found"
+        params = self.recwrap.recipe_step["job_parameters"]
+
+        working_directory = py.path.local(os.path.join(params["working_directory"]))
+        try:
+            results_directory = py.path.local(os.path.join(params["results_directory"]))
+        except KeyError:
+            logger.info("Result directory not specified")
+
+        # Create working directory with symbolic link
+        working_directory.ensure(dir=True)
+        if params.get("create_symlink"):
+            try:
+                levels = params["levels_symlink"]
+                dlstbx.util.symlink.create_parent_symlink(
+                    working_directory.strpath, params["create_symlink"], levels=levels
+                )
+            except KeyError:
+                dlstbx.util.symlink.create_parent_symlink(
+                    working_directory.strpath, params["create_symlink"]
+                )
+
+        mtz_file = params["mtz"]
+        if not mtz_file:
+            logger.error("Could not identify on what data to run")
+            return False
+        mtz_file = os.path.abspath(mtz_file)
+        if not os.path.exists(mtz_file):
+            logger.error("Could not find data file to process")
+            return False
+
+        try:
+            fp = tempfile.NamedTemporaryFile(
+                prefix="shelxc_", dir=working_directory.strpath
+            )
+            prefix = os.path.splitext(os.path.basename(fp.name))[0]
+            fp.close()
+        except IOError:
+            logger.error("Could not create tmp file in the working directory")
+            return False
+
+        command = ["xia2.to_shelxcde", mtz_file, prefix]
+        logger.info("Generating SHELXC .ins file")
+        logger.info("command: %s", " ".join(command))
+        result = procrunner.run(
+            command,
+            timeout=params.get("timeout"),
+            working_directory=working_directory.strpath,
+        )
+        if result["exitcode"] or result["timeout"]:
+            logger.info("timeout: %s", result["timeout"])
+            logger.info("exitcode: %s", result["exitcode"])
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
+        logger.info("runtime: %s", result["runtime"])
+
+        command = ["sh", prefix + ".sh"]
+        logger.info("Starting SHELXC")
+        logger.info("command: %s", " ".join(command))
+        result = procrunner.run(
+            command,
+            timeout=params.get("timeout"),
+            working_directory=working_directory.strpath,
+        )
+
+        if result["exitcode"] or result["timeout"]:
+            logger.info("timeout: %s", result["timeout"])
+            logger.info("exitcode: %s", result["exitcode"])
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
+        logger.info("runtime: %s", result["runtime"])
+
+        if not result["stdout"]:
+            logger.error("SHELXC log is empty")
+            return False
+
+        stats = parse_shelxc_logs(result["stdout"])
+        self.recwrap.send_to("downstream", stats)
+
+        # Create results directory and symlink if they don't already exist
+        try:
+            logger.info("Copying SHELXC results to %s", results_directory.strpath)
+            results_directory.ensure(dir=True)
+            if params.get("create_symlink"):
+                try:
+                    levels = params["levels_symlink"]
+                    dlstbx.util.symlink.create_parent_symlink(
+                        results_directory.strpath,
+                        params["create_symlink"],
+                        levels=levels,
+                    )
+                except KeyError:
+                    dlstbx.util.symlink.create_parent_symlink(
+                        results_directory.strpath, params["create_symlink"]
+                    )
+            for f in working_directory.listdir():
+                if f.basename.startswith("shelxc"):
+                    f.copy(results_directory)
+        except NameError:
+            logger.info(
+                "Ignore copying SHELXC results. Results directory not specified."
+            )
+        return result["exitcode"] == 0

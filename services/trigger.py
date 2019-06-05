@@ -1,14 +1,12 @@
 from __future__ import absolute_import, division, print_function
 
-import ispyb
-import logging
-import os
 import re
 
 import procrunner
 import six
 import workflows.recipe
 from workflows.services.common_service import CommonService
+from datetime import datetime
 
 
 class DLSTrigger(CommonService):
@@ -216,9 +214,28 @@ class DLSTrigger(CommonService):
         if not scaling_id:
             self.log.error("big_ep trigger failed: No scaling_id specified")
             return False
+        mtz = parameters("mtz")
+        if not mtz:
+            self.log.error("big_ep trigger failed: No input mtz file specified")
+            return False
+        scaled_unmerged_mtz = parameters("scaled_unmerged_mtz")
+        if not scaled_unmerged_mtz:
+            self.log.error(
+                "big_ep trigger failed: No input scaled unmerged mtz file specified"
+            )
+            return False
+        path_ext = parameters("path_ext")
+        if not path_ext:
+            path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         message = {
-            "parameters": {"ispyb_autoprocscalingid": scaling_id, "ispyb_dcid": dcid},
+            "parameters": {
+                "ispyb_autoprocscalingid": scaling_id,
+                "ispyb_dcid": dcid,
+                "mtz": mtz,
+                "scaled_unmerged_mtz": scaled_unmerged_mtz,
+                "path_ext": path_ext,
+            },
             "recipes": ["postprocessing-big-ep"],
         }
         rw.transport.send("processing_recipe", message)

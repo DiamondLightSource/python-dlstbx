@@ -1,0 +1,58 @@
+{% block dataset_summary %}
+<table style="table-layout: fixed; width: 800px; border-top: 1px solid #cccccc; border-spacing: 0 5px;" cellspacing="0" cellpadding="0" width="800" bgcolor="#ebebeb">
+<tr>
+    <th style="text-align: left; height: 50px; font-size: 14px; color: #575757; line-height: 200%; font-family: arial; text-decoration: none;" align="left">
+        Input Dataset
+    </th>
+    <td colspan="2" align="left" style="word-wrap:break-word; word-break:break-all; font-size: 14px; line-height: 200%; font-family: arial; text-decoration: none;">
+        {{ mtz }}
+    </td>
+</tr>
+<tr>
+    <th style="text-align: left; height: 50px; font-size: 14px; color: #575757; line-height: 200%; font-family: arial; text-decoration: none;" align="left">
+        Sequence
+    </th>
+    <td colspan="2" align="left" style="word-wrap:break-word; word-break:break-all; font-size: 10px; font-family: arial">
+        {{ settings.sequence }}
+    </td>
+</tr>
+<tr>
+    <th style="text-align: left; height: 50px; font-size: 14px; color: #575757; line-height: 200%; font-family: arial; text-decoration: none;" valign="top" align="left">
+        Settings
+    {% include "parameter_table.html" %}
+    </th>
+    <td valign="top">
+        <table
+            style="table-layout: fixed; border-spacing: 0 5px; padding: 15px 10px; font-size: 12px; font-family: arial"
+            cellspacing="0" cellpadding="0" width="80%" bgcolor="#ebebeb">
+            <tr>
+                <td><img width="256" height="192"
+                    src="cid:img_distl"></td>
+            </tr>
+            <tr>
+                <td><img width="256" height="192"
+                    src="cid:img_diff"></td>
+            </tr>
+            <tr>
+                <td align="left"><img width="256" height="192"
+                    src="cid:img_crystal"></td>
+            </tr>
+        </table>
+    </td>
+    <td valign="top">
+        <table
+            style="table-layout: fixed; border-spacing: 0 5px; padding: 15px 10px; font-size: 12px; font-family: arial"
+            cellspacing="0" cellpadding="0" width="80%" bgcolor="#ebebeb">
+            <tr>
+                <td><img width="256" height="192"
+                    src="cid:graph_cc"></td>
+            </tr>
+            <tr>
+                <td><img width="256" height="192"
+                    src="cid:graph_anom"></td>
+            </tr>
+        </table>
+    </td>
+</tr>
+</table>
+{% endblock %}

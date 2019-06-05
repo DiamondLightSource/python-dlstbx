@@ -1,0 +1,17 @@
+<table style="width: 800px; border-top: 1px solid #cccccc; border-spacing: 0 5px;" cellspacing="0" cellpadding="0" width="800" bgcolor="#ebebeb">
+<tr>
+    <td colspan="3"><img  width="800" style="width: 800px;  background-color: #ebebeb;" src="cid:img_fastep_table"></td>
+</tr>
+{% for nrow in img_fastep_nrow %}
+<tr>
+    {% for ncol in img_fastep_ncol %}
+    {% set idx = 3*nrow + ncol %}
+    <td>
+       {% if idx < img_fastep_sites|length %}
+       <img width="250" style="width: 250px;" src="cid:{{ img_fastep_sites[idx] }}">
+       {% endif %}
+    </td>
+    {% endfor %}
+</tr>
+{% endfor %}
+</table>

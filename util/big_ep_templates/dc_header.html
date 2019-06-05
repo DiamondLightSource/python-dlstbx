@@ -1,0 +1,33 @@
+{% block summary_header %}
+<table style="width: 800px; border-top: 1px solid #cccccc; border-spacing: 0 5px;" width="800" bgcolor="#ebebeb">
+    <tbody>
+        <tr>
+            <th style="font-size: 14px; color: #575757; line-height: 200%; font-family: arial; text-decoration: none; text-align: left; height: 50px;" align="left">
+                Proposal
+            </th>
+            <th style="width: 100px; font-size: 14px;line-height: 200%; font-family: arial; text-decoration: none; text-align: left; height: 50px;" align="left" width="100">
+                {{visit}}
+            </th>
+            <td style="font-size: 14px; line-height: 200%; font-family: arial; text-decoration: none; text-align: left; height: 50px;" align="left">
+                {{ proposal }}
+            </td>
+        </tr>
+        <tr>
+            <th colspan="2" style="font-size: 14px; color: #575757; line-height: 200%; font-family: arial; text-decoration: none; text-align: left; height: 50px;" align="left">
+                BigEP directory
+            </th>
+            <td style="word-wrap:break-word; word-break:break-all; font-size: 14px; line-height: 200%; font-family: arial; text-decoration: none; text-align: left; height: 50px;" align="left">
+                {{ big_ep_path }}
+            </td>
+        </tr>
+        <tr>
+            <th colspan="2" style="font-size: 14px; color: #575757; line-height: 200%; font-family: arial; text-decoration: none; text-align: left; height: 50px;" align="left">
+                SynchWeb Link
+            </th>
+            <td style="font-size: 14px; line-height: 200%; font-family: arial; text-align: left; text-align: left; height: 50px;" align="left">
+                <a href="https://ispyb.diamond.ac.uk/dc/visit/{{ visit }}/id/{{ dcid }}">https://ispyb.diamond.ac.uk/dc/visit/{{ visit }}/id/{{ dcid }}</a>
+            </td>
+        </tr>
+    </tbody>
+</table>
+{% endblock %}

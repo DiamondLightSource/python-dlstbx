@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>[phasing-html] Dataset {{ filename }}}</title>
+</head>
+<body>
+    <table style="width: 800px; padding: 15px 10px;" width="800" bgcolor="#ebebeb">
+        <tbody>
+            <tr><td>
+                {% include "dc_header.html" %}
+            </td></tr>
+            <tr><td>
+                {% include "model_table.html" %}
+            </td></tr>
+            <tr><td>
+                {% include "dataset_summary.html" %}
+            </td></tr>
+            <tr><td>
+                {% include "fastep_summary.html" %}
+            </td></tr>
+            <tr><td>
+                {% include "xia2_table.html" %}
+            </td></tr>
+        </tbody>
+    </table>
+</body>
+</html>

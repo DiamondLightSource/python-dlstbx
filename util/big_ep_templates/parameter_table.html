@@ -1,0 +1,28 @@
+{% block parameter_table %}
+<table class="residues"
+    style="border-top: 1px solid #cccccc; border-bottom: 1px solid #cccccc; table-layout: fixed; width: 250px; font-size: 12px; font-family: arial"
+    width="250" bgcolor="#ebebeb">
+    <tbody>
+        <tr>
+            <th align="left">Anom. scatterer</th>
+            <td style="font-size: 14px; padding-right: 10px;" align="right">{{ settings.atom }}</td>
+        </tr>
+        <tr>
+            <th align="left">Space group</th>
+            <td style="font-size: 14px; padding-right: 10px;" align="right">{{ settings.spacegroup }}</td>
+        </tr>
+        <tr>
+            <th align="left">Num. scatterers</th>
+            <td style="font-size: 14px; padding-right: 10px;" align="right">{{ settings.nsites }}</td>
+        </tr>
+        <tr>
+            <th align="left">Dataset type</th>
+            <td style="font-size: 14px; padding-right: 10px;" align="right">{{ settings.dataset }}</td>
+        </tr>
+        <tr>
+            <th align="left">Compound</th>
+            <td style="font-size: 14px; padding-right: 10px;" align="right">{{ settings.compound }}</td>
+        </tr>
+    </tbody>
+</table>
+{% endblock %}

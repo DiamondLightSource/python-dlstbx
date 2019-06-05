@@ -1,0 +1,53 @@
+{% if scaler_stats %}
+{% for name, ds in scaler_stats.iteritems() %}
+<table style="width: 800px; border-top: 1px solid #cccccc; border-spacing: 0 5px; font-size: 12px; font-family: arial"width="800" bgcolor="#ebebeb">
+    <thead valign="bottom">
+        <tr>
+            <th style="text-align: left; height: 50px; font-size: 14px; color: #575757; line-height: 200%; font-family: arial; text-decoration: none;" align="left" colspan="4">
+                xia2 summary for {{ name }} dataset
+            </th>
+        </tr>
+        <tr>
+            <th class="head">&nbsp;</th>
+            <th class="head" align='left'>Overall</th>
+            <th class="head" align='left'>Low</th>
+            <th class="head" align='left'>High</th>
+        </tr>
+    </thead>
+    <tbody valign="top">
+        {% for stat in ['High resolution limit',
+                        'Low resolution limit',
+                        'Completeness',
+                        'Multiplicity',
+                        'I/sigma',
+                        'Rmerge(I)',
+                        'Rmerge(I+/-)',
+                        'Rmeas(I)',
+                        'Rmeas(I+/-)',
+                        'Rpim(I)',
+                        'Rpim(I+/-)',
+                        'CC half',
+                        'Wilson B factor',      
+                        'Anomalous completeness',
+                        'Anomalous multiplicity',
+                        'Anomalous correlation',
+                        'Anomalous slope',
+                        'dF/F',      
+                        'dI/s(dI)',      
+                        'Total observations',
+                        'Total unique'] %}
+        <tr>
+            <th align="left">{{ stat }}</th>
+            {% for v in ds[stat] %} 
+            <td>{{ v }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endfor %}
+{% endif %}
+{% if xia2_summary %}
+<PRE>{{ xia2_summary}}</PRE>
+{% endif %}
+

@@ -71,6 +71,7 @@ libtbx.pkg_utils.define_entry_points(
                 "anode = dlstbx.wrapper.anode:AnodeWrapper",
                 "autoproc = dlstbx.wrapper.autoPROC:autoPROCWrapper",
                 "big_ep = dlstbx.wrapper.big_ep:BigEPWrapper",
+                "big_ep_report = dlstbx.wrapper.big_ep_report:BigEPReportWrapper",
                 "dc_sim = dlstbx.wrapper.dc_sim:DCSimWrapper",
                 "dimple = dlstbx.wrapper.dimple:DimpleWrapper",
                 "dozor = dlstbx.wrapper.dozor:DozorWrapper",
@@ -87,6 +88,8 @@ libtbx.pkg_utils.define_entry_points(
                 "xia2.multiplex = dlstbx.wrapper.xia2_multiplex:Xia2MultiplexWrapper",
                 "xia2 = dlstbx.wrapper.xia2:Xia2Wrapper",
                 "xia2.strategy = dlstbx.wrapper.xia2_strategy:Xia2StrategyWrapper",
+                "xia2.to_shelxcde = dlstbx.wrapper.xia2_to_shelxcde:Xia2toShelxcdeWrapper",
+                "shelxc_stats = dlstbx.wrapper.shelxc_stats:ShelxcStatsWrapper",
                 "xoalign = dlstbx.wrapper.xoalign:XOalignWrapper",
             ]
         ),

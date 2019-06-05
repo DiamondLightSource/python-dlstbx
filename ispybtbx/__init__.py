@@ -380,7 +380,7 @@ WHERE
                             "fpp": energy_scan["inflectionfdoubleprime"],
                         }
                     )
-        except:
+        except Exception:
             res = {}
         return res
 
@@ -402,7 +402,7 @@ WHERE
         row = self.execute(s, dc_id)
         try:
             seq = row[0][0]
-        except:
+        except Exception:
             seq = None
         return seq
 
@@ -482,7 +482,7 @@ WHERE
         return number_of_images > 1 and axis_range == 0.0
 
     def dc_info_is_screening(self, dc_info):
-        if dc_info.get("numberOfImages") == None:
+        if dc_info.get("numberOfImages") is None:
             return None
         if dc_info["numberOfImages"] == 1:
             return True
@@ -702,6 +702,22 @@ WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s
         field_names = [i[0] for i in self._cursor.description]
         return field_names, results
 
+    def get_program_attachment(self, ap, ft="Result"):
+
+        s = """
+Select Distinct AutoProcProgramAttachment.filename,
+  AutoProcProgramAttachment.filepath
+From AutoProcProgramAttachment
+Inner Join AutoProcIntegration
+On AutoProcProgramAttachment.Autoprocprogramid = AutoProcIntegration.Autoprocprogramid
+Inner Join AutoProcScaling_has_Int
+On AutoProcScaling_has_Int.AutoProcIntegrationid = AutoProcIntegration.AutoProcIntegrationid
+Where AutoProcScaling_has_Int.AutoProcScalingid = %s
+And AutoProcProgramAttachment.Filetype = %s
+"""
+        rows = self.execute(s, (ap, ft))
+        return rows
+
     def insert_alignment_result(self, values):
         keys = ("dataCollectionId", "program", "shortComments", "comments", "phi")
         for k in keys:
@@ -802,6 +818,29 @@ WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s
             )
         self.commit()
 
+    def get_proposal_title_from_dcid(self, dc_id):
+        sql_str = """
+SELECT title
+FROM Proposal p
+INNER JOIN BLSession bs
+ON bs.proposalId = p.proposalId
+INNER JOIN DataCollectionGroup dcg
+ON dcg.sessionId = bs.sessionId
+INNER JOIN DataCollection dc
+ON dc.dataCollectionGroupId = dcg.dataCollectionGroupId
+WHERE dc.dataCollectionId='%s'
+;""" % str(
+            dc_id
+        )
+        results = self.execute(sql_str)
+        assert len(results) == 1, len(results)
+        assert len(results[0]) == 1, results[0]
+        try:
+            title = results[0][0]
+            return title
+        except Exception:
+            return None
+
     def get_visit_name_from_dcid(self, dc_id):
         sql_str = """
 SELECT proposalcode, proposalnumber, visit_number
@@ -857,10 +896,10 @@ def ispyb_filter(message, parameters):
         parameters["ispyb_processing_job"] = _ispyb_api().get_processing_job(
             processingjob_id
         )
-        if not "ispyb_dcid" in parameters:
+        if "ispyb_dcid" not in parameters:
             parameters["ispyb_dcid"] = parameters["ispyb_processing_job"].DCID
 
-    if not "ispyb_dcid" in parameters:
+    if "ispyb_dcid" not in parameters:
         return message, parameters
 
     # FIXME put in here logic to check input if set i.e. if dc_id==0 then check

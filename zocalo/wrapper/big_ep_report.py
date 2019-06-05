@@ -1,6 +1,6 @@
-from jinja2.environment import Environment
 from __future__ import absolute_import, division, print_function
 
+from jinja2.environment import Environment
 from jinja2.loaders import PackageLoader
 
 import logging

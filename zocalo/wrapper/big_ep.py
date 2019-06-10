@@ -68,11 +68,16 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             )
             fp.close()
             with open(bigep_script, "w") as fp:
-                fp.writelines(["module load big_ep\n", " ".join(command)])
+                fp.writelines(
+                    [
+                        ". /etc/profile.d/modules.sh\n",
+                        "module load big_ep\n",
+                        " ".join(command),
+                    ]
+                )
         except IOError:
-            logger.error(
-                "Could not create bigep script file in the working directory",
-                exc_info=1,
+            logger.exception(
+                "Could not create big_ep script file in the working directory"
             )
             return False
 

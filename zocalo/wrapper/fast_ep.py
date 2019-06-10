@@ -130,15 +130,27 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             )
 
         command = self.construct_commandline(params)
-        fp = tempfile.NamedTemporaryFile(
-            mode="w+t", dir=working_directory.strpath, delete=False
-        )
         try:
-            fp.writelines(["module load fast_ep\n", " ".join(command)])
-        finally:
+            fp = tempfile.NamedTemporaryFile(dir=working_directory)
+            fast_ep_script = os.path.join(
+                working_directory, "run_fast_ep_{}.sh".format(os.path.basename(fp.name))
+            )
             fp.close()
+            with open(fast_ep_script, "w") as fp:
+                fp.writelines(
+                    [
+                        ". /etc/profile.d/modules.sh\n",
+                        "module load fast_ep\n",
+                        " ".join(command),
+                    ]
+                )
+        except IOError:
+            logger.exception(
+                "Could not create fast_ep script file in the working directory"
+            )
+            return False
         result = procrunner.run(
-            ["sh", fp.name],
+            ["sh", fast_ep_script],
             timeout=params.get("timeout"),
             print_stdout=False,
             print_stderr=False,

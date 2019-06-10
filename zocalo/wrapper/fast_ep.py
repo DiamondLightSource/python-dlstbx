@@ -131,9 +131,10 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
 
         command = self.construct_commandline(params)
         try:
-            fp = tempfile.NamedTemporaryFile(dir=working_directory)
+            fp = tempfile.NamedTemporaryFile(dir=working_directory.strpath)
             fast_ep_script = os.path.join(
-                working_directory, "run_fast_ep_{}.sh".format(os.path.basename(fp.name))
+                working_directory.strpath,
+                "run_fast_ep_{}.sh".format(os.path.basename(fp.name)),
             )
             fp.close()
             with open(fast_ep_script, "w") as fp:

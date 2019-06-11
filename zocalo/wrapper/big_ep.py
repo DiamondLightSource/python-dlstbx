@@ -106,8 +106,6 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             "sci-serv3",
             "-p",
             "2611",
-            "--fix_sgids",
-            "-d",
             "-i",
             xml_file,
             "-f",

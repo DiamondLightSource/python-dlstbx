@@ -33,7 +33,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             params["sequence"] = sequence
 
         command = [
-            "${BIG_EP_BIN}/big_ep",
+            "{}/big_ep".format(os.environ["BIG_EP_BIN"]),
             "fast_ep={}".format(params["fast_ep_directory"]),
         ]
         try:
@@ -229,6 +229,9 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
                 big_ep_path.join(dt_stamp).strpath,
             )
 
+        if "BIG_EP_BIN" not in os.environ:
+            logger.error("Environment not configured to run big_ep")
+            return False
         command, bigep_script = self.construct_commandline(
             params, working_directory.strpath
         )

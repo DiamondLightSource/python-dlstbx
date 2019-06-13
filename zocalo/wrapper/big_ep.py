@@ -70,7 +70,9 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             with open(bigep_script, "w") as fp:
                 fp.writelines(
                     [
+                        "#!/bin/bash\n",
                         ". /etc/profile.d/modules.sh\n",
+                        "module purge\n",
                         "module load big_ep\n",
                         " ".join(command),
                     ]
@@ -181,6 +183,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
                 os.linesep.join(
                     [
                         "#!/bin/sh",
+                        "module purge",
                         "module load ccp4",
                         "coot --python models.py --no-guano",
                     ]

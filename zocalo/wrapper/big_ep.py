@@ -30,7 +30,12 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         params.update(edge_data)
         sequence = ispyb_conn.get_sequence(dcid)
         if sequence:
-            params["sequence"] = sequence
+            seq_filename = os.path.join(working_directory, "seq_{}.fasta".format(dcid))
+            from iotbx.bioinformatics import fasta_sequence
+
+            with open(seq_filename, "w") as fp:
+                fp.write(fasta_sequence(sequence).format(80))
+            params["sequence"] = seq_filename
 
         command = [
             "{}/big_ep".format(os.environ["BIG_EP_BIN"]),

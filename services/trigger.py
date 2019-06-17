@@ -190,6 +190,43 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
+    def trigger_mrbump(self, rw, header, parameters, **kwargs):
+        dcid = parameters("dcid")
+        if not dcid:
+            self.log.error("mrbump trigger failed: No DCID specified")
+            return False
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = bool(parameters("automatic"))
+        jp["comments"] = parameters("comment")
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "MrBUMP"
+        jp["recipe"] = "postprocessing-mrbump"
+        jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+        self.log.debug("mrbump trigger: generated JobID {}".format(jobid))
+
+        mrbump_parameters = {
+            "hklin": parameters("hklin"),
+            "scaling_id": parameters("scaling_id"),
+        }
+
+        for key, value in mrbump_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+            self.log.debug("fast_ep trigger: generated JobParameterID {}".format(jppid))
+
+        self.log.debug("mrbump trigger: Processing job {} created".format(jobid))
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info("mrbump trigger: Processing job {} triggered".format(jobid))
+
+        return {"success": True, "return_value": jobid}
+
     def trigger_big_ep(self, rw, header, parameters, **kwargs):
         dcid = parameters("dcid")
         if not dcid:

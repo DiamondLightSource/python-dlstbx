@@ -78,6 +78,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "fast_rdp = dlstbx.wrapper.fast_rdp:FastRDPWrapper",
     "i19screen = dlstbx.wrapper.i19screen:I19ScreenWrapper",
     "mosflm_strategy = dlstbx.wrapper.mosflm_strategy:MosflmStrategyWrapper",
+    "mrbump = dlstbx.wrapper.mrbump:MrBUMPWrapper",
     "rlv = dlstbx.wrapper.rlv:RLVWrapper",
     "shelxc_stats = dlstbx.wrapper.shelxc_stats:ShelxcStatsWrapper",
     "spotcounts = dlstbx.wrapper.spot_counts_per_image:SCPIWrapper",

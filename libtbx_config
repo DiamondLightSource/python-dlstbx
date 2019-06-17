@@ -5,14 +5,14 @@
   "python_required": [
     "colorama",  # is still used in one place
     "drmaa",
-    "ispyb>=5.1,<5.2",
+    "ispyb>=5.2,<5.3",
     "junit_xml",
     "mock>=2.0",
     "procrunner>=1.0.2",
     "pytest>=3.1",
     "pytest-mock",
-    "workflows>=1.5",
-    "zocalo>=0.5.3",
+    "workflows>=1.6",
+    "zocalo>=0.6.0",
     # Eiger stream work, SCI-7786
     "confluent-kafka",
     "msgpack",

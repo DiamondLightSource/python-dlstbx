@@ -159,8 +159,6 @@ class DLSCluster(CommonService):
             self._transport.nack(header)
             return
 
-        submission_params = "-l redhat_release=rhel7 " + submission_params
-
         submission = [
             ". /etc/profile.d/modules.sh",
             "module load global/" + cluster,

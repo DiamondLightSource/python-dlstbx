@@ -62,36 +62,38 @@ for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
                 )
             )
             print("  found", classname)
+
+known_wrappers = [  # please keep alphabetically sorted
+    "align_crystal = dlstbx.wrapper.dlstbx_align_crystal:AlignCrystalWrapper",
+    "anode = dlstbx.wrapper.anode:AnodeWrapper",
+    "autoproc = dlstbx.wrapper.autoPROC:autoPROCWrapper",
+    "big_ep = dlstbx.wrapper.big_ep:BigEPWrapper",
+    "big_ep_report = dlstbx.wrapper.big_ep_report:BigEPReportWrapper",
+    "dc_sim = dlstbx.wrapper.dc_sim:DCSimWrapper",
+    "dimple = dlstbx.wrapper.dimple:DimpleWrapper",
+    "dozor = dlstbx.wrapper.dozor:DozorWrapper",
+    "edna = dlstbx.wrapper.edna:EdnaWrapper",
+    "fast_dp = dlstbx.wrapper.fast_dp:FastDPWrapper",
+    "fast_ep = dlstbx.wrapper.fast_ep:FastEPWrapper",
+    "fast_rdp = dlstbx.wrapper.fast_rdp:FastRDPWrapper",
+    "i19screen = dlstbx.wrapper.i19screen:I19ScreenWrapper",
+    "mosflm_strategy = dlstbx.wrapper.mosflm_strategy:MosflmStrategyWrapper",
+    "rlv = dlstbx.wrapper.rlv:RLVWrapper",
+    "shelxc_stats = dlstbx.wrapper.shelxc_stats:ShelxcStatsWrapper",
+    "spotcounts = dlstbx.wrapper.spot_counts_per_image:SCPIWrapper",
+    "stepped_transmission = dlstbx.wrapper.stepped_transmission:SteppedTransmissionWrapper",
+    "timg = dlstbx.wrapper.timg:TopazWrapper",
+    "xia2 = dlstbx.wrapper.xia2:Xia2Wrapper",
+    "xia2.multiplex = dlstbx.wrapper.xia2_multiplex:Xia2MultiplexWrapper",
+    "xia2.strategy = dlstbx.wrapper.xia2_strategy:Xia2StrategyWrapper",
+    "xia2.to_shelxcde = dlstbx.wrapper.xia2_to_shelxcde:Xia2toShelxcdeWrapper",
+    "xoalign = dlstbx.wrapper.xoalign:XOalignWrapper",
+]
+
 libtbx.pkg_utils.define_entry_points(
     {
         "workflows.services": sorted(service_list),
-        "dlstbx.wrappers": sorted(
-            [
-                "align_crystal = dlstbx.wrapper.dlstbx_align_crystal:AlignCrystalWrapper",
-                "anode = dlstbx.wrapper.anode:AnodeWrapper",
-                "autoproc = dlstbx.wrapper.autoPROC:autoPROCWrapper",
-                "big_ep = dlstbx.wrapper.big_ep:BigEPWrapper",
-                "big_ep_report = dlstbx.wrapper.big_ep_report:BigEPReportWrapper",
-                "dc_sim = dlstbx.wrapper.dc_sim:DCSimWrapper",
-                "dimple = dlstbx.wrapper.dimple:DimpleWrapper",
-                "dozor = dlstbx.wrapper.dozor:DozorWrapper",
-                "edna = dlstbx.wrapper.edna:EdnaWrapper",
-                "fast_dp = dlstbx.wrapper.fast_dp:FastDPWrapper",
-                "fast_rdp = dlstbx.wrapper.fast_rdp:FastRDPWrapper",
-                "fast_ep = dlstbx.wrapper.fast_ep:FastEPWrapper",
-                "i19screen = dlstbx.wrapper.i19screen:I19ScreenWrapper",
-                "stepped_transmission = dlstbx.wrapper.stepped_transmission:SteppedTransmissionWrapper",
-                "mosflm_strategy = dlstbx.wrapper.mosflm_strategy:MosflmStrategyWrapper",
-                "rlv = dlstbx.wrapper.rlv:RLVWrapper",
-                "spotcounts = dlstbx.wrapper.spot_counts_per_image:SCPIWrapper",
-                "timg = dlstbx.wrapper.timg:TopazWrapper",
-                "xia2.multiplex = dlstbx.wrapper.xia2_multiplex:Xia2MultiplexWrapper",
-                "xia2 = dlstbx.wrapper.xia2:Xia2Wrapper",
-                "xia2.strategy = dlstbx.wrapper.xia2_strategy:Xia2StrategyWrapper",
-                "xia2.to_shelxcde = dlstbx.wrapper.xia2_to_shelxcde:Xia2toShelxcdeWrapper",
-                "shelxc_stats = dlstbx.wrapper.shelxc_stats:ShelxcStatsWrapper",
-                "xoalign = dlstbx.wrapper.xoalign:XOalignWrapper",
-            ]
-        ),
+        "dlstbx.wrappers": sorted(known_wrappers),
+        "zocalo.wrappers": sorted(known_wrappers),
     }
 )

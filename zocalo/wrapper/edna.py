@@ -111,16 +111,11 @@ edna-plugin-launcher \
                     output_file=results_xml,
                 )
             )
-        commands = [
-            "sh",
-            wrap_edna_sh.strpath,
-            strategy_xml.strpath,
-            results_xml.strpath,
-        ]
+        commands = ["sh", wrap_edna_sh, strategy_xml, results_xml]
         logger.info("Running command: %s", " ".join(commands))
         result = procrunner.run(
             commands,
-            working_directory=EDNAStrategy.strpath,
+            working_directory=EDNAStrategy,
             timeout=params.get("timeout", 3600),
             environment_override={
                 "LD_LIBRARY_PATH": "",
@@ -155,10 +150,16 @@ edna-plugin-launcher \
         logger.info("Running command: %s", " ".join(commands))
         result = procrunner.run(
             commands,
-            working_directory=working_directory.strpath,
+            working_directory=working_directory,
             timeout=params.get("timeout", 3600),
             print_stdout=True,
             print_stderr=True,
+            environment_override={
+                "LD_LIBRARY_PATH": "",
+                "LOADEDMODULES": "",
+                "PYTHONPATH": "",
+                "_LMFILES_": "",
+            },
         )
         logger.info(
             "EDNA2HTML terminated after %.1f seconds with exitcode %s and timeout %s",
@@ -205,7 +206,7 @@ edna-plugin-launcher \
         )
         result = procrunner.run(
             ["dlstbx.snowflake2cbf", master_h5, params["image_pattern"]],
-            working_directory=tmpdir.strpath,
+            working_directory=tmpdir,
             timeout=params.get("timeout", 3600),
         )
         logger.info(

@@ -13,27 +13,26 @@ logger = logging.getLogger("dlstbx.wrap.mrbump")
 
 
 class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
-    def get_sequence(self, working_directory, params):
-        dcid = params["dcid"]
-
+    def get_sequence(self, dcid):
         from dlstbx.ispybtbx import ispybtbx
 
         ispyb_conn = ispybtbx()
         sequence = ispyb_conn.get_sequence(dcid)
-        if sequence:
-            seq_filename = os.path.join(working_directory, "seq_{}.fasta".format(dcid))
-            from iotbx.bioinformatics import fasta_sequence
+        return sequence
 
-            with open(seq_filename, "w") as fp:
-                fp.write(fasta_sequence(sequence).format(80))
-            return seq_filename
-        return None
-
-    def construct_script(self, params, working_directory):
+    def construct_script(self, params, working_directory, sequence):
         """Construct MrBUMP script line.
        Takes job parameter dictionary, returns array."""
         module_params = params["mrbump"]["modules"]
         cdl_params = params["mrbump"]["command"]
+
+        seq_filename = os.path.join(
+            working_directory, "seq_{}.fasta".format(params["dcid"])
+        )
+        from iotbx.bioinformatics import fasta_sequence
+
+        with open(seq_filename, "w") as fp:
+            fp.write(fasta_sequence(sequence).format(80))
 
         mrbump_script = ["#!/bin/bash", ". /etc/profile.d/modules.sh"]
 
@@ -46,7 +45,6 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
         ]
         for arg, val in cdl_params.items():
             mrbump_command.append("{} {}".format(arg, val))
-        seq_filename = self.get_sequence(working_directory, params)
         mrbump_command.append("seqin {}".format(seq_filename))
         command_line = " ".join(mrbump_command)
 
@@ -76,7 +74,10 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
         working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])
 
-        stdin_params = params["mrbump"]["stdin"]
+        sequence = self.get_sequence(params["dcid"])
+        if not sequence:
+            logger.info("Skipping MrBUMP processing. Sequence data not available.")
+            return False
 
         working_directory.ensure(dir=True)
         if params.get("create_symlink"):
@@ -85,9 +86,10 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
             )
 
         command, mrbump_script = self.construct_script(
-            params, working_directory.strpath
+            params, working_directory.strpath, sequence
         )
         logger.info("command: %s", command)
+        stdin_params = params["mrbump"]["stdin"]
         stdin = (
             "\n".join(["{} {}".format(k, v) for k, v in stdin_params.items()]) + "\nEND"
         )

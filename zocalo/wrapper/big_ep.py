@@ -15,6 +15,13 @@ import subprocess
 
 logger = logging.getLogger("dlstbx.wrap.big_ep")
 
+clean_environment = {
+    "LD_LIBRARY_PATH": "",
+    "LOADEDMODULES": "",
+    "PYTHONPATH": "",
+    "_LMFILES_": "",
+}
+
 
 class BigEPWrapper(zocalo.wrapper.BaseWrapper):
     def construct_commandline(self, params, working_directory):
@@ -85,7 +92,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         return command, bigep_script
 
     def send_command_to_ispyb(self, params, bigep_command, xml_file):
-        with open(xml_file, "w") as fp:
+        with xml_file.open("w") as fp:
             fp.writelines(
                 [
                     "<PhasingContainer>",
@@ -113,23 +120,23 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             params["data"],
         ]
 
-        logger.info("command: %s", " ".join(command))
+        logger.info("Running command: %s", " ".join(commands))
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
             print_stdout=True,
             print_stderr=True,
             working_directory=params["working_directory"],
+            environment_override=clean_environment,
         )
-        logger.info("command: %s", " ".join(result["command"]))
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("time_start: %s", result["time_start"])
-        logger.info("time_end: %s", result["time_end"])
-        logger.info("runtime: %s", result["runtime"])
-        logger.info("exitcode: %s", result["exitcode"])
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
-        return result["exitcode"] == 0
+        logger.info(
+            "phasing2ispyb terminated after %.1f seconds with exitcode %s and timeout %s",
+            result["runtime"],
+            result["exitcode"],
+            result["timeout"],
+        )
+        success = not result["exitcode"] and not result["timeout"]
+        return success
 
     def write_coot_script(self, working_directory):
         def get_map_model_from_json(json_path):
@@ -240,12 +247,12 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
 
         if "xml" in params:
             xml_file = working_directory.join(params["xml"])
-            self.send_command_to_ispyb(params, str_command, xml_file.strpath)
+            self.send_command_to_ispyb(params, str_command, xml_file)
 
         result = procrunner.run(
             ["sh", bigep_script],
             timeout=params.get("timeout"),
-            working_directory=working_directory.strpath,
+            working_directory=working_directory,
         )
         if result["exitcode"] or result["timeout"]:
             logger.info("timeout: %s", result["timeout"])

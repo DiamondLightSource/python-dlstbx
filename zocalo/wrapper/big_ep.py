@@ -197,11 +197,16 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             )
 
     def copy_results(self, working_directory, results_directory):
-        shutil.copytree(
-            working_directory,
-            results_directory,
-            ignore=shutil.ignore_patterns(".launch", ".recipewrap"),
-        )
+        def ignore_func(directory, files):
+            ignore_list = [".launch", ".recipewrap"]
+            pth = py.path.local(directory)
+            for f in files:
+                fp = pth.join(f)
+                if not fp.check():
+                    ignore_list.append(f)
+            return ignore_list
+
+        shutil.copytree(working_directory, results_directory, ignore=ignore_func)
         src_pth_esc = r"\/".join(working_directory.split(os.sep))
         dest_pth_esc = r"\/".join(results_directory.split(os.sep))
         sed_command = (

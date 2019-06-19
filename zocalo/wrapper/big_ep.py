@@ -221,6 +221,10 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
+        if "BIG_EP_BIN" not in os.environ:
+            logger.error("Environment not configured to run big_ep")
+            return False
+
         params = self.recwrap.recipe_step["job_parameters"]
         dt = datetime.now()
         params["timestamp"] = dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -240,10 +244,12 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
                 ispyb_working_directory.join("big_ep").strpath,
                 big_ep_path.join(dt_stamp).strpath,
             )
+        # Create big_ep directory to update status in Synchweb
+        if "devel" not in params and params.get("create_symlink"):
+            ispyb_results_directory.ensure(dir=True)
+            big_ep_path = ispyb_results_directory.join("..", "big_ep")
+            big_ep_path.ensure(dir=True)
 
-        if "BIG_EP_BIN" not in os.environ:
-            logger.error("Environment not configured to run big_ep")
-            return False
         command, bigep_script = self.construct_commandline(
             params, working_directory.strpath
         )
@@ -273,12 +279,10 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
 
         if "devel" not in params:
             self.copy_results(working_directory.strpath, results_directory.strpath)
-
-        if params.get("create_symlink"):
-            big_ep_path = ispyb_results_directory.join("..", "big_ep")
-            big_ep_path.ensure(dir=True)
-            os.symlink(
-                ispyb_results_directory.join("big_ep").strpath,
-                big_ep_path.join(dt_stamp).strpath,
-            )
+            if params.get("create_symlink"):
+                big_ep_path = ispyb_results_directory.join("..", "big_ep")
+                os.symlink(
+                    ispyb_results_directory.join("big_ep").strpath,
+                    big_ep_path.join(dt_stamp).strpath,
+                )
         return result["exitcode"] == 0

@@ -120,7 +120,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             params["data"],
         ]
 
-        logger.info("Running command: %s", " ".join(commands))
+        logger.info("Running command: %s", " ".join(command))
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),

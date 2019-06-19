@@ -41,22 +41,16 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             "{}/big_ep".format(os.environ["BIG_EP_BIN"]),
             "fast_ep={}".format(params["fast_ep_directory"]),
         ]
-        try:
-            command.append("data={}".format(params["data"]))
-        except KeyError:
-            pass
-        try:
-            command.append("atom_type={}".format(params["atom_type"]))
-        except KeyError:
-            pass
-        try:
-            command.append("seq_file={}".format(params["sequence"]))
-        except KeyError:
-            pass
-        try:
-            command.append("edge_position={}".format(params["edge_position"]))
-        except KeyError:
-            pass
+        for key, parameter in (
+            ("data", "data"),
+            ("atom_type", "atom_type"),
+            ("sequence", "seq_file"),
+            ("edge_position", "edge_position"),
+        ):
+            if key in params:
+                command.append(
+                    "{parameter}={value}".format(parameter=parameter, value=params[key])
+                )
         try:
             command.extend(
                 [

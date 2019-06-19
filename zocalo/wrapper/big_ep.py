@@ -115,7 +115,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             "-p",
             "2611",
             "-i",
-            xml_file,
+            xml_file.strpath,
             "-f",
             params["data"],
         ]

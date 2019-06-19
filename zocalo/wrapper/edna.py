@@ -111,7 +111,12 @@ edna-plugin-launcher \
                     output_file=results_xml,
                 )
             )
-        commands = ["sh", wrap_edna_sh, strategy_xml, results_xml]
+        commands = [
+            "sh",
+            wrap_edna_sh.strpath,
+            strategy_xml.strpath,
+            results_xml.strpath,
+        ]
         logger.info("Running command: %s", " ".join(commands))
         result = procrunner.run(
             commands,

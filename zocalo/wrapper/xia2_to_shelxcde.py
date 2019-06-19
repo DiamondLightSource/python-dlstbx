@@ -91,6 +91,9 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
             return False
 
         stats = parse_shelxc_logs(result["stdout"])
+        if not stats:
+            logger.info("Cannot process SHELXC data. Aborting.")
+            return False
         self.recwrap.send_to("downstream", stats)
 
         # Create results directory and symlink if they don't already exist

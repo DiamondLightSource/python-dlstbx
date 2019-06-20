@@ -11,7 +11,7 @@ from dlstbx.util.dxtbx_to_dozor import (
     parse_dozor_output,
     write_dozor_input,
 )
-from dxtbx.datablock import DataBlockFactory, DataBlockTemplateImporter
+from dxtbx.datablock import DataBlockTemplateImporter
 
 logger = logging.getLogger("dlstbx.wrap.dozor")
 

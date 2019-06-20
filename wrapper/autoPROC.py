@@ -477,7 +477,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             destination = results_directory.join(filename.basename)
             logger.debug("Copying %s to %s", filename.strpath, destination.strpath)
             filename.copy(destination)
-            if keep_as == True:
+            if keep_as:
                 continue  # only copy file, do not register in ISPyB
             if "staraniso" in filename.basename:
                 anisofiles.append((destination.basename, destination.dirname, keep_as))

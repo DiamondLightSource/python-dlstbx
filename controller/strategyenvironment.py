@@ -131,13 +131,13 @@ class StrategyEnvironment(object):
             self.environment["instances"][host].update(instance)
             instance = self.environment["instances"][host]
 
-            if set_alive == True and instance["status"] in (
+            if set_alive is True and instance["status"] in (
                 self.S_HOLD,
                 self.S_PREPARE,
                 self.S_STARTING,
             ):
                 instance["status"] = self.S_RUNNING
-            if set_alive == False:
+            if set_alive is False:
                 instance["status"] = self.S_EXPIRE
 
     def remove_instance(self, instance):

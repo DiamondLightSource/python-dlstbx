@@ -19,7 +19,7 @@ def mock_environment(number_of_services_holding, running, disappearing):
         (StrategyEnvironment.S_RUNNING, running),
         (StrategyEnvironment.S_SHUTDOWN, disappearing),
     ]:
-        if not service in environment["services"]:
+        if service not in environment["services"]:
             environment["services"][service] = {}
         for i in range(count):
             svc_id = str(uuid.uuid4())

@@ -4,7 +4,6 @@ import ConfigParser
 from datetime import datetime
 import logging
 import os
-import sys
 
 import dlstbx.util.symlink
 import ispyb

@@ -90,6 +90,10 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
             logger.error("SHELXC log is empty")
             return False
 
+        shelxc_log = os.path.join(working_directory.strpath, prefix + "_shelxc.log")
+        with open(shelxc_log, "w") as fp:
+            fp.write(result["stdout"])
+
         stats = parse_shelxc_logs(result["stdout"])
         if not stats:
             logger.info("Cannot process SHELXC data. Aborting.")

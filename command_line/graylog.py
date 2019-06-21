@@ -149,6 +149,14 @@ if __name__ == "__main__":
         help="Keep showing log messages as they come in.",
     )
     parser.add_option(
+        "-a",
+        "--aggregate",
+        dest="aggregate",
+        default=False,
+        action="store_true",
+        help="Only show a single instance for similar messages",
+    )
+    parser.add_option(
         "-r",
         "--recipe",
         dest="recipe",
@@ -193,6 +201,9 @@ if __name__ == "__main__":
     except ValueError:
         sys.exit("Invalid loglevel specified.")
 
+    if options.aggregate and options.follow:
+        sys.exit("Options --follow and --aggregate are mutually exclusive.")
+
     if options.time.isdigit():
         options.time = int(options.time)
     elif options.time[:-1].isdigit():
@@ -232,6 +243,29 @@ if __name__ == "__main__":
                     )
                 sys.stdout.flush()
                 time.sleep(0.7)
+        elif options.aggregate:
+            aggregate = {}
+            for order, message in enumerate(g.get_all_messages(time=options.time)):
+                try:
+                    message_id = "{message[level]}:{message[file]}:{message[line]}".format(
+                        message=message
+                    )
+                except KeyError:
+                    message_id = message.get("_id")
+                agg = aggregate.setdefault(message_id, {"count": 0})
+                agg["count"] += 1
+                agg["message"] = message
+                agg["order"] = order
+            aggregate = sorted(aggregate.values(), key=lambda a: a["order"])
+            for message in aggregate:
+                sys.stdout.write(format(message["message"]))
+                if message["count"] > 1:
+                    sys.stdout.write(
+                        "(representative of a group of {c.BOLD}{m[count]}{c.DEFAULT} similar messages)\n".format(
+                            m=message, c=ColorStreamHandler
+                        )
+                    )
+                print()
         else:
             for message in g.get_all_messages(time=options.time):
                 sys.stdout.write(format(message))

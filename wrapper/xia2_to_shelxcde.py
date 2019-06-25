@@ -1,12 +1,13 @@
 from __future__ import absolute_import, division, print_function
 
-import zocalo.wrapper
 import logging
-import py
 import os
+import tempfile
+
 import dlstbx.util.symlink
 import procrunner
-import tempfile
+import py
+import zocalo.wrapper
 from dlstbx.util.shelxc import parse_shelxc_logs
 
 logger = logging.getLogger("dlstbx.wrap.xia2.to_shelxcde")

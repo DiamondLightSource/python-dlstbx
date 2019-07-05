@@ -20,7 +20,9 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
 
         working_directory = py.path.local(os.path.join(params["working_directory"]))
         try:
-            results_directory = py.path.local(os.path.join(params["results_directory"]))
+            results_directory = py.path.local(
+                os.path.realpath(os.path.join(params["results_directory"]))
+            )
         except KeyError:
             logger.info("Result directory not specified")
 

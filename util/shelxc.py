@@ -43,7 +43,7 @@ def parse_shelxc_logs(shelxc_log):
         nshells = len(reso_dict["reso_data"]) - 1
         msg.update(reso_dict)
     except Exception:
-        logger.warning("Could not parse resolution values from SHELXC log.")
+        logger.debug("Could not parse resolution values from SHELXC log.")
         return None
     for metric_pattern, metric_key in (
         (refl_data, "refl_data"),
@@ -61,12 +61,12 @@ def parse_shelxc_logs(shelxc_log):
             )
             msg.update(parse_dict)
         except Exception:
-            logger.warning(
+            logger.debug(
                 "Could not parse {} values from SHELXC log.".format(metric_key)
             )
             return None
         if len(parse_dict[metric_key]) != nshells:
-            logger.warning(
+            logger.debug(
                 "Missing or invalid values for {} found in some resolution shells.".format(
                     metric_key
                 )

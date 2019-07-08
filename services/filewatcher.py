@@ -124,6 +124,19 @@ class DLSFileWatcher(CommonService):
         filelist = rw.recipe_step["parameters"]["list"]
         filecount = len(filelist)
 
+        # If the only entry in the list is 'None' then there are no files to
+        # watch for. Bail out early and only notify on 'finally'.
+        if filecount == 1 and filelist[0] is None:
+            txn = rw.transport.transaction_begin()
+            rw.transport.ack(header, transaction=txn)
+            rw.send_to(
+                "finally",
+                {"files-expected": 0, "files-seen": 0, "success": True},
+                transaction=txn,
+            )
+            rw.transport.transaction_commit(txn)
+            return
+
         # Identify selections to notify for
         selections = self._parse_selections(rw.recipe_step["output"])
 

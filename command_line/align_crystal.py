@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function
 import logging
 import json
 import os
-import py
 import shutil
 import sys
 
@@ -81,7 +80,7 @@ def align_crystal(image_files, nproc=None):
         assert os.path.exists("bravais_summary.json")
         with open("bravais_summary.json", "rb") as f:
             d = json.load(f)
-            solutions = dict((int(k), v) for k, v in d.items())
+            solutions = {int(k): v for k, v in d.items()}
             for k in solutions.keys():
                 solutions[k]["experiments_file"] = "bravais_setting_%d.json" % k
             soln = solutions[max(solutions.keys())]

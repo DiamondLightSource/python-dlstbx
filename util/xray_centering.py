@@ -1,6 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-import sys
 import json
 
 data = [
@@ -281,7 +280,7 @@ def getSurround(cell):
     downright = (cell[0] + 1, cell[1] + 1)
     right = (cell[0], cell[1] + 1)
     upright = (cell[0] - 1, cell[1] + 1)
-    surround = set([up, down, left, right, upleft, downleft, upright, downright])
+    surround = {up, down, left, right, upleft, downleft, upright, downright}
     return surround
 
 

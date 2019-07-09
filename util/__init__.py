@@ -45,7 +45,7 @@ def dls_tmp_folder_date():
     return tmp_folder
 
 
-_proc_getnumber = re.compile(":\s+([0-9]+)\s")
+_proc_getnumber = re.compile(r":\s+([0-9]+)\s")
 
 
 def get_process_uss(pid=None):

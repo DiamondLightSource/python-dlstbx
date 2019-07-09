@@ -51,7 +51,7 @@ def main(args):
             idx = [s.lower() for s in field_names].index("imagenumber")
             print("%d pia results for %s images" % (len(rows), n_images))
             if idx >= 0:
-                image_numbers = set([row[idx] for row in rows])
+                image_numbers = {row[idx] for row in rows}
                 missing = set(range(start, end + 1)) - image_numbers
                 if len(missing):
                     print("Missing results for:")

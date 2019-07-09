@@ -35,7 +35,7 @@ def find_all_references(startfile):
         return []
 
     known_files = set()
-    unchecked_files = set([startfile])
+    unchecked_files = {startfile}
     invalid_files = set()
 
     while unchecked_files:

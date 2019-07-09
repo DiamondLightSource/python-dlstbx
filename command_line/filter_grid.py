@@ -324,7 +324,7 @@ if __name__ == "__main__":
 
     # Log the diff phil
     diff_phil = parser.diff_phil.as_str()
-    if diff_phil is not "":
+    if diff_phil != "":
         logger.info("The following parameters have been modified:\n")
         logger.info(diff_phil)
 
@@ -353,16 +353,14 @@ if __name__ == "__main__":
     logger.info("\n" + "-" * 80)
     reflections.as_pickle(params.output.reflections)
     logger.info(
-        "Saved {0} reflections to {1}".format(
-            len(reflections), params.output.reflections
-        )
+        "Saved {} reflections to {}".format(len(reflections), params.output.reflections)
     )
 
     # Save the datablock
     if params.output.datablock:
         from dxtbx.datablock import DataBlockDumper
 
-        logger.info("Saving datablocks to {0}".format(params.output.datablock))
+        logger.info("Saving datablocks to {}".format(params.output.datablock))
         dump = DataBlockDumper(datablocks)
         dump.as_file(params.output.datablock)
 
@@ -450,13 +448,13 @@ if __name__ == "__main__":
             else v[1] > params.filter_grid.threshold
         )
         for func_name in params.filter_grid.profiles:
-            test_dict = dict(
-                (k, v)
+            test_dict = {
+                k: v
                 for k, v in distribution_dict[func_name](
                     resol_dict, func_name=func_name
                 )[sc].items()
                 if thres_pval(v)
-            )
+            }
             if test_dict:
                 output_stats(test_dict, func_name)
                 output_json(test_dict, "_".join([func_name, sc, "stats"]))

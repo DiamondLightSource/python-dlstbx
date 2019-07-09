@@ -5,7 +5,7 @@ import re
 import sys
 import xml.dom.minidom
 
-re_trace = re.compile("^.*\.py:[0-9]+:.*$", re.MULTILINE)
+re_trace = re.compile(r"^.*\.py:[0-9]+:.*$", re.MULTILINE)
 
 known_traces = {}
 

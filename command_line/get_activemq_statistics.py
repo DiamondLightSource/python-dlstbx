@@ -210,7 +210,7 @@ if __name__ == "__main__":
     if not options.rrd and not options.keys:
 
         def readable_memory(value):
-            return "{0:.1f} MB".format(value / 1024 / 1024)
+            return "{:.1f} MB".format(value / 1024 / 1024)
 
         print(
             """

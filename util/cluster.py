@@ -240,9 +240,7 @@ class Cluster:
 
     def _qwait(self, jobid):
         retval = self.session.wait(jobid, self.drmaa.Session.TIMEOUT_WAIT_FOREVER)
-        print(
-            "Job: {0} finished with status {1}".format(retval.jobId, retval.hasExited)
-        )
+        print("Job: {} finished with status {}".format(retval.jobId, retval.hasExited))
 
 
 class ClusterStatistics:

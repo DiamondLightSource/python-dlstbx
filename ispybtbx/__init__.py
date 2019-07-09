@@ -39,7 +39,7 @@ def _ispyb_api():
 
 
 future_enabled = False
-re_visit_base = re.compile("^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
+re_visit_base = re.compile(r"^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
 
 
 def _enable_future():

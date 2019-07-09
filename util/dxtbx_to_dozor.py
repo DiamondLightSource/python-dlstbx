@@ -94,7 +94,7 @@ end
 """
 
     text = template.format(**dozor_params)
-    if not fout is "-":
+    if fout != "-":
         open(fout, "w").write(text)
     else:
         print(text)

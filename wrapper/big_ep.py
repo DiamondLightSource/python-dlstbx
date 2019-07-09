@@ -61,8 +61,8 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         try:
             command.extend(
                 [
-                    "{0}.fp={1}".format(params["edge_position"], params["fp"]),
-                    "{0}.fpp={1}".format(params["edge_position"], params["fpp"]),
+                    "{}.fp={}".format(params["edge_position"], params["fp"]),
+                    "{}.fpp={}".format(params["edge_position"], params["fpp"]),
                 ]
             )
         except KeyError:

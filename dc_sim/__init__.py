@@ -16,10 +16,7 @@ import os
 import re
 import procrunner
 import shutil
-import subprocess
 import sys
-import tempfile
-import time
 import uuid
 
 import dlstbx.dc_sim.dbserverclient
@@ -64,7 +61,7 @@ def copy_via_temp_file(source, destination):
 
 
 def clean_nan_null_minusone(s):
-    return re.sub("\<[^<>]*\>(null|nan|-1)\</[^<>]*\>", "", s)
+    return re.sub(r"\<[^<>]*\>(null|nan|-1)\</[^<>]*\>", "", s)
 
 
 def populate_blsample_xml_template(_row):
@@ -89,7 +86,7 @@ def populate_blsample_xml_template(_row):
 def populate_dcg_xml_template(_row, _sessionid, _blsample_id):
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     blsample_id_elem = ""
-    if _blsample_id != None:
+    if _blsample_id is not None:
         blsample_id_elem = "<blSampleId>%d</blSampleId>\n" % _blsample_id
 
     temp = dcg_temp_xml_format.format(
@@ -428,7 +425,7 @@ def retrieve_no_images(_db, _dcid):
     )
     if rows[0][0] is None:
         sys.exit("Could not find the number of images for datacollectionid %d" % _dcid)
-    if int(rows[0][0]) is 0:
+    if int(rows[0][0]) == 0:
         sys.exit("Could not find the number of images for datacollectionid %d" % _dcid)
     return int(rows[0][0])
 
@@ -619,7 +616,7 @@ def simulate(
         for x in range(start_img_number, start_img_number + no_images):
             img_number = "%04d" % x
             src_prefix = ""
-            if not _src_prefix is None:
+            if _src_prefix is not None:
                 src_prefix = _src_prefix
             src_fname = "%s_%d_%s.cbf" % (src_prefix, _src_run_number, str(img_number))
             dest_fname = "%s_%d_%s.cbf" % (_dest_prefix, run_number, str(img_number))
@@ -630,7 +627,7 @@ def simulate(
     elif filetemplate.endswith(".h5"):
         files = []
         src_prefix = ""
-        if not _src_prefix is None:
+        if _src_prefix is not None:
             src_prefix = _src_prefix
         for ext in ("_*.h5", ".nxs", "_meta.hdf5"):
             files.extend(
@@ -732,16 +729,16 @@ def call_sim(test_name, beamline):
         )
 
     # Extract necessary info from the source directory path
-    m1 = re.search("(/dls/(\S+?)/data/\d+/)(\S+)", src_dir)
+    m1 = re.search(r"(/dls/(\S+?)/data/\d+/)(\S+)", src_dir)
     if m1:
         subdir = m1.groups()[2]
-        m2 = re.search("^(\S+?)/", subdir)
+        m2 = re.search(r"^(\S+?)/", subdir)
         if m2:
             src_visit = m2.groups()[0]
         elif subdir:
             src_visit = subdir
     else:
-        m1 = re.search("(/dls/mx/data/)(\S+)", src_dir)
+        m1 = re.search(r"(/dls/mx/data/)(\S+)", src_dir)
         if m1:
             subdir = m1.groups()[1]
             src_visit = subdir.split(os.sep)[1]

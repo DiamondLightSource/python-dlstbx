@@ -31,7 +31,7 @@ class TopazWrapper(zocalo.wrapper.BaseWrapper):
             f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             f.write(" Written from simple Zocalo wrapper\n")
             for key, value in params.iteritems():
-                f.write("{0}: {1}\n".format(key, value))
+                f.write("{}: {}\n".format(key, value))
 
         logging.info("Wrapper complete")
 

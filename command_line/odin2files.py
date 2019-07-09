@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     last_dcid = None
     last_destination = None
-    re_visit_base = re.compile("^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/")
+    re_visit_base = re.compile(r"^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/")
     try:
         while True:
             try:

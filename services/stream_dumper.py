@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function
 import json
 import re
 import threading
-import time
 
 import ispyb
 import msgpack
@@ -62,7 +61,7 @@ class ZMQReceiver(threading.Thread):
             self.zmq_context = None
 
     def _receiver_loop(self):
-        re_visit_base = re.compile("^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/")
+        re_visit_base = re.compile(r"^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/")
         dcid_cache = {}
         while not self.closing:
             try:

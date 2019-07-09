@@ -89,7 +89,7 @@ def debug_message(message):
             return
     sys.stdout.write(format_default(message))
     print("Recipe file   :", recipe_file)
-    m = re.search("for (/[^(]+) timed .*\(([0-9]+) files found", message["message"])
+    m = re.search(r"for (/[^(]+) timed .*\(([0-9]+) files found", message["message"])
     if not m:
         print("Regular expression does not match")
         return True

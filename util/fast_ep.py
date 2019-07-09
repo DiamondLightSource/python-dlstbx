@@ -16,7 +16,7 @@ from dlstbx.util.radar_plot import radar_factory
 def parse_fastep_table(root_wd):
     res = {"CCall": {}, "CCweak": {}, "CCres": {}, "CFOM": {}, "No. found": {}}
     rmrk = lambda s: float(s.split("|")[0])
-    num_set = set([])
+    num_set = set()
     use_cc_res = False
     logfile = os.path.join(root_wd, "fast_ep.log")
     with open(logfile) as f:
@@ -205,7 +205,7 @@ def fastep_sites_plot(tmpl_data, num_list, fnum_data, best_fnum, best_sg):
     tmpl_data["img_fastep_sites"] = []
     for nplot, (sg, fnum_dict) in enumerate(fnum_data.iteritems()):
         fig = plt.figure(figsize=(9, 6), facecolor="w")
-        fnum_set = set([])
+        fnum_set = set()
         for v in fnum_dict.values():
             fnum_set.update(set(v))
 
@@ -232,7 +232,7 @@ def fastep_sites_plot(tmpl_data, num_list, fnum_data, best_fnum, best_sg):
         edges = G.edges()
         for a, b in edges:
             G[a][b]["label"] = " ".join(G[a][b]["label"])
-        lb = dict([((a, b), G[a][b]["label"]) for a, b in edges])
+        lb = {(a, b): G[a][b]["label"] for a, b in edges}
 
         ax = fig.add_subplot(111)
 
@@ -271,9 +271,9 @@ def fastep_sites_plot(tmpl_data, num_list, fnum_data, best_fnum, best_sg):
         ax.get_yaxis().set_visible(False)
         plt.axis("off")
         if sg == best_sg:
-            plt.title("{0}".format(sg), fontsize=16, fontweight="bold")
+            plt.title("{}".format(sg), fontsize=16, fontweight="bold")
         else:
-            plt.title("{0}".format(sg), fontsize=14)
+            plt.title("{}".format(sg), fontsize=14)
 
         temp = tempfile.NamedTemporaryFile(
             prefix="fastep_sites_{}".format(sg), suffix=".png"

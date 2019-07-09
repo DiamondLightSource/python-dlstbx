@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     imagesweeps = []
     for sweep in args:
-        m = re.match("^(\d+):(\d+)-(\d+)$", sweep)
+        m = re.match(r"^(\d+):(\d+)-(\d+)$", sweep)
         if not m:
             fail(
                 "'{sweep}' is not a valid sweep definition. Must follow format DCID:START-END".format(

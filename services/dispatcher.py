@@ -9,7 +9,6 @@ import time
 import timeit
 import uuid
 
-import dlstbx
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -54,7 +53,7 @@ class DLSDispatcher(CommonService):
 
     def record_to_logbook(self, guid, header, original_message, message, recipewrap):
         basepath = os.path.join(self._logbook, time.strftime("%Y-%m"))
-        clean_guid = re.sub("[^a-z0-9A-Z\-]+", "", guid, re.UNICODE)
+        clean_guid = re.sub(r"[^a-z0-9A-Z\-]+", "", guid, re.UNICODE)
         if not clean_guid or len(clean_guid) < 3:
             self.log.warning(
                 "Message with non-conforming guid %s not written to logbook", guid

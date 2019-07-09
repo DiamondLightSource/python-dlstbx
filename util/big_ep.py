@@ -170,10 +170,10 @@ def get_map_model_from_json(json_path):
         "pdb": msg_json["pdb"],
         "map": msg_json["map"],
         "data": {
-            "residues": "{0}".format(msg_json["total"]),
-            "max_frag": "{0}".format(msg_json["max"]),
-            "frag": "{0}".format(msg_json["fragments"]),
-            "mapcc": "{0:.2f} ({1:.2f})".format(
+            "residues": "{}".format(msg_json["total"]),
+            "max_frag": "{}".format(msg_json["max"]),
+            "frag": "{}".format(msg_json["fragments"]),
+            "mapcc": "{:.2f} ({:.2f})".format(
                 msg_json["mapcc"], msg_json["mapcc_dmin"]
             ),
         },
@@ -226,7 +226,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
         model_py = os.path.join(root_wd, tag_name + "_models.py")
         coot_sh = os.path.join(root_wd, tag_name + "_models.sh")
 
-        img_name = "{0}_model".format(tag_name)
+        img_name = "{}_model".format(tag_name)
 
         coot_py_template = tmpl_env.get_template("coot_model.tmpl")
         with open(model_py, "wt") as f:
@@ -248,7 +248,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
                         "module purge",
                         "module load ccp4",
                         "module load python/ana",
-                        "coot --python {0} --no-graphics --no-guano".format(model_py),
+                        "coot --python {} --no-graphics --no-guano".format(model_py),
                         "cat raster_{0}.r3d | render -transparent -png {0}.png".format(
                             img_name
                         ),
@@ -259,7 +259,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
         subprocess.call(["sh", coot_sh])
 
         try:
-            with open("{0}.png".format(img_name), "rb") as f:
+            with open("{}.png".format(img_name), "rb") as f:
                 img_data = f.read()
                 tmpl_data["html_images"][img_name] = img_data
         except IOError:

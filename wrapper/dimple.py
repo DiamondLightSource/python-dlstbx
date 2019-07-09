@@ -100,9 +100,9 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                 if self.results_directory.join("/blob{}v1.png".format(n)).check():
                     blobparam = conn.mx_processing.get_run_blob_params()
                     blobparam["parentid"] = mr_id
-                    blobparam["view1"] = "blob{0}v1.png".format(n)
-                    blobparam["view2"] = "blob{0}v2.png".format(n)
-                    blobparam["view3"] = "blob{0}v3.png".format(n)
+                    blobparam["view1"] = "blob{}v1.png".format(n)
+                    blobparam["view2"] = "blob{}v2.png".format(n)
+                    blobparam["view3"] = "blob{}v3.png".format(n)
                     mrblob_id = conn.mx_processing.upsert_run_blob(
                         list(blobparam.values())
                     )

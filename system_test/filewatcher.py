@@ -21,6 +21,67 @@ class FilewatcherService(CommonSystemTest):
         self.filecount += 1
         open(self.filepattern % self.filecount, "w").close()
 
+    def test_empty_list_notifications(self):
+        """
+        Send a recipe containing an empty list to the filewatcher.
+        Only the 'finally' output should be triggered from it.
+        """
+
+        names = [None]
+
+        recipe = {
+            1: {
+                "service": "DLS Filewatcher",
+                "queue": "filewatcher",
+                "parameters": {
+                    "list": names,
+                    "burst-limit": 3,
+                    "timeout": 10,
+                    "timeout-first": 10,
+                },
+                "output": {
+                    "first": 3,  # Should not be triggered here
+                    "every": 3,  # Should not be triggered here
+                    "last": 3,  # Should not be triggered here
+                    "select-3": 3,  # Should not be triggered here
+                    "0": 3,  # Should not be triggered here
+                    "1": 3,  # Should not be triggered here
+                    "finally": 2,  # End-of-job
+                    "timeout": 3,  # Should not be triggered here
+                    "any": 3,  # Should not be triggered here
+                },
+            },
+            2: {"queue": "transient.system_test." + self.guid + ".pass.2"},
+            3: {"queue": "transient.system_test." + self.guid + ".fail"},
+            "start": [(1, "")],
+        }
+        recipe = Recipe(recipe)
+        recipe.validate()
+
+        self.send_message(
+            queue="filewatcher",
+            message={
+                "recipe": recipe.recipe,
+                "recipe-pointer": "1",
+                "environment": {"ID": self.guid},
+            },
+            headers={"workflows-recipe": True},
+        )
+
+        # Now check for expected messages, marked in the recipe above:
+
+        # Finally ==========================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=2,
+            payload={"files-expected": 0, "files-seen": 0, "success": True},
+            min_wait=0,
+            timeout=30,
+        )
+
     def test_list_success_notifications(self):
         """
         Send a recipe to the filewatcher based on a list of files.

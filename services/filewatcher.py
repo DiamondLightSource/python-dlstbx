@@ -127,6 +127,7 @@ class DLSFileWatcher(CommonService):
         # If the only entry in the list is 'None' then there are no files to
         # watch for. Bail out early and only notify on 'finally'.
         if filecount == 1 and filelist[0] is None:
+            self.log.debug("Empty list encountered")
             txn = rw.transport.transaction_begin()
             rw.transport.ack(header, transaction=txn)
             rw.send_to(

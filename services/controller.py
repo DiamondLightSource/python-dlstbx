@@ -374,7 +374,7 @@ class DLSController(CommonService):
                 with self._lock:
                     self.queue_status[queue] = report
 
-    def start_service(self, instance, init):
+    def start_service(self, instance, init, soft_fail=False):
         if not init:
             return False
         service = instance["service"]
@@ -396,7 +396,14 @@ class DLSController(CommonService):
                     str(e),
                     exc_info=True,
                 )
-        self.log.warning("Could not start %s, all available options exhausted", service)
+        if soft_fail or attempt.get("type") == "scipion":
+            self.log.info(
+                "Could not start %s, all available options exhausted", service
+            )
+        else:
+            self.log.warning(
+                "Could not start %s, all available options exhausted", service
+            )
         return False
 
     def launch_cluster(

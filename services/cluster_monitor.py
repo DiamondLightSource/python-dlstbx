@@ -1,15 +1,15 @@
 from __future__ import absolute_import, division, print_function
 
+import collections
 import logging
 import time
-from collections import Counter
 
 import dlstbx.util.cluster
 from workflows.services.common_service import CommonService
 
 
 class DLSClusterMonitor(CommonService):
-    """A service to interface zocalo with functions to gather cluster statistic."""
+    """A service to interface zocalo with functions to gather cluster statistics."""
 
     # Human readable service name
     _service_name = "DLS Cluster monitor"
@@ -77,7 +77,7 @@ class DLSClusterMonitor(CommonService):
 
     def calculate_cluster_statistics(self, joblist, queuelist, cluster, timestamp):
         self.log.debug("Processing %s cluster statistics", cluster)
-        pending_jobs = Counter(
+        pending_jobs = collections.Counter(
             map(
                 lambda j: j["queue"].split("@@")[0]
                 if "@@" in j["queue"]

@@ -20,8 +20,8 @@ class Cluster:
 
     def __init__(self, clustername):
         """Interface to a computing cluster
-       :param name: Either 'dlscluster' or 'dlstestcluster'.
-    """
+        :param name: Either 'dlscluster' or 'dlstestcluster'.
+        """
 
         if clustername == "dlscluster":
             self.environment = self.load_environment(_DLS_Load_Cluster)
@@ -74,9 +74,10 @@ class Cluster:
         return stub
 
     def start(self):
-        """Main function of the drmaa subprocess.
-       Start a session and wait for remote procedure calls from main thread.
-    """
+        """
+        Main function of the drmaa subprocess.
+        Start a session and wait for remote procedure calls from main thread.
+        """
 
         # First close the other pipe unused by this process
         self._pipe_main.close()
@@ -85,7 +86,7 @@ class Cluster:
         # Load DRMAA
         for k, v in self.environment.iteritems():
             os.environ[k] = v
-        import drmaa
+        import drmaa  # This import must not be floated to the top of the file
 
         self.drmaa = drmaa
         self.session = drmaa.Session()
@@ -116,7 +117,7 @@ class Cluster:
     @classmethod
     def load_environment(cls, command):
         """Extract environment variables needed for cluster access from a
-       command line. Cache the results."""
+        command line. Cache the results."""
 
         if not hasattr(cls, "cached_environment"):
             cls.cached_environment = {}
@@ -186,10 +187,10 @@ class Cluster:
 
     def _qstat_xml(self, arguments=None, timeout=45, warn_after=25):
         """Run a qstat command against the cluster
-       :param arguments: List of command line parameters
-       :param timeout: maximum execution time
-       :return: A result dictionary, containing stdout, stderr, exitcode, and more.
-    """
+        :param arguments: List of command line parameters
+        :param timeout: maximum execution time
+        :return: A result dictionary, containing stdout, stderr, exitcode, and more.
+        """
         if not arguments:
             arguments = []
         result = procrunner.run(
@@ -212,11 +213,11 @@ class Cluster:
 
     def _qsub(self, command, arguments, job_params=None):
         """Submit a job to the cluster
-       :param command: String pointing to an executable.
-                       This must be reachable, ie. not be on a local drive.
-       :param arguments: List of strings, command line arguments.
-       :return: A string containing the job ID of the submission
-    """
+        :param command: String pointing to an executable.
+                        This must be reachable, ie. not be on a local drive.
+        :param arguments: List of strings, command line arguments.
+        :return: A string containing the job ID of the submission
+        """
         job = self.session.createJobTemplate()
         job.remoteCommand = command
         job.args = arguments

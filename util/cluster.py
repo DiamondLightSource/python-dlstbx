@@ -185,7 +185,7 @@ class Cluster:
         }
         return decodestatus[self.session.jobStatus(jobid)]
 
-    def _qstat_xml(self, arguments=None, timeout=45, warn_after=25):
+    def _qstat_xml(self, arguments=None, timeout=50, warn_after=30):
         """Run a qstat command against the cluster
         :param arguments: List of command line parameters
         :param timeout: maximum execution time

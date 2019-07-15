@@ -44,6 +44,9 @@ class Cluster:
         self._pipe_subprocess.close()
         del self._pipe_subprocess
 
+        self.qalter = self.create_remote_function_call("_qalter")
+        self.qdel = self.create_remote_function_call("_qdel")
+        self.qresub = self.create_remote_function_call("_qresub")
         self.qstat = self.create_remote_function_call("_qstat")
         self.qstat_xml = self.create_remote_function_call("_qstat_xml")
         self.qsub = self.create_remote_function_call("_qsub")
@@ -165,6 +168,92 @@ class Cluster:
         if self._subprocess:
             self._subprocess.join()
             self._subprocess = None
+
+    def _qalter(self, jobid, arguments=None, timeout=20):
+        """Change settings of existing cluster job
+        :param jobid: JobID to be modified
+        :param arguments: command line arguments for qalter
+        :param timeout: maximum execution time
+        :return: A result dictionary, containing stdout, stderr, exitcode, and more.
+        """
+        jobid = str(jobid)
+        if arguments:
+            arguments = [str(i) for i in arguments]
+        else:
+            raise ValueError("Need to specify a job to modify")
+        result = procrunner.run(
+            command=["qalter", jobid] + arguments,
+            timeout=timeout,
+            stdin="",
+            print_stdout=False,
+            print_stderr=False,
+        )
+        if result["timeout"]:
+            log.error(
+                "failed to modify cluster job after %.1f seconds", result["runtime"]
+            )
+        else:
+            log.debug(
+                "modified cluster job %s with %s in %.1f seconds",
+                jobid,
+                str(arguments),
+                result["runtime"],
+            )
+        return result
+
+    def _qdel(self, jobids=None, timeout=20):
+        """Cancel cluster jobs
+        :param jobids: List of job IDs to cancel
+        :param timeout: maximum execution time
+        :return: A result dictionary, containing stdout, stderr, exitcode, and more.
+        """
+        if jobids:
+            jobids = [str(i) for i in jobids]
+        else:
+            raise ValueError("Need to specify a list of job IDs to cancel")
+        result = procrunner.run(
+            command=["qdel"] + jobids,
+            timeout=timeout,
+            stdin="",
+            print_stdout=False,
+            print_stderr=False,
+        )
+        if result["timeout"]:
+            log.error(
+                "failed to delete cluster jobs after %.1f seconds", result["runtime"]
+            )
+        else:
+            log.debug(
+                "deleting cluster jobs %s took %.1f seconds", jobids, result["runtime"]
+            )
+        return result
+
+    def _qresub(self, jobid, arguments=None, timeout=20):
+        """Resubmit a cluster job
+        :param jobid: Job ID to resubmit
+        :param arguments: optional list of arguments (eg. ['-h', 'u'] to hold resubmitted job)
+        :param timeout: maximum execution time
+        :return: A result dictionary, containing stdout, stderr, exitcode, and more.
+        """
+        jobid = str(jobid)
+        if not arguments:
+            arguments = []
+        result = procrunner.run(
+            command=["qresub"] + arguments + [jobid],
+            timeout=timeout,
+            stdin="",
+            print_stdout=False,
+            print_stderr=False,
+        )
+        if result["timeout"]:
+            log.error(
+                "failed to resubmit cluster job after %.1f seconds", result["runtime"]
+            )
+        else:
+            log.debug(
+                "resubmitted cluster job %s in %.1f seconds", jobid, result["runtime"]
+            )
+        return result
 
     def _qstat(self, jobid):
         """Get the status of a single job with known ID."""

@@ -147,7 +147,9 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
                     msg_json = json.load(json_file)
                 return {"pdb": msg_json["pdb"], "map": msg_json["map"]}
             except Exception:
-                logger.info("Couldn't read map/model data from %s", abs_json_path)
+                logger.debug(
+                    "Couldn't read map/model data from %s", abs_json_path, exc_info=True
+                )
 
         paths = [
             p
@@ -216,7 +218,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         try:
             subprocess.call([sed_command], shell=True)
         except Exception:
-            logger.info("Failed to run sed command to update paths")
+            logger.debug("Failed to run sed command to update paths", exc_info=True)
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -275,7 +277,11 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         try:
             self.write_coot_script(working_directory.strpath)
         except Exception:
-            logger.info("Couldn't write Coot scripts to %s", working_directory.strpath)
+            logger.debug(
+                "Couldn't write Coot scripts to %s",
+                working_directory.strpath,
+                exc_info=True,
+            )
 
         if "devel" not in params:
             self.copy_results(working_directory.strpath, results_directory.strpath)

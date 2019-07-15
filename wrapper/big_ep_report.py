@@ -60,12 +60,14 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             "html_images": {},
         }
 
-        logger.info("Generating model density images")
+        logger.debug("Generating model density images")
         try:
             dlstbx.util.big_ep.generate_model_snapshots(tmpl_env, tmpl_data)
         except Exception:
-            logger.exception("Exception raised while generating model snapshots")
-        logger.info("Generating plots for fast_ep summary")
+            logger.debug(
+                "Exception raised while generating model snapshots", exc_info=True
+            )
+        logger.debug("Generating plots for fast_ep summary")
         try:
             axis, data, best_vals = dlstbx.util.fast_ep.parse_fastep_table(fast_ep_path)
             dlstbx.util.fast_ep.fastep_radar_plot(tmpl_data, axis, data, best_vals)
@@ -73,11 +75,19 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
                 tmpl_data, axis, data["No. found"], *best_vals[1:]
             )
         except Exception:
-            logger.exception("Exception raised while composing fast_ep report")
+            logger.debug(
+                "Exception raised while composing fast_ep report", exc_info=True
+            )
 
-        logger.info("Reading big_ep setting file")
-        dlstbx.util.big_ep.read_settings_file(tmpl_data)
-        logger.info("Reading PIA results from ISPyB")
+        logger.debug("Reading big_ep setting file")
+        try:
+            dlstbx.util.big_ep.read_settings_file(tmpl_data)
+        except Exception:
+            logger.debug(
+                "Exception raised while reading big_ep settings file", exc_info=True
+            )
+
+        logger.debug("Reading PIA results from ISPyB")
         try:
             pia_results = ispyb_conn.get_pia_results(
                 [dcid],
@@ -90,19 +100,23 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             )[1]
             dlstbx.util.big_ep.get_pia_plot(tmpl_data, pia_results)
         except Exception:
-            logger.exception("Exception raised while composing PIA report")
-        logger.info("Reading crystal snapshots")
+            logger.debug("Exception raised while composing PIA report", exc_info=True)
+
+        logger.debug("Reading crystal snapshots")
         try:
             dlstbx.util.big_ep.get_image_files(tmpl_data)
         except Exception:
-            logger.exception("Exception raised while reading crystal snapshots")
-        logger.info("Reading data metrics from xia2 logs")
+            logger.debug(
+                "Exception raised while reading crystal snapshots", exc_info=True
+            )
+
+        logger.debug("Reading data metrics from xia2 logs")
         try:
             dlstbx.util.big_ep.read_xia2_processing(tmpl_data)
         except Exception:
-            logger.exception("Exception raised while composing xia2 summary")
+            logger.debug("Exception raised while composing xia2 summary", exc_info=True)
 
-        logger.info("Generating HTML summary")
+        logger.debug("Generating HTML summary")
         html_template = tmpl_env.get_template("bigep_summary.html")
         with open(
             working_directory.join("bigep_summary_email.html").strpath, "w"

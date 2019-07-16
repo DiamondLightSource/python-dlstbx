@@ -115,7 +115,10 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
     def snowflake2cbf(self):
         params = self.recwrap.recipe_step["job_parameters"]
         working_directory = py.path.local(params["working_directory"])
-        tmpdir = working_directory.join(".image-tmp")
+        if params.get("temporary_directory"):
+            tmpdir = py.path.local(params["temporary_directory"])
+        else:
+            tmpdir = working_directory.join(".image-tmp")
         tmpdir.ensure(dir=True)
         master_h5 = os.path.join(params["image_directory"], params["image_pattern"])
         prefix = params["image_pattern"].split("master.h5")[0]
@@ -126,15 +129,16 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         )
         result = procrunner.run(
             ["dlstbx.snowflake2cbf", master_h5, params["image_pattern"]],
-            working_directory=tmpdir.strpath,
+            working_directory=tmpdir,
             timeout=params.get("timeout", 3600),
         )
-        logger.info("command: %s", " ".join(result["command"]))
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("time_start: %s", result["time_start"])
-        logger.info("time_end: %s", result["time_end"])
-        logger.info("runtime: %s", result["runtime"])
-        logger.info("exitcode: %s", result["exitcode"])
+        logger.info(
+            "image conversion %s terminated after %.1f seconds with exitcode %s and timeout %s",
+            " ".join(result["command"]),
+            result["runtime"],
+            result["exitcode"],
+            result["timeout"],
+        )
         params["orig_image_directory"] = params["image_directory"]
         params["image_directory"] = tmpdir.strpath
 

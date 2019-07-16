@@ -24,7 +24,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
                 os.path.realpath(os.path.join(params["results_directory"]))
             )
         except KeyError:
-            logger.info("Result directory not specified")
+            logger.debug("Result directory not specified")
 
         # Create working directory with symbolic link
         working_directory.ensure(dir=True)
@@ -90,7 +90,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
         logger.info("runtime: %s", result["runtime"])
 
         if not result["stdout"]:
-            logger.error("SHELXC log is empty")
+            logger.debug("SHELXC log is empty")
             return False
 
         shelxc_log = os.path.join(working_directory.strpath, prefix + "_shelxc.log")
@@ -99,7 +99,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
 
         stats = parse_shelxc_logs(result["stdout"])
         if not stats:
-            logger.info("Cannot process SHELXC data. Aborting.")
+            logger.debug("Cannot process SHELXC data. Aborting.")
             return False
         self.recwrap.send_to("downstream", stats)
 
@@ -123,7 +123,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
                 if f.basename.startswith("shelxc"):
                     f.copy(results_directory)
         except NameError:
-            logger.info(
+            logger.debug(
                 "Ignore copying SHELXC results. Results directory not specified."
             )
         return result["exitcode"] == 0

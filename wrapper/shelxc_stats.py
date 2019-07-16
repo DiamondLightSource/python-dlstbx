@@ -18,7 +18,7 @@ class ShelxcStatsWrapper(zocalo.wrapper.BaseWrapper):
         try:
             data_stats = reduce_shelxc_results(shelxc_stats, params)
         except Exception:
-            logger.info("Cannot process SHELXC results. Aborting.")
+            logger.debug("Cannot process SHELXC results. Aborting.")
             return False
         if data_stats:
             self.recwrap.send_to("downstream", data_stats)

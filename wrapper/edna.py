@@ -200,7 +200,10 @@ edna-plugin-launcher \
     def hdf5_to_cbf(self):
         params = self.recwrap.recipe_step["job_parameters"]
         working_directory = py.path.local(params["working_directory"])
-        tmpdir = working_directory.join("image-tmp")
+        if params.get("temporary_directory"):
+            tmpdir = py.path.local(params["temporary_directory"])
+        else:
+            tmpdir = working_directory.join(".image-tmp")
         tmpdir.ensure(dir=True)
         master_h5 = os.path.join(params["image_directory"], params["image_template"])
         prefix = params["image_template"].split("master.h5")[0]

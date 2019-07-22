@@ -8,6 +8,7 @@
     "ispyb>=5.2,<5.3",
     "junit_xml",
     "mock>=2.0",
+    "networkx",
     "procrunner>=1.0.2",
     "pytest>=3.1",
     "pytest-mock",

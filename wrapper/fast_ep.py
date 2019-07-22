@@ -11,6 +11,13 @@ import tempfile
 
 logger = logging.getLogger("dlstbx.wrap.fast_ep")
 
+clean_environment = {
+    "LD_LIBRARY_PATH": "",
+    "LOADEDMODULES": "",
+    "PYTHONPATH": "",
+    "_LMFILES_": "",
+}
+
 
 class FastEPWrapper(zocalo.wrapper.BaseWrapper):
     def check_go_fast_ep(self, params):
@@ -76,6 +83,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             print_stdout=True,
             print_stderr=True,
             working_directory=params["working_directory"],
+            environment_override=clean_environment,
         )
         logger.info("command: %s", " ".join(result["command"]))
         logger.info("timeout: %s", result["timeout"])
@@ -221,7 +229,11 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
                             working_directory.strpath, results_directory.strpath
                         )
                     )
-                    self.send_results_to_ispyb(xml_file.strpath)
+                    result_ispyb = self.send_results_to_ispyb(xml_file.strpath)
+                    if not result_ispyb:
+                        logger.error(
+                            "Running phasing2ispyb.py script returned non-zero exit code"
+                        )
                 else:
                     if result["exitcode"]:
                         logger.info(

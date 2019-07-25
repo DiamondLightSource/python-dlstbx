@@ -8,6 +8,8 @@ import dlstbx.util.symlink
 import procrunner
 import zocalo.wrapper
 import tempfile
+import json
+from pprint import pformat
 
 logger = logging.getLogger("dlstbx.wrap.fast_ep")
 
@@ -173,6 +175,35 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
         logger.info("exitcode: %s", result["exitcode"])
         logger.debug(result["stdout"])
         logger.debug(result["stderr"])
+
+        # Send results to topaz for hand determination
+        try:
+            fast_ep_data_json = working_directory.join("fast_ep_data.json").strpath
+            with open(fast_ep_data_json) as fp:
+                fast_ep_data = json.load(fp)
+            fast_ep_log = working_directory.join("fast_ep.log").strpath
+            with open(fast_ep_log) as fp:
+                for line in fp:
+                    if "Unit cell:" in line:
+                        cell_info = tuple(float(v) for v in line.split()[2:])
+                        break
+        except IOError:
+            logger.exception("Couldn't read fast_ep results file")
+        try:
+            best_sg = fast_ep_data["_spacegroup"][0]
+            best_solv = fast_ep_data["solv"]
+            original_hand = working_directory.join(str(best_solv), "sad.phs")
+            inverted_hand = working_directory.join(str(best_solv), "sad_i.phs")
+            topaz_data = {
+                "original_phase_file": original_hand.strpath,
+                "inverse_phase_file": inverted_hand.strpath,
+                "space_group": best_sg,
+                "cell_info": cell_info,
+            }
+            logger.info("Topaz data: %s", pformat(topaz_data))
+            self.recwrap.send_to("topaz", topaz_data)
+        except NameError:
+            logger.warning("Failed to send message to topaz channel")
 
         # Create results directory and symlink if they don't already exist
         try:

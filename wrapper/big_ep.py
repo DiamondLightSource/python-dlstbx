@@ -53,6 +53,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             ("atom_type", "atom_type"),
             ("sequence", "seq_file"),
             ("edge_position", "edge_position"),
+            ("qsub_project", "qsub_project"),
         ):
             if key in params:
                 command.append(

@@ -261,7 +261,11 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
 
         if "xml" in params:
             xml_file = working_directory.join(params["xml"])
-            self.send_command_to_ispyb(params, str_command, xml_file)
+            result = self.send_command_to_ispyb(params, str_command, xml_file)
+            if not result:
+                logger.error(
+                    "Running phasing2ispyb.py script returned non-zero exit code"
+                )
 
         result = procrunner.run(
             ["sh", bigep_script],

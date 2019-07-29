@@ -9,6 +9,7 @@ import mysql.connector
 import six
 import workflows.recipe
 from workflows.services.common_service import CommonService
+import json
 
 
 class DLSISPyB(CommonService):
@@ -678,6 +679,32 @@ class DLSISPyB(CommonService):
             autoProcId,
         )
         return {"success": True, "return_value": scalingId}
+
+    def do_retrieve_programs_for_job_id(self, parameters, **kwargs):
+        """Retrieve the processing instances associated with the given processing job ID"""
+
+        processingJobId = parameters("rpid")
+        result = self.ispyb.mx_processing.retrieve_programs_for_job_id(processingJobId)
+        serial_result = []
+        for row in result:
+            el = {}
+            for k, v in row.items():
+                try:
+                    json.dumps(v)
+                    el[k] = v
+                except TypeError:
+                    continue
+            serial_result.append(el)
+        return {"success": True, "return_value": serial_result}
+
+    def do_retrieve_program_attachments_for_program_id(self, parameters, **kwargs):
+        """Retrieve the processing program attachments associated with the given processing program ID"""
+
+        autoProcProgramId = parameters("program_id")
+        result = self.ispyb.mx_processing.retrieve_program_attachments_for_program_id(
+            autoProcProgramId
+        )
+        return {"success": True, "return_value": result}
 
     def do_multipart_message(self, rw, message, **kwargs):
         """The multipart_message command allows the recipe or client to specify a

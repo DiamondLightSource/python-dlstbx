@@ -251,17 +251,22 @@ class DLSTrigger(CommonService):
         if not scaling_id:
             self.log.error("big_ep trigger failed: No scaling_id specified")
             return False
-        mtz = parameters("mtz")
+        programs_all = rw.environment["ispyb_programs_all"]
+        for prog in programs_all:
+            big_ep_params = parameters(prog["programs"])
+            if big_ep_params is not None:
+                break
+        mtz = big_ep_params["mtz"]
         if not mtz:
             self.log.error("big_ep trigger failed: No input mtz file specified")
             return False
-        scaled_unmerged_mtz = parameters("scaled_unmerged_mtz")
+        scaled_unmerged_mtz = big_ep_params["scaled_unmerged_mtz"]
         if not scaled_unmerged_mtz:
             self.log.error(
                 "big_ep trigger failed: No input scaled unmerged mtz file specified"
             )
             return False
-        path_ext = parameters("path_ext")
+        path_ext = big_ep_params["path_ext"]
         if not path_ext:
             path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
 

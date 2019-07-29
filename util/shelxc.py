@@ -84,7 +84,10 @@ def reduce_shelxc_results(msg, params):
     CCAVER_CUTOFF = params["ccaver_cutoff"]
     PVAL_CUTOFF = params["pval_cutoff"]
     AUTOCORR_CUTOFF = params["autocorr_cutoff"]
-
+    try:
+        FORCE = params["force"]
+    except KeyError:
+        FORCE = False
     chisq_data = None
 
     try:
@@ -177,6 +180,7 @@ def reduce_shelxc_results(msg, params):
             msg["cc_autocorr"] > AUTOCORR_CUTOFF
             or msg["dsig_autocorr"] > AUTOCORR_CUTOFF
         )
+        or FORCE
     ):
         chisq_data = tuple(
             list(ttest_1samp(res, 1.0))

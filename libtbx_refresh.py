@@ -84,6 +84,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "spotcounts = dlstbx.wrapper.spot_counts_per_image:SCPIWrapper",
     "stepped_transmission = dlstbx.wrapper.stepped_transmission:SteppedTransmissionWrapper",
     "timg = dlstbx.wrapper.timg:TopazWrapper",
+    "topaz3 = dlstbx.wrapper.topaz3_wrapper:Topaz3Wrapper",
     "xia2 = dlstbx.wrapper.xia2:Xia2Wrapper",
     "xia2.multiplex = dlstbx.wrapper.xia2_multiplex:Xia2MultiplexWrapper",
     "xia2.strategy = dlstbx.wrapper.xia2_strategy:Xia2StrategyWrapper",

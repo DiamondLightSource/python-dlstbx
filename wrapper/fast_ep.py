@@ -192,8 +192,12 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
         try:
             best_sg = fast_ep_data["_spacegroup"][0]
             best_solv = fast_ep_data["solv"]
-            original_hand = working_directory.join(str(best_solv), "sad.phs")
-            inverted_hand = working_directory.join(str(best_solv), "sad_i.phs")
+            original_hand = working_directory.join(
+                "{0:.2f}".format(best_solv), "sad.phs"
+            )
+            inverted_hand = working_directory.join(
+                "{0:.2f}".format(best_solv), "sad_i.phs"
+            )
             topaz_data = {
                 "original_phase_file": original_hand.strpath,
                 "inverse_phase_file": inverted_hand.strpath,

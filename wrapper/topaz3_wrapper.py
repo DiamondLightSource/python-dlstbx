@@ -126,9 +126,6 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
             params["working_directory"]
         ), "Working directory at {0} does not exist".format(params["working_directory"])
         assert os.path.exists(
-            params["results_directory"]
-        ), "Results directory at {0} does not exist".format(params["results_directory"])
-        assert os.path.exists(
             params["topaz_python"]
         ), "Topaz python at {0} does not exist".format(params["topaz_python"])
         assert os.path.exists(
@@ -146,6 +143,15 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
             )
         else:
             rgb = False
+        # Create results directory if it does not exist
+        if not os.path.exists(params["results_directory"]):
+            try:
+                os.mkdir(params["results_directory"])
+            except Exception as e:
+                logger.error("Could not create results directory at {0}".format(results_directory))
+        assert os.path.exists(
+            params["results_directory"]
+        ), "Results directory at {0} does not exist".format(params["results_directory"])
 
         # Collect parameters from payload and check them
         payload = self.recwrap.payload

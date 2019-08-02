@@ -706,6 +706,38 @@ class DLSISPyB(CommonService):
         )
         return {"success": True, "return_value": result}
 
+    def do_retrieve_proposal_title(self, parameters, **kwargs):
+        """Get the title of a given proposal"""
+
+        try:
+            visit = parameters("visit")
+            proposal, _ = visit.split("-")
+            proposal_code, proposal_number = proposal[:2], proposal[2:]
+        except (AttributeError, ValueError):
+            proposal_code = parameters("proposalcode")
+            proposal_number = parameters("proposalnumber")
+
+        result = self.ispyb.core.retrieve_proposal_title(proposal_code, proposal_number)
+        try:
+            title = result[0]["title"]
+            return {"success": True, "return_value": title}
+        except (IndexError, KeyError):
+            if visit is None:
+                self.log.error(
+                    "Cannot find proposal title record for proposalcode %s "
+                    "and proposalnumber %s",
+                    proposal_code,
+                    proposal_number,
+                    exc_info=True,
+                )
+            else:
+                self.log.error(
+                    "Cannot find proposal title record for visit %s",
+                    visit,
+                    exc_info=True,
+                )
+            return False
+
     def do_multipart_message(self, rw, message, **kwargs):
         """The multipart_message command allows the recipe or client to specify a
        multi-stage operation. With this you can process a list of API calls,

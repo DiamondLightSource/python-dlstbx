@@ -247,14 +247,16 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
             ".log": "log",
             ".json": None,
             ".pickle": None,
+            ".expt": None,
+            ".refl": None,
             ".mtz": None,
             ".html": "log",
         }
         keep = {
             "scaled.mtz": "result",
             "scaled_unmerged.mtz": "result",
-            "experiments_final.json": "result",
-            "reflections_final.pickle": "result",
+            "multiplex.expt": "result",
+            "multiplex.refl": "result",
             "iotbx-merging-stats.json": "graph",
         }
         allfiles = []

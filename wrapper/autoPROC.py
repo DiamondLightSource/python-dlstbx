@@ -482,6 +482,11 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             if "staraniso" in filename.basename:
                 anisofiles.append((destination.basename, destination.dirname, keep_as))
             else:
+                if keep_as == "log":
+                    # also record log files for staraniso
+                    anisofiles.append(
+                        (destination.basename, destination.dirname, keep_as)
+                    )
                 allfiles.append(destination.strpath)
                 self.record_result_individual_file(
                     {

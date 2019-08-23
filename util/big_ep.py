@@ -247,7 +247,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
                         ". /etc/profile.d/modules.sh",
                         "module purge",
                         "module load ccp4",
-                        "module load python/ana",
+                        "module load python/2.7",
                         "coot --python {} --no-graphics --no-guano".format(model_py),
                         "cat raster_{0}.r3d | render -transparent -png {0}.png".format(
                             img_name

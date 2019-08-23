@@ -28,31 +28,24 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
         )
 
         dcid = params["dcid"]
-        autoproc_id = params["autoproc_id"]
         fast_ep_path = params["fast_ep_path"]
         email_list = params["email_list"]
 
         from dlstbx.ispybtbx import ispybtbx
 
         ispyb_conn = ispybtbx()
-        proposal_code, proposal_number, visit_number = ispyb_conn.get_visit_name_from_dcid(
-            dcid
-        )
-        proposal = ispyb_conn.get_proposal_title_from_dcid(dcid)
-        xia2_attach_data = ispyb_conn.get_program_attachment(autoproc_id, "Log")
+
         xia2_log_files = [
-            os.path.join(filepath, filename)
-            for (filename, filepath) in xia2_attach_data
+            os.path.join(row["filePath"], row["fileName"])
+            for row in self.recwrap.environment["ispyb_program_attachments"]
         ]
 
         tmpl_data = {
             "_root_wd": working_directory.strpath,
             "big_ep_path": params["big_ep_path"],
             "dcid": dcid,
-            "visit": "".join(
-                [proposal_code, str(proposal_number), "-", str(visit_number)]
-            ),
-            "proposal": proposal,
+            "visit": params["visit"],
+            "proposal": self.recwrap.environment["proposal_title"],
             "mtz": params["data"],
             "image_template": params["image_template"],
             "image_directory": params["image_directory"],

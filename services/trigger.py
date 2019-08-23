@@ -247,15 +247,23 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping big_ep for %s visit", visit)
             return {"success": True}
 
-        scaling_id = parameters("scaling_id")
-        if not scaling_id:
-            self.log.error("big_ep trigger failed: No scaling_id specified")
+        program_id = parameters("program_id")
+        if not program_id:
+            self.log.error("big_ep trigger failed: No program_id specified")
             return False
         programs_all = rw.environment["ispyb_programs_all"]
         for prog in programs_all:
-            big_ep_params = parameters(prog["programs"])
-            if big_ep_params is not None:
+            if prog["id"] == program_id:
+                big_ep_params = parameters(prog["programs"])
                 break
+        try:
+            assert big_ep_params
+        except (AssertionError, NameError):
+            self.log.error(
+                "big_ep trigger failed: No input data provided for program %s",
+                prog["programs"],
+            )
+            return False
         mtz = big_ep_params["mtz"]
         if not mtz:
             self.log.error("big_ep trigger failed: No input mtz file specified")
@@ -272,7 +280,7 @@ class DLSTrigger(CommonService):
 
         message = {
             "parameters": {
-                "ispyb_autoprocscalingid": scaling_id,
+                "ispyb_autoprocprogramid": program_id,
                 "ispyb_dcid": dcid,
                 "mtz": mtz,
                 "scaled_unmerged_mtz": scaled_unmerged_mtz,

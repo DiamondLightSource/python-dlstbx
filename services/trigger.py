@@ -247,9 +247,10 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping big_ep for %s visit", visit)
             return {"success": True}
 
-        program_id = parameters("program_id")
-        if not program_id:
-            self.log.error("big_ep trigger failed: No program_id specified")
+        try:
+            program_id = int(parameters("program_id"))
+        except (TypeError, ValueError):
+            self.log.error("big_ep trigger failed: Invalid program_id specified")
             return False
         programs_all = rw.environment["ispyb_programs_all"]
         for prog in programs_all:

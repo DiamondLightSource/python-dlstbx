@@ -910,6 +910,10 @@ def ispyb_filter(message, parameters):
     dc_info = i.get_dc_info(dc_id)
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
     parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id)
+    if str(parameters["ispyb_beamline"]).lower() in ("i19", "i19-1", "i19-2"):
+        parameters["ispyb_preferred_datacentre"] = "hamilton"
+    else:
+        parameters["ispyb_preferred_datacentre"] = "cluster"
     parameters["ispyb_dc_info"] = dc_info
     dc_class = i.classify_dc(dc_info)
     parameters["ispyb_dc_class"] = dc_class

@@ -148,7 +148,11 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
             try:
                 os.mkdir(params["results_directory"])
             except Exception as e:
-                logger.error("Could not create results directory at {0}".format(results_directory))
+                logger.error(
+                    "Could not create results directory at {0}".format(
+                        results_directory
+                    )
+                )
         assert os.path.exists(
             params["results_directory"]
         ), "Results directory at {0} does not exist".format(params["results_directory"])

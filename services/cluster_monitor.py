@@ -91,11 +91,13 @@ class DLSClusterMonitor(CommonService):
             )
         except AssertionError:
             self.log.error("Could not gather hamilton statistics", exc_info=True)
-            return
-        self.calculate_cluster_statistics(joblist, queuelist, "hamilton", timestamp)
+        else:
+            self.calculate_cluster_statistics(joblist, queuelist, "hamilton", timestamp)
 
     def calculate_cluster_statistics(self, joblist, queuelist, cluster, timestamp):
         self.log.debug("Processing %s cluster statistics", cluster)
+        hamilton = cluster == "hamilton"
+
         pending_jobs = collections.Counter(
             map(
                 lambda j: j["queue"].split("@@")[0]
@@ -131,16 +133,16 @@ class DLSClusterMonitor(CommonService):
         )
 
         corestats = {}
-        corestats["cpu"] = {
-            "total": 0,
-            "broken": 0,
-            "free_for_low": 0,
-            "free_for_medium": 0,
-            "free_for_high": 0,
-        }
+        corestats["cpu"] = {"total": 0, "broken": 0}
+        if hamilton:
+            corestats["cpu"]["free"] = 0
+        else:
+            corestats["cpu"].update(
+                {"free_for_low": 0, "free_for_medium": 0, "free_for_high": 0}
+            )
         corestats["gpu"] = corestats["cpu"].copy()
-        corestats["admin"] = {"total": 0, "broken": 0, "free": 0}
-        for nodename, node in cluster_nodes.iteritems():
+
+        for nodename, node in cluster_nodes.items():
             node = {q["class"]: q for q in node}
             for queuename in list(node):
                 if queuename.startswith("test"):
@@ -149,6 +151,8 @@ class DLSClusterMonitor(CommonService):
                     del node[queuename]
 
             if "admin.q" in node:
+                if "admin" not in corestats:
+                    corestats["admin"] = {"total": 0, "broken": 0, "free": 0}
                 adminq_slots = node["admin.q"]["slots_total"]
                 corestats["admin"]["total"] += adminq_slots
                 if (
@@ -164,7 +168,8 @@ class DLSClusterMonitor(CommonService):
             if not node:
                 continue
 
-            if (nodename.split("-")[2:3] or [None])[0] in ("com14",):
+            nodename = (nodename.split("-")[2:3] or [None])[0]
+            if nodename and (nodename == "com14" or nodename.startswith("gpu")):
                 nodetype = "gpu"
             else:
                 nodetype = "cpu"
@@ -178,35 +183,51 @@ class DLSClusterMonitor(CommonService):
             if not node:
                 corestats[nodetype]["broken"] += cores
                 continue
-            freelow, freemedium, freehigh = (
-                node.get(q, {}).get("slots_free", 0)
-                for q in ("low.q", "medium.q", "high.q")
-            )
-            corestats[nodetype]["free_for_low"] += freelow
-            corestats[nodetype]["free_for_medium"] += max(freelow, freemedium)
-            corestats[nodetype]["free_for_high"] += max(freelow, freemedium, freehigh)
+            if hamilton:
+                corestats[nodetype]["free"] += node.get("all.q", {}).get(
+                    "slots_free", 0
+                )
+            else:
+                freelow, freemedium, freehigh = (
+                    node.get(q, {}).get("slots_free", 0)
+                    for q in ("low.q", "medium.q", "high.q")
+                )
+                corestats[nodetype]["free_for_low"] += freelow
+                corestats[nodetype]["free_for_medium"] += max(freelow, freemedium)
+                corestats[nodetype]["free_for_high"] += max(
+                    freelow, freemedium, freehigh
+                )
 
         for nodetype in ("cpu", "gpu"):
-            corestats[nodetype]["used-high"] = (
-                corestats[nodetype]["total"]
-                - corestats[nodetype]["broken"]
-                - corestats[nodetype]["free_for_high"]
-            )
-            corestats[nodetype]["used-medium"] = (
-                corestats[nodetype]["free_for_high"]
-                - corestats[nodetype]["free_for_medium"]
-            )
-            corestats[nodetype]["used-low"] = (
-                corestats[nodetype]["free_for_medium"]
-                - corestats[nodetype]["free_for_low"]
-            )
+            if hamilton:
+                corestats[nodetype]["used"] = (
+                    corestats[nodetype]["total"]
+                    - corestats[nodetype]["broken"]
+                    - corestats[nodetype]["free"]
+                )
+            else:
+                corestats[nodetype]["used-high"] = (
+                    corestats[nodetype]["total"]
+                    - corestats[nodetype]["broken"]
+                    - corestats[nodetype]["free_for_high"]
+                )
+                corestats[nodetype]["used-medium"] = (
+                    corestats[nodetype]["free_for_high"]
+                    - corestats[nodetype]["free_for_medium"]
+                )
+                corestats[nodetype]["used-low"] = (
+                    corestats[nodetype]["free_for_medium"]
+                    - corestats[nodetype]["free_for_low"]
+                )
             for k, v in corestats[nodetype].items():
                 corestats[k] = corestats.get(k, 0) + v
-        corestats["admin"]["used"] = (
-            corestats["admin"]["total"]
-            - corestats["admin"]["free"]
-            - corestats["admin"]["broken"]
-        )
+
+        if "admin" in corestats:
+            corestats["admin"]["used"] = (
+                corestats["admin"]["total"]
+                - corestats["admin"]["free"]
+                - corestats["admin"]["broken"]
+            )
 
         self.report_statistic(
             corestats, description="utilization", cluster=cluster, timestamp=timestamp

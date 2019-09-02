@@ -5,31 +5,36 @@ import multiprocessing
 import os
 import threading
 import time
+import xml.dom.minidom
 from datetime import datetime
 
 import procrunner
 
 _DLS_Load_Cluster = ". /etc/profile.d/modules.sh ; module load global/cluster"
 _DLS_Load_Testcluster = ". /etc/profile.d/modules.sh ; module load global/testcluster"
+_DLS_Load_Hamilton = ". /etc/profile.d/modules.sh ; module load global/hamilton"
 
 log = logging.getLogger("dlstbx.util.cluster")
 
 
-class Cluster:
+class Cluster(object):
     """DRMAA access to DLS computing clusters"""
 
     def __init__(self, clustername):
         """Interface to a computing cluster
-        :param name: Either 'dlscluster' or 'dlstestcluster'.
+        :param name: Name of the cluster to interface with.
         """
 
         if clustername == "dlscluster":
             self.environment = self.load_environment(_DLS_Load_Cluster)
         elif clustername == "dlstestcluster":
             self.environment = self.load_environment(_DLS_Load_Testcluster)
+        elif clustername == "hamilton":
+            self.environment = self.load_environment(_DLS_Load_Hamilton)
         else:
             raise RuntimeError(
-                "Need to specify name of cluster to access (dlscluster/dlstestcluster)"
+                "Need to specify name of cluster to access"
+                " (dlscluster/dlstestcluster/hamilton)"
             )
 
         # Set up drmaa subprocess. Create two bidirectional pipes,
@@ -87,7 +92,7 @@ class Cluster:
         del self._pipe_main
 
         # Load DRMAA
-        for k, v in self.environment.iteritems():
+        for k, v in self.environment.items():
             os.environ[k] = v
         import drmaa  # This import must not be floated to the top of the file
 
@@ -320,6 +325,8 @@ class Cluster:
                 native_spec += ["-l", "h_rt=" + job_params.get("time_limit")]
             if job_params.get("nproc"):
                 native_spec += ["-pe", "smp", str(job_params.get("nproc"))]
+            if job_params.get("project"):
+                native_spec += ["-P", job_params["project"]]
             if job_params.get("queue"):
                 native_spec += ["-q", job_params.get("queue")]
         if native_spec:
@@ -333,7 +340,7 @@ class Cluster:
         print("Job: {} finished with status {}".format(retval.jobId, retval.hasExited))
 
 
-class ClusterStatistics:
+class ClusterStatistics(object):
     """Interface to qstat"""
 
     @staticmethod
@@ -422,9 +429,7 @@ class ClusterStatistics:
 
     def parse_string(self, string):
         """Parse a string containing the XML output of qstat and
-       return a list of job and a list of queue dictionaries."""
-        import xml.dom.minidom
-
+        return a list of job and a list of queue dictionaries."""
         return self.parse_xml(xml.dom.minidom.parseString(string))
 
     def parse_xml(self, xmldom):
@@ -470,8 +475,8 @@ class ClusterStatistics:
     def run_on(self, cluster, arguments=None):
         """Run qstat on cluster object and return parsed output.
 
-       :return a list of job and a list of queue dictionaries otherwise.
-    """
+        :return a list of job and a list of queue dictionaries otherwise.
+        """
         result = cluster.qstat_xml(arguments=arguments)
         assert not result["timeout"] and result["exitcode"] == 0, (
             "Could not run qstat on cluster. timeout: %s, exitcode: %s, Output: %s"
@@ -486,6 +491,7 @@ class ClusterStatistics:
 
 if __name__ == "__main__":
     rc = Cluster("dlscluster")
+    hc = Cluster("hamilton")
     tc = Cluster("dlstestcluster")
     stats = ClusterStatistics()
     import uuid
@@ -499,38 +505,38 @@ if __name__ == "__main__":
         "/bin/bash",
         ["-c", "touch markerfile." + str(uuid.uuid4()) + "; sleep 10; ls -la"],
     )
+    hamilton_id = hc.qsub(
+        "/bin/bash",
+        ["-c", "touch markerfile." + str(uuid.uuid4()) + "; sleep 10; ls -la"],
+        job_params={"project": "cluster_health"},
+    )
     print(
-        "Submitted job #%s to the cluster and #%s to the testcluster"
-        % (real_id, test_id)
+        "Submitted job #%s to the cluster, #%s to the testcluster, #%s to hamilton"
+        % (real_id, test_id, hamilton_id)
     )
 
-    joblist, _ = stats.run_on(rc, arguments=["-r", "-u", "*"])
-    joblist = filter(lambda j: j["ID"] == int(real_id), joblist)
-    if len(joblist) < 1:
-        print("Could not read back information about this job ID from cluster")
-    else:
-        if len(joblist) > 1:
-            print("Found more than one job with this ID on cluster")
-            pprint(joblist)
+    for cluster, jobid, name in [
+        (rc, real_id, "cluster"),
+        (tc, test_id, "testcluster"),
+        (hc, hamilton_id, "hamilton"),
+    ]:
+        joblist, _ = stats.run_on(cluster, arguments=["-r", "-u", "*"])
+        joblist = filter(lambda j: j["ID"] == int(jobid), joblist)
+        if len(joblist) < 1:
+            print("Could not read back information about this job ID from %s" % name)
         else:
-            print("Job information on cluster:")
-            pprint(joblist[0])
+            if len(joblist) > 1:
+                print("Found more than one job with this ID on %s" % name)
+                pprint(joblist)
+            else:
+                print("Job information on %s:" % name)
+                pprint(joblist[0])
 
-    joblist, _ = stats.run_on(tc, arguments=["-r", "-u", "*"])
-    joblist = filter(lambda j: j["ID"] == int(test_id), joblist)
-    if len(joblist) < 1:
-        print("Could not read back information about this job ID from testcluster")
-    else:
-        if len(joblist) > 1:
-            print("Found more than one job with this ID on testcluster")
-            pprint(joblist)
-        else:
-            print("Job information on testcluster:")
-            pprint(joblist[0])
-
-    for x in xrange(4):
+    for x in range(4):
         time.sleep(4)
         print("Cluster", rc.qstat(real_id))
         print("Testcluster", tc.qstat(test_id))
+        print("Hamilton", hc.qstat(hamilton_id))
     tc.close()
+    hc.close()
     rc.close()

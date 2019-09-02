@@ -79,6 +79,37 @@ def read_xia2_processing(tmpl_data):
                 )
                 continue
 
+    def get_autoPROC_stats_data(logfile, graph_names):
+        try:
+            with open(logfile) as fp:
+                lines = iter(fp.readlines())
+        except IOError:
+            logger.exception("Error reading data from log file %s", logfile)
+            return None
+        for line in lines:
+            print(line)
+            if graph_names[0] in line:
+                name_line = line.split()
+                idx_dict = {n: name_line.index(n) + 2 for n in graph_names}
+                data_dict = {n: [] for n in graph_names}
+                res_data = []
+                next(lines)
+                try:
+                    for data_line in lines:
+                        data_vals = data_line.split()
+                        res_data.append(1.0 / pow(float(data_vals[2]), 2))
+                        for graph_name in graph_names:
+                            tmp_val = float(data_vals[idx_dict[graph_name]])
+                            data_dict[graph_name].append(tmp_val)
+                except IndexError:
+                    break
+        x_label = "Resolution"
+        plot_data = {}
+        for graph_name in graph_names:
+            plot_data.update({graph_name: (res_data, data_dict[graph_name])})
+        stat = {"plot_data": plot_data, "plot_axis": x_label}
+        return stat
+
     def save_plot(name, rows):
         fig, ax1 = plt.subplots()
         ax2 = ax1.twinx()
@@ -114,37 +145,31 @@ def read_xia2_processing(tmpl_data):
 
     for log_file in tmpl_data["xia2_logs"]:
         if "aimless.log" in log_file:
-            xia2_aimless_log = log_file
-        if "truncate.log" in log_file:
-            xia2_sad_log = log_file
-        if "xia2.html" in log_file:
+            cc_data = get_plot_data(
+                log_file, "Correlations CC(1/2) within dataset,", "CC"
+            )
+        elif "truncate.log" in log_file:
+            anom_data = get_plot_data(
+                log_file, "Intensity anomalous analysis", "Mn(dI/sigdI) v resolution"
+            )
+            meas_data = get_plot_data(
+                log_file, "Intensity anomalous analysis", "Mesurability v resolution"
+            )
+        elif "xia2.html" in log_file:
             xia2_summary_log = os.path.join(
                 os.path.dirname(log_file), "xia2-summary.dat"
             )
             with open(xia2_summary_log) as fp:
                 tmpl_data["xia2_summary"] = fp.read()
-    cc_data = get_plot_data(
-        xia2_aimless_log, "Correlations CC(1/2) within dataset,", "CC"
-    )
-    anom_data = get_plot_data(
-        xia2_sad_log, "Intensity anomalous analysis", "Mn(dI/sigdI) v resolution"
-    )
-    meas_data = get_plot_data(
-        xia2_sad_log, "Intensity anomalous analysis", "Mesurability v resolution"
-    )
+        elif ".stats" in log_file:
+            cc_data = get_autoPROC_stats_data(log_file, ["CC(1/2)", "CC(ano)"])
+            anom_data = get_autoPROC_stats_data(log_file, ["SigAno"])
 
     save_plot("graph_cc", [cc_data])
-    if "xia2" in xia2_sad_log:
+    try:
         save_plot("graph_anom", [anom_data, meas_data])
-    elif "autoPROC" in xia2_sad_log:
-        with open(
-            os.path.join(
-                os.path.dirname(xia2_aimless_log), "aimless.mrfana.SigAno.png"
-            ),
-            "rb",
-        ) as f:
-            img_data = f.read()
-            tmpl_data["html_images"]["graph_anom"] = img_data
+    except UnboundLocalError:
+        save_plot("graph_anom", [anom_data])
 
 
 def read_settings_file(tmpl_data):

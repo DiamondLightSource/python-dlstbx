@@ -1,7 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-import errno
-import os
 import Queue
 import time
 
@@ -116,6 +114,9 @@ class DLSStatistics(CommonService):
             "cluster-test-utilization": self.stats_test_cluster_utilization,
             "cluster-test-node-status": ignore,
             "cluster-test-waiting-jobs-per-queue": self.stats_test_cluster_jobs_waiting,
+            "cluster-hamilton-utilization": self.stats_hamilton_cluster_utilization,
+            "cluster-hamilton-node-status": ignore,
+            "cluster-hamilton-waiting-jobs-per-queue": self.stats_hamilton_cluster_jobs_waiting,
         }
         for key in records:
             headers, messages = zip(*records[key])
@@ -221,6 +222,33 @@ class DLSStatistics(CommonService):
             )
         )
 
+    def stats_hamilton_cluster_utilization(self, stats):
+        self.rrd_file["hamilton"].update(
+            map(
+                lambda r: [
+                    r["statistic-timestamp"],
+                    r["total"],
+                    r["broken"],
+                    r["used"],
+                ],
+                stats,
+            )
+        )
+        self.rrd_file["hamiltongroups"].update(
+            map(
+                lambda r: [
+                    r["statistic-timestamp"],
+                    r["cpu"]["total"],
+                    r["cpu"]["broken"],
+                    r["cpu"]["used"],
+                    r["gpu"]["total"],
+                    r["gpu"]["broken"],
+                    r["gpu"]["used"],
+                ],
+                stats,
+            )
+        )
+
     def stats_live_cluster_jobs_waiting(self, stats):
         self.rrd_file["clusterbacklog"].update(
             map(
@@ -249,6 +277,11 @@ class DLSStatistics(CommonService):
                 ],
                 stats,
             )
+        )
+
+    def stats_hamilton_cluster_jobs_waiting(self, stats):
+        self.rrd_file["hamiltonbacklog"].update(
+            map(lambda r: [r["statistic-timestamp"], r["all.q"]], stats)
         )
 
     def open_all_recordfiles(self):
@@ -371,6 +404,40 @@ class DLSStatistics(CommonService):
                 + [
                     "DS:%s:GAUGE:180:0:U" % name
                     for name in ("admin-total", "admin-broken", "admin-used")
+                ]
+                + daydata
+                + weekdata
+                + monthdata,
+            ),
+            "hamilton": self.rrd.create(
+                "cluster-utilization-hamilton-general.rrd",
+                ["--step", "60"]
+                + [
+                    "DS:%s:GAUGE:180:0:U" % name
+                    for name in ("slot-total", "slot-broken", "slot-used")
+                ]
+                + daydata
+                + weekdata
+                + monthdata,
+            ),
+            "hamiltonbacklog": self.rrd.create(
+                "cluster-jobswaiting-hamilton.rrd",
+                ["--step", "60"]
+                + ["DS:%s:GAUGE:180:0:U" % name for name in ("queue",)]
+                + daydata
+                + weekdata
+                + monthdata,
+            ),
+            "hamiltongroups": self.rrd.create(
+                "cluster-utilization-hamilton-groups.rrd",
+                ["--step", "60"]
+                + [
+                    "DS:%s:GAUGE:180:0:U" % name
+                    for name in ("cpu-slot-total", "cpu-slot-broken", "cpu-slot-used")
+                ]
+                + [
+                    "DS:%s:GAUGE:180:0:U" % name
+                    for name in ("gpu-slot-total", "gpu-slot-broken", "gpu-slot-used")
                 ]
                 + daydata
                 + weekdata

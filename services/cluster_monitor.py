@@ -33,9 +33,16 @@ class DLSClusterMonitor(CommonService):
                 "__drmaa_testcluster",
                 dlstbx.util.cluster.Cluster("dlstestcluster"),
             )
+        if not hasattr(DLSClusterMonitor, "__drmaa_hamilton"):
+            setattr(
+                DLSClusterMonitor,
+                "__drmaa_hamilton",
+                dlstbx.util.cluster.Cluster("hamilton"),
+            )
         instance = super(DLSClusterMonitor, cls).__new__(cls, *args, **kwargs)
         instance.__drmaa_cluster = getattr(DLSClusterMonitor, "__drmaa_cluster")
         instance.__drmaa_testcluster = getattr(DLSClusterMonitor, "__drmaa_testcluster")
+        instance.__drmaa_hamilton = getattr(DLSClusterMonitor, "__drmaa_hamilton")
         return instance
 
     def initializing(self):
@@ -74,6 +81,18 @@ class DLSClusterMonitor(CommonService):
             self.log.error("Could not gather test cluster statistics", exc_info=True)
             return
         self.calculate_cluster_statistics(joblist, queuelist, "test", timestamp)
+
+        # Finally for Hamilton
+        self.log.debug("Gathering hamilton statistics...")
+        timestamp = time.time()
+        try:
+            joblist, queuelist = self.cluster_statistics.run_on(
+                self.__drmaa_hamilton, arguments=["-f", "-r", "-u", "gda2"]
+            )
+        except AssertionError:
+            self.log.error("Could not gather hamilton statistics", exc_info=True)
+            return
+        self.calculate_cluster_statistics(joblist, queuelist, "hamilton", timestamp)
 
     def calculate_cluster_statistics(self, joblist, queuelist, cluster, timestamp):
         self.log.debug("Processing %s cluster statistics", cluster)

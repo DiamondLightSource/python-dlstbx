@@ -71,6 +71,14 @@ class DLSCluster(CommonService):
             self.log.debug(
                 "Using cluster project %s for submission", parameters["cluster_project"]
             )
+        elif cluster == "hamilton":
+            self.log.error(
+                "No cluster project set for job (%s) on Hamilton. "
+                "Cluster project is mandatory for submission.",
+                repr(parameters.get("cluster_project")),
+            )
+            self._transport.nack(header)
+            return
         else:
             self.log.warning(
                 "No cluster project set for job (%s)",

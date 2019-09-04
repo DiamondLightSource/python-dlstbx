@@ -8,6 +8,26 @@ import procrunner
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
+cluster_queue_mapping = {
+    "cluster": {
+        "default": "medium.q",
+        "bottom": "bottom.q",
+        "low": "low.q",
+        "medium": "medium.q",
+        "high": "high.q",
+        "admin": "admin.q",
+        "tempservices": "tempservices.q",
+    },
+    "testcluster": {
+        "default": "test-medium.q",
+        "low": "test-low.q",
+        "medium": "test-medium.q",
+        "high": "test-high.q",
+        "admin": "test-admin.q",
+    },
+    "hamilton": {"default": "all.q"},
+}
+
 
 class DLSCluster(CommonService):
     """A service to interface zocalo with functions to start new
@@ -51,10 +71,10 @@ class DLSCluster(CommonService):
             commands = "\n".join(commands)
 
         cluster = parameters.get("cluster")
-        if cluster not in ("cluster", "testcluster", "hamilton"):
+        if cluster not in cluster_queue_mapping:
             if cluster:
                 self.log.warning(
-                    "Unknown cluster %s specified, defaulting to normal cluster",
+                    "Unknown cluster %s specified, defaulting to science cluster",
                     cluster,
                 )
             cluster = "cluster"
@@ -85,6 +105,34 @@ class DLSCluster(CommonService):
                 repr(parameters.get("cluster_project")),
             )
         commands = commands.replace("$RECIPEPOINTER", str(rw.recipe_pointer))
+
+        cluster_queue = parameters.get("cluster_queue")
+        if cluster_queue is not None:
+            mapped_queue = cluster_queue_mapping[cluster].get(cluster_queue)
+            if mapped_queue:
+                self.log.debug(
+                    "Mapping requested cluster queue %s on cluster %s to %s",
+                    cluster_queue,
+                    cluster,
+                    mapped_queue,
+                )
+            else:
+                mapped_queue = cluster_queue_mapping[cluster].get("default")
+                if mapped_queue:
+                    self.log.info(
+                        "Requested cluster queue %s not available on cluster %s, mapping to %s instead",
+                        cluster_queue,
+                        cluster,
+                        mapped_queue,
+                    )
+            if mapped_queue:
+                submission_params = "-q %s %s" % (mapped_queue, submission_params)
+            else:
+                self.log.warning(
+                    "Requested cluster queue %s not available on cluster %s, no default queue set",
+                    cluster_queue,
+                    cluster,
+                )
 
         if "recipefile" in parameters:
             recipefile = parameters["recipefile"]

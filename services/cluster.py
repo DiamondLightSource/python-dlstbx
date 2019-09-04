@@ -218,6 +218,9 @@ class DLSCluster(CommonService):
         submission = [
             ". /etc/profile.d/modules.sh",
             "module load global/" + cluster,
+            # thanks to Modules 3.2 weirdness qsub may now be a function
+            # calling the real qsub command, but eating up its parameters.
+            "unset -f qsub",
             "qsub %s << EOF" % submission_params,
             "#!/bin/bash",
             ". /etc/profile.d/modules.sh",

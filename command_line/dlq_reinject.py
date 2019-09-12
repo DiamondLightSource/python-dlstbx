@@ -8,6 +8,8 @@ from __future__ import absolute_import, division, print_function
 
 import json
 import os
+import re
+import select
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
@@ -49,7 +51,19 @@ if __name__ == "__main__":
 
     StompTransport.add_command_line_options(parser)
     (options, args) = parser.parse_args()
-    if not args:
+
+    stdin = []
+    if select.select([sys.stdin], [], [], 0.0)[0]:
+        dlq_purge_filename_format = re.compile(r"^  \/")
+        while True:
+            line = sys.stdin.readline()
+            if not line:
+                break
+            if dlq_purge_filename_format.match(line):
+                stdin.append(line.strip())
+        print("%d filenames read from stdin" % len(stdin))
+
+    if not args and not stdin:
         print("No DLQ message files given.")
         sys.exit(0)
 
@@ -57,7 +71,7 @@ if __name__ == "__main__":
     stomp.connect()
     dlqprefix = stomp.get_namespace()
 
-    for dlqfile in args:
+    for dlqfile in args + stdin:
         with open(dlqfile, "r") as fh:
             dlqmsg = json.load(fh)
         print("Parsing message from {}".format(dlqfile))

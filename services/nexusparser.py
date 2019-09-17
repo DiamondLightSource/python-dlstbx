@@ -1,7 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
 import os.path
-import time
 
 import dlstbx.util.hdf5
 import workflows.recipe
@@ -53,7 +52,12 @@ class DLSNexusParser(CommonService):
 
         # Get list of all referenced files
         self.log.debug("Finding files related to %s", root_file)
-        related = dlstbx.util.hdf5.find_all_references(root_file)
+        try:
+            related = dlstbx.util.hdf5.find_all_references(root_file)
+        except ValueError:
+            self.log.error("Could not find files related to %s", root_file)
+            rw.transport.nack(header)
+            return
         self.log.info("Found %d files related to %s", len(related), root_file)
 
         # Notify listeners

@@ -14,7 +14,13 @@ _h5dump = libtbx.env.under_base("bin/h5dump")
 def get_external_references(filename):
     command_line = [_h5dump, "-H", "-x", filename]
     result = procrunner.run(command_line, print_stdout=False, print_stderr=False)
-    assert result["exitcode"] == 0, result
+    if result.returncode:
+        log.warning(
+            "h5dump failed on {} with exitcode {} and output {}".format(
+                filename, result.returncode, result.stderr
+            )
+        )
+        raise ValueError("Invalid HDF5 files {}".format(filename))
 
     xmlroot = xml.etree.ElementTree.fromstring(result["stdout"])
     links = filter(

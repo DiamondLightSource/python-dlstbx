@@ -228,14 +228,23 @@ class DLSCluster(CommonService):
             commands,
             "EOF",
         ]
-        self.log.debug("Cluster submission parameters: %s", submission_params)
+        self.log.debug(
+            "Cluster (%s) submission parameters: %s", cluster, submission_params
+        )
         self.log.debug("Commands: %s", commands)
         self.log.debug("Working directory: %s", workingdir)
         self.log.debug(str(rw.recipe_step))
         result = procrunner.run(
             ["/bin/bash"], stdin="\n".join(submission), working_directory=workingdir
         )
-        assert result["exitcode"] == 0
+        if result["exitcode"]:
+            self.log.error(
+                "Could not submit cluster job:\n%s\n%s",
+                result["stdout"],
+                result["stderr"],
+            )
+            self._transport.nack(header)
+            return
         assert "has been submitted" in result["stdout"]
         jobnumber = result["stdout"].split()[2]
 

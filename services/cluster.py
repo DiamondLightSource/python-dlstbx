@@ -84,6 +84,10 @@ class DLSCluster(CommonService):
             and 1 < len(parameters["cluster_project"].strip())
             and "{" not in parameters["cluster_project"]
         ):
+            if cluster == "hamilton" and parameters["cluster_project"] == "dls":
+                self.log.error("Project 'dls' is not allowed on Hamilton")
+                self._transport.nack(header)
+                return
             submission_params = "-P %s %s" % (
                 parameters["cluster_project"],
                 submission_params,

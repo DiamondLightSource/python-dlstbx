@@ -143,7 +143,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             logger.info("timeout: %s", result["timeout"])
 
         logger.info(
-            "Execution took %s seconds and resulted in exitcode %s",
+            "fast_dp ran for %.1f seconds and returned exitcode %s",
             result["runtime"],
             result["exitcode"],
         )
@@ -164,7 +164,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
                 working_directory=working_directory.strpath,
             )
             logger.info(
-                "Execution took %s seconds and resulted in exitcode %s",
+                "xia2.report ran for %.1f seconds and returned exitcode %s",
                 result["runtime"],
                 result["exitcode"],
             )

@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import logging
 import time
 
+import dlstbx.util.sanity
 import workflows.recipe
 from dials.command_line.find_spots_server import work
 from dlstbx.services.filewatcher import is_file_selected
@@ -19,6 +20,16 @@ class DLSPerImageAnalysis(CommonService):
 
     def initializing(self):
         logging.getLogger("dials").setLevel(logging.WARNING)
+
+        # Check node health before starting service
+        missing_fs = ",".join(dlstbx.util.sanity.get_missing_file_systems())
+        if missing_fs:
+            self.log.critical(
+                "Rejecting service initialisation: node missing access to file system(s) %s",
+                missing_fs,
+            )
+            self._request_termination()
+            return
 
         # The main per_image_analysis queue.
         # For every received message a single frame will be analysed.
@@ -97,6 +108,18 @@ class DLSPerImageAnalysis(CommonService):
         try:
             results = work(filename, cl=parameters)
         except Exception as e:
+            if isinstance(e, RuntimeError) and str(e).startswith(
+                "Server does not have read access to file"
+            ):
+                missing_fs = ",".join(dlstbx.util.sanity.get_missing_file_systems())
+                self.log.critical(
+                    "Terminating service after filesystem access error with %r.\nNode missing access to file systems: %s",
+                    e,
+                    missing_fs,
+                    exc_info=True,
+                )
+                self._request_termination()
+                return
             self.log.error(
                 "PIA on %s with parameters %s failed with %r",
                 filename,

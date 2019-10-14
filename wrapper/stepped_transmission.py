@@ -26,12 +26,12 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
             return True
 
         # T0 = (20, 100) / wavelength ^ 2 for I03, 4 respectively
-        # Recipe 1: T0 / 8, 4, 2, 1 x 3,600 @ 100 Hz @ 0.1 degrees @ distance of screening images
-        # Recipe 2: T0 / 8, 4, 2 x 3,600 @ 100 Hz @ 0.1 degrees @ distance of screening images x X = 0, 30
+        # Recipe 1: T0 / 8, 4, 2, 1 x 3,600 @ 500 Hz @ 0.1 degrees @ distance of screening images
+        # Recipe 2: T0 / 8, 4, 2 x 3,600 @ 500 Hz @ 0.1 degrees @ distance of screening images x X = 0, 30
 
         beamline_t0 = {"i03": 20, "i04": 100}
         t0 = beamline_t0[beamline] / (wavelength ** 2)
-        exposure = 1 / 100  # 100 Hz
+        exposure = 1 / 500  # 500 Hz
         if t0 > 100:
             # Can't have transmission > 100% so scale up exposure times instead
             exposure *= t0 / 100

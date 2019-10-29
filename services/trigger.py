@@ -227,6 +227,77 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
+    def trigger_big_ep_launcher(self, rw, header, parameters, **kwargs):
+        dcid = parameters("dcid")
+        if not dcid:
+            self.log.error("big_ep_launcher trigger failed: No DCID specified")
+            return False
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = bool(parameters("automatic"))
+        jp["comments"] = parameters("comment")
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "big_ep"
+        jp["recipe"] = "postprocessing-big-ep-launcher"
+        jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+        self.log.debug("big_ep_launcher trigger: generated JobID {}".format(jobid))
+
+        try:
+            program_id = int(parameters("program_id"))
+        except (TypeError, ValueError):
+            self.log.error(
+                "big_ep_launcher trigger failed: Invalid program_id specified"
+            )
+            return False
+        mtz = parameters("mtz")
+        if not mtz:
+            self.log.error(
+                "big_ep_launcher trigger failed: No input mtz file specified"
+            )
+            return False
+        path_ext = parameters("path_ext")
+        if not path_ext:
+            path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        big_ep_parameters = {
+            "ispyb_autoprocprogramid": program_id,
+            "ispyb_dcid": dcid,
+            "mtz": mtz,
+            "path_ext": path_ext,
+        }
+
+        for key, value in big_ep_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+            self.log.debug(
+                "big_ep_laucher trigger: generated JobParameterID {}".format(jppid)
+            )
+
+        self.log.debug(
+            "big_ep_launcher trigger: Processing job {} created".format(jobid)
+        )
+
+        message = {
+            "recipes": [],
+            "parameters": {
+                "ispyb_process": jobid,
+                "ispyb_autoprocprogramid": program_id,
+                "ispyb_dcid": dcid,
+                "mtz": mtz,
+                "path_ext": path_ext,
+            },
+        }
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(
+            "big_ep_launcher trigger: Processing job {} triggered".format(jobid)
+        )
+
+        return {"success": True, "return_value": jobid}
+
     def trigger_big_ep(self, rw, header, parameters, **kwargs):
         dcid = parameters("dcid")
         if not dcid:

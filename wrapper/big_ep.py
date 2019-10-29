@@ -139,19 +139,20 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         success = not result["exitcode"] and not result["timeout"]
         return success
 
-    def write_coot_script(self, working_directory):
-        def get_map_model_from_json(json_path):
+    def get_map_model_from_json(self, json_path):
+        try:
+            abs_json_path = os.path.join(json_path, "big_ep_model_ispyb.json")
+            result = {"json": abs_json_path}
+            with open(abs_json_path, "r") as json_file:
+                msg_json = json.load(json_file)
+            result.update({k: msg_json[k] for k in ["pdb", "map", "mtz"]})
+            return result
+        except Exception:
+            logger.debug(
+                "Couldn't read map/model data from %s", abs_json_path, exc_info=True
+            )
 
-            try:
-                abs_json_path = os.path.join(json_path, "big_ep_model_ispyb.json")
-                with open(abs_json_path, "r") as json_file:
-                    msg_json = json.load(json_file)
-                return {"pdb": msg_json["pdb"], "map": msg_json["map"]}
-            except Exception:
-                logger.debug(
-                    "Couldn't read map/model data from %s", abs_json_path, exc_info=True
-                )
-
+    def get_pipeline_paths(self, working_directory):
         paths = [
             p
             for p in glob.glob(os.path.join(working_directory, "*", "*", "*"))
@@ -162,15 +163,18 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         autosol_path = next(iter(filter(lambda p: "AutoSol" in p, paths)))
         crank2_path = next(iter(filter(lambda p: "crank2" in p, paths)))
 
+        return [autosharp_path, autosol_path, crank2_path]
+
+    def write_coot_script(self, working_directory):
         coot_script = [
             "set_map_radius(20.0)",
             "set_dynamic_map_sampling_on()",
             "set_dynamic_map_size_display_on()",
         ]
 
-        for map_model_path in [autosharp_path, autosol_path, crank2_path]:
+        for map_model_path in self.get_pipeline_paths(working_directory):
             try:
-                f = get_map_model_from_json(map_model_path)
+                f = self.get_map_model_from_json(map_model_path)
                 if os.path.isfile(f["pdb"]):
                     coot_script.append(
                         'read_pdb("{}")'.format(
@@ -220,6 +224,47 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             subprocess.call([sed_command], shell=True)
         except Exception:
             logger.debug("Failed to run sed command to update paths", exc_info=True)
+
+    def send_results_to_ispyb(self, working_directory):
+        result = False
+        pipeline_paths = self.get_pipeline_paths(working_directory)
+        for map_model_path in pipeline_paths:
+            try:
+                f = self.get_map_model_from_json(map_model_path)
+                for fp in f.values():
+                    if os.path.isfile(fp):
+                        self.record_result_individual_file(
+                            {
+                                "file_path": os.path.dirname(fp),
+                                "file_name": os.path.basename(fp),
+                                "file_type": "Result",
+                            }
+                        )
+                        result = True
+            except Exception:
+                continue
+
+        js_settings = next(
+            iter(
+                glob.glob(
+                    os.path.join(working_directory, "*", "*", "big_ep_settings.json")
+                )
+            )
+        )
+        self.record_result_individual_file(
+            {
+                "file_path": os.path.dirname(js_settings),
+                "file_name": os.path.basename(js_settings),
+                "file_type": "result",
+            }
+        )
+
+        log_files = ["LISTautoSHARP.html", "phenix_autobuild.log", "crank2.log"]
+        for pth, fp in zip(pipeline_paths, log_files):
+            self.record_result_individual_file(
+                {"file_path": pth, "file_name": fp, "file_type": "log"}
+            )
+        return result
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -288,7 +333,9 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
                 exc_info=True,
             )
 
-        if "devel" not in params:
+        if "devel" in params:
+            return result["exitcode"] == 0
+        else:
             self.copy_results(working_directory.strpath, results_directory.strpath)
             if params.get("create_symlink"):
                 big_ep_path = ispyb_results_directory.join("..", "big_ep")
@@ -296,4 +343,4 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
                     ispyb_results_directory.join("big_ep").strpath,
                     big_ep_path.join(dt_stamp).strpath,
                 )
-        return result["exitcode"] == 0
+            return self.send_results_to_ispyb(working_directory.strpath)

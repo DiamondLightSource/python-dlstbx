@@ -1,7 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
 import numbers
-import os
 
 from dlstbx.system_test.common import CommonSystemTest
 from workflows.recipe import Recipe
@@ -132,7 +131,7 @@ class PerImageAnalysisService(CommonSystemTest):
             recipe=recipe,
             recipe_path=[1],
             recipe_pointer=2,
-            payload=_PayloadIsValidPIAResult(self.log, recipe, 5000000, 6000000),
+            payload=_PayloadIsValidPIAResult(self.log, recipe, 5000000, 9000000),
             timeout=120,
         )
 
@@ -180,7 +179,7 @@ class PerImageAnalysisService(CommonSystemTest):
             recipe=recipe,
             recipe_path=[1],
             recipe_pointer=2,
-            payload=_PayloadIsValidPIAResult(self.log, recipe, 4000000, 5000000),
+            payload=_PayloadIsValidPIAResult(self.log, recipe, 4000000, 8000000),
             timeout=120,
         )
 

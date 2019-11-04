@@ -122,7 +122,7 @@ def read_xia2_processing(tmpl_data):
             for key, (xdata, ydata) in row["plot_data"].iteritems():
                 if xdata and ydata:
                     c = next(color)
-                    p, = ax[i].plot(xdata, ydata, "o-", c=c, label=key)
+                    (p,) = ax[i].plot(xdata, ydata, "o-", c=c, label=key)
                     pt.append(p)
                     lb.append(key)
                     ax[i].set_xlim([xdata[0], xdata[-1]])

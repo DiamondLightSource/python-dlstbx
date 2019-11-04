@@ -288,9 +288,7 @@ class DLSArchiver(CommonService):
         visit_id = "unknown"
         try:
             if filepaths[1:3] == ["dls", "mx"]:
-                beamline = (
-                    "i02-2"
-                )  # VMXi currently only beamline with new visit path structure
+                beamline = "i02-2"  # VMXi currently only beamline with new visit path structure
             else:
                 beamline = filepaths[2]
             visit_id = filepaths[5]

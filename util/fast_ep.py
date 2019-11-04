@@ -43,23 +43,57 @@ def parse_fastep_table(root_wd):
                             tokens -= 1
                         try:
                             if use_cc_res:
-                                num, resol, cc_res, _, cc_all, _, cc_weak, _, cfom, _, fnum = parsed_line[
-                                    :tokens
-                                ]
+                                (
+                                    num,
+                                    resol,
+                                    cc_res,
+                                    _,
+                                    cc_all,
+                                    _,
+                                    cc_weak,
+                                    _,
+                                    cfom,
+                                    _,
+                                    fnum,
+                                ) = parsed_line[:tokens]
                             else:
-                                num, resol, cc_all, _, cc_weak, _, cfom, _, fnum = parsed_line[
-                                    :tokens
-                                ]
+                                (
+                                    num,
+                                    resol,
+                                    cc_all,
+                                    _,
+                                    cc_weak,
+                                    _,
+                                    cfom,
+                                    _,
+                                    fnum,
+                                ) = parsed_line[:tokens]
                             num_set.add(int(num))
                         except ValueError:
                             if use_cc_res:
-                                resol, cc_res, _, cc_all, _, cc_weak, _, cfom, _, fnum = parsed_line[
-                                    :tokens
-                                ]
+                                (
+                                    resol,
+                                    cc_res,
+                                    _,
+                                    cc_all,
+                                    _,
+                                    cc_weak,
+                                    _,
+                                    cfom,
+                                    _,
+                                    fnum,
+                                ) = parsed_line[:tokens]
                             else:
-                                resol, cc_all, _, cc_weak, _, cfom, _, fnum = parsed_line[
-                                    :tokens
-                                ]
+                                (
+                                    resol,
+                                    cc_all,
+                                    _,
+                                    cc_weak,
+                                    _,
+                                    cfom,
+                                    _,
+                                    fnum,
+                                ) = parsed_line[:tokens]
                         for dct, val in zip(
                             [cc_all_dict, cc_weak_dict, cfom_dict],
                             [cc_all, cc_weak, cfom],

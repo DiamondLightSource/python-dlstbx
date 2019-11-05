@@ -443,8 +443,63 @@ WHERE
         dc_ids = [m[0] for m in matches]
         return sorted(dc_ids)
 
-    def get_dcid_for_file(self, path):
+    def get_dcid_for_filename(self, filename):
+        basename, extension = os.path.splitext(filename)
+        if extension:
+            extension = extension.lstrip(".")
+        if basename.endswith("_master"):
+            basename = basename[:-7]
+        m = re.match(r"(.*)_#+$", basename)
+        if m:
+            basename = m.group(1)
+        m = re.match(r"(.*)_([0-9]+)$", basename)
+        if m:
+            dcn = int(m.group(2))
+            basename = m.group(1)
+        else:
+            dcn = None
+        if not basename:
+            raise ValueError("Could not determine prefix of %r" % filename)
+
+        if dcn is None:
+            results = self.execute(
+                "SELECT dataCollectionId, imageDirectory, imageSuffix, fileTemplate "
+                "FROM DataCollection "
+                "WHERE imagePrefix = %s "
+                "LIMIT 101;",
+                basename,
+            )
+        else:
+            results = self.execute(
+                "SELECT dataCollectionId, imageDirectory, imageSuffix, fileTemplate "
+                "FROM DataCollection "
+                "WHERE (imagePrefix = %s) AND (dataCollectionNumber = %s)"
+                "LIMIT 101;",
+                (basename, dcn),
+            )
+        if len(results) > 100:
+            raise ValueError("Too many candidates found for %r" % filename)
+        if extension:
+            results = [r for r in results if r[2] == extension]
+        if not results:
+            raise ValueError("Could not find any candidates for %r" % filename)
+
+        candidates = [r for r in results if r[3] == filename]
+        if candidates:
+            results = candidates
+
+        if len(results) == 1:
+            return results[0][0]
+
+        raise ValueError(
+            "Multiple matching candidates found:\n"
+            + "\n".join("DCID %d %s%s" % (r[0], r[1], r[3]) for r in results)
+        )
+
+    def get_dcid_for_path(self, path):
         """Take a file path and try to identify a best match DCID"""
+        if "/" not in path:
+            return self.get_dcid_for_filename(path)
         if not path.startswith("/"):
             raise ValueError("Need absolute file path instead of %r" % path)
         extension = os.path.splitext(path)[1].lstrip(".")
@@ -936,7 +991,7 @@ def find_dcid_for_file(path):
     """Take a file path and try to identify a best match DCID"""
 
     i = ispybtbx()
-    return i.get_dcid_for_file(path)
+    return i.get_dcid_for_path(path)
 
 
 def ispyb_filter(message, parameters):

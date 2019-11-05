@@ -94,6 +94,7 @@ tests = {
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170111/ZnMAD",
         "src_run_num": (1,),
         "src_prefix": ("sp0092_Zn_pk", "sp0092_Zn_if", "sp0092_Zn_hrm"),
+        "use_sample_id": 694305,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -295,6 +296,7 @@ tests = {
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170111/autocollect/sp0092",
         "src_run_num": (1,),
         "src_prefix": ("s_4",),
+        "use_sample_id": 694302,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

@@ -17,9 +17,9 @@ import re
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
 
+import dlstbx.ispybtbx
 import py
 import workflows.recipe
-from dlstbx.ispybtbx import ispyb_filter
 
 recipe_matcher = re.compile(
     "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
@@ -109,13 +109,16 @@ if __name__ == "__main__":
             if options.reprocess:
                 parameters["ispyb_process"] = int(arg)
             else:
-                parameters["ispyb_dcid"] = int(arg)
+                if arg.isdigit():
+                    parameters["ispyb_dcid"] = int(arg)
+                else:
+                    parameters["ispyb_dcid"] = dlstbx.ispybtbx.find_dcid_for_file(arg)
 
         if parameters.get("ispyb_process"):
             print("Processing ID:", parameters["ispyb_process"])
         else:
             print("Data collection ID:", parameters["ispyb_dcid"])
-        message, parameters = ispyb_filter({}, parameters)
+        message, parameters = dlstbx.ispybtbx.ispyb_filter({}, parameters)
 
         if options.recipefile:
             with open(options.recipefile, "rb") as f:

@@ -202,36 +202,27 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             ".sca": "result",
             ".mtz": "result",
         }
-        keep = {
-            # "fast_dp-report.json": "graph",
-            "iotbx-merging-stats.json": "graph"
-        }
+        keep = {"iotbx-merging-stats.json": "graph"}
 
         # Record these log files first so they appear at the top of the list
         # of attachments in SynchWeb
-        logfiles = ("fast_dp-report.html", "fast_dp.log")
-        for result_file in map(results_directory.join, logfiles):
-            if result_file.check():
-                self.record_result_individual_file(
-                    {
-                        "file_path": result_file.dirname,
-                        "file_name": result_file.basename,
-                        "file_type": "log",
-                    }
-                )
+        primary_log_files = [
+            working_directory.join("fast_dp-report.html"),
+            working_directory.join("fast_dp.log"),
+        ]
 
         allfiles = []
-        for filename in working_directory.listdir():
+        for filename in primary_log_files + working_directory.listdir():
             filetype = keep_ext.get(filename.ext)
             if filename.basename in keep:
                 filetype = keep[filename.basename]
             if filetype is None:
                 continue
             destination = results_directory.join(filename.basename)
-            logger.debug("Copying %s to %s" % (filename.strpath, destination.strpath))
             if destination.strpath in allfiles:
                 # We've already seen this file above
                 continue
+            logger.debug("Copying %s to %s" % (filename.strpath, destination.strpath))
             allfiles.append(destination.strpath)
             filename.copy(destination)
             if filetype:

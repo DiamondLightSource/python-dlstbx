@@ -279,6 +279,20 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
+    "thaumatin-sad-eiger": {
+        "src_dir": "/dls/i04/data/2019/cm23004-2/20190505/autocollect_test/Se_Thaum/SE_Thau_11",
+        "src_run_num": (2,),
+        "src_prefix": ("SE_Thau_11",),
+        "use_sample_id": 2162976,
+        "results": {
+            "a": approx(100, abs=100),
+            "b": approx(100, abs=100),
+            "c": approx(100, abs=100),
+            "alpha": approx(180, abs=180),
+            "beta": approx(180, abs=180),
+            "gamma": approx(180, abs=180),
+        },
+    },
     "trp-multi": {
         "src_dir": "/dls/i04/data/2013/nt5966-4/20131007/TRP/P1_X6",
         "src_run_num": (1, 2, 3, 4),

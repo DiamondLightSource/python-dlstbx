@@ -263,8 +263,8 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         # Record these log files first so they appear at the top of the list
         # of attachments in SynchWeb
         primary_log_files = [
-            working_directory.join("fast_dp-report.html"),
-            working_directory.join("fast_dp.log"),
+            working_directory.join("xia2.multiplex.html"),
+            working_directory.join("xia2.multiplex.log"),
         ]
 
         allfiles = []

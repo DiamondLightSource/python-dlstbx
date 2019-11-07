@@ -46,14 +46,12 @@ def get_recipes_for_dcid(dcid):
             "processing-rlv",
             "processing-xia2-3dii",
             "processing-xia2-dials",
-            "processing-xia2-dials-full",
         ]
         if beamline == "i02-2":
             recipes = [
                 "archive-nexus",
                 "processing-fast-dp",
                 "processing-xia2-dials",
-                "processing-xia2-dials-full",
                 "vmxi-per-image-analysis",
             ]
 

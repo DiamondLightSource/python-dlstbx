@@ -1138,7 +1138,6 @@ def ispyb_filter(message, parameters):
         "processing-rlv",
         "processing-xia2-3dii",
         "processing-xia2-dials",
-        "processing-xia2-dials-full",
     ]
 
     if parameters["ispyb_beamline"] == "i02-2":
@@ -1148,7 +1147,6 @@ def ispyb_filter(message, parameters):
             "processing-fast-dp",
             "processing-xia2-3dii",
             "processing-xia2-dials",
-            "processing-xia2-dials-full",
             "vmxi-per-image-analysis",
         ]
 

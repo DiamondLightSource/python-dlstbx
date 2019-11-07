@@ -92,9 +92,12 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         )
         for item in attachments:
             if item["fileType"] == "Result":
-                if item["fileName"].endswith("experiments.json") or item[
-                    "fileName"
-                ].endswith("reflections.pickle"):
+                if (
+                    item["fileName"].endswith(
+                        ("experiments.json", "reflections.pickle", ".expt", ".refl")
+                    )
+                    and "_scaled." not in item["fileName"]
+                ):
                     data_files.append(
                         py.path.local(item["filePath"]).join(item["fileName"])
                     )

@@ -147,8 +147,25 @@ class DLSTrigger(CommonService):
         if not dcid:
             self.log.error("fast_ep trigger failed: No DCID specified")
             return False
-        dc_info = self.ispyb.get_data_collection(dcid)
 
+        from dlstbx.ispybtbx import ispybtbx
+
+        try:
+            ispyb_conn = ispybtbx()
+            diff_data = ispyb_conn.get_diffractionplan_from_dcid(dcid)
+            anom_scatterer = diff_data["anomalousscatterer"]
+            if not anom_scatterer:
+                self.log.info(
+                    "Skipping fast_ep trigger: No anomalous scatterer specified"
+                )
+                return False
+        except Exception:
+            self.log.info(
+                "Skipping fast_ep trigger: No anomalous scatterer info available"
+            )
+            return False
+
+        dc_info = self.ispyb.get_data_collection(dcid)
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = dcid
         jisp["start_image"] = dc_info.image_start_number
@@ -302,6 +319,23 @@ class DLSTrigger(CommonService):
         dcid = parameters("dcid")
         if not dcid:
             self.log.error("big_ep trigger failed: No DCID specified")
+            return False
+
+        from dlstbx.ispybtbx import ispybtbx
+
+        try:
+            ispyb_conn = ispybtbx()
+            diff_data = ispyb_conn.get_diffractionplan_from_dcid(dcid)
+            anom_scatterer = diff_data["anomalousscatterer"]
+            if not anom_scatterer:
+                self.log.info(
+                    "Skipping big_ep trigger: No anomalous scatterer specified"
+                )
+                return False
+        except Exception:
+            self.log.info(
+                "Skipping big_ep trigger: No anomalous scatterer info available"
+            )
             return False
 
         file_directory = self.ispyb.get_data_collection(dcid).file_directory

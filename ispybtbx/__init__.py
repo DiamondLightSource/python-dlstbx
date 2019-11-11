@@ -986,6 +986,49 @@ WHERE p.proposalcode='%s' and p.proposalnumber='%s' and bs.visit_number='%s'
         assert len(results) == 1
         return results[0][0]
 
+    def get_diffractionplan_from_dcid(self, dc_id):
+        sql_str = """
+SELECT
+    dp.diffractionplanid,
+    dp.experimentkind,
+    dp.centringmethod,
+    dp.preferredbeamsizex,
+    dp.preferredbeamsizey,
+    dp.exposuretime,
+    dp.requiredresolution,
+    dp.radiationsensitivity,
+    dp.anomalousscatterer,
+    dp.energy
+FROM
+    DiffractionPlan AS dp
+        INNER JOIN
+    BLSample AS bls ON bls.diffractionplanid = dp.diffractionplanid
+        INNER JOIN
+    DataCollection AS dc ON dc.blsampleid = bls.blsampleid
+WHERE
+    dc.datacollectionid='%s'
+;""" % str(
+            dc_id
+        )
+        results = self.execute(sql_str)
+
+        labels = (
+            "diffractionplanid",
+            "experimentkind",
+            "centringmethod",
+            "preferredbeamsizex",
+            "preferredbeamsizey",
+            "exposuretime",
+            "requiredresolution",
+            "radiationsensitivity",
+            "anomalousscatterer",
+            "energy",
+        )
+        assert len(results) == 1, len(results)
+        assert len(results[0]) == len(labels), results[0]
+        res = dict(zip(labels, results[0]))
+        return res
+
 
 def find_dcid_for_file(path):
     """Take a file path and try to identify a best match DCID"""

@@ -33,8 +33,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         from dlstbx.ispybtbx import ispybtbx
 
         ispyb_conn = ispybtbx()
-        edge_data = ispyb_conn.get_edge_data(dcid)
-        params.update(edge_data)
+
         sequence = ispyb_conn.get_sequence(dcid)
         if sequence:
             seq_filename = os.path.join(working_directory, "seq_{}.fasta".format(dcid))
@@ -43,6 +42,14 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             with open(seq_filename, "w") as fp:
                 fp.write(fasta_sequence(sequence).format(80))
             params["sequence"] = seq_filename
+
+        try:
+            diff_data = ispyb_conn.get_diffractionplan_from_dcid(dcid)
+            params["atom_type"] = diff_data["anomalousscatterer"]
+        except Exception:
+            logger.debug("Anomalous scatterer for dcid %s wasn't set.", dcid)
+        edge_data = ispyb_conn.get_edge_data(dcid)
+        params.update(edge_data)
 
         command = [
             "{}/big_ep".format(os.environ["BIG_EP_BIN"]),

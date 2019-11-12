@@ -113,6 +113,7 @@ class ispybtbx(object):
             user=secret_ingredients["user"],
             password=secret_ingredients["passwd"],
             database=secret_ingredients["db"],
+            use_pure=True,
         )
 
         # gather information on tables so we can map the data structures

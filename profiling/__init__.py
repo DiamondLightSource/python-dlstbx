@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function
 
 import json
 import logging
-import os
 
 import mysql.connector
 
@@ -21,6 +20,7 @@ class database(object):
             user=_secret_ingredients["user"],
             password=_secret_ingredients["passwd"],
             database=_secret_ingredients["db"],
+            use_pure=True,
         )
         self._cursor = self.conn.cursor(dictionary=True)
 

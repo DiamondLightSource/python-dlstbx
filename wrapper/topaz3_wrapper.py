@@ -13,8 +13,16 @@ import shutil
 
 import procrunner
 import zocalo.wrapper
+import tempfile
 
 logger = logging.getLogger("dlstbx.wrap.topaz3")
+
+clean_environment = {
+    "LD_LIBRARY_PATH": "",
+    "LOADEDMODULES": "",
+    "PYTHONPATH": "",
+    "_LMFILES_": "",
+}
 
 
 class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
@@ -75,8 +83,9 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         """Extract information from the average predictions file and generate graph output"""
         with open(avg_predictions_file) as fp:
             avg_predictions = json.load(fp)
-        graph_data = {
-            "data": [
+        graph_data = {"data": [], "layout": {"title": {"text": "Topaz Results"}}}
+        try:
+            graph_data["data"].append(
                 {
                     "name": "Original Hand",
                     "type": "scatter",
@@ -85,7 +94,12 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
                         avg_predictions["Original"]["0"],
                         avg_predictions["Original"]["1"],
                     ],
-                },
+                }
+            )
+        except KeyError:
+            pass
+        try:
+            graph_data["data"].append(
                 {
                     "name": "Inverse Hand",
                     "type": "scatter",
@@ -94,10 +108,10 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
                         avg_predictions["Inverse"]["0"],
                         avg_predictions["Inverse"]["1"],
                     ],
-                },
-            ],
-            "layout": {"title": {"text": "Topaz Results"}},
-        }
+                }
+            )
+        except KeyError:
+            pass
         # Output to result directory
         with open(output_file, "w") as fp:
             json.dump(graph_data, fp, indent=4, sort_keys=True)
@@ -125,9 +139,9 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         assert os.path.exists(
             params["working_directory"]
         ), "Working directory at {0} does not exist".format(params["working_directory"])
-        assert os.path.exists(
-            params["topaz_python"]
-        ), "Topaz python at {0} does not exist".format(params["topaz_python"])
+        # assert os.path.exists(
+        #    params["topaz_python"]
+        # ), "Topaz python at {0} does not exist".format(params["topaz_python"])
         assert os.path.exists(
             params["model_file"]
         ), "Model file at {0} does not exist".format(params["model_file"])
@@ -143,19 +157,6 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
             )
         else:
             rgb = False
-        # Create results directory if it does not exist
-        if not os.path.exists(params["results_directory"]):
-            try:
-                os.mkdir(params["results_directory"])
-            except Exception as e:
-                logger.error(
-                    "Could not create results directory at {0}".format(
-                        results_directory
-                    )
-                )
-        assert os.path.exists(
-            params["results_directory"]
-        ), "Results directory at {0} does not exist".format(params["results_directory"])
 
         # Collect parameters from payload and check them
         payload = self.recwrap.payload
@@ -166,8 +167,12 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         assert (
             "inverse_phase_file" in payload
         ), "Could not find inverse phase file in payload"
+        assert "hkl_file" in payload, "Could not find hkl data file in payload"
+        assert "fa_file" in payload, "Could not find fa data file in payload"
+        assert "res_file" in payload, "Could not find res data file in payload"
         assert "cell_info" in payload, "Could not find cell info in payload"
         assert "space_group" in payload, "Could not find space group in payload"
+        assert "best_solvent" in payload, "Could not find solvent content in payload"
         assert os.path.exists(
             payload["original_phase_file"]
         ), "Original phase file at {0} does not exist".format(
@@ -191,14 +196,74 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         assert isinstance(payload["space_group"], str) or isinstance(
             payload["space_group"], unicode
         ), "Expected string for space group, got {0}".format(payload["space_group"])
-        original_phase_file = payload["original_phase_file"]
-        inverse_phase_file = payload["inverse_phase_file"]
+        assert isinstance(payload["best_solvent"], str) or isinstance(
+            payload["best_solvent"], unicode
+        ), "Expected string for best_solvent, got {0}".format(payload["best_solvent"])
+        hkl_file = payload["hkl_file"]
+        fa_file = payload["fa_file"]
+        res_file = payload["res_file"]
         cell_info = payload["cell_info"]
         space_group = payload["space_group"]
+        best_solvent = payload["best_solvent"]
+
+        shutil.copy(hkl_file, working_directory)
+        shutil.copy(fa_file, working_directory)
+        shutil.copy(res_file, working_directory)
+
+        try:
+            fp = tempfile.NamedTemporaryFile(dir=working_directory)
+            shelxe_script = os.path.join(
+                working_directory, "run_shelxe_{}.sh".format(os.path.basename(fp.name))
+            )
+            fp.close()
+            with open(shelxe_script, "w") as fp:
+                fp.writelines(
+                    [
+                        "#!/bin/bash\n",
+                        ". /etc/profile.d/modules.sh\n",
+                        "module load ccp4\n",
+                        "shelxe {0} {1} -s{2} -m20 -l10 -a3\n".format(
+                            os.path.splitext(os.path.basename(hkl_file))[0],
+                            os.path.splitext(os.path.basename(fa_file))[0],
+                            best_solvent,
+                        ),
+                        "shelxe {0} {1} -i -s{2} -m20 -l10 -a3\n".format(
+                            os.path.splitext(os.path.basename(hkl_file))[0],
+                            os.path.splitext(os.path.basename(fa_file))[0],
+                            best_solvent,
+                        ),
+                    ]
+                )
+        except IOError:
+            logger.exception(
+                "Could not create shelxe script file in the working directory"
+            )
+        try:
+            # Run procrunner with a clean python environment to avoid DIALS/topaz3 module clashes
+            result = procrunner.run(
+                ["sh", shelxe_script],
+                timeout=params["timeout"],
+                working_directory=working_directory,
+                environment_override=clean_environment,
+            )
+            assert result["exitcode"] == 0
+            assert result["timeout"] is False
+        except AssertionError:
+            logger.exception(
+                "Process returned an error code when running shelxe tracing"
+            )
+            return False
+        except Exception:
+            logger.exception("Shelxe tracing script has failed")
 
         logger.info("Using venv with command: source {0}".format(topaz_python))
 
-        # Use procrunner to convert the phase files to map files
+        original_phase_file = os.path.join(
+            working_directory, os.path.basename(payload["original_phase_file"])
+        )
+        inverse_phase_file = os.path.join(
+            working_directory, os.path.basename(payload["inverse_phase_file"])
+        )
         # Create the map output file paths - need this later for prediction
         map_original = working_directory + "/{0}.map".format(
             os.path.splitext(os.path.basename(original_phase_file))[0]
@@ -214,79 +279,69 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
             inverse_phase_file, cell_info, space_group, map_inverse
         )
 
-        logger.info(
-            "Preparing original hand\n"
-            'Running command: {0} -c "{1}"'.format(topaz_python, command_original_phase)
-        )
-        try:
-            # Run procrunner with a clean python environment to avoid DIALS/topaz3 module clashes
-            result = procrunner.run(
-                [topaz_python, "-c", command_original_phase],
-                timeout=30,
-                environment_override={"PYTHONPATH": ""},
-            )
-            assert result["exitcode"] == 0
-            assert not result["stderr"]
-            assert result["timeout"] is False
-        except AssertionError as e:
-            logging.error(e)
-            logger.error("Process returned an error code when converting original hand")
-            return False
-        except Exception as e:
-            logging.error(e)
-            logging.error("Error converting original hand")
-
-        logger.info(
-            "Preparing inverse hand\n"
-            'Running command: {0} -c "{1}"'.format(topaz_python, command_inverse_phase)
-        )
-        try:
-            # Run procrunner with a clean python environment to avoid DIALS/topaz3 module clashes
-            result = procrunner.run(
-                [topaz_python, "-c", command_inverse_phase],
-                timeout=30,
-                environment_override={"PYTHONPATH": ""},
-            )
-            assert result["exitcode"] == 0
-            assert not result["stderr"]
-            assert result["timeout"] is False
-        except AssertionError as e:
-            logger.error(e)
-            logger.error("Process returned an error code when converting inverse hand")
-            return False
-        except Exception as e:
-            logger.error(e)
-            logging.error("Error converting inverse hand")
-
-        # Assuming all has gone smoothly, use procrunner to generate predictions
         prediction_command = self.build_prediction_command(
             map_original, map_inverse, 20, model_file, working_directory, rgb
         )
-        logger.info(
-            "Generating predictions\n"
-            'Running command: {0} -c "{1}"'.format(topaz_python, prediction_command)
-        )
+        try:
+            fp = tempfile.NamedTemporaryFile(dir=working_directory)
+            topaz3_script = os.path.join(
+                working_directory, "run_topaz3_{}.sh".format(os.path.basename(fp.name))
+            )
+            fp.close()
+            with open(topaz3_script, "w") as fp:
+                fp.writelines(
+                    [
+                        "#!/bin/bash\n",
+                        ". /etc/profile.d/modules.sh\n",
+                        "source {0}\n".format(topaz_python),
+                        "module load cuda\n",
+                        'python -c "{0}"\n'.format(command_original_phase),
+                        'python -c "{0}"\n'.format(command_inverse_phase),
+                        'python -c "{0}"\n'.format(prediction_command),
+                    ]
+                )
+        except IOError:
+            logger.exception(
+                "Could not create topaz3 script file in the working directory"
+            )
         try:
             # Run procrunner with a clean python environment to avoid DIALS/topaz3 module clashes
             result = procrunner.run(
-                [topaz_python, "-c", prediction_command],
-                timeout=60,
-                environment_override={"PYTHONPATH": ""},
-                print_stdout=False,
-                print_stderr=False,
+                ["sh", topaz3_script],
+                timeout=params["timeout"],
+                working_directory=working_directory,
+                environment_override=clean_environment,
             )
             assert result["exitcode"] == 0
-            # Not checking stderr for this command as it returns tensorflow junk
             assert result["timeout"] is False
-        except AssertionError as e:
-            logger.error(e)
-            logger.error(result)
-            logger.error("Process returned an error code when getting predictions")
+        except AssertionError:
+            logger.exception(
+                "Process returned an error code when running topaz3 script"
+            )
             return False
-        except Exception as e:
-            logger.error(e)
-            logger.error(result)
-            logger.error("Error converting inverse hand")
+        except Exception:
+            logger.exception("Running topaz3 script has failed")
+            return False
+
+        logger.info("Generating graph output")
+        self.graph_output(
+            (working_directory + "/avg_predictions.json"),
+            (working_directory + "/topaz_graph.json"),
+        )
+
+        # Create results directory if it does not exist
+        if not os.path.exists(params["results_directory"]):
+            try:
+                os.mkdir(params["results_directory"])
+            except Exception:
+                logger.exception(
+                    "Could not create results directory at {0}".format(
+                        results_directory
+                    )
+                )
+        assert os.path.exists(
+            params["results_directory"]
+        ), "Results directory at {0} does not exist".format(params["results_directory"])
 
         # Copy final results to results directory
         logger.info(
@@ -296,11 +351,5 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         )
         shutil.copy((working_directory + "/avg_predictions.json"), results_directory)
         shutil.copy((working_directory + "/raw_predictions.json"), results_directory)
-
-        logger.info("Generating graph output")
-        self.graph_output(
-            (working_directory + "/avg_predictions.json"),
-            (results_directory + "/topaz_graph.json"),
-        )
 
         return True

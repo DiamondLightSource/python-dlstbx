@@ -191,18 +191,21 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             logger.exception("Couldn't read fast_ep results file")
         try:
             best_sg = fast_ep_data["_spacegroup"][0]
-            best_solv = fast_ep_data["solv"]
-            original_hand = working_directory.join(
-                "{0:.2f}".format(best_solv), "sad.phs"
-            )
-            inverted_hand = working_directory.join(
-                "{0:.2f}".format(best_solv), "sad_i.phs"
-            )
+            best_solv = "{0:.2f}".format(fast_ep_data["solv"])
+            original_hand = working_directory.join(best_solv, "sad.phs")
+            inverted_hand = working_directory.join(best_solv, "sad_i.phs")
+            hkl_data = working_directory.join(best_solv, "sad.hkl")
+            fa_data = working_directory.join(best_solv, "sad_fa.hkl")
+            res_data = working_directory.join(best_solv, "sad_fa.res")
             topaz_data = {
                 "original_phase_file": original_hand.strpath,
                 "inverse_phase_file": inverted_hand.strpath,
+                "hkl_file": hkl_data.strpath,
+                "fa_file": fa_data.strpath,
+                "res_file": res_data.strpath,
                 "space_group": best_sg,
                 "cell_info": cell_info,
+                "best_solvent": best_solv,
             }
             logger.info("Topaz data: %s", pformat(topaz_data))
             self.recwrap.send_to("topaz", topaz_data)

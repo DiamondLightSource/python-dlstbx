@@ -100,6 +100,7 @@ if __name__ == "__main__":
     )
     (options, args) = parser.parse_args(sys.argv[1:])
 
+    _ispybtbx_instance = None
     for arg in args:
         parameters = get_dcid_for_recipe_ID(arg)
         if parameters:
@@ -112,7 +113,9 @@ if __name__ == "__main__":
                 if arg.isdigit():
                     parameters["ispyb_dcid"] = int(arg)
                 else:
-                    parameters["ispyb_dcid"] = dlstbx.ispybtbx.find_dcid_for_file(arg)
+                    if not _ispybtbx_instance:
+                        _ispybtbx_instance = dlstbx.ispybtbx.ispybtbx()
+                    parameters["ispyb_dcid"] = _ispybtbx_instance.get_dcid_for_path(arg)
 
         if parameters.get("ispyb_process"):
             print("Processing ID:", parameters["ispyb_process"])

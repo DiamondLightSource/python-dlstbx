@@ -136,11 +136,8 @@ class ispybtbx(object):
         if hasattr(self, "conn") and self.conn:
             self.conn.close()
 
-    def cursor(self):
-        return self._cursor
-
     def execute(self, query, parameters=None):
-        cursor = self.cursor()
+        cursor = self._cursor
         if parameters:
             if isinstance(parameters, (basestring, int, long)):
                 parameters = (parameters,)
@@ -152,14 +149,6 @@ class ispybtbx(object):
 
     def commit(self):
         self.conn.commit()
-
-    def find_dc_id(self, directory):
-        results = self.execute(
-            "select datacollectionid from DataCollection where imagedirectory=%s;",
-            directory,
-        )
-        ids = [result[0] for result in results]
-        return ids
 
     def get_dc_info(self, dc_id):
         results = self.execute(
@@ -219,27 +208,6 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
         dc_ids = [m[0] for m in matches]
         return dc_ids
 
-    def get_container_type(self, dc_id):
-        samples = self.execute(
-            "select blsampleid from DataCollection " "where datacollectionid=%s;", dc_id
-        )
-        assert len(samples) == 1
-        if samples[0][0] is None:
-            return None
-        sample = samples[0][0]
-        containers = self.execute(
-            "select containerid from BLSample where " "blsampleid=%s;", sample
-        )
-        assert len(containers) == 1
-        if containers[0][0] is None:
-            return None
-        container_id = containers[0][0]
-        container_type = self.execute(
-            "select containertype from Container where " "containerid=%s;", container_id
-        )
-        assert len(container_type) == 1
-        return container_type[0][0]
-
     def get_space_group(self, dc_id):
         spacegroups = self.execute(
             "SELECT c.spaceGroup "
@@ -253,40 +221,6 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
         if not spacegroups:
             return None
         return spacegroups[0][0]
-
-    def get_space_group_and_cell(self, dc_id):
-        samples = self.execute(
-            "select blsampleid from DataCollection where datacollectionid=%s;", dc_id
-        )
-        assert len(samples) == 1
-        if samples[0][0] is None:
-            return None, []
-
-        sample = samples[0][0]
-        crystals = self.execute(
-            "select crystalid from BLSample where blsampleid=%s;", sample
-        )
-
-        if crystals[0][0] is None:
-            return None, []
-
-        crystal = crystals[0][0]
-
-        spacegroups = self.execute(
-            "select spacegroup from Crystal where " "crystalid=%s;", crystal
-        )
-
-        spacegroup = spacegroups[0]
-
-        cells = self.execute(
-            "select cell_a,cell_b,cell_c,cell_alpha,cell_beta,cell_gamma "
-            "from Crystal where crystalid=%s;",
-            crystal,
-        )
-
-        cell = cells[0]
-
-        return spacegroup, cell
 
     def get_edge_data(self, dc_id):
         def __energy_offset(row):
@@ -386,7 +320,6 @@ WHERE
         return res
 
     def get_sequence(self, dc_id):
-
         s = """SELECT
     Protein.sequence
 FROM
@@ -406,43 +339,6 @@ WHERE
         except Exception:
             seq = None
         return seq
-
-    def get_matching_dcids_by_folder(self, dc_id):
-        matches = self.execute(
-            "SELECT datacollectionid FROM DataCollection "
-            "WHERE imageDirectory=(SELECT imageDirectory FROM DataCollection "
-            "WHERE datacollectionid=%s);",
-            dc_id,
-        )
-        assert len(matches) >= 1
-        dc_ids = [m[0] for m in matches]
-        return sorted(dc_ids)
-
-    def get_matching_dcids_by_sample_and_session(self, dc_id):
-        result = self.execute(
-            "select actualsamplebarcode,sessionid,blsampleid from DataCollection "
-            "where datacollectionid=%s;",
-            dc_id,
-        )
-        assert len(result) == 1
-        barcode, session, sample = result[0]
-        matches = []
-        if barcode and barcode != "NR":
-            matches = self.execute(
-                "select datacollectionid from DataCollection "
-                "where sessionid=%s and barcode=%s;",
-                (session, barcode),
-            )
-            assert len(matches) >= 1
-        elif sample:
-            matches = self.execute(
-                "select datacollectionid from DataCollection "
-                "where sessionid=%s and blsampleid=%s;",
-                (session, sample),
-            )
-            assert len(matches) >= 1
-        dc_ids = [m[0] for m in matches]
-        return sorted(dc_ids)
 
     def get_dcid_for_filename(self, filename):
         basename, extension = os.path.splitext(filename)
@@ -650,85 +546,6 @@ WHERE
         rest = directory[len(visit) + 1 :]
         return os.path.join(visit, "processed", rest, prefix, dc_info["uuid"])
 
-    def insert_screening_results(self, dc_id, values):
-        keys = (
-            "dataCollectionId",
-            "programVersion",
-            "shortComments",
-            "mosaicity",
-            "spacegroup",
-            "unitCell_a",
-            "unitCell_b",
-            "unitCell_c",
-            "unitCell_alpha",
-            "unitCell_beta",
-            "unitCell_gamma",
-            "comments",
-            "wedgeNumber",
-            "numberOfImages",
-            "completeness",
-            "resolution",
-            "axisStart",
-            "axisEnd",
-            "oscillationRange",
-            "numberOfImages",
-            "completeness",
-            "rankingResolution",
-            "rotationAxis",
-            "exposureTime",
-            "transmission",
-        )
-        for k in keys:
-            assert k in values, k
-            self.execute('SET @%s="%s";' % (k, values[k]))
-
-        # -- Insert characterisation
-        self.execute(
-            "insert into Screening (dataCollectionId, programVersion, comments, shortComments) values ("
-            "@dataCollectionId, @programVersion, @comments, @shortComments);"
-        )
-        self.execute("SET @scrId = LAST_INSERT_ID();")
-        self.execute(
-            "insert into ScreeningOutput (screeningId, mosaicity) values ("
-            "@scrId, @mosaicity);"
-        )
-        self.execute("SET @scrOutId = LAST_INSERT_ID();")
-        self.execute(
-            "insert into ScreeningOutputLattice (screeningOutputId, spacegroup,"
-            "unitCell_a,unitCell_b,unitCell_c,unitCell_alpha,unitCell_beta,unitCell_gamma) values ("
-            "@scrOutId, @spacegroup,"
-            "@unitCell_a, @unitCell_b, @unitCell_c, @unitCell_alpha, @unitCell_beta, @unitCell_gamma"
-            ");"
-        )
-
-        # -- Insert strategy
-        self.execute(
-            "insert into ScreeningStrategy (screeningOutputId, program, rankingResolution) values ("
-            "@scrOutId, @program, @rankingResolution"
-            ");"
-        )
-        self.execute("SET @scrStratId = LAST_INSERT_ID();")
-
-        self.execute(
-            "insert into ScreeningStrategyWedge (screeningStrategyId, wedgeNumber, numberOfImages,"
-            "completeness, resolution) values ("
-            "@scrStratId, 1, @numberOfImages, @completeness, @resolution"
-            ");"
-        )
-
-        self.execute("SET @scrStratWId = LAST_INSERT_ID();")
-
-        self.execute(
-            "insert into ScreeningStrategySubWedge (screeningStrategyWedgeId,"
-            "axisStart, axisEnd, oscillationRange, numberOfImages, completeness,"
-            "resolution, rotationAxis, exposureTime, transmission) values ("
-            "@scrStratWId, @axisStart, @axisEnd, @oscillationRange,"
-            "@numberOfImages, @completeness, @resolution, @rotationAxis,"
-            "@exposureTime, @transmission"
-            ");"
-        )
-        self.commit()
-
     def get_screening_results(self, dc_ids, columns=None):
         if columns is not None:
             select_str = ", ".join(c for c in columns)
@@ -808,165 +625,6 @@ WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s
         field_names = [i[0] for i in self._cursor.description]
         return field_names, results
 
-    def get_program_attachment(self, ap, ft="Result"):
-
-        s = """
-Select Distinct AutoProcProgramAttachment.filename,
-  AutoProcProgramAttachment.filepath
-From AutoProcProgramAttachment
-Inner Join AutoProcIntegration
-On AutoProcProgramAttachment.Autoprocprogramid = AutoProcIntegration.Autoprocprogramid
-Inner Join AutoProcScaling_has_Int
-On AutoProcScaling_has_Int.AutoProcIntegrationid = AutoProcIntegration.AutoProcIntegrationid
-Where AutoProcScaling_has_Int.AutoProcScalingid = %s
-And AutoProcProgramAttachment.Filetype = %s
-"""
-        rows = self.execute(s, (ap, ft))
-        return rows
-
-    def insert_alignment_result(self, values):
-        keys = ("dataCollectionId", "program", "shortComments", "comments", "phi")
-        for k in keys:
-            assert k in values, k
-            self.execute('SET @%s="%s";' % (k, values[k]))
-        self.execute(
-            "insert into Screening (dataCollectionId, programVersion, comments, shortComments) values ("
-            "@dataCollectionId, @program, @comments, @shortComments"
-            ");"
-        )
-        self.execute("SET @scrId=LAST_INSERT_ID();")
-        self.execute("insert into ScreeningOutput (screeningId) values (@scrId);")
-        self.execute("SET @scrOutId = LAST_INSERT_ID();")
-        self.execute(
-            "insert into ScreeningStrategy (screeningOutputId, program) values ("
-            "@scrOutId, @program"
-            ");"
-        )
-        self.execute("SET @scrStratId = LAST_INSERT_ID();")
-        if "chi" in values:
-            self.execute('SET @chi="%s";' % (values["chi"]))
-            self.execute(
-                "insert into ScreeningStrategyWedge (screeningStrategyId, chi, phi) values ("
-                "@scrStratId, @chi, @phi"
-                ");"
-            )
-        elif "kappa" in values:
-            self.execute('SET @kappa="%s";' % (values["kappa"]))
-            self.execute(
-                "insert into ScreeningStrategyWedge (screeningStrategyId, kappa, phi) values ("
-                "@scrStratId, @kappa, @phi"
-                ");"
-            )
-        else:
-            raise RuntimeError("chi or kappa values must be provided")
-        self.commit()
-
-    def insert_fastep_phasing_results(self, values):
-        self.execute("SET @recordTimeStamp = CURRENT_TIMESTAMP")
-        self.execute(
-            "INSERT INTO PhasingAnalysis"
-            "(recordTimeStamp)"
-            "VALUES"
-            "(@recordTimeStamp);"
-        )
-        self.execute("SET @phasingAnalysisId = LAST_INSERT_ID();")
-        self.execute(
-            "INSERT INTO PhasingProgramRun"
-            "(phasingCommandLine, phasingPrograms, phasingStatus)"
-            "VALUES"
-            "(%(phasingCommandLine)s, %(phasingPrograms)s, %(phasingStatus)s);",
-            values["PhasingProgramRun"],
-        )
-        self.execute("SET @phasingProgramRunId = LAST_INSERT_ID();")
-        self.execute(
-            "INSERT INTO PhasingProgramAttachment"
-            "(phasingProgramRunId, fileType, fileName, filePath, recordTimeStamp)"
-            "VALUES"
-            "(@phasingProgramRunId, %(fileType)s, %(fileName)s, %(filePath)s, @recordTimeStamp);",
-            values["PhasingProgramAttachment"],
-        )
-        self.execute(
-            "INSERT INTO Phasing"
-            "(phasingAnalysisId, phasingProgramRunId, spaceGroupId, method, solventContent, enantiomorph, lowRes, highRes, recordTimeStamp)"
-            "VALUES"
-            "(@phasingAnalysisId, @phasingProgramRunId, %(spaceGroupId)s, %(method)s, %(solventContent)s, %(enantiomorph)s, %(lowRes)s, %(highRes)s, @recordTimeStamp);",
-            values["Phasing"],
-        )
-        self.execute(
-            "INSERT INTO PreparePhasingData"
-            "(phasingAnalysisId, phasingProgramRunId, spaceGroupId, lowRes, highRes, recordTimeStamp)"
-            "VALUES"
-            "(@phasingAnalysisId, @phasingProgramRunId, %(spaceGroupId)s, %(lowRes)s, %(highRes)s, @recordTimeStamp);",
-            values["PreparePhasingData"],
-        )
-        self.execute(
-            "INSERT INTO SubstructureDetermination"
-            "(phasingAnalysisId, phasingProgramRunId, spaceGroupId, method, lowRes, highRes, recordTimeStamp)"
-            "VALUES"
-            "(@phasingAnalysisId, @phasingProgramRunId, %(spaceGroupId)s, %(method)s, %(lowRes)s, %(highRes)s, @recordTimeStamp);",
-            values["SubstructureDetermination"],
-        )
-        self.execute(
-            "INSERT INTO Phasing_has_Scaling"
-            "(phasingAnalysisId, autoProcScalingId, recordTimeStamp)"
-            "VALUES"
-            "(@phasingAnalysisId, %s, @recordTimeStamp);",
-            (values["autoProcScalingId"],),
-        )
-        self.execute("SET @phasingHasScalingId = LAST_INSERT_ID();")
-        for stats in values["phasingStatistics"]:
-            self.execute(
-                "INSERT INTO PhasingStatistics"
-                "(phasingHasScalingId1, numberOfBins, binNumber, lowRes, highRes, metric, statisticsValue, nReflections, recordTimeStamp)"
-                "VALUES"
-                "(@phasingHasScalingId, %(numberOfBins)s, %(binNumber)s, %(lowRes)s, %(highRes)s, %(metric)s, %(statisticsValue)s, %(nReflections)s, @recordTimeStamp);",
-                stats,
-            )
-        self.commit()
-
-    def get_proposal_title_from_dcid(self, dc_id):
-        sql_str = """
-SELECT title
-FROM Proposal p
-INNER JOIN BLSession bs
-ON bs.proposalId = p.proposalId
-INNER JOIN DataCollectionGroup dcg
-ON dcg.sessionId = bs.sessionId
-INNER JOIN DataCollection dc
-ON dc.dataCollectionGroupId = dcg.dataCollectionGroupId
-WHERE dc.dataCollectionId='%s'
-;""" % str(
-            dc_id
-        )
-        results = self.execute(sql_str)
-        assert len(results) == 1, len(results)
-        assert len(results[0]) == 1, results[0]
-        try:
-            title = results[0][0]
-            return title
-        except Exception:
-            return None
-
-    def get_visit_name_from_dcid(self, dc_id):
-        sql_str = """
-SELECT proposalcode, proposalnumber, visit_number
-FROM BLSession bs
-INNER JOIN DataCollectionGroup dcg
-ON dcg.sessionId = bs.sessionId
-INNER JOIN DataCollection dc
-ON dc.dataCollectionGroupId = dcg.dataCollectionGroupId
-INNER JOIN Proposal p
-ON bs.proposalId = p.proposalId
-WHERE dc.dataCollectionId='%s'
-;""" % str(
-            dc_id
-        )
-        results = self.execute(sql_str)
-        assert len(results) == 1, len(results)
-        assert len(results[0]) == 3, results[0]
-        proposal_code, proposal_number, visit_number = results[0]
-        return proposal_code, proposal_number, visit_number
-
     def get_bl_sessionid_from_visit_name(self, visit_name):
         m = re.match(r"([a-z][a-z])([\d]+)[-]([\d]+)", visit_name)
         assert m is not None
@@ -1029,13 +687,6 @@ WHERE
         assert len(results[0]) == len(labels), results[0]
         res = dict(zip(labels, results[0]))
         return res
-
-
-def find_dcid_for_file(path):
-    """Take a file path and try to identify a best match DCID"""
-
-    i = ispybtbx()
-    return i.get_dcid_for_path(path)
 
 
 def ispyb_filter(message, parameters):
@@ -1144,9 +795,6 @@ def ispyb_filter(message, parameters):
 
     else:
         related_dcs = i.get_dc_group(dc_id)
-        # related_dcs.extend(i.get_matching_dcids_by_folder(dc_id))
-        # related_dcs.extend(i.get_matching_dcids_by_sample_and_session(dc_id))
-
         related = list(sorted(set(related_dcs)))
 
     other_dc_info = {}
@@ -1202,7 +850,6 @@ def ispyb_filter(message, parameters):
 
 
 def work(dc_ids):
-
     import pprint
 
     pp = pprint.PrettyPrinter(indent=2)
@@ -1210,7 +857,6 @@ def work(dc_ids):
     i = ispybtbx()
 
     for dc_id in dc_ids:
-        print(i.get_space_group_and_cell(dc_id))
         message = {}
         parameters = {"ispyb_dcid": dc_id}
         message, parameters = ispyb_filter(message, parameters)

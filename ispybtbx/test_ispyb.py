@@ -47,7 +47,7 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
     assert parameters["ispyb_dcid"] == ds["gphl_C2"]
     assert isinstance(parameters["ispyb_dc_class"], dict)
     assert isinstance(parameters["ispyb_dc_info"], dict)
-    assert parameters["ispyb_dc_class"]["grid"] == False
+    assert parameters["ispyb_dc_class"]["grid"] is False
     assert parameters["ispyb_image_first"] == 1
     assert parameters["ispyb_image_last"] == 1800
     assert parameters["ispyb_dc_info"]["numberOfImages"] == 1800
@@ -88,11 +88,6 @@ def test_fetch_datacollect_group_from_ispyb():
     # this was not recorded as a data collection group
     whole_group = i.get_dc_group(dc_id)
     assert len(whole_group) == 1
-    # however there are four data collections
-    whole_group = i.get_matching_dcids_by_folder(dc_id)
-    assert len(whole_group) == 4
-    for dc_id in whole_group:
-        dc_info = i.get_dc_info(dc_id)
 
 
 def test_get_datacollection_information():
@@ -134,14 +129,14 @@ def test_get_datacollection_information_for_em():
     )
     assert dc_info["startTime"] == datetime(2017, 11, 10, 14, 27, 7)
     assert dc_info["endTime"] == datetime(2017, 11, 14, 11, 28, 20)
-    assert dc_info["startImageNumber"] == None  # because EM
-    assert dc_info["numberOfImages"] == None  # because EM
-    assert dc_info["overlap"] == None  # because EM
-    assert dc_info["axisRange"] == None  # because EM
+    assert dc_info["startImageNumber"] is None  # because EM
+    assert dc_info["numberOfImages"] is None  # because EM
+    assert dc_info["overlap"] is None  # because EM
+    assert dc_info["axisRange"] is None  # because EM
     assert dc_info["dataCollectionId"] == dc_id
-    assert dc_info["imagePrefix"] == None  # because EM
+    assert dc_info["imagePrefix"] is None  # because EM
     assert dc_info["wavelength"] == 0.0196875
-    assert dc_info["resolution"] == None  # because EM
+    assert dc_info["resolution"] is None  # because EM
 
 
 def test_datacollection_classification():

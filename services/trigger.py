@@ -158,10 +158,11 @@ class DLSTrigger(CommonService):
                 self.log.info(
                     "Skipping fast_ep trigger: No anomalous scatterer specified"
                 )
-                return False
+                return {"success": True}
         except Exception:
-            self.log.info(
-                "Skipping fast_ep trigger: No anomalous scatterer info available"
+            self.log.warning(
+                "Skipping fast_ep trigger: No anomalous scatterer info available",
+                exc_info=True,
             )
             return False
 
@@ -331,10 +332,11 @@ class DLSTrigger(CommonService):
                 self.log.info(
                     "Skipping big_ep trigger: No anomalous scatterer specified"
                 )
-                return False
+                return {"success": True}
         except Exception:
-            self.log.info(
-                "Skipping big_ep trigger: No anomalous scatterer info available"
+            self.log.warning(
+                "Skipping big_ep trigger: No anomalous scatterer info available",
+                exc_info=True,
             )
             return False
 

@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from jinja2.environment import Environment
 from jinja2.loaders import PackageLoader
+from jinja2.exceptions import UndefinedError
 
 import logging
 import os
@@ -31,10 +32,6 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
         fast_ep_path = params["fast_ep_path"]
         email_list = params["email_list"]
 
-        from dlstbx.ispybtbx import ispybtbx
-
-        ispyb_conn = ispybtbx()
-
         xia2_log_files = [
             os.path.join(row["filePath"], row["fileName"])
             for row in self.recwrap.environment["ispyb_program_attachments"]
@@ -53,6 +50,15 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             "html_images": {},
         }
 
+        logger.debug("Reading big_ep setting file")
+        try:
+            dlstbx.util.big_ep.read_settings_file(tmpl_data)
+        except Exception:
+            logger.exception(
+                "Cannot generate big_ep summary report. Exception raised while reading big_ep settings file."
+            )
+            return False
+
         logger.debug("Generating model density images")
         try:
             dlstbx.util.big_ep.generate_model_snapshots(tmpl_env, tmpl_data)
@@ -60,6 +66,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             logger.debug(
                 "Exception raised while generating model snapshots", exc_info=True
             )
+
         logger.debug("Generating plots for fast_ep summary")
         try:
             axis, data, best_vals = dlstbx.util.fast_ep.parse_fastep_table(fast_ep_path)
@@ -72,16 +79,11 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
                 "Exception raised while composing fast_ep report", exc_info=True
             )
 
-        logger.debug("Reading big_ep setting file")
-        try:
-            dlstbx.util.big_ep.read_settings_file(tmpl_data)
-        except Exception:
-            logger.debug(
-                "Exception raised while reading big_ep settings file", exc_info=True
-            )
-
         logger.debug("Reading PIA results from ISPyB")
         try:
+            from dlstbx.ispybtbx import ispybtbx
+
+            ispyb_conn = ispybtbx()
             pia_results = ispyb_conn.get_pia_results(
                 [dcid],
                 [
@@ -114,7 +116,11 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
         with open(
             working_directory.join("bigep_summary_email.html").strpath, "w"
         ) as fp:
-            summary_html = html_template.render(tmpl_data)
+            try:
+                summary_html = html_template.render(tmpl_data)
+            except UndefinedError:
+                logger.exception("Error rendering big_ep summary report")
+                return False
             fp.write(summary_html)
             dlstbx.util.big_ep.send_html_email_message(
                 summary_html, email_list, tmpl_data

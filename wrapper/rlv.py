@@ -39,7 +39,7 @@ class RLVWrapper(zocalo.wrapper.BaseWrapper):
         # then find spots
         command = [
             "dials.find_spots",
-            "datablock.json",
+            "imported.expt",
             "nproc=" + str(os.getenv("NSLOTS", "20")),
         ]
         logger.info("command: %s", " ".join(command))
@@ -57,11 +57,11 @@ class RLVWrapper(zocalo.wrapper.BaseWrapper):
         # then map to csv file
         command = [
             "dev.dials.csv",
-            "dp=4",
-            "compress=true",
-            "csv=rl.csv.gz",
-            "datablock.json",
-            "strong.pickle",
+            "output.dp=4",
+            "output.compress=true",
+            "output.csv=rl.csv.gz",
+            "imported.expt",
+            "strong.refl",
         ]
         logger.info("command: %s", " ".join(command))
         result = procrunner.run(command, timeout=params.get("timeout"))

@@ -13,13 +13,6 @@ logger = logging.getLogger("dlstbx.wrap.mrbump")
 
 
 class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
-    def get_sequence(self, dcid):
-        from dlstbx.ispybtbx import ispybtbx
-
-        ispyb_conn = ispybtbx()
-        sequence = ispyb_conn.get_sequence(dcid)
-        return sequence
-
     def construct_script(self, params, working_directory, sequence):
         """Construct MrBUMP script line.
        Takes job parameter dictionary, returns array."""
@@ -74,9 +67,15 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
         working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])
 
-        sequence = self.get_sequence(params["dcid"])
-        if not sequence:
-            logger.info("Skipping MrBUMP processing. Sequence data not available.")
+        try:
+            sequence = params["protein_info"]["sequence"]
+            if not sequence:
+                logger.error("Aborting MrBUMP processing. Sequence data not available.")
+                return False
+        except Exception:
+            logger.exception(
+                "MrBUMP processing failed: Cannot read sequence information"
+            )
             return False
 
         working_directory.ensure(dir=True)

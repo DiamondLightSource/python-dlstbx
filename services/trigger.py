@@ -148,21 +148,22 @@ class DLSTrigger(CommonService):
             self.log.error("fast_ep trigger failed: No DCID specified")
             return False
 
-        from dlstbx.ispybtbx import ispybtbx
-
+        diffraction_plan_info = parameters("diffraction_plan_info")
+        if not diffraction_plan_info:
+            self.log.info(
+                "Skipping fast_ep trigger: diffraction plan information not available"
+            )
+            return {"success": True}
         try:
-            ispyb_conn = ispybtbx()
-            diff_data = ispyb_conn.get_diffractionplan_from_dcid(dcid)
-            anom_scatterer = diff_data["anomalousscatterer"]
+            anom_scatterer = diffraction_plan_info["anomalousscatterer"]
             if not anom_scatterer:
                 self.log.info(
                     "Skipping fast_ep trigger: No anomalous scatterer specified"
                 )
                 return {"success": True}
         except Exception:
-            self.log.warning(
-                "Skipping fast_ep trigger: No anomalous scatterer info available",
-                exc_info=True,
+            self.log.exception(
+                "fast_ep trigger failed: Cannot read anomalous scatterer setting"
             )
             return False
 
@@ -212,6 +213,17 @@ class DLSTrigger(CommonService):
         dcid = parameters("dcid")
         if not dcid:
             self.log.error("mrbump trigger failed: No DCID specified")
+            return False
+
+        protein_info = parameters("protein_info")
+        try:
+            if not protein_info["sequence"]:
+                self.log.info(
+                    "Skipping mrbump trigger: sequence information not available"
+                )
+                return {"success": True}
+        except Exception:
+            self.log.error("mrbump trigger failed: Cannot read sequence information")
             return False
 
         jp = self.ispyb.mx_processing.get_job_params()
@@ -322,21 +334,22 @@ class DLSTrigger(CommonService):
             self.log.error("big_ep trigger failed: No DCID specified")
             return False
 
-        from dlstbx.ispybtbx import ispybtbx
-
+        diffraction_plan_info = parameters("diffraction_plan_info")
+        if not diffraction_plan_info:
+            self.log.info(
+                "Skipping big_ep trigger: diffraction plan information not available"
+            )
+            return {"success": True}
         try:
-            ispyb_conn = ispybtbx()
-            diff_data = ispyb_conn.get_diffractionplan_from_dcid(dcid)
-            anom_scatterer = diff_data["anomalousscatterer"]
+            anom_scatterer = diffraction_plan_info["anomalousscatterer"]
             if not anom_scatterer:
                 self.log.info(
                     "Skipping big_ep trigger: No anomalous scatterer specified"
                 )
                 return {"success": True}
         except Exception:
-            self.log.warning(
-                "Skipping big_ep trigger: No anomalous scatterer info available",
-                exc_info=True,
+            self.log.exception(
+                "big_ep trigger failed: Cannot read anomalous scatterer setting"
             )
             return False
 

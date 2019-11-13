@@ -6,8 +6,8 @@ from jinja2.exceptions import UndefinedError
 
 import logging
 import os
-import dlstbx.util.fast_ep
-import dlstbx.util.big_ep
+import dlstbx.util.fast_ep as fpu
+import dlstbx.util.big_ep as bpu
 import py
 import zocalo.wrapper
 
@@ -52,7 +52,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
 
         logger.debug("Reading big_ep setting file")
         try:
-            dlstbx.util.big_ep.read_settings_file(tmpl_data)
+            bpu.read_settings_file(tmpl_data)
         except Exception:
             logger.exception(
                 "Cannot generate big_ep summary report. Exception raised while reading big_ep settings file."
@@ -61,7 +61,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
 
         logger.debug("Generating model density images")
         try:
-            dlstbx.util.big_ep.generate_model_snapshots(tmpl_env, tmpl_data)
+            bpu.generate_model_snapshots(tmpl_env, tmpl_data)
         except Exception:
             logger.debug(
                 "Exception raised while generating model snapshots", exc_info=True
@@ -69,11 +69,9 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
 
         logger.debug("Generating plots for fast_ep summary")
         try:
-            axis, data, best_vals = dlstbx.util.fast_ep.parse_fastep_table(fast_ep_path)
-            dlstbx.util.fast_ep.fastep_radar_plot(tmpl_data, axis, data, best_vals)
-            dlstbx.util.fast_ep.fastep_sites_plot(
-                tmpl_data, axis, data["No. found"], *best_vals[1:]
-            )
+            axis, data, best_vals = fpu.parse_fastep_table(fast_ep_path)
+            fpu.fastep_radar_plot(tmpl_data, axis, data, best_vals)
+            fpu.fastep_sites_plot(tmpl_data, axis, data["No. found"], *best_vals[1:])
         except Exception:
             logger.debug(
                 "Exception raised while composing fast_ep report", exc_info=True
@@ -84,22 +82,14 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             from dlstbx.ispybtbx import ispybtbx
 
             ispyb_conn = ispybtbx()
-            pia_results = ispyb_conn.get_pia_results(
-                [dcid],
-                [
-                    "imagenumber AS nim",
-                    "method2res AS res",
-                    "spottotal AS spots",
-                    "goodbraggcandidates AS good",
-                ],
-            )[1]
-            dlstbx.util.big_ep.get_pia_plot(tmpl_data, pia_results)
+            pia_results = ispyb_conn.get_pia_results_for_dcid(dcid)
+            bpu.get_pia_plot(tmpl_data, pia_results)
         except Exception:
             logger.debug("Exception raised while composing PIA report", exc_info=True)
 
         logger.debug("Reading crystal snapshots")
         try:
-            dlstbx.util.big_ep.get_image_files(tmpl_data)
+            bpu.get_image_files(tmpl_data)
         except Exception:
             logger.debug(
                 "Exception raised while reading crystal snapshots", exc_info=True
@@ -107,7 +97,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
 
         logger.debug("Reading data metrics from xia2 logs")
         try:
-            dlstbx.util.big_ep.read_xia2_processing(tmpl_data)
+            bpu.read_xia2_processing(tmpl_data)
         except Exception:
             logger.debug("Exception raised while composing xia2 summary", exc_info=True)
 
@@ -122,7 +112,5 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
                 logger.exception("Error rendering big_ep summary report")
                 return False
             fp.write(summary_html)
-            dlstbx.util.big_ep.send_html_email_message(
-                summary_html, email_list, tmpl_data
-            )
+            bpu.send_html_email_message(summary_html, email_list, tmpl_data)
         return True

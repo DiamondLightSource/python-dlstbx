@@ -172,23 +172,36 @@ class ispybtbx(object):
         result = results[0][0]
         return result
 
-    def get_pia_results(self, dc_ids, columns=None):
-        if columns is not None:
-            select_str = ", ".join(c for c in columns)
-        else:
-            select_str = "*"
-        sql_str = """
-SELECT %s
-FROM ImageQualityIndicators
-WHERE ImageQualityIndicators.dataCollectionId IN (%s)
-;
-""" % (
-            select_str,
-            ",".join(str(i) for i in dc_ids),
+    def get_pia_results_for_dcid(self, dc_id):
+        s = """SELECT
+    imagenumber,
+    method2res,
+    spottotal,
+    totalintegratedsignal,
+    goodbraggcandidates,
+    dozor_score
+FROM
+    ispyb.ImageQualityIndicators
+WHERE
+    datacollectionid = %s
+ORDER BY imagenumber;
+"""
+        results = self.execute(s, dc_id)
+        labels = (
+            "imagenumber",
+            "method2res",
+            "spottotal",
+            "totalintegratedsignal",
+            "goodbraggcandidates",
+            "dozor_score",
         )
-        results = self.execute(sql_str)
-        field_names = [i[0] for i in self._cursor.description]
-        return field_names, results
+        try:
+            col_results = zip(*results)
+            assert len(col_results) == len(labels)
+            res = dict(zip(labels, col_results))
+            return res
+        except Exception:
+            self.log.debug("Cannot read PIA result for dcid %s", dc_id)
 
     def get_dc_group(self, dc_id):
         # someone should learn how to use SQL JOIN here
@@ -222,7 +235,7 @@ WHERE ImageQualityIndicators.dataCollectionId IN (%s)
             return None
         return spacegroups[0][0]
 
-    def get_edge_data(self, dc_id):
+    def get_energy_scan_from_dcid(self, dc_id):
         def __energy_offset(row):
             energy = 12398.42 / row["wavelength"]
             pk_energy = row["peakenergy"]
@@ -284,11 +297,11 @@ WHERE
             "dcidsampleid",
             "protsampleid",
         )
-        all_rows = [dict(zip(labels, r)) for r in self.execute(s, dc_id)]
-        rows = [r for r in all_rows if r["dcidsampleid"] == r["protsampleid"]]
-        if not rows:
-            rows = all_rows
         try:
+            all_rows = [dict(zip(labels, r)) for r in self.execute(s, dc_id)]
+            rows = [r for r in all_rows if r["dcidsampleid"] == r["protsampleid"]]
+            if not rows:
+                rows = all_rows
             energy_scan = min(rows, key=__energy_offset)
             edge_position = __select_edge_position(
                 energy_scan["wavelength"],
@@ -316,29 +329,35 @@ WHERE
                         }
                     )
         except Exception:
+            self.log.debug("Matching energy scan data for dcid %s not available", dc_id)
             res = {}
         return res
 
-    def get_sequence(self, dc_id):
+    def get_protein_from_dcid(self, dc_id):
+
         s = """SELECT
+    Protein.proteinid,
+    Protein.name,
+    Protein.acronym,
+    Protein.proteintype,
     Protein.sequence
 FROM
-    DataCollection
+    Protein
         INNER JOIN
-    BLSample ON BLSample.blsampleid = DataCollection.blsampleid
+    Crystal ON Crystal.proteinid = Protein.proteinid
         INNER JOIN
-    Crystal ON Crystal.crystalid = BLSample.crystalid
+    BLSample ON BLSample.crystalid = Crystal.crystalid
         INNER JOIN
-    Protein ON Protein.proteinid = Crystal.proteinid
+    DataCollection ON DataCollection.blsampleid = BLSample.blsampleid
 WHERE
     DataCollection.datacollectionid = %s
 """
-        row = self.execute(s, dc_id)
-        try:
-            seq = row[0][0]
-        except Exception:
-            seq = None
-        return seq
+        results = self.execute(s, dc_id)
+        labels = ("proteinid", "name", "acronym", "proteintype", "sequence")
+        assert len(results) == 1, len(results)
+        assert len(results[0]) == len(labels), results[0]
+        res = dict(zip(labels, results[0]))
+        return res
 
     def get_dcid_for_filename(self, filename):
         basename, extension = os.path.splitext(filename)
@@ -724,6 +743,12 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_dc_info"] = dc_info
     dc_class = i.classify_dc(dc_info)
     parameters["ispyb_dc_class"] = dc_class
+    diff_plan_info = i.get_diffractionplan_from_dcid(dc_id)
+    parameters["ispyb_diffraction_plan"] = diff_plan_info
+    protein_info = i.get_protein_from_dcid(dc_id)
+    parameters["ispyb_protein_info"] = protein_info
+    energy_scan_info = i.get_energy_scan_from_dcid(dc_id)
+    parameters["ispyb_energy_scan_info"] = energy_scan_info
     start, end = i.dc_info_to_start_end(dc_info)
     if dc_class["grid"] and dc_info["dataCollectionGroupId"]:
         try:

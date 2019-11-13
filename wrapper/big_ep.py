@@ -30,26 +30,29 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
 
         dcid = params["dcid"]
 
-        from dlstbx.ispybtbx import ispybtbx
+        try:
+            sequence = params["protein_info"]["sequence"]
+            if sequence:
+                seq_filename = os.path.join(
+                    working_directory, "seq_{}.fasta".format(dcid)
+                )
+                from iotbx.bioinformatics import fasta_sequence
 
-        ispyb_conn = ispybtbx()
-
-        sequence = ispyb_conn.get_sequence(dcid)
-        if sequence:
-            seq_filename = os.path.join(working_directory, "seq_{}.fasta".format(dcid))
-            from iotbx.bioinformatics import fasta_sequence
-
-            with open(seq_filename, "w") as fp:
-                fp.write(fasta_sequence(sequence).format(80))
-            params["sequence"] = seq_filename
+                with open(seq_filename, "w") as fp:
+                    fp.write(fasta_sequence(sequence).format(80))
+                params["sequence"] = seq_filename
+        except Exception:
+            logger.debug("Cannot read protein sequence information for dcid %s", dcid)
 
         try:
-            diff_data = ispyb_conn.get_diffractionplan_from_dcid(dcid)
-            params["atom_type"] = diff_data["anomalousscatterer"]
+            params["atom_type"] = params["diffraction_plan_info"]["anomalousscatterer"]
         except Exception:
-            logger.debug("Anomalous scatterer for dcid %s wasn't set.", dcid)
-        edge_data = ispyb_conn.get_edge_data(dcid)
-        params.update(edge_data)
+            logger.debug("Anomalous scatterer info for dcid %s not available", dcid)
+
+        try:
+            params.update(params["energy_scan_info"])
+        except Exception:
+            logger.debug("Energy scan data relevant for dcid %s not found", dcid)
 
         command = [
             "{}/big_ep".format(os.environ["BIG_EP_BIN"]),

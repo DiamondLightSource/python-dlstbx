@@ -158,13 +158,12 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         )
 
         logger.info("command: %s", " ".join(result["command"]))
+        if result["exitcode"]:
+            logger.info("exitcode: %s", result["exitcode"])
+            logger.info(result["stdout"])
+            logger.info(result["stderr"])
         logger.info("timeout: %s", result["timeout"])
-        logger.info("time_start: %s", result["time_start"])
-        logger.info("time_end: %s", result["time_end"])
         logger.info("runtime: %s", result["runtime"])
-        logger.info("exitcode: %s", result["exitcode"])
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
 
         json_file = working_directory.join("iotbx-merging-stats.json")
         scaled_unmerged_mtz = working_directory.join("scaled_unmerged.mtz")

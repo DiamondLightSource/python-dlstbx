@@ -298,10 +298,11 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         if params.get("create_symlink"):
             big_ep_path = ispyb_working_directory.join("..", "big_ep")
             big_ep_path.ensure(dir=True)
-            os.symlink(
-                ispyb_working_directory.join("big_ep").strpath,
-                big_ep_path.join(dt_stamp).strpath,
-            )
+            symlink_path = big_ep_path.join(dt_stamp)
+            try:
+                symlink_path.mksymlinkto(ispyb_working_directory.join("big_ep"))
+            except py.error.EEXIST:
+                logger.debug("Symlink %s already exists", symlink_path.strpath)
         # Create big_ep directory to update status in Synchweb
         if "devel" not in params and params.get("create_symlink"):
             ispyb_results_directory.ensure(dir=True)

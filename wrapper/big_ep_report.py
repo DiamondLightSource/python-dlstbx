@@ -82,7 +82,15 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             from dlstbx.ispybtbx import ispybtbx
 
             ispyb_conn = ispybtbx()
-            pia_results = ispyb_conn.get_pia_results_for_dcid(dcid)
+            pia_results = ispyb_conn.get_pia_results(
+                [dcid],
+                [
+                    "imagenumber AS nim",
+                    "method2res AS res",
+                    "spottotal AS spots",
+                    "goodbraggcandidates AS good",
+                ],
+            )[1]
             bpu.get_pia_plot(tmpl_data, pia_results)
         except Exception:
             logger.debug("Exception raised while composing PIA report", exc_info=True)

@@ -172,36 +172,23 @@ class ispybtbx(object):
         result = results[0][0]
         return result
 
-    def get_pia_results_for_dcid(self, dc_id):
-        s = """SELECT
-    imagenumber,
-    method2res,
-    spottotal,
-    totalintegratedsignal,
-    goodbraggcandidates,
-    dozor_score
-FROM
-    ispyb.ImageQualityIndicators
-WHERE
-    datacollectionid = %s
-ORDER BY imagenumber;
-"""
-        results = self.execute(s, dc_id)
-        labels = (
-            "imagenumber",
-            "method2res",
-            "spottotal",
-            "totalintegratedsignal",
-            "goodbraggcandidates",
-            "dozor_score",
+    def get_pia_results(self, dc_ids, columns=None):
+        if columns is not None:
+            select_str = ", ".join(c for c in columns)
+        else:
+            select_str = "*"
+        sql_str = """
+SELECT %s
+FROM ImageQualityIndicators
+WHERE ImageQualityIndicators.dataCollectionId IN (%s)
+;
+""" % (
+            select_str,
+            ",".join(str(i) for i in dc_ids),
         )
-        try:
-            col_results = zip(*results)
-            assert len(col_results) == len(labels)
-            res = dict(zip(labels, col_results))
-            return res
-        except Exception:
-            self.log.debug("Cannot read PIA result for dcid %s", dc_id)
+        results = self.execute(sql_str)
+        field_names = [i[0] for i in self._cursor.description]
+        return field_names, results
 
     def get_dc_group(self, dc_id):
         # someone should learn how to use SQL JOIN here
@@ -354,10 +341,13 @@ WHERE
 """
         results = self.execute(s, dc_id)
         labels = ("proteinid", "name", "acronym", "proteintype", "sequence")
-        assert len(results) == 1, len(results)
-        assert len(results[0]) == len(labels), results[0]
-        res = dict(zip(labels, results[0]))
-        return res
+        try:
+            assert len(results) == 1, len(results)
+            assert len(results[0]) == len(labels), results[0]
+            res = dict(zip(labels, results[0]))
+            return res
+        except Exception:
+            self.log.debug("Cannot find protein information for dcid %s", dc_id)
 
     def get_dcid_for_filename(self, filename):
         basename, extension = os.path.splitext(filename)
@@ -702,10 +692,15 @@ WHERE
             "anomalousscatterer",
             "energy",
         )
-        assert len(results) == 1, len(results)
-        assert len(results[0]) == len(labels), results[0]
-        res = dict(zip(labels, results[0]))
-        return res
+        try:
+            assert len(results) == 1, len(results)
+            assert len(results[0]) == len(labels), results[0]
+            res = dict(zip(labels, results[0]))
+            return res
+        except Exception:
+            self.log.debug(
+                "Cannot find diffraction plan information for dcid %s", dc_id
+            )
 
 
 def ispyb_filter(message, parameters):

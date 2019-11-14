@@ -294,10 +294,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
 
 def get_pia_plot(tmpl_data, pia_results):
 
-    img, resol, spots, good_spots = [
-        pia_results[k]
-        for k in ("imagenumber", "method2res", "spottotal", "goodbraggcandidates")
-    ]
+    img, resol, spots, good_spots = zip(*pia_results)
 
     fig, ax1 = plt.subplots()
     ax1.set_xlabel("Image number")

@@ -183,7 +183,7 @@ def test_obtain_space_group():
 def test_obtain_sequence():
     i = ispybtbx()
     dc_id = ds["seq_set"]
-    seq = i.get_sequence(dc_id)
+    seq = i.get_protein_from_dcid(dc_id)["sequence"]
     assert (
         seq
         == "GPDKPVIKMYQIGDKPDNLDELLANANKIIEEKVGAKLDIQYLGWGDYGKKMSVITSSGENYDIAFADNYIVNAQKGAYADLTELYKKEGKDLYKALDPAYIK"
@@ -196,7 +196,7 @@ def test_obtain_sequence():
 def test_obtain_edge_data():
     i = ispybtbx()
     dc_id = ds["edge_set"]
-    param = i.get_edge_data(dc_id)
+    param = i.get_energy_scan_from_dcid(dc_id)
     assert param["energyscanid"] == 52476
     assert param["atom_type"] == "Se"
     assert param["edge_position"] == "peak"

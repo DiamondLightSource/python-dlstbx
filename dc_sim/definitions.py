@@ -279,11 +279,11 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "thaumatin-sad-eiger": {
-        "src_dir": "/dls/i04/data/2019/cm23004-2/20190505/autocollect_test/Se_Thaum/SE_Thau_11",
-        "src_run_num": (2,),
-        "src_prefix": ("SE_Thau_11",),
-        "use_sample_id": 2162976,
+    "insulin-sad-eiger": {
+        "src_dir": "/dls/i03/data/2019/cm23003-4/i03_insulin/ins_2",
+        "src_run_num": (4,),
+        "src_prefix": ("ins_2",),
+        "use_sample_id": 2558653,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

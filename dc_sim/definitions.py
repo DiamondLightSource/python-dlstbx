@@ -188,6 +188,7 @@ tests = {
         "src_dir": "/dls/i04/data/2019/cm23004-2/gw/small_multi/thau_3",
         "src_run_num": (1, 2, 3, 4),
         "src_prefix": ("thau_3",),
+        "use_sample_id": 2158377,
         "dcg": True,
         "results": {
             "a": approx(100, abs=100),
@@ -270,6 +271,7 @@ tests = {
         "src_dir": "/dls/i04/data/2019/cm23004-1/20190214/gw-edna-test/Thermolysin/Therm_6",
         "src_run_num": (2,),
         "src_prefix": ("Therm_6",),
+        "use_sample_id": 1976283,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

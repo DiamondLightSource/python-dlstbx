@@ -12,6 +12,7 @@ import os
 import json
 import shutil
 import subprocess
+import time
 
 logger = logging.getLogger("dlstbx.wrap.big_ep")
 
@@ -284,9 +285,6 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             return False
 
         params = self.recwrap.recipe_step["job_parameters"]
-        dt = datetime.now()
-        params["timestamp"] = dt.strftime("%Y-%m-%d %H:%M:%S")
-        dt_stamp = dt.strftime("%Y%m%d_%H%M%S")
 
         working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])
@@ -294,21 +292,36 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         ispyb_results_directory = py.path.local(params["ispyb_results_directory"])
 
         # Create working directory with symbolic link
+        dt = datetime.now()
+        dt_stamp = dt.strftime("%Y%m%d_%H%M%S")
         working_directory.ensure(dir=True)
         if params.get("create_symlink"):
             big_ep_path = ispyb_working_directory.join("..", "big_ep")
             big_ep_path.ensure(dir=True)
-            symlink_path = big_ep_path.join(dt_stamp)
-            try:
-                symlink_path.mksymlinkto(ispyb_working_directory.join("big_ep"))
-            except py.error.EEXIST:
-                logger.debug("Symlink %s already exists", symlink_path.strpath)
+            while True:
+                try:
+                    symlink_path = big_ep_path.join(dt_stamp)
+                    symlink_path.mksymlinkto(ispyb_working_directory.join("big_ep"))
+                    break
+                except py.error.EEXIST:
+                    logger.debug("Symlink %s already exists", symlink_path.strpath)
+                    time.sleep(1)
+                    dt = datetime.now()
+                    dt_stamp = dt.strftime("%Y%m%d_%H%M%S")
+
         # Create big_ep directory to update status in Synchweb
-        if "devel" not in params and params.get("create_symlink"):
+        if "devel" not in params:
             ispyb_results_directory.ensure(dir=True)
             big_ep_path = ispyb_results_directory.join("..", "big_ep")
             big_ep_path.ensure(dir=True)
+            if params.get("create_symlink"):
+                symlink_path = big_ep_path.join(dt_stamp)
+                try:
+                    symlink_path.mksymlinkto(ispyb_results_directory.join("big_ep"))
+                except py.error.EEXIST:
+                    logger.debug("Symlink %s already exists", symlink_path.strpath)
 
+        params["timestamp"] = dt.strftime("%Y-%m-%d %H:%M:%S")
         command, bigep_script = self.construct_commandline(
             params, working_directory.strpath
         )
@@ -348,10 +361,4 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             return result["exitcode"] == 0
         else:
             self.copy_results(working_directory.strpath, results_directory.strpath)
-            if params.get("create_symlink"):
-                big_ep_path = ispyb_results_directory.join("..", "big_ep")
-                os.symlink(
-                    ispyb_results_directory.join("big_ep").strpath,
-                    big_ep_path.join(dt_stamp).strpath,
-                )
             return self.send_results_to_ispyb(working_directory.strpath)

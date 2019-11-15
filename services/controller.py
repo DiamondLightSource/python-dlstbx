@@ -407,7 +407,14 @@ class DLSController(CommonService):
         return False
 
     def launch_cluster(
-        self, service=None, cluster="cluster", queue="", module="", tag="", **kwargs
+        self,
+        service=None,
+        cluster="cluster",
+        queue="",
+        module="",
+        tag="",
+        servicecmd="",
+        **kwargs
     ):
         assert service
         result = procrunner.run(
@@ -416,6 +423,7 @@ class DLSController(CommonService):
                 "CLUSTER": cluster,
                 "QUEUE": queue,
                 "DIALS": module,
+                "SERVICECMD": servicecmd,
                 "TAG": tag,
             },
             timeout=15,

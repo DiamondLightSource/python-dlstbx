@@ -13,7 +13,7 @@ def test_validation_should_fail_on_syntax_error_in_function():
     t.validate()
 
     def broken_function():
-        undefined_name
+        undefined_name  # noqa
 
     setattr(t, "test_function", broken_function)
 

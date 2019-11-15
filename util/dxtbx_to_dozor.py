@@ -10,11 +10,9 @@ def detector_to_dozor(detector):
 
 
 def dxtbx_to_dozor(hdr):
-
     from scitbx import matrix
 
     scan = hdr.get_scan()
-    goniometer = hdr.get_goniometer()
     beam = hdr.get_beam()
     detector = hdr.get_detector()
 
@@ -27,8 +25,6 @@ def dxtbx_to_dozor(hdr):
     fast = matrix.col(detector.get_fast_axis())
     slow = matrix.col(detector.get_slow_axis())
     normal = fast.cross(slow)
-
-    pixel = detector.get_pixel_size()
 
     dozor = {}
 
@@ -109,9 +105,9 @@ def parse_dozor_output(output):
             image = int(tokens[0])
             scores = [float(t) for t in tokens[-3:]]
             dozor_scores[image] = scores
-        except ValueError as e:
+        except ValueError:
             continue
-        except IndexError as e:
+        except IndexError:
             continue
     return dozor_scores
 

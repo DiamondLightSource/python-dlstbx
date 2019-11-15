@@ -10,7 +10,9 @@ import logging
 import math
 import numpy as np
 import os
-import smtplib, platform, getpass
+import smtplib
+import platform
+import getpass
 import subprocess
 import tempfile
 

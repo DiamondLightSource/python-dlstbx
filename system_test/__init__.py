@@ -6,7 +6,8 @@ def load_all_tests():
      for registration of system tests.
      :param paths: A path or list of paths containing files to import.
   """
-    import imp, pkgutil
+    import imp
+    import pkgutil
 
     for _, name, _ in pkgutil.iter_modules(__path__):
         if not name.startswith("test_"):

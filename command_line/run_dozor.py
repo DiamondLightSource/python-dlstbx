@@ -8,11 +8,10 @@ from dlstbx.util.dxtbx_to_dozor import (
     parse_dozor_output,
     write_dozor_input,
 )
-from dxtbx.datablock import DataBlockFactory, DataBlockTemplateImporter
+from dxtbx.datablock import DataBlockTemplateImporter
 
 
 def scanner(arg):
-
     if "?" in arg:
         arg = arg.replace("?", "#")
 
@@ -76,6 +75,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    import sys
-
     main(sys.argv[1:])

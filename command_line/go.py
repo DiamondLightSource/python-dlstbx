@@ -173,7 +173,7 @@ if __name__ == "__main__":
             ValueError,
         ):
             raise
-        except Exception as e:
+        except Exception:
             if not allow_stomp_fallback:
                 raise
             print("\n\n")

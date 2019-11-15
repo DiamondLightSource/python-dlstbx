@@ -3,8 +3,10 @@ from __future__ import absolute_import, division, print_function
 import logging
 import multiprocessing
 import os
+import sys
 import threading
 import time
+import traceback
 import xml.dom.minidom
 from datetime import datetime
 
@@ -110,8 +112,6 @@ class Cluster(object):
                 retval = getattr(self, function)(*args, **kwargs)
                 self._pipe_subprocess.send({"value": retval})
             except Exception as e:
-                import sys, traceback
-
                 # Keep a formatted copy of the trace for passing in serialized form
                 trace = [
                     "  %s" % line

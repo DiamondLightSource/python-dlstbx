@@ -82,7 +82,6 @@ def reduce_shelxc_results(msg, params):
     DSIG_CUTOFF = params["dsig_cutoff"]
     HIGHRES_CUTOFF = params["dmin_cutoff"]
     CCAVER_CUTOFF = params["ccaver_cutoff"]
-    PVAL_CUTOFF = params["pval_cutoff"]
     AUTOCORR_CUTOFF = params["autocorr_cutoff"]
     try:
         FORCE = params["force"]

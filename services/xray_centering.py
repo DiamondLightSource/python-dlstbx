@@ -5,7 +5,6 @@ import json
 import os
 import threading
 import time
-import sys
 
 import dlstbx.util.symlink
 import dlstbx.util.xray_centering

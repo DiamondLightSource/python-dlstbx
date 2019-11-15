@@ -15,7 +15,6 @@ import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
-import workflows
 from workflows.transport.stomp_transport import StompTransport
 
 if __name__ == "__main__":

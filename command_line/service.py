@@ -145,7 +145,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
             if frontend._transport.is_connected():
                 try:
                     record = record.__dict__["records"]
-                except:
+                except Exception:
                     record = record.__dict__
                 frontend._transport.broadcast("transient.log", record)
 

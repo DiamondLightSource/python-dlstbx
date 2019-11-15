@@ -36,7 +36,7 @@ def find_all_references(startfile):
     startfile = os.path.abspath(startfile)
     if not os.path.exists(startfile):
         log.error(
-            "Can not find references from file %s. This file does not exist.", filename
+            "Can not find references from file %s. This file does not exist.", startfile
         )
         return []
 

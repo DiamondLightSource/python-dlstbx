@@ -817,8 +817,6 @@ def ispyb_filter(message, parameters):
         related_dcs = i.get_dc_group(dc_id)
         related = list(sorted(set(related_dcs)))
 
-    other_dc_info = {}
-
     parameters["ispyb_space_group"] = i.get_space_group(dc_id)
 
     related_images = []
@@ -873,8 +871,6 @@ def work(dc_ids):
     import pprint
 
     pp = pprint.PrettyPrinter(indent=2)
-
-    i = ispybtbx()
 
     for dc_id in dc_ids:
         message = {}

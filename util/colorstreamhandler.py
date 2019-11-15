@@ -150,7 +150,8 @@ class _WinColorStreamHandler(logging.StreamHandler):
     def __init__(self, stream=None):
         logging.StreamHandler.__init__(self, stream)
         # get file handle for the stream
-        import ctypes, ctypes.util
+        import ctypes
+        import ctypes.util
 
         # for some reason find_msvcrt() sometimes doesn't find msvcrt.dll on my system?
         crtname = ctypes.util.find_msvcrt()

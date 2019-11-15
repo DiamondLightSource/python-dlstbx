@@ -4,7 +4,8 @@ import logging
 import threading
 import time
 import uuid
-from pprint import pprint
+
+# from pprint import pprint
 
 import confluent_kafka
 import msgpack

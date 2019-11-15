@@ -5,9 +5,7 @@
 
 from __future__ import absolute_import, division, print_function
 
-import json
 import sys
-from optparse import SUPPRESS_HELP, OptionParser
 
 # Example: dlstbx.recipe 527189
 

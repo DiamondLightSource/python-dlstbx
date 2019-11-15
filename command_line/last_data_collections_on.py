@@ -5,14 +5,11 @@
 
 from __future__ import absolute_import, division, print_function
 
-import os
-import re
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
 
 import ispyb
 import ispyb.model.__future__
-import procrunner
 
 if __name__ == "__main__":
     parser = OptionParser(

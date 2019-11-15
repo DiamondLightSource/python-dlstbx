@@ -51,11 +51,14 @@ class StrategyEnvironment(object):
         new_launchers = {
             svc["service"]: svc["launch"] for svc in strategy_list if "launch" in svc
         }
+        # propagate selected attributes to launch dictionaries
         for svc in strategy_list:
-            if "launch" in svc and "module" in svc:
-                for l in new_launchers[svc["service"]]:
-                    if "module" not in l:
-                        l["module"] = svc["module"]
+            if "launch" not in svc:
+                continue
+            for l in new_launchers[svc["service"]]:
+                for attrib in ("module", "servicecmd"):
+                    if attrib in svc and attrib not in l:
+                        l[attrib] = svc[attrib]
         with self.lock:
             self.strategies = new_strategies
             self.launchers = new_launchers
@@ -271,7 +274,7 @@ class StrategyEnvironment(object):
         elif gap > count_instances[self.S_HOLD]:
             # add new HOLD instances
             log_change(gap - count_instances[self.S_HOLD], "/dev/null", "HOLD")
-            for i in xrange(gap - count_instances[self.S_HOLD]):
+            for i in range(gap - count_instances[self.S_HOLD]):
                 instance = self.create_instance(service)
                 count_instances[self.S_HOLD] += 1
         if selected_for_removal:
@@ -363,7 +366,6 @@ class StrategyEnvironment(object):
         available_for_reassignment = set()
         shutdown = set()
         startup = set()
-        reassign = {}
         with self.lock:
             for key, instance in self.environment["instances"].items():
                 if instance["status"] == self.S_PREPARE:

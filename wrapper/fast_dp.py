@@ -213,6 +213,8 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
 
         allfiles = []
         for filename in primary_log_files + working_directory.listdir():
+            if not filename.check():
+                continue
             filetype = keep_ext.get(filename.ext)
             if filename.basename in keep:
                 filetype = keep[filename.basename]

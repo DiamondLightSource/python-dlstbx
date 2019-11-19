@@ -41,11 +41,11 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
         success = True
         for command in (
             ["dials.import", params["data"]],
-            ["dials.find_spots", "datablock.json"] + nproc + parameters,
+            ["dials.find_spots", "imported.expt"] + nproc + parameters,
             [
                 "dials.spot_counts_per_image",
-                "datablock.json",
-                "strong.pickle",
+                "imported.expt",
+                "strong.refl",
                 "json=%s.json" % prefix,
                 "joint_json=True",
                 "split_json=True",

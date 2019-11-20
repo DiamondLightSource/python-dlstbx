@@ -135,7 +135,6 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
         """Construct dlstbx.align_crystal command line.
        Takes job parameter dictionary, returns array."""
 
-        template = params["image_template"]
         pattern = params["image_pattern"]
         first = int(params["image_first"])
         last = int(params["image_last"])
@@ -163,7 +162,7 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
             "Converting %s to %s" % (master_h5, tmpdir.join(params["image_pattern"]))
         )
         result = procrunner.run(
-            ["dlstbx.snowflake2cbf", master_h5, params["image_pattern"]],
+            ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],
             working_directory=tmpdir.strpath,
             timeout=params.get("timeout", 3600),
         )

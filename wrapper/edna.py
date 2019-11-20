@@ -213,7 +213,7 @@ edna-plugin-launcher \
             "Converting %s to %s" % (master_h5, tmpdir.join(params["image_pattern"]))
         )
         result = procrunner.run(
-            ["dlstbx.snowflake2cbf", master_h5, params["image_pattern"]],
+            ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],
             working_directory=tmpdir,
             timeout=params.get("timeout", 3600),
         )

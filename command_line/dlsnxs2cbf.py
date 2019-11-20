@@ -1,9 +1,7 @@
 # LIBTBX_SET_DISPATCHER_NAME dlsnxs2cbf
 # LIBTBX_SET_DISPATCHER_NAME dlstbx.snowflake2cbf
 from __future__ import division, print_function
-from dxtbx.format import setup_hdf5_plugin_path
-
-setup_hdf5_plugin_path()
+import dxtbx
 import h5py
 import shutil
 from dials.array_family import flex

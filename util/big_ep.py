@@ -112,6 +112,27 @@ def read_xia2_processing(tmpl_data):
         stat = {"plot_data": plot_data, "plot_axis": x_label}
         return stat
 
+    def get_merging_statistics_data(logfile, graph_names):
+        try:
+            with open(logfile) as fp:
+                json_data = json.load(fp)
+        except IOError:
+            logger.exception("Error reading data from log file %s", logfile)
+            return None
+        res_data = json_data["d_star_sq_min"]
+        plot_data = {}
+        for graph_name, label_name in graph_names:
+            try:
+                plot_data.update({label_name: (res_data, json_data[graph_name])})
+            except KeyError:
+                logger.error(
+                    "Error reading %s graph data from log file %s",
+                    (graph_name, logfile),
+                )
+        x_label = "Resolution"
+        stat = {"plot_data": plot_data, "plot_axis": x_label}
+        return stat
+
     def save_plot(name, rows):
         fig, ax1 = plt.subplots()
         ax2 = ax1.twinx()
@@ -145,6 +166,7 @@ def read_xia2_processing(tmpl_data):
         except IOError:
             pass
 
+    cc_data = None
     for log_file in tmpl_data["xia2_logs"]:
         if "aimless.log" in log_file:
             cc_data = get_plot_data(
@@ -166,6 +188,12 @@ def read_xia2_processing(tmpl_data):
         elif ".stats" in log_file:
             cc_data = get_autoPROC_stats_data(log_file, ["CC(1/2)", "CC(ano)"])
             anom_data = get_autoPROC_stats_data(log_file, ["SigAno"])
+    if not cc_data:
+        for log_file in tmpl_data["xia2_logs"]:
+            if "merging-statistics.json" in log_file and not cc_data:
+                cc_data = get_merging_statistics_data(
+                    log_file, [("cc_one_half", "CC(1/2)"), ("cc_anom", "CC(ano)")]
+                )
 
     save_plot("graph_cc", [cc_data])
     try:

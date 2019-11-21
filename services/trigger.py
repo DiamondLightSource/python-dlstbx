@@ -162,10 +162,10 @@ class DLSTrigger(CommonService):
                 )
                 return {"success": True}
         except Exception:
-            self.log.exception(
-                "fast_ep trigger failed: Cannot read anomalous scatterer setting"
+            self.log.info(
+                "Skipping fast_ep trigger: Cannot read anomalous scatterer setting"
             )
-            return False
+            return {"success": True}
 
         dc_info = self.ispyb.get_data_collection(dcid)
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
@@ -223,8 +223,8 @@ class DLSTrigger(CommonService):
                 )
                 return {"success": True}
         except Exception:
-            self.log.error("mrbump trigger failed: Cannot read sequence information")
-            return False
+            self.log.info("Skipping mrbump trigger: Cannot read sequence information")
+            return {"success": True}
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = bool(parameters("automatic"))
@@ -335,11 +335,6 @@ class DLSTrigger(CommonService):
             return False
 
         diffraction_plan_info = parameters("diffraction_plan_info")
-        if not diffraction_plan_info:
-            self.log.info(
-                "Skipping big_ep trigger: diffraction plan information not available"
-            )
-            return {"success": True}
         try:
             anom_scatterer = diffraction_plan_info["anomalousscatterer"]
             if not anom_scatterer:
@@ -348,10 +343,10 @@ class DLSTrigger(CommonService):
                 )
                 return {"success": True}
         except Exception:
-            self.log.exception(
-                "big_ep trigger failed: Cannot read anomalous scatterer setting"
+            self.log.info(
+                "Skipping big_ep trigger: Cannot read anomalous scatterer setting"
             )
-            return False
+            return {"success": True}
 
         file_directory = self.ispyb.get_data_collection(dcid).file_directory
         visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", file_directory)

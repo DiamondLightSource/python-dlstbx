@@ -249,9 +249,9 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
-        assert working_directory.join("reindexed_experiments.json")
+        assert working_directory.join("reindexed.expt")
         experiments = load.experiment_list(
-            working_directory.join("reindexed_experiments.json").strpath
+            working_directory.join("reindexed.expt").strpath
         )
         crystal_symmetry = experiments[0].crystal.get_crystal_symmetry()
         # Forward JSON results if possible

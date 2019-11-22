@@ -271,6 +271,8 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
 
         allfiles = []
         for filename in primary_log_files + working_directory.listdir():
+            if not filename.check():
+                continue  # primary_log_files may not actually exist
             filetype = keep_ext.get(filename.ext)
             if filename.basename in keep:
                 filetype = keep[filename.basename]

@@ -191,7 +191,10 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             logger.info("Topaz data: %s", pformat(topaz_data))
             self.recwrap.send_to("topaz", topaz_data)
         else:
-            logger.warning("fast_ep results file missing")
+            logger.warning(
+                "fast_ep failed. Results file %s unavailable", fast_ep_data_json.strpath
+            )
+            return False
 
         # Create results directory and symlink if they don't already exist
         try:

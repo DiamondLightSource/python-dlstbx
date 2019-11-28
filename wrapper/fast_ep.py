@@ -7,7 +7,6 @@ import py
 import dlstbx.util.symlink
 import procrunner
 import zocalo.wrapper
-import tempfile
 import json
 from pprint import pformat
 
@@ -140,41 +139,27 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             )
 
         command = self.construct_commandline(params)
-        try:
-            fp = tempfile.NamedTemporaryFile(dir=working_directory.strpath)
-            fast_ep_script = os.path.join(
-                working_directory.strpath,
-                "run_fast_ep_{}.sh".format(os.path.basename(fp.name)),
+        fast_ep_script = working_directory.join("run_fast_ep.sh")
+        with fast_ep_script.open("w") as fp:
+            fp.writelines(
+                [
+                    ". /etc/profile.d/modules.sh\n",
+                    "module load fast_ep\n",
+                    " ".join(command),
+                ]
             )
-            fp.close()
-            with open(fast_ep_script, "w") as fp:
-                fp.writelines(
-                    [
-                        ". /etc/profile.d/modules.sh\n",
-                        "module load fast_ep\n",
-                        " ".join(command),
-                    ]
-                )
-        except IOError:
-            logger.exception(
-                "Could not create fast_ep script file in the working directory"
-            )
-            return False
         result = procrunner.run(
-            ["sh", fast_ep_script],
+            ["sh", fast_ep_script.strpath],
             timeout=params.get("timeout"),
-            print_stdout=False,
-            print_stderr=False,
-            working_directory=working_directory.strpath,
+            working_directory=working_directory,
         )
         logger.info("command: %s", " ".join(result["command"]))
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("time_start: %s", result["time_start"])
-        logger.info("time_end: %s", result["time_end"])
         logger.info("runtime: %s", result["runtime"])
-        logger.info("exitcode: %s", result["exitcode"])
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
+        if result["exitcode"] or result["timeout"]:
+            logger.info("timeout: %s", result["timeout"])
+            logger.info("exitcode: %s", result["exitcode"])
+            logger.debug(result.stdout)
+            logger.debug(result.stderr)
 
         # Send results to topaz for hand determination
         fast_ep_data_json = working_directory.join("fast_ep_data.json")

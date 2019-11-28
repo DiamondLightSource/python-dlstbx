@@ -45,7 +45,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
             return False
         mtz_file = os.path.abspath(mtz_file)
         if not os.path.exists(mtz_file):
-            logger.error("Could not find data file to process")
+            logger.error("Could not find data file %s to process", mtz_file)
             return False
 
         try:

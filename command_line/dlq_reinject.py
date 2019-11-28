@@ -72,6 +72,9 @@ if __name__ == "__main__":
     dlqprefix = stomp.get_namespace()
 
     for dlqfile in args + stdin:
+        if not os.path.exists(dlqfile):
+            print("Ignoring missing file {}".format(dlqfile))
+            continue
         with open(dlqfile, "r") as fh:
             dlqmsg = json.load(fh)
         print("Parsing message from {}".format(dlqfile))

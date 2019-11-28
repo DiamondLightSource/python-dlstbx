@@ -12,9 +12,9 @@ if __name__ == "__main__":
         from isort.main import main
     except ImportError:
         # Install package if necessary
-        import pip
+        import pip._internal.main
 
-        pip.main(["install", "isort"])
+        pip._internal.main.main(["install", "isort"])
         from isort.main import main
 
     sys.exit(main())

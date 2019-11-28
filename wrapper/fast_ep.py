@@ -177,19 +177,15 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
         logger.debug(result["stderr"])
 
         # Send results to topaz for hand determination
-        try:
-            fast_ep_data_json = working_directory.join("fast_ep_data.json").strpath
-            with open(fast_ep_data_json) as fp:
+        fast_ep_data_json = working_directory.join("fast_ep_data.json")
+        if fast_ep_data_json.check():
+            with fast_ep_data_json.open("r") as fp:
                 fast_ep_data = json.load(fp)
-            fast_ep_log = working_directory.join("fast_ep.log").strpath
-            with open(fast_ep_log) as fp:
+            with working_directory.join("fast_ep.log").open("r") as fp:
                 for line in fp:
                     if "Unit cell:" in line:
                         cell_info = tuple(float(v) for v in line.split()[2:])
                         break
-        except IOError:
-            logger.exception("Couldn't read fast_ep results file")
-        try:
             best_sg = fast_ep_data["_spacegroup"][0]
             best_solv = "{0:.2f}".format(fast_ep_data["solv"])
             original_hand = working_directory.join(best_solv, "sad.phs")
@@ -209,8 +205,8 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             }
             logger.info("Topaz data: %s", pformat(topaz_data))
             self.recwrap.send_to("topaz", topaz_data)
-        except NameError:
-            logger.warning("Failed to send message to topaz channel")
+        else:
+            logger.warning("fast_ep results file missing")
 
         # Create results directory and symlink if they don't already exist
         try:

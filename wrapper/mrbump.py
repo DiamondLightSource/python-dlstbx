@@ -102,18 +102,23 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
                 working_directory=working_directory.strpath,
                 timeout=params.get("timeout"),
             )
-            if result["exitcode"] == 0:
+            logger.info("command: %s", " ".join(result["command"]))
+            logger.info("time_start: %s", result["time_start"])
+            logger.info("time_end: %s", result["time_end"])
+            logger.info("runtime: %s", result["runtime"])
+            if result["exitcode"] or result["timeout"]:
+                logger.info("timeout: %s", result["timeout"])
+                logger.info("exitcode: %s", result["exitcode"])
+                logger.debug(result["stdout"])
+                logger.debug(result["stderr"])
+
+            hklout = py.path.local(params["mrbump"]["command"]["hklout"])
+            xyzout = py.path.local(params["mrbump"]["command"]["xyzout"])
+            if hklout.check() and xyzout.check():
                 fp.write("Looks like MrBUMP succeeded")
             else:
                 fp.write("Looks like MrBUMP failed")
-        logger.info("command: %s", " ".join(result["command"]))
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("time_start: %s", result["time_start"])
-        logger.info("time_end: %s", result["time_end"])
-        logger.info("runtime: %s", result["runtime"])
-        logger.info("exitcode: %s", result["exitcode"])
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
+                return False
 
         # Create results directory and symlink if they don't already exist
         try:

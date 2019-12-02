@@ -84,6 +84,13 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
                 working_directory.strpath, params["create_symlink"]
             )
 
+        # Create results directory and symlink if they don't already exist
+        results_directory.ensure(dir=True)
+        if params.get("create_symlink"):
+            dlstbx.util.symlink.create_parent_symlink(
+                results_directory.strpath, params["create_symlink"]
+            )
+
         command, mrbump_script = self.construct_script(
             params, working_directory.strpath, sequence
         )
@@ -116,39 +123,28 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
             xyzout = py.path.local(params["mrbump"]["command"]["xyzout"])
             if hklout.check() and xyzout.check():
                 fp.write("Looks like MrBUMP succeeded")
+                res = True
             else:
                 fp.write("Looks like MrBUMP failed")
-                return False
+                res = False
 
-        # Create results directory and symlink if they don't already exist
-        try:
-            results_directory.ensure(dir=True)
-            if params.get("create_symlink"):
-                dlstbx.util.symlink.create_parent_symlink(
-                    results_directory.strpath, params["create_symlink"]
+        logger.info("Copying MrBUMP results to %s", results_directory.strpath)
+        keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}
+        allfiles = []
+        for filename in working_directory.listdir():
+            filetype = keep_ext.get(filename.ext)
+            if filetype is None:
+                continue
+            destination = results_directory.join(filename.basename)
+            filename.copy(destination)
+            allfiles.append(destination.strpath)
+            if filetype:
+                self.record_result_individual_file(
+                    {
+                        "file_path": destination.dirname,
+                        "file_name": destination.basename,
+                        "file_type": filetype,
+                    }
                 )
 
-            logger.info("Copying MrBUMP results to %s", results_directory.strpath)
-            keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}
-            allfiles = []
-            for filename in working_directory.listdir():
-                filetype = keep_ext.get(filename.ext)
-                if filetype is None:
-                    continue
-                destination = results_directory.join(filename.basename)
-                filename.copy(destination)
-                allfiles.append(destination.strpath)
-                if filetype:
-                    self.record_result_individual_file(
-                        {
-                            "file_path": destination.dirname,
-                            "file_name": destination.basename,
-                            "file_type": filetype,
-                        }
-                    )
-        except NameError:
-            logger.info(
-                "Copying mrbump results ignored. Results directory unavailable."
-            )
-
-        return result["exitcode"] == 0
+        return res

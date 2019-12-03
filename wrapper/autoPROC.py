@@ -5,6 +5,9 @@ import os
 import py
 import xml.etree.ElementTree
 
+from dxtbx.model.experiment_list import ExperimentListFactory
+from dxtbx.serialize import xds
+
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
 import procrunner
@@ -266,12 +269,6 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
 
         prefix = image_template.split("#")[0]
         crystal = prefix.replace("_", "").replace(" ", "").replace("-", "")
-        project = (
-            os.path.split(image_template)[-2]
-            .replace("_", "")
-            .replace(" ", "")
-            .replace("-", "")
-        )
 
         command = [
             "process",
@@ -285,6 +282,18 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             "-d",
             working_directory,
         ]
+
+        # If any keywords defined in the following macros are also defined after
+        # the macro on the command line, then the value on the command line "wins"
+        if beamline == "i23":
+            self._macro = "DiamondI23"
+        elif beamline == "i04":
+            self._macro = "DiamondI04"
+        else:
+            self._macro = None
+
+        if self._macro is not None:
+            command.extend(["-M", self._macro])
 
         if image_template.endswith(".h5"):
             command.extend(
@@ -305,6 +314,15 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 logger.warning("Couldn't find plugin %s in PATH" % plugin_name)
             if hdf5_lib:
                 command.append(hdf5_lib)
+            untrusted_rectangles = self.get_untrusted_rectangles(
+                os.path.join(image_directory, image_template)
+            )
+            if untrusted_rectangles:
+                command.append(
+                    'autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="%s"'
+                    % " | ".join(untrusted_rectangles)
+                )
+
         else:
             command.extend(
                 [
@@ -330,11 +348,12 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                             'autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"'
                         )
                         break
-
-        if beamline == "i23":
-            command.extend(["-M", "DiamondI23"])
-        elif beamline == "i04":
-            command.extend(["-M", "DiamondI04"])
+            untrusted_rectangles = self.get_untrusted_rectangles(first_image_path)
+            if untrusted_rectangles:
+                command.append(
+                    'autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="%s"'
+                    % " | ".join(untrusted_rectangles)
+                )
 
         if params.get("ispyb_parameters"):
             if params["ispyb_parameters"].get("d_min"):
@@ -350,6 +369,34 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 )
 
         return command
+
+    def get_untrusted_rectangles(self, first_image):
+        rectangles = []
+
+        if self._macro is not None:
+            # Parse any existing untrusted rectangles out of the macro
+            with open(
+                os.path.expandvars(
+                    "$autoPROC_home/autoPROC/macros/%s.macro" % self._macro
+                )
+            ) as f:
+                for line in f.readlines():
+                    line = line.strip()
+                    if line.strip().startswith(
+                        "autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="
+                    ):
+                        rectangles.append(line.split("=")[-1].strip('"'))
+
+        # Now add any untrusted rectangles defined in the dxtbx model
+        expts = ExperimentListFactory.from_filenames([str(first_image)])
+        to_xds = xds.to_xds(expts[0].imageset)
+        for panel, (x0, _, y0, _) in zip(to_xds.get_detector(), to_xds.panel_limits):
+            for f0, s0, f1, s1 in panel.get_mask():
+                rectangles.append(
+                    "%d %d %d %d" % (f0 + x0 - 1, f1 + x0, s0 + y0 - 1, s1 + y0)
+                )
+
+        return rectangles
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"

@@ -12,6 +12,61 @@ from optparse import SUPPRESS_HELP, OptionParser
 import ispyb
 import ispyb.model.__future__
 
+
+def print_data_collections(beamline, rows, link=False):
+    print(" Beamline {beamline:6} --DCID-- ---visit---".format(beamline=beamline))
+    for row in reversed(rows):
+        if row["gridSize"]:
+            print(
+                "{startTime:%Y-%m-%d %H:%M} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images, {gridSize:>5} grid   {fileTemplate}".format(
+                    **row
+                )
+            )
+        else:
+            print(
+                "{startTime:%Y-%m-%d %H:%M} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images   {fileTemplate}".format(
+                    **row
+                )
+            )
+        if link:
+            print(
+                " " * 52
+                + "https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dataCollectionId}\n".format(
+                    **row
+                )
+            )
+
+
+def get_last_data_collection_on(beamline, cursor, limit=10, latest_dcid=None):
+    query = (
+        "SELECT DataCollection.dataCollectionId,"
+        " DataCollection.startTime,"
+        " DataCollection.numberOfImages,"
+        ' CONCAT(GridInfo.steps_x, "x", GridInfo.steps_y) AS gridSize,'
+        ' CONCAT(TRIM(TRAILING "/" FROM DataCollection.imageDirectory), "/", DataCollection.fileTemplate) AS fileTemplate,'
+        ' CONCAT(Proposal.proposalCode, Proposal.proposalNumber, "-", BLSession.visit_number) as visit'
+        " FROM DataCollection"
+        " JOIN BLSession ON DataCollection.SESSIONID = BLSession.sessionID"
+        " JOIN Proposal ON BLSession.proposalId = Proposal.proposalId"
+        " LEFT JOIN GridInfo ON DataCollection.dataCollectionGroupId = GridInfo.dataCollectionGroupId"
+        ' WHERE BLSession.beamLineName = %s AND Proposal.proposalCode != "nt"'
+    )
+    if latest_dcid:
+        cursor.run(
+            "%s AND DataCollection.dataCollectionId > %%s"
+            " ORDER BY DataCollection.startTime DESC;" % query,
+            beamline,
+            latest_dcid,
+        )
+    else:
+        cursor.run(
+            "%s ORDER BY DataCollection.startTime DESC LIMIT %%s;" % query,
+            beamline,
+            limit,
+        )
+    return cursor.fetchall()
+
+
 if __name__ == "__main__":
     parser = OptionParser(
         usage="dlstbx.last_data_collections_on [beamline]",
@@ -26,6 +81,14 @@ if __name__ == "__main__":
         default=False,
         action="store_true",
         help="Keep showing new data collections as they appear.",
+    )
+    parser.add_option(
+        "-s",
+        "--sleep",
+        dest="sleep",
+        default=60,
+        type="float",
+        help="Length of time (s) to sleep in conjunction with --follow mode.",
     )
     parser.add_option(
         "-l",
@@ -54,60 +117,23 @@ if __name__ == "__main__":
         ispyb.model.__future__.enable(
             "/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg"
         )
-        last_results = {}
+        latest_dcids = {}
         while True:
             for n, beamline in enumerate(args):
                 with ispyb.model.__future__._db_cc() as cursor:
-                    cursor.run(
-                        "SELECT DataCollection.dataCollectionId,"
-                        " DataCollection.startTime,"
-                        " DataCollection.numberOfImages,"
-                        ' CONCAT(GridInfo.steps_x, "x", GridInfo.steps_y) AS gridSize,'
-                        ' CONCAT(TRIM(TRAILING "/" FROM DataCollection.imageDirectory), "/", DataCollection.fileTemplate) AS fileTemplate,'
-                        ' CONCAT(Proposal.proposalCode, Proposal.proposalNumber, "-", BLSession.visit_number) as visit'
-                        " FROM DataCollection"
-                        " JOIN BLSession ON DataCollection.SESSIONID = BLSession.sessionID"
-                        " JOIN Proposal ON BLSession.proposalId = Proposal.proposalId"
-                        " LEFT JOIN GridInfo ON DataCollection.dataCollectionGroupId = GridInfo.dataCollectionGroupId"
-                        ' WHERE BLSession.beamLineName = %s AND Proposal.proposalCode != "nt"'
-                        " ORDER BY DataCollection.startTime DESC"
-                        " LIMIT %s;",
+                    rows = get_last_data_collection_on(
                         beamline,
-                        options.limit,
+                        cursor,
+                        limit=options.limit,
+                        latest_dcid=latest_dcids.get(beamline),
                     )
-                    rows = reversed(cursor.fetchall())
-                    last_rows = last_results.setdefault(beamline, [])
-                    new_rows = [r for r in rows if r not in last_rows]
-                    last_rows.extend(new_rows)
-                    if not new_rows:
+                    if not rows:
                         continue
                     if n:
                         print()
-                    print(
-                        " Beamline {beamline:6} --DCID-- ---visit---".format(
-                            beamline=beamline
-                        )
-                    )
-                    for row in new_rows:
-                        if row["gridSize"]:
-                            print(
-                                "{startTime:%Y-%m-%d %H:%M} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images, {gridSize:>5} grid   {fileTemplate}".format(
-                                    **row
-                                )
-                            )
-                        else:
-                            print(
-                                "{startTime:%Y-%m-%d %H:%M} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images   {fileTemplate}".format(
-                                    **row
-                                )
-                            )
-                        if options.link:
-                            print(
-                                " " * 52
-                                + "https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dataCollectionId}\n".format(
-                                    **row
-                                )
-                            )
+                    # Record the last observed dcid per beamline
+                    latest_dcids[beamline] = rows[0]["dataCollectionId"]
+                    print_data_collections(beamline, rows, link=options.link)
             if not options.follow:
                 break
-            time.sleep(1)
+            time.sleep(options.sleep)

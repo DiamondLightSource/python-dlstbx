@@ -13,56 +13,56 @@ import ispyb
 import ispyb.model.__future__
 
 
-def print_data_collections(beamline, rows, link=False):
-    print(" Beamline {beamline:6} --DCID-- ---visit---".format(beamline=beamline))
+def print_data_collections(rows, link=False):
     for row in reversed(rows):
         if row["gridSize"]:
             print(
-                "{startTime:%Y-%m-%d %H:%M} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images, {gridSize:>5} grid   {fileTemplate}".format(
+                "{startTime:%Y-%m-%d %H:%M} {beamLineName:8} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images, {gridSize:>5} grid   {fileTemplate}".format(
                     **row
                 )
             )
         else:
             print(
-                "{startTime:%Y-%m-%d %H:%M} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images   {fileTemplate}".format(
+                "{startTime:%Y-%m-%d %H:%M} {beamLineName:8} {dataCollectionId:8} {visit:<11} {numberOfImages:4} images   {fileTemplate}".format(
                     **row
                 )
             )
         if link:
             print(
                 " " * 52
-                + "https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dataCollectionId}\n".format(
+                + "https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dataCollectionId}".format(
                     **row
                 )
             )
 
 
-def get_last_data_collection_on(beamline, cursor, limit=10, latest_dcid=None):
+def get_last_data_collections_on(beamlines, cursor, limit=10, latest_dcid=None):
     query = (
-        "SELECT DataCollection.dataCollectionId,"
-        " DataCollection.startTime,"
-        " DataCollection.numberOfImages,"
-        ' CONCAT(GridInfo.steps_x, "x", GridInfo.steps_y) AS gridSize,'
-        ' CONCAT(TRIM(TRAILING "/" FROM DataCollection.imageDirectory), "/", DataCollection.fileTemplate) AS fileTemplate,'
-        ' CONCAT(Proposal.proposalCode, Proposal.proposalNumber, "-", BLSession.visit_number) as visit'
-        " FROM DataCollection"
-        " JOIN BLSession ON DataCollection.SESSIONID = BLSession.sessionID"
-        " JOIN Proposal ON BLSession.proposalId = Proposal.proposalId"
-        " LEFT JOIN GridInfo ON DataCollection.dataCollectionGroupId = GridInfo.dataCollectionGroupId"
-        ' WHERE BLSession.beamLineName = %s AND Proposal.proposalCode != "nt"'
+        (
+            "SELECT BLSession.beamLineName,"
+            " DataCollection.dataCollectionId,"
+            " DataCollection.startTime,"
+            " DataCollection.numberOfImages,"
+            ' CONCAT(GridInfo.steps_x, "x", GridInfo.steps_y) AS gridSize,'
+            ' CONCAT(TRIM(TRAILING "/" FROM DataCollection.imageDirectory), "/", DataCollection.fileTemplate) AS fileTemplate,'
+            ' CONCAT(Proposal.proposalCode, Proposal.proposalNumber, "-", BLSession.visit_number) as visit'
+            " FROM DataCollection"
+            " JOIN BLSession ON DataCollection.SESSIONID = BLSession.sessionID"
+            " JOIN Proposal ON BLSession.proposalId = Proposal.proposalId"
+            " LEFT JOIN GridInfo ON DataCollection.dataCollectionGroupId = GridInfo.dataCollectionGroupId"
+            ' WHERE BLSession.beamLineName IN (%s) AND Proposal.proposalCode != "nt"'
+        )
+        % ", ".join('"%s"' % b for b in beamlines),
     )
     if latest_dcid:
         cursor.run(
             "%s AND DataCollection.dataCollectionId > %%s"
             " ORDER BY DataCollection.startTime DESC;" % query,
-            beamline,
             latest_dcid,
         )
     else:
         cursor.run(
-            "%s ORDER BY DataCollection.startTime DESC LIMIT %%s;" % query,
-            beamline,
-            limit,
+            "%s ORDER BY DataCollection.startTime DESC LIMIT %%s;" % query, limit
         )
     return cursor.fetchall()
 
@@ -113,27 +113,24 @@ if __name__ == "__main__":
     if not args:
         parser.print_help()
         sys.exit(0)
+    t0 = time.time()
     with ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg") as i:
         ispyb.model.__future__.enable(
             "/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg"
         )
-        latest_dcids = {}
-        while True:
-            for n, beamline in enumerate(args):
-                with ispyb.model.__future__._db_cc() as cursor:
-                    rows = get_last_data_collection_on(
-                        beamline,
-                        cursor,
-                        limit=options.limit,
-                        latest_dcid=latest_dcids.get(beamline),
-                    )
-                    if not rows:
-                        continue
-                    if n:
-                        print()
-                    # Record the last observed dcid per beamline
-                    latest_dcids[beamline] = rows[0]["dataCollectionId"]
-                    print_data_collections(beamline, rows, link=options.link)
+        latest_dcid = None
+        print("------Date------ Beamline --DCID-- ---Visit---")
+        # Terminate after 24 hours
+        while time.time() - t0 < 60 * 60 * 24:
+            with ispyb.model.__future__._db_cc() as cursor:
+                rows = get_last_data_collections_on(
+                    args, cursor, limit=options.limit, latest_dcid=latest_dcid
+                )
+                if not rows:
+                    continue
+                # Record the last observed dcid per beamline
+                latest_dcid = rows[0]["dataCollectionId"]
+                print_data_collections(rows, link=options.link)
             if not options.follow:
                 break
             time.sleep(options.sleep)

@@ -57,9 +57,8 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         }
         ispyb_command_list.append(integration)
 
-        logger.info("Sending %s", str(ispyb_command_list))
+        logger.debug("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
     def construct_commandline(self, params):
         """Construct xia2.multiplex command line.
@@ -86,7 +85,7 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
 
     def get_data_files_for_appid(self, appid, ispyb_conn):
         data_files = []
-        logger.info("Retrieving program attachment for appid %s", appid)
+        logger.debug("Retrieving program attachment for appid %s", appid)
         attachments = ispyb_conn.mx_processing.retrieve_program_attachments_for_program_id(
             appid
         )
@@ -101,8 +100,11 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                     data_files.append(
                         py.path.local(item["filePath"]).join(item["fileName"])
                     )
-        logger.info("Found the following files for appid %s:", appid)
-        logger.info(list(data_files))
+        logger.info(
+            "Found the following files for appid %s:\n%s",
+            appid,
+            ", ".join(f.strpath for f in data_files),
+        )
         if len(data_files) != 2:
             logger.warning(
                 "Expected to find exactly 2 data files for appid %s (found %s)",
@@ -158,12 +160,13 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         )
 
         logger.info("command: %s", " ".join(result["command"]))
-        if result["exitcode"]:
+        if result["exitcode"] or result["timeout"]:
             logger.info("exitcode: %s", result["exitcode"])
+            logger.info("timeout: %s", result["timeout"])
             logger.info(result["stdout"])
             logger.info(result["stderr"])
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("runtime: %s", result["runtime"])
+        logger.info("working_directory: %s", working_directory.strpath)
+        logger.debug("runtime: %s", result["runtime"])
 
         json_file = working_directory.join("iotbx-merging-stats.json")
         scaled_unmerged_mtz = working_directory.join("scaled_unmerged.mtz")

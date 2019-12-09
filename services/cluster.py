@@ -5,6 +5,7 @@ import json
 import os
 
 import procrunner
+import six
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -67,7 +68,7 @@ class DLSCluster(CommonService):
 
         parameters = rw.recipe_step["parameters"]
         commands = parameters["cluster_commands"]
-        if not isinstance(commands, basestring):
+        if not isinstance(commands, six.string_types):
             commands = "\n".join(commands)
 
         cluster = parameters.get("cluster")
@@ -181,9 +182,12 @@ class DLSCluster(CommonService):
                     self.log.error(
                         "Error in underlying filesystem: %s", str(e), exc_info=True
                     )
-                    self._transport.nack(header)
-                    return
-                raise
+                else:
+                    self.log.error(
+                        "Could not create working directory: %s", str(e), exc_info=True
+                    )
+                self._transport.nack(header)
+                return
             self.log.debug("Storing serialized recipe wrapper in %s", recipewrapper)
             commands = commands.replace("$RECIPEWRAP", recipewrapper)
             with open(recipewrapper, "w") as fh:

@@ -422,15 +422,31 @@ class DLSTrigger(CommonService):
             "/dls_sw/apps/mx-scripts/misc/GetAListOfAssociatedDCOnThisCrystalOrDir.sh",
             "%i" % dcid,
         ]
-        result = procrunner.run(
-            command,
-            # timeout=params.get('timeout'),
-            # working_directory=params['working_directory'],
-            print_stdout=False,
-            print_stderr=False,
-        )
+        result = procrunner.run(command, print_stdout=False, print_stderr=False)
+        if result["exitcode"] or result["timeout"]:
+            self.log.info("timeout: %s", result["timeout"])
+            self.log.debug(result["stdout"])
+            self.log.debug(result["stderr"])
+            self.log.error(
+                "%s failed with exit code %d", " ".join(command), result["exitcode"]
+            )
+            return False
         dcids = [int(d) for d in result["stdout"].split()]
-        dcids = [dcid] + [d for d in dcids if d < dcid]
+
+        # Select only those dcids at the same wavelength as the triggering dcid
+        wavelength = self.ispyb.get_data_collection(dcid).wavelength
+        dcids = [
+            d
+            for d in dcids
+            if self.ispyb.get_data_collection(d).wavelength == wavelength
+        ]
+
+        # Select only those dcids that were collected before the triggering dcid
+        dcids = [d for d in dcids if d < dcid]
+
+        # Add the current dcid at the beginning of the list
+        dcids.insert(0, dcid)
+
         if len(dcids) == 1:
             self.log.info(
                 "Skipping xia2.multiplex trigger: no related dcids for dcid %s" % dcid

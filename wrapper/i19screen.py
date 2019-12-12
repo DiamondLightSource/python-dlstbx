@@ -49,7 +49,7 @@ class I19ScreenWrapper(zocalo.wrapper.BaseWrapper):
         # copy output files to result directory
         results_directory.ensure(dir=True)
 
-        defaultfiles = ["screen19.log"]
+        defaultfiles = ["screen19.log", "wilson_plot.png"]
         if working_directory.join("indexed.pickle").check():
             defaultfiles.append("indexed.pickle")
             defaultfiles.append("experiments.json")

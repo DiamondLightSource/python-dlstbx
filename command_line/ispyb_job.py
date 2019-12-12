@@ -74,6 +74,12 @@ def create_processing_job(i, options):
             sys.exit("Invalid parameter specification: " + p)
         parameters.append(p.split(":", 1))
 
+    trigger_variables = []
+    for p in options.triggervariables:
+        if ":" not in p:
+            sys.exit("Invalid trigger variable specification: " + p)
+        trigger_variables.append(p.split(":", 1))
+
     jp = i.mx_processing.get_job_params()
     # _job_params = StrictOrderedDict([('id', None), ('datacollectionid', None), ('display_name', None), ('comments', None), ('recipe', None), ('automatic', None)])
     jp["automatic"] = options.source == "automatic"
@@ -107,7 +113,10 @@ def create_processing_job(i, options):
     print("All done. Processing job {} created".format(jobid))
     print()
     if options.trigger:
-        result = procrunner.run(["dlstbx.go", "-p", str(jobid)])
+        go_call = ["dlstbx.go", "-p", str(jobid)]
+        for kv in trigger_variables:
+            go_call.append("--set=%s=%s" % (kv[0], kv[1]))
+        result = procrunner.run(go_call)
         if result["exitcode"] or result["stderr"]:
             sys.exit("Error triggering processing job")
         print("Successfully triggered processing job")
@@ -227,6 +236,15 @@ if __name__ == "__main__":
         default=False,
         help="start the processing job immediately after creation",
     )
+    group.add_option(
+        "--trigger-variable",
+        dest="triggervariables",
+        action="append",
+        type="string",
+        default=[],
+        metavar="KEY:VALUE",
+        help="Set an additional variable for recipe evaluation when starting the processing job",
+    )
     parser.add_option_group(group)
 
     group = OptionGroup(
@@ -338,6 +356,8 @@ if __name__ == "__main__":
         sys.exit("Can not create a new job ID when a job ID is specified")
     if options.new and options.update:
         sys.exit("Can not update a program when creating a new job ID")
+    if options.triggervariables and not options.trigger:
+        sys.exit("--trigger-variable only makes sense with --trigger")
 
     i = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
     exit_code = 0

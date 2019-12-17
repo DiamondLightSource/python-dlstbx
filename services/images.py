@@ -95,11 +95,11 @@ class DLSImages(CommonService):
                 "dials.export_bitmaps",
                 filename,
                 "imageset_index=%s" % imageset_index,
-                "format=jpeg",
+                "output.format=jpeg",
                 "quality=95",
                 "binning=4",
                 "brightness=60",
-                'output_file="%s"' % output,
+                'output.file="%s"' % output,
             ]
         )
         if result["exitcode"]:

@@ -1,22 +1,23 @@
 {
-  "modules_required_for_build": ["dials"],
-  "modules_required_for_use": [],
-  "optional_modules": [],
-  "python_required": [
-    "colorama",  # is still used in one place
-    "drmaa",
-    "ispyb>=5.4.1,<5.5",
-    "junit_xml",
-    "mock>=2.0",
-    "networkx",
-    "procrunner>=1.0.2",
-    "pytest",
-    "pytest-mock",
-    "workflows>=1.7",
-    "zocalo>=0.6.0",
-    # Eiger stream work, SCI-7786
-    "confluent-kafka",
-    "msgpack",
-    "pyzmq<18",
-  ],
+    "modules_required_for_build": ["dials"],
+    "modules_required_for_use": [],
+    "optional_modules": [],
+    "python_required": [
+        "colorama",  # is still used in one place
+        "drmaa",
+        "ispyb>=5.4.1,<5.5",
+        "junit_xml",
+        "mock>=2.0",
+        "networkx",
+        "procrunner>=1.0.2",
+        "pytest",
+        "pytest-mock",
+        "stomp.py<4.2",
+        "workflows>=1.7",
+        "zocalo>=0.6.0",
+        # Eiger stream work, SCI-7786
+        "confluent-kafka",
+        "msgpack",
+        "pyzmq<18",
+    ],
 }

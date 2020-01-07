@@ -395,7 +395,7 @@ def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
     result = [dict(zip(desc, line)) for line in _db.cursor]
 
     if not result[0].get("datacollectionid"):
-        sys.exit("Could not find the datacollectionid for visit %s" % _src_visit)
+        sys.exit("Could not find the datacollectionid for visit %s" % _dir)
     if not result[0].get("startimagenumber"):
         sys.exit("Could not find the startimagenumber for the row")
     return result[0]
@@ -413,13 +413,12 @@ def retrieve_blsample_values(_db, _src_blsampleid):
     result = [dict(zip(desc, line)) for line in _db.cursor]
 
     if not result[0].get("blsampleid"):
-        sys.exit("Could not find the blsampleid for visit %s" % _src_visit)
+        sys.exit("Could not find the blsampleid for %s" % _src_blsampleid)
 
     return result[0]
 
 
 def retrieve_no_images(_db, _dcid):
-    no_images = None
     rows = _db.doQuery(
         "SELECT numberOfImages from DataCollection where datacollectionid=%d" % _dcid
     )
@@ -570,7 +569,7 @@ def simulate(
 
         # Ingest the GridInfo.xml file data using the DbserverClient
         log.debug("(dbserver) Ingest the gridinfo XML")
-        gridinfoid = dbsc.storeGridInfo(gridinfo_xml)
+        dbsc.storeGridInfo(gridinfo_xml)
 
     # Produce a DataCollection xml blob from the template and use the new run number
     dc_xml = populate_dc_xml_template(
@@ -693,31 +692,22 @@ def call_sim(test_name, beamline):
 
     # Calculate the destination directory
     now = datetime.datetime.now()
-    if beamline == "i02-2":
-        dest_visit = "nt18231-22"
-        dest_visit_dir = "/dls/mx/data/nt18231/nt18231-22"
-        dest_dir_fmt = (
-            "{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
-        )
-        dest_dir = dest_dir_fmt.format(
-            beamline=beamline,
-            now=now,
-            dest_visit_dir=dest_visit_dir,
-            random=str(uuid.uuid4())[:8],
+    # Apparently this proposal number will now change every year
+    proposal = "nt26503"
+    if beamline.startswith("i02"):
+        if beamline == "i02-2":
+            dest_visit = "{proposal}-1".format(proposal=proposal)
+        elif beamline == "i02-1":
+            dest_visit = "{proposal}-1".format(proposal=proposal)
+        dest_visit_dir = "/dls/mx/data/{proposal}/{visit}".format(
+            proposal=proposal, visit=dest_visit
         )
     else:
         for cm_dir in os.listdir(
             "/dls/{beamline}/data/{now:%Y}".format(beamline=beamline, now=now)
         ):
-            if cm_dir.startswith("nt18231"):
+            if cm_dir.startswith(proposal):
                 dest_visit = cm_dir
-                dest_dir_fmt = "/dls/{beamline}/data/{now:%Y}/{cm_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
-                dest_dir = dest_dir_fmt.format(
-                    beamline=beamline,
-                    now=now,
-                    cm_dir=cm_dir,
-                    random=str(uuid.uuid4())[:8],
-                )
                 break
         else:
             log.error("Could not determine destination directory")
@@ -727,6 +717,13 @@ def call_sim(test_name, beamline):
         dest_visit_dir = "/dls/{beamline}/data/{now:%Y}/{dest_visit}".format(
             beamline=beamline, now=now, dest_visit=dest_visit
         )
+
+    dest_dir_fmt = (
+        "{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
+    )
+    dest_dir = dest_dir_fmt.format(
+        now=now, dest_visit_dir=dest_visit_dir, random=str(uuid.uuid4())[:8]
+    )
 
     # Extract necessary info from the source directory path
     m1 = re.search(r"(/dls/(\S+?)/data/\d+/)(\S+)", src_dir)

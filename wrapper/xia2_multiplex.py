@@ -211,16 +211,12 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                 ("outerShell", merging_stats.bins[-1]),
             ):
                 ispyb_d["scaling_statistics"][stats] = {
-                    "anom_completeness": bin.anom_completeness,
-                    "anom_multiplicity": bin.mean_redundancy,
-                    "cc_anom": bin.cc_anom,
                     "cc_half": bin.cc_one_half,
-                    "completeness": bin.completeness,
+                    "completeness": bin.completeness * 100,
                     "mean_i_sig_i": bin.i_over_sigma_mean,
                     "multiplicity": bin.mean_redundancy,
                     "n_tot_obs": bin.n_obs,
                     "n_tot_unique_obs": bin.n_uniq,
-                    "r_meas_all_iplusi_minus": bin.r_meas,
                     "r_merge": bin.r_merge,
                     "res_lim_high": bin.d_min,
                     "res_lim_low": bin.d_max,
@@ -232,7 +228,9 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
             ):
                 ispyb_d["scaling_statistics"][stats].update(
                     {
-                        "anom_completeness": bin.anom_completeness,
+                        "anom_completeness": bin.anom_completeness * 100
+                        if bin.anom_completeness is not None
+                        else None,
                         "anom_multiplicity": bin.mean_redundancy,
                         "cc_anom": bin.cc_anom,
                         "r_meas_all_iplusi_minus": bin.r_meas,

@@ -698,7 +698,7 @@ def call_sim(test_name, beamline):
         if beamline == "i02-2":
             dest_visit = "{proposal}-1".format(proposal=proposal)
         elif beamline == "i02-1":
-            dest_visit = "{proposal}-1".format(proposal=proposal)
+            dest_visit = "{proposal}-2".format(proposal=proposal)
         dest_visit_dir = "/dls/mx/data/{proposal}/{visit}".format(
             proposal=proposal, visit=dest_visit
         )

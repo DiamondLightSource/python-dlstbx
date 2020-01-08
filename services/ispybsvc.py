@@ -256,6 +256,15 @@ class DLSISPyB(CommonService):
         )
         return {"success": True, "return_value": result}
 
+    def do_add_program_message(self, parameters, **kwargs):
+        result = self.ispyb.mx_processing.upsert_program_message(
+            program_id=parameters("program_id"),
+            severity=parameters("severity"),
+            message=parameters("message"),
+            description=parameters("description"),
+        )
+        return {"success": True, "return_value": result}
+
     def do_add_datacollection_attachment(self, parameters, **kwargs):
         params = self.ispyb.mx_acquisition.get_data_collection_file_attachment_params()
 

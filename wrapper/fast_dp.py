@@ -13,7 +13,7 @@ logger = logging.getLogger("dlstbx.wrap.fast_dp")
 
 
 class FastDPWrapper(zocalo.wrapper.BaseWrapper):
-    def send_results_to_ispyb(self, z):
+    def send_results_to_ispyb(self, z, xtriage_results=None):
         ispyb_command_list = []
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
@@ -57,6 +57,20 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             "refined_ybeam": z["refined_beam"][1],
         }
         ispyb_command_list.append(integration)
+
+        if xtriage_results is not None:
+            for d in xtriage_results:
+                ispyb_command_list.append(
+                    {
+                        "ispyb_command": "add_program_message",
+                        "program_id": "$ispyb_autoprocprogram_id",
+                        "message": d["text"],
+                        "description": d["summary"],
+                        "severity": {0: "INFO", 1: "WARNING", 2: "ERROR"}.get(
+                            d["level"]
+                        ),
+                    }
+                )
 
         logger.info("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
@@ -242,7 +256,12 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
         if working_directory.join("fast_dp.json").check():
             with working_directory.join("fast_dp.json").open("rb") as fh:
                 json_data = json.load(fh)
-            self.send_results_to_ispyb(json_data)
+            if working_directory.join("fast_dp-report.json").check():
+                with working_directory.join("fast_dp-report.json").open("rb") as fh:
+                    xtriage_results = json.load(fh)["xtriage"]
+            else:
+                xtriage_results = None
+            self.send_results_to_ispyb(json_data, xtriage_results=xtriage_results)
         elif result["exitcode"]:
             logger.info("fast_dp failed to process the dataset")
         else:

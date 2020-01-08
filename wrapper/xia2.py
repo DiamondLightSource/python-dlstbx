@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import json
 import logging
 import os
 
@@ -41,7 +42,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
 
         return command
 
-    def send_results_to_ispyb(self):
+    def send_results_to_ispyb(self, xtriage_results=None):
         logger.info("Reading xia2 results")
         from xia2.command_line.ispyb_json import zocalo_object
 
@@ -85,6 +86,20 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
                 # and all subsequent integration results are written to a new record
                 integration["integration_id"] = None
             ispyb_command_list.append(integration)
+
+        if xtriage_results is not None:
+            for d in xtriage_results:
+                ispyb_command_list.append(
+                    {
+                        "ispyb_command": "add_program_message",
+                        "program_id": "$ispyb_autoprocprogram_id",
+                        "message": d["text"],
+                        "description": d["summary"],
+                        "severity": {0: "INFO", 1: "WARNING", 2: "ERROR"}.get(
+                            d["level"]
+                        ),
+                    }
+                )
 
         logger.info("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
@@ -221,13 +236,18 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
 
         # Part of the result parsing requires to be in result directory
         with results_directory.as_cwd():
+            if os.path.isfile("xia2-report.json"):
+                with open("xia2-report.json") as fh:
+                    xtriage_results = json.load(fh)["xtriage"]
+            else:
+                xtriage_results = None
             if (
                 success
                 and not os.path.isfile("xia2.error")
                 and os.path.exists("xia2.json")
                 and not params.get("do_not_write_to_ispyb")
             ):
-                self.send_results_to_ispyb()
+                self.send_results_to_ispyb(xtriage_results=xtriage_results)
 
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})

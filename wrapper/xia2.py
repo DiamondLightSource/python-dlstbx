@@ -238,7 +238,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
         with results_directory.as_cwd():
             if os.path.isfile("xia2-report.json"):
                 with open("xia2-report.json") as fh:
-                    xtriage_results = json.load(fh)["xtriage"]
+                    xtriage_results = json.load(fh).get("xtriage")
             else:
                 xtriage_results = None
             if (

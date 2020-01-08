@@ -258,7 +258,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
                 json_data = json.load(fh)
             if working_directory.join("fast_dp-report.json").check():
                 with working_directory.join("fast_dp-report.json").open("rb") as fh:
-                    xtriage_results = json.load(fh)["xtriage"]
+                    xtriage_results = json.load(fh).get("xtriage")
             else:
                 xtriage_results = None
             self.send_results_to_ispyb(json_data, xtriage_results=xtriage_results)

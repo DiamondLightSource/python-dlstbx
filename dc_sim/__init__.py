@@ -464,6 +464,8 @@ def simulate(
     row = retrieve_datacollection_values(
         _db, src_sessionid, _src_dir, _src_prefix, _src_run_number
     )
+    if not row["rotationaxis"]:
+        row["rotationaxis"] = None
     src_dcid = int(row["datacollectionid"])
     src_dcgid = int(row["datacollectiongroupid"])
     start_img_number = int(row["startimagenumber"])

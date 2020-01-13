@@ -236,7 +236,9 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
 
         # Part of the result parsing requires to be in result directory
         with results_directory.as_cwd():
-            if os.path.isfile("xia2-report.json"):
+            if params.get("store_xtriage_results") and os.path.isfile(
+                "xia2-report.json"
+            ):
                 with open("xia2-report.json") as fh:
                     xtriage_results = json.load(fh).get("xtriage")
             else:

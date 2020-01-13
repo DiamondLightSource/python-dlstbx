@@ -256,7 +256,10 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
         if working_directory.join("fast_dp.json").check():
             with working_directory.join("fast_dp.json").open("rb") as fh:
                 json_data = json.load(fh)
-            if working_directory.join("fast_dp-report.json").check():
+            if (
+                params.get("store_xtriage_results")
+                and working_directory.join("fast_dp-report.json").check()
+            ):
                 with working_directory.join("fast_dp-report.json").open("rb") as fh:
                     xtriage_results = json.load(fh).get("xtriage")
             else:

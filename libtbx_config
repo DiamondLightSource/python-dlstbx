@@ -12,8 +12,8 @@
         "procrunner>=1.0.2",
         "pytest",
         "pytest-mock",
-        "stomp.py<4.2",
-        "workflows>=1.7",
+        "stomp.py<5",
+        "workflows>=1.7.2",
         "zocalo>=0.6.0",
         # Eiger stream work, SCI-7786
         "confluent-kafka",

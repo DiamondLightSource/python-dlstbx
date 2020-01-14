@@ -413,13 +413,21 @@ class DLSFileWatcher(CommonService):
             extra_log = {"delay": time.time() - status["start-time"]}
             if rw.recipe_step["parameters"].get("expected-per-image-delay"):
                 # Estimate unexpected delay
-                expected_delay = (
-                    float(rw.recipe_step["parameters"]["expected-per-image-delay"])
-                    * filecount
-                )
-                extra_log["unexpected_delay"] = max(
-                    0, extra_log["delay"] - expected_delay
-                )
+                try:
+                    expected_delay = (
+                        float(rw.recipe_step["parameters"]["expected-per-image-delay"])
+                        * filecount
+                    )
+                except ValueError:
+                    # in case the field contains "None" or equivalent un-floatable nonsense
+                    self.log.warning(
+                        "Ignored invalid expected-per-image-delay value (%r)",
+                        rw.recipe_step["parameters"]["expected-per-image-delay"],
+                    )
+                else:
+                    extra_log["unexpected_delay"] = max(
+                        0, extra_log["delay"] - expected_delay
+                    )
 
             self.log.info(
                 "All %d files found for %s after %.1f seconds.",

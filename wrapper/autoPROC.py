@@ -338,12 +338,18 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                     ),
                 ]
             )
+            first_image_path = os.path.join(
+                image_directory, image_pattern % int(image_first)
+            )
+            untrusted_rectangles = self.get_untrusted_rectangles(first_image_path)
+            if untrusted_rectangles:
+                command.append(
+                    'autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="%s"'
+                    % " | ".join(untrusted_rectangles)
+                )
             if beamline == "i24":
                 # i24 can run in tray mode (horizontal gonio) or pin mode
                 # (vertical gonio)
-                first_image_path = os.path.join(
-                    image_directory, image_pattern % int(image_first)
-                )
                 with open(first_image_path, "rb") as f:
                     for line in f.readlines():
                         if "Oscillation_axis" in line and "+SLOW" in line:
@@ -356,12 +362,6 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                                 'autoPROC_XdsKeyword_ROTATION_AXIS="-1.000000  0.000000  0.000000"'
                             )
                             break
-            untrusted_rectangles = self.get_untrusted_rectangles(first_image_path)
-            if untrusted_rectangles:
-                command.append(
-                    'autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="%s"'
-                    % " | ".join(untrusted_rectangles)
-                )
 
         if params.get("ispyb_parameters"):
             if params["ispyb_parameters"].get("d_min"):

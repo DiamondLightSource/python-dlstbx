@@ -11,6 +11,7 @@ import os
 import re
 import select
 import sys
+import time
 from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
 
@@ -42,6 +43,13 @@ if __name__ == "__main__":
         dest="verbose",
         help="Show message contents",
     )
+    parser.add_option(
+        "-w",
+        "--wait",
+        default=None,
+        dest="wait",
+        help="Wait this many seconds between reinjections",
+    )
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
     redirect_live_to_testing = "--test" in sys.argv
     if redirect_live_to_testing:
@@ -71,7 +79,11 @@ if __name__ == "__main__":
     stomp.connect()
     dlqprefix = stomp.get_namespace()
 
+    first = True
     for dlqfile in args + stdin:
+        if not first and options.wait:
+            time.sleep(float(options.wait))
+        first = False
         if not os.path.exists(dlqfile):
             print("Ignoring missing file {}".format(dlqfile))
             continue
@@ -115,8 +127,8 @@ if __name__ == "__main__":
         send_function(
             destination[2], dlqmsg["message"], headers=header, ignore_namespace=True
         )
-        print("Done.\n")
         if options.remove:
             os.remove(dlqfile)
+        print("Done.\n")
 
     stomp.disconnect()

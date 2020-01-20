@@ -80,7 +80,7 @@ if __name__ == "__main__":
                         message["summary"][beamline_scenario_string]
                     )
                 continue
-            else:
+            elif "beamline" in message and "scenario" in message:
                 test_results.setdefault(
                     "{m[beamline]}-{m[scenario]}".format(m=message), []
                 ).append(message)
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     except Queue.Empty:
         pass  # No more messages coming in
     stomp.unsubscribe(sid)
-    # Further messages are are not processed and will be redelivered to the next instance
+    # Further messages are not processed and will be redelivered to the next instance
 
     def filter_testruns(runlist):
         """Filter out all historic test runs older then forget_test_after

@@ -4,14 +4,14 @@ from __future__ import absolute_import, division, print_function
 
 import base64
 import datetime
-import dlstbx.dejava
+import dlstbx.gda_interface.dejava
 import functools
 import itertools
 import json
+import math
 import queue
 import pprint
 import stomp
-import struct
 import threading
 import time
 import StringIO
@@ -37,68 +37,110 @@ beamlines = {"i02-1", "i02-2", "i03", "i04", "i04-1", "i19-1", "i19-2", "i23", "
 
 print_queue = queue.Queue()
 
+last_shown = {}
+
 
 def dumb_to_value(dumb):
     if len(dumb) != 1:
         return None
     dumb = dumb[0]
-    if dumb["_cls"]["_name"] in ("ScannableStatus", "EnumPositionerStatus"):
+    if not isinstance(dumb, dict):
+        # Sometimes we get plain strings here
+        return dumb
+    if dumb["_cls"]["_name"] in {"ScannableStatus", "EnumPositionerStatus"}:
         return dumb["_name"]
-    if dumb["_cls"]["_name"] == "Double":
-        value = dumb["value"]
-        return struct.unpack(">d", value.replace(" ", "").decode("hex"))[0]
+    if dumb["_cls"]["_name"] == "Processor$STATE":
+        return "Processor state: " + dumb["_name"]
+    if dumb["_cls"]["_name"] == "Command$STATE":
+        return "Command state: " + dumb["_name"]
+    if dumb["_cls"]["_name"] in {"Double"}:
+        return dumb["value"]
+    if dumb["_cls"]["_name"] == "TerminalOutput":
+        return "Terminal: " + dumb["output"].strip()
     if dumb["_cls"]["_name"] == "ScannablePositionChangeEvent":
-        value = dumb["newPosition"]["value"]
-        return struct.unpack(">d", value.replace(" ", "").decode("hex"))[0]
+        if not isinstance(dumb["newPosition"], dict):
+            return dumb["newPosition"]
+        if dumb["newPosition"]["_cls"]["_name"] == "SampleChangerStatus":
+            return "Sample Change: %d" % dumb["newPosition"]["status"]
+        return dumb["newPosition"]["value"]
     if dumb["_cls"]["_name"] == "BatonLeaseRenewRequest":
         date_time = datetime.datetime.fromtimestamp(dumb["timestamp"] / 1000)
         return "BatonLeaseRenewRequest: %d (%s)" % (
             dumb["timestamp"],
-            date_time.strftime("%m/%d/%Y, %H:%M:%S"),
+            date_time.strftime("%Y-%m-%d %H:%M:%S"),
+        )
+    if dumb["_cls"]["_name"] == "SimpleCommandProgress":
+        return "%s: %.1f%%" % (dumb["msg"], dumb["percentDone"])
+    if dumb["_cls"]["_name"] == "Progress":
+        progress = int(
+            math.floor(60 * dumb["currentImage"] / dumb["totalNumberOfImages"])
+        )
+        if dumb["currentImage"] % 10 == 0 and dumb["startDate"]:
+            start = datetime.datetime.fromtimestamp(
+                dumb["startDate"]["data"] / 1000
+            ).strftime("\nStart: %Y-%m-%d %H:%M:%S")
+        else:
+            start = ""
+        if dumb["currentImage"] % 10 == 0 and dumb["expectedEndDate"]:
+            end = datetime.datetime.fromtimestamp(
+                dumb["expectedEndDate"]["data"] / 1000
+            ).strftime("  End: %Y-%m-%d %H:%M:%S")
+        else:
+            end = ""
+        return (
+            "|"
+            + ("=" * progress)
+            + (" " * (60 - progress))
+            + "| %d / %d images" % (dumb["currentImage"], dumb["totalNumberOfImages"])
+            + start
+            + end
+        )
+    if dumb["_cls"]["_name"] == "HighestExistingFileMonitorData":
+        return "Most recent file seen has index %d (%s/%s)" % (
+            dumb["foundIndex"]["value"],
+            dumb["highestExistingFileMonitorSettings"]["fileTemplatePrefix"],
+            dumb["highestExistingFileMonitorSettings"]["fileTemplate"],
         )
     return None
 
 
 def common_listener(beamline, header, message):
     destination = header["destination"]
-    if destination in (
-        "/topic/gda.event.flux",
-        "/topic/gda.event.timeToRefill",
-        "/topic/gda.event.idGap",
-    ):
-        return
-
     try:
         message = base64.decodestring(json.loads(message)["byte-array"])
     except Exception as e:
-        print_queue.put(
-            "%s: Error decoding in %s\n%r" % (beamline, header["destination"], e)
-        )
+        print_queue.put("%s: Error b64 decoding in %s\n%r" % (beamline, destination, e))
         return
     try:
-        jobject = dlstbx.dejava.parse(StringIO.StringIO(message))
+        jobject = dlstbx.gda_interface.dejava.parse(StringIO.StringIO(message))
     except Exception as e:
         print_queue.put(
             "%s: Error decoding in %s\n%s\n%r"
             % (beamline, header["destination"], message, e)
         )
+        raise
         return
     message = pprint.pformat(jobject)
     try:
         value = dumb_to_value(jobject)
         if value is None:
-            print_queue.put("%s: %s\n%s" % (beamline, header["destination"], message))
-        else:
-            print_queue.put("%s %s %s" % (beamline, header["destination"], value))
+            print_queue.put("%s: %s\n%s" % (beamline, destination, message))
+            return
+
     except Exception:
         print(message)
         raise
+
+    if last_shown.get((beamline, destination)) == value:
+        return
+    last_shown[(beamline, destination)] = value
+    print_queue.put("%s %s %s" % (beamline, destination, value))
 
 
 def line_printer():
     while True:
         line = print_queue.get()
-        print(line)
+        print("".join(x for x in line if ord(x) >= 32 or ord(x) in (10, 13)))
         print_queue.task_done()
 
 

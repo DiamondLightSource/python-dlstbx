@@ -1,4 +1,16 @@
+from __future__ import absolute_import, division, print_function
+
+import struct
+
 # based on http://stackoverflow.com/a/16470856
+
+
+def _double(s):
+    return struct.unpack(">d", s)[0]
+
+
+def _float(s):
+    return struct.unpack(">f", s)[0]
 
 
 def parse(f):
@@ -85,9 +97,9 @@ def parse(f):
                     assert p(b) in (0, 1)
                     obj[name] = bool(p(b))
                 elif typ == "F":  # Float
-                    obj[name] = h(f.read(4))
+                    obj[name] = _float(f.read(4))
                 elif typ == "D":  # Double
-                    obj[name] = h(f.read(8))
+                    obj[name] = _double(f.read(8))
                 elif typ in "BC":  # Byte, Char
                     obj[name] = f.read(1)
                 elif typ in "L[":  # Object, Array
@@ -127,6 +139,10 @@ def parse(f):
                         obj["data"] = []
                         for i in range(obj["size"]):
                             obj["data"].append(parse_obj())
+                    elif cls["_name"] == "Date":
+                        # The value returned by getTime() is emitted (long). This represents the offset from January 1, 1970, 00:00:00 GMT in milliseconds.
+                        assert len(block) == 8, h(block)
+                        obj["data"] = p(block)
                     else:
                         assert False, cls["_name"]
                     b = f.read(1)

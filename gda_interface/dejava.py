@@ -42,9 +42,9 @@ def parse(f):
             cls = parse_obj()
             size = p(f.read(4))
             handles.append(("TC_ARRAY", data))
-            assert cls["_name"] in ("[B", "[I"), (cls["_name"], size, f.read(50))
+            assert cls["_name"] in ("[B", "[I", "[D"), (cls["_name"], size, f.read(50))
             for x in range(size):
-                data.append(f.read({"[B": 1, "[I": 4}[cls["_name"]]))
+                data.append(f.read({"[B": 1, "[I": 4, "[D": 8}[cls["_name"]]))
             return data
         elif b == "\x7E":  # ~ TC_ENUM
             enum = {}
@@ -71,6 +71,10 @@ def parse(f):
             b = f.read(1)
             assert b == "\x78", h(b)
             cls["parent"] = parse_obj()
+            return cls
+        elif b == "\x76":  # v TC_CLASS
+            cls["_cls"] = parse_obj()
+            handles.append(("TC_CLASS", cls))
             return cls
         # TC_OBJECT
         assert b == "\x73", (h(b), h(f.read(4)), f.read(50))

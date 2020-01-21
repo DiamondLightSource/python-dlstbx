@@ -101,11 +101,32 @@ def dumb_to_value(dumb):
             dumb["highestExistingFileMonitorSettings"]["fileTemplatePrefix"],
             dumb["highestExistingFileMonitorSettings"]["fileTemplate"],
         )
+    if dumb["_cls"]["_name"] == "IQIResult":
+        return "Grid scan result received for DCID %d image %d" % (
+            dumb["iqi"]["_dataCollectionId"],
+            dumb["imageNumber"],
+        )
+    if dumb["_cls"]["_name"] == "CameraStatus":
+        return (
+            "Camera status: Beam @ %.2f x %.2f mm, position %.2f, distance %.2f (valid=%s)\n     states: expo=%s ra=%s shutter=%s"
+            % (
+                dumb["beamXinMM"],
+                dumb["beamYinMM"],
+                dumb["currentPosition"],
+                dumb["detectorDistanceValue"],
+                dumb["distanceValid"],
+                dumb["expoState"],
+                dumb["raState"],
+                dumb["shutterState"],
+            )
+        )
     return None
 
 
 def common_listener(beamline, header, message):
     destination = header["destination"]
+    if (beamline, destination) == ("i23", "/topic/gda.event.flux"):
+        return
     try:
         message = base64.decodestring(json.loads(message)["byte-array"])
     except Exception as e:
@@ -113,6 +134,10 @@ def common_listener(beamline, header, message):
         return
     try:
         jobject = dlstbx.gda_interface.dejava.parse(StringIO.StringIO(message))
+    except NotImplementedError:
+        with open("nie.txt", "wb") as fh:
+            fh.write(message)
+        print("NotImplementedError encountered")
     except Exception as e:
         print_queue.put(
             "%s: Error decoding in %s\n%s\n%r"
@@ -126,6 +151,10 @@ def common_listener(beamline, header, message):
         if value is None:
             print_queue.put("%s: %s\n%s" % (beamline, destination, message))
             return
+        if destination == "/topic/gda.event.timeToRefill":
+            value = int(value)
+        if destination == "/topic/gda.event.idGap":
+            value = round(value, 3)
 
     except Exception:
         print(message)

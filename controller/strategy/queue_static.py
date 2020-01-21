@@ -31,6 +31,7 @@ class QueueStaticStrategy(object):
         multiplier=0.04,
         **kwargs
     ):
+        self._last_assessment = None
         self.minimum = minimum
         self.maximum = maximum
         self.service_name = service
@@ -63,12 +64,14 @@ class QueueStaticStrategy(object):
             environment.get("queues", {}).get(self.queue_name, {}).get("QueueSize", 0)
         )
         ideal_level = queue_size * self.multiplier
-        self.log.debug(
-            "Queue size for %s is %d. Estimated number of instances required: %.1f",
-            self.queue_name,
-            queue_size,
-            ideal_level,
-        )
+        if self._last_assessment != (queue_size, ideal_level):
+            self._last_assessment = (queue_size, ideal_level)
+            self.log.debug(
+                "Queue size for %s is %d. Estimated number of instances required: %.1f",
+                self.queue_name,
+                queue_size,
+                ideal_level,
+            )
         ideal_level = int(ideal_level + 0.9)
 
         instances = _filter_active(

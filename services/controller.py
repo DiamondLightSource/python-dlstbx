@@ -261,15 +261,16 @@ class DLSController(CommonService):
                 "Could not parse workflows version sent by %s", instance["host"]
             )
         try:
-            instance["dlstbx"] = [
-                int(v)
-                for v in message["dlstbx"]
-                .split(" ", 2)[1]
-                .split("-", 1)[0]
-                .split(".", 1)
-            ]
+            if "dlstbx" in message:
+                instance["dlstbx"] = [
+                    int(v)
+                    for v in message["dlstbx"]
+                    .split(" ", 2)[1]
+                    .split("-", 1)[0]
+                    .split(".", 1)
+                ]
         except Exception:
-            self.log.debug(
+            self.log.warning(
                 "Could not parse dlstbx version sent by %s", instance["host"]
             )
 

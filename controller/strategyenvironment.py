@@ -292,13 +292,10 @@ class StrategyEnvironment(object):
             for service, strategy in self.strategies.items():
                 if hasattr(strategy, "watch_queues"):
                     for queue in strategy.watch_queues():
-                        self.log.debug(
-                            "Instance strategy for service %s wants to watch queue %s",
-                            service,
-                            queue,
-                        )
                         queues.add(queue)
-        return sorted(queues)
+        queues = sorted(queues)
+        self.log.debug("Watched queues:\n%s", "\n".join(queues))
+        return queues
 
     def update_allocation(self, queue_statistics=None):
         """Check with each registered strategy whether any changes are required."""

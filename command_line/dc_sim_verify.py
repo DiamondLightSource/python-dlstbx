@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     try:
         while True:
-            header, message = processqueue.get(True, 3)
+            header, message = processqueue.get(True, 5)
             # Acknowledge all received messages within transaction
             stomp.ack(header, transaction=txn)
 

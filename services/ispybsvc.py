@@ -151,9 +151,8 @@ class DLSISPyB(CommonService):
                 time_update=parameters("update_time"),
                 message=message,
             )
-            self.log.info(
-                "Updating program %s status: '%s' with result %s", ppid, message, result
-            )
+            self.log.info("Updating program %s with status: '%s'", ppid, message)
+            # result is just ppid
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
             self.log.error(

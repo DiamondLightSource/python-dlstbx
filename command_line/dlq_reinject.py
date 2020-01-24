@@ -44,6 +44,14 @@ if __name__ == "__main__":
         help="Show message contents",
     )
     parser.add_option(
+        "-d",
+        "--destination",
+        action="store",
+        default=None,
+        dest="destination_override",
+        help="Reinject messages to a different destination. Any name given must include the stomp prefix.",
+    )
+    parser.add_option(
         "-w",
         "--wait",
         default=None,
@@ -99,7 +107,11 @@ if __name__ == "__main__":
         if options.verbose:
             pprint(dlqmsg)
 
-        destination = dlqmsg["header"]["original-destination"].split("/", 2)
+        destination = (
+            dlqmsg["header"]
+            .get("original-destination", dlqmsg["header"]["destination"])
+            .split("/", 2)
+        )
         if destination[1] == "queue":
             print("sending...")
             send_function = stomp.send
@@ -110,6 +122,8 @@ if __name__ == "__main__":
             sys.exit("Cannot process message, unknown message mechanism")
         if redirect_live_to_testing and destination[2].startswith("zocalo."):
             destination[2] = destination[2].replace("zocalo.", "zocdev.", 1)
+        if options.destination_override:
+            destination[2] = options.destination_override
         header = dlqmsg["header"]
         for drop_field in (
             "content-length",

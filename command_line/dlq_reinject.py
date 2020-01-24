@@ -89,12 +89,12 @@ if __name__ == "__main__":
 
     first = True
     for dlqfile in args + stdin:
-        if not first and options.wait:
-            time.sleep(float(options.wait))
-        first = False
         if not os.path.exists(dlqfile):
             print("Ignoring missing file {}".format(dlqfile))
             continue
+        if not first and options.wait:
+            time.sleep(float(options.wait))
+        first = False
         with open(dlqfile, "r") as fh:
             dlqmsg = json.load(fh)
         print("Parsing message from {}".format(dlqfile))

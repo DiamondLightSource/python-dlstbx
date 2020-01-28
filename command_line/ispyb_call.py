@@ -13,7 +13,7 @@ from workflows.transport.stomp_transport import StompTransport
 # {
 #   "parameters": { "ispyb_command": "add_program_attachment" },
 #   "content": { "program_id": 67755667,
-#                "file_name": "xia2.error",
+#                "file_name": "xia2-error.txt",
 #                "file_path": "/full/path/to/an/existing/file",
 #                "file_type": "log"
 #              }

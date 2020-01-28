@@ -191,7 +191,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
                 allfiles.append(results_directory.join(f.basename))
 
         # Send results to various listeners
-        logfiles = ("xia2.html", "xia2.txt", "xia2.error")
+        logfiles = ("xia2.html", "xia2.txt", "xia2.error", "xia2-error.txt")
         for result_file in map(results_directory.join, logfiles):
             if result_file.check():
                 self.record_result_individual_file(
@@ -245,7 +245,9 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
                 xtriage_results = None
             if (
                 success
-                and not os.path.isfile("xia2.error")
+                and not (
+                    os.path.isfile("xia2-error.txt") or os.path.isfile("xia2.error")
+                )
                 and os.path.exists("xia2.json")
                 and not params.get("do_not_write_to_ispyb")
             ):

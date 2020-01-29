@@ -115,8 +115,10 @@ class DLSFileWatcher(CommonService):
         """
         Watch for a given list of files.
         """
+        chunk_start_time = time.time()
+
         # Check if message body contains partial results from a previous run
-        status = {"seen-files": 0, "start-time": time.time()}
+        status = {"seen-files": 0, "start-time": chunk_start_time}
         if isinstance(message, dict):
             status.update(message.get("filewatcher-status", {}))
 
@@ -178,6 +180,7 @@ class DLSFileWatcher(CommonService):
                 "All %d files in list found after %.1f seconds.",
                 filecount,
                 time.time() - status["start-time"],
+                extra={"chunk-time": time.time() - chunk_start_time},
             )
 
             rw.send_to(
@@ -268,6 +271,7 @@ class DLSFileWatcher(CommonService):
                     status["seen-files"],
                     filecount,
                     time.time() - status.get("last-seen", status["start-time"]),
+                    extra={"chunk-time": time.time() - chunk_start_time},
                 )
 
                 # Notify for timeout
@@ -318,7 +322,8 @@ class DLSFileWatcher(CommonService):
                     time=time.time() - status["start-time"],
                     files_seen=status["seen-files"],
                     files_total=filecount,
-                )
+                ),
+                extra={"chunk-time": time.time() - chunk_start_time},
             )
         else:
             # Otherwise note last time progress was made
@@ -330,6 +335,7 @@ class DLSFileWatcher(CommonService):
                 status["seen-files"],
                 filecount,
                 time.time() - status["start-time"],
+                extra={"chunk-time": time.time() - chunk_start_time},
             )
 
         # Send results to myself for next round of processing

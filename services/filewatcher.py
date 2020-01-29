@@ -343,8 +343,10 @@ class DLSFileWatcher(CommonService):
         Watch for files where the names follow a linear numeric pattern,
         eg. "template%05d.cbf" with indices 0 to 1800.
         """
+        chunk_start_time = time.time()
+
         # Check if message body contains partial results from a previous run
-        status = {"seen-files": 0, "start-time": time.time()}
+        status = {"seen-files": 0, "start-time": chunk_start_time}
         if isinstance(message, dict):
             status.update(message.get("filewatcher-status", {}))
 
@@ -410,7 +412,10 @@ class DLSFileWatcher(CommonService):
                 filecount,
             )
 
-            extra_log = {"delay": time.time() - status["start-time"]}
+            extra_log = {
+                "delay": time.time() - status["start-time"],
+                "chunk-time": time.time() - chunk_start_time,
+            }
             if rw.recipe_step["parameters"].get("expected-per-image-delay"):
                 # Estimate unexpected delay
                 try:
@@ -482,6 +487,7 @@ class DLSFileWatcher(CommonService):
                     time.time() - status["start-time"],
                     status["seen-files"],
                     time.time() - status.get("last-seen", status["start-time"]),
+                    extra={"chunk-time": time.time() - chunk_start_time},
                 )
 
                 # Notify for timeout
@@ -534,7 +540,8 @@ class DLSFileWatcher(CommonService):
                     pattern=rw.recipe_step["parameters"]["pattern"],
                     files_seen=status["seen-files"],
                     files_total=filecount,
-                )
+                ),
+                extra={"chunk-time": time.time() - chunk_start_time},
             )
         else:
             # Otherwise note last time progress was made
@@ -548,6 +555,7 @@ class DLSFileWatcher(CommonService):
                 status["seen-files"],
                 filecount,
                 time.time() - status["start-time"],
+                extra={"chunk-time": time.time() - chunk_start_time},
             )
 
         # Send results to myself for next round of processing

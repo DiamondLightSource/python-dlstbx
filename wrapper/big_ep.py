@@ -236,9 +236,9 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         except Exception:
             logger.debug("Failed to run sed command to update paths", exc_info=True)
 
-    def send_results_to_ispyb(self, working_directory):
+    def send_results_to_ispyb(self, results_directory):
         result = False
-        pipeline_paths = self.get_pipeline_paths(working_directory)
+        pipeline_paths = self.get_pipeline_paths(results_directory)
         for map_model_path in pipeline_paths:
             try:
                 f = self.get_map_model_from_json(map_model_path)
@@ -258,7 +258,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         js_settings = next(
             iter(
                 glob.glob(
-                    os.path.join(working_directory, "*", "*", "big_ep_settings.json")
+                    os.path.join(results_directory, "*", "*", "big_ep_settings.json")
                 )
             )
         )
@@ -361,4 +361,4 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             return result["exitcode"] == 0
         else:
             self.copy_results(working_directory.strpath, results_directory.strpath)
-            return self.send_results_to_ispyb(working_directory.strpath)
+            return self.send_results_to_ispyb(results_directory.strpath)

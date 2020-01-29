@@ -21,6 +21,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
         params = self.recwrap.recipe_step["job_parameters"]
 
         working_directory = py.path.local(params["working_directory"])
+        results_directory = py.path.local(params["results_directory"])
 
         working_directory.ensure(dir=True)
 
@@ -111,9 +112,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
 
         logger.debug("Generating HTML summary")
         html_template = tmpl_env.get_template("bigep_summary.html")
-        with open(
-            working_directory.join("bigep_summary_email.html").strpath, "w"
-        ) as fp:
+        with open(working_directory.join("bigep_report.html").strpath, "w") as fp:
             try:
                 summary_html = html_template.render(tmpl_data)
             except UndefinedError:
@@ -121,4 +120,27 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
                 return False
             fp.write(summary_html)
             bpu.send_html_email_message(summary_html, email_list, tmpl_data)
+
+        results_directory.ensure(dir=True)
+        logger.info("Copying big_ep report to %s", results_directory.strpath)
+        keep_ext = {
+            ".html": "log",
+            ".png": "log",
+        }
+        allfiles = []
+        for filename in working_directory.listdir():
+            filetype = keep_ext.get(filename.ext)
+            if filetype is None:
+                continue
+            destination = results_directory.join(filename.basename)
+            filename.copy(destination)
+            allfiles.append(destination.strpath)
+            if filetype:
+                self.record_result_individual_file(
+                    {
+                        "file_path": destination.dirname,
+                        "file_name": destination.basename,
+                        "file_type": filetype,
+                    }
+                )
         return True

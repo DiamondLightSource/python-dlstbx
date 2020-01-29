@@ -13,7 +13,7 @@ import os
 import smtplib
 import platform
 import getpass
-import subprocess
+import procrunner
 import tempfile
 
 import matplotlib as mpl
@@ -236,9 +236,11 @@ def get_map_model_from_json(json_path):
 
 
 def generate_model_snapshots(tmpl_env, tmpl_data):
-    root_wd = tmpl_data["big_ep_path"]
+    root_wd = tmpl_data["_root_wd"]
     paths = [
-        p for p in glob.glob(os.path.join(root_wd, "*", "*", "*")) if os.path.isdir(p)
+        p
+        for p in glob.glob(os.path.join(tmpl_data["big_ep_path"], "*", "*", "*"))
+        if os.path.isdir(p)
     ]
 
     try:
@@ -294,7 +296,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
             )
             f.write(coot_script)
 
-        with open(os.path.join(root_wd, coot_sh), "wt") as f:
+        with open(coot_sh, "wt") as f:
             f.write(
                 os.linesep.join(
                     [
@@ -311,10 +313,9 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
                 )
             )
 
-        subprocess.call(["sh", coot_sh])
-
+        procrunner.run(["sh", coot_sh], working_directory=root_wd)
         try:
-            with open("{}.png".format(img_name), "rb") as f:
+            with open(os.path.join(root_wd, "{}.png".format(img_name)), "rb") as f:
                 img_data = f.read()
                 tmpl_data["html_images"][img_name] = img_data
         except IOError:
@@ -395,9 +396,7 @@ def get_email_subject(log_file, visit):
 
     rel_pth = os.path.dirname(log_file).split(os.sep)
     idx_pp = next(i for i, v in enumerate(rel_pth) if "xia2" in v or "autoPROC" in v)
-    dataset_relpth = os.sep.join(
-        rel_pth[idx_pp - 2 : idx_pp + 2] + [os.path.basename(log_file)]
-    )
+    dataset_relpth = os.sep.join(rel_pth[idx_pp - 2 : idx_pp + 2])
     sub = "->".join([visit, dataset_relpth])
     return sub
 

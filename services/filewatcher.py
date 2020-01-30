@@ -162,10 +162,8 @@ class DLSFileWatcher(CommonService):
         """
         Watch for a given list of files.
         """
-        chunk_start_time = time.time()
-
         # Check if message body contains partial results from a previous run
-        status = {"seen-files": 0, "start-time": chunk_start_time}
+        status = {"seen-files": 0, "start-time": time.time()}
         if isinstance(message, dict):
             status.update(message.get("filewatcher-status", {}))
 
@@ -194,14 +192,20 @@ class DLSFileWatcher(CommonService):
         txn = rw.transport.transaction_begin()
         rw.transport.ack(header, transaction=txn)
 
+        # Keep a record of os.stat timings
+        os_stat_profiler = _Profiler()
+
         # Look for files
         files_found = 0
         while (
             status["seen-files"] < filecount
             and files_found < rw.recipe_step["parameters"].get("burst-limit", 100)
             and filelist[status["seen-files"]]
-            and os.path.isfile(filelist[status["seen-files"]])
         ):
+            with os_stat_profiler.record():
+                if not os.path.isfile(filelist[status["seen-files"]]):
+                    break
+
             files_found += 1
             status["seen-files"] += 1
 
@@ -227,7 +231,10 @@ class DLSFileWatcher(CommonService):
                 "All %d files in list found after %.1f seconds.",
                 filecount,
                 time.time() - status["start-time"],
-                extra={"chunk-time": time.time() - chunk_start_time},
+                extra={
+                    "stat-time-max": os_stat_profiler.max,
+                    "stat-time-mean": os_stat_profiler.mean,
+                },
             )
 
             rw.send_to(
@@ -318,7 +325,10 @@ class DLSFileWatcher(CommonService):
                     status["seen-files"],
                     filecount,
                     time.time() - status.get("last-seen", status["start-time"]),
-                    extra={"chunk-time": time.time() - chunk_start_time},
+                    extra={
+                        "stat-time-max": os_stat_profiler.max,
+                        "stat-time-mean": os_stat_profiler.mean,
+                    },
                 )
 
                 # Notify for timeout
@@ -370,7 +380,10 @@ class DLSFileWatcher(CommonService):
                     files_seen=status["seen-files"],
                     files_total=filecount,
                 ),
-                extra={"chunk-time": time.time() - chunk_start_time},
+                extra={
+                    "stat-time-max": os_stat_profiler.max,
+                    "stat-time-mean": os_stat_profiler.mean,
+                },
             )
         else:
             # Otherwise note last time progress was made
@@ -382,7 +395,10 @@ class DLSFileWatcher(CommonService):
                 status["seen-files"],
                 filecount,
                 time.time() - status["start-time"],
-                extra={"chunk-time": time.time() - chunk_start_time},
+                extra={
+                    "stat-time-max": os_stat_profiler.max,
+                    "stat-time-mean": os_stat_profiler.mean,
+                },
             )
 
         # Send results to myself for next round of processing
@@ -396,10 +412,8 @@ class DLSFileWatcher(CommonService):
         Watch for files where the names follow a linear numeric pattern,
         eg. "template%05d.cbf" with indices 0 to 1800.
         """
-        chunk_start_time = time.time()
-
         # Check if message body contains partial results from a previous run
-        status = {"seen-files": 0, "start-time": chunk_start_time}
+        status = {"seen-files": 0, "start-time": time.time()}
         if isinstance(message, dict):
             status.update(message.get("filewatcher-status", {}))
 
@@ -425,14 +439,18 @@ class DLSFileWatcher(CommonService):
         txn = rw.transport.transaction_begin()
         rw.transport.ack(header, transaction=txn)
 
+        # Keep a record of os.stat timings
+        os_stat_profiler = _Profiler()
+
         # Look for files
         files_found = 0
-        while (
-            status["seen-files"] < filecount
-            and files_found < rw.recipe_step["parameters"].get("burst-limit", 100)
-            and os.path.isfile(pattern % (pattern_start + status["seen-files"]))
-        ):
+        while status["seen-files"] < filecount and files_found < rw.recipe_step[
+            "parameters"
+        ].get("burst-limit", 100):
             filename = pattern % (pattern_start + status["seen-files"])
+            with os_stat_profiler.record():
+                if not os.path.isfile(filename):
+                    break
 
             files_found += 1
             status["seen-files"] += 1
@@ -467,7 +485,8 @@ class DLSFileWatcher(CommonService):
 
             extra_log = {
                 "delay": time.time() - status["start-time"],
-                "chunk-time": time.time() - chunk_start_time,
+                "stat-time-max": os_stat_profiler.max,
+                "stat-time-mean": os_stat_profiler.mean,
             }
             if rw.recipe_step["parameters"].get("expected-per-image-delay"):
                 # Estimate unexpected delay
@@ -540,7 +559,10 @@ class DLSFileWatcher(CommonService):
                     time.time() - status["start-time"],
                     status["seen-files"],
                     time.time() - status.get("last-seen", status["start-time"]),
-                    extra={"chunk-time": time.time() - chunk_start_time},
+                    extra={
+                        "stat-time-max": os_stat_profiler.max,
+                        "stat-time-mean": os_stat_profiler.mean,
+                    },
                 )
 
                 # Notify for timeout
@@ -594,7 +616,10 @@ class DLSFileWatcher(CommonService):
                     files_seen=status["seen-files"],
                     files_total=filecount,
                 ),
-                extra={"chunk-time": time.time() - chunk_start_time},
+                extra={
+                    "stat-time-max": os_stat_profiler.max,
+                    "stat-time-mean": os_stat_profiler.mean,
+                },
             )
         else:
             # Otherwise note last time progress was made
@@ -608,7 +633,10 @@ class DLSFileWatcher(CommonService):
                 status["seen-files"],
                 filecount,
                 time.time() - status["start-time"],
-                extra={"chunk-time": time.time() - chunk_start_time},
+                extra={
+                    "stat-time-max": os_stat_profiler.max,
+                    "stat-time-mean": os_stat_profiler.mean,
+                },
             )
 
         # Send results to myself for next round of processing

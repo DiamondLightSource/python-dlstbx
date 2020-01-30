@@ -4,6 +4,7 @@ import contextlib
 import os.path
 import time
 
+import six
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -121,7 +122,9 @@ class DLSFileWatcher(CommonService):
         """
         # Identify selections to notify for
         selections = [
-            k for k in outputs if isinstance(k, basestring) and k.startswith("select-")
+            k
+            for k in outputs
+            if isinstance(k, six.string_types) and k.startswith("select-")
         ]
         return {int(k[7:]): k for k in selections}
 

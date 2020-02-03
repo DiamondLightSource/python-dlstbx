@@ -6,22 +6,8 @@ import ispyb.model.__future__
 
 
 def check_test_outcome(test, db):
-
     failed_tests = []
-    all_programs = [
-        "fast_dp",
-        "xia2 3dii",
-        "xia2 dials",
-        "autoPROC",
-        "autoPROC+STARANISO",
-    ]
-
-    overall = {program: True for program in all_programs}
-
-    error_explanation = (
-        "{variable}: {value} outside range {expected}, program: {program}, DCID:{dcid}"
-    )
-
+    overall = {}
     expected_outcome = df.tests.get(test["scenario"], {}).get("results")
 
     if expected_outcome == {}:
@@ -34,43 +20,27 @@ def check_test_outcome(test, db):
         return
 
     for dcid in test["DCIDs"]:
-        outcomes = {program: {"success": None} for program in all_programs}
-
         data_collection = db.get_data_collection(dcid)
+        if data_collection.screenings:
+            outcomes = check_screening_outcomes(data_collection, expected_outcome)
+        else:
+            outcomes = check_integration_outcomes(data_collection, expected_outcome)
 
-        for integration in data_collection.integrations:
-            if integration.program.name not in outcomes:
-                continue
-            if outcomes[integration.program.name]["success"] is True:
-                continue
+        outcomes.update(check_pia_outcomes(data_collection, expected_outcome))
 
-            failure_reasons = []
-
-            if integration.unit_cell.a is None:
-                # No result registered, may still be running
-                continue
-
-            for variable in ("a", "b", "c", "alpha", "beta", "gamma"):
-                outcome = getattr(integration.unit_cell, variable)
-                if outcome is None or expected_outcome[variable] != outcome:
-                    failure_reasons.append(
-                        error_explanation.format(
-                            variable=variable,
-                            value=outcome,
-                            expected=expected_outcome[variable],
-                            program=integration.program.name,
-                            dcid=dcid,
+        for program in expected_outcome.get("required", []):
+            if program not in outcomes or outcomes[program]["success"] is None:
+                outcomes[program] = {
+                    "success": False,
+                    "reason": [
+                        "Expected result not present for program {program}, DCID:{dcid}".format(
+                            program=program, dcid=dcid
                         )
-                    )
-
-            if failure_reasons:
-                outcomes[integration.program.name]["success"] = False
-                outcomes[integration.program.name]["reason"] = failure_reasons
-            else:
-                outcomes[integration.program.name]["success"] = True
-                outcomes[integration.program.name]["reason"] = []
+                    ],
+                }
 
         for program in outcomes:
+            overall.setdefault(program, True)
             if outcomes[program]["success"] is False:
                 overall[program] = False
                 failed_tests.extend(outcomes[program]["reason"])
@@ -85,6 +55,125 @@ def check_test_outcome(test, db):
         test["success"] = True
 
     print(test)
+
+
+def check_screening_outcomes(data_collection, expected_outcome):
+    all_programs = [
+        "mosflm",
+        "Stepped transmission 1",
+        "XOalign",
+        "dials.align_crystal",
+        "EDNA MXv1",
+    ]
+    error_explanation = (
+        "{variable}: {value} outside range {expected}, program: {program}, DCID:{dcid}"
+    )
+    outcomes = {program: {"success": None} for program in all_programs}
+    for screening in data_collection.screenings:
+        if screening.program not in outcomes:
+            continue
+        if outcomes[screening.program]["success"]:
+            continue
+
+        failure_reasons = []
+
+        for screening_output in screening.outputs:
+            for lattice in screening_output.lattices:
+                results = {"spacegroup": lattice.spacegroup}
+                print(lattice.unit_cell)
+                for v in ("a", "b", "c", "alpha", "beta", "gamma"):
+                    results[v] = getattr(lattice.unit_cell, v)
+                for variable, outcome in results.iteritems():
+                    if outcome is None or expected_outcome[variable] != outcome:
+                        failure_reasons.append(
+                            error_explanation.format(
+                                variable=variable,
+                                value=outcome,
+                                expected=expected_outcome[variable],
+                                program=screening.program,
+                                dcid=data_collection.dcid,
+                            )
+                        )
+
+        if failure_reasons:
+            outcomes[screening.program]["success"] = False
+            outcomes[screening.program]["reason"] = failure_reasons
+        else:
+            outcomes[screening.program]["success"] = True
+            outcomes[screening.program]["reason"] = []
+
+    return outcomes
+
+
+def check_integration_outcomes(data_collection, expected_outcome):
+    all_programs = [
+        "fast_dp",
+        "xia2 3dii",
+        "xia2 dials",
+        "autoPROC",
+        "autoPROC+STARANISO",
+    ]
+    error_explanation = (
+        "{variable}: {value} outside range {expected}, program: {program}, DCID:{dcid}"
+    )
+    outcomes = {program: {"success": None} for program in all_programs}
+
+    for integration in data_collection.integrations:
+        if integration.program.name not in outcomes:
+            continue
+        if outcomes[integration.program.name]["success"] is True:
+            continue
+
+        failure_reasons = []
+
+        if integration.unit_cell.a is None:
+            # No result registered, may still be running
+            continue
+
+        for variable in ("a", "b", "c", "alpha", "beta", "gamma"):
+            outcome = getattr(integration.unit_cell, variable)
+            if outcome is None or expected_outcome[variable] != outcome:
+                failure_reasons.append(
+                    error_explanation.format(
+                        variable=variable,
+                        value=outcome,
+                        expected=expected_outcome[variable],
+                        program=integration.program.name,
+                        dcid=data_collection.dcid,
+                    )
+                )
+
+        if failure_reasons:
+            outcomes[integration.program.name]["success"] = False
+            outcomes[integration.program.name]["reason"] = failure_reasons
+        else:
+            outcomes[integration.program.name]["success"] = True
+            outcomes[integration.program.name]["reason"] = []
+
+    return outcomes
+
+
+def check_pia_outcomes(data_collection, expected_outcome):
+    error_explanation = "Expected PIA result count for {dcid}: {expected}, got {actual}"
+    expected_pia_count = expected_outcome.get(
+        "pia", min(data_collection.image_count, 200)
+    )
+    if len(data_collection.image_quality) == expected_pia_count:
+        outcomes = {"pia": {"success": True}}
+    else:
+        outcomes = {
+            "pia": {
+                "success": False,
+                "reason": [
+                    error_explanation.format(
+                        dcid=data_collection.dcid,
+                        expected=expected_pia_count,
+                        actual=len(data_collection.image_quality),
+                    )
+                ],
+            }
+        }
+    return outcomes
 
 
 if __name__ == "__main__":

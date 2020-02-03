@@ -65,7 +65,7 @@ class DLSNexusParser(CommonService):
             rw.send_to("every", {"file": filename}, transaction=txn)
 
         rw.set_default_channel("all")
-        rw.send_to("all", {"filelist": related}, transaction=txn)
+        rw.send_to("all", {"filelist": list(related)}, transaction=txn)
 
         self._transport.transaction_commit(txn)
         self.log.debug("Done.")

@@ -41,14 +41,28 @@ class DLSNexusParser(CommonService):
             rw.transport.nack(header)
             return
 
-        if not os.path.exists(root_file):
-            self.log.error("File %s not found", root_file)
-            rw.transport.nack(header)
-            return
-
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin()
         rw.transport.ack(header, transaction=txn)
+
+        error_expected = (
+            "run_status" in rw.recipe_step.get("parameters", {})
+            and rw.recipe_step["parameters"]["run_status"]
+            != "DataCollection Successful"
+        )
+
+        if not os.path.exists(root_file):
+            if error_expected:
+                self.log.info(
+                    "Ignoring missing file %s due to run status %r",
+                    root_file,
+                    rw.recipe_step["parameters"]["run_status"],
+                )
+            else:
+                self.log.error("File %s not found", root_file)
+                rw.send_to("error", "File %s not found" % root_file, transaction=txn)
+            self._transport.transaction_commit(txn)
+            return
 
         # Get list of all referenced files
         self.log.debug("Finding files related to %s", root_file)

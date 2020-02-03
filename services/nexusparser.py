@@ -54,7 +54,7 @@ class DLSNexusParser(CommonService):
         if not os.path.exists(root_file):
             if error_expected:
                 self.log.info(
-                    "Ignoring missing file %s due to run status %r",
+                    "Ignoring missing file %s due to run status '%s'",
                     root_file,
                     rw.recipe_step["parameters"]["run_status"],
                 )
@@ -102,7 +102,7 @@ class DLSNexusParser(CommonService):
                     != "DataCollection Successful"
                 ):
                     self.log.info(
-                        "Ignoring the following errors due to run status %r\n%s",
+                        "Ignoring the following errors due to run status '%s'\n%s",
                         rw.recipe_step["parameters"]["run_status"],
                         "\n".join(errors),
                     )

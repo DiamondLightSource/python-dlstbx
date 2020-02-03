@@ -67,7 +67,7 @@ class DLSNexusParser(CommonService):
                 expected_images = int(expected_images)
             except ValueError:
                 self.log.error(
-                    "Invalid number of expected images (%r)" % expected_images
+                    "Invalid number of expected images (%r)", expected_images
                 )
                 rw.transport.nack(header)
                 return
@@ -88,11 +88,9 @@ class DLSNexusParser(CommonService):
                     != "DataCollection Successful"
                 ):
                     self.log.info(
-                        "Ignoring the following errors due to run status %r\n%s"
-                        % (
-                            rw.recipe_step["parameters"]["run_status"],
-                            "\n".join(errors),
-                        )
+                        "Ignoring the following errors due to run status %r\n%s",
+                        rw.recipe_step["parameters"]["run_status"],
+                        "\n".join(errors),
                     )
                 else:
                     self.log.warning("\n".join(errors))
@@ -103,7 +101,7 @@ class DLSNexusParser(CommonService):
             rw.send_to("every", {"file": filename}, transaction=txn)
 
         rw.set_default_channel("all")
-        rw.send_to("all", {"filelist": list(related)}, transaction=txn)
+        rw.send_to("all", {"filelist": sorted(related)}, transaction=txn)
 
         self._transport.transaction_commit(txn)
         self.log.debug("Done.")

@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 from dlstbx.system_test.common import CommonSystemTest
 from workflows.recipe import Recipe
 
-imagepath = "/dls/science/groups/scisoft/DIALS/regression-test-data/vmxi-unknown-stuff/"
+imagepath = "/dls/mx/data/nt24686/nt24686-7/VMXi-AB5081/well_113/images/"
 
 
 class NexusParserService(CommonSystemTest):
@@ -22,7 +22,7 @@ class NexusParserService(CommonSystemTest):
                 "service": "DLS System Test",
                 "queue": "transient.system_test." + self.guid,
             },
-            "start": [(1, {"file": imagepath + "image_1424.nxs"})],
+            "start": [(1, {"file": imagepath + "image_27335_master.h5"})],
         }
         recipe = Recipe(recipe)
         recipe.validate()
@@ -45,14 +45,19 @@ class NexusParserService(CommonSystemTest):
             recipe_pointer=2,
             payload={
                 "filelist": sorted(
-                    [
-                        imagepath + "image_1424_data_000001.h5",
-                        imagepath + "image_1424_data_000002.h5",
-                        imagepath + "image_1424_data_000003.h5",
-                        imagepath + "image_1424_data_000004.h5",
-                        imagepath + "image_1424_meta.hdf5",
-                        imagepath + "image_1424.nxs",
-                    ]
+                    imagepath + filename
+                    for filename in (
+                        "image_27335_data_000001.h5",
+                        "image_27335_data_000002.h5",
+                        "image_27335_data_000003.h5",
+                        "image_27335_data_000004.h5",
+                        "image_27335_data_000005.h5",
+                        "image_27335_data_000006.h5",
+                        "image_27335_data_000007.h5",
+                        "image_27335_data_000008.h5",
+                        "image_27335_data_000009.h5",
+                        "image_27335_master.h5",
+                    )
                 )
             },
             timeout=120,

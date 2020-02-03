@@ -60,6 +60,31 @@ class DLSNexusParser(CommonService):
             return
         self.log.info("Found %d files related to %s", len(related), root_file)
 
+        expected_images = rw.recipe_step.get("parameters", {}).get("expected_images")
+        if expected_images is not None:
+            # Check all images are there
+            try:
+                expected_images = int(expected_images)
+            except ValueError:
+                self.log.error(
+                    "Invalid number of expected images (%r)" % expected_images
+                )
+                rw.transport.nack(header)
+                return
+            seen_images = sum(v if v is not None else 0 for v in related.values())
+            if seen_images != expected_images:
+                errors = [
+                    "Dataset contains %d images instead of expected %d images"
+                    % (seen_images, expected_images)
+                ]
+                for k in sorted(related):
+                    if related[k] is None:
+                        errors.append("File %s is invalid or missing" % k)
+                    else:
+                        errors.append("File %s contains %d images" % (k, related[k]))
+                self.log.warning("\n".join(errors))
+                rw.send_to("error", "\n".join(errors), transaction=txn)
+
         # Notify listeners
         for filename in related:
             rw.send_to("every", {"file": filename}, transaction=txn)

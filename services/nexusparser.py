@@ -82,8 +82,21 @@ class DLSNexusParser(CommonService):
                         errors.append("File %s is invalid or missing" % k)
                     else:
                         errors.append("File %s contains %d images" % (k, related[k]))
-                self.log.warning("\n".join(errors))
-                rw.send_to("error", "\n".join(errors), transaction=txn)
+                if (
+                    "run_status" in rw.recipe_step.get("parameters", {})
+                    and rw.recipe_step["parameters"]["run_status"]
+                    != "DataCollection Successful"
+                ):
+                    self.log.info(
+                        "Ignoring the following errors due to run status %r\n%s"
+                        % (
+                            rw.recipe_step["parameters"]["run_status"],
+                            "\n".join(errors),
+                        )
+                    )
+                else:
+                    self.log.warning("\n".join(errors))
+                    rw.send_to("error", "\n".join(errors), transaction=txn)
 
         # Notify listeners
         for filename in related:

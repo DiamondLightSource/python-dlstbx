@@ -37,7 +37,8 @@ def make_dummy_db_and_test_dictionary(beamline, scenario, results):
 
     result_mocks = {}
     for dcid, dcid_results in results.items():
-        result_mocks[dcid] = mock.Mock()
+        result_mocks[dcid] = mock.Mock(spec=["integrations"])
+        result_mocks[dcid].dcid = dcid
         result_mocks[dcid].integrations = []
         for program, success in dcid_results:
             m = mock.Mock()

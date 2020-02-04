@@ -26,7 +26,8 @@ def check_test_outcome(test, db):
         else:
             outcomes = check_integration_outcomes(data_collection, expected_outcome)
 
-        outcomes.update(check_pia_outcomes(data_collection, expected_outcome))
+        if getattr(data_collection, "image_count", None):
+            outcomes.update(check_pia_outcomes(data_collection, expected_outcome))
 
         for program in expected_outcome.get("required", []):
             if program not in outcomes or outcomes[program]["success"] is None:

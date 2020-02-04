@@ -142,6 +142,83 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
+    def trigger_ep_predict(self, rw, header, parameters, **kwargs):
+        dcid = parameters("dcid")
+        if not dcid:
+            self.log.error("ep_predict trigger failed: No DCID specified")
+            return False
+
+        diffraction_plan_info = parameters("diffraction_plan_info")
+        if not diffraction_plan_info:
+            self.log.info(
+                "Skipping ep_predict trigger: diffraction plan information not available"
+            )
+            return {"success": True}
+        try:
+            anom_scatterer = diffraction_plan_info["anomalousscatterer"]
+            if not anom_scatterer:
+                self.log.info(
+                    "Skipping ep_predict trigger: No anomalous scatterer specified"
+                )
+                return {"success": True}
+        except Exception:
+            self.log.info(
+                "Skipping ep_predict trigger: Cannot read anomalous scatterer setting"
+            )
+            return {"success": True}
+
+        dc_info = self.ispyb.get_data_collection(dcid)
+        jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+        jisp["datacollectionid"] = dcid
+        jisp["start_image"] = dc_info.image_start_number
+        jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = bool(parameters("automatic"))
+        jp["comments"] = parameters("comment")
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "ep_predict"
+        jp["recipe"] = "postprocessing-ep-predict"
+        jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+        self.log.debug("ep_predict trigger: generated JobID {}".format(jobid))
+
+        ep_parameters = {
+            "data": parameters("data"),
+            "threshold": parameters("threshold"),
+        }
+
+        for key, value in ep_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+            self.log.debug(
+                "ep_predict trigger: generated JobParameterID {}".format(jppid)
+            )
+
+        jisp["job_id"] = jobid
+        jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
+        self.log.debug(
+            "ep_predict trigger: generated JobImageSweepID {}".format(jispid)
+        )
+
+        self.log.debug("ep_predict trigger: Processing job {} created".format(jobid))
+
+        message = {
+            "parameters": {
+                "ispyb_process": jobid,
+                "data": parameters("data"),
+                "threshold": parameters("threshold"),
+            },
+            "recipes": [],
+        }
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info("ep_predict trigger: Processing job {} triggered".format(jobid))
+
+        return {"success": True, "return_value": jobid}
+
     def trigger_fast_ep(self, rw, header, parameters, **kwargs):
         dcid = parameters("dcid")
         if not dcid:

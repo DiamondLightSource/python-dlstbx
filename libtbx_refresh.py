@@ -43,7 +43,7 @@ for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
     fid.close()
     try:
         parsetree = ast.parse(content)
-    except Exception as e:
+    except Exception:
         print("  *** Could not parse %s" % name)
         continue
     for top_level_def in parsetree.body:
@@ -73,6 +73,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "dimple = dlstbx.wrapper.dimple:DimpleWrapper",
     "dozor = dlstbx.wrapper.dozor:DozorWrapper",
     "edna = dlstbx.wrapper.edna:EdnaWrapper",
+    "ep_predict = dlstbx.wrapper.ep_predict:EPPredictWrapper",
     "fast_dp = dlstbx.wrapper.fast_dp:FastDPWrapper",
     "fast_ep = dlstbx.wrapper.fast_ep:FastEPWrapper",
     "fast_rdp = dlstbx.wrapper.fast_rdp:FastRDPWrapper",

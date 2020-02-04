@@ -151,7 +151,7 @@ if __name__ == "__main__":
             json_str = json.dumps(d, indent=2)
             print(json_str)
             if options.outfile:
-                with open(options.outfile, "wb") as f:
+                with open(options.outfile, "w") as f:
                     f.write(json_str)
         else:
             pprint.pprint(parameters)

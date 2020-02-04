@@ -212,25 +212,55 @@ if __name__ == "__main__":
         def readable_memory(value):
             return "{:.1f} MB".format(value / 1024 / 1024)
 
+        connections = amq.getConnectionsCount()
+        memory = amq.getMemoryPercentUsage()
+        store = amq.getStorePercentUsage()
+        temp = amq.getTempPercentUsage()
+        heapused = amq.getHeapMemoryUsed()
+        heapmax = amq.getHeapMemoryMaximum()
+        nonheapused = amq.getNonHeapMemoryUsed()
+
+        def colour(value, warnlevel, errlevel):
+            if not sys.stdout.isatty():
+                return ""
+            if value < warnlevel:
+                return ColorStreamHandler.GREEN
+            elif value < errlevel:
+                return ColorStreamHandler.YELLOW + ColorStreamHandler.BOLD
+            else:
+                return ColorStreamHandler.RED + ColorStreamHandler.BOLD
+
+        def colourreset():
+            if not sys.stdout.isatty():
+                return ""
+            return ColorStreamHandler.DEFAULT
+
         print(
             """
-ActiveMQ connections: {connections}
+ActiveMQ connections: {colourconn}{connections}{reset}
 
 Storage statistics:
-   persistent:{store:>3} %
-   temporary :{temp:>3} %
-   memory    :{memory:>3} %
+   persistent:{colourstore}{store:>3} %{reset}
+   temporary :{colourtemp}{temp:>3} %{reset}
+   memory    :{colourmemory}{memory:>3} %{reset}
 
 Virtual machine memory statistics:
-   heap: using {heapused} of {heapmax}
-   used memory outside of heap: {nonheapused}
+   heap: using {colourheap}{heapused}{reset} of {heapmax}
+   used memory outside of heap: {colournonheap}{nonheapused}{reset}
 """.format(
-                connections=amq.getConnectionsCount(),
-                store=amq.getStorePercentUsage(),
-                temp=amq.getTempPercentUsage(),
-                memory=amq.getMemoryPercentUsage(),
-                heapused=readable_memory(amq.getHeapMemoryUsed()),
-                heapmax=readable_memory(amq.getHeapMemoryMaximum()),
-                nonheapused=readable_memory(amq.getNonHeapMemoryUsed()),
+                connections=connections,
+                store=store,
+                temp=temp,
+                memory=memory,
+                heapused=readable_memory(heapused),
+                heapmax=readable_memory(heapmax),
+                nonheapused=readable_memory(nonheapused),
+                reset=colourreset(),
+                colourconn=colour(connections, 400, 600),
+                colourstore=colour(store, 10, 30),
+                colourtemp=colour(temp, 10, 30),
+                colourmemory=colour(memory, 10, 30),
+                colourheap=colour(heapused / heapmax, 0.5, 0.9),
+                colournonheap=colour(nonheapused, 110 * 1024 * 1024, 200 * 1024 * 1024),
             )
         )

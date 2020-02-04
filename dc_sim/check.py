@@ -21,7 +21,7 @@ def check_test_outcome(test, db):
 
     for dcid in test["DCIDs"]:
         data_collection = db.get_data_collection(dcid)
-        if data_collection.screenings:
+        if getattr(data_collection, "screenings", None):
             outcomes = check_screening_outcomes(data_collection, expected_outcome)
         else:
             outcomes = check_integration_outcomes(data_collection, expected_outcome)
@@ -158,7 +158,9 @@ def check_pia_outcomes(data_collection, expected_outcome):
     expected_pia_count = expected_outcome.get(
         "pia", min(data_collection.image_count, 200)
     )
-    if len(data_collection.image_quality) == expected_pia_count:
+    if not hasattr(data_collection, "image_quality"):
+        outcomes = {}
+    elif len(data_collection.image_quality) == expected_pia_count:
         outcomes = {"pia": {"success": True}}
     else:
         outcomes = {

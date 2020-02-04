@@ -100,6 +100,16 @@ if __name__ == "__main__":
         default=None,
         help="A recipe pointer to output a recipe wrapper.",
     )
+    parser.add_option(
+        "-o",
+        "--out",
+        dest="outfile",
+        metavar="FILE",
+        action="store",
+        type="string",
+        default="",
+        help="Output file for the filled-in recipe.",
+    )
     (options, args) = parser.parse_args(sys.argv[1:])
 
     _ispybtbx_instance = None
@@ -138,7 +148,11 @@ if __name__ == "__main__":
                 }
             else:
                 d = recipe.recipe
-            print(json.dumps(d, indent=2))
+            json_str = json.dumps(d, indent=2)
+            print(json_str)
+            if options.outfile:
+                with open(options.outfile, "wb") as f:
+                    f.write(json_str)
         else:
             pprint.pprint(parameters)
         if message.get("default_recipe"):

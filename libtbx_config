@@ -3,7 +3,6 @@
     "modules_required_for_use": [],
     "optional_modules": [],
     "python_required": [
-        "colorama",  # is still used in one place
         "drmaa",
         "ispyb>=5.6,<5.7",
         "junit_xml",

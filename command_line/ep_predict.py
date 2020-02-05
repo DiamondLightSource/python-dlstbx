@@ -8,6 +8,15 @@ def run(model_file, output_file, threshold, metrics):
     with open(model_file, "rb") as fp:
         classifier_data = joblib.load(fp)
 
+    xia2_metric_labels = [
+        "Low resolution limit",
+        "Anomalous slope",
+        "Anomalous correlation",
+        "dI/s(dI)",
+        "dF/F",
+        'f"',
+    ]
+
     df = array([metrics,])
     pred_proba = classifier_data.predict_proba(df)
     pred_class = 1 if pred_proba[0][1] > threshold else 0
@@ -19,6 +28,7 @@ def run(model_file, output_file, threshold, metrics):
                 "failure": func_round(pred_proba[0][0]),
                 "threshold": func_round(threshold),
                 "class": pred_class,
+                "metrics": dict(zip(xia2_metric_labels, metrics)),
             },
             fp,
         )

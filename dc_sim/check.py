@@ -157,7 +157,7 @@ def check_integration_outcomes(data_collection, expected_outcome):
 def check_pia_outcomes(data_collection, expected_outcome):
     error_explanation = "Expected PIA result count for {dcid}: {expected}, got {actual}"
     expected_pia_count = expected_outcome.get(
-        "pia", min(data_collection.image_count, 200)
+        "pia", min(data_collection.image_count, 250)
     )
     if not hasattr(data_collection, "image_quality"):
         outcomes = {}

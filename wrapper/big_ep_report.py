@@ -80,19 +80,26 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
 
         logger.debug("Reading PIA results from ISPyB")
         try:
-            from dlstbx.ispybtbx import ispybtbx
+            import ispyb
+            import ispyb.model.__future__
 
-            ispyb_conn = ispybtbx()
-            pia_results = ispyb_conn.get_pia_results(
-                [dcid],
-                [
-                    "imagenumber AS nim",
-                    "method2res AS res",
-                    "spottotal AS spots",
-                    "goodbraggcandidates AS good",
-                ],
-            )[1]
-            bpu.get_pia_plot(tmpl_data, pia_results)
+            ispyb.model.__future__.enable(
+                "/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg"
+            )
+
+            with ispyb.open(
+                "/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg"
+            ) as ispyb_conn:
+                dc = ispyb_conn.get_data_collection(dcid)
+                image_quality = list(dc.image_quality)
+                image_number = [iqi.image_number for iqi in image_quality]
+                resolution = [iqi.resolution_method_2 for iqi in image_quality]
+                spot_count = [iqi.spot_count for iqi in image_quality]
+                bragg_candidates = [iqi.bragg_candidates for iqi in image_quality]
+
+            bpu.get_pia_plot(
+                tmpl_data, image_number, resolution, spot_count, bragg_candidates
+            )
         except Exception:
             logger.debug("Exception raised while composing PIA report", exc_info=True)
 
@@ -123,10 +130,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
 
         results_directory.ensure(dir=True)
         logger.info("Copying big_ep report to %s", results_directory.strpath)
-        keep_ext = {
-            ".html": "log",
-            ".png": "log",
-        }
+        keep_ext = {".html": "log", ".png": "log"}
         allfiles = []
         for filename in working_directory.listdir():
             filetype = keep_ext.get(filename.ext)

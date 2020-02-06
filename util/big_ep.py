@@ -323,10 +323,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
         tmpl_data["model_data"].update({tag_name: mdl_data["data"]})
 
 
-def get_pia_plot(tmpl_data, pia_results):
-
-    img, resol, spots, good_spots = zip(*pia_results)
-
+def get_pia_plot(tmpl_data, image_number, resolution, spot_count, bragg_candidates):
     fig, ax1 = plt.subplots()
     ax1.set_xlabel("Image number")
     ax1.set_ylabel("Number of spots")
@@ -334,13 +331,22 @@ def get_pia_plot(tmpl_data, pia_results):
     ax2 = ax1.twinx()
     ax2.set_ylabel("Resolution")
 
-    plt_spots = ax1.scatter(img, spots, c="r", s=75, alpha=0.7, label="Found spots")
-    plt_good = ax1.scatter(
-        img, good_spots, c="g", s=75, alpha=0.7, label="Good Bragg candidates"
+    plt_spots = ax1.scatter(
+        image_number, spot_count, c="r", s=75, alpha=0.7, label="Found spots"
     )
-    plt_resol = ax2.scatter(img, resol, c="b", s=75, alpha=0.7, label="Resolution")
+    plt_good = ax1.scatter(
+        image_number,
+        bragg_candidates,
+        c="g",
+        s=75,
+        alpha=0.7,
+        label="Good Bragg candidates",
+    )
+    plt_resol = ax2.scatter(
+        image_number, resolution, c="b", s=75, alpha=0.7, label="Resolution"
+    )
 
-    ax1.set_xlim([min(img), max(img)])
+    ax1.set_xlim([min(image_number), max(image_number)])
     ax2.invert_yaxis()
 
     ax1.legend(

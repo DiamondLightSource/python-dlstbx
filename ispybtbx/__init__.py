@@ -172,24 +172,6 @@ class ispybtbx(object):
         result = results[0][0]
         return result
 
-    def get_pia_results(self, dc_ids, columns=None):
-        if columns is not None:
-            select_str = ", ".join(c for c in columns)
-        else:
-            select_str = "*"
-        sql_str = """
-SELECT %s
-FROM ImageQualityIndicators
-WHERE ImageQualityIndicators.dataCollectionId IN (%s)
-;
-""" % (
-            select_str,
-            ",".join(str(i) for i in dc_ids),
-        )
-        results = self.execute(sql_str)
-        field_names = [i[0] for i in self._cursor.description]
-        return field_names, results
-
     def get_dc_group(self, dc_id):
         # someone should learn how to use SQL JOIN here
         groups = self.execute(

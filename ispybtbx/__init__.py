@@ -555,53 +555,6 @@ WHERE
         rest = directory[len(visit) + 1 :]
         return os.path.join(visit, "processed", rest, prefix, dc_info["uuid"])
 
-    def get_screening_results(self, dc_ids, columns=None):
-        if columns is not None:
-            select_str = ", ".join(c for c in columns)
-        else:
-            select_str = "*"
-        sql_str = (
-            """
-SELECT %s
-FROM Screening
-INNER JOIN ScreeningOutput
-ON Screening.screeningID = ScreeningOutput.screeningID
-INNER JOIN ScreeningOutputLattice
-ON ScreeningOutput.screeningOutputID = ScreeningOutputLattice.screeningOutputID
-INNER JOIN ScreeningStrategy
-ON ScreeningOutput.screeningOutputID = ScreeningStrategy.screeningOutputID
-INNER JOIN ScreeningStrategyWedge
-ON ScreeningStrategy.screeningStrategyID = ScreeningStrategyWedge.screeningStrategyID
-INNER JOIN ScreeningStrategySubWedge
-ON ScreeningStrategyWedge.screeningStrategyWedgeID = ScreeningStrategySubWedge.screeningStrategyWedgeID
-"""
-            % select_str
-        )
-        if columns is not None:
-            for c in columns:
-                if c.startswith("ScreeningStrategySubWedge"):
-                    sql_str += """\
-INNER JOIN ScreeningStrategySubWedge
-ON ScreeningStrategyWedge.screeningStrategyWedgeID = ScreeningStrategySubWedge.screeningStrategyWedgeID
-"""
-                    break
-            for c in columns:
-                if c.startswith("ScreeningOutputLattice"):
-                    sql_str += """\
-INNER JOIN ScreeningOutputLattice
-ON ScreeningOutput.screeningOutputID = ScreeningOutputLattice.screeningOutputID
-"""
-                    break
-        sql_str += """\
-WHERE Screening.dataCollectionID IN (%s)
-;
-""" % ",".join(
-            str(i) for i in dc_ids
-        )
-        results = self.execute(sql_str)
-        field_names = [i[0] for i in self._cursor.description]
-        return field_names, results
-
     def get_processing_statistics(
         self, dc_ids, columns=None, statistics_type="overall"
     ):

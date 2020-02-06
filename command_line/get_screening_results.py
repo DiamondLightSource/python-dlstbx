@@ -1,32 +1,32 @@
 from __future__ import absolute_import, division, print_function
+import ispyb.model.datacollection
+import ispyb.model.screening
+import ispyb.model.__future__
+
+ispyb.model.__future__.enable("/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg")
 
 
 def run(args):
-    from dlstbx.ispybtbx import ispybtbx
+    with ispyb.open(
+        "/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg"
+    ) as ispyb_conn:
+        dcids = [int(arg) for arg in args]
 
-    ispyb_conn = ispybtbx()
-
-    assert len(args) > 0
-    dc_ids = []
-    columns = []
-    for arg in args:
-        try:
-            dc_ids.append(int(arg))
-        except ValueError:
-            columns.append(arg)
-
-    if len(columns) == 0:
-        columns = None
-    elif len(dc_ids) > 1:
-        columns.insert(0, "Screening.dataCollectionID")
-
-    field_names, rows = ispyb_conn.get_screening_results(dc_ids, columns=columns)
-    rows = [[str(i) for i in r] for r in rows]
-    rows.insert(0, field_names)
-
-    from libtbx import table_utils
-
-    print(table_utils.format(rows=rows, has_header=True))
+        for dcid in dcids:
+            dc = ispyb_conn.get_data_collection(dcid)
+            for screening in dc.screenings:
+                print(screening)
+                for screening_output in screening.outputs:
+                    print(screening_output)
+                    for lattice in screening_output.lattices:
+                        print(lattice)
+                    for strategy in screening_output.strategies:
+                        print(strategy)
+                        for wedge in strategy.wedges:
+                            print(wedge)
+                            for sub_wedge in wedge.sub_wedges:
+                                print(sub_wedge)
+                print()
 
 
 if __name__ == "__main__":

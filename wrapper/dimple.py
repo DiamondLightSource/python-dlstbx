@@ -103,9 +103,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                     blobparam["view1"] = "blob{}v1.png".format(n)
                     blobparam["view2"] = "blob{}v2.png".format(n)
                     blobparam["view3"] = "blob{}v3.png".format(n)
-                    mrblob_id = conn.mx_processing.upsert_run_blob(
-                        list(blobparam.values())
-                    )
+                    conn.mx_processing.upsert_run_blob(list(blobparam.values()))
         return True
 
     def run(self):
@@ -173,19 +171,20 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             working_directory=self.working_directory.strpath,
             timeout=self.params.get("timeout"),
         )
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("dimple successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "dimple failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
 
         # Hack to workaround dimple returning successful exitcode despite 'Giving up'
-        if "Giving up" in result["stdout"]:
-            result["exitcode"] = 1
-
-        logger.info("command: %s", " ".join(result["command"]))
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("time_start: %s", result["time_start"])
-        logger.info("time_end: %s", result["time_end"])
-        logger.info("runtime: %s", result["runtime"])
-        logger.info("exitcode: %s", result["exitcode"])
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
+        success = "Giving up" not in result["stdout"]
 
         logger.info("Copying DIMPLE results to %s", self.results_directory.strpath)
         self.results_directory.ensure(dir=True)
@@ -208,12 +207,9 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                 continue
             f.copy(self.results_directory)
 
-        if result["exitcode"] == 0:
+        if success:
             logger.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()
-        else:
-            logger.info("dimple failed: %s/dimple.log" % self.working_directory)
-            success = False
 
         # Update SynchWeb tick hack file
         if self.params.get("synchweb_ticks") and self.params.get(

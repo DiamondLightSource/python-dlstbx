@@ -109,24 +109,20 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
                 working_directory=working_directory.strpath,
                 timeout=params.get("timeout"),
             )
-            logger.info("command: %s", " ".join(result["command"]))
-            logger.info("time_start: %s", result["time_start"])
-            logger.info("time_end: %s", result["time_end"])
-            logger.info("runtime: %s", result["runtime"])
-            if result["exitcode"] or result["timeout"]:
-                logger.info("timeout: %s", result["timeout"])
-                logger.info("exitcode: %s", result["exitcode"])
-                logger.debug(result["stdout"])
-                logger.debug(result["stderr"])
-
+            success = not result["exitcode"] and not result["timeout"]
             hklout = py.path.local(params["mrbump"]["command"]["hklout"])
             xyzout = py.path.local(params["mrbump"]["command"]["xyzout"])
-            if hklout.check() and xyzout.check():
-                fp.write("Looks like MrBUMP succeeded")
-                res = True
+            success = success and hklout.check() and xyzout.check()
+            if success:
+                logger.info("mrbump successful, took %.1f seconds", result["runtime"])
             else:
-                fp.write("Looks like MrBUMP failed")
-                res = False
+                logger.info(
+                    "mrbump failed with exitcode %s and timeout %s",
+                    result["exitcode"],
+                    result["timeout"],
+                )
+                logger.debug(result["stdout"])
+                logger.debug(result["stderr"])
 
         logger.info("Copying MrBUMP results to %s", results_directory.strpath)
         keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}
@@ -147,4 +143,4 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
                     }
                 )
 
-        return res
+        return success

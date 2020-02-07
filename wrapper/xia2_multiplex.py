@@ -153,20 +153,26 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
 
         # run xia2.multiplex in working directory
 
+        logger.info("command: %s", " ".join(command))
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
             working_directory=working_directory.strpath,
         )
-
-        logger.info("command: %s", " ".join(result["command"]))
-        if result["exitcode"] or result["timeout"]:
-            logger.info("exitcode: %s", result["exitcode"])
-            logger.info("timeout: %s", result["timeout"])
-            logger.info(result["stdout"])
-            logger.info(result["stderr"])
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info(
+                "xia2.multiplex successful, took %.1f seconds", result["runtime"]
+            )
+        else:
+            logger.info(
+                "xia2.multiplex failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
         logger.info("working_directory: %s", working_directory.strpath)
-        logger.debug("runtime: %s", result["runtime"])
 
         json_file = working_directory.join("iotbx-merging-stats.json")
         scaled_unmerged_mtz = working_directory.join("scaled_unmerged.mtz")
@@ -297,4 +303,4 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
-        return result["exitcode"] == 0
+        return success

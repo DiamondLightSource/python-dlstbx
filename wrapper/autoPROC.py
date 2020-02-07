@@ -457,11 +457,18 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             working_directory=working_directory.strpath,
         )
 
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("runtime: %s", result["runtime"])
-        logger.info("exitcode: %s", result["exitcode"])
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("autoPROC successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "autoPROC failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
+
         working_directory.join("autoPROC.log").write(result["stdout"])
 
         # cd $jobdir
@@ -472,7 +479,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         # echo "Attempting to add history to mtz files"
         # find $jobdir -name '*.mtz' -exec /dls_sw/apps/mx-scripts/misc/AddHistoryToMTZ.sh $Beamline $Visit {} $2 autoPROC \;
 
-        if not result["exitcode"]:
+        if success:
             json_file = working_directory.join("iotbx-merging-stats.json")
             scaled_unmerged_mtz = working_directory.join("aimless_unmerged.mtz")
             if scaled_unmerged_mtz.check():
@@ -556,22 +563,18 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
-        if not result["exitcode"]:
-            send_results = self.send_results_to_ispyb(autoproc_xml)
-            if not send_results:
-                result["exitcode"] = 1
-        if not result["exitcode"] and staraniso_xml:
-            send_results = self.send_results_to_ispyb(
+        if success:
+            success = self.send_results_to_ispyb(autoproc_xml)
+        if success and staraniso_xml:
+            success = self.send_results_to_ispyb(
                 staraniso_xml,
                 special_program_name="autoPROC+STARANISO",
                 attachments=anisofiles,
             )
-            if not send_results:
-                result["exitcode"] = 1
 
         # Update SynchWeb ticks hack file.
         if params.get("synchweb_ticks"):
-            if result["exitcode"] == 0:
+            if success:
                 logger.debug("Setting SynchWeb status to success")
                 py.path.local(params["synchweb_ticks"]).write(
                     """
@@ -593,4 +596,4 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             """
                 )
 
-        return result["exitcode"] == 0
+        return success

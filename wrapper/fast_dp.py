@@ -141,7 +141,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             environment["FORKXDS_PROJECT"] = params["forkxds_project"]
 
         # run fast_dp in working directory
-        logger.info("Running command: %s", " ".join(command))
+        logger.info("command: %s", " ".join(command))
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
@@ -153,16 +153,19 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             # fast_dp anomaly: exit code 0 and no stderr output still means failure if error file exists
             result["exitcode"] = 1
 
-        if result["timeout"]:
-            logger.info("timeout: %s", result["timeout"])
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("fast_dp successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "fast_dp failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
 
-        logger.info(
-            "fast_dp ran for %.1f seconds and returned exitcode %s",
-            result["runtime"],
-            result["exitcode"],
-        )
-
-        if result["exitcode"] == 0:
+        if success:
             command = [
                 "xia2.report",
                 "log_include=%s" % working_directory.join("fast_dp.log").strpath,
@@ -177,11 +180,19 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
                 timeout=params.get("timeout"),
                 working_directory=working_directory.strpath,
             )
-            logger.info(
-                "xia2.report ran for %.1f seconds and returned exitcode %s",
-                result["runtime"],
-                result["exitcode"],
-            )
+            success = not result["exitcode"] and not result["timeout"]
+            if success:
+                logger.info(
+                    "xia2.report successful, took %.1f seconds", result["runtime"]
+                )
+            else:
+                logger.info(
+                    "xia2.report failed with exitcode %s and timeout %s",
+                    result["exitcode"],
+                    result["timeout"],
+                )
+                logger.debug(result["stdout"])
+                logger.debug(result["stderr"])
 
             json_file = working_directory.join("iotbx-merging-stats.json")
             with json_file.open("wb") as fh:
@@ -190,9 +201,6 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
                         str(working_directory.join("fast_dp_unmerged.mtz").strpath)
                     ).as_json()
                 )
-
-        if working_directory.join("fast_dp.error").check():
-            result["exitcode"] = 1
 
         # Create results directory and symlink if they don't already exist
         results_directory.ensure(dir=True)
@@ -253,7 +261,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             self.record_result_all_files({"filelist": allfiles})
 
         # Forward JSON results if possible
-        if working_directory.join("fast_dp.json").check():
+        if success and working_directory.join("fast_dp.json").check():
             with working_directory.join("fast_dp.json").open("rb") as fh:
                 json_data = json.load(fh)
             if (
@@ -265,9 +273,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             else:
                 xtriage_results = None
             self.send_results_to_ispyb(json_data, xtriage_results=xtriage_results)
-        elif result["exitcode"]:
-            logger.info("fast_dp failed to process the dataset")
-        else:
+        elif success:
             logger.warning("Expected JSON output file missing")
 
-        return result["exitcode"] == 0
+        return success

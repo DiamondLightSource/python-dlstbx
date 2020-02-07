@@ -167,20 +167,22 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
             timeout=params.get("timeout", 3600),
         )
         logger.info("command: %s", " ".join(result["command"]))
-        if result["exitcode"]:
-            logger.error(
-                "image conversion hdf5->cbf failed with:\n{result[stderr]}".format(
-                    result=result
-                )
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info(
+                "dxtbx.dlsnxs2cbf successful, took %.1f seconds", result["runtime"]
             )
-            return False
-        if result["timeout"]:
-            logger.error("image conversion failed with timeout".format(result=result))
-            return False
-        logger.info("runtime: %s", result["runtime"])
+        else:
+            logger.error(
+                "dxtbx.dlsnxs2cbf failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
         params["orig_image_directory"] = params["image_directory"]
         params["image_directory"] = tmpdir.strpath
-        return True
+        return success
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -200,23 +202,28 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
         working_directory.ensure(dir=True)
 
         # run dlstbx.align_crystal in working directory
-        logger.info("running command: %s", " ".join(command))
+        logger.info("command: %s", " ".join(command))
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
             working_directory=working_directory.strpath,
         )
-        if result["exitcode"]:
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
             logger.info(
-                "dlstbx.align_crystal failed with:\n{result[stderr]}".format(
-                    result=result
-                )
+                "dlstbx.align_crystal successful, took %.1f seconds", result["runtime"]
             )
-            return False
-        if result["timeout"]:
-            logger.info("dlstbx.align_crystal failed with timeout")
-            return False
-        logger.info("runtime: %s", result["runtime"])
+        else:
+            logger.info(
+                "dlstbx.align_crystal failed with exitcode %s and timeout %s:\n{result[stderr]}".format(
+                    result=result
+                ),
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
+            return
 
         # Create results directory and symlink if they don't already exist
         results_directory.ensure(dir=True)
@@ -264,4 +271,4 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
         else:
             logger.warning("Expected JSON output file missing")
 
-        return result["exitcode"] == 0
+        return success

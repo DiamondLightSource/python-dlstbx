@@ -29,7 +29,8 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
         if params["image_template"].endswith(".h5"):
             edna_module = "edna/mx-20190213-auto"
             complexity = "min"
-            self.hdf5_to_cbf()
+            if not self.hdf5_to_cbf():
+                return False
         else:
             self.generate_modified_headers()
             edna_module = "edna/20140709-auto"
@@ -129,15 +130,17 @@ edna-plugin-launcher \
                 "_LMFILES_": "",
             },
         )
-        logger.info(
-            "EDNA terminated after %.1f seconds with exitcode %s and timeout %s",
-            result["runtime"],
-            result["exitcode"],
-            result["timeout"],
-        )
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
         success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("EDNA successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "EDNA failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
 
         # generate two different html pages
         # not sure which if any of these are actually used/required
@@ -166,15 +169,17 @@ edna-plugin-launcher \
                 "_LMFILES_": "",
             },
         )
-        logger.info(
-            "EDNA2HTML terminated after %.1f seconds with exitcode %s and timeout %s",
-            result["runtime"],
-            result["exitcode"],
-            result["timeout"],
-        )
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
-        success = success and not result["exitcode"] and not result["timeout"]
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("EDNA2html successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "EDNA2html failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
 
         self.edna2html(edna2html_home, results_xml)
 
@@ -217,14 +222,22 @@ edna-plugin-launcher \
             working_directory=tmpdir,
             timeout=params.get("timeout", 3600),
         )
-        logger.info(
-            "EDNA snowflake conversion terminated after %.1f seconds with exitcode %s and timeout %s",
-            result["runtime"],
-            result["exitcode"],
-            result["timeout"],
-        )
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info(
+                "dxtbx.dlsnxs2cbf successful, took %.1f seconds", result["runtime"]
+            )
+        else:
+            logger.error(
+                "dxtbx.dlsnxs2cbf failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
         params["orig_image_directory"] = params["image_directory"]
         params["image_directory"] = tmpdir
+        return success
 
     def generate_modified_headers(self,):
         params = self.recwrap.recipe_step["job_parameters"]

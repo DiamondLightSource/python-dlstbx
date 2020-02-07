@@ -30,14 +30,18 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             print_stderr=True,
             working_directory=params["working_directory"],
         )
-        logger.info("command: %s", " ".join(result["command"]))
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("time_start: %s", result["time_start"])
-        logger.info("time_end: %s", result["time_end"])
-        logger.info("runtime: %s", result["runtime"])
-        logger.info("exitcode: %s", result["exitcode"])
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("go_fast_ep successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "go_fast_ep failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
+            return False
 
         go_fast_ep = result["stdout"].strip() == "Go"
         if go_fast_ep:
@@ -86,15 +90,20 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             working_directory=params["working_directory"],
             environment_override=clean_environment,
         )
-        logger.info("command: %s", " ".join(result["command"]))
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("time_start: %s", result["time_start"])
-        logger.info("time_end: %s", result["time_end"])
-        logger.info("runtime: %s", result["runtime"])
-        logger.info("exitcode: %s", result["exitcode"])
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
-        return result["exitcode"] == 0
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info(
+                "phasing2ispyb successful, took %.1f seconds", result["runtime"]
+            )
+        else:
+            logger.info(
+                "phasing2ispyb failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
+        return success
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -155,11 +164,21 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
         )
         logger.info("command: %s", " ".join(result["command"]))
         logger.info("runtime: %s", result["runtime"])
-        if result["exitcode"] or result["timeout"]:
-            logger.info("timeout: %s", result["timeout"])
-            logger.info("exitcode: %s", result["exitcode"])
-            logger.debug(result.stdout)
-            logger.debug(result.stderr)
+        success = (
+            not result["exitcode"]
+            and not result["timeout"]
+            and working_directory.join("fast_ep.error").check()
+        )
+        if success:
+            logger.info("fast_ep successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "fast_ep failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
 
         # Send results to topaz for hand determination
         fast_ep_data_json = working_directory.join("fast_ep_data.json")
@@ -220,8 +239,6 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
                 ".xml": False,
             }
             keep = {"fast_ep.log": "log", "shelxc.log": "log"}
-            if working_directory.join("fast_ep.error").check():
-                result["exitcode"] = 1
             allfiles = []
             for filename in working_directory.listdir():
                 filetype = keep_ext.get(filename.ext)
@@ -256,19 +273,18 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
                         logger.error(
                             "Running phasing2ispyb.py script returned non-zero exit code"
                         )
+                elif success:
+                    logger.error(
+                        "Expected output file does not exist: %s" % xml_file.strpath
+                    )
                 else:
-                    if result["exitcode"]:
-                        logger.info(
-                            "fast_ep failed, no .xml output, thus not reporting to ISPyB"
-                        )
-                    else:
-                        logger.error(
-                            "Expected output file does not exist: %s" % xml_file.strpath
-                        )
+                    logger.info(
+                        "fast_ep failed, no .xml output, thus not reporting to ISPyB"
+                    )
                     return False
         except NameError:
             logger.info(
                 "Copying fast_ep results ignored. Results directory unavailable."
             )
 
-        return result["exitcode"] == 0
+        return success

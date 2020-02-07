@@ -53,11 +53,17 @@ class XOalignWrapper(zocalo.wrapper.BaseWrapper):
             },
             working_directory=working_directory,
         )
-        if result["exitcode"] or result.stderr:
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("XOalign successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "XOalign failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
             logger.debug(result["stdout"])
             logger.debug(result["stderr"])
-            logger.info("exitcode: %s", result["exitcode"])
-        logger.info("runtime: %s", result["runtime"])
 
         working_directory.join("XOalign.log").write(result.stdout)
 
@@ -72,7 +78,7 @@ class XOalignWrapper(zocalo.wrapper.BaseWrapper):
             if not f.basename.startswith("."):
                 f.copy(results_directory)
 
-        return result["exitcode"] == 0
+        return success
 
     def insertXOalignStrategies(self, dcid, xoalign_log):
         smargon = False

@@ -26,7 +26,8 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         results_directory.join("strategy_native.log").ensure()
 
         if params["image_pattern"].endswith(".h5"):
-            self.snowflake2cbf()
+            if not self.hdf5_to_cbf():
+                return False
 
         image_directory = params["image_directory"]
         image_pattern = params["image_pattern"]
@@ -42,12 +43,17 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             timeout=params.get("timeout", 3600),
             working_directory=working_directory.strpath,
         )
-        if result["exitcode"]:
-            logger.info("exitcode: %s", result["exitcode"])
-            logger.info(result["stdout"])
-            logger.info(result["stderr"])
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("runtime: %s", result["runtime"])
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("som.strategy successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "som.strategy failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
 
         if working_directory.join("mosflm_index.mat").check():
             self.recwrap.send_to(
@@ -58,7 +64,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             not working_directory.join("strategy_native.log").check()
             or working_directory.join("strategy_native.log").size() == 0
         ):
-            result["exitcode"] = 1
+            success = False
             working_directory.join("strategy_native.log").write(
                 "failed to determine strategy"
             )
@@ -79,7 +85,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             if not f.basename.startswith("."):
                 f.copy(results_directory)
 
-        return result["exitcode"] == 0
+        return success
 
     def parse_strategy_dat(self, strategy_dat):
         lines = strategy_dat.readlines(cr=False)
@@ -112,7 +118,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             },
         }
 
-    def snowflake2cbf(self):
+    def hdf5_to_cbf(self):
         params = self.recwrap.recipe_step["job_parameters"]
         working_directory = py.path.local(params["working_directory"])
         if params.get("temporary_directory"):
@@ -132,15 +138,22 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
             working_directory=tmpdir,
             timeout=params.get("timeout", 3600),
         )
-        logger.info(
-            "image conversion %s terminated after %.1f seconds with exitcode %s and timeout %s",
-            " ".join(result["command"]),
-            result["runtime"],
-            result["exitcode"],
-            result["timeout"],
-        )
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info(
+                "dxtbx.dlsnxs2cbf successful, took %.1f seconds", result["runtime"]
+            )
+        else:
+            logger.error(
+                "dxtbx.dlsnxs2cbf failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
         params["orig_image_directory"] = params["image_directory"]
         params["image_directory"] = tmpdir.strpath
+        return success
 
     def send_screening_result_to_ispyb(self, dcid, results):
 

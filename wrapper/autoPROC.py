@@ -563,7 +563,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
-        if success:
+        if success and autoproc_xml:
             success = self.send_results_to_ispyb(autoproc_xml)
         if success and staraniso_xml:
             success = self.send_results_to_ispyb(

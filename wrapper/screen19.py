@@ -7,10 +7,10 @@ import dlstbx.util.symlink
 import procrunner
 import zocalo.wrapper
 
-logger = logging.getLogger("dlstbx.wrap.i19_screen")
+logger = logging.getLogger("dlstbx.wrap.screen19")
 
 
-class I19ScreenWrapper(zocalo.wrapper.BaseWrapper):
+class Screen19Wrapper(zocalo.wrapper.BaseWrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -26,10 +26,10 @@ class I19ScreenWrapper(zocalo.wrapper.BaseWrapper):
                 working_directory.strpath, params["create_symlink"]
             )
 
-        # construct i19.screen command line
-        command = ["i19.screen", params["screen-selection"]]
+        # construct screen19 command line
+        command = ["screen19", params["screen-selection"]]
 
-        # run i19.screen
+        # run screen19
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
@@ -49,17 +49,22 @@ class I19ScreenWrapper(zocalo.wrapper.BaseWrapper):
         # copy output files to result directory
         results_directory.ensure(dir=True)
 
-        defaultfiles = ["screen19.log", "wilson_plot.png"]
-        if working_directory.join("indexed.pickle").check():
-            defaultfiles.append("indexed.pickle")
-            defaultfiles.append("experiments.json")
-            if working_directory.join("dials-report.html").check():
-                defaultfiles.append("dials-report.html")
-        elif working_directory.join("strong.pickle").check():
-            defaultfiles.append("strong.pickle")
-            defaultfiles.append("datablock.json")
-            if working_directory.join("all_spots.pickle").check():
-                defaultfiles.append("all_spots.pickle")
+        defaultfiles = ["screen19.log"]
+        if working_directory.join("wilson_plot.png").check():
+            defaultfiles.join("wilson_plot.png")
+        if working_directory.join("integrated.refl").check():
+            defaultfiles.append("integrated.refl")
+            defaultfiles.append("integrated.expt")
+        elif working_directory.join("indexed.refl").check():
+            defaultfiles.append("indexed.refl")
+            defaultfiles.append("indexed.expt")
+        elif working_directory.join("strong.refl").check():
+            defaultfiles.append("strong.refl")
+            defaultfiles.append("imported.expt")
+            if working_directory.join("stronger.refl").check():
+                defaultfiles.append("stronger.refl")
+        if working_directory.join("dials-report.html").check():
+            defaultfiles.append("dials-report.html")
 
         foundfiles = []
         for filename in params.get("keep_files", defaultfiles):

@@ -1,6 +1,8 @@
 # LIBTBX_SET_DISPATCHER_NAME dlstbx.plot_reflections
 from __future__ import absolute_import, division, print_function
 
+import sys
+
 import iotbx.phil
 
 master_phil_scope = iotbx.phil.parse(
@@ -15,10 +17,8 @@ nproc = Auto
 
 
 def run(args):
-    from scitbx.array_family import flex
     from libtbx.phil import command_line
     import math
-    import os
 
     from dxtbx.datablock import DataBlockFactory
 
@@ -92,7 +92,7 @@ def run(args):
     nproc = params.nproc
     from libtbx import easy_mp
 
-    result = easy_mp.parallel_map(func=run_commands, iterable=commands, processes=nproc)
+    easy_mp.parallel_map(func=run_commands, iterable=commands, processes=nproc)
 
 
 def run_commands(commands):
@@ -111,6 +111,4 @@ def run_commands(commands):
 
 
 if __name__ == "__main__":
-    import sys
-
     run(sys.argv[1:])

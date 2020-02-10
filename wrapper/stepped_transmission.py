@@ -69,23 +69,6 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
         ]
         recipe_2 = [dict(r.items() + recipe_base.items()) for r in recipe_2]
 
-        recipes = {
-            "dcid": dcid,
-            "comments": "Stepped transmission",
-            "program": "Stepped transmission",
-            "spacegroup": space_group,
-            "unitcella": unit_cell[0],
-            "unitcellb": unit_cell[1],
-            "unitcellc": unit_cell[2],
-            "unitcellalpha": unit_cell[3],
-            "unitcellbeta": unit_cell[4],
-            "unitcellgamma": unit_cell[5],
-            "strategies": [
-                {"anomalous": False, "wedges": recipe_1},
-                {"anomalous": False, "wedges": recipe_2},
-            ],
-        }
-
         ispyb_command_list = []
 
         for i, wedges in enumerate([recipe_1, recipe_2][:1]):

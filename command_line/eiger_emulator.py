@@ -195,7 +195,8 @@ sender = context.socket(zmq.PUSH)
 sender.bind("tcp://*:%d" % options.port)
 
 if options.header_full:
-    sender.send_multipart(message_header_full())
+    raise NotImplementedError("full header implementation missing")
+    # sender.send_multipart(message_header_full())
 elif options.header_basic:
     sender.send_multipart(message_header_basic())
 else:
@@ -206,7 +207,7 @@ sys.stdout.flush()
 start_time = time.time()
 image_time = start_time
 
-for task_nbr in xrange(options.numimgs):
+for task_nbr in range(options.numimgs):
     sender.send_multipart(message_image(frameid=task_nbr, start_time=image_time))
     sys.stdout.write(" %d" % task_nbr)
     if options.abort and task_nbr > random.uniform(30, 70):

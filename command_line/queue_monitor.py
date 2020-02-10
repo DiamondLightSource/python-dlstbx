@@ -128,11 +128,9 @@ class QueueStatus(object):
             )
 
         c_gray = "\x1b[30m"
-        c_red = "\x1b[31m"
         c_green = "\x1b[32m"
         c_yellow = "\x1b[33m"
         c_blue = "\x1b[34m"
-        c_cyan = "\x1b[34m"
         c_magenta = "\x1b[35m"
         c_reset = "\x1b[0m"
         c_bold = "\x1b[1m"

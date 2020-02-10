@@ -107,10 +107,7 @@ if __name__ == "__main__":
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
     if "--test" in sys.argv:
         default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
-    from workflows.transport.stomp_transport import StompTransport
-
     StompTransport.load_configuration_file(default_configuration)
-
     StompTransport.add_command_line_options(parser)
     (options, args) = parser.parse_args(sys.argv[1:])
 

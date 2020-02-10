@@ -1,6 +1,8 @@
 from __future__ import division, print_function, absolute_import
+
+import sys
+
 from dxtbx import load
-from scitbx.array_family import flex
 
 
 def get_masked_pixel_count(filename):
@@ -11,8 +13,6 @@ def get_masked_pixel_count(filename):
 
 
 if __name__ == "__main__":
-    import sys
-
     result = get_masked_pixel_count(sys.argv[1])
     minimum = min(result)
     for j, r in enumerate(result):

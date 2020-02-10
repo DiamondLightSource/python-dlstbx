@@ -548,7 +548,7 @@ class DLSTrigger(CommonService):
         # Lookup appids for all dcids and exit early if only one found
         appids = [get_appid(d) for d in dcids]
         # Select only those dcids with a valid associated appid
-        dcids = [dcid for dcid, appid in zip(dcids, appids) if appid is not None]
+        dcids = [_dcid for _dcid, appid in zip(dcids, appids) if appid is not None]
         appids = [appid for appid in appids if appid is not None]
         if len(appids) <= 1:
             self.log.info(

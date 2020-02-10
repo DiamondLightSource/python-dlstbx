@@ -31,13 +31,13 @@ def mock_environment(number_of_services_holding, running, disappearing):
 
 def test_constructor_enforces_sanity():
     with pytest.raises(Exception):
-        strategy = SimpleStrategy(service=service, minimum=3, maximum=1)
+        SimpleStrategy(service=service, minimum=3, maximum=1)
     with pytest.raises(Exception):
-        strategy = SimpleStrategy(service=service, minimum=-1, maximum=1)
+        SimpleStrategy(service=service, minimum=-1, maximum=1)
     with pytest.raises(Exception):
-        strategy = SimpleStrategy(service=service, maximum=-1)
-    strategy = SimpleStrategy(service=service, minimum=0, maximum=0)
-    strategy = SimpleStrategy(service=service, maximum=0)
+        SimpleStrategy(service=service, maximum=-1)
+    SimpleStrategy(service=service, minimum=0, maximum=0)
+    SimpleStrategy(service=service, maximum=0)
 
 
 def test_simplest_strategy_holds_at_current_level():

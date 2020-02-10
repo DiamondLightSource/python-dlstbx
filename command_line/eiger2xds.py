@@ -16,12 +16,10 @@ phil_scope = iotbx.phil.parse(
 
 
 def run():
-    import libtbx.load_env
-
     from dials.util.options import OptionParser
     from dials.util.version import dials_version
 
-    usage = "%s [options] datablock.json" % libtbx.env.dispatcher_name
+    usage = "eiger2xds [options] datablock.json"
 
     if dials_version().startswith("DIALS 2"):
         from dials.util.options import flatten_experiments
@@ -43,7 +41,7 @@ def run():
             exit(0)
 
         if len(experiments) > 1:
-            raise Sorry("Only one experiment can be processed at a time")
+            exit("Only one experiment can be processed at a time")
         else:
             imagesets = experiments.imagesets()
             assert len(imagesets) == 1, len(imagesets)
@@ -70,7 +68,7 @@ def run():
             return
 
         if len(datablocks) > 1:
-            raise Sorry("Only one datablock can be processed at a time")
+            exit("Only one datablock can be processed at a time")
         else:
             imagesets = datablocks[0].extract_imagesets()
             assert len(imagesets) == 1

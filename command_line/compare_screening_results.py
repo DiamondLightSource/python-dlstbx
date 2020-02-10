@@ -9,9 +9,7 @@ phil_scope = libtbx.phil.parse(
 
 
 def run(args):
-
     from dlstbx.ispybtbx import ispybtbx
-    import json
 
     interp = phil_scope.command_line_argument_interpreter()
     params, unhandled = interp.process_and_fetch(

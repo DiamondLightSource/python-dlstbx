@@ -1,0 +1,7 @@
+ispyb<5.7,>=5.6
+zocalo
+drmaa
+python-confluent-kafka
+junit-xml
+networkx
+pyzmq

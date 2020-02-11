@@ -42,6 +42,7 @@ class FilewatcherService(CommonSystemTest):
                 "output": {
                     "first": 3,  # Should not be triggered here
                     "every": 3,  # Should not be triggered here
+                    "every-2": 3,  # Should not be triggered here
                     "last": 3,  # Should not be triggered here
                     "select-3": 3,  # Should not be triggered here
                     "0": 3,  # Should not be triggered here
@@ -120,6 +121,7 @@ class FilewatcherService(CommonSystemTest):
                 "output": {
                     "first": 2,  # First
                     "every": 3,  # Every
+                    "every-2": 10,  # 1st, 3rd, 5th, ...
                     "last": 4,  # Last
                     "select-3": 5,  # Select
                     "7": 6,  # Specific
@@ -136,6 +138,7 @@ class FilewatcherService(CommonSystemTest):
             7: {"queue": "transient.system_test." + self.guid + ".pass.7"},
             8: {"queue": "transient.system_test." + self.guid + ".pass.8"},
             9: {"queue": "transient.system_test." + self.guid + ".pass.9"},
+            10: {"queue": "transient.system_test." + self.guid + ".pass.10"},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -186,6 +189,22 @@ class FilewatcherService(CommonSystemTest):
                 recipe=recipe,
                 recipe_path=[1],
                 recipe_pointer=3,
+                payload={
+                    "file": names[file_number],
+                    "file-list-index": file_number + 1,
+                },
+                min_wait=4.5,
+                timeout=150,
+            )
+
+        # Every-N ==========================
+
+        for file_number in range(0, 10, 2):
+            self.expect_recipe_message(
+                environment={"ID": self.guid},
+                recipe=recipe,
+                recipe_path=[1],
+                recipe_pointer=10,
                 payload={
                     "file": names[file_number],
                     "file-list-index": file_number + 1,
@@ -285,6 +304,7 @@ class FilewatcherService(CommonSystemTest):
                 "output": {
                     "first": 2,  # First
                     "every": 3,  # Every
+                    "every-7": 10,  # 1st, 8th, 15th, ...
                     "last": 4,  # Last
                     "select-30": 5,  # Select
                     "20": 6,  # Specific
@@ -301,6 +321,7 @@ class FilewatcherService(CommonSystemTest):
             7: {"queue": "transient.system_test." + self.guid + ".pass.7"},
             8: {"queue": "transient.system_test." + self.guid + ".pass.8"},
             9: {"queue": "transient.system_test." + self.guid + ".pass.9"},
+            10: {"queue": "transient.system_test." + self.guid + ".pass.10"},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -346,6 +367,53 @@ class FilewatcherService(CommonSystemTest):
         # Every ============================
 
         for file_number in range(200):
+            self.expect_recipe_message(
+                environment={"ID": self.guid},
+                recipe=recipe,
+                recipe_path=[1],
+                recipe_pointer=3,
+                payload={
+                    "file": self.filepattern % (file_number + 1),
+                    "file-number": file_number + 1,
+                    "file-pattern-index": file_number + 1,
+                },
+                min_wait=max(0, file_number / 10) - 0.5,
+                timeout=150,
+            )
+
+        # Every-N ==========================
+
+        for file_number in (
+            1,
+            8,
+            15,
+            22,
+            29,
+            36,
+            43,
+            50,
+            57,
+            64,
+            71,
+            78,
+            85,
+            92,
+            99,
+            106,
+            113,
+            120,
+            127,
+            134,
+            141,
+            148,
+            155,
+            162,
+            169,
+            176,
+            183,
+            190,
+            197,
+        ):
             self.expect_recipe_message(
                 environment={"ID": self.guid},
                 recipe=recipe,
@@ -502,6 +570,7 @@ class FilewatcherService(CommonSystemTest):
                 "output": {
                     "first": 2,  # Should not be triggered here
                     "every": 3,  # Should not be triggered here
+                    "every-7": 10,  # Should not be triggered here
                     "last": 4,  # Should not be triggered here
                     "select-3": 5,  # Should not be triggered here
                     "7": 6,  # Should not be triggered here
@@ -518,6 +587,7 @@ class FilewatcherService(CommonSystemTest):
             7: {"queue": "transient.system_test." + self.guid + ".fail.7"},
             8: {"queue": "transient.system_test." + self.guid + ".fail.8"},
             9: {"queue": "transient.system_test." + self.guid + ".fail.9"},
+            10: {"queue": "transient.system_test." + self.guid + ".fail.10"},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -537,6 +607,7 @@ class FilewatcherService(CommonSystemTest):
 
         # First ============================
         # Every ============================
+        # Every-N ==========================
         # Last =============================
         # Select ===========================
         # Specific =========================
@@ -595,6 +666,7 @@ class FilewatcherService(CommonSystemTest):
                 "output": {
                     "first": 2,  # Should not be triggered here
                     "every": 3,  # Should not be triggered here
+                    "every-7": 10,  # Should not be triggered here
                     "last": 4,  # Should not be triggered here
                     "select-30": 5,  # Should not be triggered here
                     "20": 6,  # Should not be triggered here
@@ -611,6 +683,7 @@ class FilewatcherService(CommonSystemTest):
             7: {"queue": "transient.system_test." + self.guid + ".fail.7"},
             8: {"queue": "transient.system_test." + self.guid + ".fail.8"},
             9: {"queue": "transient.system_test." + self.guid + ".fail.9"},
+            10: {"queue": "transient.system_test." + self.guid + ".fail.10"},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -630,6 +703,7 @@ class FilewatcherService(CommonSystemTest):
 
         # First ============================
         # Every ============================
+        # Every-N ==========================
         # Last =============================
         # Select ===========================
         # Specific =========================
@@ -707,6 +781,7 @@ class FilewatcherService(CommonSystemTest):
                 "output": {
                     "first": 2,  # First
                     "every": 3,  # Every
+                    "every-3": 10,  # 1st, 4th only.
                     "last": 4,  # Should not be triggered here
                     "select-3": 5,  # Select
                     "7": 6,  # Should not be triggered here
@@ -723,6 +798,7 @@ class FilewatcherService(CommonSystemTest):
             7: {"queue": "transient.system_test." + self.guid + ".semi.7"},
             8: {"queue": "transient.system_test." + self.guid + ".semi.8"},
             9: {"queue": "transient.system_test." + self.guid + ".semi.9"},
+            10: {"queue": "transient.system_test." + self.guid + ".semi.10"},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -766,6 +842,22 @@ class FilewatcherService(CommonSystemTest):
                 recipe=recipe,
                 recipe_path=[1],
                 recipe_pointer=3,
+                payload={
+                    "file": names[file_number],
+                    "file-list-index": file_number + 1,
+                },
+                min_wait=4,
+                timeout=80,
+            )
+
+        # Every-N ==========================
+
+        for file_number in (0, 3):
+            self.expect_recipe_message(
+                environment={"ID": self.guid},
+                recipe=recipe,
+                recipe_path=[1],
+                recipe_pointer=10,
                 payload={
                     "file": names[file_number],
                     "file-list-index": file_number + 1,
@@ -856,6 +948,7 @@ class FilewatcherService(CommonSystemTest):
                 "output": {
                     "first": 2,  # First
                     "every": 3,  # Every
+                    "every-3": 10,  # 1st only
                     "last": 4,  # Should not be triggered here
                     "select-30": 5,  # Should not be triggered here
                     "20": 6,  # Should not be triggered here
@@ -872,6 +965,7 @@ class FilewatcherService(CommonSystemTest):
             7: {"queue": "transient.system_test." + self.guid + ".semi.7"},
             8: {"queue": "transient.system_test." + self.guid + ".semi.8"},
             9: {"queue": "transient.system_test." + self.guid + ".semi.9"},
+            10: {"queue": "transient.system_test." + self.guid + ".semi.10"},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -918,6 +1012,22 @@ class FilewatcherService(CommonSystemTest):
             recipe=recipe,
             recipe_path=[1],
             recipe_pointer=3,
+            payload={
+                "file": delayed_fail_file,
+                "file-number": 1,
+                "file-pattern-index": 5,
+            },
+            min_wait=25,
+            timeout=50,
+        )
+
+        # Every-N ==========================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=10,
             payload={
                 "file": delayed_fail_file,
                 "file-number": 1,

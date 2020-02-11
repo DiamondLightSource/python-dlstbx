@@ -1,13 +1,11 @@
 from __future__ import absolute_import, division, print_function
 
 import ConfigParser
-from datetime import datetime
 import logging
 import os
+import shutil
 
 import dlstbx.util.symlink
-import ispyb
-import ispyb.model.__future__
 import procrunner
 import py
 import zocalo.wrapper
@@ -16,24 +14,6 @@ logger = logging.getLogger("dlstbx.wrap.dimple")
 
 
 class DimpleWrapper(zocalo.wrapper.BaseWrapper):
-    def get_matching_pdb(self):
-        results = []
-        with ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg") as i:
-            ispyb.model.__future__.enable(
-                "/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg"
-            )
-            dcid = self.params["dcid"]
-            for pdb in i.get_data_collection(dcid).pdb:
-                # logger.info(pdb.name, pdb.code, pdb.rawfile)
-                if pdb.code is not None:
-                    results.append(pdb.code)
-                elif pdb.rawfile is not None:
-                    assert pdb.name and "/" not in pdb.name, "Invalid PDB file name"
-                    pdb_filepath = self.working_directory.join("%s.pdb" % pdb.name)
-                    pdb_filepath.write(pdb.rawfile, ensure=True)
-                    results.append(pdb_filepath.strpath)
-        return results
-
     def send_results_to_ispyb(self):
         log_file = self.results_directory.join("dimple.log")
         if not log_file.check():
@@ -44,14 +24,18 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         log = ConfigParser.RawConfigParser()
         log.read(log_file.strpath)
 
-        scaling_id = self.params.get("scaling_id")
+        scaling_id = self.params.get("ispyb_parameters", self.params).get(
+            "scaling_id", []
+        )
+        assert len(scaling_id) == 1, (
+            "Exactly one scaling id must be provided: %s" % scaling_id
+        )
+        scaling_id = scaling_id[0]
         if not str(scaling_id).isdigit():
-            scaling_id = self.params.get("ispyb_parameters", {}).get("scaling_id")
-            if not str(scaling_id).isdigit():
-                logger.error(
-                    "Can not write results to ISPyB: no scaling ID set (%r)", scaling_id
-                )
-                return False
+            logger.error(
+                "Can not write results to ISPyB: no scaling ID set (%r)", scaling_id
+            )
+            return False
         scaling_id = int(scaling_id)
         logger.debug(
             "Inserting dimple phasing results from %s into ISPyB for scaling_id %d",
@@ -59,51 +43,56 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             scaling_id,
         )
 
-        # see also /dls_sw/apps/python/anaconda/1.7.0/64/bin/dimple2ispyb.py
-        with ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg") as conn:
-            params = conn.mx_processing.get_run_params()
-            params["parentid"] = scaling_id
-            params["pipeline"] = "dimple"
-            params["log_file"] = log_file.strpath
-            params["success"] = 1
+        ispyb_command_list = []
 
-            starttime = log.get(log.sections()[1], "start_time")
-            params["starttime"] = datetime.strptime(starttime, "%Y-%m-%d %H:%M:%S")
-            endtime = log.get(log.sections()[-1], "end_time")
-            params["endtime"] = datetime.strptime(endtime, "%Y-%m-%d %H:%M:%S")
+        starttime = log.get(log.sections()[1], "start_time")
+        endtime = log.get(log.sections()[-1], "end_time")
+        try:
+            msg = " ".join(log.get("find-blobs", "info").split()[:4])
+        except ConfigParser.NoSectionError:
+            msg = "Unmodelled blobs not found"
+        dimple_args = log.get("workflow", "args").split()
 
-            params["rfree_start"] = log.getfloat("refmac5 restr", "ini_free_r")
-            params["rfree_end"] = log.getfloat("refmac5 restr", "free_r")
-
-            params["r_start"] = log.getfloat("refmac5 restr", "ini_overall_r")
-            params["r_end"] = log.getfloat("refmac5 restr", "overall_r")
-            try:
-                params["message"] = " ".join(log.get("find-blobs", "info").split()[:4])
-            except ConfigParser.NoSectionError:
-                params["message"] = "Unmodelled blobs not found"
-            params["run_dir"] = self.results_directory.strpath
-            dimple_args = log.get("workflow", "args").split()
-            params["input_MTZ_file"] = dimple_args[0]
-            params["input_coord_file"] = dimple_args[1]
-            params["output_MTZ_file"] = self.results_directory.join("final.mtz").strpath
-            params["output_coord_file"] = self.results_directory.join(
-                "final.pdb"
-            ).strpath
-            params["cmd_line"] = (
+        insert_mxmr_run = {
+            "ispyb_command": "insert_mxmr_run",
+            "store_result": "ispyb_mxmr_run_id",
+            "scaling_id": scaling_id,
+            "pipeline": "dimple",
+            "log_file": log_file.strpath,
+            "success": 1,
+            "starttime": starttime,
+            "endtime": endtime,
+            "rfree_start": log.getfloat("refmac5 restr", "ini_free_r"),
+            "rfree_end": log.getfloat("refmac5 restr", "free_r"),
+            "r_start": log.getfloat("refmac5 restr", "ini_overall_r"),
+            "r_end": log.getfloat("refmac5 restr", "overall_r"),
+            "message": msg,
+            "run_dir": self.results_directory.strpath,
+            "input_MTZ_file": dimple_args[0],
+            "input_coord_file": dimple_args[1],
+            "output_MTZ_file": self.results_directory.join("final.mtz").strpath,
+            "output_coord_file": self.results_directory.join("final.pdb").strpath,
+            "cmd_line": (
                 log.get("workflow", "prog")
                 + " "
                 + log.get("workflow", "args").replace("\n", " ")
-            )
-            mr_id = conn.mx_processing.upsert_run(list(params.values()))
+            ),
+        }
+        ispyb_command_list.append(insert_mxmr_run)
 
-            for n in (1, 2):
-                if self.results_directory.join("/blob{}v1.png".format(n)).check():
-                    blobparam = conn.mx_processing.get_run_blob_params()
-                    blobparam["parentid"] = mr_id
-                    blobparam["view1"] = "blob{}v1.png".format(n)
-                    blobparam["view2"] = "blob{}v2.png".format(n)
-                    blobparam["view3"] = "blob{}v3.png".format(n)
-                    conn.mx_processing.upsert_run_blob(list(blobparam.values()))
+        for n in (1, 2):
+            if self.results_directory.join("/blob{}v1.png".format(n)).check():
+                insert_mxmr_run_blob = {
+                    "ispyb_command": "insert_mxmr_run_blob",
+                    "mxmr_run_id": "$ispyb_mxmr_run_id",
+                    "view1": "blob{}v1.png".format(n),
+                    "view2": "blob{}v2.png".format(n),
+                    "view3": "blob{}v3.png".format(n),
+                }
+                ispyb_command_list.append(insert_mxmr_run_blob)
+
+        logger.debug("Sending %s", str(ispyb_command_list))
+        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
         return True
 
     def run(self):
@@ -111,35 +100,45 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         self.params = self.recwrap.recipe_step["job_parameters"]
         self.working_directory = py.path.local(self.params["working_directory"])
         self.results_directory = py.path.local(self.params["results_directory"])
+        self.working_directory.ensure(dir=True)
 
-        mtz = (
-            self.params.get("ispyb_parameters", {}).get("data")
-            or self.params["dimple"]["data"]
+        mtz = self.params.get("ispyb_parameters", self.params.get("dimple", {})).get(
+            "data", []
         )
         if not mtz:
             logger.error("Could not identify on what data to run")
             return False
-        mtz = os.path.abspath(mtz)
+
+        assert len(mtz) == 1, "Exactly one data file data file must be provided: %s" % (
+            mtz
+        )
+        mtz = os.path.abspath(mtz[0])
         if not os.path.exists(mtz):
             logger.error("Could not find data file to process")
             return False
-        pdb = self.get_matching_pdb()
+        pdb = self.params.get("ispyb_parameters", {}).get("pdb") or self.params[
+            "dimple"
+        ].get("pdb", [])
         if not pdb:
             logger.error("Not running dimple as no PDB file available")
             return False
+
+        for i, code_or_file in enumerate(pdb):
+            if os.path.isfile(code_or_file):
+                shutil.copy(code_or_file, self.working_directory.strpath)
+                pdb[i] = self.working_directory / os.path.basename(code_or_file)
 
         command = (
             ["dimple", mtz]
             + pdb
             + [
-                self.working_directory.strpath,
+                self.working_directory,
                 # '--dls-naming',
                 "--anode",
                 "-fpng",
             ]
         )
 
-        self.working_directory.ensure(dir=True)
         if self.params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 self.working_directory.strpath, self.params["create_symlink"]

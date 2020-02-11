@@ -1,8 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
+import hashlib
 import re
 
 import procrunner
+import py.path
 import six
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -91,16 +93,44 @@ class DLSTrigger(CommonService):
             self.log.error("Dimple trigger failed: No DCID specified")
             return False
 
+        pdb_tmpdir = py.path.local(parameters("pdb_tmpdir"))
+
+        pdb_files = []
         dc_info = self.ispyb.get_data_collection(dcid)
-        if not dc_info.pdb:
+        for pdb in dc_info.pdb:
+            if pdb.code is not None:
+                pdb_files.append(pdb.code)
+            elif pdb.rawfile is not None:
+                sha1 = hashlib.sha1(pdb.rawfile).hexdigest()
+                assert pdb.name and "/" not in pdb.name, "Invalid PDB file name"
+                pdb_filepath = pdb_tmpdir / sha1 / pdb.name
+                if not pdb_filepath.check():
+                    pdb_filepath.write(pdb.rawfile, ensure=True)
+                    pdb_files.append(pdb_filepath.strpath)
+
+        if parameters("user_pdb_directory"):
+            # Look for matching .pdb files in user directory
+            user_pdb_dir = py.path.local(parameters("user_pdb_directory"))
+            if user_pdb_dir.check(dir=1):
+                for f in user_pdb_dir.listdir():
+                    self.log.debug(f.strpath)
+                    prefix = f.basename.split(".")[0]
+                    if not prefix or f.ext != ".pdb" or not f.check(file=1):
+                        continue
+                    self.log.info(f.strpath)
+                    pdb_files.append(f.strpath)
+        self.log.info(pdb_files)
+
+        if not pdb_files:
             self.log.info(
                 "Skipping dimple trigger: DCID has no associated PDB information"
             )
             return {"success": True}
 
         dimple_parameters = {
-            "data": parameters("mtz"),
-            "scaling_id": parameters("scaling_id"),
+            "data": [parameters("mtz")],
+            "scaling_id": [parameters("scaling_id")],
+            "pdb": pdb_files,
         }
         if parameters("set_synchweb_status"):
             dimple_parameters["set_synchweb_status"] = 1
@@ -121,13 +151,16 @@ class DLSTrigger(CommonService):
         jobid = self.ispyb.mx_processing.upsert_job(jp.values())
         self.log.debug("Dimple trigger: generated JobID {}".format(jobid))
 
-        for key, value in dimple_parameters.items():
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = key
-            jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
-            self.log.debug("Dimple trigger: generated JobParameterID {}".format(jppid))
+        for key, values in dimple_parameters.items():
+            for value in values:
+                jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                jpp["job_id"] = jobid
+                jpp["parameter_key"] = key
+                jpp["parameter_value"] = value
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+                self.log.debug(
+                    "Dimple trigger: generated JobParameterID {}".format(jppid)
+                )
 
         jisp["job_id"] = jobid
         jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
@@ -531,7 +564,7 @@ class DLSTrigger(CommonService):
             return {"success": True}
         self.log.info("xia2.multiplex trigger: found dcids: %s", str(dcids))
 
-        def get_appid(dcid):
+        def get_data_files_for_dcid(dcid):
             appid = {}
             dc = self.ispyb.get_data_collection(dcid)
             for intgr in dc.integrations:
@@ -543,26 +576,58 @@ class DLSTrigger(CommonService):
                 appid[prg.time_update] = intgr.APPID
             if not appid:
                 return None
-            return list(appid.values())[0]
+            for appid in appid.values():
+                data_files = get_data_files_for_appid(appid)
+                if data_files:
+                    return data_files
+            return []
+
+        def get_data_files_for_appid(appid):
+            data_files = []
+            self.log.debug("Retrieving program attachment for appid %s", appid)
+            attachments = self.ispyb.mx_processing.retrieve_program_attachments_for_program_id(
+                appid
+            )
+            for item in attachments:
+                if item["fileType"] == "Result":
+                    if (
+                        item["fileName"].endswith(
+                            ("experiments.json", "reflections.pickle", ".expt", ".refl")
+                        )
+                        and "_scaled." not in item["fileName"]
+                    ):
+                        data_files.append(
+                            py.path.local(item["filePath"])
+                            .join(item["fileName"])
+                            .strpath
+                        )
+            self.log.info(
+                "Found the following files for appid %s:\n%s",
+                appid,
+                ", ".join(f for f in data_files),
+            )
+            if len(data_files) != 2:
+                self.log.warning(
+                    "Expected to find exactly 2 data files for appid %s (found %s)",
+                    appid,
+                    len(data_files),
+                )
+                return []
+            return data_files
 
         # Lookup appids for all dcids and exit early if only one found
-        appids = [get_appid(d) for d in dcids]
-        # Select only those dcids with a valid associated appid
-        dcids = [_dcid for _dcid, appid in zip(dcids, appids) if appid is not None]
-        appids = [appid for appid in appids if appid is not None]
-        if len(appids) <= 1:
+        data_files = [get_data_files_for_dcid(d) for d in dcids]
+        # Select only those dcids with a valid data files
+        dcids, data_files = zip(
+            *((dcid, files) for dcid, files in zip(dcids, data_files) if files)
+        )
+        self.log.info(data_files)
+        if len(data_files) <= 1:
             self.log.info(
-                "Skipping xia2.multiplex trigger: not enough related appids found for dcid %s"
+                "Skipping xia2.multiplex trigger: not enough related data files found for dcid %s"
                 % dcid
             )
             return {"success": True}
-        if len(appids) > 100:
-            self.log.info(
-                "Skipping xia2.multiplex trigger: too many related appids found for dcid %s"
-                % dcid
-            )
-            return {"success": True}
-        self.log.info("xia2.multiplex trigger: found appids: %s", str(appids))
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = bool(parameters("automatic"))
@@ -587,13 +652,12 @@ class DLSTrigger(CommonService):
                 "xia2.multiplex trigger: generated JobImageSweepID {}".format(jispid)
             )
 
-        multiplex_parameters = {"appids": ",".join(str(a) for a in appids)}
-
-        for key, value in multiplex_parameters.items():
+        for files in data_files:
             jpp = self.ispyb.mx_processing.get_job_parameter_params()
             jpp["job_id"] = jobid
-            jpp["parameter_key"] = key
-            jpp["parameter_value"] = value
+            jpp["parameter_key"] = "data"
+            self.log.info(files)
+            jpp["parameter_value"] = ";".join(files)
             jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
             self.log.debug(
                 "xia2.multiplex trigger: generated JobParameterID {}".format(jppid)

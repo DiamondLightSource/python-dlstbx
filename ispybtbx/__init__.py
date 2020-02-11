@@ -6,6 +6,7 @@ import os
 import re
 import uuid
 
+from past.builtins import basestring, long
 import ispyb
 import mysql.connector  # installed by ispyb
 
@@ -78,9 +79,18 @@ class ispybtbx(object):
                     )
                     for sweep in rp.sweeps
                 )
+                # ispyb_reprocessing_parameters is the deprecated method of
+                # accessing the processing parameters
                 parameters["ispyb_reprocessing_parameters"] = {
                     k: v.value for k, v in dict(rp.parameters).items()
                 }
+                # ispyb_processing_parameters is the preferred method of
+                # accessing the processing parameters
+                processing_parameters = {}
+                for k, v in rp.parameters:
+                    processing_parameters.setdefault(k, [])
+                    processing_parameters[k].append(v.value)
+                parameters["ispyb_processing_parameters"] = processing_parameters
             except ispyb.NoResult:
                 self.log.warning("Reprocessing ID %s not found", str(reprocessing_id))
         return message, parameters

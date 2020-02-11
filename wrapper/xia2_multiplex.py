@@ -46,73 +46,53 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         integration = {
             "ispyb_command": "upsert_integration",
             "scaling_id": "$ispyb_autoprocscaling_id",
-            "cell_a": z["unit_cell"][0],
-            "cell_b": z["unit_cell"][1],
-            "cell_c": z["unit_cell"][2],
-            "cell_alpha": z["unit_cell"][3],
-            "cell_beta": z["unit_cell"][4],
-            "cell_gamma": z["unit_cell"][5],
-            #'refined_xbeam': z['refined_beam'][0],
-            #'refined_ybeam': z['refined_beam'][1],
+            "cell_a": results["unit_cell"][0],
+            "cell_b": results["unit_cell"][1],
+            "cell_c": results["unit_cell"][2],
+            "cell_alpha": results["unit_cell"][3],
+            "cell_beta": results["unit_cell"][4],
+            "cell_gamma": results["unit_cell"][5],
+            #'refined_xbeam': results['refined_beam'][0],
+            #'refined_ybeam': results['refined_beam'][1],
         }
         ispyb_command_list.append(integration)
+
+        if attachments:
+            for filename, dirname, filetype in attachments:
+                ispyb_command_list.append(
+                    {
+                        "ispyb_command": "add_program_attachment",
+                        "program_id": "$ispyb_autoprocprogram_id",
+                        "file_name": filename,
+                        "file_path": dirname,
+                        "file_type": filetype,
+                    }
+                )
+
+        if special_program_name:
+            ispyb_command_list.append(
+                {
+                    "ispyb_command": "update_processing_status",
+                    "program_id": "$ispyb_autoprocprogram_id",
+                    "message": "processing successful",
+                    "status": "success",
+                }
+            )
 
         logger.debug("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
 
     def construct_commandline(self, params):
         """Construct xia2.multiplex command line.
-       Takes job parameter dictionary, returns array."""
+        Takes job parameter dictionary, returns array."""
 
         command = ["xia2.multiplex"]
-
-        appids = params["appids"]
-
-        import ispyb
-
-        with ispyb.open(
-            "/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg"
-        ) as ispyb_conn:
-            data_files = itertools.chain.from_iterable(
-                self.get_data_files_for_appid(appid, ispyb_conn)
-                for appid in appids
-                if appid is not None
-            )
-            for f in data_files:
-                command.append(f.strpath)
-
+        data_files = itertools.chain.from_iterable(
+            files.split(";") for files in params["data"]
+        )
+        for f in data_files:
+            command.append(f)
         return command
-
-    def get_data_files_for_appid(self, appid, ispyb_conn):
-        data_files = []
-        logger.debug("Retrieving program attachment for appid %s", appid)
-        attachments = ispyb_conn.mx_processing.retrieve_program_attachments_for_program_id(
-            appid
-        )
-        for item in attachments:
-            if item["fileType"] == "Result":
-                if (
-                    item["fileName"].endswith(
-                        ("experiments.json", "reflections.pickle", ".expt", ".refl")
-                    )
-                    and "_scaled." not in item["fileName"]
-                ):
-                    data_files.append(
-                        py.path.local(item["filePath"]).join(item["fileName"])
-                    )
-        logger.info(
-            "Found the following files for appid %s:\n%s",
-            appid,
-            ", ".join(f.strpath for f in data_files),
-        )
-        if len(data_files) != 2:
-            logger.warning(
-                "Expected to find exactly 2 data files for appid %s (found %s)",
-                appid,
-                len(data_files),
-            )
-            return []
-        return data_files
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -134,10 +114,10 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                         params[parameter] += (
                             "-" + params["ispyb_parameters"]["spacegroup"]
                         )
-            if params["ispyb_parameters"].get("appids"):
-                params["appids"] = params["ispyb_parameters"]["appids"].split(",")
+            if params["ispyb_parameters"].get("data"):
+                params["data"] = params["ispyb_parameters"]["data"]
 
-        assert len(params.get("appids", [])) > 1
+        assert len(params.get("data", [])) > 1
 
         command = self.construct_commandline(params)
 

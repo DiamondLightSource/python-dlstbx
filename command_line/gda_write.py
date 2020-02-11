@@ -108,9 +108,7 @@ if __name__ == "__main__":
     if options.application:
         application = lambda: options.application
     else:
-        application = lambda: random.choice(
-            ["fast_dp", "fast_ep", "xia2", "i19.screen"]
-        )
+        application = lambda: random.choice(["fast_dp", "fast_ep", "xia2", "screen19"])
 
     message_text = None
     if not os.isatty(sys.stdin.fileno()):

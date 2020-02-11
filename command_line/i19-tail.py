@@ -24,8 +24,8 @@ def ensure_we_are_in_visit_directory():
     m = re.match(r"(/dls/[^/]+/data/[0-9]+/[^/]+)(/.*)?$", current_path)
     if not m:
         sys.exit(
-            "This script must be run inside a visit directory. %s is not a visit directory."
-            % current_path
+            "This script must be run inside a visit directory. %s is not a visit "
+            "directory." % current_path
         )
 
     visit_dir = m.group(1)
@@ -57,10 +57,10 @@ ensure_we_are_in_visit_directory()
 base_directory = os.getcwd()
 
 
-def find_i19_screen_or_newest_entry(directory):
+def find_screen19_or_newest_entry(directory):
     entries = os.listdir(directory)
-    if "i19.screen" in entries:
-        return os.path.join(directory, "i19.screen")
+    if "screen19" in entries:
+        return os.path.join(directory, "screen19")
     if any(map(is_uuid, entries)):
         # if UUID directories in the path then do not descend any further
         return None
@@ -82,12 +82,12 @@ def recursively_find_most_current_directory(base, last_known_path=None):
      Return a tuple of the most recent directory found and its
      modification timestamp."""
     best_candidate = (None, 0)
-    newest_entry = find_i19_screen_or_newest_entry(base)
+    newest_entry = find_screen19_or_newest_entry(base)
     if newest_entry:
         last_modification = os.path.getmtime(newest_entry)
         if last_modification > best_candidate[1]:
             best_candidate = (newest_entry, last_modification)
-        if os.path.basename(newest_entry) != "i19.screen":
+        if os.path.basename(newest_entry) != "screen19":
             newest_entry = recursively_find_most_current_directory(newest_entry, None)
             if newest_entry:
                 newest_entry, last_modification = newest_entry
@@ -95,8 +95,8 @@ def recursively_find_most_current_directory(base, last_known_path=None):
                     best_candidate = (newest_entry, last_modification)
     if last_known_path:
         while last_known_path.startswith(base):
-            if os.path.basename(last_known_path) != "i19.screen":
-                newest_entry = find_i19_screen_or_newest_entry(last_known_path)
+            if os.path.basename(last_known_path) != "screen19":
+                newest_entry = find_screen19_or_newest_entry(last_known_path)
                 if newest_entry:
                     last_modification = os.path.getmtime(newest_entry)
                     if last_modification > best_candidate[1]:
@@ -173,7 +173,7 @@ try:
             base_directory, last_known_path
         )
         if (
-            better_location[0].endswith("i19.screen")
+            better_location[0].endswith("screen19")
             and better_location[1] > most_recent_dir[1]
         ):
             most_recent_dir = better_location
@@ -183,7 +183,8 @@ try:
             waiting_for_log = most_recent_dir[0]
             if not os.path.exists(os.path.join(waiting_for_log, "screen19.log")):
                 print(
-                    "\n\n\nNew i19.screen directory found at %s, waiting for new log to appear"
+                    "\n\n\n"
+                    "New screen19 directory found at %s, waiting for new log to appear"
                     % os.path.dirname(waiting_for_log)
                 )
         if waiting_for_log:

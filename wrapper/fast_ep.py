@@ -167,7 +167,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
         success = (
             not result["exitcode"]
             and not result["timeout"]
-            and working_directory.join("fast_ep.error").check()
+            and not working_directory.join("fast_ep.error").check()
         )
         if success:
             logger.info("fast_ep successful, took %.1f seconds", result["runtime"])

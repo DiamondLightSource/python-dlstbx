@@ -51,7 +51,7 @@ class Screen19Wrapper(zocalo.wrapper.BaseWrapper):
 
         defaultfiles = ["screen19.log"]
         if working_directory.join("wilson_plot.png").check():
-            defaultfiles.join("wilson_plot.png")
+            defaultfiles.append("wilson_plot.png")
         if working_directory.join("integrated.refl").check():
             defaultfiles.append("integrated.refl")
             defaultfiles.append("integrated.expt")

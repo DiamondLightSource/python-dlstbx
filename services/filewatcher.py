@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import contextlib
-import os.path
+import os
 import time
 
 import six
@@ -112,9 +112,28 @@ class DLSFileWatcher(CommonService):
             rw.transport.nack(header)
 
     @staticmethod
+    def _parse_everys(outputs):
+        """
+        Returns a dictionary of integers to destination names for requested
+        file periods.
+
+        :param: outputs: An iterable of strings. Those starting with "every-"
+                         are picked out and parsed as "every-$number".
+        :return: A dictionary of {$number: "every-$number"} entries.
+        """
+        # Identify periods to notify for
+        everys = [
+            k
+            for k in outputs
+            if isinstance(k, six.string_types) and k.startswith("every-")
+        ]
+        return {int(k[6:]): k for k in everys}
+
+    @staticmethod
     def _parse_selections(outputs):
         """
-        Returns a set integers for requested file selections.
+        Returns a dictionary of integers to destination names for requested
+        file selections.
 
         :param: outputs: An iterable of strings. Those starting with "select-"
                          are picked out and parsed as "select-$number".
@@ -129,7 +148,9 @@ class DLSFileWatcher(CommonService):
         return {int(k[7:]): k for k in selections}
 
     @staticmethod
-    def _notify_for_found_file(nth_file, filecount, selections, notify_function):
+    def _notify_for_found_file(
+        nth_file, filecount, selections, everys, notify_function
+    ):
         """
         Sends notifications to relevant output streams.
 
@@ -138,6 +159,9 @@ class DLSFileWatcher(CommonService):
         :param: selections: Dictionary of {int: str} entries pointing to output
                             streams that should receive $int evenly spaced files
                             out of all files.
+        :param: everys: Dictionary of {int: str} entries pointing to output
+                        streams that should receive every $int file, starting
+                        with the first file.
         :param: notify_function: Function called for each triggered output.
         """
 
@@ -159,6 +183,11 @@ class DLSFileWatcher(CommonService):
         # Notify for selections
         for m, dest in selections.items():
             if is_file_selected(nth_file, m, filecount):
+                notify_function(dest)
+
+        # Notify for every-n
+        for m, dest in everys.items():
+            if (nth_file - 1) % m == 0:
                 notify_function(dest)
 
     def watch_files_list(self, rw, header, message):
@@ -188,7 +217,10 @@ class DLSFileWatcher(CommonService):
             rw.transport.transaction_commit(txn)
             return
 
-        # Identify selections to notify for
+        # Identify everys ('every-N' targets) to notify for
+        everys = self._parse_everys(rw.recipe_step["output"])
+
+        # Identify selections ('select-N' targets) to notify for
         selections = self._parse_selections(rw.recipe_step["output"])
 
         # Conditionally acknowledge receipt of the message
@@ -223,7 +255,7 @@ class DLSFileWatcher(CommonService):
                 )
 
             self._notify_for_found_file(
-                status["seen-files"], filecount, selections, notify_function
+                status["seen-files"], filecount, selections, everys, notify_function
             )
 
         # Are we done?
@@ -435,7 +467,10 @@ class DLSFileWatcher(CommonService):
             rw.transport.nack(header)
             return
 
-        # Identify selections to notify for
+        # Identify everys ('every-N' targets) to notify for
+        everys = self._parse_everys(rw.recipe_step["output"])
+
+        # Identify selections ('select-N' targets) to notify for
         selections = self._parse_selections(rw.recipe_step["output"])
 
         # Conditionally acknowledge receipt of the message
@@ -470,7 +505,7 @@ class DLSFileWatcher(CommonService):
                 )
 
             self._notify_for_found_file(
-                status["seen-files"], filecount, selections, notify_function
+                status["seen-files"], filecount, selections, everys, notify_function
             )
 
         # Are we done?

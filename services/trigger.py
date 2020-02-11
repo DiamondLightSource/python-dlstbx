@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import hashlib
 import re
 
+import ispyb
 import procrunner
 import py.path
 import six
@@ -585,9 +586,16 @@ class DLSTrigger(CommonService):
         def get_data_files_for_appid(appid):
             data_files = []
             self.log.debug("Retrieving program attachment for appid %s", appid)
-            attachments = self.ispyb.mx_processing.retrieve_program_attachments_for_program_id(
-                appid
-            )
+            try:
+                attachments = self.ispyb.mx_processing.retrieve_program_attachments_for_program_id(
+                    appid
+                )
+            except ispyb.NoResult:
+                self.log.warning(
+                    "Expected to find exactly 2 data files for appid %s (no files found)",
+                    appid,
+                )
+                return []
             for item in attachments:
                 if item["fileType"] == "Result":
                     if (

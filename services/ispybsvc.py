@@ -688,6 +688,30 @@ class DLSISPyB(CommonService):
         )
         return {"success": True, "return_value": scalingId}
 
+    def do_insert_mxmr_run(self, parameters, **kwargs):
+        params = self.ispyb.mx_processing.get_run_params()
+        for k in params.keys():
+            if parameters(k) is not None:
+                params[k] = parameters(k)
+        params["parentid"] = parameters("scaling_id")
+        self.log.debug(params)
+        mxmr_run_id = self.ispyb.mx_processing.upsert_run(list(params.values()))
+        self.log.info("Written MXMRRun record with ID %s" % mxmr_run_id)
+        return {"success": True, "return_value": mxmr_run_id}
+
+    def do_insert_mxmr_run_blob(self, parameters, **kwargs):
+        params = self.ispyb.mx_processing.get_run_blob_params()
+        for k in params.keys():
+            if parameters(k) is not None:
+                params[k] = parameters(k)
+        params["parentid"] = parameters("mxmr_run_id")
+        self.log.debug(params)
+        mxmr_run_blob_id = self.ispyb.mx_processing.upsert_run_blob(
+            list(params.values())
+        )
+        self.log.info("Written MXMRRunBlob record with ID %s" % mxmr_run_blob_id)
+        return {"success": True, "return_value": mxmr_run_blob_id}
+
     def do_retrieve_programs_for_job_id(self, parameters, **kwargs):
         """Retrieve the processing instances associated with the given processing job ID"""
 

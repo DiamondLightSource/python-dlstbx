@@ -609,10 +609,10 @@ class DLSTrigger(CommonService):
                             .join(item["fileName"])
                             .strpath
                         )
-            self.log.info(
+            self.log.debug(
                 "Found the following files for appid %s:\n%s",
                 appid,
-                ", ".join(f for f in data_files),
+                ", ".join(data_files),
             )
             if len(data_files) != 2:
                 self.log.warning(

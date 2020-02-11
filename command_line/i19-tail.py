@@ -29,7 +29,7 @@ def ensure_we_are_in_visit_directory():
         )
 
     visit_dir = m.group(1)
-    print("Looking for i19 screen logs for visit directory", visit_dir)
+    print("Looking for screen19 logs for visit directory", visit_dir)
     os.chdir(visit_dir)
 
     if not os.path.exists("tmp"):

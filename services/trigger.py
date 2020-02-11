@@ -119,7 +119,7 @@ class DLSTrigger(CommonService):
                         continue
                     self.log.info(f.strpath)
                     pdb_files.append(f.strpath)
-        self.log.info(pdb_files)
+        self.log.info("PDB files: %s", str(pdb_files))
 
         if not pdb_files:
             self.log.info(
@@ -133,7 +133,7 @@ class DLSTrigger(CommonService):
             "pdb": pdb_files,
         }
         if parameters("set_synchweb_status"):
-            dimple_parameters["set_synchweb_status"] = 1
+            dimple_parameters["set_synchweb_status"] = [1]
 
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = dcid

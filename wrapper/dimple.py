@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
-import ConfigParser
 import logging
+import copy
 import os
 import shutil
 
@@ -9,6 +9,7 @@ import dlstbx.util.symlink
 import procrunner
 import py
 import zocalo.wrapper
+from six.moves import configparser
 
 logger = logging.getLogger("dlstbx.wrap.dimple")
 
@@ -21,7 +22,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                 "Can not insert dimple results into ISPyB: dimple.log not found"
             )
             return False
-        log = ConfigParser.RawConfigParser()
+        log = configparser.RawConfigParser()
         log.read(log_file.strpath)
 
         scaling_id = self.params.get("ispyb_parameters", self.params).get(
@@ -49,7 +50,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         endtime = log.get(log.sections()[-1], "end_time")
         try:
             msg = " ".join(log.get("find-blobs", "info").split()[:4])
-        except ConfigParser.NoSectionError:
+        except configparser.NoSectionError:
             msg = "Unmodelled blobs not found"
         dimple_args = log.get("workflow", "args").split()
 
@@ -123,6 +124,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             logger.error("Not running dimple as no PDB file available")
             return False
 
+        pdb = copy.deepcopy(pdb)  # otherwise we could modify the array in the recipe
         for i, code_or_file in enumerate(pdb):
             if os.path.isfile(code_or_file):
                 shutil.copy(code_or_file, self.working_directory.strpath)

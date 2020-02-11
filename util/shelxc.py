@@ -65,7 +65,6 @@ def parse_shelxc_logs(shelxc_log):
                         metric_key
                     )
                 )
-                continue
             msg.update(parse_dict)
         except Exception:
             logger.debug(

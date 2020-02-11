@@ -261,6 +261,6 @@ Virtual machine memory statistics:
                 colourtemp=colour(temp, 10, 30),
                 colourmemory=colour(memory, 10, 30),
                 colourheap=colour(heapused / heapmax, 0.5, 0.9),
-                colournonheap=colour(nonheapused, 110 * 1024 * 1024, 200 * 1024 * 1024),
+                colournonheap=colour(nonheapused, 125 * 1024 * 1024, 200 * 1024 * 1024),
             )
         )

@@ -120,7 +120,7 @@ class DLSTrigger(CommonService):
                         continue
                     self.log.info(f.strpath)
                     pdb_files.append(f.strpath)
-        self.log.info("PDB files: %s", str(pdb_files))
+        self.log.info("PDB files: %s", ", ".join(pdb_files))
 
         if not pdb_files:
             self.log.info(
@@ -664,11 +664,13 @@ class DLSTrigger(CommonService):
             jpp = self.ispyb.mx_processing.get_job_parameter_params()
             jpp["job_id"] = jobid
             jpp["parameter_key"] = "data"
-            self.log.info(files)
             jpp["parameter_value"] = ";".join(files)
             jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
             self.log.debug(
-                "xia2.multiplex trigger: generated JobParameterID {}".format(jppid)
+                "xia2.multiplex trigger generated JobParameterID {} with files:\n%s".format(
+                    jppid
+                ),
+                "\n".join(files),
             )
 
         self.log.debug(

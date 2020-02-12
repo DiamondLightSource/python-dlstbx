@@ -114,8 +114,10 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
             xyzout = py.path.local(params["mrbump"]["command"]["xyzout"])
             success = success and hklout.check() and xyzout.check()
             if success:
+                fp.write("Looks like MrBUMP succeeded")
                 logger.info("mrbump successful, took %.1f seconds", result["runtime"])
             else:
+                fp.write("Looks like MrBUMP failed")
                 logger.info(
                     "mrbump failed with exitcode %s and timeout %s",
                     result["exitcode"],

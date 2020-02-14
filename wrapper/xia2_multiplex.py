@@ -46,38 +46,16 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         integration = {
             "ispyb_command": "upsert_integration",
             "scaling_id": "$ispyb_autoprocscaling_id",
-            "cell_a": results["unit_cell"][0],
-            "cell_b": results["unit_cell"][1],
-            "cell_c": results["unit_cell"][2],
-            "cell_alpha": results["unit_cell"][3],
-            "cell_beta": results["unit_cell"][4],
-            "cell_gamma": results["unit_cell"][5],
-            #'refined_xbeam': results['refined_beam'][0],
-            #'refined_ybeam': results['refined_beam'][1],
+            "cell_a": z["unit_cell"][0],
+            "cell_b": z["unit_cell"][1],
+            "cell_c": z["unit_cell"][2],
+            "cell_alpha": z["unit_cell"][3],
+            "cell_beta": z["unit_cell"][4],
+            "cell_gamma": z["unit_cell"][5],
+            #'refined_xbeam': z['refined_beam'][0],
+            #'refined_ybeam': z['refined_beam'][1],
         }
         ispyb_command_list.append(integration)
-
-        if attachments:
-            for filename, dirname, filetype in attachments:
-                ispyb_command_list.append(
-                    {
-                        "ispyb_command": "add_program_attachment",
-                        "program_id": "$ispyb_autoprocprogram_id",
-                        "file_name": filename,
-                        "file_path": dirname,
-                        "file_type": filetype,
-                    }
-                )
-
-        if special_program_name:
-            ispyb_command_list.append(
-                {
-                    "ispyb_command": "update_processing_status",
-                    "program_id": "$ispyb_autoprocprogram_id",
-                    "message": "processing successful",
-                    "status": "success",
-                }
-            )
 
         logger.debug("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})

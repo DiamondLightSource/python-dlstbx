@@ -2,6 +2,23 @@
     "modules_required_for_build": ["dials"],
     "modules_required_for_use": [],
     "optional_modules": [],
+    "conda_required": [
+        "drmaa",
+        "ispyb>=5.6,<5.7",
+        "junit-xml",
+        "mock>=2.0",
+        "networkx",
+        "procrunner>=1.0.2",
+        "pytest",
+        "pytest-mock",
+        "stomp.py<5",
+        "workflows>=1.7.2",
+        "zocalo>=0.6.0",
+        # Eiger stream work, SCI-7786
+        "python-confluent-kafka",
+        "msgpack-python",
+        "pyzmq<18",
+    ],
     "python_required": [
         "drmaa",
         "ispyb>=5.6,<5.7",

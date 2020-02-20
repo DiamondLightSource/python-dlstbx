@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import getpass
 import logging
 import sys
 import time
@@ -11,8 +12,8 @@ from dlstbx.util.rrdtool import RRDTool
 
 
 class ActiveMQAPI(object):
-    def __init__(self):
-        self.jmx = dlstbx.util.jmxstats.JMXAPI()
+    def connect(self, *args, **kwargs):
+        self.jmx = dlstbx.util.jmxstats.JMXAPI(*args, **kwargs)
 
         # List of supported variables:
         # curl -XGET --user rrdapi:**password** http://cs04r-sc-vserv-69:80/api/jolokia/list | python -m json.tool
@@ -186,6 +187,12 @@ if __name__ == "__main__":
         help="Collect all information and store it in an RRD file for aggregation",
     )
     parser.add_option(
+        "--test",
+        action="store_true",
+        dest="test",
+        help="Connect to personal development ActiveMQ server",
+    )
+    parser.add_option(
         "-r",
         "--read",
         dest="keys",
@@ -195,6 +202,13 @@ if __name__ == "__main__":
         help="Read named value from ActiveMQ server",
     )
     (options, args) = parser.parse_args(sys.argv[1:])
+
+    if options.test:
+        amq.connect(
+            "/dls/tmp/%s/zocdev-activemq/latest-credentials" % getpass.getuser()
+        )
+    else:
+        amq.connect()
 
     if options.rrd:
         ActiveMQRRD(api=amq).update()

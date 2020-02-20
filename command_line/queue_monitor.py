@@ -4,14 +4,13 @@
 #
 from __future__ import absolute_import, division, print_function
 
+import getpass
 import logging
 import re
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
 import dlstbx.util.jmxstats
-
-jmx = dlstbx.util.jmxstats.JMXAPI()
 
 logger = logging.getLogger("dlstbx.queue_monitor")
 
@@ -207,7 +206,23 @@ class QueueStatus(object):
 if __name__ == "__main__":
     parser = OptionParser(usage="dlstbx.queue_monitor")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+    parser.add_option(
+        "--test",
+        action="store_true",
+        dest="test",
+        help="Connect to personal development ActiveMQ server",
+    )
+
     (options, args) = parser.parse_args()
+
+    global jmx
+    if options.test:
+        jmx = dlstbx.util.jmxstats.JMXAPI(
+            "/dls/tmp/%s/zocdev-activemq/latest-credentials" % getpass.getuser()
+        )
+    else:
+        jmx = dlstbx.util.jmxstats.JMXAPI()
+
     try:
         QueueStatus().run()
     except KeyboardInterrupt:

@@ -167,6 +167,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                     os.symlink(deltapath, mtzsymlink)
             py.path.local(self.params["synchweb_ticks"]).ensure()
 
+        logger.info("command: %s", " ".join(command))
         result = procrunner.run(
             command,
             working_directory=self.working_directory.strpath,

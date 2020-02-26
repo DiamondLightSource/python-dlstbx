@@ -107,7 +107,7 @@ class DLSTrigger(CommonService):
                 pdb_filepath = pdb_tmpdir / sha1 / pdb.name
                 if not pdb_filepath.check():
                     pdb_filepath.write(pdb.rawfile, ensure=True)
-                    pdb_files.append(pdb_filepath.strpath)
+                pdb_files.append(pdb_filepath.strpath)
 
         if parameters("user_pdb_directory"):
             # Look for matching .pdb files in user directory
@@ -124,7 +124,8 @@ class DLSTrigger(CommonService):
 
         if not pdb_files:
             self.log.info(
-                "Skipping dimple trigger: DCID has no associated PDB information"
+                "Skipping dimple trigger: DCID %s has no associated PDB information"
+                % dcid
             )
             return {"success": True}
 

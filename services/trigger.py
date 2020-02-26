@@ -120,7 +120,6 @@ class DLSTrigger(CommonService):
                         continue
                     self.log.info(f.strpath)
                     pdb_files.append(f.strpath)
-        self.log.info("PDB files: %s", ", ".join(pdb_files))
 
         if not pdb_files:
             self.log.info(
@@ -128,6 +127,7 @@ class DLSTrigger(CommonService):
                 % dcid
             )
             return {"success": True}
+        self.log.info("PDB files: %s", ", ".join(pdb_files))
 
         dimple_parameters = {
             "data": [parameters("mtz")],

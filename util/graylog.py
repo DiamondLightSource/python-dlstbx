@@ -7,13 +7,13 @@
 from __future__ import absolute_import, division, print_function
 
 import base64
-import ConfigParser
 import datetime
 import json
-import urllib2
 
 import dateutil.parser
 import pytz
+from six.moves import configparser
+from six.moves import urllib
 
 local_timezone = dateutil.tz.gettz("Europe/London")
 
@@ -23,7 +23,7 @@ class GraylogAPI:
     last_seen_timestamp = None
 
     def __init__(self, configfile):
-        cfgparser = ConfigParser.ConfigParser(allow_no_value=True)
+        cfgparser = configparser.ConfigParser(allow_no_value=True)
         self.level = 6  # INFO
         self.filters = []
         if not cfgparser.read(configfile):
@@ -31,18 +31,20 @@ class GraylogAPI:
         self.url = cfgparser.get("graylog", "url")
         if not self.url.endswith("/"):
             self.url += "/"
-        self.authstring = "Basic " + base64.b64encode(
-            cfgparser.get("graylog", "username")
-            + ":"
-            + cfgparser.get("graylog", "password")
+        self.authstring = b"Basic " + base64.b64encode(
+            cfgparser.get("graylog", "username").encode("utf-8")
+            + b":"
+            + cfgparser.get("graylog", "password").encode("utf-8")
         )
         self.stream = cfgparser.get("graylog", "stream")
 
     def _get(self, url):
         complete_url = self.url + url
-        req = urllib2.Request(complete_url, headers={"Accept": "application/json"})
+        req = urllib.request.Request(
+            complete_url, headers={"Accept": "application/json"}
+        )
         req.add_header("Authorization", self.authstring)
-        handler = urllib2.urlopen(req)
+        handler = urllib.request.urlopen(req)
 
         returncode = handler.getcode()
         success = returncode == 200
@@ -135,7 +137,7 @@ class GraylogAPI:
             "sort=timestamp%3Aasc".format(
                 time=time,
                 stream=self.stream,
-                query=urllib2.quote(query.format(level=self.level)),
+                query=urllib.parse.quote(query.format(level=self.level)),
             )
         )
 
@@ -159,7 +161,7 @@ class GraylogAPI:
             "sort=timestamp%3Aasc".format(
                 from_time=from_time,
                 stream=self.stream,
-                query=urllib2.quote(query.format(level=self.level)),
+                query=urllib.parse.quote(query.format(level=self.level)),
             )
         )
 

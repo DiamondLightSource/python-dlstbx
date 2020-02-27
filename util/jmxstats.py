@@ -10,9 +10,10 @@
 from __future__ import absolute_import, division, print_function
 
 import base64
-import ConfigParser
 import json
-import urllib2
+
+from six.moves import configparser
+from six.moves import urllib
 
 
 class JMXAPIPath(object):
@@ -42,7 +43,7 @@ class JMXAPI(object):
     def __init__(
         self, configfile="/dls_sw/apps/zocalo/secrets/credentials-jmx-access.cfg"
     ):
-        cfgparser = ConfigParser.ConfigParser(allow_no_value=True)
+        cfgparser = configparser.ConfigParser(allow_no_value=True)
         if not cfgparser.read(configfile):
             raise RuntimeError("Could not read from configuration file %s" % configfile)
         host = cfgparser.get("jmx", "host")
@@ -70,9 +71,11 @@ class JMXAPI(object):
 
     def _get(self, url):
         complete_url = self.url + url
-        req = urllib2.Request(complete_url, headers={"Accept": "application/json"})
+        req = urllib.request.Request(
+            complete_url, headers={"Accept": "application/json"}
+        )
         req.add_header("Authorization", self.authstring)
-        handler = urllib2.urlopen(req)
+        handler = urllib.request.urlopen(req)
         returncode = handler.getcode()
         if returncode != 200:
             raise RuntimeError("JMX lookup returned HTTP code %d" % returncode)

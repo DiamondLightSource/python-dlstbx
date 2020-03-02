@@ -66,17 +66,14 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
         try:
             metrics_data[-1] = params["energy_scan_info"]["fpp"]
         except KeyError:
-            from cctbx.eltbx import sasaki
-
             el = params["diffraction_plan_info"]["anomalousscatterer"]
             if isinstance(el, unicode):
-                tbl = sasaki.table(el.encode("ascii", "ignore"))
-            elif isinstance(el, str):
-                tbl = sasaki.table(el)
+                el = el.encode("ascii", "ignore")
+            if metrics_data[-1] < 2.8:
+                from cctbx.eltbx import sasaki as tbl_fpfdp
             else:
-                raise ValueError(
-                    "Unsupported type for anomalousscatterer setting %s", type(el)
-                )
+                from cctbx.eltbx import henke as tbl_fpfdp
+            tbl = tbl_fpfdp.table(el)
             f = tbl.at_angstrom(metrics_data[-1])
             metrics_data[-1] = f.fdp()
 

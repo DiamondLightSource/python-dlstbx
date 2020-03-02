@@ -14,6 +14,7 @@ import time
 from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
 
+import six
 import workflows
 import workflows.transport
 from dlstbx.util.version import dlstbx_version
@@ -39,7 +40,7 @@ class Monitor(object):
 
     def __init__(self, filters=None, transport=None, version=None, test=False):
         """Set up monitor and connect to the network transport layer"""
-        if transport is None or isinstance(transport, basestring):
+        if transport is None or isinstance(transport, six.string_types):
             self._transport = workflows.transport.lookup(transport)()
         else:
             self._transport = transport()
@@ -322,9 +323,9 @@ class Monitor(object):
 
                 overview_keys = sorted(
                     (
-                        overview[key].get("service"),
-                        overview[key].get("dlstbx"),
-                        overview[key].get("workflows"),
+                        overview[key].get("service", ""),
+                        overview[key].get("dlstbx", ""),
+                        overview[key].get("workflows", ""),
                         overview[key]["host"],
                         key,
                     )
@@ -489,7 +490,7 @@ class RawMonitor(object):
 
     def __init__(self, filters=None, transport=None, version=None, test=False):
         """Set up monitor and connect to the network transport layer"""
-        if transport is None or isinstance(transport, basestring):
+        if transport is None or isinstance(transport, six.string_types):
             self._transport = workflows.transport.lookup(transport)()
         else:
             self._transport = transport()

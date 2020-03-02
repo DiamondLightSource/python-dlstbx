@@ -52,8 +52,10 @@ class JMXAPI(object):
         self.url = "http://{host}:{port}/{baseurl}/read/".format(
             host=host, port=port, baseurl=base
         )
-        self.authstring = "Basic " + base64.b64encode(
-            cfgparser.get("jmx", "username") + ":" + cfgparser.get("jmx", "password")
+        self.authstring = b"Basic " + base64.b64encode(
+            cfgparser.get("jmx", "username").encode("utf-8")
+            + b":"
+            + cfgparser.get("jmx", "password").encode("utf-8")
         )
 
     def __getattribute__(self, attribute):

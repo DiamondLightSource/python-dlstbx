@@ -9,12 +9,12 @@ from __future__ import absolute_import, division, print_function
 import errno
 import json
 import os
-import Queue
 import re
 import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
+from six.moves import queue
 from workflows.transport.stomp_transport import StompTransport
 
 if __name__ == "__main__":
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     stomp = StompTransport()
 
     characterfilter = re.compile(r"[^a-zA-Z0-9._-]+", re.UNICODE)
-    idlequeue = Queue.Queue()
+    idlequeue = queue.Queue()
 
     def receive_dlq_message(header, message):
         idlequeue.put_nowait("start")
@@ -98,12 +98,12 @@ if __name__ == "__main__":
     stomp.connect()
     if not args:
         args = [dlqprefix + ".>"]
-    for queue in args:
-        print("Looking for DLQ messages in " + queue)
-        stomp.subscribe(queue, receive_dlq_message, acknowledgement=True)
+    for queue_ in args:
+        print("Looking for DLQ messages in " + queue_)
+        stomp.subscribe(queue_, receive_dlq_message, acknowledgement=True)
     try:
         idlequeue.get(True, options.wait or 3)
         while True:
             idlequeue.get(True, options.wait or 0.1)
-    except Queue.Empty:
+    except queue.Empty:
         print("Done.")

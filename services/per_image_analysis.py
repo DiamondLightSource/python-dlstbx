@@ -4,6 +4,7 @@ import logging
 import time
 
 import dlstbx.util.sanity
+import six
 import workflows.recipe
 from dials.command_line.find_spots_server import work
 from dlstbx.services.filewatcher import is_file_selected
@@ -20,6 +21,7 @@ class DLSPerImageAnalysis(CommonService):
 
     def initializing(self):
         logging.getLogger("dials").setLevel(logging.WARNING)
+        logging.getLogger("dials.util.masking").setLevel(logging.DEBUG)
 
         # Check node health before starting service
         missing_fs = ",".join(dlstbx.util.sanity.get_missing_file_systems())
@@ -205,7 +207,7 @@ class DLSPerImageAnalysis(CommonService):
         selections = [
             k
             for k in rw.recipe_step["output"]
-            if isinstance(k, basestring) and k.startswith("select-")
+            if isinstance(k, six.string_types) and k.startswith("select-")
         ]
         selections = {int(k[7:]): k for k in selections}
 

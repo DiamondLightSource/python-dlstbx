@@ -445,7 +445,7 @@ class DLSController(CommonService):
         self.log.debug(
             "Cluster launcher script for %s returned result: %s",
             service,
-            json.dumps(result),
+            (result.stderr or result.stdout).decode("latin-1"),
         )
         # Trying to start jobs can be very time intensive, ensure the master status is not lost during balancing
         self.self_check()

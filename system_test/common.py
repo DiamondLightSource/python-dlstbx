@@ -5,6 +5,7 @@ import string
 import uuid
 
 import mock
+import six
 
 
 class SafeDict(dict):
@@ -15,10 +16,25 @@ class SafeDict(dict):
         return "{" + key + "}"
 
 
-class CommonSystemTest(object):
-    """Base class for system tests for Zocalo,
-     the Diamond Light Source data analysis framework.
-  """
+class _CommonSystemTestMeta(type):
+    """
+    Define a metaclass to keep a list of all subclasses.
+    This enables looking up service mechanisms by name.
+    """
+
+    def __init__(cls, name, base, attrs):
+        """Add new subclass of CommonSystemTest to list of all known subclasses."""
+        if not hasattr(cls, "register"):
+            cls.register = {}
+        else:
+            cls.register[name] = cls
+
+
+class CommonSystemTest(six.with_metaclass(_CommonSystemTestMeta, object)):
+    """
+    Base class for system tests for Zocalo,
+    the Diamond Light Source data analysis framework.
+    """
 
     guid = "T-12345678-1234-1234-1234-1234567890ab"
     """A random unique identifier for tests. A new one will be generated on class
@@ -230,7 +246,7 @@ class CommonSystemTest(object):
          recursively_replace_parameters( { '{x}': '{y}' } )
             => { '3': '5' }
     """
-        if isinstance(item, basestring):
+        if isinstance(item, six.string_types):
             return string.Formatter().vformat(item, (), self.parameters)
         if isinstance(item, dict):
             return {
@@ -252,18 +268,3 @@ class CommonSystemTest(object):
 
     def _messaging(self, *args, **kwargs):
         raise NotImplementedError("Test functions can not be run directly")
-
-    #
-    # -- Plugin-related function -----------------------------------------------
-    #
-
-    class __metaclass__(type):
-        """Define metaclass function to keep a list of all subclasses. This enables
-       looking up service mechanisms by name."""
-
-        def __init__(cls, name, base, attrs):
-            """Add new subclass of CommonSystemTest to list of all known subclasses."""
-            if not hasattr(cls, "register"):
-                cls.register = {}
-            else:
-                cls.register[name] = cls

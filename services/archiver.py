@@ -88,10 +88,10 @@ class Dropfile(object):
         indent(self._xml)
 
     def to_string(self):
-        """Return the dropfile as formatted XML string."""
+        """Return the dropfile as formatted XML bytestring."""
         if not self._closed:
             self.close()
-        return '<?xml version="1.0" ?>\n' + ET.tostring(self._xml)
+        return b'<?xml version="1.0" ?>\n' + ET.tostring(self._xml)
 
 
 class DLSArchiver(CommonService):
@@ -368,7 +368,7 @@ class DLSArchiver(CommonService):
                 multipart=multipart_label,
             )
             if message_out["success"]:
-                with open(dropfile, "w") as fh:
+                with open(dropfile, "wb") as fh:
                     fh.write(xml_string)
                 self.log.info("Written dropfile XML to %s", dropfile)
             else:

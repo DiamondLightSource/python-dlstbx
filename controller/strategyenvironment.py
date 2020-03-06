@@ -91,15 +91,17 @@ class StrategyEnvironment(object):
                 self.environment["services"][instance["service"]][host] = instance
             elif service in self.environment["services"]:
                 # Find a PREPAREing or HOLDing entry in the environment to remove in lieu
-                dropentry = filter(
-                    lambda entry: self.environment["services"][service][entry]["status"]
-                    == self.S_PREPARE,
-                    self.environment["services"][service],
-                ) or filter(
-                    lambda entry: self.environment["services"][service][entry]["status"]
-                    == self.S_HOLD,
-                    self.environment["services"][service],
-                )
+                dropentry = [
+                    entry
+                    for entry in self.environmnt["services"][service]
+                    if self.environment["services"][service][entry]["status"]
+                    == self.S_PREPARE
+                ] or [
+                    entry
+                    for entry in self.environmnt["services"][service]
+                    if self.environment["services"][service][entry]["status"]
+                    == self.S_HOLD
+                ]
                 if dropentry:
                     self.log.debug("Moving %s from PREPARE to /dev/null", dropentry[0])
                     self.remove_instance(dropentry[0])

@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, print_function
 
 import curses
 import logging
+import os
 import re
 import sys
 import threading
@@ -19,6 +20,14 @@ import workflows
 import workflows.transport
 from dlstbx.util.version import dlstbx_version
 from workflows.services.common_service import CommonService
+
+# Our conda-based installers are fundamentally broken.
+# Thankfully this only manifests in curses.
+# Oh, and the curses package is broken, too.
+# Fix by telling the package where the relocated terminfo lives
+os.environ["TERMINFO"] = os.path.abspath(
+    os.path.join(__file__, "..", "..", "..", "..", "conda_base", "share", "terminfo")
+)
 
 
 class Monitor(object):

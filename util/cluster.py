@@ -12,9 +12,9 @@ from datetime import datetime
 
 import procrunner
 
-_DLS_Load_Cluster = ". /etc/profile.d/modules.sh ; module load global/cluster"
-_DLS_Load_Testcluster = ". /etc/profile.d/modules.sh ; module load global/testcluster"
-_DLS_Load_Hamilton = ". /etc/profile.d/modules.sh ; module load global/hamilton"
+_DLS_Load_Cluster = b". /etc/profile.d/modules.sh ; module load global/cluster"
+_DLS_Load_Testcluster = b". /etc/profile.d/modules.sh ; module load global/testcluster"
+_DLS_Load_Hamilton = b". /etc/profile.d/modules.sh ; module load global/hamilton"
 
 log = logging.getLogger("dlstbx.util.cluster")
 
@@ -139,7 +139,7 @@ class Cluster(object):
         result = procrunner.run(
             command=["/bin/bash", "-l"],
             timeout=20,
-            stdin=command + "\nset\n",
+            stdin=command + b"\nset\n",
             print_stdout=False,
             print_stderr=False,
             environment_override=blank_environment,

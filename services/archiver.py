@@ -250,7 +250,7 @@ class DLSArchiver(CommonService):
             self._transport.raw_send(dropqueue, xml_string, ignore_namespace=True)
 
         rw.set_default_channel("dropfile")
-        rw.send_to("dropfile", message_out, transaction=txn)
+        rw.send_to("dropfile", message_out.decode("latin-1"), transaction=txn)
 
         self._transport.transaction_commit(txn)
         self.log.info("%d files archived", message_out["success"])

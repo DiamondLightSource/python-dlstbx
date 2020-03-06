@@ -12,13 +12,16 @@ import uuid
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
+# DCID(4983612).group.experiment_type == "SAD"
+
 
 class DLSDispatcher(CommonService):
-    """Single point of contact service that takes in job meta-information
-     (say, a data collection ID), a processing recipe, a list of recipes,
-     or pointers to recipes stored elsewhere, and mangles these into something
-     that can be processed by downstream services.
-  """
+    """
+    Single point of contact service that takes in job meta-information
+    (say, a data collection ID), a processing recipe, a list of recipes,
+    or pointers to recipes stored elsewhere, and mangles these into something
+    that can be processed by downstream services.
+    """
 
     # Human readable service name
     _service_name = "DLS Dispatcher"

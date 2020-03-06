@@ -1,8 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
+import sys
 from dlstbx.util.version import dlstbx_version
 
 print(dlstbx_version())
+print("Python {0.major}.{0.minor}.{0.micro}".format(sys.version_info))
 try:
     import ispyb
 

@@ -72,7 +72,7 @@ class DLSDispatcher(CommonService):
                 if isinstance(item, list):
                     return [_fix(i) for i in item]
                 if isinstance(item, dict):
-                    return {str(key): _fix(value) for key, value in dict.items()}
+                    return {str(key): _fix(value) for key, value in item.items()}
                 return item
 
             return json.dump(

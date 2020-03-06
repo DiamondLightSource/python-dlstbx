@@ -18,9 +18,11 @@ class DLSClusterMonitor(CommonService):
     _logger_name = "dlstbx.services.cluster_monitor"
 
     def __new__(cls, *args, **kwargs):
-        """Start DRMAA cluster control processes as children of the main process,
-       and transparently inject references to those system-wide processes into
-       all instantiated objects."""
+        """
+        Start DRMAA cluster control processes as children of the main process,
+        and transparently inject references to those system-wide processes into
+        all instantiated objects.
+        """
         if not hasattr(DLSClusterMonitor, "__drmaa_cluster"):
             setattr(
                 DLSClusterMonitor,
@@ -39,7 +41,7 @@ class DLSClusterMonitor(CommonService):
                 "__drmaa_hamilton",
                 dlstbx.util.cluster.Cluster("hamilton"),
             )
-        instance = super(DLSClusterMonitor, cls).__new__(cls, *args, **kwargs)
+        instance = super().__new__(DLSClusterMonitor)
         instance.__drmaa_cluster = getattr(DLSClusterMonitor, "__drmaa_cluster")
         instance.__drmaa_testcluster = getattr(DLSClusterMonitor, "__drmaa_testcluster")
         instance.__drmaa_hamilton = getattr(DLSClusterMonitor, "__drmaa_hamilton")

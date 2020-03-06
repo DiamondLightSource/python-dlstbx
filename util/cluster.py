@@ -148,7 +148,8 @@ class Cluster(object):
             raise RuntimeError("Could not load cluster environment\n%s" % str(result))
 
         environment = {}
-        for line in result["stdout"].split("\n"):
+        stdout = result.stdout.decode("latin-1")
+        for line in stdout.split("\n"):
             if "=" in line:
                 line = line.strip()
                 variable, content = line.split("=", 1)

@@ -238,19 +238,19 @@ class DLSArchiver(CommonService):
                 multipart=multipart_label,
             )
             if message_out["success"]:
-                with open(dropfile, "w") as fh:
+                with open(dropfile, "wb") as fh:
                     fh.write(xml_string)
                 self.log.info("Written dropfile XML to %s", dropfile)
             else:
                 self.log.info("Skipped writing empty dropfile XML to %s", dropfile)
-        message_out["xml"] = xml_string
+        message_out["xml"] = xml_string.decode("latin-1")
 
         dropqueue = params.get("dropfile-queue")
         if dropqueue:
             self._transport.raw_send(dropqueue, xml_string, ignore_namespace=True)
 
         rw.set_default_channel("dropfile")
-        rw.send_to("dropfile", message_out.decode("latin-1"), transaction=txn)
+        rw.send_to("dropfile", message_out, transaction=txn)
 
         self._transport.transaction_commit(txn)
         self.log.info("%d files archived", message_out["success"])
@@ -373,7 +373,7 @@ class DLSArchiver(CommonService):
                 self.log.info("Written dropfile XML to %s", dropfile)
             else:
                 self.log.info("Skipped writing empty dropfile XML to %s", dropfile)
-        message_out["xml"] = xml_string
+        message_out["xml"] = xml_string.decode("latin-1")
 
         rw.set_default_channel("dropfile")
         rw.send_to("dropfile", message_out, transaction=txn)

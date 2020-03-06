@@ -242,18 +242,20 @@ class DLSCluster(CommonService):
         self.log.debug("Working directory: %s", workingdir)
         self.log.debug(str(rw.recipe_step))
         result = procrunner.run(
-            ["/bin/bash"], stdin="\n".join(submission), working_directory=workingdir
+            ["/bin/bash"],
+            stdin="\n".join(submission).encode("latin1"),
+            working_directory=workingdir,
         )
-        if result["exitcode"]:
+        if result.returncode:
             self.log.error(
                 "Could not submit cluster job:\n%s\n%s",
-                result["stdout"],
-                result["stderr"],
+                result.stdout.decode("latin1"),
+                result.stderr.decode("latin1"),
             )
             self._transport.nack(header)
             return
-        assert "has been submitted" in result["stdout"]
-        jobnumber = result["stdout"].split()[2]
+        assert b"has been submitted" in result.stdout
+        jobnumber = result.stdout.split()[2].decode("latin1")
 
         # Conditionally acknowledge receipt of the message
         txn = self._transport.transaction_begin()

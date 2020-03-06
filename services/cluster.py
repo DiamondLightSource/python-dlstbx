@@ -200,7 +200,6 @@ class DLSCluster(CommonService):
                         "payload": rw.payload,
                     },
                     fh,
-                    sort_keys=True,
                     indent=2,
                     separators=(",", ": "),
                 )

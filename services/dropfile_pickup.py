@@ -1,8 +1,8 @@
 from __future__ import absolute_import, division, print_function
 
-import Queue
 import time
 
+from six.moves import queue
 from workflows.services.common_service import CommonService
 
 
@@ -82,7 +82,7 @@ class DLSDropfilePickup(CommonService):
                 records[record[1]].append((record[2], record[3]))
                 if len(records[record[1]]) >= 30:
                     break
-        except Queue.Empty:
+        except queue.Empty:
             pass
 
         if not records:
@@ -245,7 +245,6 @@ class DLSDropfilePickup(CommonService):
         self.log.debug("opening record files")
         daydata = ["RRA:%s:0.5:1:1440" % cls for cls in ("AVERAGE", "MAX", "MIN")]
         weekdata = ["RRA:%s:0.5:3:3360" % cls for cls in ("AVERAGE", "MAX", "MIN")]
-        fortnightdata = ["RRA:%s:0.5:6:3360" % cls for cls in ("AVERAGE", "MAX", "MIN")]
         monthdata = ["RRA:%s:0.5:6:7440" % cls for cls in ("AVERAGE", "MAX", "MIN")]
         self.rrd_file = {
             "cluster": self.rrd.create(

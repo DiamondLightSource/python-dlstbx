@@ -39,9 +39,9 @@ class DLSController(CommonService):
     last_balance = 0
 
     # Time of the last check for a new service strategy file
-    timestamp_strategies_checked = None
+    timestamp_strategies_checked = 0
 
-    # Timestamp of the most recently loaded strategy file
+    # Timestamp of the most recently loaded strategy file, or 'None' if never loaded
     timestamp_strategies_loaded = None
 
     # Keep track of all queue statistics
@@ -173,7 +173,10 @@ class DLSController(CommonService):
             )
             return
 
-        if strategies_file_timestamp > self.timestamp_strategies_loaded:
+        if (
+            self.timestamp_strategies_loaded is None
+            or strategies_file_timestamp > self.timestamp_strategies_loaded
+        ):
             self.log.debug("New strategy file detected")
             with self._lock:
                 try:

@@ -15,7 +15,7 @@ def run_rrdtool(command):
     )
     result = procrunner.run(
         ["/bin/bash"],
-        stdin=stdin,
+        stdin=stdin.encode("latin-1"),
         environment_override={"LD_LIBRARY_PATH": ""},
         print_stdout=False,
     )

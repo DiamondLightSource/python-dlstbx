@@ -1,7 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
-import Queue
 import threading
 import time
 
@@ -11,6 +10,7 @@ import dxtbx.format.FormatEigerStream
 import msgpack
 import workflows.recipe
 from dials.command_line.find_spots_server import work
+from six.moves import queue
 from workflows.services.common_service import CommonService
 
 
@@ -19,7 +19,7 @@ class _WorkerThread(threading.Thread):
 
     def __init__(self, dsa_instance):
         threading.Thread.__init__(self)
-        self.queue = Queue.Queue()
+        self.queue = queue.Queue()
         self._DSA = dsa_instance
         self.log = self._DSA.log
         print("Subthread init")

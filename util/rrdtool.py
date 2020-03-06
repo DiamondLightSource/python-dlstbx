@@ -42,7 +42,7 @@ class RRDFile(object):
         command = ["info", self.filename]
         result = run_rrdtool(" ".join(command))
         if result and "stdout" in result:
-            last_update = re.search("last_update = ([0-9]+)", result["stdout"])
+            last_update = re.search(b"last_update = ([0-9]+)", result["stdout"])
             if last_update:
                 return int(last_update.group(1))
         return False

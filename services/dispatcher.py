@@ -66,48 +66,38 @@ class DLSDispatcher(CommonService):
             os.makedirs(os.path.join(basepath, clean_guid[:2]))
         except OSError:
             pass  # Ignore if exists
+
+        def neat_json_to_file(obj, fh, **kwargs):
+            def _fix(item):
+                if isinstance(item, list):
+                    return [_fix(i) for i in item]
+                if isinstance(item, dict):
+                    return {str(key): _fix(value) for key, value in dict.items()}
+                return item
+
+            return json.dump(
+                _fix(obj),
+                fh,
+                sort_keys=True,
+                skipkeys=True,
+                default=str,
+                indent=2,
+                separators=(",", ": "),
+                **kwargs
+            )
+
         try:
             log_entry = os.path.join(basepath, clean_guid[:2], clean_guid[2:])
             with open(log_entry, "w") as fh:
                 fh.write("Incoming message header:\n")
-                json.dump(
-                    header,
-                    fh,
-                    sort_keys=True,
-                    skipkeys=True,
-                    default=str,
-                    indent=2,
-                    separators=(",", ": "),
-                )
+                neat_json_to_file(header, fh)
                 fh.write("\n\nIncoming message body:\n")
-                json.dump(
-                    original_message,
-                    fh,
-                    sort_keys=True,
-                    skipkeys=True,
-                    default=str,
-                    indent=2,
-                    separators=(",", ": "),
-                )
+                neat_json_to_file(original_message, fh)
                 fh.write("\n\nParsed message body:\n")
-                json.dump(
-                    message,
-                    fh,
-                    sort_keys=True,
-                    skipkeys=True,
-                    default=str,
-                    indent=2,
-                    separators=(",", ": "),
-                )
+                neat_json_to_file(message, fh)
                 fh.write("\n\nRecipe object:\n")
-                json.dump(
-                    recipewrap.recipe.recipe,
-                    fh,
-                    sort_keys=True,
-                    skipkeys=True,
-                    default=str,
-                    indent=2,
-                    separators=(",", ": "),
+                neat_json_to_file(
+                    recipewrap.recipe.recipe, fh,
                 )
                 fh.write("\n")
             self.log.debug("Message saved in logbook at %s", log_entry)

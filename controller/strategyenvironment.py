@@ -93,12 +93,12 @@ class StrategyEnvironment(object):
                 # Find a PREPAREing or HOLDing entry in the environment to remove in lieu
                 dropentry = [
                     entry
-                    for entry in self.environmnt["services"][service]
+                    for entry in self.environment["services"][service]
                     if self.environment["services"][service][entry]["status"]
                     == self.S_PREPARE
                 ] or [
                     entry
-                    for entry in self.environmnt["services"][service]
+                    for entry in self.environment["services"][service]
                     if self.environment["services"][service][entry]["status"]
                     == self.S_HOLD
                 ]

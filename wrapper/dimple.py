@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import glob
 import logging
 import copy
 import os
@@ -209,6 +210,21 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                 continue
             f.copy(self.results_directory)
 
+        # Replace tmp working_directory with results_directory in coot scripts
+        filenames = [
+            self.results_directory.join(f) for f in ["coot.sh", "anom-coot.sh"]
+        ] + [
+            py.path.local(f)
+            for f in glob.glob(self.results_directory.join("*blob*-coot.py").strpath)
+        ]
+        for path in filenames:
+            if path.check():
+                logger.debug("Replacing tmp paths in %s", path)
+                path.write(
+                    path.read().replace(
+                        self.working_directory.strpath, self.results_directory.strpath
+                    )
+                )
         if success:
             logger.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()

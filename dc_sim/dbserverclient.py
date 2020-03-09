@@ -1,10 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
-import httplib
 import socket
 import string
 import sys
 import xml.etree.cElementTree as ET
+from six.moves import http_client
 
 
 def flatten_xml(xml, tag):
@@ -18,7 +18,7 @@ class DbserverClient(object):
         print("Connection parameters are: %s:%s" % (self.DB_host, self.DB_port))
 
     def _send(self, _path, _xml):
-        conn = httplib.HTTPConnection(self.DB_host + ":" + self.DB_port)
+        conn = http_client.HTTPConnection(self.DB_host + ":" + self.DB_port)
         try:
             conn.putrequest("POST", str(_path))
             conn.putheader("Host", self.DB_host)
@@ -32,9 +32,9 @@ class DbserverClient(object):
             sys.exit("socket.error - is the server available?")
         try:
             response = conn.getresponse()
-        except httplib.BadStatusLine:
+        except http_client.BadStatusLine:
             conn.close()
-            sys.exit("httplib.BadStatusLine: Unknown status code.")
+            sys.exit("http_client.BadStatusLine: Unknown status code.")
         except socket.error:
             conn.close()
             sys.exit(

@@ -93,10 +93,15 @@ known_wrappers = [  # please keep alphabetically sorted
     "xoalign = dlstbx.wrapper.xoalign:XOalignWrapper",
 ]
 
+dxtbx_formats = [
+    "FormatEiger0MQDump:Format = dlstbx.format.FormatEiger0MQDump:FormatEiger0MQDump",
+]
+
 libtbx.pkg_utils.define_entry_points(
     {
-        "workflows.services": sorted(service_list),
         "dlstbx.wrappers": sorted(known_wrappers),
+        "dxtbx.format": sorted(dxtbx_formats),
+        "workflows.services": sorted(service_list),
         "zocalo.wrappers": sorted(known_wrappers),
     }
 )

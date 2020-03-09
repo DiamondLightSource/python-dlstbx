@@ -4,6 +4,7 @@
     "optional_modules": [],
     "conda_required": [
         "drmaa",
+        "hdf5-external-filter-plugins",
         "ispyb>=5.6,<5.7",
         "junit-xml",
         "mock>=2.0",

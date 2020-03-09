@@ -7,21 +7,21 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
-import Queue
 import re
 import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
+import dlstbx.dc_sim.check
 import dlstbx.util.result
 import ispyb
 import junit_xml
 import workflows.recipe
+from six.moves import queue
 from workflows.transport.stomp_transport import StompTransport
-import dlstbx.dc_sim.check
 
 
-processqueue = Queue.Queue()
+processqueue = queue.Queue()
 
 results_queue = "reduce.dc_sim"
 test_results = {}
@@ -85,7 +85,7 @@ if __name__ == "__main__":
                     "{m[beamline]}-{m[scenario]}".format(m=message), []
                 ).append(message)
 
-    except Queue.Empty:
+    except queue.Empty:
         pass  # No more messages coming in
     stomp.unsubscribe(sid)
     # Further messages are not processed and will be redelivered to the next instance

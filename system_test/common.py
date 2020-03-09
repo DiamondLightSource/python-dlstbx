@@ -197,8 +197,10 @@ class CommonSystemTest(six.with_metaclass(_CommonSystemTestMeta, object)):
                     self.containsdict = d
 
                 def __eq__(self, other):
-                    return self.containsdict.viewitems() <= other.viewitems()
-                    # for Python3 : items() <= items()
+                    if six.PY2:
+                        return self.containsdict.viewitems() <= other.viewitems()
+                    else:
+                        return self.containsdict.items() <= other.items()
 
             environment = dictionary_contains(environment)
         else:

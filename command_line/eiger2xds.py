@@ -1,6 +1,8 @@
 # LIBTBX_SET_DISPATCHER_NAME eiger2xds
 from __future__ import absolute_import, division, print_function
 
+import os
+
 import iotbx.phil
 from dxtbx.serialize import xds
 
@@ -76,9 +78,18 @@ def run():
 
     to_xds = xds.to_xds(imageset)
     xds_inp = to_xds.XDS_INP()
+
+    plugin_name = "durin-plugin.so"
+    durin_lib = ""
+    for d in os.environ["PATH"].split(os.pathsep):
+        if os.path.exists(os.path.join(d, plugin_name)):
+            durin_lib = os.path.join(d, plugin_name)
+    if not durin_lib:
+        print("Couldn't find plugin %s in PATH" % plugin_name)
+
     with open("XDS.INP", "wb") as f:
         print(xds_inp, file=f)
-        print("LIB=/dls_sw/apps/XDS/20180808/durin-plugin.so", file=f)
+        print("LIB=%s" % durin_lib, file=f)
     print("Written XDS input file to XDS.INP")
 
 

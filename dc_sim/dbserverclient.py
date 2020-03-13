@@ -1,7 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
 import socket
-import string
 import sys
 import xml.etree.cElementTree as ET
 
@@ -47,8 +46,8 @@ class DbserverClient(object):
         xml = None
         if response.status < 400 or response.status >= 600:
             lengthstr = response.getheader("Content-length")
-            if lengthstr is not None:
-                length = string.atoi(lengthstr)
+            if lengthstr:
+                length = int(lengthstr)
                 xml = response.read(length)  # get the raw XML
                 if six.PY3:
                     xml = xml.decode("latin-1")

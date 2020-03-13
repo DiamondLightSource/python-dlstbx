@@ -85,7 +85,7 @@ class DLSNexusParser(CommonService):
                 )
                 rw.transport.nack(header)
                 return
-            seen_images = sum(v if v is not None else 0 for v in related.values())
+            seen_images = sum(v for v in related.values() if v is not None)
             if seen_images != expected_images:
                 errors = [
                     "Dataset contains %d images instead of expected %d images"

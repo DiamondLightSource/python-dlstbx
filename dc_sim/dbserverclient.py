@@ -4,7 +4,9 @@ import socket
 import string
 import sys
 import xml.etree.cElementTree as ET
+
 from six.moves import http_client
+import six
 
 
 def flatten_xml(xml, tag):
@@ -19,6 +21,7 @@ class DbserverClient(object):
 
     def _send(self, _path, _xml):
         conn = http_client.HTTPConnection(self.DB_host + ":" + self.DB_port)
+        _xml = _xml.encode("latin-1")
         try:
             conn.putrequest("POST", str(_path))
             conn.putheader("Host", self.DB_host)
@@ -47,6 +50,8 @@ class DbserverClient(object):
             if lengthstr is not None:
                 length = string.atoi(lengthstr)
                 xml = response.read(length)  # get the raw XML
+                if six.PY3:
+                    xml = xml.decode("latin-1")
                 print(xml)
             else:
                 conn.close()

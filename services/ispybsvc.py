@@ -172,7 +172,7 @@ class DLSISPyB(CommonService):
         params["message"] = "Unknown error"
         params["run_dir"] = parameters("directory")
         try:
-            result = self.ispyb.mx_processing.upsert_run(params.values())
+            result = self.ispyb.mx_processing.upsert_run(list(params.values()))
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
             self.log.error(

@@ -150,7 +150,7 @@ class DLSTrigger(CommonService):
         jp["datacollectionid"] = dcid
         jp["display_name"] = "DIMPLE"
         jp["recipe"] = "postprocessing-dimple"
-        jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug("Dimple trigger: generated JobID {}".format(jobid))
 
         for key, values in dimple_parameters.items():
@@ -159,13 +159,15 @@ class DLSTrigger(CommonService):
                 jpp["job_id"] = jobid
                 jpp["parameter_key"] = key
                 jpp["parameter_value"] = value
-                jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                    list(jpp.values())
+                )
                 self.log.debug(
                     "Dimple trigger: generated JobParameterID {}".format(jppid)
                 )
 
         jisp["job_id"] = jobid
-        jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
+        jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
         self.log.debug("Dimple trigger: generated JobImageSweepID {}".format(jispid))
 
         self.log.debug("Dimple trigger: Processing job {} created".format(jobid))
@@ -214,7 +216,7 @@ class DLSTrigger(CommonService):
         jp["datacollectionid"] = dcid
         jp["display_name"] = "ep_predict"
         jp["recipe"] = "postprocessing-ep-predict"
-        jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug("ep_predict trigger: generated JobID {}".format(jobid))
 
         ep_parameters = {
@@ -227,13 +229,13 @@ class DLSTrigger(CommonService):
             jpp["job_id"] = jobid
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
             self.log.debug(
                 "ep_predict trigger: generated JobParameterID {}".format(jppid)
             )
 
         jisp["job_id"] = jobid
-        jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
+        jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
         self.log.debug(
             "ep_predict trigger: generated JobImageSweepID {}".format(jispid)
         )
@@ -291,7 +293,7 @@ class DLSTrigger(CommonService):
         jp["datacollectionid"] = dcid
         jp["display_name"] = "fast_ep"
         jp["recipe"] = "postprocessing-fast-ep"
-        jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug("fast_ep trigger: generated JobID {}".format(jobid))
 
         fast_ep_parameters = {
@@ -305,11 +307,11 @@ class DLSTrigger(CommonService):
             jpp["job_id"] = jobid
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
             self.log.debug("fast_ep trigger: generated JobParameterID {}".format(jppid))
 
         jisp["job_id"] = jobid
-        jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
+        jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
         self.log.debug("fast_ep trigger: generated JobImageSweepID {}".format(jispid))
 
         self.log.debug("fast_ep trigger: Processing job {} created".format(jobid))
@@ -344,7 +346,7 @@ class DLSTrigger(CommonService):
         jp["datacollectionid"] = dcid
         jp["display_name"] = "MrBUMP"
         jp["recipe"] = "postprocessing-mrbump"
-        jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug("mrbump trigger: generated JobID {}".format(jobid))
 
         mrbump_parameters = {
@@ -357,7 +359,7 @@ class DLSTrigger(CommonService):
             jpp["job_id"] = jobid
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
             self.log.debug("fast_ep trigger: generated JobParameterID {}".format(jppid))
 
         self.log.debug("mrbump trigger: Processing job {} created".format(jobid))
@@ -381,7 +383,7 @@ class DLSTrigger(CommonService):
         jp["datacollectionid"] = dcid
         jp["display_name"] = "big_ep"
         jp["recipe"] = "postprocessing-big-ep-launcher"
-        jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug("big_ep_launcher trigger: generated JobID {}".format(jobid))
 
         try:
@@ -413,7 +415,7 @@ class DLSTrigger(CommonService):
             jpp["job_id"] = jobid
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
             self.log.debug(
                 "big_ep_laucher trigger: generated JobParameterID {}".format(jppid)
             )
@@ -644,7 +646,7 @@ class DLSTrigger(CommonService):
         jp["datacollectionid"] = dcid
         jp["display_name"] = "xia2.multiplex"
         jp["recipe"] = "postprocessing-xia2-multiplex"
-        jobid = self.ispyb.mx_processing.upsert_job(jp.values())
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug("xia2.multiplex trigger: generated JobID {}".format(jobid))
 
         for d in dcids:
@@ -656,7 +658,9 @@ class DLSTrigger(CommonService):
             jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
 
             jisp["job_id"] = jobid
-            jispid = self.ispyb.mx_processing.upsert_job_image_sweep(jisp.values())
+            jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
+                list(jisp.values())
+            )
             self.log.debug(
                 "xia2.multiplex trigger: generated JobImageSweepID {}".format(jispid)
             )
@@ -666,7 +670,7 @@ class DLSTrigger(CommonService):
             jpp["job_id"] = jobid
             jpp["parameter_key"] = "data"
             jpp["parameter_value"] = ";".join(files)
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(jpp.values())
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
             self.log.debug(
                 "xia2.multiplex trigger generated JobParameterID {} with files:\n%s".format(
                     jppid

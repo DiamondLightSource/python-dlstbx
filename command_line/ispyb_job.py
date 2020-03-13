@@ -89,7 +89,7 @@ def create_processing_job(i, options):
     jp["recipe"] = options.recipe
     print("Creating database entries...")
 
-    jobid = i.mx_processing.upsert_job(jp.values())
+    jobid = i.mx_processing.upsert_job(list(jp.values()))
     print("  JobID={}".format(jobid))
     for key, value in parameters:
         jpp = i.mx_processing.get_job_parameter_params()
@@ -97,7 +97,7 @@ def create_processing_job(i, options):
         jpp["job_id"] = jobid
         jpp["parameter_key"] = key
         jpp["parameter_value"] = value
-        jppid = i.mx_processing.upsert_job_parameter(jpp.values())
+        jppid = i.mx_processing.upsert_job_parameter(list(jpp.values()))
         print("  JPP={}".format(jppid))
 
     for sweep in sweeps:
@@ -107,7 +107,7 @@ def create_processing_job(i, options):
         jisp["datacollectionid"] = sweep[0]
         jisp["start_image"] = sweep[1]
         jisp["end_image"] = sweep[2]
-        jispid = i.mx_processing.upsert_job_image_sweep(jisp.values())
+        jispid = i.mx_processing.upsert_job_image_sweep(list(jisp.values()))
         print("  JISP={}".format(jispid))
 
     print("All done. Processing job {} created".format(jobid))

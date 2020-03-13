@@ -145,7 +145,7 @@ if __name__ == "__main__":
     jp["recipe"] = options.recipe
     pprint(jp)
 
-    jobid = i.mx_processing.upsert_job(jp.values())
+    jobid = i.mx_processing.upsert_job(list(jp.values()))
     print("Created JobID={}".format(jobid))
     for key, value in parameters:
         jpp = i.mx_processing.get_job_parameter_params()
@@ -154,7 +154,7 @@ if __name__ == "__main__":
         jpp["parameter_key"] = key
         jpp["parameter_value"] = value
         #   pprint(jpp)
-        jppid = i.mx_processing.upsert_job_parameter(jpp.values())
+        jppid = i.mx_processing.upsert_job_parameter(list(jpp.values()))
         print("Created JPP={}".format(jppid))
 
     for sweep in imagesweeps:
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         jisp["start_image"] = sweep["start"]
         jisp["end_image"] = sweep["end"]
         #   pprint(jisp)
-        jispid = i.mx_processing.upsert_job_image_sweep(jisp.values())
+        jispid = i.mx_processing.upsert_job_image_sweep(list(jisp.values()))
         print("Created JISP={}".format(jispid))
 
     print("All done. Processing job {} created".format(jobid))

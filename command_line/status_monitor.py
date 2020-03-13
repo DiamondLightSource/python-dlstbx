@@ -332,9 +332,9 @@ class Monitor(object):
 
                 overview_keys = sorted(
                     (
-                        overview[key].get("service", ""),
-                        overview[key].get("dlstbx", ""),
-                        overview[key].get("workflows", ""),
+                        overview[key].get("service") or "",
+                        overview[key].get("dlstbx") or "",
+                        overview[key].get("workflows") or "",
                         overview[key]["host"],
                         key,
                     )

@@ -183,11 +183,11 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            logger.debug(result["stdout"].decode("latin1"))
+            logger.debug(result["stderr"].decode("latin1"))
 
         # Hack to workaround dimple returning successful exitcode despite 'Giving up'
-        success = "Giving up" not in result["stdout"]
+        success = b"Giving up" not in result.stdout
 
         logger.info("Copying DIMPLE results to %s", self.results_directory.strpath)
         self.results_directory.ensure(dir=True)
@@ -212,7 +212,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         # Replace tmp working_directory with results_directory in coot scripts
         filenames = [
-            self.results_directory.join(f) for f in ["coot.sh", "anom-coot.sh"]
+            self.results_directory.join(f) for f in ("coot.sh", "anom-coot.sh")
         ] + [
             py.path.local(f)
             for f in glob.glob(self.results_directory.join("*blob*-coot.py").strpath)

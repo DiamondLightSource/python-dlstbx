@@ -61,7 +61,7 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
         i_over_sig_i = sparams["i_over_sig_i"]
         EDNAStrategy = working_directory.join("EDNAStrategy")
         EDNAStrategy.ensure(dir=True)
-        with open("%s.xml" % EDNAStrategy, "wb") as f:
+        with open("%s.xml" % EDNAStrategy, "w") as f:
             f.write(
                 self.make_edna_xml(
                     complexity=complexity,
@@ -79,13 +79,13 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
             i_over_sig_i,
             strategy_lifespan,
         )
-        with working_directory.join("Strategy.txt").open("wb") as f:
+        with working_directory.join("Strategy.txt").open("w") as f:
             f.write(short_comments)
 
         strategy_xml = working_directory.join("EDNAStrategy.xml")
         results_xml = working_directory.join("results.xml")
         wrap_edna_sh = working_directory.join("wrap_edna.sh")
-        with wrap_edna_sh.open("wb") as f:
+        with wrap_edna_sh.open("w") as f:
             if beamline == "i24":
                 edna_site = "export EDNA_SITE=DLS_i24"
             else:
@@ -139,8 +139,8 @@ edna-plugin-launcher \
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            logger.debug(result["stdout"].decode("latin1"))
+            logger.debug(result["stderr"].decode("latin1"))
 
         # generate two different html pages
         # not sure which if any of these are actually used/required
@@ -178,8 +178,8 @@ edna-plugin-launcher \
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            logger.debug(result["stdout"].decode("latin1"))
+            logger.debug(result["stderr"].decode("latin1"))
 
         self.edna2html(edna2html_home, results_xml)
 
@@ -233,8 +233,8 @@ edna-plugin-launcher \
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            logger.debug(result["stdout"].decode("latin1"))
+            logger.debug(result["stderr"].decode("latin1"))
         params["orig_image_directory"] = params["image_directory"]
         params["image_directory"] = tmpdir
         return success
@@ -247,11 +247,12 @@ edna-plugin-launcher \
             assert os.path.exists(cif_in)
             assert not cif_out.check()
 
-            data = open(cif_in, "rb").read()
+            with open(cif_in, "rb") as fh:
+                data = fh.read()
 
-            if "# This and all subsequent lines will" in data:
-                head = data.split("# This and all subsequent lines will")[0]
-                tail = data.split("CBF_BYTE_OFFSET little_endian")[-1]
+            if b"# This and all subsequent lines will" in data:
+                head = data.split(b"# This and all subsequent lines will")[0]
+                tail = data.split(b"CBF_BYTE_OFFSET little_endian")[-1]
                 data = head + tail
 
             cif_out.write_binary(data)

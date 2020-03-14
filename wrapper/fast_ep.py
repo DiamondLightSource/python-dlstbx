@@ -55,7 +55,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
        Takes job parameter dictionary, returns array."""
 
         command = ["fast_ep"]
-        for param, value in params["fast_ep"].iteritems():
+        for param, value in params["fast_ep"].items():
             logging.info("Parameter %s: %s" % (param, str(value)))
             if param == "rlims":
                 value = ",".join(str(r) for r in value)

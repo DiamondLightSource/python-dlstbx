@@ -84,7 +84,7 @@ def check_screening_outcomes(data_collection, expected_outcome):
                 print(lattice.unit_cell)
                 for v in ("a", "b", "c", "alpha", "beta", "gamma"):
                     results[v] = getattr(lattice.unit_cell, v)
-                for variable, outcome in results.iteritems():
+                for variable, outcome in results.items():
                     if outcome is None or expected_outcome[variable] != outcome:
                         failure_reasons.append(
                             error_explanation.format(

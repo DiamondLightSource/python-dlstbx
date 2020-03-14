@@ -237,7 +237,7 @@ def fastep_radar_plot(tmpl_data, nums, data, best_vals):
 
 def fastep_sites_plot(tmpl_data, num_list, fnum_data, best_fnum, best_sg):
     tmpl_data["img_fastep_sites"] = []
-    for nplot, (sg, fnum_dict) in enumerate(fnum_data.iteritems()):
+    for nplot, (sg, fnum_dict) in enumerate(fnum_data.items()):
         fig = plt.figure(figsize=(9, 6), facecolor="w")
         fnum_set = set()
         for v in fnum_dict.values():
@@ -254,7 +254,7 @@ def fastep_sites_plot(tmpl_data, num_list, fnum_data, best_fnum, best_sg):
             G.add_node(lb, label=n)
             labels[lb] = str(n)
 
-        for resol, vals in fnum_dict.iteritems():
+        for resol, vals in fnum_dict.items():
             for i, j in zip(num_list, vals):
                 n1 = "o" + str(i)
                 n2 = "d" + str(j)

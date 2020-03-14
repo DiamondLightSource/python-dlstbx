@@ -94,7 +94,7 @@ def test_get_datacollection_information():
     i = ispybtbx()
     dc_id = ds["gphl_C2"]
     dc_info = i.get_dc_info(dc_id)
-    # for k, v in dc_info.iteritems():
+    # for k, v in dc_info.items():
     #   print(k, v)
     assert dc_info["fileTemplate"] == "TRP_M1S6_4_####.cbf"
     assert (
@@ -117,7 +117,7 @@ def test_get_datacollection_information_for_em():
     i = ispybtbx()
     dc_id = ds["cryo_em"]
     dc_info = i.get_dc_info(dc_id)
-    # for k, v in dc_info.iteritems():
+    # for k, v in dc_info.items():
     #   print(k, v)
     assert (
         dc_info["fileTemplate"]

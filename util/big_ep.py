@@ -142,7 +142,7 @@ def read_xia2_processing(tmpl_data):
         color = iter(["b", "r", "g", "y", "c", "m"])
         for i, row in enumerate(rows):
             x_axis_title = row["plot_axis"]
-            for key, (xdata, ydata) in row["plot_data"].iteritems():
+            for key, (xdata, ydata) in row["plot_data"].items():
                 if xdata and ydata:
                     c = next(color)
                     (p,) = ax[i].plot(xdata, ydata, "o-", c=c, label=key)
@@ -263,7 +263,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
         "autoSHARP": autosharp_path,
         "AutoBuild": autosol_path,
         "Crank2": crank2_path,
-    }.iteritems():
+    }.items():
         try:
             mdl_data = get_map_model_from_json(map_model_path)
         except Exception:
@@ -410,7 +410,7 @@ def get_email_subject(log_file, visit):
 def send_html_email_message(msg, to_addrs, tmpl_data):
     def add_images(m):
 
-        for cid, img in tmpl_data["html_images"].iteritems():
+        for cid, img in tmpl_data["html_images"].items():
             try:
                 mime_image = MIMEImage(img)
                 mime_image.add_header("Content-ID", cid)

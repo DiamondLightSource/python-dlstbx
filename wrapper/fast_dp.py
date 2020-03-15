@@ -195,7 +195,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
                 logger.debug(result["stderr"])
 
             json_file = working_directory.join("iotbx-merging-stats.json")
-            with json_file.open("wb") as fh:
+            with json_file.open("w") as fh:
                 fh.write(
                     get_merging_statistics(
                         str(working_directory.join("fast_dp_unmerged.mtz").strpath)
@@ -262,7 +262,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
 
         # Forward JSON results if possible
         if success and working_directory.join("fast_dp.json").check():
-            with working_directory.join("fast_dp.json").open("rb") as fh:
+            with working_directory.join("fast_dp.json").open("r") as fh:
                 json_data = json.load(fh)
             if (
                 params.get("store_xtriage_results")

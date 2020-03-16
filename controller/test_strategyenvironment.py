@@ -72,7 +72,7 @@ def test_can_define_set_of_strategies_ignoring_errors(st):
 
 @mock.patch("dlstbx.controller.strategyenvironment.uuid")
 def test_that_assessments_are_run_and_services_and_instances_are_created(uu):
-    uu.uuid4 = count().next
+    uu.uuid4 = lambda c=count(): next(c)
 
     se = StrategyEnvironment()
     se.update_strategies(

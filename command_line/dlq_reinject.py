@@ -59,8 +59,7 @@ if __name__ == "__main__":
         help="Wait this many seconds between reinjections",
     )
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-    redirect_live_to_testing = "--test" in sys.argv
-    if redirect_live_to_testing:
+    if "--test" in sys.argv:
         default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
     # override default stomp host
     StompTransport.load_configuration_file(default_configuration)
@@ -120,8 +119,6 @@ if __name__ == "__main__":
             send_function = stomp.broadcast
         else:
             sys.exit("Cannot process message, unknown message mechanism")
-        if redirect_live_to_testing and destination[2].startswith("zocalo."):
-            destination[2] = destination[2].replace("zocalo.", "zocdev.", 1)
         if options.destination_override:
             destination[2] = options.destination_override
         header = dlqmsg["header"]

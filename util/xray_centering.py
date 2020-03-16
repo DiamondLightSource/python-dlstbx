@@ -184,7 +184,7 @@ def main(
         "boxSizeX/YPixels: " + str(boxSizeXPixels) + ", " + str(boxSizeYPixels) + "\n"
     )
     output += "topLeft: " + str(topLeft) + "\n"
-    data = zip(*sorted(data))[1]
+    data = tuple(count for position, count in sorted(data))
 
     if orientation == "vertical":
 

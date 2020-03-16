@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import gzip
 import logging
 import os
 import shutil
@@ -76,12 +77,16 @@ class RLVWrapper(zocalo.wrapper.BaseWrapper):
             return False
         logger.info("JSON generation successful, took %.1f seconds", result["runtime"])
 
+        with open("rlp.json", "rb") as fin:
+            with gzip.open("rlp.json.gz", "wb") as fout:
+                fout.write(fin.read())
+
         # copy output files to result directory
         results_directory = params["results_directory"]
         if not os.path.exists(results_directory):
             os.makedirs(results_directory)
 
-        defaultfiles = ["rlp.json"]
+        defaultfiles = ["rlp.json.gz"]
         foundfiles = []
         success = True
         for filename in params.get("keep_files", defaultfiles):

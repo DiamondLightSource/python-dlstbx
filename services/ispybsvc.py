@@ -356,7 +356,7 @@ class DLSISPyB(CommonService):
                             9877,
                             "IQI:{p[datacollectionid]}:{p[image_number]}".format(
                                 p=params
-                            ),
+                            ).encode("latin-1"),
                         )
                     except Exception as e:
                         self.log.warning("Could not notify GDA: %s", e, exc_info=True)

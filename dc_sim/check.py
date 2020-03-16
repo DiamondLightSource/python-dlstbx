@@ -166,7 +166,7 @@ def check_pia_outcomes(data_collection, expected_outcome):
     else:
         outcomes = {
             "pia": {
-                "success": False,
+                "success": None,
                 "reason": [
                     error_explanation.format(
                         dcid=data_collection.dcid,

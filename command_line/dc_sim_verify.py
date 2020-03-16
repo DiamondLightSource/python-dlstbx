@@ -138,7 +138,10 @@ if __name__ == "__main__":
             ):
                 print("Rejecting with timeout:", testrun)
                 testrun["success"] = False
+                existing_reason = testrun.get("reason")
                 testrun["reason"] = "No valid results appeared within timeout"
+                if existing_reason:
+                    testrun["reason"] += " (%s)" % existing_reason
 
     # Show all known test results
     from pprint import pprint

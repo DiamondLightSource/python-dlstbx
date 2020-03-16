@@ -1,5 +1,6 @@
 #!/usr/bin/env dials.python
 
+import dxtbx  # noqa: F401; dxtbx must be imported before h5py is imported
 import h5py
 import sys
 

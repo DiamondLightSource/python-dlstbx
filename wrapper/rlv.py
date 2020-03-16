@@ -54,12 +54,13 @@ class RLVWrapper(zocalo.wrapper.BaseWrapper):
             return False
         logger.info("Spotfinding successful, took %.1f seconds", result["runtime"])
 
-        # then map to csv file
+        # then map to json file
         command = [
-            "dev.dials.csv",
-            "output.dp=4",
-            "output.compress=true",
-            "output.csv=rl.csv.gz",
+            "dials.export",
+            "format=json",
+            "json.n_digits=4",
+            "json.compact=true",
+            "json.filename=rlp.json",
             "imported.expt",
             "strong.refl",
         ]
@@ -67,20 +68,20 @@ class RLVWrapper(zocalo.wrapper.BaseWrapper):
         result = procrunner.run(command, timeout=params.get("timeout"))
         if result["exitcode"] or result["timeout"]:
             logger.warning(
-                "Generating .csv failed on %s with exitcode %s and timeout %s",
+                "dials.export format=json failed on %s with exitcode %s and timeout %s",
                 params["template"],
                 result["exitcode"],
                 result["timeout"],
             )
             return False
-        logger.info("CSV generation successful, took %.1f seconds", result["runtime"])
+        logger.info("JSON generation successful, took %.1f seconds", result["runtime"])
 
         # copy output files to result directory
         results_directory = params["results_directory"]
         if not os.path.exists(results_directory):
             os.makedirs(results_directory)
 
-        defaultfiles = ["rl.csv.gz"]
+        defaultfiles = ["rlp.json"]
         foundfiles = []
         success = True
         for filename in params.get("keep_files", defaultfiles):

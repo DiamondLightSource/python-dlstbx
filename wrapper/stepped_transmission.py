@@ -57,7 +57,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
             {"transmission": t0 / 2, "chi": "0"},
             {"transmission": t0, "chi": "0"},
         ]
-        recipe_1 = [dict(r.items() + recipe_base.items()) for r in recipe_1]
+        recipe_1 = [dict(list(r.items()) + list(recipe_base.items())) for r in recipe_1]
 
         recipe_2 = [
             {"transmission": t0 / 8, "chi": "0"},
@@ -67,7 +67,7 @@ class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
             {"transmission": t0 / 2, "chi": "0"},
             {"transmission": t0 / 2, "chi": "30"},
         ]
-        recipe_2 = [dict(r.items() + recipe_base.items()) for r in recipe_2]
+        recipe_2 = [dict(list(r.items()) + list(recipe_base.items())) for r in recipe_2]
 
         ispyb_command_list = []
 

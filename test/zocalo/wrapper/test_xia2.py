@@ -5,7 +5,6 @@ from dlstbx.wrapper.xia2 import Xia2Wrapper
 
 
 def test_Xia2Wrapper(make_wrapper, tmpdir):
-
     image_path = "/dls/i04/data/2019/nt18231-18/tmp/2019-05-10/09-36-13-9495b73b/Therm_6_2_master.h5:1:488"
     working_directory = tmpdir.join("work_dir")
     for subdir in ("DataFiles", "LogFiles"):
@@ -274,13 +273,13 @@ def test_Xia2Wrapper(make_wrapper, tmpdir):
         mock.call(
             [
                 "xia2",
-                "pipeline=dials",
-                "min_images=3",
-                "project=AUTOMATIC",
-                "crystal=DEFAULT",
-                "read_all_image_headers=False",
                 "atom=S",
+                "crystal=DEFAULT",
                 "image=%s" % image_path,
+                "min_images=3",
+                "pipeline=dials",
+                "project=AUTOMATIC",
+                "read_all_image_headers=False",
                 "resolution.cc_half_significance_level=0.1",
             ],
             timeout=None,
@@ -313,5 +312,3 @@ def test_Xia2Wrapper(make_wrapper, tmpdir):
     )
     wrapper.run()
     wrapper.verify()
-
-    return

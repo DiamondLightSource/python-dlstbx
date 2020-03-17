@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import collections
 import logging
 import sys
 import time
@@ -62,6 +63,7 @@ if sys.argv[1:] and systest_count:
     systest_count = len(systest_classes)
 
 tests = {}
+collection_errors = False
 for classname, cls in systest_classes.items():
     logger.debug("Collecting tests from %s" % classname)
     for testname, testsetting in cls(dev_mode=test_mode).collect_tests().items():
@@ -69,14 +71,16 @@ for classname, cls in systest_classes.items():
         testresult.set_name(testname)
         testresult.set_classname(classname)
         testresult.early = 0
-        if testsetting.get("errors"):
-            testresult.log_trace("\n".join(testsetting["errors"]))
-            logger.warning(
-                "Error reading test %s:\n%s", testname, "\n".join(testsetting["errors"])
+        if testsetting.errors:
+            testresult.log_trace("\n".join(testsetting.errors))
+            logger.error(
+                "Error reading test %s:\n%s", testname, "\n".join(testsetting.errors)
             )
-            testsetting["ignore"] = True
+            collection_errors = True
         tests[(classname, testname)] = (testsetting, testresult)
 logger.info("Found %d system tests" % len(tests))
+if collection_errors:
+    sys.exit("Errors during test collection")
 
 # Set up subscriptions
 
@@ -84,14 +88,12 @@ print("")
 
 start_time = time.time()  # This is updated after sending all messages
 
-channels = {}
+channels = collections.defaultdict(list)
 for test, _ in tests.values():
-    if not test.get("ignore"):
-        for expectation in test["expect"]:
-            channels[(expectation["queue"], expectation["topic"])] = channels.get(
-                (expectation["queue"], expectation["topic"]), []
-            )
-            channels[(expectation["queue"], expectation["topic"])].append(expectation)
+    for expectation in test.expect:
+        channels[(expectation["queue"], expectation["topic"])].append(expectation)
+    for expectation in test.quiet:
+        channels[(expectation["queue"], expectation["topic"])].append(expectation)
 
 channel_lookup = {}
 
@@ -170,21 +172,20 @@ for queue, topic in channels.keys():
 print("")
 
 for test, _ in tests.values():
-    if not test.get("ignore"):
-        for message in test["send"]:
-            if message.get("queue"):
-                logger.debug("Sending message to %s", message["queue"])
-                transport.send(
-                    message["queue"],
-                    message["message"],
-                    headers=message["headers"],
-                    persistent=False,
-                )
-            if message.get("topic"):
-                logger.debug("Broadcasting message to %s", message["topic"])
-                transport.broadcast(
-                    message["topic"], message["message"], headers=message["headers"]
-                )
+    for message in test.send:
+        if message.get("queue"):
+            logger.debug("Sending message to %s", message["queue"])
+            transport.send(
+                message["queue"],
+                message["message"],
+                headers=message["headers"],
+                persistent=False,
+            )
+        if message.get("topic"):
+            logger.debug("Broadcasting message to %s", message["topic"])
+            transport.broadcast(
+                message["topic"], message["message"], headers=message["headers"]
+            )
 
 # Prepare timer events
 
@@ -194,14 +195,13 @@ start_time = time.time()
 
 timer_events = []
 for test, _ in tests.values():
-    if not test.get("ignore"):
-        for event in test["timers"]:
-            event["at_time"] = event["at_time"] + start_time
-            function = event["callback"]
-            args = event.get("args", ())
-            kwargs = event.get("kwargs", {})
-            x = lambda function=function: function(*args, **kwargs)
-            timer_events.append((event["at_time"], x))
+    for event in test.timers:
+        event["at_time"] = event["at_time"] + start_time
+        function = event["callback"]
+        args = event.get("args", ())
+        kwargs = event.get("kwargs", {})
+        x = lambda function=function: function(*args, **kwargs)
+        timer_events.append((event["at_time"], x))
 timer_events = sorted(timer_events, key=lambda tup: tup[0])
 
 # Wait for messages and timeouts, run events
@@ -225,29 +225,27 @@ while keep_waiting:
     time.sleep(max(0.01, wait_to - time.time()))
 
     for testname, test in tests.items():
-        if not test[0].get("ignore"):
-            for expectation in test[0]["expect"]:
-                if not expectation.get("received") and not expectation.get(
-                    "received_timeout"
-                ):
-                    if time.time() > start_time + expectation["timeout"]:
-                        expectation["received_timeout"] = True
-                        logger.warning(
-                            "Test %s.%s timed out waiting for message\n%s"
-                            % (testname[0], testname[1], str(expectation))
-                        )
-                        test[1].log_error("No answer received within time limit.")
-                        test[1].log_error(str(expectation))
-                    else:
-                        keep_waiting = True
+        for expectation in test[0].expect:
+            if not expectation.get("received") and not expectation.get(
+                "received_timeout"
+            ):
+                if time.time() > start_time + expectation["timeout"]:
+                    expectation["received_timeout"] = True
+                    logger.warning(
+                        "Test %s.%s timed out waiting for message\n%s"
+                        % (testname[0], testname[1], str(expectation))
+                    )
+                    test[1].log_error("No answer received within time limit.")
+                    test[1].log_error(str(expectation))
+                else:
+                    keep_waiting = True
 
 for testname, test in tests.items():
-    if not test[0].get("ignore"):
-        for expectation in test[0]["expect"]:
-            if expectation.get("early"):
-                test[1].log_error("Answer received too early.")
-                test[1].log_error(str(expectation))
-                test[1].early += 1
+    for expectation in test[0].expect:
+        if expectation.get("early"):
+            test[1].log_error("Answer received too early.")
+            test[1].log_error(str(expectation))
+            test[1].early += 1
 
 # Export results
 ts = junit_xml.TestSuite(
@@ -277,8 +275,8 @@ for a, b in tests.values():
                 % (
                     b.classname,
                     b.name,
-                    len([x for x in a["expect"] if x.get("received")]),
-                    len(a["expect"]),
+                    len([x for x in a.expect if x.get("received")]),
+                    len(a.expect),
                     "(%d early)" % b.early if b.early else "",
                 )
             )

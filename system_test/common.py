@@ -1,11 +1,16 @@
 from __future__ import absolute_import, division, print_function
 
+import collections
 import logging
 import string
 import uuid
 
 import mock
 import six
+
+CollectedTest = collections.namedtuple(
+    "CollectedTest", "send, expect, timers, errors, quiet"
+)
 
 
 class SafeDict(dict):
@@ -103,7 +108,8 @@ class CommonSystemTest(six.with_metaclass(_CommonSystemTestMeta, object)):
     def collect_tests(self):
         """Runs all test functions and collects messaging information.
        Returns a dictionary of
-         { testname: { 'send': [], 'expect': [], 'timers': [], 'errors': [] } }.
+         { testname: CollectedTest }
+       with the namedtuple CollectedTest parameters initialised with arrays.
     """
 
         messages = {}
@@ -112,22 +118,24 @@ class CommonSystemTest(six.with_metaclass(_CommonSystemTestMeta, object)):
             self.parameters["guid"] = self.guid
 
             def messaging(direction, **kwargs):
-                if direction not in messages[name]:
+                if direction not in messages[name]._fields:
                     raise RuntimeError("Invalid messaging call (%s)" % str(direction))
-                messages[name][direction].append(kwargs)
+                getattr(messages[name], direction).append(kwargs)
 
             def timer(**kwargs):
-                messages[name]["timers"].append(kwargs)
+                messages[name].timers.append(kwargs)
 
             self._messaging = messaging
             self._add_timer = timer
-            messages[name] = {"send": [], "expect": [], "timers": [], "errors": []}
+            messages[name] = CollectedTest(
+                send=[], expect=[], timers=[], errors=[], quiet=[]
+            )
             try:
                 function()
             except Exception:
                 import traceback
 
-                messages[name]["errors"].append(traceback.format_exc())
+                messages[name].errors.append(traceback.format_exc())
         return messages
 
     #

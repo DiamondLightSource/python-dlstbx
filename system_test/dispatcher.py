@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import copy
 import json
 import os.path
 
@@ -36,7 +37,7 @@ class DispatcherService(CommonSystemTest):
     def disabled_test_guid_generation_during_recipe_parsing(self):
         """The guid parameter should be created during parsing of each recipe."""
 
-        recipe = {
+        recipe = {  # noqa: F841
             1: {
                 "service": "DLS system test",
                 "queue": "transient.system_test." + self.guid,
@@ -155,7 +156,10 @@ class DispatcherService(CommonSystemTest):
 
         self.send_message(
             queue="processing_recipe",
-            message={"custom_recipe": recipe, "parameters": {"ispyb_dcid": 1397955}},
+            message={
+                "custom_recipe": recipe,
+                "parameters": {"ispyb_dcid": 1397955, "ispyb_wait_for_runstatus": True},
+            },
         )
 
         recipe["start"][0][1]["parameters"][
@@ -167,6 +171,49 @@ class DispatcherService(CommonSystemTest):
             recipe_path=[],
             recipe_pointer=1,
             payload=recipe["start"][0][1],
+        )
+
+    def test_wait_for_ispyb_runstatus(self):
+        """
+        Test the logic to wait for a RunStatus to be set in ISPyB.
+        Since we don't touch the database this should run into a timeout condition.
+        """
+
+        recipe = {
+            1: {
+                "service": "DLS system test - should not end up here",
+                "queue": "transient.system_test." + self.guid + ".fail",
+            },
+            "start": [[1, {"purpose": "wait for undefined runstatus",},]],
+        }
+
+        message = {
+            "custom_recipe": recipe,
+            "parameters": {
+                "ispyb_dcid": 4977408,
+                "ispyb_wait_for_runstatus": True,
+                "dispatcher_timeout": 10,
+                "dispatcher_error_queue": "transient.system_test."
+                + self.guid
+                + ".timeout",
+            },
+        }
+        self.send_message(queue="processing_recipe", message=message)
+
+        self.expect_unreached_recipe_step(recipe=recipe, recipe_pointer=1)
+
+        # Emulate recipe mangling
+        message = copy.deepcopy(message)
+        message["custom_recipe"]["1"] = message["custom_recipe"][1]
+        del message["custom_recipe"][1]
+        message["parameters"]["guid"] = mock.ANY
+        message["parameters"]["dispatcher_expiration"] = mock.ANY
+
+        self.expect_message(
+            queue="transient.system_test." + self.guid + ".timeout",
+            message=message,
+            min_wait=9,
+            timeout=20,
         )
 
 

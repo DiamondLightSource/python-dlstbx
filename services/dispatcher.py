@@ -136,10 +136,47 @@ class DLSDispatcher(CommonService):
 
             # At this point external helper functions should be called,
             # eg. ISPyB database lookups
-            from dlstbx.ispybtbx import ispyb_filter
+            import dlstbx.ispybtbx
+
+            # Step 1: Check that parsing the message can proceed
+            if not dlstbx.ispybtbx.ready_for_processing(message, parameters):
+                # Message not yet cleared for processing
+                if "dispatcher_expiration" not in parameters:
+                    parameters["dispatcher_expiration"] = time.time() + int(
+                        parameters.get("dispatcher_timeout", 120)
+                    )
+                if parameters["dispatcher_expiration"] > time.time():
+                    # Wait for 2 seconds
+                    txn = self._transport.transaction_begin()
+                    self._transport.ack(header, transaction=txn)
+                    self._transport.send(
+                        "processing_recipe", message, transaction=txn, delay=2
+                    )
+                    self.log.info("Message not yet ready for processing")
+                    self._transport.transaction_commit(txn)
+                    return
+                elif parameters.get("dispatcher_error_queue"):
+                    # Drop message into error queue
+                    txn = self._transport.transaction_begin()
+                    self._transport.ack(header, transaction=txn)
+                    self._transport.send(
+                        parameters["dispatcher_error_queue"], message, transaction=txn
+                    )
+                    self.log.info(
+                        "Message rejected to specified error queue as still not ready for processing"
+                    )
+                    self._transport.transaction_commit(txn)
+                    return
+                else:
+                    # Unhandled error, send message to DLQ
+                    self.log.warning(
+                        "Message rejected as still not ready for processing",
+                    )
+                    self._transport.nack(header)
+                    return
 
             try:
-                message, parameters = ispyb_filter(message, parameters)
+                message, parameters = dlstbx.ispybtbx.ispyb_filter(message, parameters)
             except Exception as e:
                 self.log.error(
                     "Rejected message due to ISPyB filter error: %s",

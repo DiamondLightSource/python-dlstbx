@@ -230,6 +230,28 @@ class CommonSystemTest(six.with_metaclass(_CommonSystemTestMeta, object)):
             timeout=timeout,
         )
 
+    def expect_unreached_recipe_step(
+        self, recipe, recipe_pointer, min_wait=3, queue=None, topic=None,
+    ):
+        """Use this function within tests to mark recipe steps as unreachable."""
+        assert recipe, "Recipe required"
+        if not (queue or topic):
+            assert recipe_pointer > 0, "Recipe-pointer required"
+            assert recipe_pointer in recipe, "Given recipe-pointer %s invalid" % str(
+                recipe_pointer
+            )
+            queue = recipe[recipe_pointer].get("queue")
+            topic = recipe[recipe_pointer].get("topic")
+            assert queue or topic, "Message queue or topic destination required"
+        assert (
+            not queue or not topic
+        ), "Can only expect message on queue or topic, not both"
+
+        self._messaging(
+            "quiet", queue=queue, topic=topic,
+        )
+        self._add_timer(at_time=min_wait)
+
     def timer_event(self, at_time=None, callback=None, args=None, kwargs=None):
         if args is None:
             args = []

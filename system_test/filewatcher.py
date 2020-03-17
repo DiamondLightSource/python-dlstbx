@@ -83,6 +83,12 @@ class FilewatcherService(CommonSystemTest):
             timeout=30,
         )
 
+        # Step 3 in recipe should never be reached
+
+        self.expect_unreached_recipe_step(
+            recipe=recipe, recipe_pointer=3,
+        )
+
     def test_list_success_notifications(self):
         """
         Send a recipe to the filewatcher based on a list of files.
@@ -266,6 +272,10 @@ class FilewatcherService(CommonSystemTest):
         # Timeout ==========================
 
         # No timeout message should be sent
+
+        self.expect_unreached_recipe_step(
+            recipe=recipe, recipe_pointer=8,
+        )
 
         # Any ==============================
 
@@ -522,6 +532,10 @@ class FilewatcherService(CommonSystemTest):
 
         # No timeout message should be sent
 
+        self.expect_unreached_recipe_step(
+            recipe=recipe, recipe_pointer=8,
+        )
+
         # Any ==============================
 
         self.expect_recipe_message(
@@ -614,6 +628,11 @@ class FilewatcherService(CommonSystemTest):
 
         # No messages should be sent
 
+        for pointer in (2, 3, 4, 5, 6, 10):
+            self.expect_unreached_recipe_step(
+                recipe=recipe, recipe_pointer=pointer,
+            )
+
         # Finally ==========================
 
         self.expect_recipe_message(
@@ -641,6 +660,9 @@ class FilewatcherService(CommonSystemTest):
         # Any ==============================
 
         # No messages should be sent
+        self.expect_unreached_recipe_step(
+            recipe=recipe, recipe_pointer=9,
+        )
 
     def test_pattern_failure_notification_immediate(self):
         """Send a recipe to the filewatcher. Do not create any files and wait for
@@ -710,6 +732,11 @@ class FilewatcherService(CommonSystemTest):
 
         # No messages should be sent
 
+        for pointer in (2, 3, 4, 5, 6, 10):
+            self.expect_unreached_recipe_step(
+                recipe=recipe, recipe_pointer=pointer,
+            )
+
         # Finally ==========================
 
         self.expect_recipe_message(
@@ -742,6 +769,10 @@ class FilewatcherService(CommonSystemTest):
         # Any ==============================
 
         # No messages should be sent
+
+        self.expect_unreached_recipe_step(
+            recipe=recipe, recipe_pointer=9, min_wait=3,
+        )
 
     def test_list_failure_notification_delayed(self):
         """
@@ -870,6 +901,10 @@ class FilewatcherService(CommonSystemTest):
 
         # No messages should be sent
 
+        self.expect_unreached_recipe_step(
+            recipe=recipe, recipe_pointer=4,
+        )
+
         # Select ===========================
 
         self.expect_recipe_message(
@@ -884,6 +919,10 @@ class FilewatcherService(CommonSystemTest):
         # Specific =========================
 
         # No messages should be sent
+
+        self.expect_unreached_recipe_step(
+            recipe=recipe, recipe_pointer=6,
+        )
 
         # Finally ==========================
 
@@ -950,7 +989,7 @@ class FilewatcherService(CommonSystemTest):
                     "every": 3,  # Every
                     "every-3": 10,  # 1st only
                     "last": 4,  # Should not be triggered here
-                    "select-30": 5,  # Should not be triggered here
+                    "select-30": 5,  # 1st only
                     "20": 6,  # Should not be triggered here
                     "finally": 7,  # End-of-job
                     "timeout": 8,  # Ran into a timeout condition
@@ -1038,10 +1077,34 @@ class FilewatcherService(CommonSystemTest):
         )
 
         # Last =============================
+
+        # No message should be sent
+        self.expect_unreached_recipe_step(
+            recipe=recipe, recipe_pointer=4,
+        )
+
         # Select ===========================
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=5,
+            payload={
+                "file": delayed_fail_file,
+                "file-number": 1,
+                "file-pattern-index": 5,
+            },
+            min_wait=25,
+            timeout=50,
+        )
+
         # Specific =========================
 
-        # No messages should be sent
+        # No message should be sent
+        self.expect_unreached_recipe_step(
+            recipe=recipe, recipe_pointer=6,
+        )
 
         # Finally ==========================
 

@@ -93,7 +93,7 @@ for test, _ in tests.values():
     for expectation in test.expect:
         channels[(expectation["queue"], expectation["topic"])].append(expectation)
     for expectation in test.quiet:
-        channels[(expectation["queue"], expectation["topic"])].append(expectation)
+        channels[(expectation["queue"], expectation["topic"])].extend([])
 
 channel_lookup = {}
 
@@ -197,10 +197,13 @@ timer_events = []
 for test, _ in tests.values():
     for event in test.timers:
         event["at_time"] = event["at_time"] + start_time
-        function = event["callback"]
-        args = event.get("args", ())
-        kwargs = event.get("kwargs", {})
-        x = lambda function=function: function(*args, **kwargs)
+        function = event.get("callback")
+        if function:
+            args = event.get("args", ())
+            kwargs = event.get("kwargs", {})
+            x = lambda function=function: function(*args, **kwargs)
+        else:
+            x = lambda: None
         timer_events.append((event["at_time"], x))
 timer_events = sorted(timer_events, key=lambda tup: tup[0])
 

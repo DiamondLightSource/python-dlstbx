@@ -101,15 +101,11 @@ class DLSClusterMonitor(CommonService):
         hamilton = cluster == "hamilton"
 
         pending_jobs = collections.Counter(
-            map(
-                lambda j: j["queue"].split("@@")[0]
-                if "@@" in j["queue"]
-                else j["queue"],
-                filter(
-                    lambda j: j["state"] == "pending" and "h" not in j["statecode"],
-                    joblist,
-                ),
-            )
+            j["queue"].split("@@")[0]
+            for j in joblist
+            if j["state"] == "pending"
+            and "h" not in j["statecode"]
+            and "E" not in j["statecode"]
         )
         waiting_jobs_per_queue = {
             queue: pending_jobs[queue]

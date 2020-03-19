@@ -23,7 +23,7 @@ class DLSPerImageAnalysis(CommonService):
         logging.getLogger("dials").setLevel(logging.WARNING)
         logging.getLogger("dials.util.masking").setLevel(logging.DEBUG)
 
-        # Check node health before starting service
+        self.log.debug("Checking node health before starting service")
         missing_fs = ",".join(dlstbx.util.sanity.get_missing_file_systems())
         if missing_fs:
             self.log.critical(
@@ -32,6 +32,7 @@ class DLSPerImageAnalysis(CommonService):
             )
             self._request_termination()
             return
+        self.log.info("Node self-check passed")
 
         # The main per_image_analysis queue.
         # For every received message a single frame will be analysed.

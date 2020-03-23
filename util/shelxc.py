@@ -89,7 +89,7 @@ def reduce_shelxc_results(msg, params):
 
     try:
         idx = max(
-            next(i for (i, v) in enumerate(msg["reso_data"]) if v < RESOL_CUTOFF), 2
+            next(i for (i, v) in enumerate(msg["reso_data"][1:], 1) if v < RESOL_CUTOFF), 2
         )
     except StopIteration:
         idx = -1
@@ -109,7 +109,7 @@ def reduce_shelxc_results(msg, params):
     except Exception:
         msg["med_dsig"] = float("nan")
     try:
-        msg["high_res"] = min(msg["reso_data"])
+        msg["high_res"] = min(msg["reso_data"][1:])
     except Exception:
         msg["high_res"] = float("nan")
     try:

@@ -69,8 +69,8 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
         if result["exitcode"] or result["timeout"]:
             logger.info("timeout: %s", result["timeout"])
             logger.info("exitcode: %s", result["exitcode"])
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            logger.debug(result["stdout"].decode("latin1"))
+            logger.debug(result["stderr"].decode("latin1"))
         logger.info("runtime: %s", result["runtime"])
 
         command = ["sh", prefix + ".sh"]
@@ -85,8 +85,8 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
         if result["exitcode"] or result["timeout"]:
             logger.info("timeout: %s", result["timeout"])
             logger.info("exitcode: %s", result["exitcode"])
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            logger.debug(result["stdout"].decode("latin1"))
+            logger.debug(result["stderr"].decode("latin1"))
         logger.info("runtime: %s", result["runtime"])
 
         if not result["stdout"]:
@@ -95,9 +95,9 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
 
         shelxc_log = os.path.join(working_directory.strpath, prefix + "_shelxc.log")
         with open(shelxc_log, "w") as fp:
-            fp.write(result["stdout"])
+            fp.write(result["stdout"].decode("latin1"))
 
-        stats = parse_shelxc_logs(result["stdout"])
+        stats = parse_shelxc_logs(result["stdout"].decode("latin1"))
         if not stats:
             logger.debug("Cannot process SHELXC data. Aborting.")
             return False

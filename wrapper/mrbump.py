@@ -104,7 +104,7 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
         with open(os.path.join(working_directory.strpath, "MRBUMP.log"), "w") as fp:
             result = procrunner.run(
                 ["sh", mrbump_script],
-                stdin=stdin,
+                stdin=stdin.encode("utf-8"),
                 callback_stdout=lambda x: print(x, file=fp),
                 working_directory=working_directory.strpath,
                 timeout=params.get("timeout"),
@@ -123,8 +123,8 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
                     result["exitcode"],
                     result["timeout"],
                 )
-                logger.debug(result["stdout"])
-                logger.debug(result["stderr"])
+                logger.debug(result["stdout"].decode("latin1"))
+                logger.debug(result["stderr"].decode("latin1"))
 
         logger.info("Copying MrBUMP results to %s", results_directory.strpath)
         keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}

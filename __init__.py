@@ -2,6 +2,11 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 
+if sys.version_info.major < 3:
+    import warnings
+
+    warnings.warn("dlstbx requires a Python 3 environment", UserWarning)
+
 
 def enable_graylog(live=True):
     """

@@ -128,8 +128,8 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            logger.debug(result["stdout"].decode("latin1"))
+            logger.debug(result["stderr"].decode("latin1"))
         logger.info("working_directory: %s", working_directory.strpath)
 
         json_file = working_directory.join("iotbx-merging-stats.json")
@@ -160,7 +160,7 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                 i_obs.customized_copy(anomalous_flag=True)
             )
 
-            with json_file.open("wb") as fh:
+            with json_file.open("w") as fh:
                 fh.write(merging_stats.as_json())
 
             ispyb_d = {

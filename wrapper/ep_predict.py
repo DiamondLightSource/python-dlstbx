@@ -1,5 +1,4 @@
 from __future__ import absolute_import, division, print_function
-from __builtin__ import reduce, unicode
 
 import zocalo.wrapper
 import logging
@@ -9,6 +8,7 @@ import tempfile
 import os
 import procrunner
 from pprint import pformat
+from functools import reduce
 
 from dlstbx.command_line import ep_predict
 
@@ -67,8 +67,6 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
             metrics_data[-1] = params["energy_scan_info"]["fpp"]
         except KeyError:
             el = params["diffraction_plan_info"]["anomalousscatterer"]
-            if isinstance(el, unicode):
-                el = el.encode("ascii", "ignore")
             if metrics_data[-1] < 2.8:
                 from cctbx.eltbx import sasaki as tbl_fpfdp
             else:

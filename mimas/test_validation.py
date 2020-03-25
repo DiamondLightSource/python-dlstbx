@@ -48,13 +48,66 @@ def test_validation_of_recipe_invocation():
     dlstbx.mimas.validate(valid_invocation)
 
     # replacing individual values should fail validation
-    for key, value in {
-        "DCID": "banana",
-        "recipe": dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid"),
-        "recipe": "",
-        "recipe": None,
-    }.items():
+    for key, value in [
+        ("DCID", "banana"),
+        ("recipe", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid")),
+        ("recipe", ""),
+        ("recipe", None),
+    ]:
         print(f"testing {key}: {value}")
         invalid_invocation = valid_invocation._replace(**{key: value})
         with pytest.raises(ValueError):
             dlstbx.mimas.validate(invalid_invocation)
+
+
+def test_validation_of_ispyb_invocation():
+    valid_invocation = dlstbx.mimas.MimasISPyBJobInvocation(
+        DCID=1,
+        autostart=True,
+        comment="",
+        displayname="",
+        parameters=(dlstbx.mimas.MimasISPyBParameter(key="test", value="valid"),),
+        recipe="string",
+        source="automatic",
+        sweeps=(),
+        triggervariables=(),
+    )
+    dlstbx.mimas.validate(valid_invocation)
+
+    # replacing individual values should fail validation
+    for key, value in [
+        ("DCID", "banana"),
+        ("autostart", "banana"),
+        ("parameters", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid")),
+        ("parameters", (dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid"),)),
+        ("parameters", dlstbx.mimas.MimasISPyBParameter(key="test", value="invalid")),
+        ("parameters", ""),
+        ("parameters", None),
+        ("recipe", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid")),
+        ("recipe", ""),
+        ("recipe", None),
+    ]:
+        print(f"testing {key}: {value}")
+        invalid_invocation = valid_invocation._replace(**{key: value})
+        with pytest.raises(ValueError):
+            dlstbx.mimas.validate(invalid_invocation)
+
+
+def test_validation_of_ispyb_parameters():
+    valid = dlstbx.mimas.MimasISPyBParameter(key="key", value="value")
+    dlstbx.mimas.validate(valid)
+
+    # replacing individual values should fail validation
+    for key, value in [
+        ("key", ""),
+        ("key", 5),
+        ("key", None),
+        ("key", False),
+        ("value", 5),
+        ("value", None),
+        ("value", False),
+    ]:
+        print(f"testing {key}: {value}")
+        invalid = valid._replace(**{key: value})
+        with pytest.raises(ValueError):
+            dlstbx.mimas.validate(invalid)

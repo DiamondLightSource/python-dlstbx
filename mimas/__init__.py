@@ -82,3 +82,37 @@ def _(mimasobject: MimasRecipeInvocation, expectedtype=None):
         raise ValueError(f"{mimasobject!r} has non-string recipe")
     if not mimasobject.recipe:
         raise ValueError(f"{mimasobject!r} has empty recipe string")
+
+
+@validate.register(MimasISPyBJobInvocation)
+def _(mimasobject: MimasISPyBJobInvocation, expectedtype=None):
+    if expectedtype and not isinstance(mimasobject, expectedtype):
+        raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
+    if type(mimasobject.DCID) != int:
+        raise ValueError(f"{mimasobject!r} has non-integer DCID")
+    if mimasobject.autostart not in (True, False):
+        raise ValueError(f"{mimasobject!r} has invalid autostart property")
+    if type(mimasobject.parameters) not in (list, tuple):
+        raise ValueError(
+            f"{mimasobject!r} parameters must be a tuple, not {type(mimasobject.parameters)}"
+        )
+    for parameter in mimasobject.parameters:
+        validate(parameter, expectedtype=MimasISPyBParameter)
+    if type(mimasobject.recipe) != str:
+        raise ValueError(f"{mimasobject!r} has non-string recipe")
+    if not mimasobject.recipe:
+        raise ValueError(f"{mimasobject!r} has empty recipe string")
+
+
+@validate.register(MimasISPyBParameter)
+def _(mimasobject: MimasISPyBParameter, expectedtype=None):
+    if expectedtype and not isinstance(mimasobject, expectedtype):
+        raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
+    if type(mimasobject.key) != str:
+        raise ValueError(f"{mimasobject!r} has non-string key")
+    if not mimasobject.key:
+        raise ValueError(f"{mimasobject!r} has an empty key")
+    if type(mimasobject.value) != str:
+        raise ValueError(
+            f"{mimasobject!r} value must be a string, not {type(mimasobject.value)}"
+        )

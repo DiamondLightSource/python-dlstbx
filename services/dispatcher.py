@@ -231,7 +231,7 @@ class DLSDispatcher(CommonService):
 
             if not recipes:
                 self.log.error(
-                    "Message contains no valid recipies or pointers to recipies"
+                    "Message contains no valid recipes or pointers to recipes"
                 )
                 self._transport.nack(header)
                 return

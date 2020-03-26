@@ -25,11 +25,7 @@ def find_all_references(startfile):
         try:
             fhed = fh["/entry/data"]
         except KeyError:
-            log.error(
-                "Can not find references from file %s. File contains no data entries.",
-                startfile,
-            )
-            return []
+            raise ValueError("Invalid HDF5 master file: file contains no data entries.")
         for entry in fhed.keys():
             entry_link = fhed.get(entry, getlink=True)
             if not isinstance(entry_link, h5py.ExternalLink):

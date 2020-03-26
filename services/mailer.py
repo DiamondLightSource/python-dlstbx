@@ -72,22 +72,12 @@ class DLSMailer(CommonService):
             return
         if isinstance(content, list):
             content = "".join(content)
-
-        if isinstance(message, list) and all(
-            isinstance(line, unicode) for line in message
-        ):
-            pprint_message = "\n".join(
-                line.encode("ascii", errors="replace") for line in message
-            )
+        if isinstance(message, list):
+            pprint_message = "\n".join(message)
         else:
             pprint_message = pprint.pformat(message)
 
         content = content.format(payload=message, pprint_payload=pprint_message)
-
-        sender = sender.encode("ascii", errors="replace")
-        subject = subject.encode("ascii", errors="replace")
-        recipients = [r.encode("ascii", errors="replace") for r in recipients]
-        content = content.encode("ascii", errors="replace")
 
         self.log.info("Sending mail notification %r to %r", subject, recipients)
 
@@ -101,7 +91,7 @@ class DLSMailer(CommonService):
             environment_override={"from": sender},
             print_stderr=False,
             print_stdout=False,
-            stdin=content,
+            stdin=content.encode(),
             timeout=60,
         )
 
@@ -109,18 +99,18 @@ class DLSMailer(CommonService):
             self.log.error(
                 "Message delivery failed with exit code %r: %r",
                 result["exitcode"],
-                result["stdout"] + result["stderr"],
+                (result["stdout"] + result["stderr"]).decode("latin-1"),
             )
         elif result["timeout"]:
             self.log.error(
                 "Message delivery failed with timeout: %r",
-                result["stdout"] + result["stderr"],
+                (result["stdout"] + result["stderr"]).decode("latin-1"),
             )
         elif result["stdin_bytes_remain"]:
             self.log.error(
                 "Message delivery failed with %d bytes unread: %r",
                 result["stdin_bytes_remain"],
-                result["stdout"] + result["stderr"],
+                (result["stdout"] + result["stderr"]).decode("latin-1"),
             )
         else:
             self.log.debug("Message sent successfully")

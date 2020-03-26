@@ -22,7 +22,14 @@ def find_all_references(startfile):
     image_count = collections.defaultdict(int)
     image_count[startfile] = 0
     with h5py.File(startfile, "r") as fh:
-        fhed = fh["/entry/data"]
+        try:
+            fhed = fh["/entry/data"]
+        except KeyError:
+            log.error(
+                "Can not find references from file %s. File contains no data entries.",
+                startfile,
+            )
+            return []
         for entry in fhed.keys():
             entry_link = fhed.get(entry, getlink=True)
             if not isinstance(entry_link, h5py.ExternalLink):

@@ -86,6 +86,19 @@ class DLSMimas(CommonService):
                 default_recipes.append("processing-multi-xia2-dials")
                 default_recipes.append("processing-multi-xia2-3dii")
 
+        gridscan = step.get("gridscan")
+        if isinstance(gridscan, bool):
+            pass
+        elif isinstance(gridscan, str):
+            if gridscan.lower() == "true":
+                gridscan = True
+            elif gridscan.lower() == "false":
+                gridscan = False
+            else:
+                return f"Invalid Mimas request rejected (gridscan = {gridscan})"
+        else:
+            return f"Invalid Mimas request rejected (gridscan = {gridscan!r})"
+
         return dlstbx.mimas.MimasScenario(
             DCID=int(dcid),
             event=event,
@@ -94,7 +107,7 @@ class DLSMimas(CommonService):
             spacegroup=step.get("space_group"),
             unitcell=step.get("unit_cell"),
             default_recipes=default_recipes,
-            isitagridscan=step.get("isitagridscan"),
+            isitagridscan=gridscan,
             getsweepslistfromsamedcg=step.get("getsweepslistfromsamedcg"),
             # step.get(dc_class)
             # step.get(preferred_processing)

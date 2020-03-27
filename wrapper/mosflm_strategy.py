@@ -35,7 +35,7 @@ class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
         image_file_name = os.path.join(image_directory, image_pattern % image_first)
         commands = ["som.strategy", image_file_name]
         space_group = params.get("spacegroup")
-        if space_group is not None:
+        if space_group:
             commands.append(space_group)
         logger.info("command: %s", " ".join(commands))
         result = procrunner.run(

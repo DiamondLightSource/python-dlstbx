@@ -211,7 +211,7 @@ class ispybtbx(object):
             dc_id,
         )
         if not spacegroups:
-            return None
+            return ""
         return spacegroups[0][0]
 
     def get_energy_scan_from_dcid(self, dc_id):
@@ -731,6 +731,7 @@ def ispyb_filter(message, parameters):
     )
     parameters["ispyb_working_directory"] = i.dc_info_to_working_directory(dc_info)
     parameters["ispyb_results_directory"] = i.dc_info_to_results_directory(dc_info)
+    parameters["ispyb_space_group"] = ""
 
     if (
         "ispyb_processing_job" in parameters

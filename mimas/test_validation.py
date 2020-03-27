@@ -26,17 +26,19 @@ def test_validation_of_scenario():
         unitcell="string",
         spacegroup="string",
         default_recipes="undefined",
-        isitagridscan="undefined",
+        isitagridscan=False,
         getsweepslistfromsamedcg="undefined",
         runstatus="string",
     )
     dlstbx.mimas.validate(valid_scenario)
 
     # replacing individual values should fail validation
-    for key, value in {
-        "DCID": "banana",
-        "event": dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid"),
-    }.items():
+    for key, value in [
+        ("DCID", "banana"),
+        ("event", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid")),
+        ("isitagridscan", ""),
+        ("isitagridscan", "True"),
+    ]:
         print(f"testing {key}: {value}")
         invalid_scenario = valid_scenario._replace(**{key: value})
         with pytest.raises(ValueError):

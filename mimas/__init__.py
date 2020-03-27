@@ -63,6 +63,8 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
     if type(mimasobject.DCID) != int:
         raise ValueError(f"{mimasobject!r} has non-integer DCID")
+    if type(mimasobject.isitagridscan) != bool:
+        raise ValueError(f"{mimasobject!r} has non-boolean isitagridscan")
     validate(mimasobject.event, expectedtype=MimasEvent)
 
 

@@ -10,7 +10,6 @@ from optparse import SUPPRESS_HELP, OptionParser
 
 import dlstbx.ispybtbx
 import dlstbx.mimas.core
-import procrunner
 
 if __name__ == "__main__":
     parser = OptionParser(usage="dlstbx.mimas [options] dcid")
@@ -25,14 +24,6 @@ if __name__ == "__main__":
         ispyb_message, ispyb_info = dlstbx.ispybtbx.ispyb_filter(
             {}, {"ispyb_dcid": dcid}
         )
-        result = procrunner.run(
-            ["/dls_sw/apps/mx-scripts/misc/isItAGridScan_InputDC", str(dcid)],
-            print_stdout=False,
-        )
-        assert result.returncode == 0, (
-            "grid scan check failed with %d" % result.returncode
-        )
-        gridscan = result.stdout.startswith(b"True")
 
         for event, readable in (
             (dlstbx.mimas.MimasEvent.START, "start of data collection"),
@@ -46,7 +37,7 @@ if __name__ == "__main__":
                 spacegroup=ispyb_info.get("ispyb_space_group"),
                 unitcell="",
                 default_recipes=ispyb_message["default_recipe"],
-                isitagridscan=gridscan,
+                isitagridscan=ispyb_info["ispyb_isitagridscan_legacy"],
                 getsweepslistfromsamedcg="",
             )
             # from pprint import pprint

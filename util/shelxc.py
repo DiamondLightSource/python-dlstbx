@@ -89,7 +89,10 @@ def reduce_shelxc_results(msg, params):
 
     try:
         idx = max(
-            next(i for (i, v) in enumerate(msg["reso_data"][1:], 1) if v < RESOL_CUTOFF), 2
+            next(
+                i for (i, v) in enumerate(msg["reso_data"][1:], 1) if v < RESOL_CUTOFF
+            ),
+            2,
         )
     except StopIteration:
         idx = -1

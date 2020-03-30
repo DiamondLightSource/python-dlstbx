@@ -203,7 +203,6 @@ def run(
                     )
                 )
             if "processing-multi-xia2-dials" in scenario.default_recipes:
-                sweeps = "$(/dls_sw/apps/mx-scripts/misc/getSweepsListFromSameDataCollectionGroup.sh ${DCID})"
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -217,12 +216,11 @@ def run(
                         ),
                         recipe="autoprocessing-multi-xia2-dials",
                         source="automatic",
-                        sweeps=sweeps,
+                        sweeps=tuple(scenario.getsweepslistfromsamedcg),
                         triggervariables=(),
                     )
                 )
             if "processing-multi-xia2-3dii" in scenario.default_recipes:
-                sweeps = "$(/dls_sw/apps/mx-scripts/misc/getSweepsListFromSameDataCollectionGroup.sh ${DCID})"
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -236,7 +234,7 @@ def run(
                         ),
                         recipe="autoprocessing-multi-xia2-3dii",
                         source="automatic",
-                        sweeps=sweeps,
+                        sweeps=tuple(scenario.getsweepslistfromsamedcg),
                         triggervariables=(),
                     )
                 )
@@ -298,7 +296,6 @@ def run(
                         )
                     )
                 if "processing-multi-xia2-dials" in scenario.default_recipes:
-                    sweeps = "$(/dls_sw/apps/mx-scripts/misc/getSweepsListFromSameDataCollectionGroup.sh ${DCID})"
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -308,12 +305,11 @@ def run(
                             parameters=parameters,
                             recipe="autoprocessing-multi-xia2-dials",
                             source="automatic",
-                            sweeps=sweeps,
+                            sweeps=tuple(scenario.getsweepslistfromsamedcg),
                             triggervariables=(),
                         )
                     )
                 if "processing-multi-xia2-3dii" in scenario.default_recipes:
-                    sweeps = "$(/dls_sw/apps/mx-scripts/misc/getSweepsListFromSameDataCollectionGroup.sh ${DCID})"
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -323,7 +319,7 @@ def run(
                             parameters=parameters,
                             recipe="autoprocessing-multi-xia2-3dii",
                             source="automatic",
-                            sweeps=sweeps,
+                            sweeps=tuple(scenario.getsweepslistfromsamedcg),
                             triggervariables=(),
                         )
                     )
@@ -516,7 +512,6 @@ def run(
                     )
                 )
             if "processing-multi-xia2-dials" in scenario.default_recipes:
-                sweeps = "$(/dls_sw/apps/mx-scripts/misc/getSweepsListFromSameDataCollectionGroup.sh ${DCID})"
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -526,12 +521,11 @@ def run(
                         parameters=(),
                         recipe="autoprocessing-multi-xia2-dials-eiger",
                         source="automatic",
-                        sweeps=sweeps,
+                        sweeps=tuple(scenario.getsweepslistfromsamedcg),
                         triggervariables=(),
                     )
                 )
             if "processing-multi-xia2-3dii" in scenario.default_recipes:
-                sweeps = "$(/dls_sw/apps/mx-scripts/misc/getSweepsListFromSameDataCollectionGroup.sh ${DCID})"
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -541,7 +535,7 @@ def run(
                         parameters=(),
                         recipe="autoprocessing-multi-xia2-3dii-eiger",
                         source="automatic",
-                        sweeps=sweeps,
+                        sweeps=tuple(scenario.getsweepslistfromsamedcg),
                         triggervariables=(),
                     )
                 )
@@ -628,7 +622,6 @@ def run(
                         )
                     )
                 if "processing-multi-xia2-dials" in scenario.default_recipes:
-                    sweeps = "$(/dls_sw/apps/mx-scripts/misc/getSweepsListFromSameDataCollectionGroup.sh ${DCID})"
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -638,12 +631,11 @@ def run(
                             parameters=parameters,
                             recipe="autoprocessing-multi-xia2-dials-eiger",
                             source="automatic",
-                            sweeps=sweeps,
+                            sweeps=tuple(scenario.getsweepslistfromsamedcg),
                             triggervariables=(),
                         )
                     )
                 if "processing-multi-xia2-3dii" in scenario.default_recipes:
-                    sweeps = "$(/dls_sw/apps/mx-scripts/misc/getSweepsListFromSameDataCollectionGroup.sh ${DCID})"
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -653,7 +645,7 @@ def run(
                             parameters=parameters,
                             recipe="autoprocessing-multi-xia2-3dii-eiger",
                             source="automatic",
-                            sweeps=sweeps,
+                            sweeps=tuple(scenario.getsweepslistfromsamedcg),
                             triggervariables=(),
                         )
                     )
@@ -716,7 +708,6 @@ def run(
                     )
                 )
 
-            sweeps = "$(/dls_sw/apps/mx-scripts/misc/getSweepsListFromSameDataCollectionGroup.sh ${DCID})"
             tasks.append(
                 dlstbx.mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
@@ -726,7 +717,7 @@ def run(
                     parameters=(),
                     recipe="autoprocessing-multi-xia2-smallmolecule",
                     source="automatic",
-                    sweeps=sweeps,
+                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
                     triggervariables=(),
                 )
             )
@@ -739,7 +730,7 @@ def run(
                     parameters=(),
                     recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml",
                     source="automatic",
-                    sweeps=sweeps,
+                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
                     triggervariables=(),
                 )
             )

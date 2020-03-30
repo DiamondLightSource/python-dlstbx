@@ -38,7 +38,10 @@ if __name__ == "__main__":
                 unitcell="",
                 default_recipes=ispyb_message["default_recipe"],
                 isitagridscan=ispyb_info["ispyb_isitagridscan_legacy"],
-                getsweepslistfromsamedcg="",
+                getsweepslistfromsamedcg=tuple(
+                    dlstbx.mimas.MimasISPyBSweep(*sweep)
+                    for sweep in ispyb_info["ispyb_related_sweeps"]
+                ),
             )
             # from pprint import pprint
             # pprint(scenario._asdict())

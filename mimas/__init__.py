@@ -1,6 +1,7 @@
 import collections
 import enum
 import functools
+import numbers
 
 MimasEvent = enum.Enum("MimasEvent", "START END")
 
@@ -46,6 +47,10 @@ MimasISPyBTriggerVariable = collections.namedtuple(
     "MimasISPyBTriggerVariable", "key, value"
 )
 
+MimasISPyBUnitCell = collections.namedtuple(
+    "MimasISPyBUnitCell", "a, b, c, alpha, beta, gamma"
+)
+
 
 @functools.singledispatch
 def validate(mimasobject, expectedtype=None):
@@ -72,6 +77,8 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         )
     for sweep in mimasobject.getsweepslistfromsamedcg:
         validate(sweep, expectedtype=MimasISPyBSweep)
+    if mimasobject.unitcell is not None:
+        validate(mimasobject.unitcell, expectedtype=MimasISPyBUnitCell)
 
 
 @validate.register(MimasEvent)
@@ -148,3 +155,27 @@ def _(mimasobject: MimasISPyBSweep, expectedtype=None):
         raise ValueError(f"{mimasobject!r} has non-integer end image")
     if mimasobject.end < mimasobject.start:
         raise ValueError(f"{mimasobject!r} has an invalid end image")
+
+
+@validate.register(MimasISPyBUnitCell)
+def _(mimasobject: MimasISPyBUnitCell, expectedtype=None):
+    if expectedtype and not isinstance(mimasobject, expectedtype):
+        raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
+    if not isinstance(mimasobject.a, numbers.Real) or mimasobject.a <= 0:
+        raise ValueError(f"{mimasobject!r} has invalid length a")
+    if not isinstance(mimasobject.b, numbers.Real) or mimasobject.b <= 0:
+        raise ValueError(f"{mimasobject!r} has invalid length b")
+    if not isinstance(mimasobject.c, numbers.Real) or mimasobject.c <= 0:
+        raise ValueError(f"{mimasobject!r} has invalid length c")
+    if (
+        not isinstance(mimasobject.alpha, numbers.Real)
+        or not 0 < mimasobject.alpha < 180
+    ):
+        raise ValueError(f"{mimasobject!r} has invalid angle alpha")
+    if not isinstance(mimasobject.beta, numbers.Real) or not 0 < mimasobject.beta < 180:
+        raise ValueError(f"{mimasobject!r} has invalid angle beta")
+    if (
+        not isinstance(mimasobject.gamma, numbers.Real)
+        or not 0 < mimasobject.gamma < 180
+    ):
+        raise ValueError(f"{mimasobject!r} has invalid angle gamma")

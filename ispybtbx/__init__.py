@@ -727,6 +727,7 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_isitagridscan_legacy"] = parameters["ispyb_dc_info"].get(
         "axisRange"
     ) == 0 or "grid scan" in str(parameters["ispyb_dc_info"].get("comments"))
+    parameters["ispyb_related_sweeps"] = []
 
     if (
         "ispyb_processing_job" in parameters
@@ -763,13 +764,16 @@ def ispyb_filter(message, parameters):
     # beware if other projects start using this directory structure will
     # need to be smarter here...
 
-    if dc_info["dataCollectionGroupId"] and not parameters[
-        "ispyb_image_directory"
-    ].startswith("/dls/mx"):
+    if dc_info["dataCollectionGroupId"]:
         related_dcs = i.get_related_dcs(dc_info["dataCollectionGroupId"])
-        related = list(sorted(set(related_dcs)))
-    else:
-        related = []
+        if parameters["ispyb_image_directory"].startswith("/dls/mx"):
+            related = []
+        else:
+            related = list(sorted(set(related_dcs)))
+        for dc in related_dcs:
+            info = i.get_dc_info(dc)
+            start, end = i.dc_info_to_start_end(info)
+            parameters["ispyb_related_sweeps"].append((dc, start, end))
 
     parameters["ispyb_space_group"] = i.get_space_group(dc_id)
 

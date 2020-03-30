@@ -763,12 +763,13 @@ def ispyb_filter(message, parameters):
     # beware if other projects start using this directory structure will
     # need to be smarter here...
 
-    if parameters["ispyb_image_directory"].startswith("/dls/mx"):
-        related = []
-
-    elif dc_info["dataCollectionGroupId"]:
+    if dc_info["dataCollectionGroupId"] and not parameters[
+        "ispyb_image_directory"
+    ].startswith("/dls/mx"):
         related_dcs = i.get_related_dcs(dc_info["dataCollectionGroupId"])
         related = list(sorted(set(related_dcs)))
+    else:
+        related = []
 
     parameters["ispyb_space_group"] = i.get_space_group(dc_id)
 

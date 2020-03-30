@@ -52,6 +52,13 @@ MimasISPyBUnitCell = collections.namedtuple(
 )
 
 
+def _(self):
+    return ",".join(map(str, self._asdict().values()))
+
+
+MimasISPyBUnitCell.string = property(_)
+
+
 @functools.singledispatch
 def validate(mimasobject, expectedtype=None):
     """

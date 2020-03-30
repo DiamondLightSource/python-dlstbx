@@ -45,9 +45,6 @@ def run(
                 if spacegroup == "C121":
                     spacegroup = "C2"  # I03 hothothotfix for 20190510 only
                 if spacegroup:
-                    unitcell = scenario.unitcell
-                    if unitcell:
-                        unitcell = unitcell.replace(" ", ",")
                     # Space group is set, run fast_dp, xia2 and autoPROC with space group
                     if "processing-fast-dp" in scenario.default_recipes:
                         tasks.append(
@@ -68,13 +65,13 @@ def run(
                             )
                         )
                     if "processing-autoproc" in scenario.default_recipes:
-                        if unitcell:
+                        if scenario.unitcell:
                             parameters = (
                                 dlstbx.mimas.MimasISPyBParameter(
                                     key="spacegroup", value=spacegroup
                                 ),
                                 dlstbx.mimas.MimasISPyBParameter(
-                                    key="unit_cell", value=unitcell
+                                    key="unit_cell", value=scenario.unitcell.string
                                 ),
                             )
                         else:
@@ -247,9 +244,7 @@ def run(
                 spacegroup = "P21"  # I04-1 hothothotfix for 20190508 only
             if spacegroup:
                 # Space group is set, run xia2 and autoPROC with space group
-                unitcell = scenario.unitcell
-                if unitcell:
-                    unitcell = unitcell.replace(" ", ",")
+                if scenario.unitcell:
                     parameters = (
                         dlstbx.mimas.MimasISPyBParameter(
                             key="resolution.cc_half_significance_level", value="0.1"
@@ -258,7 +253,7 @@ def run(
                             key="spacegroup", value=spacegroup
                         ),
                         dlstbx.mimas.MimasISPyBParameter(
-                            key="unit_cell", value=unitcell
+                            key="unit_cell", value=scenario.unitcell.string
                         ),
                     )
                 else:
@@ -555,9 +550,7 @@ def run(
             if spacegroup:
                 # Space group is set, run xia2 and autoPROC with space group
 
-                unitcell = scenario.unitcell
-                if unitcell:
-                    unitcell = unitcell.replace(" ", ",")
+                if scenario.unitcell:
                     parameters = (
                         dlstbx.mimas.MimasISPyBParameter(
                             key="resolution.cc_half_significance_level", value="0.1"
@@ -566,7 +559,7 @@ def run(
                             key="spacegroup", value=spacegroup
                         ),
                         dlstbx.mimas.MimasISPyBParameter(
-                            key="unit_cell", value=unitcell
+                            key="unit_cell", value=scenario.unitcell.string
                         ),
                     )
                 else:
@@ -654,13 +647,13 @@ def run(
                         )
                     )
                 if "processing-autoproc" in scenario.default_recipes:
-                    if unitcell:
+                    if scenario.unitcell:
                         parameters = (
                             dlstbx.mimas.MimasISPyBParameter(
                                 key="spacegroup", value=spacegroup
                             ),
                             dlstbx.mimas.MimasISPyBParameter(
-                                key="unit_cell", value=unitcell
+                                key="unit_cell", value=scenario.unitcell.string
                             ),
                         )
                     else:

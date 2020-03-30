@@ -1,9 +1,14 @@
-# Interrogates Mimas given a datacollection ID
+# Interrogates Mimas. Shows what would happen for a given datacollection ID
 
 # Examples:
 #
-# dlstbx.mimas 1956161
-#   show what would happen for a given DCID
+# dlstbx.mimas 4983840  # I19-1 data collection
+# dlstbx.mimas 4985704  # I04 gridscan
+# dlstbx.mimas 4985701  # I04 rotation with no known space group
+# dlstbx.mimas 4985686  # I04-1 rotation with known space group
+# dlstbx.mimas 4983807  # I24 gridscan
+# dlstbx.mimas 4966986  # I24 rotation with no known space group
+
 
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
@@ -24,6 +29,11 @@ if __name__ == "__main__":
         ispyb_message, ispyb_info = dlstbx.ispybtbx.ispyb_filter(
             {}, {"ispyb_dcid": dcid}
         )
+        cell = ispyb_info["ispyb_unit_cell"]
+        if cell:
+            cell = dlstbx.mimas.MimasISPyBUnitCell(*cell)
+        else:
+            cell = None
 
         for event, readable in (
             (dlstbx.mimas.MimasEvent.START, "start of data collection"),
@@ -35,7 +45,7 @@ if __name__ == "__main__":
                 beamline=ispyb_info["ispyb_beamline"],
                 runstatus=ispyb_info["ispyb_dc_info"]["runStatus"],
                 spacegroup=ispyb_info.get("ispyb_space_group"),
-                unitcell="",
+                unitcell=cell,
                 default_recipes=ispyb_message["default_recipe"],
                 isitagridscan=ispyb_info["ispyb_isitagridscan_legacy"],
                 getsweepslistfromsamedcg=tuple(

@@ -171,9 +171,10 @@ def test_validation_of_ispyb_sweeps():
 
 def test_validation_of_ispyb_unit_cells():
     valid = dlstbx.mimas.MimasISPyBUnitCell(
-        a=10, b=10, c=10, alpha=90, beta=90, gamma=90
+        a=10, b=11, c=12, alpha=90, beta=91.0, gamma=92
     )
     dlstbx.mimas.validate(valid)
+    assert valid.string == "10,11,12,90,91.0,92"
 
     # replacing individual values should fail validation
     for key, value in itertools.chain(

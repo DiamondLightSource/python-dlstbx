@@ -84,9 +84,10 @@ def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples():
 def test_fetch_datacollect_group_from_ispyb():
     i = ispybtbx()
     dc_id = ds["gphl_C2"]
-    assert i.get_dc_info(dc_id)
-    # this was not recorded as a data collection group
-    whole_group = i.get_dc_group(dc_id)
+    dc_info = i.get_dc_info(dc_id)
+    assert dc_info
+    assert dc_info["dataCollectionGroupId"]
+    whole_group = i.get_related_dcs(dc_info["dataCollectionGroupId"])
     assert len(whole_group) == 1
 
 

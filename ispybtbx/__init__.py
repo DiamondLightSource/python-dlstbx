@@ -182,15 +182,7 @@ class ispybtbx(object):
         result = results[0][0]
         return result
 
-    def get_dc_group(self, dc_id):
-        # someone should learn how to use SQL JOIN here
-        groups = self.execute(
-            "select dataCollectionGroupId from DataCollection "
-            "where datacollectionid=%s;",
-            dc_id,
-        )
-        assert len(groups) == 1
-        group = groups[0][0]
+    def get_related_dcs(self, group):
         matches = self.execute(
             "select datacollectionid from DataCollection "
             "where dataCollectionGroupId=%s;",
@@ -774,8 +766,8 @@ def ispyb_filter(message, parameters):
     if parameters["ispyb_image_directory"].startswith("/dls/mx"):
         related = []
 
-    else:
-        related_dcs = i.get_dc_group(dc_id)
+    elif dc_info["dataCollectionGroupId"]:
+        related_dcs = i.get_related_dcs(dc_info["dataCollectionGroupId"])
         related = list(sorted(set(related_dcs)))
 
     parameters["ispyb_space_group"] = i.get_space_group(dc_id)

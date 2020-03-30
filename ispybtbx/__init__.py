@@ -192,9 +192,10 @@ class ispybtbx(object):
         dc_ids = [m[0] for m in matches]
         return dc_ids
 
-    def get_space_group(self, dc_id):
+    def get_space_group_and_unit_cell(self, dc_id):
         spacegroups = self.execute(
-            "SELECT c.spaceGroup "
+            "SELECT c.spaceGroup, c.cell_a, c.cell_b, c.cell_c, "
+            " c.cell_alpha, c.cell_beta, c.cell_gamma "
             "FROM Crystal c "
             "JOIN BLSample b ON (b.crystalId = c.crystalId) "
             "JOIN DataCollection d ON (d.BLSAMPLEID = b.blSampleId) "
@@ -203,8 +204,11 @@ class ispybtbx(object):
             dc_id,
         )
         if not spacegroups:
-            return ""
-        return spacegroups[0][0]
+            return "", False
+        cell = tuple(spacegroups[0][1:7])
+        if not all(cell):
+            cell = False
+        return spacegroups[0][0], cell
 
     def get_energy_scan_from_dcid(self, dc_id):
         def __energy_offset(row):
@@ -775,7 +779,10 @@ def ispyb_filter(message, parameters):
             start, end = i.dc_info_to_start_end(info)
             parameters["ispyb_related_sweeps"].append((dc, start, end))
 
-    parameters["ispyb_space_group"] = i.get_space_group(dc_id)
+    (
+        parameters["ispyb_space_group"],
+        parameters["ispyb_unit_cell"],
+    ) = i.get_space_group_and_unit_cell(dc_id)
 
     related_images = []
 

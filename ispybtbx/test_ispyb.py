@@ -177,8 +177,9 @@ def test_get_extent_of_filenames_for_datacollection():
 def test_obtain_space_group():
     i = ispybtbx()
     dc_id = ds["sg_set"]
-    sg = i.get_space_group(dc_id)
+    sg, cell = i.get_space_group_and_unit_cell(dc_id)
     assert sg == "P212121"
+    assert cell == (68.0, 84.0, 89.0, 90.0, 90.0, 90.0)
 
 
 def test_obtain_sequence():

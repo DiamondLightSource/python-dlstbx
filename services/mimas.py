@@ -44,6 +44,8 @@ class DLSMimas(CommonService):
         else:
             return f"Invalid Mimas request rejected (Event = {event})"
 
+        # TODO: push the default recipe determination logic into mimas.core,
+        #       and pass dc_class instead.
         dc_class = step.get("dc_class")
         if not dc_class or not isinstance(dc_class, dict):
             return f"Invalid Mimas request rejected (dc_class = {dc_class!r})"
@@ -103,18 +105,24 @@ class DLSMimas(CommonService):
             for info in (step.get("sweep_list") or [])
         )
 
+        cell = step.get("unit_cell")
+        if cell:
+            cell = dlstbx.mimas.MimasISPyBUnitCell(*cell)
+        else:
+            cell = None
+
         return dlstbx.mimas.MimasScenario(
             DCID=int(dcid),
             event=event,
             beamline=step.get("beamline"),
             runstatus=step.get("run_status"),
             spacegroup=step.get("space_group"),
-            unitcell=step.get("unit_cell"),
+            unitcell=cell,
             default_recipes=default_recipes,
             isitagridscan=gridscan,
             getsweepslistfromsamedcg=sweep_list,
-            # step.get(dc_class)
-            # step.get(preferred_processing)
+            # step.get(dc_class)  # TODO
+            # step.get(preferred_processing)  # TODO
         )
 
     def process(self, rw, header, message):

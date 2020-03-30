@@ -66,6 +66,12 @@ def _(mimasobject: MimasScenario, expectedtype=None):
     if type(mimasobject.isitagridscan) != bool:
         raise ValueError(f"{mimasobject!r} has non-boolean isitagridscan")
     validate(mimasobject.event, expectedtype=MimasEvent)
+    if type(mimasobject.getsweepslistfromsamedcg) not in (list, tuple):
+        raise ValueError(
+            f"{mimasobject!r} getsweepslistfromsamedcg must be a tuple, not {type(mimasobject.getsweepslistfromsamedcg)}"
+        )
+    for sweep in mimasobject.getsweepslistfromsamedcg:
+        validate(sweep, expectedtype=MimasISPyBSweep)
 
 
 @validate.register(MimasEvent)
@@ -104,6 +110,12 @@ def _(mimasobject: MimasISPyBJobInvocation, expectedtype=None):
         raise ValueError(f"{mimasobject!r} has non-string recipe")
     if not mimasobject.recipe:
         raise ValueError(f"{mimasobject!r} has empty recipe string")
+    if type(mimasobject.sweeps) not in (list, tuple):
+        raise ValueError(
+            f"{mimasobject!r} sweeps must be a tuple, not {type(mimasobject.sweeps)}"
+        )
+    for sweep in mimasobject.sweeps:
+        validate(sweep, expectedtype=MimasISPyBSweep)
 
 
 @validate.register(MimasISPyBParameter)
@@ -118,3 +130,21 @@ def _(mimasobject: MimasISPyBParameter, expectedtype=None):
         raise ValueError(
             f"{mimasobject!r} value must be a string, not {type(mimasobject.value)}"
         )
+
+
+@validate.register(MimasISPyBSweep)
+def _(mimasobject: MimasISPyBSweep, expectedtype=None):
+    if expectedtype and not isinstance(mimasobject, expectedtype):
+        raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
+    if type(mimasobject.DCID) != int:
+        raise ValueError(f"{mimasobject!r} has non-integer DCID")
+    if mimasobject.DCID <= 0:
+        raise ValueError(f"{mimasobject!r} has an invalid DCID")
+    if type(mimasobject.start) != int:
+        raise ValueError(f"{mimasobject!r} has non-integer start image")
+    if mimasobject.start <= 0:
+        raise ValueError(f"{mimasobject!r} has an invalid start image")
+    if type(mimasobject.end) != int:
+        raise ValueError(f"{mimasobject!r} has non-integer end image")
+    if mimasobject.end < mimasobject.start:
+        raise ValueError(f"{mimasobject!r} has an invalid end image")

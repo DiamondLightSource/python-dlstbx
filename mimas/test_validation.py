@@ -27,7 +27,9 @@ def test_validation_of_scenario():
         spacegroup="string",
         default_recipes="undefined",
         isitagridscan=False,
-        getsweepslistfromsamedcg="undefined",
+        getsweepslistfromsamedcg=(
+            dlstbx.mimas.MimasISPyBSweep(DCID=1, start=1, end=100),
+        ),
         runstatus="string",
     )
     dlstbx.mimas.validate(valid_scenario)
@@ -38,6 +40,20 @@ def test_validation_of_scenario():
         ("event", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid")),
         ("isitagridscan", ""),
         ("isitagridscan", "True"),
+        (
+            "getsweepslistfromsamedcg",
+            dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid"),
+        ),
+        (
+            "getsweepslistfromsamedcg",
+            (dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid"),),
+        ),
+        (
+            "getsweepslistfromsamedcg",
+            dlstbx.mimas.MimasISPyBSweep(DCID=1, start=1, end=100),
+        ),
+        ("getsweepslistfromsamedcg", ""),
+        ("getsweepslistfromsamedcg", None),
     ]:
         print(f"testing {key}: {value}")
         invalid_scenario = valid_scenario._replace(**{key: value})
@@ -71,7 +87,7 @@ def test_validation_of_ispyb_invocation():
         parameters=(dlstbx.mimas.MimasISPyBParameter(key="test", value="valid"),),
         recipe="string",
         source="automatic",
-        sweeps=(),
+        sweeps=(dlstbx.mimas.MimasISPyBSweep(DCID=1, start=1, end=100),),
         triggervariables=(),
     )
     dlstbx.mimas.validate(valid_invocation)
@@ -88,6 +104,11 @@ def test_validation_of_ispyb_invocation():
         ("recipe", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid")),
         ("recipe", ""),
         ("recipe", None),
+        ("sweeps", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid")),
+        ("sweeps", (dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid"),)),
+        ("sweeps", dlstbx.mimas.MimasISPyBSweep(DCID=1, start=1, end=100)),
+        ("sweeps", ""),
+        ("sweeps", None),
     ]:
         print(f"testing {key}: {value}")
         invalid_invocation = valid_invocation._replace(**{key: value})

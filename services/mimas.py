@@ -98,6 +98,10 @@ class DLSMimas(CommonService):
                 return f"Invalid Mimas request rejected (gridscan = {gridscan})"
         else:
             return f"Invalid Mimas request rejected (gridscan = {gridscan!r})"
+        sweep_list = tuple(
+            dlstbx.mimas.MimasISPyBSweep(*info)
+            for info in (step.get("sweep_list") or [])
+        )
 
         return dlstbx.mimas.MimasScenario(
             DCID=int(dcid),
@@ -108,7 +112,7 @@ class DLSMimas(CommonService):
             unitcell=step.get("unit_cell"),
             default_recipes=default_recipes,
             isitagridscan=gridscan,
-            getsweepslistfromsamedcg=step.get("getsweepslistfromsamedcg"),
+            getsweepslistfromsamedcg=sweep_list,
             # step.get(dc_class)
             # step.get(preferred_processing)
         )

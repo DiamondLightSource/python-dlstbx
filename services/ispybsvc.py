@@ -139,6 +139,75 @@ class DLSISPyB(CommonService):
             return
         rw.transport.transaction_commit(txn)
 
+    def do_create_ispyb_job(self, parameters, rw=None, **kwargs):
+        dcid = int(parameters("dcid"))
+        sweeps = [(s["DCID"], s["start"], s["end"]) for s in parameters("sweep_list")]
+        if not dcid and not sweeps:
+            self.log.error("Can not create job: neither DCID nor sweeps are specified")
+            return False
+
+        if not sweeps:
+            dc_info = self.ispyb.get_data_collection(dcid)
+            start = dc_info.image_start_number
+            number = dc_info.image_count
+            if not start or not number:
+                self.log.error(
+                    "Can not automatically infer data collection sweep for this DCID"
+                )
+                return False
+            end = start + number - 1
+            sweeps = [(dcid, start, end)]
+            self.log.info(
+                "Using images %d to %d for data collection sweep" % (start, end)
+            )
+
+        ispyb_params = [(p["key"], p["value"]) for p in parameters("parameters")]
+        trigger_variables = {
+            p["key"]: p["value"] for p in parameters("trigger_variables")
+        }
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        # _job_params = StrictOrderedDict([('id', None), ('datacollectionid', None), ('display_name', None), ('comments', None), ('recipe', None), ('automatic', None)])
+        jp["automatic"] = parameters("source") == "automatic"
+        jp["comments"] = parameters("comment")
+        jp["datacollectionid"] = dcid or sweeps[0][0]
+        jp["display_name"] = parameters("displayname")
+        jp["recipe"] = parameters("recipe")
+        self.log.info("Creating database entries...")
+
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.info("  JobID={}".format(jobid))
+        for key, value in ispyb_params:
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            # _job_parameter_params = StrictOrderedDict([('id', None), ('job_id', None), ('parameter_key', None), ('parameter_value', None)])
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.info("  JPP={}".format(jppid))
+
+        for sweep in sweeps:
+            jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+            # _job_image_sweep_params = StrictOrderedDict([('id', None), ('job_id', None), ('datacollectionid', None), ('start_image', None), ('end_image', None)])
+            jisp["job_id"] = jobid
+            jisp["datacollectionid"] = sweep[0]
+            jisp["start_image"] = sweep[1]
+            jisp["end_image"] = sweep[2]
+            jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
+                list(jisp.values())
+            )
+            self.log.info("  JISP={}".format(jispid))
+
+        self.log.info("All done. Processing job {} created".format(jobid))
+
+        trigger_variables["ispyb_process"] = jobid
+        if parameters("autostart"):
+            rw.send_to("trigger", {"parameters": trigger_variables})
+        else:
+            rw.send_to("held", {"parameters": trigger_variables})
+
+        return {"success": True, "return_value": jobid}
+
     def do_update_processing_status(self, parameters, **kwargs):
         ppid = parameters("program_id")
         message = parameters("message")

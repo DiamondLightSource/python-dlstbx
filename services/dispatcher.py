@@ -50,8 +50,13 @@ class DLSDispatcher(CommonService):
             self.log.info("Logbook disabled: Not running in live mode")
             self._logbook = None
 
-        self._transport.subscribe(
-            "processing_recipe", self.process, acknowledgement=True
+        workflows.recipe.wrap_subscribe(
+            self._transport,
+            "processing_recipe",
+            self.process,
+            acknowledgement=True,
+            log_extender=self.extend_log,
+            allow_non_recipe_messages=True,
         )
 
     def record_to_logbook(self, guid, header, original_message, message, recipewrap):
@@ -104,10 +109,14 @@ class DLSDispatcher(CommonService):
         except Exception:
             self.log.warning("Could not write message to logbook", exc_info=True)
 
-    def process(self, header, message):
+    def process(self, rw, header, message):
         """Process an incoming processing request."""
         # Time execution
         start_time = timeit.default_timer()
+
+        if rw:
+            # leave this in here just temporarily to verify log messages carry recipe IDs
+            self.log.info("Message received as wrapper")
 
         # Load processing parameters
         parameters = message.get("parameters", {})

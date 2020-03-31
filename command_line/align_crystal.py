@@ -37,7 +37,9 @@ def align_crystal(image_files, nproc=None):
         return False
 
     # could iteratively try different indexing options until one succeeds
-    if not _run_command(["dials.index", "imported.expt", "strong.refl"]):
+    if not _run_command(
+        ["dials.index", "imported.expt", "strong.refl", "indexing.method=fft1d"]
+    ):
         return False
 
     if not _run_command(

@@ -150,20 +150,33 @@ class DLSMimas(CommonService):
         things_to_do = dlstbx.mimas.core.run(scenario)
 
         for ttd in things_to_do:
-            if isinstance(ttd, dlstbx.mimas.MimasRecipeInvocation):
-                message = {
-                    "recipes": [ttd.recipe],
-                    "parameters": {"ispyb_dcid": ttd.DCID},
-                }
-                self.log.info("Running: %r", ttd)
-                rw.send(message, transaction=txn)
-            elif isinstance(ttd, dlstbx.mimas.MimasRISPyBJobInvocation):
-                self.log.info("Would run: %r", ttd)
-            else:
-                self.log.error("Invalid Mimas action %r encountered", ttd)
+            try:
+                dlstbx.mimas.validate(
+                    ttd,
+                    expectedtype=(
+                        dlstbx.mimas.MimasRecipeInvocation,
+                        dlstbx.mimas.MimasISPyBJobInvocation,
+                    ),
+                )
+            except ValueError:
+                self.log.error("Invalid Mimas response detected", exc_info=True)
                 rw.transport.nack(header)
                 rw.transport.transaction_abort(txn)
                 return
+
+            self.log.info("Running: %r", ttd)
+            try:
+                ttd_zocalo = dlstbx.mimas.zocalo_message(ttd)
+            except ValueError:
+                self.log.error(f"Error zocalizing Mimas object {ttd!r}", exc_info=True)
+                rw.transport.nack(header)
+                rw.transport.transaction_abort(txn)
+                return
+
+            if isinstance(ttd, dlstbx.mimas.MimasRecipeInvocation):
+                rw.send(ttd_zocalo, transaction=txn)
+            else:
+                rw.send_to("ispyb", ttd_zocalo, transaction=txn)
 
         rw.transport.ack(header, transaction=txn)
         rw.transport.transaction_commit(txn)

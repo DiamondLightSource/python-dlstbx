@@ -50,13 +50,9 @@ MimasISPyBTriggerVariable = collections.namedtuple(
 MimasISPyBUnitCell = collections.namedtuple(
     "MimasISPyBUnitCell", "a, b, c, alpha, beta, gamma"
 )
-
-
-def _(self):
-    return ",".join(map(str, self._asdict().values()))
-
-
-MimasISPyBUnitCell.string = property(_)
+MimasISPyBUnitCell.string = property(
+    lambda uc: ",".join(map(str, uc._asdict().values()))
+)
 
 
 @functools.singledispatch
@@ -186,3 +182,54 @@ def _(mimasobject: MimasISPyBUnitCell, expectedtype=None):
         or not 0 < mimasobject.gamma < 180
     ):
         raise ValueError(f"{mimasobject!r} has invalid angle gamma")
+
+
+@functools.singledispatch
+def zocalo_message(mimasobject):
+    """
+    A generic function that (recursively) transforms any Mimas* object
+    into serializable objects that can be sent via zocalo.
+    If any issues are found a ValueError is raised.
+    """
+    if isinstance(mimasobject, (bool, int, float, str, type(None))):
+        # trivial base types
+        return mimasobject
+    raise ValueError(f"{mimasobject!r} is not a known Mimas object")
+
+
+@zocalo_message.register(MimasRecipeInvocation)
+def _(mimasobject: MimasRecipeInvocation):
+    return {
+        "recipes": [mimasobject.recipe],
+        "parameters": {"ispyb_dcid": mimasobject.DCID},
+    }
+
+
+@zocalo_message.register(MimasISPyBJobInvocation)
+def _(mimasobject: MimasISPyBJobInvocation):
+    return {key: zocalo_message(value) for key, value in mimasobject._asdict().items()}
+
+
+@zocalo_message.register(MimasISPyBSweep)
+def _(mimasobject: MimasISPyBSweep):
+    return mimasobject._asdict()
+
+
+@zocalo_message.register(MimasISPyBParameter)
+def _(mimasobject: MimasISPyBParameter):
+    return mimasobject._asdict()
+
+
+@zocalo_message.register(MimasISPyBUnitCell)
+def _(mimasobject: MimasISPyBUnitCell):
+    return tuple(mimasobject._asdict().values())
+
+
+@zocalo_message.register(list)
+def _(list_: list):
+    return [zocalo_message(element) for element in list_]
+
+
+@zocalo_message.register(tuple)
+def _(tuple_: tuple):
+    return tuple(zocalo_message(element) for element in tuple_)

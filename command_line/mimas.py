@@ -29,7 +29,7 @@ if __name__ == "__main__":
         ispyb_message, ispyb_info = dlstbx.ispybtbx.ispyb_filter(
             {}, {"ispyb_dcid": dcid}
         )
-        cell = ispyb_info["ispyb_unit_cell"]
+        cell = ispyb_info.get("ispyb_unit_cell")
         if cell:
             cell = dlstbx.mimas.MimasISPyBUnitCell(*cell)
         else:

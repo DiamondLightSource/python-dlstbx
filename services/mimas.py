@@ -144,12 +144,26 @@ class DLSMimas(CommonService):
             return
 
         txn = rw.transport.transaction_begin()
-        rw.set_default_channel("output")  # ? tbc
+        rw.set_default_channel("dispatcher")
 
         self.log.debug("Evaluating %r", scenario)
         things_to_do = dlstbx.mimas.core.run(scenario)
+
         for ttd in things_to_do:
-            self.log.info("Would run: %r", ttd)
+            if isinstance(ttd, dlstbx.mimas.MimasRecipeInvocation):
+                message = {
+                    "recipes": [ttd.recipe],
+                    "parameters": {"ispyb_dcid": ttd.DCID},
+                }
+                self.log.info("Running: %r", ttd)
+                rw.send(message, transaction=txn)
+            elif isinstance(ttd, dlstbx.mimas.MimasRISPyBJobInvocation):
+                self.log.info("Would run: %r", ttd)
+            else:
+                self.log.error("Invalid Mimas action %r encountered", ttd)
+                rw.transport.nack(header)
+                rw.transport.transaction_abort(txn)
+                return
 
         rw.transport.ack(header, transaction=txn)
         rw.transport.transaction_commit(txn)

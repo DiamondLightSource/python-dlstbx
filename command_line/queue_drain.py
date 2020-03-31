@@ -5,7 +5,7 @@
 
 from __future__ import absolute_import, division, print_function
 
-import Queue
+import queue
 import sys
 import time
 from datetime import datetime
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         sys.exit("You must specify one source and one destination queue")
     q_source, q_dest = args
 
-    messages = Queue.Queue()
+    messages = queue.Queue()
 
     def receive_message(header, message):
         messages.put((header, message))
@@ -99,7 +99,7 @@ if __name__ == "__main__":
         while True:
             try:
                 header, message = messages.get(True, 0.1)
-            except Queue.Empty:
+            except queue.Empty:
                 idle_time = idle_time + 0.1
                 if options.stop and idle_time > options.stop:
                     break

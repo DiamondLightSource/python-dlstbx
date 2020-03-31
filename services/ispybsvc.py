@@ -140,8 +140,8 @@ class DLSISPyB(CommonService):
         rw.transport.transaction_commit(txn)
 
     def do_create_ispyb_job(self, parameters, rw=None, **kwargs):
-        dcid = int(parameters("dcid"))
-        sweeps = [(s["DCID"], s["start"], s["end"]) for s in parameters("sweep_list")]
+        dcid = int(parameters("DCID"))
+        sweeps = [(s["DCID"], s["start"], s["end"]) for s in parameters("sweeps")]
         if not dcid and not sweeps:
             self.log.error("Can not create job: neither DCID nor sweeps are specified")
             return False
@@ -162,8 +162,8 @@ class DLSISPyB(CommonService):
             )
 
         ispyb_params = [(p["key"], p["value"]) for p in parameters("parameters")]
-        trigger_variables = {
-            p["key"]: p["value"] for p in parameters("trigger_variables")
+        triggervariables = {
+            p["key"]: p["value"] for p in parameters("triggervariables")
         }
 
         jp = self.ispyb.mx_processing.get_job_params()
@@ -200,11 +200,11 @@ class DLSISPyB(CommonService):
 
         self.log.info("All done. Processing job {} created".format(jobid))
 
-        trigger_variables["ispyb_process"] = jobid
+        triggervariables["ispyb_process"] = jobid
         if parameters("autostart"):
-            rw.send_to("trigger", {"parameters": trigger_variables})
+            rw.send_to("trigger", {"parameters": triggervariables})
         else:
-            rw.send_to("held", {"parameters": trigger_variables})
+            rw.send_to("held", {"parameters": triggervariables})
 
         return {"success": True, "return_value": jobid}
 

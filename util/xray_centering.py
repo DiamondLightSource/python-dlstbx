@@ -112,7 +112,7 @@ def main(
     return results, output
 
 
-def getSurround(cell):
+def get_neighbours(cell):
     up = (cell[0] - 1, cell[1])
     upleft = (cell[0] - 1, cell[1] - 1)
     left = (cell[0], cell[1] - 1)
@@ -126,36 +126,48 @@ def getSurround(cell):
 
 
 def findRegion(rc, g2i):
-    regions = {}
+    # Step 1, find contiguous regions
+    regions = []
     for cell in rc:
-        found = False
-        for region in regions.values():
-            if cell in region:
-                found = True
+        surround = get_neighbours(cell)
+        for assigned_region in regions:
+            if surround.intersection(assigned_region):
+                # at least one neighbour of this cell is
+                # already assigned to another region
+                assigned_region.add(cell)
                 break
-        if found:
-            continue
-        surround = getSurround(cell)
-        added = False
-        for key in regions.keys():
-            if len(surround.intersection(regions[key])) > 0:
-                regions[key].append(cell)
-                added = True
-                break
-        if added:
-            continue
-        regions[cell] = [cell]
-    for key in regions.keys():
-        if key not in regions.keys():  # might have deleted it
-            continue
-        for cell in regions[key]:
-            surround = getSurround(cell)
-            for key2 in regions.keys():
-                if key == key2:
-                    continue
-                if len(surround.intersection(regions[key2])) > 0:
-                    regions[key].extend(regions[key2])
-                    del regions[key2]
+        else:
+            regions.append({cell})
+
+    # Step 2, merge neighbouring regions
+    merged_regions = []
+    for region in regions:
+        for cell in region:
+            surround = get_neighbours(cell)
+            for seen_region in merged_regions:
+                if surround.intersection(seen_region):
+                    seen_region.update(region)
+                    break
+            else:
+                merged_regions.append(region)
+
+    # Note 1: The above code is fundamentally broken. Either it should merge
+    # regions until no more regions can be merged, or it should apply a
+    # space-filling algorithm from the start. As it stands this will not
+    # correctly merge regions in eg. the case where there are 3 contiguous
+    # regions with 1 not bordering 2, 2 bordering 3, and 3 bordering 1.
+    # This will result in merged regions (1,3) and (2)
+
+    # Note 2: The get_neighbours() function is also broken as it does not account
+    # for borders on the 2D grid. Ie. the neighbour of x=0,y=4 is x=-1,y=4, which
+    # is then resolved to the x=max,y=3 cell.
+
+    # transform the sensible data structure back into something the next code
+    # block understands
+    regions = {list(sorted(v))[0]: list(sorted(v)) for v in merged_regions}
+
+    # Step 3, find the dominant region
+
     length = 0
     sum1 = 0
     for k in regions:
@@ -164,10 +176,14 @@ def findRegion(rc, g2i):
             (index, length) = (k, len(regions[k]))
             for cell in regions[k]:
                 sum1 += g2i(cell)
+                # Note 3a: sum1 is not re-set here, so we keep increasing this
+                # number whenever we find larger regions.
         if len(regions[k]) == length:
             for cell in regions[k]:
                 sum2 += g2i(cell)
             if sum2 > sum1:
+                # Note 3b: we use sum1 here to tie-break between regions of
+                # identical size, but sum1 can be the sum of multiple regions.
                 sum1 = sum2
                 (index, length) = (k, len(regions[k]))
     best_region = regions[index]

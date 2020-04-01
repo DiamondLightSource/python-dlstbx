@@ -114,10 +114,6 @@ class DLSDispatcher(CommonService):
         # Time execution
         start_time = timeit.default_timer()
 
-        if rw:
-            # leave this in here just temporarily to verify log messages carry recipe IDs
-            self.log.info("Message received as wrapper")
-
         # Load processing parameters
         parameters = message.get("parameters", {})
         if not isinstance(parameters, dict):
@@ -133,6 +129,14 @@ class DLSDispatcher(CommonService):
         # be used to determine unique file paths.
         recipe_id = parameters.get("guid") or str(uuid.uuid4())
         parameters["guid"] = recipe_id
+
+        if rw:
+            # If we received a recipe wrapper then we already have a recipe_ID
+            # attached to logs. Make a note of the downstream recipe ID so that
+            # we can track execution beyond recipe boundaries.
+            self.log.info(
+                "Processing request with new recipe ID %s:\n%s", recipe_id, str(message)
+            )
 
         # If we are fully logging requests then make a copy of the original message
         if self._logbook:

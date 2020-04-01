@@ -102,7 +102,7 @@ class DLSTrigger(CommonService):
             if pdb.code is not None:
                 pdb_files.append(pdb.code)
             elif pdb.rawfile is not None:
-                sha1 = hashlib.sha1(pdb.rawfile).hexdigest()
+                sha1 = hashlib.sha1(pdb.rawfile.encode()).hexdigest()
                 assert pdb.name and "/" not in pdb.name, "Invalid PDB file name"
                 pdb_filepath = pdb_tmpdir / sha1 / pdb.name
                 if not pdb_filepath.check():

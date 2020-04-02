@@ -350,14 +350,14 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             if beamline == "i24":
                 # i24 can run in tray mode (horizontal gonio) or pin mode
                 # (vertical gonio)
-                with open(first_image_path, "r") as f:
+                with open(first_image_path, "rb") as f:
                     for line in f.readlines():
-                        if "Oscillation_axis" in line and "+SLOW" in line:
+                        if b"Oscillation_axis" in line and b"+SLOW" in line:
                             command.append(
                                 'autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"'
                             )
                             break
-                        elif "Oscillation_axis" in line and "+FAST" in line:
+                        elif b"Oscillation_axis" in line and b"+FAST" in line:
                             command.append(
                                 'autoPROC_XdsKeyword_ROTATION_AXIS="-1.000000  0.000000  0.000000"'
                             )

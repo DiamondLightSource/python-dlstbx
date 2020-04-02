@@ -116,7 +116,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         )
         mtz = os.path.abspath(mtz[0])
         if not os.path.exists(mtz):
-            logger.error("Could not find data file to process")
+            logger.error("Could not find data file %s to process", mtz)
             return False
         pdb = self.params.get("ispyb_parameters", {}).get("pdb") or self.params[
             "dimple"

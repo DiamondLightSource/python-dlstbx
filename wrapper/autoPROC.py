@@ -350,7 +350,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             if beamline == "i24":
                 # i24 can run in tray mode (horizontal gonio) or pin mode
                 # (vertical gonio)
-                with open(first_image_path, "rb") as f:
+                with open(first_image_path, "r") as f:
                     for line in f.readlines():
                         if "Oscillation_axis" in line and "+SLOW" in line:
                             command.append(

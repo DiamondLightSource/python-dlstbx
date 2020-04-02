@@ -163,52 +163,12 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
             with json_file.open("w") as fh:
                 fh.write(merging_stats.as_json())
 
-            ispyb_d = {
-                "commandline": " ".join(result["command"]),
-                "spacegroup": i_obs.space_group().type().lookup_symbol(),
-                "unit_cell": list(i_obs.unit_cell().parameters()),
-                "scaling_statistics": {},
-            }
-            for stats, bin in (
-                ("overall", merging_stats.overall),
-                ("innerShell", merging_stats.bins[0]),
-                ("outerShell", merging_stats.bins[-1]),
-            ):
-                ispyb_d["scaling_statistics"][stats] = {
-                    "cc_half": bin.cc_one_half,
-                    "completeness": bin.completeness * 100,
-                    "mean_i_sig_i": bin.i_over_sigma_mean,
-                    "multiplicity": bin.mean_redundancy,
-                    "n_tot_obs": bin.n_obs,
-                    "n_tot_unique_obs": bin.n_uniq,
-                    "r_merge": bin.r_merge,
-                    "res_lim_high": bin.d_min,
-                    "res_lim_low": bin.d_max,
-                }
-            for stats, bin in (
-                ("overall", anom_merging_stats.overall),
-                ("innerShell", anom_merging_stats.bins[0]),
-                ("outerShell", anom_merging_stats.bins[-1]),
-            ):
-                ispyb_d["scaling_statistics"][stats].update(
-                    {
-                        "anom_completeness": bin.anom_completeness * 100
-                        if bin.anom_completeness is not None
-                        else None,
-                        "anom_multiplicity": bin.mean_redundancy,
-                        "cc_anom": bin.cc_anom,
-                        "r_meas_all_iplusi_minus": bin.r_meas,
-                    }
-                )
-            self.send_results_to_ispyb(ispyb_d)
-
         # copy output files to result directory
         results_directory.ensure(dir=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 results_directory.strpath, params["create_symlink"]
             )
-
         keep_ext = {
             ".png": None,
             ".log": "log",
@@ -260,5 +220,45 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                 )
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
+
+        if scaled_unmerged_mtz.check():
+            ispyb_d = {
+                "commandline": " ".join(result["command"]),
+                "spacegroup": i_obs.space_group().type().lookup_symbol(),
+                "unit_cell": list(i_obs.unit_cell().parameters()),
+                "scaling_statistics": {},
+            }
+            for stats, bin in (
+                ("overall", merging_stats.overall),
+                ("innerShell", merging_stats.bins[0]),
+                ("outerShell", merging_stats.bins[-1]),
+            ):
+                ispyb_d["scaling_statistics"][stats] = {
+                    "cc_half": bin.cc_one_half,
+                    "completeness": bin.completeness * 100,
+                    "mean_i_sig_i": bin.i_over_sigma_mean,
+                    "multiplicity": bin.mean_redundancy,
+                    "n_tot_obs": bin.n_obs,
+                    "n_tot_unique_obs": bin.n_uniq,
+                    "r_merge": bin.r_merge,
+                    "res_lim_high": bin.d_min,
+                    "res_lim_low": bin.d_max,
+                }
+            for stats, bin in (
+                ("overall", anom_merging_stats.overall),
+                ("innerShell", anom_merging_stats.bins[0]),
+                ("outerShell", anom_merging_stats.bins[-1]),
+            ):
+                ispyb_d["scaling_statistics"][stats].update(
+                    {
+                        "anom_completeness": bin.anom_completeness * 100
+                        if bin.anom_completeness is not None
+                        else None,
+                        "anom_multiplicity": bin.mean_redundancy,
+                        "cc_anom": bin.cc_anom,
+                        "r_meas_all_iplusi_minus": bin.r_meas,
+                    }
+                )
+            self.send_results_to_ispyb(ispyb_d)
 
         return success

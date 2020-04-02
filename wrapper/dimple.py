@@ -187,7 +187,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             logger.debug(result["stderr"].decode("latin1"))
 
         # Hack to workaround dimple returning successful exitcode despite 'Giving up'
-        success = b"Giving up" not in result.stdout
+        success &= b"Giving up" not in result.stdout
 
         logger.info("Copying DIMPLE results to %s", self.results_directory.strpath)
         self.results_directory.ensure(dir=True)

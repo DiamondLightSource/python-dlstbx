@@ -193,11 +193,11 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         ), "Expected list of 6 numbers for cell info, got {0}".format(
             payload["cell_info"]
         )
-        assert isinstance(payload["space_group"], str) or isinstance(
-            payload["space_group"], unicode
+        assert isinstance(
+            payload["space_group"], str
         ), "Expected string for space group, got {0}".format(payload["space_group"])
-        assert isinstance(payload["best_solvent"], str) or isinstance(
-            payload["best_solvent"], unicode
+        assert isinstance(
+            payload["best_solvent"], str
         ), "Expected string for best_solvent, got {0}".format(payload["best_solvent"])
         hkl_file = payload["hkl_file"]
         fa_file = payload["fa_file"]
@@ -301,26 +301,18 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
                     ]
                 )
         except IOError:
-            logger.exception(
-                "Could not create topaz3 script file in the working directory"
+            logger.exception("Could not create topaz3 script file %s", topaz3_script)
+        # Run procrunner with a clean python environment to avoid DIALS/topaz3 module clashes
+        result = procrunner.run(
+            ["sh", topaz3_script],
+            timeout=params["timeout"],
+            working_directory=working_directory,
+            environment_override=clean_environment,
+        )
+        if result["exitcode"] or result["timeout"]:
+            logger.warning(
+                "Running topaz3 script has failed with exitcode %s", result["exitcode"]
             )
-        try:
-            # Run procrunner with a clean python environment to avoid DIALS/topaz3 module clashes
-            result = procrunner.run(
-                ["sh", topaz3_script],
-                timeout=params["timeout"],
-                working_directory=working_directory,
-                environment_override=clean_environment,
-            )
-            assert result["exitcode"] == 0
-            assert result["timeout"] is False
-        except AssertionError:
-            logger.exception(
-                "Process returned an error code when running topaz3 script"
-            )
-            return False
-        except Exception:
-            logger.exception("Running topaz3 script has failed")
             return False
 
         logger.info("Generating graph output")
@@ -330,14 +322,12 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         )
 
         # Create results directory if it does not exist
-        if not os.path.exists(params["results_directory"]):
+        if not os.path.exists(results_directory):
             try:
-                os.mkdir(params["results_directory"])
+                os.mkdir(results_directory)
             except Exception:
                 logger.exception(
-                    "Could not create results directory at {0}".format(
-                        results_directory
-                    )
+                    "Could not create results directory at %s", results_directory
                 )
         assert os.path.exists(
             params["results_directory"]

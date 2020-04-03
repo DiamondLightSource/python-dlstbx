@@ -81,10 +81,9 @@ class DLSValidation(CommonService):
             return fail("wavelength not set in image header")
 
         if output.get("beamline") == "i04-1":
-            expected_wavelength = 0.913
-            if wavelength != pytest.approx(expected_wavelength, rel=0.01):
+            if wavelength < 0.9119 or wavelength > 0.9132:
                 return fail(
-                    f"Image wavelength {wavelength} deviates from expected I04-1 fixed wavelength {expected_wavelength} by more than 1%"
+                    f"Image wavelength {wavelength} outside of allowed range for I04-1 (0.9119-0.9132)"
                 )
 
         if output.get("ispyb_wavelength"):

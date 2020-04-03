@@ -310,12 +310,11 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
             environment_override=clean_environment,
         )
         if result["exitcode"] or result["timeout"]:
-            logger.warning(
+            logger.info(
                 "Running topaz3 script has failed with exitcode %s", result["exitcode"]
             )
             return False
 
-        logger.info("Generating graph output")
         self.graph_output(
             (working_directory + "/avg_predictions.json"),
             (working_directory + "/topaz_graph.json"),

@@ -88,9 +88,9 @@ class DLSValidation(CommonService):
 
         if output.get("ispyb_wavelength"):
             expected_wavelength = float(output["ispyb_wavelength"])
-            if wavelength != pytest.approx(expected_wavelength, rel=0.001):
+            if wavelength != pytest.approx(expected_wavelength, rel=0.02):
                 return fail(
-                    f"Image wavelength {wavelength} deviates from ISPyB wavelength {expected_wavelength} by more than 0.1%"
+                    f"Image wavelength {wavelength} deviates from ISPyB wavelength {expected_wavelength} by more than 2%"
                 )
 
         rw.transport.ack(header)

@@ -1,0 +1,98 @@
+from __future__ import absolute_import, division, print_function
+
+import functools
+
+import pytest
+import workflows.recipe
+import dxtbx.model.experiment_list
+from workflows.services.common_service import CommonService
+
+
+class DLSValidation(CommonService):
+    """
+    A service that validates data collections against ISPyB
+    and for internal consistency.
+    """
+
+    # Human readable service name
+    _service_name = "DLS Validation"
+
+    _logger_name = "dlstbx.services.validation"
+
+    def initializing(self):
+        # The main per_image_analysis queue.
+        # For every received message a single frame will be analysed.
+        workflows.recipe.wrap_subscribe(
+            self._transport,
+            "validation",
+            self.validate,
+            acknowledgement=True,
+            log_extender=self.extend_log,
+        )
+
+    def fail_validation(self, rw, header, output, reason):
+        output["reason"] = reason
+        txn = rw.transport.transaction_begin()
+        rw.transport.ack(header, transaction=txn)
+        rw.send_to("validation_error", output, transaction=txn)
+        rw.transport.transaction_commit(txn)
+        self.log.error(
+            "Image validation of %s failed: %s", output["file"], reason,
+        )
+
+    def validate(self, rw, header, message):
+        """Validate an image or a data set
+
+        Recipe parameters:
+        { "parameters": { "beamline": "i04-1",
+                          "ispyb_wavelength": "0.9119",
+                          ... } }
+        These are optional and are used for consistency checking.
+
+        Minimum message payload:
+        { "file": full file path }
+
+        Output streams:
+        "validation_error": This is the default output.
+
+        Output message format:
+        { "file": copied over from input message,
+          "reason": string describing why validation failed,
+
+          other fields are copied from the parameters dictionary
+        }
+        """
+
+        filename = message["file"]
+        rw.set_default_channel("validation_error")
+        output = rw.recipe_step.get("parameters", {})
+        output["file"] = filename
+        self.log.debug("Starting validation of %s", filename)
+
+        # Create experiment list
+        el = dxtbx.model.experiment_list.ExperimentListFactory.from_filenames(
+            [filename]
+        )
+        wavelength = el.beams()[0].get_wavelength()
+
+        fail = functools.partial(self.fail_validation, rw, header, output)
+
+        if wavelength <= 0:
+            return fail("wavelength not set in image header")
+
+        if output.get("beamline") == "i04-1":
+            expected_wavelength = 0.913
+            if wavelength != pytest.approx(expected_wavelength, rel=0.01):
+                return fail(
+                    f"Image wavelength {wavelength} deviates from expected I04-1 fixed wavelength {expected_wavelength} by more than 1%"
+                )
+
+        if output.get("ispyb_wavelength"):
+            expected_wavelength = float(output["ispyb_wavelength"])
+            if wavelength != pytest.approx(expected_wavelength, rel=0.001):
+                return fail(
+                    f"Image wavelength {wavelength} deviates from ISPyB wavelength {expected_wavelength} by more than 0.1%"
+                )
+
+        rw.transport.ack(header)
+        self.log.debug("%s passed validation", filename)

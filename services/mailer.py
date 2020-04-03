@@ -29,6 +29,15 @@ class DLSMailer(CommonService):
             allow_non_recipe_messages=True,
         )
 
+    @staticmethod
+    def listify(recipients):
+        if isinstance(recipients, list):
+            return recipients
+        elif isinstance(recipients, tuple):
+            return list(recipients)
+        else:
+            return [recipients]
+
     def receive_msg(self, rw, header, message):
         """Do some mail notification."""
 
@@ -54,12 +63,23 @@ class DLSMailer(CommonService):
             self.log.warning("No recipients set for message")
             self._transport.nack(header)
             return
-        if isinstance(recipients, list):
-            pass
-        elif isinstance(recipients, tuple):
-            recipients = list(recipients)
+        if isinstance(recipients, dict):
+            if "select" not in recipients:
+                self.log.warning(
+                    "Recipients dictionary must have key 'select' to select relevant group"
+                )
+                self._transport.nack(header)
+                return
+            selected_recipients = self.listify(recipients.get(recipients["select"], []))
+            if recipients.get("all"):
+                all_recipients = self.listify(recipients["all"])
+            recipients = sorted(set(selected_recipients) | set(all_recipients))
+            if not recipients:
+                self.log.warning("No selected recipients for message")
+                self._transport.nack(header)
+                return
         else:
-            recipients = [recipients]
+            recipients = self.listify(recipients)
 
         sender = parameters.get("from", "Zocalo <zocalo@diamond.ac.uk>")
 

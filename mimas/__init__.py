@@ -233,3 +233,46 @@ def _(list_: list):
 @zocalo_message.register(tuple)
 def _(tuple_: tuple):
     return tuple(zocalo_message(element) for element in tuple_)
+
+
+@functools.singledispatch
+def zocalo_command_line(mimasobject):
+    """
+    Return the command line equivalent to execute a given Mimas* object
+    """
+    raise ValueError(f"{mimasobject!r} is not a known Mimas object")
+
+
+@zocalo_command_line.register(MimasRecipeInvocation)
+def _(mimasobject: MimasRecipeInvocation):
+    return f"zocalo.go -r {mimasobject.recipe} {mimasobject.DCID}"
+
+
+@zocalo_command_line.register(MimasISPyBJobInvocation)
+def _(mimasobject: MimasISPyBJobInvocation):
+    if mimasobject.comment:
+        comment = f"--comment={mimasobject.comment!r} "
+    else:
+        comment = ""
+    if mimasobject.displayname:
+        displayname = f"--display={mimasobject.displayname!r} "
+    else:
+        displayname = ""
+    parameters = " ".join(
+        f"--add-param={p.key}:{p.value}" for p in mimasobject.parameters
+    )
+    sweeps = " ".join(
+        f"--add-sweep={s.DCID}:{s.start}:{s.end}" for s in mimasobject.sweeps
+    )
+    if mimasobject.autostart:
+        trigger = "--trigger "
+    else:
+        trigger = ""
+    triggervars = " ".join(
+        f"--trigger-variable={tv.key}:{tv.value}" for tv in mimasobject.triggervariables
+    )
+
+    return (
+        f"ispyb.job --new --dcid={mimasobject.DCID} --source={mimasobject.source} --recipe={mimasobject.recipe} "
+        f"{sweeps} {parameters} {displayname}{comment}{trigger}{triggervars}"
+    )

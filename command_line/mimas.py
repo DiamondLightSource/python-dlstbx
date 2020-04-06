@@ -20,6 +20,15 @@ if __name__ == "__main__":
     parser = OptionParser(usage="dlstbx.mimas [options] dcid")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 
+    parser.add_option(
+        "--commands",
+        "-c",
+        action="store_true",
+        dest="show_commands",
+        default=False,
+        help="Show commands that would trigger the individual processing steps",
+    )
+
     (options, args) = parser.parse_args(sys.argv[1:])
 
     if not all(arg.isnumeric() for arg in args):
@@ -72,11 +81,17 @@ if __name__ == "__main__":
                     )
                     raise
                 if isinstance(a, dlstbx.mimas.MimasRecipeInvocation):
-                    print(f" - for DCID {a.DCID} call recipe {a.recipe}")
+                    if options.show_commands:
+                        print(" - " + dlstbx.mimas.zocalo_command_line(a))
+                    else:
+                        print(f" - for DCID {a.DCID} call recipe {a.recipe}")
                 elif isinstance(a, dlstbx.mimas.MimasISPyBJobInvocation):
-                    print(
-                        f" - create ISPyB job for DCID {a.DCID} named {a.displayname!r} with recipe {a.recipe}"
-                    )
+                    if options.show_commands:
+                        print(" - " + dlstbx.mimas.zocalo_command_line(a))
+                    else:
+                        print(
+                            f" - create ISPyB job for DCID {a.DCID} named {a.displayname!r} with recipe {a.recipe}"
+                        )
                 else:
                     raise RuntimeError(f"Encountered unknown action {a!r}")
             if not actions:

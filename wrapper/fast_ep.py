@@ -21,34 +21,64 @@ clean_environment = {
 
 
 class FastEPWrapper(zocalo.wrapper.BaseWrapper):
-    def check_go_fast_ep(self, params):
-        command = ["go_fast_ep", params["fast_ep"]["data"]]
-        result = procrunner.run(
-            command,
-            timeout=params.get("timeout"),
-            print_stdout=True,
-            print_stderr=True,
-            working_directory=params["working_directory"],
-        )
-        success = not result["exitcode"] and not result["timeout"]
-        if success:
-            logger.info("go_fast_ep successful, took %.1f seconds", result["runtime"])
-        else:
-            logger.info(
-                "go_fast_ep failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
-            )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+    def go_fast_ep(self, params):
+        """Decide whether to run fast_ep or not based on the completeness, dI/s(dI) and
+        resolution of actual data."""
+
+        from iotbx.reflection_file_reader import any_reflection_file
+
+        if "go_fast_ep" not in params:
+            logger.info("go_fast_ep settings not available")
             return False
 
-        go_fast_ep = result["stdout"].strip() == "Go"
-        if go_fast_ep:
-            logger.info("Computer says go for fast_ep :)")
+        thres_d_min = params["go_fast_ep"].get("d_min", -1)
+
+        def check_thresholds(data, threshold):
+            thres_completeness = threshold.get("completeness", -1)
+            thres_dIsigdI = threshold.get("dI/sigdI", -1)
+
+            differences = data.anomalous_differences()
+            dIsigdI = sum(abs(differences.data())) / sum(differences.sigmas())
+            completeness = data.completeness()
+            if completeness < thres_completeness:
+                logger.info(
+                    "Data completeness %.2f below threshold value %.2f. Aborting."
+                    % (completeness, thres_completeness)
+                )
+                return True
+            if dIsigdI < thres_dIsigdI:
+                logger.info(
+                    "Data dI/s(dI) %.2f below threshold value %.2f. Aborting."
+                    % (dIsigdI, thres_dIsigdI)
+                )
+                return True
+            logger.info(
+                "Data completeness: %.2f  threshold: %.2f"
+                % (completeness, thres_completeness)
+            )
+            logger.info(
+                "Data dI/s(dI): %.2f  threshold: %.2f" % (dIsigdI, thres_dIsigdI)
+            )
+            return False
+
+        hkl_file = any_reflection_file(params["fast_ep"]["data"])
+        mas = hkl_file.as_miller_arrays()
+        try:
+            all_data = next((m for m in mas if m.anomalous_flag()))
+        except StopIteration:
+            logger.exception(
+                "No anomalous data found in %s" % params["fast_ep"]["data"]
+            )
+            return True
+        if all_data.d_min() > thres_d_min:
+            select_data = all_data
+            res = check_thresholds(select_data, params["go_fast_ep"].get("low_res", {}))
         else:
-            logger.info("Computer says no for fast_ep :(")
-        return go_fast_ep
+            select_data = all_data.resolution_filter(d_min=thres_d_min)
+            res = check_thresholds(
+                select_data, params["go_fast_ep"].get("high_res", {})
+            )
+        return res
 
     def construct_commandline(self, params):
         """Construct fast_ep command line.
@@ -119,10 +149,12 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
                 params["fast_ep"]["data"] = os.path.abspath(
                     params["ispyb_parameters"]["data"]
                 )
-            if params["ispyb_parameters"].get("check_go_fast_ep"):
-                if not self.check_go_fast_ep(params):
-                    logger.info("Skipping fast_ep (check_go_fast_ep == No)")
-                    return False
+            if (
+                params["ispyb_parameters"].get("check_go_fast_ep")
+                or "go_fast_ep" in params
+            ) and self.go_fast_ep(params):
+                logger.info("Skipping fast_ep (go_fast_ep == No)")
+                return False
 
         # Create working directory with symbolic link
         working_directory.ensure(dir=True)
@@ -153,6 +185,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             fp.writelines(
                 [
                     ". /etc/profile.d/modules.sh\n",
+                    "module purge\n",
                     "module load fast_ep\n",
                     " ".join(command),
                 ]

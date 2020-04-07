@@ -9,6 +9,7 @@ import procrunner
 import py
 import zocalo.wrapper
 from dlstbx.util.shelxc import parse_shelxc_logs
+import glob
 
 logger = logging.getLogger("dlstbx.wrap.xia2.to_shelxcde")
 
@@ -39,13 +40,11 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
                     working_directory.strpath, params["create_symlink"]
                 )
 
-        mtz_file = params["mtz"]
-        if not mtz_file:
-            logger.error("Could not identify on what data to run")
-            return False
-        mtz_file = os.path.abspath(mtz_file)
-        if not os.path.exists(mtz_file):
-            logger.error("Could not find data file %s to process", mtz_file)
+        data_files = sorted(glob.glob(params["data"]))
+        if not data_files:
+            logger.error(
+                "Could not find data files matching %s to process", params["data"]
+            )
             return False
 
         try:
@@ -58,7 +57,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
             logger.error("Could not create tmp file in the working directory")
             return False
 
-        command = ["xia2.to_shelxcde", mtz_file, prefix]
+        command = ["xia2.to_shelxcde"] + data_files + [prefix]
         logger.info("Generating SHELXC .ins file")
         logger.info("command: %s", " ".join(command))
         result = procrunner.run(

@@ -1,10 +1,11 @@
 import sys
-from numpy import array
-from sklearn.externals import joblib
 import json
 
 
 def run(model_file, output_file, threshold, metrics):
+    from numpy import array
+    import joblib
+
     with open(model_file, "rb") as fp:
         classifier_data = joblib.load(fp)
 

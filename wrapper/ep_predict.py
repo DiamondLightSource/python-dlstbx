@@ -110,7 +110,8 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
                     [
                         "#!/bin/bash\n",
                         ". /etc/profile.d/modules.sh\n",
-                        "module load python/3\n",
+                        "module purge\n",
+                        "module load python/3.8\n",
                         "python {} {} {} {} {}\n".format(
                             fmt_script_path,
                             params["classifier"],

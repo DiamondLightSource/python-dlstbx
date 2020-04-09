@@ -174,6 +174,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
             {
                 "Results": json.loads(json_result.read()),
                 "Output file": json_result.strpath,
+                "Classifier": params["classifier"],
                 "Input data": params["data"],
                 "Diffraction plan": params["diffraction_plan_info"],
             }

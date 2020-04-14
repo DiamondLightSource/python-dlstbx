@@ -393,10 +393,10 @@ class DLSTrigger(CommonService):
                 "big_ep_launcher trigger failed: Invalid program_id specified"
             )
             return False
-        mtz = parameters("mtz")
-        if not mtz:
+        data = parameters("data")
+        if not data:
             self.log.error(
-                "big_ep_launcher trigger failed: No input mtz file specified"
+                "big_ep_launcher trigger failed: No input data file specified"
             )
             return False
         path_ext = parameters("path_ext")
@@ -404,10 +404,8 @@ class DLSTrigger(CommonService):
             path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         big_ep_parameters = {
-            "ispyb_autoprocprogramid": program_id,
-            "ispyb_dcid": dcid,
-            "mtz": mtz,
-            "path_ext": path_ext,
+            "program_id": program_id,
+            "data": data,
         }
 
         for key, value in big_ep_parameters.items():
@@ -426,13 +424,7 @@ class DLSTrigger(CommonService):
 
         message = {
             "recipes": [],
-            "parameters": {
-                "ispyb_process": jobid,
-                "ispyb_autoprocprogramid": program_id,
-                "ispyb_dcid": dcid,
-                "mtz": mtz,
-                "path_ext": path_ext,
-            },
+            "parameters": {"ispyb_process": jobid, "path_ext": path_ext,},
         }
         rw.transport.send("processing_recipe", message)
 
@@ -494,9 +486,9 @@ class DLSTrigger(CommonService):
                 prog["programs"],
             )
             return False
-        mtz = big_ep_params["mtz"]
-        if not mtz:
-            self.log.error("big_ep trigger failed: No input mtz file specified")
+        data = big_ep_params["data"]
+        if not data:
+            self.log.error("big_ep trigger failed: No input data file specified")
             return False
         scaled_unmerged_mtz = big_ep_params["scaled_unmerged_mtz"]
         if not scaled_unmerged_mtz:
@@ -510,9 +502,9 @@ class DLSTrigger(CommonService):
 
         message = {
             "parameters": {
-                "ispyb_autoprocprogramid": program_id,
+                "program_id": program_id,
                 "ispyb_dcid": dcid,
-                "mtz": mtz,
+                "data": data,
                 "scaled_unmerged_mtz": scaled_unmerged_mtz,
                 "path_ext": path_ext,
             },

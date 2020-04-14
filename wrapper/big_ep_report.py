@@ -38,6 +38,11 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             for row in self.recwrap.environment["ispyb_program_attachments"]
         ]
 
+        if "data" not in params:
+            params["data"] = params.get(
+                "ispyb_parameters", self.recwrap.environment
+            ).get("data", "N/A")
+
         tmpl_data = {
             "_root_wd": working_directory.strpath,
             "big_ep_path": params["big_ep_path"],

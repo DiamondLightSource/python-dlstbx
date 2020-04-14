@@ -31,6 +31,14 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
 
         dcid = params["dcid"]
 
+        if "data" not in params:
+            try:
+                params["data"] = params.get(
+                    "ispyb_parameters", self.recwrap.environment
+                )["data"]
+            except KeyError:
+                logger.debug("Input data file not available")
+
         try:
             sequence = params["protein_info"]["sequence"]
             if sequence:
@@ -41,7 +49,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
 
                 with open(seq_filename, "w") as fp:
                     fp.write(fasta_sequence(sequence).format(80))
-                params["sequence"] = seq_filename
+                params["seq_file"] = seq_filename
         except Exception:
             logger.debug("Cannot read protein sequence information for dcid %s", dcid)
 
@@ -56,19 +64,21 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             logger.debug("Energy scan data relevant for dcid %s not found", dcid)
 
         command = [
-            "{}/big_ep".format(os.environ["BIG_EP_BIN"]),
+            "big_ep",
             "fast_ep={}".format(params["fast_ep_directory"]),
         ]
-        for key, parameter in (
-            ("data", "data"),
-            ("atom_type", "atom_type"),
-            ("sequence", "seq_file"),
-            ("edge_position", "edge_position"),
-            ("qsub_project", "qsub_project"),
+        for parameter in (
+            "data",
+            "atom_type",
+            "seq_file",
+            "edge_position",
+            "qsub_project",
         ):
-            if key in params:
+            if parameter in params:
                 command.append(
-                    "{parameter}={value}".format(parameter=parameter, value=params[key])
+                    "{parameter}={value}".format(
+                        parameter=parameter, value=params[parameter]
+                    )
                 )
         try:
             command.extend(
@@ -280,11 +290,8 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
-        if "BIG_EP_BIN" not in os.environ:
-            logger.error("Environment not configured to run big_ep")
-            return False
-
         params = self.recwrap.recipe_step["job_parameters"]
+        self.recwrap.environment.update(params["ispyb_parameters"])
 
         working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])

@@ -7,15 +7,28 @@ from __future__ import absolute_import, division, print_function
 
 import py
 import sys
+from argparse import SUPPRESS, ArgumentParser
 from datetime import datetime
-from optparse import SUPPRESS_HELP, OptionParser
 
 import dlstbx.util.colorstreamhandler
 
 if __name__ == "__main__":
-    parser = OptionParser(usage="dlstbx.show_recipeID [options] recipe-ID (..)")
-    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-    (options, args) = parser.parse_args(sys.argv[1:])
+    parser = ArgumentParser(prog="dlstbx.show_recipeID")
+    parser.add_argument(
+        "--only-incoming",
+        action="store_true",
+        dest="only_incoming",
+        default=False,
+        help="show only the incoming message information",
+    )
+    parser.add_argument(
+        "recipe",
+        type=str,
+        nargs="+",
+        help="ID of recipe (in the form of 12345678-90ab-cdef-...) to show information for",
+    )
+    parser.add_argument("-?", action="help", help=SUPPRESS)
+    args = parser.parse_args()
 
     if not args:
         parser.print_help()
@@ -25,29 +38,33 @@ if __name__ == "__main__":
     base_path = py.path.local("/dls/tmp/zocalo/dispatcher")
     candidates = base_path.listdir()
     directories = [x for x in candidates if x.check(dir=True)]
+    isatty = sys.stdout.isatty()
+    quiet = False
 
-    for recipe in args:
+    for recipe in args.recipe:
         for d in directories:
             recipe_file = d.join(recipe[0:2]).join(recipe[2:])
             if recipe_file.check():
-                print(
-                    "{c.BOLD}{c.GREEN}Recipe {recipe} ({timestamp:%Y-%m-%d %H:%M:%S}){c.DEFAULT}".format(
-                        recipe=recipe,
-                        c=c,
-                        timestamp=datetime.fromtimestamp(recipe_file.mtime()),
-                    )
+                line = "Recipe {recipe} ({timestamp:%Y-%m-%d %H:%M:%S})".format(
+                    recipe=recipe,
+                    timestamp=datetime.fromtimestamp(recipe_file.mtime()),
                 )
+                if isatty:
+                    print(f"{c.BOLD}{c.GREEN}{line}{c.DEFAULT}")
+                else:
+                    print(line)
+
                 for line in recipe_file.readlines(cr=False):
                     if not line.startswith(" ") and line.endswith(":"):
-                        print(
-                            "{c.BOLD}{c.YELLOW}{line}{c.DEFAULT}".format(line=line, c=c)
-                        )
-                    else:
+                        if args.only_incoming:
+                            quiet = line != "Incoming message body:"
+                        if not quiet:
+                            if isatty:
+                                print(f"{c.BOLD}{c.YELLOW}{line}{c.DEFAULT}")
+                            else:
+                                print(line)
+                    elif not quiet:
                         print(line)
                 break
         else:
-            print(
-                "{c.BOLD}{c.RED}Recipe {recipe} not found{c.DEFAULT}".format(
-                    recipe=recipe, c=c
-                )
-            )
+            print(f"{c.BOLD}{c.RED}Recipe {recipe} not found{c.DEFAULT}")

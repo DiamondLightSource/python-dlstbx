@@ -213,7 +213,7 @@ class DispatcherService(CommonSystemTest):
             queue="transient.system_test." + self.guid + ".timeout",
             message=message,
             min_wait=9,
-            timeout=20,
+            timeout=30,
         )
 
 

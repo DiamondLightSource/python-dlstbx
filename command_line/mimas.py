@@ -70,7 +70,6 @@ if __name__ == "__main__":
                 runstatus=ispyb_info["ispyb_dc_info"]["runStatus"],
                 spacegroup=spacegroup,
                 unitcell=cell,
-                default_recipes=ispyb_message["default_recipe"],
                 isitagridscan=ispyb_info["ispyb_isitagridscan_legacy"],
                 getsweepslistfromsamedcg=tuple(
                     dlstbx.mimas.MimasISPyBSweep(*sweep)

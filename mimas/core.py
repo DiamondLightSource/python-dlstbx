@@ -10,6 +10,50 @@ def run(
 ]:
     tasks = []
 
+    if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
+        if scenario.beamline == "i02-2":
+            default_recipes = ["archive-nexus", "vmxi-spot-counts-per-image"]
+        else:
+            default_recipes = ["per-image-analysis-gridscan"]
+    elif scenario.dcclass == dlstbx.mimas.MimasDCClass.SCREENING:
+        default_recipes = [
+            "per-image-analysis-rotation",
+            "strategy-edna",
+            "strategy-mosflm",
+        ]
+    elif scenario.dcclass != dlstbx.mimas.MimasDCClass.ROTATION:
+        # possibly EM dataset
+        default_recipes = []
+    else:
+        if scenario.beamline == "i02-2":
+            default_recipes = [
+                "archive-nexus",
+                "processing-autoproc",
+                "processing-fast-dp",
+                "processing-xia2-3dii",
+                "processing-xia2-dials",
+                "vmxi-per-image-analysis",
+            ]
+        else:
+            default_recipes = [
+                "per-image-analysis-rotation",
+                "processing-autoproc",
+                "processing-fast-dp",
+                "processing-rlv",
+                "processing-xia2-3dii",
+                "processing-xia2-dials",
+            ]
+
+        # for the moment we do not want multi-xia2 for /dls/mx i.e. VMXi
+        # beware if other projects start using this directory structure will
+        # need to be smarter here...
+        has_related_dcs = scenario.getsweepslistfromsamedcg and any(
+            sweep.DCID != scenario.DCID for sweep in scenario.getsweepslistfromsamedcg
+        )
+        if has_related_dcs:
+            default_recipes.append("processing-multi-xia2-dials")
+            default_recipes.append("processing-multi-xia2-3dii")
+
     if scenario.event == dlstbx.mimas.MimasEvent.START:
         if scenario.beamline in ("i02-1", "i04-1", "i23", "i24", "p45"):
             if not scenario.isitagridscan:
@@ -23,7 +67,7 @@ def run(
                         DCID=scenario.DCID, recipe="per-image-analysis-rotation"
                     )
                 )
-                if "processing-autoproc" in scenario.default_recipes:
+                if "processing-autoproc" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -46,7 +90,7 @@ def run(
                     spacegroup = "C2"  # I03 hothothotfix for 20190510 only
                 if spacegroup:
                     # Space group is set, run fast_dp, xia2 and autoPROC with space group
-                    if "processing-fast-dp" in scenario.default_recipes:
+                    if "processing-fast-dp" in default_recipes:
                         tasks.append(
                             dlstbx.mimas.MimasISPyBJobInvocation(
                                 DCID=scenario.DCID,
@@ -64,7 +108,7 @@ def run(
                                 triggervariables=(),
                             )
                         )
-                    if "processing-autoproc" in scenario.default_recipes:
+                    if "processing-autoproc" in default_recipes:
                         if scenario.unitcell:
                             parameters = (
                                 dlstbx.mimas.MimasISPyBParameter(
@@ -95,7 +139,7 @@ def run(
                         )
                 else:
                     # Space group is not set, only run fast_dp
-                    if "processing-fast-dp" in scenario.default_recipes:
+                    if "processing-fast-dp" in default_recipes:
                         tasks.append(
                             dlstbx.mimas.MimasISPyBJobInvocation(
                                 DCID=scenario.DCID,
@@ -147,7 +191,7 @@ def run(
 
     if scenario.event == dlstbx.mimas.MimasEvent.END:
         if scenario.beamline in ("i02-1", "i04-1", "i23", "i24", "p45"):
-            recipes = set(scenario.default_recipes) - {
+            recipes = set(default_recipes) - {
                 "processing-xia2-dials",
                 "processing-xia2-3dii",
                 "processing-multi-xia2-dials",
@@ -167,7 +211,7 @@ def run(
                 )
             )
             # Always run xia2 and autoPROC without space group set
-            if "processing-xia2-dials" in scenario.default_recipes:
+            if "processing-xia2-dials" in default_recipes:
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -185,7 +229,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            if "processing-xia2-3dii" in scenario.default_recipes:
+            if "processing-xia2-3dii" in default_recipes:
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -203,7 +247,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            if "processing-multi-xia2-dials" in scenario.default_recipes:
+            if "processing-multi-xia2-dials" in default_recipes:
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -221,7 +265,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            if "processing-multi-xia2-3dii" in scenario.default_recipes:
+            if "processing-multi-xia2-3dii" in default_recipes:
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -266,7 +310,7 @@ def run(
                         ),
                     )
 
-                if "processing-xia2-dials" in scenario.default_recipes:
+                if "processing-xia2-dials" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -280,7 +324,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if "processing-xia2-3dii" in scenario.default_recipes:
+                if "processing-xia2-3dii" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -294,7 +338,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if "processing-multi-xia2-dials" in scenario.default_recipes:
+                if "processing-multi-xia2-dials" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -308,7 +352,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if "processing-multi-xia2-3dii" in scenario.default_recipes:
+                if "processing-multi-xia2-3dii" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -324,10 +368,8 @@ def run(
                     )
 
         if scenario.beamline == "i02-2":
-            gridscan = "per-image-analysis-gridscan" in scenario.default_recipes
-            gridscan = (
-                gridscan or "vmxi-spot-counts-per-image" in scenario.default_recipes
-            )
+            gridscan = "per-image-analysis-gridscan" in default_recipes
+            gridscan = gridscan or "vmxi-spot-counts-per-image" in default_recipes
             ishdf = "#" in "dcid[image_pattern]"  # I guess this is exactly wrong
             tasks.append(
                 dlstbx.mimas.MimasRecipeInvocation(
@@ -358,7 +400,7 @@ def run(
                     )
                 )
                 # Always run xia2 and autoPROC without space group set
-                if "processing-fast-dp" in scenario.default_recipes:
+                if "processing-fast-dp" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -373,7 +415,7 @@ def run(
                         )
                     )
 
-                if "processing-xia2-dials" in scenario.default_recipes:
+                if "processing-xia2-dials" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -391,7 +433,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if "processing-xia2-3dii" in scenario.default_recipes:
+                if "processing-xia2-3dii" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -405,7 +447,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if "processing-autoproc" in scenario.default_recipes:
+                if "processing-autoproc" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -421,9 +463,9 @@ def run(
                     )
 
         if scenario.beamline in ("i03", "i04",):
-            gridscan = "per-image-analysis-gridscan" in scenario.default_recipes
+            gridscan = "per-image-analysis-gridscan" in default_recipes
             stopped = scenario.runstatus == "DataCollection Stopped"
-            strategy = any("strategy" in dr for dr in scenario.default_recipes)
+            strategy = any("strategy" in dr for dr in default_recipes)
             tasks.append(
                 dlstbx.mimas.MimasRecipeInvocation(
                     DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
@@ -460,7 +502,7 @@ def run(
                     )
             # Always run xia2 and autoPROC without space group set
 
-            if "processing-xia2-dials" in scenario.default_recipes:
+            if "processing-xia2-dials" in default_recipes:
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -478,7 +520,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            if "processing-xia2-3dii" in scenario.default_recipes:
+            if "processing-xia2-3dii" in default_recipes:
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -496,7 +538,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            if "processing-autoproc" in scenario.default_recipes:
+            if "processing-autoproc" in default_recipes:
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -510,7 +552,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            if "processing-multi-xia2-dials" in scenario.default_recipes:
+            if "processing-multi-xia2-dials" in default_recipes:
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -524,7 +566,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            if "processing-multi-xia2-3dii" in scenario.default_recipes:
+            if "processing-multi-xia2-3dii" in default_recipes:
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -572,7 +614,7 @@ def run(
                         ),
                     )
 
-                if "processing-fast-dp" in scenario.default_recipes:
+                if "processing-fast-dp" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -590,7 +632,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if "processing-xia2-dials" in scenario.default_recipes:
+                if "processing-xia2-dials" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -604,7 +646,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if "processing-xia2-3dii" in scenario.default_recipes:
+                if "processing-xia2-3dii" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -618,7 +660,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if "processing-multi-xia2-dials" in scenario.default_recipes:
+                if "processing-multi-xia2-dials" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -632,7 +674,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if "processing-multi-xia2-3dii" in scenario.default_recipes:
+                if "processing-multi-xia2-3dii" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -646,7 +688,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if "processing-autoproc" in scenario.default_recipes:
+                if "processing-autoproc" in default_recipes:
                     if scenario.unitcell:
                         parameters = (
                             dlstbx.mimas.MimasISPyBParameter(
@@ -677,7 +719,7 @@ def run(
                     )
             else:
                 # Space group is not set, only run fast_dp
-                if "processing-fast-dp" in scenario.default_recipes:
+                if "processing-fast-dp" in default_recipes:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,

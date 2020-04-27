@@ -19,7 +19,6 @@ MimasScenario = collections.namedtuple(
         "runstatus",
         "spacegroup",
         "unitcell",  # None or MimasISPyBUnitCell
-        "default_recipes",
         "isitagridscan",
         "getsweepslistfromsamedcg",
     ),

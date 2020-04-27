@@ -63,44 +63,6 @@ class DLSMimas(CommonService):
                 )
                 dc_class_mimas = dlstbx.mimas.MimasDCClass.UNDEFINED
 
-        if dc_class["grid"]:
-            if step.get("beamline") == "i02-2":
-                default_recipes = ["archive-nexus", "vmxi-spot-counts-per-image"]
-            else:
-                default_recipes = ["per-image-analysis-gridscan"]
-        elif dc_class["screen"]:
-            default_recipes = [
-                "per-image-analysis-rotation",
-                "strategy-edna",
-                "strategy-mosflm",
-            ]
-        elif not dc_class["rotation"]:
-            # possibly EM dataset
-            default_recipes = []
-        else:
-            if step.get("beamline") == "i02-2":
-                default_recipes = [
-                    "archive-nexus",
-                    "processing-autoproc",
-                    "processing-fast-dp",
-                    "processing-xia2-3dii",
-                    "processing-xia2-dials",
-                    "vmxi-per-image-analysis",
-                ]
-            else:
-                default_recipes = [
-                    "per-image-analysis-rotation",
-                    "processing-autoproc",
-                    "processing-fast-dp",
-                    "processing-rlv",
-                    "processing-xia2-3dii",
-                    "processing-xia2-dials",
-                ]
-
-            if step.get("ispyb_images"):
-                default_recipes.append("processing-multi-xia2-dials")
-                default_recipes.append("processing-multi-xia2-3dii")
-
         gridscan = step.get("gridscan")
         if isinstance(gridscan, bool):
             pass
@@ -138,7 +100,6 @@ class DLSMimas(CommonService):
             runstatus=step.get("run_status"),
             spacegroup=spacegroup,
             unitcell=cell,
-            default_recipes=default_recipes,
             isitagridscan=gridscan,
             getsweepslistfromsamedcg=sweep_list,
             # step.get(preferred_processing)  # TODO

@@ -48,6 +48,15 @@ if __name__ == "__main__":
             spacegroup = dlstbx.mimas.MimasISPyBSpaceGroup(spacegroup)
         else:
             spacegroup = None
+        dc_class = ispyb_info.get("ispyb_dc_class")
+        if dc_class and dc_class["grid"]:
+            dc_class_mimas = dlstbx.mimas.MimasDCClass.GRIDSCAN
+        elif dc_class and dc_class["screen"]:
+            dc_class_mimas = dlstbx.mimas.MimasDCClass.SCREENING
+        elif dc_class and dc_class["rotation"]:
+            dc_class_mimas = dlstbx.mimas.MimasDCClass.ROTATION
+        else:
+            dc_class_mimas = dlstbx.mimas.MimasDCClass.UNDEFINED
 
         for event, readable in (
             (dlstbx.mimas.MimasEvent.START, "start of data collection"),
@@ -55,7 +64,7 @@ if __name__ == "__main__":
         ):
             scenario = dlstbx.mimas.MimasScenario(
                 DCID=dcid,
-                dcclass=dlstbx.mimas.MimasDCClass.UNDEFINED,  # TODO
+                dcclass=dc_class_mimas,
                 event=event,
                 beamline=ispyb_info["ispyb_beamline"],
                 runstatus=ispyb_info["ispyb_dc_info"]["runStatus"],

@@ -28,8 +28,7 @@ class DLSMimas(CommonService):
             log_extender=self.extend_log,
         )
 
-    @staticmethod
-    def _extract_scenario(step):
+    def _extract_scenario(self, step):
         dcid = step.get("dcid")
         if not dcid or not dcid.isnumeric():
             return f"Invalid Mimas request rejected (DCID = {dcid!r})"
@@ -37,18 +36,32 @@ class DLSMimas(CommonService):
         event = step.get("event")
         if not isinstance(event, str):
             event = repr(event)
-        if event.lower() == "start":
-            event = dlstbx.mimas.MimasEvent.START
-        elif event.lower() == "end":
-            event = dlstbx.mimas.MimasEvent.END
-        else:
+        try:
+            event = dlstbx.mimas.MimasEvent[event.upper()]
+        except KeyError:
             return f"Invalid Mimas request rejected (Event = {event})"
 
         # TODO: push the default recipe determination logic into mimas.core,
         #       and pass dc_class instead.
         dc_class = step.get("dc_class")
-        if not dc_class or not isinstance(dc_class, dict):
-            return f"Invalid Mimas request rejected (dc_class = {dc_class!r})"
+        if isinstance(dc_class, dict):
+            # legacy format
+            if dc_class["grid"]:
+                dc_class_mimas = dlstbx.mimas.MimasDCClass.GRIDSCAN
+            elif dc_class["screen"]:
+                dc_class_mimas = dlstbx.mimas.MimasDCClass.SCREENING
+            elif dc_class["rotation"]:
+                dc_class_mimas = dlstbx.mimas.MimasDCClass.ROTATION
+            else:
+                dc_class_mimas = dlstbx.mimas.MimasDCClass.UNDEFINED
+        else:
+            try:
+                dc_class_mimas = dlstbx.mimas.MimasDCClass[dc_class.upper()]
+            except KeyError:
+                self.log.warning(
+                    f"Invalid Mimas request (Data collection class = {dc_class!r})"
+                )
+                dc_class_mimas = dlstbx.mimas.MimasDCClass.UNDEFINED
 
         if dc_class["grid"]:
             if step.get("beamline") == "i02-2":
@@ -119,7 +132,7 @@ class DLSMimas(CommonService):
 
         return dlstbx.mimas.MimasScenario(
             DCID=int(dcid),
-            dcclass=dlstbx.mimas.MimasDCClass.UNDEFINED,  # TODO: dc_class
+            dcclass=dc_class_mimas,
             event=event,
             beamline=step.get("beamline"),
             runstatus=step.get("run_status"),

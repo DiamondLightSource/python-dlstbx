@@ -1,14 +1,19 @@
 from __future__ import absolute_import, division, print_function
 
+import glob
 import json
 import logging
 import os
 import re
 import uuid
+import yaml
 
 from past.builtins import basestring, long
 import ispyb
 import mysql.connector  # installed by ispyb
+
+
+logger = logging.getLogger("dlstbx.ispybtbx")
 
 # Temporary API to ISPyB while I wait for a proper one using stored procedures
 # - beware here be dragons, written by a hacker who is not a database wonk.
@@ -779,10 +784,24 @@ def ispyb_filter(message, parameters):
             start, end = i.dc_info_to_start_end(info)
             parameters["ispyb_related_sweeps"].append((dc, start, end))
 
-    (
-        parameters["ispyb_space_group"],
-        parameters["ispyb_unit_cell"],
-    ) = i.get_space_group_and_unit_cell(dc_id)
+    space_group, cell = i.get_space_group_and_unit_cell(dc_id)
+
+    if not any((space_group, cell)):
+        params = load_configuration_file(parameters)
+        if params:
+            space_group = params.get("ispyb_space_group")
+            cell = params.get("ispyb_unit_cell")
+            if isinstance(cell, str):
+                try:
+                    cell = [float(p) for p in cell.replace(",", " ").split()]
+                except ValueError:
+                    logger.warning(
+                        "Can't interpret unit cell: %s (dcid: %s)", str(cell), dc_id
+                    )
+                    cell = None
+
+    parameters["ispyb_space_group"] = space_group
+    parameters["ispyb_unit_cell"] = cell
 
     related_images = []
 
@@ -830,6 +849,24 @@ def ispyb_filter(message, parameters):
         message["default_recipe"].append("processing-multi-xia2-3dii")
 
     return message, parameters
+
+
+def load_configuration_file(ispyb_info):
+    visit_dir = ispyb_info["ispyb_visit_directory"]
+    processing_dir = os.path.join(visit_dir, "processing")
+    for f in glob.glob(os.path.join(processing_dir, "*.yml")):
+        prefix = os.path.splitext(os.path.basename(f))[0]
+        image_path = os.path.join(
+            ispyb_info["ispyb_image_directory"], ispyb_info["ispyb_image_template"]
+        )
+        if prefix in os.path.relpath(image_path, visit_dir):
+            with open(f, "r") as fh:
+                try:
+                    return yaml.safe_load(fh)
+                except yaml.YAMLError as exc:
+                    logger.warning(
+                        "Error in configuration file %s:\n%s", f, exc, exc_info=True
+                    )
 
 
 def work(dc_ids):

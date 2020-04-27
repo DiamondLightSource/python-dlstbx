@@ -37,7 +37,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                spacegroup = scenario.spacegroup
+                spacegroup = scenario.spacegroup.string
                 if spacegroup == "P1211":
                     spacegroup = "P21"  # I04-1 hothothotfix for 20190508 only
                 if spacegroup == "C1211":
@@ -239,7 +239,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            spacegroup = scenario.spacegroup
+            spacegroup = scenario.spacegroup.string
             if spacegroup == "P1211":
                 spacegroup = "P21"  # I04-1 hothothotfix for 20190508 only
             if spacegroup:
@@ -540,7 +540,7 @@ def run(
                 )
 
             #   ################ Determine SG and UC ####################
-            spacegroup = scenario.spacegroup
+            spacegroup = scenario.spacegroup.string
             if spacegroup == "P1211":
                 spacegroup = "P21"  # I04-1 hothothotfix for 20190508 only
             if spacegroup == "C1211":

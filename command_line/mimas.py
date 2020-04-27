@@ -50,6 +50,7 @@ if __name__ == "__main__":
         ):
             scenario = dlstbx.mimas.MimasScenario(
                 DCID=dcid,
+                dcclass=dlstbx.mimas.MimasDCClass.UNDEFINED,  # TODO
                 event=event,
                 beamline=ispyb_info["ispyb_beamline"],
                 runstatus=ispyb_info["ispyb_dc_info"]["runStatus"],

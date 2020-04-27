@@ -23,6 +23,7 @@ def test_validation_of_unknown_objects():
 def test_validation_of_scenario():
     valid_scenario = dlstbx.mimas.MimasScenario(
         DCID=1,
+        dcclass=dlstbx.mimas.MimasDCClass.ROTATION,
         event=dlstbx.mimas.MimasEvent.START,
         beamline="i03",
         unitcell=dlstbx.mimas.MimasISPyBUnitCell(
@@ -41,6 +42,8 @@ def test_validation_of_scenario():
     # replacing individual values should fail validation
     for key, value in [
         ("DCID", "banana"),
+        ("dcclass", None),
+        ("dcclass", 1),
         ("event", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid")),
         ("isitagridscan", ""),
         ("isitagridscan", "True"),

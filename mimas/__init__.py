@@ -3,17 +3,20 @@ import enum
 import functools
 import numbers
 
+MimasDCClass = enum.Enum("MimasDCClass", "GRIDSCAN ROTATION SCREENING UNDEFINED")
+
 MimasEvent = enum.Enum("MimasEvent", "START END")
 
 MimasScenario = collections.namedtuple(
     "MimasScenario",
     (
         "DCID",
+        "dcclass",  # MimasDCClass
         "event",  # MimasEvent
         "beamline",
         "runstatus",
         "spacegroup",
-        "unitcell",
+        "unitcell",  # None or MimasISPyBUnitCell
         "default_recipes",
         "isitagridscan",
         "getsweepslistfromsamedcg",
@@ -73,6 +76,7 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         raise ValueError(f"{mimasobject!r} has non-integer DCID")
     if type(mimasobject.isitagridscan) != bool:
         raise ValueError(f"{mimasobject!r} has non-boolean isitagridscan")
+    validate(mimasobject.dcclass, expectedtype=MimasDCClass)
     validate(mimasobject.event, expectedtype=MimasEvent)
     if type(mimasobject.getsweepslistfromsamedcg) not in (list, tuple):
         raise ValueError(
@@ -82,6 +86,12 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         validate(sweep, expectedtype=MimasISPyBSweep)
     if mimasobject.unitcell is not None:
         validate(mimasobject.unitcell, expectedtype=MimasISPyBUnitCell)
+
+
+@validate.register(MimasDCClass)
+def _(mimasobject: MimasDCClass, expectedtype=None):
+    if expectedtype and not isinstance(mimasobject, expectedtype):
+        raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
 
 
 @validate.register(MimasEvent)

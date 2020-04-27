@@ -113,6 +113,7 @@ class DLSMimas(CommonService):
 
         return dlstbx.mimas.MimasScenario(
             DCID=int(dcid),
+            dcclass=dlstbx.mimas.MimasDCClass.UNDEFINED,  # TODO: dc_class
             event=event,
             beamline=step.get("beamline"),
             runstatus=step.get("run_status"),
@@ -121,7 +122,6 @@ class DLSMimas(CommonService):
             default_recipes=default_recipes,
             isitagridscan=gridscan,
             getsweepslistfromsamedcg=sweep_list,
-            # step.get(dc_class)  # TODO
             # step.get(preferred_processing)  # TODO
         )
 

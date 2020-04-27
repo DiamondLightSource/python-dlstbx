@@ -159,13 +159,17 @@ def handle_receipt(header, message):
     unexpected_messages.count += 1
 
 
-for queue, topic in channels.keys():
-    logger.debug("Subscribing to %s" % queue)
+for n, (queue, topic) in enumerate(channels.keys()):
+    logger.debug("%2d: Subscribing to %s" % (n + 1, queue))
     if queue:
         sub_id = transport.subscribe(queue, handle_receipt)
     if topic:
         sub_id = transport.subscribe_broadcast(topic, handle_receipt)
     channel_lookup[str(sub_id)] = (queue, topic)
+    # subscriptions may be expensive on the server side, so apply some rate limiting
+    # so that the server can catch up and replies on this connection are not unduly
+    # delayed
+    time.sleep(0.2)
 
 # Send out messages
 

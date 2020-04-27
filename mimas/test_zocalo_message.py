@@ -53,3 +53,9 @@ def test_validation_of_ispyb_unit_cells():
     )
     zocdata = dlstbx.mimas.zocalo_message(valid)
     assert zocdata == (10, 11, 12, 90, 91.0, 92)
+
+
+def test_validation_of_ispyb_space_groups():
+    valid = dlstbx.mimas.MimasISPyBSpaceGroup(symbol="P 41 21 2")
+    zocdata = dlstbx.mimas.zocalo_message(valid)
+    assert zocdata == "P41212"

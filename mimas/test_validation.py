@@ -29,7 +29,7 @@ def test_validation_of_scenario():
         unitcell=dlstbx.mimas.MimasISPyBUnitCell(
             a=10, b=10.0, c=10, alpha=90.0, beta=90, gamma=90
         ),
-        spacegroup="string",
+        spacegroup=dlstbx.mimas.MimasISPyBSpaceGroup("P41212"),
         default_recipes="undefined",
         isitagridscan=False,
         getsweepslistfromsamedcg=(
@@ -190,3 +190,13 @@ def test_validation_of_ispyb_unit_cells():
         invalid = valid._replace(**{key: value})
         with pytest.raises(ValueError):
             dlstbx.mimas.validate(invalid)
+
+
+def test_validataion_of_ispyb_space_groups():
+    valid = dlstbx.mimas.MimasISPyBSpaceGroup(symbol="P 41 21 2")
+    dlstbx.mimas.validate(valid)
+    assert valid.string == "P41212"
+
+    invalid = dlstbx.mimas.MimasISPyBSpaceGroup(symbol="P 5")
+    with pytest.raises(ValueError):
+        dlstbx.mimas.validate(invalid)

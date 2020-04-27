@@ -3,6 +3,8 @@ import enum
 import functools
 import numbers
 
+from cctbx import sgtbx
+
 MimasDCClass = enum.Enum("MimasDCClass", "GRIDSCAN ROTATION SCREENING UNDEFINED")
 
 MimasEvent = enum.Enum("MimasEvent", "START END")
@@ -57,6 +59,11 @@ MimasISPyBUnitCell.string = property(
     lambda uc: ",".join(map(str, uc._asdict().values()))
 )
 
+MimasISPyBSpaceGroup = collections.namedtuple("MimasISPyBSpaceGroup", "symbol")
+MimasISPyBSpaceGroup.string = property(
+    lambda sg: sgtbx.space_group_info(sg.symbol).type().lookup_symbol().replace(" ", "")
+)
+
 
 @functools.singledispatch
 def validate(mimasobject, expectedtype=None):
@@ -86,6 +93,8 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         validate(sweep, expectedtype=MimasISPyBSweep)
     if mimasobject.unitcell is not None:
         validate(mimasobject.unitcell, expectedtype=MimasISPyBUnitCell)
+    if mimasobject.spacegroup is not None:
+        validate(mimasobject.spacegroup, expectedtype=MimasISPyBSpaceGroup)
 
 
 @validate.register(MimasDCClass)
@@ -194,6 +203,16 @@ def _(mimasobject: MimasISPyBUnitCell, expectedtype=None):
         raise ValueError(f"{mimasobject!r} has invalid angle gamma")
 
 
+@validate.register(MimasISPyBSpaceGroup)
+def _(mimasobject: MimasISPyBSpaceGroup, expectedtype=None):
+    if expectedtype and not isinstance(mimasobject, expectedtype):
+        raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
+    try:
+        sgtbx.space_group_info(symbol=mimasobject.symbol)
+    except RuntimeError as e:
+        raise ValueError(e) from None
+
+
 @functools.singledispatch
 def zocalo_message(mimasobject):
     """
@@ -233,6 +252,11 @@ def _(mimasobject: MimasISPyBParameter):
 @zocalo_message.register(MimasISPyBUnitCell)
 def _(mimasobject: MimasISPyBUnitCell):
     return tuple(mimasobject._asdict().values())
+
+
+@zocalo_message.register(MimasISPyBSpaceGroup)
+def _(mimasobject: MimasISPyBSpaceGroup):
+    return mimasobject.string
 
 
 @zocalo_message.register(list)

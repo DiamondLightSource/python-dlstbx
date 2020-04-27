@@ -43,6 +43,11 @@ if __name__ == "__main__":
             cell = dlstbx.mimas.MimasISPyBUnitCell(*cell)
         else:
             cell = None
+        spacegroup = ispyb_info.get("ispyb_space_group")
+        if spacegroup:
+            spacegroup = dlstbx.mimas.MimasISPyBSpaceGroup(spacegroup)
+        else:
+            spacegroup = None
 
         for event, readable in (
             (dlstbx.mimas.MimasEvent.START, "start of data collection"),
@@ -54,7 +59,7 @@ if __name__ == "__main__":
                 event=event,
                 beamline=ispyb_info["ispyb_beamline"],
                 runstatus=ispyb_info["ispyb_dc_info"]["runStatus"],
-                spacegroup=ispyb_info.get("ispyb_space_group"),
+                spacegroup=spacegroup,
                 unitcell=cell,
                 default_recipes=ispyb_message["default_recipe"],
                 isitagridscan=ispyb_info["ispyb_isitagridscan_legacy"],

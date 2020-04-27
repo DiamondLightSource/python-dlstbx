@@ -111,13 +111,19 @@ class DLSMimas(CommonService):
         else:
             cell = None
 
+        spacegroup = step.get("space_group")
+        if spacegroup:
+            spacegroup = dlstbx.mimas.MimasISPyBSpaceGroup(spacegroup)
+        else:
+            spacegroup = None
+
         return dlstbx.mimas.MimasScenario(
             DCID=int(dcid),
             dcclass=dlstbx.mimas.MimasDCClass.UNDEFINED,  # TODO: dc_class
             event=event,
             beamline=step.get("beamline"),
             runstatus=step.get("run_status"),
-            spacegroup=step.get("space_group"),
+            spacegroup=spacegroup,
             unitcell=cell,
             default_recipes=default_recipes,
             isitagridscan=gridscan,

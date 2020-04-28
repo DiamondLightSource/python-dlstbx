@@ -714,14 +714,17 @@ def ispyb_filter(message, parameters):
         except ispyb.NoResult:
             pass
     parameters["ispyb_preferred_processing"] = None
-    if dc_info["dataCollectionGroupId"]:
-        container = (
-            _ispyb_api()
-            .get_data_collection_group(dc_info["dataCollectionGroupId"])
-            .container
-        )
-        if container:
-            parameters["ispyb_preferred_processing"] = container.priority_processing
+    if dc_info.get("dataCollectionGroupId"):
+        try:
+            container = (
+                _ispyb_api()
+                .get_data_collection_group(dc_info["dataCollectionGroupId"])
+                .container
+            )
+            if container:
+                parameters["ispyb_preferred_processing"] = container.priority_processing
+        except ispyb.NoResult:
+            pass
     parameters["ispyb_image_first"] = start
     parameters["ispyb_image_last"] = end
     parameters["ispyb_image_template"] = dc_info.get("fileTemplate")

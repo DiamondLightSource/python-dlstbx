@@ -17,7 +17,7 @@ MimasScenario = collections.namedtuple(
         "event",  # MimasEvent
         "beamline",
         "runstatus",
-        "spacegroup",
+        "spacegroup",  # None or MimasISPyBSpaceGroup
         "unitcell",  # None or MimasISPyBUnitCell
         "isitagridscan",
         "getsweepslistfromsamedcg",

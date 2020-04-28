@@ -81,14 +81,15 @@ def run(
                             triggervariables=(),
                         )
                     )
-                spacegroup = scenario.spacegroup.string
-                if spacegroup == "P1211":
-                    spacegroup = "P21"  # I04-1 hothothotfix for 20190508 only
-                if spacegroup == "C1211":
-                    spacegroup = "C2"  # I04-1 hothothotfix for 20190510 only
-                if spacegroup == "C121":
-                    spacegroup = "C2"  # I03 hothothotfix for 20190510 only
-                if spacegroup:
+                if scenario.spacegroup:
+                    # Space group is set, run fast_dp, xia2 and autoPROC with space group
+                    spacegroup = scenario.spacegroup.string
+                    if spacegroup == "P1211":
+                        spacegroup = "P21"  # I04-1 hothothotfix for 20190508 only
+                    if spacegroup == "C1211":
+                        spacegroup = "C2"  # I04-1 hothothotfix for 20190510 only
+                    if spacegroup == "C121":
+                        spacegroup = "C2"  # I03 hothothotfix for 20190510 only
                     # Space group is set, run fast_dp, xia2 and autoPROC with space group
                     if "processing-fast-dp" in default_recipes:
                         tasks.append(
@@ -283,11 +284,11 @@ def run(
                         triggervariables=(),
                     )
                 )
-            spacegroup = scenario.spacegroup.string
-            if spacegroup == "P1211":
-                spacegroup = "P21"  # I04-1 hothothotfix for 20190508 only
-            if spacegroup:
+            if scenario.spacegroup:
                 # Space group is set, run xia2 and autoPROC with space group
+                spacegroup = scenario.spacegroup.string
+                if spacegroup == "P1211":
+                    spacegroup = "P21"  # I04-1 hothothotfix for 20190508 only
                 if scenario.unitcell:
                     parameters = (
                         dlstbx.mimas.MimasISPyBParameter(
@@ -582,15 +583,15 @@ def run(
                 )
 
             #   ################ Determine SG and UC ####################
-            spacegroup = scenario.spacegroup.string
-            if spacegroup == "P1211":
-                spacegroup = "P21"  # I04-1 hothothotfix for 20190508 only
-            if spacegroup == "C1211":
-                spacegroup = "C2"  # I04-1 hothothotfix for 20190510 only
-            if spacegroup == "C121":
-                spacegroup = "C2"  # I03 hothothotfix for 20190510 only
-            if spacegroup:
+            if scenario.spacegroup:
                 # Space group is set, run xia2 and autoPROC with space group
+                spacegroup = scenario.spacegroup.string
+                if spacegroup == "P1211":
+                    spacegroup = "P21"  # I04-1 hothothotfix for 20190508 only
+                if spacegroup == "C1211":
+                    spacegroup = "C2"  # I04-1 hothothotfix for 20190510 only
+                if spacegroup == "C121":
+                    spacegroup = "C2"  # I03 hothothotfix for 20190510 only
 
                 if scenario.unitcell:
                     parameters = (

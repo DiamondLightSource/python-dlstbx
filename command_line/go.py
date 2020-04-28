@@ -13,6 +13,7 @@ import sys
 from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
 
+import warnings
 import workflows
 from workflows.transport.stomp_transport import StompTransport
 import workflows.recipe
@@ -71,7 +72,7 @@ if __name__ == "__main__":
         dest="default",
         action="store_true",
         default=False,
-        help="Run default recipes for each given data collection ID",
+        help=SUPPRESS_HELP,
     )
     parser.add_option(
         "--not",
@@ -235,6 +236,8 @@ if __name__ == "__main__":
     if options.default:
         # Take a DCID. Find a list of default recipe names.
         from dlstbx.ispybtbx import ispyb_filter
+
+        warnings.warn("The -d/--default option has been deprecated", FutureWarning)
 
         default_recipes = ispyb_filter({}, {"ispyb_dcid": dcid})[0]["default_recipe"]
 

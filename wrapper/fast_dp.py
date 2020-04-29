@@ -224,7 +224,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             ".sca": "result",
             ".mtz": "result",
         }
-        keep = {"iotbx-merging-stats.json": "graph"}
+        keep = {"iotbx-merging-stats.json": "graph", "fast_dp-report.json": "result"}
 
         # Record these log files first so they appear at the top of the list
         # of attachments in SynchWeb

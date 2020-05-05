@@ -156,13 +156,68 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         logger.info("working_directory: %s", working_directory.strpath)
 
         scaled_unmerged_mtz = working_directory.join("scaled_unmerged.mtz")
-        if scaled_unmerged_mtz.check():
-
+        if success and scaled_unmerged_mtz.check():
             import iotbx.merging_statistics
 
             i_obs = iotbx.merging_statistics.select_data(
                 str(scaled_unmerged_mtz.strpath), data_labels=None
             )
+        else:
+            success = False
+
+        if success and working_directory.join("xia2.multiplex.json").check():
+            with working_directory.join("xia2.multiplex.json").open("r") as fh:
+                d = json.load(fh)
+
+            merging_stats = d["datasets"]["All data"]["merging_stats"]
+            merging_stats_anom = d["datasets"]["All data"]["merging_stats_anom"]
+            with working_directory.join("merging-stats.json").open("w") as fh:
+                json.dump(merging_stats, fh)
+
+            def lookup(merging_stats, item, shell):
+                i_bin = {"innerShell": 0, "outerShell": -1}.get(shell)
+                if i_bin is not None:
+                    return merging_stats[item][i_bin]
+                return merging_stats["overall"][item]
+
+            ispyb_d = {
+                "commandline": " ".join(result["command"]),
+                "spacegroup": i_obs.space_group().type().lookup_symbol(),
+                "unit_cell": list(i_obs.unit_cell().parameters()),
+                "scaling_statistics": {},
+            }
+
+            for shell in ("overall", "innerShell", "outerShell"):
+                ispyb_d["scaling_statistics"][shell] = {
+                    "cc_half": lookup(merging_stats, "cc_one_half", shell),
+                    "completeness": lookup(merging_stats, "completeness", shell),
+                    "mean_i_sig_i": lookup(merging_stats, "i_over_sigma_mean", shell),
+                    "multiplicity": lookup(merging_stats, "multiplicity", shell),
+                    "n_tot_obs": lookup(merging_stats, "n_obs", shell),
+                    "n_tot_unique_obs": lookup(merging_stats, "n_uniq", shell),
+                    "r_merge": lookup(merging_stats, "r_merge", shell),
+                    "res_lim_high": uctbx.d_star_sq_as_d(
+                        lookup(merging_stats, "d_star_sq_min", shell)
+                    ),
+                    "res_lim_low": uctbx.d_star_sq_as_d(
+                        lookup(merging_stats, "d_star_sq_max", shell)
+                    ),
+                    "anom_completeness": lookup(
+                        merging_stats_anom, "anom_completeness", shell
+                    ),
+                    "anom_multiplicity": lookup(
+                        merging_stats_anom, "multiplicity", shell
+                    ),
+                    "cc_anom": lookup(merging_stats_anom, "cc_anom", shell),
+                    "r_meas_all_iplusi_minus": lookup(
+                        merging_stats_anom, "r_meas", shell
+                    ),
+                }
+
+            xtriage_results = d["datasets"]["All data"].get("xtriage")
+            self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
+        else:
+            success = False
 
         # copy output files to result directory
         results_directory.ensure(dir=True)
@@ -222,57 +277,5 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                 )
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
-
-        if working_directory.join("xia2.multiplex.json").check():
-            with working_directory.join("xia2.multiplex.json").open("r") as fh:
-                d = json.load(fh)
-
-            merging_stats = d["datasets"]["All data"]["merging_stats"]
-            merging_stats_anom = d["datasets"]["All data"]["merging_stats_anom"]
-            with working_directory.join("merging-stats.json").open("w") as fh:
-                json.dump(fh, merging_stats)
-
-            def lookup(merging_stats, item, shell):
-                i_bin = {"innerShell": 0, "outerShell": -1}.get(shell)
-                if i_bin is not None:
-                    return merging_stats[item][i_bin]
-                return merging_stats["overall"][item]
-
-            ispyb_d = {
-                "commandline": " ".join(result["command"]),
-                "spacegroup": i_obs.space_group().type().lookup_symbol(),
-                "unit_cell": list(i_obs.unit_cell().parameters()),
-                "scaling_statistics": {},
-            }
-
-            for shell in ("overall", "innerShell", "outerShell"):
-                ispyb_d["scaling_statistics"][shell] = {
-                    "cc_half": lookup(merging_stats, "cc_one_half", shell),
-                    "completeness": lookup(merging_stats, "completeness", shell),
-                    "mean_i_sig_i": lookup(merging_stats, "i_over_sigma_mean", shell),
-                    "multiplicity": lookup(merging_stats, "multiplicity", shell),
-                    "n_tot_obs": lookup(merging_stats, "n_obs", shell),
-                    "n_tot_unique_obs": lookup(merging_stats, "n_uniq", shell),
-                    "r_merge": lookup(merging_stats, "r_merge", shell),
-                    "res_lim_high": uctbx.d_star_sq_as_d(
-                        lookup(merging_stats, "d_star_sq_min", shell)
-                    ),
-                    "res_lim_low": uctbx.d_star_sq_as_d(
-                        lookup(merging_stats, "d_star_sq_max", shell)
-                    ),
-                    "anom_completeness": lookup(
-                        merging_stats_anom, "anom_completeness", shell
-                    ),
-                    "anom_multiplicity": lookup(
-                        merging_stats_anom, "multiplicity", shell
-                    ),
-                    "cc_anom": lookup(merging_stats_anom, "cc_anom", shell),
-                    "r_meas_all_iplusi_minus": lookup(
-                        merging_stats_anom, "r_meas", shell
-                    ),
-                }
-
-            xtriage_results = d["datasets"]["All data"].get("xtriage")
-            self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
 
         return success

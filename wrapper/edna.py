@@ -366,8 +366,12 @@ edna-plugin-launcher \
             flux = float(flux)
         except ValueError:
             flux = None
-        beam_size_x = float(params["strategy"]["beam_size_x"])
-        beam_size_y = float(params["strategy"]["beam_size_y"])
+        try:
+            beam_size_x = float(params["strategy"]["beam_size_x"])
+            beam_size_y = float(params["strategy"]["beam_size_y"])
+        except ValueError:
+            beam_size_x = None
+            beam_size_y = None
         if flux:
             output = output + "<flux><value>%s</value></flux>" % flux
         if beam_size_x:

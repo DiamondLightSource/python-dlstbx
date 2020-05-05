@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import json
 import logging
 import itertools
 import py
@@ -12,7 +13,7 @@ logger = logging.getLogger("dlstbx.wrap.xia2.multiplex")
 
 
 class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
-    def send_results_to_ispyb(self, z):
+    def send_results_to_ispyb(self, z, xtriage_results=None):
         ispyb_command_list = []
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
@@ -56,6 +57,27 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
             #'refined_ybeam': z['refined_beam'][1],
         }
         ispyb_command_list.append(integration)
+
+        if xtriage_results is not None:
+            for level, messages in xtriage_results.items():
+                for message in messages:
+                    if (
+                        message["text"]
+                        == "The merging statistics indicate that the data may be assigned to the wrong space group."
+                    ):
+                        # this is not a useful warning
+                        continue
+                    ispyb_command_list.append(
+                        {
+                            "ispyb_command": "add_program_message",
+                            "program_id": "$ispyb_autoprocprogram_id",
+                            "message": message["text"],
+                            "description": message["summary"],
+                            "severity": {0: "INFO", 1: "WARNING", 2: "ERROR"}.get(
+                                message["level"]
+                            ),
+                        }
+                    )
 
         logger.debug("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
@@ -185,6 +207,7 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
             "scaled.expt": "result",
             "scaled.refl": "result",
             "iotbx-merging-stats.json": "graph",
+            "xia2.multiplex.json": "result",
         }
 
         # Record these log files first so they appear at the top of the list
@@ -259,6 +282,13 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                         "r_meas_all_iplusi_minus": bin.r_meas,
                     }
                 )
-            self.send_results_to_ispyb(ispyb_d)
+            if working_directory.join("xia2.multiplex.json").check():
+                with working_directory.join("xia2.multiplex.json").open("r") as fh:
+                    xtriage_results = json.load(fh)["datasets"]["All data"].get(
+                        "xtriage"
+                    )
+            else:
+                xtriage_results = None
+            self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
 
         return success

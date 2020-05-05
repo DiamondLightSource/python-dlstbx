@@ -182,8 +182,8 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         keep = {
             "scaled.mtz": "result",
             "scaled_unmerged.mtz": "result",
-            "multiplex.expt": "result",
-            "multiplex.refl": "result",
+            "scaled.expt": "result",
+            "scaled.refl": "result",
             "iotbx-merging-stats.json": "graph",
         }
 

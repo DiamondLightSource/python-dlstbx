@@ -215,7 +215,6 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                 }
 
             xtriage_results = d["datasets"]["All data"].get("xtriage")
-            self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
         else:
             success = False
 
@@ -277,5 +276,8 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                 )
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
+
+        if success:
+            self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
 
         return success

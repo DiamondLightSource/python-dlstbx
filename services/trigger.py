@@ -522,6 +522,9 @@ class DLSTrigger(CommonService):
             self.log.error("xia2.multiplex trigger failed: No DCID specified")
             return False
 
+        ispyb_params = parameters("ispyb_parameters")
+        spacegroup = ispyb_params.get("spacegroup") if ispyb_params else None
+
         # lookup related dcids and exit early if none found
         dcid = int(dcid)
         command = [
@@ -569,6 +572,30 @@ class DLSTrigger(CommonService):
                     prg.name != "xia2 dials"
                 ):
                     continue
+                # If this multiplex job was triggered with a spacegroup parameter
+                # then only use xia2-dials autoprocessing results that were
+                # themselves run with a spacegroup parameter. Else only use those
+                # results that weren't run with a space group parameter
+                job = self.ispyb.get_processing_job(prg.job_id)
+                job.load()
+                self.log.debug(job)
+                if not job.automatic:
+                    continue
+                job_spacegroup_param = None
+                for param in job.parameters:
+                    self.log.debug(param)
+                    if param[1].key == "spacegroup":
+                        job_spacegroup_param = param[1]
+                        break
+                if spacegroup and (
+                    not job_spacegroup_param or job_spacegroup_param.value != spacegroup
+                ):
+                    self.log.debug("Discarding appid %s", intgr.APPID)
+                    continue
+                elif job_spacegroup_param and not spacegroup:
+                    self.log.debug("Discarding appid %s", intgr.APPID)
+                    continue
+                self.log.debug("Using appid %s", intgr.APPID)
                 appid[prg.time_update] = intgr.APPID
             if not appid:
                 return None
@@ -620,6 +647,13 @@ class DLSTrigger(CommonService):
 
         # Lookup appids for all dcids and exit early if only one found
         data_files = [get_data_files_for_dcid(d) for d in dcids]
+        if not any(data_files):
+            self.log.info(
+                "Skipping xia2.multiplex trigger: no related data files found for dcid %s"
+                % dcid
+            )
+            return {"success": True}
+
         # Select only those dcids with a valid data files
         dcids, data_files = zip(
             *((dcid, files) for dcid, files in zip(dcids, data_files) if files)

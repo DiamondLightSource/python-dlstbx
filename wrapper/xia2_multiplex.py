@@ -93,6 +93,16 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         )
         for f in data_files:
             command.append(f)
+
+        if params.get("ispyb_parameters"):
+            translation = {
+                "d_min": "resolution.d_min",
+                "spacegroup": "symmetry.space_group",
+            }
+            for param, value in params["ispyb_parameters"].items():
+                if param in translation:
+                    command.append(translation.get(param, param) + "=" + value)
+
         return command
 
     def run(self):

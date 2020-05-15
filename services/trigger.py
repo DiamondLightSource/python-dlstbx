@@ -703,6 +703,19 @@ class DLSTrigger(CommonService):
                 ),
                 "\n".join(files),
             )
+        if spacegroup:
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = "spacegroup"
+            jpp["parameter_value"] = spacegroup
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                "xia2.multiplex trigger generated JobParameterID {} with %s=%s".format(
+                    jppid
+                ),
+                jpp["parameter_key"],
+                spacegroup,
+            )
 
         self.log.debug(
             "xia2.multiplex trigger: Processing job {} created".format(jobid)

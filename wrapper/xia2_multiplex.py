@@ -101,7 +101,7 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
             }
             for param, value in params["ispyb_parameters"].items():
                 if param in translation:
-                    command.append(translation.get(param, param) + "=" + value)
+                    command.append(translation.get(param, param) + "=" + value[0])
 
         return command
 
@@ -114,7 +114,7 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
         if params.get("ispyb_parameters"):
             if (
                 params["ispyb_parameters"].get("spacegroup")
-                and "/" not in params["ispyb_parameters"]["spacegroup"]
+                and "/" not in params["ispyb_parameters"]["spacegroup"][0]
             ):
                 for parameter in (
                     "working_directory",
@@ -123,7 +123,7 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                 ):
                     if parameter in params:
                         params[parameter] += (
-                            "-" + params["ispyb_parameters"]["spacegroup"]
+                            "-" + params["ispyb_parameters"]["spacegroup"][0]
                         )
             if params["ispyb_parameters"].get("data"):
                 params["data"] = params["ispyb_parameters"]["data"]

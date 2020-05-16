@@ -115,16 +115,11 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
             if (
                 params["ispyb_parameters"].get("spacegroup")
                 and "/" not in params["ispyb_parameters"]["spacegroup"][0]
+                and "create_symlink" in params
             ):
-                for parameter in (
-                    "working_directory",
-                    "results_directory",
-                    "create_symlink",
-                ):
-                    if parameter in params:
-                        params[parameter] += (
-                            "-" + params["ispyb_parameters"]["spacegroup"][0]
-                        )
+                params["create_symlink"] += (
+                    "-" + params["ispyb_parameters"]["spacegroup"][0]
+                )
             if params["ispyb_parameters"].get("data"):
                 params["data"] = params["ispyb_parameters"]["data"]
 

@@ -17,6 +17,7 @@ import re
 import procrunner
 import shutil
 import sys
+import time
 import uuid
 
 import dlstbx.dc_sim.dbserverclient
@@ -790,4 +791,7 @@ def call_sim(test_name, beamline):
             )
             dcid_list.append(dcid)
             dcg_list.append(dcg)
+            if scenario.get("delay"):
+                log.info("Sleeping for %s seconds" % scenario["delay"])
+                time.sleep(scenario["delay"])
     return dcid_list

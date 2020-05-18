@@ -169,6 +169,7 @@ tests = {
             "beta": approx(180, abs=180),
             "gamma": approx(180, abs=180),
         },
+        "delay": 20,
     },
     "smargon-dcg": {
         "src_dir": "/dls/i03/data/2018/cm19644-4/20180912/chigroup/protk",

@@ -133,7 +133,7 @@ def display_status(issues):
                     )
                 else:
                     print(
-                        "\n%d %s message%s (omitted)"
+                        "\n%d %s message%s omitted"
                         % (len(select), group, "" if len(select) == 1 else "s")
                     )
             if group == "Information" and (options.quiet or options.verbosity == 0):

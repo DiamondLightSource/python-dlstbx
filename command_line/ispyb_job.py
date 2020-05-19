@@ -458,7 +458,7 @@ if __name__ == "__main__":
                     attachments = i.mx_processing.retrieve_program_attachments_for_program_id(
                         program.app_id
                     )
-                    for filetype in sorted(set(a["fileType"] for a in attachments)):
+                    for filetype in sorted({a["fileType"] for a in attachments}):
                         for attachment in sorted(
                             (a for a in attachments if a["fileType"] == filetype),
                             key=lambda a: a["fileName"],

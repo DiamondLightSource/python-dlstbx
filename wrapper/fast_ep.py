@@ -64,7 +64,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
         hkl_file = any_reflection_file(params["fast_ep"]["data"])
         mas = hkl_file.as_miller_arrays()
         try:
-            all_data = next((m for m in mas if m.anomalous_flag()))
+            all_data = next(m for m in mas if m.anomalous_flag())
         except StopIteration:
             logger.exception(
                 "No anomalous data found in %s" % params["fast_ep"]["data"]

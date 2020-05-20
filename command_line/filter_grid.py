@@ -2,7 +2,6 @@
 #
 # LIBTBX_SET_DISPATCHER_NAME dials.filter_grid
 
-from __future__ import print_function
 
 import json
 import logging

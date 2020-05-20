@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import zocalo.wrapper
 import logging
 import py
@@ -121,7 +119,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
                         ),
                     ]
                 )
-        except IOError:
+        except OSError:
             logger.exception(
                 "Could not create prediction script file in the working directory"
             )

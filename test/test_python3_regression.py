@@ -1,6 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
-
 def test_no_new_python3_incompatible_code_is_introduced_into_this_module():
     import dlstbx
     import pytest

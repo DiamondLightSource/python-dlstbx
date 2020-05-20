@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import logging
 import sys
 import time
@@ -9,7 +7,7 @@ from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from workflows.transport.stomp_transport import StompTransport
 
 
-class DLSLog(object):
+class DLSLog:
     """Listens on ActiveMQ for log messages."""
 
     last_info = None

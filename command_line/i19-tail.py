@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 # LIBTBX_SET_DISPATCHER_NAME i19.tail
 
 import codecs
@@ -106,7 +104,7 @@ def recursively_find_most_current_directory(base, last_known_path=None):
         return best_candidate
 
 
-class _LineAggregator(object):
+class _LineAggregator:
     """Buffer that can be filled with stream data and will aggregate complete
      lines."""
 

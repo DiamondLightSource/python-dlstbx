@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import getpass
 import logging
 import sys
@@ -11,7 +9,7 @@ from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.rrdtool import RRDTool
 
 
-class ActiveMQAPI(object):
+class ActiveMQAPI:
     def connect(self, *args, **kwargs):
         self.jmx = dlstbx.util.jmxstats.JMXAPI(*args, **kwargs)
 
@@ -81,7 +79,7 @@ class ActiveMQAPI(object):
         return self._VMMemoryInfo["NonHeapMemoryUsage"]["used"]
 
 
-class ActiveMQRRD(object):
+class ActiveMQRRD:
     def __init__(self, path=".", api=None):
         self.rrd = RRDTool(path)
         self.setup_rrd()

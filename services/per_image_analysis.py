@@ -1,10 +1,7 @@
-from __future__ import absolute_import, division, print_function
-
 import logging
 import time
 
 import dlstbx.util.sanity
-import six
 import workflows.recipe
 from dials.command_line.find_spots_server import work
 from dlstbx.services.filewatcher import is_file_selected
@@ -208,7 +205,7 @@ class DLSPerImageAnalysis(CommonService):
         selections = [
             k
             for k in rw.recipe_step["output"]
-            if isinstance(k, six.string_types) and k.startswith("select-")
+            if isinstance(k, str) and k.startswith("select-")
         ]
         selections = {int(k[7:]): k for k in selections}
 

@@ -2,7 +2,6 @@
 # dlstbx.queue_monitor
 #   Monitor queue utilization
 #
-from __future__ import absolute_import, division, print_function
 
 import getpass
 import logging
@@ -15,7 +14,7 @@ import dlstbx.util.jmxstats
 logger = logging.getLogger("dlstbx.queue_monitor")
 
 
-class QueueStatus(object):
+class QueueStatus:
     """Monitor ActiveMQ queue activity."""
 
     gather_interval = 5

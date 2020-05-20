@@ -31,7 +31,7 @@ def make_wrapper(mocker, monkeypatch, tmpdir):
     return _make_wrapper
 
 
-class WrapperWrapper(object):
+class WrapperWrapper:
     def __init__(
         self,
         wrapper,

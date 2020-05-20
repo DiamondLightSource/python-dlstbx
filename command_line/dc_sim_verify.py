@@ -4,7 +4,6 @@
 #   results. Create a report as junit.xml file.
 #
 
-from __future__ import absolute_import, division, print_function
 
 import datetime
 import re

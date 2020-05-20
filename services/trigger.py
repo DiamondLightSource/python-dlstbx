@@ -1,12 +1,9 @@
-from __future__ import absolute_import, division, print_function
-
 import hashlib
 import re
 
 import ispyb
 import procrunner
 import py.path
-import six
 import workflows.recipe
 from workflows.services.common_service import CommonService
 from datetime import datetime
@@ -63,7 +60,7 @@ class DLSTrigger(CommonService):
             if (
                 not replace_variables
                 or not base_value
-                or not isinstance(base_value, six.string_types)
+                or not isinstance(base_value, str)
                 or "$" not in base_value
             ):
                 return base_value

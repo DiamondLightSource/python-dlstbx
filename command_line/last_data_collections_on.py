@@ -3,7 +3,6 @@
 #   Show information about the most recent data collections
 #
 
-from __future__ import absolute_import, division, print_function
 
 import sys
 import time

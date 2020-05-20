@@ -1,12 +1,9 @@
-from __future__ import absolute_import, division, print_function
-
 import collections
 import logging
 import string
 import uuid
 
 import mock
-import six
 
 CollectedTest = collections.namedtuple(
     "CollectedTest", "send, expect, timers, errors, quiet"
@@ -35,7 +32,7 @@ class _CommonSystemTestMeta(type):
             cls.register[name] = cls
 
 
-class CommonSystemTest(six.with_metaclass(_CommonSystemTestMeta, object)):
+class CommonSystemTest(metaclass=_CommonSystemTestMeta):
     """
     Base class for system tests for Zocalo,
     the Diamond Light Source data analysis framework.
@@ -205,10 +202,7 @@ class CommonSystemTest(six.with_metaclass(_CommonSystemTestMeta, object)):
                     self.containsdict = d
 
                 def __eq__(self, other):
-                    if six.PY2:
-                        return self.containsdict.viewitems() <= other.viewitems()
-                    else:
-                        return self.containsdict.items() <= other.items()
+                    return self.containsdict.items() <= other.items()
 
             environment = dictionary_contains(environment)
         else:
@@ -278,7 +272,7 @@ class CommonSystemTest(six.with_metaclass(_CommonSystemTestMeta, object)):
          recursively_replace_parameters( { '{x}': '{y}' } )
             => { '3': '5' }
     """
-        if isinstance(item, six.string_types):
+        if isinstance(item, str):
             return string.Formatter().vformat(item, (), self.parameters)
         if isinstance(item, dict):
             return {

@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import sys
 from dlstbx.util.version import dlstbx_version
 

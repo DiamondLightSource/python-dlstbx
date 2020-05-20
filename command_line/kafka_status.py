@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import confluent_kafka
 
 k = confluent_kafka.Consumer({"bootstrap.servers": "ws133"})

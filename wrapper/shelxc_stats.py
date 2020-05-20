@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import zocalo.wrapper
 from copy import deepcopy
 from dlstbx.util.shelxc import reduce_shelxc_results

@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import logging
 import multiprocessing
 import os
@@ -19,7 +17,7 @@ _DLS_Load_Hamilton = b". /etc/profile.d/modules.sh ; module load global/hamilton
 log = logging.getLogger("dlstbx.util.cluster")
 
 
-class Cluster(object):
+class Cluster:
     """DRMAA access to DLS computing clusters"""
 
     def __init__(self, clustername):
@@ -338,7 +336,7 @@ class Cluster(object):
         print("Job: {} finished with status {}".format(retval.jobId, retval.hasExited))
 
 
-class ClusterStatistics(object):
+class ClusterStatistics:
     """Interface to qstat"""
 
     @staticmethod

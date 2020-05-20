@@ -3,7 +3,6 @@
 #   Process a datacollection
 #
 
-from __future__ import absolute_import, division, print_function
 
 import getpass
 import json

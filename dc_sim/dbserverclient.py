@@ -1,18 +1,14 @@
-from __future__ import absolute_import, division, print_function
-
-import socket
 import sys
 import xml.etree.cElementTree as ET
 
 from six.moves import http_client
-import six
 
 
 def flatten_xml(xml, tag):
     return "".join("\n".join(i for t in xml.iter(tag) for i in t.itertext()))
 
 
-class DbserverClient(object):
+class DbserverClient:
     def __init__(self, _host, _port):
         self.DB_host = _host
         self.DB_port = _port
@@ -29,7 +25,7 @@ class DbserverClient(object):
             conn.putheader("Accept", "text/xml")
             conn.endheaders()
             conn.send(_xml)
-        except socket.error:
+        except OSError:
             conn.close()
             sys.exit("socket.error - is the server available?")
         try:
@@ -37,7 +33,7 @@ class DbserverClient(object):
         except http_client.BadStatusLine:
             conn.close()
             sys.exit("http_client.BadStatusLine: Unknown status code.")
-        except socket.error:
+        except OSError:
             conn.close()
             sys.exit(
                 "socket.error - is the client authorised to connect to the server?"
@@ -49,8 +45,7 @@ class DbserverClient(object):
             if lengthstr:
                 length = int(lengthstr)
                 xml = response.read(length)  # get the raw XML
-                if six.PY3:
-                    xml = xml.decode("latin-1")
+                xml = xml.decode("latin-1")
                 print(xml)
             else:
                 conn.close()

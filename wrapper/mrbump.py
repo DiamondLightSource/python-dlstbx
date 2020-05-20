@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import logging
 import py
 
@@ -51,7 +49,7 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
             fp.close()
             with open(mrbump_filename, "w") as fp:
                 fp.write("\n".join(mrbump_script))
-        except IOError:
+        except OSError:
             logger.exception(
                 "Could not create MrBUMP script file in the working directory"
             )

@@ -6,7 +6,6 @@
 # LIBTBX_SET_DISPATCHER_NAME ispyb.reprocessing
 # LIBTBX_SET_DISPATCHER_NAME ispyb.job
 
-from __future__ import absolute_import, division, print_function
 
 import re
 import os

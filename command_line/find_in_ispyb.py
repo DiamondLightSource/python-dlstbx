@@ -9,7 +9,6 @@
 # dlstbx.find_in_ispyb -p 95
 #   show available dictionary for reprocessing ID
 
-from __future__ import absolute_import, division, print_function
 
 import json
 import pprint

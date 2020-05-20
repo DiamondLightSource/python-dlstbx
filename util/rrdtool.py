@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import logging
 import os
 import re
@@ -31,12 +29,12 @@ def run_rrdtool(command):
     return result
 
 
-class RRDFile(object):
+class RRDFile:
     def __init__(self, filename):
         self.filename = filename
         self.last_update = self._read_last_update()
         if not self.last_update:
-            raise IOError("Could not read rrd file %s" % filename)
+            raise OSError("Could not read rrd file %s" % filename)
 
     def _read_last_update(self):
         command = ["info", self.filename]
@@ -65,7 +63,7 @@ class RRDFile(object):
         return success
 
 
-class RRDTool(object):
+class RRDTool:
     """A wrapper around an rrdtool executable that does not rely on compiling
      rrdtool first."""
 
@@ -74,7 +72,7 @@ class RRDTool(object):
        stored in and the name of the rrdtool executable."""
         self.basepath = basepath
         if not os.path.isdir(basepath):
-            raise IOError("rrdtool base directory %s does not exist" % basepath)
+            raise OSError("rrdtool base directory %s does not exist" % basepath)
 
     def create(self, filename, options, start=1000000000):
         rrdfile = os.path.join(self.basepath, filename)

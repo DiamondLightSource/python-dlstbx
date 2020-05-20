@@ -3,10 +3,8 @@
 #   'tail' equivalent for graylog messages
 #
 
-from __future__ import absolute_import, division, print_function
 
 import datetime
-import socket
 import string
 import sys
 import time
@@ -233,11 +231,7 @@ if __name__ == "__main__":
                 try:
                     for message in g.get_messages(time=options.time):
                         sys.stdout.write(format(message))
-                except (
-                    socket.error,
-                    urllib.error.URLError,
-                    http_client.BadStatusLine,
-                ) as e:
+                except (OSError, urllib.error.URLError, http_client.BadStatusLine) as e:
                     sys.stdout.write(
                         "{DEFAULT}{localtime:%Y-%m-%d %H:%M:%S} Graylog update failed: {exception}\n".format(
                             DEFAULT=ColorStreamHandler.DEFAULT,

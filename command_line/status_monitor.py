@@ -3,7 +3,6 @@
 #   Starts a status monitor (what do you expect?)
 #
 
-from __future__ import absolute_import, division, print_function
 
 import curses
 import logging
@@ -15,7 +14,6 @@ import time
 from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
 
-import six
 import workflows
 import workflows.transport
 from dlstbx.util.version import dlstbx_version
@@ -30,7 +28,7 @@ os.environ["TERMINFO"] = os.path.abspath(
 )
 
 
-class Monitor(object):
+class Monitor:
     """A sample implementation of a status monitor showing all running services"""
 
     shutdown = False
@@ -49,7 +47,7 @@ class Monitor(object):
 
     def __init__(self, filters=None, transport=None, version=None, test=False):
         """Set up monitor and connect to the network transport layer"""
-        if transport is None or isinstance(transport, six.string_types):
+        if transport is None or isinstance(transport, str):
             self._transport = workflows.transport.lookup(transport)()
         else:
             self._transport = transport()
@@ -494,12 +492,12 @@ class Monitor(object):
         self._transport.disconnect()
 
 
-class RawMonitor(object):
+class RawMonitor:
     """A minimalistic monitor that only displays raw status messages."""
 
     def __init__(self, filters=None, transport=None, version=None, test=False):
         """Set up monitor and connect to the network transport layer"""
-        if transport is None or isinstance(transport, six.string_types):
+        if transport is None or isinstance(transport, str):
             self._transport = workflows.transport.lookup(transport)()
         else:
             self._transport = transport()

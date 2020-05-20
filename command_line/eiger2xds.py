@@ -1,5 +1,4 @@
 # LIBTBX_SET_DISPATCHER_NAME eiger2xds
-from __future__ import absolute_import, division, print_function
 
 import os
 

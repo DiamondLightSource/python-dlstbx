@@ -4,7 +4,6 @@ All files will be created in the working directory and then the final prediction
 directory, along with a graph file.
 """
 
-from __future__ import absolute_import, division, print_function
 
 import json
 import logging
@@ -234,7 +233,7 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
                         ),
                     ]
                 )
-        except IOError:
+        except OSError:
             logger.exception(
                 "Could not create shelxe script file in the working directory"
             )
@@ -300,7 +299,7 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
                         'python -c "{0}"\n'.format(prediction_command),
                     ]
                 )
-        except IOError:
+        except OSError:
             logger.exception("Could not create topaz3 script file %s", topaz3_script)
         # Run procrunner with a clean python environment to avoid DIALS/topaz3 module clashes
         result = procrunner.run(

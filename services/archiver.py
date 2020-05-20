@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import errno
 import itertools
 import os
@@ -11,7 +9,7 @@ import workflows.recipe
 from workflows.services.common_service import CommonService
 
 
-class Dropfile(object):
+class Dropfile:
     """A class encapsulating the XML dropfile tree as it is built up."""
 
     def __init__(self, visit, beamline, datasetname):

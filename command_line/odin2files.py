@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 # Read an odin 0mq stream and dump it to files in the visit tmp directory
 
 import json

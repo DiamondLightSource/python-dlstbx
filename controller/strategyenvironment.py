@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import logging
 import threading
 import time
@@ -10,7 +8,7 @@ import dlstbx.controller.strategy.queue_static
 import dlstbx.controller.strategy.simple
 
 
-class StrategyEnvironment(object):
+class StrategyEnvironment:
     # From the view of the controller strategy each service and service slot
     # (which is a place holder) is in one of the following stages:
     #   HOLD:     A slot that has been added recently. The service has not been started yet.

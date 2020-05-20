@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import logging
 import os
 import tempfile
@@ -53,7 +51,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
             )
             prefix = os.path.splitext(os.path.basename(fp.name))[0]
             fp.close()
-        except IOError:
+        except OSError:
             logger.error("Could not create tmp file in the working directory")
             return False
 

@@ -1,6 +1,5 @@
 # Debugging tool for https://jira.diamond.ac.uk/browse/SCI-7634
 
-from __future__ import absolute_import, division, print_function
 
 import dlstbx
 import logging

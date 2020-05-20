@@ -1,10 +1,7 @@
-from __future__ import absolute_import, division, print_function
-
 import contextlib
 import os
 import time
 
-import six
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -29,7 +26,7 @@ def is_file_selected(file_number, selection, total_files):
     )
 
 
-class _Profiler(object):
+class _Profiler:
     """
     A helper class that can record summary statistics on time spent in
     code blocks. Example usage:
@@ -122,11 +119,7 @@ class DLSFileWatcher(CommonService):
         :return: A dictionary of {$number: "every-$number"} entries.
         """
         # Identify periods to notify for
-        everys = [
-            k
-            for k in outputs
-            if isinstance(k, six.string_types) and k.startswith("every-")
-        ]
+        everys = [k for k in outputs if isinstance(k, str) and k.startswith("every-")]
         return {int(k[6:]): k for k in everys}
 
     @staticmethod
@@ -141,9 +134,7 @@ class DLSFileWatcher(CommonService):
         """
         # Identify selections to notify for
         selections = [
-            k
-            for k in outputs
-            if isinstance(k, six.string_types) and k.startswith("select-")
+            k for k in outputs if isinstance(k, str) and k.startswith("select-")
         ]
         return {int(k[7:]): k for k in selections}
 

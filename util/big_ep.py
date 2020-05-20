@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -85,7 +83,7 @@ def read_xia2_processing(tmpl_data):
         try:
             with open(logfile) as fp:
                 lines = iter(fp.readlines())
-        except IOError:
+        except OSError:
             logger.exception("Error reading data from log file %s", logfile)
             return None
         for line in lines:
@@ -116,7 +114,7 @@ def read_xia2_processing(tmpl_data):
         try:
             with open(logfile) as fp:
                 json_data = json.load(fp)
-        except IOError:
+        except OSError:
             logger.exception("Error reading data from log file %s", logfile)
             return None
         res_data = json_data["d_star_sq_min"]
@@ -163,7 +161,7 @@ def read_xia2_processing(tmpl_data):
             with open(temp.name, "rb") as f:
                 img_data = f.read()
                 tmpl_data["html_images"][name] = img_data
-        except IOError:
+        except OSError:
             pass
 
     cc_data = None
@@ -318,7 +316,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
             with open(os.path.join(root_wd, "{}.png".format(img_name)), "rb") as f:
                 img_data = f.read()
                 tmpl_data["html_images"][img_name] = img_data
-        except IOError:
+        except OSError:
             pass
         tmpl_data["model_data"].update({tag_name: mdl_data["data"]})
 
@@ -365,7 +363,7 @@ def get_pia_plot(tmpl_data, image_number, resolution, spot_count, bragg_candidat
         with open(temp.name, "rb") as f:
             img_data = f.read()
             tmpl_data["html_images"]["img_distl"] = img_data
-    except IOError:
+    except OSError:
         pass
 
 
@@ -375,7 +373,7 @@ def get_image_files(tmpl_data):
             with open(img_path, "rb") as f:
                 img_data = f.read()
                 tmpl_data["html_images"][name] = img_data
-        except IOError:
+        except OSError:
             logger.info("Cannot read image file %s", img_path)
 
     jpeg_dir_list = tmpl_data["image_directory"].split(os.sep)

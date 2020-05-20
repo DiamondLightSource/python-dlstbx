@@ -65,11 +65,11 @@ def radar_factory(num_vars, frame="circle"):
         def fill(self, *args, **kwargs):
             """Override fill so that line is closed by default"""
             closed = kwargs.pop("closed", True)
-            return super(RadarAxes, self).fill(closed=closed, *args, **kwargs)
+            return super().fill(closed=closed, *args, **kwargs)
 
         def plot(self, *args, **kwargs):
             """Override plot so that line is closed by default"""
-            lines = super(RadarAxes, self).plot(*args, **kwargs)
+            lines = super().plot(*args, **kwargs)
             for line in lines:
                 self._close_line(line)
 

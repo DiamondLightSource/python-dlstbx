@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import datetime
 import errno
 import os
@@ -66,7 +64,7 @@ def get_process_uss(pid=None):
 
 try:
     get_process_uss()
-except IOError as exception:
+except OSError as exception:
     if exception.errno == 2:
         # /proc not available on this platform
         get_process_uss = lambda pid=None: None

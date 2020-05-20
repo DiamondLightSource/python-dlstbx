@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import logging
 
 import ispyb.connector.mysqlsp.main
@@ -8,7 +6,7 @@ from six.moves import configparser
 log = logging.getLogger("dlstbx.dc_sim")
 
 
-class DB(object):
+class DB:
     def __init__(self):
         config = configparser.RawConfigParser(allow_no_value=True)
         assert config.read("/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg")

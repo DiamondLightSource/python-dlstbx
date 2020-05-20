@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import copy
 import errno
 import json
@@ -232,7 +230,7 @@ class DLSDispatcher(CommonService):
                         )
                         self._transport.nack(header)
                         return
-                    except IOError as e:
+                    except OSError as e:
                         if e.errno == errno.ENOENT:
                             self.log.error(
                                 "Message references non-existing recipe '%s'",

@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 from dials.util.version import get_git_version
 
 # DLSTBX version numbers are constructed from

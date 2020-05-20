@@ -1,6 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
-
 def detector_to_dozor(detector):
     size = detector.get_image_size()
 

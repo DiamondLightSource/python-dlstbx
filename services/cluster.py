@@ -1,11 +1,8 @@
-from __future__ import absolute_import, division, print_function
-
 import errno
 import json
 import os
 
 import procrunner
-import six
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -68,7 +65,7 @@ class DLSCluster(CommonService):
 
         parameters = rw.recipe_step["parameters"]
         commands = parameters["cluster_commands"]
-        if not isinstance(commands, six.string_types):
+        if not isinstance(commands, str):
             commands = "\n".join(commands)
 
         cluster = parameters.get("cluster")

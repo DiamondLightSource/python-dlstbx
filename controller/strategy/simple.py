@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import dlstbx.controller.strategyenvironment
 
 
@@ -31,7 +29,7 @@ def _categorize(instances):
     return result
 
 
-class SimpleStrategy(object):
+class SimpleStrategy:
     def __init__(self, service=None, minimum=None, maximum=None, **kwargs):
         self.minimum = minimum
         self.maximum = maximum

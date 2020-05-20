@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 # graylog csv to something that can be worked on in R
 
 import csv

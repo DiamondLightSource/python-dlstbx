@@ -1,7 +1,4 @@
-from __future__ import absolute_import, division, print_function
-
-
-class Reader(object):
+class Reader:
     def __init__(self, filename):
 
         fields = [

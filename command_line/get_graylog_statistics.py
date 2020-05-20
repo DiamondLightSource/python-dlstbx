@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import logging
 import time
 
@@ -17,7 +15,7 @@ loglevels = {
 }
 
 
-class GraylogRRD(object):
+class GraylogRRD:
     def __init__(self, path=".", api=None):
         self.rrd = RRDTool(path)
         self.setup_rrd()

@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import struct
 
 # based on http://stackoverflow.com/a/16470856

@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import glob
 import json
 import logging
@@ -58,7 +56,7 @@ def _enable_future():
     future_enabled = True
 
 
-class ispybtbx(object):
+class ispybtbx:
     def __init__(self):
         self.legacy_init()
 

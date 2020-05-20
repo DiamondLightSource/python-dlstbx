@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import pyparsing as pp
 from pyparsing import Literal, Group, OneOrMore, SkipTo, nums, Regex, Word
 import logging

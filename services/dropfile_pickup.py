@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import time
 
 from six.moves import queue
@@ -369,4 +367,4 @@ class DLSDropfilePickup(CommonService):
 
         for k in self.rrd_file:
             if not self.rrd_file[k]:
-                raise IOError("Failed to open record file for %s" % k)
+                raise OSError("Failed to open record file for %s" % k)

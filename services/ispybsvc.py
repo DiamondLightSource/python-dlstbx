@@ -1,12 +1,9 @@
-from __future__ import absolute_import, division, print_function
-
 import os.path
 import time
 
 import dlstbx.util.gda
 import ispyb
 import mysql.connector
-import six
 import workflows.recipe
 from workflows.services.common_service import CommonService
 import json
@@ -61,7 +58,7 @@ class DLSISPyB(CommonService):
 
             # Create a wrapper-like object that can be passed to functions
             # as if a recipe wrapper was present.
-            class RW_mock(object):
+            class RW_mock:
                 def dummy(self, *args, **kwargs):
                     pass
 
@@ -96,7 +93,7 @@ class DLSISPyB(CommonService):
             if (
                 not replace_variables
                 or not base_value
-                or not isinstance(base_value, six.string_types)
+                or not isinstance(base_value, str)
                 or "$" not in base_value
             ):
                 return base_value
@@ -902,7 +899,7 @@ class DLSISPyB(CommonService):
             if (
                 not replace_variables
                 or not base_value
-                or not isinstance(base_value, six.string_types)
+                or not isinstance(base_value, str)
                 or "$" not in base_value
             ):
                 return base_value

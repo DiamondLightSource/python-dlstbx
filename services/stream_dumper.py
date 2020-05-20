@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import json
 import re
 import threading
@@ -15,7 +13,7 @@ import zmq
 
 class ZMQReceiver(threading.Thread):
     def __init__(self, logger, zmq_stream, service_termination_call):
-        super(ZMQReceiver, self).__init__()
+        super().__init__()
         self.log = logger
         self.zmq_stream = zmq_stream
         self._terminate_service = service_termination_call
@@ -140,13 +138,13 @@ class ZMQReceiver(threading.Thread):
         self.log.info("Receiver thread terminating")
 
 
-class DLSStreamdumper(object):
+class DLSStreamdumper:
     """A service that writes ZeroMQ stream messages to files."""
 
     _logger_name = "dlstbx.services.streamdumper"
 
     def __init__(self, *args, **kwargs):
-        super(DLSStreamdumper, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.dumper_thread = None
 
     def initializing(self):
@@ -179,7 +177,7 @@ class DLSStreamdumperI022(DLSStreamdumper, CommonService):
     _zmq_stream = "tcp://cs04r-sc-serv-116:9009"
 
     def __init__(self, *args, **kwargs):
-        super(DLSStreamdumperI022, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class DLSStreamdumperI03(DLSStreamdumper, CommonService):
@@ -187,7 +185,7 @@ class DLSStreamdumperI03(DLSStreamdumper, CommonService):
     _zmq_stream = "tcp://cs04r-sc-serv-22:9009"
 
     def __init__(self, *args, **kwargs):
-        super(DLSStreamdumperI03, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class DLSStreamdumperI04(DLSStreamdumper, CommonService):
@@ -195,7 +193,7 @@ class DLSStreamdumperI04(DLSStreamdumper, CommonService):
     _zmq_stream = "tcp://cs04r-sc-serv-23:9009"
 
     def __init__(self, *args, **kwargs):
-        super(DLSStreamdumperI04, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class DLSStreamdumperTest(DLSStreamdumper, CommonService):
@@ -203,4 +201,4 @@ class DLSStreamdumperTest(DLSStreamdumper, CommonService):
     _zmq_stream = "tcp://ws154:9999"
 
     def __init__(self, *args, **kwargs):
-        super(DLSStreamdumperTest, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)

@@ -3,7 +3,6 @@
 #   Wraps a command so that its status can be tracked in zocalo
 #
 
-from __future__ import absolute_import, division, print_function
 
 import json
 import logging

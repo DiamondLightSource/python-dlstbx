@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import logging
 
 import dlstbx.controller.strategyenvironment
@@ -21,7 +19,7 @@ def _filter_active(instances):
     }
 
 
-class QueueStaticStrategy(object):
+class QueueStaticStrategy:
     def __init__(
         self,
         service=None,

@@ -3,7 +3,6 @@
 #   Set up datacollection processing by writing an entry into ISPyB
 #
 
-from __future__ import absolute_import, division, print_function
 
 import os
 import re

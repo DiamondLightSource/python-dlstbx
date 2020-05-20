@@ -3,7 +3,6 @@
 #   prints out information about a given recipe ID
 #
 
-from __future__ import absolute_import, division, print_function
 
 import py
 import sys

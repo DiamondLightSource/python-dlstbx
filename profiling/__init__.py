@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import json
 import logging
 
@@ -9,7 +7,7 @@ import mysql.connector
 # infrastructure status information.
 
 
-class database(object):
+class database:
     def __init__(self):
         _secret_configuration = "/dls_sw/apps/zocalo/secrets/sql-zocalo-profiling.json"
         _secret_ingredients = json.load(open(_secret_configuration, "r"))
@@ -34,7 +32,7 @@ class database(object):
     def execute(self, query, parameters=None):
         cursor = self.cursor()
         if parameters:
-            if isinstance(parameters, (basestring, int, long)):
+            if isinstance(parameters, (str, int)):
                 parameters = (parameters,)
             cursor.execute(query, parameters)
         else:

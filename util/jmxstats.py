@@ -7,7 +7,6 @@
 #  jmx.java.lang(type="Memory")
 #  jmx.org.apache.activemq(type="Broker", brokerName="localhost/TotalConsumerCount")
 
-from __future__ import absolute_import, division, print_function
 
 import base64
 import json
@@ -16,7 +15,7 @@ from six.moves import configparser
 from six.moves import urllib
 
 
-class JMXAPIPath(object):
+class JMXAPIPath:
     """A recursing helper object that encodes a JMX bean path."""
 
     def __init__(self, path, callback):
@@ -36,7 +35,7 @@ class JMXAPIPath(object):
         return self.callback(self.path, *args, **kwargs)
 
 
-class JMXAPI(object):
+class JMXAPI:
     """Access to JMX via the Joloika/REST API to obtain monitoring information
      from a running JVM."""
 

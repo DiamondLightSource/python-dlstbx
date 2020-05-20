@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 from confluent_kafka import Producer
 import msgpack
 import zmq

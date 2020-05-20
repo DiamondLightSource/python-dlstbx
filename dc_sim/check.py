@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import dlstbx.dc_sim.definitions as df
 import ispyb
 import ispyb.model.__future__

@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import itertools
 import json
 import logging
@@ -109,7 +107,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
         selections = [
             k
             for k in self.recwrap.recipe_step["output"].keys()
-            if isinstance(k, basestring) and k.startswith("select-")
+            if isinstance(k, str) and k.startswith("select-")
         ]
         selections = {int(k[7:]): k for k in selections}
 

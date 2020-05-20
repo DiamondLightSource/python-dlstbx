@@ -1,6 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
-
 def hex2col(triplet):
     # print "RGB:", hex2rgb(triplet)
     # print "Ansi:", rgb2ansi(*hex2rgb(triplet))

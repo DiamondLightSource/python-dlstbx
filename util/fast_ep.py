@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import os
 
 import tempfile
@@ -231,7 +229,7 @@ def fastep_radar_plot(tmpl_data, nums, data, best_vals):
         with open(temp.name, "rb") as f:
             img_data = f.read()
             tmpl_data["html_images"]["img_fastep_table"] = img_data
-    except IOError:
+    except OSError:
         pass
 
 
@@ -321,7 +319,7 @@ def fastep_sites_plot(tmpl_data, num_list, fnum_data, best_fnum, best_sg):
                 tmpl_data["img_fastep_sites"].append(img_name)
                 tmpl_data["html_images"][img_name] = img_data
 
-        except IOError:
+        except OSError:
             pass
 
     n_col = range(min(len(fnum_data), 3))

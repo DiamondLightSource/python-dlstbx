@@ -1,12 +1,10 @@
-from __future__ import absolute_import, division, print_function
-
 import numbers
 
 from dlstbx.system_test.common import CommonSystemTest
 from workflows.recipe import Recipe
 
 
-class _PayloadIsValidPIAResult(object):
+class _PayloadIsValidPIAResult:
     """A helper class to validate incoming results."""
 
     def __init__(self, logger, recipe, min_intensity, max_intensity):

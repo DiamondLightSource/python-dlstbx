@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import logging
 import py
 from datetime import datetime
@@ -105,7 +103,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
                         " ".join(command),
                     ]
                 )
-        except IOError:
+        except OSError:
             logger.exception(
                 "Could not create big_ep script file in the working directory"
             )

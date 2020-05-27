@@ -186,11 +186,12 @@ class ispybtbx:
         return result
 
     def dc_info_to_detectorclass(self, dc_info):
+        dcid = dc_info.get("dataCollectionId")
+        if not dcid:
+            return None
         _enable_future()
         try:
-            detector = (
-                _ispyb_api().get_data_collection(dc_info["dataCollectionId"]).detector
-            )
+            detector = _ispyb_api().get_data_collection(dcid).detector
         except mysql.connector.errors.ProgrammingError:
             pass
         else:

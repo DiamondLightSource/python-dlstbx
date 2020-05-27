@@ -185,6 +185,31 @@ class ispybtbx:
         result = results[0][0]
         return result
 
+    def dc_info_to_detectorclass(self, dc_info):
+        _enable_future()
+        try:
+            detector = (
+                _ispyb_api().get_data_collection(dc_info["dataCollectionId"]).detector
+            )
+        except mysql.connector.errors.ProgrammingError:
+            pass
+        else:
+            # Currently get a database table permission error:
+            #   SELECT command denied to user 'ispyb_scripts' for table 'Detector'
+            if detector and detector.model.lower().startswith("eiger"):
+                return "eiger"
+            elif detector and detector.model.lower().startswith("pilatus"):
+                return "pilatus"
+
+        # Fallback on examining the file extension if nothing recorded in ISPyB
+        template = dc_info.get("fileTemplate")
+        if not template:
+            return None
+        if template.endswith("master.h5"):
+            return "eiger"
+        elif template.endswith(".cbf"):
+            return "pilatus"
+
     def get_related_dcs(self, group):
         matches = self.execute(
             "select datacollectionid from DataCollection "
@@ -691,6 +716,7 @@ def ispyb_filter(message, parameters):
         parameters["ispyb_preferred_datacentre"] = "hamilton"
     else:
         parameters["ispyb_preferred_datacentre"] = "cluster"
+    parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info)
     parameters["ispyb_dc_info"] = dc_info
     dc_class = i.classify_dc(dc_info)
     parameters["ispyb_dc_class"] = dc_class

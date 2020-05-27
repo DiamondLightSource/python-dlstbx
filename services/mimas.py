@@ -92,6 +92,11 @@ class DLSMimas(CommonService):
         else:
             spacegroup = None
 
+        detectorclass = {
+            "eiger": dlstbx.mimas.MimasDetectorClass.EIGER,
+            "pilatus": dlstbx.mimas.MimasDetectorClass.PILATUS,
+        }.get(step.get("ispyb_detectorclass", "").lower())
+
         return dlstbx.mimas.MimasScenario(
             DCID=int(dcid),
             dcclass=dc_class_mimas,
@@ -103,6 +108,7 @@ class DLSMimas(CommonService):
             isitagridscan=gridscan,
             getsweepslistfromsamedcg=sweep_list,
             # step.get(preferred_processing)  # TODO
+            detectorclass=detectorclass,
         )
 
     def process(self, rw, header, message):

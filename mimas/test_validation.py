@@ -35,6 +35,7 @@ def test_validation_of_scenario():
             dlstbx.mimas.MimasISPyBSweep(DCID=1, start=1, end=100),
         ),
         runstatus="string",
+        detectorclass=dlstbx.mimas.MimasDetectorClass.PILATUS,
     )
     dlstbx.mimas.validate(valid_scenario)
 
@@ -63,6 +64,7 @@ def test_validation_of_scenario():
         ("unitcell", False),
         ("unitcell", (10, 10, 10, 90, 90, 90)),
         ("unitcell", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid"),),
+        ("detectorclass", "ADSC"),
     ]:
         print(f"testing {key}: {value}")
         invalid_scenario = valid_scenario._replace(**{key: value})

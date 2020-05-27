@@ -397,7 +397,7 @@ def run(
                                     key="remove_blanks", value="true"
                                 ),
                             ),
-                            recipe="autoprocessing-xia2-dials-i04",
+                            recipe="autoprocessing-xia2-dials-eiger",
                             source="automatic",
                             sweeps=(),
                             triggervariables=(),
@@ -411,7 +411,7 @@ def run(
                             comment="",
                             displayname="",
                             parameters=(),
-                            recipe="autoprocessing-xia2-3dii-i04",
+                            recipe="autoprocessing-xia2-3dii-eiger",
                             source="automatic",
                             sweeps=(),
                             triggervariables=(),
@@ -461,7 +461,7 @@ def run(
                 for recipe in (
                     "strategy-align-crystal",
                     "strategy-mosflm",
-                    "strategy-edna-i04",
+                    "strategy-edna-eiger",
                 ):
                     tasks.append(
                         dlstbx.mimas.MimasRecipeInvocation(
@@ -482,7 +482,7 @@ def run(
                                 key="resolution.cc_half_significance_level", value="0.1"
                             ),
                         ),
-                        recipe="autoprocessing-xia2-dials-i04",
+                        recipe="autoprocessing-xia2-dials-eiger",
                         source="automatic",
                         sweeps=(),
                         triggervariables=(),
@@ -500,7 +500,7 @@ def run(
                                 key="resolution.cc_half_significance_level", value="0.1"
                             ),
                         ),
-                        recipe="autoprocessing-xia2-3dii-i04",
+                        recipe="autoprocessing-xia2-3dii-eiger",
                         source="automatic",
                         sweeps=(),
                         triggervariables=(),
@@ -608,7 +608,7 @@ def run(
                             comment="",
                             displayname="",
                             parameters=parameters,
-                            recipe="autoprocessing-xia2-dials-i04",
+                            recipe="autoprocessing-xia2-dials-eiger",
                             source="automatic",
                             sweeps=(),
                             triggervariables=(),
@@ -622,7 +622,7 @@ def run(
                             comment="",
                             displayname="",
                             parameters=parameters,
-                            recipe="autoprocessing-xia2-3dii-i04",
+                            recipe="autoprocessing-xia2-3dii-eiger",
                             source="automatic",
                             sweeps=(),
                             triggervariables=(),

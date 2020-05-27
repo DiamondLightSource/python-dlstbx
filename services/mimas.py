@@ -95,7 +95,7 @@ class DLSMimas(CommonService):
         detectorclass = {
             "eiger": dlstbx.mimas.MimasDetectorClass.EIGER,
             "pilatus": dlstbx.mimas.MimasDetectorClass.PILATUS,
-        }.get(step.get("ispyb_detectorclass", "").lower())
+        }.get(step.get("detectorclass", "").lower())
 
         return dlstbx.mimas.MimasScenario(
             DCID=int(dcid),

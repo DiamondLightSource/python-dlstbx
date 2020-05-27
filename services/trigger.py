@@ -200,6 +200,11 @@ class DLSTrigger(CommonService):
                 "Skipping ep_predict trigger: Cannot read anomalous scatterer setting"
             )
             return {"success": True}
+        try:
+            program_id = int(parameters("program_id"))
+        except (TypeError, ValueError):
+            self.log.error("ep_predict trigger failed: Invalid program_id specified")
+            return False
 
         dc_info = self.ispyb.get_data_collection(dcid)
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
@@ -217,6 +222,7 @@ class DLSTrigger(CommonService):
         self.log.debug("ep_predict trigger: generated JobID {}".format(jobid))
 
         ep_parameters = {
+            "program_id": program_id,
             "data": parameters("data"),
             "threshold": parameters("threshold"),
         }

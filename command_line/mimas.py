@@ -58,6 +58,12 @@ if __name__ == "__main__":
         else:
             dc_class_mimas = dlstbx.mimas.MimasDCClass.UNDEFINED
 
+        detectorclass = (
+            dlstbx.mimas.MimasDetectorClass.EIGER
+            if ispyb_info["ispyb_detectorclass"] == "eiger"
+            else dlstbx.mimas.MimasDetectorClass.PILATUS
+        )
+
         for event, readable in (
             (dlstbx.mimas.MimasEvent.START, "start of data collection"),
             (dlstbx.mimas.MimasEvent.END, "end of data collection"),
@@ -75,6 +81,7 @@ if __name__ == "__main__":
                     dlstbx.mimas.MimasISPyBSweep(*sweep)
                     for sweep in ispyb_info["ispyb_related_sweeps"]
                 ),
+                detectorclass=detectorclass,
             )
             # from pprint import pprint
             # pprint(scenario._asdict())

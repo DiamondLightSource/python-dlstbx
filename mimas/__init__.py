@@ -7,6 +7,8 @@ from cctbx import sgtbx
 
 MimasDCClass = enum.Enum("MimasDCClass", "GRIDSCAN ROTATION SCREENING UNDEFINED")
 
+MimasDetectorClass = enum.Enum("MimasDetectorClass", "PILATUS EIGER")
+
 MimasEvent = enum.Enum("MimasEvent", "START END")
 
 MimasScenario = collections.namedtuple(
@@ -21,8 +23,10 @@ MimasScenario = collections.namedtuple(
         "unitcell",  # None or MimasISPyBUnitCell
         "isitagridscan",
         "getsweepslistfromsamedcg",
+        "detectorclass",  # None or MimasDetectorClass
     ),
 )
+
 
 MimasRecipeInvocation = collections.namedtuple(
     "MimasRecipeInvocation", ("DCID", "recipe")
@@ -94,6 +98,8 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         validate(mimasobject.unitcell, expectedtype=MimasISPyBUnitCell)
     if mimasobject.spacegroup is not None:
         validate(mimasobject.spacegroup, expectedtype=MimasISPyBSpaceGroup)
+    if mimasobject.detectorclass is not None:
+        validate(mimasobject.detectorclass, expectedtype=MimasDetectorClass)
 
 
 @validate.register(MimasDCClass)
@@ -104,6 +110,12 @@ def _(mimasobject: MimasDCClass, expectedtype=None):
 
 @validate.register(MimasEvent)
 def _(mimasobject: MimasEvent, expectedtype=None):
+    if expectedtype and not isinstance(mimasobject, expectedtype):
+        raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
+
+
+@validate.register(MimasDetectorClass)
+def _(mimasobject: MimasDetectorClass, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
 

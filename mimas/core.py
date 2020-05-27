@@ -21,7 +21,26 @@ def run(
         multi_xia2 = True
 
     if scenario.event == dlstbx.mimas.MimasEvent.START:
-        if scenario.beamline in ("i02-1", "i04-1", "i23", "i24", "p45"):
+        if scenario.beamline in ("i19-1", "i19-2"):
+            # i19 is a special case
+            if scenario.isitagridscan:
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID, recipe="per-image-analysis-gridscan"
+                    )
+                )
+            else:
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID, recipe="per-image-analysis-rotation"
+                    )
+                )
+
+        elif scenario.beamline == "i02-2":
+            # VMXi is also a special case
+            pass  # nothing defined
+
+        elif scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.PILATUS:
             if not scenario.isitagridscan:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
@@ -132,32 +151,154 @@ def run(
                     )
                 )
 
-        if scenario.beamline == "i02-2":
-            pass  # nothing defined
-
-        if scenario.beamline in ("i03", "i04") and scenario.isitagridscan:
+        if (
+            scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.EIGER
+            and scenario.isitagridscan
+        ):
             tasks.append(
                 dlstbx.mimas.MimasRecipeInvocation(
                     DCID=scenario.DCID, recipe="per-image-analysis-eiger-streamdump"
                 )
             )
 
+    if scenario.event == dlstbx.mimas.MimasEvent.END:
+
         if scenario.beamline in ("i19-1", "i19-2"):
-            if scenario.isitagridscan:
+            # i19 is a special case
+            for recipe in (
+                "archive-cbfs",
+                "strategy-screen19",
+                "processing-rlv",
+                "generate-crystal-thumbnails",
+            ):
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="per-image-analysis-gridscan"
+                        DCID=scenario.DCID, recipe=recipe
+                    )
+                )
+
+            tasks.append(
+                dlstbx.mimas.MimasISPyBJobInvocation(
+                    DCID=scenario.DCID,
+                    autostart=True,
+                    comment="",
+                    displayname="",
+                    parameters=(),
+                    recipe="autoprocessing-multi-xia2-smallmolecule",
+                    source="automatic",
+                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    triggervariables=(),
+                )
+            )
+            tasks.append(
+                dlstbx.mimas.MimasISPyBJobInvocation(
+                    DCID=scenario.DCID,
+                    autostart=True,
+                    comment="",
+                    displayname="",
+                    parameters=(),
+                    recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                    source="automatic",
+                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    triggervariables=(),
+                )
+            )
+
+        elif scenario.beamline == "i02-2":
+            # VMXi is also a special case
+            ishdf = "#" in "dcid[image_pattern]"  # I guess this is exactly wrong
+            tasks.append(
+                dlstbx.mimas.MimasRecipeInvocation(
+                    DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
+                )
+            )
+            tasks.append(
+                dlstbx.mimas.MimasRecipeInvocation(
+                    DCID=scenario.DCID, recipe="generate-diffraction-preview"
+                )
+            )
+            if ishdf:
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID, recipe="archive-nexus"
+                    )
+                )
+            if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID, recipe="vmxi-spot-counts-per-image"
                     )
                 )
             else:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="per-image-analysis-rotation"
+                        DCID=scenario.DCID, recipe="vmxi-per-image-analysis"
                     )
                 )
+                # Always run xia2 and autoPROC without space group set
+                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                    tasks.append(
+                        dlstbx.mimas.MimasISPyBJobInvocation(
+                            DCID=scenario.DCID,
+                            autostart=True,
+                            comment="",
+                            displayname="",
+                            parameters=(),
+                            recipe="autoprocessing-fast-dp-eiger",
+                            source="automatic",
+                            sweeps=(),
+                            triggervariables=(),
+                        )
+                    )
 
-    if scenario.event == dlstbx.mimas.MimasEvent.END:
-        if scenario.beamline in ("i02-1", "i04-1", "i23", "i24", "p45"):
+                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                    tasks.append(
+                        dlstbx.mimas.MimasISPyBJobInvocation(
+                            DCID=scenario.DCID,
+                            autostart=True,
+                            comment="",
+                            displayname="",
+                            parameters=(
+                                dlstbx.mimas.MimasISPyBParameter(
+                                    key="remove_blanks", value="true"
+                                ),
+                            ),
+                            recipe="autoprocessing-xia2-dials-eiger",
+                            source="automatic",
+                            sweeps=(),
+                            triggervariables=(),
+                        )
+                    )
+                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                    tasks.append(
+                        dlstbx.mimas.MimasISPyBJobInvocation(
+                            DCID=scenario.DCID,
+                            autostart=True,
+                            comment="",
+                            displayname="",
+                            parameters=(),
+                            recipe="autoprocessing-xia2-3dii-eiger",
+                            source="automatic",
+                            sweeps=(),
+                            triggervariables=(),
+                        )
+                    )
+                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                    tasks.append(
+                        dlstbx.mimas.MimasISPyBJobInvocation(
+                            DCID=scenario.DCID,
+                            autostart=True,
+                            comment="",
+                            displayname="",
+                            parameters=(),
+                            recipe="autoprocessing-autoPROC-eiger",
+                            source="automatic",
+                            sweeps=(),
+                            triggervariables=(),
+                        )
+                    )
+
+        elif scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.PILATUS:
             if scenario.dcclass == dlstbx.mimas.MimasDCClass.SCREENING:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
@@ -339,100 +480,7 @@ def run(
                         )
                     )
 
-        if scenario.beamline == "i02-2":
-            ishdf = "#" in "dcid[image_pattern]"  # I guess this is exactly wrong
-            tasks.append(
-                dlstbx.mimas.MimasRecipeInvocation(
-                    DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
-                )
-            )
-            tasks.append(
-                dlstbx.mimas.MimasRecipeInvocation(
-                    DCID=scenario.DCID, recipe="generate-diffraction-preview"
-                )
-            )
-            if ishdf:
-                tasks.append(
-                    dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="archive-nexus"
-                    )
-                )
-            if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
-                tasks.append(
-                    dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="vmxi-spot-counts-per-image"
-                    )
-                )
-            else:
-                tasks.append(
-                    dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="vmxi-per-image-analysis"
-                    )
-                )
-                # Always run xia2 and autoPROC without space group set
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
-                    tasks.append(
-                        dlstbx.mimas.MimasISPyBJobInvocation(
-                            DCID=scenario.DCID,
-                            autostart=True,
-                            comment="",
-                            displayname="",
-                            parameters=(),
-                            recipe="autoprocessing-fast-dp-eiger",
-                            source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
-                        )
-                    )
-
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
-                    tasks.append(
-                        dlstbx.mimas.MimasISPyBJobInvocation(
-                            DCID=scenario.DCID,
-                            autostart=True,
-                            comment="",
-                            displayname="",
-                            parameters=(
-                                dlstbx.mimas.MimasISPyBParameter(
-                                    key="remove_blanks", value="true"
-                                ),
-                            ),
-                            recipe="autoprocessing-xia2-dials-eiger",
-                            source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
-                        )
-                    )
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
-                    tasks.append(
-                        dlstbx.mimas.MimasISPyBJobInvocation(
-                            DCID=scenario.DCID,
-                            autostart=True,
-                            comment="",
-                            displayname="",
-                            parameters=(),
-                            recipe="autoprocessing-xia2-3dii-eiger",
-                            source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
-                        )
-                    )
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
-                    tasks.append(
-                        dlstbx.mimas.MimasISPyBJobInvocation(
-                            DCID=scenario.DCID,
-                            autostart=True,
-                            comment="",
-                            displayname="",
-                            parameters=(),
-                            recipe="autoprocessing-autoPROC-eiger",
-                            source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
-                        )
-                    )
-
-        if scenario.beamline in ("i03", "i04",):
+        elif scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.EIGER:
             stopped = scenario.runstatus == "DataCollection Stopped"
             tasks.append(
                 dlstbx.mimas.MimasRecipeInvocation(
@@ -701,45 +749,5 @@ def run(
                             triggervariables=(),
                         )
                     )
-
-        if scenario.beamline in ("i19-1", "i19-2"):
-            for recipe in (
-                "archive-cbfs",
-                "strategy-screen19",
-                "processing-rlv",
-                "generate-crystal-thumbnails",
-            ):
-                tasks.append(
-                    dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe=recipe
-                    )
-                )
-
-            tasks.append(
-                dlstbx.mimas.MimasISPyBJobInvocation(
-                    DCID=scenario.DCID,
-                    autostart=True,
-                    comment="",
-                    displayname="",
-                    parameters=(),
-                    recipe="autoprocessing-multi-xia2-smallmolecule",
-                    source="automatic",
-                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                    triggervariables=(),
-                )
-            )
-            tasks.append(
-                dlstbx.mimas.MimasISPyBJobInvocation(
-                    DCID=scenario.DCID,
-                    autostart=True,
-                    comment="",
-                    displayname="",
-                    parameters=(),
-                    recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml",
-                    source="automatic",
-                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                    triggervariables=(),
-                )
-            )
 
     return tasks

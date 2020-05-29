@@ -167,7 +167,9 @@ for n, (queue, topic) in enumerate(channels.keys()):
     # subscriptions may be expensive on the server side, so apply some rate limiting
     # so that the server can catch up and replies on this connection are not unduly
     # delayed
-    time.sleep(0.2)
+    time.sleep(0.3)
+logger.debug("Waiting %.1f seconds..." % 0.1 * len(channels))
+time.sleep(0.1 * len(channels))
 
 # Send out messages
 

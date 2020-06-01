@@ -775,9 +775,9 @@ def ispyb_filter(message, parameters):
     ) == 0 or "grid scan" in str(parameters["ispyb_dc_info"].get("comments"))
     parameters["ispyb_related_sweeps"] = []
 
-    parameters["ispyb_project"] = parameters.get("ispyb_visit", "AUTOMATIC").replace(
-        "-", "v"
-    )
+    parameters["ispyb_project"] = (
+        parameters.get("ispyb_visit") or "AUTOMATIC"
+    ).replace("-", "v")
     if parameters["ispyb_dc_info"].get("imagePrefix") and parameters[
         "ispyb_dc_info"
     ].get("dataCollectionNumber"):

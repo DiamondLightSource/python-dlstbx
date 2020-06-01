@@ -775,6 +775,14 @@ def ispyb_filter(message, parameters):
     ) == 0 or "grid scan" in str(parameters["ispyb_dc_info"].get("comments"))
     parameters["ispyb_related_sweeps"] = []
 
+    parameters["ispyb_project"] = parameters["ispyb_visit"].replace("-", "v")
+    parameters["ispyb_crystal"] = "x" + re.sub(
+        "[^A-Za-z0-9]+",
+        "",
+        parameters["ispyb_dc_info"]["imagePrefix"]
+        + str(parameters["ispyb_dc_info"]["dataCollectionNumber"]),
+    )
+
     if (
         "ispyb_processing_job" in parameters
         and parameters["ispyb_processing_job"].recipe

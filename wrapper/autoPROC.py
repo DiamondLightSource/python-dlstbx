@@ -262,6 +262,8 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         image_first = params["autoproc"]["image_first"]
         image_last = params["autoproc"]["image_last"]
         image_pattern = params["image_pattern"]
+        project = params["autoproc"].get("project")
+        crystal = params["autoproc"].get("crystal")
 
         beamline = params["beamline"]
 
@@ -280,6 +282,10 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             "-d",
             working_directory,
         ]
+        if project:
+            command.append(f"pname={project}")
+        if crystal:
+            command.append(f"xname={crystal}")
 
         # If any keywords defined in the following macros are also defined after
         # the macro on the command line, then the value on the command line "wins"

@@ -4,6 +4,7 @@ from pprint import pprint
 import procrunner
 from time import sleep
 import argparse
+import glob
 
 
 def read_ispyb_data(jobids):
@@ -45,66 +46,30 @@ WHERE
     AND INSTR(pjp.parameterValue, appa.filePath) = 1
     AND pj.processingJobId {str_jobids}"""
 
-    columns = ("rpid", "program_id", "dc_id", "pipeline", "filepath")
+    columns = ("program_id", "dc_id", "pipeline", "filepath")
 
-    results = [dict(zip(columns, rec)) for rec in ispyb_conn.execute(sql_str)]
-    pprint(results)
-    return results[:]
-
-
-def run_ispyb_job(data, debug):
-    for v in data:
-        filename = os.path.join(
-            v["filepath"], "DataFiles", "AUTOMATIC_DEFAULT_free.mtz"
-        )
-        if os.path.isfile(filename):
-            command = [
-                "ispyb.job",
-                "--new",
-                "--dcid",
-                str(v["dc_id"]),
-                "--recipe",
-                "postprocessing-big-ep-launcher",
-                "--add-param",
-                "program_id:{}".format(v["program_id"]),
-                "--add-param",
-                "data:{}".format(filename),
-            ]
-            print(" ".join(command))
-
-            if debug:
-                return
-
-            result = procrunner.run(command, timeout=100, working_directory="/tmp",)
-            if not result["stdout"]:
-                print("No output written by ispyb.job")
-            job_file = "/tmp/stdout_{}.dat".format(v["rpid"])
-            stdout_data = result["stdout"].decode("latin1")
-            print(stdout_data)
-            with open(job_file, "w") as fp:
-                fp.write(stdout_data)
-        else:
-            print(f"File {filename} not found")
+    results = {
+        rec[0]: dict(zip(columns, rec[1:])) for rec in ispyb_conn.execute(sql_str)
+    }
+    return results
 
 
-def trigger_dlstbx_go(data, arg_sleep, debug):
+def read_big_ep_jobids(data):
 
-    programids = tuple((v["program_id"] for v in data))
+    programids = {data[v]["program_id"]: v for v in data}
     if not programids:
         raise ValueError("program_id values not found")
-
-    print(f"Running jobs with following pragram_id values: {programids}")
     if len(programids) == 1:
-        str_programids = f"= {programids[0]}"
+        str_programids = f"= {tuple(programids)[0]}"
     else:
-        str_programids = f"IN {programids}"
+        str_programids = f"IN {tuple(programids)}"
 
     ispyb_conn = ispybtbx()
 
     sql_str = f"""
 SELECT
     pjp.processingJobId as rpid,
-    pjp.parameterValue as program_id
+    CAST(pjp.parameterValue AS UNSIGNED) as program_id
 FROM
     ProcessingJobParameter pjp
 INNER JOIN ProcessingJob pj ON
@@ -117,24 +82,63 @@ ORDER BY pjp.processingJobId DESC LIMIT {len(programids)}
  """
 
     columns = ("rpid", "program_id")
+    rows = ispyb_conn.execute(sql_str)
+    results = [dict(zip(columns, row)) for row in rows]
+    results = {programids[res["program_id"]]: res for res in results}
+    if results:
+        print(
+            f"\nList of upstream AutoProcProgramId values for predictor input data: {list(programids)}"
+        )
+        print("Downstream BigEP jobid values:")
+        pprint(results)
+    return results
 
-    results = [dict(zip(columns, rec)) for rec in ispyb_conn.execute(sql_str)]
+
+def run_ispyb_job(data, debug, dry_run):
+    for _, v in data.items():
+        filename = os.path.join(v["filepath"], "DataFiles", "*_*_free.mtz")
+        try:
+            filename = next(iter(glob.glob(filename)))
+        except StopIteration:
+            print(f"File {filename} not found")
+            return
+        command = [
+            "ispyb.job",
+            "--new",
+            "--dcid",
+            str(v["dc_id"]),
+            "--recipe",
+            "postprocessing-big-ep-launcher",
+            "--add-param",
+            f"program_id:{v['program_id']}",
+            "--add-param",
+            f"data:{filename}",
+        ]
+        print(f"\nRegister BigEP job: {' '.join(command)}")
+
+        if dry_run:
+            return
+
+        result = procrunner.run(
+            command, timeout=100, print_stdout=debug, working_directory="/tmp",
+        )
+        if not result["stdout"]:
+            print("WARNING: No output written by ispyb.job")
+
+
+def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
+
+    results = read_big_ep_jobids(data)
     if not results:
         raise ValueError(
-            f"No processingJob records found matching program_id values {programids}"
+            f"No processingJob records found matching jobid values {list(data)}"
         )
 
-    for v in results:
+    for i, (jobid, v) in enumerate(results.items(), 1):
         try:
-            filepath = next(
-                (
-                    d["filepath"]
-                    for d in data
-                    if int(d["program_id"]) == int(v["program_id"])
-                )
-            )
+            filepath = data[jobid]["filepath"]
         except StopIteration:
-            print("Cannot find data for program_id {}".format(v["program_id"]))
+            print(f"Cannot find data for jobid {jobid}")
             continue
         if "multi-xia2-3dii" in filepath:
             path_ext = "multi-xia2/3dii"
@@ -153,22 +157,19 @@ ORDER BY pjp.processingJobId DESC LIMIT {len(programids)}
             str(v["rpid"]),
             "-s",
             "path_ext={}".format(path_ext),
-            "-v",
         ]
-        print(" ".join(command))
+        print(f"\nTrigger BigEP job: {' '.join(command)}")
 
-        if debug:
+        if dry_run:
             return
 
-        result = procrunner.run(command, timeout=100, working_directory="/tmp",)
+        result = procrunner.run(
+            command, timeout=100, print_stdout=debug, working_directory="/tmp",
+        )
         if not result["stdout"]:
-            print("No output written by dlstbx.go")
-        job_file = "/tmp/dlstbx_go_{}.dat".format(v["rpid"])
-        stdout_data = result["stdout"].decode("latin1")
-        print(stdout_data)
-        with open(job_file, "w") as fp:
-            fp.write(stdout_data)
-        sleep(arg_sleep)
+            print("WARNING: No output written by dlstbx.go")
+        if i < len(results):
+            sleep(arg_sleep)
 
 
 if __name__ == "__main__":
@@ -183,6 +184,11 @@ if __name__ == "__main__":
         "--dry-run", help="Do not create database records", action="store_true"
     )
     parser.add_argument(
+        "--debug",
+        help="Print Zocalo output messages to the console",
+        action="store_true",
+    )
+    parser.add_argument(
         "-s",
         "--sleep",
         help="Time in seconds between triggering of successive jobs (Default: 1200s)",
@@ -193,5 +199,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     data = read_ispyb_data(args.jobids)
-    run_ispyb_job(data, args.dry_run)
-    trigger_dlstbx_go(data, args.sleep, args.dry_run)
+    bigep_jobids = read_big_ep_jobids(data)
+    if bigep_jobids:
+        print(f"WARNING: Found records of the existing big_ep runs {bigep_jobids}")
+        print("         New results might not be visible in SynchWeb.")
+    run_ispyb_job(data, args.debug, args.dry_run)
+    trigger_dlstbx_go(data, args.sleep, args.debug, args.dry_run)

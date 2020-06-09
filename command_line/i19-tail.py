@@ -1,6 +1,5 @@
 # LIBTBX_SET_DISPATCHER_NAME i19.tail
 
-import codecs
 import os
 import re
 import sys
@@ -111,12 +110,10 @@ class _LineAggregator:
     def __init__(self):
         """Create aggregator object."""
         self._buffer = ""
-        self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
 
     def add(self, data):
         """Add a single character to buffer. If one or more full lines are found,
        print them (if desired) and pass to callback function."""
-        data = self._decoder.decode(data)
         if not data:
             return
         self._buffer += data
@@ -127,7 +124,6 @@ class _LineAggregator:
 
     def flush(self):
         """Print/send any remaining data to callback function."""
-        self._buffer += self._decoder.decode(b"", final=True)
         if self._buffer:
             print(self._buffer)
         self._buffer = ""

@@ -19,47 +19,49 @@ clean_environment = {
     "_LMFILES_": "",
 }
 
-_metric_keys = {
-    "stats": {
-        "loc": [
-            "_crystals",
-            "DEFAULT",
-            "_scaler",
-            "_scalr_statistics",
-            '["AUTOMATIC", "DEFAULT", "SAD"]',
-        ],
-        "keys": [
-            "Low resolution limit",
-            "Anomalous slope",
-            "Anomalous correlation",
-            "dI/s(dI)",
-            "dF/F",
-        ],
-    },
-    "wavelength": {
-        "loc": ["_crystals", "DEFAULT", "_wavelengths", "SAD"],
-        "keys": ["_wavelength",],
-    },
-}
-
 
 class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
+    def get_xia2_meric_keys(self, params):
+        return {
+            "stats": {
+                "loc": [
+                    "_crystals",
+                    params["crystal"],
+                    "_scaler",
+                    "_scalr_statistics",
+                    f'["{params["project"]}", "{params["crystal"]}", "SAD"]',
+                ],
+                "keys": [
+                    "Low resolution limit",
+                    "Anomalous slope",
+                    "Anomalous correlation",
+                    "dI/s(dI)",
+                    "dF/F",
+                ],
+            },
+            "wavelength": {
+                "loc": ["_crystals", params["crystal"], "_wavelengths", "SAD"],
+                "keys": ["_wavelength",],
+            },
+        }
+
     def read_anomalous_metrics(self, json_file, params):
         with json_file.open() as fp:
             json_data = json.load(fp)
 
         metrics_data = []
+        metric_keys = self.get_xia2_meric_keys(params)
         for el in ["stats", "wavelength"]:
             input_stats = reduce(
-                lambda c, k: c.get(k, {}), _metric_keys[el]["loc"], json_data
+                lambda c, k: c.get(k, {}), metric_keys[el]["loc"], json_data
             )
             try:
                 metrics_data.extend(
-                    [input_stats.get(i, 0)[0] for i in _metric_keys[el]["keys"]]
+                    [input_stats.get(i, 0)[0] for i in metric_keys[el]["keys"]]
                 )
             except TypeError:
                 metrics_data.extend(
-                    [input_stats.get(i, 0) for i in _metric_keys[el]["keys"]]
+                    [input_stats.get(i, 0) for i in metric_keys[el]["keys"]]
                 )
         try:
             metrics_data[-1] = params["energy_scan_info"]["fpp"]

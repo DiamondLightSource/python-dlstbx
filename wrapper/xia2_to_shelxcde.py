@@ -55,7 +55,15 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
             logger.error("Could not create tmp file in the working directory")
             return False
 
-        command = ["xia2.to_shelxcde"] + data_files + [prefix]
+        file_list = []
+        if len(data_files) > 1:
+            for tag, data_file in zip(
+                ["--peak", "--infl", "--hrem", "--lrem"], data_files
+            ):
+                file_list.extend([tag, data_file])
+        else:
+            file_list = ["--sad"] + data_files
+        command = ["xia2.to_shelxcde"] + file_list + [prefix]
         logger.info("Generating SHELXC .ins file")
         logger.info("command: %s", " ".join(command))
         result = procrunner.run(

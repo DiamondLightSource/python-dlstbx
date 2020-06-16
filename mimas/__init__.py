@@ -23,6 +23,7 @@ MimasScenario = collections.namedtuple(
         "unitcell",  # None or MimasISPyBUnitCell
         "isitagridscan",
         "getsweepslistfromsamedcg",
+        "preferred_processing",  # None or string
         "detectorclass",  # None or MimasDetectorClass
     ),
 )

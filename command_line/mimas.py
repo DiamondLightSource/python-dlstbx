@@ -81,6 +81,7 @@ if __name__ == "__main__":
                     dlstbx.mimas.MimasISPyBSweep(*sweep)
                     for sweep in ispyb_info["ispyb_related_sweeps"]
                 ),
+                preferred_processing=ispyb_info.get("ispyb_preferred_processing"),
                 detectorclass=detectorclass,
             )
             # from pprint import pprint

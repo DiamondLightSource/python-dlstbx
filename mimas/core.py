@@ -56,7 +56,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=scenario.preferred_processing == "autoPROC",
                             comment="",
                             displayname="",
                             parameters=(),
@@ -113,7 +113,7 @@ def run(
                         tasks.append(
                             dlstbx.mimas.MimasISPyBJobInvocation(
                                 DCID=scenario.DCID,
-                                autostart=True,
+                                autostart=scenario.preferred_processing == "autoPROC",
                                 comment="",
                                 displayname="",
                                 parameters=parameters,
@@ -255,7 +255,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=scenario.preferred_processing == "xia2/DIALS",
                             comment="",
                             displayname="",
                             parameters=(
@@ -273,7 +273,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=scenario.preferred_processing == "xia2/XDS",
                             comment="",
                             displayname="",
                             parameters=(),
@@ -287,7 +287,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=scenario.preferred_processing == "autoPROC",
                             comment="",
                             displayname="",
                             parameters=(),
@@ -328,7 +328,7 @@ def run(
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
-                        autostart=True,
+                        autostart=scenario.preferred_processing == "xia2/DIALS",
                         comment="",
                         displayname="",
                         parameters=(
@@ -346,7 +346,7 @@ def run(
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
-                        autostart=True,
+                        autostart=scenario.preferred_processing == "xia2/XDS",
                         comment="",
                         displayname="",
                         parameters=(
@@ -364,7 +364,7 @@ def run(
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
-                        autostart=True,
+                        autostart=False,
                         comment="",
                         displayname="",
                         parameters=(
@@ -382,7 +382,7 @@ def run(
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
-                        autostart=True,
+                        autostart=False,
                         comment="",
                         displayname="",
                         parameters=(
@@ -427,7 +427,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=scenario.preferred_processing == "xia2/DIALS",
                             comment="",
                             displayname="",
                             parameters=parameters,
@@ -441,7 +441,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=scenario.preferred_processing == "xia2/XDS",
                             comment="",
                             displayname="",
                             parameters=parameters,
@@ -455,7 +455,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=False,
                             comment="",
                             displayname="",
                             parameters=parameters,
@@ -469,7 +469,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=False,
                             comment="",
                             displayname="",
                             parameters=parameters,
@@ -522,7 +522,7 @@ def run(
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
-                        autostart=True,
+                        autostart=scenario.preferred_processing == "xia2/DIALS",
                         comment="",
                         displayname="",
                         parameters=(
@@ -540,7 +540,7 @@ def run(
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
-                        autostart=True,
+                        autostart=scenario.preferred_processing == "xia2/XDS",
                         comment="",
                         displayname="",
                         parameters=(
@@ -558,7 +558,7 @@ def run(
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
-                        autostart=True,
+                        autostart=scenario.preferred_processing == "autoPROC",
                         comment="",
                         displayname="",
                         parameters=(),
@@ -572,7 +572,7 @@ def run(
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
-                        autostart=True,
+                        autostart=False,
                         comment="",
                         displayname="",
                         parameters=(),
@@ -586,7 +586,7 @@ def run(
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
-                        autostart=True,
+                        autostart=False,
                         comment="",
                         displayname="",
                         parameters=(),
@@ -652,7 +652,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=scenario.preferred_processing == "xia2/DIALS",
                             comment="",
                             displayname="",
                             parameters=parameters,
@@ -666,7 +666,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=scenario.preferred_processing == "xia2/XDS",
                             comment="",
                             displayname="",
                             parameters=parameters,
@@ -680,7 +680,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=False,
                             comment="",
                             displayname="",
                             parameters=parameters,
@@ -694,7 +694,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=False,
                             comment="",
                             displayname="",
                             parameters=parameters,
@@ -723,7 +723,7 @@ def run(
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
-                            autostart=True,
+                            autostart=scenario.preferred_processing == "autoPROC",
                             comment="",
                             displayname="",
                             parameters=parameters,

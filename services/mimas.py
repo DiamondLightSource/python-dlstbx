@@ -107,7 +107,7 @@ class DLSMimas(CommonService):
             unitcell=cell,
             isitagridscan=gridscan,
             getsweepslistfromsamedcg=sweep_list,
-            # step.get(preferred_processing)  # TODO
+            preferred_processing=step.get("preferred_processing"),
             detectorclass=detectorclass,
         )
 

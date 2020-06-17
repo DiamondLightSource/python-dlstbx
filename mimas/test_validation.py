@@ -34,6 +34,7 @@ def test_validation_of_scenario():
         getsweepslistfromsamedcg=(
             dlstbx.mimas.MimasISPyBSweep(DCID=1, start=1, end=100),
         ),
+        preferred_processing=None,
         runstatus="string",
         detectorclass=dlstbx.mimas.MimasDetectorClass.PILATUS,
     )

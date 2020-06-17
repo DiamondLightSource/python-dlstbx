@@ -1,6 +1,7 @@
 import errno
 import json
 import os
+import pathlib
 
 import procrunner
 import workflows.recipe
@@ -39,8 +40,12 @@ class DLSCluster(CommonService):
 
     def initializing(self):
         """Subscribe to the cluster submission queue.
-       Received messages must be acknowledged."""
+           Received messages must be acknowledged."""
         self.log.info("Cluster service starting")
+
+        if not self.environment_is_valid():
+            self._request_termination()
+            return
 
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -49,6 +54,26 @@ class DLSCluster(CommonService):
             acknowledgement=True,
             log_extender=self.extend_log,
         )
+
+    def environment_is_valid(self):
+        """Check that the cluster submission environment is sane. Specifically, that
+           there is no ~/.sge_request file interfering with cluster job submissions.
+        """
+        sge_file = pathlib.Path("~").expanduser() / ".sge_request"
+        if sge_file.exists():
+            contents = sge_file.read_bytes().strip()
+            if contents:
+                self.log.error(
+                    "Rejecting service initialisation: file %s is not empty. "
+                    "This may interfere with service operation. ",
+                    str(sge_file),
+                )
+                return False
+
+            self.log.info(
+                "Note: empty file %s found during service startup", str(sge_file)
+            )
+        return True
 
     @staticmethod
     def _recursive_mkdir(path):

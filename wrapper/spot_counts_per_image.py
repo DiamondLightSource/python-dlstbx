@@ -117,7 +117,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
                 json_data = json.load(fp)
         pia_keys = json_data.keys()
         imagecount = len(json_data["total_intensity"])
-        for filenumber, image_values in enumerate(zip(*json_data.itervalues()), 1):
+        for filenumber, image_values in enumerate(zip(*json_data.values()), 1):
             pia = dict(zip(pia_keys, image_values))
             pia["file-number"] = filenumber
 

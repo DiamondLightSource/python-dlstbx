@@ -123,6 +123,12 @@ def write_results(res, filename):
         pprint(res)
 
 
+def run(jobids, json_file):
+    rows = read_data_from_ispyb(jobids)
+    results = read_bigep_results(rows)
+    write_results(results, json_file)
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
@@ -138,7 +144,4 @@ if __name__ == "__main__":
     parser.add_argument("-j", "--json", help="Json file name for output results")
 
     args = parser.parse_args()
-
-    rows = read_data_from_ispyb(args.jobids)
-    results = read_bigep_results(rows)
-    write_results(results, args.json)
+    run(args.jobids, args.json)

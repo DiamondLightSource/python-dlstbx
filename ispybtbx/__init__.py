@@ -1,5 +1,4 @@
 import glob
-import json
 import logging
 import os
 import re
@@ -12,12 +11,6 @@ import mysql.connector  # installed by ispyb
 
 
 logger = logging.getLogger("dlstbx.ispybtbx")
-
-# Temporary API to ISPyB while I wait for a proper one using stored procedures
-# - beware here be dragons, written by a hacker who is not a database wonk.
-
-with open("/dls_sw/apps/zocalo/secrets/ispyb-login.json", "r") as sauce:
-    secret_ingredients = json.load(sauce)
 
 # convenience functions
 def _prefix_(template):
@@ -120,12 +113,21 @@ class ispybtbx:
         }
 
     def legacy_init(self):
+        # Temporary API to ISPyB while I wait for a proper one using stored procedures
+        # - beware here be dragons, written by a hacker who is not a database wonk.
+
+        from configparser import ConfigParser
+
+        ispyb_config = ConfigParser()
+        ispyb_config.read("/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg")
+        secret_ingredients = ispyb_config["ispyb"]
+
         self.conn = mysql.connector.connect(
             host=secret_ingredients["host"],
             port=secret_ingredients["port"],
-            user=secret_ingredients["user"],
-            password=secret_ingredients["passwd"],
-            database=secret_ingredients["db"],
+            user=secret_ingredients["username"],
+            password=secret_ingredients["password"],
+            database=secret_ingredients["database"],
             use_pure=True,
         )
 

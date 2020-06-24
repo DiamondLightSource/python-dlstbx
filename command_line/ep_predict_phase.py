@@ -7,7 +7,8 @@ import argparse
 import glob
 
 
-def read_ispyb_data(ispyb_conn, jobids):
+def read_ispyb_data(jobids):
+    ispyb_conn = ispybtbx()
 
     if len(jobids) == 1:
         str_jobids = f"= {jobids[0]}"
@@ -53,7 +54,7 @@ WHERE
     return results
 
 
-def read_big_ep_jobids(ispyb_conn, data):
+def read_big_ep_jobids(data, last_records=True):
 
     programids = {data[v]["program_id"]: v for v in data}
     if not programids:
@@ -62,6 +63,12 @@ def read_big_ep_jobids(ispyb_conn, data):
         str_programids = f"= {tuple(programids)[0]}"
     else:
         str_programids = f"IN {tuple(programids)}"
+    if last_records:
+        str_last_records = f"DESC LIMIT {len(programids)}"
+    else:
+        str_last_records = ""
+
+    ispyb_conn = ispybtbx()
 
     sql_str = f"""
 SELECT
@@ -75,7 +82,7 @@ WHERE
     pjp.parameterKey = "program_id"
     AND pjp.parameterValue {str_programids}
     AND pj.recipe = "postprocessing-big-ep-launcher"
-ORDER BY pjp.processingJobId DESC LIMIT {len(programids)}
+ORDER BY pjp.processingJobId {str_last_records}
  """
 
     columns = ("rpid", "program_id")
@@ -91,7 +98,7 @@ ORDER BY pjp.processingJobId DESC LIMIT {len(programids)}
     return results
 
 
-def run_ispyb_job(ispyb_conn, data, debug, dry_run):
+def run_ispyb_job(data, debug, dry_run):
     for _, v in data.items():
         filename = os.path.join(v["filepath"], "DataFiles", "*_*_free.mtz")
         try:
@@ -120,17 +127,16 @@ def run_ispyb_job(ispyb_conn, data, debug, dry_run):
             if not result["stdout"]:
                 print("WARNING: No output written by ispyb.job")
 
-    ispyb_job_results = read_big_ep_jobids(ispyb_conn, data)
-    if not ispyb_job_results:
+
+def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
+
+    results = read_big_ep_jobids(data)
+    if not results:
         raise ValueError(
             f"No processingJob records found matching jobid values {list(data)}"
         )
-    return ispyb_job_results
 
-
-def trigger_dlstbx_go(ispyb_job_results, data, arg_sleep, debug, dry_run):
-
-    for i, (jobid, v) in enumerate(ispyb_job_results.items(), 1):
+    for i, (jobid, v) in enumerate(results.items(), 1):
         try:
             filepath = data[jobid]["filepath"]
         except StopIteration:
@@ -164,7 +170,7 @@ def trigger_dlstbx_go(ispyb_job_results, data, arg_sleep, debug, dry_run):
         )
         if not result["stdout"]:
             print("WARNING: No output written by dlstbx.go")
-        if i < len(ispyb_job_results):
+        if i < len(results):
             sleep(arg_sleep)
 
 
@@ -194,11 +200,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    ispyb_conn = ispybtbx()
-    data = read_ispyb_data(ispyb_conn, args.jobids)
-    bigep_jobids = read_big_ep_jobids(ispyb_conn, data)
+    data = read_ispyb_data(args.jobids)
+    bigep_jobids = read_big_ep_jobids(data, False)
     if bigep_jobids:
         print(f"WARNING: Found records of the existing big_ep runs {bigep_jobids}")
         print("         New results might not be visible in SynchWeb.")
-    ispyb_job_results = run_ispyb_job(ispyb_conn, data, args.debug, args.dry_run)
-    trigger_dlstbx_go(ispyb_job_results, data, args.sleep, args.debug, args.dry_run)
+    run_ispyb_job(data, args.debug, args.dry_run)
+    trigger_dlstbx_go(data, args.sleep, args.debug, args.dry_run)

@@ -59,7 +59,9 @@ class ActivityWatcher(threading.Thread):
                         break
 
                 try:
-                    update = msgpack.unpackb(msg.value(), raw=False)
+                    update = msgpack.unpackb(
+                        msg.value(), raw=False, strict_map_key=False
+                    )
                 except TypeError:
                     log.warning(
                         "Received invalid message:\n%s",

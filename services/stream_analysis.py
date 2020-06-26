@@ -95,7 +95,9 @@ class _WorkerThread(threading.Thread):
             )
             return True
         self.log.debug("Received payload")
-        mm = msgpack.unpackb(m[0].value(), raw=False, max_bin_len=10 * 1024 * 1024)
+        mm = msgpack.unpackb(
+            m[0].value(), raw=False, max_bin_len=10 * 1024 * 1024, strict_map_key=False
+        )
 
         # Do the per-image-analysis
         self.log.info(

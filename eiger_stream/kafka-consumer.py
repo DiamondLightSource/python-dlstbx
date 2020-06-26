@@ -31,7 +31,7 @@ while True:
 
     if msg.value()[0:3] == "msg":
         print("Messagepack detected")
-        mm = msgpack.unpackb(msg.value()[3:], raw=False)
+        mm = msgpack.unpackb(msg.value()[3:], raw=False, strict_map_key=False)
         for n, msg in enumerate(mm):
             print(
                 "Received multipack message {} with {:7} bytes: {}".format(

@@ -21,7 +21,7 @@ class FormatEiger0MQDump(Format):
 
     def _start(self):
         header = os.path.join(os.path.split(self._image_file)[0], "header")
-        data = msgpack.unpackb(self.open_file(header).read())
+        data = msgpack.unpackb(self.open_file(header).read(), strict_map_key=False)
         self._header = json.loads(data[1])
 
     def _goniometer(self):
@@ -108,7 +108,9 @@ class FormatEiger0MQDump(Format):
 
         dt = numpy.dtype(dtype)
 
-        data = msgpack.unpackb(self.open_file(self._image_file).read(), raw=False)[2]
+        data = msgpack.unpackb(
+            self.open_file(self._image_file).read(), raw=False, strict_map_key=False
+        )[2]
 
         blob = numpy.fromstring(data[12:], dtype=numpy.uint8)
         if dtype == numpy.uint32:

@@ -740,7 +740,7 @@ def ispyb_filter(message, parameters):
                 parameters["ispyb_dc_info"]["gridinfo"] = gridinfo
         except ispyb.NoResult:
             pass
-    parameters["ispyb_preferred_processing"] = None
+    parameters["ispyb_preferred_processing"] = "xia2/DIALS"
     if dc_info.get("dataCollectionGroupId"):
         try:
             container = (

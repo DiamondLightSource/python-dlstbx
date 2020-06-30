@@ -13,6 +13,15 @@ import zocalo.wrapper
 
 logger = logging.getLogger("dlstbx.wrap.autoPROC")
 
+clean_environment = {
+    "LD_LIBRARY_PATH": "",
+    "LOADEDMODULES": "",
+    "PYTHONPATH": "",
+    "_LMFILES_": "",
+    "FONTCONFIG_PATH": "",
+    "FONTCONFIG_FILE": "",
+}
+
 
 def read_autoproc_xml(xml_file):
     if not xml_file.check(file=1, exists=1):
@@ -457,7 +466,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
-            environment_override={"autoPROC_HIGHLIGHT": "no", "LD_LIBRARY_PATH": ""},
+            environment_override={"autoPROC_HIGHLIGHT": "no", **clean_environment},
             working_directory=working_directory.strpath,
         )
 

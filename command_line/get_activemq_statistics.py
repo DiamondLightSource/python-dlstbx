@@ -78,6 +78,17 @@ class ActiveMQAPI:
     def getNonHeapMemoryUsed(self):
         return self._VMMemoryInfo["NonHeapMemoryUsage"]["used"]
 
+    def getMimasHeldQueueSize(self):
+        retval = self.jmx.org.apache.activemq(
+            type="Broker",
+            brokerName="localhost",
+            destinationType="Queue",
+            destinationName="zocalo.mimas.held",
+            attribute="QueueSize",
+        )
+        assert retval["status"] == 200, "Error reading from ActiveMQ"
+        return retval["value"]
+
 
 class ActiveMQRRD:
     def __init__(self, path=".", api=None):
@@ -98,6 +109,7 @@ class ActiveMQRRD:
                 "DS:tempused:GAUGE:180:0:U",
                 "DS:memoryused:GAUGE:180:0:U",
                 "DS:connections:GAUGE:180:0:U",
+                "DS:mimasheld:GAUGE:180:0:U",
             ]
             + daydata
             + weekdata
@@ -139,6 +151,7 @@ class ActiveMQRRD:
                     self.api_activemq.getTempPercentUsage(),
                     self.api_activemq.getMemoryPercentUsage(),
                     self.api_activemq.getConnectionsCount(),
+                    self.api_activemq.getMimasHeldQueueSize(),
                 ]
             ]
         )
@@ -231,6 +244,7 @@ if __name__ == "__main__":
         heapused = amq.getHeapMemoryUsed()
         heapmax = amq.getHeapMemoryMaximum()
         nonheapused = amq.getNonHeapMemoryUsed()
+        mimasheldqueuesize = amq.getMimasHeldQueueSize()
 
         def colour(value, warnlevel, errlevel):
             if not sys.stdout.isatty():
@@ -259,6 +273,8 @@ Storage statistics:
 Virtual machine memory statistics:
    heap: using {colourheap}{heapused}{reset} of {heapmax}
    used memory outside of heap: {colournonheap}{nonheapused}{reset}
+
+Mimas held queue size: {colourmimasheld}{mimasheldqueuesize}{reset}
 """.format(
                 connections=connections,
                 store=store,
@@ -268,11 +284,13 @@ Virtual machine memory statistics:
                 heapmax=readable_memory(heapmax),
                 nonheapused=readable_memory(nonheapused),
                 reset=colourreset(),
+                mimasheldqueuesize=mimasheldqueuesize,
                 colourconn=colour(connections, 400, 600),
                 colourstore=colour(store, 10, 30),
                 colourtemp=colour(temp, 10, 30),
                 colourmemory=colour(memory, 10, 30),
                 colourheap=colour(heapused / heapmax, 0.5, 0.9),
                 colournonheap=colour(nonheapused, 125 * 1024 * 1024, 200 * 1024 * 1024),
+                colourmimasheld=colour(mimasheldqueuesize, 50, 250),
             )
         )

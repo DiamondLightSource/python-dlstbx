@@ -259,6 +259,54 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
+    def trigger_screen19_mx(self, rw, header, parameters, **kwargs):
+        dcid = parameters("dcid")
+        if not dcid:
+            self.log.error("screen19_mx trigger failed: No DCID specified")
+            return False
+
+        try:
+            program_id = int(parameters("program_id"))
+        except (TypeError, ValueError):
+            self.log.error("screen19_mx trigger failed: Invalid program_id specified")
+            return False
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = bool(parameters("automatic"))
+        jp["comments"] = parameters("comment")
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "screen19_mx"
+        jp["recipe"] = "postprocessing-screen19-mx"
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug("screen19_mx trigger: generated JobID {}".format(jobid))
+
+        screen19_parameters = {
+            "program_id": program_id,
+            "data": parameters("data"),
+        }
+
+        for key, value in screen19_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                "screen19_mx trigger: generated JobParameterID {}".format(jppid)
+            )
+
+        self.log.debug("screen19_mx trigger: Processing job {} created".format(jobid))
+
+        message = {
+            "parameters": {"ispyb_process": jobid, "data": parameters("data"),},
+            "recipes": [],
+        }
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info("screen19_mx trigger: Processing job {} triggered".format(jobid))
+
+        return {"success": True, "return_value": jobid}
+
     def trigger_fast_ep(self, rw, header, parameters, **kwargs):
         dcid = parameters("dcid")
         if not dcid:

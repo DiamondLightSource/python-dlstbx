@@ -78,6 +78,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "mrbump = dlstbx.wrapper.mrbump:MrBUMPWrapper",
     "rlv = dlstbx.wrapper.rlv:RLVWrapper",
     "screen19 = dlstbx.wrapper.screen19:Screen19Wrapper",
+    "screen19_mx = dlstbx.wrapper.screen19_mx:Screen19MXWrapper",
     "shelxc_stats = dlstbx.wrapper.shelxc_stats:ShelxcStatsWrapper",
     "spotcounts = dlstbx.wrapper.spot_counts_per_image:SCPIWrapper",
     "stepped_transmission = dlstbx.wrapper.stepped_transmission:SteppedTransmissionWrapper",

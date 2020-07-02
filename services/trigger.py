@@ -265,6 +265,14 @@ class DLSTrigger(CommonService):
             self.log.error("screen19_mx trigger failed: No DCID specified")
             return False
 
+        visit = parameters("visit")
+        test_visit = parameters("test_visit")
+        if visit and test_visit and visit != test_visit:
+            self.log.info(
+                f"screen19_mx trigger: processing is enabled only for testing in {test_visit}"
+            )
+            return {"success": True}
+
         try:
             program_id = int(parameters("program_id"))
         except (TypeError, ValueError):

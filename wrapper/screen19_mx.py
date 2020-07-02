@@ -17,23 +17,29 @@ clean_environment = {
 
 
 class Screen19MXWrapper(zocalo.wrapper.BaseWrapper):
-    def send_html_email_message(self, msg, email_params):
+    def send_html_email_message(self, msg, email_params, img):
         import smtplib
         import getpass
         import platform
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
+        from email.mime.image import MIMEImage
         from time import sleep
 
         try:
             from_addr = "@".join([getpass.getuser(), platform.node()])
 
-            message = MIMEMultipart()
+            message = MIMEMultipart("related")
             message["From"] = from_addr
             message["To"] = ",".join(email_params["recipients"])
             message["Subject"] = email_params["subject"]
             txt = MIMEText(msg, "html")
             message.attach(txt)
+
+            with open(img, "rb") as fp:
+                wilson_plot = MIMEImage(fp.read())
+            wilson_plot.add_header("Content-ID", "<image1>")
+            message.attach(wilson_plot)
 
             server = smtplib.SMTP("localhost")
             retry = 5
@@ -106,6 +112,10 @@ class Screen19MXWrapper(zocalo.wrapper.BaseWrapper):
         # Create results directory if it doesn't already exist
         results_directory = py.path.local(params["results_directory"])
         results_directory.ensure(dir=True)
+        if params.get("create_symlink"):
+            dlstbx.util.symlink.create_parent_symlink(
+                results_directory.strpath, params["create_symlink"]
+            )
         logger.info("Copying screen19_mx results to %s", results_directory.strpath)
         for result_filename, result_type in [
             ("output_file", "result"),
@@ -142,9 +152,14 @@ class Screen19MXWrapper(zocalo.wrapper.BaseWrapper):
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 </head>
 <body>
+<div>
+<img src="cid:image1">
+</div>
+<div>
+<a href="https://ispyb-staging.diamond.ac.uk/dc/visit/{params["visit"]}/id/{params["dcid"]}">SynchWeb Visit: {params["visit"]} DCID: {params["dcid"]} </a>
+</div>
 <pre>
-dataCollectionId: {params["dcid"]}
-processingJobId: {params["jobid"]}
+screen19 processingJobId: {params["jobid"]}
 
 Path: {params["results_directory"]}
 
@@ -154,11 +169,12 @@ screen19 log: {params["output_file"]}
 
 Wilson plot: {params["wilson_plot"]}
 
-
 {email_body}
 </pre>
 </body>
 </html>
 """
-        self.send_html_email_message(email_message, params["email"])
+        self.send_html_email_message(
+            email_message, params["email"], params["wilson_plot"]
+        )
         return True

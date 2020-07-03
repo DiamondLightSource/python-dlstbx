@@ -150,9 +150,14 @@ class ispybtbx:
         if hasattr(self, "conn") and self.conn:
             self.conn.close()
 
-    def execute(self, query):
+    def execute(self, query, parameters=None):
         cursor = self._cursor
-        cursor.execute(query)
+        if parameters:
+            if isinstance(parameters, (str, int)):
+                parameters = (parameters,)
+            cursor.execute(query, parameters)
+        else:
+            cursor.execute(query)
         results = [result for result in cursor]
         return results
 

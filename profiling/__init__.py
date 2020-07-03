@@ -29,9 +29,14 @@ class database:
     def cursor(self):
         return self._cursor
 
-    def _execute(self, query):
+    def _execute(self, query, parameters=None):
         cursor = self.cursor()
-        cursor.execute(query)
+        if parameters:
+            if isinstance(parameters, (str, int)):
+                parameters = (parameters,)
+            cursor.execute(query, parameters)
+        else:
+            cursor.execute(query)
         results = [result for result in cursor]
         return results
 

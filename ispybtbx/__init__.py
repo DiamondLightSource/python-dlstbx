@@ -5,7 +5,6 @@ import re
 import uuid
 import yaml
 
-from past.builtins import basestring, long
 import ispyb
 import mysql.connector  # installed by ispyb
 
@@ -151,14 +150,9 @@ class ispybtbx:
         if hasattr(self, "conn") and self.conn:
             self.conn.close()
 
-    def execute(self, query, parameters=None):
+    def execute(self, query):
         cursor = self._cursor
-        if parameters:
-            if isinstance(parameters, (basestring, int, long)):
-                parameters = (parameters,)
-            cursor.execute(query, parameters)
-        else:
-            cursor.execute(query)
+        cursor.execute(query)
         results = [result for result in cursor]
         return results
 

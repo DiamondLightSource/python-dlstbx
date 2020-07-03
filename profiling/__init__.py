@@ -29,14 +29,9 @@ class database:
     def cursor(self):
         return self._cursor
 
-    def execute(self, query, parameters=None):
+    def _execute(self, query):
         cursor = self.cursor()
-        if parameters:
-            if isinstance(parameters, (str, int)):
-                parameters = (parameters,)
-            cursor.execute(query, parameters)
-        else:
-            cursor.execute(query)
+        cursor.execute(query)
         results = [result for result in cursor]
         return results
 
@@ -44,7 +39,7 @@ class database:
         self.conn.commit()
 
     def get_infrastructure_status(self):
-        status = self.execute("SELECT * FROM infrastructure_status;")
+        status = self._execute("SELECT * FROM infrastructure_status;")
         for s in status:
             if s["Level"] < 10:
                 s["Group"] = "Information"
@@ -84,7 +79,7 @@ class database:
         logdest(message, extra={"fullmessage": fullmessage})
 
     def prune(self):
-        self.execute(
+        self._execute(
             "DELETE FROM infrastructure_status WHERE (TO_SECONDS(NOW()) - TO_SECONDS(Timestamp)) > 24 * 3600;"
         )
         self.commit()

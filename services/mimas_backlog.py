@@ -9,7 +9,7 @@ class DLSMimasBacklog(CommonService):
     the live queue as long as there isn't a cluster backlog.
     """
 
-    _service_name = "DLSMimasBacklog"
+    _service_name = "DLS Mimas Backlog"
     _logger_name = "dlstbx.services.mimas_backlog"
 
     def initializing(self):

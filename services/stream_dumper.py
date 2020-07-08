@@ -196,6 +196,14 @@ class DLSStreamdumperI04(DLSStreamdumper, CommonService):
         super().__init__(*args, **kwargs)
 
 
+class DLSStreamdumperI24(DLSStreamdumper, CommonService):
+    _service_name = "DLS Streamdumper (I24)"
+    _zmq_stream = "tcp://cs04r-sc-serv-24:9009"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
 class DLSStreamdumperTest(DLSStreamdumper, CommonService):
     _service_name = "DLS Streamdumper (Test)"
     _zmq_stream = "tcp://ws154:9999"

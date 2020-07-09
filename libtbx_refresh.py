@@ -76,6 +76,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "fast_rdp = dlstbx.wrapper.fast_rdp:FastRDPWrapper",
     "mosflm_strategy = dlstbx.wrapper.mosflm_strategy:MosflmStrategyWrapper",
     "mrbump = dlstbx.wrapper.mrbump:MrBUMPWrapper",
+    "mr_predict = dlstbx.wrapper.mr_predict:MRPredictWrapper",
     "rlv = dlstbx.wrapper.rlv:RLVWrapper",
     "screen19 = dlstbx.wrapper.screen19:Screen19Wrapper",
     "screen19_mx = dlstbx.wrapper.screen19_mx:Screen19MXWrapper",

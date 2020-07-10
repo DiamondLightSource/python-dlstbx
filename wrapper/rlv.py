@@ -22,7 +22,11 @@ class RLVWrapper(zocalo.wrapper.BaseWrapper):
             os.makedirs(working_directory)
         os.chdir(working_directory)
 
-        command = ["dials.import", "template=%s" % params["template"]]
+        command = [
+            "dials.import",
+            "template=%s" % params["template"],
+            f"image_range={params['image_first']},{params['image_last']}",
+        ]
         logger.info("command: %s", " ".join(command))
         result = procrunner.run(command, timeout=params.get("timeout"))
         if result["exitcode"] or result["timeout"]:

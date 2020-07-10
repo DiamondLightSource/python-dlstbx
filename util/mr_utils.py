@@ -10,7 +10,7 @@ def get_mrbump_metrics(mrbump_logfile):
     iter_log = iter(mrbump_log)
     models = {}
     for line in iter_log:
-        if "Template Model" == line[:14]:
+        if "Template Model " == line[:15]:
             model_label = line.split(":")[-1].strip()
             for next_line in iter_log:
                 if "Estimated sequence identity" in next_line:

@@ -5,17 +5,25 @@ from pathlib import Path
 
 from dlstbx.ispybtbx import ispybtbx
 from dlstbx.util import mr_utils
+from datetime import datetime
 
 
-def read_data_from_ispyb(jobids):
+def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
 
     ispyb_conn = ispybtbx()
 
-    if len(jobids) == 1:
-        str_jobids = f"= {jobids[0]}"
-    else:
-        str_jobids = f"IN {tuple(jobids)}"
-    print(f"Reading data for following mr_predict jobids: {jobids}")
+    str_jobids = []
+    if jobids:
+        if len(jobids) == 1:
+            str_jobids.append(f"AND pj.processingJobId = {jobids[0]}")
+        else:
+            str_jobids.append(f"AND pj.processingJobId IN {tuple(jobids)}")
+        print(f"Reading data for following ep_predict jobids: {jobids}")
+    if dtstamp_start:
+        str_jobids.append(f"AND pj.recordTimestamp > '{dtstamp_start}'")
+    if dtstamp_end:
+        str_jobids.append(f"AND pj.recordTimestamp < '{dtstamp_end}'")
+    str_jobids = " ".join(str_jobids)
 
     sql_str = f"""
 SELECT DISTINCT
@@ -23,7 +31,8 @@ SELECT DISTINCT
     dc.dataCollectionId AS dc_id,
     appa.filePath as filepath,
     appa.fileName AS mr_predict_json,
-    pjp.parameterValue AS mrbump_logfile
+    pjp.parameterValue AS mrbump_logfile,
+    pj.recordTimestamp AS datetime_stamp
 FROM
     ProcessingJob pj
 INNER JOIN AutoProcProgram app ON
@@ -36,7 +45,9 @@ INNER JOIN DataCollection dc ON
 WHERE
     appa.fileType = "Result"
     AND pjp.parameterValue LIKE "%MRBUMP.log"
-    AND pj.processingJobId {str_jobids}
+    AND pj.processingjobid > 3700000
+    AND pj.displayName = 'mr_predict'
+    {str_jobids}
 """
 
     columns = (
@@ -45,6 +56,7 @@ WHERE
         "filepath",
         "mr_predict_json",
         "mrbump_logfile",
+        "datetime_stamp",
     )
     rows = ispyb_conn.execute(sql_str)
     results = [dict(zip(columns, rec)) for rec in rows]
@@ -61,7 +73,14 @@ def read_mr_results(rows):
                 "MrBUMP": mr_utils.get_mrbump_metrics(row["mrbump_logfile"])
             }
         json_logfile = Path(row["filepath"]) / row["mr_predict_json"]
-        results[rpid]["mr_predict"] = json.loads(json_logfile.read_text())
+        try:
+            results[rpid]["mr_predict"] = json.loads(json_logfile.read_text())
+            results[rpid]["mr_predict"]["datetime_stamp"] = row[
+                "datetime_stamp"
+            ].isoformat()
+        except Exception:
+            print(f"Cannot read results for jobid {rpid}")
+            continue
     return results
 
 
@@ -73,8 +92,8 @@ def write_results(res, filename):
         pprint(res)
 
 
-def run(jobids, json_file):
-    rows = read_data_from_ispyb(jobids)
+def run(jobids, start_date, end_date, json_file):
+    rows = read_data_from_ispyb(jobids, start_date, end_date)
     results = read_mr_results(rows)
     write_results(results, json_file)
 
@@ -90,8 +109,20 @@ if __name__ == "__main__":
         "\nResults contain summary of characteristics of build MrBUMP models"
         "\nwith corresponding mr_predictor task output.",
     )
-    parser.add_argument("jobids", help="List of mr_predict jobids", nargs="+", type=int)
+    parser.add_argument("jobids", help="List of mr_predict jobids", nargs="*", type=int)
     parser.add_argument("-j", "--json", help="Json file name for output results")
+    parser.add_argument(
+        "-s",
+        "--start_date",
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d").date(),
+        help="List results from the given start date",
+    )
+    parser.add_argument(
+        "-e",
+        "--end_date",
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d").date(),
+        help="List results until the given end date",
+    )
 
     args = parser.parse_args()
-    run(args.jobids, args.json)
+    run(args.jobids, args.start_date, args.end_date, args.json)

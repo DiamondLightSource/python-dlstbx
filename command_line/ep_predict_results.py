@@ -2,17 +2,25 @@ from dlstbx.ispybtbx import ispybtbx
 import argparse
 from pprint import pprint
 import json
+from datetime import datetime
 
 
-def read_data_from_ispyb(jobids):
+def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
 
     ispyb_conn = ispybtbx()
 
-    if len(jobids) == 1:
-        str_jobids = f"= {jobids[0]}"
-    else:
-        str_jobids = f"IN {tuple(jobids)}"
-    print(f"Reading data for following ep_predict jobids: {jobids}")
+    str_jobids = []
+    if jobids:
+        if len(jobids) == 1:
+            str_jobids.append(f"AND pj.processingJobId = {jobids[0]}")
+        else:
+            str_jobids.append(f"AND pj.processingJobId IN {tuple(jobids)}")
+        print(f"Reading data for following ep_predict jobids: {jobids}")
+    if dtstamp_start:
+        str_jobids.append(f"AND pj.recordTimestamp > '{dtstamp_start}'")
+    if dtstamp_end:
+        str_jobids.append(f"AND pj.recordTimestamp < '{dtstamp_end}'")
+    str_jobids = " ".join(str_jobids)
 
     sql_str = f"""
 SELECT DISTINCT
@@ -23,7 +31,8 @@ SELECT DISTINCT
     appa.filePath as filepath,
     pjdown.processingJobId as bigep_jobid,
     CONCAT(appadown.filePath, "/", appadown.fileName) as bigep_json,
-    CONCAT(appaep.filePath, "/", appaep.fileName) as ep_predict_json
+    CONCAT(appaep.filePath, "/", appaep.fileName) as ep_predict_json,
+    pj.recordTimestamp AS datetime_stamp
 FROM
     ProcessingJob pj
 INNER JOIN ProcessingJobParameter pjp ON
@@ -69,7 +78,9 @@ WHERE
     AND pjpdown.parameterValue = app.autoprocprogramid
     AND pjdown.recipe = "postprocessing-big-ep-launcher"
     AND appadown.fileName = "big_ep_model_ispyb.json"
-    AND pj.processingJobId {str_jobids}
+    AND pj.processingjobid > 3700000
+    AND pj.displayName = 'ep_predict'
+    {str_jobids}
 """
 
     columns = (
@@ -81,6 +92,7 @@ WHERE
         "bigep_jobid",
         "bigep_json",
         "ep_predict_json",
+        "datetime_stamp",
     )
     rows = ispyb_conn.execute(sql_str)
     results = [dict(zip(columns, rec)) for rec in rows]
@@ -108,10 +120,16 @@ def read_bigep_results(rows):
                 else:
                     raise ValueError("Unidentified model building pipeline")
                 results[rpid][ppl] = res
-        with open(row["ep_predict_json"]) as fp:
-            res = json.load(fp)
-            results[rpid]["ep_predict"] = res
-
+        try:
+            with open(row["ep_predict_json"]) as fp:
+                res = json.load(fp)
+                results[rpid]["ep_predict"] = res
+            results[rpid]["ep_predict"]["datetime_stamp"] = row[
+                "datetime_stamp"
+            ].isoformat()
+        except Exception:
+            print(f"Cannot read results for jobid {rpid}")
+            continue
     return results
 
 
@@ -123,8 +141,8 @@ def write_results(res, filename):
         pprint(res)
 
 
-def run(jobids, json_file):
-    rows = read_data_from_ispyb(jobids)
+def run(jobids, dtstamp_start, dtstamp_end, json_file):
+    rows = read_data_from_ispyb(jobids, dtstamp_start, dtstamp_end)
     results = read_bigep_results(rows)
     write_results(results, json_file)
 
@@ -140,8 +158,20 @@ if __name__ == "__main__":
         "\nResults contain summary of characteristics of build big_ep models"
         "\nwith corresponding ep_predictor task output.",
     )
-    parser.add_argument("jobids", help="List of ep_predict jobids", nargs="+", type=int)
+    parser.add_argument("jobids", help="List of ep_predict jobids", nargs="*", type=int)
     parser.add_argument("-j", "--json", help="Json file name for output results")
+    parser.add_argument(
+        "-s",
+        "--start_date",
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d").date(),
+        help="List results from the given start date",
+    )
+    parser.add_argument(
+        "-e",
+        "--end_date",
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d").date(),
+        help="List results until the given end date",
+    )
 
     args = parser.parse_args()
-    run(args.jobids, args.json)
+    run(args.jobids, args.start_date, args.end_date, args.json)

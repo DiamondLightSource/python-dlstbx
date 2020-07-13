@@ -325,6 +325,20 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
+    "protk-wedge-eiger": {
+        "src_dir": "/dls/i03/data/2020/mx23694-44/wedges/TestProteinaseK/Protk_1",
+        "src_run_num": (1,),
+        "src_prefix": ("Protk_1",),
+        "use_sample_id": 2981359,
+        "results": {
+            "a": approx(100, abs=100),
+            "b": approx(100, abs=100),
+            "c": approx(100, abs=100),
+            "alpha": approx(180, abs=180),
+            "beta": approx(180, abs=180),
+            "gamma": approx(180, abs=180),
+        },
+    },
     "trp-multi": {
         "src_dir": "/dls/i04/data/2013/nt5966-4/20131007/TRP/P1_X6",
         "src_run_num": (1, 2, 3, 4),

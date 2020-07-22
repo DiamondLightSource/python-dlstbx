@@ -278,11 +278,18 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             }
         )
 
-        log_files = ["LISTautoSHARP.html", "phenix_autobuild.log", "crank2.log"]
+        log_files = [
+            "LISTautoSHARP.html",
+            "phenix_autosol.log",
+            "phenix_autobuild.log",
+            "crank2.log",
+        ]
         for pth, fp in zip(pipeline_paths, log_files):
-            self.record_result_individual_file(
-                {"file_path": pth, "file_name": fp, "file_type": "log"}
-            )
+            pipeline_logfile = os.path.join(pth, fp)
+            if os.path.isfile(pipeline_logfile):
+                self.record_result_individual_file(
+                    {"file_path": pth, "file_name": fp, "file_type": "log"}
+                )
         return result
 
     def run(self):

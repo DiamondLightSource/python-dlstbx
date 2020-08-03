@@ -222,6 +222,24 @@ class ispybtbx:
         dc_ids = [m[0] for m in matches]
         return dc_ids
 
+    def get_sample_group_dcids(self, ispyb_info):
+        sample_group = load_sample_group_config_file(ispyb_info)
+        if sample_group:
+            dcids = []
+            sessionid = self.get_bl_sessionid_from_visit_name(ispyb_info["ispyb_visit"])
+            matches = self.execute(
+                "select datacollectionid, imagedirectory, filetemplate from DataCollection "
+                "where sessionid=%s;",
+                sessionid,
+            )
+            visit_dir = ispyb_info["ispyb_visit_directory"]
+            for dcid, image_directory, template in matches:
+                for prefix in sample_group:
+                    parts = os.path.relpath(image_directory, visit_dir).split(os.sep)
+                    if prefix in parts:
+                        dcids.append(dcid)
+            return dcids
+
     def get_space_group_and_unit_cell(self, dc_id):
         spacegroups = self.execute(
             "SELECT c.spaceGroup, c.cell_a, c.cell_b, c.cell_c, "
@@ -856,6 +874,8 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_space_group"] = space_group
     parameters["ispyb_unit_cell"] = cell
 
+    parameters["ispyb_sample_group_dcids"] = i.get_sample_group_dcids(parameters)
+
     related_images = []
 
     if not parameters.get("ispyb_images"):
@@ -920,6 +940,31 @@ def load_configuration_file(ispyb_info):
                     logger.warning(
                         "Error in configuration file %s:\n%s", f, exc, exc_info=True
                     )
+
+
+def load_sample_group_config_file(ispyb_info):
+    visit_dir = ispyb_info["ispyb_visit_directory"]
+    processing_dir = os.path.join(ispyb_info["ispyb_visit_directory"], "processing")
+    config_file = os.path.join(processing_dir, "sample_groups.yml")
+    image_path = os.path.join(
+        ispyb_info["ispyb_image_directory"], ispyb_info["ispyb_image_template"]
+    )
+    if os.path.isfile(config_file):
+        with open(config_file, "r") as fh:
+            try:
+                sample_groups = yaml.safe_load(fh)
+            except yaml.YAMLError as exc:
+                logger.warning(
+                    "Error in configuration file %s:\n%s",
+                    config_file,
+                    exc,
+                    exc_info=True,
+                )
+            else:
+                for group in sample_groups:
+                    for prefix in group:
+                        if prefix in os.path.relpath(image_path, visit_dir):
+                            return group
 
 
 def work(dc_ids):

@@ -223,7 +223,7 @@ class ispybtbx:
         return dc_ids
 
     def get_sample_group_dcids(self, ispyb_info):
-        dcid = ispyb_info.get("dataCollectionId")
+        dcid = ispyb_info.get("ispyb_dcid")
         if not dcid:
             return None
         _enable_future()
@@ -975,10 +975,7 @@ def load_sample_group_config_file(ispyb_info):
                 sample_groups = yaml.safe_load(fh)
             except yaml.YAMLError as exc:
                 logger.warning(
-                    "Error in configuration file %s:\n%s",
-                    config_file,
-                    exc,
-                    exc_info=True,
+                    f"Error in configuration file {config_file}:\n{exc}", exc_info=True,
                 )
             else:
                 for group in sample_groups:

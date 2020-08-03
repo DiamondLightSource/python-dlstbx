@@ -223,22 +223,42 @@ class ispybtbx:
         return dc_ids
 
     def get_sample_group_dcids(self, ispyb_info):
-        sample_group = load_sample_group_config_file(ispyb_info)
-        if sample_group:
+        dcid = ispyb_info.get("dataCollectionId")
+        if not dcid:
+            return None
+        _enable_future()
+        try:
+            sample_groups = _ispyb_api().get_data_collection(dcid).sample_groups
+        except mysql.connector.errors.ProgrammingError:
             dcids = []
-            sessionid = self.get_bl_sessionid_from_visit_name(ispyb_info["ispyb_visit"])
-            matches = self.execute(
-                "select datacollectionid, imagedirectory, filetemplate from DataCollection "
-                "where sessionid=%s;",
-                sessionid,
-            )
-            visit_dir = ispyb_info["ispyb_visit_directory"]
-            for dcid, image_directory, template in matches:
-                for prefix in sample_group:
-                    parts = os.path.relpath(image_directory, visit_dir).split(os.sep)
-                    if prefix in parts:
-                        dcids.append(dcid)
-            return dcids
+        else:
+            if sample_groups:
+                if len(sample_groups) > 1:
+                    logger.warning(f"Multiple sample groups detected for dcid={dcid}")
+                dcids = sample_groups[0].dcids
+            else:
+                dcids = []
+
+        if not dcids:
+            sample_group = load_sample_group_config_file(ispyb_info)
+            if sample_group:
+                sessionid = self.get_bl_sessionid_from_visit_name(
+                    ispyb_info["ispyb_visit"]
+                )
+                matches = self.execute(
+                    "select datacollectionid, imagedirectory, filetemplate from DataCollection "
+                    "where sessionid=%s;",
+                    sessionid,
+                )
+                visit_dir = ispyb_info["ispyb_visit_directory"]
+                for dcid, image_directory, template in matches:
+                    for prefix in sample_group:
+                        parts = os.path.relpath(image_directory, visit_dir).split(
+                            os.sep
+                        )
+                        if prefix in parts:
+                            dcids.append(dcid)
+        return dcids
 
     def get_space_group_and_unit_cell(self, dc_id):
         spacegroups = self.execute(

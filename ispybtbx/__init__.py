@@ -269,14 +269,9 @@ class ispybtbx:
                 )
                 visit_dir = ispyb_info["ispyb_visit_directory"]
                 for dcid, image_directory, template in matches:
-                    logger.debug(
-                        f"dcid: {dcid}, image_directory: {image_directory}, template: {template}"
-                    )
+                    parts = os.path.relpath(image_directory, visit_dir).split(os.sep)
+                    logger.debug(f"parts: {parts}, template: {template}")
                     for prefix in sample_group:
-                        parts = os.path.relpath(image_directory, visit_dir).split(
-                            os.sep
-                        )
-                        logger.debug(f"prefix: {prefix}\nparts: {parts}")
                         if prefix in parts:
                             dcids.append(dcid)
         return dcids
@@ -916,6 +911,7 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_unit_cell"] = cell
 
     parameters["ispyb_sample_group_dcids"] = i.get_sample_group_dcids(parameters)
+    logger.debug(f"ispyb_sample_group_dcids: {parameters['ispyb_sample_group_dcids']}")
 
     related_images = []
 

@@ -235,7 +235,7 @@ class ispybtbx:
         except mysql.connector.errors.ProgrammingError:
             dcids = []
         except AttributeError as e:
-            logger.warning(
+            logger.debug(
                 f"sample_groups not yet supported by ispyb-api version:\n{e}",
                 exc_info=True,
             )
@@ -1006,7 +1006,7 @@ def load_sample_group_config_file(ispyb_info):
                         if prefix in os.path.relpath(image_path, visit_dir):
                             return group
     else:
-        logger.warning(
+        logger.debug(
             f"Config file {config_file} either does not exist or is not a file"
         )
 

@@ -239,8 +239,17 @@ class ispybtbx:
             else:
                 dcids = []
 
+        logger.debug(f"{dcids}")
+
         if not dcids:
-            sample_group = load_sample_group_config_file(ispyb_info)
+            try:
+                sample_group = load_sample_group_config_file(ispyb_info)
+            except Exception as e:
+                logger.warning(
+                    f"Error loading sample group config file for {ispyb_info['ispyb_visit']}: {e}",
+                    exc_info=True,
+                )
+            logger.debug(sample_group)
             if sample_group:
                 sessionid = self.get_bl_sessionid_from_visit_name(
                     ispyb_info["ispyb_visit"]
@@ -252,10 +261,14 @@ class ispybtbx:
                 )
                 visit_dir = ispyb_info["ispyb_visit_directory"]
                 for dcid, image_directory, template in matches:
+                    logger.debug(
+                        f"dcid: {dcid}, image_directory: {image_directory}, template: {template}"
+                    )
                     for prefix in sample_group:
                         parts = os.path.relpath(image_directory, visit_dir).split(
                             os.sep
                         )
+                        logger.debug(f"prefix: {prefix}\nparts: {parts}")
                         if prefix in parts:
                             dcids.append(dcid)
         return dcids
@@ -982,6 +995,10 @@ def load_sample_group_config_file(ispyb_info):
                     for prefix in group:
                         if prefix in os.path.relpath(image_path, visit_dir):
                             return group
+    else:
+        logger.warning(
+            f"Config file {config_file} either does not exist or is not a file"
+        )
 
 
 def work(dc_ids):

@@ -234,6 +234,12 @@ class ispybtbx:
             sample_groups = _ispyb_api().get_data_collection(dcid).sample_groups
         except mysql.connector.errors.ProgrammingError:
             dcids = []
+        except AttributeError as e:
+            logger.warning(
+                f"sample_groups not yet supported by ispyb-api version:\n{e}",
+                exc_info=True,
+            )
+            dcids = []
         else:
             if sample_groups:
                 if len(sample_groups) > 1:

@@ -640,25 +640,30 @@ class DLSTrigger(CommonService):
             self.log.error("xia2.multiplex trigger failed: No DCID specified")
             return False
 
+        dcid = int(dcid)
         ispyb_params = parameters("ispyb_parameters")
         spacegroup = ispyb_params.get("spacegroup") if ispyb_params else None
 
-        # lookup related dcids and exit early if none found
-        dcid = int(dcid)
-        command = [
-            "/dls_sw/apps/mx-scripts/misc/GetAListOfAssociatedDCOnThisCrystalOrDir.sh",
-            "%i" % dcid,
-        ]
-        result = procrunner.run(command, print_stdout=False, print_stderr=False)
-        if result["exitcode"] or result["timeout"]:
-            self.log.info("timeout: %s", result["timeout"])
-            self.log.debug(result["stdout"])
-            self.log.debug(result["stderr"])
-            self.log.error(
-                "%s failed with exit code %d", " ".join(command), result["exitcode"]
-            )
-            return False
-        dcids = [int(d) for d in result["stdout"].split()]
+        # Take related dcids from recipe in preference
+        dcids = parameters("related_dcids")
+        self.log.debug(f"related_dcids for dcid={dcid}: {dcids}")
+
+        if not dcids:
+            # lookup related dcids and exit early if none found
+            command = [
+                "/dls_sw/apps/mx-scripts/misc/GetAListOfAssociatedDCOnThisCrystalOrDir.sh",
+                "%i" % dcid,
+            ]
+            result = procrunner.run(command, print_stdout=False, print_stderr=False)
+            if result["exitcode"] or result["timeout"]:
+                self.log.info("timeout: %s", result["timeout"])
+                self.log.debug(result["stdout"])
+                self.log.debug(result["stderr"])
+                self.log.error(
+                    "%s failed with exit code %d", " ".join(command), result["exitcode"]
+                )
+                return False
+            dcids = [int(d) for d in result["stdout"].split()]
 
         # Select only those dcids at the same wavelength as the triggering dcid
         wavelength = self.ispyb.get_data_collection(dcid).wavelength

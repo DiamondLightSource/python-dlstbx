@@ -226,6 +226,9 @@ class ispybtbx:
         dcid = ispyb_info.get("ispyb_dcid")
         if not dcid:
             return None
+
+        # First attempt to get sample group definitions from BLSampleGroup via
+        # ispyb-api lookup (depends on DiamondLightSource/ispyb-api#104)
         _enable_future()
         try:
             sample_groups = _ispyb_api().get_data_collection(dcid).sample_groups
@@ -239,8 +242,13 @@ class ispybtbx:
             else:
                 dcids = []
 
-        logger.debug(f"{dcids}")
+        logger.debug(f"dcids defined via BLSampleGroup for dcid={dcid}: {dcids}")
 
+        # Else look for sample groups defined in
+        # ${visit}/processing/sample_groups.yml, e.g.
+        #   $ cat ${visit}/processing/sample_groups.yml
+        #     - [well_10, well_11, well_12]
+        #     - [well_121, well_122, well_124, well_126, well_146, well_150]
         if not dcids:
             try:
                 sample_group = load_sample_group_config_file(ispyb_info)

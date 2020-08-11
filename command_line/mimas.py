@@ -112,7 +112,7 @@ if __name__ == "__main__":
                         print(" - " + dlstbx.mimas.zocalo_command_line(a))
                     else:
                         print(
-                            f" - create ISPyB job for DCID {a.DCID} named {a.displayname!r} with recipe {a.recipe}"
+                            f" - create ISPyB job for DCID {a.DCID} named {a.displayname!r} with recipe {a.recipe} (autostart={a.autostart})"
                         )
                 else:
                     raise RuntimeError(f"Encountered unknown action {a!r}")

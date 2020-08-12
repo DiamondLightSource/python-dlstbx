@@ -851,6 +851,26 @@ def ispyb_filter(message, parameters):
     else:
         parameters["ispyb_crystal"] = "DEFAULT"
 
+    space_group, cell = i.get_space_group_and_unit_cell(dc_id)
+    if not any((space_group, cell)):
+        params = load_configuration_file(parameters)
+        if params:
+            space_group = params.get("ispyb_space_group")
+            cell = params.get("ispyb_unit_cell")
+            if isinstance(cell, str):
+                try:
+                    cell = [float(p) for p in cell.replace(",", " ").split()]
+                except ValueError:
+                    logger.warning(
+                        "Can't interpret unit cell: %s (dcid: %s)", str(cell), dc_id
+                    )
+                    cell = None
+    parameters["ispyb_space_group"] = space_group
+    parameters["ispyb_unit_cell"] = cell
+
+    parameters["ispyb_sample_group_dcids"] = i.get_sample_group_dcids(parameters)
+    logger.debug(f"ispyb_sample_group_dcids: {parameters['ispyb_sample_group_dcids']}")
+
     if (
         "ispyb_processing_job" in parameters
         and parameters["ispyb_processing_job"].recipe
@@ -896,28 +916,6 @@ def ispyb_filter(message, parameters):
             info = i.get_dc_info(dc)
             start, end = i.dc_info_to_start_end(info)
             parameters["ispyb_related_sweeps"].append((dc, start, end))
-
-    space_group, cell = i.get_space_group_and_unit_cell(dc_id)
-
-    if not any((space_group, cell)):
-        params = load_configuration_file(parameters)
-        if params:
-            space_group = params.get("ispyb_space_group")
-            cell = params.get("ispyb_unit_cell")
-            if isinstance(cell, str):
-                try:
-                    cell = [float(p) for p in cell.replace(",", " ").split()]
-                except ValueError:
-                    logger.warning(
-                        "Can't interpret unit cell: %s (dcid: %s)", str(cell), dc_id
-                    )
-                    cell = None
-
-    parameters["ispyb_space_group"] = space_group
-    parameters["ispyb_unit_cell"] = cell
-
-    parameters["ispyb_sample_group_dcids"] = i.get_sample_group_dcids(parameters)
-    logger.debug(f"ispyb_sample_group_dcids: {parameters['ispyb_sample_group_dcids']}")
 
     related_images = []
 

@@ -263,23 +263,26 @@ class ispybtbx:
                     f"Error loading sample group config file for {ispyb_info['ispyb_visit']}: {e}",
                     exc_info=True,
                 )
-            logger.debug(sample_group)
-            if sample_group:
-                sessionid = self.get_bl_sessionid_from_visit_name(
-                    ispyb_info["ispyb_visit"]
-                )
-                matches = self.execute(
-                    "select datacollectionid, imagedirectory, filetemplate from DataCollection "
-                    "where sessionid=%s;",
-                    sessionid,
-                )
-                visit_dir = ispyb_info["ispyb_visit_directory"]
-                for dcid, image_directory, template in matches:
-                    parts = os.path.relpath(image_directory, visit_dir).split(os.sep)
-                    logger.debug(f"parts: {parts}, template: {template}")
-                    for prefix in sample_group:
-                        if prefix in parts:
-                            dcids.append(dcid)
+            else:
+                logger.debug(sample_group)
+                if sample_group:
+                    sessionid = self.get_bl_sessionid_from_visit_name(
+                        ispyb_info["ispyb_visit"]
+                    )
+                    matches = self.execute(
+                        "select datacollectionid, imagedirectory, filetemplate from DataCollection "
+                        "where sessionid=%s;",
+                        sessionid,
+                    )
+                    visit_dir = ispyb_info["ispyb_visit_directory"]
+                    for dcid, image_directory, template in matches:
+                        parts = os.path.relpath(image_directory, visit_dir).split(
+                            os.sep
+                        )
+                        logger.debug(f"parts: {parts}, template: {template}")
+                        for prefix in sample_group:
+                            if prefix in parts:
+                                dcids.append(dcid)
         return dcids
 
     def get_space_group_and_unit_cell(self, dc_id):
@@ -853,18 +856,25 @@ def ispyb_filter(message, parameters):
 
     space_group, cell = i.get_space_group_and_unit_cell(dc_id)
     if not any((space_group, cell)):
-        params = load_configuration_file(parameters)
-        if params:
-            space_group = params.get("ispyb_space_group")
-            cell = params.get("ispyb_unit_cell")
-            if isinstance(cell, str):
-                try:
-                    cell = [float(p) for p in cell.replace(",", " ").split()]
-                except ValueError:
-                    logger.warning(
-                        "Can't interpret unit cell: %s (dcid: %s)", str(cell), dc_id
-                    )
-                    cell = None
+        try:
+            params = load_configuration_file(parameters)
+        except Exception as exc:
+            logger.warning(
+                f"Error loading configuration file for dcid={dc_id}:\n{exc}",
+                exc_info=True,
+            )
+        else:
+            if params:
+                space_group = params.get("ispyb_space_group")
+                cell = params.get("ispyb_unit_cell")
+                if isinstance(cell, str):
+                    try:
+                        cell = [float(p) for p in cell.replace(",", " ").split()]
+                    except ValueError:
+                        logger.warning(
+                            "Can't interpret unit cell: %s (dcid: %s)", str(cell), dc_id
+                        )
+                        cell = None
     parameters["ispyb_space_group"] = space_group
     parameters["ispyb_unit_cell"] = cell
 

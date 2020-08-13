@@ -759,11 +759,9 @@ class DLSTrigger(CommonService):
                 appid,
                 ", ".join(data_files),
             )
-            if len(data_files) != 2:
+            if len(data_files) % 2:
                 self.log.warning(
-                    "Expected to find exactly 2 data files for appid %s (found %s)",
-                    appid,
-                    len(data_files),
+                    f"Expected to find an even number of  data files for appid {appid} (found {len(data_files)})"
                 )
                 return []
             return data_files

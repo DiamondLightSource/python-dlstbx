@@ -106,30 +106,34 @@ def read_bigep_results(rows):
         rpid = row["rpid"]
         if rpid not in results:
             results[rpid] = {}
-        with open(row["bigep_json"]) as fp:
-            res = json.load(fp)
-            try:
-                results[rpid][res["pipeline"]] = res
-            except KeyError:
-                if "autoSHARP" in row["bigep_json"]:
-                    ppl = "autoSHARP"
-                elif "AutoSol" in row["bigep_json"]:
-                    ppl = "AutoBuild"
-                elif "crank2" in row["bigep_json"]:
-                    ppl = "Crank2"
-                else:
-                    raise ValueError("Unidentified model building pipeline")
-                results[rpid][ppl] = res
+        try:
+            with open(row["bigep_json"]) as fp:
+                res = json.load(fp)
+        except Exception:
+            print(f"Cannot read big_ep results file for jobid {rpid}")
+            continue
+        try:
+            results[rpid][res["pipeline"]] = res
+        except KeyError:
+            if "autoSHARP" in row["bigep_json"]:
+                ppl = "autoSHARP"
+            elif "AutoSol" in row["bigep_json"]:
+                ppl = "AutoBuild"
+            elif "crank2" in row["bigep_json"]:
+                ppl = "Crank2"
+            else:
+                raise ValueError("Unidentified model building pipeline")
+            results[rpid][ppl] = res
         try:
             with open(row["ep_predict_json"]) as fp:
                 res = json.load(fp)
-                results[rpid]["ep_predict"] = res
-            results[rpid]["ep_predict"]["datetime_stamp"] = row[
-                "datetime_stamp"
-            ].isoformat()
         except Exception:
-            print(f"Cannot read results for jobid {rpid}")
+            print(f"Cannot read ep_predict results file for jobid {rpid}")
             continue
+        results[rpid]["ep_predict"] = res
+        results[rpid]["ep_predict"]["datetime_stamp"] = row[
+            "datetime_stamp"
+        ].isoformat()
     return results
 
 

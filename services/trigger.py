@@ -201,6 +201,11 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
         try:
+            program = parameters("program")
+        except Exception:
+            self.log.warning("ep_predict trigger: Upstream program name not specified")
+            program = ""
+        try:
             program_id = int(parameters("program_id"))
         except (TypeError, ValueError):
             self.log.error("ep_predict trigger failed: Invalid program_id specified")
@@ -222,6 +227,7 @@ class DLSTrigger(CommonService):
         self.log.debug("ep_predict trigger: generated JobID {}".format(jobid))
 
         ep_parameters = {
+            "program": program,
             "program_id": program_id,
             "data": parameters("data"),
             "threshold": parameters("threshold"),
@@ -248,6 +254,7 @@ class DLSTrigger(CommonService):
         message = {
             "parameters": {
                 "ispyb_process": jobid,
+                "program": program,
                 "data": parameters("data"),
                 "threshold": parameters("threshold"),
             },
@@ -276,6 +283,11 @@ class DLSTrigger(CommonService):
         except (TypeError, ValueError):
             self.log.error("mr_predict trigger failed: Invalid program_id specified")
             return False
+        try:
+            program = parameters("program")
+        except Exception:
+            self.log.warning("mr_predict trigger: Upstream program name not specified")
+            program = ""
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = bool(parameters("automatic"))
@@ -288,6 +300,7 @@ class DLSTrigger(CommonService):
 
         mr_parameters = {
             "program_id": program_id,
+            "program": program,
             "data": parameters("data"),
             "threshold": parameters("threshold"),
         }
@@ -307,6 +320,7 @@ class DLSTrigger(CommonService):
         message = {
             "parameters": {
                 "ispyb_process": jobid,
+                "program": program,
                 "data": parameters("data"),
                 "threshold": parameters("threshold"),
             },

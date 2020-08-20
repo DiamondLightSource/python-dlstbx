@@ -132,6 +132,7 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
         email_message = {
             "Classifier": params["classifier"],
             "Input data": params["data"],
+            "Tag": params["program"],
             "MrBUMP": metrics,
         }
         email_message["Results"] = [

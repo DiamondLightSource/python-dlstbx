@@ -176,6 +176,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
                 "Output file": json_result.strpath,
                 "Classifier": params["classifier"],
                 "Input data": params["data"],
+                "Tag": params["program"],
                 "Diffraction plan": params["diffraction_plan_info"],
             }
         )

@@ -15,7 +15,6 @@
         "stomp.py",
         "workflows>=2.0",
         "zocalo>=0.6.0",
-        # Eiger stream work, SCI-7786
         "msgpack-python",
         "pyzmq<18",
     ],
@@ -31,7 +30,6 @@
         "stomp.py",
         "workflows>=2.0",
         "zocalo>=0.6.0",
-        # Eiger stream work, SCI-7786
         "msgpack",
         "pyzmq<18",
     ],

@@ -110,7 +110,9 @@ def read_bigep_results(rows):
             with open(row["bigep_json"]) as fp:
                 res = json.load(fp)
         except Exception:
-            print(f"Cannot read big_ep results file for jobid {rpid}")
+            print(
+                f"Cannot read big_ep results file {row['bigep_json']} for jobid {rpid}"
+            )
             continue
         try:
             results[rpid][res["pipeline"]] = res
@@ -122,13 +124,17 @@ def read_bigep_results(rows):
             elif "crank2" in row["bigep_json"]:
                 ppl = "Crank2"
             else:
-                raise ValueError("Unidentified model building pipeline")
+                raise ValueError(
+                    f"Unidentified model building pipeline for {row['bigep_json']}"
+                )
             results[rpid][ppl] = res
         try:
             with open(row["ep_predict_json"]) as fp:
                 res = json.load(fp)
         except Exception:
-            print(f"Cannot read ep_predict results file for jobid {rpid}")
+            print(
+                f"Cannot read ep_predict results file {row['ep_predict_json']} for jobid {rpid}"
+            )
             continue
         results[rpid]["ep_predict"] = res
         results[rpid]["ep_predict"]["datetime_stamp"] = row[

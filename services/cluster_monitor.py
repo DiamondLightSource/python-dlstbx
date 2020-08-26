@@ -59,40 +59,31 @@ class DLSClusterMonitor(CommonService):
 
     def update_cluster_statistics(self):
         """Gather some cluster statistics."""
-        self.log.debug("Gathering live cluster statistics...")
-        timestamp = time.time()
-        try:
-            joblist, queuelist = self.cluster_statistics.run_on(
-                self.__drmaa_cluster, arguments=["-f", "-r", "-u", "gda2"]
-            )
-        except AssertionError:
-            self.log.error("Could not gather cluster statistics", exc_info=True)
-            return
-        self.calculate_cluster_statistics(joblist, queuelist, "live", timestamp)
 
-        # Now same for the testcluster
-        self.log.debug("Gathering test cluster statistics...")
-        timestamp = time.time()
-        try:
-            joblist, queuelist = self.cluster_statistics.run_on(
-                self.__drmaa_testcluster, arguments=["-f", "-r", "-u", "gda2"]
-            )
-        except AssertionError:
-            self.log.error("Could not gather test cluster statistics", exc_info=True)
-            return
-        self.calculate_cluster_statistics(joblist, queuelist, "test", timestamp)
-
-        # Finally for Hamilton
-        self.log.debug("Gathering hamilton statistics...")
-        timestamp = time.time()
-        try:
-            joblist, queuelist = self.cluster_statistics.run_on(
-                self.__drmaa_hamilton, arguments=["-f", "-r", "-u", "gda2"]
-            )
-        except AssertionError:
-            self.log.error("Could not gather hamilton statistics", exc_info=True)
-        else:
-            self.calculate_cluster_statistics(joblist, queuelist, "hamilton", timestamp)
+        for cluster_name, cluster_reference, downstream_name in [
+            ("science cluster", self.__drmaa_cluster, "live"),
+            ("test cluster", self.__drmaa_testcluster, "test"),
+            ("hamilton", self.__drmaa_hamilton, "hamilton"),
+        ]:
+            if not cluster_reference.is_accessible:
+                self.log.warning(
+                    f"Statistics for {cluster_name} unavailable due to previous error"
+                )
+                continue
+            self.log.debug("Gathering %s statistics...", cluster_name)
+            timestamp = time.time()
+            try:
+                joblist, queuelist = self.cluster_statistics.run_on(
+                    cluster_reference, arguments=["-f", "-r", "-u", "gda2"]
+                )
+            except (AssertionError, RuntimeError):
+                self.log.error(
+                    f"Could not gather {cluster_name} statistics", exc_info=True
+                )
+            else:
+                self.calculate_cluster_statistics(
+                    joblist, queuelist, downstream_name, timestamp
+                )
 
     def calculate_cluster_statistics(self, joblist, queuelist, cluster, timestamp):
         self.log.debug("Processing %s cluster statistics", cluster)

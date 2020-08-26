@@ -58,15 +58,25 @@ class Cluster:
 
         self.lock = threading.Lock()
 
+    @property
+    def is_accessible(self):
+        return hasattr(self, "_pipe_main")
+
     def create_remote_function_call(self, remote_function_name):
         def stub(*args, **kwargs):
+            if not self.is_accessible:
+                raise RuntimeError("Connection to cluster has been closed")
             with self.lock:
-                self._pipe_main.send((remote_function_name, args, kwargs))
+                try:
+                    self._pipe_main.send((remote_function_name, args, kwargs))
+                except BrokenPipeError:
+                    self.close()
+                    raise RuntimeError("Subprocess crashed before command")
                 try:
                     retval = self._pipe_main.recv()
                 except EOFError:
                     self.close()
-                    raise RuntimeError("Subprocess died")
+                    raise RuntimeError("Subprocess died during command execution")
             if "value" in retval:
                 return retval["value"]
             if "exception" in retval:

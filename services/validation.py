@@ -35,7 +35,9 @@ class DLSValidation(CommonService):
         rw.send_to("validation_error", output, transaction=txn)
         rw.transport.transaction_commit(txn)
         self.log.error(
-            "Image validation of %s failed: %s", output["file"], reason,
+            "Image validation of %s failed: %s",
+            output["file"],
+            reason,
         )
 
     def validate(self, rw, header, message):

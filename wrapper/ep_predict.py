@@ -41,7 +41,9 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
             },
             "wavelength": {
                 "loc": ["_crystals", params["crystal"], "_wavelengths", "SAD"],
-                "keys": ["_wavelength",],
+                "keys": [
+                    "_wavelength",
+                ],
             },
         }
 

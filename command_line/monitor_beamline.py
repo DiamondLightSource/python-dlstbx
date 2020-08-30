@@ -106,18 +106,15 @@ def dumb_to_value(dumb):
             dumb["imageNumber"],
         )
     if dumb["_cls"]["_name"] == "CameraStatus":
-        return (
-            "Camera status: Beam @ %.2f x %.2f mm, position %.2f, distance %.2f (valid=%s)\n     states: expo=%s ra=%s shutter=%s"
-            % (
-                dumb["beamXinMM"],
-                dumb["beamYinMM"],
-                dumb["currentPosition"],
-                dumb["detectorDistanceValue"],
-                dumb["distanceValid"],
-                dumb["expoState"],
-                dumb["raState"],
-                dumb["shutterState"],
-            )
+        return "Camera status: Beam @ %.2f x %.2f mm, position %.2f, distance %.2f (valid=%s)\n     states: expo=%s ra=%s shutter=%s" % (
+            dumb["beamXinMM"],
+            dumb["beamYinMM"],
+            dumb["currentPosition"],
+            dumb["detectorDistanceValue"],
+            dumb["distanceValid"],
+            dumb["expoState"],
+            dumb["raState"],
+            dumb["shutterState"],
         )
     return None
 

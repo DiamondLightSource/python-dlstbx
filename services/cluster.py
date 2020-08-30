@@ -30,7 +30,7 @@ cluster_queue_mapping = {
 
 class DLSCluster(CommonService):
     """A service to interface zocalo with functions to start new
-     jobs on the clusters."""
+    jobs on the clusters."""
 
     # Human readable service name
     _service_name = "DLS Cluster service"
@@ -40,7 +40,7 @@ class DLSCluster(CommonService):
 
     def initializing(self):
         """Subscribe to the cluster submission queue.
-           Received messages must be acknowledged."""
+        Received messages must be acknowledged."""
         self.log.info("Cluster service starting")
 
         if not self.environment_is_valid():
@@ -57,7 +57,7 @@ class DLSCluster(CommonService):
 
     def environment_is_valid(self):
         """Check that the cluster submission environment is sane. Specifically, that
-           there is no ~/.sge_request file interfering with cluster job submissions.
+        there is no ~/.sge_request file interfering with cluster job submissions.
         """
         sge_file = pathlib.Path("~").expanduser() / ".sge_request"
         if sge_file.exists():

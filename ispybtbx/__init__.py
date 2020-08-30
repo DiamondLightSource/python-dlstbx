@@ -1006,7 +1006,8 @@ def load_sample_group_config_file(ispyb_info):
                 sample_groups = yaml.safe_load(fh)
             except yaml.YAMLError as exc:
                 logger.warning(
-                    f"Error in configuration file {config_file}:\n{exc}", exc_info=True,
+                    f"Error in configuration file {config_file}:\n{exc}",
+                    exc_info=True,
                 )
             else:
                 for group in sample_groups:

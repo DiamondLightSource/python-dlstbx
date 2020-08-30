@@ -16,7 +16,7 @@ class DLSMailer(CommonService):
 
     def initializing(self):
         """Subscribe to the Mail notification queue.
-       Received messages must be acknowledged."""
+        Received messages must be acknowledged."""
         self.log.debug("Mail notifications starting")
         workflows.recipe.wrap_subscribe(
             self._transport,

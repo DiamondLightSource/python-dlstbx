@@ -48,10 +48,10 @@ _proc_getnumber = re.compile(r":\s+([0-9]+)\s")
 
 def get_process_uss(pid=None):
     """Get the unique set size of a process in bytes.
-     The unique set size is the amount of memory that would be freed if that
-     process was terminated.
-     Note that this will only work on linux.
-  """
+    The unique set size is the amount of memory that would be freed if that
+    process was terminated.
+    Note that this will only work on linux.
+    """
     if not pid:
         pid = os.getpid()  # Don't cache this. Multiprocessing would copy value.
     with open("/proc/%s/smaps" % str(pid), "r") as fh:

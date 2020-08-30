@@ -80,7 +80,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
 
     def construct_commandline(self, params):
         """Construct fast_ep command line.
-       Takes job parameter dictionary, returns array."""
+        Takes job parameter dictionary, returns array."""
 
         command = ["fast_ep"]
         for param, value in params["fast_ep"].items():

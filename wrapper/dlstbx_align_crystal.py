@@ -131,7 +131,7 @@ class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
 
     def construct_commandline(self, params):
         """Construct dlstbx.align_crystal command line.
-       Takes job parameter dictionary, returns array."""
+        Takes job parameter dictionary, returns array."""
 
         pattern = params["image_pattern"]
         first = int(params["image_first"])

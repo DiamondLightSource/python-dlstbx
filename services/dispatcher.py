@@ -100,7 +100,8 @@ class DLSDispatcher(CommonService):
                 neat_json_to_file(message, fh)
                 fh.write("\n\nRecipe object:\n")
                 neat_json_to_file(
-                    recipewrap.recipe.recipe, fh,
+                    recipewrap.recipe.recipe,
+                    fh,
                 )
                 fh.write("\n")
             self.log.debug("Message saved in logbook at %s", log_entry)

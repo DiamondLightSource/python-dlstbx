@@ -35,7 +35,8 @@ class DLSMimasBacklog(CommonService):
         # Subscribe to the transient.statistics.cluster topic, which we will
         # examine to determine the number of waiting jobs
         self._transport.subscribe_broadcast(
-            "transient.statistics.cluster", self.on_statistics_cluster,
+            "transient.statistics.cluster",
+            self.on_statistics_cluster,
         )
 
     def on_statistics_cluster(self, header, message):

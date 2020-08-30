@@ -1,8 +1,8 @@
 def load_all_tests():
     """Import all python files (except test_*) in directories. This is required
-     for registration of system tests.
-     :param paths: A path or list of paths containing files to import.
-  """
+    for registration of system tests.
+    :param paths: A path or list of paths containing files to import.
+    """
     import imp
     import pkgutil
 

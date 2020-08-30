@@ -12,8 +12,8 @@ class DispatcherService(CommonSystemTest):
 
     def test_processing_a_trivial_recipe(self):
         """Passing in a recipe to the service without external dependencies.
-       The recipe should be interpreted and a simple message passed back to a
-       fixed destination."""
+        The recipe should be interpreted and a simple message passed back to a
+        fixed destination."""
 
         recipe = {
             1: {
@@ -49,9 +49,9 @@ class DispatcherService(CommonSystemTest):
 
     def test_parsing_a_recipe_and_replacing_parameters(self):
         """Passing in a recipe to the service without external dependencies.
-       The recipe should be interpreted, the 'guid' placeholder replaced using
-       the parameter field, and the message passed back.
-       The message should then contain the recipe and a correctly set pointer."""
+        The recipe should be interpreted, the 'guid' placeholder replaced using
+        the parameter field, and the message passed back.
+        The message should then contain the recipe and a correctly set pointer."""
 
         recipe = {
             1: {"service": "DLS system test", "queue": "transient.system_test.{guid}"},
@@ -75,7 +75,7 @@ class DispatcherService(CommonSystemTest):
 
     def test_loading_a_recipe_from_a_file(self):
         """When a file name is passed to the service the file should be loaded and
-       parsed correctly, including parameter replacement."""
+        parsed correctly, including parameter replacement."""
 
         parameters = {"guid": self.guid}
         self.send_message(
@@ -182,7 +182,14 @@ class DispatcherService(CommonSystemTest):
                 "service": "DLS system test - should not end up here",
                 "queue": "transient.system_test." + self.guid + ".fail",
             },
-            "start": [[1, {"purpose": "wait for undefined runstatus",},]],
+            "start": [
+                [
+                    1,
+                    {
+                        "purpose": "wait for undefined runstatus",
+                    },
+                ]
+            ],
         }
 
         message = {

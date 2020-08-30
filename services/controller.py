@@ -11,7 +11,7 @@ from workflows.services.common_service import CommonService
 
 class DLSController(CommonService):
     """A service to supervise other services, start new instances and shut down
-     existing ones depending on policy and demand."""
+    existing ones depending on policy and demand."""
 
     _service_name = "DLS Controller"
     _logger_name = "dlstbx.services.controller"
@@ -101,13 +101,13 @@ class DLSController(CommonService):
 
     def transport_interceptor(self, callback):
         """Override the default transport interceptor as follows:
-       Incoming messages are still put on the main service queue as before,
-       but if the message is from the synchronization channel then update the
-       last seen timer immediately before processing the message in the main
-       thread.
-       The ID of the synchronization channel is kept in
-       self._sync_subscription_id.
-    """
+        Incoming messages are still put on the main service queue as before,
+        but if the message is from the synchronization channel then update the
+        last seen timer immediately before processing the message in the main
+        thread.
+        The ID of the synchronization channel is kept in
+        self._sync_subscription_id.
+        """
         original_interceptor = self._transport_interceptor(callback)
 
         def recognize_synchronization_message(header, message):
@@ -129,7 +129,7 @@ class DLSController(CommonService):
 
     def survey_operations(self):
         """Check the overall data processing infrastructure state and ensure that
-       everything is working fine and resources are deployed appropriately."""
+        everything is working fine and resources are deployed appropriately."""
         self.self_check()
 
         # Only run once every approx. three seconds
@@ -304,7 +304,7 @@ class DLSController(CommonService):
 
     def receive_sync_msg(self, header, message):
         """When a synchronization message is received, then this instance is currently
-       the master controller."""
+        the master controller."""
         self.master_last_checked = time.time()
         if not self.master:
             self.master_enable()
@@ -322,7 +322,7 @@ class DLSController(CommonService):
 
     def cleanup_and_broadcast_queue_status(self):
         """Regularly discard information about old queues that are no longer
-       around, and notify other controller instances of status quo."""
+        around, and notify other controller instances of status quo."""
 
         # Only run once every 30 seconds
         cutoff = time.time() - 30
@@ -357,8 +357,8 @@ class DLSController(CommonService):
 
     def queue_introspection_trigger(self):
         """Trigger ActiveMQ statistics plugin to send out queue information.
-       This function also starts a timer so that it is retriggered after
-       a fixed time interval."""
+        This function also starts a timer so that it is retriggered after
+        a fixed time interval."""
         if not self.master:
             return
         retrigger = threading.Timer(4, self.queue_introspection_trigger)

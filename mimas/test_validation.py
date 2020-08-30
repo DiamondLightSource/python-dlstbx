@@ -64,7 +64,10 @@ def test_validation_of_scenario():
         ("getsweepslistfromsamedcg", None),
         ("unitcell", False),
         ("unitcell", (10, 10, 10, 90, 90, 90)),
-        ("unitcell", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid"),),
+        (
+            "unitcell",
+            dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid"),
+        ),
         ("detectorclass", "ADSC"),
     ]:
         print(f"testing {key}: {value}")

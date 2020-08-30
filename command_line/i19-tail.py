@@ -74,10 +74,10 @@ def find_screen19_or_newest_entry(directory):
 
 def recursively_find_most_current_directory(base, last_known_path=None):
     """Recursively find the newest directory underneath 'base'.
-     Optionally also find any newer directories between 'base'
-     and 'last_known_path'.
-     Return a tuple of the most recent directory found and its
-     modification timestamp."""
+    Optionally also find any newer directories between 'base'
+    and 'last_known_path'.
+    Return a tuple of the most recent directory found and its
+    modification timestamp."""
     best_candidate = (None, 0)
     newest_entry = find_screen19_or_newest_entry(base)
     if newest_entry:
@@ -105,7 +105,7 @@ def recursively_find_most_current_directory(base, last_known_path=None):
 
 class _LineAggregator:
     """Buffer that can be filled with stream data and will aggregate complete
-     lines."""
+    lines."""
 
     def __init__(self):
         """Create aggregator object."""
@@ -113,7 +113,7 @@ class _LineAggregator:
 
     def add(self, data):
         """Add a single character to buffer. If one or more full lines are found,
-       print them (if desired) and pass to callback function."""
+        print them (if desired) and pass to callback function."""
         if not data:
             return
         self._buffer += data

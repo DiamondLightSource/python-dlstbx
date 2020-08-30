@@ -13,7 +13,7 @@ logger = logging.getLogger("dlstbx.wrap.mrbump")
 class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
     def construct_script(self, params, working_directory, sequence):
         """Construct MrBUMP script line.
-       Takes job parameter dictionary, returns array."""
+        Takes job parameter dictionary, returns array."""
         module_params = params["mrbump"]["modules"]
         cdl_params = params["mrbump"]["command"]
 

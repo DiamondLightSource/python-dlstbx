@@ -15,7 +15,7 @@ __dlstbx_version_default = "0.dev"
 
 def dlstbx_version():
     """Try to obtain the current git revision number
-     and store a copy in .gitversion"""
+    and store a copy in .gitversion"""
     version = None
 
     try:

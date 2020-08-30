@@ -5,7 +5,7 @@ from dlstbx.system_test.common import CommonSystemTest
 
 def test_validation_should_fail_on_syntax_error_in_function():
     """Here we test that the validation of system tests actually works.
-     This is as meta as it gets."""
+    This is as meta as it gets."""
     # Instantiate test class. This should be valid
     t = CommonSystemTest()
     t.validate()
@@ -22,7 +22,7 @@ def test_validation_should_fail_on_syntax_error_in_function():
 
 def test_validation_should_fail_on_broken_function_signatures():
     """Here we test that the validation of system tests actually works.
-     This is as meta as it gets."""
+    This is as meta as it gets."""
     # Instantiate test class. This should be valid
     t = CommonSystemTest()
     t.validate()
@@ -52,7 +52,7 @@ def test_validation_should_fail_on_broken_function_signatures():
 
 def test_validation_must_set_validation_boolean_correctly():
     """Here we test that the validation of system tests actually works.
-     This is as meta as it gets."""
+    This is as meta as it gets."""
     # Instantiate test class. This should be valid
     t = CommonSystemTest()
     t.validate()
@@ -76,7 +76,7 @@ def test_validation_must_set_validation_boolean_correctly():
 
 def test_validate_all_system_tests():
     """Now check that all defined system tests pass validation, ie. do not
-     have syntax errors and properly call messaging functions."""
+    have syntax errors and properly call messaging functions."""
     dlstbx.system_test.load_all_tests()
 
     for name, cls in dlstbx.system_test.get_all_tests().items():

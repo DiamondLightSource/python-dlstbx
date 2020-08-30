@@ -32,9 +32,12 @@ def get_mrbump_metrics(mrbump_logfile):
                             (model_name, mr_program, solution_type) = tuple(
                                 final_values[:3]
                             )
-                            (phaser_llg, phaser_tfg, final_rfact, final_rfree,) = tuple(
-                                float(v) for v in final_values[3:7]
-                            )
+                            (
+                                phaser_llg,
+                                phaser_tfg,
+                                final_rfact,
+                                final_rfree,
+                            ) = tuple(float(v) for v in final_values[3:7])
                             model_name = model_name.strip()
                             models[model_name]["results"] = dict(
                                 zip(

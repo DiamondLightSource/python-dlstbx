@@ -286,7 +286,7 @@ class StrategyEnvironment:
 
     def watched_queues(self):
         """Retrieve a list of all queues that need to be watched for the service
-       strategies."""
+        strategies."""
         queues = set()
         with self.lock:
             for service, strategy in self.strategies.items():

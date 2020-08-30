@@ -199,7 +199,7 @@ class Monitor:
 
     def run(self):
         """A wrapper for the real _run() function to cleanly enable/disable the
-       curses environment."""
+        curses environment."""
         curses.wrapper(self._run)
 
     #    import mock
@@ -389,8 +389,10 @@ class Monitor:
                                 card.addstr("State: ", curses.color_pair(3))
                                 if "status" in status:
                                     status_code = status["status"]
-                                    state_string = CommonService.human_readable_state.get(
-                                        status_code, str(status_code)
+                                    state_string = (
+                                        CommonService.human_readable_state.get(
+                                            status_code, str(status_code)
+                                        )
                                     )
                                     state_color = None
                                     if status_code in (

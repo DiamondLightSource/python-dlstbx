@@ -454,8 +454,10 @@ if __name__ == "__main__":
 
             if options.verbose:
                 try:
-                    attachments = i.mx_processing.retrieve_program_attachments_for_program_id(
-                        program.app_id
+                    attachments = (
+                        i.mx_processing.retrieve_program_attachments_for_program_id(
+                            program.app_id
+                        )
                     )
                     for filetype in sorted({a["fileType"] for a in attachments}):
                         for attachment in sorted(

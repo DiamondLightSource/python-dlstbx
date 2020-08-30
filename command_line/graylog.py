@@ -205,13 +205,16 @@ if __name__ == "__main__":
     if options.time.isdigit():
         options.time = int(options.time)
     elif options.time[:-1].isdigit():
-        calculated_time = int(options.time[:-1]) * {
-            "s": 1,
-            "m": 60,
-            "h": 3600,
-            "d": 86400,
-            "w": 604800,
-        }.get(options.time[-1].lower(), 0)
+        calculated_time = (
+            int(options.time[:-1])
+            * {
+                "s": 1,
+                "m": 60,
+                "h": 3600,
+                "d": 86400,
+                "w": 604800,
+            }.get(options.time[-1].lower(), 0)
+        )
         if not calculated_time:
             sys.exit("error: option --time: invalid value '%s'" % options.time)
         options.time = calculated_time
@@ -245,8 +248,10 @@ if __name__ == "__main__":
             aggregate = {}
             for order, message in enumerate(g.get_all_messages(time=options.time)):
                 try:
-                    message_id = "{message[level]}:{message[file]}:{message[line]}".format(
-                        message=message
+                    message_id = (
+                        "{message[level]}:{message[file]}:{message[line]}".format(
+                            message=message
+                        )
                     )
                 except KeyError:
                     message_id = message.get("_id")

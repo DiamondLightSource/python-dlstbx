@@ -62,5 +62,6 @@ target/
 # editor files
 *.swp
 *~
+.idea/
 .project
 .pydevproject

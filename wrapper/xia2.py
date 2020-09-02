@@ -13,7 +13,7 @@ logger = logging.getLogger("dlstbx.wrap.xia2")
 class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
     def construct_commandline(self, params):
         """Construct xia2 command line.
-       Takes job parameter dictionary, returns array."""
+        Takes job parameter dictionary, returns array."""
 
         command = ["xia2"]
 

@@ -40,7 +40,7 @@ class Dropfile:
 
     def add(self, filename):
         """Add a file to the dropfile.
-       Will throw an exception if the file does not exist."""
+        Will throw an exception if the file does not exist."""
         assert not self._closed
         stat = os.stat(filename)
         if stat.st_size > 3 * 1024 * 1024 * 1024 * 1024:
@@ -103,7 +103,7 @@ class DLSArchiver(CommonService):
 
     def initializing(self):
         """Subscribe to the archiver queue. Received messages must be
-       acknowledged."""
+        acknowledged."""
         self.log.info("Archiver starting")
         workflows.recipe.wrap_subscribe(
             self._transport,

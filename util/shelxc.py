@@ -214,7 +214,12 @@ def reduce_shelxc_results(msg, params):
         msg["pvalue"] = chisq_data[0]
         logger.info(
             pformat(
-                dict(zip(["p-value", "cc_aver", "std_chisq", "med_dsig"], chisq_data,))
+                dict(
+                    zip(
+                        ["p-value", "cc_aver", "std_chisq", "med_dsig"],
+                        chisq_data,
+                    )
+                )
             )
         )
 

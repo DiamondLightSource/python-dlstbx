@@ -84,7 +84,8 @@ class FilewatcherService(CommonSystemTest):
         # Step 3 in recipe should never be reached
 
         self.expect_unreached_recipe_step(
-            recipe=recipe, recipe_pointer=3,
+            recipe=recipe,
+            recipe_pointer=3,
         )
 
     def test_list_success_notifications(self):
@@ -272,7 +273,8 @@ class FilewatcherService(CommonSystemTest):
         # No timeout message should be sent
 
         self.expect_unreached_recipe_step(
-            recipe=recipe, recipe_pointer=8,
+            recipe=recipe,
+            recipe_pointer=8,
         )
 
         # Any ==============================
@@ -531,7 +533,8 @@ class FilewatcherService(CommonSystemTest):
         # No timeout message should be sent
 
         self.expect_unreached_recipe_step(
-            recipe=recipe, recipe_pointer=8,
+            recipe=recipe,
+            recipe_pointer=8,
         )
 
         # Any ==============================
@@ -628,7 +631,8 @@ class FilewatcherService(CommonSystemTest):
 
         for pointer in (2, 3, 4, 5, 6, 10):
             self.expect_unreached_recipe_step(
-                recipe=recipe, recipe_pointer=pointer,
+                recipe=recipe,
+                recipe_pointer=pointer,
             )
 
         # Finally ==========================
@@ -659,7 +663,8 @@ class FilewatcherService(CommonSystemTest):
 
         # No messages should be sent
         self.expect_unreached_recipe_step(
-            recipe=recipe, recipe_pointer=9,
+            recipe=recipe,
+            recipe_pointer=9,
         )
 
     def test_pattern_failure_notification_immediate(self):
@@ -732,7 +737,8 @@ class FilewatcherService(CommonSystemTest):
 
         for pointer in (2, 3, 4, 5, 6, 10):
             self.expect_unreached_recipe_step(
-                recipe=recipe, recipe_pointer=pointer,
+                recipe=recipe,
+                recipe_pointer=pointer,
             )
 
         # Finally ==========================
@@ -769,7 +775,9 @@ class FilewatcherService(CommonSystemTest):
         # No messages should be sent
 
         self.expect_unreached_recipe_step(
-            recipe=recipe, recipe_pointer=9, min_wait=3,
+            recipe=recipe,
+            recipe_pointer=9,
+            min_wait=3,
         )
 
     def test_list_failure_notification_delayed(self):
@@ -900,7 +908,8 @@ class FilewatcherService(CommonSystemTest):
         # No messages should be sent
 
         self.expect_unreached_recipe_step(
-            recipe=recipe, recipe_pointer=4,
+            recipe=recipe,
+            recipe_pointer=4,
         )
 
         # Select ===========================
@@ -919,7 +928,8 @@ class FilewatcherService(CommonSystemTest):
         # No messages should be sent
 
         self.expect_unreached_recipe_step(
-            recipe=recipe, recipe_pointer=6,
+            recipe=recipe,
+            recipe_pointer=6,
         )
 
         # Finally ==========================
@@ -1078,7 +1088,8 @@ class FilewatcherService(CommonSystemTest):
 
         # No message should be sent
         self.expect_unreached_recipe_step(
-            recipe=recipe, recipe_pointer=4,
+            recipe=recipe,
+            recipe_pointer=4,
         )
 
         # Select ===========================
@@ -1101,7 +1112,8 @@ class FilewatcherService(CommonSystemTest):
 
         # No message should be sent
         self.expect_unreached_recipe_step(
-            recipe=recipe, recipe_pointer=6,
+            recipe=recipe,
+            recipe_pointer=6,
         )
 
         # Finally ==========================

@@ -15,7 +15,11 @@ def run(model_file, output_file, threshold, metrics):
         "Molecular Weight (Chain)",
     ]
 
-    df = array([metrics,])
+    df = array(
+        [
+            metrics,
+        ]
+    )
     pred_proba = classifier_data.predict_proba(df)
     pred_class = 1 if pred_proba[0][1] > threshold else 0
     func_round = lambda x: round(x * 100.0, 3)

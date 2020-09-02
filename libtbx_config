@@ -16,7 +16,7 @@
         "workflows>=2.0",
         "zocalo>=0.6.0",
         "msgpack-python",
-        "pyzmq<18",
+        "pyzmq",
     ],
     "python_required": [
         "drmaa",
@@ -31,6 +31,6 @@
         "workflows>=2.0",
         "zocalo>=0.6.0",
         "msgpack",
-        "pyzmq<18",
+        "pyzmq",
     ],
 }

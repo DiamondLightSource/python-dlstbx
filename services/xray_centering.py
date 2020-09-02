@@ -12,16 +12,16 @@ from workflows.services.common_service import CommonService
 
 class DLSXRayCentering(CommonService):
     """A service to aggregate per-image-analysis results and identify an X-ray
-     centering solution for a data collection."""
+    centering solution for a data collection."""
 
     _service_name = "DLS X-Ray Centering"
     _logger_name = "dlstbx.services.xray-centering"
 
     def initializing(self):
         """Try to exclusively subscribe to the x-ray centering queue. Received messages must be acknowledged.
-       Exclusive subscription enables a single process to do the 'reduce' step, aggregating many messages
-       that belong together.
-    """
+        Exclusive subscription enables a single process to do the 'reduce' step, aggregating many messages
+        that belong together.
+        """
         self.log.info("X-Ray centering service starting up")
 
         self._centering_data = {}

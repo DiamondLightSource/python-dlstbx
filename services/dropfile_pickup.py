@@ -6,8 +6,8 @@ from workflows.services.common_service import CommonService
 
 class DLSDropfilePickup(CommonService):
     """A service to collect dispatch message from alternative sources,
-     specifically from a directory where messages can be stored if ActiveMQ
-     is unavailable on submission."""
+    specifically from a directory where messages can be stored if ActiveMQ
+    is unavailable on submission."""
 
     # Human readable service name
     _service_name = "DLS Dropfile Pickup"
@@ -17,7 +17,7 @@ class DLSDropfilePickup(CommonService):
 
     def initializing(self):
         """Subscribe to a synchronization queue to ensure only
-       one instance of this service is active at a time."""
+        one instance of this service is active at a time."""
         self.log.info("Dropfile Pickup service starting")
         if self._environment.get("live"):
             #     self.location = '/dls_sw/apps/zocalo/dropfiles'

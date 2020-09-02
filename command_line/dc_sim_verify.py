@@ -91,8 +91,8 @@ if __name__ == "__main__":
 
     def filter_testruns(runlist):
         """Filter out all historic test runs older then forget_test_after
-       and all test runs that are older than the most recent run that
-       ended in a result."""
+        and all test runs that are older than the most recent run that
+        ended in a result."""
         # Forget everything older than forget_test_after
         forget_all_before = time.time() - forget_test_after
         runlist = [t for t in runlist if t["time_end"] > forget_all_before]

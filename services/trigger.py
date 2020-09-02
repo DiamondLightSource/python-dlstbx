@@ -10,8 +10,7 @@ from datetime import datetime
 
 
 class DLSTrigger(CommonService):
-    """A service that creates and runs downstream processing jobs.
-  """
+    """A service that creates and runs downstream processing jobs."""
 
     # Human readable service name
     _service_name = "DLS Trigger"
@@ -379,7 +378,10 @@ class DLSTrigger(CommonService):
         self.log.debug("screen19_mx trigger: Processing job {} created".format(jobid))
 
         message = {
-            "parameters": {"ispyb_process": jobid, "data": parameters("data"),},
+            "parameters": {
+                "ispyb_process": jobid,
+                "data": parameters("data"),
+            },
             "recipes": [],
         }
         rw.transport.send("processing_recipe", message)
@@ -556,7 +558,10 @@ class DLSTrigger(CommonService):
 
         message = {
             "recipes": [],
-            "parameters": {"ispyb_process": jobid, "path_ext": path_ext,},
+            "parameters": {
+                "ispyb_process": jobid,
+                "path_ext": path_ext,
+            },
         }
         rw.transport.send("processing_recipe", message)
 

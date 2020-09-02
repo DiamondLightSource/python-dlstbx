@@ -12,7 +12,7 @@ CollectedTest = collections.namedtuple(
 
 class SafeDict(dict):
     """A dictionary that returns undefined keys as {keyname}.
-     This can be used to selectively replace variables in datastructures."""
+    This can be used to selectively replace variables in datastructures."""
 
     def __missing__(self, key):
         return "{" + key + "}"
@@ -66,15 +66,15 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
 
     def rotate_guid(self):
         """Generate a new unique ID for the test. Prepend 'T-' to a GUID to
-       distinguish between IDs used in system tests and IDs used for live
-       processing. This helps for example when interpreting logs, as system test
-       messages will show up in isolation rather than as part of a processing
-       pipeline."""
+        distinguish between IDs used in system tests and IDs used for live
+        processing. This helps for example when interpreting logs, as system test
+        messages will show up in isolation rather than as part of a processing
+        pipeline."""
         self.guid = "T-" + str(uuid.uuid4())
 
     def enumerate_test_functions(self):
         """Returns a list of (name, function) tuples for all declared test
-       functions in the class."""
+        functions in the class."""
         return [
             (function, getattr(self, function))
             for function in dir(self)
@@ -83,7 +83,7 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
 
     def validate(self):
         """Checks that all test functions parse correctly to pick up syntax errors.
-       Does run test functions with disabled messaging functions."""
+        Does run test functions with disabled messaging functions."""
         # Replace messaging functions by mock constructs
         patch_functions = ["_add_timer", "_messaging"]
         original_functions = {(x, getattr(self, x)) for x in patch_functions}
@@ -104,10 +104,10 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
 
     def collect_tests(self):
         """Runs all test functions and collects messaging information.
-       Returns a dictionary of
-         { testname: CollectedTest }
-       with the namedtuple CollectedTest parameters initialised with arrays.
-    """
+        Returns a dictionary of
+          { testname: CollectedTest }
+        with the namedtuple CollectedTest parameters initialised with arrays.
+        """
 
         messages = {}
         for name, function in self.enumerate_test_functions():
@@ -225,7 +225,12 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
         )
 
     def expect_unreached_recipe_step(
-        self, recipe, recipe_pointer, min_wait=3, queue=None, topic=None,
+        self,
+        recipe,
+        recipe_pointer,
+        min_wait=3,
+        queue=None,
+        topic=None,
     ):
         """Use this function within tests to mark recipe steps as unreachable."""
         assert recipe, "Recipe required"
@@ -242,7 +247,9 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
         ), "Can only expect message on queue or topic, not both"
 
         self._messaging(
-            "quiet", queue=queue, topic=topic,
+            "quiet",
+            queue=queue,
+            topic=topic,
         )
         self._add_timer(at_time=min_wait)
 
@@ -257,21 +264,21 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
 
     def apply_parameters(self, item):
         """Recursively apply formatting to {item}s in a data structure, leaving
-       undefined {item}s as they are.
+        undefined {item}s as they are.
 
-       Examples:
-         parameters = { 'x':'5' }
-         recursively_replace_parameters( { '{x}': '{y}' } )
-            => { '5': '{y}' }
+        Examples:
+          parameters = { 'x':'5' }
+          recursively_replace_parameters( { '{x}': '{y}' } )
+             => { '5': '{y}' }
 
-         parameters = { 'y':'5' }
-         recursively_replace_parameters( { '{x}': '{y}' } )
-            => { '{x}': '5' }
+          parameters = { 'y':'5' }
+          recursively_replace_parameters( { '{x}': '{y}' } )
+             => { '{x}': '5' }
 
-         parameters = { 'x':'3', 'y':'5' }
-         recursively_replace_parameters( { '{x}': '{y}' } )
-            => { '3': '5' }
-    """
+          parameters = { 'x':'3', 'y':'5' }
+          recursively_replace_parameters( { '{x}': '{y}' } )
+             => { '3': '5' }
+        """
         if isinstance(item, str):
             return string.Formatter().vformat(item, (), self.parameters)
         if isinstance(item, dict):

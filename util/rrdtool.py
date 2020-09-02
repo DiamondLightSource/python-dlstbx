@@ -65,11 +65,11 @@ class RRDFile:
 
 class RRDTool:
     """A wrapper around an rrdtool executable that does not rely on compiling
-     rrdtool first."""
+    rrdtool first."""
 
     def __init__(self, basepath):
         """Create a wrapper instance. Pass a path in which the .rrd files will be
-       stored in and the name of the rrdtool executable."""
+        stored in and the name of the rrdtool executable."""
         self.basepath = basepath
         if not os.path.isdir(basepath):
             raise OSError("rrdtool base directory %s does not exist" % basepath)

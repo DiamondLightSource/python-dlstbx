@@ -25,7 +25,7 @@ clean_environment = {
 class BigEPWrapper(zocalo.wrapper.BaseWrapper):
     def construct_commandline(self, params, working_directory):
         """Construct big_ep command line.
-       Takes job parameter dictionary, returns array."""
+        Takes job parameter dictionary, returns array."""
 
         dcid = params["dcid"]
 

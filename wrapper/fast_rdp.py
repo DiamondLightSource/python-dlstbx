@@ -63,7 +63,7 @@ class FastRDPWrapper(zocalo.wrapper.BaseWrapper):
 
     def construct_commandline(self, params):
         """Construct fast_rdp command line.
-       Takes job parameter dictionary, returns array."""
+        Takes job parameter dictionary, returns array."""
 
         command = ["fast_rdp", "--atom=S", params["fast_rdp"].get("fast_dp_directory")]
 

@@ -237,7 +237,9 @@ edna-plugin-launcher \
         params["image_directory"] = tmpdir
         return success
 
-    def generate_modified_headers(self,):
+    def generate_modified_headers(
+        self,
+    ):
         params = self.recwrap.recipe_step["job_parameters"]
 
         def behead(cif_in, cif_out):
@@ -291,9 +293,7 @@ edna-plugin-launcher \
         output = '<?xml version="1.0" ?><XSDataInputInterfacev2_2>'
 
         # 2) Echo out the diffractionPlan
-        output = (
-            output
-            + """
+        output = output + """
 <diffractionPlan>
   <anomalousData>
     <value>%(anomalous)i</value>
@@ -313,15 +313,13 @@ edna-plugin-launcher \
   <maxExposureTimePerDataCollection>
     <value>%(lifespan)s</value>
   </maxExposureTimePerDataCollection>
-"""
-            % dict(
-                anomalous=anomalous,
-                complexity=complexity,
-                i_over_sig_i=i_over_sig_i,
-                multiplicity=multiplicity,
-                min_exposure=min_exposure,
-                lifespan=lifespan,
-            )
+""" % dict(
+            anomalous=anomalous,
+            complexity=complexity,
+            i_over_sig_i=i_over_sig_i,
+            multiplicity=multiplicity,
+            min_exposure=min_exposure,
+            lifespan=lifespan,
         )
 
         # logger.info('spacegroup: %s' %params.get('spacegroup'))

@@ -82,7 +82,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
 
     def construct_commandline(self, params):
         """Construct fast_dp command line.
-       Takes job parameter dictionary, returns array."""
+        Takes job parameter dictionary, returns array."""
 
         command = [
             "fast_dp",

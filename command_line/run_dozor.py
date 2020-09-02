@@ -66,7 +66,7 @@ def scanner(arg):
 
 def main(args):
     """Args take the form of a list of /path_to_dir/template_####.cbf:1:90
-  arguments."""
+    arguments."""
 
     for arg in args:
         scanner(arg)

@@ -122,7 +122,10 @@ def run_ispyb_job(data, debug, dry_run):
 
         if not dry_run:
             result = procrunner.run(
-                command, timeout=100, print_stdout=debug, working_directory="/tmp",
+                command,
+                timeout=100,
+                print_stdout=debug,
+                working_directory="/tmp",
             )
             if not result["stdout"]:
                 print("WARNING: No output written by ispyb.job")
@@ -166,7 +169,10 @@ def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
             continue
 
         result = procrunner.run(
-            command, timeout=100, print_stdout=debug, working_directory="/tmp",
+            command,
+            timeout=100,
+            print_stdout=debug,
+            working_directory="/tmp",
         )
         if not result["stdout"]:
             print("WARNING: No output written by dlstbx.go")

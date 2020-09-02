@@ -32,21 +32,21 @@ def read_autoproc_xml(xml_file):
     def make_dict_from_tree(element_tree):
         """Traverse the given XML element tree to convert it into a dictionary.
 
-      :param element_tree: An XML element tree
-      :type element_tree: xml.etree.ElementTree
-      :rtype: dict
-      """
+        :param element_tree: An XML element tree
+        :type element_tree: xml.etree.ElementTree
+        :rtype: dict
+        """
 
         def internal_iter(tree, accum):
             """Recursively iterate through the elements of the tree accumulating
-          a dictionary result.
+            a dictionary result.
 
-          :param tree: The XML element tree
-          :type tree: xml.etree.ElementTree
-          :param accum: Dictionary into which data is accumulated
-          :type accum: dict
-          :rtype: dict
-          """
+            :param tree: The XML element tree
+            :type tree: xml.etree.ElementTree
+            :param accum: Dictionary into which data is accumulated
+            :type accum: dict
+            :rtype: dict
+            """
             if tree is None:
                 return accum
             if tree.getchildren():
@@ -263,7 +263,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
 
     def construct_commandline(self, params):
         """Construct autoPROC command line.
-       Takes job parameter dictionary, returns array."""
+        Takes job parameter dictionary, returns array."""
 
         working_directory = params["working_directory"]
         image_template = params["autoproc"]["image_template"]

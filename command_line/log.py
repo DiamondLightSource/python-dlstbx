@@ -19,7 +19,7 @@ class DLSLog:
 
     def initializing(self):
         """Disable all irrelevant logging for this service.
-       Then subscribe to log messages."""
+        Then subscribe to log messages."""
         self._transport.subscribe_broadcast("transient.log", self.read_log_message)
 
         if hasattr(ColorStreamHandler, "_get_color"):

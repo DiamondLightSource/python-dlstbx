@@ -1,6 +1,6 @@
 import mock
 import ispyb
-import services.ispybsvc_em as em_svc
+import dlstbx.services.ispybsvc_em as em
 
 
 def parameters(arg):
@@ -8,7 +8,7 @@ def parameters(arg):
 
 
 def test_do_insert_ctf_handles_ispyb_error():
-    dls = em_svc.EM_Mixin()
+    dls = em.EM_Mixin()
     dls.ispyb = mock.Mock()
     dls.ispyb.em_acquisition.insert_ctf.side_effect = ispyb.ISPyBException()
     dls.log = mock.Mock()
@@ -18,7 +18,7 @@ def test_do_insert_ctf_handles_ispyb_error():
 
 
 def test_insert_ctf_is_called_with_parameters():
-    dls = em_svc.EM_Mixin()
+    dls = em.EM_Mixin()
     dls.ispyb = mock.Mock()
     dls.ispyb.em_acquisition.insert_ctf = mock.Mock()
     return_test = dls.do_insert_ctf(parameters)

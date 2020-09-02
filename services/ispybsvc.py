@@ -7,7 +7,7 @@ import mysql.connector
 import workflows.recipe
 from workflows.services.common_service import CommonService
 import json
-from services.ispybsvc_em import EM_Mixin
+from dlstbx.services.ispybsvc_em import EM_Mixin
 
 
 class DLSISPyB(EM_Mixin, CommonService):

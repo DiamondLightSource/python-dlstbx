@@ -15,8 +15,6 @@
         "stomp.py",
         "workflows>=2.0",
         "zocalo>=0.6.0",
-        # Eiger stream work, SCI-7786
-        "python-confluent-kafka",
         "msgpack-python",
         "pyzmq",
     ],
@@ -32,8 +30,6 @@
         "stomp.py",
         "workflows>=2.0",
         "zocalo>=0.6.0",
-        # Eiger stream work, SCI-7786
-        "confluent-kafka",
         "msgpack",
         "pyzmq",
     ],

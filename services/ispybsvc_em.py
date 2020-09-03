@@ -4,6 +4,20 @@ import ispyb
 class EM_Mixin:
     def do_insert_ctf(self, parameters, **kwargs):
 
+        # This gives some output we can read from; the motion correction ID doesn't work without the ISPyB components in place
+        diff_val = {"Difference indicator (astigmatism)": parameters("astigmatism")}
+        message = (
+            "Putting CTF parameters."
+            + str(
+                self.get_motioncorrection_id(
+                    parameters("datacollection_id"), parameters("micrograph_name")
+                )
+            )
+            + str(diff_val)
+        )
+        self.log.info(message)
+        return {"success": True, "return_value": parameters}
+
         try:
             result = self.ispyb.em_acquisition.insert_ctf(
                 ctf_id=parameters("ctf_id"),

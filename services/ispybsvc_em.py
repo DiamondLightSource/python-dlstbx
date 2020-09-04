@@ -5,17 +5,11 @@ class EM_Mixin:
     def do_insert_ctf(self, parameters, **kwargs):
 
         # This gives some output we can read from; the motion correction ID doesn't work without the ISPyB components in place
-        diff_val = {"Difference indicator (astigmatism)": parameters("astigmatism")}
-        message = (
-            "Putting CTF parameters."
-            + str(
-                self.get_motioncorrection_id(
-                    parameters("datacollection_id"), parameters("micrograph_name")
-                )
-            )
-            + str(diff_val)
-        )
-        self.log.info(message)
+
+        dcid = parameters("datacollection_id")
+        micrograph_name = parameters("micrograph_name")
+        self.log.info(f"Would insert CTF parameters. DCID: {dcid} {micrograph_name}")
+
         return {"success": True, "return_value": parameters}
 
         try:
@@ -56,17 +50,13 @@ class EM_Mixin:
 
     def do_insert_motion_correction(self, parameters, **kwargs):
         # This gives some output we can read from; the motion correction ID doesn't work without the ISPyB components in place
-        diff_val = {"Difference indicator (total_motion)": parameters("total_motion")}
-        message = (
-            "Putting Motion Correction parameters."
-            + str(
-                self.get_motioncorrection_id(
-                    parameters("datacollection_id"), parameters("micrograph_name")
-                )
-            )
-            + str(diff_val)
+
+        dcid = parameters("datacollection_id")
+        micrograph_name = parameters("micrograph_name")
+        self.log.info(
+            f"Would insert Motion Correction parameters. DCID: {dcid} {micrograph_name}"
         )
-        self.log.info(message)
+
         return {"success": True, "return_value": parameters}
 
         # insert_motion_correction still needs to be implemented in the ISPyB API

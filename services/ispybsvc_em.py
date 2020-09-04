@@ -44,7 +44,7 @@ class EM_Mixin:
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
             self.log.error(
-                "Updating DIMPLE failure for %s caused exception '%s'.",
+                "Inserting CTF entry caused exception '%s'.",
                 e,
                 exc_info=True,
             )

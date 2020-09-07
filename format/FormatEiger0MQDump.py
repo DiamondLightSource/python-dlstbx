@@ -104,7 +104,7 @@ class FormatEiger0MQDump(Format):
         elif depth == 32:
             dtype = numpy.uint32
         else:
-            dtype = 1 / 0
+            raise NotImplementedError(f"Image bit depth {depth} not supported")
 
         dt = numpy.dtype(dtype)
 

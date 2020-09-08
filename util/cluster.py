@@ -82,10 +82,14 @@ class Cluster:
             if "exception" in retval:
                 e = retval["exception"]
                 if hasattr(e, "trace"):
+                    if retval["init"]:
+                        exception_location = "subprocess initialisation"
+                    else:
+                        exception_location = "command execution"
                     # If exception contains extended information, encode this into the exception message,
                     # preserving the exception type:
                     e.args = (
-                        "%s. Embedded exception follows:\n%s" % (str(e), e.trace),
+                        f"{e} occured during {exception_location}. Embedded exception follows:\n{e.trace}",
                     )
                 raise e  # re-raise subprocess exception
 
@@ -106,6 +110,7 @@ class Cluster:
             os.environ[k] = v
         import drmaa  # This import must not be floated to the top of the file
 
+        initialisation_exception = None
         try:
             self.drmaa = drmaa
             self.session = drmaa.Session()
@@ -115,11 +120,10 @@ class Cluster:
             trace = [
                 "  %s" % line for line in traceback.format_exception(*sys.exc_info())
             ]
+            if isinstance(e, drmaa.errors.DrmaaException):
+                e = RuntimeError(repr(e))
             e.trace = "\n" + "\n".join(trace)
-            self._pipe_subprocess.send({"exception": e})
-            self._pipe_subprocess.close()
-            del self._pipe_subprocess
-            raise
+            initialisation_exception = e
 
         # Wait and process RPCs
         while True:
@@ -127,17 +131,24 @@ class Cluster:
                 function, args, kwargs = self._pipe_subprocess.recv()
             except EOFError:
                 break
-            try:
-                retval = getattr(self, function)(*args, **kwargs)
-                self._pipe_subprocess.send({"value": retval})
-            except Exception as e:
-                # Keep a formatted copy of the trace for passing in serialized form
-                trace = [
-                    "  %s" % line
-                    for line in traceback.format_exception(*sys.exc_info())
-                ]
-                e.trace = "\n" + "\n".join(trace)
-                self._pipe_subprocess.send({"exception": e})
+            if not initialisation_exception:
+                try:
+                    retval = getattr(self, function)(*args, **kwargs)
+                    self._pipe_subprocess.send({"value": retval})
+                except Exception as e:
+                    # Keep a formatted copy of the trace for passing in serialized form
+                    trace = [
+                        "  %s" % line
+                        for line in traceback.format_exception(*sys.exc_info())
+                    ]
+                    if isinstance(e, drmaa.errors.DrmaaException):
+                        e = RuntimeError(repr(e))
+                    e.trace = "\n" + "\n".join(trace)
+                    self._pipe_subprocess.send({"exception": e, "init": False})
+            else:
+                self._pipe_subprocess.send(
+                    {"exception": initialisation_exception, "init": True}
+                )
         self._pipe_subprocess.close()
         del self._pipe_subprocess
 

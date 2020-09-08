@@ -1,5 +1,6 @@
 import mock
 import ispyb
+import pytest
 import dlstbx.services.ispybsvc_em as em
 
 
@@ -7,6 +8,7 @@ def parameters(arg):
     return "parameters:" + arg
 
 
+@pytest.mark.skip("EM methods are not yet implemented")
 def test_do_insert_ctf_handles_ispyb_error():
     dls = em.EM_Mixin()
     dls.ispyb = mock.Mock()
@@ -17,6 +19,7 @@ def test_do_insert_ctf_handles_ispyb_error():
     assert dls.log.error.called
 
 
+@pytest.mark.skip("EM methods are not yet implemented")
 def test_insert_ctf_is_called_with_parameters():
     dls = em.EM_Mixin()
     dls.ispyb = mock.Mock()

@@ -7,9 +7,10 @@ import mysql.connector
 import workflows.recipe
 from workflows.services.common_service import CommonService
 import json
+from dlstbx.services.ispybsvc_em import EM_Mixin
 
 
-class DLSISPyB(CommonService):
+class DLSISPyB(EM_Mixin, CommonService):
     """A service that receives information to be written to ISPyB."""
 
     # Human readable service name

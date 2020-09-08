@@ -28,7 +28,13 @@ class QueueStatus:
             time.sleep(self.gather_interval)
 
     def get_queue_and_topic_info(self):
-        attributes = ["QueueSize", "EnqueueCount", "DequeueCount", "InFlightCount"]
+        attributes = [
+            "ConsumerCount",
+            "QueueSize",
+            "EnqueueCount",
+            "DequeueCount",
+            "InFlightCount",
+        ]
         queues = jmx.org.apache.activemq(
             type="Broker",
             brokerName="localhost",
@@ -86,6 +92,7 @@ class QueueStatus:
                 last_status = previous.get(dtype, {}).get(dname, {})
                 # Find change
                 for key in (
+                    "ConsumerCount",
                     "QueueSize",
                     "EnqueueCount",
                     "DequeueCount",
@@ -115,6 +122,7 @@ class QueueStatus:
         for key in (
             "shortdest",
             "change-EnqueueCount",
+            "ConsumerCount",
             "QueueSize",
             "InFlightCount",
             "change-DequeueCount",
@@ -136,7 +144,7 @@ class QueueStatus:
         line = (
             "{colour[namespace]}{0[shortdest]:{longest[shortdest]}}{colour[reset]}  "
             "{colour[input]}{0[change-EnqueueCount]:{longest[change-EnqueueCount]}} "
-            ">{colour[hold]}[ {filter_zero[QueueSize]:{longest[QueueSize]}} | {colour[flight]}{filter_zero[InFlightCount]:<{longest[InFlightCount]}}{colour[hold]} ]"
+            ">{colour[hold]}[ {filter_zero[QueueSize]:{longest[QueueSize]}} | {colour[listeners]}{filter_zero[ConsumerCount]:<{longest[ConsumerCount]}}{colour[hold]} | {colour[flight]}{filter_zero[InFlightCount]:<{longest[InFlightCount]}}{colour[hold]} ]"
             "{colour[output]}> {filter_zero[change-DequeueCount]:<{longest[change-DequeueCount]}}{colour[reset]}"
         )
         #   line +=  " -- {0[relevance]}{colour[reset]}"
@@ -182,6 +190,9 @@ class QueueStatus:
                     if self.status[dtype][dname]["change-DequeueCount"]
                     else c_gray,
                     "reset": c_reset,
+                    "listeners": c_yellow
+                    if self.status[dtype][dname]["ConsumerCount"]
+                    else c_gray,
                     "namespace": c_magenta
                     if self.status[dtype][dname]["shortdest.prefix"] == "zocdev"
                     else "",
@@ -190,7 +201,12 @@ class QueueStatus:
                     key: self.status[dtype][dname][key]
                     if self.status[dtype][dname][key] > 0
                     else ""
-                    for key in ("change-DequeueCount", "InFlightCount", "QueueSize")
+                    for key in (
+                        "change-DequeueCount",
+                        "InFlightCount",
+                        "QueueSize",
+                        "ConsumerCount",
+                    )
                 }
                 print(
                     line.format(
@@ -200,6 +216,16 @@ class QueueStatus:
                         filter_zero=filter_zero,
                     )
                 )
+
+        print(
+            "\n{header}What do the numbers mean:{reset}".format(
+                reset=c_reset,
+                header=c_reset + c_yellow,
+            )
+        )
+        print(
+            f"topic/queue name  {c_green}m.in/5s >{c_gray}[ {c_blue}m.held{c_gray} | {c_yellow}clients{c_gray} | {c_blue}m.dispatchd{c_gray} ]{c_green}> m.out/5s{c_reset}"
+        )
 
 
 if __name__ == "__main__":

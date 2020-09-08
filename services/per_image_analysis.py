@@ -1,3 +1,4 @@
+import bitshuffle  # noqa, F401; cf. https://github.com/DiamondLightSource/python-dlstbx/issues/5
 import logging
 import time
 

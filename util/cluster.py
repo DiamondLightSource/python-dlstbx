@@ -106,9 +106,20 @@ class Cluster:
             os.environ[k] = v
         import drmaa  # This import must not be floated to the top of the file
 
-        self.drmaa = drmaa
-        self.session = drmaa.Session()
-        self.session.initialize()
+        try:
+            self.drmaa = drmaa
+            self.session = drmaa.Session()
+            self.session.initialize()
+        except Exception as e:
+            # Keep a formatted copy of the trace for passing in serialized form
+            trace = [
+                "  %s" % line for line in traceback.format_exception(*sys.exc_info())
+            ]
+            e.trace = "\n" + "\n".join(trace)
+            self._pipe_subprocess.send({"exception": e})
+            self._pipe_subprocess.close()
+            del self._pipe_subprocess
+            raise
 
         # Wait and process RPCs
         while True:

@@ -541,6 +541,7 @@ WHERE
             return None
         if "#" not in template:
             return template
+        template = template.replace("%", "%%")
         fmt = "%%0%dd" % template.count("#")
         prefix = template.split("#")[0]
         suffix = template.split("#")[-1]

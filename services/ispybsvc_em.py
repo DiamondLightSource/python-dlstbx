@@ -8,7 +8,7 @@ class EM_Mixin:
         dcid = parameters("datacollection_id")
         micrograph_name = parameters("micrograph_name")
         self.log.info(f"Would insert CTF parameters. DCID: {dcid} {micrograph_name}")
-        return {"success": True, "return_value": parameters}
+        return {"success": True, "return_value": None}
 
         try:
             result = self.ispyb.em_acquisition.insert_ctf(
@@ -54,7 +54,7 @@ class EM_Mixin:
         self.log.info(
             f"Would insert Motion Correction parameters. DCID: {dcid} {micrograph_name}"
         )
-        return {"success": True, "return_value": parameters}
+        return {"success": True, "return_value": None}
 
         # insert_motion_correction still needs to be implemented in the ISPyB API
         try:
@@ -97,7 +97,7 @@ class EM_Mixin:
         dcid = parameters("datacollection_id")
         ref_image = parameters("reference_image")
         self.log.info(f"Would insert Class 2D parameters. DCID: {dcid} {ref_image}")
-        return {"success": True, "return_value": parameters}
+        return {"success": True, "return_value": None}
 
     def do_insert_class3d(self, parameters, **kwargs):
         # This gives some output we can read from; ISPyB doesn't have fields for Class 3D yet
@@ -105,4 +105,4 @@ class EM_Mixin:
         dcid = parameters("datacollection_id")
         ref_image = parameters("reference_image")
         self.log.info(f"Would insert Class 2D parameters. DCID: {dcid} {ref_image}")
-        return {"success": True, "return_value": parameters}
+        return {"success": True, "return_value": None}

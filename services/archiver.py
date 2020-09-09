@@ -208,6 +208,8 @@ class DLSArchiver(CommonService):
                     "\n".join(files_not_found),
                 )
             rw.send_to("missing_files", files_not_found, transaction=txn)
+            if not message_out["success"]:
+                rw.send_to("all_files_missing", files_not_found, transaction=txn)
         if message_out["failed"]:
             if params.get("log-summary-warning-as-info"):
                 self.log.info("Failed to archive %d files", message_out["failed"])

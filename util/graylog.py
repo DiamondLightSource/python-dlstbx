@@ -6,13 +6,14 @@
 
 
 import base64
+import configparser
 import datetime
+import http.client
 import json
+import urllib.request
 
 import dateutil.parser
 import pytz
-from six.moves import configparser
-from six.moves import urllib
 
 local_timezone = dateutil.tz.gettz("Europe/London")
 
@@ -48,7 +49,15 @@ class GraylogAPI:
         returncode = handler.getcode()
         success = returncode == 200
         headers = {k: v for k, v in handler.headers.items()}
-        body = handler.read()
+        while True:
+            body = b""
+            try:
+                body += handler.read()
+            except http.client.IncompleteRead as icread:
+                body += icread.partial
+                continue
+            else:
+                break
         if success:
             parsed = json.loads(body)
         else:

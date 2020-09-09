@@ -1,3 +1,4 @@
+import logging
 import threading
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -55,7 +56,10 @@ class DLSMimasBacklog(CommonService):
         ):
             with self._lock:
                 self._jobs_waiting = message["high.q"] + message["medium.q"]
-                self.log.info(f"Jobs waiting: {self._jobs_waiting}")
+                self.log.log(
+                    logging.INFO if self._jobs_waiting else logging.DEBUG,
+                    f"Jobs waiting: {self._jobs_waiting}",
+                )
                 if self._jobs_waiting < self._max_jobs_waiting and self._held_data:
                     self.forward_message(*self._held_data)
                     self._held_data = None

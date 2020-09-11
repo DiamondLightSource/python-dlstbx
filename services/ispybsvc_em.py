@@ -104,5 +104,6 @@ class EM_Mixin:
 
         dcid = parameters("datacollection_id")
         ref_image = parameters("reference_image")
-        self.log.info(f"Would insert Class 2D parameters. DCID: {dcid} {ref_image}")
+
+        self.log.info(f"Would insert Class 3D parameters. DCID: {dcid} {ref_image}")
         return {"success": True, "return_value": None}

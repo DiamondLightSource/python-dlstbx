@@ -82,10 +82,6 @@ class ZMQReceiver(threading.Thread):
                 )
                 continue
             dcid = int(header["acqID"])
-            if header.get("header_detail") is None:
-                self.log.error(
-                    "Header for %d has no content" % dcid,
-                )
             destination = dcid_cache.get(dcid)
             if not destination:
                 self.log.debug("DCID %d seen for the first time. Checking ISPyB", dcid)
@@ -123,7 +119,8 @@ class ZMQReceiver(threading.Thread):
                     data[7] = ""
                 except IndexError:
                     self.log.warning(
-                        "Received header packet with detail level other than 'all'"
+                        "Received header packet for %d with detail level other than 'all'"
+                        % dcid
                     )
             elif header.get("htype") == "dseries_end-1.0":
                 destination_file = "end"

@@ -82,6 +82,10 @@ class ZMQReceiver(threading.Thread):
                 )
                 continue
             dcid = int(header["acqID"])
+            if header.get("header_detail") is None:
+                self.log.error(
+                    "Header for %d has no content" % dcid,
+                )
             destination = dcid_cache.get(dcid)
             if not destination:
                 self.log.debug("DCID %d seen for the first time. Checking ISPyB", dcid)

@@ -22,6 +22,8 @@ class FormatEiger0MQDump(Format):
     def _start(self):
         header = os.path.join(os.path.split(self._image_file)[0], "header")
         data = msgpack.unpackb(self.open_file(header).read(), strict_map_key=False)
+        if len(data) < 2:
+            raise RuntimeError("missing header data")
         self._header = json.loads(data[1])
 
     def _goniometer(self):

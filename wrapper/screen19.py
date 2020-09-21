@@ -68,7 +68,7 @@ class Screen19Wrapper(zocalo.wrapper.BaseWrapper):
         for filename in params.get("keep_files", defaultfiles):
             if working_directory.join(filename).check():
                 dst = results_directory.join(filename)
-                logger.debug("Copying %s to %s" % (filename, dst.strpath))
+                logger.debug(f"Copying {filename} to {dst.strpath}")
                 working_directory.join(filename).copy(dst)
                 foundfiles.append(dst.strpath)
                 self.record_result_individual_file(

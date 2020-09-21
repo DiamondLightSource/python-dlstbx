@@ -209,7 +209,7 @@ def read_settings_file(tmpl_data):
             )
         )
     )
-    with open(json_path, "r") as json_file:
+    with open(json_path) as json_file:
         msg_json = json.load(json_file)
         tmpl_data.update({"settings": msg_json})
 
@@ -217,7 +217,7 @@ def read_settings_file(tmpl_data):
 def get_map_model_from_json(json_path):
 
     abs_json_path = os.path.join(json_path, "big_ep_model_ispyb.json")
-    with open(abs_json_path, "r") as json_file:
+    with open(abs_json_path) as json_file:
         msg_json = json.load(json_file)
     return {
         "pdb": msg_json["pdb"],
@@ -281,7 +281,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
         model_py = os.path.join(root_wd, tag_name + "_models.py")
         coot_sh = os.path.join(root_wd, tag_name + "_models.sh")
 
-        img_name = "{}_model".format(tag_name)
+        img_name = f"{tag_name}_model"
 
         coot_py_template = tmpl_env.get_template("coot_model.tmpl")
         with open(model_py, "wt") as f:
@@ -303,7 +303,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
                         "module purge",
                         "module load ccp4",
                         "module load python/2.7",
-                        "coot --python {} --no-graphics --no-guano".format(model_py),
+                        f"coot --python {model_py} --no-graphics --no-guano",
                         "cat raster_{0}.r3d | render -transparent -png {0}.png".format(
                             img_name
                         ),
@@ -313,7 +313,7 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
 
         procrunner.run(["sh", coot_sh], working_directory=root_wd)
         try:
-            with open(os.path.join(root_wd, "{}.png".format(img_name)), "rb") as f:
+            with open(os.path.join(root_wd, f"{img_name}.png"), "rb") as f:
                 img_data = f.read()
                 tmpl_data["html_images"][img_name] = img_data
         except OSError:

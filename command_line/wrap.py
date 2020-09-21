@@ -135,7 +135,7 @@ def run(cmdline_args):
 
     # If specified, read in a serialized recipewrapper
     if options.recipewrapper:
-        with open(options.recipewrapper, "r") as fh:
+        with open(options.recipewrapper) as fh:
             recwrap = workflows.recipe.wrapper.RecipeWrapper(
                 message=json.load(fh), transport=transport
             )

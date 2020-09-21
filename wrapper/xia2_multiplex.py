@@ -266,7 +266,7 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
             if destination.strpath in allfiles:
                 # We've already seen this file above
                 continue
-            logger.debug("Copying %s to %s" % (filename.strpath, destination.strpath))
+            logger.debug(f"Copying {filename.strpath} to {destination.strpath}")
             allfiles.append(destination.strpath)
             filename.copy(destination)
             if filetype:

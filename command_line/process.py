@@ -145,7 +145,7 @@ if __name__ == "__main__":
     pprint(jp)
 
     jobid = i.mx_processing.upsert_job(list(jp.values()))
-    print("Created JobID={}".format(jobid))
+    print(f"Created JobID={jobid}")
     for key, value in parameters:
         jpp = i.mx_processing.get_job_parameter_params()
         # _job_parameter_params = StrictOrderedDict([('id', None), ('job_id', None), ('parameter_key', None), ('parameter_value', None)])
@@ -154,7 +154,7 @@ if __name__ == "__main__":
         jpp["parameter_value"] = value
         #   pprint(jpp)
         jppid = i.mx_processing.upsert_job_parameter(list(jpp.values()))
-        print("Created JPP={}".format(jppid))
+        print(f"Created JPP={jppid}")
 
     for sweep in imagesweeps:
         jisp = i.mx_processing.get_job_image_sweep_params()
@@ -165,12 +165,12 @@ if __name__ == "__main__":
         jisp["end_image"] = sweep["end"]
         #   pprint(jisp)
         jispid = i.mx_processing.upsert_job_image_sweep(list(jisp.values()))
-        print("Created JISP={}".format(jispid))
+        print(f"Created JISP={jispid}")
 
-    print("All done. Processing job {} created".format(jobid))
+    print(f"All done. Processing job {jobid} created")
     print()
     print("To trigger the processing job you now need to run:")
-    print("  dlstbx.go -r {}".format(jobid))
+    print(f"  dlstbx.go -r {jobid}")
 
 print()
 print(

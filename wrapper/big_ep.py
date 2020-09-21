@@ -40,9 +40,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         try:
             sequence = params["protein_info"]["sequence"]
             if sequence:
-                seq_filename = os.path.join(
-                    working_directory, "seq_{}.fasta".format(dcid)
-                )
+                seq_filename = os.path.join(working_directory, f"seq_{dcid}.fasta")
                 from iotbx.bioinformatics import fasta_sequence
 
                 with open(seq_filename, "w") as fp:
@@ -162,7 +160,7 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         try:
             abs_json_path = os.path.join(json_path, "big_ep_model_ispyb.json")
             result = {"json": abs_json_path}
-            with open(abs_json_path, "r") as json_file:
+            with open(abs_json_path) as json_file:
                 msg_json = json.load(json_file)
             result.update({k: msg_json[k] for k in ["pdb", "map", "mtz"]})
             return result

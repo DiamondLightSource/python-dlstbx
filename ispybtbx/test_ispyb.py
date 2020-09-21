@@ -1,6 +1,6 @@
 from datetime import datetime
 
-import mock
+from unittest import mock
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
 
 ds = {

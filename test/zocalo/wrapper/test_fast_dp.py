@@ -1,6 +1,6 @@
 import json
 
-import mock
+from unittest import mock
 import dlstbx.wrapper.fast_dp
 from dlstbx.wrapper.fast_dp import FastDPWrapper
 

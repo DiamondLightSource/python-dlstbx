@@ -27,7 +27,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
             if not isinstance(values, (list, tuple)):
                 values = [values]
             for v in values:
-                command.append("%s=%s" % (param, v))
+                command.append(f"{param}={v}")
 
         if params.get("ispyb_parameters"):
             translation = {
@@ -173,9 +173,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
             src = working_directory.join(subdir)
             dst = results_directory.join(subdir)
             if src.check():
-                logger.debug(
-                    "Recursively copying %s to %s" % (src.strpath, dst.strpath)
-                )
+                logger.debug(f"Recursively copying {src.strpath} to {dst.strpath}")
                 src.copy(dst)
             elif not success:
                 logger.info(

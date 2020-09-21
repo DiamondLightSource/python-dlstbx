@@ -42,7 +42,7 @@ class ArchiverService(CommonSystemTest):
         )
 
         expected_xml = os.path.join(os.path.dirname(__file__), "archiver-success.xml")
-        with open(expected_xml, "r") as fh:
+        with open(expected_xml) as fh:
             xmldata = fh.read()
 
         self.expect_recipe_message(
@@ -90,7 +90,7 @@ class ArchiverService(CommonSystemTest):
         )
 
         expected_xml = os.path.join(os.path.dirname(__file__), "archiver-success.xml")
-        with open(expected_xml, "r") as fh:
+        with open(expected_xml) as fh:
             xmldata = fh.read()
 
         self.expect_recipe_message(
@@ -143,9 +143,9 @@ class ArchiverService(CommonSystemTest):
         expected_xml_2 = os.path.join(
             os.path.dirname(__file__), "archiver-success-part2.xml"
         )
-        with open(expected_xml_1, "r") as fh:
+        with open(expected_xml_1) as fh:
             xmldata_1 = fh.read()
-        with open(expected_xml_2, "r") as fh:
+        with open(expected_xml_2) as fh:
             xmldata_2 = fh.read()
 
         self.expect_recipe_message(
@@ -207,9 +207,9 @@ class ArchiverService(CommonSystemTest):
         expected_xml_2 = os.path.join(
             os.path.dirname(__file__), "archiver-success-part2.xml"
         )
-        with open(expected_xml_1, "r") as fh:
+        with open(expected_xml_1) as fh:
             xmldata_1 = fh.read()
-        with open(expected_xml_2, "r") as fh:
+        with open(expected_xml_2) as fh:
             xmldata_2 = fh.read()
 
         self.expect_recipe_message(
@@ -270,7 +270,7 @@ class ArchiverService(CommonSystemTest):
         )
 
         expected_xml = os.path.join(os.path.dirname(__file__), "archiver-partial.xml")
-        with open(expected_xml, "r") as fh:
+        with open(expected_xml) as fh:
             xmldata = fh.read()
 
         self.expect_recipe_message(
@@ -333,7 +333,7 @@ class ArchiverService(CommonSystemTest):
         )
 
         expected_xml = os.path.join(os.path.dirname(__file__), "archiver-partial.xml")
-        with open(expected_xml, "r") as fh:
+        with open(expected_xml) as fh:
             xmldata = fh.read()
 
         self.expect_recipe_message(

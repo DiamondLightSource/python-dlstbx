@@ -10,7 +10,6 @@ img = re.compile(" ([0-9]+)-([0-9]+)")
 
 with open(
     "Desktop/graylog-search-result-absolute-2019-02-13T11_54_16.000Z-2019-02-13T12_00_57.000Z.csv",
-    "r",
 ) as fh:
     csvreader = csv.reader(fh)
     fields = next(csvreader)

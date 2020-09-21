@@ -153,7 +153,7 @@ class DLSCluster(CommonService):
                         mapped_queue,
                     )
             if mapped_queue:
-                submission_params = "-q %s %s" % (mapped_queue, submission_params)
+                submission_params = f"-q {mapped_queue} {submission_params}"
             else:
                 self.log.warning(
                     "Requested cluster queue %s not available on cluster %s, no default queue set",

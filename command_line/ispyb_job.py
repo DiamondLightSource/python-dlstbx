@@ -89,7 +89,7 @@ def create_processing_job(i, options):
     print("Creating database entries...")
 
     jobid = i.mx_processing.upsert_job(list(jp.values()))
-    print("  JobID={}".format(jobid))
+    print(f"  JobID={jobid}")
     for key, value in parameters:
         jpp = i.mx_processing.get_job_parameter_params()
         # _job_parameter_params = StrictOrderedDict([('id', None), ('job_id', None), ('parameter_key', None), ('parameter_value', None)])
@@ -97,7 +97,7 @@ def create_processing_job(i, options):
         jpp["parameter_key"] = key
         jpp["parameter_value"] = value
         jppid = i.mx_processing.upsert_job_parameter(list(jpp.values()))
-        print("  JPP={}".format(jppid))
+        print(f"  JPP={jppid}")
 
     for sweep in sweeps:
         jisp = i.mx_processing.get_job_image_sweep_params()
@@ -107,9 +107,9 @@ def create_processing_job(i, options):
         jisp["start_image"] = sweep[1]
         jisp["end_image"] = sweep[2]
         jispid = i.mx_processing.upsert_job_image_sweep(list(jisp.values()))
-        print("  JISP={}".format(jispid))
+        print(f"  JISP={jispid}")
 
-    print("All done. Processing job {} created".format(jobid))
+    print(f"All done. Processing job {jobid} created")
     print()
     if options.trigger:
         go_call = ["dlstbx.go", "-p", str(jobid)]
@@ -123,7 +123,7 @@ def create_processing_job(i, options):
 
     else:
         print("To trigger the processing job you now need to run:")
-        print("  dlstbx.go -p {}".format(jobid))
+        print(f"  dlstbx.go -p {jobid}")
         print()
 
     return jobid

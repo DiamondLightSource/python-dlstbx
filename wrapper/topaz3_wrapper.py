@@ -255,7 +255,7 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         except Exception:
             logger.exception("Shelxe tracing script has failed")
 
-        logger.info("Using venv with command: source {0}".format(topaz_python))
+        logger.info(f"Using venv with command: source {topaz_python}")
 
         original_phase_file = os.path.join(
             working_directory, os.path.basename(payload["original_phase_file"])
@@ -292,11 +292,11 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
                     [
                         "#!/bin/bash\n",
                         ". /etc/profile.d/modules.sh\n",
-                        "source {0}\n".format(topaz_python),
+                        f"source {topaz_python}\n",
                         "module load cuda\n",
-                        'python -c "{0}"\n'.format(command_original_phase),
-                        'python -c "{0}"\n'.format(command_inverse_phase),
-                        'python -c "{0}"\n'.format(prediction_command),
+                        f'python -c "{command_original_phase}"\n',
+                        f'python -c "{command_inverse_phase}"\n',
+                        f'python -c "{prediction_command}"\n',
                     ]
                 )
         except OSError:

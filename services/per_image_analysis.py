@@ -100,7 +100,7 @@ class DLSPerImageAnalysis(CommonService):
             parameters = {"d_max": 40}
         if isinstance(message.get("parameters"), dict):
             parameters.update(message["parameters"])
-        parameters = ["{k}={v}".format(k=k, v=v) for k, v in parameters.items()]
+        parameters = [f"{k}={v}" for k, v in parameters.items()]
 
         self.log.debug("Starting PIA on %s", filename)
 

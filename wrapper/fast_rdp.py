@@ -212,7 +212,7 @@ class FastRDPWrapper(zocalo.wrapper.BaseWrapper):
             if filetype is None:
                 continue
             destination = results_directory.join(filename.basename)
-            logger.debug("Copying %s to %s" % (filename.strpath, destination.strpath))
+            logger.debug(f"Copying {filename.strpath} to {destination.strpath}")
             allfiles.append(destination.strpath)
             filename.copy(destination)
             if filetype:

@@ -2,7 +2,7 @@ import copy
 import json
 import os.path
 
-import mock
+from unittest import mock
 from dlstbx.system_test.common import CommonSystemTest
 from workflows.recipe import Recipe
 
@@ -85,7 +85,7 @@ class DispatcherService(CommonSystemTest):
 
         recipe_path = "/dls_sw/apps/zocalo/live/recipes"
 
-        with open(os.path.join(recipe_path, "test-dispatcher.json"), "r") as fh:
+        with open(os.path.join(recipe_path, "test-dispatcher.json")) as fh:
             recipe = json.load(fh)
         expected_recipe = Recipe(recipe)
         expected_recipe.apply_parameters(parameters)
@@ -115,7 +115,7 @@ class DispatcherService(CommonSystemTest):
         )
 
         recipe_path = "/dls_sw/apps/zocalo/live/recipes"
-        with open(os.path.join(recipe_path, "test-dispatcher.json"), "r") as fh:
+        with open(os.path.join(recipe_path, "test-dispatcher.json")) as fh:
             recipe_from_file = json.loads(fh.read())
 
         self.expect_recipe_message(

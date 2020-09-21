@@ -58,7 +58,7 @@ if __name__ == "__main__":
     free_text = " ".join(args)
 
     logfunction(
-        "{name}: {event} {text}".format(name=options.name, event=event, text=free_text),
+        f"{options.name}: {event} {free_text}",
         extra={
             "alert_name": options.name,
             "alert_event": event,

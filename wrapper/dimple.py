@@ -81,13 +81,13 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         ispyb_command_list.append(insert_mxmr_run)
 
         for n in (1, 2):
-            if self.results_directory.join("/blob{}v1.png".format(n)).check():
+            if self.results_directory.join(f"/blob{n}v1.png").check():
                 insert_mxmr_run_blob = {
                     "ispyb_command": "insert_mxmr_run_blob",
                     "mxmr_run_id": "$ispyb_mxmr_run_id",
-                    "view1": "blob{}v1.png".format(n),
-                    "view2": "blob{}v2.png".format(n),
-                    "view3": "blob{}v3.png".format(n),
+                    "view1": f"blob{n}v1.png",
+                    "view2": f"blob{n}v2.png",
+                    "view3": f"blob{n}v3.png",
                 }
                 ispyb_command_list.append(insert_mxmr_run_blob)
 

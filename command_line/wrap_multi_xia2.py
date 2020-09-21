@@ -14,14 +14,6 @@ def run(args):
     recipe_pointer = args[0]
     recipe_file = args[1]
 
-    environmentmode = False
-    if len(args) >= 3:
-        recipe_environment = args[2]
-        environmentmode = True
-        assert os.path.isfile(recipe_environment), recipe_environment
-        with open(recipe_environment, "rb") as f:
-            environment = json.load(f)
-
     assert os.path.isfile(recipe_file), recipe_file
     with open(recipe_file, "rb") as f:
         recipe = json.load(f)
@@ -43,7 +35,7 @@ def run(args):
         if not isinstance(values, (list, tuple)):
             values = [values]
         for v in values:
-            command.append("%s=%s" % (param, v))
+            command.append(f"{param}={v}")
     if params.get("ispyb_parameters"):
         if params["ispyb_parameters"].get("d_min"):
             command.append(
@@ -91,7 +83,7 @@ def run(args):
         src = os.path.join(working_directory, subdir)
         dst = os.path.join(results_directory, subdir)
         if os.path.exists(src):
-            logger.debug("Copying %s to %s" % (src, dst))
+            logger.debug(f"Copying {src} to {dst}")
             shutil.copytree(src, dst)
         else:
             logger.warning("Expected output directory does not exist: %s", src)

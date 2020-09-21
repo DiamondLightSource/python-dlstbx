@@ -47,7 +47,7 @@ def get_dcid_for_recipe_ID(recipe):
                     incoming_block.append(line)
                     line = next(lines)
             except StopIteration:
-                sys.exit("Malformed recipe found in {}".format(recipe_file.strpath))
+                sys.exit(f"Malformed recipe found in {recipe_file.strpath}")
 
             incoming_block = json.loads("\n".join(incoming_block))
             if (
@@ -63,9 +63,9 @@ def get_dcid_for_recipe_ID(recipe):
             parameters = incoming_block["parameters"]
             if parameters.get("ispyb_dcid"):
                 return {"ispyb_dcid": parameters["ispyb_dcid"]}
-            sys.exit("Recipe {} does not reference a DCID".format(recipe_file.strpath))
+            sys.exit(f"Recipe {recipe_file.strpath} does not reference a DCID")
     else:
-        sys.exit("Recipe {} not found.".format(recipe))
+        sys.exit(f"Recipe {recipe} not found.")
 
 
 if __name__ == "__main__":

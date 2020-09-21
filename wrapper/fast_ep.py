@@ -54,9 +54,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
                 "Data completeness: %.2f  threshold: %.2f"
                 % (completeness, thres_completeness)
             )
-            logger.info(
-                "Data dI/s(dI): %.2f  threshold: %.2f" % (dIsigdI, thres_dIsigdI)
-            )
+            logger.info(f"Data dI/s(dI): {dIsigdI:.2f}  threshold: {thres_dIsigdI:.2f}")
             return False
 
         hkl_file = any_reflection_file(params["fast_ep"]["data"])
@@ -87,7 +85,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             logging.info("Parameter %s: %s" % (param, str(value)))
             if param == "rlims":
                 value = ",".join(str(r) for r in value)
-            command.append("%s=%s" % (param, value))
+            command.append(f"{param}={value}")
 
         return command
 

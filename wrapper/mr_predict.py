@@ -44,7 +44,7 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
             try:
                 fmt_metrix = " ".join(
                     [
-                        "{:.3f}".format(v)
+                        f"{v:.3f}"
                         for v in (
                             model["results"]["Phaser_LLG"],
                             model["seq_indent"],

@@ -1,5 +1,5 @@
 import json
-import mock
+from unittest import mock
 import py.path
 from dlstbx.wrapper.xia2 import Xia2Wrapper
 

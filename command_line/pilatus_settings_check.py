@@ -3,7 +3,8 @@ import sys
 
 
 def pilatus_settings_check(filename):
-    header_text = open(filename, "r").read(1000)
+    with open(filename) as fh:
+        header_text = fh.read(1000)
     assert header_text.startswith("###CBF")
 
     wavelength = 0

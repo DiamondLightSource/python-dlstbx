@@ -12,7 +12,7 @@ class DbserverClient:
     def __init__(self, _host, _port):
         self.DB_host = _host
         self.DB_port = _port
-        print("Connection parameters are: %s:%s" % (self.DB_host, self.DB_port))
+        print(f"Connection parameters are: {self.DB_host}:{self.DB_port}")
 
     def _send(self, _path, _xml):
         conn = http_client.HTTPConnection(self.DB_host + ":" + self.DB_port)

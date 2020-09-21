@@ -207,7 +207,7 @@ def fastep_radar_plot(tmpl_data, nums, data, best_vals):
     plt.figtext(
         0.6,
         0.95,
-        "{}".format(best_sg),
+        f"{best_sg}",
         ha="left",
         color=best_color,
         weight="bold",
@@ -216,7 +216,7 @@ def fastep_radar_plot(tmpl_data, nums, data, best_vals):
     plt.figtext(
         0.5,
         0.9,
-        "Substructure atoms search / found :  {} / {}".format(best_num, best_fnum),
+        f"Substructure atoms search / found :  {best_num} / {best_fnum}",
         ha="center",
         color="black",
         weight="bold",
@@ -303,19 +303,17 @@ def fastep_sites_plot(tmpl_data, num_list, fnum_data, best_fnum, best_sg):
         ax.get_yaxis().set_visible(False)
         plt.axis("off")
         if sg == best_sg:
-            plt.title("{}".format(sg), fontsize=16, fontweight="bold")
+            plt.title(f"{sg}", fontsize=16, fontweight="bold")
         else:
-            plt.title("{}".format(sg), fontsize=14)
+            plt.title(f"{sg}", fontsize=14)
 
-        temp = tempfile.NamedTemporaryFile(
-            prefix="fastep_sites_{}".format(sg), suffix=".png"
-        )
+        temp = tempfile.NamedTemporaryFile(prefix=f"fastep_sites_{sg}", suffix=".png")
         plt.savefig(temp.name, transparent=True, bbox_inches="tight")
         plt.close()
         try:
             with open(temp.name, "rb") as f:
                 img_data = f.read()
-                img_name = "img_fastep_sites{}".format(sg)
+                img_name = f"img_fastep_sites{sg}"
                 tmpl_data["img_fastep_sites"].append(img_name)
                 tmpl_data["html_images"][img_name] = img_data
 

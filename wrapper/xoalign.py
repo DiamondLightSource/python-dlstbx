@@ -35,9 +35,9 @@ class XOalignWrapper(zocalo.wrapper.BaseWrapper):
         omega = params.get("omega")
         phi = params.get("phi")
         if kappa != "None":
-            datum = "-D %s,%s,%s" % (phi, kappa, omega)
+            datum = f"-D {phi},{kappa},{omega}"
         elif chi != "None":
-            datum = "-D %s,%s,%s" % (phi, chi, omega)
+            datum = f"-D {phi},{chi},{omega}"
         else:
             datum = ""
 

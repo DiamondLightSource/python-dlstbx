@@ -54,7 +54,7 @@ def get_process_uss(pid=None):
     """
     if not pid:
         pid = os.getpid()  # Don't cache this. Multiprocessing would copy value.
-    with open("/proc/%s/smaps" % str(pid), "r") as fh:
+    with open("/proc/%s/smaps" % str(pid)) as fh:
         return 1024 * sum(
             int(_proc_getnumber.search(x).group(1))
             for x in fh

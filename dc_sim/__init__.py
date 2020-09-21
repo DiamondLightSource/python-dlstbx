@@ -192,7 +192,7 @@ def populate_dc_xml_template(
         i(_row["focalspotsizeatsampley"]),
     )
     temp = temp.format(
-        comments="Simulated datacollection ({}).".format(scenario_name)
+        comments=f"Simulated datacollection ({scenario_name})."
         if scenario_name
         else "Simulated datacollection."
     )
@@ -601,7 +601,7 @@ def simulate(
         os.path.splitext(filetemplate)[-1],
     ]
 
-    command = ["%s/RunAtStartOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, _beamline)]
+    command = [f"{MX_SCRIPTS_BINDIR}/RunAtStartOfCollect-{_beamline}.sh"]
     command.extend(run_at_params)
     log.info("command: %s", " ".join(command))
     result = procrunner.run(command, timeout=180)
@@ -623,7 +623,7 @@ def simulate(
             dest_fname = "%s_%d_%s.cbf" % (_dest_prefix, run_number, str(img_number))
             src = os.path.join(_src_dir, src_fname)
             target = os.path.join(_dest_dir, dest_fname)
-            log.info("(filesystem) Copy file %s to %s" % (src, target))
+            log.info(f"(filesystem) Copy file {src} to {target}")
             copy_via_temp_file(src, target)
     elif filetemplate.endswith(".h5"):
         files = []
@@ -642,7 +642,7 @@ def simulate(
                 "%s_%d" % (_dest_prefix, run_number),
             )
             target = os.path.join(_dest_dir, dest_fname)
-            log.info("(filesystem) Copy file %s to %s" % (src, target))
+            log.info(f"(filesystem) Copy file {src} to {target}")
             copy_via_temp_file(src, target)
     else:
         raise RuntimeError("Unsupported file extension for %s" % filetemplate)
@@ -669,7 +669,7 @@ def simulate(
     )
     dbsc.updateDbObject(dcg_xml)
 
-    command = ["%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, _beamline)]
+    command = [f"{MX_SCRIPTS_BINDIR}/RunAtEndOfCollect-{_beamline}.sh"]
     command.extend(run_at_params)
     log.info("command: %s", " ".join(command))
     result = procrunner.run(command, timeout=180)
@@ -698,16 +698,14 @@ def call_sim(test_name, beamline):
     proposal = "nt26503"
     if beamline.startswith("i02"):
         if beamline == "i02-2":
-            dest_visit = "{proposal}-1".format(proposal=proposal)
+            dest_visit = f"{proposal}-1"
         elif beamline == "i02-1":
-            dest_visit = "{proposal}-2".format(proposal=proposal)
+            dest_visit = f"{proposal}-2"
         dest_visit_dir = "/dls/mx/data/{proposal}/{visit}".format(
             proposal=proposal, visit=dest_visit
         )
     else:
-        for cm_dir in os.listdir(
-            "/dls/{beamline}/data/{now:%Y}".format(beamline=beamline, now=now)
-        ):
+        for cm_dir in os.listdir(f"/dls/{beamline}/data/{now:%Y}"):
             if cm_dir.startswith(proposal):
                 dest_visit = cm_dir
                 break
@@ -747,11 +745,11 @@ def call_sim(test_name, beamline):
             "ERROR: The src_dir parameter does not appear to contain a valid visit directory."
         )
 
-    start_script = "%s/RunAtStartOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, beamline)
+    start_script = f"{MX_SCRIPTS_BINDIR}/RunAtStartOfCollect-{beamline}.sh"
     if not os.path.exists(start_script):
         log.error("The file %s was not found.", start_script)
         sys.exit(1)
-    end_script = "%s/RunAtEndOfCollect-%s.sh" % (MX_SCRIPTS_BINDIR, beamline)
+    end_script = f"{MX_SCRIPTS_BINDIR}/RunAtEndOfCollect-{beamline}.sh"
     if not os.path.exists(end_script):
         log.error("The file %s was not found.", end_script)
         sys.exit(1)

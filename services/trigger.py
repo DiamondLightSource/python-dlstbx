@@ -147,7 +147,7 @@ class DLSTrigger(CommonService):
         jp["display_name"] = "DIMPLE"
         jp["recipe"] = "postprocessing-dimple"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug("Dimple trigger: generated JobID {}".format(jobid))
+        self.log.debug(f"Dimple trigger: generated JobID {jobid}")
 
         for key, values in dimple_parameters.items():
             for value in values:
@@ -158,20 +158,18 @@ class DLSTrigger(CommonService):
                 jppid = self.ispyb.mx_processing.upsert_job_parameter(
                     list(jpp.values())
                 )
-                self.log.debug(
-                    "Dimple trigger: generated JobParameterID {}".format(jppid)
-                )
+                self.log.debug(f"Dimple trigger: generated JobParameterID {jppid}")
 
         jisp["job_id"] = jobid
         jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
-        self.log.debug("Dimple trigger: generated JobImageSweepID {}".format(jispid))
+        self.log.debug(f"Dimple trigger: generated JobImageSweepID {jispid}")
 
-        self.log.debug("Dimple trigger: Processing job {} created".format(jobid))
+        self.log.debug(f"Dimple trigger: Processing job {jobid} created")
 
         message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
         rw.transport.send("processing_recipe", message)
 
-        self.log.info("Dimple trigger: Processing job {} triggered".format(jobid))
+        self.log.info(f"Dimple trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 
@@ -223,7 +221,7 @@ class DLSTrigger(CommonService):
         jp["display_name"] = "ep_predict"
         jp["recipe"] = "postprocessing-ep-predict"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug("ep_predict trigger: generated JobID {}".format(jobid))
+        self.log.debug(f"ep_predict trigger: generated JobID {jobid}")
 
         ep_parameters = {
             "program": program,
@@ -238,17 +236,13 @@ class DLSTrigger(CommonService):
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                "ep_predict trigger: generated JobParameterID {}".format(jppid)
-            )
+            self.log.debug(f"ep_predict trigger: generated JobParameterID {jppid}")
 
         jisp["job_id"] = jobid
         jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
-        self.log.debug(
-            "ep_predict trigger: generated JobImageSweepID {}".format(jispid)
-        )
+        self.log.debug(f"ep_predict trigger: generated JobImageSweepID {jispid}")
 
-        self.log.debug("ep_predict trigger: Processing job {} created".format(jobid))
+        self.log.debug(f"ep_predict trigger: Processing job {jobid} created")
 
         message = {
             "parameters": {
@@ -261,7 +255,7 @@ class DLSTrigger(CommonService):
         }
         rw.transport.send("processing_recipe", message)
 
-        self.log.info("ep_predict trigger: Processing job {} triggered".format(jobid))
+        self.log.info(f"ep_predict trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 
@@ -295,7 +289,7 @@ class DLSTrigger(CommonService):
         jp["display_name"] = "mr_predict"
         jp["recipe"] = "postprocessing-mr-predict"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug("mr_predict trigger: generated JobID {}".format(jobid))
+        self.log.debug(f"mr_predict trigger: generated JobID {jobid}")
 
         mr_parameters = {
             "program_id": program_id,
@@ -310,11 +304,9 @@ class DLSTrigger(CommonService):
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                "mr_predict trigger: generated JobParameterID {}".format(jppid)
-            )
+            self.log.debug(f"mr_predict trigger: generated JobParameterID {jppid}")
 
-        self.log.debug("mr_predict trigger: Processing job {} created".format(jobid))
+        self.log.debug(f"mr_predict trigger: Processing job {jobid} created")
 
         message = {
             "parameters": {
@@ -327,7 +319,7 @@ class DLSTrigger(CommonService):
         }
         rw.transport.send("processing_recipe", message)
 
-        self.log.info("mr_predict trigger: Processing job {} triggered".format(jobid))
+        self.log.info(f"mr_predict trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 
@@ -358,7 +350,7 @@ class DLSTrigger(CommonService):
         jp["display_name"] = "screen19_mx"
         jp["recipe"] = "postprocessing-screen19-mx"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug("screen19_mx trigger: generated JobID {}".format(jobid))
+        self.log.debug(f"screen19_mx trigger: generated JobID {jobid}")
 
         screen19_parameters = {
             "program_id": program_id,
@@ -371,11 +363,9 @@ class DLSTrigger(CommonService):
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                "screen19_mx trigger: generated JobParameterID {}".format(jppid)
-            )
+            self.log.debug(f"screen19_mx trigger: generated JobParameterID {jppid}")
 
-        self.log.debug("screen19_mx trigger: Processing job {} created".format(jobid))
+        self.log.debug(f"screen19_mx trigger: Processing job {jobid} created")
 
         message = {
             "parameters": {
@@ -386,7 +376,7 @@ class DLSTrigger(CommonService):
         }
         rw.transport.send("processing_recipe", message)
 
-        self.log.info("screen19_mx trigger: Processing job {} triggered".format(jobid))
+        self.log.info(f"screen19_mx trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 
@@ -428,7 +418,7 @@ class DLSTrigger(CommonService):
         jp["display_name"] = "fast_ep"
         jp["recipe"] = "postprocessing-fast-ep"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug("fast_ep trigger: generated JobID {}".format(jobid))
+        self.log.debug(f"fast_ep trigger: generated JobID {jobid}")
 
         fast_ep_parameters = {
             "check_go_fast_ep": bool(parameters("automatic")),
@@ -442,18 +432,18 @@ class DLSTrigger(CommonService):
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug("fast_ep trigger: generated JobParameterID {}".format(jppid))
+            self.log.debug(f"fast_ep trigger: generated JobParameterID {jppid}")
 
         jisp["job_id"] = jobid
         jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
-        self.log.debug("fast_ep trigger: generated JobImageSweepID {}".format(jispid))
+        self.log.debug(f"fast_ep trigger: generated JobImageSweepID {jispid}")
 
-        self.log.debug("fast_ep trigger: Processing job {} created".format(jobid))
+        self.log.debug(f"fast_ep trigger: Processing job {jobid} created")
 
         message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
         rw.transport.send("processing_recipe", message)
 
-        self.log.info("fast_ep trigger: Processing job {} triggered".format(jobid))
+        self.log.info(f"fast_ep trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 
@@ -481,7 +471,7 @@ class DLSTrigger(CommonService):
         jp["display_name"] = "MrBUMP"
         jp["recipe"] = "postprocessing-mrbump"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug("mrbump trigger: generated JobID {}".format(jobid))
+        self.log.debug(f"mrbump trigger: generated JobID {jobid}")
 
         mrbump_parameters = {
             "hklin": parameters("hklin"),
@@ -494,14 +484,14 @@ class DLSTrigger(CommonService):
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug("fast_ep trigger: generated JobParameterID {}".format(jppid))
+            self.log.debug(f"fast_ep trigger: generated JobParameterID {jppid}")
 
-        self.log.debug("mrbump trigger: Processing job {} created".format(jobid))
+        self.log.debug(f"mrbump trigger: Processing job {jobid} created")
 
         message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
         rw.transport.send("processing_recipe", message)
 
-        self.log.info("mrbump trigger: Processing job {} triggered".format(jobid))
+        self.log.info(f"mrbump trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 
@@ -518,7 +508,7 @@ class DLSTrigger(CommonService):
         jp["display_name"] = "big_ep"
         jp["recipe"] = "postprocessing-big-ep-launcher"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug("big_ep_launcher trigger: generated JobID {}".format(jobid))
+        self.log.debug(f"big_ep_launcher trigger: generated JobID {jobid}")
 
         try:
             program_id = int(parameters("program_id"))
@@ -548,13 +538,9 @@ class DLSTrigger(CommonService):
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                "big_ep_laucher trigger: generated JobParameterID {}".format(jppid)
-            )
+            self.log.debug(f"big_ep_laucher trigger: generated JobParameterID {jppid}")
 
-        self.log.debug(
-            "big_ep_launcher trigger: Processing job {} created".format(jobid)
-        )
+        self.log.debug(f"big_ep_launcher trigger: Processing job {jobid} created")
 
         message = {
             "recipes": [],
@@ -565,9 +551,7 @@ class DLSTrigger(CommonService):
         }
         rw.transport.send("processing_recipe", message)
 
-        self.log.info(
-            "big_ep_launcher trigger: Processing job {} triggered".format(jobid)
-        )
+        self.log.info(f"big_ep_launcher trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 
@@ -813,7 +797,7 @@ class DLSTrigger(CommonService):
         jp["display_name"] = "xia2.multiplex"
         jp["recipe"] = "postprocessing-xia2-multiplex"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug("xia2.multiplex trigger: generated JobID {}".format(jobid))
+        self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")
 
         for d in dcids:
             dc_info = self.ispyb.get_data_collection(d)
@@ -828,7 +812,7 @@ class DLSTrigger(CommonService):
                 list(jisp.values())
             )
             self.log.debug(
-                "xia2.multiplex trigger: generated JobImageSweepID {}".format(jispid)
+                f"xia2.multiplex trigger: generated JobImageSweepID {jispid}"
             )
 
         for files in data_files:
@@ -857,15 +841,11 @@ class DLSTrigger(CommonService):
                 spacegroup,
             )
 
-        self.log.debug(
-            "xia2.multiplex trigger: Processing job {} created".format(jobid)
-        )
+        self.log.debug(f"xia2.multiplex trigger: Processing job {jobid} created")
 
         message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
         rw.transport.send("processing_recipe", message)
 
-        self.log.info(
-            "xia2.multiplex trigger: Processing job {} triggered".format(jobid)
-        )
+        self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

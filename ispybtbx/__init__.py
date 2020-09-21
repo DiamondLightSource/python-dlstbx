@@ -985,7 +985,7 @@ def load_configuration_file(ispyb_info):
             ispyb_info["ispyb_image_directory"], ispyb_info["ispyb_image_template"]
         )
         if prefix in os.path.relpath(image_path, visit_dir):
-            with open(f, "r") as fh:
+            with open(f) as fh:
                 try:
                     return yaml.safe_load(fh)
                 except yaml.YAMLError as exc:
@@ -1002,7 +1002,7 @@ def load_sample_group_config_file(ispyb_info):
         ispyb_info["ispyb_image_directory"], ispyb_info["ispyb_image_template"]
     )
     if os.path.isfile(config_file):
-        with open(config_file, "r") as fh:
+        with open(config_file) as fh:
             try:
                 sample_groups = yaml.safe_load(fh)
             except yaml.YAMLError as exc:

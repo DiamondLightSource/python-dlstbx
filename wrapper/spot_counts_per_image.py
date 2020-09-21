@@ -31,7 +31,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
         # Set up PIA parameters
         parameters = params.get("find_spots")
         if parameters:
-            parameters = ["{k}={v}".format(k=k, v=v) for k, v in parameters.items()]
+            parameters = [f"{k}={v}" for k, v in parameters.items()]
         else:
             parameters = ["d_max=40"]
 
@@ -80,7 +80,7 @@ class SCPIWrapper(zocalo.wrapper.BaseWrapper):
 
             if os.path.exists(filename):
                 dst = os.path.join(results_directory, filename)
-                logger.debug("Copying %s to %s" % (filename, dst))
+                logger.debug(f"Copying {filename} to {dst}")
                 shutil.copy(filename, dst)
                 foundfiles.append(dst)
                 self.record_result_individual_file(

@@ -174,7 +174,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         self.log.info("Creating database entries...")
 
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.info("  JobID={}".format(jobid))
+        self.log.info(f"  JobID={jobid}")
         for key, value in ispyb_params:
             jpp = self.ispyb.mx_processing.get_job_parameter_params()
             # _job_parameter_params = StrictOrderedDict([('id', None), ('job_id', None), ('parameter_key', None), ('parameter_value', None)])
@@ -182,7 +182,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.info("  JPP={}".format(jppid))
+            self.log.info(f"  JPP={jppid}")
 
         for sweep in sweeps:
             jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
@@ -194,9 +194,9 @@ class DLSISPyB(EM_Mixin, CommonService):
             jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
                 list(jisp.values())
             )
-            self.log.info("  JISP={}".format(jispid))
+            self.log.info(f"  JISP={jispid}")
 
-        self.log.info("All done. Processing job {} created".format(jobid))
+        self.log.info(f"All done. Processing job {jobid} created")
 
         triggervariables["ispyb_process"] = jobid
         if parameters("autostart"):
@@ -256,7 +256,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         environment = parameters("environment")
         if isinstance(environment, dict):
             environment = ", ".join(
-                "%s=%s" % (key, value) for key, value in environment.items()
+                f"{key}={value}" for key, value in environment.items()
             )
         rpid = parameters("rpid")
         if rpid and not rpid.isdigit():

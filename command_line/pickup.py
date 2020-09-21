@@ -104,7 +104,7 @@ for f in sorted(file_info, key=lambda f: file_info[f]["priority"], reverse=True)
     )
     os.remove(file_info[f]["filename"])
     count = count + 1
-    print("Done ({count} of {total})".format(count=count, total=file_count))
+    print(f"Done ({count} of {file_count})")
     try:
         time.sleep(options.delay)
     except KeyboardInterrupt:

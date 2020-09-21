@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 import procrunner
 import pytest
 import py.path

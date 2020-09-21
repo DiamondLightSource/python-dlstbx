@@ -44,7 +44,7 @@ def align_crystal(image_files, nproc=None):
         ["dials.refine_bravais_settings", "indexed.expt", "indexed.refl"]
     ):
         return False
-    with open("bravais_summary.json", "r") as f:
+    with open("bravais_summary.json") as f:
         d = json.load(f)
     solutions = {int(k): v for k, v in d.items()}
     for k in solutions:

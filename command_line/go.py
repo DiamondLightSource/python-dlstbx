@@ -186,7 +186,7 @@ if __name__ == "__main__":
     message = {"recipes": options.recipe, "parameters": {}}
     for kv in options.parameters:
         if "=" not in kv:
-            sys.exit("Invalid variable specification '{}'".format(kv))
+            sys.exit(f"Invalid variable specification '{kv}'")
         key, value = kv.split("=", 1)
         message["parameters"][key] = value
 
@@ -199,7 +199,7 @@ if __name__ == "__main__":
         sys.exit("No recipes specified.")
 
     if options.recipefile:
-        with open(options.recipefile, "r") as fh:
+        with open(options.recipefile) as fh:
             custom_recipe = workflows.recipe.Recipe(json.load(fh))
         custom_recipe.validate()
         message["custom_recipe"] = custom_recipe.recipe

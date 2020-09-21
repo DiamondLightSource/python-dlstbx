@@ -89,7 +89,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
         json_file = py.path.local(params["data"])
         try:
             metrics = self.read_anomalous_metrics(json_file, params)
-            fmt_metrix = " ".join(["{:.5f}".format(v) for v in metrics])
+            fmt_metrix = " ".join(f"{v:.5f}" for v in metrics)
         except Exception:
             logger.exception("Error reading input parameters. Aborting.")
             return False

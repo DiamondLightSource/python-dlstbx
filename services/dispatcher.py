@@ -222,7 +222,6 @@ class DLSDispatcher(CommonService):
                     try:
                         with open(
                             os.path.join(self.recipe_basepath, recipefile + ".json"),
-                            "r",
                         ) as rcp:
                             recipes.append(workflows.recipe.Recipe(recipe=rcp.read()))
                     except ValueError as e:

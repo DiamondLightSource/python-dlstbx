@@ -94,7 +94,7 @@ class RLVWrapper(zocalo.wrapper.BaseWrapper):
         for filename in params.get("keep_files", defaultfiles):
             if os.path.exists(filename):
                 dst = os.path.join(results_directory, filename)
-                logger.debug("Copying %s to %s" % (filename, dst))
+                logger.debug(f"Copying {filename} to {dst}")
                 shutil.copy(filename, dst)
                 foundfiles.append(dst)
                 self.record_result_individual_file(

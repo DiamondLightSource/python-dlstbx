@@ -109,8 +109,7 @@ class GraylogAPI:
         messages = True
         while messages:
             messages = self.get_messages(**kwargs)
-            for message in messages:
-                yield message
+            yield from messages
 
     def absolute_histogram(self, from_time=None, level=None, level_op="%3C="):
         if not from_time:
@@ -135,7 +134,7 @@ class GraylogAPI:
         if self.filters:
             query = "({query}) AND ({filters})".format(
                 query=query,
-                filters=" AND ".join("({})".format(f) for f in self.filters),
+                filters=" AND ".join(f"({f})" for f in self.filters),
             )
         return self._get(
             "search/universal/relative?"
@@ -155,7 +154,7 @@ class GraylogAPI:
         if self.filters:
             query = "({query}) AND ({filters})".format(
                 query=query,
-                filters=" AND ".join("({})".format(f) for f in self.filters),
+                filters=" AND ".join(f"({f})" for f in self.filters),
             )
         if not from_time:
             from_time = self.last_seen_timestamp

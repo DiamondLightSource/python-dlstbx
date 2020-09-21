@@ -243,7 +243,7 @@ edna-plugin-launcher \
         params = self.recwrap.recipe_step["job_parameters"]
 
         def behead(cif_in, cif_out):
-            logger.info("Writing modified file %s to %s" % (cif_in, cif_out.strpath))
+            logger.info(f"Writing modified file {cif_in} to {cif_out.strpath}")
             assert os.path.exists(cif_in)
             assert not cif_out.check()
 
@@ -345,7 +345,7 @@ edna-plugin-launcher \
         # suffix = template.split('#')[-1]
         # image_pattern = prefix + fmt + suffix
 
-        logger.info("%s %s:%s" % (image_pattern, image_first, image_last))
+        logger.info(f"{image_pattern} {image_first}:{image_last}")
         for i_image in range(image_first, image_last + 1):
             image_file_name = image_directory.join(image_pattern % i_image)
             output = (
@@ -379,7 +379,7 @@ edna-plugin-launcher \
         for axis in ("chi", "kappa", "omega", "phi"):
             angle = params["strategy"].get(axis)
             if angle is not None:
-                output = output + "<%s><value>%s</value></%s>" % (axis, angle, axis)
+                output = output + f"<{axis}><value>{angle}</value></{axis}>"
 
         # 6) and close
         output = output + "</XSDataInputInterfacev2_2>"

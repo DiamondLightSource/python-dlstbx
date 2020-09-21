@@ -178,7 +178,7 @@ class DLSController(CommonService):
             self.log.debug("New strategy file detected")
             with self._lock:
                 try:
-                    with open(self.strategy_file, "r") as fh:
+                    with open(self.strategy_file) as fh:
                         self._se.update_strategies(json.load(fh))
                     self.log.info("Loaded controller service strategies from file")
 

@@ -161,7 +161,7 @@ def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
             "-p",
             str(v["rpid"]),
             "-s",
-            "path_ext={}".format(path_ext),
+            f"path_ext={path_ext}",
         ]
         print(f"\nTrigger BigEP job: {' '.join(command)}")
 

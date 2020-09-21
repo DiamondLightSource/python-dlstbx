@@ -359,7 +359,7 @@ if __name__ == "__main__":
     if params.output.datablock:
         from dxtbx.datablock import DataBlockDumper
 
-        logger.info("Saving datablocks to {}".format(params.output.datablock))
+        logger.info(f"Saving datablocks to {params.output.datablock}")
         dump = DataBlockDumper(datablocks)
         dump.as_file(params.output.datablock)
 
@@ -371,12 +371,12 @@ if __name__ == "__main__":
         s = StringIO()
         for i, imageset in enumerate(datablock.extract_imagesets()):
             print("Number of centroids per image for imageset %i:" % i, file=s)
-            stats = per_image_analysis.stats_imageset(
+            _stats = per_image_analysis.stats_imageset(
                 imageset,
                 reflections.select(reflections["id"] == i),
                 resolution_analysis=False,
             )
-            per_image_analysis.print_table(stats, out=s)
+            per_image_analysis.print_table(_stats, out=s)
         logger.info(s.getvalue())
 
     # Print the time

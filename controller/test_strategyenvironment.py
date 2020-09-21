@@ -1,6 +1,6 @@
 from itertools import count
 
-import mock
+from unittest import mock
 import pytest
 from dlstbx.controller.strategyenvironment import StrategyEnvironment
 

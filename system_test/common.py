@@ -3,7 +3,7 @@ import logging
 import string
 import uuid
 
-import mock
+from unittest import mock
 
 CollectedTest = collections.namedtuple(
     "CollectedTest", "send, expect, timers, errors, quiet"

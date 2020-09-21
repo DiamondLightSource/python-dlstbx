@@ -28,15 +28,15 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
         mrbump_script = ["#!/bin/bash", ". /etc/profile.d/modules.sh"]
 
         for mdl in module_params:
-            mrbump_script.append("module load {}".format(mdl))
+            mrbump_script.append(f"module load {mdl}")
 
         mrbump_command = [
             "mrbump",
             "hklin {}".format(params["ispyb_parameters"]["hklin"]),
         ]
         for arg, val in cdl_params.items():
-            mrbump_command.append("{} {}".format(arg, val))
-        mrbump_command.append("seqin {}".format(seq_filename))
+            mrbump_command.append(f"{arg} {val}")
+        mrbump_command.append(f"seqin {seq_filename}")
         command_line = " ".join(mrbump_command)
 
         mrbump_script.append(command_line)
@@ -94,9 +94,7 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
         )
         logger.info("command: %s", command)
         stdin_params = params["mrbump"]["stdin"]
-        stdin = (
-            "\n".join(["{} {}".format(k, v) for k, v in stdin_params.items()]) + "\nEND"
-        )
+        stdin = "\n".join(f"{k} {v}" for k, v in stdin_params.items()) + "\nEND"
         logger.info("mrbump stdin: %s", stdin)
 
         with open(os.path.join(working_directory.strpath, "MRBUMP.log"), "w") as fp:

@@ -66,9 +66,7 @@ def parse_shelxc_logs(shelxc_log):
                 )
             msg.update(parse_dict)
         except Exception:
-            logger.debug(
-                "Could not parse {} values from SHELXC log.".format(metric_key)
-            )
+            logger.debug(f"Could not parse {metric_key} values from SHELXC log.")
 
     return msg
 

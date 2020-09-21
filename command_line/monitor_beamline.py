@@ -69,7 +69,7 @@ def dumb_to_value(dumb):
             date_time.strftime("%Y-%m-%d %H:%M:%S"),
         )
     if dumb["_cls"]["_name"] == "SimpleCommandProgress":
-        return "%s: %.1f%%" % (dumb["msg"], dumb["percentDone"])
+        return "{}: {:.1f}%".format(dumb["msg"], dumb["percentDone"])
     if dumb["_cls"]["_name"] == "Progress":
         progress = int(
             math.floor(60 * dumb["currentImage"] / dumb["totalNumberOfImages"])
@@ -126,7 +126,7 @@ def common_listener(beamline, header, message):
     try:
         message = base64.decodestring(json.loads(message)["byte-array"])
     except Exception as e:
-        print_queue.put("%s: Error b64 decoding in %s\n%r" % (beamline, destination, e))
+        print_queue.put(f"{beamline}: Error b64 decoding in {destination}\n{e!r}")
         return
     try:
         jobject = dlstbx.gda_interface.dejava.parse(StringIO.StringIO(message))
@@ -145,7 +145,7 @@ def common_listener(beamline, header, message):
     try:
         value = dumb_to_value(jobject)
         if value is None:
-            print_queue.put("%s: %s\n%s" % (beamline, destination, message))
+            print_queue.put(f"{beamline}: {destination}\n{message}")
             return
         if destination == "/topic/gda.event.timeToRefill":
             value = int(value)
@@ -159,7 +159,7 @@ def common_listener(beamline, header, message):
     if last_shown.get((beamline, destination)) == value:
         return
     last_shown[(beamline, destination)] = value
-    print_queue.put("%s %s %s" % (beamline, destination, value))
+    print_queue.put(f"{beamline} {destination} {value}")
 
 
 def line_printer():

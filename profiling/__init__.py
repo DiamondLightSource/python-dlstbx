@@ -10,7 +10,7 @@ import mysql.connector
 class database:
     def __init__(self):
         _secret_configuration = "/dls_sw/apps/zocalo/secrets/sql-zocalo-profiling.json"
-        _secret_ingredients = json.load(open(_secret_configuration, "r"))
+        _secret_ingredients = json.load(open(_secret_configuration))
 
         self.conn = mysql.connector.connect(
             host=_secret_ingredients["host"],

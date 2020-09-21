@@ -7,6 +7,7 @@ import py
 import json
 from argparse import Namespace
 import getpass
+from pprint import pformat
 from dlstbx.util.big_ep_helpers import (
     write_settings_file,
     read_data,
@@ -223,5 +224,17 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             )
         else:
             logger.debug("Result directory not specified")
+
+        email_message = pformat(
+            {
+                "payload": vars(msg),
+                "fast_ep_data": params["fast_ep_data"],
+                "ispyb_reprocessing_parameters": params["ispyb_parameters"],
+                "diffraction_plan_info": params["diffraction_plan_info"],
+                "protein_info": params["protein_info"],
+                "energy_scan_info": params["energy_scan_info"],
+            }
+        )
+        self.recwrap.send_to("email", email_message)
 
         return True

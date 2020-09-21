@@ -17,12 +17,12 @@ def run_rrdtool(command):
         environment_override={"LD_LIBRARY_PATH": ""},
         print_stdout=False,
     )
-    if result["exitcode"] or result["stderr"]:
+    if result.returncode or result.stderr:
         log.warning(
             "Command rrdtool %s resulted in exitcode %d with error:\n%s",
             command,
-            result["exitcode"],
-            result["stderr"],
+            result.returncode,
+            result.stderr,
         )
     else:
         log.debug("Successfully ran %s", command)
@@ -39,10 +39,9 @@ class RRDFile:
     def _read_last_update(self):
         command = ["info", self.filename]
         result = run_rrdtool(" ".join(command))
-        if result and "stdout" in result:
-            last_update = re.search(b"last_update = ([0-9]+)", result["stdout"])
-            if last_update:
-                return int(last_update.group(1))
+        last_update = re.search(b"last_update = ([0-9]+)", result.stdout)
+        if last_update:
+            return int(last_update.group(1))
         return False
 
     def update(self, data, options=None):
@@ -57,7 +56,7 @@ class RRDFile:
                 last_update = timestamp
         if last_update == self.last_update:  # No relevant update
             return True
-        success = run_rrdtool(" ".join(command))["exitcode"] == 0
+        success = run_rrdtool(" ".join(command)).returncode == 0
         if success:
             self.last_update = last_update
         return success
@@ -82,6 +81,6 @@ class RRDTool:
         if start:
             command.extend(["--start", str(start)])
         command.extend(options)
-        if run_rrdtool(" ".join(command))["exitcode"] == 0:
+        if run_rrdtool(" ".join(command)).returncode == 0:
             return RRDFile(rrdfile)
         return False

@@ -1,0 +1,113 @@
+import os
+import logging
+import zocalo
+import py
+import procrunner
+from argparse import Namespace
+
+from jinja2.environment import Environment
+from jinja2.loaders import PackageLoader
+from jinja2.exceptions import UndefinedError
+from dlstbx.util.big_ep_helpers import (
+    setup_autosharp_jobs,
+    copy_results,
+    send_results_to_ispyb,
+    get_autosharp_model_files,
+)
+
+
+logger = logging.getLogger("dlstbx.wrap.autoSHARP")
+
+
+class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
+    def run(self):
+        assert hasattr(self, "recwrap"), "No recipewrapper object found"
+
+        params = self.recwrap.recipe_step["job_parameters"]
+        self.recwrap.environment.update(params["ispyb_parameters"])
+
+        # Collect parameters from payload and check them
+        payload = self.recwrap.payload
+        assert payload is not None, "Could not find payload"
+        msg = Namespace(**payload)
+
+        working_directory = py.path.local(params["working_directory"])
+        ispyb_working_directory = py.path.local(params["ispyb_working_directory"])
+        ispyb_results_directory = py.path.local(params["ispyb_results_directory"])
+
+        # Create working directory with symbolic link
+        working_directory.ensure(dir=True)
+        if params.get("create_symlink"):
+            big_ep_path = ispyb_working_directory.join("..", "big_ep")
+            big_ep_path.ensure(dir=True)
+            try:
+                symlink_path = big_ep_path.join(msg.datetime_stamp)
+                symlink_path.mksymlinkto(ispyb_working_directory.join("big_ep"))
+            except py.error.EEXIST:
+                logger.debug("Symlink %s already exists", symlink_path.strpath)
+
+        # Create big_ep directory to update status in Synchweb
+        if "devel" not in params:
+            ispyb_results_directory.ensure(dir=True)
+            big_ep_path = ispyb_results_directory.join("..", "big_ep")
+            big_ep_path.ensure(dir=True)
+            if params.get("create_symlink"):
+                symlink_path = big_ep_path.join(msg.datetime_stamp)
+                try:
+                    symlink_path.mksymlinkto(ispyb_results_directory.join("big_ep"))
+                except py.error.EEXIST:
+                    logger.debug("Symlink %s already exists", symlink_path.strpath)
+
+        try:
+            setup_autosharp_jobs(msg, logger)
+        except Exception:
+            logger.exception("Error configuring autoSHARP jobs")
+            return False
+
+        tmpl_env = Environment(
+            loader=PackageLoader("dlstbx.util.big_ep", "big_ep_templates")
+        )
+        autosharp_template = tmpl_env.get_template("autoSHARP.sh")
+        autosharp_script = os.path.join(msg._wd, "run_autoSHARP.sh")
+        with open(autosharp_script, "w") as fp:
+            try:
+                autosharp_input = autosharp_template.render(vars(msg))
+            except UndefinedError:
+                logger.exception("Error rendering autoSHARP script template")
+                return False
+            fp.write(autosharp_input)
+
+        result = procrunner.run(
+            ["sh", autosharp_script],
+            timeout=params.get("timeout"),
+            working_directory=msg._wd,
+        )
+        logger.info("command: %s", " ".join(result["command"]))
+        logger.info("runtime: %s", result["runtime"])
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("autoSHARP successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "autoSHARP failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
+
+        try:
+            get_autosharp_model_files(msg, logger)
+        except Exception:
+            logger.exception("Error reading autoSHARP model files")
+            return False
+
+        if params.get("results_directory"):
+            copy_results(msg._wd, msg._results_wd, logger)
+            return send_results_to_ispyb(
+                msg._results_wd, self.record_result_individual_file, logger
+            )
+        else:
+            logger.debug("Result directory not specified")
+
+        return True

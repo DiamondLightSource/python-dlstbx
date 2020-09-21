@@ -1,0 +1,144 @@
+import logging
+import zocalo
+import procrunner
+
+from jinja2.environment import Environment
+from jinja2.loaders import PackageLoader
+from jinja2.exceptions import UndefinedError
+
+import py
+from dlstbx.util.big_ep_helpers import (
+    copy_results,
+    send_results_to_ispyb,
+    setup_autosol_jobs,
+    get_autobuild_model_files,
+)
+from argparse import Namespace
+import os
+
+
+logger = logging.getLogger("dlstbx.wrap.autobuild")
+
+
+class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
+    def run(self):
+        assert hasattr(self, "recwrap"), "No recipewrapper object found"
+
+        params = self.recwrap.recipe_step["job_parameters"]
+        self.recwrap.environment.update(params["ispyb_parameters"])
+
+        # Collect parameters from payload and check them
+        payload = self.recwrap.payload
+        assert payload is not None, "Could not find payload"
+        msg = Namespace(**payload)
+        msg.workingdir = self.recwrap.recipe_step["parameters"]["workingdir"]
+
+        working_directory = py.path.local(params["working_directory"])
+        ispyb_working_directory = py.path.local(params["ispyb_working_directory"])
+        ispyb_results_directory = py.path.local(params["ispyb_results_directory"])
+
+        # Create working directory with symbolic link
+        working_directory.ensure(dir=True)
+        if params.get("create_symlink"):
+            big_ep_path = ispyb_working_directory.join("..", "big_ep")
+            big_ep_path.ensure(dir=True)
+            try:
+                symlink_path = big_ep_path.join(msg.datetime_stamp)
+                symlink_path.mksymlinkto(ispyb_working_directory.join("big_ep"))
+            except py.error.EEXIST:
+                logger.debug("Symlink %s already exists", symlink_path.strpath)
+
+        # Create big_ep directory to update status in Synchweb
+        if "devel" not in params:
+            ispyb_results_directory.ensure(dir=True)
+            big_ep_path = ispyb_results_directory.join("..", "big_ep")
+            big_ep_path.ensure(dir=True)
+            if params.get("create_symlink"):
+                symlink_path = big_ep_path.join(msg.datetime_stamp)
+                try:
+                    symlink_path.mksymlinkto(ispyb_results_directory.join("big_ep"))
+                except py.error.EEXIST:
+                    logger.debug("Symlink %s already exists", symlink_path.strpath)
+
+        try:
+            setup_autosol_jobs(msg)
+        except Exception:
+            logger.exception("Error configuring autoSol jobs")
+            return False
+
+        tmpl_env = Environment(
+            loader=PackageLoader("dlstbx.util.big_ep", "big_ep_templates")
+        )
+        autosol_template = tmpl_env.get_template("autosol.sh")
+        autosol_script = os.path.join(msg._wd, "run_autosol.sh")
+        with open(autosol_script, "w") as fp:
+            try:
+                autosol_input = autosol_template.render(msg.__dict__)
+            except UndefinedError:
+                logger.exception("Error rendering AutoSol script template")
+                return False
+            fp.write(autosol_input)
+
+        result = procrunner.run(
+            ["sh", autosol_script],
+            timeout=params.get("timeout"),
+            working_directory=msg._wd,
+        )
+        logger.info("command: %s", " ".join(result["command"]))
+        logger.info("runtime: %s", result["runtime"])
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("AutoSol successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "AutoSol failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
+
+        autobuild_template = tmpl_env.get_template("autobuild.sh")
+        autobuild_script = os.path.join(msg._wd, "run_autobuild.sh")
+        with open(autobuild_script, "w") as fp:
+            try:
+                autobuild_input = autobuild_template.render(msg.__dict__)
+            except UndefinedError:
+                logger.exception("Error rendering AutoBuild script template")
+                return False
+            fp.write(autobuild_input)
+
+        result = procrunner.run(
+            ["sh", autobuild_script],
+            timeout=params.get("timeout"),
+            working_directory=msg._wd,
+        )
+        logger.info("command: %s", " ".join(result["command"]))
+        logger.info("runtime: %s", result["runtime"])
+        success = not result["exitcode"] and not result["timeout"]
+        if success:
+            logger.info("AutoBuild successful, took %.1f seconds", result["runtime"])
+        else:
+            logger.info(
+                "AutoBuild failed with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+            logger.debug(result["stdout"])
+            logger.debug(result["stderr"])
+
+        try:
+            get_autobuild_model_files(msg, logger)
+        except Exception:
+            logger.exception("Error reading AutoBuild results")
+            return False
+
+        if params.get("results_directory"):
+            copy_results(msg._wd, msg._results_wd, logger)
+            return send_results_to_ispyb(
+                msg._results_wd, self.record_result_individual_file, logger
+            )
+        else:
+            logger.debug("Result directory not specified")
+
+        return True

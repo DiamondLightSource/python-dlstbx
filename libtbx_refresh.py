@@ -63,9 +63,12 @@ for _, name, _ in pkgutil.iter_modules(dlstbx.services.__path__):
 
 known_wrappers = [  # please keep alphabetically sorted
     "align_crystal = dlstbx.wrapper.dlstbx_align_crystal:AlignCrystalWrapper",
+    "autobuild = dlstbx.wrapper.autobuild:AutoBuildWrapper",
+    "autosharp = dlstbx.wrapper.autoSHARP:autoSHARPWrapper",
     "autoproc = dlstbx.wrapper.autoPROC:autoPROCWrapper",
     "big_ep = dlstbx.wrapper.big_ep:BigEPWrapper",
     "big_ep_report = dlstbx.wrapper.big_ep_report:BigEPReportWrapper",
+    "crank2 = dlstbx.wrapper.crank2:Crank2Wrapper",
     "dc_sim = dlstbx.wrapper.dc_sim:DCSimWrapper",
     "dimple = dlstbx.wrapper.dimple:DimpleWrapper",
     "dozor = dlstbx.wrapper.dozor:DozorWrapper",

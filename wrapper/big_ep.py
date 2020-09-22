@@ -129,13 +129,16 @@ def bootstrap_pipeline(params, working_directory, results_directory, logger):
 def setup_big_ep_jobs(msg):
     """Create a directory to run big_ep"""
 
-    msg._root_wd = os.path.join(msg._root_wd, "_".join(["big_ep", msg.datetime_stamp]))
-    msg._results_wd = os.path.join(
-        msg._results_wd, "_".join(["big_ep", msg.datetime_stamp])
-    )
+    msg._root_wd = os.path.join(msg._root_wd, f"big_ep_{msg.datetime_stamp}")
+
     msg._wd = msg._root_wd
     if not os.path.exists(msg._wd):
         os.makedirs(msg._wd)
+
+    msg.synchweb_ticks = os.path.join(
+        msg._results_wd, f"big_ep_{msg.datetime_stamp}.log"
+    )
+    msg._results_wd = os.path.join(msg._results_wd, f"big_ep_{msg.datetime_stamp}")
     return msg
 
 

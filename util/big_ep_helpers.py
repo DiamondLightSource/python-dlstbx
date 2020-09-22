@@ -329,7 +329,7 @@ def get_autosharp_model_files(msg, logger):
                             mdl_dict["mapcc_dmin"] = mapcc_dmin
 
                         msg.model = mdl_dict
-                        ispyb_write_model_json(msg)
+                        ispyb_write_model_json(msg, logger)
                         return msg
                     except Exception:
                         logger.exception("autoSHARP results parsing error")
@@ -381,7 +381,7 @@ def get_autobuild_model_files(msg, logger):
             mdl_dict["mapcc_dmin"] = mapcc_dmin
 
         msg.model = mdl_dict
-        ispyb_write_model_json(msg)
+        ispyb_write_model_json(msg, logger)
     except Exception:
         logger.info("Cannot process AutoBuild results files")
     return msg
@@ -454,7 +454,7 @@ def get_crank2_model_files(msg, logger):
             mdl_dict["mapcc_dmin"] = mapcc_dmin
 
         msg.model = mdl_dict
-        ispyb_write_model_json(msg)
+        ispyb_write_model_json(msg, logger)
 
     except Exception:
         logger.info("Cannot process crank2 results files")
@@ -512,11 +512,22 @@ def write_coot_script(working_directory, logger):
         )
 
 
-def ispyb_write_model_json(msg):
+def ispyb_write_model_json(msg, logger):
 
     json_data = json.dumps(msg.model, indent=4, separators=(",", ":"))
     with open(os.path.join(msg._wd, "big_ep_model_ispyb.json"), "w") as json_file:
         json_file.write(json_data)
+    try:
+        if os.path.isfile(msg.synchweb_ticks):
+            fp = open(msg.synchweb_ticks, "a")
+        else:
+            fp = open(msg.synchweb_ticks, "w")
+            fp.write("Legacy log file to update ap_status in SynchWeb\n")
+        fp.write("Results for Residues")
+        fp.write(json_data)
+        fp.close()
+    except IOError:
+        logger.exception("Error creating legacy log file for SynchWeb")
     write_coot_script(msg._wd)
 
 

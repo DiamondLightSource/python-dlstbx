@@ -11,7 +11,7 @@ cat > .autoSHARP << EOF
   autoSHARP_jobi="0"
   autoSHARP_titl="autoSHARP processing run by big_ep"
   autoSHARP_type="MAD"
-  autoSHARP_rate="1"
+  autoSHARP_rate="5"
 {% if seqin %}
   autoSHARP_pirf="{{ seqin_filename }}"
 {% elif nres %}

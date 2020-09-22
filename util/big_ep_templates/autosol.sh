@@ -34,7 +34,7 @@ autosol {
   }
 
   general {
-    thoroughness = quick
+    thoroughness = thorough
     nbatch = 8
     nproc = 8
     background = True
@@ -42,16 +42,5 @@ autosol {
   }
 }
 EOF
-
-#mtzutils hklin1 {{ autosol_hklin }} hklout mtzutils_out.mtz > mtzutils.log << EOF
-#EXCLUDE 1 DANO
-#EXCLUDE 1 SIGDANO
-#RUN
-#EOF
-
-#phenix.reflection_file_converter {{ autosol_hklin }} --mtz=phenix_input.mtz --label='I(+),SIGI(+),I(-),SIGI(-)' > reflection_converter.log
-
-mkdir -p ${AUTOSOL_TEMP}
-chmod 0700 ${AUTOSOL_TEMP}
 
 phenix.autosol autosol.eff > phenix_autosol.log

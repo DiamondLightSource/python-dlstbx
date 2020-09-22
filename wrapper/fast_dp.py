@@ -1,5 +1,6 @@
 import json
 import logging
+import subprocess
 
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
@@ -146,28 +147,33 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
 
         # run fast_dp in working directory
         logger.info("command: %s", " ".join(command))
-        result = procrunner.run(
-            command,
-            timeout=params.get("timeout"),
-            working_directory=working_directory.strpath,
-            environment_override=environment,
-        )
-
-        if working_directory.join("fast_dp.error").check():
-            # fast_dp anomaly: exit code 0 and no stderr output still means failure if error file exists
-            result["exitcode"] = 1
-
-        success = not result["exitcode"] and not result["timeout"]
-        if success:
-            logger.info("fast_dp successful, took %.1f seconds", result["runtime"])
-        else:
-            logger.info(
-                "fast_dp failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
+        try:
+            result = procrunner.run(
+                command,
+                timeout=params.get("timeout"),
+                working_directory=working_directory,
+                environment_override=environment,
+                raise_timeout_exceptions=True,
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            success = not result.returncode
+            if success:
+                logger.info("fast_dp successful, took %.1f seconds", result["runtime"])
+            else:
+                logger.info(f"fast_dp failed with exitcode {result.returncode}")
+                logger.debug(result.stdout)
+                logger.debug(result.stderr)
+        except subprocess.TimeoutExpired as te:
+            logger.info("fast_dp failed with timeout")
+            logger.debug(te.stdout)
+            logger.debug(te.stderr)
+            success = False
+
+        if success and working_directory.join("fast_dp.error").check():
+            # fast_dp anomaly: exit code 0 and no stderr output still means failure if error file exists
+            success = False
+            logger.warning("fast_dp exited with error, but with returncode 0")
+            logger.debug(result.stdout)
+            logger.debug(result.stderr)
 
         if success:
             command = [
@@ -182,9 +188,9 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             result = procrunner.run(
                 command,
                 timeout=params.get("timeout"),
-                working_directory=working_directory.strpath,
+                working_directory=working_directory,
             )
-            success = not result["exitcode"] and not result["timeout"]
+            success = not result.returncode and not result["timeout"]
             if success:
                 logger.info(
                     "xia2.report successful, took %.1f seconds", result["runtime"]
@@ -192,11 +198,11 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             else:
                 logger.info(
                     "xia2.report failed with exitcode %s and timeout %s",
-                    result["exitcode"],
+                    result.returncode,
                     result["timeout"],
                 )
-                logger.debug(result["stdout"])
-                logger.debug(result["stderr"])
+                logger.debug(result.stdout)
+                logger.debug(result.stderr)
 
             json_file = working_directory.join("iotbx-merging-stats.json")
             with json_file.open("w") as fh:

@@ -3,7 +3,7 @@ import shutil
 
 from cctbx.eltbx import sasaki, henke
 from iotbx import mtz
-from iotbx.bioinformatics import sequence
+from iotbx.bioinformatics import fasta_sequence
 import libtbx.load_env
 from cctbx.sgtbx import space_group_symbols
 
@@ -102,7 +102,11 @@ def get_heavy_atom_job(msg):
     n_ops = len(sg.all_ops())
     v_asu = uc.volume() / n_ops
     mw = v_asu / 2.7
-    nres = int(mw / 110)
+    try:
+        msg.nres = len(msg.sequence)
+    except TypeError:
+        msg.nres = int(mw / 110)
+        msg.sequence = "A" * msg.nres
 
     msg._wd = os.path.join(
         msg._wd, "_".join([msg.atom, str(msg.nsites), msg.spacegroup])
@@ -113,12 +117,6 @@ def get_heavy_atom_job(msg):
     msg._root_wd = msg._wd
     if not os.path.exists(msg._wd):
         os.makedirs(msg._wd)
-
-    if not msg.seqin:
-        msg.nres = nres
-    else:
-        with open(msg.seqin, "r") as seq_file:
-            msg.nres = len(sequence(seq_file.readlines()))
 
     return msg
 
@@ -243,13 +241,6 @@ def read_mtz_datasets(msg, logger):
 
 def write_settings_file(msg):
 
-    sequence_data = "N/A"
-    if msg.seqin:
-        with open(msg.seqin, "r") as f:
-            sequence_data = f.read()
-    elif msg.nres:
-        sequence_data = os.linesep.join([">polyala", "A" * msg.nres])
-
     json_data = json.dumps(
         {
             "atom": msg.atom,
@@ -257,7 +248,7 @@ def write_settings_file(msg):
             "spacegroup": msg.spacegroup,
             "nsites": msg.nsites,
             "compound": "Protein",
-            "sequence": sequence_data,
+            "sequence": msg.sequence,
         },
         indent=4,
         separators=(",", ":"),
@@ -276,18 +267,12 @@ def setup_autosharp_jobs(msg, logger):
     if not os.path.exists(msg._wd):
         os.makedirs(msg._wd)
 
+    write_sequence_file(msg)
+
     if hasattr(msg, "spacegroup"):
         msg.spacegroup = spacegroup_short(msg.spacegroup, logger)
 
-    copy_files = (name for name in (msg.hklin, msg.seqin) if name)
-    dest_files = (
-        os.path.join(msg._wd, name)
-        for name in (os.path.basename(msg.hklin), msg.seqin_filename)
-        if name
-    )
-    for (src, dest) in zip(copy_files, dest_files):
-        logger.info(f"Copy from {src} to {dest}")
-        shutil.copyfile(src, dest)
+    shutil.copyfile(msg.hklin, os.path.join(msg._wd, os.path.basename(msg.hklin)))
 
     return msg
 
@@ -339,6 +324,14 @@ def get_autosharp_model_files(msg, logger):
         return None
 
 
+def write_sequence_file(msg):
+    msg.seqin_filename = "sequence.fasta"
+    msg.seqin = os.path.join(msg._wd, msg.seqin_filename)
+
+    with open(msg.seqin, "w") as fp:
+        fp.write(fasta_sequence(msg.sequence).format(80))
+
+
 def setup_autosol_jobs(msg):
     """Setup working directory for running Phenix AutoSol pipeline"""
 
@@ -347,12 +340,7 @@ def setup_autosol_jobs(msg):
     if not os.path.exists(msg._wd):
         os.makedirs(msg._wd)
 
-    if not msg.seqin and msg.nres:
-        polyala_seq = os.linesep.join([">polyala", "A" * msg.nres])
-        msg.seqin = os.path.join(msg._wd, "polyala.fasta")
-        msg.seqin_filename = os.path.basename(msg.seqin)
-        with open(msg.seqin, "w") as seq_file:
-            seq_file.write(polyala_seq)
+    write_sequence_file(msg)
 
     msg.autosol_hklin = os.path.join(msg._wd, os.path.basename(msg.hklin))
     shutil.copyfile(msg.hklin, msg.autosol_hklin)
@@ -412,14 +400,7 @@ def setup_crank2_jobs(msg):
 
     msg.enableArpWarp = False  # (msg.data.d_min() < 2.5)
 
-    if not msg.seqin and msg.nres:
-        polyala_seq = os.linesep.join([">polyala", "A" * msg.nres])
-        msg.seqin = os.path.join(msg._wd, "polyala.fasta")
-        msg.seqin_filename = os.path.basename(msg.seqin)
-        with open(msg.seqin, "w") as seq_file:
-            seq_file.write(polyala_seq)
-
-        msg.enableArpWarp = False
+    write_sequence_file(msg)
 
     return msg
 

@@ -29,27 +29,17 @@ def get_bigep_parameters(big_ep_params, working_directory, logger):
         msg_default.update({"hklin": abs_hklin_path})
 
         try:
-            sequence = big_ep_params["protein_info"]["sequence"]
-            if sequence:
-                seq_filename = os.path.join(
-                    working_directory, "seq_{}.fasta".format(dcid)
-                )
-                from iotbx.bioinformatics import fasta_sequence
-
-                with open(seq_filename, "w") as fp:
-                    fp.write(fasta_sequence(sequence).format(80))
-                msg_default.update(
-                    {"seqin": working_directory, "seqin_filename": seq_filename}
-                )
+            msg_default["sequence"] = big_ep_params["protein_info"]["sequence"]
         except Exception:
-            logger.debug("Cannot read protein sequence information for dcid %s", dcid)
+            logger.debug(f"Cannot read protein sequence information for dcid {dcid}")
+            msg_default["sequence"] = None
 
         try:
             msg_default["atom"] = big_ep_params["diffraction_plan_info"][
                 "anomalousscatterer"
             ]
         except Exception:
-            logger.debug("Anomalous scatterer info for dcid %s not available", dcid)
+            logger.debug(f"Anomalous scatterer info for dcid {dcid} not available")
 
     with open(big_ep_params["fast_ep_data"]) as fp:
         fast_ep_data = json.load(fp)
@@ -78,27 +68,6 @@ def get_bigep_parameters(big_ep_params, working_directory, logger):
         datasets.append(tmp_dict)
     msg_default["datasets"] = datasets
 
-    try:
-        sequence = big_ep_params["protein_info"]["sequence"]
-        if sequence:
-            seq_filename = os.path.join(
-                big_ep_params["working_directory"], "seq_{}.fasta".format(dcid)
-            )
-            from iotbx.bioinformatics import fasta_sequence
-
-            with open(seq_filename, "w") as fp:
-                fp.write(fasta_sequence(sequence).format(80))
-            msg_default["seq_file"] = seq_filename
-    except Exception:
-        logger.debug("Cannot read protein sequence information for dcid %s", dcid)
-
-    try:
-        msg_default["atom_type"] = big_ep_params["diffraction_plan_info"][
-            "anomalousscatterer"
-        ]
-    except Exception:
-        logger.debug("Anomalous scatterer info for dcid %s not available", dcid)
-
     return msg_default
 
 
@@ -117,8 +86,6 @@ def bootstrap_pipeline(params, working_directory, results_directory, logger):
             "phenix_module": params["phenix_module"],
             "ccp4_module": params["ccp4_module"],
             "crank2_bin": params["crank2_bin"],
-            "seqin": None,
-            "seqin_filename": None,
         }
     )
 
@@ -183,6 +150,9 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
                 params, working_directory.strpath, results_directory.strpath, logger
             )
             msg.datetime_stamp = dt_stamp
+            msg.cluster_project = self.recwrap.recipe_step["parameters"][
+                "cluster_project"
+            ]
         except Exception:
             logger.exception("Error reading big_ep parameters")
             return False

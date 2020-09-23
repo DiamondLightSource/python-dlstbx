@@ -452,9 +452,7 @@ def get_map_model_from_json(json_path, logger):
         result.update({k: msg_json[k] for k in ["pdb", "map", "mtz"]})
         return result
     except Exception:
-        logger.debug(
-            "Couldn't read map/model data from %s", abs_json_path, exc_info=True
-        )
+        logger.warning(f"Couldn't read map/model data from {abs_json_path}")
 
 
 def write_coot_script(working_directory, logger):
@@ -465,9 +463,10 @@ def write_coot_script(working_directory, logger):
     ]
 
     try:
-        fp = get_map_model_from_json(working_directory)
+        fp = get_map_model_from_json(working_directory, logger)
     except Exception:
         logger.warning("Cannot read big_ep summary json file")
+        return
     if os.path.isfile(fp["pdb"]):
         coot_script.append(
             'read_pdb("{}")'.format(os.path.relpath(fp["pdb"], working_directory))
@@ -509,7 +508,8 @@ def ispyb_write_model_json(msg, logger):
         fp.close()
     except IOError:
         logger.exception("Error creating legacy log file for SynchWeb")
-    write_coot_script(msg._wd)
+
+    write_coot_script(msg._wd, logger)
 
 
 def copy_results(working_directory, results_directory, logger):

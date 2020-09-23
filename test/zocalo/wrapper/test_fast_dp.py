@@ -164,6 +164,7 @@ def test_FastDPWrapper(make_wrapper, tmpdir, mocker):
                 "--resolution-high=1.8",
             ],
             environment_override={},
+            raise_timeout_exception=True,
             timeout=None,
             working_directory=working_directory.strpath,
         ),

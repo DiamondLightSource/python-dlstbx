@@ -69,11 +69,9 @@ class WrapperWrapper:
             "dlstbx.util.symlink.create_parent_symlink", autospec=True
         )
         self._mock_procrunner = mocker.patch.object(procrunner, "run", autospec=True)
-        self._mock_procrunner.return_value = {
-            "timeout": None,
-            "exitcode": 0,
-            "runtime": 10,
-        }
+        self._mock_procrunner.return_value = procrunner.ReturnObject(
+            exitcode=0, runtime=10, timeout=None
+        )
         self._mock_ensure = mocker.patch.object(py.path.local, "ensure", autospec=True)
         self._mock_ensure.return_value = True
         self._mock_copy = mocker.patch.object(py.path.local, "copy", autospec=True)

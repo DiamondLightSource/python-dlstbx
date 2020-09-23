@@ -153,7 +153,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
                 timeout=params.get("timeout"),
                 working_directory=working_directory,
                 environment_override=environment,
-                raise_timeout_exceptions=True,
+                raise_timeout_exception=True,
             )
             success = not result.returncode
             if success:

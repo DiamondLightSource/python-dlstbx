@@ -447,7 +447,7 @@ class DLSController(CommonService):
         )
         # Trying to start jobs can be very time intensive, ensure the master status is not lost during balancing
         self.self_check()
-        return result.get("exitcode") == 0
+        return result.returncode == 0
 
     def launch_testcluster(self, **kwargs):
         kwargs["cluster"] = "testcluster"

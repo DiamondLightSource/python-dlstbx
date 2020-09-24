@@ -16,33 +16,31 @@ class ActiveMQAPI:
         # List of supported variables:
         # curl -XGET --user rrdapi:**password** http://cs04r-sc-vserv-69:80/api/jolokia/list | python -m json.tool
 
+    def _query(self, **kwargs):
+        result = self.jmx.org.apache.activemq(**kwargs)
+        if result["status"] != 200:
+            raise RuntimeError(f"ActiveMQ responded with {result}")
+        return result["value"]
+
     def getStorePercentUsage(self):
-        result = self.jmx.org.apache.activemq(
+        return self._query(
             type="Broker", brokerName="localhost", attribute="StorePercentUsage"
         )
-        assert result["status"] == 200
-        return result["value"]
 
     def getTempPercentUsage(self):
-        result = self.jmx.org.apache.activemq(
+        return self._query(
             type="Broker", brokerName="localhost", attribute="TempPercentUsage"
         )
-        assert result["status"] == 200
-        return result["value"]
 
     def getMemoryPercentUsage(self):
-        result = self.jmx.org.apache.activemq(
+        return self._query(
             type="Broker", brokerName="localhost", attribute="MemoryPercentUsage"
         )
-        assert result["status"] == 200
-        return result["value"]
 
     def getConnectionsCount(self):
-        result = self.jmx.org.apache.activemq(
+        return self._query(
             type="Broker", brokerName="localhost", attribute="CurrentConnectionsCount"
         )
-        assert result["status"] == 200
-        return result["value"]
 
     @property
     def _VMMemoryInfo(self):
@@ -79,15 +77,13 @@ class ActiveMQAPI:
         return self._VMMemoryInfo["NonHeapMemoryUsage"]["used"]
 
     def getMimasHeldQueueSize(self):
-        retval = self.jmx.org.apache.activemq(
+        return self._query(
             type="Broker",
             brokerName="localhost",
             destinationType="Queue",
             destinationName="zocalo.mimas.held",
             attribute="QueueSize",
         )
-        assert retval["status"] == 200, "Error reading from ActiveMQ"
-        return retval["value"]
 
 
 class ActiveMQRRD:

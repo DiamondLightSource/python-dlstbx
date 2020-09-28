@@ -142,4 +142,4 @@ def check():
 if __name__ == "__main__":
     actions = check()
     if actions:
-        subprocess.run(["conda", "install", *actions, *sys.argv[1:]])
+        subprocess.run(["conda", "install", *actions, *sys.argv[1:]], check=True)

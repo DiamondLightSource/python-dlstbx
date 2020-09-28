@@ -523,11 +523,16 @@ class DLSTrigger(CommonService):
                 "big_ep_launcher trigger failed: No input data file specified"
             )
             return False
+        pipeline = parameters("pipeline")
+        if not pipeline:
+            self.log.error("big_ep_launcher trigger failed: No pipeline specified")
+            return False
         path_ext = parameters("path_ext")
         if not path_ext:
             path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         big_ep_parameters = {
+            "pipeline": pipeline,
             "program_id": program_id,
             "data": data,
         }
@@ -546,7 +551,9 @@ class DLSTrigger(CommonService):
             "recipes": [],
             "parameters": {
                 "ispyb_process": jobid,
+                "pipeline": pipeline,
                 "path_ext": path_ext,
+                "msg": rw.payload,
             },
         }
         rw.transport.send("processing_recipe", message)

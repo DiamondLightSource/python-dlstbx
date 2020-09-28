@@ -24,22 +24,24 @@ def get_bigep_parameters(big_ep_params, working_directory, logger):
 
     dcid = big_ep_params["dcid"]
     msg_default = {}
-    if big_ep_params.get("ispyb_parameters") is not None:
+    if big_ep_params.get("ispyb_parameters"):
         abs_hklin_path = os.path.abspath(big_ep_params["ispyb_parameters"]["data"])
-        msg_default.update({"hklin": abs_hklin_path})
+    else:
+        abs_hklin_path = os.path.abspath(big_ep_params["data"])
+    msg_default.update({"hklin": abs_hklin_path})
 
-        try:
-            msg_default["sequence"] = big_ep_params["protein_info"]["sequence"]
-        except Exception:
-            logger.debug(f"Cannot read protein sequence information for dcid {dcid}")
-            msg_default["sequence"] = None
+    try:
+        msg_default["sequence"] = big_ep_params["protein_info"]["sequence"]
+    except Exception:
+        logger.debug(f"Cannot read protein sequence information for dcid {dcid}")
+        msg_default["sequence"] = None
 
-        try:
-            msg_default["atom"] = big_ep_params["diffraction_plan_info"][
-                "anomalousscatterer"
-            ]
-        except Exception:
-            logger.debug(f"Anomalous scatterer info for dcid {dcid} not available")
+    try:
+        msg_default["atom"] = big_ep_params["diffraction_plan_info"][
+            "anomalousscatterer"
+        ]
+    except Exception:
+        logger.debug(f"Anomalous scatterer info for dcid {dcid} not available")
 
     with open(big_ep_params["fast_ep_data"]) as fp:
         fast_ep_data = json.load(fp)
@@ -114,7 +116,8 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
-        self.recwrap.environment.update(params["ispyb_parameters"])
+        if params.get("ispyb_parameters"):
+            self.recwrap.environment.update(params["ispyb_parameters"])
 
         working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])
@@ -201,7 +204,6 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
         email_message = pformat(
             {
                 "payload": vars(msg),
-                "fast_ep_data": params["fast_ep_data"],
                 "ispyb_reprocessing_parameters": params["ispyb_parameters"],
                 "diffraction_plan_info": params["diffraction_plan_info"],
                 "protein_info": params["protein_info"],

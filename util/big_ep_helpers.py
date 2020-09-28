@@ -259,13 +259,13 @@ def write_settings_file(msg):
     return msg
 
 
-def setup_autosharp_jobs(msg, logger):
+def setup_autosharp_jobs(msg, working_directory, results_directory, logger):
     """Setup input directory to run autoSHARP."""
 
     msg._wd = os.path.join(msg._wd, "autoSHARP")
     msg._results_wd = os.path.join(msg._results_wd, "autoSHARP")
-    if not os.path.exists(msg._wd):
-        os.makedirs(msg._wd)
+    os.symlink(working_directory, msg._wd)
+    os.symlink(results_directory, msg._results_wd)
 
     write_sequence_file(msg)
 
@@ -332,11 +332,13 @@ def write_sequence_file(msg):
         fp.write(fasta_sequence(msg.sequence).format(80))
 
 
-def setup_autosol_jobs(msg):
+def setup_autosol_jobs(msg, working_directory, results_directory):
     """Setup working directory for running Phenix AutoSol pipeline"""
 
     msg._wd = os.path.join(msg._wd, "AutoSol")
     msg._results_wd = os.path.join(msg._results_wd, "AutoSol")
+    os.symlink(working_directory, msg._wd)
+    os.symlink(results_directory, msg._results_wd)
     if not os.path.exists(msg._wd):
         os.makedirs(msg._wd)
 
@@ -375,10 +377,11 @@ def get_autobuild_model_files(msg, logger):
     return msg
 
 
-def setup_pointless_jobs(msg):
+def setup_pointless_jobs(msg, working_directory):
     """Update spacegroup in the input mtz file"""
 
     msg._wd = os.path.join(msg._root_wd, "pointless")
+    os.symlink(working_directory, msg._wd)
     if not os.path.exists(msg._wd):
         os.makedirs(msg._wd)
 
@@ -390,13 +393,13 @@ def setup_pointless_jobs(msg):
     return msg
 
 
-def setup_crank2_jobs(msg):
+def setup_crank2_jobs(msg, working_directory, results_directory):
     """Setup directory to run Crank2 pipeline"""
 
     msg._wd = os.path.join(msg._root_wd, "crank2")
     msg._results_wd = os.path.join(msg._results_wd, "crank2")
-    if not os.path.exists(msg._wd):
-        os.makedirs(msg._wd)
+    os.symlink(working_directory, msg._wd)
+    os.symlink(results_directory, msg._results_wd)
 
     msg.enableArpWarp = False  # (msg.data.d_min() < 2.5)
 

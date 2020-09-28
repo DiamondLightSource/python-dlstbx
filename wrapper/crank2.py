@@ -16,6 +16,7 @@ from dlstbx.util.big_ep_helpers import (
     copy_results,
     send_results_to_ispyb,
 )
+from dlstbx.util.symlink import create_parent_symlink
 
 logger = logging.getLogger("dlstbx.wrap.crank2")
 
@@ -28,39 +29,25 @@ class Crank2Wrapper(zocalo.wrapper.BaseWrapper):
         self.recwrap.environment.update(params["ispyb_parameters"])
 
         # Collect parameters from payload and check them
-        payload = self.recwrap.payload
-        assert payload is not None, "Could not find payload"
-        msg = Namespace(**payload)
+        msg = Namespace(**params["msg"])
 
         working_directory = py.path.local(params["working_directory"])
-        ispyb_working_directory = py.path.local(params["ispyb_working_directory"])
-        ispyb_results_directory = py.path.local(params["ispyb_results_directory"])
+        results_directory = py.path.local(params["results_directory"])
 
         # Create working directory with symbolic link
+        ppl = params["create_symlink"].replace("/", "-")
         working_directory.ensure(dir=True)
         if params.get("create_symlink"):
-            big_ep_path = ispyb_working_directory.join("..", "big_ep")
-            big_ep_path.ensure(dir=True)
-            try:
-                symlink_path = big_ep_path.join(msg.datetime_stamp)
-                symlink_path.mksymlinkto(ispyb_working_directory.join("big_ep"))
-            except py.error.EEXIST:
-                logger.debug("Symlink %s already exists", symlink_path.strpath)
+            create_parent_symlink(working_directory.strpath, f"crank2-{ppl}")
 
         # Create big_ep directory to update status in Synchweb
         if "devel" not in params:
-            ispyb_results_directory.ensure(dir=True)
-            big_ep_path = ispyb_results_directory.join("..", "big_ep")
-            big_ep_path.ensure(dir=True)
+            results_directory.ensure(dir=True)
             if params.get("create_symlink"):
-                symlink_path = big_ep_path.join(msg.datetime_stamp)
-                try:
-                    symlink_path.mksymlinkto(ispyb_results_directory.join("big_ep"))
-                except py.error.EEXIST:
-                    logger.debug("Symlink %s already exists", symlink_path.strpath)
+                create_parent_symlink(results_directory.strpath, f"crank2-{ppl}")
 
         try:
-            setup_pointless_jobs(msg)
+            setup_pointless_jobs(msg, working_directory)
         except Exception:
             logger.exception("Error configuring pointless jobs")
             return False
@@ -97,7 +84,7 @@ class Crank2Wrapper(zocalo.wrapper.BaseWrapper):
             logger.debug(result["stderr"])
 
         try:
-            setup_crank2_jobs(msg)
+            setup_crank2_jobs(msg, working_directory, results_directory)
         except Exception:
             logger.exception("Error configuring crank2 jobs")
             return False

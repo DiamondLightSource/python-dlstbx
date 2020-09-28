@@ -656,6 +656,8 @@ class DLSTrigger(CommonService):
         message = {
             "parameters": {
                 "ispyb_process": jobid,
+                "program_id": program_id,
+                "data": data,
                 "scaled_unmerged_mtz": scaled_unmerged_mtz,
                 "path_ext": path_ext,
             },

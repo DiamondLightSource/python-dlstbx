@@ -500,12 +500,16 @@ class DLSTrigger(CommonService):
         if not dcid:
             self.log.error("big_ep_launcher trigger failed: No DCID specified")
             return False
+        pipeline = parameters("pipeline")
+        if not pipeline:
+            self.log.error("big_ep_launcher trigger failed: No pipeline specified")
+            return False
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = bool(parameters("automatic"))
         jp["comments"] = parameters("comment")
         jp["datacollectionid"] = dcid
-        jp["display_name"] = "big_ep"
+        jp["display_name"] = pipeline
         jp["recipe"] = "postprocessing-big-ep-launcher"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep_launcher trigger: generated JobID {jobid}")
@@ -522,10 +526,6 @@ class DLSTrigger(CommonService):
             self.log.error(
                 "big_ep_launcher trigger failed: No input data file specified"
             )
-            return False
-        pipeline = parameters("pipeline")
-        if not pipeline:
-            self.log.error("big_ep_launcher trigger failed: No pipeline specified")
             return False
         path_ext = parameters("path_ext")
         if not path_ext:
@@ -628,15 +628,38 @@ class DLSTrigger(CommonService):
         if not path_ext:
             path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = bool(parameters("automatic"))
+        jp["comments"] = parameters("comment")
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "big_ep"
+        jp["recipe"] = "postprocessing-big-ep"
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"big_ep trigger: generated JobID {jobid}")
+
+        big_ep_parameters = {
+            "program_id": program_id,
+            "data": data,
+            "scaled_unmerged_mtz": scaled_unmerged_mtz,
+        }
+
+        for key, value in big_ep_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(f"big_ep trigger: generated JobParameterID {jppid}")
+
+        self.log.debug(f"big_ep trigger: Processing job {jobid} created")
+
         message = {
             "parameters": {
-                "program_id": program_id,
-                "ispyb_dcid": dcid,
-                "data": data,
+                "ispyb_process": jobid,
                 "scaled_unmerged_mtz": scaled_unmerged_mtz,
                 "path_ext": path_ext,
             },
-            "recipes": ["postprocessing-big-ep"],
+            "recipes": [],
         }
         rw.transport.send("processing_recipe", message)
 

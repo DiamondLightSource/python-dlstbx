@@ -259,6 +259,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
                 ".hkl": "result",
                 ".html": "log",
                 ".ins": "result",
+                ".json": "result",
                 ".lst": "log",
                 ".mtz": "result",
                 ".pdb": "result",

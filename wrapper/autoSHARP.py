@@ -39,12 +39,6 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
         if params.get("create_symlink"):
             create_parent_symlink(working_directory.strpath, f"autoSHARP-{ppl}")
 
-        # Create big_ep directory to update status in Synchweb
-        if "devel" not in params:
-            results_directory.ensure(dir=True)
-            if params.get("create_symlink"):
-                create_parent_symlink(results_directory.strpath, f"autoSHARP-{ppl}")
-
         try:
             setup_autosharp_jobs(msg, working_directory, results_directory, logger)
         except Exception:
@@ -89,12 +83,15 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
             logger.exception("Error reading autoSHARP model files")
             return False
 
-        if params.get("results_directory"):
-            copy_results(msg._wd, msg._results_wd, logger)
-            return send_results_to_ispyb(
-                msg._results_wd, self.record_result_individual_file, logger
-            )
-        else:
-            logger.debug("Result directory not specified")
+        if "devel" not in params:
+            if params.get("results_directory"):
+                copy_results(working_directory, results_directory, logger)
+                if params.get("create_symlink"):
+                    create_parent_symlink(results_directory.strpath, f"autoSHARP-{ppl}")
+                return send_results_to_ispyb(
+                    msg._results_wd, self.record_result_individual_file, logger
+                )
+            else:
+                logger.debug("Result directory not specified")
 
         return True

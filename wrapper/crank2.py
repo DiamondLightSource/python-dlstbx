@@ -119,7 +119,9 @@ class Crank2Wrapper(zocalo.wrapper.BaseWrapper):
 
         if "devel" not in params:
             if params.get("results_directory"):
-                copy_results(working_directory, results_directory, logger)
+                copy_results(
+                    working_directory.strpath, results_directory.strpath, logger
+                )
                 if params.get("create_symlink"):
                     create_parent_symlink(results_directory.strpath, f"crank2-{ppl}")
                 return send_results_to_ispyb(

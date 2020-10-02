@@ -9,6 +9,6 @@ procrunner>=1.0.2
 pytest
 pytest-mock
 pyzmq
-stomp-py
+stomp.py
 workflows>=2.0
 zocalo>=0.6.0

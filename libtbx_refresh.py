@@ -2,6 +2,7 @@ import ast
 import imp
 import pkgutil
 
+import dlstbx.requirements
 import dlstbx.services
 import libtbx.pkg_utils
 
@@ -107,3 +108,4 @@ libtbx.pkg_utils.define_entry_points(
         "zocalo.wrappers": sorted(known_wrappers),
     }
 )
+dlstbx.requirements.check()

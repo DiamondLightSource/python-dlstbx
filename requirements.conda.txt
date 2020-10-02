@@ -1,6 +1,14 @@
-ispyb<5.7,>=5.6.1
-zocalo
+bitshuffle
 drmaa
+ispyb>=5.6.2,<5.7
 junit-xml
+mock>=2.0
+msgpack-python
 networkx
+procrunner>=1.0.2
+pytest
+pytest-mock
 pyzmq
+stomp-py
+workflows>=2.0
+zocalo>=0.6.0

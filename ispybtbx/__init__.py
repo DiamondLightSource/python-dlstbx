@@ -230,23 +230,22 @@ class ispybtbx:
         # First attempt to get sample group definitions from BLSampleGroup via
         # ispyb-api lookup (depends on DiamondLightSource/ispyb-api#104)
         _enable_future()
+        dcids = []
         try:
             sample_groups = _ispyb_api().get_data_collection(dcid).sample_groups
-        except mysql.connector.errors.ProgrammingError:
-            dcids = []
+        except mysql.connector.errors.ProgrammingError as e:
+            logger.debug(
+                f"Error looking up sample_groups for dcid={dcid}:\n{e}",
+                exc_info=True,
+            )
         except AttributeError as e:
             logger.debug(
                 f"sample_groups not yet supported by ispyb-api version:\n{e}",
                 exc_info=True,
             )
-            dcids = []
         else:
-            if sample_groups:
-                if len(sample_groups) > 1:
-                    logger.warning(f"Multiple sample groups detected for dcid={dcid}")
-                dcids = sample_groups[0].dcids
-            else:
-                dcids = []
+            for sample_group in sample_groups:
+                dcids.append(sample_groups[0].dcids)
 
         logger.debug(f"dcids defined via BLSampleGroup for dcid={dcid}: {dcids}")
 
@@ -266,6 +265,7 @@ class ispybtbx:
             else:
                 logger.debug(sample_group)
                 if sample_group:
+                    sample_group_dcids = []
                     sessionid = self.get_bl_sessionid_from_visit_name(
                         ispyb_info["ispyb_visit"]
                     )
@@ -282,7 +282,11 @@ class ispybtbx:
                         logger.debug(f"parts: {parts}, template: {template}")
                         for prefix in sample_group:
                             if prefix in parts:
-                                dcids.append(dcid)
+                                sample_group_dcids.append(dcid)
+                dcids.append(sample_group_dcids)
+                logger.debug(
+                    f"dcids defined via sample_group.yml for dcid={dcid}: {dcids}"
+                )
         return dcids
 
     def get_space_group_and_unit_cell(self, dc_id):

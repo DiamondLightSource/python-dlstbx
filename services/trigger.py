@@ -680,204 +680,224 @@ class DLSTrigger(CommonService):
         spacegroup = ispyb_params.get("spacegroup") if ispyb_params else None
 
         # Take related dcids from recipe in preference
-        dcids = parameters("related_dcids")
-        self.log.debug(f"related_dcids for dcid={dcid}: {dcids}")
+        related_dcids = parameters("related_dcids")
 
-        if not dcids:
-            # lookup related dcids and exit early if none found
-            command = [
-                "/dls_sw/apps/mx-scripts/misc/GetAListOfAssociatedDCOnThisCrystalOrDir.sh",
-                "%i" % dcid,
-            ]
-            result = procrunner.run(command, print_stdout=False, print_stderr=False)
-            if result["exitcode"] or result["timeout"]:
-                self.log.info("timeout: %s", result["timeout"])
-                self.log.debug(result["stdout"])
-                self.log.debug(result["stderr"])
-                self.log.error(
-                    "%s failed with exit code %d", " ".join(command), result["exitcode"]
-                )
-                return False
-            dcids = [int(d) for d in result["stdout"].split()]
+        if not related_dcids:
+            related_dcids = []
 
-        # Select only those dcids at the same wavelength as the triggering dcid
-        wavelength = self.ispyb.get_data_collection(dcid).wavelength
-        dcids = [
-            d
-            for d in dcids
-            if self.ispyb.get_data_collection(d).wavelength == wavelength
+        # lookup related dcids and exit early if none found
+        command = [
+            "/dls_sw/apps/mx-scripts/misc/GetAListOfAssociatedDCOnThisCrystalOrDir.sh",
+            "%i" % dcid,
         ]
-
-        # Select only those dcids that were collected before the triggering dcid
-        dcids = [d for d in dcids if d < dcid]
-
-        # Add the current dcid at the beginning of the list
-        dcids.insert(0, dcid)
-
-        if len(dcids) == 1:
-            self.log.info(
-                "Skipping xia2.multiplex trigger: no related dcids for dcid %s" % dcid
+        result = procrunner.run(command, print_stdout=False, print_stderr=False)
+        if result["exitcode"] or result["timeout"]:
+            self.log.info("timeout: %s", result["timeout"])
+            self.log.debug(result["stdout"])
+            self.log.debug(result["stderr"])
+            self.log.error(
+                "%s failed with exit code %d", " ".join(command), result["exitcode"]
             )
-            return {"success": True}
-        self.log.info("xia2.multiplex trigger: found dcids: %s", str(dcids))
+        else:
+            related_dcids.append((int(d) for d in result["stdout"].split()))
 
-        def get_data_files_for_dcid(dcid):
-            appid = {}
-            dc = self.ispyb.get_data_collection(dcid)
-            for intgr in dc.integrations:
-                prg = intgr.program
-                if (prg.message != "processing successful") or (
-                    prg.name != "xia2 dials"
-                ):
-                    continue
-                # If this multiplex job was triggered with a spacegroup parameter
-                # then only use xia2-dials autoprocessing results that were
-                # themselves run with a spacegroup parameter. Else only use those
-                # results that weren't run with a space group parameter
-                job = self.ispyb.get_processing_job(prg.job_id)
-                job.load()
-                self.log.debug(job)
-                if not job.automatic:
-                    continue
-                job_spacegroup_param = None
-                for param in job.parameters:
-                    self.log.debug(param)
-                    if param[1].key == "spacegroup":
-                        job_spacegroup_param = param[1]
-                        break
-                if spacegroup and (
-                    not job_spacegroup_param or job_spacegroup_param.value != spacegroup
-                ):
-                    self.log.debug("Discarding appid %s", intgr.APPID)
-                    continue
-                elif job_spacegroup_param and not spacegroup:
-                    self.log.debug("Discarding appid %s", intgr.APPID)
-                    continue
-                self.log.debug("Using appid %s", intgr.APPID)
-                appid[prg.time_update] = intgr.APPID
-            if not appid:
-                return None
-            for appid in appid.values():
-                data_files = get_data_files_for_appid(appid)
-                if data_files:
-                    return data_files
-            return []
+        # Only unique sets of dcids
+        related_dcids = set(tuple(dcids) for dcids in related_dcids)
 
-        def get_data_files_for_appid(appid):
-            data_files = []
-            self.log.debug("Retrieving program attachment for appid %s", appid)
-            try:
-                attachments = self.ispyb.mx_processing.retrieve_program_attachments_for_program_id(
-                    appid
+        self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
+
+        multiplex_job_dcids = []
+        jobids = []
+
+        for dcids in related_dcids:
+            # Select only those dcids at the same wavelength as the triggering dcid
+            wavelength = self.ispyb.get_data_collection(dcid).wavelength
+            dcids = [
+                d
+                for d in dcids
+                if self.ispyb.get_data_collection(d).wavelength == wavelength
+            ]
+
+            # Select only those dcids that were collected before the triggering dcid
+            dcids = [d for d in dcids if d < dcid]
+
+            # Add the current dcid at the beginning of the list
+            dcids.insert(0, dcid)
+
+            if len(dcids) == 1:
+                self.log.info(
+                    f"Skipping xia2.multiplex trigger: no related dcids for dcid {dcid}"
                 )
-            except ispyb.NoResult:
-                self.log.warning(
-                    "Expected to find exactly 2 data files for appid %s (no files found)",
-                    appid,
-                )
-                return []
-            for item in attachments:
-                if item["fileType"] == "Result":
-                    if (
-                        item["fileName"].endswith(
-                            ("experiments.json", "reflections.pickle", ".expt", ".refl")
-                        )
-                        and "_scaled." not in item["fileName"]
+                return {"success": True}
+            self.log.info(f"xia2.multiplex trigger: found dcids: {dcids}")
+
+            def get_data_files_for_dcid(dcid):
+                appid = {}
+                dc = self.ispyb.get_data_collection(dcid)
+                for intgr in dc.integrations:
+                    prg = intgr.program
+                    if (prg.message != "processing successful") or (
+                        prg.name != "xia2 dials"
                     ):
-                        data_files.append(
-                            py.path.local(item["filePath"])
-                            .join(item["fileName"])
-                            .strpath
-                        )
-            self.log.debug(
-                "Found the following files for appid %s:\n%s",
-                appid,
-                ", ".join(data_files),
-            )
-            if len(data_files) % 2:
-                self.log.warning(
-                    f"Expected to find an even number of  data files for appid {appid} (found {len(data_files)})"
-                )
+                        continue
+                    # If this multiplex job was triggered with a spacegroup parameter
+                    # then only use xia2-dials autoprocessing results that were
+                    # themselves run with a spacegroup parameter. Else only use those
+                    # results that weren't run with a space group parameter
+                    job = self.ispyb.get_processing_job(prg.job_id)
+                    job.load()
+                    self.log.debug(job)
+                    if not job.automatic:
+                        continue
+                    job_spacegroup_param = None
+                    for param in job.parameters:
+                        self.log.debug(param)
+                        if param[1].key == "spacegroup":
+                            job_spacegroup_param = param[1]
+                            break
+                    if spacegroup and (
+                        not job_spacegroup_param
+                        or job_spacegroup_param.value != spacegroup
+                    ):
+                        self.log.debug(f"Discarding appid {intgr.APPID}")
+                        continue
+                    elif job_spacegroup_param and not spacegroup:
+                        self.log.debug(f"Discarding appid {intgr.APPID}")
+                        continue
+                    self.log.debug(f"Using appid {intgr.APPID}")
+                    appid[prg.time_update] = intgr.APPID
+                if not appid:
+                    return None
+                for appid in appid.values():
+                    data_files = get_data_files_for_appid(appid)
+                    if data_files:
+                        return data_files
                 return []
-            return data_files
 
-        # Lookup appids for all dcids and exit early if only one found
-        data_files = [get_data_files_for_dcid(d) for d in dcids]
-        if not any(data_files):
-            self.log.info(
-                "Skipping xia2.multiplex trigger: no related data files found for dcid %s"
-                % dcid
+            def get_data_files_for_appid(appid):
+                data_files = []
+                self.log.debug(f"Retrieving program attachment for appid {appid}")
+                try:
+                    attachments = self.ispyb.mx_processing.retrieve_program_attachments_for_program_id(
+                        appid
+                    )
+                except ispyb.NoResult:
+                    self.log.warning(
+                        f"Expected to find exactly 2 data files for appid {appid} (no files found)"
+                    )
+                    return []
+                for item in attachments:
+                    if item["fileType"] == "Result":
+                        if (
+                            item["fileName"].endswith(
+                                (
+                                    "experiments.json",
+                                    "reflections.pickle",
+                                    ".expt",
+                                    ".refl",
+                                )
+                            )
+                            and "_scaled." not in item["fileName"]
+                        ):
+                            data_files.append(
+                                py.path.local(item["filePath"])
+                                .join(item["fileName"])
+                                .strpath
+                            )
+                self.log.debug(
+                    f"Found the following files for appid {appid}:\n{', '.join(data_files)}"
+                )
+                if len(data_files) % 2:
+                    self.log.warning(
+                        f"Expected to find an even number of  data files for appid {appid} (found {len(data_files)})"
+                    )
+                    return []
+                return data_files
+
+            # Lookup appids for all dcids and exit early if only one found
+            data_files = [get_data_files_for_dcid(d) for d in dcids]
+            if not any(data_files):
+                self.log.info(
+                    f"Skipping xia2.multiplex trigger: no related data files found for dcid {dcid}"
+                )
+                return {"success": True}
+
+            # Select only those dcids with a valid data files
+            dcids, data_files = zip(
+                *((dcid, files) for dcid, files in zip(dcids, data_files) if files)
             )
-            return {"success": True}
+            self.log.info(data_files)
+            if len(data_files) <= 1:
+                self.log.info(
+                    f"Skipping xia2.multiplex trigger: not enough related data files found for dcid {dcid}"
+                )
+                return {"success": True}
 
-        # Select only those dcids with a valid data files
-        dcids, data_files = zip(
-            *((dcid, files) for dcid, files in zip(dcids, data_files) if files)
-        )
-        self.log.info(data_files)
-        if len(data_files) <= 1:
-            self.log.info(
-                "Skipping xia2.multiplex trigger: not enough related data files found for dcid %s"
-                % dcid
-            )
-            return {"success": True}
+            if set(dcids) in multiplex_job_dcids:
+                continue
+            multiplex_job_dcids.append(set(dcids))
 
-        jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = bool(parameters("automatic"))
-        jp["comments"] = parameters("comment")
-        jp["datacollectionid"] = dcid
-        jp["display_name"] = "xia2.multiplex"
-        jp["recipe"] = "postprocessing-xia2-multiplex"
-        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")
+            jp = self.ispyb.mx_processing.get_job_params()
+            jp["automatic"] = bool(parameters("automatic"))
+            jp["comments"] = parameters("comment")
+            jp["datacollectionid"] = dcid
+            jp["display_name"] = "xia2.multiplex"
+            jp["recipe"] = "postprocessing-xia2-multiplex"
+            jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+            jobids.append(jobid)
+            self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")
 
-        for d in dcids:
-            dc_info = self.ispyb.get_data_collection(d)
+            for d in dcids:
+                dc_info = self.ispyb.get_data_collection(d)
 
-            jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
-            jisp["datacollectionid"] = d
-            jisp["start_image"] = dc_info.image_start_number
-            jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
+                jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+                jisp["datacollectionid"] = d
+                jisp["start_image"] = dc_info.image_start_number
+                jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
 
-            jisp["job_id"] = jobid
-            jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
-                list(jisp.values())
-            )
-            self.log.debug(
-                f"xia2.multiplex trigger: generated JobImageSweepID {jispid}"
-            )
+                jisp["job_id"] = jobid
+                jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
+                    list(jisp.values())
+                )
+                self.log.debug(
+                    f"xia2.multiplex trigger: generated JobImageSweepID {jispid}"
+                )
 
-        for files in data_files:
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = "data"
-            jpp["parameter_value"] = ";".join(files)
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                "xia2.multiplex trigger generated JobParameterID {} with files:\n%s".format(
-                    jppid
-                ),
-                "\n".join(files),
-            )
-        if spacegroup:
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = "spacegroup"
-            jpp["parameter_value"] = spacegroup
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                "xia2.multiplex trigger generated JobParameterID {} with %s=%s".format(
-                    jppid
-                ),
-                jpp["parameter_key"],
-                spacegroup,
-            )
+            for files in data_files:
+                jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                jpp["job_id"] = jobid
+                jpp["parameter_key"] = "data"
+                jpp["parameter_value"] = ";".join(files)
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                    list(jpp.values())
+                )
+                self.log.debug(
+                    "xia2.multiplex trigger generated JobParameterID {} with files:\n%s".format(
+                        jppid
+                    ),
+                    "\n".join(files),
+                )
+            if spacegroup:
+                jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                jpp["job_id"] = jobid
+                jpp["parameter_key"] = "spacegroup"
+                jpp["parameter_value"] = spacegroup
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                    list(jpp.values())
+                )
+                self.log.debug(
+                    "xia2.multiplex trigger generated JobParameterID {} with %s=%s".format(
+                        jppid
+                    ),
+                    jpp["parameter_key"],
+                    spacegroup,
+                )
 
-        self.log.debug(f"xia2.multiplex trigger: Processing job {jobid} created")
+            self.log.debug(f"xia2.multiplex trigger: Processing job {jobid} created")
 
-        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-        rw.transport.send("processing_recipe", message)
+            message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+            rw.transport.send("processing_recipe", message)
 
-        self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
+            self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
 
-        return {"success": True, "return_value": jobid}
+        return {"success": True, "return_value": jobids}

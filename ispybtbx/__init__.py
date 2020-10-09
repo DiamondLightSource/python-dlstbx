@@ -283,7 +283,7 @@ class ispybtbx:
                         for prefix in sample_group:
                             if prefix in parts:
                                 sample_group_dcids.append(dcid)
-                dcids.append(sample_group_dcids)
+                    dcids.append(sample_group_dcids)
                 logger.debug(
                     f"dcids defined via sample_group.yml for dcid={dcid}: {dcids}"
                 )

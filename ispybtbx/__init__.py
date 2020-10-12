@@ -230,7 +230,7 @@ class ispybtbx:
         # First attempt to get sample group definitions from BLSampleGroup via
         # ispyb-api lookup (depends on DiamondLightSource/ispyb-api#104)
         _enable_future()
-        dcids = []
+        related_dcids = []
         try:
             sample_groups = _ispyb_api().get_data_collection(dcid).sample_groups
         except mysql.connector.errors.ProgrammingError as e:
@@ -245,16 +245,25 @@ class ispybtbx:
             )
         else:
             for sample_group in sample_groups:
-                dcids.append(sample_groups[0].dcids)
+                sample_group.load()
+                related_dcids.append(
+                    {
+                        "dcids": sample_group.dcids,
+                        "sample_group_id": sample_group.id,
+                        "name": sample_group.name,
+                    }
+                )
 
-        logger.debug(f"dcids defined via BLSampleGroup for dcid={dcid}: {dcids}")
+        logger.debug(
+            f"dcids defined via BLSampleGroup for dcid={dcid}: {related_dcids}"
+        )
 
         # Else look for sample groups defined in
         # ${visit}/processing/sample_groups.yml, e.g.
         #   $ cat ${visit}/processing/sample_groups.yml
         #     - [well_10, well_11, well_12]
         #     - [well_121, well_122, well_124, well_126, well_146, well_150]
-        if not dcids:
+        if not related_dcids:
             try:
                 sample_group = load_sample_group_config_file(ispyb_info)
             except Exception as e:
@@ -283,11 +292,11 @@ class ispybtbx:
                         for prefix in sample_group:
                             if prefix in parts:
                                 sample_group_dcids.append(dcid)
-                    dcids.append(sample_group_dcids)
+                    related_dcids.append({"dcids": sample_group_dcids})
                 logger.debug(
-                    f"dcids defined via sample_group.yml for dcid={dcid}: {dcids}"
+                    f"dcids defined via sample_group.yml for dcid={dcid}: {related_dcids}"
                 )
-        return dcids
+        return related_dcids
 
     def get_space_group_and_unit_cell(self, dc_id):
         spacegroups = self.execute(
@@ -883,8 +892,8 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_space_group"] = space_group
     parameters["ispyb_unit_cell"] = cell
 
-    parameters["ispyb_sample_group_dcids"] = i.get_sample_group_dcids(parameters)
-    logger.debug(f"ispyb_sample_group_dcids: {parameters['ispyb_sample_group_dcids']}")
+    parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(parameters)
+    logger.debug(f"ispyb_related_dcids: {parameters['ispyb_related_dcids']}")
 
     if (
         "ispyb_processing_job" in parameters

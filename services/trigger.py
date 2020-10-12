@@ -699,22 +699,20 @@ class DLSTrigger(CommonService):
                 "%s failed with exit code %d", " ".join(command), result["exitcode"]
             )
         else:
-            related_dcids.append((int(d) for d in result["stdout"].split()))
-
-        # Only unique sets of dcids
-        related_dcids = set(tuple(dcids) for dcids in related_dcids)
+            related_dcids.append({"dcids": (int(d) for d in result["stdout"].split())})
 
         self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
 
         multiplex_job_dcids = []
         jobids = []
 
-        for dcids in related_dcids:
+        for group in related_dcids:
+            self.log.debug(f"group: {group}")
             # Select only those dcids at the same wavelength as the triggering dcid
             wavelength = self.ispyb.get_data_collection(dcid).wavelength
             dcids = [
                 d
-                for d in dcids
+                for d in group["dcids"]
                 if self.ispyb.get_data_collection(d).wavelength == wavelength
             ]
 
@@ -839,10 +837,14 @@ class DLSTrigger(CommonService):
 
             jp = self.ispyb.mx_processing.get_job_params()
             jp["automatic"] = bool(parameters("automatic"))
-            jp["comments"] = parameters("comment")
+            comment = parameters("comment")
+            if comment and "sample_group_id" in group:
+                comment += f" (sample group id: {group['sample_group_id']})"
+            jp["comments"] = comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "xia2.multiplex"
             jp["recipe"] = "postprocessing-xia2-multiplex"
+            self.log.info(jp)
             jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
             jobids.append(jobid)
             self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")

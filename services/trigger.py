@@ -2,7 +2,6 @@ import hashlib
 import re
 
 import ispyb
-import procrunner
 import py.path
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -683,23 +682,8 @@ class DLSTrigger(CommonService):
         related_dcids = parameters("related_dcids")
 
         if not related_dcids:
-            related_dcids = []
-
-        # lookup related dcids and exit early if none found
-        command = [
-            "/dls_sw/apps/mx-scripts/misc/GetAListOfAssociatedDCOnThisCrystalOrDir.sh",
-            "%i" % dcid,
-        ]
-        result = procrunner.run(command, print_stdout=False, print_stderr=False)
-        if result["exitcode"] or result["timeout"]:
-            self.log.info("timeout: %s", result["timeout"])
-            self.log.debug(result["stdout"])
-            self.log.debug(result["stderr"])
-            self.log.error(
-                "%s failed with exit code %d", " ".join(command), result["exitcode"]
-            )
-        else:
-            related_dcids.append({"dcids": (int(d) for d in result["stdout"].split())})
+            self.log.debug(f"No related_dcids for dcid={dcid}")
+            return
 
         self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
 
@@ -840,6 +824,8 @@ class DLSTrigger(CommonService):
             comment = parameters("comment")
             if comment and "sample_group_id" in group:
                 comment += f" (sample group id: {group['sample_group_id']})"
+            elif comment and "sample_id" in group:
+                comment += f" (sample id: {group['sample_id']})"
             jp["comments"] = comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "xia2.multiplex"

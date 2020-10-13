@@ -27,7 +27,7 @@ class FormatEiger0MQDump(Format):
         self._header = json.loads(data[1])
 
     def _goniometer(self):
-        return None  # return self._goniometer_factory.single_axis()
+        return self._goniometer_factory.single_axis()
 
     def _detector(self):
         """Return a model for a simple detector, presuming no one has
@@ -35,18 +35,10 @@ class FormatEiger0MQDump(Format):
         provided in the Mosflm coordinate frame."""
 
         distance = self._header["detector_distance"] * 1000
-        if distance == 0:
-            # XXX hack for development
-            distance = 175
-
         pixel_size_x = self._header["x_pixel_size"]
         pixel_size_y = self._header["y_pixel_size"]
         beam_x = self._header["beam_center_x"] * pixel_size_x * 1000
         beam_y = self._header["beam_center_y"] * pixel_size_y * 1000
-        if beam_x == 0 and beam_y == 0:
-            # hack for development
-            beam_x = 154.87
-            beam_y = 165.66
 
         pixel_size_x = 1000 * self._header["x_pixel_size"]
         pixel_size_y = 1000 * self._header["y_pixel_size"]
@@ -55,8 +47,7 @@ class FormatEiger0MQDump(Format):
             self._header["y_pixels_in_detector"],
         )
 
-        # XXX fixme hard coded
-        overload = 0xFFFF
+        overload = self._header["countrate_correction_count_cutoff"]
         underload = -1
 
         return self._detector_factory.simple(
@@ -75,7 +66,15 @@ class FormatEiger0MQDump(Format):
         return self._beam_factory.simple(self._header["wavelength"])
 
     def _scan(self):
-        return None
+        exposure_time = self._header["frame_time"]
+
+        osc_start = self._header["omega_start"]
+        osc_range = self._header["omega_increment"]
+        index = int(os.path.split(self._image_file)[-1][5:])
+
+        return self._scan_factory.make_scan(
+            (index, index), exposure_time, (osc_start, osc_range), {index: 0.0}
+        )
 
     def get_goniometer(self, index=None):
         return self._goniometer()
@@ -87,12 +86,7 @@ class FormatEiger0MQDump(Format):
         return self._beam()
 
     def get_scan(self, index=None):
-        if index is None:
-            return self._scan()
-        scan = self._scan()
-        if scan is not None:
-            return scan[index]
-        return scan
+        return self._scan()
 
     def get_raw_data(self):
         nx = self._header["x_pixels_in_detector"]

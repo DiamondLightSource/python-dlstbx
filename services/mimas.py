@@ -89,6 +89,14 @@ class DLSMimas(CommonService):
         spacegroup = step.get("space_group")
         if spacegroup:
             spacegroup = dlstbx.mimas.MimasISPyBSpaceGroup(spacegroup)
+            self.log.info(spacegroup)
+            try:
+                dlstbx.mimas.validate(spacegroup)
+            except ValueError:
+                self.log.warning(
+                    f"Invalid spacegroup for dcid {dcid}: {spacegroup}", exc_info=True
+                )
+                spacegroup = None
         else:
             spacegroup = None
 

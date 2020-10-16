@@ -251,7 +251,7 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
             logger.exception(
                 "Process returned an error code when running shelxe tracing"
             )
-            return False
+            return True
         except Exception:
             logger.exception("Shelxe tracing script has failed")
 
@@ -312,7 +312,7 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
             logger.info(
                 "Running topaz3 script has failed with exitcode %s", result["exitcode"]
             )
-            return False
+            return True
 
         self.graph_output(
             (working_directory + "/avg_predictions.json"),

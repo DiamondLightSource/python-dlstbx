@@ -379,6 +379,55 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
+    def trigger_best(self, rw, header, parameters, **kwargs):
+        dcid = parameters("dcid")
+        if not dcid:
+            self.log.error("best trigger failed: No DCID specified")
+            return False
+
+        diffraction_plan_info = parameters("diffraction_plan_info")
+        if not diffraction_plan_info:
+            self.log.info(
+                "Skipping best trigger: diffraction plan information not available"
+            )
+            return {"success": True}
+        try:
+            program_id = int(parameters("program_id"))
+        except (TypeError, ValueError):
+            self.log.error("best trigger failed: Invalid program_id specified")
+            return False
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = bool(parameters("automatic"))
+        jp["comments"] = parameters("comment")
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "best"
+        jp["recipe"] = "postprocessing-best"
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug("best trigger: generated JobID {}".format(jobid))
+
+        best_parameters = {"program_id": program_id, "data": parameters("data")}
+
+        for key, value in best_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug("best trigger: generated JobParameterID {}".format(jppid))
+
+        self.log.debug("best trigger: Processing job {} created".format(jobid))
+
+        message = {
+            "parameters": {"ispyb_process": jobid, "data": parameters("data")},
+            "recipes": [],
+        }
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info("best trigger: Processing job {} triggered".format(jobid))
+
+        return {"success": True, "return_value": jobid}
+
     def trigger_fast_ep(self, rw, header, parameters, **kwargs):
         dcid = parameters("dcid")
         if not dcid:

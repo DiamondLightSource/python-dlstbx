@@ -67,6 +67,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "autobuild = dlstbx.wrapper.autobuild:AutoBuildWrapper",
     "autosharp = dlstbx.wrapper.autoSHARP:autoSHARPWrapper",
     "autoproc = dlstbx.wrapper.autoPROC:autoPROCWrapper",
+    "best = dlstbx.wrapper.best:BESTWrapper",
     "big_ep = dlstbx.wrapper.big_ep:BigEPWrapper",
     "big_ep_report = dlstbx.wrapper.big_ep_report:BigEPReportWrapper",
     "crank2 = dlstbx.wrapper.crank2:Crank2Wrapper",

@@ -225,37 +225,45 @@ class ispybtbx:
     def get_sample_group_dcids(self, ispyb_info):
         dcid = ispyb_info.get("ispyb_dcid")
         if not dcid:
-            return None
+            return []
 
         # First attempt to get sample group definitions from BLSampleGroup via
         # ispyb-api lookup (depends on DiamondLightSource/ispyb-api#104)
         _enable_future()
+        related_dcids = []
         try:
             sample_groups = _ispyb_api().get_data_collection(dcid).sample_groups
-        except mysql.connector.errors.ProgrammingError:
-            dcids = []
+        except mysql.connector.errors.ProgrammingError as e:
+            logger.debug(
+                f"Error looking up sample_groups for dcid={dcid}:\n{e}",
+                exc_info=True,
+            )
         except AttributeError as e:
             logger.debug(
                 f"sample_groups not yet supported by ispyb-api version:\n{e}",
                 exc_info=True,
             )
-            dcids = []
         else:
-            if sample_groups:
-                if len(sample_groups) > 1:
-                    logger.warning(f"Multiple sample groups detected for dcid={dcid}")
-                dcids = sample_groups[0].dcids
-            else:
-                dcids = []
+            for sample_group in sample_groups:
+                sample_group.load()
+                related_dcids.append(
+                    {
+                        "dcids": sample_group.dcids,
+                        "sample_group_id": sample_group.id,
+                        "name": sample_group.name,
+                    }
+                )
 
-        logger.debug(f"dcids defined via BLSampleGroup for dcid={dcid}: {dcids}")
+        logger.debug(
+            f"dcids defined via BLSampleGroup for dcid={dcid}: {related_dcids}"
+        )
 
         # Else look for sample groups defined in
         # ${visit}/processing/sample_groups.yml, e.g.
         #   $ cat ${visit}/processing/sample_groups.yml
         #     - [well_10, well_11, well_12]
         #     - [well_121, well_122, well_124, well_126, well_146, well_150]
-        if not dcids:
+        if not related_dcids:
             try:
                 sample_group = load_sample_group_config_file(ispyb_info)
             except Exception as e:
@@ -266,6 +274,7 @@ class ispybtbx:
             else:
                 logger.debug(sample_group)
                 if sample_group:
+                    sample_group_dcids = []
                     sessionid = self.get_bl_sessionid_from_visit_name(
                         ispyb_info["ispyb_visit"]
                     )
@@ -282,8 +291,55 @@ class ispybtbx:
                         logger.debug(f"parts: {parts}, template: {template}")
                         for prefix in sample_group:
                             if prefix in parts:
-                                dcids.append(dcid)
-        return dcids
+                                sample_group_dcids.append(dcid)
+                    related_dcids.append({"dcids": sample_group_dcids})
+                logger.debug(
+                    f"dcids defined via sample_group.yml for dcid={dcid}: {related_dcids}"
+                )
+        return related_dcids
+
+    def get_sample_dcids(self, ispyb_info):
+        dcid = ispyb_info.get("ispyb_dcid")
+        sample_id = ispyb_info["ispyb_dc_info"].get("BLSAMPLEID")
+        if not dcid or not sample_id:
+            return None
+
+        _enable_future()
+        try:
+            sample = _ispyb_api().get_sample(sample_id)
+        except mysql.connector.errors.ProgrammingError as e:
+            logger.debug(
+                f"Error looking up sample for dcid={dcid}:\n{e}",
+                exc_info=True,
+            )
+        except AttributeError as e:
+            logger.debug(
+                f"sample not yet supported by ispyb-api version:\n{e}",
+                exc_info=True,
+            )
+        else:
+            if sample:
+                related_dcids = {
+                    "dcids": sample.dcids,
+                    "sample_id": sample.id,
+                    "name": sample.name,
+                }
+
+            logger.debug(f"dcids defined via BLSample for dcid={dcid}: {related_dcids}")
+            return related_dcids
+
+    def get_related_dcids_same_directory(self, ispyb_info):
+        dcid = ispyb_info.get("ispyb_dcid")
+        if not dcid:
+            return None
+
+        sql_str = f"""
+SELECT dc1.dataCollectionId
+FROM DataCollection AS dc1
+INNER JOIN DataCollection AS dc2
+ON dc1.imageDirectory = dc2.imageDirectory and dc1.dataCollectionId <> dc2.dataCollectionId and dc1.imageDirectory is not NULL
+WHERE dc1.dataCollectionId='{dcid}';"""
+        return {"dcids": [row[0] for row in self.execute(sql_str)]}
 
     def get_space_group_and_unit_cell(self, dc_id):
         spacegroups = self.execute(
@@ -879,8 +935,17 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_space_group"] = space_group
     parameters["ispyb_unit_cell"] = cell
 
-    parameters["ispyb_sample_group_dcids"] = i.get_sample_group_dcids(parameters)
-    logger.debug(f"ispyb_sample_group_dcids: {parameters['ispyb_sample_group_dcids']}")
+    # related dcids via sample groups
+    parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(parameters)
+    if parameters["ispyb_dc_info"].get("BLSAMPLEID"):
+        # if a sample is linked to the dc, then get dcids on the same sample
+        related_dcids = i.get_sample_dcids(parameters)
+    else:
+        # else get dcids collected into the same image directory
+        related_dcids = i.get_related_dcids_same_directory(parameters)
+    if related_dcids:
+        parameters["ispyb_related_dcids"].append(related_dcids)
+    logger.debug(f"ispyb_related_dcids: {parameters['ispyb_related_dcids']}")
 
     if (
         "ispyb_processing_job" in parameters

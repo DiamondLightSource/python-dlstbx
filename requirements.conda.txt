@@ -1,6 +1,6 @@
 bitshuffle
 drmaa
-ispyb>=5.7.0,<5.8
+ispyb>=5.7.1,<5.8
 junit-xml
 mock>=2.0
 msgpack-python

@@ -821,12 +821,7 @@ class DLSTrigger(CommonService):
 
             jp = self.ispyb.mx_processing.get_job_params()
             jp["automatic"] = bool(parameters("automatic"))
-            comment = parameters("comment")
-            if comment and "sample_group_id" in group:
-                comment += f" (sample group id: {group['sample_group_id']})"
-            elif comment and "sample_id" in group:
-                comment += f" (sample id: {group['sample_id']})"
-            jp["comments"] = comment
+            jp["comments"] = parameters("comment")
             jp["datacollectionid"] = dcid
             jp["display_name"] = "xia2.multiplex"
             jp["recipe"] = "postprocessing-xia2-multiplex"
@@ -850,6 +845,20 @@ class DLSTrigger(CommonService):
                 self.log.debug(
                     f"xia2.multiplex trigger: generated JobImageSweepID {jispid}"
                 )
+
+            for k in ("sample_id", "sample_group_id"):
+                if k in group:
+                    jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                    jpp["job_id"] = jobid
+                    jpp["parameter_key"] = k
+                    jpp["parameter_value"] = group[k]
+                    jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                        list(jpp.values())
+                    )
+                    self.log.debug(
+                        f"xia2.multiplex trigger: generated JobParameterID {jppid} {k}={group[k]}"
+                    )
+                    break
 
             for files in data_files:
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()
@@ -880,8 +889,6 @@ class DLSTrigger(CommonService):
                     jpp["parameter_key"],
                     spacegroup,
                 )
-
-            self.log.debug(f"xia2.multiplex trigger: Processing job {jobid} created")
 
             message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
             rw.transport.send("processing_recipe", message)

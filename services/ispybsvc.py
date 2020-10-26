@@ -461,6 +461,30 @@ class DLSISPyB(EM_Mixin, CommonService):
         self.log.info("Written Screening record with ID %s", screeningId)
         return {"success": True, "return_value": screeningId}
 
+    def do_insert_screening_input(self, parameters, **kwargs):
+        """Write entry to the ScreeningInput table."""
+        # input_params: ['id', 'screening_id', 'beamx', 'beamy', 'rms_err_lim', 'min_fraction_indexed', 'max_fraction_rejected', 'min_signal2noise']
+        input_params = self.ispyb.mx_screening.get_screening_input_params()
+        for k in input_params.keys():
+            input_params[k] = parameters(k)
+        input_params["screening_id"] = parameters("screening_id")
+        self.log.info("input_params: %s", input_params)
+        try:
+            screeningInputId = self.ispyb.mx_screening.insert_screening_input(
+                list(input_params.values())
+            )
+            assert screeningInputId is not None
+        except (ispyb.ISPyBException, AssertionError) as e:
+            self.log.error(
+                "Inserting screening input: '%s' caused exception '%s'.",
+                input_params,
+                e,
+                exc_info=True,
+            )
+            return False
+        self.log.info("Written ScreeningInput record with ID %s", screeningInputId)
+        return {"success": True, "return_value": screeningInputId}
+
     def do_insert_screening_output(self, parameters, **kwargs):
         """Write entry to the ScreeningOutput table."""
         # output_params: ['id', 'screeningid', 'statusdescription', 'rejectedreflections', 'resolutionobtained', 'spotdeviationr', 'spotdeviationtheta', 'beamshiftx', 'beamshifty', 'numspotsfound', 'numspotsused', 'numspotsrejected', 'mosaicity', 'ioversigma', 'diffractionrings', 'mosaicityestimated', 'rankingresolution', 'program', 'dosetotal', 'totalexposuretime', 'totalrotationrange', 'totalnoimages', 'rfriedel', 'indexingsuccess', 'strategysuccess', 'alignmentsuccess']

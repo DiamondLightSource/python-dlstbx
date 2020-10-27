@@ -203,6 +203,10 @@ class BESTWrapper(zocalo.wrapper.BaseWrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = self.recwrap.recipe_step["job_parameters"]
+        if params.get("ispyb_parameters"):
+            data_path = params["ispyb_parameters"]["data"]
+        else:
+            data_path = params["data"]
 
         working_directory = Path(params["working_directory"])
         # Create working directory with symbolic link
@@ -246,9 +250,7 @@ class BESTWrapper(zocalo.wrapper.BaseWrapper):
                 command.append(flg)
             elif value:
                 command.extend([flg, str(value)])
-        data_path = (
-            Path(params["data"]) / params["crystal"] / "SAD" / "SWEEP1" / "integrate"
-        )
+        data_path = Path(data_path) / params["crystal"] / "SAD" / "SWEEP1" / "integrate"
         corr_path = str(data_path / "CORRECT.LP")
         bkg_path = str(data_path / "BKGPIX.cbf")
         hkl_path = str(data_path / "XDS_ASCII.HKL")

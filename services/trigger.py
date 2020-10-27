@@ -732,7 +732,7 @@ class DLSTrigger(CommonService):
 
         if not related_dcids:
             self.log.debug(f"No related_dcids for dcid={dcid}")
-            return
+            return {"success": True}
 
         self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
 

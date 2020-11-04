@@ -97,6 +97,7 @@ class ActiveMQRRD:
         daydata = ["RRA:%s:0.5:1:1440" % cls for cls in ("AVERAGE", "MAX")]
         weekdata = ["RRA:%s:0.5:3:3360" % cls for cls in ("AVERAGE", "MAX")]
         monthdata = ["RRA:%s:0.5:6:7440" % cls for cls in ("AVERAGE", "MAX")]
+        yeardata = ["RRA:%s:0.5:15:35040" % cls for cls in ("AVERAGE", "MAX")]
         self.rrd_activemq = self.rrd.create(
             "activemq-statistics.rrd",
             ["--step", "60"]
@@ -109,7 +110,8 @@ class ActiveMQRRD:
             ]
             + daydata
             + weekdata
-            + monthdata,
+            + monthdata
+            + yeardata,
         )
         self.rrd_amqmemory = self.rrd.create(
             "activemq-memory.rrd",
@@ -125,7 +127,8 @@ class ActiveMQRRD:
             ]
             + daydata
             + weekdata
-            + monthdata,
+            + monthdata
+            + yeardata,
         )
 
     def update(self):

@@ -125,10 +125,16 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         pdb = copy.deepcopy(pdb)  # otherwise we could modify the array in the recipe
         for i, code_or_file in enumerate(pdb):
+            if not os.path.isfile(code_or_file) and len(code_or_file) == 4:
+                local_pdb_copy = py.path.local(
+                    f"/dls/science/groups/scisoft/PDB/{code_or_file[1:3].lower()}/pdb{code_or_file.lower()}.ent.gz"
+                )
+                if local_pdb_copy.check(file=1):
+                    code_or_file = local_pdb_copy
+                    logger.debug(f"Using local PDB {local_pdb_copy}")
             if os.path.isfile(code_or_file):
                 shutil.copy(code_or_file, self.working_directory.strpath)
                 pdb[i] = self.working_directory / os.path.basename(code_or_file)
-
         command = (
             ["dimple", mtz]
             + pdb

@@ -109,4 +109,10 @@ libtbx.pkg_utils.define_entry_points(
         "zocalo.wrappers": sorted(known_wrappers),
     }
 )
-dlstbx.requirements.check()
+if dlstbx.requirements.check():
+    print(
+        "You can run 'python -m dlstbx.requirements' to update all packages indiscriminately."
+    )
+    print(
+        "Note that this will overwrite any 'pip install -e' local installations you may have."
+    )

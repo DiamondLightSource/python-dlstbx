@@ -11,4 +11,5 @@ pytest-mock
 pyzmq
 stomp.py
 workflows>=2.0
+xmltodict
 zocalo>=0.6.0

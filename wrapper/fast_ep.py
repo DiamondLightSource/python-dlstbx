@@ -106,57 +106,18 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
         )
 
         with open(xml_file) as fh:
-            d = xmltodict.parse(fh.read())
+            phasing_results = xmltodict.parse(fh.read())
 
-        # Store PhasingAnalysis
-        phasing_analysis = d["PhasingContainer"]["PhasingAnalysis"]  # noqa: F841
-        phasing_analysis_id = 123456  # noqa: F841
-
-        # Store Phasing_has_Scaling
-        phasing_has_scaling_container = d["PhasingContainer"][
-            "Phasing_has_ScalingContainer"
-        ]
-        phasing_has_scaling = phasing_has_scaling_container["Phasing_has_Scaling"]
-        if not phasing_has_scaling:
-            phasing_has_scaling = {}
-        phasing_has_scaling["phasingAnalysisId"] = phasing_analysis_id
-        phasing_has_scaling["autoProcScalingId"] = scaling_id
-        phasing_has_scaling_id = 123  # noqa: F841
-
-        # Store PhasingStatistics
-        phasing_statistics = phasing_has_scaling_container["PhasingStatistics"]
-        for stats in phasing_statistics:
-            stats["phasingHasScalingId"] = phasing_has_scaling_id
-            phasing_statistics_id = 234  # noqa: F841
-
-        # Store PhasingProgramRun
-        phasing_program_run = d["PhasingContainer"]["PhasingProgramRun"]  # noqa: F841
-        phasing_program_run_id = 345
-
-        # Store Phasing
-        phasing = d["PhasingContainer"]["Phasing"]
-        phasing["phasingProgramRunId"] = phasing_program_run_id
-        phasing["phasingAnalysisId"] = phasing_analysis_id
-        phasing_id = 456  # noqa: F841
-
-        # Store PreparePhasingData
-        prepare_phasing_data = d["PhasingContainer"]["PreparePhasingData"]
-        prepare_phasing_data["phasingAnalysisId"] = phasing_analysis_id
-        prepare_phasing_data["phasingProgramRunId"] = phasing_program_run_id
-        prepare_phasing_data_id = 567  # noqa: F841
-
-        # Store SubstructureDetermination
-        substructure_determination = d["PhasingContainer"]["SubstructureDetermination"]
-        substructure_determination["phasingAnalysisId"] = phasing_analysis_id
-        substructure_determination["phasingProgramRunId"] = phasing_program_run_id
-        substructure_determination_id = 678  # noqa: F841
-
-        # Store PhasingProgramAttachment
-        phasing_program_attachments = d["PhasingContainer"]["PhasingProgramAttachment"]
-        for attachment in phasing_program_attachments:
-            attachment["phasingAnalysisId"] = phasing_analysis_id
-            attachment_id = 789  # noqa: F841
-
+        logger.info(
+            f"Sending {phasing_results} phasing results commands to ISPyB for scaling_id {scaling_id}"
+        )
+        self.recwrap.send_to(
+            "ispyb",
+            {
+                "phasing_results": phasing_results,
+                "scaling_id": scaling_id,
+            },
+        )
         return True
 
     def run(self):

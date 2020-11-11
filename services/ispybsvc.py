@@ -867,6 +867,45 @@ class DLSISPyB(EM_Mixin, CommonService):
                 )
             return False
 
+    def do_insert_phasing_analysis_results(self, parameters, **kwargs):
+        """Write phasing results to ISPyB"""
+
+        phasing_results = parameters("phasing_results")
+        if not phasing_results:
+            self.log.error(
+                "No phasing results found in message",
+                exc_info=True,
+            )
+            return False
+
+        scaling_id = parameters("scaling_id")
+        if not scaling_id:
+            self.log.error(
+                "No scaling_id found in message",
+                exc_info=True,
+            )
+            return False
+
+        self.log.debug(
+            f"Inserting phasing results for scaling_id={scaling_id}\n"
+            f"{phasing_results}"
+        )
+
+        try:
+            phasing_id = self.ispyb.mx_processing.insert_phasing_analysis_results(
+                phasing_results, scaling_id
+            )
+            assert phasing_id and phasing_id > 0
+            self.log.debug(f"Written phasing results with phasing_id={phasing_id}")
+            return {"success": True, "return_value": phasing_id}
+        except (ispyb.ISPyBException, AssertionError) as e:
+            self.log.error(
+                f"Error inserting phasing results for scaling_id={scaling_id}:\n"
+                f"{phasing_results} caused exception {e}",
+                exc_info=True,
+            )
+            return False
+
     def do_multipart_message(self, rw, message, **kwargs):
         """The multipart_message command allows the recipe or client to specify a
         multi-stage operation. With this you can process a list of API calls,

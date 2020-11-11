@@ -1,12 +1,14 @@
+import json
 import logging
 import os
-import py
-
-import dlstbx.util.symlink
 import procrunner
-import zocalo.wrapper
-import json
+import py
+import xmltodict
 from pprint import pformat
+
+import zocalo.wrapper
+import dlstbx.util.symlink
+
 
 logger = logging.getLogger("dlstbx.wrap.fast_ep")
 
@@ -91,45 +93,32 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
 
     def send_results_to_ispyb(self, xml_file):
         params = self.recwrap.recipe_step["job_parameters"]
-        command = [
-            "python",
-            "/dls_sw/apps/mx-scripts/dbserver/src/phasing2ispyb.py",
-            "-s",
-            "sci-serv3",
-            "-p",
-            "2611",
-            "--fix_sgids",
-            "-d",
-            "-i",
-            xml_file,
-            "-f",
-            params["fast_ep"]["data"],
-            "-o",
-            os.path.join(params["working_directory"], "fast_ep_ispyb_ids.xml"),
-        ]
 
-        result = procrunner.run(
-            command,
-            timeout=params.get("timeout"),
-            print_stdout=True,
-            print_stderr=True,
-            working_directory=params["working_directory"],
-            environment_override=clean_environment,
+        scaling_id = params.get("ispyb_parameters", params).get("scaling_id", None)
+        if not str(scaling_id).isdigit():
+            logger.error(
+                f"Can not write results to ISPyB: no scaling ID set ({scaling_id})"
+            )
+            return False
+        scaling_id = int(scaling_id)
+        logger.info(
+            f"Inserting fast_ep phasing results from {xml_file} into ISPyB for scaling_id {scaling_id}"
         )
-        success = not result["exitcode"] and not result["timeout"]
-        if success:
-            logger.info(
-                "phasing2ispyb successful, took %.1f seconds", result["runtime"]
-            )
-        else:
-            logger.info(
-                "phasing2ispyb failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
-            )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
-        return success
+
+        with open(xml_file) as fh:
+            phasing_results = xmltodict.parse(fh.read())
+
+        logger.info(
+            f"Sending {phasing_results} phasing results commands to ISPyB for scaling_id {scaling_id}"
+        )
+        self.recwrap.send_to(
+            "ispyb",
+            {
+                "phasing_results": phasing_results,
+                "scaling_id": scaling_id,
+            },
+        )
+        return True
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"

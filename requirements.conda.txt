@@ -1,6 +1,6 @@
 bitshuffle
 drmaa
-ispyb>=5.7.1,<5.8
+ispyb>=5.8.0,<5.9
 junit-xml
 mock>=2.0
 msgpack-python
@@ -11,4 +11,5 @@ pytest-mock
 pyzmq
 stomp.py
 workflows>=2.0
+xmltodict
 zocalo>=0.6.0

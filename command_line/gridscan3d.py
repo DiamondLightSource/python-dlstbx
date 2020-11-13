@@ -5,9 +5,12 @@
 # Always include a __future__ import if backward compatibility with Python 2 is intended
 from __future__ import absolute_import, division, print_function
 
+import enum
 import logging
 import numpy as np
 import sys
+from typing import List
+from typing import Union
 
 # We need to parse command-line arguments to PHIL scopes.
 import libtbx.phil
@@ -15,16 +18,12 @@ import libtbx.phil
 from dxtbx.model import ExperimentList
 import dials.util
 import dials.util.log
+from dials.algorithms.spot_finding import per_image_analysis
 from dials.array_family import flex
 from dials.util.options import OptionParser
 from dials.util.version import dials_version
 
 import h5py  # This must be after the first dxtbx import
-
-try:
-    from typing import List
-except ImportError:
-    pass
 
 
 logger = logging.getLogger("dials.gridscan3d")
@@ -34,13 +33,26 @@ phil_scope = libtbx.phil.parse(
     """
     plot = False
       .type = bool
+    metric = *n_spots_total n_spots_no_ice n_spots_4A total_intensity estimated_d_min
+      .type = choice
     """
 )
+
+
+class metrics(enum.Enum):
+    """Supported metrics for 3D gridscan analysis."""
+
+    N_SPOTS_TOTAL = "n_spots_total"
+    N_SPOTS_NO_ICE = "n_spots_no_ice"
+    N_SPOTS_4A = "n_spots_4A"
+    TOTAL_INTENSITY = "total_intensity"
+    D_MIN = "estimated_d_min"
 
 
 def gridscan3d(
     experiment_lists: List[ExperimentList],
     reflection_tables: List[flex.reflection_table],
+    metric: Union[str, metrics] = "n_spots_total",
     plot: bool = False,
 ):
     """
@@ -70,8 +82,10 @@ def gridscan3d(
 
     assert len(experiment_lists) == len(reflection_tables) == 2
 
-    for expts, refl in zip(experiment_lists, reflection_tables):
-        master_h5 = expts.imagesets()[0].get_path(0)
+    for experiments, reflections in zip(experiment_lists, reflection_tables):
+        reflections.centroid_px_to_mm(experiments)
+        reflections.map_centroids_to_reciprocal_space(experiments)
+        master_h5 = experiments.imagesets()[0].get_path(0)
         logger.debug(master_h5)
         with h5py.File(master_h5, "r") as handle:
             x, y, z, omega = [
@@ -93,9 +107,10 @@ def gridscan3d(
 
         refl_count = np.zeros((len(unique_x), len(unique_y)))
         for i, (x_, y_) in enumerate(zip(x, y)):
-            refl_count[int((x_ - xmin) / dx), int((y_ - ymin) / dy)] = refl["id"].count(
-                i
-            )
+            refl = reflections.select(reflections["id"] == i)
+            stats = per_image_analysis.stats_for_reflection_table(refl)._asdict()
+            logger.debug(stats)
+            refl_count[int((x_ - xmin) / dx), int((y_ - ymin) / dy)] = stats[metric]
 
         refl_counts.append(refl_count)
         omega_values.append(sorted(set(omega))[0])
@@ -105,22 +120,24 @@ def gridscan3d(
     for i in range(nx):
         grid3d[i, :, :] = np.outer(refl_counts[0][i, :], refl_counts[1][i, :])
 
-    max_idx = list(r[0] for r in np.where(grid3d == grid3d.max()))
+    max_idx = tuple(r[0] for r in np.where(grid3d == grid3d.max()))
 
     if plot:
         import matplotlib.pyplot as plt
         from matplotlib.ticker import MaxNLocator
 
         fig, axes = plt.subplots(nrows=1, ncols=2)
+        vmax = max(counts.max() for counts in refl_counts)
         for ax, refl_count, omega in zip(axes, refl_counts, omega_values):
-            ax.imshow(refl_count)
+            ax.imshow(refl_count, vmin=0, vmax=vmax)
             ax.set_title(f"omega = {omega}")
             ax.yaxis.set_major_locator(MaxNLocator(integer=True))
         plt.show()
 
+        vmax = grid3d[max_idx]
         fig, axes = plt.subplots(nrows=1, ncols=nx)
         for i in range(nx):
-            axes[i].imshow(grid3d[i, :, :])
+            axes[i].imshow(grid3d[i, :, :], vmin=0, vmax=vmax)
             axes[i].yaxis.set_major_locator(MaxNLocator(integer=True))
             if i == max_idx[0]:
                 axes[i].scatter(max_idx[2], max_idx[1], marker="x", c="red")
@@ -175,7 +192,9 @@ def run(args: List[str] = None, phil: libtbx.phil.scope = phil_scope) -> None:
     reflection_tables = [refl.data for refl in params.input.reflections]
     experiment_lists = [expt.data for expt in params.input.experiments]
 
-    max_idx = gridscan3d(experiment_lists, reflection_tables, plot=params.plot)
+    max_idx = gridscan3d(
+        experiment_lists, reflection_tables, metric=params.metric, plot=params.plot
+    )
     logger.info(f"max_idx: {max_idx}")
 
 

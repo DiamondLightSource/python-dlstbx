@@ -1,5 +1,9 @@
 # Zocalo
 
+Zocalo consists primarily of **services**, **recipes** and **wrappers**.
+
+A **service** is usually a lightweight process that is running on a machine
+
 [Services](services.md)
 
 ## Recipes

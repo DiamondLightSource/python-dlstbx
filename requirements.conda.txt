@@ -2,7 +2,6 @@ bitshuffle
 drmaa
 ispyb>=5.8.0,<5.9
 junit-xml
-mock>=2.0
 msgpack-python
 networkx
 procrunner>=1.0.2

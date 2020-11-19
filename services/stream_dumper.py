@@ -60,7 +60,6 @@ class ZMQReceiver(threading.Thread):
             self.zmq_context = None
 
     def _receiver_loop(self):
-        t_received = time.perf_counter()
         re_visit_base = re.compile(r"^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/")
         dcid_cache = {}
         while not self.closing:
@@ -70,6 +69,7 @@ class ZMQReceiver(threading.Thread):
                 self.log.info("Context terminated. Shutting down receiver thread")
                 self.closing = True
                 return
+            t_received = time.perf_counter()
             header = data[0] = json.loads(data[0])
             if not header.get("acqID"):
                 self.log.error(

@@ -1,6 +1,7 @@
 import json
 import re
 import threading
+import time
 
 import ispyb
 import msgpack
@@ -59,6 +60,7 @@ class ZMQReceiver(threading.Thread):
             self.zmq_context = None
 
     def _receiver_loop(self):
+        t_received = time.perf_counter()
         re_visit_base = re.compile(r"^(.*\/[a-z][a-z][0-9]+-[0-9]+)\/")
         dcid_cache = {}
         while not self.closing:
@@ -132,13 +134,17 @@ class ZMQReceiver(threading.Thread):
                 continue
             serial_data = msgpack.packb(data, use_bin_type=True)
             target_file = destination.join(destination_file)
+            t_processed = time.perf_counter()
             target_file.write_binary(serial_data, ensure=True)
+            t_done = time.perf_counter()
             self.log.info(
-                "Written %d part multipart message for %s to %s (%d bytes)",
+                "Written %d part multipart message for %s to %s (%d bytes, %.2fs process time, %.2fs write time)",
                 len(data),
                 destination_file,
                 target_file.strpath,
                 len(serial_data),
+                t_processed - t_received,
+                t_done - t_processed,
             )
         self.log.info("Receiver thread terminating")
 

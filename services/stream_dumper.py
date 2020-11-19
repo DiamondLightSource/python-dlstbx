@@ -138,7 +138,7 @@ class ZMQReceiver(threading.Thread):
             target_file.write_binary(serial_data, ensure=True)
             t_done = time.perf_counter()
             self.log.info(
-                "Written %d part multipart message for %s to %s (%d bytes, %.2fs process time, %.2fs write time)",
+                "Written %d part multipart message for %s to %s (%d bytes, %.5fs process time, %.5fs write time)",
                 len(data),
                 destination_file,
                 target_file.strpath,

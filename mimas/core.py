@@ -155,11 +155,18 @@ def run(
             scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.EIGER
             and scenario.isitagridscan
         ):
-            tasks.append(
-                dlstbx.mimas.MimasRecipeInvocation(
-                    DCID=scenario.DCID, recipe="per-image-analysis-eiger-streamdump"
+            if scenario.beamline in ("i03",):
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID, recipe="per-image-analysis-eiger-streamdump"
+                    )
                 )
-            )
+            else:
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID, recipe="per-image-analysis-eiger-gridscan"
+                    )
+                )
 
     if scenario.event == dlstbx.mimas.MimasEvent.END:
 

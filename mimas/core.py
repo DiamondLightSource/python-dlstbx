@@ -509,13 +509,21 @@ def run(
                     DCID=scenario.DCID, recipe="archive-nexus"
                 )
             )
-            if scenario.dcclass != dlstbx.mimas.MimasDCClass.GRIDSCAN:
+
+            if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID, recipe="per-image-analysis-eiger-gridscan"
+                    )
+                )
+            else:
                 # skipped static gridscan analysis in favour of TOM algorithm
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe="per-image-analysis-eiger-rotation"
                     )
                 )
+
             if scenario.dcclass == dlstbx.mimas.MimasDCClass.SCREENING:
                 for recipe in (
                     "strategy-align-crystal",

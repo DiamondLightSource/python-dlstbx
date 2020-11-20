@@ -204,6 +204,17 @@ def run(
                 )
             )
 
+        elif scenario.beamline in ("i03", "i04", "i24"):
+            if (
+                scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.EIGER
+                and scenario.isitagridscan
+            ):
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID, recipe="per-image-analysis-eiger-gridscan"
+                    )
+                )
+
         elif scenario.beamline == "i02-2":
             # VMXi is also a special case
             ishdf = "#" in "dcid[image_pattern]"  # I guess this is exactly wrong

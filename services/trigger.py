@@ -757,9 +757,9 @@ class DLSTrigger(CommonService):
 
             if len(dcids) == 1:
                 self.log.info(
-                    f"Skipping xia2.multiplex trigger: no related dcids for dcid {dcid}"
+                    f"Skipping xia2.multiplex trigger: no related dcids for dcid={dcid} group={group}"
                 )
-                return {"success": True}
+                continue
             self.log.info(f"xia2.multiplex trigger: found dcids: {dcids}")
 
             def get_data_files_for_dcid(dcid):
@@ -849,9 +849,9 @@ class DLSTrigger(CommonService):
             data_files = [get_data_files_for_dcid(d) for d in dcids]
             if not any(data_files):
                 self.log.info(
-                    f"Skipping xia2.multiplex trigger: no related data files found for dcid {dcid}"
+                    f"Skipping xia2.multiplex trigger: no related data files found for dcid={dcid} group={group}"
                 )
-                return {"success": True}
+                continue
 
             # Select only those dcids with a valid data files
             dcids, data_files = zip(
@@ -860,9 +860,9 @@ class DLSTrigger(CommonService):
             self.log.info(data_files)
             if len(data_files) <= 1:
                 self.log.info(
-                    f"Skipping xia2.multiplex trigger: not enough related data files found for dcid {dcid}"
+                    f"Skipping xia2.multiplex trigger: not enough related data files found for dcid={dcid} group={group}"
                 )
-                return {"success": True}
+                continue
 
             if set(dcids) in multiplex_job_dcids:
                 continue

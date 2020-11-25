@@ -89,6 +89,8 @@ def vds_info(root, master, dataset):
             link = master.get(dsetname, getlink=True)
             filename = os.path.join(root, link.filename)
             dsetname = link.path
+        else:
+            filename = os.path.join(root, filename)
 
         vspace = plist.get_virtual_vspace(j)
         frames = vspace.get_regular_hyperslab()[3][0]
@@ -101,6 +103,9 @@ def vds_info(root, master, dataset):
 
 if __name__ == "__main__":
     import sys
+
+    if len(sys.argv) == 0:
+        sys.exit(f"{sys.argv[0]} /path/to/prefix_master.h5")
 
     with h5py.File(sys.argv[1], "r", swmr=True) as f:
         d = f["/entry/data/data"]

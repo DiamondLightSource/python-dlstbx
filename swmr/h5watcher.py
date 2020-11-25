@@ -104,7 +104,7 @@ def vds_info(root, master, dataset):
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) == 0:
+    if len(sys.argv) == 1:
         sys.exit(f"{sys.argv[0]} /path/to/prefix_master.h5")
 
     with h5py.File(sys.argv[1], "r", swmr=True) as f:

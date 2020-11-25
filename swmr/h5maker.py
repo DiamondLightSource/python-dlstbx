@@ -54,8 +54,7 @@ def main():
     for b, f in to_do:
         data_files[b]["data"][f] = image()
         data_files[b].flush()
-        print(f"data_{b:06d}.h5 {f} {time.time()}")
-        time.sleep(0.1)
+        print(f"data_{b:06d}.h5 {f} {b*BLOCK+f} {time.time()}")
 
 
 if __name__ == "__main__":

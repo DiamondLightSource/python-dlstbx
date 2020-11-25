@@ -2,31 +2,26 @@ import h5py
 import numpy
 import random
 import time
+import os
+import sys
 
 
-def main():
-
-    SHAPE = (512, 512)
-
+def main(prefix, SHAPE=(512, 512), BLOCK=100, NUMBER=10):
     def image():
         return (numpy.random.rand(*SHAPE) * 100).astype(numpy.int16)
 
-    BLOCK = 100
-    NUMBER = 10
-
-    # make many virtual sources of data... will fill these in later with
-    # data
+    # make many virtual sources... will fill these in later with data
 
     vds = h5py.VirtualLayout(shape=(BLOCK * NUMBER,) + SHAPE, dtype="i4")
     for j in range(NUMBER):
-        filename = f"data_{j:06d}.h5"
+        filename = os.path.split(f"{prefix}_{j:06d}.h5")[-1]
         vds[j * BLOCK : (j + 1) * BLOCK] = h5py.VirtualSource(
             filename, "data", shape=(BLOCK,) + SHAPE
         )
 
     # make the top level file with the VDS
 
-    with h5py.File("master.h5", "w", libver="latest") as f:
+    with h5py.File(f"{prefix}_master.h5", "w", libver="latest") as f:
         f.create_virtual_dataset("/entry/data/data", vds, fillvalue=-1)
 
     time.sleep(5.0)
@@ -35,7 +30,7 @@ def main():
     data_files = []
 
     for j in range(NUMBER):
-        filename = f"data_{j:06d}.h5"
+        filename = f"{prefix}_{j:06d}.h5"
         data_file = h5py.File(filename, "w", libver="latest")
         data_file.create_dataset(
             "data",
@@ -58,4 +53,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 1:
+        sys.exit(f"Usage: {sys.argv[0]} /path/to/generated/hdf/prefix")
+
+    prefix = sys.argv[1]
+
+    main(prefix)

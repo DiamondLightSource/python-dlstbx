@@ -32,6 +32,183 @@ def generate_recipe_message(parameters, output):
     return message
 
 
+def test_filewatcher_watch_pattern(mocker, tmpdir):
+    mock_transport = mock.Mock()
+    filewatcher = DLSFileWatcher()
+    setattr(filewatcher, "_transport", mock_transport)
+    filewatcher.initializing()
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    pattern = "image%06d"
+    image_ids = range(5, 10)
+    images = [tmpdir.join(pattern % i) for i in image_ids]
+    m = generate_recipe_message(
+        parameters={
+            "pattern": tmpdir.join(pattern).strpath,
+            "pattern-start": f"{image_ids[0]}",
+            "pattern-end": f"{image_ids[-1]}",
+            "expected-per-image-delay": "0.1",
+            "timeout": 1,
+        },
+        output={"any": 1},
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    send_to = mocker.spy(rw, "send_to")
+    filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
+    # Spy on the rw.send_to method
+    for i, (image_id, image) in enumerate(zip(image_ids, images)):
+        image.write("content")
+        filewatcher.watch_files(
+            rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
+        )
+        if i == image_ids[0]:
+            send_to.assert_any_call(
+                "first",
+                {
+                    "file": image,
+                    "file-number": i + 1,
+                    "file-pattern-index": image_ids[i],
+                },
+                transaction=mock.ANY,
+            )
+        send_to.assert_has_calls(
+            [
+                mock.call(
+                    "every",
+                    {
+                        "file": image,
+                        "file-number": i + 1,
+                        "file-pattern-index": image_ids[i],
+                    },
+                    transaction=mock.ANY,
+                ),
+                mock.call(
+                    i + 1,
+                    {
+                        "file": image,
+                        "file-number": i + 1,
+                        "file-pattern-index": image_ids[i],
+                    },
+                    transaction=mock.ANY,
+                ),
+                mock.call(
+                    f"{i + 1}",
+                    {
+                        "file": image,
+                        "file-number": i + 1,
+                        "file-pattern-index": image_ids[i],
+                    },
+                    transaction=mock.ANY,
+                ),
+            ],
+            any_order=True,
+        )
+    send_to.assert_has_calls(
+        [
+            mock.call(
+                "last",
+                {
+                    "file": images[-1],
+                    "file-number": len(images),
+                    "file-pattern-index": image_ids[-1],
+                },
+                transaction=mock.ANY,
+            ),
+            mock.call(
+                "any",
+                {"files-expected": len(images), "files-seen": len(images)},
+                transaction=mock.ANY,
+            ),
+            mock.call(
+                "finally",
+                {
+                    "files-expected": len(images),
+                    "files-seen": len(images),
+                    "success": True,
+                },
+                transaction=mock.ANY,
+            ),
+        ],
+        any_order=True,
+    )
+
+
+def test_filewatcher_watch_list(mocker, tmpdir):
+    mock_transport = mock.Mock()
+    filewatcher = DLSFileWatcher()
+    setattr(filewatcher, "_transport", mock_transport)
+    filewatcher.initializing()
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    files = [tmpdir.join("header"), tmpdir.join("end")]
+    m = generate_recipe_message(
+        parameters={
+            "list": [f.strpath for f in files],
+            "timeout": 0.5,
+            "log-timeout-as-info": True,
+        },
+        output={"any": 1},
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    send_to = mocker.spy(rw, "send_to")
+    filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
+    # Spy on the rw.send_to method
+    for i, f in enumerate(files):
+        f.write("content")
+        filewatcher.watch_files(
+            rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
+        )
+        print(send_to.mock_calls)
+        if i == 0:
+            send_to.assert_any_call(
+                "first",
+                {"file": f, "file-list-index": i + 1},
+                transaction=mock.ANY,
+            )
+        send_to.assert_has_calls(
+            [
+                mock.call(
+                    "every",
+                    {"file": f, "file-list-index": i + 1},
+                    transaction=mock.ANY,
+                ),
+                mock.call(
+                    i + 1,
+                    {"file": f, "file-list-index": i + 1},
+                    transaction=mock.ANY,
+                ),
+                mock.call(
+                    f"{i + 1}",
+                    {"file": f, "file-list-index": i + 1},
+                    transaction=mock.ANY,
+                ),
+            ],
+            any_order=True,
+        )
+    send_to.assert_has_calls(
+        [
+            mock.call(
+                "last",
+                {"file": files[-1], "file-list-index": len(files)},
+                transaction=mock.ANY,
+            ),
+            mock.call(
+                "any",
+                {"files-expected": len(files), "files-seen": len(files)},
+                transaction=mock.ANY,
+            ),
+            mock.call(
+                "finally",
+                {
+                    "files-expected": len(files),
+                    "files-seen": len(files),
+                    "success": True,
+                },
+                transaction=mock.ANY,
+            ),
+        ],
+        any_order=True,
+    )
+
+
 def test_filewatcher_watch_pattern_timeout(mocker, tmpdir):
     mock_transport = mock.Mock()
     filewatcher = DLSFileWatcher()
@@ -47,6 +224,7 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmpdir):
             "pattern-end": "10",
             "expected-per-image-delay": "0.01",
             "timeout": 1,
+            "log-timeout-as-info": True,
         },
         output={"any": 1},
     )

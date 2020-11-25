@@ -39,7 +39,7 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
     filewatcher.initializing()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     pattern = "image%06d"
-    image_ids = range(5, 10)
+    image_ids = range(5, 11)
     images = [tmpdir.join(pattern % i) for i in image_ids]
     m = generate_recipe_message(
         parameters={
@@ -49,7 +49,10 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
             "expected-per-image-delay": "0.1",
             "timeout": 1,
         },
-        output={"any": 1},
+        output={
+            "any": 1,
+            "select-2": 2,
+        },
     )
     rw = RecipeWrapper(message=m, transport=t)
     send_to = mocker.spy(rw, "send_to")
@@ -60,7 +63,7 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
         filewatcher.watch_files(
             rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
         )
-        if i == image_ids[0]:
+        if image_id == image_ids[0]:
             send_to.assert_any_call(
                 "first",
                 {
@@ -364,3 +367,9 @@ def test_parse_everys():
     assert DLSFileWatcher._parse_everys({"every": 2}) == {}
     assert DLSFileWatcher._parse_everys({"every-1": 3}) == {1: "every-1"}
     assert DLSFileWatcher._parse_everys({"every-2": 4}) == {2: "every-2"}
+
+
+def test_parse_selections():
+    assert DLSFileWatcher._parse_selections({"select": 2}) == {}
+    assert DLSFileWatcher._parse_selections({"select-1": 3}) == {1: "select-1"}
+    assert DLSFileWatcher._parse_selections({"select-2": 4}) == {2: "select-2"}

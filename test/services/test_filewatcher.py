@@ -49,13 +49,20 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
             "pattern-end": f"{image_ids[-1]}",
             "expected-per-image-delay": "0.1",
             "timeout": 1,
+            "burst-wait": 10,
         },
         output={"any": 1, "select-2": 2},
     )
     rw = RecipeWrapper(message=m, transport=t)
-    send_to = mocker.spy(rw, "send_to")
-    filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
     # Spy on the rw.send_to method
+    send_to = mocker.spy(rw, "send_to")
+    checkpoint = mocker.spy(rw, "checkpoint")
+    filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
+    checkpoint.assert_any_call(
+        {"filewatcher-status": {"seen-files": 0, "start-time": mock.ANY}},
+        delay=10,
+        transaction=mock.ANY,
+    )
     for i, (image_id, image) in enumerate(zip(image_ids, images)):
         image.write("content")
         filewatcher.watch_files(
@@ -145,19 +152,25 @@ def test_filewatcher_watch_list(mocker, tmpdir):
             "list": [f.strpath for f in files],
             "timeout": 0.5,
             "log-timeout-as-info": True,
+            "burst-wait": 5,
         },
         output={"any": 1},
     )
     rw = RecipeWrapper(message=m, transport=t)
-    send_to = mocker.spy(rw, "send_to")
-    filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
     # Spy on the rw.send_to method
+    send_to = mocker.spy(rw, "send_to")
+    checkpoint = mocker.spy(rw, "checkpoint")
+    filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
+    checkpoint.assert_any_call(
+        {"filewatcher-status": {"seen-files": 0, "start-time": mock.ANY}},
+        delay=5,
+        transaction=mock.ANY,
+    )
     for i, f in enumerate(files):
         f.write("content")
         filewatcher.watch_files(
             rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
         )
-        print(send_to.mock_calls)
         if i == 0:
             send_to.assert_any_call(
                 "first", {"file": f, "file-list-index": i + 1}, transaction=mock.ANY

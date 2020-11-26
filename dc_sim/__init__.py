@@ -694,8 +694,11 @@ def call_sim(test_name, beamline):
 
     # Calculate the destination directory
     now = datetime.datetime.now()
-    # Apparently this proposal number will now change every year
-    proposal = "nt26503"
+    # These proposal numbers need to be updated every year
+    if beamline.startswith("m"):
+        proposal = "cm28024"
+    else:
+        proposal = "nt26503"
     if beamline.startswith("i02"):
         if beamline == "i02-2":
             dest_visit = f"{proposal}-1"

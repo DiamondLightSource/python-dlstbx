@@ -1,3 +1,4 @@
+import collections
 import time
 import pytest
 from unittest import mock
@@ -5,6 +6,7 @@ from unittest import mock
 import workflows.transport.common_transport
 from workflows.recipe.wrapper import RecipeWrapper
 
+import dlstbx.services.filewatcher
 from dlstbx.services.filewatcher import DLSFileWatcher
 
 
@@ -397,3 +399,21 @@ def test_notify_for_found_file(nth_file, expected):
     ):
         with pytest.raises(AssertionError):
             notify_function.assert_any_call(notify)
+
+
+@pytest.mark.parametrize("select_n_images", (151, 250))
+def test_file_selection(select_n_images):
+    select_n_images = 250
+    for filecount in list(range(1, 255)) + list(range(3600, 3700)):
+        selection = lambda x: dlstbx.services.filewatcher.is_file_selected(
+            x, select_n_images, filecount
+        )
+        l = list(filter(selection, range(1, filecount + 1)))
+
+        # Check that correct number of images were selected
+        assert len(l) == min(filecount, select_n_images)
+
+        # Check that selection was evenly distributed
+        if filecount > 1:
+            diffs = [n - l[i - 1] for i, n in enumerate(l) if i]
+            assert 1 <= len(collections.Counter(diffs)) <= 2, (filecount, diffs)

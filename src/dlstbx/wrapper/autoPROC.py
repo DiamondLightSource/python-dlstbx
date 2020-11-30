@@ -244,7 +244,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             )
 
         if attachments:
-            for filename, dirname, filetype in attachments:
+            for filename, dirname, filetype, importance_rank in attachments:
                 ispyb_command_list.append(
                     {
                         "ispyb_command": "add_program_attachment",
@@ -252,6 +252,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                         "file_name": filename,
                         "file_path": dirname,
                         "file_type": filetype,
+                        "importance_rank": importance_rank,
                     }
                 )
 
@@ -560,6 +561,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 )
         allfiles = []  # flat list
         anisofiles = []  # tuples of file name, dir name, file type
+        attachments = []  # tuples of file name, dir name, file type
         for filename in working_directory.listdir():
             keep_as = keep.get(filename.basename, filename.ext in copy_extensions)
             if not keep_as:
@@ -569,30 +571,45 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             filename.copy(destination)
             if filename.basename not in keep:
                 continue  # only copy file, do not register in ISPyB
+            importance_rank = {
+                "truncate-unique.mtz": 1,
+                "staraniso_alldata-unique.mtz": 1,
+                "summary.html": 1,
+            }.get(filename.basename, 2)
             if "staraniso" in filename.basename:
-                anisofiles.append((destination.basename, destination.dirname, keep_as))
+                anisofiles.append(
+                    (
+                        destination.basename,
+                        destination.dirname,
+                        keep_as,
+                        importance_rank,
+                    )
+                )
             else:
                 if keep_as == "log":
                     # also record log files for staraniso
                     anisofiles.append(
-                        (destination.basename, destination.dirname, keep_as)
+                        (
+                            destination.basename,
+                            destination.dirname,
+                            keep_as,
+                            importance_rank,
+                        )
                     )
+                attachments.append(
+                    (
+                        destination.basename,
+                        destination.dirname,
+                        keep_as,
+                        importance_rank,
+                    )
+                )
                 allfiles.append(destination.strpath)
-                self.record_result_individual_file(
-                    {
-                        "file_path": destination.dirname,
-                        "file_name": destination.basename,
-                        "file_type": keep_as,
-                    }
-                )
-                logger.debug(
-                    "Recording file %s as %s in ISPyB", destination.basename, keep_as
-                )
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
         if success and autoproc_xml:
-            success = self.send_results_to_ispyb(autoproc_xml)
+            success = self.send_results_to_ispyb(autoproc_xml, attachments=attachments)
         if success and staraniso_xml:
             success = self.send_results_to_ispyb(
                 staraniso_xml,

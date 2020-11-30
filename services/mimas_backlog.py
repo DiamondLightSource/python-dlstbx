@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -19,6 +20,7 @@ class DLSMimasBacklog(CommonService):
 
         self._max_jobs_waiting = 10
         self._jobs_waiting = self._max_jobs_waiting
+        self._last_cluster_update = time.time()
         self._held_data = None
         self._lock = threading.Lock()
 
@@ -55,6 +57,7 @@ class DLSMimasBacklog(CommonService):
             and message["statistic"] == "waiting-jobs-per-queue"
         ):
             with self._lock:
+                self._last_cluster_update = time.time()
                 self._jobs_waiting = message["high.q"] + message["medium.q"]
                 self.log.log(
                     logging.INFO if self._jobs_waiting else logging.DEBUG,
@@ -72,10 +75,16 @@ class DLSMimasBacklog(CommonService):
         """
         self.log.debug(f"Jobs waiting: {self._jobs_waiting}")
         with self._lock:
+            assert not self._held_data, "unexpectedly received multiple messages"
             if self._jobs_waiting < self._max_jobs_waiting:
-                self.forward_message(rw, header, message)
+                if self._last_cluster_update > time.time() - 300:
+                    self.forward_message(rw, header, message)
+                else:
+                    self.log.warning(
+                        "Not heard from the cluster for over 5 minutes. Holding jobs."
+                    )
+                    self._held_data = (rw, header, message)
             else:
-                assert not self._held_data, "unexpectedly received multiple messages"
                 self._held_data = (rw, header, message)
 
     def forward_message(self, rw, header, message):

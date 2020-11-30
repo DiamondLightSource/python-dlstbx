@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -120,7 +121,7 @@ class Cluster:
             trace = [
                 "  %s" % line for line in traceback.format_exception(*sys.exc_info())
             ]
-            if isinstance(e, drmaa.errors.DrmaaException):
+            if isinstance(e, (drmaa.errors.DrmaaException, subprocess.TimeoutExpired)):
                 e = RuntimeError(repr(e))
             e.trace = "\n" + "\n".join(trace)
             initialisation_exception = e
@@ -141,7 +142,9 @@ class Cluster:
                         "  %s" % line
                         for line in traceback.format_exception(*sys.exc_info())
                     ]
-                    if isinstance(e, drmaa.errors.DrmaaException):
+                    if isinstance(
+                        e, (drmaa.errors.DrmaaException, subprocess.TimeoutExpired)
+                    ):
                         e = RuntimeError(repr(e))
                     e.trace = "\n" + "\n".join(trace)
                     self._pipe_subprocess.send({"exception": e, "init": False})
@@ -173,8 +176,9 @@ class Cluster:
             print_stdout=False,
             print_stderr=False,
             environment_override=blank_environment,
+            raise_timeout_exception=True,
         )
-        if result["timeout"] or result["exitcode"] != 0:
+        if result.returncode:
             raise RuntimeError("Could not load cluster environment\n%s" % str(result))
 
         environment = {}
@@ -315,22 +319,20 @@ class Cluster:
         """
         if not arguments:
             arguments = []
+        runtime = time.perf_counter()
         result = procrunner.run(
             command=["qstat", "-xml"] + arguments,
             timeout=timeout,
             stdin="",
             print_stdout=False,
             print_stderr=False,
+            raise_timeout_exception=True,
         )
-        if result["timeout"]:
-            log.error(
-                "failed to read cluster statistics after %.1f seconds",
-                result["runtime"],
-            )
-        elif result["runtime"] > warn_after:
-            log.warn("reading cluster statistics took %.1f seconds", result["runtime"])
+        runtime = time.perf_counter() - runtime
+        if runtime > warn_after:
+            log.warn("reading cluster statistics took %.1f seconds", runtime)
         else:
-            log.debug("reading cluster statistics took %.1f seconds", result["runtime"])
+            log.debug("reading cluster statistics took %.1f seconds", runtime)
         return result
 
     def _qsub(self, command, arguments, job_params=None):
@@ -507,13 +509,12 @@ class ClusterStatistics:
         """
         result = cluster.qstat_xml(arguments=arguments)
         assert (
-            not result["timeout"] and result["exitcode"] == 0
-        ), "Could not run qstat on cluster. timeout: %s, exitcode: %s, Output: %s" % (
-            str(result.get("timeout")),
-            str(result.get("exitcode")),
-            result.get("stderr", "") or result.get("stdout", ""),
+            not result.returncode
+        ), "Could not run qstat on cluster. exitcode: %s, Output: %s" % (
+            result.returncode,
+            result.stderr or result.stdout,
         )
-        return self.parse_string(result["stdout"])
+        return self.parse_string(result.stdout)
 
 
 if __name__ == "__main__":
@@ -548,7 +549,7 @@ if __name__ == "__main__":
         (hc, hamilton_id, "hamilton"),
     ]:
         joblist, _ = stats.run_on(cluster, arguments=["-r", "-u", "*"])
-        joblist = filter(lambda j: j["ID"] == int(jobid), joblist)
+        joblist = [j for j in joblist if j["ID"] == int(jobid)]
         if len(joblist) < 1:
             print("Could not read back information about this job ID from %s" % name)
         else:

@@ -299,6 +299,9 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
         params["file_name"] = parameters("file_name", replace_variables=False)
         params["file_path"] = parameters("file_path", replace_variables=False)
+        params["importance_rank"] = parameters(
+            "importance_rank", replace_variables=False
+        )
         fqpn = os.path.join(params["file_path"], params["file_name"])
 
         if not os.path.isfile(fqpn):

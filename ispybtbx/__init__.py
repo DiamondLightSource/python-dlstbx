@@ -334,7 +334,7 @@ class ispybtbx:
             return None
 
         sql_str = f"""
-SELECT dc1.dataCollectionId
+SELECT dc2.dataCollectionId
 FROM DataCollection AS dc1
 INNER JOIN DataCollection AS dc2
 ON dc1.imageDirectory = dc2.imageDirectory and dc1.dataCollectionId <> dc2.dataCollectionId and dc1.imageDirectory is not NULL

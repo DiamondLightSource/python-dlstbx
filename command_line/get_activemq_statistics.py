@@ -18,6 +18,8 @@ class ActiveMQAPI:
 
     def _query(self, **kwargs):
         result = self.jmx.org.apache.activemq(**kwargs)
+        if result["status"] == 404:
+            return 0
         if result["status"] != 200:
             raise RuntimeError(f"ActiveMQ responded with {result}")
         return result["value"]

@@ -1060,6 +1060,15 @@ def load_configuration_file(ispyb_info):
 
 
 def load_sample_group_config_file(ispyb_info):
+    if any(
+        not ispyb_info.get(entry)
+        for entry in (
+            "ispyb_visit_directory",
+            "ispyb_image_directory",
+            "ispyb_image_template",
+        )
+    ):
+        return
     visit_dir = ispyb_info["ispyb_visit_directory"]
     processing_dir = os.path.join(ispyb_info["ispyb_visit_directory"], "processing")
     config_file = os.path.join(processing_dir, "sample_groups.yml")

@@ -3,9 +3,25 @@ from pathlib import Path
 
 def get_mrbump_metrics(mrbump_logfile):
     mrbump_log = [l for l in Path(mrbump_logfile).read_text().split("\n")]
-    for line in mrbump_log:
-        if "Molecular Weight (daltons)" in line:
-            mw = float(line.split(":")[-1])
+    iter_log = iter(mrbump_log)
+    for line in iter_log:
+        if "Input Sequence file:" in line:
+            seq_file = line.split(":")[-1].strip()
+            continue
+        if "Reflection (MTZ) file:" in line:
+            hklin = line.split(":")[-1].strip()
+            next_line = next(iter_log)
+            if "Number of residues:" in next_line:
+                nres = int(next_line.split(":")[-1])
+            next_line = next(iter_log)
+            if "Molecular Weight (daltons):" in next_line:
+                mw = float(next_line.split(":")[-1])
+            next_line = next(iter_log)
+            if "Estimated number of molecules to search for in a.s.u.:" in next_line:
+                nmol = int(next_line.split(":")[-1])
+            next_line = next(iter_log)
+            if "Resolution of collected data (angstroms):" in next_line:
+                resol = float(next_line.split(":")[-1])
             break
     iter_log = iter(mrbump_log)
     models = {}
@@ -13,10 +29,21 @@ def get_mrbump_metrics(mrbump_logfile):
         if "Template Model " == line[:15]:
             model_label = line.split(":")[-1].strip()
             for next_line in iter_log:
-                if "Estimated sequence identity" in next_line:
+                if "Input search model:" in next_line:
+                    input_pdb = next(iter_log).strip()
+                elif "Estimated sequence identity" in next_line:
                     seq_ident = float(next_line.split(":")[-1]) * 100.0
+                elif "MR log: Spacegroup of solution from Phaser is:" in next_line:
+                    spacegroup = next_line.split(":")[-1].strip()
                     models[model_label] = {
+                        "input_pdb": input_pdb,
+                        "seq_file": seq_file,
+                        "hklin": hklin,
+                        "spacegroup": spacegroup,
+                        "number_residues": nres,
                         "molecular_weight": mw,
+                        "number_molecules": nmol,
+                        "resolution": resol,
                         "seq_indent": seq_ident,
                     }
                     break

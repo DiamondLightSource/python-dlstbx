@@ -278,3 +278,20 @@ def test_get_sample_group_dcids_from_yml(tmpdir):
         {"dcids": [5661104, 5661122, 5661125, 5661128, 5661131, 5661134, 5661137]},
         {"dcids": [5661122, 5661125, 5661128, 5661131, 5661134, 5661137]},
     ]
+
+
+def test_get_related_dcids_same_directory():
+    i = ispybtbx()
+    assert i.get_related_dcids_same_directory({"ispyb_dcid": 5646632}) == {
+        "dcids": [
+            5646578,
+            5646584,
+            5646590,
+            5646596,
+            5646602,
+            5646608,
+            5646614,
+            5646620,
+            5646626,
+        ]
+    }

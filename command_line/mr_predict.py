@@ -10,7 +10,7 @@ def run(model_file, output_file, threshold, metrics):
         classifier_data = joblib.load(fp)
 
     mrbump_metric_labels = [
-        "Phaser LLG",
+        "Phaser eLLG",
         "Sequence Identity",
         "Molecular Weight (Chain)",
     ]

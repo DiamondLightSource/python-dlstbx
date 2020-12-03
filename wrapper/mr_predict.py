@@ -21,7 +21,7 @@ clean_environment = {
 
 
 class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
-    def runMR_ELLG(self, working_directory, tag, params):
+    def run_phaser_ellg(self, working_directory, tag, params, timeout):
         phaser_script = [
             "phaser << eof\n",
             f"TITLe mr_predict eLLG calculation\n",
@@ -30,7 +30,7 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
             "LABIn F=F SIGF=SIGF\n",
             f"ENSEmble {tag} PDB {params['input_pdb']} IDENtity {params['seq_indent'] / 100.0}\n",
             f"COMPosition PROTein SEQuence {params['seq_file']} NUM {params['number_molecules']}\n",
-            f"ROOT {tag}\n",  # not the default
+            f"ROOT {tag}\n",
             f"RESOlution {params['resolution']}\n",
             f"SPACegroup {params['spacegroup']}\n",
             "eof",
@@ -39,9 +39,7 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
         try:
             fp = tempfile.NamedTemporaryFile(dir=working_directory)
             sfx = Path(fp.name).stem
-            phaser_ellg_script = (
-                working_directory / f"run_phaser_ellgmr_predict_{sfx}.sh"
-            )
+            phaser_ellg_script = working_directory / f"run_phaser_ellg_{sfx}.sh"
             fp.close()
             with open(phaser_ellg_script, "w") as fp:
                 fp.writelines(
@@ -58,23 +56,27 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
                 "Could not create phaser script file in the working directory"
             )
             return False
-        # try:
-        #    result = procrunner.run(
-        #        ["sh", str(phaser_ellg_script)],
-        #        timeout=params["timeout"],
-        #        working_directory=working_directory,
-        #        environment_override=clean_environment,
-        #    )
-        #    assert result["exitcode"] == 0
-        #    assert result["timeout"] is False
-        # except AssertionError:
-        #    logger.exception(
-        #        "Process returned an error code when running Phaser eLLG script"
-        #    )
-        #    return False
-        # except Exception:
-        #    logger.exception("Running Phaser eLLG script has failed")
-        #    return False
+        try:
+            result = procrunner.run(
+                ["sh", str(phaser_ellg_script)],
+                timeout=timeout,
+                working_directory=working_directory,
+            )
+            assert result["exitcode"] == 0
+            assert result["timeout"] is False
+            phaser_ellg_log = result["stdout"].decode("latin1")
+        except AssertionError:
+            logger.warining(
+                "Process returned an error code when running Phaser eLLG script"
+            )
+            phaser_ellg_log = None
+        except Exception:
+            logger.warning("Running Phaser eLLG script has failed")
+            phaser_ellg_log = None
+        finally:
+            logger.info(result["stdout"].decode("latin1"))
+            logger.info(result["stderr"].decode("latin1"))
+        return phaser_ellg_log
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -84,37 +86,41 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
         working_directory.mkdir(parents=True, exist_ok=True)
 
         fmt_script_path = mr_predict.__file__
-        # Avoid preompiled module incompatibility between Python 2 & 3
-        fmt_script_path = (
-            fmt_script_path[:-1]
-            if fmt_script_path.endswith(".pyc")
-            else fmt_script_path
-        )
         mrbump_logfile = Path(params["data"])
         output_file = Path(params["output_file"])
         metrics = mr_utils.get_mrbump_metrics(mrbump_logfile)
-
         for tag, model_params in metrics.items():
-            self.runMR_ELLG(working_directory, tag, model_params)
-        logger.info(pformat(metrics))
+            phaser_ellg_log = self.run_phaser_ellg(
+                working_directory, tag, model_params, params["timeout"]
+            )
+            try:
+                model_params["results"]["eLLG"] = mr_utils.get_phaser_ellg(
+                    phaser_ellg_log
+                )
+            except Exception:
+                model_params["results"]["eLLG"] = None
 
         commands = []
         log_files = []
         for key, model in metrics.items():
+            if not model["results"]["eLLG"]:
+                continue
             try:
                 fmt_metrix = " ".join(
                     [
                         f"{v:.3f}"
                         for v in (
-                            model["results"]["Phaser_LLG"],
+                            model["results"]["eLLG"],
                             model["seq_indent"],
                             model["molecular_weight"],
                         )
                     ]
                 )
             except Exception:
-                logger.exception("Error reading mr_predict input parameters. Aborting.")
-                return False
+                logger.warning(
+                    f"Error reading mr_predict input parameters for model {key}"
+                )
+                continue
             mr_logfile = Path(output_file.parent) / Path(
                 output_file.stem + f"_{key}" + output_file.suffix
             )
@@ -123,6 +129,9 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
                 f"python {fmt_script_path} {params['classifier']} "
                 f"{mr_logfile} {params['threshold']} {fmt_metrix}\n"
             )
+        if not log_files:
+            logger.warning("Incomplete input data for running MR prediction script")
+            return True
         try:
             fp = tempfile.NamedTemporaryFile(dir=working_directory)
             sfx = Path(fp.name).stem

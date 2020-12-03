@@ -52,10 +52,10 @@ def get_mrbump_metrics(mrbump_logfile):
         if "MrBUMP Summary" in line:
             for final_line in iter_log:
                 if "Phaser_LLG" in final_line and "Model_Name" in final_line:
-                    labels = [v for v in final_line.split(" ") if v][:7]
+                    labels = [v for v in final_line.split() if v][:7]
                     for next_line in iter_log:
                         try:
-                            final_values = [v for v in next_line.split(" ") if v]
+                            final_values = [v for v in next_line.split() if v]
                             (model_name, mr_program, solution_type) = tuple(
                                 final_values[:3]
                             )
@@ -83,3 +83,15 @@ def get_mrbump_metrics(mrbump_logfile):
                         except ValueError:
                             break
     return models
+
+
+def get_phaser_ellg(phaser_log):
+    phaser_log = (l for l in phaser_log.split("\n"))
+    for line in phaser_log:
+        if "eLLG   RMSD frac-scat  Ensemble" in line:
+            next_line = next(phaser_log)
+            try:
+                ellg = float(next_line.split()[0])
+                return ellg
+            except Exception:
+                return None

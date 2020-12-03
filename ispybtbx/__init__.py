@@ -1087,7 +1087,9 @@ def load_sample_group_config_file(ispyb_info):
             else:
                 for group in sample_groups:
                     for prefix in group:
-                        if prefix in os.path.relpath(image_path, visit_dir):
+                        if prefix in os.path.relpath(image_path, visit_dir).split(
+                            os.sep
+                        ):
                             return group
     else:
         logger.debug(

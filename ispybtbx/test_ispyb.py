@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from unittest import mock
+import dlstbx.ispybtbx
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
 
 ds = {
@@ -230,3 +231,21 @@ def test_retrieve_reprocessing_information():
 
     ## legacy:
     assert param["ispyb_reprocessing_parameters"] == {"d_min": "1.7"}
+
+
+def test_load_sample_group_config_file(tmpdir):
+    (tmpdir / "processing").mkdir()
+    config_file = tmpdir / "processing" / "sample_groups.yml"
+    config_file.write(
+        """\
+- [well_1, well_2, well_3]
+- [well_121, well_122, well_123]
+"""
+    )
+    ispyb_info = {
+        "ispyb_visit_directory": tmpdir,
+        "ispyb_image_directory": tmpdir / "VMXi-XY1234" / "well_123" / "images",
+        "ispyb_image_template": "image_50934_master.h5",
+    }
+    group = dlstbx.ispybtbx.load_sample_group_config_file(ispyb_info)
+    assert group == ["well_121", "well_122", "well_123"]

@@ -263,36 +263,38 @@ class ispybtbx:
         #   $ cat ${visit}/processing/sample_groups.yml
         #     - [well_10, well_11, well_12]
         #     - [well_121, well_122, well_124, well_126, well_146, well_150]
+        print(related_dcids)
         if not related_dcids:
             try:
-                sample_group = load_sample_group_config_file(ispyb_info)
+                sample_groups = load_sample_group_config_file(ispyb_info)
             except Exception as e:
                 logger.warning(
                     f"Error loading sample group config file for {ispyb_info['ispyb_visit']}: {e}",
                     exc_info=True,
                 )
             else:
-                logger.debug(sample_group)
-                if sample_group:
-                    sample_group_dcids = []
-                    sessionid = self.get_bl_sessionid_from_visit_name(
-                        ispyb_info["ispyb_visit"]
-                    )
-                    matches = self.execute(
-                        "select datacollectionid, imagedirectory, filetemplate from DataCollection "
-                        "where sessionid=%s;",
-                        sessionid,
-                    )
-                    visit_dir = ispyb_info["ispyb_visit_directory"]
-                    for dcid, image_directory, template in matches:
-                        parts = os.path.relpath(image_directory, visit_dir).split(
-                            os.sep
+                logger.debug(sample_groups)
+                if sample_groups:
+                    for sample_group in sample_groups:
+                        sample_group_dcids = []
+                        sessionid = self.get_bl_sessionid_from_visit_name(
+                            ispyb_info["ispyb_visit"]
                         )
-                        logger.debug(f"parts: {parts}, template: {template}")
-                        for prefix in sample_group:
-                            if prefix in parts:
-                                sample_group_dcids.append(dcid)
-                    related_dcids.append({"dcids": sample_group_dcids})
+                        matches = self.execute(
+                            "select datacollectionid, imagedirectory, filetemplate from DataCollection "
+                            "where sessionid=%s;",
+                            sessionid,
+                        )
+                        visit_dir = ispyb_info["ispyb_visit_directory"]
+                        for dcid, image_directory, template in matches:
+                            parts = os.path.relpath(image_directory, visit_dir).split(
+                                os.sep
+                            )
+                            logger.debug(f"parts: {parts}, template: {template}")
+                            for prefix in sample_group:
+                                if prefix in parts:
+                                    sample_group_dcids.append(dcid)
+                        related_dcids.append({"dcids": sample_group_dcids})
                 logger.debug(
                     f"dcids defined via sample_group.yml for dcid={dcid}: {related_dcids}"
                 )
@@ -1085,12 +1087,14 @@ def load_sample_group_config_file(ispyb_info):
                     exc_info=True,
                 )
             else:
+                groups = []
                 for group in sample_groups:
                     for prefix in group:
                         if prefix in os.path.relpath(image_path, visit_dir).split(
                             os.sep
                         ):
-                            return group
+                            groups.append(group)
+                return groups
     else:
         logger.debug(
             f"Config file {config_file} either does not exist or is not a file"

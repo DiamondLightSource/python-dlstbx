@@ -105,7 +105,7 @@ def reduce_shelxc_results(msg, params):
                     for (i, v) in enumerate(msg["reso_data"][ds][1:], 1)
                     if v < RESOL_CUTOFF
                 ),
-                2,
+                5,
             )
         except StopIteration:
             idx = -1

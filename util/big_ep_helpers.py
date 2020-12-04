@@ -287,9 +287,11 @@ def get_autosharp_model_files(msg, logger):
             for mtz_line, pdb_line in zip(lines[:0:-1], lines[-2::-1]):
                 if "autoSHARP_modelmtz=" in mtz_line and "autoSHARP_model=" in pdb_line:
                     try:
+                        pdb_filename = os.path.basename(parse_value(pdb_line))
+                        mtz_filename = os.path.basename(parse_value(mtz_line))
                         mdl_dict = {
-                            "pdb": parse_value(pdb_line),
-                            "mtz": parse_value(mtz_line),
+                            "pdb": os.path.join(msg._wd, pdb_filename),
+                            "mtz": os.path.join(msg._wd, mtz_filename),
                             "pipeline": "autoSHARP",
                         }
                         if "LJS" in os.path.basename(mdl_dict["mtz"]):

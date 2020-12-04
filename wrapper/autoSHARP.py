@@ -78,7 +78,7 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
             logger.debug(result["stderr"])
 
         try:
-            get_autosharp_model_files(msg, logger)
+            get_autosharp_model_files(msg, str(working_directory), logger)
         except Exception:
             logger.exception("Error reading autoSHARP model files")
             return False

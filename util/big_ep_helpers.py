@@ -286,47 +286,49 @@ def get_autosharp_model_files(msg, working_directory, logger):
             lines = f.readlines()
             for mtz_line, pdb_line in zip(lines[:0:-1], lines[-2::-1]):
                 if "autoSHARP_modelmtz=" in mtz_line and "autoSHARP_model=" in pdb_line:
+                    pdb_filename = parse_value(pdb_line).replace(
+                        working_directory, msg._wd
+                    )
+                    mtz_filename = parse_value(mtz_line).replace(
+                        working_directory, msg._wd
+                    )
+                    mdl_dict = {
+                        "pdb": pdb_filename,
+                        "mtz": mtz_filename,
+                        "pipeline": "autoSHARP",
+                        "map": "",
+                        "mapcc": 0.0,
+                        "mapcc_dmin": 0.0,
+                    }
+                    if "LJS" in os.path.basename(mdl_dict["mtz"]):
+                        mdl_dict.update(
+                            {
+                                "fwt": "parrot.F_phi.F",
+                                "phwt": "parrot.F_phi.phi",
+                                "fom": None,
+                            }
+                        )
+                    else:
+                        mdl_dict.update({"fwt": "FWT", "phwt": "PHWT", "fom": None})
                     try:
-                        pdb_filename = parse_value(pdb_line).replace(
-                            working_directory, msg._wd
-                        )
-                        mtz_filename = parse_value(mtz_line).replace(
-                            working_directory, msg._wd
-                        )
-                        mdl_dict = {
-                            "pdb": pdb_filename,
-                            "mtz": mtz_filename,
-                            "pipeline": "autoSHARP",
-                        }
-                        if "LJS" in os.path.basename(mdl_dict["mtz"]):
-                            mdl_dict.update(
-                                {
-                                    "fwt": "parrot.F_phi.F",
-                                    "phwt": "parrot.F_phi.phi",
-                                    "fom": None,
-                                }
-                            )
-                        else:
-                            mdl_dict.update({"fwt": "FWT", "phwt": "PHWT", "fom": None})
-
                         mdl_dict.update(get_pdb_chain_stats(mdl_dict["pdb"], logger))
 
                         (map_filename, mapcc, mapcc_dmin) = write_ispyb_maps(
                             msg._wd, mdl_dict, logger
                         )
-                        if map_filename:
-                            mdl_dict["map"] = map_filename
-                            mdl_dict["mapcc"] = mapcc
-                            mdl_dict["mapcc_dmin"] = mapcc_dmin
+                        mdl_dict["map"] = map_filename
+                        mdl_dict["mapcc"] = mapcc
+                        mdl_dict["mapcc_dmin"] = mapcc_dmin
 
-                        msg.model = mdl_dict
-                        ispyb_write_model_json(msg, logger)
-                        return msg
                     except Exception:
                         logger.exception("autoSHARP results parsing error")
-                        continue
+                    msg.model = mdl_dict
+                    ispyb_write_model_json(msg, logger)
+                    return msg
+            logger.error("Cannot find record with autoSHARP output files")
             return None
     except IOError:
+        logger.exception("Cannot find .autoSHARP results file")
         return None
 
 

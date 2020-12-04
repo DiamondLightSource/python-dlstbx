@@ -105,7 +105,7 @@ def write_ispyb_maps(_wd, mdl_dict, logger):
 
         return (map_filepath, mapcc, mapcc_dmin)
     except Exception:
-        logger.warning(f"Cannot generate {map_filepath} map file")
+        logger.exception(f"Cannot generate {map_filepath} map file")
         return None
 
 

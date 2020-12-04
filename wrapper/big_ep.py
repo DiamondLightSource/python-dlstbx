@@ -62,11 +62,14 @@ def get_bigep_parameters(big_ep_params, working_directory, logger):
         datasets = [{"name": "peak"}]
     else:
         edge_data = big_ep_params["energy_scan_info"]
-        tmp_dict = {
-            "name": edge_data["edge_position"],
-            "fp": edge_data["fp"],
-            "fpp": edge_data["fpp"],
-        }
+        if "fp" in edge_data and "fpp" in edge_data:
+            tmp_dict = {
+                "name": edge_data["edge_position"],
+                "fp": edge_data["fp"],
+                "fpp": edge_data["fpp"],
+            }
+        else:
+            tmp_dict = {"name": edge_data["edge_position"]}
         datasets.append(tmp_dict)
     msg_default["datasets"] = datasets
 

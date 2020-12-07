@@ -11,18 +11,6 @@ import mysql.connector  # installed by ispyb
 
 logger = logging.getLogger("dlstbx.ispybtbx")
 
-# convenience functions
-def _prefix_(template):
-    if not template:
-        return template
-    if "#" in template:
-        return template.split("#")[0]
-    if template.endswith("_master.h5"):
-        return template[:-9]
-    if "_" in template:
-        return template.rsplit("_", 1)[0] + "_"
-    return template
-
 
 def _ispyb_api():
     if not hasattr(_ispyb_api, "instance"):
@@ -678,22 +666,32 @@ WHERE
         return visit_base.group(2)
 
     def dc_info_to_working_directory(self, dc_info):
-        prefix = _prefix_(dc_info.get("fileTemplate"))
-        if not prefix:
+        directory = dc_info.get("imageDirectory")
+        if not directory:
             return None
-        directory = dc_info["imageDirectory"]
         visit = self.get_visit_directory_from_image_directory(directory)
         rest = directory[len(visit) + 1 :]
-        return os.path.join(visit, "tmp", "zocalo", rest, prefix, dc_info["uuid"])
+
+        collection_path = dc_info["imagePrefix"] or ""
+        dc_number = dc_info["dataCollectionNumber"] or ""
+        if collection_path or dc_number:
+            collection_path = f"{collection_path}_{dc_number}"
+        return os.path.join(
+            visit, "tmp", "zocalo", rest, collection_path, dc_info["uuid"]
+        )
 
     def dc_info_to_results_directory(self, dc_info):
-        prefix = _prefix_(dc_info.get("fileTemplate"))
-        if not prefix:
+        directory = dc_info.get("imageDirectory")
+        if not directory:
             return None
-        directory = dc_info["imageDirectory"]
         visit = self.get_visit_directory_from_image_directory(directory)
         rest = directory[len(visit) + 1 :]
-        return os.path.join(visit, "processed", rest, prefix, dc_info["uuid"])
+
+        collection_path = dc_info["imagePrefix"] or ""
+        dc_number = dc_info["dataCollectionNumber"] or ""
+        if collection_path or dc_number:
+            collection_path = f"{collection_path}_{dc_number}"
+        return os.path.join(visit, "processed", rest, collection_path, dc_info["uuid"])
 
     def get_processing_statistics(
         self, dc_ids, columns=None, statistics_type="overall"

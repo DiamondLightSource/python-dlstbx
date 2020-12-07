@@ -666,7 +666,9 @@ WHERE
         return visit_base.group(2)
 
     def dc_info_to_working_directory(self, dc_info):
-        directory = dc_info["imageDirectory"]
+        directory = dc_info.get("imageDirectory")
+        if not directory:
+            return None
         visit = self.get_visit_directory_from_image_directory(directory)
         rest = directory[len(visit) + 1 :]
 
@@ -679,7 +681,9 @@ WHERE
         )
 
     def dc_info_to_results_directory(self, dc_info):
-        directory = dc_info["imageDirectory"]
+        directory = dc_info.get("imageDirectory")
+        if not directory:
+            return None
         visit = self.get_visit_directory_from_image_directory(directory)
         rest = directory[len(visit) + 1 :]
 

@@ -59,10 +59,10 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
     assert parameters["ispyb_visit"] == "cm14451-4"
     assert parameters["ispyb_visit_directory"] == "/dls/i03/data/2016/cm14451-4"
     assert parameters["ispyb_results_directory"].startswith(
-        "/dls/i03/data/2016/cm14451-4/processed/tmp/2016-10-07/fake113556/TRP_M1S6_4_/"
+        "/dls/i03/data/2016/cm14451-4/processed/tmp/2016-10-07/fake113556/TRP_M1S6_4/"
     )
     assert parameters["ispyb_working_directory"].startswith(
-        "/dls/i03/data/2016/cm14451-4/tmp/zocalo/tmp/2016-10-07/fake113556/TRP_M1S6_4_"
+        "/dls/i03/data/2016/cm14451-4/tmp/zocalo/tmp/2016-10-07/fake113556/TRP_M1S6_4/"
     )
 
     non_ispyb_parameters = {
@@ -75,6 +75,7 @@ def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples():
     for example, dcid in ds.items():
         message = {}
         parameters = {"ispyb_dcid": dcid}
+        print(f"{example}: {dcid}")
         message, parameters = ispyb_filter(message, parameters)
         assert message == {"default_recipe": mock.ANY}
         assert len(parameters) > 10

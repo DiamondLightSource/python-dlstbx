@@ -110,7 +110,7 @@ class Crank2Wrapper(zocalo.wrapper.BaseWrapper):
             )
             logger.debug(result["stdout"])
             logger.debug(result["stderr"])
-
+            return False
         try:
             get_crank2_model_files(msg, logger)
         except Exception:

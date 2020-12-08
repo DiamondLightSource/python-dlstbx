@@ -107,7 +107,7 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
             )
             logger.debug(result["stdout"])
             logger.debug(result["stderr"])
-
+            return False
         try:
             get_autobuild_model_files(msg, logger)
         except Exception:

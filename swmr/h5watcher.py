@@ -2,18 +2,22 @@ import array
 import h5py
 import os
 import time
+from dataclasses import dataclass, field
 
 
+@dataclass
 class h5_data_file:
-    def __init__(self, filename, dsetname, frames, offset):
-        self.filename = filename
-        self.dsetname = dsetname
-        self.file = None
-        self.dset = None
-        self.finished = False
-        self.chunk_sizes = array.array("L", (0 for j in range(frames)))
-        self.frames = frames
-        self.offset = offset
+    filename: str
+    dsetname: str
+    frames: int
+    offset: int
+    file: h5py.File = None
+    dset: h5py.Dataset = None
+    finished: bool = False
+    chunk_sizes: array.array = field(init=False)
+
+    def __post_init__(self):
+        self.chunk_sizes = array.array("L", (0 for j in range(self.frames)))
 
 
 def watcher(h5_data_files):

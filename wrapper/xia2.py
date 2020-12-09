@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import subprocess
 
 import dlstbx.util.symlink
 import zocalo.wrapper
@@ -145,22 +146,26 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
             py.path.local(params["synchweb_ticks"]).ensure()
 
         logger.info("command: %s", " ".join(command))
-        result = procrunner.run(
-            command,
-            timeout=params.get("timeout"),
-            working_directory=working_directory.strpath,
-        )
-        success = not result["exitcode"] and not result["timeout"]
-        if success:
-            logger.info("xia2 successful, took %.1f seconds", result["runtime"])
-        else:
-            logger.info(
-                "xia2 failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
+        try:
+            result = procrunner.run(
+                command,
+                timeout=params.get("timeout"),
+                raise_timeout_exception=True,
+                working_directory=working_directory.strpath,
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+        except subprocess.TimeoutExpired as te:
+            success = False
+            logger.warning(f"xia2 timed out: {te.timeout}\n  {te.cmd}")
+            logger.debug(te.stdout)
+            logger.debug(te.stderr)
+        else:
+            success = not result.returncode
+            if success:
+                logger.info("xia2 successful")
+            else:
+                logger.info(f"xia2 failed with exitcode {result.returncode}")
+                logger.debug(result.stdout)
+                logger.debug(result.stderr)
 
         # copy output files to result directory
         results_directory.ensure(dir=True)
@@ -177,18 +182,17 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
                 src.copy(dst)
             elif not success:
                 logger.info(
-                    "Expected output directory does not exist (non-zero exitcode): %s",
-                    src.strpath,
+                    f"Expected output directory does not exist (non-zero exitcode): {src.strpath}"
                 )
             else:
                 logger.warning(
-                    "Expected output directory does not exist: %s", src.strpath
+                    f"Expected output directory does not exist: {src.strpath}"
                 )
 
         allfiles = []
         for f in working_directory.listdir("*.*"):
             if f.check(file=1, exists=1) and not f.basename.startswith("."):
-                logger.debug("Copying %s to results directory", f.strpath)
+                logger.debug(f"Copying {f.strpath} to results directory")
                 f.copy(results_directory)
                 allfiles.append(results_directory.join(f.basename))
 

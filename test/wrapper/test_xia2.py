@@ -283,6 +283,7 @@ def test_Xia2Wrapper(make_wrapper, tmpdir):
                 "resolution.cc_half_significance_level=0.1",
             ],
             timeout=None,
+            raise_timeout_exception=True,
             working_directory=working_directory.strpath,
         )
     ]

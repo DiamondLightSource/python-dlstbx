@@ -11,7 +11,6 @@ import json
 from itertools import tee
 import py
 import subprocess
-from dlstbx.util.processing_stats import get_pdb_chain_stats, write_ispyb_maps
 
 
 def get_tabulated_fp_fpp(atom, name, wavelength):
@@ -259,199 +258,15 @@ def write_settings_file(msg):
     return msg
 
 
-def setup_autosharp_jobs(msg, working_directory, results_directory, logger):
-    """Setup input directory to run autoSHARP."""
-
-    msg._wd = os.path.join(msg._wd, "autoSHARP")
-    msg._results_wd = os.path.join(msg._results_wd, "autoSHARP")
-    os.symlink(working_directory, msg._wd)
-    os.symlink(results_directory, msg._results_wd)
-
-    write_sequence_file(msg)
-
-    if hasattr(msg, "spacegroup"):
-        msg.spacegroup = spacegroup_short(msg.spacegroup, logger)
-
-    shutil.copyfile(msg.hklin, os.path.join(msg._wd, os.path.basename(msg.hklin)))
-
-    return msg
-
-
-def get_autosharp_model_files(msg, working_directory, logger):
-
-    parse_value = lambda v: v.split("=")[1][1:-2]
-
-    try:
-        with open(os.path.join(msg._wd, ".autoSHARP"), "r") as f:
-            lines = f.readlines()
-            for mtz_line, pdb_line in zip(lines[:0:-1], lines[-2::-1]):
-                if "autoSHARP_modelmtz=" in mtz_line and "autoSHARP_model=" in pdb_line:
-                    pdb_filename = parse_value(pdb_line).replace(
-                        working_directory, msg._wd
-                    )
-                    mtz_filename = parse_value(mtz_line).replace(
-                        working_directory, msg._wd
-                    )
-                    mdl_dict = {
-                        "pdb": pdb_filename,
-                        "mtz": mtz_filename,
-                        "pipeline": "autoSHARP",
-                        "map": "",
-                        "mapcc": 0.0,
-                        "mapcc_dmin": 0.0,
-                    }
-                    if "LJS" in os.path.basename(mdl_dict["mtz"]):
-                        mdl_dict.update(
-                            {
-                                "fwt": "parrot.F_phi.F",
-                                "phwt": "parrot.F_phi.phi",
-                                "fom": None,
-                            }
-                        )
-                    else:
-                        mdl_dict.update({"fwt": "FWT", "phwt": "PHWT", "fom": None})
-                    try:
-                        mdl_dict.update(get_pdb_chain_stats(mdl_dict["pdb"], logger))
-
-                        (map_filename, mapcc, mapcc_dmin) = write_ispyb_maps(
-                            msg._wd, mdl_dict, logger
-                        )
-                        mdl_dict["map"] = map_filename
-                        mdl_dict["mapcc"] = mapcc
-                        mdl_dict["mapcc_dmin"] = mapcc_dmin
-
-                    except Exception:
-                        logger.exception("autoSHARP results parsing error")
-                    msg.model = mdl_dict
-                    ispyb_write_model_json(msg, logger)
-                    return msg
-            logger.error("Cannot find record with autoSHARP output files")
-            return None
-    except IOError:
-        logger.exception("Cannot find .autoSHARP results file")
-        return None
-
-
-def write_sequence_file(msg):
+def write_sequence_file(msg, working_directory=None):
     msg.seqin_filename = "sequence.fasta"
-    msg.seqin = os.path.join(msg._wd, msg.seqin_filename)
+    if working_directory:
+        msg.seqin = os.path.join(working_directory, msg.seqin_filename)
+    else:
+        msg.seqin = os.path.join(msg._wd, msg.seqin_filename)
 
     with open(msg.seqin, "w") as fp:
         fp.write(fasta_sequence(msg.sequence).format(80))
-
-
-def setup_autosol_jobs(msg, working_directory, results_directory):
-    """Setup working directory for running Phenix AutoSol pipeline"""
-
-    msg._wd = os.path.join(msg._wd, "AutoSol")
-    msg._results_wd = os.path.join(msg._results_wd, "AutoSol")
-    os.symlink(working_directory, msg._wd)
-    os.symlink(results_directory, msg._results_wd)
-    if not os.path.exists(msg._wd):
-        os.makedirs(msg._wd)
-
-    write_sequence_file(msg)
-
-    msg.autosol_hklin = os.path.join(msg._wd, os.path.basename(msg.hklin))
-    shutil.copyfile(msg.hklin, msg.autosol_hklin)
-    return msg
-
-
-def get_autobuild_model_files(msg, logger):
-
-    mdl_dict = {
-        "pdb": os.path.join(msg._wd, "AutoBuild_run_1_", "overall_best.pdb"),
-        "mtz": os.path.join(
-            msg._wd, "AutoBuild_run_1_", "overall_best_denmod_map_coeffs.mtz"
-        ),
-        "pipeline": "AutoBuild",
-        "fwt": "FWT",
-        "phwt": "PHWT",
-        "fom": None,
-    }
-    try:
-        mdl_dict.update(get_pdb_chain_stats(mdl_dict["pdb"], logger))
-
-        (map_filename, mapcc, mapcc_dmin) = write_ispyb_maps(msg._wd, mdl_dict, logger)
-        if map_filename:
-            mdl_dict["map"] = map_filename
-            mdl_dict["mapcc"] = mapcc
-            mdl_dict["mapcc_dmin"] = mapcc_dmin
-
-        msg.model = mdl_dict
-        ispyb_write_model_json(msg, logger)
-    except Exception:
-        logger.info("Cannot process AutoBuild results files")
-    return msg
-
-
-def setup_pointless_jobs(msg, working_directory):
-    """Update spacegroup in the input mtz file"""
-
-    msg._wd = os.path.join(msg._root_wd, "pointless")
-    os.symlink(working_directory, msg._wd)
-    if not os.path.exists(msg._wd):
-        os.makedirs(msg._wd)
-
-    msg.input_hkl = msg.hklin
-    (_, filext) = os.path.split(msg.hklin)
-    (filename, ext) = os.path.splitext(filext)
-    msg.hklin = os.path.join(msg._wd, "".join([filename, msg.spacegroup, ext]))
-
-    return msg
-
-
-def setup_crank2_jobs(msg, working_directory, results_directory):
-    """Setup directory to run Crank2 pipeline"""
-
-    msg._wd = os.path.join(msg._root_wd, "crank2")
-    msg._results_wd = os.path.join(msg._results_wd, "crank2")
-    os.symlink(working_directory, msg._wd)
-    os.symlink(results_directory, msg._results_wd)
-
-    msg.enableArpWarp = False  # (msg.data.d_min() < 2.5)
-
-    write_sequence_file(msg)
-
-    return msg
-
-
-def get_crank2_model_files(msg, logger):
-
-    ref_pth = os.path.join(msg._wd, "crank2", "5-comb_phdmmb", "ref")
-    dmfull_pth = os.path.join(msg._wd, "crank2", "5-comb_phdmmb", "dmfull", "ref")
-    if os.path.isdir(ref_pth):
-        mdl_dict = {
-            "pdb": os.path.join(ref_pth, "sepsubstrprot", "part.pdb"),
-            "mtz": os.path.join(ref_pth, "refmac", "REFMAC5.mtz"),
-            "pipeline": "Crank2",
-        }
-    elif os.path.isdir(dmfull_pth):
-        mdl_dict = {
-            "pdb": os.path.join(dmfull_pth, "sepsubstrprot", "part.pdb"),
-            "mtz": os.path.join(dmfull_pth, "REFMAC5.mtz"),
-            "pipeline": "Crank2",
-        }
-    else:
-        return
-
-    mdl_dict.update({"fwt": "REFM_FWT", "phwt": "REFM_PHWT", "fom": None})
-    try:
-        mdl_dict.update(get_pdb_chain_stats(mdl_dict["pdb"], logger))
-
-        (map_filename, mapcc, mapcc_dmin) = write_ispyb_maps(msg._wd, mdl_dict, logger)
-        if map_filename:
-            mdl_dict["map"] = map_filename
-            mdl_dict["mapcc"] = mapcc
-            mdl_dict["mapcc_dmin"] = mapcc_dmin
-
-        msg.model = mdl_dict
-        ispyb_write_model_json(msg, logger)
-
-    except Exception:
-        logger.info("Cannot process crank2 results files")
-
-    return msg
 
 
 def get_map_model_from_json(json_path, logger):

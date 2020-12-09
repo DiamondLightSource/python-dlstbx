@@ -1,6 +1,8 @@
+import os
 import logging
 import zocalo
 import procrunner
+from argparse import Namespace
 
 from jinja2.environment import Environment
 from jinja2.loaders import PackageLoader
@@ -8,20 +10,62 @@ from jinja2.exceptions import UndefinedError
 
 import py
 from dlstbx.util.symlink import create_parent_symlink
-from dlstbx.util.big_ep_helpers import (
-    copy_results,
-    send_results_to_ispyb,
-    setup_autosol_jobs,
-    get_autobuild_model_files,
-)
-from argparse import Namespace
-import os
+from dlstbx.util import processing_stats
+from dlstbx.util import big_ep_helpers
+import shutil
 
 
 logger = logging.getLogger("dlstbx.wrap.autobuild")
 
 
 class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
+    def setup_autosol_jobs(self, working_directory, results_directory):
+        """Setup working directory for running Phenix AutoSol pipeline"""
+
+        self.msg._wd = os.path.join(self.msg._wd, "AutoSol")
+        self.msg._results_wd = os.path.join(self.msg._results_wd, "AutoSol")
+        os.symlink(working_directory, self.msg._wd)
+        os.symlink(results_directory, self.msg._results_wd)
+        if not os.path.exists(self.msg._wd):
+            os.makedirs(self.msg._wd)
+
+        big_ep_helpers.write_sequence_file(self.msg)
+
+        self.msg.autosol_hklin = os.path.join(
+            self.msg._wd, os.path.basename(self.msg.hklin)
+        )
+        shutil.copyfile(self.msg.hklin, self.msg.autosol_hklin)
+
+    def get_autobuild_model_files(self):
+
+        mdl_dict = {
+            "pdb": os.path.join(self.msg._wd, "AutoBuild_run_1_", "overall_best.pdb"),
+            "mtz": os.path.join(
+                self.msg._wd, "AutoBuild_run_1_", "overall_best_denmod_map_coeffs.mtz"
+            ),
+            "pipeline": "AutoBuild",
+            "fwt": "FWT",
+            "phwt": "PHWT",
+            "fom": None,
+        }
+        try:
+            mdl_dict.update(
+                processing_stats.get_pdb_chain_stats(mdl_dict["pdb"], logger)
+            )
+
+            (map_filename, mapcc, mapcc_dmin) = processing_stats.get_mapfile_stats(
+                self.msg._wd, mdl_dict, logger
+            )
+            if map_filename:
+                mdl_dict["map"] = map_filename
+                mdl_dict["mapcc"] = mapcc
+                mdl_dict["mapcc_dmin"] = mapcc_dmin
+
+            self.msg.model = mdl_dict
+            big_ep_helpers.ispyb_write_model_json(self.msg, logger)
+        except Exception:
+            logger.info("Cannot process AutoBuild results files")
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -29,8 +73,8 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
         self.recwrap.environment.update(params["ispyb_parameters"])
 
         # Collect parameters from payload and check them
-        msg = Namespace(**params["msg"])
-        msg.workingdir = self.recwrap.recipe_step["parameters"]["workingdir"]
+        self.msg = Namespace(**params["msg"])
+        self.msg.workingdir = self.recwrap.recipe_step["parameters"]["workingdir"]
 
         working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])
@@ -39,10 +83,12 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
         ppl = params["create_symlink"].replace("/", "-")
         working_directory.ensure(dir=True)
         if params.get("create_symlink"):
-            create_parent_symlink(working_directory.strpath, f"AutoBuild-{ppl}")
+            create_parent_symlink(
+                working_directory.strpath, f"AutoBuild-{ppl}", levels=1
+            )
 
         try:
-            setup_autosol_jobs(msg, working_directory, results_directory)
+            self.setup_autosol_jobs(working_directory, results_directory)
         except Exception:
             logger.exception("Error configuring autoSol jobs")
             return False
@@ -51,10 +97,10 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
             loader=PackageLoader("dlstbx.util.big_ep", "big_ep_templates")
         )
         autosol_template = tmpl_env.get_template("autosol.sh")
-        autosol_script = os.path.join(msg._wd, "run_autosol.sh")
+        autosol_script = os.path.join(self.msg._wd, "run_autosol.sh")
         with open(autosol_script, "w") as fp:
             try:
-                autosol_input = autosol_template.render(msg.__dict__)
+                autosol_input = autosol_template.render(self.msg.__dict__)
             except UndefinedError:
                 logger.exception("Error rendering AutoSol script template")
                 return False
@@ -63,7 +109,7 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
         result = procrunner.run(
             ["sh", autosol_script],
             timeout=params.get("timeout"),
-            working_directory=msg._wd,
+            working_directory=self.msg._wd,
         )
         logger.info("command: %s", " ".join(result["command"]))
         logger.info("runtime: %s", result["runtime"])
@@ -80,10 +126,10 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
             logger.debug(result["stderr"])
 
         autobuild_template = tmpl_env.get_template("autobuild.sh")
-        autobuild_script = os.path.join(msg._wd, "run_autobuild.sh")
+        autobuild_script = os.path.join(self.msg._wd, "run_autobuild.sh")
         with open(autobuild_script, "w") as fp:
             try:
-                autobuild_input = autobuild_template.render(msg.__dict__)
+                autobuild_input = autobuild_template.render(self.msg.__dict__)
             except UndefinedError:
                 logger.exception("Error rendering AutoBuild script template")
                 return False
@@ -92,10 +138,13 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
         result = procrunner.run(
             ["sh", autobuild_script],
             timeout=params.get("timeout"),
-            working_directory=msg._wd,
+            working_directory=self.msg._wd,
         )
         logger.info("command: %s", " ".join(result["command"]))
         logger.info("runtime: %s", result["runtime"])
+
+        # Just log exit state of the program and try to read any
+        # intermediate models in case of failure/timeout
         success = not result["exitcode"] and not result["timeout"]
         if success:
             logger.info("AutoBuild successful, took %.1f seconds", result["runtime"])
@@ -107,22 +156,24 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
             )
             logger.debug(result["stdout"])
             logger.debug(result["stderr"])
-            return False
         try:
-            get_autobuild_model_files(msg, logger)
+            self.get_autobuild_model_files()
         except Exception:
-            logger.exception("Error reading AutoBuild results")
+            if success:
+                logger.exception("Error reading AutoBuild results")
             return False
 
         if "devel" not in params:
             if params.get("results_directory"):
-                copy_results(
+                big_ep_helpers.copy_results(
                     working_directory.strpath, results_directory.strpath, logger
                 )
                 if params.get("create_symlink"):
-                    create_parent_symlink(results_directory.strpath, f"AutoBuild-{ppl}")
-                return send_results_to_ispyb(
-                    msg._results_wd, self.record_result_individual_file, logger
+                    create_parent_symlink(
+                        results_directory.strpath, f"AutoBuild-{ppl}", levels=1
+                    )
+                return big_ep_helpers.send_results_to_ispyb(
+                    self.msg._results_wd, self.record_result_individual_file, logger
                 )
             else:
                 logger.debug("Result directory not specified")

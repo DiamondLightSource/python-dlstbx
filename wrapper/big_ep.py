@@ -49,7 +49,12 @@ def get_bigep_parameters(big_ep_params, working_directory, logger):
         msg_default["nsites"] = fast_ep_data["nsite_real"]
 
     try:
-        resol = big_ep_params["resol"]
+        assert big_ep_params["resolution"]
+        msg_default["resolution"] = float(big_ep_params["resolution"])
+    except Exception:
+        logger.debug(f"Resolution info for dcid {dcid} not available")
+    try:
+        resol = big_ep_params["resolution_limits"]
         if resol.get("high"):
             msg_default.update({"resol_high": resol["high"]})
         if resol.get("low"):

@@ -77,7 +77,7 @@ def get_pdb_chain_stats(pdb_file, logger):
     }
 
 
-def write_ispyb_maps(_wd, mdl_dict, logger):
+def get_mapfile_stats(_wd, mdl_dict, logger):
     map_filename = "".join(
         [
             splitext(basename(mdl_dict["mtz"]))[0],

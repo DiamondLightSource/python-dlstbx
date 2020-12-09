@@ -177,6 +177,7 @@ def test_FastDPWrapper(make_wrapper, tmpdir, mocker):
                 "fast_dp_unmerged.mtz",
             ],
             timeout=None,
+            raise_timeout_exception=True,
             working_directory=working_directory.strpath,
         ),
     ]

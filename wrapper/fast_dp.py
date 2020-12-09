@@ -157,7 +157,7 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             )
             success = not result.returncode
             if success:
-                logger.info("fast_dp successful, took %.1f seconds", result["runtime"])
+                logger.info("fast_dp successful")
             else:
                 logger.info(f"fast_dp failed with exitcode {result.returncode}")
                 logger.debug(result.stdout)
@@ -185,24 +185,26 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             ]
             # run xia2.report in working directory
             logger.info("Running command: %s", " ".join(command))
-            result = procrunner.run(
-                command,
-                timeout=params.get("timeout"),
-                working_directory=working_directory,
-            )
-            success = not result.returncode and not result["timeout"]
-            if success:
-                logger.info(
-                    "xia2.report successful, took %.1f seconds", result["runtime"]
+            try:
+                result = procrunner.run(
+                    command,
+                    timeout=params.get("timeout"),
+                    raise_timeout_exception=True,
+                    working_directory=working_directory,
                 )
+            except subprocess.TimeoutExpired as te:
+                success = False
+                logger.warning(f"xia2.report timed out: {te.timeout}\n  {te.cmd}")
+                logger.debug(te.stdout)
+                logger.debug(te.stderr)
             else:
-                logger.info(
-                    "xia2.report failed with exitcode %s and timeout %s",
-                    result.returncode,
-                    result["timeout"],
-                )
-                logger.debug(result.stdout)
-                logger.debug(result.stderr)
+                success = not result.returncode
+                if success:
+                    logger.info("xia2.report successful")
+                else:
+                    logger.info(f"xia2.report failed with exitcode {result.returncode}")
+                    logger.debug(result.stdout)
+                    logger.debug(result.stderr)
 
             json_file = working_directory.join("iotbx-merging-stats.json")
             with json_file.open("w") as fh:

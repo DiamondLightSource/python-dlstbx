@@ -199,7 +199,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
         # Send results to various listeners
         logfiles = ("xia2.html", "xia2.txt", "xia2.error", "xia2-error.txt")
         for result_file in map(results_directory.join, logfiles):
-            if result_file.check():
+            if result_file.check(file=1):
                 self.record_result_individual_file(
                     {
                         "file_path": result_file.dirname,
@@ -210,7 +210,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
 
         datafiles_path = results_directory.join("DataFiles")
         if datafiles_path.check():
-            for result_file in datafiles_path.listdir():
+            for result_file in datafiles_path.listdir(fil=os.path.isfile):
                 file_type = "result"
                 if result_file.ext in (".log", ".txt"):
                     file_type = "log"
@@ -225,7 +225,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
 
         logfiles_path = results_directory.join("LogFiles")
         if logfiles_path.check():
-            for result_file in logfiles_path.listdir():
+            for result_file in logfiles_path.listdir(fil=os.path.isfile):
                 file_type = "log"
                 if result_file.ext == ".json":
                     file_type = "graph"

@@ -42,7 +42,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
 
     def send_results_to_ispyb(self, xtriage_results=None):
         logger.info("Reading xia2 results")
-        from xia2.command_line.ispyb_json import zocalo_object
+        from xia2.cli.ispyb_json import zocalo_object
 
         z = zocalo_object()
 

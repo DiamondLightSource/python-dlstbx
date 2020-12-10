@@ -1,10 +1,10 @@
 from dlstbx.ispybtbx import ispybtbx
-import os.path
 from pprint import pprint
 import procrunner
 from time import sleep
 import argparse
-import glob
+from pathlib import Path
+import re
 
 
 def read_ispyb_data(jobids):
@@ -22,7 +22,8 @@ SELECT DISTINCT
     app.autoprocprogramid as program_id,
     pj.dataCollectionId as dc_id,
     app.processingCommandLine as name,
-    appa.filePath as filepath
+    appa.filePath as filepath,
+    appa.fileName as filename
 FROM
     ProcessingJob pj
 INNER JOIN ProcessingJobParameter pjp ON
@@ -42,11 +43,14 @@ INNER JOIN AutoProcProgramAttachment appa ON
     appa.autoProcProgramId = app.autoProcProgramId
 WHERE
     pjup.processingjobid <> pj.processingjobid
-    AND pjp.parameterKey = 'data'
-    AND INSTR(pjp.parameterValue, appa.filePath) = 1
+    AND pjp.parameterKey = 'program_id'
+    AND pjp.parameterValue = appa.autoProcProgramId
+    AND appa.fileType = "Result"
+    AND (appa.fileName LIKE "%free.mtz"
+         OR appa.filename LIKE "%unique.mtz")
     AND pj.processingJobId {str_jobids}"""
 
-    columns = ("program_id", "dc_id", "pipeline", "filepath")
+    columns = ("program_id", "dc_id", "pipeline", "filepath", "filename")
 
     results = {
         rec[0]: dict(zip(columns, rec[1:])) for rec in ispyb_conn.execute(sql_str)
@@ -81,7 +85,8 @@ INNER JOIN ProcessingJob pj ON
 WHERE
     pjp.parameterKey = "program_id"
     AND pjp.parameterValue {str_programids}
-    AND pj.recipe = "postprocessing-big-ep-launcher"
+    AND (pj.recipe = "postprocessing-big-ep"
+         OR pj.recipe = "postprocessing-big-ep-setup")
 ORDER BY pjp.processingJobId {str_last_records}
  """
 
@@ -100,19 +105,32 @@ ORDER BY pjp.processingJobId {str_last_records}
 
 def run_ispyb_job(data, debug, dry_run):
     for _, v in data.items():
-        filename = os.path.join(v["filepath"], "DataFiles", "*_*_free.mtz")
+        filename = Path(v["filepath"]) / v["filename"]
+        if not filename.is_file():
+            print(f"File {filename} not found. Skipping.")
+            continue
+        visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", v["filepath"])
         try:
-            filename = next(iter(glob.glob(filename)))
-        except StopIteration:
-            print(f"File {filename} not found")
-            return
+            visit = visit_match.group(1)
+        except AttributeError:
+            print(f"Cannot match visit pattern in path {str(filename)}. Skipping")
+            continue
+        if True in [pfx in visit for pfx in ("lb", "in", "sw")]:
+            print(
+                f"Skipping processing for data from an industrial visit {visit}: {str(filename)}"
+            )
+            continue
         command = [
             "ispyb.job",
             "--new",
             "--dcid",
             str(v["dc_id"]),
+            "--display",
+            "big_ep",
+            "--comment",
+            "big_ep via ep_predict_phase",
             "--recipe",
-            "postprocessing-big-ep-launcher",
+            "postprocessing-big-ep-setup",
             "--add-param",
             f"program_id:{v['program_id']}",
             "--add-param",
@@ -124,10 +142,11 @@ def run_ispyb_job(data, debug, dry_run):
             result = procrunner.run(
                 command,
                 timeout=100,
+                raise_timeout_exception=True,
                 print_stdout=debug,
                 working_directory="/tmp",
             )
-            if not result["stdout"]:
+            if not result.stdout:
                 print("WARNING: No output written by ispyb.job")
 
 
@@ -153,15 +172,20 @@ def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
             path_ext = "xia2/3dii-run"
         elif "dials" in filepath:
             path_ext = "xia2/dials-run"
+        elif "truncate-unique" in filepath:
+            path_ext = "autoPROC/ap-run"
+        elif "staraniso" in filepath:
+            path_ext = "autoPROC-STARANISO/ap-run"
         else:
             print("Unrecognised file path %s" % filepath)
             continue
         command = [
             "dlstbx.go",
-            "-p",
-            str(v["rpid"]),
+            "--test",
             "-s",
             f"path_ext={path_ext}",
+            "-p",
+            str(v["rpid"]),
         ]
         print(f"\nTrigger BigEP job: {' '.join(command)}")
 
@@ -171,10 +195,11 @@ def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
         result = procrunner.run(
             command,
             timeout=100,
+            raise_timeout_exception=True,
             print_stdout=debug,
             working_directory="/tmp",
         )
-        if not result["stdout"]:
+        if not result.stdout:
             print("WARNING: No output written by dlstbx.go")
         if i < len(results):
             sleep(arg_sleep)

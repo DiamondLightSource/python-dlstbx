@@ -8,6 +8,7 @@ import json
 from argparse import Namespace
 import getpass
 from pprint import pformat
+from iotbx import mtz
 from dlstbx.util.big_ep_helpers import (
     write_settings_file,
     read_data,
@@ -43,10 +44,22 @@ def get_bigep_parameters(big_ep_params, working_directory, logger):
     except Exception:
         logger.debug(f"Anomalous scatterer info for dcid {dcid} not available")
 
-    with open(big_ep_params["fast_ep_data"]) as fp:
-        fast_ep_data = json.load(fp)
-        msg_default["spacegroup"] = fast_ep_data["_spacegroup"][0]
-        msg_default["nsites"] = fast_ep_data["nsite_real"]
+    if big_ep_params.get("fast_ep_data"):
+        with open(big_ep_params["fast_ep_data"]) as fp:
+            fast_ep_data = json.load(fp)
+            msg_default["spacegroup"] = fast_ep_data["_spacegroup"][0]
+            msg_default["nsites"] = fast_ep_data["nsite_real"]
+    try:
+        msg_default["spacegroup"] = big_ep_params["spacegroup"]
+    except KeyError:
+        mtz_obj = mtz.object(msg_default["hklin"])
+        msg_default["spacegroup"] = (
+            mtz_obj.space_group().type().lookup_symbol().replace(" ", "")
+        )
+    try:
+        msg_default["nsites"] = big_ep_params["nsites"]
+    except KeyError:
+        logger.debug(f"Number of heavy atom sites was not specified")
 
     try:
         assert big_ep_params["resolution"]

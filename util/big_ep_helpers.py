@@ -5,8 +5,8 @@ from cctbx.eltbx import sasaki, henke
 from iotbx import mtz
 from iotbx.bioinformatics import fasta_sequence
 import libtbx.load_env
-from cctbx.sgtbx import space_group_symbols
-
+from cctbx.sgtbx import space_group, space_group_symbols
+from cctbx.uctbx import unit_cell
 import json
 from itertools import tee
 import py
@@ -120,6 +120,21 @@ def get_heavy_atom_job(msg):
     return msg
 
 
+def number_sites_estimate(cell, pointgroup):
+    """Guess # heavy atoms likely to be in here (as a floating point number)
+    based on Matthews coefficient, average proportion of methionine in
+    protein sequences and typical mass of an amino acid."""
+
+    sg = space_group(space_group_symbols(pointgroup).hall())
+    uc = unit_cell(cell)
+
+    n_ops = len(sg.all_ops())
+
+    v_asu = uc.volume() / n_ops
+
+    return max(1, int(round(0.023 * v_asu / (2.7 * 128))))
+
+
 def read_data(msg):
     """Read and scale input data"""
 
@@ -141,6 +156,10 @@ def read_data(msg):
     msg.nrefl = mtz_obj.n_reflections()
     msg.pointgroup = mtz_data.space_group().type().number()
     msg.unit_cell = mtz_data.unit_cell().parameters()
+    try:
+        assert msg.nsites > 0
+    except (AttributeError, AssertionError):
+        msg.nsites = number_sites_estimate(msg.unit_cell, msg.pointgroup)
 
     return msg
 

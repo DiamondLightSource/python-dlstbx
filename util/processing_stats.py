@@ -136,7 +136,7 @@ def calculate_mapcc(pdb_filepath, map_filepath, logger):
         mapcc = corr.cc()
         return (mapcc, mapcc_dmin.d_min)
     except Exception:
-        logger.info(
+        logger.exception(
             f"Cannot generate mapcc value for {map_filepath} and {pdb_filepath} files"
         )
         return (0.0, 0.0)

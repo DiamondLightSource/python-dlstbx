@@ -178,6 +178,20 @@ class DLSTrigger(CommonService):
             self.log.error("ep_predict trigger failed: No DCID specified")
             return False
 
+        file_directory = self.ispyb.get_data_collection(dcid).file_directory
+        visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", file_directory)
+        try:
+            visit = visit_match.group(1)
+        except AttributeError:
+            self.log.error(
+                "ep_predict trigger failed: Cannot match visit pattern in path %s",
+                file_directory,
+            )
+            return False
+        if True in [pfx in visit for pfx in ("lb", "in", "sw")]:
+            self.log.info("Skipping ep_predict trigger for %s visit", visit)
+            return {"success": True}
+
         diffraction_plan_info = parameters("diffraction_plan_info")
         if not diffraction_plan_info:
             self.log.info(
@@ -263,6 +277,20 @@ class DLSTrigger(CommonService):
         if not dcid:
             self.log.error("mr_predict trigger failed: No DCID specified")
             return False
+
+        file_directory = self.ispyb.get_data_collection(dcid).file_directory
+        visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", file_directory)
+        try:
+            visit = visit_match.group(1)
+        except AttributeError:
+            self.log.error(
+                "mr_predict trigger failed: Cannot match visit pattern in path %s",
+                file_directory,
+            )
+            return False
+        if True in [pfx in visit for pfx in ("lb", "in", "sw")]:
+            self.log.info("Skipping mr_predict trigger for %s visit", visit)
+            return {"success": True}
 
         diffraction_plan_info = parameters("diffraction_plan_info")
         if not diffraction_plan_info:

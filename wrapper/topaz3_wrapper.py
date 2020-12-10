@@ -50,12 +50,11 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         command = (
             "from topaz3.conversions import phase_to_map;"
             "phase_to_map("
-            "'{0}',"
-            "{1},"
-            "'{2}',"
+            f"'{phase_file}',"
+            f"{cell_info},"
+            f"'{space_group}',"
             "[200, 200, 200],"
-            "'{3}'"
-            ")".format(phase_file, cell_info, space_group, output_file)
+            f"'{output_file}')"
         )
         return command
 
@@ -66,15 +65,12 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         command = (
             "from topaz3.predictions import predict_original_inverse;"
             "predict_original_inverse("
-            "'{0}',"
-            "'{1}',"
-            "{2},"
-            "'{3}',"
-            "'{4}',"
-            "rgb={5}"
-            ")".format(
-                original_map, inverse_map, slices_per_axis, model_file, output_dir, rgb
-            )
+            f"'{original_map}',"
+            f"'{inverse_map}',"
+            f"{slices_per_axis},"
+            f"'{model_file}',"
+            f"'{output_dir}',"
+            f"rgb={rgb})"
         )
         return command
 
@@ -137,13 +133,13 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         ), "Could not find model file interpreter in parameters"
         assert os.path.exists(
             params["working_directory"]
-        ), "Working directory at {0} does not exist".format(params["working_directory"])
+        ), f"Working directory at {params['working_directory']} does not exist"
         # assert os.path.exists(
         #    params["topaz_python"]
         # ), "Topaz python at {0} does not exist".format(params["topaz_python"])
         assert os.path.exists(
             params["model_file"]
-        ), "Model file at {0} does not exist".format(params["model_file"])
+        ), f"Model file at {params['model_file']} does not exist"
         working_directory = params["working_directory"]
         results_directory = params["results_directory"]
         topaz_python = params["topaz_python"]
@@ -151,9 +147,7 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         if "rgb" in params:
             assert isinstance(
                 params["rgb"], bool
-            ), "Expected boolean for rgb, got {0} of type {1}".format(
-                params["rgb"], type(params["rgb"])
-            )
+            ), f"Expected boolean for rgb, got {params['rgb']} of type {type(params['rgb'])}"
         else:
             rgb = False
 
@@ -174,30 +168,22 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         assert "best_solvent" in payload, "Could not find solvent content in payload"
         assert os.path.exists(
             payload["original_phase_file"]
-        ), "Original phase file at {0} does not exist".format(
-            payload["original_phase_file"]
-        )
+        ), f"Original phase file at {payload['original_phase_file']} does not exist"
         assert os.path.exists(
             payload["inverse_phase_file"]
-        ), "Inverse phase file at {0} does not exist".format(
-            payload["inverse_phase_file"]
-        )
+        ), f"Inverse phase file at {payload['inverse_phase_file']} does not exist"
         assert (
             len(payload["cell_info"]) == 6
-        ), "Expected list of 6 numbers for cell info, got {0}".format(
-            payload["cell_info"]
-        )
+        ), f"Expected list of 6 numbers for cell info, got {payload['cell_info']}"
         assert isinstance(payload["cell_info"][0], int) or isinstance(
             payload["cell_info"][0], float
-        ), "Expected list of 6 numbers for cell info, got {0}".format(
-            payload["cell_info"]
-        )
+        ), f"Expected cell info to be int or float types, got {type(payload['cell_info'][0])}"
         assert isinstance(
             payload["space_group"], str
-        ), "Expected string for space group, got {0}".format(payload["space_group"])
+        ), f"Expected string for space group, got {payload['space_group']}"
         assert isinstance(
             payload["best_solvent"], str
-        ), "Expected string for best_solvent, got {0}".format(payload["best_solvent"])
+        ), f"Expected string for best_solvent, got {payload['best_solvent']}"
         hkl_file = payload["hkl_file"]
         fa_file = payload["fa_file"]
         res_file = payload["res_file"]
@@ -212,31 +198,26 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         try:
             fp = tempfile.NamedTemporaryFile(dir=working_directory)
             shelxe_script = os.path.join(
-                working_directory, "run_shelxe_{}.sh".format(os.path.basename(fp.name))
+                working_directory, f"run_shelxe_{os.path.basename(fp.name)}.sh"
             )
             fp.close()
             with open(shelxe_script, "w") as fp:
+                hkl_filename = os.path.splitext(os.path.basename(hkl_file))[0]
+                fa_filename = os.path.splitext(os.path.basename(fa_file))[0]
                 fp.writelines(
                     [
                         "#!/bin/bash\n",
                         ". /etc/profile.d/modules.sh\n",
                         "module load ccp4\n",
-                        "shelxe {0} {1} -s{2} -m20 -l10 -a3\n".format(
-                            os.path.splitext(os.path.basename(hkl_file))[0],
-                            os.path.splitext(os.path.basename(fa_file))[0],
-                            best_solvent,
-                        ),
-                        "shelxe {0} {1} -i -s{2} -m20 -l10 -a3\n".format(
-                            os.path.splitext(os.path.basename(hkl_file))[0],
-                            os.path.splitext(os.path.basename(fa_file))[0],
-                            best_solvent,
-                        ),
+                        f"shelxe {hkl_filename} {fa_filename} -s{best_solvent} -m20 -l10 -a3\n",
+                        f"shelxe {hkl_filename} {fa_filename} -i -s{best_solvent} -m20 -l10 -a3\n",
                     ]
                 )
         except OSError:
             logger.exception(
                 "Could not create shelxe script file in the working directory"
             )
+            return False
         try:
             # Run procrunner with a clean python environment to avoid DIALS/topaz3 module clashes
             result = procrunner.run(
@@ -248,12 +229,11 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
             assert result["exitcode"] == 0
             assert result["timeout"] is False
         except AssertionError:
-            logger.exception(
-                "Process returned an error code when running shelxe tracing"
-            )
+            logger.info("Process returned an error code when running shelxe tracing")
             return True
         except Exception:
-            logger.exception("Shelxe tracing script has failed")
+            logger.info("Shelxe tracing script has failed")
+            return True
 
         logger.info(f"Using venv with command: source {topaz_python}")
 
@@ -264,12 +244,14 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
             working_directory, os.path.basename(payload["inverse_phase_file"])
         )
         # Create the map output file paths - need this later for prediction
-        map_original = working_directory + "/{0}.map".format(
-            os.path.splitext(os.path.basename(original_phase_file))[0]
-        )
-        map_inverse = working_directory + "/{0}.map".format(
-            os.path.splitext(os.path.basename(inverse_phase_file))[0]
-        )
+        original_phase_filename = os.path.splitext(
+            os.path.basename(original_phase_file)
+        )[0]
+        inverse_phase_filename = os.path.splitext(
+            os.path.basename(inverse_phase_file)
+        )[0]
+        map_original = os.path.join(working_directory, f"{original_phase_filename}.map")
+        map_inverse = os.path.join(working_directory, f"{inverse_phase_filename}.map")
         # Prepare the commands to be executed
         command_original_phase = self.build_phase_to_map_command(
             original_phase_file, cell_info, space_group, map_original
@@ -284,7 +266,7 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         try:
             fp = tempfile.NamedTemporaryFile(dir=working_directory)
             topaz3_script = os.path.join(
-                working_directory, "run_topaz3_{}.sh".format(os.path.basename(fp.name))
+                working_directory, f"run_topaz3_{os.path.basename(fp.name)}.sh"
             )
             fp.close()
             with open(topaz3_script, "w") as fp:
@@ -301,6 +283,7 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
                 )
         except OSError:
             logger.exception("Could not create topaz3 script file %s", topaz3_script)
+            return False
         # Run procrunner with a clean python environment to avoid DIALS/topaz3 module clashes
         result = procrunner.run(
             ["sh", topaz3_script],
@@ -315,8 +298,8 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
             return True
 
         self.graph_output(
-            (working_directory + "/avg_predictions.json"),
-            (working_directory + "/topaz_graph.json"),
+            os.path.join(working_directory, "avg_predictions.json"),
+            os.path.join(working_directory, "topaz_graph.json"),
         )
 
         # Create results directory if it does not exist
@@ -329,15 +312,17 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
                 )
         assert os.path.exists(
             params["results_directory"]
-        ), "Results directory at {0} does not exist".format(params["results_directory"])
+        ), f"Results directory at {params['results_directory']} does not exist"
 
         # Copy final results to results directory
         logger.info(
-            "Copying avg_predictions.json and raw_predictions.json to {0}".format(
-                results_directory
-            )
+            f"Copying avg_predictions.json and raw_predictions.json to {results_directory}"
         )
-        shutil.copy((working_directory + "/avg_predictions.json"), results_directory)
-        shutil.copy((working_directory + "/raw_predictions.json"), results_directory)
+        shutil.copy(
+            os.path.join(working_directory, "avg_predictions.json"), results_directory
+        )
+        shutil.copy(
+            os.path.join(working_directory, "raw_predictions.json"), results_directory
+        )
 
         return True

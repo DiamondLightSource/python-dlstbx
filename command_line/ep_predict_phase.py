@@ -207,6 +207,15 @@ def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
 
 if __name__ == "__main__":
 
+    def __timeout(arg, max_val=600):
+        try:
+            val = int(arg)
+        except ValueError:
+            raise argparse.ArgumentTypeError("must be an integer")
+        if val < max_val:
+            raise argparse.ArgumentTypeError(f"must be at least {max_val}s.")
+        return val
+
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="ep_predict_phase - Run big_ep phasing jobs on data from ep_predict results",
@@ -225,7 +234,7 @@ if __name__ == "__main__":
         "-s",
         "--sleep",
         help="Time in seconds between triggering of successive jobs (Default: 1200s)",
-        type=int,
+        type=__timeout,
         default=1200,
     )
 

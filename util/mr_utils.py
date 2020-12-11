@@ -47,6 +47,8 @@ def get_mrbump_metrics(mrbump_logfile):
                         "seq_indent": seq_ident,
                     }
                     break
+                elif "MR log: No phaser solution produced for model" in next_line:
+                    break
     iter_log = iter(mrbump_log)
     for line in iter_log:
         if "MrBUMP Summary" in line:

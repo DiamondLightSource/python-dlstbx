@@ -9,6 +9,7 @@ from dlstbx.command_line import mr_predict
 from dlstbx.util import mr_utils
 from pathlib import Path
 from shutil import copyfile
+import subprocess
 
 logger = logging.getLogger("dlstbx.wrap.mr_predict")
 
@@ -60,13 +61,16 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
             result = procrunner.run(
                 ["sh", str(phaser_ellg_script)],
                 timeout=timeout,
+                raise_timeout_exception=True,
                 working_directory=working_directory,
             )
-            assert result["exitcode"] == 0
-            assert result["timeout"] is False
-            phaser_ellg_log = result["stdout"].decode("latin1")
+            assert result.returncode == 0
+            phaser_ellg_log = result.stdout.decode("latin1")
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Phaser eLLG script runtime exceeded timeout {timeout}")
+            phaser_ellg_log = None
         except AssertionError:
-            logger.warining(
+            logger.warning(
                 "Process returned an error code when running Phaser eLLG script"
             )
             phaser_ellg_log = None
@@ -74,8 +78,8 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
             logger.warning("Running Phaser eLLG script has failed")
             phaser_ellg_log = None
         finally:
-            logger.info(result["stdout"].decode("latin1"))
-            logger.info(result["stderr"].decode("latin1"))
+            logger.debug(result.stdout.decode("latin1"))
+            logger.debug(result.stderr.decode("latin1"))
         return phaser_ellg_log
 
     def run(self):
@@ -156,11 +160,16 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
             result = procrunner.run(
                 ["sh", str(predict_script)],
                 timeout=params["timeout"],
+                raise_timeout_exception=True,
                 working_directory=working_directory,
                 environment_override=clean_environment,
             )
-            assert result["exitcode"] == 0
-            assert result["timeout"] is False
+            assert result.returncode == 0
+        except subprocess.TimeoutExpired:
+            logger.exception(
+                f"mr_predict script runtime exceeded timeout {params['timeout']}"
+            )
+            return False
         except AssertionError:
             logger.exception(
                 "Process returned an error code when running MR prediction script"

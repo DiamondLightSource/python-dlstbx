@@ -247,9 +247,9 @@ class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
         original_phase_filename = os.path.splitext(
             os.path.basename(original_phase_file)
         )[0]
-        inverse_phase_filename = os.path.splitext(
-            os.path.basename(inverse_phase_file)
-        )[0]
+        inverse_phase_filename = os.path.splitext(os.path.basename(inverse_phase_file))[
+            0
+        ]
         map_original = os.path.join(working_directory, f"{original_phase_filename}.map")
         map_inverse = os.path.join(working_directory, f"{inverse_phase_filename}.map")
         # Prepare the commands to be executed

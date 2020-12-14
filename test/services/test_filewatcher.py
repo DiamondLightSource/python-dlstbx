@@ -494,3 +494,80 @@ def test_filewatcher_watch_swmr(mocker, tmpdir):
             {"hdf5": master_h5, "hdf5-index": i},
             transaction=mocker.ANY,
         )
+
+
+def test_filewatcher_watch_swmr_timeout(mocker, tmpdir):
+    h5_prefix = tmpdir / "foo"
+    master_h5 = h5_prefix.strpath + "_master.h5"
+
+    mock_transport = mocker.Mock()
+    filewatcher = DLSFileWatcher()
+    setattr(filewatcher, "_transport", mock_transport)
+    filewatcher.initializing()
+    t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)
+    m = generate_recipe_message(
+        parameters={
+            "hdf5": master_h5,
+            "expected-per-image-delay": "0.01",
+            "timeout": 0.5,
+            "log-timeout-as-info": True,
+        },
+        output={
+            "any": 2,
+        },
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    # Spy on the rw.send_to method
+    send_to = mocker.spy(rw, "send_to")
+    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    time.sleep(2)
+    filewatcher.watch_files(
+        rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
+    )
+    send_to.assert_has_calls(
+        [
+            mocker.call(
+                "timeout",
+                {"file": master_h5, "hdf5-index": 0, "success": False},
+                transaction=mocker.ANY,
+            ),
+            mocker.call(
+                "finally",
+                {"images-expected": None, "images-seen": 0, "success": False},
+                transaction=mocker.ANY,
+            ),
+        ],
+    )
+
+
+def test_filewatcher_watch_swmr_h5py_error(mocker, tmpdir, caplog):
+    # Test that the filewatcher gracefully handles errors reading h5py files
+    h5_prefix = tmpdir / "foo"
+    master_h5 = h5_prefix.strpath + "_master.h5"
+
+    mock_transport = mocker.Mock()
+    filewatcher = DLSFileWatcher()
+    setattr(filewatcher, "_transport", mock_transport)
+    filewatcher.initializing()
+    t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)
+    m = generate_recipe_message(
+        parameters={
+            "hdf5": master_h5,
+        },
+        output={},
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    with open(master_h5, "w") as fh:
+        fh.write("content")
+    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    assert f"Error reading {master_h5}" in caplog.text
+    t.nack.assert_called_once()
+
+    t.reset_mock()
+    h5maker.main(h5_prefix, BLOCK=2, NUMBER=2)
+    data_h5 = h5_prefix.strpath + "_000000.h5"
+    with open(data_h5, "w") as fh:
+        fh.write("content")
+    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    assert f"Error reading {data_h5}" in caplog.text
+    t.nack.assert_called_once()

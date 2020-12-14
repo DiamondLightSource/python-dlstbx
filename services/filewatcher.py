@@ -689,20 +689,30 @@ class DLSFileWatcher(CommonService):
         if isinstance(message, dict):
             status.update(message.get("filewatcher-status", {}))
 
-        # List files to wait for
-        hdf5 = rw.recipe_step["parameters"]["hdf5"]
+        # Keep a record of os.stat timings
+        os_stat_profiler = _Profiler()
 
-        with h5py.File(hdf5, "r", swmr=True) as f:
-            d = f["/entry/data/data"]
-            t0 = time.time()
-            dataset_files, file_map = h5check.get_real_frames(f, d)
-            image_count = len(file_map)
-            t1 = time.time()
-            self.log.debug(f"Number of data files: {len(dataset_files)}")
-            self.log.debug(f"Number of images: {image_count}")
-            self.log.debug(f"hdf5 setup took {t1-t0:.3f}s")
-            self.log.debug(f"dataset_files: {dataset_files}")
-            self.log.debug(f"file_map: {file_map}")
+        hdf5 = rw.recipe_step["parameters"]["hdf5"]
+        image_count = None
+        with os_stat_profiler.record():
+            if os.path.isfile(hdf5):
+                print(f"Opening {hdf5}")
+                try:
+                    with h5py.File(hdf5, "r", swmr=True) as f:
+                        d = f["/entry/data/data"]
+                        t0 = time.time()
+                        dataset_files, file_map = h5check.get_real_frames(f, d)
+                        image_count = len(file_map)
+                        t1 = time.time()
+                        self.log.debug(f"Number of data files: {len(dataset_files)}")
+                        self.log.debug(f"Number of images: {image_count}")
+                        self.log.debug(f"hdf5 setup took {t1-t0:.3f}s")
+                        self.log.debug(f"dataset_files: {dataset_files}")
+                        self.log.debug(f"file_map: {file_map}")
+                except Exception:
+                    self.log.warning(f"Error reading {hdf5}", exc_info=True)
+                    rw.transport.nack(header)
+                    return
 
         # Identify everys ('every-N' targets) to notify for
         everys = self._parse_everys(rw.recipe_step["output"])
@@ -714,14 +724,13 @@ class DLSFileWatcher(CommonService):
         txn = rw.transport.transaction_begin()
         rw.transport.ack(header, transaction=txn)
 
-        # Keep a record of os.stat timings
-        os_stat_profiler = _Profiler()
-
         # Look for images
         images_found = 0
-        while status["seen-images"] < image_count and images_found < rw.recipe_step[
-            "parameters"
-        ].get("burst-limit", 100):
+        while (
+            image_count is not None
+            and status["seen-images"] < image_count
+            and images_found < rw.recipe_step["parameters"].get("burst-limit", 100)
+        ):
             m, frame = file_map[status["seen-images"]]
             h5_data_file, dsetname = dataset_files[m]
             self.log.debug(f"seen-images: {status['seen-images']}")
@@ -732,12 +741,19 @@ class DLSFileWatcher(CommonService):
                 if not os.path.isfile(h5_data_file):
                     break
 
-            with h5py.File(h5_data_file, "r", swmr=True) as h5_file:
-                dataset = h5_file[dsetname]
-                s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
-                if s.size == 0:
-                    break
-                self.log.info(f"Found image {status['seen-images']} (size={s.size})")
+            try:
+                with h5py.File(h5_data_file, "r", swmr=True) as h5_file:
+                    dataset = h5_file[dsetname]
+                    s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
+                    if s.size == 0:
+                        break
+                    self.log.info(
+                        f"Found image {status['seen-images']} (size={s.size})"
+                    )
+            except Exception:
+                self.log.warning(f"Error reading {h5_data_file}", exc_info=True)
+                rw.transport.nack(header)
+                return
 
             images_found += 1
 
@@ -894,7 +910,7 @@ class DLSFileWatcher(CommonService):
                     "{images_seen} of {image_count} images seen so far"
                 ).format(
                     time=time.time() - status["start-time"],
-                    pattern=rw.recipe_step["parameters"]["pattern"],
+                    hdf5=rw.recipe_step["parameters"]["hdf5"],
                     images_seen=status["seen-images"],
                     image_count=image_count,
                 ),

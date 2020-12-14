@@ -8,6 +8,7 @@ from workflows.recipe.wrapper import RecipeWrapper
 
 import dlstbx.services.filewatcher
 from dlstbx.services.filewatcher import DLSFileWatcher
+from dlstbx.swmr import h5maker
 
 
 def generate_recipe_message(parameters, output):
@@ -21,6 +22,7 @@ def generate_recipe_message(parameters, output):
                 "output": output,
             },
             2: {"service": "DLS Per-Image-Analysis", "queue": "transient.output"},
+            3: {"service": "DLS Per-Image-Analysis", "queue": "transient.output"},
             "start": [(1, [])],
         },
         "recipe-pointer": 1,
@@ -417,3 +419,78 @@ def test_file_selection(select_n_images):
         if filecount > 1:
             diffs = [n - l[i - 1] for i, n in enumerate(l) if i]
             assert 1 <= len(collections.Counter(diffs)) <= 2, (filecount, diffs)
+
+
+def test_filewatcher_watch_swmr(mocker, tmpdir):
+    h5_prefix = tmpdir / "foo"
+    master_h5 = h5_prefix.strpath + "_master.h5"
+
+    h5maker.main(h5_prefix, BLOCK=10, NUMBER=10)
+
+    mock_transport = mocker.Mock()
+    filewatcher = DLSFileWatcher()
+    setattr(filewatcher, "_transport", mock_transport)
+    filewatcher.initializing()
+    t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)
+    m = generate_recipe_message(
+        parameters={
+            "hdf5": master_h5,
+            "expected-per-image-delay": "0.01",
+            "timeout": 10,
+            "log-timeout-as-info": True,
+        },
+        output={
+            "any": 2,
+            "select-10": 3,
+        },
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    # Spy on the rw.send_to method
+    send_to = mocker.spy(rw, "send_to")
+    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    send_to.assert_any_call(
+        "first", {"hdf5": master_h5, "hdf5-index": 0}, transaction=mocker.ANY
+    )
+    for i in range(100):
+        send_to.assert_has_calls(
+            [
+                mocker.call(
+                    i + 1, {"hdf5": master_h5, "hdf5-index": i}, transaction=mocker.ANY
+                ),
+                mocker.call(
+                    f"{i+1}",
+                    {"hdf5": master_h5, "hdf5-index": i},
+                    transaction=mocker.ANY,
+                ),
+                mocker.call(
+                    "every",
+                    {"hdf5": master_h5, "hdf5-index": i},
+                    transaction=mocker.ANY,
+                ),
+            ],
+            any_order=True,
+        )
+    send_to.assert_has_calls(
+        [
+            mocker.call(
+                "last", {"hdf5": master_h5, "hdf5-index": 99}, transaction=mocker.ANY
+            ),
+            mocker.call(
+                "any",
+                {"images-expected": 100, "images-seen": 100},
+                transaction=mocker.ANY,
+            ),
+            mocker.call(
+                "finally",
+                {"images-expected": 100, "images-seen": 100, "success": True},
+                transaction=mocker.ANY,
+            ),
+        ],
+        any_order=True,
+    )
+    for i in (0, 11, 22, 33, 44, 55, 66, 77, 88, 99):
+        send_to.assert_any_call(
+            "select-10",
+            {"hdf5": master_h5, "hdf5-index": i},
+            transaction=mocker.ANY,
+        )

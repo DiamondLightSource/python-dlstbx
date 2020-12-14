@@ -1,6 +1,7 @@
 import collections
 import time
 import pytest
+import os
 from unittest import mock
 
 import workflows.transport.common_transport
@@ -508,7 +509,6 @@ def test_filewatcher_watch_swmr_timeout(mocker, tmpdir):
     m = generate_recipe_message(
         parameters={
             "hdf5": master_h5,
-            "expected-per-image-delay": "0.01",
             "timeout": 0.5,
             "log-timeout-as-info": True,
         },
@@ -537,6 +537,30 @@ def test_filewatcher_watch_swmr_timeout(mocker, tmpdir):
                 transaction=mocker.ANY,
             ),
         ],
+    )
+
+    send_to.reset_mock()
+    h5maker.main(h5_prefix, BLOCK=2, NUMBER=2)
+    data_h5 = h5_prefix.strpath + "_000000.h5"
+    os.remove(data_h5)
+    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    time.sleep(2)
+    filewatcher.watch_files(
+        rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
+    )
+    send_to.assert_has_calls(
+        [
+            mocker.call(
+                "timeout",
+                {"file": master_h5, "hdf5-index": 0, "success": False},
+                transaction=mocker.ANY,
+            ),
+            mocker.call(
+                "finally",
+                {"images-expected": 4, "images-seen": 0, "success": False},
+                transaction=mocker.ANY,
+            ),
+        ]
     )
 
 

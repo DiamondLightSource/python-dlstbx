@@ -15,77 +15,76 @@ def rewrite(master_h5, out_h5, zeros=False, image_range=None):
         start, end = image_range
         assert start < end
 
-    with h5py.File(master_h5, "r") as fs:
-        with h5py.File(out_h5, "w", libver="latest") as fd:
-            entry_d = fd.create_group("entry")
-            entry_d.attrs.update(fs["entry"].attrs)
-            fs.copy("entry/definition", entry_d)
-            fs.copy("entry/instrument", entry_d)
-            fs.copy("entry/sample", entry_d)
-            if image_range:
-                # XXX hardcoded location of omega dataset
-                omega = entry_d["sample/transformations/omega"][()]
-                shape = omega.shape
-                assert 0 <= start < shape[0]
-                assert 0 < end <= shape[0]
-                shape = (end - start,)
-                entry_d["sample/transformations/omega"].resize(shape)
-                entry_d["sample/transformations/omega"][...] = omega[start:end]
+    with h5py.File(master_h5, "r") as fs, h5py.File(out_h5, "w", libver="latest") as fd:
+        entry_d = fd.create_group("entry")
+        entry_d.attrs.update(fs["entry"].attrs)
+        fs.copy("entry/definition", entry_d)
+        fs.copy("entry/instrument", entry_d)
+        fs.copy("entry/sample", entry_d)
+        if image_range:
+            # XXX hardcoded location of omega dataset
+            omega = entry_d["sample/transformations/omega"][()]
+            shape = omega.shape
+            assert 0 <= start < shape[0]
+            assert 0 < end <= shape[0]
+            shape = (end - start,)
+            entry_d["sample/transformations/omega"].resize(shape)
+            entry_d["sample/transformations/omega"][...] = omega[start:end]
 
-            data_s = fs["entry/data"]
-            data_d = entry_d.create_group("data")
-            data_d.attrs.update(data_s.attrs)
-            for item in data_s.keys():
-                link = data_s.get(item, getlink=True)
-                if not isinstance(link, h5py.ExternalLink):
-                    filename = master_h5
-                    external = None
+        data_s = fs["entry/data"]
+        data_d = entry_d.create_group("data")
+        data_d.attrs.update(data_s.attrs)
+        for item in data_s.keys():
+            link = data_s.get(item, getlink=True)
+            if not isinstance(link, h5py.ExternalLink):
+                filename = master_h5
+                external = None
+            else:
+                external = out_h5.parent.joinpath(f"{out_h5.stem}_{item}.h5")
+            try:
+                dset_s = data_s[item]
+            except KeyError as e:
+                if "unable to open external file" in str(e) and "'" in str(e):
+                    logger.warning("Referenced file %s does not exist.", filename)
+                    continue
+                raise
+            else:
+                block_size = 0  # let Bitshuffle choose its value
+                compression_opts = (
+                    block_size,
+                    bitshuffle.h5.H5_COMPRESS_LZ4,
+                )
+                compression = bitshuffle.h5.H5FILTER
+                shape = dset_s.shape
+                if image_range:
+                    assert 0 <= start < shape[0]
+                    assert 0 < end <= shape[0]
                 else:
-                    external = out_h5.parent.joinpath(f"{out_h5.stem}_{item}.h5")
-                try:
-                    dset_s = data_s[item]
-                except KeyError as e:
-                    if "unable to open external file" in str(e) and "'" in str(e):
-                        logger.warning("Referenced file %s does not exist.", filename)
-                        continue
-                    raise
+                    start, end = (0, shape[0])
+                shape = (end - start, *shape[1:])
+                if zeros and item.startswith("data"):
+                    data = np.zeros(shape)
                 else:
-                    block_size = 0  # let Bitshuffle choose its value
-                    compression_opts = (
-                        block_size,
-                        bitshuffle.h5.H5_COMPRESS_LZ4,
-                    )
-                    compression = bitshuffle.h5.H5FILTER
-                    shape = dset_s.shape
-                    if image_range:
-                        assert 0 <= start < shape[0]
-                        assert 0 < end <= shape[0]
-                    else:
-                        start, end = (0, shape[0])
-                    shape = (end - start, *shape[1:])
-                    if zeros and item.startswith("data"):
-                        data = np.zeros(shape)
-                    else:
-                        data = dset_s[start:end]
+                    data = dset_s[start:end]
 
-                    if external:
-                        with h5py.File(external, "w", libver="latest") as data_file:
-                            data_file.create_dataset(
-                                "data",
-                                data=data,
-                                compression=compression,
-                                compression_opts=compression_opts,
-                            )
-                        data_d[item] = h5py.ExternalLink(external, "data")
-                    else:
-                        data_d.create_dataset(
-                            item,
+                if external:
+                    with h5py.File(external, "w", libver="latest") as data_file:
+                        data_file.create_dataset(
+                            "data",
                             data=data,
-                            external=external,
                             compression=compression,
                             compression_opts=compression_opts,
                         )
-                    data_d.attrs.update(data_s.attrs)
+                    data_d[item] = h5py.ExternalLink(external, "data")
+                else:
+                    data_d.create_dataset(
+                        item,
+                        data=data,
+                        external=external,
+                        compression=compression,
+                        compression_opts=compression_opts,
+                    )
+                data_d.attrs.update(data_s.attrs)
 
 
 if __name__ == "__main__":

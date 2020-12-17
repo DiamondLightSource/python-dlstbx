@@ -65,11 +65,24 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         dls_options = relion_pipeline_home / "dls_options.py"
 
         # construct relion command line
-        command = [relion_pipeline_python, relion_it, dls_options, options_file]
+        relion_command = [relion_pipeline_python, relion_it, dls_options, options_file]
+
+        # TEMP make a shell script to set up the necessary environment and run relion_it
+        commands = [
+            "#!/bin/bash",
+            "source /etc/profile.d/modules.sh",
+            "module load hamilton",
+            "module load EM/yolo_relion_it/relion_3.1_cryolo_1.6.1",
+            " ".join(["exec"] + relion_command)
+        ]
+        script_file = working_directory / "run_script.sh"
+        logger.info(f"Writing job commands to {script_file}")
+        with open(script_file, 'w') as script:
+            script.write("\n".join(commands))
 
         # run relion
         result = procrunner.run(
-            command,
+            ["bash", script_file],
             working_directory=working_directory,
         )
         logger.info("command: %s", " ".join(result["command"]))

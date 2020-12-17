@@ -162,6 +162,11 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         for env in ("SGE_CELL", "JOB_ID"):
             if env in os.environ:
                 extended_status["cluster_" + env] = os.environ[env]
+        if os.environ["KUBERNETES"] == "1":
+            split_name = os.environ["HOSTNAME"].split("-")
+            container_image = split_name[0] + ":" + split_name[1]
+            extended_status["container_image"] = container_image
+
         extended_status["dlstbx"] = dlstbx_version()
 
         original_status_function = frontend.get_status

@@ -3,7 +3,6 @@ import bitshuffle.h5
 import h5py
 import logging
 import numpy as np
-import os
 import pathlib
 
 
@@ -25,10 +24,9 @@ def rewrite(master_h5, out_h5, zeros=False):
                 link = data_s.get(item, getlink=True)
                 if not isinstance(link, h5py.ExternalLink):
                     filename = master_h5
+                    external = None
                 else:
-                    filename = os.path.abspath(
-                        os.path.join(os.path.dirname(master_h5), link.filename)
-                    )
+                    external = out_h5.parent.joinpath(f"{out_h5.stem}_{item}.h5")
                 try:
                     dset_s = data_s[item]
                 except KeyError as e:
@@ -38,16 +36,34 @@ def rewrite(master_h5, out_h5, zeros=False):
                     raise
                 else:
                     block_size = 0  # let Bitshuffle choose its value
+                    compression_opts = (
+                        block_size,
+                        bitshuffle.h5.H5_COMPRESS_LZ4,
+                    )
+                    compression = bitshuffle.h5.H5FILTER
                     if zeros:
                         data = np.zeros(dset_s.shape)
                     else:
                         data = dset_s
-                    data_d.create_dataset(
-                        item,
-                        data=data,
-                        compression=bitshuffle.h5.H5FILTER,
-                        compression_opts=(block_size, bitshuffle.h5.H5_COMPRESS_LZ4),
-                    )
+
+                    if external:
+                        with h5py.File(external, "w", libver="latest") as data_file:
+                            data_file.create_dataset(
+                                "data",
+                                data=data,
+                                compression=compression,
+                                compression_opts=compression_opts,
+                            )
+                        data_d["item"] = h5py.ExternalLink(external, "data")
+                    else:
+                        data_d.create_dataset(
+                            item,
+                            data=data,
+                            external=external,
+                            compression=compression,
+                            compression_opts=compression_opts,
+                        )
+                    data_d.attrs.update(data_s.attrs)
 
 
 if __name__ == "__main__":

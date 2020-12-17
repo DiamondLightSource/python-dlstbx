@@ -42,7 +42,7 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
                 raise ValueError(f"Trying to create link {movielink_path} -> {movielink_target} but a link already exists pointing to {current_target}")
         else:
             logger.info(f"Creating link {movielink_path} -> {movielink_target}")
-            os.symlink(params["image_directory"], movielink_target)
+            os.symlink(movielink_target, movielink_path)
 
         params["ispyb_parameters"]["import_images"] = os.path.join(
             movielink, params["file_template"]

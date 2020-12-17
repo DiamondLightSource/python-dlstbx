@@ -9,7 +9,12 @@ import pathlib
 logger = logging.getLogger(__name__)
 
 
-def rewrite(master_h5, out_h5, zeros=False):
+def rewrite(master_h5, out_h5, zeros=False, image_range=None):
+    if image_range:
+        assert len(image_range) == 2
+        start, end = image_range
+        assert start < end
+
     with h5py.File(master_h5, "r") as fs:
         with h5py.File(out_h5, "w", libver="latest") as fd:
             entry_d = fd.create_group("entry")
@@ -17,6 +22,16 @@ def rewrite(master_h5, out_h5, zeros=False):
             fs.copy("entry/definition", entry_d)
             fs.copy("entry/instrument", entry_d)
             fs.copy("entry/sample", entry_d)
+            if image_range:
+                # XXX hardcoded location of omega dataset
+                omega = entry_d["sample/transformations/omega"][()]
+                shape = omega.shape
+                assert 0 <= start < shape[0]
+                assert 0 < end <= shape[0]
+                shape = (end - start,)
+                entry_d["sample/transformations/omega"].resize(shape)
+                entry_d["sample/transformations/omega"][...] = omega[start:end]
+
             data_s = fs["entry/data"]
             data_d = entry_d.create_group("data")
             data_d.attrs.update(data_s.attrs)
@@ -41,10 +56,17 @@ def rewrite(master_h5, out_h5, zeros=False):
                         bitshuffle.h5.H5_COMPRESS_LZ4,
                     )
                     compression = bitshuffle.h5.H5FILTER
-                    if zeros:
-                        data = np.zeros(dset_s.shape)
+                    shape = dset_s.shape
+                    if image_range:
+                        assert 0 <= start < shape[0]
+                        assert 0 < end <= shape[0]
                     else:
-                        data = dset_s
+                        start, end = (0, shape[0])
+                    shape = (end - start, *shape[1:])
+                    if zeros and item.startswith("data"):
+                        data = np.zeros(shape)
+                    else:
+                        data = dset_s[start:end]
 
                     if external:
                         with h5py.File(external, "w", libver="latest") as data_file:
@@ -54,7 +76,7 @@ def rewrite(master_h5, out_h5, zeros=False):
                                 compression=compression,
                                 compression_opts=compression_opts,
                             )
-                        data_d["item"] = h5py.ExternalLink(external, "data")
+                        data_d[item] = h5py.ExternalLink(external, "data")
                     else:
                         data_d.create_dataset(
                             item,
@@ -73,6 +95,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--zeros", dest="zeros", action="store_true", help="replace data with zeros"
     )
+    parser.add_argument(
+        "--range", type=int, nargs=2, help="zero-indexed image range selection"
+    )
 
     args = parser.parse_args()
-    rewrite(args.input_h5, args.output_h5, zeros=args.zeros)
+    rewrite(args.input_h5, args.output_h5, zeros=args.zeros, image_range=args.range)

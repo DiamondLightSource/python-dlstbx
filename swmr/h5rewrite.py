@@ -23,13 +23,14 @@ def rewrite(master_h5, out_h5, zeros=False, image_range=None):
         fs.copy("entry/sample", entry_d)
         if image_range:
             # XXX hardcoded location of omega dataset
-            omega = entry_d["sample/transformations/omega"][()]
+            omega = entry_d["sample/transformations/omega"]
             shape = omega.shape
             assert 0 <= start < shape[0]
             assert 0 < end <= shape[0]
             shape = (end - start,)
-            entry_d["sample/transformations/omega"].resize(shape)
-            entry_d["sample/transformations/omega"][...] = omega[start:end]
+            data = omega[start:end]
+            omega.resize(shape)
+            omega[...] = data
 
         data_s = fs["entry/data"]
         data_d = entry_d.create_group("data")

@@ -13,6 +13,10 @@ logger = logging.getLogger("dlstbx.wrap.relion")
 
 class RelionWrapper(zocalo.wrapper.BaseWrapper):
     def run(self):
+        # TEMP test output and logging
+        print("Running RELION wrapper - stdout")
+        logger.info("Running RELION wrapper - logger.info")
+
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]

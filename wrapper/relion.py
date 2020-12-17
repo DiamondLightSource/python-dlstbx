@@ -35,12 +35,6 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         )
         pprint(params["ispyb_parameters"])
 
-        if params.get("create_symlink"):
-            # Create symbolic link above working directory
-            dlstbx.util.symlink.create_parent_symlink(
-                str(working_directory), params["create_symlink"]
-            )
-
         # construct relion command line
         # command = ["relion", params["screen-selection"]]
 

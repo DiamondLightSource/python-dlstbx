@@ -6,7 +6,7 @@ import dlstbx.util.symlink
 
 # import procrunner
 import zocalo.wrapper
-import pprint
+from pprint import pprint
 
 logger = logging.getLogger("dlstbx.wrap.relion")
 

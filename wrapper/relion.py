@@ -53,7 +53,7 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         logger.info(f"Writing options to {options_file}")
         with open(options_file, 'w') as opts_file:
             for key in params["ispyb_parameters"]:
-                value = params["ispyb_parameters"][key]
+                value = repr(params["ispyb_parameters"][key])
                 print(f"{key} = {value}", file=opts_file)
 
         # TODO: find a better way to configure these values

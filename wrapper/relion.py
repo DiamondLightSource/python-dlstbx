@@ -29,7 +29,18 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
 
         # Create a symbolic link in the working directory to the image directory
         movielink = "Movies"
-        os.symlink(params["image_directory"], working_directory / movielink)
+        movielink_path = working_directory / movielink
+        movielink_target = params["image_directory"]
+        if os.path.islink(movielink_path):
+            current_target = os.readlink(movielink_path)
+            if current_target == movielink_target:
+                logger.info(f"Using existing Movies link to {current_target}")
+            else:
+                raise ValueError(f"Trying to create Movies link to {movielink_target} but a link already exists pointing to {current_target}")
+        else:
+            logger.info(f"Creating Movies link to {movielink_target}")
+            os.symlink(params["image_directory"], movielink_target)
+
         params["ispyb_parameters"]["import_images"] = os.path.join(
             movielink, params["file_template"]
         )

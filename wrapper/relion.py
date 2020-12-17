@@ -70,7 +70,7 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         # run relion
         result = procrunner.run(
             command,
-            working_directory=working_directory.strpath,
+            working_directory=working_directory,
         )
         logger.info("command: %s", " ".join(result["command"]))
         logger.info("exitcode: %s", result["exitcode"])

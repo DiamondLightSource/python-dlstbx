@@ -47,14 +47,25 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         params["ispyb_parameters"]["import_images"] = os.path.join(
             movielink, params["file_template"]
         )
+        for k, v in params["ispyb_parameters"].items():
+            if v.isnumeric():
+                params["ispyb_parameters"][k] = int(v)
+            elif v.lower() == "true":
+                params["ispyb_parameters"][k] = True
+            elif v.lower() == "false":
+                params["ispyb_parameters"][k] = False
+            else:
+                try:
+                    params["ispyb_parameters"][k] = float(v)
+                except ValueError:
+                    pass
         pprint(params["ispyb_parameters"])
 
         options_file = working_directory / "processing_options.py"
         logger.info(f"Writing options to {options_file}")
-        with open(options_file, 'w') as opts_file:
-            for key in params["ispyb_parameters"]:
-                value = repr(params["ispyb_parameters"][key])
-                print(f"{key} = {value}", file=opts_file)
+        with open(options_file, "w") as opts_file:
+            for key, value in params["ispyb_parameters"].items():
+                print(f"{key} = {repr(value)}", file=opts_file)
 
         # TODO: find a better way to configure these values
         relion_pipeline_python = "/dls_sw/apps/EM/conda/envs/relion_zocalo_dev/bin/python"
@@ -73,12 +84,11 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
             "source /etc/profile.d/modules.sh",
             "module load hamilton",
             "module load EM/yolo_relion_it/relion_3.1_cryolo_1.6.1",
-            " ".join(["exec"] + [str(item) for item in relion_command])
+            " ".join(["exec"] + [str(item) for item in relion_command]),
         ]
         script_file = working_directory / "run_script.sh"
         logger.info(f"Writing job commands to {script_file}")
-        with open(script_file, 'w') as script:
-            script.write("\n".join(commands))
+        script_file.write_text("\n".join(commands))
 
         # run relion
         result = procrunner.run(
@@ -103,4 +113,3 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         logger.info("Done.")
 
         return success
-

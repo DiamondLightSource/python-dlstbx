@@ -1,12 +1,11 @@
 import logging
 import os
 import pathlib
+from pprint import pprint
+import procrunner
 
 import dlstbx.util.symlink
-
-# import procrunner
 import zocalo.wrapper
-from pprint import pprint
 
 logger = logging.getLogger("dlstbx.wrap.relion")
 
@@ -38,11 +37,11 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         if os.path.islink(movielink_path):
             current_target = os.readlink(movielink_path)
             if current_target == movielink_target:
-                logger.info(f"Using existing Movies link to {current_target}")
+                logger.info(f"Using existing link {movielink_path} -> {current_target}")
             else:
-                raise ValueError(f"Trying to create Movies link to {movielink_target} but a link already exists pointing to {current_target}")
+                raise ValueError(f"Trying to create link {movielink_path} -> {movielink_target} but a link already exists pointing to {current_target}")
         else:
-            logger.info(f"Creating Movies link to {movielink_target}")
+            logger.info(f"Creating link {movielink_path} -> {movielink_target}")
             os.symlink(params["image_directory"], movielink_target)
 
         params["ispyb_parameters"]["import_images"] = os.path.join(
@@ -50,32 +49,45 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         )
         pprint(params["ispyb_parameters"])
 
+        options_file = working_directory / "processing_options.py"
+        logger.info(f"Writing options to {options_file}")
+        with open(options_file, 'w') as opts_file:
+            for key in params["ispyb_parameters"]:
+                value = params["ispyb_parameters"][key]
+                print(f"{key} = {value}", file=opts_file)
+
+        # TODO: find a better way to configure these values
+        relion_pipeline_python = "/dls_sw/apps/EM/conda/envs/relion_zocalo_dev/bin/python"
+        relion_pipeline_home = pathlib.Path("/dls_sw/apps/EM/relion_cryolo/python-relion-yolo-it_relion3.1_dev/relion_yolo_it")
+
+        # Find relion_it.py script and standard DLS options
+        relion_it = relion_pipeline_home / "cryolo_relion_it.py"
+        dls_options = relion_pipeline_home / "dls_options.py"
+
         # construct relion command line
-        # command = ["relion", params["screen-selection"]]
+        command = [relion_pipeline_python, relion_it, dls_options, options_file]
 
         # run relion
-        # result = procrunner.run(
-        #    command,
-        #    timeout=params.get("timeout"),
-        #    working_directory=working_directory.strpath,
-        #    environment_override={"PYTHONIOENCODING": "UTF-8"},
-        # )
-        # logger.info("command: %s", " ".join(result["command"]))
-        # logger.info("exitcode: %s", result["exitcode"])
-        # logger.debug(result["stdout"])
-        # logger.debug(result["stderr"])
-        # success = result["exitcode"] == 0
-        success = True
+        result = procrunner.run(
+            command,
+            working_directory=working_directory.strpath,
+        )
+        logger.info("command: %s", " ".join(result["command"]))
+        logger.info("exitcode: %s", result["exitcode"])
+        logger.debug(result["stdout"])
+        logger.debug(result["stderr"])
+        success = result["exitcode"] == 0
 
         # copy output files to result directory
-        results_directory.mkdir(parents=True, exist_ok=True)
+        # results_directory.mkdir(parents=True, exist_ok=True)
 
-        if params.get("create_symlink"):
-            # Create symbolic link above results directory
-            dlstbx.util.symlink.create_parent_symlink(
-                str(results_directory), params["create_symlink"]
-            )
+        # if params.get("create_symlink"):
+        #     # Create symbolic link above results directory
+        #     dlstbx.util.symlink.create_parent_symlink(
+        #         str(results_directory), params["create_symlink"]
+        #     )
 
         logger.info("Done.")
 
         return success
+

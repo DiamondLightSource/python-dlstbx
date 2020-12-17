@@ -11,6 +11,7 @@ import sys
 from optparse import SUPPRESS_HELP, OptionParser
 import pkg_resources
 
+import dlstbx.util.offline_transport
 import workflows
 import workflows.recipe.wrapper
 import workflows.services.common_service
@@ -42,7 +43,11 @@ def run(cmdline_args):
     if "--test" in cmdline_args:
         default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
         use_live_infrastructure = False
-    StompTransport.load_configuration_file(default_configuration)
+    if "--offline" in cmdline_args:
+        default_configuration = ""
+        use_live_infrastructure = False
+    if default_configuration:
+        StompTransport.load_configuration_file(default_configuration)
 
     known_wrappers = {
         e.name: e.load for e in pkg_resources.iter_entry_points("dlstbx.wrappers")
@@ -79,6 +84,11 @@ def run(cmdline_args):
         action="store_true",
         help="Run in ActiveMQ live namespace (zocalo, default)",
     )
+    parser.add_option(
+        "--offline",
+        action="store_true",
+        help="Run without connecting to message or log servers",
+    )
 
     parser.add_option(
         "-t",
@@ -113,7 +123,10 @@ def run(cmdline_args):
         logging.getLogger("dlstbx").setLevel(logging.DEBUG)
 
     # Enable logging to graylog
-    graylog_handler = enable_graylog(live=use_live_infrastructure)
+    if options.offline:
+        graylog_handler = None
+    else:
+        graylog_handler = enable_graylog(live=use_live_infrastructure)
     log.info(
         "Starting wrapper for %s with recipewrapper file %s",
         options.wrapper,
@@ -121,7 +134,10 @@ def run(cmdline_args):
     )
 
     # Connect to transport and start sending notifications
-    transport = workflows.transport.lookup(options.transport)()
+    if options.offline:
+        transport = dlstbx.util.offline_transport.OfflineTransport()
+    else:
+        transport = workflows.transport.lookup(options.transport)()
     transport.connect()
     st = zocalo.wrapper.StatusNotifications(transport.broadcast_status, options.wrapper)
     st.set_static_status_field("dlstbx", dlstbx_version())
@@ -148,7 +164,8 @@ def run(cmdline_args):
                     record.recipe_ID = recwrap.environment["ID"]
                     return True
 
-            graylog_handler.addFilter(ContextFilter())
+            if graylog_handler:
+                graylog_handler.addFilter(ContextFilter())
 
         if recwrap.recipe_step.get("wrapper", {}).get("task_information"):
             # If the recipe contains an extra task_information field then add this to the status display

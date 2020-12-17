@@ -1,9 +1,12 @@
 # A workflows transport that doesn't actually transport anything
 
 import json
+import logging
 import pprint
 
 from workflows.transport.common_transport import CommonTransport
+
+offlog = logging.getLogger("dlstbx.util.offline_transport")
 
 
 class OfflineTransport(CommonTransport):
@@ -23,8 +26,9 @@ class OfflineTransport(CommonTransport):
         self._connected = False
 
     def _output(self, message, details=None):
-        print(message)
-        print(details)
+        offlog.info(f"Transport: {message}")
+        if details:
+            offlog.debug(details)
 
     def broadcast_status(self, status):
         self._output("Writing status message", pprint.pformat(status))

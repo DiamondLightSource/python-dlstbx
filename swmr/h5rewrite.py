@@ -5,6 +5,7 @@ import logging
 import math
 import numpy as np
 import pathlib
+import time
 from typing import Union
 
 
@@ -92,7 +93,7 @@ class Visitor:
                         group[child.name] = h5py.SoftLink(ref_name)
 
 
-def rewrite(master_h5, out_h5, zeros=False, image_range=None):
+def rewrite(master_h5, out_h5, zeros=False, image_range=None, delay=None):
     if image_range:
         assert len(image_range) == 2
         start, end = image_range
@@ -160,6 +161,8 @@ def rewrite(master_h5, out_h5, zeros=False, image_range=None):
             data_file.swmr_mode = True
             data_files.append(data_file)
         for i in range(start, end):
+            if delay:
+                time.sleep(delay)
             i_block, j = divmod(i - start, vds_block_size)
             if zeros:
                 data_files[i_block]["data"][j] = np.zeros(
@@ -183,10 +186,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--range", type=int, nargs=2, help="zero-indexed image range selection"
     )
+    parser.add_argument(
+        "--delay", type=float, help="time delay between writing each image"
+    )
     parser.add_argument("-v", "--verbose", dest="verbose", action="store_true")
 
     args = parser.parse_args()
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO, format="%(message)s"
     )
-    rewrite(args.input_h5, args.output_h5, zeros=args.zeros, image_range=args.range)
+    rewrite(
+        args.input_h5,
+        args.output_h5,
+        zeros=args.zeros,
+        image_range=args.range,
+        delay=args.delay,
+    )

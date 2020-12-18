@@ -127,7 +127,9 @@ def rewrite(master_h5, out_h5, zeros=False, image_range=None, delay=None):
             )
             fs.visititems(visit)
 
-            vds = h5py.VirtualLayout(shape=data.shape, dtype=data.dtype)
+            vds = h5py.VirtualLayout(
+                shape=(vds_block_size * vds_nblocks,) + data.shape[1:], dtype=data.dtype
+            )
             dest_path = pathlib.Path(fd.filename)
             for i in range(vds_nblocks):
                 filename = dest_path.parent.joinpath(f"{dest_path.stem}_{i:06d}.h5")

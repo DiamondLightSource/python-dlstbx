@@ -68,7 +68,7 @@ class Visitor:
                 link = node.get(item, getlink=True)
                 if isinstance(link, h5py.ExternalLink):
                     dest_path = pathlib.Path(self.dest.filename)
-                    external = dest_path.parent.joinpath(f"{dest_path.stem}_{item}.h5")
+                    external = dest_path.parent.absolute().joinpath(f"{link.filename}")
                     with h5py.File(external, "w", libver="latest") as data_file:
                         dset = self._create_dataset(child, data_file)
                     group[item] = h5py.ExternalLink(external, link.path)

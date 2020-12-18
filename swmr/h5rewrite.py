@@ -23,8 +23,9 @@ class Visitor:
         self.compression = compression
         self.compression_opts = compression_opts
         self.zeros = zeros
-        assert len(image_range) == 2
-        assert image_range[0] < image_range[1]
+        if image_range:
+            assert len(image_range) == 2
+            assert image_range[0] < image_range[1]
         self.image_range = image_range
 
     def _create_dataset(self, dataset: h5py.Dataset, dest: h5py.File) -> h5py.Dataset:
@@ -43,9 +44,11 @@ class Visitor:
                 assert 0 < end <= shape[0]
             else:
                 start, end = (0, shape[0])
+                logger.debug(f"Slicing dataset {dataset.name} [{start}:{end}]")
             shape = (end - start, *shape[1:])
             if self.zeros and dataset.name.startswith("/data"):
                 data = np.zeros(shape)
+                logger.debug(f"Replacing dataset {dataset.name} with zeros")
             else:
                 data = dataset[start:end]
         else:
@@ -62,13 +65,13 @@ class Visitor:
     def __call__(self, name: str, node: Union[h5py.Dataset, h5py.Group]):
         if isinstance(node, h5py.Dataset):
             # Faithfully copy the dataset to the destination
-            logger.info(f"Dataset: {name} {node.shape}")
+            logger.debug(f"Copying dataset: {name}")
             dset = self._create_dataset(node, self.dest)
             dset.attrs.update(node.attrs)
         else:
             # Create the group in the destination, and then loop over all children to
-            # identify links, as these would normally be skipped by visititems.
-            logger.info(f"Group: {name}")
+            # identify links, as these would normally be skipped by visititems
+            logger.debug(f"Copying group: {name}")
             group = self.dest.require_group(name)
             group.attrs.update(node.attrs)
             for item in node.keys():
@@ -88,17 +91,25 @@ class Visitor:
                     with h5py.File(external, "w", libver="latest") as data_file:
                         dset = self._create_dataset(child, data_file)
                     group[item] = h5py.ExternalLink(external, link.path)
-                    logger.info(f"{child.name} -> {external}")
+                    logger.debug(
+                        f"ExternalLink: {'/'.join((node.name, item))} -> {external}:{link.path}"
+                    )
                 elif isinstance(link, (h5py.SoftLink, h5py.HardLink)):
                     ref_name = node[child.ref].name
                     if ref_name == child.name:
                         # This is the original copy and the visitor will visit this
                         # dataset above
                         continue
-                    logger.info(f"{child.name} -> {ref_name}")
-                    if ref_name not in self.dest:
-                        dset = self._create_dataset(node[child.ref], self.dest)
-                    group[child.name] = self.dest[ref_name]
+                    if isinstance(link, h5py.HardLink):
+                        logger.debug(f"Creating HardLink: {child.name} -> {ref_name}")
+                        if ref_name not in self.dest:
+                            dset = self._create_dataset(node[child.ref], self.dest)
+                        group[child.name] = self.dest[ref_name]
+                    else:
+                        logger.debug(f"Creating SoftLink: {child.name} -> {ref_name}")
+                        if ref_name not in self.dest:
+                            dset = self._create_dataset(node[child.ref], self.dest)
+                        group[child.name] = h5py.SoftLink(ref_name)
 
 
 def rewrite(master_h5, out_h5, zeros=False, image_range=None):
@@ -134,7 +145,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--range", type=int, nargs=2, help="zero-indexed image range selection"
     )
+    parser.add_argument("-v", "--verbose", dest="verbose", action="store_true")
 
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO, format="%(message)s"
+    )
     rewrite(args.input_h5, args.output_h5, zeros=args.zeros, image_range=args.range)

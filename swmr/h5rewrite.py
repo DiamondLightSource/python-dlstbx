@@ -104,7 +104,7 @@ def rewrite(master_h5, out_h5, zeros=False, image_range=None, delay=None):
 
         entry_data = fs["entry/data"]
         data = entry_data[entry_data.attrs["signal"]]
-        axes = entry_data.attrs["axes"]
+        axes = entry_data.attrs.get("axes")
         if image_range:
             n_images = end - start
         else:
@@ -136,16 +136,18 @@ def rewrite(master_h5, out_h5, zeros=False, image_range=None, delay=None):
                 )
             fd.create_virtual_dataset("/entry/data/data", vds, fillvalue=-1)
             fd[entry_data.name].attrs.update(entry_data.attrs)
-            if axes in fd[entry_data.name]:
-                fd[entry_data.name][axes].resize((n_images,))
-                fd[entry_data.name][axes][...] = entry_data[axes][start:end]
-                assert (
-                    fd["/entry/sample/transformations/omega"] == fd["/entry/data/omega"]
-                )
-            else:
-                fd[entry_data.name].create_dataset(
-                    axes, data=entry_data[axes][start:end]
-                )
+            if axes:
+                if axes in fd[entry_data.name]:
+                    fd[entry_data.name][axes].resize((n_images,))
+                    fd[entry_data.name][axes][...] = entry_data[axes][start:end]
+                    assert (
+                        fd["/entry/sample/transformations/omega"]
+                        == fd["/entry/data/omega"]
+                    )
+                else:
+                    fd[entry_data.name].create_dataset(
+                        axes, data=entry_data[axes][start:end]
+                    )
 
         for i in range(vds_nblocks):
             filename = dest_path.parent.joinpath(f"{dest_path.stem}_{i:06d}.h5")

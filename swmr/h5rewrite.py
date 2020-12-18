@@ -2,6 +2,7 @@ import argparse
 import bitshuffle.h5
 import h5py
 import logging
+import math
 import numpy as np
 import pathlib
 from typing import Union
@@ -16,46 +17,19 @@ class Visitor:
         dest,
         compression=None,
         compression_opts=None,
-        zeros=False,
-        image_range=None,
     ):
         self.dest = dest
         self.compression = compression
         self.compression_opts = compression_opts
-        self.zeros = zeros
-        if image_range:
-            assert len(image_range) == 2
-            assert image_range[0] < image_range[1]
-        self.image_range = image_range
 
     def _create_dataset(self, dataset: h5py.Dataset, dest: h5py.File) -> h5py.Dataset:
         """Thin wrapper around Group.create_dataset.
 
-        Applies compression options, selects a range of images and replaces data with
-        zeros if requested.
+        Applies compression options if requested.
         """
-        shape = dataset.shape
-        if shape and (
-            dataset.name.startswith("/entry/data") or dataset.name.startswith("/data")
-        ):
-            if self.image_range:
-                start, end = self.image_range
-                assert 0 <= start < shape[0]
-                assert 0 < end <= shape[0]
-            else:
-                start, end = (0, shape[0])
-                logger.debug(f"Slicing dataset {dataset.name} [{start}:{end}]")
-            shape = (end - start, *shape[1:])
-            if self.zeros and dataset.name.startswith("/data"):
-                data = np.zeros(shape)
-                logger.debug(f"Replacing dataset {dataset.name} with zeros")
-            else:
-                data = dataset[start:end]
-        else:
-            data = dataset
         dset = dest.create_dataset(
             dataset.name,
-            data=data,
+            data=dataset,
             compression=self.compression if dataset.shape else None,
             compression_opts=self.compression_opts if dataset.shape else None,
         )
@@ -63,6 +37,11 @@ class Visitor:
         return dset
 
     def __call__(self, name: str, node: Union[h5py.Dataset, h5py.Group]):
+        if (
+            node.attrs.get("NX_class") == b"NXdata"
+            or node.parent.attrs.get("NX_class") == b"NXdata"
+        ):
+            return
         if isinstance(node, h5py.Dataset):
             # Faithfully copy the dataset to the destination
             logger.debug(f"Copying dataset: {name}")
@@ -74,6 +53,7 @@ class Visitor:
             logger.debug(f"Copying group: {name}")
             group = self.dest.require_group(name)
             group.attrs.update(node.attrs)
+
             for item in node.keys():
                 try:
                     child = node[item]
@@ -118,20 +98,78 @@ def rewrite(master_h5, out_h5, zeros=False, image_range=None):
         start, end = image_range
         assert start < end
 
-    with h5py.File(master_h5, "r") as fs, h5py.File(out_h5, "w", libver="latest") as fd:
+    with h5py.File(master_h5, "r") as fs:
+        data_files = []
+
+        entry_data = fs["entry/data"]
+        data = entry_data[entry_data.attrs["signal"]]
+        axes = entry_data.attrs["axes"]
+        if image_range:
+            n_images = end - start
+        else:
+            n_images = data.shape[0]
+            start, end = 0, n_images
+
+        vds_block_size = 100
+        vds_nblocks = int(math.ceil(n_images / vds_block_size))
         compression = bitshuffle.h5.H5FILTER
         compression_opts = (
             0,  # block_size, let Bitshuffle choose its value
             bitshuffle.h5.H5_COMPRESS_LZ4,
         )
-        visit = Visitor(
-            fd,
-            compression=compression,
-            compression_opts=compression_opts,
-            zeros=zeros,
-            image_range=image_range,
-        )
-        fs.visititems(visit)
+
+        with h5py.File(out_h5, "w", libver="latest") as fd:
+            visit = Visitor(
+                fd,
+                compression=compression,
+                compression_opts=compression_opts,
+            )
+            fs.visititems(visit)
+
+            vds = h5py.VirtualLayout(shape=data.shape, dtype=data.dtype)
+            dest_path = pathlib.Path(fd.filename)
+            for i in range(vds_nblocks):
+                filename = dest_path.parent.joinpath(f"{dest_path.stem}_{i:06d}.h5")
+                vds[i * vds_block_size : (i + 1) * vds_block_size] = h5py.VirtualSource(
+                    filename, "data", shape=(vds_block_size,) + data.shape[1:]
+                )
+            fd.create_virtual_dataset("/entry/data/data", vds, fillvalue=-1)
+            fd[entry_data.name].attrs.update(entry_data.attrs)
+            if axes in fd[entry_data.name]:
+                fd[entry_data.name][axes].resize((n_images,))
+                fd[entry_data.name][axes][...] = entry_data[axes][start:end]
+                assert (
+                    fd["/entry/sample/transformations/omega"] == fd["/entry/data/omega"]
+                )
+            else:
+                fd[entry_data.name].create_dataset(
+                    axes, data=entry_data[axes][start:end]
+                )
+
+        for i in range(vds_nblocks):
+            filename = dest_path.parent.joinpath(f"{dest_path.stem}_{i:06d}.h5")
+            data_file = h5py.File(filename, "w", libver="latest")
+            data_file.create_dataset(
+                "data",
+                shape=(vds_block_size,) + data.shape[1:],
+                chunks=(1,) + data.shape[1:],
+                compression=compression,
+                compression_opts=compression_opts,
+                dtype=data.dtype,
+            )
+            data_file.swmr_mode = True
+            data_files.append(data_file)
+        for i in range(start, end):
+            i_block, j = divmod(i - start, vds_block_size)
+            if zeros:
+                data_files[i_block]["data"][j] = np.zeros(
+                    data.shape[1:], dtype=data.dtype
+                )
+            else:
+                data_files[i_block]["data"][j] = data[i]
+            data_files[i_block].flush()
+            logger.debug(f"{data_files[i_block].filename} {j} {i}")
+
         return
 
 

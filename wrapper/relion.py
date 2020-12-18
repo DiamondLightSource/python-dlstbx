@@ -65,7 +65,7 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         logger.info(f"Writing options to {options_file}")
         with open(options_file, "w") as opts_file:
             for key, value in params["ispyb_parameters"].items():
-                print(f"{key} = {repr(value)}", file=opts_file)
+                print(f"{key} = {value !r}", file=opts_file)
 
         # TODO: find a better way to configure these values
         relion_pipeline_python = "/dls_sw/apps/EM/conda/envs/relion_zocalo_dev/bin/python"
@@ -94,6 +94,7 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         result = procrunner.run(
             ["bash", script_file],
             working_directory=working_directory,
+            environment_override={"PYTHONUNBUFFERED": "1"},
         )
         logger.info("command: %s", " ".join(result["command"]))
         logger.info("exitcode: %s", result["exitcode"])

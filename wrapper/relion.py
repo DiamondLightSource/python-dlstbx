@@ -39,7 +39,9 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
             if current_target == movielink_target:
                 logger.info(f"Using existing link {movielink_path} -> {current_target}")
             else:
-                raise ValueError(f"Trying to create link {movielink_path} -> {movielink_target} but a link already exists pointing to {current_target}")
+                raise ValueError(
+                    f"Trying to create link {movielink_path} -> {movielink_target} but a link already exists pointing to {current_target}"
+                )
         else:
             logger.info(f"Creating link {movielink_path} -> {movielink_target}")
             os.symlink(movielink_target, movielink_path)
@@ -68,8 +70,12 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
                 print(f"{key} = {value !r}", file=opts_file)
 
         # TODO: find a better way to configure these values
-        relion_pipeline_python = "/dls_sw/apps/EM/conda/envs/relion_zocalo_dev/bin/python"
-        relion_pipeline_home = pathlib.Path("/dls_sw/apps/EM/relion_cryolo/python-relion-yolo-it_relion3.1_dev/relion_yolo_it")
+        relion_pipeline_python = (
+            "/dls_sw/apps/EM/conda/envs/relion_zocalo_dev/bin/python"
+        )
+        relion_pipeline_home = pathlib.Path(
+            "/dls_sw/apps/EM/relion_cryolo/python-relion-yolo-it_relion3.1_dev/relion_yolo_it"
+        )
 
         # Find relion_it.py script and standard DLS options
         relion_it = relion_pipeline_home / "cryolo_relion_it.py"

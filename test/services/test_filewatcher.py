@@ -450,22 +450,50 @@ def test_filewatcher_watch_swmr(mocker, tmpdir):
     send_to = mocker.spy(rw, "send_to")
     filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
     send_to.assert_any_call(
-        "first", {"hdf5": master_h5, "hdf5-index": 0}, transaction=mocker.ANY
+        "first",
+        {
+            "hdf5": master_h5,
+            "hdf5-index": 0,
+            "file": master_h5,
+            "file-number": 0,
+            "parameters": {"scan_range": "1,1"},
+        },
+        transaction=mocker.ANY,
     )
     for i in range(100):
         send_to.assert_has_calls(
             [
                 mocker.call(
-                    i + 1, {"hdf5": master_h5, "hdf5-index": i}, transaction=mocker.ANY
+                    i + 1,
+                    {
+                        "hdf5": master_h5,
+                        "hdf5-index": i,
+                        "file": master_h5,
+                        "file-number": i,
+                        "parameters": {"scan_range": f"{i+1},{i+1}"},
+                    },
+                    transaction=mocker.ANY,
                 ),
                 mocker.call(
                     f"{i+1}",
-                    {"hdf5": master_h5, "hdf5-index": i},
+                    {
+                        "hdf5": master_h5,
+                        "hdf5-index": i,
+                        "file": master_h5,
+                        "file-number": i,
+                        "parameters": {"scan_range": f"{i+1},{i+1}"},
+                    },
                     transaction=mocker.ANY,
                 ),
                 mocker.call(
                     "every",
-                    {"hdf5": master_h5, "hdf5-index": i},
+                    {
+                        "hdf5": master_h5,
+                        "hdf5-index": i,
+                        "file": master_h5,
+                        "file-number": i,
+                        "parameters": {"scan_range": f"{i+1},{i+1}"},
+                    },
                     transaction=mocker.ANY,
                 ),
             ],
@@ -474,7 +502,15 @@ def test_filewatcher_watch_swmr(mocker, tmpdir):
     send_to.assert_has_calls(
         [
             mocker.call(
-                "last", {"hdf5": master_h5, "hdf5-index": 99}, transaction=mocker.ANY
+                "last",
+                {
+                    "hdf5": master_h5,
+                    "hdf5-index": 99,
+                    "file": master_h5,
+                    "file-number": i,
+                    "parameters": {"scan_range": f"100,100"},
+                },
+                transaction=mocker.ANY,
             ),
             mocker.call(
                 "any",
@@ -492,7 +528,13 @@ def test_filewatcher_watch_swmr(mocker, tmpdir):
     for i in (0, 11, 22, 33, 44, 55, 66, 77, 88, 99):
         send_to.assert_any_call(
             "select-10",
-            {"hdf5": master_h5, "hdf5-index": i},
+            {
+                "hdf5": master_h5,
+                "hdf5-index": i,
+                "file": master_h5,
+                "file-number": i,
+                "parameters": {"scan_range": f"{i+1},{i+1}"},
+            },
             transaction=mocker.ANY,
         )
 

@@ -128,16 +128,19 @@ def rewrite(master_h5, out_h5, zeros=False, image_range=None, delay=None):
             fs.visititems(visit)
 
             vds = h5py.VirtualLayout(
-                shape=(vds_block_size * vds_nblocks,) + data.shape[1:], dtype=data.dtype
+                shape=(n_images,) + data.shape[1:], dtype=data.dtype
             )
             dest_path = fd.filename
             if dest_path.endswith("_master.h5"):
                 dest_path = dest_path[:-10]
             dest_path = pathlib.Path(dest_path)
             for i in range(vds_nblocks):
+                n_images_block = min(n_images - (i * vds_block_size), vds_block_size)
                 filename = dest_path.parent.joinpath(f"{dest_path.stem}_{i:06d}.h5")
-                vds[i * vds_block_size : (i + 1) * vds_block_size] = h5py.VirtualSource(
-                    filename, "data", shape=(vds_block_size,) + data.shape[1:]
+                vds[
+                    i * vds_block_size : i * vds_block_size + n_images_block
+                ] = h5py.VirtualSource(
+                    filename, "data", shape=(n_images_block,) + data.shape[1:]
                 )
             fd.create_virtual_dataset("/entry/data/data", vds, fillvalue=-1)
             fd[entry_data.name].attrs.update(entry_data.attrs)

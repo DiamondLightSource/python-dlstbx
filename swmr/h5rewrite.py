@@ -130,7 +130,10 @@ def rewrite(master_h5, out_h5, zeros=False, image_range=None, delay=None):
             vds = h5py.VirtualLayout(
                 shape=(vds_block_size * vds_nblocks,) + data.shape[1:], dtype=data.dtype
             )
-            dest_path = pathlib.Path(fd.filename)
+            dest_path = fd.filename
+            if dest_path.endswith("_master.h5"):
+                dest_path = dest_path[:-10]
+            dest_path = pathlib.Path(dest_path)
             for i in range(vds_nblocks):
                 filename = dest_path.parent.joinpath(f"{dest_path.stem}_{i:06d}.h5")
                 vds[i * vds_block_size : (i + 1) * vds_block_size] = h5py.VirtualSource(

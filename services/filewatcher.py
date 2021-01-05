@@ -727,6 +727,9 @@ class DLSFileWatcher(CommonService):
         txn = rw.transport.transaction_begin()
         rw.transport.ack(header, transaction=txn)
 
+        # Cache file handles locally to minimise repeatedly re-opening the same data file(s)
+        file_handles = {}
+
         # Look for images
         images_found = 0
         while (
@@ -745,14 +748,15 @@ class DLSFileWatcher(CommonService):
                     break
 
             try:
-                with h5py.File(h5_data_file, "r", swmr=True) as h5_file:
-                    dataset = h5_file[dsetname]
-                    s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
-                    if s.size == 0:
-                        break
-                    self.log.info(
-                        f"Found image {status['seen-images']} (size={s.size})"
-                    )
+                if h5_data_file not in file_handles:
+                    file_handles[h5_data_file] = h5py.File(h5_data_file, "r", swmr=True)
+                    self.log.debug(f"Opening file {h5_data_file}")
+                h5_file = file_handles[h5_data_file]
+                dataset = h5_file[dsetname]
+                s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
+                if s.size == 0:
+                    break
+                self.log.info(f"Found image {status['seen-images']} (size={s.size})")
             except Exception:
                 self.log.warning(f"Error reading {h5_data_file}", exc_info=True)
                 rw.transport.nack(header)

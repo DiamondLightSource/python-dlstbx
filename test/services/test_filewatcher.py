@@ -1,7 +1,8 @@
 import collections
-import time
+import h5py
 import pytest
 import os
+import time
 from unittest import mock
 
 import workflows.transport.common_transport
@@ -448,7 +449,10 @@ def test_filewatcher_watch_swmr(mocker, tmpdir):
     rw = RecipeWrapper(message=m, transport=t)
     # Spy on the rw.send_to method
     send_to = mocker.spy(rw, "send_to")
+    h5_file = mocker.spy(h5py, "File")
     filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    # Assert each .h5 file has only been opened once - 10 data files plus master file
+    assert len(h5_file.mock_calls) == 11
     send_to.assert_any_call(
         "first",
         {

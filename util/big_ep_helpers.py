@@ -367,7 +367,9 @@ def copy_results(working_directory, results_directory, logger):
                 ignore_list.append(f)
         return ignore_list
 
-    shutil.copytree(working_directory, results_directory, ignore=ignore_func)
+    shutil.copytree(
+        working_directory, results_directory, symlinks=True, ignore=ignore_func
+    )
     src_pth_esc = r"\/".join(working_directory.split(os.sep))
     dest_pth_esc = r"\/".join(results_directory.split(os.sep))
     sed_command = (

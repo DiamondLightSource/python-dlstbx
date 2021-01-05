@@ -16,7 +16,7 @@ def run():
         "--range", type=int, nargs=2, help="zero-indexed image range selection"
     )
     parser.add_argument(
-        "--delay", type=float, help="time delay between writing each image"
+        "--delay", type=float, help="time delay (in seconds) between writing each image"
     )
     parser.add_argument("-v", "--verbose", dest="verbose", action="store_true")
 

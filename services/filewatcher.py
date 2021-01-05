@@ -681,8 +681,11 @@ class DLSFileWatcher(CommonService):
 
     def watch_files_swmr(self, rw, header, message):
         """
-        Watch for hdf5 files where the names follow a linear numeric pattern,
-        eg. "template%05d.cbf" with indices 0 to 1800.
+        Watch for hdf5 files written in SWMR mode.
+
+        This will examine the hdf5 master file to determine the number of images
+        to watch for, and then look to see whether each image has been written
+        to file.
         """
         # Check if message body contains partial results from a previous run
         status = {"seen-images": 0, "start-time": time.time(), "image-count": None}

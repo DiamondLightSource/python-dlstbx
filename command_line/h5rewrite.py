@@ -1,6 +1,7 @@
 import argparse
 import logging
 import pathlib
+import sys
 
 from dlstbx.swmr.h5rewrite import rewrite
 
@@ -24,6 +25,8 @@ def run():
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO, format="%(message)s"
     )
+    if args.output_h5.exists():
+        sys.exit(f"Refusing to overwrite existing file {args.output_h5}")
     rewrite(
         args.input_h5,
         args.output_h5,

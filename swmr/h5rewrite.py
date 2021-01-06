@@ -118,6 +118,7 @@ def rewrite(master_h5, out_h5, zeros=False, image_range=None, delay=None):
             bitshuffle.h5.H5_COMPRESS_LZ4,
         )
 
+        assert not out_h5.exists(), f"Refusing to overwrite existing file {out_h5}"
         with h5py.File(out_h5, "w", libver="latest") as fd:
             visit = Visitor(
                 fd,
@@ -158,6 +159,9 @@ def rewrite(master_h5, out_h5, zeros=False, image_range=None, delay=None):
 
         for i in range(vds_nblocks):
             filename = dest_path.parent.joinpath(f"{dest_path.stem}_{i:06d}.h5")
+            assert (
+                not filename.exists()
+            ), f"Refusing to overwrite existing file {filename}"
             data_file = h5py.File(filename, "w", libver="latest")
             data_file.create_dataset(
                 "data",

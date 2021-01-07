@@ -696,7 +696,7 @@ def call_sim(test_name, beamline):
     now = datetime.datetime.now()
     # These proposal numbers need to be updated every year
     if beamline.startswith("m"):
-        proposal = "cm28024"
+        proposal = "cm28212"
     else:
         proposal = "cm28218"
     if beamline.startswith("i02"):

@@ -699,7 +699,7 @@ class DLSFileWatcher(CommonService):
         image_count = None
         with os_stat_profiler.record():
             if os.path.isfile(hdf5):
-                print(f"Opening {hdf5}")
+                self.log.debug(f"Opening {hdf5}")
                 try:
                     with h5py.File(hdf5, "r", swmr=True) as f:
                         d = f["/entry/data/data"]

@@ -15,6 +15,7 @@ def wait_for_frame(h5_data_file, dsetname, frame):
     with h5py.File(h5_data_file, "r", swmr=True) as h5_file:
         dataset = h5_file[dsetname]
         while size == 0:
+            dataset.id.refresh()
             s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
             size = s.size
     return size

@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pathlib
 import time
-from typing import Union
+from typing import Optional, Union
 
 
 logger = logging.getLogger("dlstbx.h5rewrite")
@@ -14,9 +14,9 @@ logger = logging.getLogger("dlstbx.h5rewrite")
 class Visitor:
     def __init__(
         self,
-        dest,
-        compression=None,
-        compression_opts=None,
+        dest: h5py.File,
+        compression: Optional[int] = None,
+        compression_opts: Optional[tuple] = None,
     ):
         self.dest = dest
         self.compression = compression
@@ -92,7 +92,23 @@ class Visitor:
                         group[child.name] = h5py.SoftLink(ref_name)
 
 
-def rewrite(master_h5, out_h5, zeros=False, image_range=None, delay=None):
+def rewrite(
+    master_h5: pathlib.Path,
+    out_h5: pathlib.Path,
+    zeros: bool = False,
+    image_range: Optional[tuple[int, int]] = None,
+    delay: Optional[float] = None,
+) -> None:
+    """Re-write an HDF5 file as a VDS/SWMR file.
+
+    Args:
+        master_h5 (pathlib.Path): Path to input master h5 file
+        out_h5 (pathlib.Path): Path to output h5 file
+        zeros (bool): Output zeros in place of the original data (default=False)
+        image_range (tuple): Zero-indexed image range selection
+        delay (float): Time delay (in seconds) between writing each image
+    """
+
     if image_range:
         assert len(image_range) == 2
         start, end = image_range

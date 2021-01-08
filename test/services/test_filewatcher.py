@@ -427,7 +427,7 @@ def test_filewatcher_watch_swmr(mocker, tmpdir):
     h5_prefix = tmpdir / "foo"
     master_h5 = h5_prefix.strpath + "_master.h5"
 
-    h5maker.main(h5_prefix, BLOCK=10, NUMBER=10)
+    h5maker.main(h5_prefix, block_size=10, nblocks=10)
 
     mock_transport = mocker.Mock()
     filewatcher = DLSFileWatcher()
@@ -586,7 +586,7 @@ def test_filewatcher_watch_swmr_timeout(mocker, tmpdir):
     )
 
     send_to.reset_mock()
-    h5maker.main(h5_prefix, BLOCK=2, NUMBER=2)
+    h5maker.main(h5_prefix, block_size=2, nblocks=2)
     data_h5 = h5_prefix.strpath + "_000000.h5"
     os.remove(data_h5)
     filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
@@ -634,7 +634,7 @@ def test_filewatcher_watch_swmr_h5py_error(mocker, tmpdir, caplog):
     t.nack.assert_called_once()
 
     t.reset_mock()
-    h5maker.main(h5_prefix, BLOCK=2, NUMBER=2)
+    h5maker.main(h5_prefix, block_size=2, nblocks=2)
     data_h5 = h5_prefix.strpath + "_000000.h5"
     with open(data_h5, "w") as fh:
         fh.write("content")

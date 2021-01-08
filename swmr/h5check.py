@@ -1,6 +1,11 @@
 import h5py
+import logging
 import os
 import time
+import sys
+
+
+logger = logging.getLogger(__name__)
 
 
 def wait_for_frame(h5_data_file, dsetname, frame):
@@ -17,7 +22,7 @@ def wait_for_frame(h5_data_file, dsetname, frame):
 
 def get_real_frames(master, dataset):
     root = os.path.split(master.filename)[0]
-    print(root, master.filename)
+    logger.debug(f"{root}, {master.filename}")
     plist = dataset.id.get_create_plist()
 
     assert plist.get_layout() == h5py.h5d.VIRTUAL
@@ -54,20 +59,19 @@ def get_real_frames(master, dataset):
 
 
 if __name__ == "__main__":
-    import sys
-
     if len(sys.argv) == 1:
         sys.exit(f"{sys.argv[0]} /path/to/prefix_master.h5 n1 n2 n3 ... nn")
 
+    logging.basicConfig(level=logging.DEBUG, format="%(message)s")
     with h5py.File(sys.argv[1], "r", swmr=True) as f:
         d = f["/entry/data/data"]
         t0 = time.time()
         file_dataset, file_map = get_real_frames(f, d)
         t1 = time.time()
-        print(f"Setup took {t1-t0:.3f}s")
+        logger.info(f"Setup took {t1-t0:.3f}s")
         shape = d.shape
         for j in map(int, sys.argv[2:]):
             m, k = file_map[j - 1]
             _f, _d = file_dataset[m]
             size = wait_for_frame(_f, _d, k)
-            print(j, size)
+            logger.info(f"{j}, {size}")

@@ -818,7 +818,7 @@ class DLSFileWatcher(CommonService):
                     )
 
             self.log.info(
-                "All %d images found for %s after %.1f seconds.",
+                "All %d images found for %s after %.2f seconds.",
                 image_count,
                 rw.recipe_step["parameters"]["hdf5"],
                 time.time() - status["start-time"],
@@ -865,7 +865,7 @@ class DLSFileWatcher(CommonService):
                     timeoutlog = self.log.info
 
                 timeoutlog(
-                    "Filewatcher for %s timed out after %.1f seconds (%d images found, nothing seen for %.1f seconds)",
+                    "Filewatcher for %s timed out after %.2f seconds (%d images found, nothing seen for %.2f seconds)",
                     rw.recipe_step["parameters"]["hdf5"],
                     time.time() - status["start-time"],
                     status["seen-images"],
@@ -918,7 +918,7 @@ class DLSFileWatcher(CommonService):
                 message_delay = 1
             self.log.debug(
                 (
-                    "No further images found for {hdf5} after a total time of {time:.1f} seconds\n"
+                    "No further images found for {hdf5} after a total time of {time:.2f} seconds\n"
                     "{images_seen} of {image_count} images seen so far"
                 ).format(
                     time=time.time() - status["start-time"],

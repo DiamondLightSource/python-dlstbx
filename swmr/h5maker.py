@@ -11,7 +11,7 @@ import time
 logger = logging.getLogger(__name__)
 
 
-def main(prefix, shape=(512, 512), block_size=100, nblocks=10):
+def main(prefix, shape=(512, 512), block_size=100, nblocks=10, delay=None):
     def image():
         return (numpy.random.rand(*shape) * 100).astype(numpy.int16)
 
@@ -52,6 +52,8 @@ def main(prefix, shape=(512, 512), block_size=100, nblocks=10):
     random.shuffle(to_do)
 
     for b, f in to_do:
+        if delay:
+            time.sleep(delay)
         data_files[b]["data"][f] = image()
         data_files[b].flush()
         logger.info(f"data_{b:06d}.h5 {f} {b*block_size+f} {time.time()}")
@@ -82,6 +84,9 @@ if __name__ == "__main__":
         help="Number of VDS blocks",
         default=10,
     )
+    parser.add_argument(
+        "--delay", type=float, help="time delay (in seconds) between writing each image"
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     main(
@@ -89,4 +94,5 @@ if __name__ == "__main__":
         shape=tuple(args.shape),
         block_size=args.block_size,
         nblocks=args.nblocks,
+        delay=args.delay,
     )

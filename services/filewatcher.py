@@ -935,10 +935,11 @@ class DLSFileWatcher(CommonService):
             # Otherwise note last time progress was made
             status["last-seen"] = time.time()
             self.log.info(
-                "%d out of %d images found for %s (total: %d out of %d) within %.1f seconds",
+                "%d  images found for %s (total: %d out of %d) within %.2f seconds",
                 images_found,
-                image_count,
                 rw.recipe_step["parameters"]["hdf5"],
+                status["seen-images"],
+                image_count,
                 time.time() - status["start-time"],
                 extra={
                     "stat-time-max": os_stat_profiler.max,

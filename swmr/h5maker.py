@@ -18,6 +18,7 @@ def main(
     nblocks=10,
     delay=None,
     per_image_delay=None,
+    shuffle=True,
 ):
     def image():
         return (numpy.random.rand(*shape) * 100).astype(numpy.int16)
@@ -36,7 +37,8 @@ def main(
     with h5py.File(f"{prefix}_master.h5", "w", libver="latest") as f:
         f.create_virtual_dataset("/entry/data/data", vds, fillvalue=-1)
 
-    time.sleep(delay)
+    if delay:
+        time.sleep(delay)
 
     # now open nblocks h5 files in SWMR mode
     data_files = []
@@ -56,7 +58,8 @@ def main(
 
     # randomly assign data to them ~ 10 times / s
     to_do = [(j, k) for j in range(nblocks) for k in range(block_size)]
-    random.shuffle(to_do)
+    if shuffle:
+        random.shuffle(to_do)
 
     for b, f in to_do:
         if per_image_delay:
@@ -101,6 +104,12 @@ if __name__ == "__main__":
         type=float,
         help="time delay (in seconds) between writing each image",
     )
+    parser.add_argument(
+        "--shuffle",
+        dest="shuffle",
+        action="store_true",
+        help="shuffle output order of images",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     main(
@@ -110,4 +119,5 @@ if __name__ == "__main__":
         nblocks=args.nblocks,
         delay=args.delay,
         per_image_delay=args.per_image_delay,
+        shuffle=args.shuffle,
     )

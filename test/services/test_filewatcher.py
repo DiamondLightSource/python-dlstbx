@@ -444,7 +444,11 @@ def test_filewatcher_watch_swmr(mocker, tmp_path):
         target=h5maker.main,
         args=(h5_prefix,),
         kwargs=dict(
-            block_size=10, nblocks=10, delay=delay, per_image_delay=per_image_delay
+            block_size=10,
+            nblocks=10,
+            delay=delay,
+            per_image_delay=per_image_delay,
+            shuffle=False,
         ),
     )
     x.start()

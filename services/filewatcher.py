@@ -746,6 +746,7 @@ class DLSFileWatcher(CommonService):
                     self.log.debug(f"Opening file {h5_data_file}")
                 h5_file = file_handles[h5_data_file]
                 dataset = h5_file[dsetname]
+                dataset.id.refresh()
                 s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
                 if s.size == 0:
                     break

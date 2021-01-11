@@ -703,15 +703,8 @@ class DLSFileWatcher(CommonService):
                 try:
                     with h5py.File(hdf5, "r", swmr=True) as f:
                         d = f["/entry/data/data"]
-                        t0 = time.time()
                         dataset_files, file_map = h5check.get_real_frames(f, d)
                         image_count = len(file_map)
-                        t1 = time.time()
-                        self.log.debug(f"Number of data files: {len(dataset_files)}")
-                        self.log.debug(f"Number of images: {image_count}")
-                        self.log.debug(f"hdf5 setup took {t1-t0:.3f}s")
-                        self.log.debug(f"dataset_files: {dataset_files}")
-                        self.log.debug(f"file_map: {file_map}")
                 except Exception:
                     self.log.warning(f"Error reading {hdf5}", exc_info=True)
                     rw.transport.nack(header)

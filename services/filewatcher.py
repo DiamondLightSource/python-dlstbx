@@ -723,64 +723,75 @@ class DLSFileWatcher(CommonService):
         # Cache file handles locally to minimise repeatedly re-opening the same data file(s)
         file_handles = {}
 
-        # Look for images
-        images_found = 0
-        while (
-            image_count is not None
-            and status["seen-images"] < image_count
-            and images_found < rw.recipe_step["parameters"].get("burst-limit", 100)
-        ):
-            m, frame = file_map[status["seen-images"]]
-            h5_data_file, dsetname = dataset_files[m]
-            self.log.debug(f"seen-images: {status['seen-images']}")
-            self.log.debug(f"m, frame: {m, frame}")
-            self.log.debug(f"h5_data_file, dsetname: {h5_data_file, dsetname}")
+        try:
+            # Look for images
+            images_found = 0
+            while (
+                image_count is not None
+                and status["seen-images"] < image_count
+                and images_found < rw.recipe_step["parameters"].get("burst-limit", 100)
+            ):
+                m, frame = file_map[status["seen-images"]]
+                h5_data_file, dsetname = dataset_files[m]
+                self.log.debug(f"seen-images: {status['seen-images']}")
+                self.log.debug(f"m, frame: {m, frame}")
+                self.log.debug(f"h5_data_file, dsetname: {h5_data_file, dsetname}")
 
-            with os_stat_profiler.record():
-                if not os.path.isfile(h5_data_file):
-                    break
+                with os_stat_profiler.record():
+                    if not os.path.isfile(h5_data_file):
+                        break
 
-            try:
-                if h5_data_file not in file_handles:
-                    file_handles[h5_data_file] = h5py.File(h5_data_file, "r", swmr=True)
-                    self.log.debug(f"Opening file {h5_data_file}")
-                h5_file = file_handles[h5_data_file]
-                dataset = h5_file[dsetname]
-                dataset.id.refresh()
-                s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
-                if s.size == 0:
-                    break
-                self.log.info(f"Found image {status['seen-images']} (size={s.size})")
-            except Exception:
-                self.log.warning(f"Error reading {h5_data_file}", exc_info=True)
-                rw.transport.nack(header)
-                return
+                try:
+                    if h5_data_file not in file_handles:
+                        file_handles[h5_data_file] = h5py.File(
+                            h5_data_file, "r", swmr=True
+                        )
+                        self.log.debug(f"Opening file {h5_data_file}")
+                    h5_file = file_handles[h5_data_file]
+                    dataset = h5_file[dsetname]
+                    dataset.id.refresh()
+                    s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
+                    if s.size == 0:
+                        break
+                    self.log.info(
+                        f"Found image {status['seen-images']} (size={s.size})"
+                    )
+                except Exception:
+                    self.log.warning(f"Error reading {h5_data_file}", exc_info=True)
+                    rw.transport.nack(header)
+                    return
 
-            images_found += 1
+                images_found += 1
 
-            def notify_function(output):
-                rw.send_to(
-                    output,
-                    {
-                        "hdf5": hdf5,
-                        "hdf5-index": status["seen-images"],
-                        "file": hdf5,
-                        "file-number": status["seen-images"],
-                        "parameters": {
-                            "scan_range": "{0},{0}".format(status["seen-images"] + 1)
+                def notify_function(output):
+                    rw.send_to(
+                        output,
+                        {
+                            "hdf5": hdf5,
+                            "hdf5-index": status["seen-images"],
+                            "file": hdf5,
+                            "file-number": status["seen-images"],
+                            "parameters": {
+                                "scan_range": "{0},{0}".format(
+                                    status["seen-images"] + 1
+                                )
+                            },
                         },
-                    },
-                    transaction=txn,
-                )
+                        transaction=txn,
+                    )
 
-            self._notify_for_found_file(
-                status["seen-images"] + 1,
-                image_count,
-                selections,
-                everys,
-                notify_function,
-            )
-            status["seen-images"] += 1
+                self._notify_for_found_file(
+                    status["seen-images"] + 1,
+                    image_count,
+                    selections,
+                    everys,
+                    notify_function,
+                )
+                status["seen-images"] += 1
+        finally:
+            # Clean up file handles
+            for f in file_handles.values():
+                f.close()
 
         # Are we done?
         if status["seen-images"] == image_count:

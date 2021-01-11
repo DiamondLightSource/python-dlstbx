@@ -473,7 +473,7 @@ def test_filewatcher_watch_swmr(mocker, tmp_path):
     rw = RecipeWrapper(message=m, transport=t)
     # Spy on the rw.send_to method
     send_to = mocker.spy(rw, "send_to")
-    time.sleep(delay)
+    time.sleep(delay + per_image_delay)
     filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
     for i in range(100):
         time.sleep(per_image_delay + 0.01)

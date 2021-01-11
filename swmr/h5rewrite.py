@@ -5,7 +5,7 @@ import math
 import numpy as np
 import pathlib
 import time
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 
 logger = logging.getLogger("dlstbx.h5rewrite")
@@ -96,7 +96,7 @@ def rewrite(
     master_h5: pathlib.Path,
     out_h5: pathlib.Path,
     zeros: bool = False,
-    image_range: Optional[tuple[int, int]] = None,
+    image_range: Optional[Tuple[int, int]] = None,
     delay: Optional[float] = None,
 ) -> None:
     """Re-write an HDF5 file as a VDS/SWMR file.

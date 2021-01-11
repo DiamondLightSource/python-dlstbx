@@ -6,7 +6,7 @@ import sys
 from dlstbx.swmr.h5rewrite import rewrite
 
 
-def run():
+def cli(args=None):
     parser = argparse.ArgumentParser(description="Rewrite a nexus file.")
     parser.add_argument("input_h5", type=pathlib.Path, help="the input h5 filepath")
     parser.add_argument("output_h5", type=pathlib.Path, help="the output h5 filepath")
@@ -21,7 +21,7 @@ def run():
     )
     parser.add_argument("-v", "--verbose", dest="verbose", action="store_true")
 
-    args = parser.parse_args()
+    args = parser.parse_args(args=args)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO, format="%(message)s"
     )
@@ -37,4 +37,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    cli()

@@ -30,7 +30,7 @@ def generate_recipe_message(parameters, output=None):
     return message
 
 
-def test_per_image_analysis(dials_data, mocker, tmpdir):
+def test_per_image_analysis(dials_data, mocker):
     image = dials_data("x4wide") / "X4_wide_M1S4_2_0001.cbf"
     mock_transport = mock.Mock()
     pia = DLSPerImageAnalysis()

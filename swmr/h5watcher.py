@@ -1,5 +1,6 @@
 import array
 import h5py
+import itertools
 import os
 import time
 from dataclasses import dataclass, field
@@ -17,7 +18,7 @@ class h5_data_file:
     chunk_sizes: array.array = field(init=False)
 
     def __post_init__(self):
-        self.chunk_sizes = array.array("L", (0 for j in range(self.frames)))
+        self.chunk_sizes = array.array("L", itertools.repeat(0, self.frames))
 
 
 def watcher(h5_data_files):

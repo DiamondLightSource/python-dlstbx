@@ -1,7 +1,7 @@
 import collections
-import h5py
 import pytest
 import os
+import threading
 import time
 from unittest import mock
 
@@ -427,7 +427,17 @@ def test_filewatcher_watch_swmr(mocker, tmpdir):
     h5_prefix = tmpdir / "foo"
     master_h5 = h5_prefix.strpath + "_master.h5"
 
-    h5maker.main(h5_prefix, block_size=10, nblocks=10)
+    delay = 2
+    per_image_delay = 0.1
+
+    x = threading.Thread(
+        target=h5maker.main,
+        args=(h5_prefix,),
+        kwargs=dict(
+            block_size=10, nblocks=10, delay=delay, per_image_delay=per_image_delay
+        ),
+    )
+    x.start()
 
     mock_transport = mocker.Mock()
     filewatcher = DLSFileWatcher()
@@ -449,10 +459,14 @@ def test_filewatcher_watch_swmr(mocker, tmpdir):
     rw = RecipeWrapper(message=m, transport=t)
     # Spy on the rw.send_to method
     send_to = mocker.spy(rw, "send_to")
-    h5_file = mocker.spy(h5py, "File")
+    time.sleep(delay)
     filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
-    # Assert each .h5 file has only been opened once - 10 data files plus master file
-    assert len(h5_file.mock_calls) == 11
+    for i in range(100):
+        time.sleep(per_image_delay + 0.01)
+        filewatcher.watch_files(
+            rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
+        )
+    x.join()
     send_to.assert_any_call(
         "first",
         {

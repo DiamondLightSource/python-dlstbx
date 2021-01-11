@@ -11,7 +11,14 @@ import time
 logger = logging.getLogger(__name__)
 
 
-def main(prefix, shape=(512, 512), block_size=100, nblocks=10, delay=None):
+def main(
+    prefix,
+    shape=(512, 512),
+    block_size=100,
+    nblocks=10,
+    delay=None,
+    per_image_delay=None,
+):
     def image():
         return (numpy.random.rand(*shape) * 100).astype(numpy.int16)
 
@@ -29,7 +36,7 @@ def main(prefix, shape=(512, 512), block_size=100, nblocks=10, delay=None):
     with h5py.File(f"{prefix}_master.h5", "w", libver="latest") as f:
         f.create_virtual_dataset("/entry/data/data", vds, fillvalue=-1)
 
-    time.sleep(5.0)
+    time.sleep(delay)
 
     # now open nblocks h5 files in SWMR mode
     data_files = []
@@ -52,8 +59,8 @@ def main(prefix, shape=(512, 512), block_size=100, nblocks=10, delay=None):
     random.shuffle(to_do)
 
     for b, f in to_do:
-        if delay:
-            time.sleep(delay)
+        if per_image_delay:
+            time.sleep(per_image_delay)
         data_files[b]["data"][f] = image()
         data_files[b].flush()
         logger.info(f"data_{b:06d}.h5 {f} {b*block_size+f} {time.time()}")
@@ -85,7 +92,14 @@ if __name__ == "__main__":
         default=10,
     )
     parser.add_argument(
-        "--delay", type=float, help="time delay (in seconds) between writing each image"
+        "--delay",
+        type=float,
+        help="time delay (in seconds) between writing the master file and the first image",
+    )
+    parser.add_argument(
+        "--per_image_delay",
+        type=float,
+        help="time delay (in seconds) between writing each image",
     )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -95,4 +109,5 @@ if __name__ == "__main__":
         block_size=args.block_size,
         nblocks=args.nblocks,
         delay=args.delay,
+        per_image_delay=args.per_image_delay,
     )

@@ -121,7 +121,7 @@ def rewrite(
         data_files = []
 
         entry_data = fs["entry/data"]
-        data = entry_data[entry_data.attrs["signal"]]
+        data = entry_data[entry_data.attrs.get("signal", "data")]
         axes = entry_data.attrs.get("axes")
         if image_range:
             n_images = end - start

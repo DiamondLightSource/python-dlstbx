@@ -75,7 +75,10 @@ class Visitor:
                         f"ExternalLink: {'/'.join((node.name, item))} -> {external}:{link.path}"
                     )
                 elif isinstance(link, (h5py.SoftLink, h5py.HardLink)):
-                    ref_name = node[child.ref].name
+                    try:
+                        ref_name = node[child.ref].name
+                    except ValueError:
+                        logger.warning("Unable to access link {link}")
                     if ref_name == child.name:
                         # This is the original copy and the visitor will visit this
                         # dataset above

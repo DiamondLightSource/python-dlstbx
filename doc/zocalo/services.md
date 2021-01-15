@@ -1,26 +1,11 @@
 # Services
 
-## DLSDispatcher
-
-Single point of contact service that takes in job meta-information
-(say, a data collection ID), a processing recipe, a list of recipes,
-or pointers to recipes stored elsewhere, and mangles these into something
-that can be processed by downstream services.
-
-Subscribes to the `processing_recipe` queue.
-
-## DLSFileWatcher
-
-A service that waits for files to arrive on disk and notifies interested
-parties when they do, or don't.
-
-Subscribes to the `filewatcher` queue.
-
 ## DLSArchiver
 
-## DLSImages
+A service that generates dropfiles for data collections, in order to allow archiving of
+collected datafiles connected to a data collection.
 
-## DLSISPyB
+Subscribes to the `archive.pattern` and `archive.filelist` queues.
 
 ## DLSCluster
 
@@ -42,33 +27,92 @@ present on disk, e.g.:
 
 Subscribes to the `cluster.submission` queue.
 
-## DLSPerImageAnalysis
+## DLSClusterMonitor
 
-This service performs per-image analysis on individual images. For every message received
-in the `per_image_analysis` queue a single image will be analysed. This calls the
-[`work()`](https://github.com/dials/dials/blob/c28a1d0c868805faffeaf5f20b6fdc6efd2877d1/command_line/find_spots_server.py#L71-L260) function of the
-[`dials.find_spots_server`](https://dials.github.io/documentation/programs/dials_find_spots_server.html).
+A service to interface zocalo with functions to gather cluster statistics. 
 
-There is a secondary function that subscribes to the `per_image_analysis.hdf5_select`
-queue that can generate valid PIA messages for EIGER/HDF5 data collections. It needs to
-know the location of the master file, the image range and how many images should be
-picked.
+Sends results to the `statistics.cluster` queue and the `transient.statistics.cluster`
+topic.
 
-Subscribes to the `per_image_analysis` and `per_image_analysis.hdf5_select` queues.
+## DLSController
 
-## DLSTrigger
+A service to supervise other services, start new instances and shut down existing ones
+depending on policy and demand. Checks the overall data processing infrastructure state
+and ensures that everything is working fine and resources are deployed appropriately.
+        
+Subscribes to the `transient.status` and `transient.queue_status` topics.
 
-## DLSValidation
+## DLSDispatcher
 
-## DLSXrayCentering
+Single point of contact service that takes in job meta-information
+(say, a data collection ID), a processing recipe, a list of recipes,
+or pointers to recipes stored elsewhere, and mangles these into something
+that can be processed by downstream services.
 
-## DLSNexusParser
+Subscribes to the `processing_recipe` queue.
 
-## DLSNotifyGda
+## DLSFileWatcher
 
-A service that forwards per-image-analysis results to GDA via a UDP socket.
+A service that waits for files to arrive on disk and notifies interested
+parties when they do, or don't.
 
-Subscribes to the `notify_gda` queue.
+Subscribes to the `filewatcher` queue.
+
+## DLSImages
+
+A service that generates images and thumbnails via
+[`dials.export_bitmaps`](https://dials.github.io/documentation/programs/dials_export_bitmaps.html).
+These may be used e.g. by SynchWeb for providing diffraction image previews for data
+collections.
+
+Subscribes to the `images` queue.
+
+## DLSISPyB
+
+A service that receives information to be written to ISPyB. The functionality is split up
+into a number of `ispyb_command`s that each handle a specific use case. Supported
+`ispyb_command`s include:
+* `create_ispyb_job`: create a new entry in the `ProcessingJob` table
+* `update_processing_status`: update the processing status for a given processing program
+* `store_dimple_failure`
+* `register_processing`
+* `add_program_attachment`
+* `add_program_message`
+* `add_datacollection_attachment`
+* `store_per_image_analysis_results`
+* `insert_screening`
+* `insert_screening_output`
+* `insert_screening_output_lattice`
+* `insert_screening_strategy`
+* `insert_screening_strategy_wedge`
+* `insert_screening_strategy_sub_wedge`
+* `register_integration`
+* `upsert_integration`
+* `write_autoproc`
+* `insert_scaling`
+* `insert_mxmr_run`
+* `insert_mxmr_run_blob`
+* `retrieve_programs_for_job_id`
+* `retrieve_program_attachments_for_program_id`
+* `retrieve_proposal_title`
+* `multipart_message`: The multipart_message command allows the recipe or client to
+  specify a multi-stage operation. With this you can process a list of API calls,
+  for example
+    * do_upsert_processing
+    * do_insert_scaling
+    * do_upsert_integration
+  Each API call may have a return value that can be stored. Multipart_message takes care
+  of chaining and checkpointing to make the overall call near-ACID compliant.
+
+Subscribes to the `ispyb_connector` queue.
+
+
+## DLSMailer
+
+A service that generates emails from messages. This is used for notifying beamline staff
+of potential issues, e.g. image arriving late (or not at all) to disk.
+
+Subscribes to the `mailnotification` queue.
 
 ## DLSMimas
 
@@ -84,3 +128,62 @@ A service to monitor the mimas.held backlog queue and drip-feed them into
 the live processing queue as long as there isn't a cluster backlog.
 
 Subscribes to the `mimas.held` queue and the `transient.statistics.cluster` topic.
+
+## DLSNexusParser
+
+A service that answers questions about Nexus files. This currently only has one function,
+which takes a single file and recursively finds all referenced files. This is used by the
+[`archive-nexus`](https://gitlab.diamond.ac.uk/scisoft/zocalo/-/blob/master/recipes/archive-nexus.json)
+recipe to identify all linked external files for a given master file.
+
+Subscribes to the `nexusparser.find_related_files` queue.
+
+## DLSNotifyGda
+
+A service that forwards per-image-analysis results to GDA via a UDP socket.
+
+Subscribes to the `notify_gda` queue.
+
+## DLSPerImageAnalysis
+
+This service performs per-image analysis on individual images. For every message received
+in the `per_image_analysis` queue a single image will be analysed. This calls the
+[`work()`](https://github.com/dials/dials/blob/c28a1d0c868805faffeaf5f20b6fdc6efd2877d1/command_line/find_spots_server.py#L71-L260) function of the
+[`dials.find_spots_server`](https://dials.github.io/documentation/programs/dials_find_spots_server.html).
+
+There is a secondary function that subscribes to the `per_image_analysis.hdf5_select`
+queue that can generate valid PIA messages for EIGER/HDF5 data collections. It needs to
+know the location of the master file, the image range and how many images should be
+picked.
+
+Subscribes to the `per_image_analysis` and `per_image_analysis.hdf5_select` queues.
+
+## DLSStatistics
+
+A service to gather report statistics on and around zocalo. Writes results to
+[RRDtool](https://oss.oetiker.ch/rrdtool/) files in `/dls_sw/apps/zocalo/statistics/`.
+
+Subscribes to the `statistics.cluster` queue.
+
+## DLSTrigger
+
+A service that creates and runs downstream processing jobs after the successful completion
+of some upstream data processing task. This service is made up of a number of trigger
+functions that each handle a specific downstream task. Existing trigger functions include
+`best`, `big_ep`,`big_ep_launcher`, `dimple`, `ep_predict`, `fast_ep`, `mr_predict`,
+`mrbump`, `multiplex` and `screen_19_mx`.
+
+Subscribes to the `trigger` queue.
+
+## DLSValidation
+
+A service that validates data collections against ISPyB and for internal consistency.
+
+Subscribes to the `validation` queue.
+
+## DLSXrayCentering
+
+A service to aggregate per-image-analysis results and identify an X-ray centering solution
+for a data collection.
+
+Subscribes to the `reduce.xray_centering` queue.

@@ -145,7 +145,7 @@ class DLSPerImageAnalysis(CommonService):
         rw.send_to("result", results, transaction=txn)
         rw.transport.transaction_commit(txn)
         self.log.info(
-            "PIA completed on %s with parameters %s, %d spots found in %.1f seconds",
+            "PIA completed on %s with parameters %s, %d spots found in %.2f seconds",
             filename,
             parameters,
             results["n_spots_total"],

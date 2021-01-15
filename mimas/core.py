@@ -160,6 +160,11 @@ def run(
                     DCID=scenario.DCID, recipe="per-image-analysis-eiger-streamdump"
                 )
             )
+            tasks.append(
+                dlstbx.mimas.MimasRecipeInvocation(
+                    DCID=scenario.DCID, recipe="per-image-analysis-gridscan-swmr"
+                )
+            )
 
     if scenario.event == dlstbx.mimas.MimasEvent.END:
 

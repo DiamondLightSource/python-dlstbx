@@ -1,6 +1,8 @@
 import collections
-import time
 import pytest
+import os
+import threading
+import time
 from unittest import mock
 
 import workflows.transport.common_transport
@@ -8,6 +10,7 @@ from workflows.recipe.wrapper import RecipeWrapper
 
 import dlstbx.services.filewatcher
 from dlstbx.services.filewatcher import DLSFileWatcher
+from dlstbx.swmr import h5maker
 
 
 def generate_recipe_message(parameters, output):
@@ -21,6 +24,7 @@ def generate_recipe_message(parameters, output):
                 "output": output,
             },
             2: {"service": "DLS Per-Image-Analysis", "queue": "transient.output"},
+            3: {"service": "DLS Per-Image-Analysis", "queue": "transient.output"},
             "start": [(1, [])],
         },
         "recipe-pointer": 1,
@@ -35,7 +39,7 @@ def generate_recipe_message(parameters, output):
     return message
 
 
-def test_filewatcher_watch_pattern(mocker, tmpdir):
+def test_filewatcher_watch_pattern(mocker, tmp_path):
     mock_transport = mock.Mock()
     filewatcher = DLSFileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
@@ -43,10 +47,10 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     pattern = "image%06d"
     image_ids = range(5, 11)
-    images = [tmpdir.join(pattern % i) for i in image_ids]
+    images = [tmp_path / (pattern % i) for i in image_ids]
     m = generate_recipe_message(
         parameters={
-            "pattern": tmpdir.join(pattern).strpath,
+            "pattern": os.fspath(tmp_path / pattern),
             "pattern-start": f"{image_ids[0]}",
             "pattern-end": f"{image_ids[-1]}",
             "expected-per-image-delay": "0.1",
@@ -66,7 +70,7 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
         transaction=mock.ANY,
     )
     for i, (image_id, image) in enumerate(zip(image_ids, images)):
-        image.write("content")
+        image.write_text("content")
         filewatcher.watch_files(
             rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
         )
@@ -74,7 +78,7 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
             send_to.assert_any_call(
                 "first",
                 {
-                    "file": image,
+                    "file": str(image),
                     "file-number": i + 1,
                     "file-pattern-index": image_ids[i],
                 },
@@ -85,7 +89,7 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
                 mock.call(
                     "every",
                     {
-                        "file": image,
+                        "file": str(image),
                         "file-number": i + 1,
                         "file-pattern-index": image_ids[i],
                     },
@@ -94,7 +98,7 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
                 mock.call(
                     i + 1,
                     {
-                        "file": image,
+                        "file": str(image),
                         "file-number": i + 1,
                         "file-pattern-index": image_ids[i],
                     },
@@ -103,7 +107,7 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
                 mock.call(
                     f"{i + 1}",
                     {
-                        "file": image,
+                        "file": str(image),
                         "file-number": i + 1,
                         "file-pattern-index": image_ids[i],
                     },
@@ -117,7 +121,7 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
             mock.call(
                 "last",
                 {
-                    "file": images[-1],
+                    "file": str(images[-1]),
                     "file-number": len(images),
                     "file-pattern-index": image_ids[-1],
                 },
@@ -142,16 +146,16 @@ def test_filewatcher_watch_pattern(mocker, tmpdir):
     )
 
 
-def test_filewatcher_watch_list(mocker, tmpdir):
+def test_filewatcher_watch_list(mocker, tmp_path):
     mock_transport = mock.Mock()
     filewatcher = DLSFileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
     filewatcher.initializing()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
-    files = [tmpdir.join("header"), tmpdir.join("end")]
+    files = [tmp_path / "header", tmp_path / "end"]
     m = generate_recipe_message(
         parameters={
-            "list": [f.strpath for f in files],
+            "list": [str(f) for f in files],
             "timeout": 0.5,
             "log-timeout-as-info": True,
             "burst-wait": 5,
@@ -169,25 +173,31 @@ def test_filewatcher_watch_list(mocker, tmpdir):
         transaction=mock.ANY,
     )
     for i, f in enumerate(files):
-        f.write("content")
+        f.write_text("content")
         filewatcher.watch_files(
             rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
         )
         if i == 0:
             send_to.assert_any_call(
-                "first", {"file": f, "file-list-index": i + 1}, transaction=mock.ANY
+                "first",
+                {"file": str(f), "file-list-index": i + 1},
+                transaction=mock.ANY,
             )
         send_to.assert_has_calls(
             [
                 mock.call(
-                    "every", {"file": f, "file-list-index": i + 1}, transaction=mock.ANY
+                    "every",
+                    {"file": str(f), "file-list-index": i + 1},
+                    transaction=mock.ANY,
                 ),
                 mock.call(
-                    i + 1, {"file": f, "file-list-index": i + 1}, transaction=mock.ANY
+                    i + 1,
+                    {"file": str(f), "file-list-index": i + 1},
+                    transaction=mock.ANY,
                 ),
                 mock.call(
                     f"{i + 1}",
-                    {"file": f, "file-list-index": i + 1},
+                    {"file": str(f), "file-list-index": i + 1},
                     transaction=mock.ANY,
                 ),
             ],
@@ -197,7 +207,7 @@ def test_filewatcher_watch_list(mocker, tmpdir):
         [
             mock.call(
                 "last",
-                {"file": files[-1], "file-list-index": len(files)},
+                {"file": str(files[-1]), "file-list-index": len(files)},
                 transaction=mock.ANY,
             ),
             mock.call(
@@ -219,17 +229,17 @@ def test_filewatcher_watch_list(mocker, tmpdir):
     )
 
 
-def test_filewatcher_watch_pattern_timeout(mocker, tmpdir):
+def test_filewatcher_watch_pattern_timeout(mocker, tmp_path):
     mock_transport = mock.Mock()
     filewatcher = DLSFileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
     filewatcher.initializing()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     pattern = "image%06d"
-    images = [tmpdir.join(pattern % (i + 1)) for i in range(10)]
+    images = [tmp_path / (pattern % (i + 1)) for i in range(10)]
     m = generate_recipe_message(
         parameters={
-            "pattern": tmpdir.join(pattern).strpath,
+            "pattern": str(tmp_path / pattern),
             "pattern-start": "1",
             "pattern-end": "10",
             "expected-per-image-delay": "0.01",
@@ -242,7 +252,7 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmpdir):
     # Spy on the rw.send_to method
     send_to = mocker.spy(rw, "send_to")
     filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
-    images[0].write("content")
+    images[0].write_text("content")
     filewatcher.watch_files(
         rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
     )
@@ -250,22 +260,22 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmpdir):
         [
             mock.call(
                 "first",
-                {"file": images[0], "file-number": 1, "file-pattern-index": 1},
+                {"file": str(images[0]), "file-number": 1, "file-pattern-index": 1},
                 transaction=mock.ANY,
             ),
             mock.call(
                 "every",
-                {"file": images[0], "file-number": 1, "file-pattern-index": 1},
+                {"file": str(images[0]), "file-number": 1, "file-pattern-index": 1},
                 transaction=mock.ANY,
             ),
             mock.call(
                 1,
-                {"file": images[0], "file-number": 1, "file-pattern-index": 1},
+                {"file": str(images[0]), "file-number": 1, "file-pattern-index": 1},
                 transaction=mock.ANY,
             ),
             mock.call(
                 "1",
-                {"file": images[0], "file-number": 1, "file-pattern-index": 1},
+                {"file": str(images[0]), "file-number": 1, "file-pattern-index": 1},
                 transaction=mock.ANY,
             ),
         ]
@@ -281,7 +291,7 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmpdir):
             mock.call(
                 "timeout",
                 {
-                    "file": images[1],
+                    "file": str(images[1]),
                     "file-number": 2,
                     "file-pattern-index": 2,
                     "success": False,
@@ -300,16 +310,16 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmpdir):
     )
 
 
-def test_filewatcher_watch_list_timeout(mocker, tmpdir):
+def test_filewatcher_watch_list_timeout(mocker, tmp_path):
     mock_transport = mock.Mock()
     filewatcher = DLSFileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
     filewatcher.initializing()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
-    files = [tmpdir.join("header"), tmpdir.join("end")]
+    files = [tmp_path / "header", tmp_path / "end"]
     m = generate_recipe_message(
         parameters={
-            "list": [f.strpath for f in files],
+            "list": [str(f) for f in files],
             "timeout": 0.5,
             "log-timeout-as-info": True,
         },
@@ -318,23 +328,27 @@ def test_filewatcher_watch_list_timeout(mocker, tmpdir):
     rw = RecipeWrapper(message=m, transport=t)
     send_to = mocker.spy(rw, "send_to")
     filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
-    files[0].write("content")
+    files[0].write_text("content")
     filewatcher.watch_files(
         rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
     )
     send_to.assert_has_calls(
         [
             mock.call(
-                "first", {"file": files[0], "file-list-index": 1}, transaction=mock.ANY
+                "first",
+                {"file": str(files[0]), "file-list-index": 1},
+                transaction=mock.ANY,
             ),
             mock.call(
-                "every", {"file": files[0], "file-list-index": 1}, transaction=mock.ANY
+                "every",
+                {"file": str(files[0]), "file-list-index": 1},
+                transaction=mock.ANY,
             ),
             mock.call(
-                1, {"file": files[0], "file-list-index": 1}, transaction=mock.ANY
+                1, {"file": str(files[0]), "file-list-index": 1}, transaction=mock.ANY
             ),
             mock.call(
-                "1", {"file": files[0], "file-list-index": 1}, transaction=mock.ANY
+                "1", {"file": str(files[0]), "file-list-index": 1}, transaction=mock.ANY
             ),
         ]
     )
@@ -347,7 +361,7 @@ def test_filewatcher_watch_list_timeout(mocker, tmpdir):
         [
             mock.call(
                 "timeout",
-                {"file": files[1], "file-list-index": 2, "success": False},
+                {"file": str(files[1]), "file-list-index": 2, "success": False},
                 transaction=mock.ANY,
             ),
             mock.call(
@@ -417,3 +431,240 @@ def test_file_selection(select_n_images):
         if filecount > 1:
             diffs = [n - l[i - 1] for i, n in enumerate(l) if i]
             assert 1 <= len(collections.Counter(diffs)) <= 2, (filecount, diffs)
+
+
+def test_filewatcher_watch_swmr(mocker, tmp_path):
+    h5_prefix = tmp_path / "foo"
+    master_h5 = os.fspath(h5_prefix) + "_master.h5"
+
+    delay = 2
+    per_image_delay = 0.1
+
+    x = threading.Thread(
+        target=h5maker.main,
+        args=(h5_prefix,),
+        kwargs=dict(
+            block_size=10,
+            nblocks=10,
+            delay=delay,
+            per_image_delay=per_image_delay,
+            shuffle=False,
+        ),
+    )
+    x.start()
+
+    mock_transport = mocker.Mock()
+    filewatcher = DLSFileWatcher()
+    setattr(filewatcher, "_transport", mock_transport)
+    filewatcher.initializing()
+    t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)
+    m = generate_recipe_message(
+        parameters={
+            "hdf5": master_h5,
+            "expected-per-image-delay": "0.01",
+            "timeout": 10,
+            "log-timeout-as-info": True,
+        },
+        output={
+            "any": 2,
+            "select-10": 3,
+        },
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    # Spy on the rw.send_to method
+    send_to = mocker.spy(rw, "send_to")
+    time.sleep(delay + per_image_delay)
+    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    for i in range(100):
+        time.sleep(per_image_delay + 0.01)
+        filewatcher.watch_files(
+            rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
+        )
+    x.join()
+    send_to.assert_any_call(
+        "first",
+        {
+            "hdf5": master_h5,
+            "hdf5-index": 0,
+            "file": master_h5,
+            "file-number": 0,
+            "parameters": {"scan_range": "1,1"},
+        },
+        transaction=mocker.ANY,
+    )
+    for i in range(100):
+        send_to.assert_has_calls(
+            [
+                mocker.call(
+                    i + 1,
+                    {
+                        "hdf5": master_h5,
+                        "hdf5-index": i,
+                        "file": master_h5,
+                        "file-number": i,
+                        "parameters": {"scan_range": f"{i+1},{i+1}"},
+                    },
+                    transaction=mocker.ANY,
+                ),
+                mocker.call(
+                    f"{i+1}",
+                    {
+                        "hdf5": master_h5,
+                        "hdf5-index": i,
+                        "file": master_h5,
+                        "file-number": i,
+                        "parameters": {"scan_range": f"{i+1},{i+1}"},
+                    },
+                    transaction=mocker.ANY,
+                ),
+                mocker.call(
+                    "every",
+                    {
+                        "hdf5": master_h5,
+                        "hdf5-index": i,
+                        "file": master_h5,
+                        "file-number": i,
+                        "parameters": {"scan_range": f"{i+1},{i+1}"},
+                    },
+                    transaction=mocker.ANY,
+                ),
+            ],
+            any_order=True,
+        )
+    send_to.assert_has_calls(
+        [
+            mocker.call(
+                "last",
+                {
+                    "hdf5": master_h5,
+                    "hdf5-index": 99,
+                    "file": master_h5,
+                    "file-number": i,
+                    "parameters": {"scan_range": f"100,100"},
+                },
+                transaction=mocker.ANY,
+            ),
+            mocker.call(
+                "any",
+                {"images-expected": 100, "images-seen": 100},
+                transaction=mocker.ANY,
+            ),
+            mocker.call(
+                "finally",
+                {"images-expected": 100, "images-seen": 100, "success": True},
+                transaction=mocker.ANY,
+            ),
+        ],
+        any_order=True,
+    )
+    for i in (0, 11, 22, 33, 44, 55, 66, 77, 88, 99):
+        send_to.assert_any_call(
+            "select-10",
+            {
+                "hdf5": master_h5,
+                "hdf5-index": i,
+                "file": master_h5,
+                "file-number": i,
+                "parameters": {"scan_range": f"{i+1},{i+1}"},
+            },
+            transaction=mocker.ANY,
+        )
+
+
+def test_filewatcher_watch_swmr_timeout(mocker, tmp_path):
+    h5_prefix = tmp_path / "foo"
+    master_h5 = os.fspath(h5_prefix) + "_master.h5"
+
+    mock_transport = mocker.Mock()
+    filewatcher = DLSFileWatcher()
+    setattr(filewatcher, "_transport", mock_transport)
+    filewatcher.initializing()
+    t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)
+    m = generate_recipe_message(
+        parameters={
+            "hdf5": master_h5,
+            "timeout": 0.5,
+            "log-timeout-as-info": True,
+        },
+        output={
+            "any": 2,
+        },
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    # Spy on the rw.send_to method
+    send_to = mocker.spy(rw, "send_to")
+    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    time.sleep(2)
+    filewatcher.watch_files(
+        rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
+    )
+    send_to.assert_has_calls(
+        [
+            mocker.call(
+                "timeout",
+                {"file": master_h5, "hdf5-index": 0, "success": False},
+                transaction=mocker.ANY,
+            ),
+            mocker.call(
+                "finally",
+                {"images-expected": None, "images-seen": 0, "success": False},
+                transaction=mocker.ANY,
+            ),
+        ],
+    )
+
+    send_to.reset_mock()
+    h5maker.main(h5_prefix, block_size=2, nblocks=2)
+    data_h5 = h5_prefix.with_name(h5_prefix.name + "_000000.h5")
+    data_h5.unlink()
+    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    time.sleep(2)
+    filewatcher.watch_files(
+        rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
+    )
+    send_to.assert_has_calls(
+        [
+            mocker.call(
+                "timeout",
+                {"file": master_h5, "hdf5-index": 0, "success": False},
+                transaction=mocker.ANY,
+            ),
+            mocker.call(
+                "finally",
+                {"images-expected": 4, "images-seen": 0, "success": False},
+                transaction=mocker.ANY,
+            ),
+        ]
+    )
+
+
+def test_filewatcher_watch_swmr_h5py_error(mocker, tmp_path, caplog):
+    # Test that the filewatcher gracefully handles errors reading h5py files
+    h5_prefix = tmp_path / "foo"
+    master_h5 = os.fspath(h5_prefix) + "_master.h5"
+
+    mock_transport = mocker.Mock()
+    filewatcher = DLSFileWatcher()
+    setattr(filewatcher, "_transport", mock_transport)
+    filewatcher.initializing()
+    t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)
+    m = generate_recipe_message(
+        parameters={
+            "hdf5": master_h5,
+        },
+        output={},
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    with open(master_h5, "w") as fh:
+        fh.write("content")
+    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    assert f"Error reading {master_h5}" in caplog.text
+    t.nack.assert_called_once()
+
+    t.reset_mock()
+    h5maker.main(h5_prefix, block_size=2, nblocks=2)
+    data_h5 = h5_prefix.with_name(h5_prefix.name + "_000000.h5")
+    data_h5.write_text("content")
+    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    assert f"Error reading {data_h5}" in caplog.text
+    t.nack.assert_called_once()

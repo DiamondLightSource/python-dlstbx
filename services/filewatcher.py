@@ -1,9 +1,12 @@
 import contextlib
+import h5py
 import os
 import time
 
 import workflows.recipe
 from workflows.services.common_service import CommonService
+
+from dlstbx.swmr import h5check
 
 
 def is_file_selected(file_number, selection, total_files):
@@ -104,6 +107,8 @@ class DLSFileWatcher(CommonService):
             self.watch_files_pattern(rw, header, message)
         elif rw.recipe_step["parameters"].get("list") is not None:
             self.watch_files_list(rw, header, message)
+        elif rw.recipe_step["parameters"].get("hdf5") is not None:
+            self.watch_files_swmr(rw, header, message)
         else:
             self.log.error("Rejecting message with unknown watch target")
             rw.transport.nack(header)
@@ -661,6 +666,287 @@ class DLSFileWatcher(CommonService):
                 pattern_start + status["seen-files"] - 1,
                 status["seen-files"],
                 filecount,
+                time.time() - status["start-time"],
+                extra={
+                    "stat-time-max": os_stat_profiler.max,
+                    "stat-time-mean": os_stat_profiler.mean,
+                },
+            )
+
+        # Send results to myself for next round of processing
+        rw.checkpoint(
+            {"filewatcher-status": status}, delay=message_delay, transaction=txn
+        )
+        rw.transport.transaction_commit(txn)
+
+    def watch_files_swmr(self, rw, header, message):
+        """
+        Watch for hdf5 files written in SWMR mode.
+
+        This will examine the hdf5 master file to determine the number of images
+        to watch for, and then look to see whether each image has been written
+        to file.
+        """
+        # Check if message body contains partial results from a previous run
+        status = {"seen-images": 0, "start-time": time.time(), "image-count": None}
+        if isinstance(message, dict):
+            status.update(message.get("filewatcher-status", {}))
+
+        # Keep a record of os.stat timings
+        os_stat_profiler = _Profiler()
+
+        hdf5 = rw.recipe_step["parameters"]["hdf5"]
+        image_count = None
+        with os_stat_profiler.record():
+            if os.path.isfile(hdf5):
+                self.log.debug(f"Opening {hdf5}")
+                try:
+                    with h5py.File(hdf5, "r", swmr=True) as f:
+                        d = f["/entry/data/data"]
+                        dataset_files, file_map = h5check.get_real_frames(f, d)
+                        image_count = len(file_map)
+                except Exception:
+                    self.log.warning(f"Error reading {hdf5}", exc_info=True)
+                    rw.transport.nack(header)
+                    return
+
+        # Identify everys ('every-N' targets) to notify for
+        everys = self._parse_everys(rw.recipe_step["output"])
+
+        # Identify selections ('select-N' targets) to notify for
+        selections = self._parse_selections(rw.recipe_step["output"])
+
+        # Conditionally acknowledge receipt of the message
+        txn = rw.transport.transaction_begin()
+        rw.transport.ack(header, transaction=txn)
+
+        # Cache file handles locally to minimise repeatedly re-opening the same data file(s)
+        file_handles = {}
+
+        try:
+            # Look for images
+            images_found = 0
+            while (
+                image_count is not None
+                and status["seen-images"] < image_count
+                and images_found < rw.recipe_step["parameters"].get("burst-limit", 100)
+            ):
+                m, frame = file_map[status["seen-images"]]
+                h5_data_file, dsetname = dataset_files[m]
+                self.log.debug(
+                    f"seen-images: {status['seen-images']}\n"
+                    f"m, frame: {m, frame}\n"
+                    f"h5_data_file, dsetname: {h5_data_file, dsetname}"
+                )
+
+                with os_stat_profiler.record():
+                    if not os.path.isfile(h5_data_file):
+                        break
+
+                try:
+                    if h5_data_file not in file_handles:
+                        file_handles[h5_data_file] = h5py.File(
+                            h5_data_file, "r", swmr=True
+                        )
+                        self.log.debug(f"Opening file {h5_data_file}")
+                    h5_file = file_handles[h5_data_file]
+                    dataset = h5_file[dsetname]
+                    dataset.id.refresh()
+                    s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
+                    if s.size == 0:
+                        break
+                    self.log.info(
+                        f"Found image {status['seen-images']} (size={s.size})"
+                    )
+                except Exception:
+                    self.log.warning(f"Error reading {h5_data_file}", exc_info=True)
+                    rw.transport.nack(header)
+                    return
+
+                images_found += 1
+
+                def notify_function(output):
+                    rw.send_to(
+                        output,
+                        {
+                            "hdf5": hdf5,
+                            "hdf5-index": status["seen-images"],
+                            "file": hdf5,
+                            "file-number": status["seen-images"],
+                            "parameters": {
+                                "scan_range": "{0},{0}".format(
+                                    status["seen-images"] + 1
+                                )
+                            },
+                        },
+                        transaction=txn,
+                    )
+
+                self._notify_for_found_file(
+                    status["seen-images"] + 1,
+                    image_count,
+                    selections,
+                    everys,
+                    notify_function,
+                )
+                status["seen-images"] += 1
+        finally:
+            # Clean up file handles
+            for f in file_handles.values():
+                f.close()
+
+        # Are we done?
+        if status["seen-images"] == image_count:
+            # Happy days
+
+            self.log.debug(f"All {image_count} images found for {hdf5}")
+
+            extra_log = {
+                "delay": time.time() - status["start-time"],
+                "stat-time-max": os_stat_profiler.max,
+                "stat-time-mean": os_stat_profiler.mean,
+            }
+            if rw.recipe_step["parameters"].get("expected-per-image-delay"):
+                # Estimate unexpected delay
+                try:
+                    expected_delay = (
+                        float(rw.recipe_step["parameters"]["expected-per-image-delay"])
+                        * image_count
+                    )
+                except ValueError:
+                    # in case the field contains "None" or equivalent un-floatable nonsense
+                    self.log.warning(
+                        "Ignored invalid expected-per-image-delay value (%r)",
+                        rw.recipe_step["parameters"]["expected-per-image-delay"],
+                    )
+                else:
+                    extra_log["unexpected_delay"] = max(
+                        0, extra_log["delay"] - expected_delay
+                    )
+
+            self.log.info(
+                "All %d images found for %s after %.2f seconds.",
+                image_count,
+                rw.recipe_step["parameters"]["hdf5"],
+                time.time() - status["start-time"],
+                extra=extra_log,
+            )
+
+            rw.send_to(
+                "any",
+                {"images-expected": image_count, "images-seen": status["seen-images"]},
+                transaction=txn,
+            )
+            rw.send_to(
+                "finally",
+                {
+                    "images-expected": image_count,
+                    "images-seen": status["seen-images"],
+                    "success": True,
+                },
+                transaction=txn,
+            )
+
+            rw.transport.transaction_commit(txn)
+            return
+
+        message_delay = rw.recipe_step["parameters"].get("burst-wait")
+        if images_found == 0:
+            # If no images were found, check timeout conditions.
+            if status["seen-images"] == 0:
+                # For first file: relevant timeout is 'timeout-first', with fallback 'timeout', with fallback 1 hour
+                timeout = rw.recipe_step["parameters"].get(
+                    "timeout-first", rw.recipe_step["parameters"].get("timeout", 3600)
+                )
+                timed_out = (status["start-time"] + timeout) < time.time()
+            else:
+                # For subsequent images: relevant timeout is 'timeout', with fallback 1 hour
+                timeout = rw.recipe_step["parameters"].get("timeout", 3600)
+                timed_out = (status["last-seen"] + timeout) < time.time()
+            if timed_out:
+                # File watch operation has timed out.
+
+                # Report all timeouts as warnings unless the recipe specifies otherwise
+                timeoutlog = self.log.warning
+                if rw.recipe_step["parameters"].get("log-timeout-as-info"):
+                    timeoutlog = self.log.info
+
+                timeoutlog(
+                    "Filewatcher for %s timed out after %.2f seconds (%d images found, nothing seen for %.2f seconds)",
+                    rw.recipe_step["parameters"]["hdf5"],
+                    time.time() - status["start-time"],
+                    status["seen-images"],
+                    time.time() - status.get("last-seen", status["start-time"]),
+                    extra={
+                        "stat-time-max": os_stat_profiler.max,
+                        "stat-time-mean": os_stat_profiler.mean,
+                    },
+                )
+
+                # Notify for timeout
+                rw.send_to(
+                    "timeout",
+                    {
+                        "file": hdf5,
+                        "hdf5-index": status["seen-images"],
+                        "success": False,
+                    },
+                    transaction=txn,
+                )
+                # Notify for 'any' target if any file was seen
+                if status["seen-images"]:
+                    rw.send_to(
+                        "any",
+                        {
+                            "images-expected": image_count,
+                            "images-seen": status["seen-images"],
+                        },
+                        transaction=txn,
+                    )
+
+                # Notify for 'finally' outcome
+                rw.send_to(
+                    "finally",
+                    {
+                        "images-expected": image_count,
+                        "images-seen": status["seen-images"],
+                        "success": False,
+                    },
+                    transaction=txn,
+                )
+                # Stop processing message
+                rw.transport.transaction_commit(txn)
+                return
+
+            # If no timeouts are triggered, set a minimum waiting time.
+            if message_delay:
+                message_delay = max(1, message_delay)
+            else:
+                message_delay = 1
+            self.log.debug(
+                (
+                    "No further images found for {hdf5} after a total time of {time:.2f} seconds\n"
+                    "{images_seen} of {image_count} images seen so far"
+                ).format(
+                    time=time.time() - status["start-time"],
+                    hdf5=rw.recipe_step["parameters"]["hdf5"],
+                    images_seen=status["seen-images"],
+                    image_count=image_count,
+                ),
+                extra={
+                    "stat-time-max": os_stat_profiler.max,
+                    "stat-time-mean": os_stat_profiler.mean,
+                },
+            )
+        else:
+            # Otherwise note last time progress was made
+            status["last-seen"] = time.time()
+            self.log.info(
+                "%d  images found for %s (total: %d out of %d) within %.2f seconds",
+                images_found,
+                rw.recipe_step["parameters"]["hdf5"],
+                status["seen-images"],
+                image_count,
                 time.time() - status["start-time"],
                 extra={
                     "stat-time-max": os_stat_profiler.max,

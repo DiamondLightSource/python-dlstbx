@@ -10,20 +10,6 @@ Subscribes to the `archive.pattern` and `archive.filelist` queues.
 ## DLSCluster
 
 A service to interface zocalo with functions to start new jobs on the clusters.
-It has a number of different modes:
-* Watch for files where the names follow a linear numeric pattern, eg. "template%05d.cbf"
-  with indices 0 to 1800.
-* Watch for a given list of files.
-* Watch for hdf5 files written in SWMR mode. This will examine the hdf5 master file to
-  determine the number of images to watch for, and then look to see whether each image has
-  been written to file.
-
-It will send notifications to relevant output streams when images are observed to be
-present on disk, e.g.:
-* `first` - notify when the first file is observed
-* `last` - notify when the last file has been observed
-* `select-N` - notify for _N_ evenly spaced files
-* `every-N` - notify every _Nth_ file
 
 Subscribes to the `cluster.submission` queue.
 
@@ -55,6 +41,21 @@ Subscribes to the `processing_recipe` queue.
 
 A service that waits for files to arrive on disk and notifies interested
 parties when they do, or don't.
+
+It has a number of different modes:
+* Watch for files where the names follow a linear numeric pattern, eg. "template%05d.cbf"
+  with indices 0 to 1800.
+* Watch for a given list of files.
+* Watch for hdf5 files written in SWMR mode. This will examine the hdf5 master file to
+  determine the number of images to watch for, and then look to see whether each image has
+  been written to file.
+
+It will send notifications to relevant output streams when images are observed to be
+present on disk, e.g.:
+* `first` - notify when the first file is observed
+* `last` - notify when the last file has been observed
+* `select-N` - notify for _N_ evenly spaced files
+* `every-N` - notify every _Nth_ file
 
 Subscribes to the `filewatcher` queue.
 

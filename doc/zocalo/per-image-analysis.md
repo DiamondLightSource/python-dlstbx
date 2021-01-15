@@ -64,3 +64,20 @@ for the arrival header information on disk, and then forwards the recipe to the 
 `DLSFileWatcher` step that watches for the arrival of each image streamdump. This then
 forwards each selected image to the `DLSPerImageAnalysis`, where the recipe continues as
 described for `per-image-analyis-gridscan`.
+
+## per-image-analyis-gridscan-swmr
+
+![per-image-analyis-gridscan-swmr flowchart](PIA-gridscan-swmr.svg)
+
+This recipe is an alternative approach to handling real-time per-image analysis of
+gridscans from EIGER beamlines. This assumes that HDF5 files produced by EIGER detectors
+are written using [SWMR mode](https://docs.h5py.org/en/stable/swmr.html), which allows
+concurrent reading of a HDF5 file while it is being written from another process.
+
+This recipe is similar to the `per-image-analyis-gridscan` recipe, where instead it has
+two HDF5/SWMR-specific `DLSFileWatcher` steps. The first `DLSFileWatcher` step watches for
+the arrival of the primary `.nxs` file on disk. After a short delay, a second
+`DLSFileWatcher` step opens the primary `.nxs` file in SWMR mode and determines how many
+images are to be expected for this data collection. As each image is written to disk, it
+is forwarded to the `DLSPerImageAnalysis`, where the recipe continues as
+described for `per-image-analyis-gridscan`.

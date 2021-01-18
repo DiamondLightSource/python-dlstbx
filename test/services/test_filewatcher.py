@@ -475,8 +475,9 @@ def test_filewatcher_watch_swmr(mocker, tmp_path):
     send_to = mocker.spy(rw, "send_to")
     time.sleep(delay + per_image_delay)
     filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
-    for i in range(100):
-        time.sleep(per_image_delay + 0.01)
+    t0 = time.perf_counter()
+    while (time.perf_counter() - t0) < 20:
+        time.sleep(per_image_delay)
         filewatcher.watch_files(
             rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
         )

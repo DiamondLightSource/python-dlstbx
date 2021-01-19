@@ -209,6 +209,10 @@ class DLSDispatcher(CommonService):
                             recipe=json.dumps(message["custom_recipe"])
                         )
                     )
+                    self.log.info(
+                        "Received message containing a custom recipe: %s",
+                        message["custom_recipe"],
+                    )
                 except Exception as e:
                     self.log.error(
                         "Rejected message containing a custom recipe that caused parsing errors: %s",

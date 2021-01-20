@@ -370,16 +370,17 @@ def copy_results(working_directory, results_directory, logger):
     shutil.copytree(
         working_directory, results_directory, symlinks=True, ignore=ignore_func
     )
-    src_pth_esc = r"\/".join(working_directory.split(os.sep))
-    dest_pth_esc = r"\/".join(results_directory.split(os.sep))
+    src_pth_esc = r"\/".join(os.path.dirname(working_directory).split(os.sep))
+    dest_pth_esc = r"\/".join(os.path.dirname(results_directory).split(os.sep))
     sed_command = (
         r"find %s -type f -exec grep -Iq . {} \; -and -exec sed -i 's/%s/%s/g' {} +"
         % (results_directory, src_pth_esc, dest_pth_esc)
     )
+    logger.info(f"Running sed command: {sed_command}")
     try:
         subprocess.call([sed_command], shell=True)
     except Exception:
-        logger.debug("Failed to run sed command to update paths", exc_info=True)
+        logger.warning("Failed to run sed command to update paths", exc_info=True)
 
 
 def send_results_to_ispyb(results_directory, record_result, logger):

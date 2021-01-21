@@ -1,11 +1,12 @@
 import hashlib
 import re
+import time
+from datetime import datetime
 
 import ispyb
 import py.path
 import workflows.recipe
 from workflows.services.common_service import CommonService
-from datetime import datetime
 
 
 class DLSTrigger(CommonService):
@@ -745,7 +746,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": None}
 
-    def trigger_multiplex(self, rw, header, parameters, **kwargs):
+    def trigger_multiplex(self, rw, header, message, parameters, transaction, **kwargs):
         dcid = parameters("dcid")
         if not dcid:
             self.log.error("xia2.multiplex trigger failed: No DCID specified")
@@ -763,6 +764,22 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
+
+        # Calculate message delay for exponential backoff in case a processing
+        # program for a related data collection is still running, in which case
+        # we checkpoint with the calculated message delay
+        delay_base = rw.recipe_step["parameters"].get("backoff-delay", 8)
+        max_try = rw.recipe_step["parameters"].get("backoff-max-try", 10)
+        delay_multiplier = rw.recipe_step["parameters"].get("backoff-multiplier", 2)
+        status = {
+            "start-time": time.time(),
+            "ntry": 0,
+        }
+        if isinstance(message, dict):
+            status.update(message.get("trigger-status", {}))
+        message_delay = delay_base * delay_multiplier ** status["ntry"]
+        status["ntry"] += 1
+        self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
 
         multiplex_job_dcids = []
         jobids = []
@@ -790,14 +807,13 @@ class DLSTrigger(CommonService):
                 continue
             self.log.info(f"xia2.multiplex trigger: found dcids: {dcids}")
 
-            def get_data_files_for_dcid(dcid):
-                appid = {}
+            def get_integrations_for_dcid(dcid):
+                intgrs = {}
                 dc = self.ispyb.get_data_collection(dcid)
                 for intgr in dc.integrations:
                     prg = intgr.program
-                    if (prg.message != "processing successful") or (
-                        prg.name != "xia2 dials"
-                    ):
+                    # prg.status_text can be success, running, failure or queued
+                    if (prg.status_text == "failure") or (prg.name != "xia2 dials"):
                         continue
                     # If this multiplex job was triggered with a spacegroup parameter
                     # then only use xia2-dials autoprocessing results that were
@@ -824,14 +840,10 @@ class DLSTrigger(CommonService):
                         self.log.debug(f"Discarding appid {intgr.APPID}")
                         continue
                     self.log.debug(f"Using appid {intgr.APPID}")
-                    appid[prg.time_update] = intgr.APPID
-                if not appid:
-                    return None
-                for appid in appid.values():
-                    data_files = get_data_files_for_appid(appid)
-                    if data_files:
-                        return data_files
-                return []
+                    intgrs[prg.time_update] = intgr
+                if intgrs:
+                    return list(intgrs.values())[0]
+                return None
 
             def get_data_files_for_appid(appid):
                 data_files = []
@@ -873,8 +885,30 @@ class DLSTrigger(CommonService):
                     return []
                 return data_files
 
+            intgrs = list(
+                filter(None, (get_integrations_for_dcid(dcid) for dcid in dcids))
+            )
+            for intgr in intgrs:
+                if intgr.program.status_text in ("running", "queued"):
+                    if status["ntry"] >= max_try:
+                        # Give up waiting for this program to finish and trigger
+                        # multiplex with remaining related results are available
+                        self.log.info(
+                            f"max-try exceeded, giving up waiting for dcid={dcid}\n"
+                            f"{intgr.program}"
+                        )
+                        break
+                    # Send results to myself for next round of processing
+                    self.log.debug(f"Waiting for dcid={dcid}\n{intgr.program}")
+                    rw.checkpoint(
+                        {"trigger-status": status},
+                        delay=message_delay,
+                        transaction=transaction,
+                    )
+                    return {"success": True}
+
             # Lookup appids for all dcids and exit early if only one found
-            data_files = [get_data_files_for_dcid(d) for d in dcids]
+            data_files = [get_data_files_for_appid(intgr.APPID) for intgr in intgrs]
             if not any(data_files):
                 self.log.info(
                     f"Skipping xia2.multiplex trigger: no related data files found for dcid={dcid} group={group}"

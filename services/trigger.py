@@ -1,6 +1,5 @@
 import hashlib
 import re
-import time
 from datetime import datetime
 
 import ispyb
@@ -772,7 +771,6 @@ class DLSTrigger(CommonService):
         max_try = rw.recipe_step["parameters"].get("backoff-max-try", 10)
         delay_multiplier = rw.recipe_step["parameters"].get("backoff-multiplier", 2)
         status = {
-            "start-time": time.time(),
             "ntry": 0,
         }
         if isinstance(message, dict):

@@ -772,7 +772,7 @@ class DLSFileWatcher(CommonService):
                             "hdf5": hdf5,
                             "hdf5-index": status["seen-images"],
                             "file": hdf5,
-                            "file-number": status["seen-images"],
+                            "file-number": status["seen-images"] + 1,
                             "parameters": {
                                 "scan_range": "{0},{0}".format(
                                     status["seen-images"] + 1

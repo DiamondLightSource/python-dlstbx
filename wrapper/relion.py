@@ -7,8 +7,6 @@ import procrunner
 import dlstbx.util.symlink
 import zocalo.wrapper
 
-from relion_yolo_it import cryolo_relion_it, dls_options
-
 logger = logging.getLogger("dlstbx.wrap.relion")
 
 
@@ -71,24 +69,28 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
             for key, value in params["ispyb_parameters"].items():
                 print(f"{key} = {value !r}", file=opts_file)
 
+        # TODO: find a better way to configure these values
+        relion_pipeline_python = (
+            "/dls_sw/apps/EM/conda/envs/relion_zocalo_dev/bin/python"
+        )
+        relion_pipeline_home = pathlib.Path(
+            "/dls_sw/apps/EM/relion_cryolo/python-relion-yolo-it_relion3.1_dev/relion_yolo_it"
+        )
+
+        # Find relion_it.py script and standard DLS options
+        relion_it = relion_pipeline_home / "cryolo_relion_it.py"
+        dls_options = relion_pipeline_home / "dls_options.py"
+
         # construct relion command line
-        # (relies on PATH being set correctly so "python" is a conda wrapper in the correct environment)
-        relion_command = " ".join([
-            "exec",
-            "python",
-            cryolo_relion_it.__file__,
-            dls_options.__file__,
-            str(options_file),
-        ])
+        relion_command = [relion_pipeline_python, relion_it, dls_options, options_file]
 
         # TEMP make a shell script to set up the necessary environment and run relion_it
-        # TODO decide if we should run as a subprocess or just call a Python function in the current environment
         commands = [
             "#!/bin/bash",
             "source /etc/profile.d/modules.sh",
             "module load hamilton",
             "module load EM/yolo_relion_it/relion_3.1.1_cryolo_1.7.6",
-            relion_command,
+            " ".join(["exec"] + [str(item) for item in relion_command]),
         ]
         script_file = working_directory / "run_script.sh"
         logger.info(f"Writing job commands to {script_file}")

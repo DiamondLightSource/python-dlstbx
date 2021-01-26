@@ -89,7 +89,7 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
             "#!/bin/bash",
             "source /etc/profile.d/modules.sh",
             "module load hamilton",
-            "module load EM/yolo_relion_it/relion_3.1_cryolo_1.6.1",
+            "module load EM/yolo_relion_it/relion_3.1.1_cryolo_1.7.6",
             " ".join(["exec"] + [str(item) for item in relion_command]),
         ]
         script_file = working_directory / "run_script.sh"

@@ -97,10 +97,17 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         script_file.write_text("\n".join(commands))
 
         # run relion
+        # (environment_override is necessary because the libtbx dispatcher sets LD_LIBRARY_PATH and PYTHONPATH)
         result = procrunner.run(
             ["bash", script_file],
             working_directory=working_directory,
-            environment_override={"PYTHONUNBUFFERED": "1"},
+            environment_override={
+                "LD_LIBRARY_PATH": "",
+                "_LMFILES_": "",
+                "LOADEDMODULES": "",
+                "PYTHONPATH": "",
+                "PYTHONUNBUFFERED": "1",
+            },
         )
         logger.info("command: %s", " ".join(result["command"]))
         logger.info("exitcode: %s", result["exitcode"])

@@ -13,7 +13,7 @@ import sys
 
 conda_required = (
     pathlib.Path(dlstbx.__file__)
-    .parent.joinpath("requirements.conda.txt")
+    .parent.parent.parent.joinpath("requirements.conda.txt")
     .read_text()
     .strip()
     .split("\n")

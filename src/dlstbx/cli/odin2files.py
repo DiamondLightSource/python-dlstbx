@@ -15,7 +15,7 @@ from dlstbx.util.colorstreamhandler import ColorStreamHandler
 log = logging.getLogger("dlstbx.odin2files")
 
 
-if __name__ == "__main__":
+def run():
     parser = OptionParser(usage="dlstbx.odin2files [options]")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 

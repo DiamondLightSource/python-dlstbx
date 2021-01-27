@@ -1,4 +1,3 @@
-import dlstbx.requirements
 import libtbx.pkg_utils
 
 try:
@@ -11,13 +10,18 @@ except ImportError:
 # Undefine libtbx.dlstbx entry points
 libtbx.pkg_utils.define_entry_points({})
 
-if dlstbx.requirements.check():
-    print(
-        "You can run 'python -m dlstbx.requirements' to update all packages indiscriminately."
-    )
-    print(
-        "Note that this will overwrite any 'pip install -e' local installations you may have."
-    )
+try:
+    import dlstbx.requirements
+
+    if dlstbx.requirements.check():
+        print(
+            "You can run 'python -m dlstbx.requirements' to update all packages indiscriminately."
+        )
+        print(
+            "Note that this will overwrite any 'pip install -e' local installations you may have."
+        )
+except ModuleNotFoundError:
+    print("Could not import dlstbx")
 
 
 def _install_dlstbx_setup():

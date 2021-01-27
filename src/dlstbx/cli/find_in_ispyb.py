@@ -68,7 +68,7 @@ def get_dcid_for_recipe_ID(recipe):
         sys.exit(f"Recipe {recipe} not found.")
 
 
-if __name__ == "__main__":
+def run():
     parser = OptionParser(usage="dlstbx.find_in_ispyb [options] dcid")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 

@@ -180,7 +180,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         frontend.get_status = extend_status_wrapper
 
 
-if __name__ == "__main__":
+def run():
     DLSTBXServiceStarter().run(
         program_name="dlstbx.service",
         version=dlstbx_version(),

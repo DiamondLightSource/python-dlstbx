@@ -11,7 +11,8 @@ from datetime import datetime
 
 import dlstbx.util.colorstreamhandler
 
-if __name__ == "__main__":
+
+def run():
     parser = ArgumentParser(prog="dlstbx.show_recipeID")
     parser.add_argument(
         "--only-incoming",

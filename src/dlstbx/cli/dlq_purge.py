@@ -16,7 +16,8 @@ from optparse import SUPPRESS_HELP, OptionParser
 from six.moves import queue
 from workflows.transport.stomp_transport import StompTransport
 
-if __name__ == "__main__":
+
+def run():
     parser = OptionParser(usage="dlstbx.dlq_purge [options] [queue [queue ...]]")
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)

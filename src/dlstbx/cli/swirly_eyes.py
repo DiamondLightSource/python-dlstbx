@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-#
-# LIBTBX_SET_DISPATCHER_NAME dials.swirly_eyes
-
-
 import re
 import sys
 import time
@@ -26,25 +21,26 @@ def convertcolor(m):
     return dlstbx.util.html2ansi.hex2col(htmlcolor)
 
 
-swirly = re.sub("<font color=([^>]+)>", convertcolor, argh)
-swirly_lines = swirly.split("\n")
+def run():
+    swirly = re.sub("<font color=([^>]+)>", convertcolor, argh)
+    swirly_lines = swirly.split("\n")
 
-parser = OptionParser()
-parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-parser.add_option(
-    "--forever",
-    dest="forever",
-    action="store_true",
-    default=False,
-    help="Waaah without end.",
-)
+    parser = OptionParser()
+    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+    parser.add_option(
+        "--forever",
+        dest="forever",
+        action="store_true",
+        default=False,
+        help="Waaah without end.",
+    )
 
-options, args = parser.parse_args()
+    options, args = parser.parse_args()
 
-while options.forever:
-    l = swirly_lines.pop(0)
-    print(l)
-    swirly_lines.append(l)
-    time.sleep(0.05)
-print(swirly)
-sys.stdout.write("\033[0m")
+    while options.forever:
+        l = swirly_lines.pop(0)
+        print(l)
+        swirly_lines.append(l)
+        time.sleep(0.05)
+    print(swirly)
+    sys.stdout.write("\033[0m")

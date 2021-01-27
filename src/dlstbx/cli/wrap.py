@@ -24,7 +24,7 @@ from dlstbx.util.version import dlstbx_version
 from workflows.transport.stomp_transport import StompTransport
 
 
-def run(cmdline_args):
+def run(cmdline_args=sys.argv[1:]):
     # Enable logging to console
     console = ColorStreamHandler()
     console.setLevel(logging.INFO)
@@ -202,4 +202,4 @@ def run(cmdline_args):
 
 
 if __name__ == "__main__":
-    run(sys.argv[1:])
+    run()

@@ -1,6 +1,3 @@
-# LIBTBX_SET_DISPATCHER_NAME ispyb.rpc
-
-
 import json
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
@@ -19,7 +16,8 @@ from workflows.transport.stomp_transport import StompTransport
 # }
 #
 
-if __name__ == "__main__":
+
+def run():
     parser = OptionParser(usage="ispyb.rpc [options]")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
     parser.add_option(

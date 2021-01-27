@@ -84,6 +84,7 @@ def setup_logging(level=logging.INFO):
     logging.getLogger("dlstbx").setLevel(level)
 
 
-setup_logging(logging.INFO)
-g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
-GraylogRRD(api=g).update()
+def run():
+    setup_logging(logging.INFO)
+    g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
+    GraylogRRD(api=g).update()

@@ -3,10 +3,6 @@
 #   Get/set information about processing jobs
 #
 
-# LIBTBX_SET_DISPATCHER_NAME ispyb.reprocessing
-# LIBTBX_SET_DISPATCHER_NAME ispyb.job
-
-
 import re
 import os
 import sys
@@ -129,7 +125,7 @@ def create_processing_job(i, options):
     return jobid
 
 
-if __name__ == "__main__":
+def run():
     parser = OptionParser(
         usage="ispyb.job [options] rpid",
         description="Command line tool to manipulate ISPyB processing table entries.",

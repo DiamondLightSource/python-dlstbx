@@ -185,7 +185,8 @@ def setup_logging(level=logging.INFO):
 setup_logging(logging.INFO)
 amq = ActiveMQAPI()
 
-if __name__ == "__main__":
+
+def run():
     parser = OptionParser(
         usage="dlstbx.get_activemq_statistics [options]",
         description="Collects statistics from an ActiveMQ server",

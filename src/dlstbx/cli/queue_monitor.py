@@ -228,7 +228,7 @@ class QueueStatus:
         )
 
 
-if __name__ == "__main__":
+def run():
     parser = OptionParser(usage="dlstbx.queue_monitor")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
     parser.add_option(

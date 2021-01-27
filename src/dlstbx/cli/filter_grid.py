@@ -310,8 +310,7 @@ def cross_ksstat(data_dict, images):
     return ks_results_D, ks_results_pval
 
 
-if __name__ == "__main__":
-
+def run():
     start_time = time()
 
     # Configure the logging

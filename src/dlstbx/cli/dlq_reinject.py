@@ -16,7 +16,8 @@ from pprint import pprint
 
 from workflows.transport.stomp_transport import StompTransport
 
-if __name__ == "__main__":
+
+def run():
     parser = OptionParser(usage="dlstbx.dlq_reinject [options] file [file [..]]")
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
@@ -83,7 +84,6 @@ if __name__ == "__main__":
 
     stomp = StompTransport()
     stomp.connect()
-    dlqprefix = stomp.get_namespace()
 
     first = True
     for dlqfile in args + stdin:

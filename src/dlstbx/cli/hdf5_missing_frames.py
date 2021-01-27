@@ -37,6 +37,10 @@ def check(filename):
     return not n
 
 
-if __name__ == "__main__":
+def run():
     if not all(check(filename) for filename in sys.argv[1:]):
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    run()

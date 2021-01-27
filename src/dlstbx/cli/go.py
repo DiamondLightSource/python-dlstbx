@@ -19,7 +19,8 @@ import workflows.recipe
 
 # Example: dlstbx.go -r example-xia2 527189
 
-if __name__ == "__main__":
+
+def run():
     parser = OptionParser(
         usage="dlstbx.go [options] dcid",
         description="Triggers processing of a standard "

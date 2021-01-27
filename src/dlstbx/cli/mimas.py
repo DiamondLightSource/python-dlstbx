@@ -16,7 +16,8 @@ from optparse import SUPPRESS_HELP, OptionParser
 import dlstbx.ispybtbx
 import dlstbx.mimas.core
 
-if __name__ == "__main__":
+
+def run():
     parser = OptionParser(usage="dlstbx.mimas [options] dcid")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 

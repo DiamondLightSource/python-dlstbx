@@ -135,7 +135,7 @@ def format_message(verbosity):
         return formats[-1]
 
 
-if __name__ == "__main__":
+def run():
     parser = OptionParser(usage="dlstbx.graylog [options]")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
     parser.add_option(

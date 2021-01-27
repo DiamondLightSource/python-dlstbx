@@ -10,7 +10,7 @@ def get_masked_pixel_count(filename):
     return [(images.get_raw_data(j) == MAX).count(True) for j in range(n)]
 
 
-if __name__ == "__main__":
+def run():
     result = get_masked_pixel_count(sys.argv[1])
     minimum = min(result)
     for j, r in enumerate(result):

@@ -94,7 +94,7 @@ def run(args):
     os.chdir(cwd)
 
 
-if __name__ == "__main__":
+def main():
     logging.basicConfig(level=logging.DEBUG)
     import sys
 

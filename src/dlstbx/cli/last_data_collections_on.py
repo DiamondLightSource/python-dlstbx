@@ -66,7 +66,7 @@ def get_last_data_collections_on(beamlines, cursor, limit=10, latest_dcid=None):
     return cursor.fetchall()
 
 
-if __name__ == "__main__":
+def run():
     parser = OptionParser(
         usage="dlstbx.last_data_collections_on [beamline]",
         description="Command line tool to view most recent data collections.",

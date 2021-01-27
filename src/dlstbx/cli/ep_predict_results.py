@@ -157,8 +157,7 @@ def run(jobids, dtstamp_start, dtstamp_end, json_file):
     write_results(results, json_file)
 
 
-if __name__ == "__main__":
-
+def runmain():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="ep_predict_results - Read experimental phasing predictor results"

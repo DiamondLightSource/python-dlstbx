@@ -529,7 +529,7 @@ class RawMonitor:
             pass
 
 
-if __name__ == "__main__":
+def run():
     version = dlstbx_version()
     parser = OptionParser(usage="dlstbx.status_monitor [options]", version=version)
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)

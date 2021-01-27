@@ -72,5 +72,5 @@ def main(args):
         scanner(arg)
 
 
-if __name__ == "__main__":
+def run():
     main(sys.argv[1:])

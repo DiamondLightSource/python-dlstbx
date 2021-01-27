@@ -20,7 +20,7 @@ def fail(text):
     sys.exit(1)
 
 
-if __name__ == "__main__":
+def run():
     parser = OptionParser(
         usage="dlstbx.process -r RCP -n NAME [options] DCID:START-END [..]",
         description="Creates an entry in the ISPyB processing table",
@@ -171,6 +171,7 @@ if __name__ == "__main__":
     print()
     print("To trigger the processing job you now need to run:")
     print(f"  dlstbx.go -r {jobid}")
+
 
 print()
 print(

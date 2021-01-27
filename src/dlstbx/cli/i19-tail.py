@@ -1,5 +1,3 @@
-# LIBTBX_SET_DISPATCHER_NAME i19.tail
-
 import os
 import re
 import sys
@@ -157,35 +155,36 @@ class tail_log(threading.Thread):
             print("." * 76)
 
 
-active_tail = None
-waiting_for_log = None
-last_known_path = None
-try:
-    most_recent_dir = (None, 0)
-    while time.time() < start + (24 * 3600):  # Set up a 24hr runtime limit
-        better_location = recursively_find_most_current_directory(
-            base_directory, last_known_path
-        )
-        if (
-            better_location[0].endswith("screen19")
-            and better_location[1] > most_recent_dir[1]
-        ):
-            most_recent_dir = better_location
-            if active_tail:
-                active_tail.close()
-                active_tail = None
-            waiting_for_log = most_recent_dir[0]
-            if not os.path.exists(os.path.join(waiting_for_log, "screen19.log")):
-                print(
-                    "\n\n\n"
-                    "New screen19 directory found at %s, waiting for new log to appear"
-                    % os.path.dirname(waiting_for_log)
-                )
-        if waiting_for_log:
-            if os.path.exists(os.path.join(waiting_for_log, "screen19.log")):
-                active_tail = tail_log(waiting_for_log)
-                last_known_path = waiting_for_log
-                waiting_for_log = None
-        time.sleep(5)
-except KeyboardInterrupt:
-    print()
+def run():
+    active_tail = None
+    waiting_for_log = None
+    last_known_path = None
+    try:
+        most_recent_dir = (None, 0)
+        while time.time() < start + (24 * 3600):  # Set up a 24hr runtime limit
+            better_location = recursively_find_most_current_directory(
+                base_directory, last_known_path
+            )
+            if (
+                better_location[0].endswith("screen19")
+                and better_location[1] > most_recent_dir[1]
+            ):
+                most_recent_dir = better_location
+                if active_tail:
+                    active_tail.close()
+                    active_tail = None
+                waiting_for_log = most_recent_dir[0]
+                if not os.path.exists(os.path.join(waiting_for_log, "screen19.log")):
+                    print(
+                        "\n\n\n"
+                        "New screen19 directory found at %s, waiting for new log to appear"
+                        % os.path.dirname(waiting_for_log)
+                    )
+            if waiting_for_log:
+                if os.path.exists(os.path.join(waiting_for_log, "screen19.log")):
+                    active_tail = tail_log(waiting_for_log)
+                    last_known_path = waiting_for_log
+                    waiting_for_log = None
+            time.sleep(5)
+    except KeyboardInterrupt:
+        print()

@@ -91,7 +91,7 @@ class DLSLog:
             self.resetcolor()
 
 
-if __name__ == "__main__":
+class run:
     parser = OptionParser(usage="dlstbx.log [options]")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 

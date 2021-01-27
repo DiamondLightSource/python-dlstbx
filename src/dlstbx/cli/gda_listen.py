@@ -10,7 +10,8 @@ from optparse import SUPPRESS_HELP, OptionParser
 
 from workflows.transport.stomp_transport import StompTransport
 
-if __name__ == "__main__":
+
+def run():
     parser = OptionParser(usage="dlstbx.gda_listen [options]")
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)

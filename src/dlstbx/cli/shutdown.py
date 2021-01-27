@@ -14,7 +14,8 @@ from workflows.transport.stomp_transport import StompTransport
 # Example: dlstbx.shutdown computer.12345
 #          dlstbx.shutdown --all
 
-if __name__ == "__main__":
+
+def run():
     parser = OptionParser()
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)

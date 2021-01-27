@@ -32,7 +32,7 @@ def process_result(rw, header, message):
     processqueue.put((header, message))
 
 
-if __name__ == "__main__":
+def run():
     parser = OptionParser(usage="dlstbx.dc_sim_verify [options]")
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)

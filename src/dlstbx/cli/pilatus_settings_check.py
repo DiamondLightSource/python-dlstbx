@@ -30,6 +30,6 @@ def pilatus_settings_check(filename):
         )
 
 
-if __name__ == "__main__":
+def run():
     for arg in sys.argv[1:]:
         pilatus_settings_check(arg)

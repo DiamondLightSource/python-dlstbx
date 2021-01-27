@@ -10,7 +10,8 @@ import logging
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
 
-if __name__ == "__main__":
+
+def run():
     parser = OptionParser(
         usage="dlstbx.log_alert -n NAME (--pass | --fail) [free text]"
     )

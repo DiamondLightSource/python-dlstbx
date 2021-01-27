@@ -27,7 +27,8 @@ def show_cluster_info(step):
 
 show_additional_info = {"cluster.submission": show_cluster_info}
 
-if __name__ == "__main__":
+
+def run():
     parser = OptionParser(usage="dlstbx.queue_drain [options] source destination")
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
@@ -38,10 +39,8 @@ if __name__ == "__main__":
         help="Run in ActiveMQ testing (zocdev) namespace",
     )
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-    dlqprefix = "zocalo"
     if "--test" in sys.argv:
         default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
-        dlqprefix = "zocdev"
     # override default stomp host
     parser.add_option(
         "--wait",

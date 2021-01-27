@@ -122,7 +122,7 @@ def debug_message(message):
     return True
 
 
-if __name__ == "__main__":
+def run():
     parser = OptionParser(usage="dlstbx.graylog [options]")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
     parser.add_option(

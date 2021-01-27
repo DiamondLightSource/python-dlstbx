@@ -205,8 +205,7 @@ def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
             sleep(arg_sleep)
 
 
-if __name__ == "__main__":
-
+def run():
     def __timeout(arg, max_val=600):
         try:
             val = int(arg)

@@ -169,46 +169,47 @@ def line_printer():
         print_queue.task_done()
 
 
-qt = threading.Thread(target=line_printer)
-qt.setDaemon(True)
-qt.start()
+def run():
+    qt = threading.Thread(target=line_printer)
+    qt.setDaemon(True)
+    qt.start()
 
-bl_settings = {
-    bl: {"host": "%s-control.diamond.ac.uk" % bl, "port": 61613} for bl in beamlines
-}
+    bl_settings = {
+        bl: {"host": "%s-control.diamond.ac.uk" % bl, "port": 61613} for bl in beamlines
+    }
 
-for bl, settings in bl_settings.items():
-    settings["listener"] = stomp.listener.ConnectionListener()
-    #  settings["listener"] = stomp.listener.PrintingListener()
-    settings["listener"].on_before_message = lambda x, y: (x, y)
-    settings["listener"].on_message = functools.partial(common_listener, bl)
+    for bl, settings in bl_settings.items():
+        settings["listener"] = stomp.listener.ConnectionListener()
+        #  settings["listener"] = stomp.listener.PrintingListener()
+        settings["listener"].on_before_message = lambda x, y: (x, y)
+        settings["listener"].on_message = functools.partial(common_listener, bl)
 
-    settings["connection"] = stomp.Connection(
-        [(settings["host"], int(settings["port"]))]
-    )
-    settings["connection"].set_listener("", settings["listener"])
-    print("Connecting to", bl)
-    try:
-        settings["connection"].connect(wait=False)
-    except stomp.exception.ConnectFailedException:
-        print("Could not connect to", bl)
-        settings["connection"] = None
-        continue
-    timeout = time.time() + 10
-    while time.time() < timeout and not settings["connection"].is_connected():
-        time.sleep(0.02)
-    if not settings["connection"].is_connected():
-        print("Connection timeout to", bl)
-        settings["connection"] = None
-        continue
-    settings["subscription_ids"] = itertools.count(1)
-    settings["connection"].subscribe(
-        "/topic/gda.>",
-        next(settings["subscription_ids"]),
-        headers={"transformation": "jms-object-json"},
-    )
-    #  settings["connection"].subscribe("/topic/gda.event.timeToRefill", next(settings["subscription_ids"]), headers={"transformation":"jms-object-json"})
-    #  settings["connection"].subscribe("/topic/uk.>", next(settings["subscription_ids"]))
-    print("Connected to", bl)
+        settings["connection"] = stomp.Connection(
+            [(settings["host"], int(settings["port"]))]
+        )
+        settings["connection"].set_listener("", settings["listener"])
+        print("Connecting to", bl)
+        try:
+            settings["connection"].connect(wait=False)
+        except stomp.exception.ConnectFailedException:
+            print("Could not connect to", bl)
+            settings["connection"] = None
+            continue
+        timeout = time.time() + 10
+        while time.time() < timeout and not settings["connection"].is_connected():
+            time.sleep(0.02)
+        if not settings["connection"].is_connected():
+            print("Connection timeout to", bl)
+            settings["connection"] = None
+            continue
+        settings["subscription_ids"] = itertools.count(1)
+        settings["connection"].subscribe(
+            "/topic/gda.>",
+            next(settings["subscription_ids"]),
+            headers={"transformation": "jms-object-json"},
+        )
+        #  settings["connection"].subscribe("/topic/gda.event.timeToRefill", next(settings["subscription_ids"]), headers={"transformation":"jms-object-json"})
+        #  settings["connection"].subscribe("/topic/uk.>", next(settings["subscription_ids"]))
+        print("Connected to", bl)
 
-time.sleep(3600)
+    time.sleep(3600)

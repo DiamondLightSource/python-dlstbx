@@ -98,8 +98,7 @@ def run(jobids, start_date, end_date, json_file):
     write_results(results, json_file)
 
 
-if __name__ == "__main__":
-
+def runmain():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="mr_predict_results - Read molecular replacement predictor results"

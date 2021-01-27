@@ -44,7 +44,7 @@ def check_dlq(namespace=None):
     return queuedata
 
 
-if __name__ == "__main__":
+def run():
     parser = OptionParser(usage="dlstbx.dlq_check [options]")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
     parser.add_option(

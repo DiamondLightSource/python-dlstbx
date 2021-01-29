@@ -1,3 +1,4 @@
+import sys
 import ispyb.model.datacollection
 import ispyb.model.screening
 import ispyb.model.__future__
@@ -5,7 +6,9 @@ import ispyb.model.__future__
 ispyb.model.__future__.enable("/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg")
 
 
-def run(args):
+def run(args=None):
+    if not args:
+        args = sys.argv[1:]
     with ispyb.open(
         "/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg"
     ) as ispyb_conn:
@@ -29,7 +32,4 @@ def run(args):
 
 
 if __name__ == "__main__":
-    import sys
-
-    args = sys.argv[1:]
-    run(args)
+    run()

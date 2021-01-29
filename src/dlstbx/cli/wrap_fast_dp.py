@@ -3,13 +3,16 @@ import json
 import logging
 import os
 import shutil
+import sys
 
 import procrunner
 
 logger = logging.getLogger("dlstbx.wrap_fast_dp")
 
 
-def run(args):
+def run(args=None):
+    if not args:
+        args = sys.argv[1:]
     assert len(args) >= 2, len(args)
     recipe_pointer = args[0]
     recipe_file = args[1]
@@ -74,6 +77,4 @@ def run(args):
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
-    import sys
-
-    run(sys.argv[1:])
+    run()

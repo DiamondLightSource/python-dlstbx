@@ -1,5 +1,4 @@
-# LIBTBX_SET_DISPATCHER_NAME dlstbx.plot_reflections
-
+import math
 import sys
 
 import iotbx.phil
@@ -15,12 +14,12 @@ nproc = Auto
 )
 
 
-def run(args):
+def run(args=None):
     from libtbx.phil import command_line
-    import math
-
     from dxtbx.datablock import DataBlockFactory
 
+    if not args:
+        args = sys.argv[1:]
     unhandled = []
     datablocks = DataBlockFactory.from_args(args, verbose=True, unhandled=unhandled)
     assert len(datablocks) == 1
@@ -110,4 +109,4 @@ def run_commands(commands):
 
 
 if __name__ == "__main__":
-    run(sys.argv[1:])
+    run()

@@ -1,3 +1,4 @@
+import sys
 import libtbx.phil
 
 phil_scope = libtbx.phil.parse(
@@ -6,7 +7,9 @@ phil_scope = libtbx.phil.parse(
 )
 
 
-def run(args):
+def run(args=None):
+    if not args:
+        args = sys.argv[1:]
     from dlstbx.ispybtbx import ispybtbx
 
     interp = phil_scope.command_line_argument_interpreter()
@@ -211,7 +214,4 @@ where DataCollection.sessionid = %s
 
 
 if __name__ == "__main__":
-    import sys
-
-    args = sys.argv[1:]
-    run(args)
+    run()

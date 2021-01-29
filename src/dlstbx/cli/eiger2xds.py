@@ -1,7 +1,4 @@
-# LIBTBX_SET_DISPATCHER_NAME eiger2xds
-
 import os
-import sys
 
 import iotbx.phil
 from dxtbx.serialize import xds
@@ -21,7 +18,7 @@ phil_scope = iotbx.phil.parse(
 )
 
 
-def run(args):
+def run(args=None):
     usage = "eiger2xds [options] datablock.json"
 
     parser = OptionParser(
@@ -65,4 +62,4 @@ def run(args):
 
 
 if __name__ == "__main__":
-    run(sys.argv[1:])
+    run()

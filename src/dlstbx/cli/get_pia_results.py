@@ -17,8 +17,9 @@ show = True
 )
 
 
-def run(args):
-
+def run(args=None):
+    if not args:
+        args = sys.argv[1:]
     interp = phil_scope.command_line_argument_interpreter()
     params, args = interp.process_and_fetch(args, custom_processor="collect_remaining")
     params = params.extract()
@@ -48,4 +49,4 @@ def run(args):
 
 
 if __name__ == "__main__":
-    run(sys.argv[1:])
+    run()

@@ -60,7 +60,9 @@ def align_crystal(image_files, nproc=None):
     return _run_command(["dials.align_crystal", "reindexed.expt"])
 
 
-def run(args):
+def run(args=None):
+    if not args:
+        args = sys.argv[1:]
     # setup logging
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
@@ -77,4 +79,4 @@ def run(args):
 
 
 if __name__ == "__main__":
-    run(sys.argv[1:])
+    run()

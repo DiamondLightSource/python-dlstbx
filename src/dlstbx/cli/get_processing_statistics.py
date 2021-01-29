@@ -1,3 +1,4 @@
+import sys
 import libtbx.phil
 
 phil_scope = libtbx.phil.parse(
@@ -8,7 +9,9 @@ statistics_type = outerShell innerShell *overall
 )
 
 
-def run(args):
+def run(args=None):
+    if not args:
+        args = sys.argv[1:]
 
     from dlstbx.ispybtbx import ispybtbx
 
@@ -47,7 +50,4 @@ def run(args):
 
 
 if __name__ == "__main__":
-    import sys
-
-    args = sys.argv[1:]
-    run(args)
+    run()

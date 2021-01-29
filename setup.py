@@ -7,7 +7,6 @@ from setuptools import setup, find_packages
 __version_tag__ = "1.0.dev"
 
 console_scripts = [
-    "dials.filter_grid=dlstbx.cli.filter_grid:run",
     "dials.swirly_eyes=dlstbx.cli.swirly_eyes:run",
     "dlstbx.align_crystal=dlstbx.cli.align_crystal:run",
     "dlstbx.compare_screening_results=dlstbx.cli.compare_screening_results:run",

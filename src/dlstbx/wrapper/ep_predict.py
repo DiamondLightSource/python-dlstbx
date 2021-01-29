@@ -8,7 +8,7 @@ import procrunner
 from pprint import pformat
 from functools import reduce
 
-from dlstbx.command_line import ep_predict
+from dlstbx.cli import ep_predict
 
 logger = logging.getLogger("dlstbx.wrap.ep_predict")
 

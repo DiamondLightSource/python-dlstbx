@@ -3,7 +3,7 @@ import os
 import threading
 import time
 
-from dlstbx.command_line.h5rewrite import cli
+from dlstbx.cli.h5rewrite import cli
 from dlstbx.swmr import h5watcher
 
 

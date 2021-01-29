@@ -1,4 +1,4 @@
-from dlstbx.command_line import eiger2xds
+from dlstbx.cli import eiger2xds
 
 
 def test_vmxi_thaumatin(dials_data, tmpdir):

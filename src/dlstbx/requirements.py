@@ -11,13 +11,7 @@ import pkg_resources
 import subprocess
 import sys
 
-conda_required = (
-    pathlib.Path(dlstbx.__file__)
-    .parent.parent.parent.joinpath("requirements.conda.txt")
-    .read_text()
-    .strip()
-    .split("\n")
-)
+dlstbx_path = dlstbx.__file__
 
 try:
     import conda.cli.python_api
@@ -39,6 +33,18 @@ def _notice(*lines, **context):
     )
 
 
+if dlstbx_path:
+    conda_required = (
+        pathlib.Path(dlstbx.__file__)
+        .parent.parent.parent.joinpath("requirements.conda.txt")
+        .read_text()
+        .strip()
+        .split("\n")
+    )
+else:
+    conda_required = None
+
+
 def check():
     """Resolve all dlstbx conda dependencies"""
     # Check we can do anything here
@@ -46,6 +52,13 @@ def check():
         _notice(
             "  WARNING: Can not find conda package in your environment",
             "  You will have to keep track of dependencies yourself",
+        )
+        return
+    if not conda_required:
+        _notice(
+            "  WARNING: Could not find dlstbx in your environment",
+            "  Make sure dlstbx is configured in your cctbx environment,",
+            "  and try another round of 'make reconf'",
         )
         return
 

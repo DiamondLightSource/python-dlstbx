@@ -33,6 +33,8 @@ def process_result(rw, header, message):
 
 
 def run():
+    global test_results
+
     parser = OptionParser(usage="dlstbx.dc_sim_verify [options]")
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)

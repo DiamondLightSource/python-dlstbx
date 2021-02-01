@@ -53,14 +53,14 @@ def check():
             "  WARNING: Can not find conda package in your environment",
             "  You will have to keep track of dependencies yourself",
         )
-        return
+        return False
     if not conda_required:
         _notice(
             "  WARNING: Could not find dlstbx in your environment",
             "  Make sure dlstbx is configured in your cctbx environment,",
             "  and try another round of 'make reconf'",
         )
-        return
+        return False
 
     conda_list, error, return_code = conda.cli.python_api.run_command(
         conda.cli.python_api.Commands.LIST,
@@ -72,7 +72,7 @@ def check():
             "  WARNING: Could not obtain list of conda packages in your environment",
             error,
         )
-        return
+        return False
     conda_environment = {
         package["name"]: package["version"] for package in json.loads(conda_list)
     }
@@ -154,5 +154,7 @@ def check():
 
 if __name__ == "__main__":
     actions = check()
+    if actions is False:
+        exit(1)
     if actions:
         subprocess.run(["libtbx.conda", "install", *actions, *sys.argv[1:]], check=True)

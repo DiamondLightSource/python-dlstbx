@@ -1,6 +1,6 @@
 bitshuffle
 drmaa
-ispyb>=5.8.1,<5.9
+ispyb>=5.9.1,<5.10
 junit-xml
 msgpack-python
 networkx

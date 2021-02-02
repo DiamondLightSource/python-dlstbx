@@ -214,3 +214,5 @@ def run():
         junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
 
     time.sleep(0.3)
+    if not test_results:
+        exit("There are no recent simulation runs to verify")

@@ -24,7 +24,9 @@ from workflows.services.common_service import CommonService
 # Oh, and the curses package is broken, too.
 # Fix by telling the package where the relocated terminfo lives
 os.environ["TERMINFO"] = os.path.abspath(
-    os.path.join(__file__, "..", "..", "..", "..", "conda_base", "share", "terminfo")
+    os.path.join(
+        __file__, "..", "..", "..", "..", "..", "..", "conda_base", "share", "terminfo"
+    )
 )
 
 

@@ -160,7 +160,7 @@ def run(
                     DCID=scenario.DCID, recipe="per-image-analysis-eiger-streamdump"
                 )
             )
-            if scenario.beamline == "i03":
+            if scenario.beamline in ("i03", "i24"):
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe="per-image-analysis-gridscan-swmr"

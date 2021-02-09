@@ -151,19 +151,28 @@ def run(
                     )
                 )
 
-        if (
-            scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.EIGER
-            and scenario.isitagridscan
-        ):
-            tasks.append(
-                dlstbx.mimas.MimasRecipeInvocation(
-                    DCID=scenario.DCID, recipe="per-image-analysis-eiger-streamdump"
-                )
-            )
+        if scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.EIGER:
             if scenario.beamline in ("i03", "i24"):
+                # use swmr PIA
+                if scenario.isitagridscan:
+                    tasks.append(
+                        dlstbx.mimas.MimasRecipeInvocation(
+                            DCID=scenario.DCID,
+                            recipe="per-image-analysis-gridscan-swmr",
+                        )
+                    )
+                else:
+                    tasks.append(
+                        dlstbx.mimas.MimasRecipeInvocation(
+                            DCID=scenario.DCID,
+                            recipe="per-image-analysis-rotation-swmr",
+                        )
+                    )
+            elif scenario.isitagridscan:
+                # use legacy streamdump PIA
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="per-image-analysis-gridscan-swmr"
+                        DCID=scenario.DCID, recipe="per-image-analysis-eiger-streamdump"
                     )
                 )
 
@@ -511,8 +520,7 @@ def run(
                         DCID=scenario.DCID, recipe="per-image-analysis-eiger-gridscan"
                     )
                 )
-            else:
-                # skipped static gridscan analysis in favour of TOM algorithm
+            elif scenario.beamline not in ("i03", "i24"):
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe="per-image-analysis-eiger-rotation"

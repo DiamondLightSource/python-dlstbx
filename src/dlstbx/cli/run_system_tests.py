@@ -172,8 +172,9 @@ def run():
         # so that the server can catch up and replies on this connection are not unduly
         # delayed
         time.sleep(0.3)
-    logger.debug("Waiting %.1f seconds..." % (0.2 * len(channels)))
-    time.sleep(0.2 * len(channels))
+    delay = 0.1 * len(channels) + 0.007 * len(channels) * len(channels)
+    logger.debug(f"Waiting {delay:.1f} seconds...")
+    time.sleep(delay)
 
     # Send out messages
 

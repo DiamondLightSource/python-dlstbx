@@ -50,7 +50,7 @@ def get_process_uss(pid=None):
     """Get the unique set size of a process in bytes.
     The unique set size is the amount of memory that would be freed if that
     process was terminated.
-    Note that this will only work on linux.
+    Note that this will only work on linux and takes about 10ms.
     """
     if not pid:
         pid = os.getpid()  # Don't cache this. Multiprocessing would copy value.
@@ -63,7 +63,8 @@ def get_process_uss(pid=None):
 
 
 try:
-    get_process_uss()
+    if not os.path.isdir("/proc"):
+        get_process_uss = lambda pid=None: None  # noqa: F811
 except OSError as exception:
     if exception.errno == 2:
         # /proc not available on this platform

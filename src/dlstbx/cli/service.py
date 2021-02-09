@@ -14,6 +14,7 @@
 import logging
 import os
 import sys
+import time
 
 import dlstbx.util
 import workflows
@@ -172,9 +173,15 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         original_status_function = frontend.get_status
 
         def extend_status_wrapper():
+            if getattr(extend_status_wrapper, "_uss_time", 0) < time.time() - 10:
+                # Cache USS value for up to 10 seconds
+                (extend_status_wrapper._uss_time, extend_status_wrapper._uss) = (
+                    time.time(),
+                    dlstbx.util.get_process_uss(),
+                )
             status = original_status_function()
             status.update(extended_status)
-            status["mem-uss"] = dlstbx.util.get_process_uss()
+            status["mem-uss"] = extend_status_wrapper._uss
             return status
 
         frontend.get_status = extend_status_wrapper

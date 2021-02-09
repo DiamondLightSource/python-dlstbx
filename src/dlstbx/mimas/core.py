@@ -154,7 +154,7 @@ def run(
                     )
                 )
 
-        if scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.EIGER:
+        if scenario.detectorclass.name == "EIGER":
             # For SWMR beamlines trigger SWMR gridscan and rotation recipes
             # For non-SWMR beamlines trigger streamdump gridscan recipe
             # (non-SWMR beamline rotation scans will be handled elsewhere)
@@ -501,7 +501,7 @@ def run(
                         )
                     )
 
-        elif scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.EIGER:
+        elif scenario.detectorclass.name == "EIGER":
             stopped = scenario.runstatus == "DataCollection Stopped"
             tasks.append(
                 dlstbx.mimas.MimasRecipeInvocation(

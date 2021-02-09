@@ -520,7 +520,10 @@ def run(
                 )
             )
 
-            if scenario.beamline not in SWMR_BEAMLINES:
+            if (
+                scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION
+                and scenario.beamline not in SWMR_BEAMLINES
+            ):
                 # Only trigger rotation PIA at end of data collection for
                 # non-SWMR EIGER beamlines
                 tasks.append(

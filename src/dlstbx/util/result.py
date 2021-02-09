@@ -17,7 +17,6 @@ class Result(TestCase):
         # to test for failure use is_failure()
         self.stdout = None  # standard output
         self.stderr = None  # standard error
-        self.log = []
         self.start_time = timeit.default_timer()
 
     def update_timer(self):
@@ -60,7 +59,6 @@ class Result(TestCase):
 
     def log_message(self, text):
         self.update_timer()
-        self.log.append((0, text))
         if self.stdout is None:
             self.stdout = text
         else:
@@ -68,33 +66,19 @@ class Result(TestCase):
 
     def log_skip(self, text):
         self.update_timer()
-        self.log.append((1, text))
-        if self.skipped_message is None:
-            self.skipped_message = text
-        if self.skipped_output is None:
-            self.skipped_output = text
-        else:
-            self.skipped_output = self.skipped_output + "\n" + text
+        self.add_skipped_info(message=text, output=text)
 
-    def log_error(self, text):
+    def log_error(self, message, output=None):
         self.update_timer()
-        self.log.append((2, text))
-        if self.failure_message is None:
-            self.failure_message = text
+        self.add_error_info(message=message, output=output)
         if self.stderr is None:
-            self.stderr = text
+            self.stderr = message
         else:
-            self.stderr = self.stderr + "\n" + text
+            self.stderr = self.stderr + "\n" + message
 
     def log_trace(self, text):
         self.update_timer()
-        self.log.append((3, text))
-        if self.failure_message is None:
-            self.failure_message = text.split("\n")[0]
-        if self.failure_output is None:
-            self.failure_output = text
-        else:
-            self.failure_output = self.failure_output + "\n" + text
+        self.add_failure_info(message=text.split("\n")[0], output=text)
 
     def set_name(self, name):
         self.name = name

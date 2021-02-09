@@ -155,8 +155,10 @@ def run():
             + str(expected_messages)
             + "\n"
         )
-        unexpected_messages.log_error("Received unexpected message")
-        unexpected_messages.log_error(str(header) + "\n" + str(message) + "\n")
+        unexpected_messages.log_error(
+            message="Received unexpected message",
+            output=str(header) + "\n" + str(message) + "\n",
+        )
         unexpected_messages.count += 1
 
     for n, (queue, topic) in enumerate(channels.keys()):
@@ -244,16 +246,19 @@ def run():
                             "Test %s.%s timed out waiting for message\n%s"
                             % (testname[0], testname[1], str(expectation))
                         )
-                        test[1].log_error("No answer received within time limit.")
-                        test[1].log_error(str(expectation))
+                        test[1].log_error(
+                            message="No answer received within time limit.",
+                            output=str(expectation),
+                        )
                     else:
                         keep_waiting = True
 
     for testname, test in tests.items():
         for expectation in test[0].expect:
             if expectation.get("early"):
-                test[1].log_error("Answer received too early.")
-                test[1].log_error(str(expectation))
+                test[1].log_error(
+                    message="Answer received too early.", output=str(expectation)
+                )
                 test[1].early += 1
 
     # Export results

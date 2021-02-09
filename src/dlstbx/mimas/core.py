@@ -3,6 +3,9 @@ from typing import List, Union
 import dlstbx.mimas
 
 
+SWMR_BEAMLINES = {"i03", "i24"}
+
+
 def run(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> List[
@@ -152,7 +155,7 @@ def run(
                 )
 
         if scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.EIGER:
-            if scenario.beamline in ("i03", "i24"):
+            if scenario.beamline in SWMR_BEAMLINES:
                 # use swmr PIA
                 if scenario.isitagridscan:
                     tasks.append(
@@ -520,7 +523,7 @@ def run(
                         DCID=scenario.DCID, recipe="per-image-analysis-eiger-gridscan"
                     )
                 )
-            elif scenario.beamline not in ("i03", "i24"):
+            elif scenario.beamline not in SWMR_BEAMLINES:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe="per-image-analysis-eiger-rotation"

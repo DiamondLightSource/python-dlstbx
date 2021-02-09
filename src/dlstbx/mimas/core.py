@@ -155,6 +155,9 @@ def run(
                 )
 
         if scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.EIGER:
+            # For SWMR beamlines trigger SWMR gridscan and rotation recipes
+            # For non-SWMR beamlines trigger streamdump gridscan recipe
+            # (non-SWMR beamline rotation scans will be handled elsewhere)
             if scenario.beamline in SWMR_BEAMLINES:
                 # use swmr PIA
                 if scenario.isitagridscan:

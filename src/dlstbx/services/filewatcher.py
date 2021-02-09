@@ -733,11 +733,11 @@ class DLSFileWatcher(CommonService):
             ):
                 m, frame = file_map[status["seen-images"]]
                 h5_data_file, dsetname = dataset_files[m]
-                self.log.debug(
-                    f"seen-images: {status['seen-images']}\n"
-                    f"m, frame: {m, frame}\n"
-                    f"h5_data_file, dsetname: {h5_data_file, dsetname}"
-                )
+                # self.log.debug(
+                #    f"seen-images: {status['seen-images']}\n"
+                #    f"m, frame: {m, frame}\n"
+                #    f"h5_data_file, dsetname: {h5_data_file, dsetname}"
+                # )
 
                 with os_stat_profiler.record():
                     if not os.path.isfile(h5_data_file):

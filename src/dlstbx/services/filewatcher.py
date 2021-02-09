@@ -755,9 +755,9 @@ class DLSFileWatcher(CommonService):
                     s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
                     if s.size == 0:
                         break
-                    self.log.info(
-                        f"Found image {status['seen-images']} (size={s.size})"
-                    )
+                    # self.log.info(
+                    #    f"Found image {status['seen-images']} (size={s.size})"
+                    # )
                 except Exception:
                     self.log.warning(f"Error reading {h5_data_file}", exc_info=True)
                     rw.transport.nack(header)

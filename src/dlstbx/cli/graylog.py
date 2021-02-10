@@ -5,15 +5,15 @@
 
 
 import datetime
+import http.client
 import string
 import sys
 import time
+import urllib
 from optparse import SUPPRESS_HELP, OptionParser
 
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.graylog import GraylogAPI
-from six.moves import http_client
-from six.moves import urllib
 
 log_levels = {
     0: {"name": "emerg", "color": ColorStreamHandler.CRITICAL},
@@ -185,6 +185,12 @@ def run():
         help="Start showing messages from this far back in time. Seconds if no unit (s/m/h/d/w) specified.",
     )
     parser.add_option(
+        "--filter",
+        dest="filter",
+        default=None,
+        help="Only show messages matching this filter expression",
+    )
+    parser.add_option(
         "-v",
         "--verbose",
         dest="verbose",
@@ -225,6 +231,8 @@ def run():
     g.level = level
     if options.facility:
         g.filters.append("facility:(" + " OR ".join(options.facility) + ")")
+    if options.filter:
+        g.filters.append('message:"' + options.filter.replace('"', '\\"') + '"')
     if options.recipe:
         g.filters.append("recipe_ID:" + options.recipe)
     format = format_message(options.verbose)
@@ -234,7 +242,7 @@ def run():
                 try:
                     for message in g.get_messages(time=options.time):
                         sys.stdout.write(format(message))
-                except (OSError, urllib.error.URLError, http_client.BadStatusLine) as e:
+                except (OSError, urllib.error.URLError, http.client.BadStatusLine) as e:
                     sys.stdout.write(
                         "{DEFAULT}{localtime:%Y-%m-%d %H:%M:%S} Graylog update failed: {exception}\n".format(
                             DEFAULT=ColorStreamHandler.DEFAULT,

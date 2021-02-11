@@ -758,6 +758,13 @@ class DLSFileWatcher(CommonService):
                     # self.log.info(
                     #    f"Found image {status['seen-images']} (size={s.size})"
                     # )
+                except OSError as e:
+                    if "Unable to open file (truncated file: eof" in str(e):
+                        self.log.info(f"OSError reading {h5_data_file}", exc_info=True)
+                        break
+                    self.log.warning(f"Error reading {h5_data_file}", exc_info=True)
+                    rw.transport.nack(header)
+                    return
                 except Exception:
                     self.log.warning(f"Error reading {h5_data_file}", exc_info=True)
                     rw.transport.nack(header)

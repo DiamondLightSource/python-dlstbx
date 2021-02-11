@@ -733,12 +733,6 @@ class DLSFileWatcher(CommonService):
             ):
                 m, frame = file_map[status["seen-images"]]
                 h5_data_file, dsetname = dataset_files[m]
-                # self.log.debug(
-                #    f"seen-images: {status['seen-images']}\n"
-                #    f"m, frame: {m, frame}\n"
-                #    f"h5_data_file, dsetname: {h5_data_file, dsetname}"
-                # )
-
                 with os_stat_profiler.record():
                     if not os.path.isfile(h5_data_file):
                         break
@@ -755,9 +749,9 @@ class DLSFileWatcher(CommonService):
                     s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
                     if s.size == 0:
                         break
-                    # self.log.info(
-                    #    f"Found image {status['seen-images']} (size={s.size})"
-                    # )
+                    self.log.debug(
+                        f"Found image {status['seen-images']} (size={s.size})"
+                    )
                 except OSError as e:
                     if "Unable to open file (truncated file: eof" in str(e):
                         self.log.info(f"OSError reading {h5_data_file}", exc_info=True)

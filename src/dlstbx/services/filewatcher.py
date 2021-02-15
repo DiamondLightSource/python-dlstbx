@@ -705,6 +705,19 @@ class DLSFileWatcher(CommonService):
                         d = f["/entry/data/data"]
                         dataset_files, file_map = h5check.get_real_frames(f, d)
                         image_count = len(file_map)
+                except KeyError as e:
+                    if (
+                        "Unable to open object (address of object past end of allocation)"
+                        not in str(e)
+                    ):
+                        self.log.warning(f"Error reading {hdf5}", exc_info=True)
+                        rw.transport.nack(header)
+                        return
+                    # For some reason this means that the .nxs file is probably
+                    # still being written to, so quietly log the message and
+                    # continue, leading to the message being resubmitted for
+                    # another round of processing
+                    self.log.info(f"KeyError reading {hdf5}", exc_info=True)
                 except Exception:
                     self.log.warning(f"Error reading {hdf5}", exc_info=True)
                     rw.transport.nack(header)

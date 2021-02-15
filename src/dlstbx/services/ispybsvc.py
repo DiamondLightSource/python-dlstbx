@@ -392,7 +392,6 @@ class DLSISPyB(EM_Mixin, CommonService):
         params["good_bragg_candidates"] = parameters("n_spots_no_ice")
         params["method1_res"] = parameters("estimated_d_min")
         params["method2_res"] = parameters("estimated_d_min")
-        params["programid"] = "65228265"  # dummy value
 
         self.log.debug(
             "Writing PIA record for image %r in DCID %s",

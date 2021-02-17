@@ -101,6 +101,13 @@ known_wrappers = [  # please keep alphabetically sorted
     "xia2.strategy = dlstbx.wrapper.xia2_strategy:Xia2StrategyWrapper",
     "xia2.to_shelxcde = dlstbx.wrapper.xia2_to_shelxcde:Xia2toShelxcdeWrapper",
     "xoalign = dlstbx.wrapper.xoalign:XOalignWrapper",
+    "dials_import = dlstbx.wrapper.dials.dials_import:ImportWrapper",
+    "find_spots = dlstbx.wrapper.dials.find_spots:FindSpotsWrapper",
+    "index = dlstbx.wrapper.dials.index:IndexWrapper",
+    "refine = dlstbx.wrapper.dials.refine:RefineWrapper",
+    "integrate = dlstbx.wrapper.dials.integrate:IntegrateWrapper",
+    "symmetry = dlstbx.wrapper.dials.symmetry:SymmetryWrapper",
+    "scale = dlstbx.wrapper.dials.scale:ScaleWrapper",
 ]
 
 dxtbx_formats = [

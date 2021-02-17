@@ -7,10 +7,13 @@ ureg = pint.UnitRegistry()
 
 
 class Transformation:
-    def __init__(self, values, vector, transformation_type, depends_on=None):
+    def __init__(
+        self, values, vector, transformation_type, offset=None, depends_on=None
+    ):
         self.values = values
         self.vector = np.repeat(vector.reshape(1, vector.size), values.size, axis=0)
         self.transformation_type = transformation_type
+        self.offset = offset
         self.depends_on = depends_on
 
     def compose(self):
@@ -22,6 +25,8 @@ class Transformation:
         else:
             R = np.identity(3)
             T = self.values[:, np.newaxis] * self.vector
+        if self.offset is not None:
+            T += self.offset
         A = np.repeat(np.identity(4).reshape((1, 4, 4)), self.values.size, axis=0)
         A[:, :3, :3] = R
         A[:, :3, 3] = T
@@ -52,10 +57,12 @@ def get_cumulative_transformation(dependency_chain):
             if transformation_type == "translation"
             else values.to("rad")
         )
+        offset = transformation.attrs.get("offset")
         t = Transformation(
             values.magnitude,
             transformation.attrs["vector"],
             transformation_type,
+            offset=offset,
             depends_on=t,
         )
     return t.compose()

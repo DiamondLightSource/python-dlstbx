@@ -29,6 +29,8 @@ def nxsample(tmp_path):
         phi.attrs["transformation_type"] = b"rotation"
         phi.attrs["units"] = b"deg"
         phi.attrs["vector"] = np.array([-1.0, -0.0025, -0.0056])
+        if "phi_offset" in kwargs:
+            phi.attrs["offset"] = kwargs["phi_offset"]
 
         chi = transformations.create_dataset("chi", data=values("chi"))
         chi.attrs["depends_on"] = b"/entry/sample/transformations/sam_x"
@@ -36,6 +38,8 @@ def nxsample(tmp_path):
         chi.attrs["transformation_type"] = b"rotation"
         chi.attrs["units"] = b"deg"
         chi.attrs["vector"] = np.array([0.006, -0.0264, 0.9996])
+        if "chi_offset" in kwargs:
+            chi.attrs["offset"] = kwargs["chi_offset"]
 
         sam_x = transformations.create_dataset("sam_x", data=values("sam_x"))
         sam_x.attrs["depends_on"] = b"/entry/sample/transformations/sam_y"
@@ -43,6 +47,8 @@ def nxsample(tmp_path):
         sam_x.attrs["transformation_type"] = b"translation"
         sam_x.attrs["units"] = b"mm"
         sam_x.attrs["vector"] = np.array([1.0, 0.0, 0.0])
+        if "sam_x_offset" in kwargs:
+            sam_x.attrs["offset"] = kwargs["sam_x_offset"]
 
         sam_y = transformations.create_dataset("sam_y", data=values("sam_y"))
         sam_y.attrs["depends_on"] = b"/entry/sample/transformations/sam_z"
@@ -50,6 +56,8 @@ def nxsample(tmp_path):
         sam_y.attrs["transformation_type"] = b"translation"
         sam_y.attrs["units"] = b"mm"
         sam_y.attrs["vector"] = np.array([0.0, 1.0, 0.0])
+        if "sam_y_offset" in kwargs:
+            sam_y.attrs["offset"] = kwargs["sam_y_offset"]
 
         sam_z = transformations.create_dataset("sam_z", data=values("sam_z"))
         sam_z.attrs["depends_on"] = b"/entry/sample/transformations/omega"
@@ -57,6 +65,8 @@ def nxsample(tmp_path):
         sam_z.attrs["transformation_type"] = b"translation"
         sam_z.attrs["units"] = b"mm"
         sam_z.attrs["vector"] = np.array([0.0, 0.0, 1.0])
+        if "sam_z_offset" in kwargs:
+            sam_z.attrs["offset"] = kwargs["sam_z_offset"]
 
         omega = transformations.create_dataset("omega", data=values("omega"))
         omega.attrs["depends_on"] = b"/entry/sample/transformations/gon_x"
@@ -64,6 +74,8 @@ def nxsample(tmp_path):
         omega.attrs["transformation_type"] = b"rotation"
         omega.attrs["units"] = b"deg"
         omega.attrs["vector"] = np.array([-1.0, 0.0, 0.0])
+        if "omega_offset" in kwargs:
+            omega.attrs["offset"] = kwargs["omega_offset"]
 
         gon_x = transformations.create_dataset("gon_x", data=values("gon_x"))
         gon_x.attrs["depends_on"] = b"/entry/sample/transformations/gon_y"
@@ -71,6 +83,8 @@ def nxsample(tmp_path):
         gon_x.attrs["transformation_type"] = b"translation"
         gon_x.attrs["units"] = b"mm"
         gon_x.attrs["vector"] = np.array([1.0, 0.0, 0.0])
+        if "gon_x_offset" in kwargs:
+            gon_x.attrs["offset"] = kwargs["gon_x_offset"]
 
         gon_y = transformations.create_dataset("gon_y", data=values("gon_y"))
         gon_y.attrs["depends_on"] = b"/entry/sample/transformations/gon_z"
@@ -78,6 +92,8 @@ def nxsample(tmp_path):
         gon_y.attrs["transformation_type"] = b"translation"
         gon_y.attrs["units"] = b"mm"
         gon_y.attrs["vector"] = np.array([0.0, 1.0, 0.0])
+        if "gon_y_offset" in kwargs:
+            gon_y.attrs["offset"] = kwargs["gon_y_offset"]
 
         gon_z = transformations.create_dataset("gon_z", data=values("gon_z"))
         gon_z.attrs["depends_on"] = b"."
@@ -85,6 +101,8 @@ def nxsample(tmp_path):
         gon_z.attrs["transformation_type"] = b"translation"
         gon_z.attrs["units"] = b"mm"
         gon_z.attrs["vector"] = np.array([0.0, 0.0, 1.0])
+        if "gon_z_offset" in kwargs:
+            gon_z.attrs["offset"] = kwargs.get("gon_z_offset")
 
     return _nxsample_wrapper
 
@@ -385,13 +403,23 @@ def test(nxsample, tmp_path):
         ]
     )
 
+    omega_offset = np.array((gon_x.mean(), gon_y.mean(), 0))
+    coords = np.vstack(
+        [
+            gon_x - gon_x.mean(),
+            gon_y - gon_y.mean(),
+            np.zeros(gon_x.size),
+            np.ones(gon_x.size),
+        ]
+    ).T
+
     nxs = tmp_path / "nxsample_omega_0.nxs"
-    # nxsample(filename=nxs, gon_x=gon_x, gon_y=gon_y, omega=np.array([0.]))
     nxsample(
         filename=nxs,
-        gon_x=np.array([gon_x.mean()]),
-        gon_y=np.array([gon_y.mean()]),
+        gon_x=coords[:, 0],
+        gon_y=coords[:, 1],
         omega=np.array([0.0]),
+        omega_offset=omega_offset,
     )
     f = h5py.File(nxs)
     sample = f["/entry/sample"]
@@ -400,22 +428,15 @@ def test(nxsample, tmp_path):
     print(sample["/entry/sample/transformations/omega"][()])
     A = get_cumulative_transformation(dependency_chain)
     print(f"Final A:\n{A[0].round(3)}")
-    x = gon_x
-    y = gon_y
-    z = sample["/entry/sample/transformations/gon_z"][()]
-    # coords = np.vstack([x, y, np.repeat(z, x.size), np.zeros(x.size)]).T
-    coords = np.vstack(
-        [x - x.mean(), y - y.mean(), np.repeat(z, x.size), np.zeros(x.size)]
-    ).T
     coords_o0 = np.array([A[0] @ c for c in coords])
 
     nxs = tmp_path / "nxsample_omega_45.nxs"
-    # nxsample(filename=nxs, gon_x=gon_x, gon_y=gon_y, omega=np.array([45.]))
     nxsample(
         filename=nxs,
-        gon_x=np.array([gon_x.mean()]),
-        gon_y=np.array([gon_y.mean()]),
+        gon_x=coords[:, 0],
+        gon_y=coords[:, 1],
         omega=np.array([45.0]),
+        omega_offset=omega_offset,
     )
     f = h5py.File(nxs)
     sample = f["/entry/sample"]
@@ -424,22 +445,15 @@ def test(nxsample, tmp_path):
     dependency_chain = get_dependency_chain(f[depends_on])
     A = get_cumulative_transformation(dependency_chain)
     print(f"Final A:\n{A[0].round(3)}")
-    x = gon_x
-    y = gon_y
-    z = sample["/entry/sample/transformations/gon_z"][()]
-    # coords = np.vstack([x, y, np.repeat(z, x.size), np.zeros(x.size)]).T
-    coords = np.vstack(
-        [x - x.mean(), y - y.mean(), np.repeat(z, x.size), np.zeros(x.size)]
-    ).T
     coords_o45 = np.array([A[0] @ c for c in coords])
 
     nxs = tmp_path / "nxsample_omega_90.nxs"
-    # nxsample(filename=nxs, gon_x=gon_x, gon_y=gon_y, omega=np.array([90.]))
     nxsample(
         filename=nxs,
-        gon_x=np.array([gon_x.mean()]),
-        gon_y=np.array([gon_y.mean()]),
+        gon_x=coords[:, 0],
+        gon_y=coords[:, 1],
         omega=np.array([90.0]),
+        omega_offset=omega_offset,
     )
     f = h5py.File(nxs)
     sample = f["/entry/sample"]
@@ -448,13 +462,6 @@ def test(nxsample, tmp_path):
     dependency_chain = get_dependency_chain(f[depends_on])
     A = get_cumulative_transformation(dependency_chain)
     print(f"Final A:\n{A[0].round(3)}")
-    x = gon_x
-    y = gon_y
-    z = sample["/entry/sample/transformations/gon_z"][()]
-    # coords = np.vstack([x, y, np.repeat(z, x.size), np.zeros(x.size)]).T
-    coords = np.vstack(
-        [x - x.mean(), y - y.mean(), np.repeat(z, x.size), np.zeros(x.size)]
-    ).T
     coords_o90 = np.array([A[0] @ c for c in coords])
 
     import matplotlib.pyplot as plt

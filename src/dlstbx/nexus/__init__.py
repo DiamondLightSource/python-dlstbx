@@ -7,27 +7,24 @@ ureg = pint.UnitRegistry()
 
 
 class Transformation:
-    def __init__(self, values, vector, transformation_type, units, depends_on=None):
-        self.name = values.name
-        self.values = values[()] * ureg(units)
+    def __init__(self, values, vector, transformation_type, depends_on=None):
+        self.values = values
         self.vector = np.repeat(vector.reshape(1, vector.size), values.size, axis=0)
         self.transformation_type = transformation_type
-        self.units = ureg(units)
         self.depends_on = depends_on
 
     def compose(self):
         if self.transformation_type == "rotation":
-            values = (self.values[:, np.newaxis] * self.units.to("rad")).magnitude
-            R = Rotation.from_rotvec(values * self.vector).as_matrix()
+            R = Rotation.from_rotvec(
+                self.values[:, np.newaxis] * self.vector
+            ).as_matrix()
             T = np.zeros((self.values.size, 3))
         else:
-            values = (self.values * self.units.to("mm")).magnitude
             R = np.identity(3)
-            T = values[:, np.newaxis] * self.vector
+            T = self.values[:, np.newaxis] * self.vector
         A = np.repeat(np.identity(4).reshape((1, 4, 4)), self.values.size, axis=0)
         A[:, :3, :3] = R
         A[:, :3, 3] = T
-        print(f"{self.name}:\n{A.round(3)[0]}")
         if self.depends_on:
             return self.depends_on.compose() @ A
         return A
@@ -48,11 +45,17 @@ def get_dependency_chain(transformation):
 def get_cumulative_transformation(dependency_chain):
     t = None
     for transformation in reversed(dependency_chain):
+        transformation_type = transformation.attrs["transformation_type"]
+        values = transformation[()] * ureg(transformation.attrs["units"])
+        values = (
+            values.to("mm")
+            if transformation_type == "translation"
+            else values.to("rad")
+        )
         t = Transformation(
-            transformation,
+            values.magnitude,
             transformation.attrs["vector"],
-            transformation.attrs["transformation_type"],
-            transformation.attrs["units"],
+            transformation_type,
             depends_on=t,
         )
     return t.compose()

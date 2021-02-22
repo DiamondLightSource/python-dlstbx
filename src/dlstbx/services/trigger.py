@@ -2,10 +2,24 @@ import hashlib
 import re
 from datetime import datetime
 
-import ispyb
 import py.path
 import workflows.recipe
 from workflows.services.common_service import CommonService
+
+import ispyb_sqlalchemy
+from ispyb_sqlalchemy.models import (
+    AutoProcProgram,
+    AutoProcIntegration,
+    DataCollection,
+    ProcessingJob,
+)
+
+from sqlalchemy.orm import Load, joinedload
+
+import pathlib
+import logging
+
+logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
 
 class DLSTrigger(CommonService):
@@ -746,17 +760,23 @@ class DLSTrigger(CommonService):
         return {"success": True, "return_value": None}
 
     def trigger_multiplex(self, rw, header, message, parameters, transaction, **kwargs):
+        db_session = ispyb_sqlalchemy.open(
+            "/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg"
+        )
+
         dcid = parameters("dcid")
         if not dcid:
             self.log.error("xia2.multiplex trigger failed: No DCID specified")
             return False
 
         dcid = int(dcid)
+        wavelength = float(parameters("wavelength"))
         ispyb_params = parameters("ispyb_parameters")
         spacegroup = ispyb_params.get("spacegroup") if ispyb_params else None
 
         # Take related dcids from recipe in preference
         related_dcids = parameters("related_dcids")
+        self.log.info(f"related_dcids={related_dcids}")
 
         if not related_dcids:
             self.log.debug(f"No related_dcids for dcid={dcid}")
@@ -784,16 +804,8 @@ class DLSTrigger(CommonService):
 
         for group in related_dcids:
             self.log.debug(f"group: {group}")
-            # Select only those dcids at the same wavelength as the triggering dcid
-            wavelength = self.ispyb.get_data_collection(dcid).wavelength
-            dcids = [
-                d
-                for d in group["dcids"]
-                if self.ispyb.get_data_collection(d).wavelength == wavelength
-            ]
-
             # Select only those dcids that were collected before the triggering dcid
-            dcids = [d for d in dcids if d < dcid]
+            dcids = [d for d in group["dcids"] if d < dcid]
 
             # Add the current dcid at the beginning of the list
             dcids.insert(0, dcid)
@@ -805,99 +817,80 @@ class DLSTrigger(CommonService):
                 continue
             self.log.info(f"xia2.multiplex trigger: found dcids: {dcids}")
 
-            def get_integrations_for_dcid(dcid):
-                intgrs = {}
-                dc = self.ispyb.get_data_collection(dcid)
-                for intgr in dc.integrations:
-                    prg = intgr.program
-                    # prg.status_text can be success, running, failure or queued
-                    if (prg.status_text == "failure") or (prg.name != "xia2 dials"):
-                        continue
-                    # If this multiplex job was triggered with a spacegroup parameter
-                    # then only use xia2-dials autoprocessing results that were
-                    # themselves run with a spacegroup parameter. Else only use those
-                    # results that weren't run with a space group parameter
-                    job = self.ispyb.get_processing_job(prg.job_id)
-                    job.load()
-                    self.log.debug(job)
-                    if not job.automatic:
-                        continue
-                    job_spacegroup_param = None
-                    for param in job.parameters:
-                        self.log.debug(param)
-                        if param[1].key == "spacegroup":
-                            job_spacegroup_param = param[1]
-                            break
-                    if spacegroup and (
-                        not job_spacegroup_param
-                        or job_spacegroup_param.value != spacegroup
-                    ):
-                        self.log.debug(f"Discarding appid {intgr.APPID}")
-                        continue
-                    elif job_spacegroup_param and not spacegroup:
-                        self.log.debug(f"Discarding appid {intgr.APPID}")
-                        continue
-                    self.log.debug(f"Using appid {intgr.APPID}")
-                    intgrs[prg.time_update] = intgr
-                if intgrs:
-                    return list(intgrs.values())[0]
-                return None
-
-            def get_data_files_for_appid(appid):
-                data_files = []
-                self.log.debug(f"Retrieving program attachment for appid {appid}")
-                try:
-                    attachments = self.ispyb.mx_processing.retrieve_program_attachments_for_program_id(
-                        appid
+            query = (
+                (
+                    db_session.query(
+                        DataCollection,
+                        AutoProcProgram,
+                        ProcessingJob,
                     )
-                except ispyb.NoResult:
-                    self.log.warning(
-                        f"Expected to find exactly 2 data files for appid {appid} (no files found)"
+                    .join(
+                        AutoProcIntegration,
+                        AutoProcIntegration.dataCollectionId
+                        == DataCollection.dataCollectionId,
                     )
-                    return []
-                for item in attachments:
-                    if item["fileType"] == "Result":
-                        if (
-                            item["fileName"].endswith(
-                                (
-                                    "experiments.json",
-                                    "reflections.pickle",
-                                    ".expt",
-                                    ".refl",
-                                )
-                            )
-                            and "_scaled." not in item["fileName"]
-                        ):
-                            data_files.append(
-                                py.path.local(item["filePath"])
-                                .join(item["fileName"])
-                                .strpath
-                            )
-                self.log.debug(
-                    f"Found the following files for appid {appid}:\n{', '.join(data_files)}"
+                    .join(
+                        AutoProcProgram,
+                        AutoProcProgram.autoProcProgramId
+                        == AutoProcIntegration.autoProcProgramId,
+                    )
+                    .join(
+                        ProcessingJob,
+                        ProcessingJob.processingJobId
+                        == AutoProcProgram.processingJobId,
+                    )
                 )
-                if len(data_files) % 2:
-                    self.log.warning(
-                        f"Expected to find an even number of  data files for appid {appid} (found {len(data_files)})"
-                    )
-                    return []
-                return data_files
-
-            intgrs = list(
-                filter(None, (get_integrations_for_dcid(dcid) for dcid in dcids))
+                .filter(DataCollection.dataCollectionId.in_(dcids))
+                .filter(ProcessingJob.automatic == True)  # noqa E712
+                .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+                .filter(AutoProcProgram.processingStatus != 0)
+                .options(
+                    joinedload(AutoProcProgram.AutoProcProgramAttachments),
+                    joinedload(ProcessingJob.ProcessingJobParameters),
+                    Load(DataCollection).load_only("dataCollectionId", "wavelength"),
+                )
             )
-            for intgr in intgrs:
-                if intgr.program.status_text in ("running", "queued"):
+
+            dcids = []
+            data_files = []
+            for dc, app, pj in query.all():
+                # Select only those dcids at the same wavelength as the triggering dcid
+                if wavelength and dc.wavelength != wavelength:
+                    continue
+
+                # If this multiplex job was triggered with a spacegroup parameter
+                # then only use xia2-dials autoprocessing results that were
+                # themselves run with a spacegroup parameter. Else only use those
+                # results that weren't run with a space group parameter
+                job_spacegroup_param = None
+                for param in pj.ProcessingJobParameters:
+                    self.log.debug(f"{param.parameterKey}: {param.parameterValue}")
+                    if param.parameterKey == "spacegroup":
+                        job_spacegroup_param = param.parameterValue
+                        break
+                if spacegroup and (
+                    not job_spacegroup_param or job_spacegroup_param != spacegroup
+                ):
+                    self.log.debug(f"Discarding appid {app.autoProcProgramId}")
+                    continue
+                elif job_spacegroup_param and not spacegroup:
+                    self.log.debug(f"Discarding appid {app.autoProcProgramId}")
+                    continue
+
+                # Check for any programs that are yet to finish (or fail)
+                if app.processingStatus != 1 or not app.processingStartTime:
                     if status["ntry"] >= max_try:
                         # Give up waiting for this program to finish and trigger
                         # multiplex with remaining related results are available
                         self.log.info(
                             f"max-try exceeded, giving up waiting for dcid={dcid}\n"
-                            f"{intgr.program}"
+                            f"{app.autoProcProgramId}"
                         )
                         break
                     # Send results to myself for next round of processing
-                    self.log.debug(f"Waiting for dcid={dcid}\n{intgr.program}")
+                    self.log.debug(
+                        f"Waiting for dcid={dc.dataCollectionId}\nappid={app.autoProcProgramId}"
+                    )
                     rw.checkpoint(
                         {"trigger-status": status},
                         delay=message_delay,
@@ -905,18 +898,42 @@ class DLSTrigger(CommonService):
                     )
                     return {"success": True}
 
-            # Lookup appids for all dcids and exit early if only one found
-            data_files = [get_data_files_for_appid(intgr.APPID) for intgr in intgrs]
+                self.log.debug(f"Using appid{app.autoProcProgramId}")
+                attachments = []
+                for att in app.AutoProcProgramAttachments:
+                    if (
+                        att.fileType == "Result"
+                        and att.fileName.endswith(
+                            (
+                                "experiments.json",
+                                "reflections.pickle",
+                                ".expt",
+                                ".refl",
+                            )
+                        )
+                        and "_scaled." not in att.fileName
+                    ):
+                        attachments.append(
+                            str(pathlib.Path(att.filePath) / att.fileName)
+                        )
+                self.log.debug(
+                    f"Found the following files for appid {app.autoProcProgramId}:\n{', '.join(attachments)}"
+                )
+                if len(attachments) % 2:
+                    self.log.warning(
+                        f"Expected to find an even number of  data files for appid {app.autoProcProgramId} (found {len(attachments)})"
+                    )
+                    continue
+                if len(attachments) == 2:
+                    dcids.append(dc.dataCollectionId)
+                    data_files.append(attachments)
+
             if not any(data_files):
                 self.log.info(
                     f"Skipping xia2.multiplex trigger: no related data files found for dcid={dcid} group={group}"
                 )
                 continue
 
-            # Select only those dcids with a valid data files
-            dcids, data_files = zip(
-                *((dcid, files) for dcid, files in zip(dcids, data_files) if files)
-            )
             self.log.info(data_files)
             if len(data_files) <= 1:
                 self.log.info(

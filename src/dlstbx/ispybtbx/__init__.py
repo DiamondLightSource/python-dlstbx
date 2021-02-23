@@ -11,6 +11,37 @@ import mysql.connector  # installed by ispyb
 
 logger = logging.getLogger("dlstbx.ispybtbx")
 
+_gpfs03_beamlines = {
+    "b07",
+    "b07-1",
+    "b18",
+    "b21",
+    "b22",
+    "i05",
+    "i05-1",
+    "i07",
+    "i08",
+    "i08-1",
+    "i09",
+    "i09-1",
+    "i09-2",
+    "i10",
+    "i10-1",
+    "i12",
+    "i13",
+    "i13-1",
+    "i14",
+    "i14-1",
+    "i19",
+    "i19-1",
+    "i19-2",
+    "i20",
+    "i20-1",
+    "i21",
+    "k11",
+    "p99",
+}
+
 
 def _ispyb_api():
     if not hasattr(_ispyb_api, "instance"):
@@ -834,7 +865,7 @@ def ispyb_filter(message, parameters):
     dc_info = i.get_dc_info(dc_id)
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
     parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id)
-    if str(parameters["ispyb_beamline"]).lower() in ("i19", "i19-1", "i19-2"):
+    if str(parameters["ispyb_beamline"]).lower() in _gpfs03_beamlines:
         parameters["ispyb_preferred_datacentre"] = "hamilton"
     else:
         parameters["ispyb_preferred_datacentre"] = "cluster"

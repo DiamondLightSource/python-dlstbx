@@ -11,6 +11,37 @@ import mysql.connector  # installed by ispyb
 
 logger = logging.getLogger("dlstbx.ispybtbx")
 
+_gpfs03_beamlines = {
+    "b07",
+    "b18",
+    "b21",
+    "b22",
+    "i05",
+    "i07",
+    "i08",
+    "i09",
+    "i10",
+    "i12",
+    "i13",
+    "i14",
+    "i19",
+    "i20",
+    "i21",
+    "k11",
+    "p99",
+    "b07-1",
+    "i05-1",
+    "i08-1",
+    "i09-1",
+    "i09-2",
+    "i10-1",
+    "i13-1",
+    "i14-1",
+    "i19-1",
+    "i19-2",
+    "i20-1",
+}
+
 
 def _ispyb_api():
     if not hasattr(_ispyb_api, "instance"):
@@ -223,8 +254,7 @@ class ispybtbx:
             sample_groups = _ispyb_api().get_data_collection(dcid).sample_groups
         except mysql.connector.errors.ProgrammingError as e:
             logger.debug(
-                f"Error looking up sample_groups for dcid={dcid}:\n{e}",
-                exc_info=True,
+                f"Error looking up sample_groups for dcid={dcid}:\n{e}", exc_info=True,
             )
         except AttributeError as e:
             logger.debug(
@@ -299,13 +329,11 @@ class ispybtbx:
             sample = _ispyb_api().get_sample(sample_id)
         except mysql.connector.errors.ProgrammingError as e:
             logger.debug(
-                f"Error looking up sample for dcid={dcid}:\n{e}",
-                exc_info=True,
+                f"Error looking up sample for dcid={dcid}:\n{e}", exc_info=True,
             )
         except AttributeError as e:
             logger.debug(
-                f"sample not yet supported by ispyb-api version:\n{e}",
-                exc_info=True,
+                f"sample not yet supported by ispyb-api version:\n{e}", exc_info=True,
             )
         else:
             if sample:
@@ -834,7 +862,7 @@ def ispyb_filter(message, parameters):
     dc_info = i.get_dc_info(dc_id)
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
     parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id)
-    if str(parameters["ispyb_beamline"]).lower() in ("i19", "i19-1", "i19-2"):
+    if str(parameters["ispyb_beamline"]).lower() in _gpfs03_beamlines:
         parameters["ispyb_preferred_datacentre"] = "hamilton"
     else:
         parameters["ispyb_preferred_datacentre"] = "cluster"
@@ -1081,8 +1109,7 @@ def load_sample_group_config_file(ispyb_info):
                 sample_groups = yaml.safe_load(fh)
             except yaml.YAMLError as exc:
                 logger.warning(
-                    f"Error in configuration file {config_file}:\n{exc}",
-                    exc_info=True,
+                    f"Error in configuration file {config_file}:\n{exc}", exc_info=True,
                 )
             else:
                 groups = []

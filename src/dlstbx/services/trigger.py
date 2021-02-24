@@ -1,24 +1,26 @@
+import logging
 import hashlib
+import pathlib
 import re
 from datetime import datetime
 
 import py.path
+import sqlalchemy
 import workflows.recipe
+from sqlalchemy.orm import Load, joinedload
 from workflows.services.common_service import CommonService
 
 import ispyb_sqlalchemy
 from ispyb_sqlalchemy.models import (
     AutoProcProgram,
+    AutoProcProgramAttachment,
     AutoProcIntegration,
     DataCollection,
     ProcessingJob,
 )
 
-from sqlalchemy.orm import Load, joinedload
 
-import pathlib
-import logging
-
+logging.basicConfig()
 logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
 
@@ -845,10 +847,21 @@ class DLSTrigger(CommonService):
                 .filter(AutoProcProgram.processingPrograms == "xia2 dials")
                 .filter(AutoProcProgram.processingStatus != 0)
                 .options(
-                    joinedload(AutoProcProgram.AutoProcProgramAttachments),
+                    joinedload(
+                        AutoProcProgram.AutoProcProgramAttachments.and_(
+                            (
+                                AutoProcProgramAttachment.fileName.endswith(".expt")
+                                | AutoProcProgramAttachment.fileName.endswith(".refl")
+                            )
+                            & ~AutoProcProgramAttachment.fileName.contains("_scaled.")
+                        )
+                    )
+                    if sqlalchemy.__version__ >= "1.4"
+                    else joinedload(AutoProcProgram.AutoProcProgramAttachments),
                     joinedload(ProcessingJob.ProcessingJobParameters),
                     Load(DataCollection).load_only("dataCollectionId", "wavelength"),
                 )
+                .populate_existing()
             )
 
             dcids = []
@@ -905,8 +918,6 @@ class DLSTrigger(CommonService):
                         att.fileType == "Result"
                         and att.fileName.endswith(
                             (
-                                "experiments.json",
-                                "reflections.pickle",
                                 ".expt",
                                 ".refl",
                             )

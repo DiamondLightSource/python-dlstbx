@@ -5,9 +5,8 @@ import re
 from datetime import datetime
 
 import py.path
-import sqlalchemy
 import workflows.recipe
-from sqlalchemy.orm import Load, joinedload
+from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.services.common_service import CommonService
 
 import ispyb_sqlalchemy
@@ -841,23 +840,21 @@ class DLSTrigger(CommonService):
                         ProcessingJob.processingJobId
                         == AutoProcProgram.processingJobId,
                     )
+                    .join(AutoProcProgram.AutoProcProgramAttachments)
                 )
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .filter(ProcessingJob.automatic == True)  # noqa E712
                 .filter(AutoProcProgram.processingPrograms == "xia2 dials")
                 .filter(AutoProcProgram.processingStatus != 0)
-                .options(
-                    joinedload(
-                        AutoProcProgram.AutoProcProgramAttachments.and_(
-                            (
-                                AutoProcProgramAttachment.fileName.endswith(".expt")
-                                | AutoProcProgramAttachment.fileName.endswith(".refl")
-                            )
-                            & ~AutoProcProgramAttachment.fileName.contains("_scaled.")
-                        )
+                .filter(
+                    (
+                        AutoProcProgramAttachment.fileName.endswith(".expt")
+                        | AutoProcProgramAttachment.fileName.endswith(".refl")
                     )
-                    if sqlalchemy.__version__ >= "1.4"
-                    else joinedload(AutoProcProgram.AutoProcProgramAttachments),
+                    & ~AutoProcProgramAttachment.fileName.contains("_scaled.")
+                )
+                .options(
+                    contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                     joinedload(ProcessingJob.ProcessingJobParameters),
                     Load(DataCollection).load_only("dataCollectionId", "wavelength"),
                 )

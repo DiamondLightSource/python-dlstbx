@@ -151,7 +151,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
 
         amq_handler = workflows.logging.CallbackHandler(logging_call)
         if not self.options.verbose:
-            amq_handler.setLevel(logging.INFO)
+            amq_handler.setLevel(logging.WARNING)
         logging.getLogger().addHandler(amq_handler)
 
         if self.options.service_restart:

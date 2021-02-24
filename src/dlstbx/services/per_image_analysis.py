@@ -91,10 +91,8 @@ class DLSPerImageAnalysis(CommonService):
           "total_intensity": ... }
         """
 
-        # Extract the filename
-        filename = str(message["file"])  # https://github.com/cctbx/dxtbx/issues/12
-
         # Set up PIA parameters
+        filename = message["file"]
         parameters = rw.recipe_step.get("parameters", {})
         if not parameters:
             parameters = {"d_max": 40}
@@ -150,6 +148,9 @@ class DLSPerImageAnalysis(CommonService):
             parameters,
             results["n_spots_total"],
             runtime,
+            extra={
+                "pia-time": runtime,
+            },
         )
 
     def hdf5_select(self, rw, header, message):

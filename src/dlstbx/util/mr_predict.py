@@ -9,13 +9,10 @@ def run(model_file, output_file, threshold, metrics):
     with open(model_file, "rb") as fp:
         classifier_data = joblib.load(fp)
 
-    xia2_metric_labels = [
-        "Low resolution limit",
-        "Anomalous slope",
-        "Anomalous correlation",
-        "dI/s(dI)",
-        "dF/F",
-        'f"',
+    mrbump_metric_labels = [
+        "Phaser eLLG",
+        "Sequence Identity",
+        "Molecular Weight (Chain)",
     ]
 
     df = array(
@@ -33,13 +30,13 @@ def run(model_file, output_file, threshold, metrics):
                 "failure": func_round(pred_proba[0][0]),
                 "threshold": func_round(threshold),
                 "class": pred_class,
-                "metrics": dict(zip(xia2_metric_labels, metrics)),
+                "metrics": dict(zip(mrbump_metric_labels, metrics)),
             },
             fp,
         )
 
 
-def runmain():
+if __name__ == "__main__":
     model_file = sys.argv[1]
     output_file = sys.argv[2]
     threshold = float(sys.argv[3])

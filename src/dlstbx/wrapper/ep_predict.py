@@ -8,7 +8,7 @@ import procrunner
 from pprint import pformat
 from functools import reduce
 
-from dlstbx.cli import ep_predict
+from dlstbx.util import ep_predict
 
 logger = logging.getLogger("dlstbx.wrap.ep_predict")
 
@@ -95,7 +95,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
             return False
 
         fmt_script_path = ep_predict.__file__
-        # Avoid preompiled module incompatibility between Python 2 & 3
+        # Avoid preompiled module incompatibility between Python versions
         fmt_script_path = (
             fmt_script_path[:-1]
             if fmt_script_path.endswith(".pyc")

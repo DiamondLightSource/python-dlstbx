@@ -3,7 +3,7 @@ from typing import List, Union
 import dlstbx.mimas
 
 
-SWMR_BEAMLINES = {"i03", "i24"}
+SWMR_BEAMLINES = {"i03", "i04", "i24"}
 
 
 def run(

@@ -705,11 +705,8 @@ class DLSFileWatcher(CommonService):
                         d = f["/entry/data/data"]
                         dataset_files, file_map = h5check.get_real_frames(f, d)
                         image_count = len(file_map)
-                except KeyError as e:
-                    if (
-                        "Unable to open object (address of object past end of allocation)"
-                        not in str(e)
-                    ):
+                except Exception as e:
+                    if not is_known_hdf5_exception(e):
                         self.log.warning(f"Error reading {hdf5}", exc_info=True)
                         rw.transport.nack(header)
                         return
@@ -717,11 +714,7 @@ class DLSFileWatcher(CommonService):
                     # still being written to, so quietly log the message and
                     # continue, leading to the message being resubmitted for
                     # another round of processing
-                    self.log.info(f"KeyError reading {hdf5}", exc_info=True)
-                except Exception:
-                    self.log.warning(f"Error reading {hdf5}", exc_info=True)
-                    rw.transport.nack(header)
-                    return
+                    self.log.info(f"Error reading {hdf5}", exc_info=True)
 
         # Identify everys ('every-N' targets) to notify for
         everys = self._parse_everys(rw.recipe_step["output"])
@@ -765,20 +758,17 @@ class DLSFileWatcher(CommonService):
                     self.log.debug(
                         f"Found image {status['seen-images']} (size={s.size})"
                     )
-                except OSError as e:
-                    if "Unable to open file" in str(e) and (
-                        "truncated file: eof" in str(e)
-                        or "file is not already open for SWMR writing" in str(e)
-                    ):
-                        self.log.info(f"OSError reading {h5_data_file}", exc_info=True)
-                        break
-                    self.log.warning(f"Error reading {h5_data_file}", exc_info=True)
-                    rw.transport.nack(header)
-                    return
-                except Exception:
-                    self.log.warning(f"Error reading {h5_data_file}", exc_info=True)
-                    rw.transport.nack(header)
-                    return
+                except Exception as e:
+                    if not is_known_hdf5_exception(e):
+                        self.log.warning(f"Error reading {hdf5}", exc_info=True)
+                        rw.transport.nack(header)
+                        return
+                    # For some reason this means that the .nxs file is probably
+                    # still being written to, so quietly log the message and
+                    # break, leading to the message being resubmitted for
+                    # another round of processing
+                    self.log.info(f"Error reading {hdf5}", exc_info=True)
+                    break
 
                 images_found += 1
 
@@ -976,3 +966,15 @@ class DLSFileWatcher(CommonService):
             {"filewatcher-status": status}, delay=message_delay, transaction=txn
         )
         rw.transport.transaction_commit(txn)
+
+
+def is_known_hdf5_exception(exception):
+    # Known ephemeral errors that are likely the result of race conditions when
+    # an hdf5 file has started been written to, but is not yet valid for reading.
+    known_error_messages = {
+        "Unable to open object (address of object past end of allocation)",
+        "Unable to open file (truncated file: eof =",
+        "Unable to open file (file is not already open for SWMR writing)",
+        "Can't deserialize object header prefix (bad object header version number)",
+    }
+    return any(msg in str(exception) for msg in known_error_messages)

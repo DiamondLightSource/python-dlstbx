@@ -1,6 +1,7 @@
 import h5py
 import numpy as np
 import pytest
+from scipy.spatial.transform import Rotation
 
 from . import get_dependency_chain, get_cumulative_transformation
 
@@ -463,6 +464,225 @@ def test(nxsample, tmp_path):
     A = get_cumulative_transformation(dependency_chain)
     print(f"Final A:\n{A[0].round(3)}")
     coords_o90 = np.array([A[0] @ c for c in coords])
+    # coords_o90 = np.array([a @ c for a, c in zip(A, coords)])
+
+    print(coords_o0)
+    print(coords_o45)
+    print(coords_o90)
+
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.plot(coords_o0[:, 0], coords_o0[:, 1], coords_o0[:, 2])
+    ax.plot(coords_o45[:, 0], coords_o45[:, 1], coords_o45[:, 2])
+    ax.plot(coords_o90[:, 0], coords_o90[:, 1], coords_o90[:, 2])
+    plt.show()
+
+
+def test_smargon_sample_stages(nxsample, tmp_path):
+    sam_xyz = np.array(
+        [
+            [-120.0, -100.0, 0.0],
+            [-100.0, -100.0, 0.0],
+            [-80.0, -100.0, 0.0],
+            [-60.0, -100.0, 0.0],
+            [-40.0, -100.0, 0.0],
+            [-20.0, -100.0, 0.0],
+            [0.0, -100.0, 0.0],
+            [20.0, -100.0, 0.0],
+            [40.0, -100.0, 0.0],
+            [60.0, -100.0, 0.0],
+            [80.0, -100.0, 0.0],
+            [100.0, -100.0, 0.0],
+            [120.0, -100.0, 0.0],
+            [120.0, -80.0, 0.0],
+            [100.0, -80.0, 0.0],
+            [80.0, -80.0, 0.0],
+            [60.0, -80.0, 0.0],
+            [40.0, -80.0, 0.0],
+            [20.0, -80.0, 0.0],
+            [0.0, -80.0, 0.0],
+            [-20.0, -80.0, 0.0],
+            [-40.0, -80.0, 0.0],
+            [-60.0, -80.0, 0.0],
+            [-80.0, -80.0, 0.0],
+            [-100.0, -80.0, 0.0],
+            [-120.0, -80.0, 0.0],
+            [-120.0, -60.0, 0.0],
+            [-100.0, -60.0, 0.0],
+            [-80.0, -60.0, 0.0],
+            [-60.0, -60.0, 0.0],
+            [-40.0, -60.0, 0.0],
+            [-20.0, -60.0, 0.0],
+            [0.0, -60.0, 0.0],
+            [20.0, -60.0, 0.0],
+            [40.0, -60.0, 0.0],
+            [60.0, -60.0, 0.0],
+            [80.0, -60.0, 0.0],
+            [100.0, -60.0, 0.0],
+            [120.0, -60.0, 0.0],
+            [120.0, -40.0, 0.0],
+            [100.0, -40.0, 0.0],
+            [80.0, -40.0, 0.0],
+            [60.0, -40.0, 0.0],
+            [40.0, -40.0, 0.0],
+            [20.0, -40.0, 0.0],
+            [0.0, -40.0, 0.0],
+            [-20.0, -40.0, 0.0],
+            [-40.0, -40.0, 0.0],
+            [-60.0, -40.0, 0.0],
+            [-80.0, -40.0, 0.0],
+            [-100.0, -40.0, 0.0],
+            [-120.0, -40.0, 0.0],
+            [-120.0, -20.0, 0.0],
+            [-100.0, -20.0, 0.0],
+            [-80.0, -20.0, 0.0],
+            [-60.0, -20.0, 0.0],
+            [-40.0, -20.0, 0.0],
+            [-20.0, -20.0, 0.0],
+            [0.0, -20.0, 0.0],
+            [20.0, -20.0, 0.0],
+            [40.0, -20.0, 0.0],
+            [60.0, -20.0, 0.0],
+            [80.0, -20.0, 0.0],
+            [100.0, -20.0, 0.0],
+            [120.0, -20.0, 0.0],
+            [120.0, 0.0, 0.0],
+            [100.0, 0.0, 0.0],
+            [80.0, 0.0, 0.0],
+            [60.0, 0.0, 0.0],
+            [40.0, 0.0, 0.0],
+            [20.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+            [-20.0, 0.0, 0.0],
+            [-40.0, 0.0, 0.0],
+            [-60.0, 0.0, 0.0],
+            [-80.0, 0.0, 0.0],
+            [-100.0, 0.0, 0.0],
+            [-120.0, 0.0, 0.0],
+            [-120.0, 20.0, 0.0],
+            [-100.0, 20.0, 0.0],
+            [-80.0, 20.0, 0.0],
+            [-60.0, 20.0, 0.0],
+            [-40.0, 20.0, 0.0],
+            [-20.0, 20.0, 0.0],
+            [0.0, 20.0, 0.0],
+            [20.0, 20.0, 0.0],
+            [40.0, 20.0, 0.0],
+            [60.0, 20.0, 0.0],
+            [80.0, 20.0, 0.0],
+            [100.0, 20.0, 0.0],
+            [120.0, 20.0, 0.0],
+            [120.0, 40.0, 0.0],
+            [100.0, 40.0, 0.0],
+            [80.0, 40.0, 0.0],
+            [60.0, 40.0, 0.0],
+            [40.0, 40.0, 0.0],
+            [20.0, 40.0, 0.0],
+            [0.0, 40.0, 0.0],
+            [-20.0, 40.0, 0.0],
+            [-40.0, 40.0, 0.0],
+            [-60.0, 40.0, 0.0],
+            [-80.0, 40.0, 0.0],
+            [-100.0, 40.0, 0.0],
+            [-120.0, 40.0, 0.0],
+            [-120.0, 60.0, 0.0],
+            [-100.0, 60.0, 0.0],
+            [-80.0, 60.0, 0.0],
+            [-60.0, 60.0, 0.0],
+            [-40.0, 60.0, 0.0],
+            [-20.0, 60.0, 0.0],
+            [0.0, 60.0, 0.0],
+            [20.0, 60.0, 0.0],
+            [40.0, 60.0, 0.0],
+            [60.0, 60.0, 0.0],
+            [80.0, 60.0, 0.0],
+            [100.0, 60.0, 0.0],
+            [120.0, 60.0, 0.0],
+            [120.0, 80.0, 0.0],
+            [100.0, 80.0, 0.0],
+            [80.0, 80.0, 0.0],
+            [60.0, 80.0, 0.0],
+            [40.0, 80.0, 0.0],
+            [20.0, 80.0, 0.0],
+            [0.0, 80.0, 0.0],
+            [-20.0, 80.0, 0.0],
+            [-40.0, 80.0, 0.0],
+            [-60.0, 80.0, 0.0],
+            [-80.0, 80.0, 0.0],
+            [-100.0, 80.0, 0.0],
+            [-120.0, 80.0, 0.0],
+            [-120.0, 100.0, 0.0],
+            [-100.0, 100.0, 0.0],
+            [-80.0, 100.0, 0.0],
+            [-60.0, 100.0, 0.0],
+            [-40.0, 100.0, 0.0],
+            [-20.0, 100.0, 0.0],
+            [0.0, 100.0, 0.0],
+            [20.0, 100.0, 0.0],
+            [40.0, 100.0, 0.0],
+            [60.0, 100.0, 0.0],
+            [80.0, 100.0, 0.0],
+            [100.0, 100.0, 0.0],
+            [120.0, 100.0, 0.0],
+        ]
+    )
+    R45 = Rotation.from_rotvec(np.pi / 4 * np.array((-1, 0, 0))).as_matrix()
+    sam_xyz_o45 = np.array([R45 @ xyz for xyz in sam_xyz])
+    R90 = Rotation.from_rotvec(np.pi / 2 * np.array((-1, 0, 0))).as_matrix()
+    sam_xyz_o90 = np.array([R90 @ xyz for xyz in sam_xyz])
+    coords = np.ones((len(sam_xyz), 4))
+    coords[:, :-1] = sam_xyz
+
+    nxs = tmp_path / "nxsample_omega_0.nxs"
+    nxsample(
+        filename=nxs,
+        sam_x=sam_xyz[:, 0],
+        sam_y=sam_xyz[:, 1],
+        sam_z=sam_xyz[:, 2],
+    )
+    f = h5py.File(nxs)
+    sample = f["/entry/sample"]
+    depends_on = sample["depends_on"][()]
+    dependency_chain = get_dependency_chain(f[depends_on])
+    A = get_cumulative_transformation(dependency_chain)
+    print(f"Final A:\n{A[0].round(3)}")
+    # coords_o0 = (A[0] @ coords.T).T
+    coords_o0 = A @ np.array((0, 0, 0, 1))
+
+    nxs = tmp_path / "nxsample_omega_45.nxs"
+    nxsample(
+        filename=nxs,
+        sam_x=sam_xyz_o45[:, 0],
+        sam_y=sam_xyz_o45[:, 1],
+        sam_z=sam_xyz_o45[:, 2],
+    )
+    f = h5py.File(nxs)
+    sample = f["/entry/sample"]
+    depends_on = sample["depends_on"][()]
+    dependency_chain = get_dependency_chain(f[depends_on])
+    A = get_cumulative_transformation(dependency_chain)
+    print(f"Final A:\n{A[0].round(3)}")
+    # coords_o45 = (A[0] @ coords.T).T
+    coords_o45 = A @ np.array((0, 0, 0, 1))
+
+    nxs = tmp_path / "nxsample_omega_90.nxs"
+    nxsample(
+        filename=nxs,
+        sam_x=sam_xyz_o90[:, 0],
+        sam_y=sam_xyz_o90[:, 1],
+        sam_z=sam_xyz_o90[:, 2],
+    )
+    f = h5py.File(nxs)
+    sample = f["/entry/sample"]
+    depends_on = sample["depends_on"][()]
+    dependency_chain = get_dependency_chain(f[depends_on])
+    A = get_cumulative_transformation(dependency_chain)
+    print(f"Final A:\n{A[0].round(3)}")
+    # coords_o90 = (A[0] @ coords.T).T
+    coords_o90 = A @ np.array((0, 0, 0, 1))
 
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D  # noqa: F401

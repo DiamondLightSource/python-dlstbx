@@ -701,7 +701,7 @@ class DLSFileWatcher(CommonService):
             if os.path.isfile(hdf5):
                 self.log.debug(f"Opening {hdf5}")
                 try:
-                    with h5py.File(hdf5, "r", swmr=True) as f:
+                    with h5py.File(hdf5, mode="r", swmr=True) as f:
                         d = f["/entry/data/data"]
                         dataset_files, file_map = h5check.get_real_frames(f, d)
                         image_count = len(file_map)
@@ -746,7 +746,7 @@ class DLSFileWatcher(CommonService):
                 try:
                     if h5_data_file not in file_handles:
                         file_handles[h5_data_file] = h5py.File(
-                            h5_data_file, "r", swmr=True
+                            h5_data_file, mode="r", swmr=True
                         )
                         self.log.debug(f"Opening file {h5_data_file}")
                     h5_file = file_handles[h5_data_file]

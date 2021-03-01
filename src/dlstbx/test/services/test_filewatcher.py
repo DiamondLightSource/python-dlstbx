@@ -1,9 +1,12 @@
 import collections
+import logging
 import pytest
 import os
 import threading
 import time
 from unittest import mock
+
+import h5py
 
 import workflows.transport.common_transport
 from workflows.recipe.wrapper import RecipeWrapper
@@ -669,3 +672,82 @@ def test_filewatcher_watch_swmr_h5py_error(mocker, tmp_path, caplog):
     filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
     assert f"Error reading {data_h5}" in caplog.text
     t.nack.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "exception",
+    [
+        RuntimeError(
+            "Can't deserialize object header prefix (bad object header version number)"
+        ),
+        OSError(
+            "Unable to open file (truncated file: eof = 85340, sblock->base_addr = 0, stored_eof = 86276)"
+        ),
+        OSError(
+            "Unable to open file (truncated file: eof = 85340, sblock->base_addr = 0, stored_eof = 86276)"
+        ),
+        KeyError("Unable to open object (address of object past end of allocation)"),
+    ],
+)
+def test_filewatcher_watch_swmr_h5py_known_errors(exception, mocker, tmp_path, caplog):
+    # Test that the filewatcher gracefully handles known errors reading h5py files
+    caplog.set_level(logging.INFO)
+    h5_prefix = tmp_path / "foo"
+    master_h5 = os.fspath(h5_prefix) + "_master.h5"
+    mock_transport = mocker.Mock()
+    filewatcher = DLSFileWatcher()
+    setattr(filewatcher, "_transport", mock_transport)
+    filewatcher.initializing()
+    t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)
+    m = generate_recipe_message(
+        parameters={
+            "hdf5": master_h5,
+        },
+        output={},
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+
+    # Test exception reading master file
+    with open(master_h5, "w") as fh:
+        fh.write("content")
+    checkpoint = mocker.spy(rw, "checkpoint")
+    with mock.patch("h5py.File", side_effect=exception):
+        filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    assert f"Error reading {master_h5}" in caplog.text
+    checkpoint.assert_any_call(
+        {
+            "filewatcher-status": {
+                "seen-images": 0,
+                "start-time": mock.ANY,
+                "image-count": None,
+            }
+        },
+        delay=1,
+        transaction=mock.ANY,
+    )
+
+    # Test exception reading data file
+    t.reset_mock()
+    checkpoint.reset_mock()
+    h5maker.main(h5_prefix, block_size=2, nblocks=2)
+    h5py_File = h5py.File
+
+    def side_effect_raise(*args, **kwargs):
+        if args[0].endswith("_000000.h5") and kwargs.get("mode") == "r":
+            raise exception
+        return h5py_File(*args, **kwargs)
+
+    with mocker.patch("h5py.File", side_effect=side_effect_raise):
+        filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    assert f"Error reading {os.fspath(h5_prefix)}_000000.h5" in caplog.text
+    checkpoint.assert_any_call(
+        {
+            "filewatcher-status": {
+                "seen-images": 0,
+                "start-time": mock.ANY,
+                "image-count": None,
+            }
+        },
+        delay=1,
+        transaction=mock.ANY,
+    )

@@ -760,14 +760,14 @@ class DLSFileWatcher(CommonService):
                     )
                 except Exception as e:
                     if not is_known_hdf5_exception(e):
-                        self.log.warning(f"Error reading {hdf5}", exc_info=True)
+                        self.log.warning(f"Error reading {h5_data_file}", exc_info=True)
                         rw.transport.nack(header)
                         return
                     # For some reason this means that the .nxs file is probably
                     # still being written to, so quietly log the message and
                     # break, leading to the message being resubmitted for
                     # another round of processing
-                    self.log.info(f"Error reading {hdf5}", exc_info=True)
+                    self.log.info(f"Error reading {h5_data_file}", exc_info=True)
                     break
 
                 images_found += 1

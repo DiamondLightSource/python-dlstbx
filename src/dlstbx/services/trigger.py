@@ -9,8 +9,7 @@ import workflows.recipe
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.services.common_service import CommonService
 
-import ispyb_sqlalchemy
-from ispyb_sqlalchemy.models import (
+from ispyb.sqlalchemy import (
     AutoProcProgram,
     AutoProcProgramAttachment,
     AutoProcIntegration,
@@ -47,6 +46,9 @@ class DLSTrigger(CommonService):
             "/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg"
         )
         self.ispyb = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
+        self.session = ispyb.sqlalchemy.session(
+            "/dls_sw/apps/zocalo/secrets/credentials-ispyb-sqlalchemy.cfg"
+        )
 
     def trigger(self, rw, header, message):
         """Forward the trigger message to a specific trigger function."""
@@ -761,10 +763,6 @@ class DLSTrigger(CommonService):
         return {"success": True, "return_value": None}
 
     def trigger_multiplex(self, rw, header, message, parameters, transaction, **kwargs):
-        db_session = ispyb_sqlalchemy.open(
-            "/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg"
-        )
-
         dcid = parameters("dcid")
         if not dcid:
             self.log.error("xia2.multiplex trigger failed: No DCID specified")
@@ -820,7 +818,7 @@ class DLSTrigger(CommonService):
 
             query = (
                 (
-                    db_session.query(
+                    self.session.query(
                         DataCollection,
                         AutoProcProgram,
                         ProcessingJob,
@@ -964,13 +962,14 @@ class DLSTrigger(CommonService):
             jobids.append(jobid)
             self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")
 
-            for d in dcids:
-                dc_info = self.ispyb.get_data_collection(d)
-
+            query = self.session.query(DataCollection).filter(
+                DataCollection.dataCollectionId.in_(dcids)
+            )
+            for dc in query.all():
                 jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
-                jisp["datacollectionid"] = d
-                jisp["start_image"] = dc_info.image_start_number
-                jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
+                jisp["datacollectionid"] = dc.dataCollectionId
+                jisp["start_image"] = dc.startImageNumber
+                jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
 
                 jisp["job_id"] = jobid
                 jispid = self.ispyb.mx_processing.upsert_job_image_sweep(

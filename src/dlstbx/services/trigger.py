@@ -854,7 +854,9 @@ class DLSTrigger(CommonService):
                 .options(
                     contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                     joinedload(ProcessingJob.ProcessingJobParameters),
-                    Load(DataCollection).load_only("dataCollectionId", "wavelength"),
+                    Load(DataCollection)
+                    .load_only("dataCollectionId", "wavelength")
+                    .raiseload("*"),
                 )
                 .populate_existing()
             )
@@ -906,22 +908,10 @@ class DLSTrigger(CommonService):
                     )
                     return {"success": True}
 
-                self.log.debug(f"Using appid{app.autoProcProgramId}")
+                self.log.debug(f"Using appid {app.autoProcProgramId}")
                 attachments = []
                 for att in app.AutoProcProgramAttachments:
-                    if (
-                        att.fileType == "Result"
-                        and att.fileName.endswith(
-                            (
-                                ".expt",
-                                ".refl",
-                            )
-                        )
-                        and "_scaled." not in att.fileName
-                    ):
-                        attachments.append(
-                            str(pathlib.Path(att.filePath) / att.fileName)
-                        )
+                    attachments.append(str(pathlib.Path(att.filePath) / att.fileName))
                 self.log.debug(
                     f"Found the following files for appid {app.autoProcProgramId}:\n{', '.join(attachments)}"
                 )
@@ -962,8 +952,19 @@ class DLSTrigger(CommonService):
             jobids.append(jobid)
             self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")
 
-            query = self.session.query(DataCollection).filter(
-                DataCollection.dataCollectionId.in_(dcids)
+            query = (
+                self.session.query(DataCollection)
+                .filter(DataCollection.dataCollectionId.in_(dcids))
+                .options(
+                    Load(DataCollection)
+                    .load_only(
+                        "dataCollectionId",
+                        "wavelength",
+                        "startImageNumber",
+                        "numberOfImages",
+                    )
+                    .raiseload("*")
+                )
             )
             for dc in query.all():
                 jisp = self.ispyb.mx_processing.get_job_image_sweep_params()

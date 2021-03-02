@@ -319,18 +319,22 @@ class DLSTrigger(CommonService):
             self.log.error("mr_predict trigger failed: No DCID specified")
             return False
 
-        file_directory = self.ispyb.get_data_collection(dcid).file_directory
-        visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", file_directory)
-        try:
-            visit = visit_match.group(1)
-        except AttributeError:
+        query = (
+            self.session.query(Proposal)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        proposal = query.first()
+        if not proposal:
             self.log.error(
-                "mr_predict trigger failed: Cannot match visit pattern in path %s",
-                file_directory,
+                f"mr_predict trigger failed: no proposal associated with dcid={dcid}"
             )
             return False
-        if True in [pfx in visit for pfx in ("lb", "in", "sw")]:
-            self.log.info("Skipping mr_predict trigger for %s visit", visit)
+        if proposal.proposalCode in ("lb", "in", "sw"):
+            self.log.info(
+                f"Skipping ep_predict trigger for {proposal.proposalCode} visit"
+            )
             return {"success": True}
 
         diffraction_plan_info = parameters("diffraction_plan_info")

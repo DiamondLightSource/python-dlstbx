@@ -13,10 +13,12 @@ from ispyb.sqlalchemy import (
     AutoProcProgramAttachment,
     AutoProcIntegration,
     BLSample,
+    BLSession,
     Crystal,
     DataCollection,
     PDB,
     ProcessingJob,
+    Proposal,
     Protein,
     ProteinHasPDB,
 )
@@ -212,18 +214,24 @@ class DLSTrigger(CommonService):
             self.log.error("ep_predict trigger failed: No DCID specified")
             return False
 
-        file_directory = self.ispyb.get_data_collection(dcid).file_directory
-        visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", file_directory)
-        try:
-            visit = visit_match.group(1)
-        except AttributeError:
+        query = (
+            self.session.query(DataCollection, Proposal)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        rows = query.all()
+        if not rows:
             self.log.error(
-                "ep_predict trigger failed: Cannot match visit pattern in path %s",
-                file_directory,
+                f"ep_predict trigger failed: no proposal associated with dcid={dcid}"
             )
             return False
-        if True in [pfx in visit for pfx in ("lb", "in", "sw")]:
-            self.log.info("Skipping ep_predict trigger for %s visit", visit)
+
+        dc, proposal = rows[0]
+        if proposal.proposalCode in ("lb", "in", "sw"):
+            self.log.info(
+                f"Skipping ep_predict trigger for {proposal.proposalCode} visit"
+            )
             return {"success": True}
 
         diffraction_plan_info = parameters("diffraction_plan_info")
@@ -255,11 +263,10 @@ class DLSTrigger(CommonService):
             self.log.error("ep_predict trigger failed: Invalid program_id specified")
             return False
 
-        dc_info = self.ispyb.get_data_collection(dcid)
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = dcid
-        jisp["start_image"] = dc_info.image_start_number
-        jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
+        jisp["start_image"] = dc.startImageNumber
+        jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = bool(parameters("automatic"))

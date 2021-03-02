@@ -1,9 +1,11 @@
 import functools
+import h5py
 
 import pytest
 import workflows.recipe
 import dxtbx.model.experiment_list
 from workflows.services.common_service import CommonService
+from util.hdf5 import find_all_references
 
 
 class DLSValidation(CommonService):
@@ -71,6 +73,12 @@ class DLSValidation(CommonService):
 
         fail = functools.partial(self.fail_validation, rw, header, output)
 
+        # Verify HDF5 file version is _not_ compatible with HDF5 1.8 format
+        if filename.endswith(".h5") or filename.endswith(".nxs"):
+            linked = find_all_references(filename)
+            if not all(self.hdf5_110_or_later(link) for link in linked):
+                return fail(f"HDF5 1.8 format data linked to: {filename}")
+
         # Create experiment list
         try:
             el = dxtbx.model.experiment_list.ExperimentListFactory.from_filenames(
@@ -104,3 +112,24 @@ class DLSValidation(CommonService):
 
         rw.transport.ack(header)
         self.log.debug("%s passed validation", filename)
+
+    @staticmethod
+    def hdf5_110_or_later(filename):
+        """Verify that the filename passed is written in SWMR format - assessed
+        as being compatible with HDF5 1.10 but not 1.8"""
+
+        ver110 = True
+
+        try:
+            with h5py.File(filename, "r") as _:
+                pass
+        except Exception:
+            return False
+
+        try:
+            with h5py.File(filename, "r", libver=("earliest", "v108")) as _:
+                ver110 = False
+        except OSError:
+            pass
+
+        return ver110

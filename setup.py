@@ -57,6 +57,7 @@ console_scripts = [
     "dlstbx.wrap_fast_dp=dlstbx.cli.wrap_fast_dp:main",
     "dlstbx.wrap_multi_xia2=dlstbx.cli.wrap_multi_xia2:main",
     "eiger2xds=dlstbx.cli.eiger2xds:run",
+    "em.visits=dlstbx.cli.em_visits:run",
     "i19.tail=dlstbx.cli.i19_tail:run",
     "ispyb.job=dlstbx.cli.ispyb_job:run",
     "ispyb.reprocessing=dlstbx.cli.ispyb_job:run",  # deprecated

@@ -1,0 +1,106 @@
+import datetime
+import pytest
+import workflows.transport.common_transport
+from workflows.recipe.wrapper import RecipeWrapper
+from unittest import mock
+
+import ispyb.sqlalchemy
+from ispyb.sqlalchemy import (
+    AutoProcIntegration,
+    AutoProcProgram,
+    AutoProcProgramAttachment,
+    DataCollection,
+    DataCollectionGroup,
+    ProcessingJob,
+)
+
+from dlstbx.services.trigger import DLSTrigger
+
+
+@pytest.fixture
+def insert_multiplex_input(alchemy):
+    dcs = []
+    for i in range(3):
+        dcg = DataCollectionGroup(sessionId=55167)
+        dc = DataCollection(
+            DataCollectionGroup=dcg,
+            wavelength=1.03936,
+            startImageNumber=1,
+            numberOfImages=25,
+        )
+        dcs.append(dc)
+        pj = ProcessingJob(
+            DataCollection=dc,
+            automatic=True,
+        )
+        app = AutoProcProgram(
+            ProcessingJob=pj,
+            processingStatus=1,
+            processingStartTime=datetime.datetime.now(),
+            processingPrograms="xia2 dials",
+        )
+        api = AutoProcIntegration(DataCollection=dc, AutoProcProgram=app)
+        alchemy.add_all([dc, api, app, pj])
+        for ext in ("expt", "refl"):
+            alchemy.add(
+                AutoProcProgramAttachment(
+                    AutoProcProgram=app,
+                    filePath=f"/path/to/xia2-dials-{i}",
+                    fileName=f"integrated.{ext}",
+                )
+            )
+    alchemy.commit()
+    return [dc.dataCollectionId for dc in dcs]
+
+
+def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker):
+    session = ispyb.sqlalchemy.session(testconfig)
+    dcids = insert_multiplex_input
+    message = {
+        "recipe": {
+            "1": {
+                "service": "DLS Trigger",
+                "queue": "trigger",
+                "parameters": {
+                    "target": "multiplex",
+                    "dcid": dcids[-1],
+                    "wavelength": "1.03936",
+                    "comment": "xia2.multiplex triggered by automatic xia2-dials",
+                    "automatic": True,
+                    "ispyb_parameters": None,
+                    "related_dcids": [
+                        {
+                            "dcids": dcids[:-1],
+                        }
+                    ],
+                    "backoff-delay": 8,
+                    "backoff-max-try": 10,
+                    "backoff-multiplier": 2,
+                },
+            },
+        },
+        "recipe-pointer": 1,
+    }
+
+    trigger = DLSTrigger()
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    rw = RecipeWrapper(message=message, transport=t)
+    trigger.ispyb = testdb
+    trigger.session = session
+    send = mocker.spy(rw, "send")
+    trigger.trigger(rw, {"some": "header"}, message)
+    send.assert_called_once_with({"result": [mocker.ANY]}, transaction=mocker.ANY)
+    kall = send.mock_calls[0]
+    name, args, kwargs = kall
+    pjid = args[0]["result"][0]
+    # Need a new session to reflect the data inserted by stored procedures
+    session = ispyb.sqlalchemy.session(testconfig)
+    pj = (
+        session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
+    )
+    assert pj.displayName == "xia2.multiplex"
+    assert pj.recipe == "postprocessing-xia2-multiplex"
+    assert pj.dataCollectionId == dcids[-1]
+    assert pj.automatic
+    for pjp in pj.ProcessingJobParameters:
+        print(pjp.parameterKey, pjp.parameterValue)

@@ -1,7 +1,6 @@
 import logging
 import hashlib
 import pathlib
-import re
 from datetime import datetime
 
 import workflows.recipe
@@ -333,7 +332,7 @@ class DLSTrigger(CommonService):
             return False
         if proposal.proposalCode in ("lb", "in", "sw"):
             self.log.info(
-                f"Skipping ep_predict trigger for {proposal.proposalCode} visit"
+                f"Skipping mr_predict trigger for {proposal.proposalCode} visit"
             )
             return {"success": True}
 
@@ -706,18 +705,21 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        file_directory = self.ispyb.get_data_collection(dcid).file_directory
-        visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", file_directory)
-        try:
-            visit = visit_match.group(1)
-        except AttributeError:
+        query = (
+            self.session.query(Proposal)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        proposal = query.first()
+        if not proposal:
             self.log.error(
-                "big_ep trigger failed: Cannot match visit pattern in path %s",
-                file_directory,
+                f"big_ep trigger failed: no proposal associated with dcid={dcid}"
             )
             return False
-        if True in [pfx in visit for pfx in ("lb", "in", "sw")]:
-            self.log.info("Skipping big_ep for %s visit", visit)
+
+        if proposal.proposalCode in ("lb", "in", "sw"):
+            self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
         try:
@@ -725,17 +727,30 @@ class DLSTrigger(CommonService):
         except (TypeError, ValueError):
             self.log.error("big_ep trigger failed: Invalid program_id specified")
             return False
-        programs_all = rw.environment["ispyb_programs_all"]
-        for prog in programs_all:
-            if prog["id"] == program_id:
-                big_ep_params = parameters(prog["programs"])
+        query = (
+            self.session.query(AutoProcProgram)
+            .join(
+                AutoProcIntegration,
+                AutoProcIntegration.autoProcProgramId
+                == AutoProcProgram.autoProcProgramId,
+            )
+            .join(
+                DataCollection,
+                DataCollection.dataCollectionId == AutoProcIntegration.dataCollectionId,
+            )
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        big_ep_params = None
+        for app in query.all():
+            if app.autoProcProgramId == program_id:
+                big_ep_params = parameters(app.processingPrograms)
                 break
         try:
             assert big_ep_params
         except (AssertionError, NameError):
             self.log.error(
                 "big_ep trigger failed: No input data provided for program %s",
-                prog["programs"],
+                app.processingPrograms,
             )
             return False
         data = big_ep_params["data"]

@@ -282,3 +282,76 @@ def test_fast_ep(testconfig, testdb, mocker):
         ("data", "/path/to/fast_dp/fast_dp.mtz"),
         ("scaling_id", "123456"),
     }
+
+
+def test_big_ep(testconfig, testdb, mocker):
+    session = ispyb.sqlalchemy.session(testconfig)
+    dcid = 1002287
+    message = {
+        "recipe": {
+            "1": {
+                "service": "DLS Trigger",
+                "queue": "trigger",
+                "parameters": {
+                    "target": "big_ep",
+                    "dcid": dcid,
+                    "comment": "big_ep triggered by automatic xia2-dials",
+                    "automatic": True,
+                    "program_id": 56986673,
+                    "diffraction_plan_info": {
+                        "diffractionplanid": 2021731,
+                        "radiationsensitivity": 0.0,
+                        "anomalousscatterer": "S",
+                    },
+                    "xia2 dials": {
+                        "data": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz",
+                        "scaled_unmerged_mtz": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
+                        "path_ext": "xia2/dials-run",
+                    },
+                },
+            },
+        },
+        "recipe-pointer": 1,
+    }
+    trigger = DLSTrigger()
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    rw = RecipeWrapper(message=message, transport=t)
+    trigger.ispyb = testdb
+    trigger.session = session
+    send = mocker.spy(rw, "send")
+    trigger.trigger(rw, {"some": "header"}, message)
+    send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
+    t.send.assert_called_once_with(
+        "processing_recipe",
+        {
+            "parameters": {
+                "ispyb_process": mock.ANY,
+                "program_id": 56986673,
+                "data": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz",
+                "scaled_unmerged_mtz": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
+                "path_ext": "xia2/dials-run",
+            },
+            "recipes": [],
+        },
+    )
+    pjid = t.send.call_args.args[1]["parameters"]["ispyb_process"]
+    # Need a new session to reflect the data inserted by stored procedures
+    session = ispyb.sqlalchemy.session(testconfig)
+    pj = (
+        session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
+    )
+    assert pj.displayName == "big_ep"
+    assert pj.recipe == "postprocessing-big-ep"
+    assert pj.dataCollectionId == dcid
+    assert pj.automatic
+    params = {
+        (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+    }
+    assert params == {
+        (
+            "scaled_unmerged_mtz",
+            "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
+        ),
+        ("data", "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz"),
+        ("program_id", "56986673"),
+    }

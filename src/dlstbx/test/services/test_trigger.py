@@ -174,7 +174,7 @@ def test_dimple_trigger(insert_dimple_input, testconfig, testdb, mocker, tmp_pat
     }
 
 
-def test_ep_predict(testconfig, testdb, mocker, tmp_path):
+def test_ep_predict(testconfig, testdb, mocker):
     session = ispyb.sqlalchemy.session(testconfig)
     dcid = 993677
     message = {
@@ -226,4 +226,59 @@ def test_ep_predict(testconfig, testdb, mocker, tmp_path):
         ("data", "/path/to/xia2-dials/xia2.json"),
         ("program", "xia2 dials"),
         ("program_id", "123456"),
+    }
+
+
+def test_fast_ep(testconfig, testdb, mocker):
+    session = ispyb.sqlalchemy.session(testconfig)
+    dcid = 993677
+    message = {
+        "recipe": {
+            "1": {
+                "service": "DLS Trigger",
+                "queue": "trigger",
+                "parameters": {
+                    "target": "fast_ep",
+                    "dcid": dcid,
+                    "comment": "FastEP triggered by automatic FastDP",
+                    "automatic": True,
+                    "diffraction_plan_info": {
+                        "diffractionplanid": 2021731,
+                        "radiationsensitivity": 0.0,
+                        "anomalousscatterer": "S",
+                    },
+                    "scaling_id": "123456",
+                    "mtz": "/path/to/fast_dp/fast_dp.mtz",
+                },
+            }
+        },
+        "recipe-pointer": 1,
+    }
+    trigger = DLSTrigger()
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    rw = RecipeWrapper(message=message, transport=t)
+    trigger.ispyb = testdb
+    trigger.session = session
+    send = mocker.spy(rw, "send")
+    trigger.trigger(rw, {"some": "header"}, message)
+    send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
+    kall = send.mock_calls[0]
+    name, args, kwargs = kall
+    pjid = args[0]["result"]
+    # Need a new session to reflect the data inserted by stored procedures
+    session = ispyb.sqlalchemy.session(testconfig)
+    pj = (
+        session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
+    )
+    assert pj.displayName == "fast_ep"
+    assert pj.recipe == "postprocessing-fast-ep"
+    assert pj.dataCollectionId == dcid
+    assert pj.automatic
+    params = {
+        (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+    }
+    assert params == {
+        ("check_go_fast_ep", "1"),
+        ("data", "/path/to/fast_dp/fast_dp.mtz"),
+        ("scaling_id", "123456"),
     }

@@ -526,11 +526,14 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        dc_info = self.ispyb.get_data_collection(dcid)
+        query = self.session.query(DataCollection).filter(
+            DataCollection.dataCollectionId == dcid
+        )
+        dc = query.one()
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = dcid
-        jisp["start_image"] = dc_info.image_start_number
-        jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
+        jisp["start_image"] = dc.startImageNumber
+        jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = bool(parameters("automatic"))

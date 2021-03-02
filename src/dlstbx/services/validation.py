@@ -118,8 +118,6 @@ class DLSValidation(CommonService):
         """Verify that the filename passed is written in SWMR format - assessed
         as being compatible with HDF5 1.10 but not 1.8"""
 
-        ver110 = True
-
         try:
             with h5py.File(filename, "r") as _:
                 pass
@@ -128,8 +126,8 @@ class DLSValidation(CommonService):
 
         try:
             with h5py.File(filename, "r", libver=("earliest", "v108")) as _:
-                ver110 = False
+                return False
         except OSError:
             pass
 
-        return ver110
+        return True

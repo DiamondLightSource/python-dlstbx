@@ -74,7 +74,7 @@ class DLSValidation(CommonService):
         fail = functools.partial(self.fail_validation, rw, header, output)
 
         # Verify HDF5 file version is _not_ compatible with HDF5 1.8 format
-        if filename.endswith(".h5") or filename.endswith(".nxs"):
+        if filename.endswith((".h5", ".nxs")):
             linked = find_all_references(filename)
             if not all(self.hdf5_110_or_later(link) for link in linked):
                 return fail(f"HDF5 1.8 format data linked to: {filename}")

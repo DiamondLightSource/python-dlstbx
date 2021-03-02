@@ -1,11 +1,10 @@
 import functools
-import h5py
 
 import pytest
 import workflows.recipe
 import dxtbx.model.experiment_list
 from workflows.services.common_service import CommonService
-from util.hdf5 import find_all_references
+import dlstbx.util.hdf5 as hdf5_util
 
 
 class DLSValidation(CommonService):
@@ -75,9 +74,28 @@ class DLSValidation(CommonService):
 
         # Verify HDF5 file version is _not_ compatible with HDF5 1.8 format
         if filename.endswith((".h5", ".nxs")):
-            linked = find_all_references(filename)
-            if not all(self.hdf5_110_or_later(link) for link in linked):
-                return fail(f"HDF5 1.8 format data linked to: {filename}")
+            if not hdf5_util.is_readable(filename):
+                return fail(f"{filename} is an invalid HDF5 file")
+            errors = [
+                link
+                for link in hdf5_util.find_all_references(filename)
+                if not hdf5_util.is_readable(link)
+            ]
+            if errors:
+                return fail(
+                    f"HDF5 file {filename} links to invalid file(s) %s"
+                    % ", ".join(errors)
+                )
+            hdf_18 = [
+                link
+                for link in hdf5_util.find_all_references(filename)
+                if not hdf5_util.is_HDF_1_8_compatible(link)
+            ]
+            if hdf_18:
+                return fail(
+                    f"HDF5 file {filename} links to HDF5 1.8 format data in %s"
+                    % ", ".join(hdf_18)
+                )
 
         # Create experiment list
         try:
@@ -112,22 +130,3 @@ class DLSValidation(CommonService):
 
         rw.transport.ack(header)
         self.log.debug("%s passed validation", filename)
-
-    @staticmethod
-    def hdf5_110_or_later(filename):
-        """Verify that the filename passed is written in SWMR format - assessed
-        as being compatible with HDF5 1.10 but not 1.8"""
-
-        try:
-            with h5py.File(filename, "r"):
-                pass
-        except Exception:
-            return False
-
-        try:
-            with h5py.File(filename, "r", libver=("earliest", "v108")):
-                return False
-        except OSError:
-            pass
-
-        return True

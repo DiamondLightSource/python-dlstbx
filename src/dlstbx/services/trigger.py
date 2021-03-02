@@ -3,6 +3,7 @@ import hashlib
 import pathlib
 from datetime import datetime
 
+import ispyb
 import workflows.recipe
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.services.common_service import CommonService
@@ -44,11 +45,6 @@ class DLSTrigger(CommonService):
             self.trigger,
             acknowledgement=True,
             log_extender=self.extend_log,
-        )
-        import ispyb.model.__future__
-
-        ispyb.model.__future__.enable(
-            "/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg"
         )
         self.ispyb = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
         self.session = ispyb.sqlalchemy.session(

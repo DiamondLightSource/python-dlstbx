@@ -707,7 +707,7 @@ class DLSFileWatcher(CommonService):
                         image_count = len(file_map)
                 except Exception as e:
                     if not is_known_hdf5_exception(e):
-                        self.log.warning(f"Error reading {hdf5}", exc_info=True)
+                        self.log.error(f"Error reading {hdf5}", exc_info=True)
                         rw.transport.nack(header)
                         return
                     # For some reason this means that the .nxs file is probably

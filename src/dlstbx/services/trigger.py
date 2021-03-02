@@ -4,7 +4,6 @@ import pathlib
 import re
 from datetime import datetime
 
-import py.path
 import workflows.recipe
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.services.common_service import CommonService
@@ -13,8 +12,13 @@ from ispyb.sqlalchemy import (
     AutoProcProgram,
     AutoProcProgramAttachment,
     AutoProcIntegration,
+    BLSample,
+    Crystal,
     DataCollection,
+    PDB,
     ProcessingJob,
+    Protein,
+    ProteinHasPDB,
 )
 
 
@@ -106,32 +110,40 @@ class DLSTrigger(CommonService):
             self.log.error("Dimple trigger failed: No DCID specified")
             return False
 
-        pdb_tmpdir = py.path.local(parameters("pdb_tmpdir"))
+        pdb_tmpdir = pathlib.Path(parameters("pdb_tmpdir"))
 
         pdb_files = []
-        dc_info = self.ispyb.get_data_collection(dcid)
-        for pdb in dc_info.pdb:
+        query = (
+            self.session.query(DataCollection, PDB)
+            .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
+            .join(Crystal, Crystal.crystalId == BLSample.crystalId)
+            .join(Protein, Protein.proteinId == Crystal.proteinId)
+            .join(ProteinHasPDB, ProteinHasPDB.proteinid == Protein.proteinId)
+            .join(PDB, PDB.pdbId == ProteinHasPDB.pdbid)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        for dc, pdb in query.all():
             if pdb.code is not None:
                 pdb_files.append(pdb.code)
-            elif pdb.rawfile is not None:
-                sha1 = hashlib.sha1(pdb.rawfile.encode()).hexdigest()
+            elif pdb.contents is not None:
+                sha1 = hashlib.sha1(pdb.contents.encode()).hexdigest()
                 assert pdb.name and "/" not in pdb.name, "Invalid PDB file name"
-                pdb_filepath = pdb_tmpdir / sha1 / pdb.name
-                if not pdb_filepath.check():
-                    pdb_filepath.write(pdb.rawfile, ensure=True)
-                pdb_files.append(pdb_filepath.strpath)
+                pdb_dir = pdb_tmpdir / sha1
+                pdb_dir.mkdir(parents=True, exist_ok=True)
+                pdb_filepath = pdb_dir / pdb.name
+                if not pdb_filepath.exists():
+                    pdb_filepath.write_text(pdb.contents)
+                pdb_files.append(str(pdb_filepath))
 
         if parameters("user_pdb_directory"):
             # Look for matching .pdb files in user directory
-            user_pdb_dir = py.path.local(parameters("user_pdb_directory"))
-            if user_pdb_dir.check(dir=1):
-                for f in user_pdb_dir.listdir():
-                    self.log.debug(f.strpath)
-                    prefix = f.basename.split(".")[0]
-                    if not prefix or f.ext != ".pdb" or not f.check(file=1):
+            user_pdb_dir = pathlib.Path(parameters("user_pdb_directory"))
+            if user_pdb_dir.is_dir():
+                for f in user_pdb_dir.iterdir():
+                    if not f.stem or f.suffix != ".pdb" or not f.is_file():
                         continue
-                    self.log.info(f.strpath)
-                    pdb_files.append(f.strpath)
+                    self.log.info(f)
+                    pdb_files.append(str(f))
 
         if not pdb_files:
             self.log.info(
@@ -141,6 +153,11 @@ class DLSTrigger(CommonService):
             return {"success": True}
         self.log.info("PDB files: %s", ", ".join(pdb_files))
 
+        dc = (
+            self.session.query(DataCollection)
+            .filter(DataCollection.dataCollectionId == dcid)
+            .one()
+        )
         dimple_parameters = {
             "data": [parameters("mtz")],
             "scaling_id": [parameters("scaling_id")],
@@ -151,8 +168,8 @@ class DLSTrigger(CommonService):
 
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = dcid
-        jisp["start_image"] = dc_info.image_start_number
-        jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
+        jisp["start_image"] = dc.startImageNumber
+        jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
 
         self.log.debug("Dimple trigger: Starting")
 

@@ -40,7 +40,7 @@ def insert_multiplex_input(alchemy):
             processingPrograms="xia2 dials",
         )
         api = AutoProcIntegration(DataCollection=dc, AutoProcProgram=app)
-        alchemy.add_all([dc, api, app, pj])
+        alchemy.add_all([dcg, dc, api, app, pj])
         for ext in ("expt", "refl"):
             alchemy.add(
                 AutoProcProgramAttachment(
@@ -102,5 +102,73 @@ def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker):
     assert pj.recipe == "postprocessing-xia2-multiplex"
     assert pj.dataCollectionId == dcids[-1]
     assert pj.automatic
-    for pjp in pj.ProcessingJobParameters:
-        print(pjp.parameterKey, pjp.parameterValue)
+
+
+@pytest.fixture
+def insert_dimple_input(alchemy):
+    dcg = DataCollectionGroup(sessionId=55167)
+    dc = DataCollection(
+        DataCollectionGroup=dcg,
+        BLSAMPLEID=398827,
+        startImageNumber=1,
+        numberOfImages=180,
+    )
+    alchemy.add_all([dc, dcg])
+    alchemy.commit()
+    return dc.dataCollectionId
+
+
+def test_dimple_trigger(insert_dimple_input, testconfig, testdb, mocker, tmp_path):
+    session = ispyb.sqlalchemy.session(testconfig)
+    dcid = insert_dimple_input
+    user_pdb_directory = tmp_path / "user_pdb"
+    user_pdb_directory.mkdir()
+    (user_pdb_directory / "test.pdb").touch()
+    message = {
+        "recipe": {
+            "1": {
+                "service": "DLS Trigger",
+                "queue": "trigger",
+                "parameters": {
+                    "target": "dimple",
+                    "dcid": dcid,
+                    "comment": "DIMPLE triggered by automatic xia2-dials",
+                    "automatic": True,
+                    "scaling_id": 123456,
+                    "user_pdb_directory": user_pdb_directory,
+                    "mtz": "/path/to/xia2-dials/DataFiles/nt28218v3_xProtk11_free.mtz",
+                    "pdb_tmpdir": tmp_path,
+                },
+            },
+        },
+        "recipe-pointer": 1,
+    }
+    trigger = DLSTrigger()
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    rw = RecipeWrapper(message=message, transport=t)
+    trigger.ispyb = testdb
+    trigger.session = session
+    send = mocker.spy(rw, "send")
+    trigger.trigger(rw, {"some": "header"}, message)
+    send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
+    kall = send.mock_calls[0]
+    name, args, kwargs = kall
+    pjid = args[0]["result"]
+    # Need a new session to reflect the data inserted by stored procedures
+    session = ispyb.sqlalchemy.session(testconfig)
+    pj = (
+        session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
+    )
+    assert pj.displayName == "DIMPLE"
+    assert pj.recipe == "postprocessing-dimple"
+    assert pj.dataCollectionId == dcid
+    assert pj.automatic
+    params = {
+        (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+    }
+    assert params == {
+        ("data", "/path/to/xia2-dials/DataFiles/nt28218v3_xProtk11_free.mtz"),
+        ("scaling_id", "123456"),
+        ("pdb", f"{tmp_path}/fe8c759005fb57ce14d3e66c07b21fec62252b4a/ceo2"),
+        ("pdb", f"{user_pdb_directory}/test.pdb"),
+    }

@@ -119,13 +119,13 @@ class DLSValidation(CommonService):
         as being compatible with HDF5 1.10 but not 1.8"""
 
         try:
-            with h5py.File(filename, "r") as _:
+            with h5py.File(filename, "r"):
                 pass
         except Exception:
             return False
 
         try:
-            with h5py.File(filename, "r", libver=("earliest", "v108")) as _:
+            with h5py.File(filename, "r", libver=("earliest", "v108")):
                 return False
         except OSError:
             pass

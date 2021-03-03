@@ -59,8 +59,6 @@ def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker):
     message = {
         "recipe": {
             "1": {
-                "service": "DLS Trigger",
-                "queue": "trigger",
                 "parameters": {
                     "target": "multiplex",
                     "dcid": dcids[-1],
@@ -71,7 +69,14 @@ def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker):
                     "related_dcids": [
                         {
                             "dcids": dcids[:-1],
-                        }
+                            "sample_group_id": 123,
+                            "name": "sample_group_123",
+                        },
+                        {
+                            "dcids": dcids[1:-1],
+                            "sample_id": 234,
+                            "name": "sample_234",
+                        },
                     ],
                     "backoff-delay": 8,
                     "backoff-max-try": 10,
@@ -89,7 +94,9 @@ def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker):
     trigger.session = session
     send = mocker.spy(rw, "send")
     trigger.trigger(rw, {"some": "header"}, message)
-    send.assert_called_once_with({"result": [mocker.ANY]}, transaction=mocker.ANY)
+    send.assert_called_once_with(
+        {"result": [mocker.ANY, mocker.ANY]}, transaction=mocker.ANY
+    )
     kall = send.mock_calls[0]
     name, args, kwargs = kall
     pjid = args[0]["result"][0]
@@ -102,6 +109,24 @@ def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker):
     assert pj.recipe == "postprocessing-xia2-multiplex"
     assert pj.dataCollectionId == dcids[-1]
     assert pj.automatic
+    params = {
+        (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+    }
+    assert params == {
+        (
+            "data",
+            "/path/to/xia2-dials-2/integrated.expt;/path/to/xia2-dials-2/integrated.refl",
+        ),
+        (
+            "data",
+            "/path/to/xia2-dials-1/integrated.expt;/path/to/xia2-dials-1/integrated.refl",
+        ),
+        (
+            "data",
+            "/path/to/xia2-dials-0/integrated.expt;/path/to/xia2-dials-0/integrated.refl",
+        ),
+        ("sample_group_id", "123"),
+    }
 
 
 @pytest.fixture

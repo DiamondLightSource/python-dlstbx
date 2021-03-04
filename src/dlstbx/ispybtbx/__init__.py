@@ -4,6 +4,7 @@ import os
 import re
 import uuid
 import yaml
+from sqlalchemy.orm import joinedload
 
 import ispyb
 import ispyb.sqlalchemy
@@ -213,21 +214,22 @@ class ispybtbx:
         dcid = dc_info.get("dataCollectionId")
         if not dcid:
             return None
-        _enable_future()
-        try:
-            detector = _ispyb_api().get_data_collection(dcid).detector
-        except mysql.connector.errors.ProgrammingError:
-            pass
-        else:
-            # Currently get a database table permission error:
-            #   SELECT command denied to user 'ispyb_scripts' for table 'Detector'
-            if detector and detector.model.lower().startswith("eiger"):
+        query = (
+            self._session.query(DataCollection)
+            .filter_by(dataCollectionId=dcid)
+            .options(
+                joinedload(DataCollection.Detector),
+            )
+        )
+        dc = query.first()
+        if dc and dc.Detector:
+            if dc.Detector.detectorModel.lower().startswith("eiger"):
                 return "eiger"
-            elif detector and detector.model.lower().startswith("pilatus"):
+            elif dc.Detector.detectorModel.lower().startswith("pilatus"):
                 return "pilatus"
 
         # Fallback on examining the file extension if nothing recorded in ISPyB
-        template = dc_info.get("fileTemplate")
+        template = dc.fileTemplate
         if not template:
             return None
         if template.endswith("master.h5"):

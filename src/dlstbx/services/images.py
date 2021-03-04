@@ -100,11 +100,10 @@ class DLSImages(CommonService):
                 'output.file="%s"' % output,
             ]
         )
-        if result["exitcode"]:
+        if result.returncode:
             self.log.error(
-                "Export of {f} failed with exitcode {r[exitcode]}:\n{r[stderr]}".format(
-                    f=filename, r=result
-                )
+                f"Export of {filename} failed with exitcode {result.returncode}:\n"
+                + result.stderr.decode("utf8", "replace")
             )
             rw.transport.nack(header)
             return

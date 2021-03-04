@@ -6,7 +6,9 @@ import uuid
 import yaml
 
 import ispyb
+import ispyb.sqlalchemy
 import mysql.connector  # installed by ispyb
+from ispyb.sqlalchemy import DataCollection
 
 
 logger = logging.getLogger("dlstbx.ispybtbx")
@@ -164,6 +166,9 @@ class ispybtbx:
             self.columns[table] = columns
 
         self._cursor = self.conn.cursor()
+        self._session = ispyb.sqlalchemy.session(
+            "/dls_sw/apps/zocalo/secrets/credentials-ispyb-sqlalchemy.cfg"
+        )
 
     def __del__(self):
         if hasattr(self, "conn") and self.conn:
@@ -184,15 +189,14 @@ class ispybtbx:
         self.conn.commit()
 
     def get_dc_info(self, dc_id):
-        results = self.execute(
-            "select * from DataCollection where datacollectionid=%s;", dc_id
+        query = self._session.query(DataCollection).filter(
+            DataCollection.dataCollectionId == dc_id
         )
-        labels = self.columns["DataCollection"]
-        result = {}
-        if results:
-            for l, r in zip(labels, results[0]):
-                result[l] = r
-        return result
+        dc = query.first()
+        if dc is None:
+            return {}
+        schema = DataCollection.__marshmallow__()
+        return schema.dump(dc)
 
     def get_beamline_from_dcid(self, dc_id):
         results = self.execute(

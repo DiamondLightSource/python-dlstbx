@@ -46,6 +46,26 @@ _gpfs03_beamlines = {
 }
 
 
+def setup_marshmallow_schema(Base, session):
+    from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
+
+    # https://marshmallow-sqlalchemy.readthedocs.io/en/latest/recipes.html#automatically-generating-schemas-for-sqlalchemy-models
+    for class_ in Base._decl_class_registry.values():
+        if hasattr(class_, "__tablename__"):
+
+            class Meta(object):
+                model = class_
+                sqla_session = session
+                load_instance = True
+                include_fk = True
+
+            schema_class_name = "%sSchema" % class_.__name__
+            schema_class = type(
+                schema_class_name, (SQLAlchemyAutoSchema,), {"Meta": Meta}
+            )
+            setattr(class_, "__marshmallow__", schema_class)
+
+
 def _ispyb_api():
     if not hasattr(_ispyb_api, "instance"):
         setattr(
@@ -170,6 +190,7 @@ class ispybtbx:
         self._session = ispyb.sqlalchemy.session(
             "/dls_sw/apps/zocalo/secrets/credentials-ispyb-sqlalchemy.cfg"
         )
+        setup_marshmallow_schema(ispyb.sqlalchemy.Base, self._session)
 
     def __del__(self):
         if hasattr(self, "conn") and self.conn:

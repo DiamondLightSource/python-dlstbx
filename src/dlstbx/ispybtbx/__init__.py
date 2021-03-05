@@ -9,7 +9,7 @@ from sqlalchemy.orm import joinedload
 import ispyb
 import ispyb.sqlalchemy
 import mysql.connector  # installed by ispyb
-from ispyb.sqlalchemy import DataCollection
+from ispyb.sqlalchemy import BLSession, DataCollection
 
 
 logger = logging.getLogger("dlstbx.ispybtbx")
@@ -221,15 +221,14 @@ class ispybtbx:
         return schema.dump(dc)
 
     def get_beamline_from_dcid(self, dc_id):
-        results = self.execute(
-            "SELECT bs.beamlineName FROM BLSession bs INNER JOIN DataCollectionGroup dcg ON dcg.sessionId = bs.sessionId INNER JOIN DataCollection dc ON dc.dataCollectionGroupId = dcg.dataCollectionGroupId WHERE dc.dataCollectionId = %s;"
-            % str(dc_id)
+        query = (
+            self._session.query(BLSession)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dc_id)
         )
-        if not results:
-            return None
-        assert len(results) == 1
-        result = results[0][0]
-        return result
+        bs = query.first()
+        if bs:
+            return bs.beamLineName
 
     def dc_info_to_detectorclass(self, dc_info):
         dcid = dc_info.get("dataCollectionId")

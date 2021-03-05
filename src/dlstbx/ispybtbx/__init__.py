@@ -6,7 +6,9 @@ import uuid
 import yaml
 
 import ispyb
+import ispyb.sqlalchemy
 import mysql.connector  # installed by ispyb
+import sqlalchemy.orm
 
 
 logger = logging.getLogger("dlstbx.ispybtbx")
@@ -41,6 +43,34 @@ _gpfs03_beamlines = {
     "k11",
     "p99",
 }
+
+
+Session = sqlalchemy.orm.sessionmaker(
+    bind=sqlalchemy.create_engine(
+        ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
+    )
+)
+
+
+def setup_marshmallow_schema():
+    from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
+
+    with Session() as session:
+        # https://marshmallow-sqlalchemy.readthedocs.io/en/latest/recipes.html#automatically-generating-schemas-for-sqlalchemy-models
+        for class_ in ispyb.sqlalchemy.Base.registry._class_registry.values():
+            if hasattr(class_, "__tablename__"):
+
+                class Meta(object):
+                    model = class_
+                    sqla_session = session
+                    load_instance = True
+                    include_fk = True
+
+                schema_class_name = "%sSchema" % class_.__name__
+                schema_class = type(
+                    schema_class_name, (SQLAlchemyAutoSchema,), {"Meta": Meta}
+                )
+                setattr(class_, "__marshmallow__", schema_class)
 
 
 def _ispyb_api():
@@ -164,6 +194,7 @@ class ispybtbx:
             self.columns[table] = columns
 
         self._cursor = self.conn.cursor()
+        setup_marshmallow_schema()
 
     def __del__(self):
         if hasattr(self, "conn") and self.conn:

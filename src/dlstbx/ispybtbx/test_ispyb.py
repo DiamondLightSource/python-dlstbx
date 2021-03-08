@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from unittest import mock
 import dlstbx.ispybtbx
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
@@ -102,8 +100,8 @@ def test_get_datacollection_information():
         dc_info["imageDirectory"]
         == "/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/"
     )
-    assert dc_info["startTime"] == datetime(2016, 10, 7, 11, 47, 13)
-    assert dc_info["endTime"] == datetime(2016, 10, 7, 11, 50, 56)
+    assert dc_info["startTime"] == "2016-10-07T11:47:13"
+    assert dc_info["endTime"] == "2016-10-07T11:50:56"
     assert dc_info["startImageNumber"] == 1
     assert dc_info["numberOfImages"] == 1800
     assert dc_info["overlap"] == 0.0
@@ -128,8 +126,8 @@ def test_get_datacollection_information_for_em():
         dc_info["imageDirectory"]
         == "/dls/m02/data/2017/cm16766-5/processed/cm16766-5_20171110_1424/Runs/000002_ProtImportMovies/extra"
     )
-    assert dc_info["startTime"] == datetime(2017, 11, 10, 14, 27, 7)
-    assert dc_info["endTime"] == datetime(2017, 11, 14, 11, 28, 20)
+    assert dc_info["startTime"] == "2017-11-10T14:27:07"
+    assert dc_info["endTime"] == "2017-11-14T11:28:20"
     assert dc_info["startImageNumber"] is None  # because EM
     assert dc_info["numberOfImages"] is None  # because EM
     assert dc_info["overlap"] is None  # because EM

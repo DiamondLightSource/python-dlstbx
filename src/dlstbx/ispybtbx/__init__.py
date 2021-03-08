@@ -12,9 +12,11 @@ import ispyb.sqlalchemy
 import mysql.connector  # installed by ispyb
 import sqlalchemy.orm
 from ispyb.sqlalchemy import (
+    BLSample,
     BLSampleGroup,
     BLSampleGroupHasBLSample,
     BLSession,
+    Crystal,
     DataCollection,
     DataCollectionGroup,
     GridInfo,
@@ -412,23 +414,21 @@ class ispybtbx:
             )
             return {"dcids": list(itertools.chain.from_iterable(query.all()))}
 
-    def get_space_group_and_unit_cell(self, dc_id):
-        spacegroups = self.execute(
-            "SELECT c.spaceGroup, c.cell_a, c.cell_b, c.cell_c, "
-            " c.cell_alpha, c.cell_beta, c.cell_gamma "
-            "FROM Crystal c "
-            "JOIN BLSample b ON (b.crystalId = c.crystalId) "
-            "JOIN DataCollection d ON (d.BLSAMPLEID = b.blSampleId) "
-            "WHERE d.DataCollectionID = %s "
-            "LIMIT 1;",
-            dc_id,
-        )
-        if not spacegroups:
+    def get_space_group_and_unit_cell(self, dcid):
+        with Session() as session:
+            query = (
+                session.query(Crystal)
+                .join(BLSample)
+                .join(DataCollection, DataCollection.BLSAMPLEID == BLSample.blSampleId)
+                .filter(DataCollection.dataCollectionId == dcid)
+            )
+            c = query.first()
+        if not c or not c.spaceGroup:
             return "", False
-        cell = tuple(spacegroups[0][1:7])
+        cell = (c.cell_a, c.cell_b, c.cell_c, c.cell_alpha, c.cell_beta, c.cell_gamma)
         if not all(cell):
             cell = False
-        return spacegroups[0][0], cell
+        return c.spaceGroup, cell
 
     def get_energy_scan_from_dcid(self, dc_id):
         def __energy_offset(row):

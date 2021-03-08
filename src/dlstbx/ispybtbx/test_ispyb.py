@@ -1,3 +1,4 @@
+from decimal import Decimal
 from unittest import mock
 import dlstbx.ispybtbx
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
@@ -362,3 +363,26 @@ def test_get_diffractionplan_from_dcid():
         "anomalousScatterer",
         "energy",
     } <= diffractionplan.keys()
+
+
+def test_get_gridscan_info():
+    assert ispybtbx().get_gridscan_info(5492072) == {
+        "dataCollectionId": None,
+        "snaked": 1,
+        "orientation": "horizontal",
+        "recordTimeStamp": "2021-03-05T15:29:20",
+        "pixelsPerMicronX": 0.566,
+        "pixelsPerMicronY": 0.566,
+        "steps_x": Decimal("27.0000000000"),
+        "dx_mm": Decimal("0.0200000000"),
+        "xOffset": None,
+        "snapshot_offsetXPixel": 77.0,
+        "snapshot_offsetYPixel": 50.8881,
+        "steps_y": Decimal("10.0000000000"),
+        "yOffset": None,
+        "dy_mm": Decimal("0.0200000000"),
+        "dataCollectionGroupId": 5492072,
+        "meshAngle": None,
+        "gridInfoId": 1307711,
+        "workflowMeshId": None,
+    }

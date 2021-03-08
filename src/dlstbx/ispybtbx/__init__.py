@@ -389,13 +389,19 @@ class ispybtbx:
         if not dcid:
             return None
 
-        sql_str = f"""
-SELECT dc2.dataCollectionId
-FROM DataCollection AS dc1
-INNER JOIN DataCollection AS dc2
-ON dc1.imageDirectory = dc2.imageDirectory and dc1.dataCollectionId <> dc2.dataCollectionId and dc1.imageDirectory is not NULL
-WHERE dc1.dataCollectionId='{dcid}';"""
-        return {"dcids": [row[0] for row in self.execute(sql_str)]}
+        dc1 = aliased(DataCollection)
+        dc2 = aliased(DataCollection)
+        query = (
+            self._session.query(dc2.dataCollectionId)
+            .join(
+                dc1,
+                (dc1.imageDirectory == dc2.imageDirectory)
+                & (dc1.dataCollectionId != dc2.dataCollectionId)
+                & (dc1.imageDirectory is not None),
+            )
+            .filter(dc1.dataCollectionId == dcid)
+        )
+        return {"dcids": list(itertools.chain.from_iterable(query.all()))}
 
     def get_space_group_and_unit_cell(self, dc_id):
         spacegroups = self.execute(

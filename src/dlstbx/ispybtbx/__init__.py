@@ -533,14 +533,19 @@ class ispybtbx:
             altpath = "__no_alternative__"
         else:
             altpath = path.rstrip("/") + "/"
-        results = self.execute(
-            "SELECT dataCollectionId, imageDirectory, imagePrefix, imageSuffix, fileTemplate "
-            "FROM DataCollection "
-            "WHERE imageDirectory = %s OR imageDirectory = %s;",
-            (basepath, altpath),
+        query = self._session.query(
+            DataCollection.dataCollectionId,
+            DataCollection.imageDirectory,
+            DataCollection.imagePrefix,
+            DataCollection.imageSuffix,
+            DataCollection.fileTemplate,
+        ).filter(
+            (DataCollection.imageDirectory == basepath)
+            | (DataCollection.imageDirectory == altpath)
         )
+        results = query.all()
         if extension:
-            results = [r for r in results if r[3] == extension]
+            results = [r for r in results if r.imageSuffix == extension]
         if not results:
             raise ValueError("No matching DCID identified for %r" % path)
 

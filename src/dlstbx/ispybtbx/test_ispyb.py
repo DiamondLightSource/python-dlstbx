@@ -330,3 +330,12 @@ def test_get_sample_group_dcids():
 
 def test_get_related_dcs():
     assert ispybtbx().get_related_dcs(5339105) == [5898098, 5898104]
+
+
+def test_get_dcid_for_path():
+    assert (
+        ispybtbx().get_dcid_for_path(
+            "/dls/i04/data/2021/cm28182-1/20210305/TestThaumatin/Se-Thaumatin8/Se-Thaumatin8_1_master.h5"
+        )
+        == 6077651
+    )

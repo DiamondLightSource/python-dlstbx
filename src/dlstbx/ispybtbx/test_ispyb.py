@@ -386,3 +386,31 @@ def test_get_gridscan_info():
         "gridInfoId": 1307711,
         "workflowMeshId": None,
     }
+
+
+def test_get_sample_dcids():
+    assert ispybtbx().get_sample_dcids(
+        {"ispyb_dcid": 6077651, "ispyb_dc_info": {"BLSAMPLEID": 3297161}}
+    ) == {
+        "dcids": [
+            5990969,
+            5990975,
+            5990978,
+            6074243,
+            6074252,
+            6074267,
+            6074273,
+            6074339,
+            6074354,
+            6074489,
+            6076046,
+            6076058,
+            6076334,
+            6076376,
+            6077465,
+            6077489,
+            6077651,
+        ],
+        "sample_id": 3297161,
+        "name": "Se-Thaumatin8",
+    }

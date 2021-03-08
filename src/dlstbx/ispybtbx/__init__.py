@@ -354,27 +354,25 @@ class ispybtbx:
         if not dcid or not sample_id:
             return None
 
-        _enable_future()
-        try:
-            sample = _ispyb_api().get_sample(sample_id)
-        except mysql.connector.errors.ProgrammingError as e:
-            logger.debug(
-                f"Error looking up sample for dcid={dcid}:\n{e}",
-                exc_info=True,
+        this_sample = aliased(BLSample, name="this_sample")
+        other_sample = aliased(BLSample)
+        query = (
+            self._session.query(this_sample, DataCollection.dataCollectionId)
+            .join(
+                other_sample,
+                other_sample.blSampleId == this_sample.blSampleId,
             )
-        except AttributeError as e:
-            logger.debug(
-                f"sample not yet supported by ispyb-api version:\n{e}",
-                exc_info=True,
-            )
-        else:
-            if sample:
-                related_dcids = {
-                    "dcids": sample.dcids,
-                    "sample_id": sample.id,
-                    "name": sample.name,
-                }
-
+            .join(DataCollection, DataCollection.BLSAMPLEID == other_sample.blSampleId)
+            .filter(other_sample.blSampleId == sample_id)
+        )
+        results = query.all()
+        if results:
+            sample = results[0].this_sample
+            related_dcids = {
+                "dcids": [row.dataCollectionId for row in results],
+                "sample_id": sample.blSampleId,
+                "name": sample.name,
+            }
             logger.debug(f"dcids defined via BLSample for dcid={dcid}: {related_dcids}")
             return related_dcids
 

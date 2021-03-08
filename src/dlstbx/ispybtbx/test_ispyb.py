@@ -296,3 +296,35 @@ def test_get_related_dcids_same_directory():
             5646626,
         ]
     }
+
+
+def test_get_sample_group_dcids():
+    i = ispybtbx()
+    related_dcids = i.get_sample_group_dcids({"ispyb_dcid": 5469646})
+    assert related_dcids == [
+        {
+            "dcids": [5469637, 5469640, 5469643, 5469646],
+            "sample_group_id": 307,
+            "name": None,
+        },
+        {
+            "dcids": [5469637, 5469640, 5469643, 5469646],
+            "sample_group_id": 310,
+            "name": None,
+        },
+        {
+            "dcids": [
+                5336272,
+                5469586,
+                5469589,
+                5469592,
+                5469595,
+                5469637,
+                5469640,
+                5469643,
+                5469646,
+            ],
+            "sample_group_id": 313,
+            "name": None,
+        },
+    ]

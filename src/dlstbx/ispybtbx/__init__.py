@@ -19,7 +19,9 @@ from ispyb.sqlalchemy import (
     Crystal,
     DataCollection,
     DataCollectionGroup,
+    EnergyScan,
     GridInfo,
+    Protein,
 )
 
 
@@ -430,11 +432,11 @@ class ispybtbx:
             cell = False
         return c.spaceGroup, cell
 
-    def get_energy_scan_from_dcid(self, dc_id):
+    def get_energy_scan_from_dcid(self, dcid):
         def __energy_offset(row):
-            energy = 12398.42 / row["wavelength"]
-            pk_energy = row["peakenergy"]
-            if_energy = row["inflectionenergy"]
+            energy = 12398.42 / row.wavelength
+            pk_energy = row.EnergyScan.peakEnergy
+            if_energy = row.EnergyScan.inflectionEnergy
 
             return min(abs(pk_energy - energy), abs(if_energy - energy))
 
@@ -448,83 +450,72 @@ class ispybtbx:
                 return "infl"
             return "peak"
 
-        s = """SELECT
-    EnergyScan.energyscanid,
-    EnergyScan.element,
-    EnergyScan.peakenergy,
-    EnergyScan.peakfprime,
-    EnergyScan.peakfdoubleprime,
-    EnergyScan.inflectionenergy,
-    EnergyScan.inflectionfprime,
-    EnergyScan.inflectionfdoubleprime,
-    DataCollection.wavelength,
-    BLSample.blsampleid as dcidsampleid,
-    BLSampleProtein.blsampleid as protsampleid
-FROM
-    DataCollection
-        INNER JOIN
-    BLSample ON BLSample.blsampleid = DataCollection.blsampleid
-        INNER JOIN
-    Crystal ON Crystal.crystalid = BLSample.crystalid
-        INNER JOIN
-    Protein ON Protein.proteinid = Crystal.proteinid
-        INNER JOIN
-    Crystal CrystalProtein ON Protein.proteinid = CrystalProtein.proteinid
-        INNER JOIN
-    BLSample BLSampleProtein ON CrystalProtein.crystalid = BLSampleProtein.crystalid
-        INNER JOIN
-    EnergyScan ON DataCollection.sessionid = EnergyScan.sessionid
-        AND BLSampleProtein.blsampleid = EnergyScan.blsampleid
-WHERE
-    DataCollection.datacollectionid = %s
-        AND EnergyScan.element IS NOT NULL
-"""
-        labels = (
-            "energyscanid",
-            "element",
-            "peakenergy",
-            "peakfprime",
-            "peakfdoubleprime",
-            "inflectionenergy",
-            "inflectionfprime",
-            "inflectionfdoubleprime",
-            "wavelength",
-            "dcidsampleid",
-            "protsampleid",
-        )
+        this_sample = aliased(BLSample, name="this_sample")
+        other_sample = aliased(BLSample, name="other_sample")
+        this_crystal = aliased(Crystal)
+        other_crystal = aliased(Crystal)
+        with Session() as session:
+            query = (
+                session.query(
+                    EnergyScan, DataCollection.wavelength, this_sample, other_sample
+                )
+                .join(this_sample, this_sample.blSampleId == DataCollection.BLSAMPLEID)
+                .join(this_crystal)
+                .join(Protein)
+                .join(other_crystal, other_crystal.proteinId == Protein.proteinId)
+                .join(other_sample, other_sample.crystalId == other_crystal.crystalId)
+                .join(
+                    EnergyScan,
+                    (EnergyScan.sessionId == DataCollection.SESSIONID)
+                    & (EnergyScan.blSampleId == other_sample.blSampleId),
+                )
+                .filter(
+                    (DataCollection.dataCollectionId == dcid)
+                    & (EnergyScan.element.isnot(None))
+                )
+            )
+            all_rows = query.all()
+
         try:
-            all_rows = [dict(zip(labels, r)) for r in self.execute(s, dc_id)]
-            rows = [r for r in all_rows if r["dcidsampleid"] == r["protsampleid"]]
+            rows = [
+                r
+                for r in all_rows
+                if r.this_sample.blSampleId == r.other_sample.blSampleId
+            ]
             if not rows:
                 rows = all_rows
-            energy_scan = min(rows, key=__energy_offset)
+            energy_scan, wavelength, *_ = min(rows, key=__energy_offset)
             edge_position = __select_edge_position(
-                energy_scan["wavelength"],
-                energy_scan["peakenergy"],
-                energy_scan["inflectionenergy"],
+                wavelength,
+                energy_scan.peakEnergy,
+                energy_scan.inflectionEnergy,
             )
             res = {
-                "energyscanid": energy_scan["energyscanid"],
-                "atom_type": energy_scan["element"],
+                "energyscanid": energy_scan.energyScanId,
+                "atom_type": energy_scan.element,
                 "edge_position": edge_position,
             }
             if edge_position == "peak":
                 res.update(
                     {
-                        "fp": energy_scan["peakfprime"],
-                        "fpp": energy_scan["peakfdoubleprime"],
+                        "fp": energy_scan.peakFPrime,
+                        "fpp": energy_scan.peakFDoublePrime,
                     }
                 )
             else:
                 if edge_position == "infl":
                     res.update(
                         {
-                            "fp": energy_scan["inflectionfprime"],
-                            "fpp": energy_scan["inflectionfdoubleprime"],
+                            "fp": energy_scan.inflectionFPrime,
+                            "fpp": energy_scan.inflectionFDoublePrime,
                         }
                     )
         except Exception:
-            self.log.debug("Matching energy scan data for dcid %s not available", dc_id)
+            self.log.debug(
+                "Matching energy scan data for dcid %s not available",
+                dcid,
+                exc_info=True,
+            )
             res = {}
         return res
 

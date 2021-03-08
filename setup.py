@@ -9,7 +9,6 @@ __version_tag__ = "1.0.dev"
 console_scripts = [
     "dials.swirly_eyes=dlstbx.cli.swirly_eyes:run",
     "dlstbx.align_crystal=dlstbx.cli.align_crystal:run",
-    "dlstbx.compare_screening_results=dlstbx.cli.compare_screening_results:run",
     "dlstbx.dc_sim_verify=dlstbx.cli.dc_sim_verify:run",
     "dlstbx.dlq_check=dlstbx.cli.dlq_check:run",
     "dlstbx.dlq_purge=dlstbx.cli.dlq_purge:run",

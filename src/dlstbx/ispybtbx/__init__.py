@@ -545,29 +545,36 @@ class ispybtbx:
             altpath = "__no_alternative__"
         else:
             altpath = path.rstrip("/") + "/"
-        results = self.execute(
-            "SELECT dataCollectionId, imageDirectory, imagePrefix, imageSuffix, fileTemplate "
-            "FROM DataCollection "
-            "WHERE imageDirectory = %s OR imageDirectory = %s;",
-            (basepath, altpath),
-        )
+        with Session() as session:
+            query = session.query(
+                DataCollection.dataCollectionId,
+                DataCollection.imageDirectory,
+                DataCollection.imagePrefix,
+                DataCollection.imageSuffix,
+                DataCollection.fileTemplate,
+            ).filter(
+                (DataCollection.imageDirectory == basepath)
+                | (DataCollection.imageDirectory == altpath)
+            )
+            results = query.all()
         if extension:
-            results = [r for r in results if r[3] == extension]
+            results = [r for r in results if r.imageSuffix == extension]
         if not results:
             raise ValueError("No matching DCID identified for %r" % path)
 
         if filename:
-            candidates = [r for r in results if r[4].startswith(filename)]
+            candidates = [r for r in results if r.fileTemplate.startswith(filename)]
             if candidates:
                 results = candidates
-            candidates = [r for r in results if r[4] == filename]
+            candidates = [r for r in results if r.fileTemplate == filename]
             if candidates:
                 results = candidates
             candidates = [r for r in results if filename.startswith(r[2])]
             if candidates:
                 results = candidates
                 prefix_lengths = [
-                    len(os.path.commonprefix((r[4], filename))) for r in results
+                    len(os.path.commonprefix((r.fileTemplate, filename)))
+                    for r in results
                 ]
                 max_prefix = max(prefix_lengths)
                 candidates = [

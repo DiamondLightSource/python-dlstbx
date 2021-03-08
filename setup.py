@@ -24,7 +24,6 @@ console_scripts = [
     "dlstbx.get_activemq_statistics=dlstbx.cli.get_activemq_statistics:run",
     "dlstbx.get_graylog_statistics=dlstbx.cli.get_graylog_statistics:run",
     "dlstbx.get_pia_results=dlstbx.cli.get_pia_results:run",
-    "dlstbx.get_processing_statistics=dlstbx.cli.get_processing_statistics:run",
     "dlstbx.get_screening_results=dlstbx.cli.get_screening_results:run",
     "dlstbx.go=dlstbx.cli.go:run",
     "dlstbx.graylog=dlstbx.cli.graylog:run",

@@ -19,6 +19,7 @@ from ispyb.sqlalchemy import (
     Crystal,
     DataCollection,
     DataCollectionGroup,
+    DiffractionPlan,
     EnergyScan,
     GridInfo,
     Protein,
@@ -701,53 +702,19 @@ class ispybtbx:
             collection_path = f"{collection_path}_{dc_number}"
         return os.path.join(visit, "processed", rest, collection_path, dc_info["uuid"])
 
-    def get_diffractionplan_from_dcid(self, dc_id):
-        sql_str = """
-SELECT
-    dp.diffractionplanid,
-    dp.experimentkind,
-    dp.centringmethod,
-    dp.preferredbeamsizex,
-    dp.preferredbeamsizey,
-    dp.exposuretime,
-    dp.requiredresolution,
-    dp.radiationsensitivity,
-    dp.anomalousscatterer,
-    dp.energy
-FROM
-    DiffractionPlan AS dp
-        INNER JOIN
-    BLSample AS bls ON bls.diffractionplanid = dp.diffractionplanid
-        INNER JOIN
-    DataCollection AS dc ON dc.blsampleid = bls.blsampleid
-WHERE
-    dc.datacollectionid='%s'
-;""" % str(
-            dc_id
-        )
-        results = self.execute(sql_str)
-
-        labels = (
-            "diffractionplanid",
-            "experimentkind",
-            "centringmethod",
-            "preferredbeamsizex",
-            "preferredbeamsizey",
-            "exposuretime",
-            "requiredresolution",
-            "radiationsensitivity",
-            "anomalousscatterer",
-            "energy",
-        )
-        try:
-            assert len(results) == 1, len(results)
-            assert len(results[0]) == len(labels), results[0]
-            res = dict(zip(labels, results[0]))
-            return res
-        except Exception:
-            self.log.debug(
-                "Cannot find diffraction plan information for dcid %s", dc_id
+    def get_diffractionplan_from_dcid(self, dcid):
+        with Session() as session:
+            query = (
+                session.query(DiffractionPlan)
+                .join(BLSample)
+                .join(DataCollection, DataCollection.BLSAMPLEID == BLSample.blSampleId)
+                .filter(DataCollection.dataCollectionId == dcid)
             )
+            dp = query.first()
+        if dp:
+            # XXX case sensitive?
+            schema = DiffractionPlan.__marshmallow__()
+            return schema.dump(dp)
 
 
 def ready_for_processing(message, parameters):

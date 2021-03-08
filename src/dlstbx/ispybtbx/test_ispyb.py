@@ -351,6 +351,22 @@ def test_get_dcid_for_path():
     )
 
 
+def test_get_diffractionplan_from_dcid():
+    diffractionplan = ispybtbx().get_diffractionplan_from_dcid(5898098)
+    assert {
+        "diffractionPlanId",
+        "experimentKind",
+        "centringMethod",
+        "preferredBeamSizeX",
+        "preferredBeamSizeY",
+        "exposureTime",
+        "requiredResolution",
+        "radiationSensitivity",
+        "anomalousScatterer",
+        "energy",
+    } <= diffractionplan.keys()
+
+
 def test_get_gridscan_info():
     assert ispybtbx().get_gridscan_info(
         {

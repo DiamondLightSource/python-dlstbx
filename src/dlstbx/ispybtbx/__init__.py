@@ -281,7 +281,8 @@ class ispybtbx:
         #      blsampleid: 3065377
         #      blsamplegroupids: 307, 310, 313
         dcid = ispyb_info.get("ispyb_dcid")
-        if not dcid:
+        sessionid = ispyb_info.get("ispyb_dc_info", {}).get("SESSIONID")
+        if not dcid or not sessionid:
             return []
 
         this_dc = aliased(DataCollection)
@@ -332,9 +333,6 @@ class ispybtbx:
             else:
                 logger.debug(sample_groups)
                 if sample_groups:
-                    sessionid = self.get_bl_sessionid_from_visit_name(
-                        ispyb_info["ispyb_visit"]
-                    )
                     query = self._session.query(
                         DataCollection.dataCollectionId,
                         DataCollection.imageDirectory,

@@ -519,34 +519,20 @@ class ispybtbx:
             res = {}
         return res
 
-    def get_protein_from_dcid(self, dc_id):
-
-        s = """SELECT
-    Protein.proteinid,
-    Protein.name,
-    Protein.acronym,
-    Protein.proteintype,
-    Protein.sequence
-FROM
-    Protein
-        INNER JOIN
-    Crystal ON Crystal.proteinid = Protein.proteinid
-        INNER JOIN
-    BLSample ON BLSample.crystalid = Crystal.crystalid
-        INNER JOIN
-    DataCollection ON DataCollection.blsampleid = BLSample.blsampleid
-WHERE
-    DataCollection.datacollectionid = %s
-"""
-        results = self.execute(s, dc_id)
-        labels = ("proteinid", "name", "acronym", "proteintype", "sequence")
-        try:
-            assert len(results) == 1, len(results)
-            assert len(results[0]) == len(labels), results[0]
-            res = dict(zip(labels, results[0]))
-            return res
-        except Exception:
-            self.log.debug("Cannot find protein information for dcid %s", dc_id)
+    def get_protein_from_dcid(self, dcid):
+        with Session() as session:
+            query = (
+                session.query(Protein)
+                .join(Crystal)
+                .join(BLSample)
+                .join(DataCollection, DataCollection.BLSAMPLEID == BLSample.blSampleId)
+                .filter(DataCollection.dataCollectionId == dcid)
+            )
+            protein = query.first()
+        if protein:
+            schema = Protein.__marshmallow__(exclude=("externalId",))
+            # XXX case sensitive? proteinid, proteintype
+            return schema.dump(protein)
 
     def get_dcid_for_filename(self, filename):
         basename, extension = os.path.splitext(filename)

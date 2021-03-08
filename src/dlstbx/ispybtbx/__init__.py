@@ -9,7 +9,10 @@ import ispyb
 import ispyb.sqlalchemy
 import mysql.connector  # installed by ispyb
 import sqlalchemy.orm
-from ispyb.sqlalchemy import DataCollection
+from ispyb.sqlalchemy import (
+    DataCollection,
+    GridInfo,
+)
 
 
 logger = logging.getLogger("dlstbx.ispybtbx")
@@ -142,24 +145,14 @@ class ispybtbx:
 
     def get_gridscan_info(self, dcgid):
         """Extract GridInfo table contents for a DC group ID."""
-        newgrid = _ispyb_api().get_data_collection_group(dcgid).gridinfo
-        if not newgrid:
-            return {}  # This is no grid scan.
-        return {
-            "steps_x": newgrid.steps_x,
-            "steps_y": newgrid.steps_y,
-            "dx_mm": newgrid.dx_mm,
-            "dy_mm": newgrid.dy_mm,
-            "orientation": newgrid.orientation,
-            "snaked": newgrid.snaked,
-            "snapshot_offsetXPixel": newgrid.snapshot_offset_pixel_x,
-            "snapshot_offsetYPixel": newgrid.snapshot_offset_pixel_y,
-            #       'recordTimeStamp': newgrid.timestamp,
-            "gridInfoId": newgrid.id,
-            "pixelsPerMicronX": newgrid.pixels_per_micron_x,
-            "pixelsPerMicronY": newgrid.pixels_per_micron_y,
-            "dataCollectionGroupId": newgrid.dcgid,
-        }
+        query = self._session.query(GridInfo).filter(
+            GridInfo.dataCollectionGroupId == dcgid
+        )
+        gridinfo = query.first()
+        if not gridinfo:
+            return {}
+        schema = GridInfo.__marshmallow__()
+        return schema.dump(gridinfo)
 
     def legacy_init(self):
         # Temporary API to ISPyB while I wait for a proper one using stored procedures

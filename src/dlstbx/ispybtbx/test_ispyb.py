@@ -329,6 +329,10 @@ def test_get_sample_group_dcids():
     ]
 
 
+def test_get_related_dcs():
+    assert ispybtbx().get_related_dcs(5339105) == [5898098, 5898104]
+
+
 def test_get_gridscan_info():
     assert ispybtbx().get_gridscan_info(
         {

@@ -16,6 +16,7 @@ from ispyb.sqlalchemy import (
     BLSampleGroupHasBLSample,
     BLSession,
     DataCollection,
+    DataCollectionGroup,
     GridInfo,
 )
 
@@ -269,14 +270,13 @@ class ispybtbx:
             return "pilatus"
 
     def get_related_dcs(self, group):
-        matches = self.execute(
-            "select datacollectionid from DataCollection "
-            "where dataCollectionGroupId=%s;",
-            group,
-        )
-        assert len(matches) >= 1
-        dc_ids = [m[0] for m in matches]
-        return dc_ids
+        with Session() as session:
+            query = (
+                session.query(DataCollection.dataCollectionId)
+                .join(DataCollectionGroup)
+                .filter(DataCollectionGroup.dataCollectionGroupId == group)
+            )
+            return list(itertools.chain.from_iterable(query.all()))
 
     def get_sample_group_dcids(self, ispyb_info):
         # Test dcid: 5469646

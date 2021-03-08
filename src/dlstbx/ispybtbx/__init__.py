@@ -328,16 +328,17 @@ class ispybtbx:
             else:
                 logger.debug(sample_groups)
                 if sample_groups:
+                    sessionid = self.get_bl_sessionid_from_visit_name(
+                        ispyb_info["ispyb_visit"]
+                    )
+                    query = self._session.query(
+                        DataCollection.dataCollectionId,
+                        DataCollection.imageDirectory,
+                        DataCollection.fileTemplate,
+                    ).filter(DataCollection.SESSIONID == sessionid)
+                    matches = query.all()
                     for sample_group in sample_groups:
                         sample_group_dcids = []
-                        sessionid = self.get_bl_sessionid_from_visit_name(
-                            ispyb_info["ispyb_visit"]
-                        )
-                        matches = self.execute(
-                            "select datacollectionid, imagedirectory, filetemplate from DataCollection "
-                            "where sessionid=%s;",
-                            sessionid,
-                        )
                         visit_dir = ispyb_info["ispyb_visit_directory"]
                         for dcid, image_directory, template in matches:
                             parts = os.path.relpath(image_directory, visit_dir).split(

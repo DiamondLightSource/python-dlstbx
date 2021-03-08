@@ -266,12 +266,14 @@ def test_get_sample_group_dcids_from_yml(tmpdir):
     )
     i = ispybtbx()
     ispyb_info = {
-        "ispyb_dcid": 123456,
         "ispyb_dcid": 5660693,
         "ispyb_visit_directory": tmpdir,
         "ispyb_visit": "mx19946-377",
         "ispyb_image_directory": tmpdir / "VMXi-XY1234" / "well_144" / "images",
         "ispyb_image_template": "image_50934_master.h5",
+        "ispyb_dc_info": {
+            "SESSIONID": 27444332,
+        },
     }
     groups = i.get_sample_group_dcids(ispyb_info)
     assert groups == [
@@ -299,7 +301,14 @@ def test_get_related_dcids_same_directory():
 
 def test_get_sample_group_dcids():
     i = ispybtbx()
-    related_dcids = i.get_sample_group_dcids({"ispyb_dcid": 5469646})
+    related_dcids = i.get_sample_group_dcids(
+        {
+            "ispyb_dcid": 5469646,
+            "ispyb_dc_info": {
+                "SESSIONID": 27441067,
+            },
+        }
+    )
     assert related_dcids == [
         {
             "dcids": [5469637, 5469640, 5469643, 5469646],

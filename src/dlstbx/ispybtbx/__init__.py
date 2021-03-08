@@ -1,16 +1,19 @@
 import glob
+import itertools
 import logging
 import os
 import re
 import uuid
 import yaml
-from sqlalchemy.orm import Load, joinedload
+from sqlalchemy.orm import Load, aliased, joinedload
 
 import ispyb
 import ispyb.sqlalchemy
 import mysql.connector  # installed by ispyb
 import sqlalchemy.orm
 from ispyb.sqlalchemy import (
+    BLSampleGroup,
+    BLSampleGroupHasBLSample,
     BLSession,
     DataCollection,
     GridInfo,
@@ -276,33 +279,38 @@ class ispybtbx:
         return dc_ids
 
     def get_sample_group_dcids(self, ispyb_info):
+        # Test dcid: 5469646
+        #      blsampleid: 3065377
+        #      blsamplegroupids: 307, 310, 313
         dcid = ispyb_info.get("ispyb_dcid")
         if not dcid:
             return []
 
-        # First attempt to get sample group definitions from BLSampleGroup via
-        # ispyb-api lookup (depends on DiamondLightSource/ispyb-api#104)
-        _enable_future()
+        this_dc = aliased(DataCollection)
+        other_dc = aliased(DataCollection)
+        blsg_has_bls1 = aliased(BLSampleGroupHasBLSample)
+        blsg_has_bls2 = aliased(BLSampleGroupHasBLSample)
         related_dcids = []
-        try:
-            sample_groups = _ispyb_api().get_data_collection(dcid).sample_groups
-        except mysql.connector.errors.ProgrammingError as e:
-            logger.debug(
-                f"Error looking up sample_groups for dcid={dcid}:\n{e}",
-                exc_info=True,
+        with Session() as session:
+            query = (
+                session.query(BLSampleGroup, other_dc.dataCollectionId)
+                .join(blsg_has_bls1)
+                .join(this_dc, this_dc.BLSAMPLEID == blsg_has_bls1.blSampleId)
+                .join(
+                    blsg_has_bls2,
+                    blsg_has_bls2.blSampleGroupId == blsg_has_bls1.blSampleGroupId,
+                )
+                .join(other_dc, other_dc.BLSAMPLEID == blsg_has_bls2.blSampleId)
+                .filter(this_dc.dataCollectionId == dcid)
             )
-        except AttributeError as e:
-            logger.debug(
-                f"sample_groups not yet supported by ispyb-api version:\n{e}",
-                exc_info=True,
-            )
-        else:
-            for sample_group in sample_groups:
-                sample_group.load()
+            # Group results by BLSampleGroup
+            for sample_group, group in itertools.groupby(
+                query.all(), lambda r: r.BLSampleGroup
+            ):
                 related_dcids.append(
                     {
-                        "dcids": sample_group.dcids,
-                        "sample_group_id": sample_group.id,
+                        "dcids": [item.dataCollectionId for item in group],
+                        "sample_group_id": sample_group.blSampleGroupId,
                         "name": sample_group.name,
                     }
                 )
@@ -316,7 +324,6 @@ class ispybtbx:
         #   $ cat ${visit}/processing/sample_groups.yml
         #     - [well_10, well_11, well_12]
         #     - [well_121, well_122, well_124, well_126, well_146, well_150]
-        print(related_dcids)
         if not related_dcids:
             try:
                 sample_groups = load_sample_group_config_file(ispyb_info)

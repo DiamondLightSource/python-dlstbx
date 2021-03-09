@@ -22,6 +22,8 @@ from ispyb.sqlalchemy import (
     DiffractionPlan,
     EnergyScan,
     GridInfo,
+    ProcessingJob,
+    ProcessingJobImageSweep,
     ProcessingPipeline,
     Protein,
 )
@@ -117,34 +119,61 @@ class ispybtbx:
             "ispyb_reprocessing_id", parameters.get("ispyb_process")
         )
         if reprocessing_id:
-            parameters["ispyb_process"] = reprocessing_id
-            try:
-                rp = _ispyb_api().get_processing_job(reprocessing_id)
-                parameters["ispyb_images"] = ",".join(
-                    "%s:%d:%d"
-                    % (
-                        sweep.data_collection.file_template_full_python % sweep.start
-                        if "%" in sweep.data_collection.file_template_full_python
-                        else sweep.data_collection.file_template_full_python,
-                        sweep.start,
-                        sweep.end,
-                    )
-                    for sweep in rp.sweeps
+
+            def ispyb_image_path(data_collection, start, end):
+                file_template_full = os.path.join(
+                    data_collection.imageDirectory, data_collection.fileTemplate
                 )
-                # ispyb_reprocessing_parameters is the deprecated method of
-                # accessing the processing parameters
-                parameters["ispyb_reprocessing_parameters"] = {
-                    k: v.value for k, v in dict(rp.parameters).items()
-                }
-                # ispyb_processing_parameters is the preferred method of
-                # accessing the processing parameters
-                processing_parameters = {}
-                for k, v in rp.parameters:
-                    processing_parameters.setdefault(k, [])
-                    processing_parameters[k].append(v.value)
-                parameters["ispyb_processing_parameters"] = processing_parameters
-            except ispyb.NoResult:
-                self.log.warning("Reprocessing ID %s not found", str(reprocessing_id))
+                if not file_template_full:
+                    return None
+                if "#" in file_template_full:
+                    file_template_full = (
+                        re.sub(
+                            r"#+",
+                            lambda x: "%%0%dd" % len(x.group(0)),
+                            file_template_full.replace("%", "%%"),
+                            count=1,
+                        )
+                        % start
+                    )
+                print(file_template_full, start, end)
+                return f"{file_template_full}:{start:d}:{end:d}"
+
+            parameters["ispyb_process"] = reprocessing_id
+            query = (
+                self._session.query(ProcessingJob)
+                .options(
+                    joinedload(ProcessingJob.ProcessingJobParameters),
+                    joinedload(ProcessingJob.ProcessingJobImageSweeps).joinedload(
+                        ProcessingJobImageSweep.DataCollection
+                    ),
+                )
+                .filter(ProcessingJob.processingJobId == reprocessing_id)
+            )
+            rp = query.first()
+            if not rp:
+                self.log.warning(f"Reprocessing ID {reprocessing_id} not found")
+            parameters["ispyb_images"] = ",".join(
+                ispyb_image_path(sweep.DataCollection, sweep.startImage, sweep.endImage)
+                for sweep in rp.ProcessingJobImageSweeps
+            )
+            # ispyb_reprocessing_parameters is the deprecated method of
+            # accessing the processing parameters
+            parameters["ispyb_reprocessing_parameters"] = {
+                p.parameterKey: p.parameterValue for p in rp.ProcessingJobParameters
+            }
+            # ispyb_processing_parameters is the preferred method of
+            # accessing the processing parameters
+            processing_parameters = {}
+            for p in rp.ProcessingJobParameters:
+                processing_parameters.setdefault(p.parameterKey, [])
+                processing_parameters[p.parameterKey].append(p.parameterValue)
+            parameters["ispyb_processing_parameters"] = processing_parameters
+            schema = ProcessingJob.__marshmallow__()
+            parameters["ispyb_processing_job"] = schema.dump(rp)
+            if "ispyb_dcid" not in parameters:
+                parameters["ispyb_dcid"] = rp.dataCollectionId
+
         return message, parameters
 
     def get_gridscan_info(self, dcgid):
@@ -724,16 +753,6 @@ def ispyb_filter(message, parameters):
 
     message, parameters = i(message, parameters)
 
-    processingjob_id = parameters.get(
-        "ispyb_reprocessing_id", parameters.get("ispyb_process")
-    )
-    if processingjob_id:
-        parameters["ispyb_processing_job"] = _ispyb_api().get_processing_job(
-            processingjob_id
-        )
-        if "ispyb_dcid" not in parameters:
-            parameters["ispyb_dcid"] = parameters["ispyb_processing_job"].DCID
-
     if "ispyb_dcid" not in parameters:
         return message, parameters
 
@@ -849,12 +868,12 @@ def ispyb_filter(message, parameters):
 
     if (
         "ispyb_processing_job" in parameters
-        and parameters["ispyb_processing_job"].recipe
+        and parameters["ispyb_processing_job"]["recipe"]
         and not message.get("recipes")
         and not message.get("custom_recipe")
     ):
         # Prefix recipe name coming from ispyb/synchweb with 'ispyb-'
-        message["recipes"] = ["ispyb-" + parameters["ispyb_processing_job"].recipe]
+        message["recipes"] = ["ispyb-" + parameters["ispyb_processing_job"]["recipe"]]
         return message, parameters
 
     if dc_class["grid"]:

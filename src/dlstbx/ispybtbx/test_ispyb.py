@@ -80,6 +80,29 @@ def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples():
         assert len(parameters) > 10
 
 
+def test_ispyb_filtering_for_processing_job():
+    message = {}
+    parameters = {"ispyb_process": 6406100}
+    message, parameters = ispyb_filter(message, parameters)
+    assert (
+        parameters["ispyb_images"]
+        == "/dls/i04/data/2021/cm28182-1/20210204/TestProteinaseK/protk11/protk11_1_master.h5:1:3600"
+    )
+    assert parameters["ispyb_processing_job"] == {
+        "recordTimestamp": "2021-02-04T11:37:24",
+        "displayName": "",
+        "dataCollectionId": 5898098,
+        "processingJobId": 6406100,
+        "automatic": 1,
+        "comments": "",
+        "recipe": "autoprocessing-xia2-dials-eiger",
+    }
+    assert message["recipes"] == ["ispyb-autoprocessing-xia2-dials-eiger"]
+    assert parameters["ispyb_processing_parameters"] == {
+        "resolution.cc_half_significance_level": ["0.1"]
+    }
+
+
 def test_fetch_datacollect_group_from_ispyb():
     i = ispybtbx()
     dc_id = ds["gphl_C2"]

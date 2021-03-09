@@ -190,9 +190,7 @@ class ispybtbx:
             self.columns[table] = columns
 
         self._cursor = self.conn.cursor()
-        self._session = ispyb.sqlalchemy.session(
-            "/dls_sw/apps/zocalo/secrets/credentials-ispyb-sqlalchemy.cfg"
-        )
+        self._session = ispyb.sqlalchemy.session()
         setup_marshmallow_schema(ispyb.sqlalchemy.Base, self._session)
 
     def __del__(self):

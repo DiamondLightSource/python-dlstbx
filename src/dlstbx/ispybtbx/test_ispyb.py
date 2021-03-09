@@ -289,8 +289,8 @@ def test_get_sample_group_dcids_from_yml(tmpdir):
     )
     i = ispybtbx()
     ispyb_info = {
-        "ispyb_dcid": 123456,
         "ispyb_dcid": 5660693,
+        "ispyb_dc_info": {"SESSIONID": 27444332},
         "ispyb_visit_directory": tmpdir,
         "ispyb_visit": "mx19946-377",
         "ispyb_image_directory": tmpdir / "VMXi-XY1234" / "well_144" / "images",

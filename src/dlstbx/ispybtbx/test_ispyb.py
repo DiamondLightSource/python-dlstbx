@@ -421,3 +421,20 @@ def test_get_sample_dcids():
         "sample_id": 3297161,
         "name": "Se-Thaumatin8",
     }
+
+
+def test_get_priority_processing_for_dc_info():
+    assert (
+        ispybtbx().get_priority_processing_for_dc_info({"BLSAMPLEID": 3297161})
+        == "xia2/DIALS"
+    )
+
+
+def test_ready_for_processing():
+    message = {}
+    parameters = {"ispyb_wait_for_runstatus": True, "ispyb_dcid": 5990969}
+    assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True
+    parameters = {"ispyb_dcid": 5990969}
+    assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True
+    parameters = {"ispyb_wait_for_runstatus": False, "ispyb_dcid": 5990969}
+    assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True

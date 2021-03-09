@@ -47,9 +47,7 @@ class DLSTrigger(CommonService):
             log_extender=self.extend_log,
         )
         self.ispyb = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
-        self.session = ispyb.sqlalchemy.session(
-            "/dls_sw/apps/zocalo/secrets/credentials-ispyb-sqlalchemy.cfg"
-        )
+        self.session = ispyb.sqlalchemy.session()
 
     def trigger(self, rw, header, message):
         """Forward the trigger message to a specific trigger function."""

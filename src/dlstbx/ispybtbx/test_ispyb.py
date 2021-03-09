@@ -414,3 +414,10 @@ def test_get_sample_dcids():
         "sample_id": 3297161,
         "name": "Se-Thaumatin8",
     }
+
+
+def test_get_priority_processing_for_dc_info():
+    assert (
+        ispybtbx().get_priority_processing_for_dc_info({"BLSAMPLEID": 3297161})
+        == "xia2/DIALS"
+    )

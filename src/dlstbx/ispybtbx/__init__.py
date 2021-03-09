@@ -15,12 +15,14 @@ from ispyb.sqlalchemy import (
     BLSampleGroup,
     BLSampleGroupHasBLSample,
     BLSession,
+    Container,
     Crystal,
     DataCollection,
     DataCollectionGroup,
     DiffractionPlan,
     EnergyScan,
     GridInfo,
+    ProcessingPipeline,
     Protein,
 )
 
@@ -688,6 +690,20 @@ class ispybtbx:
             schema = DiffractionPlan.__marshmallow__()
             return schema.dump(dp)
 
+    def get_priority_processing_for_dc_info(self, dc_info):
+        blsampleid = dc_info.get("BLSAMPLEID")
+        if not blsampleid:
+            return None
+        query = (
+            self._session.query(ProcessingPipeline.name)
+            .join(Container)
+            .join(BLSample)
+            .filter(BLSample.blSampleId == blsampleid)
+        )
+        pipeline = query.first()
+        if pipeline:
+            return pipeline.name
+
 
 def ready_for_processing(message, parameters):
     """Check whether this message is ready for templatization."""
@@ -754,18 +770,10 @@ def ispyb_filter(message, parameters):
                 parameters["ispyb_dc_info"]["gridinfo"] = gridinfo
         except ispyb.NoResult:
             pass
-    parameters["ispyb_preferred_processing"] = "xia2/DIALS"
-    if dc_info.get("dataCollectionGroupId"):
-        try:
-            container = (
-                _ispyb_api()
-                .get_data_collection_group(dc_info["dataCollectionGroupId"])
-                .container
-            )
-            if container:
-                parameters["ispyb_preferred_processing"] = container.priority_processing
-        except ispyb.NoResult:
-            pass
+    priority_processing = i.get_priority_processing_for_dc_info(dc_info)
+    if not priority_processing:
+        priority_processing = "xia2/DIALS"
+    parameters["ispyb_preferred_processing"] = priority_processing
     parameters["ispyb_image_first"] = start
     parameters["ispyb_image_last"] = end
     parameters["ispyb_image_template"] = dc_info.get("fileTemplate")

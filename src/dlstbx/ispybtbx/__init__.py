@@ -780,15 +780,9 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_energy_scan_info"] = energy_scan_info
     start, end = i.dc_info_to_start_end(dc_info)
     if dc_class["grid"] and dc_info["dataCollectionGroupId"]:
-        try:
-            gridinfo = i.get_gridscan_info(dc_info["dataCollectionGroupId"])
-            if gridinfo:
-                # FIXME: timestamps can not be JSON-serialized
-                if "recordTimeStamp" in gridinfo:
-                    del gridinfo["recordTimeStamp"]
-                parameters["ispyb_dc_info"]["gridinfo"] = gridinfo
-        except ispyb.NoResult:
-            pass
+        gridinfo = i.get_gridscan_info(dc_info["dataCollectionGroupId"])
+        if gridinfo:
+            parameters["ispyb_dc_info"]["gridinfo"] = gridinfo
     priority_processing = i.get_priority_processing_for_dc_info(dc_info)
     if not priority_processing:
         priority_processing = "xia2/DIALS"

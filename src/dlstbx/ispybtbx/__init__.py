@@ -7,9 +7,7 @@ import uuid
 import yaml
 from sqlalchemy.orm import Load, aliased, joinedload
 
-import ispyb
 import ispyb.sqlalchemy
-import mysql.connector  # installed by ispyb
 import sqlalchemy.orm
 from ispyb.sqlalchemy import (
     BLSample,
@@ -92,34 +90,12 @@ def setup_marshmallow_schema():
                 setattr(class_, "__marshmallow__", schema_class)
 
 
-def _ispyb_api():
-    if not hasattr(_ispyb_api, "instance"):
-        setattr(
-            _ispyb_api,
-            "instance",
-            ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg"),
-        )
-    return _ispyb_api.instance
-
-
-future_enabled = False
 re_visit_base = re.compile(r"^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
-
-
-def _enable_future():
-    global future_enabled
-    if future_enabled:
-        return
-    import ispyb.model.__future__
-
-    ispyb.model.__future__.enable("/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg")
-    future_enabled = True
 
 
 class ispybtbx:
     def __init__(self):
-        self.legacy_init()
-
+        setup_marshmallow_schema()
         self.log = logging.getLogger("dlstbx.ispybtbx")
         self.log.debug("ISPyB objects set up")
 
@@ -199,60 +175,6 @@ class ispybtbx:
             return {}
         schema = GridInfo.__marshmallow__()
         return schema.dump(gridinfo)
-
-    def legacy_init(self):
-        # Temporary API to ISPyB while I wait for a proper one using stored procedures
-        # - beware here be dragons, written by a hacker who is not a database wonk.
-
-        from configparser import ConfigParser
-
-        ispyb_config = ConfigParser()
-        ispyb_config.read("/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg")
-        secret_ingredients = ispyb_config["ispyb"]
-
-        self.conn = mysql.connector.connect(
-            host=secret_ingredients["host"],
-            port=secret_ingredients["port"],
-            user=secret_ingredients["username"],
-            password=secret_ingredients["password"],
-            database=secret_ingredients["database"],
-            use_pure=True,
-        )
-
-        # gather information on tables so we can map the data structures
-        # back to named tuples / dictionaries in the results
-        tables = ["DataCollection", "DataCollectionGroup"]
-        self.columns = {}
-        cursor = self.conn.cursor()
-        for table in tables:
-            query = "describe %s;" % table
-            cursor.execute(query)
-            columns = []
-            for record in cursor:
-                name = record[0]
-                columns.append(name)
-            self.columns[table] = columns
-
-        self._cursor = self.conn.cursor()
-        setup_marshmallow_schema()
-
-    def __del__(self):
-        if hasattr(self, "conn") and self.conn:
-            self.conn.close()
-
-    def execute(self, query, parameters=None):
-        cursor = self._cursor
-        if parameters:
-            if isinstance(parameters, (str, int)):
-                parameters = (parameters,)
-            cursor.execute(query, parameters)
-        else:
-            cursor.execute(query)
-        results = [result for result in cursor]
-        return results
-
-    def commit(self):
-        self.conn.commit()
 
     def get_dc_info(self, dc_id):
         with Session() as session:

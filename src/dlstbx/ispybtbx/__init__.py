@@ -739,11 +739,16 @@ def ready_for_processing(message, parameters):
     if not parameters.get("ispyb_wait_for_runstatus"):
         return True
 
-    if not parameters.get("ispyb_dcid"):
+    dcid = parameters.get("ispyb_dcid")
+    if not dcid:
         return True
 
-    dc = _ispyb_api().get_data_collection(parameters["ispyb_dcid"])
-    return dc.status is not None
+    query = (
+        ispyb.sqlalchemy.session()
+        .query(DataCollection.runStatus)
+        .filter(DataCollection.dataCollectionId == dcid)
+    )
+    return query.one().runStatus is not None
 
 
 def ispyb_filter(message, parameters):

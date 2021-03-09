@@ -1,3 +1,4 @@
+import functools
 import glob
 import itertools
 import logging
@@ -25,6 +26,11 @@ from ispyb.sqlalchemy import (
     ProcessingPipeline,
     Protein,
 )
+
+
+@functools.lru_cache
+def _ispyb_session():
+    return ispyb.sqlalchemy.session()
 
 
 logger = logging.getLogger("dlstbx.ispybtbx")
@@ -86,7 +92,7 @@ re_visit_base = re.compile(r"^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
 
 class ispybtbx:
     def __init__(self):
-        self._session = ispyb.sqlalchemy.session()
+        self._session = _ispyb_session()
         setup_marshmallow_schema(ispyb.sqlalchemy.Base, self._session)
         self.log = logging.getLogger("dlstbx.ispybtbx")
         self.log.debug("ISPyB objects set up")
@@ -665,7 +671,7 @@ def ready_for_processing(message, parameters):
         return True
 
     query = (
-        ispyb.sqlalchemy.session()
+        _ispyb_session()
         .query(DataCollection.runStatus)
         .filter(DataCollection.dataCollectionId == dcid)
     )

@@ -232,30 +232,6 @@ def test_filter_function():
     msg, param = ispyb_filter(msg, param)
 
 
-def test_retrieve_reprocessing_information():
-    msg = {}
-    param = {"ispyb_process": 95}
-    msg, param = ispyb_filter(msg, param)
-    assert msg == {"recipes": ["ispyb-xia2-dials"]}
-    assert param["ispyb_process"] == 95
-    assert param["ispyb_processing_job"]
-    assert param["ispyb_processing_job"].comment == "Test entry by Markus"
-    assert param["ispyb_processing_job"].DCID == 1956161
-    assert param["ispyb_processing_job"].name == "Xia2 DIALS"
-    assert param["ispyb_processing_job"].recipe == "xia2-dials"
-    assert param["ispyb_processing_job"].timestamp
-    assert param["ispyb_processing_job"].jobid == 95
-    assert dict(param["ispyb_processing_job"].parameters) == {"d_min": "1.7"}
-    assert len(param["ispyb_processing_job"].sweeps) == 1
-    sweep = param["ispyb_processing_job"].sweeps[0]
-    assert sweep.DCID == 1956161
-    assert sweep.start == 20
-    assert sweep.end == 580
-
-    ## legacy:
-    assert param["ispyb_reprocessing_parameters"] == {"d_min": "1.7"}
-
-
 def test_load_sample_group_config_file(tmpdir):
     (tmpdir / "processing").mkdir()
     config_file = tmpdir / "processing" / "sample_groups.yml"

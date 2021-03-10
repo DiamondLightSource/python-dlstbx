@@ -6,7 +6,7 @@ import os
 import re
 import uuid
 import yaml
-from typing import Dict, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 from sqlalchemy.orm import aliased, joinedload
 
@@ -303,12 +303,9 @@ class ispybtbx:
                 )
         return related_dcids
 
-    def get_sample_dcids(self, ispyb_info):
-        dcid = ispyb_info.get("ispyb_dcid")
-        sample_id = ispyb_info["ispyb_dc_info"].get("BLSAMPLEID")
-        if not dcid or not sample_id:
-            return None
-
+    def get_sample_dcids(
+        self, data_collection: DataCollection
+    ) -> Union[List[int], None]:
         this_sample = aliased(BLSample, name="this_sample")
         other_sample = aliased(BLSample)
         query = (
@@ -318,7 +315,7 @@ class ispybtbx:
                 other_sample.blSampleId == this_sample.blSampleId,
             )
             .join(DataCollection, DataCollection.BLSAMPLEID == other_sample.blSampleId)
-            .filter(other_sample.blSampleId == sample_id)
+            .filter(other_sample.blSampleId == data_collection.BLSAMPLEID)
         )
         results = query.all()
         if results:
@@ -328,7 +325,9 @@ class ispybtbx:
                 "sample_id": sample.blSampleId,
                 "name": sample.name,
             }
-            logger.debug(f"dcids defined via BLSample for dcid={dcid}: {related_dcids}")
+            logger.debug(
+                f"dcids defined via BLSample for dcid={DataCollection.dataCollectionId}: {related_dcids}"
+            )
             return related_dcids
 
     def get_related_dcids_same_directory(self, ispyb_info):
@@ -772,9 +771,9 @@ def ispyb_filter(message, parameters):
 
     # related dcids via sample groups
     parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(parameters)
-    if parameters["ispyb_dc_info"].get("BLSAMPLEID"):
+    if data_collection.BLSAMPLEID:
         # if a sample is linked to the dc, then get dcids on the same sample
-        related_dcids = i.get_sample_dcids(parameters)
+        related_dcids = i.get_sample_dcids(data_collection)
     else:
         # else get dcids collected into the same image directory
         related_dcids = i.get_related_dcids_same_directory(parameters)

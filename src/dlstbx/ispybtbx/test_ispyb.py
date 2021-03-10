@@ -407,9 +407,9 @@ def test_get_gridscan_info():
 
 
 def test_get_sample_dcids():
-    assert ispybtbx().get_sample_dcids(
-        {"ispyb_dcid": 6077651, "ispyb_dc_info": {"BLSAMPLEID": 3297161}}
-    ) == {
+    i = ispybtbx()
+    dc = i.get_data_collection(6077651)
+    assert i.get_sample_dcids(dc) == {
         "dcids": [
             5990969,
             5990975,

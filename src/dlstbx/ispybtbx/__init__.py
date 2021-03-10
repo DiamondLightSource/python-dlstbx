@@ -158,10 +158,13 @@ class ispybtbx:
 
         return message, parameters
 
-    def get_gridscan_info(self, dcgid):
+    def get_gridscan_info(self, dc_info):
         """Extract GridInfo table contents for a DC group ID."""
+        dcid = dc_info.get("dataCollectionId")
+        dcgid = dc_info.get("dataCollectionGroupId")
         query = self._session.query(GridInfo).filter(
-            GridInfo.dataCollectionGroupId == dcgid
+            (GridInfo.dataCollectionId == dcid)
+            | (GridInfo.dataCollectionGroupId == dcgid)
         )
         gridinfo = query.first()
         if not gridinfo:
@@ -711,10 +714,8 @@ def ispyb_filter(message, parameters):
     energy_scan_info = i.get_energy_scan_from_dcid(dc_id)
     parameters["ispyb_energy_scan_info"] = energy_scan_info
     start, end = i.dc_info_to_start_end(dc_info)
-    if dc_class["grid"] and dc_info["dataCollectionGroupId"]:
-        gridinfo = i.get_gridscan_info(dc_info["dataCollectionGroupId"])
-        if gridinfo:
-            parameters["ispyb_dc_info"]["gridinfo"] = gridinfo
+    if dc_class["grid"]:
+        parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(dc_info)
     priority_processing = i.get_priority_processing_for_dc_info(dc_info)
     if not priority_processing:
         priority_processing = "xia2/DIALS"

@@ -6,7 +6,7 @@ import os
 import re
 import uuid
 import yaml
-from typing import Tuple
+from typing import Dict, Tuple, Union
 
 from sqlalchemy.orm import aliased, joinedload
 
@@ -194,10 +194,10 @@ class ispybtbx:
         schema = DataCollection.__marshmallow__()
         return schema.dump(dc)
 
-    def get_beamline(self, data_collection):
+    def get_beamline(self, data_collection: DataCollection) -> Union[str, None]:
         return data_collection.DataCollectionGroup.BLSession.beamLineName
 
-    def get_detector_class(self, data_collection):
+    def get_detector_class(self, data_collection: DataCollection) -> Union[str, None]:
         if data_collection.Detector:
             for detector_class in {"eiger", "pilatus"}:
                 if data_collection.Detector.detectorModel.lower().startswith(
@@ -547,24 +547,26 @@ class ispybtbx:
             end = dc.startImageNumber + dc.numberOfImages - 1
         return dc.startImageNumber, end
 
-    def data_collection_is_grid_scan(self, dc):
+    def data_collection_is_grid_scan(self, dc: DataCollection) -> Union[bool, None]:
         if dc.numberOfImages is None or dc.axisRange is None:
             return None
         return dc.numberOfImages > 1 and dc.axisRange == 0.0
 
-    def data_collection_is_screening(self, dc):
+    def data_collection_is_screening(self, dc: DataCollection) -> Union[bool, None]:
         if not dc.numberOfImages:
             return None
         if dc.numberOfImages == 1 or dc.overlap != 0.0:
             return True
         return False
 
-    def data_collection_is_rotation_scan(self, dc):
+    def data_collection_is_rotation_scan(self, dc: DataCollection) -> Union[bool, None]:
         if dc.overlap is None or dc.axisRange is None:
             return None
         return dc.overlap == 0.0 and dc.axisRange > 0
 
-    def classify_data_collection(self, dc):
+    def classify_data_collection(
+        self, dc: DataCollection
+    ) -> Dict[str, Union[bool, None]]:
         return {
             "grid": self.data_collection_is_grid_scan(dc),
             "screen": self.data_collection_is_screening(dc),

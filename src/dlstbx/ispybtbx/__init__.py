@@ -330,11 +330,7 @@ class ispybtbx:
             )
             return related_dcids
 
-    def get_related_dcids_same_directory(self, ispyb_info):
-        dcid = ispyb_info.get("ispyb_dcid")
-        if not dcid:
-            return None
-
+    def get_related_dcids_same_directory(self, dcid: int) -> dict:
         dc1 = aliased(DataCollection)
         dc2 = aliased(DataCollection)
         query = (
@@ -776,7 +772,9 @@ def ispyb_filter(message, parameters):
         related_dcids = i.get_sample_dcids(data_collection)
     else:
         # else get dcids collected into the same image directory
-        related_dcids = i.get_related_dcids_same_directory(parameters)
+        related_dcids = i.get_related_dcids_same_directory(
+            data_collection.dataCollectionId
+        )
     if related_dcids:
         parameters["ispyb_related_dcids"].append(related_dcids)
     logger.debug(f"ispyb_related_dcids: {parameters['ispyb_related_dcids']}")

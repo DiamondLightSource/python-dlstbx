@@ -215,13 +215,12 @@ class ispybtbx:
         elif data_collection.fileTemplate.endswith(".cbf"):
             return "pilatus"
 
-    def get_related_dcs(self, group):
-        query = (
-            self._session.query(DataCollection.dataCollectionId)
-            .join(DataCollectionGroup)
-            .filter(DataCollectionGroup.dataCollectionGroupId == group)
+    def get_related_dcs(self, data_collection: DataCollection) -> List[DataCollection]:
+        query = self._session.query(DataCollection).filter(
+            DataCollection.dataCollectionGroupId
+            == data_collection.dataCollectionGroupId
         )
-        return list(itertools.chain.from_iterable(query.all()))
+        return query.all()
 
     def get_sample_group_dcids(self, ispyb_info):
         # Test dcid: 5469646
@@ -814,28 +813,25 @@ def ispyb_filter(message, parameters):
     # beware if other projects start using this directory structure will
     # need to be smarter here...
 
-    if dc_info["dataCollectionGroupId"]:
-        related_dcs = i.get_related_dcs(dc_info["dataCollectionGroupId"])
+    if data_collection.dataCollectionGroupId:
+        related_dcs = i.get_related_dcs(data_collection)
         if parameters["ispyb_image_directory"].startswith("/dls/mx"):
-            related = []
-        else:
-            related = list(sorted(set(related_dcs)))
+            related_dcs = []
         for dc in related_dcs:
-            start, end = i.get_start_end(i.get_data_collection(dc))
-            parameters["ispyb_related_sweeps"].append((dc, start, end))
+            start, end = i.get_start_end(dc)
+            parameters["ispyb_related_sweeps"].append((dc.dataCollectionId, start, end))
 
     related_images = []
 
     if not parameters.get("ispyb_images"):
         # may have been set via __call__ for reprocessing jobs
         parameters["ispyb_images"] = ""
-        for dc in related:
+        for dc in related_dcs:
 
             # FIXME logic: should this exclude dc > dcid?
-            if dc == dcid:
+            if dc.dataCollectionId == dcid:
                 continue
 
-            dc = i.get_data_collection(dc)
             other_dc_class = i.classify_data_collection(dc)
             if other_dc_class["rotation"]:
                 start, end = i.get_start_end(dc)

@@ -108,11 +108,11 @@ def test_ispyb_filtering_for_processing_job():
 
 def test_fetch_datacollect_group_from_ispyb():
     i = ispybtbx()
-    dc_id = ds["gphl_C2"]
-    dc_info = i.get_dc_info(dc_id)
-    assert dc_info
-    assert dc_info["dataCollectionGroupId"]
-    whole_group = i.get_related_dcs(dc_info["dataCollectionGroupId"])
+    dcid = ds["gphl_C2"]
+    dc = i.get_data_collection(dcid)
+    assert dc
+    assert dc.dataCollectionGroupId
+    whole_group = i.get_related_dcs(dc)
     assert len(whole_group) == 1
 
 
@@ -351,7 +351,10 @@ def test_get_sample_group_dcids():
 
 
 def test_get_related_dcs():
-    assert ispybtbx().get_related_dcs(5339105) == [5898098, 5898104]
+    i = ispybtbx()
+    dc = i.get_data_collection(5898098)
+    related_dcs = ispybtbx().get_related_dcs(dc)
+    assert [d.dataCollectionId for d in related_dcs] == [5898098, 5898104]
 
 
 def test_get_dcid_for_path():

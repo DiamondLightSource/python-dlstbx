@@ -519,8 +519,8 @@ class ispybtbx:
             + "\n".join("DCID %d %s%s" % (r[0], r[1], r[4]) for r in results)
         )
 
-    def dc_info_to_filename_pattern(self, dc_info):
-        template = dc_info.get("fileTemplate")
+    def get_filename_pattern(self, data_collection: DataCollection) -> Union[str, None]:
+        template = data_collection.fileTemplate
         if not template:
             return None
         if "#" not in template:
@@ -531,15 +531,17 @@ class ispybtbx:
         suffix = template.split("#")[-1]
         return prefix + fmt + suffix
 
-    def dc_info_to_filename(self, dc_info, image_number=None):
-        directory = dc_info["imageDirectory"]
-        template = self.dc_info_to_filename_pattern(dc_info)
+    def get_filename(
+        self, data_collection: DataCollection, image_number: int = None
+    ) -> Union[str, None]:
+        directory = data_collection.imageDirectory
+        template = self.get_filename_pattern(data_collection)
         if "%" not in template:
             return os.path.join(directory, template)
         if image_number:
             return os.path.join(directory, template % image_number)
-        if dc_info["startImageNumber"]:
-            return os.path.join(directory, template % dc_info["startImageNumber"])
+        if data_collection.startImageNumber:
+            return os.path.join(directory, template % data_collection.startImageNumber)
         return None
 
     def get_start_end(self, dc: DataCollection) -> Tuple[int, int]:
@@ -706,12 +708,12 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_preferred_processing"] = priority_processing
     parameters["ispyb_image_first"] = start
     parameters["ispyb_image_last"] = end
-    parameters["ispyb_image_template"] = dc_info.get("fileTemplate")
-    parameters["ispyb_image_directory"] = dc_info.get("imageDirectory")
-    parameters["ispyb_image_pattern"] = i.dc_info_to_filename_pattern(dc_info)
+    parameters["ispyb_image_template"] = data_collection.fileTemplate
+    parameters["ispyb_image_directory"] = data_collection.imageDirectory
+    parameters["ispyb_image_pattern"] = i.get_filename_pattern(data_collection)
     if not parameters.get("ispyb_image") and start is not None and end is not None:
         parameters["ispyb_image"] = "%s:%d:%d" % (
-            i.dc_info_to_filename(dc_info),
+            i.get_filename(data_collection),
             start,
             end,
         )
@@ -834,15 +836,10 @@ def ispyb_filter(message, parameters):
                 continue
 
             dc = i.get_data_collection(dc)
-            schema = DataCollection.__marshmallow__()
-            info = schema.dump(dc)
             other_dc_class = i.classify_data_collection(dc)
             if other_dc_class["rotation"]:
                 start, end = i.get_start_end(dc)
-
-                related_images.append(
-                    "%s:%d:%d" % (i.dc_info_to_filename(info), start, end)
-                )
+                related_images.append("%s:%d:%d" % (i.get_filename(dc), start, end))
 
             parameters["ispyb_images"] = ",".join(related_images)
 

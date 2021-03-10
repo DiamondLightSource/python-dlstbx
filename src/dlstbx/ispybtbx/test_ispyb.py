@@ -191,13 +191,13 @@ def test_data_collection_classification():
 
 def test_get_first_file_of_datacollection():
     i = ispybtbx()
-    dc = {
-        "imageDirectory": "dir",
-        "fileTemplate": "file_#####.cbf",
-        "startImageNumber": 30,
-        "numberOfImages": 300,
-    }
-    assert i.dc_info_to_filename(dc) == "dir/file_00030.cbf"
+    dc = DataCollection(
+        imageDirectory="dir",
+        fileTemplate="file_#####.cbf",
+        startImageNumber=30,
+        numberOfImages=300,
+    )
+    assert i.get_filename(dc) == "dir/file_00030.cbf"
 
 
 def test_get_extent_of_filenames_for_datacollection():
@@ -458,3 +458,25 @@ def test_get_detector_class():
 
     dc = ispybtbx().get_data_collection(5881028)
     assert ispybtbx().get_detector_class(dc) == "pilatus"
+
+
+def test_get_filename_pattern():
+    dc = DataCollection(fileTemplate="image_5_master.h5")
+    assert ispybtbx().get_filename_pattern(dc) == "image_5_master.h5"
+    dc = DataCollection(fileTemplate="image_1_#####.cbf")
+    assert ispybtbx().get_filename_pattern(dc) == "image_1_%05d.cbf"
+    dc = DataCollection(fileTemplate="image_%_#####.cbf")
+    assert ispybtbx().get_filename_pattern(dc) == "image_%%_%05d.cbf"
+
+
+def test_get_filename():
+    dc = DataCollection(imageDirectory="/foo", fileTemplate="image_5_master.h5")
+    assert ispybtbx().get_filename(dc) == "/foo/image_5_master.h5"
+    dc = DataCollection(
+        imageDirectory="/foo", startImageNumber=5, fileTemplate="image_1_#####.cbf"
+    )
+    assert ispybtbx().get_filename(dc) == "/foo/image_1_00005.cbf"
+    dc = DataCollection(
+        imageDirectory="/foo", startImageNumber=5, fileTemplate="image_1_#####.cbf"
+    )
+    assert ispybtbx().get_filename(dc, image_number=3) == "/foo/image_1_00003.cbf"

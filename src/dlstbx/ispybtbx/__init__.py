@@ -143,12 +143,16 @@ class ispybtbx:
                 self.log.warning("Reprocessing ID %s not found", str(reprocessing_id))
         return message, parameters
 
-    def get_gridscan_info(self, dcgid):
+    def get_gridscan_info(self, dc_info):
         """Extract GridInfo table contents for a DC group ID."""
-        query = self._session.query(GridInfo).filter(
-            GridInfo.dataCollectionGroupId == dcgid
-        )
-        gridinfo = query.first()
+        dcid = dc_info.get("dataCollectionId")
+        dcgid = dc_info.get("dataCollectionGroupId")
+        with Session() as session:
+            query = session.query(GridInfo).filter(
+                (GridInfo.dataCollectionId == dcid)
+                | (GridInfo.dataCollectionGroupId == dcgid)
+            )
+            gridinfo = query.first()
         if not gridinfo:
             return {}
         schema = GridInfo.__marshmallow__()
@@ -873,10 +877,8 @@ def ispyb_filter(message, parameters):
     energy_scan_info = i.get_energy_scan_from_dcid(dc_id)
     parameters["ispyb_energy_scan_info"] = energy_scan_info
     start, end = i.dc_info_to_start_end(dc_info)
-    if dc_class["grid"] and dc_info["dataCollectionGroupId"]:
-        gridinfo = i.get_gridscan_info(dc_info["dataCollectionGroupId"])
-        if gridinfo:
-            parameters["ispyb_dc_info"]["gridinfo"] = gridinfo
+    if dc_class["grid"]:
+        parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(dc_info)
     parameters["ispyb_preferred_processing"] = "xia2/DIALS"
     if dc_info.get("dataCollectionGroupId"):
         try:

@@ -298,7 +298,12 @@ def test_get_related_dcids_same_directory():
 
 
 def test_get_gridscan_info():
-    assert ispybtbx().get_gridscan_info(5492072) == {
+    assert ispybtbx().get_gridscan_info(
+        {
+            "dataCollectionGroupId": 5492072,
+            "dataCollectionId": 6077465,
+        }
+    ) == {
         "dataCollectionId": None,
         "snaked": 1,
         "orientation": "horizontal",

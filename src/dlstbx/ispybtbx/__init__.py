@@ -13,7 +13,6 @@ from ispyb.sqlalchemy import (
     BLSample,
     BLSampleGroup,
     BLSampleGroupHasBLSample,
-    BLSession,
     Container,
     Crystal,
     DataCollection,
@@ -173,8 +172,15 @@ class ispybtbx:
         return schema.dump(gridinfo)
 
     def get_data_collection(self, dcid):
-        query = self._session.query(DataCollection).filter(
-            DataCollection.dataCollectionId == dcid
+        query = (
+            self._session.query(DataCollection)
+            .options(
+                joinedload(DataCollection.DataCollectionGroup).joinedload(
+                    DataCollectionGroup.BLSession
+                ),
+                joinedload(DataCollection.Detector),
+            )
+            .filter(DataCollection.dataCollectionId == dcid)
         )
         return query.first()
 
@@ -188,41 +194,23 @@ class ispybtbx:
         schema = DataCollection.__marshmallow__()
         return schema.dump(dc)
 
-    def get_beamline_from_dcid(self, dc_id):
-        query = (
-            self._session.query(BLSession)
-            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
-            .filter(DataCollection.dataCollectionId == dc_id)
-        )
-        bs = query.first()
-        if bs:
-            return bs.beamLineName
+    def get_beamline(self, data_collection):
+        return data_collection.DataCollectionGroup.BLSession.beamLineName
 
-    def dc_info_to_detectorclass(self, dc_info):
-        dcid = dc_info.get("dataCollectionId")
-        if not dcid:
-            return None
-        query = (
-            self._session.query(DataCollection)
-            .filter_by(dataCollectionId=dcid)
-            .options(
-                joinedload(DataCollection.Detector),
-            )
-        )
-        dc = query.first()
-        if dc and dc.Detector:
-            if dc.Detector.detectorModel.lower().startswith("eiger"):
-                return "eiger"
-            elif dc.Detector.detectorModel.lower().startswith("pilatus"):
-                return "pilatus"
+    def get_detector_class(self, data_collection):
+        if data_collection.Detector:
+            for detector_class in {"eiger", "pilatus"}:
+                if data_collection.Detector.detectorModel.lower().startswith(
+                    detector_class
+                ):
+                    return detector_class
 
         # Fallback on examining the file extension if nothing recorded in ISPyB
-        template = dc.fileTemplate
-        if not template:
+        if not data_collection.fileTemplate:
             return None
-        if template.endswith("master.h5"):
+        if data_collection.fileTemplate.endswith("master.h5"):
             return "eiger"
-        elif template.endswith(".cbf"):
+        elif data_collection.fileTemplate.endswith(".cbf"):
             return "pilatus"
 
     def get_related_dcs(self, group):
@@ -561,34 +549,28 @@ class ispybtbx:
             end = start + number - 1
         return start, end
 
-    def dc_info_is_grid_scan(self, dc_info):
-        number_of_images = dc_info.get("numberOfImages")
-        axis_range = dc_info.get("axisRange")
-        if number_of_images is None or axis_range is None:
+    def data_collection_is_grid_scan(self, dc):
+        if dc.numberOfImages is None or dc.axisRange is None:
             return None
-        return number_of_images > 1 and axis_range == 0.0
+        return dc.numberOfImages > 1 and dc.axisRange == 0.0
 
-    def dc_info_is_screening(self, dc_info):
-        if dc_info.get("numberOfImages") is None:
+    def data_collection_is_screening(self, dc):
+        if not dc.numberOfImages:
             return None
-        if dc_info["numberOfImages"] == 1:
-            return True
-        if dc_info["numberOfImages"] > 1 and dc_info["overlap"] != 0.0:
+        if dc.numberOfImages == 1 or dc.overlap != 0.0:
             return True
         return False
 
-    def dc_info_is_rotation_scan(self, dc_info):
-        overlap = dc_info.get("overlap")
-        axis_range = dc_info.get("axisRange")
-        if overlap is None or axis_range is None:
+    def data_collection_is_rotation_scan(self, dc):
+        if dc.overlap is None or dc.axisRange is None:
             return None
-        return overlap == 0.0 and axis_range > 0
+        return dc.overlap == 0.0 and dc.axisRange > 0
 
-    def classify_dc(self, dc_info):
+    def classify_data_collection(self, dc):
         return {
-            "grid": self.dc_info_is_grid_scan(dc_info),
-            "screen": self.dc_info_is_screening(dc_info),
-            "rotation": self.dc_info_is_rotation_scan(dc_info),
+            "grid": self.data_collection_is_grid_scan(dc),
+            "screen": self.data_collection_is_screening(dc),
+            "rotation": self.data_collection_is_rotation_scan(dc),
         }
 
     @staticmethod
@@ -700,18 +682,20 @@ def ispyb_filter(message, parameters):
 
     dcid = parameters["ispyb_dcid"]
 
-    dc = i.get_data_collection(dcid)
+    data_collection = i.get_data_collection(dcid)
     schema = DataCollection.__marshmallow__()
-    dc_info = schema.dump(dc)
+    dc_info = schema.dump(data_collection)
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
-    parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dcid)
+    parameters["ispyb_dc_info"] = dc_info
+    parameters["ispyb_beamline"] = (
+        i.get_beamline(data_collection) if data_collection else None
+    )
     if str(parameters["ispyb_beamline"]).lower() in _gpfs03_beamlines:
         parameters["ispyb_preferred_datacentre"] = "hamilton"
     else:
         parameters["ispyb_preferred_datacentre"] = "cluster"
-    parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info)
-    parameters["ispyb_dc_info"] = dc_info
-    dc_class = i.classify_dc(dc_info)
+    parameters["ispyb_detectorclass"] = i.get_detector_class(data_collection)
+    dc_class = i.classify_data_collection(data_collection)
     parameters["ispyb_dc_class"] = dc_class
     diff_plan_info = i.get_diffractionplan_from_dcid(dcid)
     parameters["ispyb_diffraction_plan"] = diff_plan_info
@@ -856,8 +840,10 @@ def ispyb_filter(message, parameters):
             if dc == dcid:
                 continue
 
-            info = i.get_dc_info(dc)
-            other_dc_class = i.classify_dc(info)
+            dc = i.get_data_collection(dc)
+            schema = DataCollection.__marshmallow__()
+            info = schema.dump(dc)
+            other_dc_class = i.classify_data_collection(info)
             if other_dc_class["rotation"]:
                 start, end = i.dc_info_to_start_end(info)
 

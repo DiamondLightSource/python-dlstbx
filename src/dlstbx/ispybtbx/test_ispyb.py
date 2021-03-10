@@ -1,5 +1,8 @@
 from decimal import Decimal
 from unittest import mock
+
+from ispyb.sqlalchemy import DataCollection
+
 import dlstbx.ispybtbx
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
 
@@ -162,16 +165,28 @@ def test_get_datacollection_information_for_em():
     assert dc_info["resolution"] is None  # because EM
 
 
-def test_datacollection_classification():
+def test_data_collection_classification():
     i = ispybtbx()
-    dc = {"axisRange": 0, "numberOfImages": 1800, "overlap": 0}
-    assert i.classify_dc(dc) == {"grid": True, "rotation": False, "screen": False}
+    dc = DataCollection(axisRange=0, numberOfImages=1800, overlap=0)
+    assert i.classify_data_collection(dc) == {
+        "grid": True,
+        "rotation": False,
+        "screen": False,
+    }
 
-    dc = {"axisRange": 90, "numberOfImages": 1800, "overlap": 0}
-    assert i.classify_dc(dc) == {"grid": False, "rotation": True, "screen": False}
+    dc = DataCollection(axisRange=90, numberOfImages=1800, overlap=0)
+    assert i.classify_data_collection(dc) == {
+        "grid": False,
+        "rotation": True,
+        "screen": False,
+    }
 
-    dc = {"axisRange": 90, "numberOfImages": 3, "overlap": -44.5}
-    assert i.classify_dc(dc) == {"grid": False, "rotation": False, "screen": True}
+    dc = DataCollection(axisRange=90, numberOfImages=3, overlap=-44.5)
+    assert i.classify_data_collection(dc) == {
+        "grid": False,
+        "rotation": False,
+        "screen": True,
+    }
 
 
 def test_get_first_file_of_datacollection():
@@ -435,3 +450,11 @@ def test_ready_for_processing():
     assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True
     parameters = {"ispyb_wait_for_runstatus": False, "ispyb_dcid": 5990969}
     assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True
+
+
+def test_get_detector_class():
+    dc = ispybtbx().get_data_collection(5990969)
+    assert ispybtbx().get_detector_class(dc) == "eiger"
+
+    dc = ispybtbx().get_data_collection(5881028)
+    assert ispybtbx().get_detector_class(dc) == "pilatus"

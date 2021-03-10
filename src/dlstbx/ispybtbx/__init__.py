@@ -172,9 +172,15 @@ class ispybtbx:
         schema = GridInfo.__marshmallow__()
         return schema.dump(gridinfo)
 
-    def get_dc_info(self, dc_id):
+    def get_data_collection(self, dcid):
         query = self._session.query(DataCollection).filter(
-            DataCollection.dataCollectionId == dc_id
+            DataCollection.dataCollectionId == dcid
+        )
+        return query.first()
+
+    def get_dc_info(self, dcid):
+        query = self._session.query(DataCollection).filter(
+            DataCollection.dataCollectionId == dcid
         )
         dc = query.first()
         if dc is None:
@@ -466,7 +472,6 @@ class ispybtbx:
         protein = query.first()
         if protein:
             schema = Protein.__marshmallow__(exclude=("externalId",))
-            # XXX case sensitive? proteinid, proteintype
             return schema.dump(protein)
 
     def get_dcid_for_path(self, path):
@@ -645,7 +650,6 @@ class ispybtbx:
         )
         dp = query.first()
         if dp:
-            # XXX case sensitive?
             schema = DiffractionPlan.__marshmallow__()
             return schema.dump(dp)
 
@@ -691,14 +695,16 @@ def ispyb_filter(message, parameters):
     if "ispyb_dcid" not in parameters:
         return message, parameters
 
-    # FIXME put in here logic to check input if set i.e. if dc_id==0 then check
+    # FIXME put in here logic to check input if set i.e. if dcid==0 then check
     # files exist; if image already set check they exist, ...
 
-    dc_id = parameters["ispyb_dcid"]
+    dcid = parameters["ispyb_dcid"]
 
-    dc_info = i.get_dc_info(dc_id)
+    dc = i.get_data_collection(dcid)
+    schema = DataCollection.__marshmallow__()
+    dc_info = schema.dump(dc)
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
-    parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id)
+    parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dcid)
     if str(parameters["ispyb_beamline"]).lower() in _gpfs03_beamlines:
         parameters["ispyb_preferred_datacentre"] = "hamilton"
     else:
@@ -707,11 +713,11 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_dc_info"] = dc_info
     dc_class = i.classify_dc(dc_info)
     parameters["ispyb_dc_class"] = dc_class
-    diff_plan_info = i.get_diffractionplan_from_dcid(dc_id)
+    diff_plan_info = i.get_diffractionplan_from_dcid(dcid)
     parameters["ispyb_diffraction_plan"] = diff_plan_info
-    protein_info = i.get_protein_from_dcid(dc_id)
+    protein_info = i.get_protein_from_dcid(dcid)
     parameters["ispyb_protein_info"] = protein_info
-    energy_scan_info = i.get_energy_scan_from_dcid(dc_id)
+    energy_scan_info = i.get_energy_scan_from_dcid(dcid)
     parameters["ispyb_energy_scan_info"] = energy_scan_info
     start, end = i.dc_info_to_start_end(dc_info)
     if dc_class["grid"]:
@@ -757,13 +763,13 @@ def ispyb_filter(message, parameters):
     else:
         parameters["ispyb_crystal"] = "DEFAULT"
 
-    space_group, cell = i.get_space_group_and_unit_cell(dc_id)
+    space_group, cell = i.get_space_group_and_unit_cell(dcid)
     if not any((space_group, cell)):
         try:
             params = load_configuration_file(parameters)
         except Exception as exc:
             logger.warning(
-                f"Error loading configuration file for dcid={dc_id}:\n{exc}",
+                f"Error loading configuration file for dcid={dcid}:\n{exc}",
                 exc_info=True,
             )
         else:
@@ -775,7 +781,7 @@ def ispyb_filter(message, parameters):
                         cell = [float(p) for p in cell.replace(",", " ").split()]
                     except ValueError:
                         logger.warning(
-                            "Can't interpret unit cell: %s (dcid: %s)", str(cell), dc_id
+                            "Can't interpret unit cell: %s (dcid: %s)", str(cell), dcid
                         )
                         cell = None
     parameters["ispyb_space_group"] = space_group
@@ -846,8 +852,8 @@ def ispyb_filter(message, parameters):
         parameters["ispyb_images"] = ""
         for dc in related:
 
-            # FIXME logic: should this exclude dc > dc_id?
-            if dc == dc_id:
+            # FIXME logic: should this exclude dc > dcid?
+            if dc == dcid:
                 continue
 
             info = i.get_dc_info(dc)

@@ -6,6 +6,8 @@ import os
 import re
 import uuid
 import yaml
+from typing import Tuple
+
 from sqlalchemy.orm import aliased, joinedload
 
 import ispyb.sqlalchemy
@@ -540,14 +542,12 @@ class ispybtbx:
             return os.path.join(directory, template % dc_info["startImageNumber"])
         return None
 
-    def dc_info_to_start_end(self, dc_info):
-        start = dc_info.get("startImageNumber")
-        number = dc_info.get("numberOfImages")
-        if start is None or number is None:
+    def get_start_end(self, dc: DataCollection) -> Tuple[int, int]:
+        if dc.startImageNumber is None or dc.numberOfImages is None:
             end = None
         else:
-            end = start + number - 1
-        return start, end
+            end = dc.startImageNumber + dc.numberOfImages - 1
+        return dc.startImageNumber, end
 
     def data_collection_is_grid_scan(self, dc):
         if dc.numberOfImages is None or dc.axisRange is None:
@@ -703,7 +703,7 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_protein_info"] = protein_info
     energy_scan_info = i.get_energy_scan_from_dcid(dcid)
     parameters["ispyb_energy_scan_info"] = energy_scan_info
-    start, end = i.dc_info_to_start_end(dc_info)
+    start, end = i.get_start_end(data_collection)
     if dc_class["grid"]:
         parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(dc_info)
     priority_processing = i.get_priority_processing_for_dc_info(dc_info)
@@ -825,8 +825,7 @@ def ispyb_filter(message, parameters):
         else:
             related = list(sorted(set(related_dcs)))
         for dc in related_dcs:
-            info = i.get_dc_info(dc)
-            start, end = i.dc_info_to_start_end(info)
+            start, end = i.get_start_end(i.get_data_collection(dc))
             parameters["ispyb_related_sweeps"].append((dc, start, end))
 
     related_images = []
@@ -845,7 +844,7 @@ def ispyb_filter(message, parameters):
             info = schema.dump(dc)
             other_dc_class = i.classify_data_collection(info)
             if other_dc_class["rotation"]:
-                start, end = i.dc_info_to_start_end(info)
+                start, end = i.get_start_end(dc)
 
                 related_images.append(
                     "%s:%d:%d" % (i.dc_info_to_filename(info), start, end)

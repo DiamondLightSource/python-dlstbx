@@ -202,13 +202,13 @@ def test_get_first_file_of_datacollection():
 
 def test_get_extent_of_filenames_for_datacollection():
     i = ispybtbx()
-    dc = {
-        "imageDirectory": "dir",
-        "fileTemplate": "file_#####.cbf",
-        "startImageNumber": 30,
-        "numberOfImages": 300,
-    }
-    assert i.dc_info_to_start_end(dc) == (30, 329)
+    dc = DataCollection(
+        imageDirectory="dir",
+        fileTemplate="file_#####.cbf",
+        startImageNumber=30,
+        numberOfImages=300,
+    )
+    assert i.get_start_end(dc) == (30, 329)
 
 
 def test_obtain_space_group():

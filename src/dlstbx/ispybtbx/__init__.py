@@ -599,33 +599,35 @@ class ispybtbx:
             return None
         return visit_base.group(2)
 
-    def dc_info_to_working_directory(self, dc_info):
-        directory = dc_info.get("imageDirectory")
+    def get_working_directory(
+        self, data_collection: DataCollection, uuid: str
+    ) -> Union[str, None]:
+        directory = data_collection.imageDirectory
         if not directory:
             return None
         visit = self.get_visit_directory_from_image_directory(directory)
         rest = directory[len(visit) + 1 :]
 
-        collection_path = dc_info["imagePrefix"] or ""
-        dc_number = dc_info["dataCollectionNumber"] or ""
+        collection_path = data_collection.imagePrefix or ""
+        dc_number = data_collection.dataCollectionNumber or ""
         if collection_path or dc_number:
             collection_path = f"{collection_path}_{dc_number}"
-        return os.path.join(
-            visit, "tmp", "zocalo", rest, collection_path, dc_info["uuid"]
-        )
+        return os.path.join(visit, "tmp", "zocalo", rest, collection_path, uuid)
 
-    def dc_info_to_results_directory(self, dc_info):
-        directory = dc_info.get("imageDirectory")
+    def get_results_directory(
+        self, data_collection: DataCollection, uuid: str
+    ) -> Union[str, None]:
+        directory = data_collection.imageDirectory
         if not directory:
             return None
         visit = self.get_visit_directory_from_image_directory(directory)
         rest = directory[len(visit) + 1 :]
 
-        collection_path = dc_info["imagePrefix"] or ""
-        dc_number = dc_info["dataCollectionNumber"] or ""
+        collection_path = data_collection.imagePrefix or ""
+        dc_number = data_collection.dataCollectionNumber or ""
         if collection_path or dc_number:
             collection_path = f"{collection_path}_{dc_number}"
-        return os.path.join(visit, "processed", rest, collection_path, dc_info["uuid"])
+        return os.path.join(visit, "processed", rest, collection_path, uuid)
 
     def get_diffractionplan_from_dcid(self, dcid):
         query = (
@@ -718,27 +720,28 @@ def ispyb_filter(message, parameters):
             end,
         )
     parameters["ispyb_visit"] = i.get_visit_from_image_directory(
-        dc_info.get("imageDirectory")
+        data_collection.imageDirectory
     )
     parameters["ispyb_visit_directory"] = i.get_visit_directory_from_image_directory(
-        dc_info.get("imageDirectory")
+        data_collection.imageDirectory
     )
-    parameters["ispyb_working_directory"] = i.dc_info_to_working_directory(dc_info)
-    parameters["ispyb_results_directory"] = i.dc_info_to_results_directory(dc_info)
+    parameters["ispyb_working_directory"] = i.get_working_directory(
+        data_collection, dc_info["uuid"]
+    )
+    parameters["ispyb_results_directory"] = i.get_results_directory(
+        data_collection, dc_info["uuid"]
+    )
     parameters["ispyb_space_group"] = ""
     parameters["ispyb_related_sweeps"] = []
 
     parameters["ispyb_project"] = (
         parameters.get("ispyb_visit") or "AUTOMATIC"
     ).replace("-", "v")
-    if parameters["ispyb_dc_info"].get("imagePrefix") and parameters[
-        "ispyb_dc_info"
-    ].get("dataCollectionNumber"):
+    if data_collection.imagePrefix and data_collection.dataCollectionNumber:
         parameters["ispyb_crystal"] = "x" + re.sub(
             "[^A-Za-z0-9]+",
             "",
-            parameters["ispyb_dc_info"]["imagePrefix"]
-            + str(parameters["ispyb_dc_info"]["dataCollectionNumber"]),
+            data_collection.imagePrefix + str(data_collection.dataCollectionNumber),
         )
     else:
         parameters["ispyb_crystal"] = "DEFAULT"

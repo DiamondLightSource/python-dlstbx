@@ -24,7 +24,6 @@ from ispyb.sqlalchemy import (
     GridInfo,
     ProcessingJob,
     ProcessingJobImageSweep,
-    ProcessingPipeline,
     Protein,
 )
 
@@ -175,8 +174,11 @@ class ispybtbx:
         query = (
             self._session.query(DataCollection)
             .options(
-                joinedload(DataCollection.DataCollectionGroup).joinedload(
-                    DataCollectionGroup.BLSession
+                joinedload(DataCollection.DataCollectionGroup).options(
+                    joinedload(DataCollectionGroup.BLSession),
+                    joinedload(DataCollectionGroup.BLSample)
+                    .joinedload(BLSample.Container)
+                    .joinedload(Container.ProcessingPipeline),
                 ),
                 joinedload(DataCollection.Detector),
             )
@@ -635,19 +637,11 @@ class ispybtbx:
             schema = DiffractionPlan.__marshmallow__()
             return schema.dump(dp)
 
-    def get_priority_processing_for_dc_info(self, dc_info):
-        blsampleid = dc_info.get("BLSAMPLEID")
-        if not blsampleid:
+    def get_priority_processing(self, dc: DataCollection) -> Union[str, None]:
+        try:
+            return dc.DataCollectionGroup.BLSample.Container.ProcessingPipeline.name
+        except AttributeError:
             return None
-        query = (
-            self._session.query(ProcessingPipeline.name)
-            .join(Container)
-            .join(BLSample)
-            .filter(BLSample.blSampleId == blsampleid)
-        )
-        pipeline = query.first()
-        if pipeline:
-            return pipeline.name
 
 
 def ready_for_processing(message, parameters):
@@ -706,7 +700,7 @@ def ispyb_filter(message, parameters):
     start, end = i.get_start_end(data_collection)
     if dc_class["grid"]:
         parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(data_collection)
-    priority_processing = i.get_priority_processing_for_dc_info(dc_info)
+    priority_processing = i.get_priority_processing(data_collection)
     if not priority_processing:
         priority_processing = "xia2/DIALS"
     parameters["ispyb_preferred_processing"] = priority_processing
@@ -842,7 +836,7 @@ def ispyb_filter(message, parameters):
             dc = i.get_data_collection(dc)
             schema = DataCollection.__marshmallow__()
             info = schema.dump(dc)
-            other_dc_class = i.classify_data_collection(info)
+            other_dc_class = i.classify_data_collection(dc)
             if other_dc_class["rotation"]:
                 start, end = i.get_start_end(dc)
 

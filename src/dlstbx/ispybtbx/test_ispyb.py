@@ -434,11 +434,12 @@ def test_get_sample_dcids():
     }
 
 
-def test_get_priority_processing_for_dc_info():
-    assert (
-        ispybtbx().get_priority_processing_for_dc_info({"BLSAMPLEID": 3297161})
-        == "xia2/DIALS"
-    )
+def test_get_priority_processing():
+    dc = ispybtbx().get_data_collection(6077465)
+    assert ispybtbx().get_priority_processing(dc) == "xia2/DIALS"
+
+    dc = DataCollection()
+    assert ispybtbx().get_priority_processing(dc) is None
 
 
 def test_ready_for_processing():

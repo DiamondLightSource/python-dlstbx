@@ -3,6 +3,7 @@ import glob
 import itertools
 import logging
 import os
+import pathlib
 import re
 import uuid
 import yaml
@@ -222,15 +223,10 @@ class ispybtbx:
         )
         return query.all()
 
-    def get_sample_group_dcids(self, ispyb_info):
+    def get_sample_group_dcids(self, data_collection: DataCollection) -> List[dict]:
         # Test dcid: 5469646
         #      blsampleid: 3065377
         #      blsamplegroupids: 307, 310, 313
-        dcid = ispyb_info.get("ispyb_dcid")
-        sessionid = ispyb_info.get("ispyb_dc_info", {}).get("SESSIONID")
-        if not dcid or not sessionid:
-            return []
-
         this_dc = aliased(DataCollection)
         other_dc = aliased(DataCollection)
         blsg_has_bls1 = aliased(BLSampleGroupHasBLSample)
@@ -244,7 +240,7 @@ class ispybtbx:
                 blsg_has_bls2.blSampleGroupId == blsg_has_bls1.blSampleGroupId,
             )
             .join(other_dc, other_dc.BLSAMPLEID == blsg_has_bls2.blSampleId)
-            .filter(this_dc.dataCollectionId == dcid)
+            .filter(this_dc.dataCollectionId == data_collection.dataCollectionId)
         )
         related_dcids = []
         # Group results by BLSampleGroup
@@ -260,7 +256,7 @@ class ispybtbx:
             )
 
         logger.debug(
-            f"dcids defined via BLSampleGroup for dcid={dcid}: {related_dcids}"
+            f"dcids defined via BLSampleGroup for dcid={data_collection.dataCollectionId}: {related_dcids}"
         )
 
         # Else look for sample groups defined in
@@ -269,11 +265,14 @@ class ispybtbx:
         #     - [well_10, well_11, well_12]
         #     - [well_121, well_122, well_124, well_126, well_146, well_150]
         if not related_dcids:
+            visit_dir = self.get_visit_directory_from_image_directory(
+                data_collection.imageDirectory
+            )
             try:
-                sample_groups = load_sample_group_config_file(ispyb_info)
+                sample_groups = load_sample_group_config_file(data_collection)
             except Exception as e:
                 logger.warning(
-                    f"Error loading sample group config file for {ispyb_info['ispyb_visit']}: {e}",
+                    f"Error loading sample group config file for {visit_dir}: {e}",
                     exc_info=True,
                 )
             else:
@@ -283,11 +282,10 @@ class ispybtbx:
                         DataCollection.dataCollectionId,
                         DataCollection.imageDirectory,
                         DataCollection.fileTemplate,
-                    ).filter(DataCollection.SESSIONID == sessionid)
+                    ).filter(DataCollection.SESSIONID == data_collection.SESSIONID)
                     matches = query.all()
                     for sample_group in sample_groups:
                         sample_group_dcids = []
-                        visit_dir = ispyb_info["ispyb_visit_directory"]
                         for dcid, image_directory, template in matches:
                             parts = os.path.relpath(image_directory, visit_dir).split(
                                 os.sep
@@ -298,7 +296,7 @@ class ispybtbx:
                                     sample_group_dcids.append(dcid)
                         related_dcids.append({"dcids": sample_group_dcids})
                 logger.debug(
-                    f"dcids defined via sample_group.yml for dcid={dcid}: {related_dcids}"
+                    f"dcids defined via sample_group.yml for dcid={data_collection.dataCollectionId}: {related_dcids}"
                 )
         return related_dcids
 
@@ -765,7 +763,7 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_unit_cell"] = cell
 
     # related dcids via sample groups
-    parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(parameters)
+    parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(data_collection)
     if data_collection.BLSAMPLEID:
         # if a sample is linked to the dc, then get dcids on the same sample
         related_dcids = i.get_sample_dcids(data_collection)
@@ -883,24 +881,21 @@ def load_configuration_file(ispyb_info):
                     )
 
 
-def load_sample_group_config_file(ispyb_info):
-    if any(
-        not ispyb_info.get(entry)
-        for entry in (
-            "ispyb_visit_directory",
-            "ispyb_image_directory",
-            "ispyb_image_template",
+def load_sample_group_config_file(
+    data_collection: DataCollection,
+) -> Union[List[str], None]:
+    visit_dir = pathlib.Path(
+        ispybtbx.get_visit_directory_from_image_directory(
+            data_collection.imageDirectory
         )
-    ):
-        return
-    visit_dir = ispyb_info["ispyb_visit_directory"]
-    processing_dir = os.path.join(ispyb_info["ispyb_visit_directory"], "processing")
-    config_file = os.path.join(processing_dir, "sample_groups.yml")
-    image_path = os.path.join(
-        ispyb_info["ispyb_image_directory"], ispyb_info["ispyb_image_template"]
     )
-    if os.path.isfile(config_file):
-        with open(config_file) as fh:
+    processing_dir = visit_dir / "processing"
+    config_file = processing_dir / "sample_groups.yml"
+    image_path = (
+        pathlib.Path(data_collection.imageDirectory) / data_collection.fileTemplate
+    )
+    if config_file.exists():
+        with config_file.open() as fh:
             try:
                 sample_groups = yaml.safe_load(fh)
             except yaml.YAMLError as exc:
@@ -912,9 +907,7 @@ def load_sample_group_config_file(ispyb_info):
                 groups = []
                 for group in sample_groups:
                     for prefix in group:
-                        if prefix in os.path.relpath(image_path, visit_dir).split(
-                            os.sep
-                        ):
+                        if prefix in image_path.relative_to(visit_dir).parts:
                             groups.append(group)
                 return groups
     else:

@@ -247,47 +247,46 @@ def test_filter_function():
     msg, param = ispyb_filter(msg, param)
 
 
-def test_load_sample_group_config_file(tmpdir):
-    (tmpdir / "processing").mkdir()
-    config_file = tmpdir / "processing" / "sample_groups.yml"
-    config_file.write(
+def test_load_sample_group_config_file(tmp_path):
+    visit_dir = tmp_path / "mx12345-6"
+    (visit_dir / "processing").mkdir(parents=True)
+    config_file = visit_dir / "processing" / "sample_groups.yml"
+    config_file.write_text(
         """\
 - [well_1, well_2, well_3]
 - [well_121, well_122, well_123]
 - [well_1, well_123]
 """
     )
-    ispyb_info = {
-        "ispyb_visit_directory": tmpdir,
-        "ispyb_image_directory": tmpdir / "VMXi-XY1234" / "well_123" / "images",
-        "ispyb_image_template": "image_50934_master.h5",
-    }
-    group = dlstbx.ispybtbx.load_sample_group_config_file(ispyb_info)
+    dc = DataCollection(
+        imageDirectory=str(visit_dir / "VMXi-XY1234" / "well_123" / "images"),
+        fileTemplate="image_50934_master.h5",
+    )
+    group = dlstbx.ispybtbx.load_sample_group_config_file(dc)
     assert group == [
         ["well_121", "well_122", "well_123"],
         ["well_1", "well_123"],
     ]
 
 
-def test_get_sample_group_dcids_from_yml(tmpdir):
-    (tmpdir / "processing").mkdir()
-    config_file = tmpdir / "processing" / "sample_groups.yml"
-    config_file.write(
+def test_get_sample_group_dcids_from_yml(tmp_path):
+    visit_dir = tmp_path / "mx12345-6"
+    (visit_dir / "processing").mkdir(parents=True)
+    config_file = visit_dir / "processing" / "sample_groups.yml"
+    config_file.write_text(
         """\
 - [well_143, well_144]
 - [well_144, well_145]
 """
     )
     i = ispybtbx()
-    ispyb_info = {
-        "ispyb_dcid": 5660693,
-        "ispyb_dc_info": {"SESSIONID": 27444332},
-        "ispyb_visit_directory": tmpdir,
-        "ispyb_visit": "mx19946-377",
-        "ispyb_image_directory": tmpdir / "VMXi-XY1234" / "well_144" / "images",
-        "ispyb_image_template": "image_50934_master.h5",
-    }
-    groups = i.get_sample_group_dcids(ispyb_info)
+    dc = DataCollection(
+        dataCollectionId=5660693,
+        SESSIONID=27444332,
+        imageDirectory=str(visit_dir / "VMXi-XY1234" / "well_144" / "images"),
+        fileTemplate="image_50934_master.h5",
+    )
+    groups = i.get_sample_group_dcids(dc)
     assert groups == [
         {"dcids": [5661104, 5661122, 5661125, 5661128, 5661131, 5661134, 5661137]},
         {"dcids": [5661122, 5661125, 5661128, 5661131, 5661134, 5661137]},
@@ -313,14 +312,7 @@ def test_get_related_dcids_same_directory():
 
 def test_get_sample_group_dcids():
     i = ispybtbx()
-    related_dcids = i.get_sample_group_dcids(
-        {
-            "ispyb_dcid": 5469646,
-            "ispyb_dc_info": {
-                "SESSIONID": 27441067,
-            },
-        }
-    )
+    related_dcids = i.get_sample_group_dcids(i.get_data_collection(5469646))
     assert related_dcids == [
         {
             "dcids": [5469637, 5469640, 5469643, 5469646],

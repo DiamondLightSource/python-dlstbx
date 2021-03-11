@@ -15,7 +15,6 @@ ds = {
     "edge_set": 1722897,
     "i19_screening": 1396413,
     "cryo_em": 2097825,
-    "borken_dcid": 2091234,
 }
 
 
@@ -81,6 +80,12 @@ def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples():
         message, parameters = ispyb_filter(message, parameters)
         assert message == {"default_recipe": mock.ANY}
         assert len(parameters) > 10
+
+
+def test_ispyb_recipe_filtering_borken_dcid():
+    message, parameters = ispyb_filter({}, {"ispyb_dcid": 2091234})
+    assert message == {}
+    assert parameters == {"ispyb_dcid": 2091234}
 
 
 def test_ispyb_filtering_for_processing_job():

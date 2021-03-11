@@ -672,6 +672,9 @@ def ispyb_filter(message, parameters):
     dcid = parameters["ispyb_dcid"]
 
     data_collection = i.get_data_collection(dcid)
+    if not data_collection:
+        return message, parameters
+
     schema = DataCollection.__marshmallow__()
     dc_info = schema.dump(data_collection)
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())

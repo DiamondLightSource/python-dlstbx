@@ -1,5 +1,4 @@
 import functools
-import glob
 import itertools
 import logging
 import os
@@ -741,7 +740,7 @@ def ispyb_filter(message, parameters):
     space_group, cell = i.get_space_group_and_unit_cell(dcid)
     if not any((space_group, cell)):
         try:
-            params = load_configuration_file(parameters)
+            params = load_configuration_file(data_collection)
         except Exception as exc:
             logger.warning(
                 f"Error loading configuration file for dcid={dcid}:\n{exc}",
@@ -863,16 +862,21 @@ def ispyb_filter(message, parameters):
     return message, parameters
 
 
-def load_configuration_file(ispyb_info):
-    visit_dir = ispyb_info["ispyb_visit_directory"]
-    processing_dir = os.path.join(visit_dir, "processing")
-    for f in glob.glob(os.path.join(processing_dir, "*.yml")):
-        prefix = os.path.splitext(os.path.basename(f))[0]
-        image_path = os.path.join(
-            ispyb_info["ispyb_image_directory"], ispyb_info["ispyb_image_template"]
+def load_configuration_file(data_collection: DataCollection) -> Union[dict, None]:
+    visit_dir = pathlib.Path(
+        ispybtbx.get_visit_directory_from_image_directory(
+            data_collection.imageDirectory
         )
-        if prefix in os.path.relpath(image_path, visit_dir):
-            with open(f) as fh:
+    )
+    processing_dir = visit_dir / "processing"
+    for f in processing_dir.glob("*.yml"):
+        image_path = (
+            pathlib.Path(data_collection.imageDirectory) / data_collection.fileTemplate
+        )
+        print(str(f.stem))
+        print(str(image_path.relative_to(visit_dir)))
+        if str(f.stem) in str(image_path.relative_to(visit_dir)):
+            with f.open() as fh:
                 try:
                     return yaml.safe_load(fh)
                 except yaml.YAMLError as exc:

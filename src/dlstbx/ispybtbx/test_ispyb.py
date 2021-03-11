@@ -247,6 +247,26 @@ def test_filter_function():
     msg, param = ispyb_filter(msg, param)
 
 
+def test_load_configuration_file(tmp_path):
+    visit_dir = tmp_path / "mx12345-6"
+    (visit_dir / "processing").mkdir(parents=True)
+    config_file = visit_dir / "processing" / "Therm.yml"
+    config_file.write_text(
+        """\
+ispyb_unit_cell: [57.7, 57.7, 149.8, 90, 90, 90]
+ispyb_space_group:  P 41 21 2
+"""
+    )
+    dc = DataCollection(
+        imageDirectory=str(visit_dir / "Therm"),
+        fileTemplate="image_1_#####.cbf",
+    )
+    assert dlstbx.ispybtbx.load_configuration_file(dc) == {
+        "ispyb_unit_cell": [57.7, 57.7, 149.8, 90, 90, 90],
+        "ispyb_space_group": "P 41 21 2",
+    }
+
+
 def test_load_sample_group_config_file(tmp_path):
     visit_dir = tmp_path / "mx12345-6"
     (visit_dir / "processing").mkdir(parents=True)

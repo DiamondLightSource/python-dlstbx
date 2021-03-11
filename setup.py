@@ -27,7 +27,6 @@ console_scripts = [
     "dlstbx.gridscan3d=dlstbx.cli.gridscan3d:run",
     "dlstbx.h5rewrite=dlstbx.cli.h5rewrite:cli",
     "dlstbx.hdf5_missing_frames=dlstbx.cli.hdf5_missing_frames:run",
-    "dlstbx.last_data_collections_on=dlstbx.cli.last_data_collections_on:run",
     "dlstbx.list_all_entry_points=dlstbx.cli.list_all_entry_points:run",
     "dlstbx.log=dlstbx.cli.log:run",
     "dlstbx.log_alert=dlstbx.cli.log_alert:run",

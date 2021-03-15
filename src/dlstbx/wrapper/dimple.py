@@ -62,17 +62,17 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             "success": 1,
             "starttime": starttime,
             "endtime": endtime,
-            "rfree_start": log.getfloat("refmac5 restr", "ini_free_r"),
-            "rfree_end": log.getfloat("refmac5 restr", "free_r"),
-            "r_start": log.getfloat("refmac5 restr", "ini_overall_r"),
-            "r_end": log.getfloat("refmac5 restr", "overall_r"),
+            "rfreestart": log.getfloat("refmac5 restr", "ini_free_r"),
+            "rfreeend": log.getfloat("refmac5 restr", "free_r"),
+            "rstart": log.getfloat("refmac5 restr", "ini_overall_r"),
+            "rend": log.getfloat("refmac5 restr", "overall_r"),
             "message": msg,
-            "run_dir": self.results_directory.strpath,
-            "input_MTZ_file": dimple_args[0],
-            "input_coord_file": dimple_args[1],
-            "output_MTZ_file": self.results_directory.join("final.mtz").strpath,
-            "output_coord_file": self.results_directory.join("final.pdb").strpath,
-            "cmd_line": (
+            "rundir": self.results_directory.strpath,
+            "inputMTZfile": dimple_args[0],
+            "inputcoordfile": dimple_args[1],
+            "outputmtzfile": self.results_directory.join("final.mtz").strpath,
+            "outputcoordfile": self.results_directory.join("final.pdb").strpath,
+            "cmdline": (
                 log.get("workflow", "prog")
                 + " "
                 + log.get("workflow", "args").replace("\n", " ")

@@ -117,7 +117,7 @@ class DLSDispatcher(CommonService):
         parameters = message.get("parameters", {})
         if not isinstance(parameters, dict):
             # malformed message
-            self.log.warning(
+            self.log.error(
                 "Dispatcher rejected malformed message: parameters not given as dictionary"
             )
             self._transport.nack(header)
@@ -181,7 +181,7 @@ class DLSDispatcher(CommonService):
                     return
                 else:
                     # Unhandled error, send message to DLQ
-                    self.log.warning(
+                    self.log.error(
                         "Message rejected as still not ready for processing",
                     )
                     self._transport.nack(header)

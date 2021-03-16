@@ -1,5 +1,6 @@
-import logging
 import hashlib
+import logging
+import os
 import pathlib
 from datetime import datetime
 
@@ -43,7 +44,14 @@ class DLSTrigger(CommonService):
             acknowledgement=True,
             log_extender=self.extend_log,
         )
-        self.ispyb = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
+        credentials = os.getenv("ISPYB_CREDENTIALS")
+        if not credentials:
+            raise AttributeError(
+                "No credentials file specified via ISPYB_CREDENTIALS environment variable"
+            )
+        elif not os.path.exists(credentials):
+            raise OSError(f"Credentials file {credentials} does not exist")
+        self.ispyb = ispyb.open(credentials)
         self.session = ispyb.sqlalchemy.session()
 
     def trigger(self, rw, header, message):

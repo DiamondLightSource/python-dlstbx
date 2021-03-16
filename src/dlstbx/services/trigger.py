@@ -24,10 +24,6 @@ from ispyb.sqlalchemy import (
 )
 
 
-logging.basicConfig()
-logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-
-
 class DLSTrigger(CommonService):
     """A service that creates and runs downstream processing jobs."""
 
@@ -39,6 +35,7 @@ class DLSTrigger(CommonService):
 
     def initializing(self):
         """Subscribe to the trigger queue. Received messages must be acknowledged."""
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
         workflows.recipe.wrap_subscribe(
             self._transport,
             "trigger",

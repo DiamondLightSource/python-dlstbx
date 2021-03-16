@@ -1054,9 +1054,10 @@ class DLSTrigger(CommonService):
                     return {"success": True}
 
                 self.log.debug(f"Using appid {app.autoProcProgramId}")
-                attachments = []
-                for att in app.AutoProcProgramAttachments:
-                    attachments.append(str(pathlib.Path(att.filePath) / att.fileName))
+                attachments = [
+                    str(pathlib.Path(att.filePath) / att.fileName)
+                    for att in app.AutoProcProgramAttachments
+                ]
                 self.log.debug(
                     f"Found the following files for appid {app.autoProcProgramId}:\n{', '.join(attachments)}"
                 )

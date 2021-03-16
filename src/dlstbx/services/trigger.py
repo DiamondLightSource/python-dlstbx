@@ -1065,7 +1065,7 @@ class DLSTrigger(CommonService):
                 )
                 if len(attachments) % 2:
                     self.log.warning(
-                        f"Expected to find an even number of  data files for appid {app.autoProcProgramId} (found {len(attachments)})"
+                        f"Expected to find an even number of data files for appid {app.autoProcProgramId} (found {len(attachments)})"
                     )
                     continue
                 if len(attachments) == 2:

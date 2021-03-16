@@ -1,7 +1,6 @@
 import os.path
 import time
 
-import dlstbx.util.gda
 import ispyb
 import mysql.connector
 import workflows.recipe
@@ -405,30 +404,6 @@ class DLSISPyB(EM_Mixin, CommonService):
                 self.ispyb.mx_processing.upsert_quality_indicators,
                 list(params.values()),
             )
-            gdahost = parameters("notify-gda")
-            if gdahost:
-                if "{" in gdahost:
-                    self.log.warning(
-                        "Could not notify GDA, %s is not a valid hostname", gdahost
-                    )
-                elif gdahost == "mx-control":
-                    pass  # skip
-                elif result is None:
-                    self.log.info(
-                        "Could not notify GDA, stored procedure returned 'None'"
-                    )
-                else:
-                    # We still notify in the legacy manner by sending a UDP package with DCID+imagenumber
-                    try:
-                        dlstbx.util.gda.notify(
-                            gdahost,
-                            9877,
-                            "IQI:{p[datacollectionid]}:{p[image_number]}".format(
-                                p=params
-                            ).encode("latin-1"),
-                        )
-                    except Exception as e:
-                        self.log.warning("Could not notify GDA: %s", e, exc_info=True)
         except ispyb.ReadWriteError as e:
             self.log.error(
                 "Could not write PIA results %s to database: %s",

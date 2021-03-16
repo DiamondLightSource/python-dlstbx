@@ -4,6 +4,7 @@ import pytest
 import workflows.recipe
 import dxtbx.model.experiment_list
 from workflows.services.common_service import CommonService
+import dlstbx.util.hdf5 as hdf5_util
 
 
 class DLSValidation(CommonService):
@@ -70,6 +71,31 @@ class DLSValidation(CommonService):
         self.log.debug("Starting validation of %s", filename)
 
         fail = functools.partial(self.fail_validation, rw, header, output)
+
+        # Verify HDF5 file version is _not_ compatible with HDF5 1.8 format
+        if filename.endswith((".h5", ".nxs")):
+            if not hdf5_util.is_readable(filename):
+                return fail(f"{filename} is an invalid HDF5 file")
+            errors = [
+                link
+                for link in hdf5_util.find_all_references(filename)
+                if not hdf5_util.is_readable(link)
+            ]
+            if errors:
+                return fail(
+                    f"HDF5 file {filename} links to invalid file(s) %s"
+                    % ", ".join(errors)
+                )
+            hdf_18 = [
+                link
+                for link in hdf5_util.find_all_references(filename)
+                if not hdf5_util.is_HDF_1_8_compatible(link)
+            ]
+            if hdf_18:
+                return fail(
+                    f"HDF5 file {filename} links to HDF5 1.8 format data in %s"
+                    % ", ".join(hdf_18)
+                )
 
         # Create experiment list
         try:

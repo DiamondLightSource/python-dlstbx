@@ -21,7 +21,6 @@ MimasScenario = collections.namedtuple(
         "runstatus",
         "spacegroup",  # None or MimasISPyBSpaceGroup
         "unitcell",  # None or MimasISPyBUnitCell
-        "isitagridscan",
         "getsweepslistfromsamedcg",
         "preferred_processing",  # None or string
         "detectorclass",  # None or MimasDetectorClass
@@ -85,8 +84,6 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
     if type(mimasobject.DCID) != int:
         raise ValueError(f"{mimasobject!r} has non-integer DCID")
-    if type(mimasobject.isitagridscan) != bool:
-        raise ValueError(f"{mimasobject!r} has non-boolean isitagridscan")
     validate(mimasobject.dcclass, expectedtype=MimasDCClass)
     validate(mimasobject.event, expectedtype=MimasEvent)
     if type(mimasobject.getsweepslistfromsamedcg) not in (list, tuple):

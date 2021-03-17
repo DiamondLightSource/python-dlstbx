@@ -724,58 +724,6 @@ WHERE
             collection_path = f"{collection_path}_{dc_number}"
         return os.path.join(visit, "processed", rest, collection_path, dc_info["uuid"])
 
-    def get_processing_statistics(
-        self, dc_ids, columns=None, statistics_type="overall"
-    ):
-        assert statistics_type in ("outerShell", "innerShell", "overall")
-        if columns is not None:
-            select_str = ", ".join(c for c in columns)
-        else:
-            select_str = "*"
-        sql_str = """
-SELECT %s
-FROM AutoProcIntegration
-INNER JOIN AutoProcProgram
-ON AutoProcIntegration.autoProcProgramId = AutoProcProgram.autoProcProgramId
-INNER JOIN AutoProcScaling_has_Int
-ON AutoProcIntegration.autoProcIntegrationId = AutoProcScaling_has_Int.autoProcIntegrationId
-INNER JOIN AutoProcScaling
-ON AutoProcScaling_has_Int.autoProcScalingId = AutoProcScaling.autoProcScalingId
-INNER JOIN AutoProcScalingStatistics
-ON AutoProcScaling.autoProcScalingId = AutoProcScalingStatistics.autoProcScalingId
-INNER JOIN AutoProc
-ON AutoProcScaling.autoProcId = AutoProc.autoProcId
-WHERE AutoProcIntegration.dataCollectionId IN (%s) AND scalingStatisticsType='%s'
-;
-""" % (
-            select_str,
-            ",".join(str(i) for i in dc_ids),
-            statistics_type,
-        )
-        results = self.execute(sql_str)
-        field_names = [i[0] for i in self._cursor.description]
-        return field_names, results
-
-    def get_bl_sessionid_from_visit_name(self, visit_name):
-        m = re.match(r"([a-z][a-z])([\d]+)[-]([\d]+)", visit_name)
-        assert m is not None
-        assert len(m.groups()) == 3
-        proposal_code, proposal_number, visit_number = m.groups()
-        sql_str = """
-SELECT sessionId
-FROM BLSession bs
-INNER JOIN Proposal p
-ON bs.proposalId = p.proposalId
-WHERE p.proposalcode='%s' and p.proposalnumber='%s' and bs.visit_number='%s'
-;""" % (
-            proposal_code,
-            proposal_number,
-            visit_number,
-        )
-        results = self.execute(sql_str)
-        assert len(results) == 1
-        return results[0][0]
-
     def get_diffractionplan_from_dcid(self, dc_id):
         sql_str = """
 SELECT

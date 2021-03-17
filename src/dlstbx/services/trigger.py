@@ -607,10 +607,17 @@ class DLSTrigger(CommonService):
         if not path_ext:
             path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+        msg = rw.payload
         big_ep_parameters = {
             "pipeline": pipeline,
             "program_id": program_id,
             "data": data,
+            "atom": msg.get("atom"),
+            "dataset": "|".join([ds["name"] for ds in msg.get("datasets", [])]),
+            "spacegroup": msg.get("spacegroup"),
+            "nsites": msg.get("nsites"),
+            "compound": "Protein",
+            "sequence": msg.get("sequence"),
         }
 
         for key, value in big_ep_parameters.items():

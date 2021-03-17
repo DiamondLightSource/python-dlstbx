@@ -212,7 +212,6 @@ def run(
 
         elif scenario.beamline == "i02-2":
             # VMXi is also a special case
-            ishdf = "#" in "dcid[image_pattern]"  # I guess this is exactly wrong
             tasks.append(
                 dlstbx.mimas.MimasRecipeInvocation(
                     DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
@@ -223,12 +222,11 @@ def run(
                     DCID=scenario.DCID, recipe="generate-diffraction-preview"
                 )
             )
-            if ishdf:
-                tasks.append(
-                    dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="archive-nexus"
-                    )
+            tasks.append(
+                dlstbx.mimas.MimasRecipeInvocation(
+                    DCID=scenario.DCID, recipe="archive-nexus"
                 )
+            )
             if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(

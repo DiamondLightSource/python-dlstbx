@@ -3,9 +3,6 @@ from typing import List, Union
 import dlstbx.mimas
 
 
-SWMR_BEAMLINES = {"i03", "i04", "i24"}
-
-
 def run(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> List[
@@ -155,30 +152,18 @@ def run(
                 )
 
         if scenario.detectorclass.name == "EIGER":
-            # For SWMR beamlines trigger SWMR gridscan and rotation recipes
-            # For non-SWMR beamlines trigger streamdump gridscan recipe
-            # (non-SWMR beamline rotation scans will be handled elsewhere)
-            if scenario.beamline in SWMR_BEAMLINES:
-                # use swmr PIA
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
-                    tasks.append(
-                        dlstbx.mimas.MimasRecipeInvocation(
-                            DCID=scenario.DCID,
-                            recipe="per-image-analysis-gridscan-swmr",
-                        )
-                    )
-                else:
-                    tasks.append(
-                        dlstbx.mimas.MimasRecipeInvocation(
-                            DCID=scenario.DCID,
-                            recipe="per-image-analysis-rotation-swmr",
-                        )
-                    )
-            elif scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
-                # use legacy streamdump PIA
+            if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="per-image-analysis-eiger-streamdump"
+                        DCID=scenario.DCID,
+                        recipe="per-image-analysis-gridscan-swmr",
+                    )
+                )
+            else:
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID,
+                        recipe="per-image-analysis-rotation-swmr",
                     )
                 )
 
@@ -519,18 +504,6 @@ def run(
                     DCID=scenario.DCID, recipe="archive-nexus"
                 )
             )
-
-            if (
-                scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION
-                and scenario.beamline not in SWMR_BEAMLINES
-            ):
-                # Only trigger rotation PIA at end of data collection for
-                # non-SWMR EIGER beamlines
-                tasks.append(
-                    dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="per-image-analysis-eiger-rotation"
-                    )
-                )
 
             if scenario.dcclass == dlstbx.mimas.MimasDCClass.SCREENING:
                 for recipe in (

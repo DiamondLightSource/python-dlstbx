@@ -870,9 +870,6 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_working_directory"] = i.dc_info_to_working_directory(dc_info)
     parameters["ispyb_results_directory"] = i.dc_info_to_results_directory(dc_info)
     parameters["ispyb_space_group"] = ""
-    parameters["ispyb_isitagridscan_legacy"] = parameters["ispyb_dc_info"].get(
-        "axisRange"
-    ) == 0 or "grid scan" in str(parameters["ispyb_dc_info"].get("comments"))
     parameters["ispyb_related_sweeps"] = []
 
     parameters["ispyb_project"] = (

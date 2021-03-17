@@ -26,7 +26,7 @@ def run(
     if scenario.event == dlstbx.mimas.MimasEvent.START:
         if scenario.beamline in ("i19-1", "i19-2"):
             # i19 is a special case
-            if scenario.isitagridscan:
+            if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe="per-image-analysis-gridscan"
@@ -44,7 +44,7 @@ def run(
             pass  # nothing defined
 
         elif scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.PILATUS:
-            if not scenario.isitagridscan:
+            if scenario.dcclass != dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe="archive-cbfs"
@@ -160,7 +160,7 @@ def run(
             # (non-SWMR beamline rotation scans will be handled elsewhere)
             if scenario.beamline in SWMR_BEAMLINES:
                 # use swmr PIA
-                if scenario.isitagridscan:
+                if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
                     tasks.append(
                         dlstbx.mimas.MimasRecipeInvocation(
                             DCID=scenario.DCID,
@@ -174,7 +174,7 @@ def run(
                             recipe="per-image-analysis-rotation-swmr",
                         )
                     )
-            elif scenario.isitagridscan:
+            elif scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 # use legacy streamdump PIA
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(

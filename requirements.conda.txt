@@ -9,7 +9,6 @@ procrunner>=1.0.2
 pytest
 pytest-mock
 pyyaml
-pyzmq
 stomp.py
 workflows>=2.0
 xmltodict

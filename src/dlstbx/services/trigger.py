@@ -1,11 +1,28 @@
 import hashlib
-import re
+import logging
+import os
+import pathlib
 from datetime import datetime
 
 import ispyb
-import py.path
 import workflows.recipe
+from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.services.common_service import CommonService
+
+from ispyb.sqlalchemy import (
+    AutoProcProgram,
+    AutoProcProgramAttachment,
+    AutoProcIntegration,
+    BLSample,
+    BLSession,
+    Crystal,
+    DataCollection,
+    PDB,
+    ProcessingJob,
+    Proposal,
+    Protein,
+    ProteinHasPDB,
+)
 
 
 class DLSTrigger(CommonService):
@@ -19,6 +36,7 @@ class DLSTrigger(CommonService):
 
     def initializing(self):
         """Subscribe to the trigger queue. Received messages must be acknowledged."""
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
         workflows.recipe.wrap_subscribe(
             self._transport,
             "trigger",
@@ -26,12 +44,15 @@ class DLSTrigger(CommonService):
             acknowledgement=True,
             log_extender=self.extend_log,
         )
-        import ispyb.model.__future__
-
-        ispyb.model.__future__.enable(
-            "/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg"
-        )
-        self.ispyb = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
+        credentials = os.getenv("ISPYB_CREDENTIALS")
+        if not credentials:
+            raise AttributeError(
+                "No credentials file specified via ISPYB_CREDENTIALS environment variable"
+            )
+        elif not os.path.exists(credentials):
+            raise OSError(f"Credentials file {credentials} does not exist")
+        self.ispyb = ispyb.open(credentials)
+        self.session = ispyb.sqlalchemy.session()
 
     def trigger(self, rw, header, message):
         """Forward the trigger message to a specific trigger function."""
@@ -84,37 +105,82 @@ class DLSTrigger(CommonService):
         rw.transport.transaction_commit(txn)
 
     def trigger_dimple(self, rw, header, parameters, **kwargs):
+        """Trigger a dimple job for a given data collection.
+
+        Identify any PDB files or PDB codes associated with the given data collection.
+        - PDB codes or file contents stored in the ISPyB PDB table and linked with
+          the given data collection. Any files defined in the database will be copied
+          into a subdirectory inside `pdb_tmpdir`, where the subdirectory name will be
+          a hash of the file contents.
+        - PDB files (with `.pdb` extension) stored in the directory optionally provided
+          by the `user_pdb_directory` recipe parameter.
+
+        If any PDB files or codes are identified, then new ProcessingJob,
+        ProcessingJobImageSweep and ProcessingJobParameter will be created, and the
+        resulting processingJobId will be sent to the `processing_recipe` queue.
+
+        Recipe parameters:
+        - target: set this to "dimple"
+        - dcid: the dataCollectionId for the given data collection
+        - comment: a comment to be stored in the ProcessingJob.comment field
+        - automatic: boolean value passed to ProcessingJob.automatic field
+        - scaling_id: autoProcScalingId that the dimple results should be linked to
+        - mtz: the input mtz reflection file for dimple
+        - user_pdb_directory: optionally look for PDB files in this directory
+        - pdb_tmpdir: temporary location to write the contents of PDB files stored
+            in the database
+
+        Minimal recipe parameters:
+        {
+            "target": "dimple",
+            "dcid": 123456,
+            "comment": "DIMPLE triggered by automatic xia2-dials",
+            "automatic": True,
+            "scaling_id": 654321,
+            "user_pdb_directory": "/path/to/user_pdb",
+            "mtz": "/path/to/scaled.mtz",
+            "pdb_tmpdir": "/path/to/pdb_tmpdir",
+        }
+        """
         dcid = parameters("dcid")
         if not dcid:
             self.log.error("Dimple trigger failed: No DCID specified")
             return False
 
-        pdb_tmpdir = py.path.local(parameters("pdb_tmpdir"))
+        pdb_tmpdir = pathlib.Path(parameters("pdb_tmpdir"))
 
         pdb_files = []
-        dc_info = self.ispyb.get_data_collection(dcid)
-        for pdb in dc_info.pdb:
+        query = (
+            self.session.query(DataCollection, PDB)
+            .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
+            .join(Crystal, Crystal.crystalId == BLSample.crystalId)
+            .join(Protein, Protein.proteinId == Crystal.proteinId)
+            .join(ProteinHasPDB, ProteinHasPDB.proteinid == Protein.proteinId)
+            .join(PDB, PDB.pdbId == ProteinHasPDB.pdbid)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        for dc, pdb in query.all():
             if pdb.code is not None:
                 pdb_files.append(pdb.code)
-            elif pdb.rawfile is not None:
-                sha1 = hashlib.sha1(pdb.rawfile.encode()).hexdigest()
+            elif pdb.contents is not None:
+                sha1 = hashlib.sha1(pdb.contents.encode()).hexdigest()
                 assert pdb.name and "/" not in pdb.name, "Invalid PDB file name"
-                pdb_filepath = pdb_tmpdir / sha1 / pdb.name
-                if not pdb_filepath.check():
-                    pdb_filepath.write(pdb.rawfile, ensure=True)
-                pdb_files.append(pdb_filepath.strpath)
+                pdb_dir = pdb_tmpdir / sha1
+                pdb_dir.mkdir(parents=True, exist_ok=True)
+                pdb_filepath = pdb_dir / pdb.name
+                if not pdb_filepath.exists():
+                    pdb_filepath.write_text(pdb.contents)
+                pdb_files.append(str(pdb_filepath))
 
         if parameters("user_pdb_directory"):
             # Look for matching .pdb files in user directory
-            user_pdb_dir = py.path.local(parameters("user_pdb_directory"))
-            if user_pdb_dir.check(dir=1):
-                for f in user_pdb_dir.listdir():
-                    self.log.debug(f.strpath)
-                    prefix = f.basename.split(".")[0]
-                    if not prefix or f.ext != ".pdb" or not f.check(file=1):
+            user_pdb_dir = pathlib.Path(parameters("user_pdb_directory"))
+            if user_pdb_dir.is_dir():
+                for f in user_pdb_dir.iterdir():
+                    if not f.stem or f.suffix != ".pdb" or not f.is_file():
                         continue
-                    self.log.info(f.strpath)
-                    pdb_files.append(f.strpath)
+                    self.log.info(f)
+                    pdb_files.append(str(f))
 
         if not pdb_files:
             self.log.info(
@@ -124,6 +190,11 @@ class DLSTrigger(CommonService):
             return {"success": True}
         self.log.info("PDB files: %s", ", ".join(pdb_files))
 
+        dc = (
+            self.session.query(DataCollection)
+            .filter(DataCollection.dataCollectionId == dcid)
+            .one()
+        )
         dimple_parameters = {
             "data": [parameters("mtz")],
             "scaling_id": [parameters("scaling_id")],
@@ -134,8 +205,8 @@ class DLSTrigger(CommonService):
 
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = dcid
-        jisp["start_image"] = dc_info.image_start_number
-        jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
+        jisp["start_image"] = dc.startImageNumber
+        jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
 
         self.log.debug("Dimple trigger: Starting")
 
@@ -178,18 +249,24 @@ class DLSTrigger(CommonService):
             self.log.error("ep_predict trigger failed: No DCID specified")
             return False
 
-        file_directory = self.ispyb.get_data_collection(dcid).file_directory
-        visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", file_directory)
-        try:
-            visit = visit_match.group(1)
-        except AttributeError:
+        query = (
+            self.session.query(DataCollection, Proposal)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        rows = query.all()
+        if not rows:
             self.log.error(
-                "ep_predict trigger failed: Cannot match visit pattern in path %s",
-                file_directory,
+                f"ep_predict trigger failed: no proposal associated with dcid={dcid}"
             )
             return False
-        if True in [pfx in visit for pfx in ("lb", "in", "sw")]:
-            self.log.info("Skipping ep_predict trigger for %s visit", visit)
+
+        dc, proposal = rows[0]
+        if proposal.proposalCode in ("lb", "in", "sw"):
+            self.log.info(
+                f"Skipping ep_predict trigger for {proposal.proposalCode} visit"
+            )
             return {"success": True}
 
         diffraction_plan_info = parameters("diffraction_plan_info")
@@ -221,11 +298,10 @@ class DLSTrigger(CommonService):
             self.log.error("ep_predict trigger failed: Invalid program_id specified")
             return False
 
-        dc_info = self.ispyb.get_data_collection(dcid)
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = dcid
-        jisp["start_image"] = dc_info.image_start_number
-        jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
+        jisp["start_image"] = dc.startImageNumber
+        jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = bool(parameters("automatic"))
@@ -278,18 +354,22 @@ class DLSTrigger(CommonService):
             self.log.error("mr_predict trigger failed: No DCID specified")
             return False
 
-        file_directory = self.ispyb.get_data_collection(dcid).file_directory
-        visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", file_directory)
-        try:
-            visit = visit_match.group(1)
-        except AttributeError:
+        query = (
+            self.session.query(Proposal)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        proposal = query.first()
+        if not proposal:
             self.log.error(
-                "mr_predict trigger failed: Cannot match visit pattern in path %s",
-                file_directory,
+                f"mr_predict trigger failed: no proposal associated with dcid={dcid}"
             )
             return False
-        if True in [pfx in visit for pfx in ("lb", "in", "sw")]:
-            self.log.info("Skipping mr_predict trigger for %s visit", visit)
+        if proposal.proposalCode in ("lb", "in", "sw"):
+            self.log.info(
+                f"Skipping mr_predict trigger for {proposal.proposalCode} visit"
+            )
             return {"success": True}
 
         diffraction_plan_info = parameters("diffraction_plan_info")
@@ -481,11 +561,14 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        dc_info = self.ispyb.get_data_collection(dcid)
+        query = self.session.query(DataCollection).filter(
+            DataCollection.dataCollectionId == dcid
+        )
+        dc = query.one()
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = dcid
-        jisp["start_image"] = dc_info.image_start_number
-        jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
+        jisp["start_image"] = dc.startImageNumber
+        jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = bool(parameters("automatic"))
@@ -665,18 +748,21 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        file_directory = self.ispyb.get_data_collection(dcid).file_directory
-        visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", file_directory)
-        try:
-            visit = visit_match.group(1)
-        except AttributeError:
+        query = (
+            self.session.query(Proposal)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        proposal = query.first()
+        if not proposal:
             self.log.error(
-                "big_ep trigger failed: Cannot match visit pattern in path %s",
-                file_directory,
+                f"big_ep trigger failed: no proposal associated with dcid={dcid}"
             )
             return False
-        if True in [pfx in visit for pfx in ("lb", "in", "sw")]:
-            self.log.info("Skipping big_ep for %s visit", visit)
+
+        if proposal.proposalCode in ("lb", "in", "sw"):
+            self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
         try:
@@ -684,17 +770,30 @@ class DLSTrigger(CommonService):
         except (TypeError, ValueError):
             self.log.error("big_ep trigger failed: Invalid program_id specified")
             return False
-        programs_all = rw.environment["ispyb_programs_all"]
-        for prog in programs_all:
-            if prog["id"] == program_id:
-                big_ep_params = parameters(prog["programs"])
+        query = (
+            self.session.query(AutoProcProgram)
+            .join(
+                AutoProcIntegration,
+                AutoProcIntegration.autoProcProgramId
+                == AutoProcProgram.autoProcProgramId,
+            )
+            .join(
+                DataCollection,
+                DataCollection.dataCollectionId == AutoProcIntegration.dataCollectionId,
+            )
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        big_ep_params = None
+        for app in query.all():
+            if app.autoProcProgramId == program_id:
+                big_ep_params = parameters(app.processingPrograms)
                 break
         try:
             assert big_ep_params
         except (AssertionError, NameError):
             self.log.error(
                 "big_ep trigger failed: No input data provided for program %s",
-                prog["programs"],
+                app.processingPrograms,
             )
             return False
         data = big_ep_params["data"]
@@ -753,17 +852,90 @@ class DLSTrigger(CommonService):
         return {"success": True, "return_value": None}
 
     def trigger_multiplex(self, rw, header, message, parameters, transaction, **kwargs):
+        """Trigger a xia2.multiplex job for a given data collection.
+
+        Identify all successful autoprocessing xia2-dials results for a group of related
+        data collections. A xia2.multiplex job will be triggered using as input the
+        integrated.expt and integrated.refl files generated by the xia2-dials jobs for
+        each related data collection.
+
+        If this multiplex job was triggered with a spacegroup parameter then only use
+        xia2-dials autoprocessing results that were themselves run with a spacegroup
+        parameter. Else only use those results that weren't run with a space group
+        parameter.
+
+        If any of the xia2-dials jobs are still running (or yet to start), we
+        checkpoint the current message with a delay, where the delay is given by
+
+            delay = backoff-delay * backoff-multiplier ** ntry
+
+        If any xia2-dials jobs are still running after backoff-max-try iterations,
+        then a multiplex will be triggered with whatever remaining related results
+        are available.
+
+        Multiple groups of `related_dcids` may be provided, in which case a separate
+        xia2.multiplex job will be triggered for each group of related dcids.
+
+        New ProcessingJob, ProcessingJobImageSweep and ProcessingJobParameter entries
+        will be created, and the resulting list of processingJobIds will be sent to
+        the `processing_recipe` queue.
+
+        Recipe parameters:
+        - target: set this to "multiplex"
+        - dcid: the dataCollectionId for the given data collection
+        - comment: a comment to be stored in the ProcessingJob.comment field
+        - automatic: boolean value passed to ProcessingJob.automatic field
+        - ispyb_parameters: a dictionary of ispyb_reprocessing_parameters set in the
+            parent xia2-dials processing job
+        - related_dcids: a list of groups of related data collection ids. Each item in
+            the list should be a dictionary containing at a minimum the item "dcids"
+            pointing to the list of related data collection ids in that group.
+            Optionally the items "sample_id" or "sample_group_id" can be present,
+            pointing to a BLSample or BLSampleGroup entry corresponding to the group
+            of related data collections
+        - backoff-delay: base delay (in seconds) for exponential backoff in the event
+            that one or more xia2-dials processing job is still running or yet to start
+        - backoff-max-try: the number of times that a message re-sent before giving up
+        - backoff-multiplier: the multiplier for exponential backoff
+
+        Example recipe parameters:
+        {
+            "target": "multiplex",
+            "dcid": 123456,
+            "wavelength": "1.03936",
+            "comment": "xia2.multiplex triggered by automatic xia2-dials",
+            "automatic": True,
+            "ispyb_parameters": {"spacegroup": "P421212"},
+            "related_dcids": [
+                {
+                    "dcids": [123451, 123452, 123453],
+                    "sample_group_id": 456,
+                    "name": "sample_group_foo",
+                },
+                {
+                    "dcids": [123453],
+                    "sample_id": 234,
+                    "name": "sample_bar",
+                }
+            ],
+            "backoff-delay": 8, # default
+            "backoff-max-try": 10, # default
+            "backoff-multiplier": 2, # default
+        }
+        """
         dcid = parameters("dcid")
         if not dcid:
             self.log.error("xia2.multiplex trigger failed: No DCID specified")
             return False
 
         dcid = int(dcid)
+        wavelength = float(parameters("wavelength"))
         ispyb_params = parameters("ispyb_parameters")
         spacegroup = ispyb_params.get("spacegroup") if ispyb_params else None
 
         # Take related dcids from recipe in preference
         related_dcids = parameters("related_dcids")
+        self.log.info(f"related_dcids={related_dcids}")
 
         if not related_dcids:
             self.log.debug(f"No related_dcids for dcid={dcid}")
@@ -791,16 +963,8 @@ class DLSTrigger(CommonService):
 
         for group in related_dcids:
             self.log.debug(f"group: {group}")
-            # Select only those dcids at the same wavelength as the triggering dcid
-            wavelength = self.ispyb.get_data_collection(dcid).wavelength
-            dcids = [
-                d
-                for d in group["dcids"]
-                if self.ispyb.get_data_collection(d).wavelength == wavelength
-            ]
-
             # Select only those dcids that were collected before the triggering dcid
-            dcids = [d for d in dcids if d < dcid]
+            dcids = [d for d in group["dcids"] if d < dcid]
 
             # Add the current dcid at the beginning of the list
             dcids.insert(0, dcid)
@@ -812,99 +976,91 @@ class DLSTrigger(CommonService):
                 continue
             self.log.info(f"xia2.multiplex trigger: found dcids: {dcids}")
 
-            def get_integrations_for_dcid(dcid):
-                intgrs = {}
-                dc = self.ispyb.get_data_collection(dcid)
-                for intgr in dc.integrations:
-                    prg = intgr.program
-                    # prg.status_text can be success, running, failure or queued
-                    if (prg.status_text == "failure") or (prg.name != "xia2 dials"):
-                        continue
-                    # If this multiplex job was triggered with a spacegroup parameter
-                    # then only use xia2-dials autoprocessing results that were
-                    # themselves run with a spacegroup parameter. Else only use those
-                    # results that weren't run with a space group parameter
-                    job = self.ispyb.get_processing_job(prg.job_id)
-                    job.load()
-                    self.log.debug(job)
-                    if not job.automatic:
-                        continue
-                    job_spacegroup_param = None
-                    for param in job.parameters:
-                        self.log.debug(param)
-                        if param[1].key == "spacegroup":
-                            job_spacegroup_param = param[1]
-                            break
-                    if spacegroup and (
-                        not job_spacegroup_param
-                        or job_spacegroup_param.value != spacegroup
-                    ):
-                        self.log.debug(f"Discarding appid {intgr.APPID}")
-                        continue
-                    elif job_spacegroup_param and not spacegroup:
-                        self.log.debug(f"Discarding appid {intgr.APPID}")
-                        continue
-                    self.log.debug(f"Using appid {intgr.APPID}")
-                    intgrs[prg.time_update] = intgr
-                if intgrs:
-                    return list(intgrs.values())[0]
-                return None
-
-            def get_data_files_for_appid(appid):
-                data_files = []
-                self.log.debug(f"Retrieving program attachment for appid {appid}")
-                try:
-                    attachments = self.ispyb.mx_processing.retrieve_program_attachments_for_program_id(
-                        appid
+            query = (
+                (
+                    self.session.query(
+                        DataCollection,
+                        AutoProcProgram,
+                        ProcessingJob,
                     )
-                except ispyb.NoResult:
-                    self.log.warning(
-                        f"Expected to find exactly 2 data files for appid {appid} (no files found)"
+                    .join(
+                        AutoProcIntegration,
+                        AutoProcIntegration.dataCollectionId
+                        == DataCollection.dataCollectionId,
                     )
-                    return []
-                for item in attachments:
-                    if item["fileType"] == "Result":
-                        if (
-                            item["fileName"].endswith(
-                                (
-                                    "experiments.json",
-                                    "reflections.pickle",
-                                    ".expt",
-                                    ".refl",
-                                )
-                            )
-                            and "_scaled." not in item["fileName"]
-                        ):
-                            data_files.append(
-                                py.path.local(item["filePath"])
-                                .join(item["fileName"])
-                                .strpath
-                            )
-                self.log.debug(
-                    f"Found the following files for appid {appid}:\n{', '.join(data_files)}"
+                    .join(
+                        AutoProcProgram,
+                        AutoProcProgram.autoProcProgramId
+                        == AutoProcIntegration.autoProcProgramId,
+                    )
+                    .join(
+                        ProcessingJob,
+                        ProcessingJob.processingJobId
+                        == AutoProcProgram.processingJobId,
+                    )
+                    .join(AutoProcProgram.AutoProcProgramAttachments)
                 )
-                if len(data_files) % 2:
-                    self.log.warning(
-                        f"Expected to find an even number of  data files for appid {appid} (found {len(data_files)})"
+                .filter(DataCollection.dataCollectionId.in_(dcids))
+                .filter(ProcessingJob.automatic == True)  # noqa E712
+                .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+                .filter(AutoProcProgram.processingStatus != 0)
+                .filter(
+                    (
+                        AutoProcProgramAttachment.fileName.endswith(".expt")
+                        | AutoProcProgramAttachment.fileName.endswith(".refl")
                     )
-                    return []
-                return data_files
-
-            intgrs = list(
-                filter(None, (get_integrations_for_dcid(dcid) for dcid in dcids))
+                    & ~AutoProcProgramAttachment.fileName.contains("_scaled.")
+                )
+                .options(
+                    contains_eager(AutoProcProgram.AutoProcProgramAttachments),
+                    joinedload(ProcessingJob.ProcessingJobParameters),
+                    Load(DataCollection)
+                    .load_only("dataCollectionId", "wavelength")
+                    .raiseload("*"),
+                )
+                .populate_existing()
             )
-            for intgr in intgrs:
-                if intgr.program.status_text in ("running", "queued"):
+
+            dcids = []
+            data_files = []
+            for dc, app, pj in query.all():
+                # Select only those dcids at the same wavelength as the triggering dcid
+                if wavelength and dc.wavelength != wavelength:
+                    continue
+
+                # If this multiplex job was triggered with a spacegroup parameter
+                # then only use xia2-dials autoprocessing results that were
+                # themselves run with a spacegroup parameter. Else only use those
+                # results that weren't run with a space group parameter
+                job_spacegroup_param = None
+                for param in pj.ProcessingJobParameters:
+                    self.log.debug(f"{param.parameterKey}: {param.parameterValue}")
+                    if param.parameterKey == "spacegroup":
+                        job_spacegroup_param = param.parameterValue
+                        break
+                if spacegroup and (
+                    not job_spacegroup_param or job_spacegroup_param != spacegroup
+                ):
+                    self.log.debug(f"Discarding appid {app.autoProcProgramId}")
+                    continue
+                elif job_spacegroup_param and not spacegroup:
+                    self.log.debug(f"Discarding appid {app.autoProcProgramId}")
+                    continue
+
+                # Check for any programs that are yet to finish (or fail)
+                if app.processingStatus != 1 or not app.processingStartTime:
                     if status["ntry"] >= max_try:
                         # Give up waiting for this program to finish and trigger
                         # multiplex with remaining related results are available
                         self.log.info(
                             f"max-try exceeded, giving up waiting for dcid={dcid}\n"
-                            f"{intgr.program}"
+                            f"{app.autoProcProgramId}"
                         )
                         break
                     # Send results to myself for next round of processing
-                    self.log.debug(f"Waiting for dcid={dcid}\n{intgr.program}")
+                    self.log.debug(
+                        f"Waiting for dcid={dc.dataCollectionId}\nappid={app.autoProcProgramId}"
+                    )
                     rw.checkpoint(
                         {"trigger-status": status},
                         delay=message_delay,
@@ -912,18 +1068,29 @@ class DLSTrigger(CommonService):
                     )
                     return {"success": True}
 
-            # Lookup appids for all dcids and exit early if only one found
-            data_files = [get_data_files_for_appid(intgr.APPID) for intgr in intgrs]
+                self.log.debug(f"Using appid {app.autoProcProgramId}")
+                attachments = [
+                    str(pathlib.Path(att.filePath) / att.fileName)
+                    for att in app.AutoProcProgramAttachments
+                ]
+                self.log.debug(
+                    f"Found the following files for appid {app.autoProcProgramId}:\n{', '.join(attachments)}"
+                )
+                if len(attachments) % 2:
+                    self.log.warning(
+                        f"Expected to find an even number of data files for appid {app.autoProcProgramId} (found {len(attachments)})"
+                    )
+                    continue
+                if len(attachments) == 2:
+                    dcids.append(dc.dataCollectionId)
+                    data_files.append(attachments)
+
             if not any(data_files):
                 self.log.info(
                     f"Skipping xia2.multiplex trigger: no related data files found for dcid={dcid} group={group}"
                 )
                 continue
 
-            # Select only those dcids with a valid data files
-            dcids, data_files = zip(
-                *((dcid, files) for dcid, files in zip(dcids, data_files) if files)
-            )
             self.log.info(data_files)
             if len(data_files) <= 1:
                 self.log.info(
@@ -946,13 +1113,25 @@ class DLSTrigger(CommonService):
             jobids.append(jobid)
             self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")
 
-            for d in dcids:
-                dc_info = self.ispyb.get_data_collection(d)
-
+            query = (
+                self.session.query(DataCollection)
+                .filter(DataCollection.dataCollectionId.in_(dcids))
+                .options(
+                    Load(DataCollection)
+                    .load_only(
+                        "dataCollectionId",
+                        "wavelength",
+                        "startImageNumber",
+                        "numberOfImages",
+                    )
+                    .raiseload("*")
+                )
+            )
+            for dc in query.all():
                 jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
-                jisp["datacollectionid"] = d
-                jisp["start_image"] = dc_info.image_start_number
-                jisp["end_image"] = dc_info.image_start_number + dc_info.image_count - 1
+                jisp["datacollectionid"] = dc.dataCollectionId
+                jisp["start_image"] = dc.startImageNumber
+                jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
 
                 jisp["job_id"] = jobid
                 jispid = self.ispyb.mx_processing.upsert_job_image_sweep(

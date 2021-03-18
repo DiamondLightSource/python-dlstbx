@@ -95,10 +95,6 @@ known_wrappers = [  # please keep alphabetically sorted
     "xoalign = dlstbx.wrapper.xoalign:XOalignWrapper",
 ]
 
-dxtbx_formats = [
-    "FormatEiger0MQDump:Format = dlstbx.format.FormatEiger0MQDump:FormatEiger0MQDump",
-]
-
 service_list = [
     "DLSArchiver = dlstbx.services.archiver:DLSArchiver",
     "DLSCluster = dlstbx.services.cluster:DLSCluster",
@@ -174,7 +170,6 @@ setup(
     entry_points={
         "console_scripts": sorted(console_scripts),
         "dlstbx.wrappers": sorted(known_wrappers),
-        "dxtbx.format": sorted(dxtbx_formats),
         "libtbx.dispatcher.script": [
             "%s=%s" % (x.split("=")[0], x.split("=")[0]) for x in console_scripts
         ],

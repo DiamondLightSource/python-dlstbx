@@ -30,7 +30,6 @@ def test_validation_of_scenario():
             a=10, b=10.0, c=10, alpha=90.0, beta=90, gamma=90
         ),
         spacegroup=dlstbx.mimas.MimasISPyBSpaceGroup("P41212"),
-        isitagridscan=False,
         getsweepslistfromsamedcg=(
             dlstbx.mimas.MimasISPyBSweep(DCID=1, start=1, end=100),
         ),
@@ -46,8 +45,6 @@ def test_validation_of_scenario():
         ("dcclass", None),
         ("dcclass", 1),
         ("event", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid")),
-        ("isitagridscan", ""),
-        ("isitagridscan", "True"),
         (
             "getsweepslistfromsamedcg",
             dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid"),

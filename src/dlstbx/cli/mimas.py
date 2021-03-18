@@ -77,7 +77,6 @@ def run():
                 runstatus=ispyb_info["ispyb_dc_info"]["runStatus"],
                 spacegroup=spacegroup,
                 unitcell=cell,
-                isitagridscan=ispyb_info["ispyb_isitagridscan_legacy"],
                 getsweepslistfromsamedcg=tuple(
                     dlstbx.mimas.MimasISPyBSweep(*sweep)
                     for sweep in ispyb_info["ispyb_related_sweeps"]

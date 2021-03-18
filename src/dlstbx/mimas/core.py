@@ -40,7 +40,7 @@ def run(
             # VMXi is also a special case
             pass  # nothing defined
 
-        elif scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.PILATUS:
+        elif scenario.detectorclass.name == "PILATUS":
             if scenario.dcclass != dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
@@ -151,7 +151,7 @@ def run(
                     )
                 )
 
-        if scenario.detectorclass.name == "EIGER":
+        elif scenario.detectorclass.name == "EIGER":
             if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(

@@ -9,15 +9,13 @@
 # dlstbx.mimas 4983807  # I24 gridscan
 # dlstbx.mimas 4966986  # I24 rotation with no known space group
 
-
-import sys
 from optparse import SUPPRESS_HELP, OptionParser
 
 import dlstbx.ispybtbx
 import dlstbx.mimas.core
 
 
-def run():
+def run(args=None):
     parser = OptionParser(usage="dlstbx.mimas [options] dcid")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
 
@@ -30,7 +28,7 @@ def run():
         help="Show commands that would trigger the individual processing steps",
     )
 
-    (options, args) = parser.parse_args(sys.argv[1:])
+    (options, args) = parser.parse_args(args)
 
     if not all(arg.isnumeric() for arg in args):
         parser.error("Arguments must be DCIDs")

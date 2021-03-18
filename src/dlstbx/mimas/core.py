@@ -154,6 +154,7 @@ def run(
                 )
                 # Always run xia2 and autoPROC without space group set
                 if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                    # fast_dp
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -167,8 +168,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                    # xia2-dials
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -186,7 +186,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                    # xia2-3dii
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -200,7 +200,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                    # autoPROC
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -234,14 +234,12 @@ def run(
                 )
             )
             if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                # RLV
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe="processing-rlv"
                     )
                 )
-
-            # Always run xia2 and autoPROC without space group set
-            if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
                 # xia2-dials
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
@@ -294,6 +292,7 @@ def run(
                 )
 
             if multi_xia2:
+                # xia2-dials
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -311,7 +310,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            if multi_xia2:
+                # xia2-3dii
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -417,6 +416,7 @@ def run(
                         )
                     )
                 if multi_xia2:
+                    # xia2-dials
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -430,7 +430,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if multi_xia2:
+                    # xia2-3dii
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -495,6 +495,7 @@ def run(
             # Always run xia2 and autoPROC without space group set
 
             if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                # xia2-dials
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -512,7 +513,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                # xia2-3dii
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -530,7 +531,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                # autoPROC
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -545,6 +546,7 @@ def run(
                     )
                 )
             if multi_xia2:
+                # xia2-dials
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -558,7 +560,7 @@ def run(
                         triggervariables=(),
                     )
                 )
-            if multi_xia2:
+                # xia2-3dii
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
@@ -573,7 +575,6 @@ def run(
                     )
                 )
 
-            #   ################ Determine SG and UC ####################
             if scenario.spacegroup:
                 # Space group is set, run xia2 and autoPROC with space group
                 spacegroup = scenario.spacegroup.string
@@ -607,6 +608,7 @@ def run(
                     )
 
                 if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                    # fast_dp
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -624,7 +626,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                    # xia2-dials
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -638,7 +640,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                    # xia2-3dii
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -653,6 +655,7 @@ def run(
                         )
                     )
                 if multi_xia2:
+                    # xia2-dials
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -666,7 +669,7 @@ def run(
                             triggervariables=(),
                         )
                     )
-                if multi_xia2:
+                    # xia2-3dii
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,

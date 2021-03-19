@@ -39,6 +39,13 @@ class MimasISPyBSpaceGroup:
 
 
 @dataclasses.dataclass
+class MimasISPyBSweep:
+    DCID: int
+    start: int
+    end: int
+
+
+@dataclasses.dataclass
 class MimasScenario:
     DCID: int
     dcclass: MimasDCClass
@@ -47,7 +54,7 @@ class MimasScenario:
     runstatus: str
     spacegroup: MimasISPyBSpaceGroup = None
     unitcell: MimasISPyBUnitCell = None
-    getsweepslistfromsamedcg: tuple = None
+    getsweepslistfromsamedcg: Tuple[MimasISPyBSweep] = ()
     preferred_processing: str = None
     detectorclass: MimasDetectorClass = None
 
@@ -56,13 +63,6 @@ class MimasScenario:
 class MimasISPyBParameter:
     key: str
     value: str
-
-
-@dataclasses.dataclass
-class MimasISPyBSweep:
-    DCID: int
-    start: int
-    end: int
 
 
 @dataclasses.dataclass
@@ -81,7 +81,7 @@ class MimasISPyBJobInvocation:
     displayname: str = ""
     parameters: Tuple[MimasISPyBParameter] = ()
     sweeps: Tuple[MimasISPyBSweep] = ()
-    triggervariables: tuple = ()
+    triggervariables: Tuple[MimasISPyBTriggerVariable] = ()
 
 
 @dataclasses.dataclass

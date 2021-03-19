@@ -164,6 +164,10 @@ def run(
                             source="automatic",
                             parameters=(
                                 dlstbx.mimas.MimasISPyBParameter(
+                                    key="resolution.cc_half_significance_level",
+                                    value="0.1",
+                                ),
+                                dlstbx.mimas.MimasISPyBParameter(
                                     key="remove_blanks", value="true"
                                 ),
                             ),
@@ -176,6 +180,12 @@ def run(
                             autostart=scenario.preferred_processing == "xia2/XDS",
                             recipe="autoprocessing-xia2-3dii-eiger",
                             source="automatic",
+                            parameters=(
+                                dlstbx.mimas.MimasISPyBParameter(
+                                    key="resolution.cc_half_significance_level",
+                                    value="0.1",
+                                ),
+                            ),
                         )
                     )
                     # autoPROC

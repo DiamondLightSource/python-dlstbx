@@ -1,8 +1,10 @@
 # flake8: noqa W291
+import functools
 import pytest
 
 import dlstbx.mimas
 from dlstbx.cli import mimas
+from dlstbx.mimas import MimasScenario, MimasDCClass, MimasEvent, MimasDetectorClass
 
 
 def get_zocalo_commands(dcid):
@@ -16,6 +18,15 @@ def get_zocalo_commands(dcid):
             commands[scenario.event.name].add(
                 dlstbx.mimas.zocalo_command_line(a).strip()
             )
+    return commands
+
+
+def get_zocalo_commands_for_scenario(scenario):
+    commands = set()
+    actions = dlstbx.mimas.core.run(scenario)
+    for a in actions:
+        dlstbx.mimas.validate(a)
+        commands.add(dlstbx.mimas.zocalo_command_line(a).strip())
     return commands
 
 
@@ -44,22 +55,32 @@ def test_eiger_rotation(dcid):
     }
 
 
-def test_i03_eiger_screening(capsys):
+def test_eiger_screening():
     dcid = 6017522
-    mimas.run([f"{dcid}", "-c"])
-    captured = capsys.readouterr()
-    expected = f"""\
-At the start of data collection {dcid}:
- - zocalo.go -r per-image-analysis-rotation-swmr {dcid}
-
-At the end of data collection {dcid}:
- - zocalo.go -r archive-nexus {dcid}
- - zocalo.go -r generate-crystal-thumbnails {dcid}
- - zocalo.go -r generate-diffraction-preview {dcid}
- - zocalo.go -r strategy-align-crystal {dcid}
- - zocalo.go -r strategy-edna-eiger {dcid}
- - zocalo.go -r strategy-mosflm {dcid}"""
-    assert expected in captured.out
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.SCREENING,
+        beamline="i03",
+        runstatus="DataCollection Successful",
+        spacegroup=None,
+        unitcell=None,
+        getsweepslistfromsamedcg=(),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    assert get_zocalo_commands_for_scenario(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}"
+    }
+    assert get_zocalo_commands_for_scenario(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r archive-nexus {dcid}",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
+        f"zocalo.go -r strategy-align-crystal {dcid}",
+        f"zocalo.go -r strategy-edna-eiger {dcid}",
+        f"zocalo.go -r strategy-mosflm {dcid}",
+    }
+    return
 
 
 @pytest.mark.parametrize(

@@ -1,27 +1,17 @@
-# flake8: noqa W291
 import functools
-import pytest
 
 import dlstbx.mimas
-from dlstbx.cli import mimas
-from dlstbx.mimas import MimasScenario, MimasDCClass, MimasEvent, MimasDetectorClass
+from dlstbx.mimas import (
+    MimasScenario,
+    MimasDCClass,
+    MimasEvent,
+    MimasDetectorClass,
+    MimasISPyBSpaceGroup,
+    MimasISPyBSweep,
+)
 
 
-def get_zocalo_commands(dcid):
-    scenarios = mimas.get_scenarios(dcid)
-    commands = {}
-    for scenario in scenarios:
-        commands[scenario.event.name] = set()
-        actions = dlstbx.mimas.core.run(scenario)
-        for a in actions:
-            dlstbx.mimas.validate(a)
-            commands[scenario.event.name].add(
-                dlstbx.mimas.zocalo_command_line(a).strip()
-            )
-    return commands
-
-
-def get_zocalo_commands_for_scenario(scenario):
+def get_zocalo_commands(scenario):
     commands = set()
     actions = dlstbx.mimas.core.run(scenario)
     for a in actions:
@@ -30,28 +20,31 @@ def get_zocalo_commands_for_scenario(scenario):
     return commands
 
 
-@pytest.mark.parametrize(
-    "dcid",
-    [
-        6002672,  # i03
-        6123920,  # i04
-        5918093,  # i24
-    ],
-)
-def test_eiger_rotation(dcid):
-    commands = get_zocalo_commands(dcid)
-    print(commands)
-    assert commands == {
-        "START": {f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}"},
-        "END": {
-            f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger  --add-param=resolution.cc_half_significance_level:0.1",
-            f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger   --trigger",
-            f"zocalo.go -r generate-diffraction-preview {dcid}",
-            f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger  --add-param=resolution.cc_half_significance_level:0.1 --trigger",
-            f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger",
-            f"zocalo.go -r generate-crystal-thumbnails {dcid}",
-            f"zocalo.go -r archive-nexus {dcid}",
-        },
+def test_eiger_rotation():
+    dcid = 5918093
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.ROTATION,
+        beamline="i24",
+        runstatus="DataCollection Successful",
+        spacegroup=None,
+        unitcell=None,
+        getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=1000),),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger  --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger   --trigger",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger  --add-param=resolution.cc_half_significance_level:0.1 --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r archive-nexus {dcid}",
     }
 
 
@@ -69,10 +62,10 @@ def test_eiger_screening():
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.EIGER,
     )
-    assert get_zocalo_commands_for_scenario(scenario(event=MimasEvent.START)) == {
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
         f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}"
     }
-    assert get_zocalo_commands_for_scenario(scenario(event=MimasEvent.END)) == {
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
@@ -83,148 +76,185 @@ def test_eiger_screening():
     return
 
 
-@pytest.mark.parametrize(
-    "dcid",
-    [
-        6017516,  # i03
-        6123908,  # i04
-        6138194,  # i24
-    ],
-)
-def test_eiger_gridscan(dcid, capsys):
-    mimas.run([f"{dcid}", "-c"])
-    captured = capsys.readouterr()
-    expected = f"""\
-At the start of data collection {dcid}:
- - zocalo.go -r per-image-analysis-gridscan-swmr {dcid}
-
-At the end of data collection {dcid}:
- - zocalo.go -r archive-nexus {dcid}
- - zocalo.go -r generate-crystal-thumbnails {dcid}
- - zocalo.go -r generate-diffraction-preview {dcid}"""
-    assert expected in captured.out
-
-
-@pytest.mark.parametrize(
-    "dcid",
-    [
-        5944880,  # i04-1
-    ],
-)
-def test_cbf_screening(dcid, capsys):
-    mimas.run([f"{dcid}", "-c"])
-    captured = capsys.readouterr()
-    expected = f"""\
-
-At the start of data collection {dcid}:
- - zocalo.go -r archive-cbfs {dcid}
- - zocalo.go -r per-image-analysis-rotation {dcid}
-
-At the end of data collection {dcid}:
- - zocalo.go -r generate-crystal-thumbnails {dcid}
- - zocalo.go -r strategy-edna {dcid}
- - zocalo.go -r strategy-mosflm {dcid}"""
-    assert expected in captured.out
+def test_eiger_gridscan():
+    dcid = 6138194
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.GRIDSCAN,
+        beamline="i24",
+        runstatus="DataCollection Successful",
+        spacegroup=None,
+        unitcell=None,
+        getsweepslistfromsamedcg=(),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r per-image-analysis-gridscan-swmr {dcid}"
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r archive-nexus {dcid}",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
+    }
 
 
-@pytest.mark.parametrize(
-    "dcid",
-    [
-        5881028,  # i04-1
-    ],
-)
-def test_cbf_rotation(dcid, capsys):
-    mimas.run([f"{dcid}", "-c"])
-    captured = capsys.readouterr()
-    expected = f"""\
-At the start of data collection {dcid}:
- - zocalo.go -r archive-cbfs {dcid}
- - zocalo.go -r per-image-analysis-rotation {dcid}
-
-At the end of data collection {dcid}:
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC   
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp   --trigger 
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1 
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --trigger 
- - zocalo.go -r generate-crystal-thumbnails {dcid}
- - zocalo.go -r processing-rlv {dcid}
-"""
-    assert expected in captured.out
-
-
-def test_cbf_rotation_with_spacegroup(capsys):
-    dcid = 6061343  # i24
-    mimas.run([f"{dcid}", "-c"])
-    captured = capsys.readouterr()
-    expected = f"""\
-At the start of data collection {dcid}:
- - zocalo.go -r archive-cbfs {dcid}
- - zocalo.go -r per-image-analysis-rotation {dcid}
-
-At the end of data collection {dcid}:
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC   
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC  --add-param=spacegroup:P43212 
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp  --add-param=spacegroup:P43212 --trigger 
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1 
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1 --add-param=spacegroup:P43212 
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --trigger 
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --add-param=spacegroup:P43212 --trigger 
- - zocalo.go -r generate-crystal-thumbnails {dcid}
- - zocalo.go -r processing-rlv {dcid}"""
-    assert expected in captured.out
+def test_cbf_screening():
+    dcid = 5944880
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.SCREENING,
+        beamline="i04-1",
+        runstatus="DataCollection Successful",
+        spacegroup=None,
+        unitcell=None,
+        getsweepslistfromsamedcg=(),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.PILATUS,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r archive-cbfs {dcid}",
+        f"zocalo.go -r per-image-analysis-rotation {dcid}",
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r strategy-edna {dcid}",
+        f"zocalo.go -r strategy-mosflm {dcid}",
+    }
 
 
-@pytest.mark.parametrize(
-    "dcid",
-    [
-        5899304,  # i04-1
-        6061232,  # i24
-    ],
-)
-def test_cbf_gridscan(dcid, capsys):
-    mimas.run([f"{dcid}", "-c"])
-    captured = capsys.readouterr()
-    expected = f"""\
-At the start of data collection {dcid}:
- - zocalo.go -r archive-cbfs {dcid}
- - zocalo.go -r per-image-analysis-gridscan {dcid}
+def test_cbf_rotation():
+    dcid = 5881028
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.ROTATION,
+        beamline="i04-1",
+        runstatus="DataCollection Successful",
+        spacegroup=None,
+        unitcell=None,
+        getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=375),),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.PILATUS,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r archive-cbfs {dcid}",
+        f"zocalo.go -r per-image-analysis-rotation {dcid}",
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp   --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --trigger",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r processing-rlv {dcid}",
+    }
 
-At the end of data collection {dcid}:
- - zocalo.go -r generate-crystal-thumbnails {dcid}"""
-    assert expected in captured.out
+
+def test_cbf_rotation_with_spacegroup():
+    dcid = 6061343
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.ROTATION,
+        beamline="i24",
+        runstatus="DataCollection Successful",
+        spacegroup=MimasISPyBSpaceGroup(symbol="P43212"),
+        unitcell=None,
+        getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=3600),),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.PILATUS,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r archive-cbfs {dcid}",
+        f"zocalo.go -r per-image-analysis-rotation {dcid}",
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC  --add-param=spacegroup:P43212",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp  --add-param=spacegroup:P43212 --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1 --add-param=spacegroup:P43212",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --add-param=spacegroup:P43212 --trigger",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r processing-rlv {dcid}",
+    }
 
 
-def test_vmxi_gridscan(capsys):
+def test_cbf_gridscan():
+    dcid = 5899304
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.GRIDSCAN,
+        event=MimasEvent.START,
+        beamline="i04-1",
+        runstatus="DataCollection Successful",
+        spacegroup=None,
+        unitcell=None,
+        getsweepslistfromsamedcg=(),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.PILATUS,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r archive-cbfs {dcid}",
+        f"zocalo.go -r per-image-analysis-gridscan {dcid}",
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+    }
+
+
+def test_vmxi_gridscan():
     dcid = 5790074
-    mimas.run([f"{dcid}", "-c"])
-    captured = capsys.readouterr()
-    expected = f"""\
-At the start of data collection {dcid}:
- - do nothing
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.GRIDSCAN,
+        event=MimasEvent.START,
+        beamline="i02-2",
+        runstatus="DataCollection Successful",
+        spacegroup=None,
+        unitcell=None,
+        getsweepslistfromsamedcg=(),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r archive-nexus {dcid}",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
+        f"zocalo.go -r vmxi-spot-counts-per-image {dcid}",
+    }
 
-At the end of data collection {dcid}:
- - zocalo.go -r archive-nexus {dcid}
- - zocalo.go -r generate-crystal-thumbnails {dcid}
- - zocalo.go -r generate-diffraction-preview {dcid}
- - zocalo.go -r vmxi-spot-counts-per-image {dcid}"""
-    assert expected in captured.out
 
-
-def test_vmxi_rotation(capsys):
+def test_vmxi_rotation():
     dcid = 5590481
-    mimas.run([f"{dcid}", "-c"])
-    captured = capsys.readouterr()
-    expected = f"""\
-At the start of data collection {dcid}:
- - do nothing
-
-At the end of data collection {dcid}:
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger   
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger   --trigger 
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger   
- - ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger  --add-param=remove_blanks:true --trigger 
- - zocalo.go -r archive-nexus {dcid}
- - zocalo.go -r generate-crystal-thumbnails {dcid}
- - zocalo.go -r generate-diffraction-preview {dcid}
- - zocalo.go -r vmxi-per-image-analysis {dcid}"""
-    assert expected in captured.out
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.ROTATION,
+        event=MimasEvent.START,
+        beamline="i02-2",
+        runstatus="DataCollection Successful",
+        spacegroup=None,
+        unitcell=None,
+        getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=600),),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger   --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger  --add-param=remove_blanks:true --trigger",
+        f"zocalo.go -r archive-nexus {dcid}",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
+        f"zocalo.go -r vmxi-per-image-analysis {dcid}",
+    }

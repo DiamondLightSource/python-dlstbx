@@ -1,6 +1,6 @@
 import functools
 
-import dlstbx.mimas
+import dlstbx.mimas.core
 from dlstbx.mimas import (
     MimasScenario,
     MimasDCClass,

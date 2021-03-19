@@ -75,13 +75,13 @@ class MimasISPyBTriggerVariable:
 class MimasISPyBJobInvocation:
     DCID: int
     autostart: bool
-    comment: str
-    displayname: str
-    parameters: Tuple[MimasISPyBParameter]
     recipe: str
     source: str
-    sweeps: Tuple[MimasISPyBSweep]
-    triggervariables: tuple
+    comment: str = ""
+    displayname: str = ""
+    parameters: Tuple[MimasISPyBParameter] = ()
+    sweeps: Tuple[MimasISPyBSweep] = ()
+    triggervariables: tuple = ()
 
 
 @dataclasses.dataclass

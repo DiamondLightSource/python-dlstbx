@@ -100,26 +100,18 @@ def run(
                 dlstbx.mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=True,
-                    comment="",
-                    displayname="",
-                    parameters=(),
                     recipe="autoprocessing-multi-xia2-smallmolecule",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                    triggervariables=(),
                 )
             )
             tasks.append(
                 dlstbx.mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=True,
-                    comment="",
-                    displayname="",
-                    parameters=(),
                     recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                    triggervariables=(),
                 )
             )
 
@@ -159,13 +151,8 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=True,
-                            comment="",
-                            displayname="",
-                            parameters=(),
                             recipe="autoprocessing-fast-dp-eiger",
                             source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
                         )
                     )
                     # xia2-dials
@@ -173,17 +160,13 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=scenario.preferred_processing == "xia2/DIALS",
-                            comment="",
-                            displayname="",
+                            recipe="autoprocessing-xia2-dials-eiger",
+                            source="automatic",
                             parameters=(
                                 dlstbx.mimas.MimasISPyBParameter(
                                     key="remove_blanks", value="true"
                                 ),
                             ),
-                            recipe="autoprocessing-xia2-dials-eiger",
-                            source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
                         )
                     )
                     # xia2-3dii
@@ -191,13 +174,8 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=scenario.preferred_processing == "xia2/XDS",
-                            comment="",
-                            displayname="",
-                            parameters=(),
                             recipe="autoprocessing-xia2-3dii-eiger",
                             source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
                         )
                     )
                     # autoPROC
@@ -205,13 +183,8 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=scenario.preferred_processing == "autoPROC",
-                            comment="",
-                            displayname="",
-                            parameters=(),
                             recipe="autoprocessing-autoPROC-eiger",
                             source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
                         )
                     )
 
@@ -245,17 +218,13 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=scenario.preferred_processing == "xia2/DIALS",
-                        comment="",
-                        displayname="",
+                        recipe="autoprocessing-xia2-dials",
+                        source="automatic",
                         parameters=(
                             dlstbx.mimas.MimasISPyBParameter(
                                 key="resolution.cc_half_significance_level", value="0.1"
                             ),
                         ),
-                        recipe="autoprocessing-xia2-dials",
-                        source="automatic",
-                        sweeps=(),
-                        triggervariables=(),
                     )
                 )
                 # xia2-3dii
@@ -263,17 +232,13 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=scenario.preferred_processing == "xia2/XDS",
-                        comment="",
-                        displayname="",
+                        recipe="autoprocessing-xia2-3dii",
+                        source="automatic",
                         parameters=(
                             dlstbx.mimas.MimasISPyBParameter(
                                 key="resolution.cc_half_significance_level", value="0.1"
                             ),
                         ),
-                        recipe="autoprocessing-xia2-3dii",
-                        source="automatic",
-                        sweeps=(),
-                        triggervariables=(),
                     )
                 )
                 # autoPROC
@@ -281,13 +246,8 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=scenario.preferred_processing == "autoPROC",
-                        comment="",
-                        displayname="",
-                        parameters=(),
                         recipe="autoprocessing-autoPROC",
                         source="automatic",
-                        sweeps=(),
-                        triggervariables=(),
                     )
                 )
 
@@ -297,17 +257,14 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=False,
-                        comment="",
-                        displayname="",
+                        recipe="autoprocessing-multi-xia2-dials",
+                        source="automatic",
                         parameters=(
                             dlstbx.mimas.MimasISPyBParameter(
                                 key="resolution.cc_half_significance_level", value="0.1"
                             ),
                         ),
-                        recipe="autoprocessing-multi-xia2-dials",
-                        source="automatic",
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                        triggervariables=(),
                     )
                 )
                 # xia2-3dii
@@ -315,17 +272,14 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=False,
-                        comment="",
-                        displayname="",
+                        recipe="autoprocessing-multi-xia2-3dii",
+                        source="automatic",
                         parameters=(
                             dlstbx.mimas.MimasISPyBParameter(
                                 key="resolution.cc_half_significance_level", value="0.1"
                             ),
                         ),
-                        recipe="autoprocessing-multi-xia2-3dii",
-                        source="automatic",
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                        triggervariables=(),
                     )
                 )
             if scenario.spacegroup:
@@ -360,13 +314,9 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=scenario.preferred_processing == "xia2/DIALS",
-                            comment="",
-                            displayname="",
-                            parameters=xia2_parameters,
                             recipe="autoprocessing-xia2-dials",
                             source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
+                            parameters=xia2_parameters,
                         )
                     )
                     # xia2-3dii
@@ -374,13 +324,9 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=scenario.preferred_processing == "xia2/XDS",
-                            comment="",
-                            displayname="",
-                            parameters=xia2_parameters,
                             recipe="autoprocessing-xia2-3dii",
                             source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
+                            parameters=xia2_parameters,
                         )
                     )
                     # autoPROC
@@ -388,13 +334,9 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=scenario.preferred_processing == "autoPROC",
-                            comment="",
-                            displayname="",
-                            parameters=parameters,
                             recipe="autoprocessing-autoPROC",
                             source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
+                            parameters=parameters,
                         )
                     )
                     # fast_dp
@@ -402,17 +344,13 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=True,
-                            comment="",
-                            displayname="",
+                            recipe="autoprocessing-fast-dp",
+                            source="automatic",
                             parameters=(
                                 dlstbx.mimas.MimasISPyBParameter(
                                     key="spacegroup", value=spacegroup
                                 ),
                             ),
-                            recipe="autoprocessing-fast-dp",
-                            source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
                         )
                     )
                 if multi_xia2:
@@ -421,13 +359,10 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=False,
-                            comment="",
-                            displayname="",
-                            parameters=parameters,
                             recipe="autoprocessing-multi-xia2-dials",
                             source="automatic",
+                            parameters=parameters,
                             sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                            triggervariables=(),
                         )
                     )
                     # xia2-3dii
@@ -452,13 +387,8 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=True,
-                            comment="",
-                            displayname="",
-                            parameters=(),
                             recipe="autoprocessing-fast-dp",
                             source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
                         )
                     )
 
@@ -500,17 +430,13 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=scenario.preferred_processing == "xia2/DIALS",
-                        comment="",
-                        displayname="",
+                        recipe="autoprocessing-xia2-dials-eiger",
+                        source="automatic",
                         parameters=(
                             dlstbx.mimas.MimasISPyBParameter(
                                 key="resolution.cc_half_significance_level", value="0.1"
                             ),
                         ),
-                        recipe="autoprocessing-xia2-dials-eiger",
-                        source="automatic",
-                        sweeps=(),
-                        triggervariables=(),
                     )
                 )
                 # xia2-3dii
@@ -518,17 +444,13 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=scenario.preferred_processing == "xia2/XDS",
-                        comment="",
-                        displayname="",
+                        recipe="autoprocessing-xia2-3dii-eiger",
+                        source="automatic",
                         parameters=(
                             dlstbx.mimas.MimasISPyBParameter(
                                 key="resolution.cc_half_significance_level", value="0.1"
                             ),
                         ),
-                        recipe="autoprocessing-xia2-3dii-eiger",
-                        source="automatic",
-                        sweeps=(),
-                        triggervariables=(),
                     )
                 )
                 # autoPROC
@@ -536,13 +458,8 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=scenario.preferred_processing == "autoPROC",
-                        comment="",
-                        displayname="",
-                        parameters=(),
                         recipe="autoprocessing-autoPROC-eiger",
                         source="automatic",
-                        sweeps=(),
-                        triggervariables=(),
                     )
                 )
             if multi_xia2:
@@ -551,13 +468,9 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=False,
-                        comment="",
-                        displayname="",
-                        parameters=(),
                         recipe="autoprocessing-multi-xia2-dials-eiger",
                         source="automatic",
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                        triggervariables=(),
                     )
                 )
                 # xia2-3dii
@@ -565,13 +478,9 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=False,
-                        comment="",
-                        displayname="",
-                        parameters=(),
                         recipe="autoprocessing-multi-xia2-3dii-eiger",
                         source="automatic",
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                        triggervariables=(),
                     )
                 )
 
@@ -613,17 +522,13 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=True,
-                            comment="",
-                            displayname="",
+                            recipe="autoprocessing-fast-dp-eiger",
+                            source="automatic",
                             parameters=(
                                 dlstbx.mimas.MimasISPyBParameter(
                                     key="spacegroup", value=spacegroup
                                 ),
                             ),
-                            recipe="autoprocessing-fast-dp-eiger",
-                            source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
                         )
                     )
                     # xia2-dials
@@ -631,13 +536,9 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=scenario.preferred_processing == "xia2/DIALS",
-                            comment="",
-                            displayname="",
-                            parameters=parameters,
                             recipe="autoprocessing-xia2-dials-eiger",
                             source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
+                            parameters=parameters,
                         )
                     )
                     # xia2-3dii
@@ -645,13 +546,9 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=scenario.preferred_processing == "xia2/XDS",
-                            comment="",
-                            displayname="",
-                            parameters=parameters,
                             recipe="autoprocessing-xia2-3dii-eiger",
                             source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
+                            parameters=parameters,
                         )
                     )
                 if multi_xia2:
@@ -660,13 +557,10 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=False,
-                            comment="",
-                            displayname="",
-                            parameters=parameters,
                             recipe="autoprocessing-multi-xia2-dials-eiger",
                             source="automatic",
+                            parameters=parameters,
                             sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                            triggervariables=(),
                         )
                     )
                     # xia2-3dii
@@ -674,13 +568,10 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=False,
-                            comment="",
-                            displayname="",
-                            parameters=parameters,
                             recipe="autoprocessing-multi-xia2-3dii-eiger",
                             source="automatic",
+                            parameters=parameters,
                             sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                            triggervariables=(),
                         )
                     )
                 if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
@@ -703,13 +594,9 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=scenario.preferred_processing == "autoPROC",
-                            comment="",
-                            displayname="",
-                            parameters=parameters,
                             recipe="autoprocessing-autoPROC-eiger",
                             source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
+                            parameters=parameters,
                         )
                     )
             else:
@@ -719,13 +606,8 @@ def run(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
                             autostart=True,
-                            comment="",
-                            displayname="",
-                            parameters=(),
                             recipe="autoprocessing-fast-dp-eiger",
                             source="automatic",
-                            sweeps=(),
-                            triggervariables=(),
                         )
                     )
 

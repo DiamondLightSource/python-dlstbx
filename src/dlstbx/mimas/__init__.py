@@ -1,7 +1,8 @@
-import collections
+import dataclasses
 import enum
 import functools
 import numbers
+from typing import Tuple
 
 from cctbx import sgtbx
 
@@ -11,61 +12,82 @@ MimasDetectorClass = enum.Enum("MimasDetectorClass", "PILATUS EIGER")
 
 MimasEvent = enum.Enum("MimasEvent", "START END")
 
-MimasScenario = collections.namedtuple(
-    "MimasScenario",
-    (
-        "DCID",
-        "dcclass",  # MimasDCClass
-        "event",  # MimasEvent
-        "beamline",
-        "runstatus",
-        "spacegroup",  # None or MimasISPyBSpaceGroup
-        "unitcell",  # None or MimasISPyBUnitCell
-        "getsweepslistfromsamedcg",
-        "preferred_processing",  # None or string
-        "detectorclass",  # None or MimasDetectorClass
-    ),
-)
+
+@dataclasses.dataclass
+class MimasISPyBUnitCell:
+    a: float
+    b: float
+    c: float
+    alpha: float
+    beta: float
+    gamma: float
+
+    @property
+    def string(self):
+        return f"{self.a},{self.b},{self.c},{self.alpha},{self.beta},{self.gamma}"
 
 
-MimasRecipeInvocation = collections.namedtuple(
-    "MimasRecipeInvocation", ("DCID", "recipe")
-)
+@dataclasses.dataclass
+class MimasISPyBSpaceGroup:
+    symbol: str
 
-MimasISPyBJobInvocation = collections.namedtuple(
-    "MimasISPyBJobInvocation",
-    (
-        "DCID",
-        "autostart",
-        "comment",
-        "displayname",
-        "parameters",
-        "recipe",
-        "source",
-        "sweeps",
-        "triggervariables",
-    ),
-)
+    @property
+    def string(self):
+        return (
+            sgtbx.space_group_info(self.symbol).type().lookup_symbol().replace(" ", "")
+        )
 
-MimasISPyBParameter = collections.namedtuple("MimasISPyBParameter", "key, value")
 
-MimasISPyBSweep = collections.namedtuple("MimasISPyBSweep", "DCID, start, end")
+@dataclasses.dataclass
+class MimasScenario:
+    DCID: int
+    dcclass: MimasDCClass
+    event: MimasEvent
+    beamline: str
+    runstatus: str
+    spacegroup: MimasISPyBSpaceGroup = None
+    unitcell: MimasISPyBUnitCell = None
+    getsweepslistfromsamedcg: tuple = None
+    preferred_processing: str = None
+    detectorclass: MimasDetectorClass = None
 
-MimasISPyBTriggerVariable = collections.namedtuple(
-    "MimasISPyBTriggerVariable", "key, value"
-)
 
-MimasISPyBUnitCell = collections.namedtuple(
-    "MimasISPyBUnitCell", "a, b, c, alpha, beta, gamma"
-)
-MimasISPyBUnitCell.string = property(
-    lambda uc: ",".join(map(str, uc._asdict().values()))
-)
+@dataclasses.dataclass
+class MimasISPyBParameter:
+    key: str
+    value: str
 
-MimasISPyBSpaceGroup = collections.namedtuple("MimasISPyBSpaceGroup", "symbol")
-MimasISPyBSpaceGroup.string = property(
-    lambda sg: sgtbx.space_group_info(sg.symbol).type().lookup_symbol().replace(" ", "")
-)
+
+@dataclasses.dataclass
+class MimasISPyBSweep:
+    DCID: int
+    start: int
+    end: int
+
+
+@dataclasses.dataclass
+class MimasISPyBTriggerVariable:
+    key: str
+    value: str
+
+
+@dataclasses.dataclass
+class MimasISPyBJobInvocation:
+    DCID: int
+    autostart: bool
+    comment: str
+    displayname: str
+    parameters: Tuple[MimasISPyBParameter]
+    recipe: str
+    source: str
+    sweeps: Tuple[MimasISPyBSweep]
+    triggervariables: tuple
+
+
+@dataclasses.dataclass
+class MimasRecipeInvocation:
+    DCID: int
+    recipe: {}
 
 
 @functools.singledispatch
@@ -245,22 +267,22 @@ def _(mimasobject: MimasRecipeInvocation):
 
 @zocalo_message.register(MimasISPyBJobInvocation)
 def _(mimasobject: MimasISPyBJobInvocation):
-    return {key: zocalo_message(value) for key, value in mimasobject._asdict().items()}
+    return dataclasses.asdict(mimasobject)
 
 
 @zocalo_message.register(MimasISPyBSweep)
 def _(mimasobject: MimasISPyBSweep):
-    return mimasobject._asdict()
+    return dataclasses.asdict(mimasobject)
 
 
 @zocalo_message.register(MimasISPyBParameter)
 def _(mimasobject: MimasISPyBParameter):
-    return mimasobject._asdict()
+    return dataclasses.asdict(mimasobject)
 
 
 @zocalo_message.register(MimasISPyBUnitCell)
 def _(mimasobject: MimasISPyBUnitCell):
-    return tuple(mimasobject._asdict().values())
+    return tuple(dataclasses.asdict(mimasobject).values())
 
 
 @zocalo_message.register(MimasISPyBSpaceGroup)

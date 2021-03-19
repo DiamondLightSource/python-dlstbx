@@ -48,6 +48,40 @@ def test_eiger_rotation():
     }
 
 
+def test_eiger_rotation_multixia2():
+    dcid = 6123722
+    other_dcid = 6123719
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.ROTATION,
+        beamline="i04",
+        runstatus="DataCollection Successful",
+        spacegroup=None,
+        unitcell=None,
+        getsweepslistfromsamedcg=(
+            MimasISPyBSweep(DCID=other_dcid, start=1, end=3600),
+            MimasISPyBSweep(DCID=dcid, start=1, end=3600),
+        ),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger   --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-3dii-eiger --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-dials-eiger --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger  --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger  --add-param=resolution.cc_half_significance_level:0.1 --trigger",
+        f"zocalo.go -r archive-nexus {dcid}",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
+    }
+
+
 def test_eiger_screening():
     dcid = 6017522
     scenario = functools.partial(
@@ -149,6 +183,40 @@ def test_cbf_rotation():
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --trigger",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r processing-rlv {dcid}",
+    }
+
+
+def test_cbf_rotation_multixia2():
+    dcid = 1234567
+    other_dcid = 1234566
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.ROTATION,
+        beamline="i04-1",
+        runstatus="DataCollection Successful",
+        spacegroup=None,
+        unitcell=None,
+        getsweepslistfromsamedcg=(
+            MimasISPyBSweep(DCID=other_dcid, start=1, end=3600),
+            MimasISPyBSweep(DCID=dcid, start=1, end=3600),
+        ),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.PILATUS,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r archive-cbfs {dcid}",
+        f"zocalo.go -r per-image-analysis-rotation {dcid}",
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp   --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-dials --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-3dii --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=resolution.cc_half_significance_level:0.1",
         f"zocalo.go -r processing-rlv {dcid}",
     }
 

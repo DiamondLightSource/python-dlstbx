@@ -236,10 +236,10 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         # Record AutoProcAttachments (SCI-9692)
         attachments = {
-            self.results_directory.join("final.mtz"): ("result", 0),
-            self.results_directory.join("final.pdb"): ("result", 0),
-            self.results_directory.join("dimple.log"): ("log", 1),
-            self.results_directory.join("screen.log"): ("log", 0),
+            self.results_directory.join("final.mtz"): ("result", 1),
+            self.results_directory.join("final.pdb"): ("result", 1),
+            self.results_directory.join("dimple.log"): ("log", 2),
+            self.results_directory.join("screen.log"): ("log", 1),
         }
         attachments.update(
             {

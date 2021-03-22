@@ -1,4 +1,5 @@
 import glob
+import itertools
 import logging
 import copy
 import os
@@ -232,6 +233,34 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         if success:
             logger.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()
+
+        # Record AutoProcAttachments (SCI-9692)
+        attachments = {
+            self.results_directory.join("final.mtz"): ("result", 0),
+            self.results_directory.join("final.pdb"): ("result", 0),
+            self.results_directory.join("dimple.log"): ("log", 1),
+            self.results_directory.join("screen.log"): ("log", 0),
+        }
+        attachments.update(
+            {
+                log_file: ("log", 1)
+                for log_file in itertools.chain(
+                    self.results_directory.visit(fil="[0-9]*-find-blobs.log"),
+                    self.results_directory.visit(fil="[0-9]*-refmac5_restr.log"),
+                )
+            }
+        )
+        logger.info(attachments)
+        for file_name, (file_type, importance_rank) in attachments.items():
+            if file_name.check(file=1):
+                self.record_result_individual_file(
+                    {
+                        "file_path": file_name.dirname,
+                        "file_name": file_name.basename,
+                        "file_type": file_type,
+                        "importance_rank": importance_rank,
+                    }
+                )
 
         # Update SynchWeb tick hack file
         if self.params.get("synchweb_ticks") and self.params.get(

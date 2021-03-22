@@ -53,8 +53,8 @@ def insert_multiplex_input(alchemy):
     return [dc.dataCollectionId for dc in dcs]
 
 
-def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker):
-    session = ispyb.sqlalchemy.session(testconfig)
+def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker, monkeypatch):
+    monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcids = insert_multiplex_input
     message = {
         "recipe": {
@@ -91,7 +91,6 @@ def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker):
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
     trigger.ispyb = testdb
-    trigger.session = session
     send = mocker.spy(rw, "send")
     trigger.trigger(rw, {"some": "header"}, message)
     send.assert_called_once_with(
@@ -100,7 +99,6 @@ def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker):
     kall = send.mock_calls[0]
     name, args, kwargs = kall
     pjid = args[0]["result"][0]
-    # Need a new session to reflect the data inserted by stored procedures
     session = ispyb.sqlalchemy.session(testconfig)
     pj = (
         session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
@@ -143,8 +141,10 @@ def insert_dimple_input(alchemy):
     return dc.dataCollectionId
 
 
-def test_dimple_trigger(insert_dimple_input, testconfig, testdb, mocker, tmp_path):
-    session = ispyb.sqlalchemy.session(testconfig)
+def test_dimple_trigger(
+    insert_dimple_input, testconfig, testdb, mocker, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = insert_dimple_input
     user_pdb_directory = tmp_path / "user_pdb"
     user_pdb_directory.mkdir()
@@ -172,14 +172,12 @@ def test_dimple_trigger(insert_dimple_input, testconfig, testdb, mocker, tmp_pat
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
     trigger.ispyb = testdb
-    trigger.session = session
     send = mocker.spy(rw, "send")
     trigger.trigger(rw, {"some": "header"}, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
     kall = send.mock_calls[0]
     name, args, kwargs = kall
     pjid = args[0]["result"]
-    # Need a new session to reflect the data inserted by stored procedures
     session = ispyb.sqlalchemy.session(testconfig)
     pj = (
         session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
@@ -199,8 +197,8 @@ def test_dimple_trigger(insert_dimple_input, testconfig, testdb, mocker, tmp_pat
     }
 
 
-def test_ep_predict(testconfig, testdb, mocker):
-    session = ispyb.sqlalchemy.session(testconfig)
+def test_ep_predict(testconfig, testdb, mocker, monkeypatch):
+    monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 993677
     message = {
         "recipe": {
@@ -227,14 +225,12 @@ def test_ep_predict(testconfig, testdb, mocker):
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
     trigger.ispyb = testdb
-    trigger.session = session
     send = mocker.spy(rw, "send")
     trigger.trigger(rw, {"some": "header"}, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
     kall = send.mock_calls[0]
     name, args, kwargs = kall
     pjid = args[0]["result"]
-    # Need a new session to reflect the data inserted by stored procedures
     session = ispyb.sqlalchemy.session(testconfig)
     pj = (
         session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
@@ -254,8 +250,8 @@ def test_ep_predict(testconfig, testdb, mocker):
     }
 
 
-def test_fast_ep(testconfig, testdb, mocker):
-    session = ispyb.sqlalchemy.session(testconfig)
+def test_fast_ep(testconfig, testdb, mocker, monkeypatch):
+    monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 993677
     message = {
         "recipe": {
@@ -283,14 +279,12 @@ def test_fast_ep(testconfig, testdb, mocker):
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
     trigger.ispyb = testdb
-    trigger.session = session
     send = mocker.spy(rw, "send")
     trigger.trigger(rw, {"some": "header"}, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
     kall = send.mock_calls[0]
     name, args, kwargs = kall
     pjid = args[0]["result"]
-    # Need a new session to reflect the data inserted by stored procedures
     session = ispyb.sqlalchemy.session(testconfig)
     pj = (
         session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
@@ -309,8 +303,8 @@ def test_fast_ep(testconfig, testdb, mocker):
     }
 
 
-def test_big_ep(testconfig, testdb, mocker):
-    session = ispyb.sqlalchemy.session(testconfig)
+def test_big_ep(testconfig, testdb, mocker, monkeypatch):
+    monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 1002287
     message = {
         "recipe": {
@@ -342,7 +336,6 @@ def test_big_ep(testconfig, testdb, mocker):
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
     trigger.ispyb = testdb
-    trigger.session = session
     send = mocker.spy(rw, "send")
     trigger.trigger(rw, {"some": "header"}, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
@@ -360,7 +353,6 @@ def test_big_ep(testconfig, testdb, mocker):
         },
     )
     pjid = t.send.call_args.args[1]["parameters"]["ispyb_process"]
-    # Need a new session to reflect the data inserted by stored procedures
     session = ispyb.sqlalchemy.session(testconfig)
     pj = (
         session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()

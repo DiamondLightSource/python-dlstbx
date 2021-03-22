@@ -24,4 +24,8 @@ def testdb(testconfig):
 
 @pytest.fixture
 def alchemy(testconfig):
-    return ispyb.sqlalchemy.session(testconfig)
+    session = ispyb.sqlalchemy.session(testconfig)
+    try:
+        yield session
+    finally:
+        session.close()

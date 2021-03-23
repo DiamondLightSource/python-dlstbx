@@ -20,9 +20,7 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
         self.working_directory = pathlib.Path(params["working_directory"])
-        self.working_directory = pathlib.Path(
-            "/dls/science/groups/scisoft/DIALS/dials_data/relion_tutorial_data"
-        )
+        # self.working_directory = pathlib.Path("/dls/science/groups/scisoft/DIALS/dials_data/relion_tutorial_data")
         self.results_directory = pathlib.Path(params["results_directory"])
         # create working directory
         self.working_directory.mkdir(parents=True, exist_ok=True)

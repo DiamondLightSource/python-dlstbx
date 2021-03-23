@@ -4,7 +4,8 @@ import functools
 import numbers
 from typing import Tuple
 
-from cctbx import sgtbx
+import gemmi
+
 
 MimasDCClass = enum.Enum("MimasDCClass", "GRIDSCAN ROTATION SCREENING UNDEFINED")
 
@@ -33,9 +34,7 @@ class MimasISPyBSpaceGroup:
 
     @property
     def string(self):
-        return (
-            sgtbx.space_group_info(self.symbol).type().lookup_symbol().replace(" ", "")
-        )
+        return gemmi.SpaceGroup(self.symbol).hm.replace(" ", "")
 
 
 @dataclasses.dataclass
@@ -238,10 +237,7 @@ def _(mimasobject: MimasISPyBUnitCell, expectedtype=None):
 def _(mimasobject: MimasISPyBSpaceGroup, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
-    try:
-        sgtbx.space_group_info(symbol=mimasobject.symbol)
-    except RuntimeError as e:
-        raise ValueError(e) from None
+    gemmi.SpaceGroup(mimasobject.symbol)
 
 
 @functools.singledispatch

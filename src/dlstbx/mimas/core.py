@@ -41,7 +41,7 @@ def run(
             pass  # nothing defined
 
         elif scenario.detectorclass.name == "PILATUS":
-            if scenario.dcclass != dlstbx.mimas.MimasDCClass.GRIDSCAN:
+            if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe="archive-cbfs"
@@ -49,7 +49,7 @@ def run(
                 )
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="per-image-analysis-rotation"
+                        DCID=scenario.DCID, recipe="per-image-analysis-gridscan"
                     )
                 )
             else:
@@ -60,7 +60,7 @@ def run(
                 )
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="per-image-analysis-gridscan"
+                        DCID=scenario.DCID, recipe="per-image-analysis-rotation"
                     )
                 )
 

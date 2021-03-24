@@ -19,8 +19,11 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
-        self.working_directory = pathlib.Path(params["working_directory"])
-        # self.working_directory = pathlib.Path("/dls/science/groups/scisoft/DIALS/dials_data/relion_tutorial_data")
+        # self.working_directory = pathlib.Path(params["working_directory"])
+        self.working_directory = pathlib.Path(
+            "/dls/science/groups/scisoft/DIALS/dials_data/relion_tutorial_data"
+        )
+        # self.working_directory = pathlib.Path("/home/slg25752/relion/temp/relion")
         self.results_directory = pathlib.Path(params["results_directory"])
         # create working directory
         self.working_directory.mkdir(parents=True, exist_ok=True)
@@ -66,27 +69,35 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
 
         logger.info("Done.")
 
-        count = 0
+        # count = 0
         while RELION_RUNNING:
             relion_object = relion.Project(self.working_directory)
             logger.info("Started looking for results")
             ctf_status = self.get_job_status_dictionary(relion_object.ctffind)
-            pprint(ctf_status)
             for item in ctf_status:
-                print(item)
-                if ctf_status[item] == RelionStatus.EXIT_SUCCESS:
+                if all(x == RelionStatus.EXIT_SUCCESS for x in ctf_status.values()):
+                    logger.info("CTFFind finished")
+                    break
+                elif ctf_status[item] == RelionStatus.EXIT_SUCCESS:
                     self.send_ctffind_results_to_ispyb(item[0], item[1])
-                #   if all statuses == finished:
-                #       break
+
             motion_corr_status = self.get_job_status_dictionary(
                 relion_object.motioncorrection
             )
-            pprint(motion_corr_status)
-            count += 1
-            if count >= 6:
-                self.fake_relion_stop()
+            for item in motion_corr_status:
+                if all(
+                    x == RelionStatus.EXIT_SUCCESS for x in motion_corr_status.values()
+                ):
+                    logger.info("Morion Correction finished")
+                    break
+                elif ctf_status[item] == RelionStatus.EXIT_SUCCESS:
+                    # self.send_ctffind_results_to_ispyb(item[0], item[1])
+                    pass
+            # count += 1
+            # if count >= 6:
+            #    self.fake_relion_stop()
 
-            time.sleep(5)
+            # time.sleep(5)
 
         return success
 

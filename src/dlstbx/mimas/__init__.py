@@ -278,7 +278,7 @@ def _(mimasobject: MimasISPyBParameter):
 
 @zocalo_message.register(MimasISPyBUnitCell)
 def _(mimasobject: MimasISPyBUnitCell):
-    return tuple(dataclasses.asdict(mimasobject).values())
+    return dataclasses.astuple(mimasobject)
 
 
 @zocalo_message.register(MimasISPyBSpaceGroup)

@@ -14,7 +14,7 @@ MimasDetectorClass = enum.Enum("MimasDetectorClass", "PILATUS EIGER")
 MimasEvent = enum.Enum("MimasEvent", "START END")
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class MimasISPyBUnitCell:
     a: float
     b: float
@@ -28,7 +28,7 @@ class MimasISPyBUnitCell:
         return f"{self.a},{self.b},{self.c},{self.alpha},{self.beta},{self.gamma}"
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class MimasISPyBSpaceGroup:
     symbol: str
 
@@ -37,14 +37,14 @@ class MimasISPyBSpaceGroup:
         return gemmi.SpaceGroup(self.symbol).hm.replace(" ", "")
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class MimasISPyBSweep:
     DCID: int
     start: int
     end: int
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class MimasScenario:
     DCID: int
     dcclass: MimasDCClass
@@ -58,19 +58,19 @@ class MimasScenario:
     detectorclass: MimasDetectorClass = None
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class MimasISPyBParameter:
     key: str
     value: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class MimasISPyBTriggerVariable:
     key: str
     value: str
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class MimasISPyBJobInvocation:
     DCID: int
     autostart: bool
@@ -83,7 +83,7 @@ class MimasISPyBJobInvocation:
     triggervariables: Tuple[MimasISPyBTriggerVariable] = ()
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class MimasRecipeInvocation:
     DCID: int
     recipe: {}

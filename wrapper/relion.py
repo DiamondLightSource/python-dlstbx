@@ -7,6 +7,7 @@ import enum
 import zocalo.wrapper
 from pprint import pprint
 import time
+import subprocess
 
 logger = logging.getLogger("dlstbx.wrap.relion")
 
@@ -19,11 +20,11 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
-        # self.working_directory = pathlib.Path(params["working_directory"])
+        self.working_directory = pathlib.Path(params["working_directory"])
         self.working_directory = pathlib.Path(
             "/dls/science/groups/scisoft/DIALS/dials_data/relion_tutorial_data"
         )
-        # self.working_directory = pathlib.Path("/home/slg25752/relion/temp/relion")
+        # self.working_directory = pathlib.Path("/home/slg25752/temp/relion")
         self.results_directory = pathlib.Path(params["results_directory"])
         # create working directory
         self.working_directory.mkdir(parents=True, exist_ok=True)
@@ -59,7 +60,7 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         success = True
 
         # copy output files to result directory
-        # self.results_directory.mkdir(parents=True, exist_ok=True)
+        self.results_directory.mkdir(parents=True, exist_ok=True)
 
         if params.get("create_symlink"):
             # Create symbolic link above results directory
@@ -67,44 +68,58 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
                 str(self.results_directory), params["create_symlink"]
             )
 
-        logger.info("Done.")
+        relion_process = subprocess.Popen(["/home/slg25752/relion/mimic-relion-script"])
 
-        # count = 0
-        while RELION_RUNNING:
-            relion_object = relion.Project(self.working_directory)
-            logger.info("Started looking for results")
-            ctf_status = self.get_job_status_dictionary(relion_object.ctffind)
-            for item in ctf_status:
-                if all(x == RelionStatus.EXIT_SUCCESS for x in ctf_status.values()):
-                    logger.info("CTFFind finished")
-                    break
-                elif ctf_status[item] == RelionStatus.EXIT_SUCCESS:
-                    self.send_ctffind_results_to_ispyb(item[0], item[1])
-
-            motion_corr_status = self.get_job_status_dictionary(
-                relion_object.motioncorrection
-            )
-            for item in motion_corr_status:
-                if all(
-                    x == RelionStatus.EXIT_SUCCESS for x in motion_corr_status.values()
-                ):
-                    logger.info("Morion Correction finished")
-                    break
-                elif ctf_status[item] == RelionStatus.EXIT_SUCCESS:
-                    # self.send_ctffind_results_to_ispyb(item[0], item[1])
-                    pass
-            # count += 1
-            # if count >= 6:
-            #    self.fake_relion_stop()
-
-            # time.sleep(5)
-
-        return success
-
-    def fake_relion_stop(self):
-        time.sleep(5)
         global RELION_RUNNING
-        RELION_RUNNING = False
+        while RELION_RUNNING:
+
+            time.sleep(10)
+
+            relion_object = relion.Project(self.working_directory)
+            logger.info("Looking for results")
+
+            try:
+                motion_corr_status = self.get_job_status_dictionary(
+                    relion_object.motioncorrection
+                )
+                for item in motion_corr_status:
+                    if all(
+                        x == RelionStatus.EXIT_SUCCESS
+                        for x in motion_corr_status.values()
+                    ):
+                        logger.info("Motion Correction finished")
+                        # break
+                    # elif
+                    if motion_corr_status[item] == RelionStatus.EXIT_SUCCESS:
+                        # self.send_motioncorr_results_to_ispyb(item[0], item[1])
+                        logger.info("Sending %s results for %s", item[0], item[1])
+                        pass
+            except FileNotFoundError:
+                logger.info("No files found for Motion Correction")
+
+            try:
+                ctf_status = self.get_job_status_dictionary(relion_object.ctffind)
+                for item in ctf_status:
+                    if all(x == RelionStatus.EXIT_SUCCESS for x in ctf_status.values()):
+                        logger.info("CTFFind finished")
+                        # break
+                    # elif
+                    if ctf_status[item] == RelionStatus.EXIT_SUCCESS:
+                        self.send_ctffind_results_to_ispyb(item[0], item[1])
+            except FileNotFoundError:
+                logger.info("No files found for CTFFind")
+                pass
+
+            poll = relion_process.poll()  # None value -> process is still running
+            print("POLL RELION_RUNNING:", poll)
+            if poll is not None:
+                print("Relion stopped")
+                RELION_RUNNING = False
+
+            time.sleep(10)
+
+        logger.info("Done.")
+        return success
 
     def create_synchweb_stop_file(self, path_to_desired_file_location):
         pathlib.Path(path_to_desired_file_location / "stopfile.txt").touch()

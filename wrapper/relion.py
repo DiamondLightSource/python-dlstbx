@@ -1,13 +1,15 @@
 import logging
 import os
 import pathlib
-import dlstbx.util.symlink
+
+# import dlstbx.util.symlink
 import relion
 import enum
 import zocalo.wrapper
 from pprint import pprint
 import time
 import subprocess
+import functools
 
 logger = logging.getLogger("dlstbx.wrap.relion")
 
@@ -20,23 +22,23 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
-        self.working_directory = pathlib.Path(params["working_directory"])
-        self.working_directory = pathlib.Path(
-            "/dls/science/groups/scisoft/DIALS/dials_data/relion_tutorial_data"
-        )
-        # self.working_directory = pathlib.Path("/home/slg25752/temp/relion")
+        # self.working_directory = pathlib.Path(params["working_directory"])
+        # self.working_directory = pathlib.Path(
+        #    "/dls/science/groups/scisoft/DIALS/dials_data/relion_tutorial_data"
+        # )
+        self.working_directory = pathlib.Path("/home/slg25752/temp/relion")
         self.results_directory = pathlib.Path(params["results_directory"])
         # create working directory
-        self.working_directory.mkdir(parents=True, exist_ok=True)
-        if params.get("create_symlink"):
-            # Create symbolic link above working directory
-            dlstbx.util.symlink.create_parent_symlink(
-                str(self.working_directory), params["create_symlink"]
-            )
+        # self.working_directory.mkdir(parents=True, exist_ok=True)
+        # if params.get("create_symlink"):
+        # Create symbolic link above working directory
+        #    dlstbx.util.symlink.create_parent_symlink(
+        #        str(self.working_directory), params["create_symlink"]
+        #    )
 
         # Create a symbolic link in the working directory to the image directory
         movielink = "Movies"
-        os.symlink(params["image_directory"], self.working_directory / movielink)
+        # os.symlink(params["image_directory"], self.working_directory / movielink)
         params["ispyb_parameters"]["import_images"] = os.path.join(
             movielink, params["file_template"]
         )
@@ -60,13 +62,13 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         success = True
 
         # copy output files to result directory
-        self.results_directory.mkdir(parents=True, exist_ok=True)
+        # self.results_directory.mkdir(parents=True, exist_ok=True)
 
-        if params.get("create_symlink"):
-            # Create symbolic link above results directory
-            dlstbx.util.symlink.create_parent_symlink(
-                str(self.results_directory), params["create_symlink"]
-            )
+        # if params.get("create_symlink"):
+        # Create symbolic link above results directory
+        #    dlstbx.util.symlink.create_parent_symlink(
+        #       str(self.results_directory), params["create_symlink"]
+        #    )
 
         relion_process = subprocess.Popen(["/home/slg25752/relion/mimic-relion-script"])
 
@@ -91,8 +93,8 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
                         # break
                     # elif
                     if motion_corr_status[item] == RelionStatus.EXIT_SUCCESS:
-                        # self.send_motioncorr_results_to_ispyb(item[0], item[1])
                         logger.info("Sending %s results for %s", item[0], item[1])
+                        self.send_motioncorrection_results_to_ispyb(item[0], item[1])
                         pass
             except FileNotFoundError:
                 logger.info("No files found for Motion Correction")
@@ -105,6 +107,8 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
                         # break
                     # elif
                     if ctf_status[item] == RelionStatus.EXIT_SUCCESS:
+                        logger.info("Sending %s results for %s", item[0], item[1])
+                        # self.send_results(item[0], item[1])
                         self.send_ctffind_results_to_ispyb(item[0], item[1])
             except FileNotFoundError:
                 logger.info("No files found for CTFFind")
@@ -170,3 +174,42 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         logger.info("Sending commands like this: %s", str(ispyb_command_list[0]))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
         logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+
+    def send_motioncorrection_results_to_ispyb(self, stage_object, job_string):
+        logger.info("Sending results to ISPyB for %s ", job_string)
+        ispyb_command_list = []
+        for motion_corr_micrograph in stage_object[job_string]:
+            ispyb_command_list.append(
+                {
+                    "ispyb_command": "insert_motion_correction",
+                    "micrograph_name": motion_corr_micrograph.micrograph_name,
+                    "total_motion": motion_corr_micrograph.total_motion,
+                    "early_motion": motion_corr_micrograph.early_motion,
+                    "late_motion": motion_corr_micrograph.late_motion,
+                    "average_motion_per_frame": (
+                        float(motion_corr_micrograph.total_motion)
+                    ),  # / number of frames
+                }
+            )
+        logger.info("Sending commands like this: %s", str(ispyb_command_list[0]))
+        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+
+
+@functools.singledispatch
+def send_results(self, relion_stage_object, job_string):
+    """
+    A generic send function that takes a Relion
+    object and uses the corresponding send_results function.
+    """
+    raise ValueError(f"{relion_stage_object!r} is not a known Relion object")
+
+
+@send_results.register(relion.CTFFind)
+def _(relionobject: relion.CTFFind, job_string):
+    RelionWrapper.send_ctffind_results_to_ispyb(relion.CTFFind, job_string)
+
+
+@send_results.register(relion.MotionCorr)
+def _(relionobject: relion.MotionCorr, job_string):
+    RelionWrapper.send_motioncorrection_results_to_ispyb(relion.MotionCorr, job_string)

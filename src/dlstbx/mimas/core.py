@@ -12,7 +12,7 @@ def run(
 
     multi_xia2: bool = False
     if (
-        scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION
+        scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION
         and scenario.getsweepslistfromsamedcg
         and any(
             sweep.DCID != scenario.DCID for sweep in scenario.getsweepslistfromsamedcg
@@ -20,7 +20,7 @@ def run(
     ):
         multi_xia2 = True
 
-    if scenario.event == dlstbx.mimas.MimasEvent.START:
+    if scenario.event is dlstbx.mimas.MimasEvent.START:
         if scenario.beamline in ("i19-1", "i19-2"):
             # i19 is a special case
             tasks.append(
@@ -34,7 +34,7 @@ def run(
             pass  # nothing defined
 
         elif scenario.detectorclass.name == "PILATUS":
-            if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
+            if scenario.dcclass is dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe="archive-cbfs"
@@ -58,7 +58,7 @@ def run(
                 )
 
         elif scenario.detectorclass.name == "EIGER":
-            if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
+            if scenario.dcclass is dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID,
@@ -73,7 +73,7 @@ def run(
                     )
                 )
 
-    if scenario.event == dlstbx.mimas.MimasEvent.END:
+    if scenario.event is dlstbx.mimas.MimasEvent.END:
 
         if scenario.beamline in ("i19-1", "i19-2"):
             # i19 is a special case
@@ -125,7 +125,7 @@ def run(
                     DCID=scenario.DCID, recipe="archive-nexus"
                 )
             )
-            if scenario.dcclass == dlstbx.mimas.MimasDCClass.GRIDSCAN:
+            if scenario.dcclass is dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe="vmxi-spot-counts-per-image"
@@ -138,7 +138,7 @@ def run(
                     )
                 )
                 # Always run xia2 and autoPROC without space group set
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                if scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION:
                     # fast_dp
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
@@ -191,8 +191,8 @@ def run(
                         )
                     )
 
-        elif scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.PILATUS:
-            if scenario.dcclass == dlstbx.mimas.MimasDCClass.SCREENING:
+        elif scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS:
+            if scenario.dcclass is dlstbx.mimas.MimasDCClass.SCREENING:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe="strategy-edna"
@@ -209,7 +209,7 @@ def run(
                     DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
                 )
             )
-            if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+            if scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION:
                 # RLV
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
@@ -311,7 +311,7 @@ def run(
                     ),
                     *parameters,
                 )
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                if scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION:
                     # xia2-dials
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
@@ -385,7 +385,7 @@ def run(
             else:
                 # Space group is not set, only run fast_dp
                 # (xia2 and autoPROC have already been accounted for above)
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                if scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,
@@ -414,7 +414,7 @@ def run(
                 )
             )
 
-            if scenario.dcclass == dlstbx.mimas.MimasDCClass.SCREENING:
+            if scenario.dcclass is dlstbx.mimas.MimasDCClass.SCREENING:
                 for recipe in (
                     "strategy-align-crystal",
                     "strategy-mosflm",
@@ -427,7 +427,7 @@ def run(
                     )
             # Always run xia2 and autoPROC without space group set
 
-            if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+            if scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION:
                 # xia2-dials
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(
@@ -519,7 +519,7 @@ def run(
                         ),
                     )
 
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                if scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION:
                     # fast_dp
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
@@ -577,7 +577,7 @@ def run(
                             sweeps=tuple(scenario.getsweepslistfromsamedcg),
                         )
                     )
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                if scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION:
                     if scenario.unitcell:
                         parameters = (
                             dlstbx.mimas.MimasISPyBParameter(
@@ -604,7 +604,7 @@ def run(
                     )
             else:
                 # Space group is not set, only run fast_dp
-                if scenario.dcclass == dlstbx.mimas.MimasDCClass.ROTATION:
+                if scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION:
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
                             DCID=scenario.DCID,

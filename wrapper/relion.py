@@ -9,7 +9,8 @@ import zocalo.wrapper
 from pprint import pprint
 import time
 import subprocess
-import functools
+
+# import functools
 
 logger = logging.getLogger("dlstbx.wrap.relion")
 
@@ -94,7 +95,8 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
                     # elif
                     if motion_corr_status[item] == RelionStatus.EXIT_SUCCESS:
                         logger.info("Sending %s results for %s", item[0], item[1])
-                        self.send_motioncorrection_results_to_ispyb(item[0], item[1])
+                        self.send_results(item[0], item[1])
+                        # self.send_motioncorrection_results_to_ispyb(item[0], item[1])
                         pass
             except FileNotFoundError:
                 logger.info("No files found for Motion Correction")
@@ -108,8 +110,8 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
                     # elif
                     if ctf_status[item] == RelionStatus.EXIT_SUCCESS:
                         logger.info("Sending %s results for %s", item[0], item[1])
-                        # self.send_results(item[0], item[1])
-                        self.send_ctffind_results_to_ispyb(item[0], item[1])
+                        self.send_results(item[0], item[1])
+                        # self.send_ctffind_results_to_ispyb(item[0], item[1])
             except FileNotFoundError:
                 logger.info("No files found for CTFFind")
                 pass
@@ -195,21 +197,27 @@ class RelionWrapper(zocalo.wrapper.BaseWrapper):
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
         logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
+    # @functools.singledispatch
+    def send_results(self, relion_stage_object, job_string):
+        """
+        A generic send function that takes a Relion
+        object and uses the corresponding send_results function.
+        """
+        if isinstance(relion_stage_object, relion.CTFFind):
+            self.send_ctffind_results_to_ispyb(relion_stage_object, job_string)
 
-@functools.singledispatch
-def send_results(self, relion_stage_object, job_string):
-    """
-    A generic send function that takes a Relion
-    object and uses the corresponding send_results function.
-    """
-    raise ValueError(f"{relion_stage_object!r} is not a known Relion object")
+        elif isinstance(relion_stage_object, relion.MotionCorr):
+            self.send_motioncorrection_results_to_ispyb(relion_stage_object, job_string)
+
+        else:
+            raise ValueError(f"{relion_stage_object!r} is not a known Relion object")
 
 
-@send_results.register(relion.CTFFind)
-def _(relionobject: relion.CTFFind, job_string):
-    RelionWrapper.send_ctffind_results_to_ispyb(relion.CTFFind, job_string)
+# @send_results.register(relion.CTFFind)
+# def _(relionobject: relion.CTFFind, job_string):
+#    RelionWrapper.send_ctffind_results_to_ispyb(relion.CTFFind, job_string)
 
 
-@send_results.register(relion.MotionCorr)
-def _(relionobject: relion.MotionCorr, job_string):
-    RelionWrapper.send_motioncorrection_results_to_ispyb(relion.MotionCorr, job_string)
+# @send_results.register(relion.MotionCorr)
+# def _(relionobject: relion.MotionCorr, job_string):
+#    RelionWrapper.send_motioncorrection_results_to_ispyb(relion.MotionCorr, job_string)

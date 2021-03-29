@@ -89,7 +89,7 @@ class DLSValidation(CommonService):
             hdf_18 = [
                 link
                 for link in hdf5_util.find_all_references(filename)
-                if not hdf5_util.is_HDF_1_8_compatible(link)
+                if hdf5_util.is_HDF_1_8_compatible(link)
             ]
             if hdf_18:
                 return fail(

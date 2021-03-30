@@ -79,7 +79,6 @@ known_wrappers = [  # please keep alphabetically sorted
     "mr_predict = dlstbx.wrapper.mr_predict:MRPredictWrapper",
     "mrbump = dlstbx.wrapper.mrbump:MrBUMPWrapper",
     "phaser_ellg  = dlstbx.wrapper.phaser_ellg:PhasereLLGWrapper",
-    "relion = dlstbx.wrapper.relion:RelionWrapper",
     "rlv = dlstbx.wrapper.rlv:RLVWrapper",
     "screen19 = dlstbx.wrapper.screen19:Screen19Wrapper",
     "screen19_mx = dlstbx.wrapper.screen19_mx:Screen19MXWrapper",

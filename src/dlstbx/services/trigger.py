@@ -1,4 +1,3 @@
-import contextlib
 import hashlib
 import logging
 import os
@@ -28,23 +27,11 @@ from ispyb.sqlalchemy import (
 )
 
 
-_sessionfactory = sqlalchemy.orm.sessionmaker(
+Session = sqlalchemy.orm.sessionmaker(
     bind=sqlalchemy.create_engine(
         ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
     )
 )
-
-
-@contextlib.contextmanager
-def Session():
-    """Provide a transactional scope around a series of operations."""
-    # From sqlalchemy 1.4 Session and sessionmaker have full context
-    # manager support
-    session = _sessionfactory()
-    try:
-        yield session
-    finally:
-        session.close()
 
 
 class DLSTrigger(CommonService):
@@ -1056,6 +1043,10 @@ class DLSTrigger(CommonService):
                 for dc, app, pj in query.all():
                     # Select only those dcids at the same wavelength as the triggering dcid
                     if wavelength and dc.wavelength != wavelength:
+                        self.log.debug(
+                            f"Discarding appid {app.autoProcProgramId} (wavelength does not match input):\n"
+                            f"    {dc.wavelength} != {wavelength}"
+                        )
                         continue
 
                     # If this multiplex job was triggered with a spacegroup parameter

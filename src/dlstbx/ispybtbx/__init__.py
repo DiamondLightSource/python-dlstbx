@@ -70,6 +70,8 @@ Session = sqlalchemy.orm.sessionmaker(
 
 
 def setup_marshmallow_schema():
+    import decimal
+    import marshmallow.fields
     from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 
     with Session() as session:
@@ -83,9 +85,16 @@ def setup_marshmallow_schema():
                     load_instance = True
                     include_fk = True
 
+                TYPE_MAPPING = SQLAlchemyAutoSchema.TYPE_MAPPING.copy()
+                TYPE_MAPPING.update({decimal.Decimal: marshmallow.fields.Float})
                 schema_class_name = "%sSchema" % class_.__name__
                 schema_class = type(
-                    schema_class_name, (SQLAlchemyAutoSchema,), {"Meta": Meta}
+                    schema_class_name,
+                    (SQLAlchemyAutoSchema,),
+                    {
+                        "Meta": Meta,
+                        "TYPE_MAPPING": TYPE_MAPPING,
+                    },
                 )
                 setattr(class_, "__marshmallow__", schema_class)
 

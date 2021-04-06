@@ -1,6 +1,6 @@
 bitshuffle
 drmaa
-ispyb>=6.0,<6.1
+ispyb>=6.0.2,<6.1
 junit-xml>=1.9
 msgpack-python
 networkx

@@ -7,6 +7,8 @@ from datetime import datetime
 
 import ispyb
 import workflows.recipe
+import sqlalchemy.engine
+import sqlalchemy.orm
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.services.common_service import CommonService
 
@@ -26,12 +28,19 @@ from ispyb.sqlalchemy import (
 )
 
 
+_sessionfactory = sqlalchemy.orm.sessionmaker(
+    bind=sqlalchemy.create_engine(
+        ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
+    )
+)
+
+
 @contextlib.contextmanager
-def session_scope():
+def Session():
     """Provide a transactional scope around a series of operations."""
     # From sqlalchemy 1.4 Session and sessionmaker have full context
     # manager support
-    session = ispyb.sqlalchemy.session()
+    session = _sessionfactory()
     try:
         yield session
     finally:
@@ -162,7 +171,7 @@ class DLSTrigger(CommonService):
         pdb_tmpdir = pathlib.Path(parameters("pdb_tmpdir"))
 
         pdb_files = []
-        with session_scope() as session:
+        with Session() as session:
             query = (
                 session.query(DataCollection, PDB)
                 .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
@@ -203,7 +212,7 @@ class DLSTrigger(CommonService):
             return {"success": True}
         self.log.info("PDB files: %s", ", ".join(pdb_files))
 
-        with session_scope() as session:
+        with Session() as session:
             dc = (
                 session.query(DataCollection)
                 .filter(DataCollection.dataCollectionId == dcid)
@@ -263,7 +272,7 @@ class DLSTrigger(CommonService):
             self.log.error("ep_predict trigger failed: No DCID specified")
             return False
 
-        with session_scope() as session:
+        with Session() as session:
             query = (
                 session.query(DataCollection, Proposal)
                 .join(BLSession, BLSession.proposalId == Proposal.proposalId)
@@ -369,7 +378,7 @@ class DLSTrigger(CommonService):
             self.log.error("mr_predict trigger failed: No DCID specified")
             return False
 
-        with session_scope() as session:
+        with Session() as session:
             query = (
                 session.query(Proposal)
                 .join(BLSession, BLSession.proposalId == Proposal.proposalId)
@@ -577,7 +586,7 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        with session_scope() as session:
+        with Session() as session:
             query = session.query(DataCollection).filter(
                 DataCollection.dataCollectionId == dcid
             )
@@ -765,7 +774,7 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        with session_scope() as session:
+        with Session() as session:
             query = (
                 session.query(Proposal)
                 .join(BLSession, BLSession.proposalId == Proposal.proposalId)
@@ -788,7 +797,7 @@ class DLSTrigger(CommonService):
         except (TypeError, ValueError):
             self.log.error("big_ep trigger failed: Invalid program_id specified")
             return False
-        with session_scope() as session:
+        with Session() as session:
             query = (
                 session.query(AutoProcProgram)
                 .join(
@@ -996,7 +1005,7 @@ class DLSTrigger(CommonService):
                 continue
             self.log.info(f"xia2.multiplex trigger: found dcids: {dcids}")
 
-            with session_scope() as session:
+            with Session() as session:
                 query = (
                     (
                         session.query(
@@ -1134,7 +1143,7 @@ class DLSTrigger(CommonService):
             jobids.append(jobid)
             self.log.debug(f"xia2.multiplex trigger: generated JobID {jobid}")
 
-            with session_scope() as session:
+            with Session() as session:
                 query = (
                     session.query(DataCollection)
                     .filter(DataCollection.dataCollectionId.in_(dcids))

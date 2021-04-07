@@ -1,6 +1,6 @@
 bitshuffle
 drmaa
-ispyb>=6.0,<6.1
+ispyb>=6.0.2,<6.1
 junit-xml>=1.9
 marshmallow-sqlalchemy
 msgpack-python
@@ -10,6 +10,7 @@ procrunner>=1.0.2
 pytest
 pytest-mock
 pyyaml
+sqlalchemy>=1.4.0,<1.5
 stomp.py
 workflows>=2.0
 xmltodict

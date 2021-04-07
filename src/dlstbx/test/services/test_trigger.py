@@ -4,7 +4,6 @@ import workflows.transport.common_transport
 from workflows.recipe.wrapper import RecipeWrapper
 from unittest import mock
 
-import ispyb.sqlalchemy
 from ispyb.sqlalchemy import (
     AutoProcIntegration,
     AutoProcProgram,
@@ -14,11 +13,9 @@ from ispyb.sqlalchemy import (
     ProcessingJob,
 )
 
-from dlstbx.services.trigger import DLSTrigger
-
 
 @pytest.fixture
-def insert_multiplex_input(alchemy):
+def insert_multiplex_input(db_session):
     dcs = []
     for i in range(3):
         dcg = DataCollectionGroup(sessionId=55167)
@@ -40,20 +37,22 @@ def insert_multiplex_input(alchemy):
             processingPrograms="xia2 dials",
         )
         api = AutoProcIntegration(DataCollection=dc, AutoProcProgram=app)
-        alchemy.add_all([dcg, dc, api, app, pj])
+        db_session.add_all([dcg, dc, api, app, pj])
         for ext in ("expt", "refl"):
-            alchemy.add(
+            db_session.add(
                 AutoProcProgramAttachment(
                     AutoProcProgram=app,
                     filePath=f"/path/to/xia2-dials-{i}",
                     fileName=f"integrated.{ext}",
                 )
             )
-    alchemy.commit()
+    db_session.commit()
     return [dc.dataCollectionId for dc in dcs]
 
 
-def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker, monkeypatch):
+def test_multiplex(
+    insert_multiplex_input, db_session_factory, testconfig, testdb, mocker, monkeypatch
+):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcids = insert_multiplex_input
     message = {
@@ -86,6 +85,7 @@ def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker, monkeypat
         },
         "recipe-pointer": 1,
     }
+    from dlstbx.services.trigger import DLSTrigger
 
     trigger = DLSTrigger()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -99,36 +99,38 @@ def test_multiplex(insert_multiplex_input, testconfig, testdb, mocker, monkeypat
     kall = send.mock_calls[0]
     name, args, kwargs = kall
     pjid = args[0]["result"][0]
-    session = ispyb.sqlalchemy.session(testconfig)
-    pj = (
-        session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
-    )
-    assert pj.displayName == "xia2.multiplex"
-    assert pj.recipe == "postprocessing-xia2-multiplex"
-    assert pj.dataCollectionId == dcids[-1]
-    assert pj.automatic
-    params = {
-        (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
-    }
-    assert params == {
-        (
-            "data",
-            "/path/to/xia2-dials-2/integrated.expt;/path/to/xia2-dials-2/integrated.refl",
-        ),
-        (
-            "data",
-            "/path/to/xia2-dials-1/integrated.expt;/path/to/xia2-dials-1/integrated.refl",
-        ),
-        (
-            "data",
-            "/path/to/xia2-dials-0/integrated.expt;/path/to/xia2-dials-0/integrated.refl",
-        ),
-        ("sample_group_id", "123"),
-    }
+    with db_session_factory() as db_session:
+        pj = (
+            db_session.query(ProcessingJob)
+            .filter(ProcessingJob.processingJobId == pjid)
+            .one()
+        )
+        assert pj.displayName == "xia2.multiplex"
+        assert pj.recipe == "postprocessing-xia2-multiplex"
+        assert pj.dataCollectionId == dcids[-1]
+        assert pj.automatic
+        params = {
+            (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+        }
+        assert params == {
+            (
+                "data",
+                "/path/to/xia2-dials-2/integrated.expt;/path/to/xia2-dials-2/integrated.refl",
+            ),
+            (
+                "data",
+                "/path/to/xia2-dials-1/integrated.expt;/path/to/xia2-dials-1/integrated.refl",
+            ),
+            (
+                "data",
+                "/path/to/xia2-dials-0/integrated.expt;/path/to/xia2-dials-0/integrated.refl",
+            ),
+            ("sample_group_id", "123"),
+        }
 
 
 @pytest.fixture
-def insert_dimple_input(alchemy):
+def insert_dimple_input(db_session):
     dcg = DataCollectionGroup(sessionId=55167)
     dc = DataCollection(
         DataCollectionGroup=dcg,
@@ -136,13 +138,19 @@ def insert_dimple_input(alchemy):
         startImageNumber=1,
         numberOfImages=180,
     )
-    alchemy.add_all([dc, dcg])
-    alchemy.commit()
+    db_session.add_all([dc, dcg])
+    db_session.commit()
     return dc.dataCollectionId
 
 
 def test_dimple_trigger(
-    insert_dimple_input, testconfig, testdb, mocker, tmp_path, monkeypatch
+    insert_dimple_input,
+    db_session_factory,
+    testconfig,
+    testdb,
+    mocker,
+    tmp_path,
+    monkeypatch,
 ):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = insert_dimple_input
@@ -168,6 +176,8 @@ def test_dimple_trigger(
         },
         "recipe-pointer": 1,
     }
+    from dlstbx.services.trigger import DLSTrigger
+
     trigger = DLSTrigger()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
@@ -178,26 +188,28 @@ def test_dimple_trigger(
     kall = send.mock_calls[0]
     name, args, kwargs = kall
     pjid = args[0]["result"]
-    session = ispyb.sqlalchemy.session(testconfig)
-    pj = (
-        session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
-    )
-    assert pj.displayName == "DIMPLE"
-    assert pj.recipe == "postprocessing-dimple"
-    assert pj.dataCollectionId == dcid
-    assert pj.automatic
-    params = {
-        (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
-    }
-    assert params == {
-        ("data", "/path/to/xia2-dials/DataFiles/nt28218v3_xProtk11_free.mtz"),
-        ("scaling_id", "123456"),
-        ("pdb", f"{tmp_path}/fe8c759005fb57ce14d3e66c07b21fec62252b4a/ceo2"),
-        ("pdb", f"{user_pdb_directory}/test.pdb"),
-    }
+    with db_session_factory() as db_session:
+        pj = (
+            db_session.query(ProcessingJob)
+            .filter(ProcessingJob.processingJobId == pjid)
+            .one()
+        )
+        assert pj.displayName == "DIMPLE"
+        assert pj.recipe == "postprocessing-dimple"
+        assert pj.dataCollectionId == dcid
+        assert pj.automatic
+        params = {
+            (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+        }
+        assert params == {
+            ("data", "/path/to/xia2-dials/DataFiles/nt28218v3_xProtk11_free.mtz"),
+            ("scaling_id", "123456"),
+            ("pdb", f"{tmp_path}/fe8c759005fb57ce14d3e66c07b21fec62252b4a/ceo2"),
+            ("pdb", f"{user_pdb_directory}/test.pdb"),
+        }
 
 
-def test_ep_predict(testconfig, testdb, mocker, monkeypatch):
+def test_ep_predict(db_session, testconfig, testdb, mocker, monkeypatch):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 993677
     message = {
@@ -221,6 +233,8 @@ def test_ep_predict(testconfig, testdb, mocker, monkeypatch):
         },
         "recipe-pointer": 1,
     }
+    from dlstbx.services.trigger import DLSTrigger
+
     trigger = DLSTrigger()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
@@ -231,9 +245,10 @@ def test_ep_predict(testconfig, testdb, mocker, monkeypatch):
     kall = send.mock_calls[0]
     name, args, kwargs = kall
     pjid = args[0]["result"]
-    session = ispyb.sqlalchemy.session(testconfig)
     pj = (
-        session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
+        db_session.query(ProcessingJob)
+        .filter(ProcessingJob.processingJobId == pjid)
+        .one()
     )
     assert pj.displayName == "ep_predict"
     assert pj.recipe == "postprocessing-ep-predict"
@@ -250,7 +265,7 @@ def test_ep_predict(testconfig, testdb, mocker, monkeypatch):
     }
 
 
-def test_fast_ep(testconfig, testdb, mocker, monkeypatch):
+def test_fast_ep(db_session, testconfig, testdb, mocker, monkeypatch):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 993677
     message = {
@@ -275,6 +290,8 @@ def test_fast_ep(testconfig, testdb, mocker, monkeypatch):
         },
         "recipe-pointer": 1,
     }
+    from dlstbx.services.trigger import DLSTrigger
+
     trigger = DLSTrigger()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
@@ -285,9 +302,10 @@ def test_fast_ep(testconfig, testdb, mocker, monkeypatch):
     kall = send.mock_calls[0]
     name, args, kwargs = kall
     pjid = args[0]["result"]
-    session = ispyb.sqlalchemy.session(testconfig)
     pj = (
-        session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
+        db_session.query(ProcessingJob)
+        .filter(ProcessingJob.processingJobId == pjid)
+        .one()
     )
     assert pj.displayName == "fast_ep"
     assert pj.recipe == "postprocessing-fast-ep"
@@ -303,7 +321,7 @@ def test_fast_ep(testconfig, testdb, mocker, monkeypatch):
     }
 
 
-def test_big_ep(testconfig, testdb, mocker, monkeypatch):
+def test_big_ep(db_session, testconfig, testdb, mocker, monkeypatch):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 1002287
     message = {
@@ -332,6 +350,8 @@ def test_big_ep(testconfig, testdb, mocker, monkeypatch):
         },
         "recipe-pointer": 1,
     }
+    from dlstbx.services.trigger import DLSTrigger
+
     trigger = DLSTrigger()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
@@ -353,9 +373,10 @@ def test_big_ep(testconfig, testdb, mocker, monkeypatch):
         },
     )
     pjid = t.send.call_args.args[1]["parameters"]["ispyb_process"]
-    session = ispyb.sqlalchemy.session(testconfig)
     pj = (
-        session.query(ProcessingJob).filter(ProcessingJob.processingJobId == pjid).one()
+        db_session.query(ProcessingJob)
+        .filter(ProcessingJob.processingJobId == pjid)
+        .one()
     )
     assert pj.displayName == "big_ep"
     assert pj.recipe == "postprocessing-big-ep"

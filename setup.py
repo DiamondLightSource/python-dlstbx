@@ -168,7 +168,6 @@ setup(
     ],
     entry_points={
         "console_scripts": sorted(console_scripts),
-        "dlstbx.wrappers": sorted(known_wrappers),
         "libtbx.dispatcher.script": [
             "%s=%s" % (x.split("=")[0], x.split("=")[0]) for x in console_scripts
         ],

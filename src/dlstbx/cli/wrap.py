@@ -50,7 +50,7 @@ def run(cmdline_args=sys.argv[1:]):
         StompTransport.load_configuration_file(default_configuration)
 
     known_wrappers = {
-        e.name: e.load for e in pkg_resources.iter_entry_points("dlstbx.wrappers")
+        e.name: e.load for e in pkg_resources.iter_entry_points("zocalo.wrappers")
     }
 
     # Set up parser

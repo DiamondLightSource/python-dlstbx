@@ -476,7 +476,6 @@ class ispybtbx:
             self.log.debug(
                 "Matching energy scan data for dcid %s not available",
                 dcid,
-                exc_info=True,
             )
             res = {}
         return res

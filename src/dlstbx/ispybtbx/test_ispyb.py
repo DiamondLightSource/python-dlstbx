@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from unittest import mock
 import dlstbx.ispybtbx
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
@@ -81,6 +79,29 @@ def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples():
         assert len(parameters) > 10
 
 
+def test_ispyb_filtering_for_processing_job():
+    message = {}
+    parameters = {"ispyb_process": 6406100}
+    message, parameters = ispyb_filter(message, parameters)
+    assert (
+        parameters["ispyb_images"]
+        == "/dls/i04/data/2021/cm28182-1/20210204/TestProteinaseK/protk11/protk11_1_master.h5:1:3600"
+    )
+    assert parameters["ispyb_processing_job"] == {
+        "recordTimestamp": "2021-02-04T11:37:24",
+        "displayName": "",
+        "dataCollectionId": 5898098,
+        "processingJobId": 6406100,
+        "automatic": 1,
+        "comments": "",
+        "recipe": "autoprocessing-xia2-dials-eiger",
+    }
+    assert message["recipes"] == ["ispyb-autoprocessing-xia2-dials-eiger"]
+    assert parameters["ispyb_processing_parameters"] == {
+        "resolution.cc_half_significance_level": ["0.1"]
+    }
+
+
 def test_fetch_datacollect_group_from_ispyb():
     i = ispybtbx()
     dc_id = ds["gphl_C2"]
@@ -102,8 +123,8 @@ def test_get_datacollection_information():
         dc_info["imageDirectory"]
         == "/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/"
     )
-    assert dc_info["startTime"] == datetime(2016, 10, 7, 11, 47, 13)
-    assert dc_info["endTime"] == datetime(2016, 10, 7, 11, 50, 56)
+    assert dc_info["startTime"] == "2016-10-07T11:47:13"
+    assert dc_info["endTime"] == "2016-10-07T11:50:56"
     assert dc_info["startImageNumber"] == 1
     assert dc_info["numberOfImages"] == 1800
     assert dc_info["overlap"] == 0.0
@@ -128,8 +149,8 @@ def test_get_datacollection_information_for_em():
         dc_info["imageDirectory"]
         == "/dls/m02/data/2017/cm16766-5/processed/cm16766-5_20171110_1424/Runs/000002_ProtImportMovies/extra"
     )
-    assert dc_info["startTime"] == datetime(2017, 11, 10, 14, 27, 7)
-    assert dc_info["endTime"] == datetime(2017, 11, 14, 11, 28, 20)
+    assert dc_info["startTime"] == "2017-11-10T14:27:07"
+    assert dc_info["endTime"] == "2017-11-14T11:28:20"
     assert dc_info["startImageNumber"] is None  # because EM
     assert dc_info["numberOfImages"] is None  # because EM
     assert dc_info["overlap"] is None  # because EM
@@ -210,30 +231,6 @@ def test_filter_function():
     msg, param = ispyb_filter(msg, param)
 
 
-def test_retrieve_reprocessing_information():
-    msg = {}
-    param = {"ispyb_process": 95}
-    msg, param = ispyb_filter(msg, param)
-    assert msg == {"recipes": ["ispyb-xia2-dials"]}
-    assert param["ispyb_process"] == 95
-    assert param["ispyb_processing_job"]
-    assert param["ispyb_processing_job"].comment == "Test entry by Markus"
-    assert param["ispyb_processing_job"].DCID == 1956161
-    assert param["ispyb_processing_job"].name == "Xia2 DIALS"
-    assert param["ispyb_processing_job"].recipe == "xia2-dials"
-    assert param["ispyb_processing_job"].timestamp
-    assert param["ispyb_processing_job"].jobid == 95
-    assert dict(param["ispyb_processing_job"].parameters) == {"d_min": "1.7"}
-    assert len(param["ispyb_processing_job"].sweeps) == 1
-    sweep = param["ispyb_processing_job"].sweeps[0]
-    assert sweep.DCID == 1956161
-    assert sweep.start == 20
-    assert sweep.end == 580
-
-    ## legacy:
-    assert param["ispyb_reprocessing_parameters"] == {"d_min": "1.7"}
-
-
 def test_load_sample_group_config_file(tmpdir):
     (tmpdir / "processing").mkdir()
     config_file = tmpdir / "processing" / "sample_groups.yml"
@@ -267,12 +264,14 @@ def test_get_sample_group_dcids_from_yml(tmpdir):
     )
     i = ispybtbx()
     ispyb_info = {
-        "ispyb_dcid": 123456,
         "ispyb_dcid": 5660693,
         "ispyb_visit_directory": tmpdir,
         "ispyb_visit": "mx19946-377",
         "ispyb_image_directory": tmpdir / "VMXi-XY1234" / "well_144" / "images",
         "ispyb_image_template": "image_50934_master.h5",
+        "ispyb_dc_info": {
+            "SESSIONID": 27444332,
+        },
     }
     groups = i.get_sample_group_dcids(ispyb_info)
     assert groups == [
@@ -296,3 +295,144 @@ def test_get_related_dcids_same_directory():
             5646626,
         ]
     }
+
+
+def test_get_sample_group_dcids():
+    i = ispybtbx()
+    related_dcids = i.get_sample_group_dcids(
+        {
+            "ispyb_dcid": 5469646,
+            "ispyb_dc_info": {
+                "SESSIONID": 27441067,
+            },
+        }
+    )
+    assert related_dcids == [
+        {
+            "dcids": [5469637, 5469640, 5469643, 5469646],
+            "sample_group_id": 307,
+            "name": None,
+        },
+        {
+            "dcids": [5469637, 5469640, 5469643, 5469646],
+            "sample_group_id": 310,
+            "name": None,
+        },
+        {
+            "dcids": [
+                5336272,
+                5469586,
+                5469589,
+                5469592,
+                5469595,
+                5469637,
+                5469640,
+                5469643,
+                5469646,
+            ],
+            "sample_group_id": 313,
+            "name": None,
+        },
+    ]
+
+
+def test_get_related_dcs():
+    assert ispybtbx().get_related_dcs(5339105) == [5898098, 5898104]
+
+
+def test_get_dcid_for_path():
+    assert (
+        ispybtbx().get_dcid_for_path(
+            "/dls/i04/data/2021/cm28182-1/20210305/TestThaumatin/Se-Thaumatin8/Se-Thaumatin8_1_master.h5"
+        )
+        == 6077651
+    )
+
+
+def test_get_diffractionplan_from_dcid():
+    diffractionplan = ispybtbx().get_diffractionplan_from_dcid(5898098)
+    assert {
+        "diffractionPlanId",
+        "experimentKind",
+        "centringMethod",
+        "preferredBeamSizeX",
+        "preferredBeamSizeY",
+        "exposureTime",
+        "requiredResolution",
+        "radiationSensitivity",
+        "anomalousScatterer",
+        "energy",
+    } <= diffractionplan.keys()
+
+
+def test_get_gridscan_info():
+    assert ispybtbx().get_gridscan_info(
+        {
+            "dataCollectionGroupId": 5492072,
+            "dataCollectionId": 6077465,
+        }
+    ) == {
+        "dataCollectionId": None,
+        "snaked": 1,
+        "orientation": "horizontal",
+        "recordTimeStamp": "2021-03-05T15:29:20",
+        "pixelsPerMicronX": 0.566,
+        "pixelsPerMicronY": 0.566,
+        "steps_x": 27.0,
+        "dx_mm": 0.02,
+        "xOffset": None,
+        "snapshot_offsetXPixel": 77.0,
+        "snapshot_offsetYPixel": 50.8881,
+        "steps_y": 10.0,
+        "yOffset": None,
+        "dy_mm": 0.02,
+        "dataCollectionGroupId": 5492072,
+        "meshAngle": None,
+        "gridInfoId": 1307711,
+        "workflowMeshId": None,
+    }
+
+
+def test_get_sample_dcids():
+    assert ispybtbx().get_sample_dcids(
+        {"ispyb_dcid": 6077651, "ispyb_dc_info": {"BLSAMPLEID": 3297161}}
+    ) == {
+        "dcids": [
+            5990969,
+            5990975,
+            5990978,
+            6074243,
+            6074252,
+            6074267,
+            6074273,
+            6074339,
+            6074354,
+            6074489,
+            6076046,
+            6076058,
+            6076334,
+            6076376,
+            6077465,
+            6077489,
+            6077651,
+        ],
+        "sample_id": 3297161,
+        "name": "Se-Thaumatin8",
+    }
+
+
+def test_get_priority_processing_for_dc_info():
+    assert (
+        ispybtbx().get_priority_processing_for_dc_info({"BLSAMPLEID": 3297161})
+        == "xia2/DIALS"
+    )
+
+
+def test_ready_for_processing():
+    message = {}
+    parameters = {"ispyb_wait_for_runstatus": True, "ispyb_dcid": 5990969}
+    assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True
+    parameters = {"ispyb_dcid": 5990969}
+    assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True
+    parameters = {"ispyb_wait_for_runstatus": False, "ispyb_dcid": 5990969}
+    assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True

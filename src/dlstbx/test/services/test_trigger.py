@@ -222,7 +222,7 @@ def test_ep_predict(db_session, testconfig, testdb, mocker, monkeypatch):
                     "automatic": True,
                     "diffraction_plan_info": {
                         "diffractionplanid": 2369980,
-                        "anomalousscatterer": "S",
+                        "anomalousScatterer": "S",
                     },
                     "program": "xia2 dials",
                     "program_id": 123456,
@@ -281,7 +281,7 @@ def test_fast_ep(db_session, testconfig, testdb, mocker, monkeypatch):
                     "diffraction_plan_info": {
                         "diffractionplanid": 2021731,
                         "radiationsensitivity": 0.0,
-                        "anomalousscatterer": "S",
+                        "anomalousScatterer": "S",
                     },
                     "scaling_id": "123456",
                     "mtz": "/path/to/fast_dp/fast_dp.mtz",
@@ -338,7 +338,7 @@ def test_big_ep(db_session, testconfig, testdb, mocker, monkeypatch):
                     "diffraction_plan_info": {
                         "diffractionplanid": 2021731,
                         "radiationsensitivity": 0.0,
-                        "anomalousscatterer": "S",
+                        "anomalousScatterer": "S",
                     },
                     "xia2 dials": {
                         "data": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz",

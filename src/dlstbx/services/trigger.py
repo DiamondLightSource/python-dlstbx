@@ -287,7 +287,7 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
         try:
-            anom_scatterer = diffraction_plan_info["anomalousscatterer"]
+            anom_scatterer = diffraction_plan_info["anomalousScatterer"]
             if not anom_scatterer:
                 self.log.info(
                     "Skipping ep_predict trigger: No anomalous scatterer specified"
@@ -561,7 +561,7 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
         try:
-            anom_scatterer = diffraction_plan_info["anomalousscatterer"]
+            anom_scatterer = diffraction_plan_info["anomalousScatterer"]
             if not anom_scatterer:
                 self.log.info(
                     "Skipping fast_ep trigger: No anomalous scatterer specified"
@@ -749,7 +749,7 @@ class DLSTrigger(CommonService):
 
         diffraction_plan_info = parameters("diffraction_plan_info")
         try:
-            anom_scatterer = diffraction_plan_info["anomalousscatterer"]
+            anom_scatterer = diffraction_plan_info["anomalousScatterer"]
             if not anom_scatterer:
                 self.log.info(
                     "Skipping big_ep trigger: No anomalous scatterer specified"

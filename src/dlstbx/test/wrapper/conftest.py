@@ -139,6 +139,7 @@ class WrapperWrapper:
                             "file_type": file_type,
                             "file_name": file_full.basename,
                             "file_path": file_full.dirname,
+                            "importance_rank": mock.ANY,
                         },
                     )
         self._mock_send_to.assert_any_call("result-all-files", {"filelist": mock.ANY})

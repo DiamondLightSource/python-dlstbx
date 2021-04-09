@@ -376,9 +376,18 @@ class ispybtbx:
             c = query.first()
         if not c or not c.spaceGroup:
             return "", False
-        cell = (c.cell_a, c.cell_b, c.cell_c, c.cell_alpha, c.cell_beta, c.cell_gamma)
+        cell = (
+            c.cell_a,
+            c.cell_b,
+            c.cell_c,
+            c.cell_alpha,
+            c.cell_beta,
+            c.cell_gamma,
+        )
         if not all(cell):
             cell = False
+        else:
+            cell = tuple(float(p) for p in cell)
         return c.spaceGroup, cell
 
     def get_energy_scan_from_dcid(self, dcid):

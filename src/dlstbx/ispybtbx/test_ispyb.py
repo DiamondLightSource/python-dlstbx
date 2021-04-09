@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 import dlstbx.ispybtbx
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
@@ -201,6 +202,7 @@ def test_obtain_space_group():
     sg, cell = i.get_space_group_and_unit_cell(dc_id)
     assert sg == "P212121"
     assert cell == (68.0, 84.0, 89.0, 90.0, 90.0, 90.0)
+    assert json.dumps(cell) == "[68.0, 84.0, 89.0, 90.0, 90.0, 90.0]"
 
 
 def test_obtain_sequence():

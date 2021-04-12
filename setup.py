@@ -52,8 +52,6 @@ console_scripts = [
     "eiger2xds=dlstbx.cli.eiger2xds:run",
     "em.visits=dlstbx.cli.em_visits:run",
     "i19.tail=dlstbx.cli.i19_tail:run",
-    "ispyb.job=dlstbx.cli.ispyb_job:run",
-    "ispyb.reprocessing=dlstbx.cli.ispyb_job:run",  # deprecated
     "ispyb.rpc=dlstbx.cli.ispyb_call:run",
     "it.status=dlstbx.cli.it_status:run",
 ]

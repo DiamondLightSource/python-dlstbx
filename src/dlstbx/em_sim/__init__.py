@@ -213,6 +213,7 @@ def retrieve_sessionid(_db, _visit):
         sys.exit("Could not find sessionid for visit %s" % _visit)
     return query_results.sessionId
 
+
 def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
 
     records_to_collect = [

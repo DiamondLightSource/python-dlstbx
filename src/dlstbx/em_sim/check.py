@@ -1,6 +1,9 @@
 import dlstbx.em_sim.definitions as df
 import ispyb
 import ispyb.model.__future__
+import ispyb.sqlalchemy
+from ispyb.sqlalchemy import MotionCorrection, CTF
+from sqlalchemy.orm import Load
 
 
 def collect_ctf_results(db, dcid):
@@ -60,6 +63,45 @@ def check_test_outcome(test, db):
     print(test)
 
 
+def retrieve_motioncorr(db_session, dcid):
+    query = db_session.query(MotionCorrection).filter(
+        MotionCorrection.dataCollectionId == dcid
+    )
+    query_results = query.all()
+    required_records = [
+        "micrographFullPath",
+        "totalMotion",
+        "averageMotionPerFrame",
+    ]
+    required_lines = []
+    for qr in query_results:
+        required_lines.append([q.getattr(r) for r in required_records])
+    return [dict(zip(required_records, line)) for line in required_lines]
+
+
+def retrieve_ctf(db_session, dcid):
+    query = (
+        db_session.query(CTF, MotionCorrection)
+        .join(
+            MotionCorrection,
+            MotionCorrection.motionCorrectionId == CTF.motionCorrectionId,
+        )
+        .filter(MotionCorrection.dataCollectionId == dcid)
+    )
+    query_results = query.all()
+    required_records = [
+        "astimagtism",
+        "astigmatismAngle",
+        "maxResolution",
+        "estimatedDefocus",
+        "ccValue",
+    ]
+    required_lines = []
+    for qr in query_results:
+        required_lines.append([q.getattr(r) for r in required_records])
+    return [dict(zip(required_records, line)) for line in required_lines]
+
+
 def check_relion_outcomes(data_collection, expected_outcome):
     all_programs = [
         "relion",
@@ -79,18 +121,16 @@ def check_relion_outcomes(data_collection, expected_outcome):
 
         tabvars = {
             "motion_corr": [
-                "micrograph_name",
-                "total_motion",
-                "early_motion",
-                "late_motion",
-                "average_motion_per_frame",
+                "micrographFulPath",
+                "totalMotion",
+                "averageMotionPerFrame",
             ],
             "ctf": [
                 "astigmatism",
-                "astigmatism_angle",
-                "max_estimated_resolution",
-                "estiamted_defocus",
-                "cc_value",
+                "astigmatismAngle",
+                "maxEstimatedResolution",
+                "estiamtedDefocus",
+                "ccValue",
             ],
         }
 

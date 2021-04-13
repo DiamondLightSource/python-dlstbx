@@ -6,6 +6,7 @@
 
 
 import datetime
+import queue
 import re
 import sys
 import time
@@ -16,7 +17,6 @@ import dlstbx.util.result
 import ispyb
 import junit_xml
 import workflows.recipe
-from six.moves import queue
 from workflows.transport.stomp_transport import StompTransport
 
 

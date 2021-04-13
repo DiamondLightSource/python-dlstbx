@@ -1,6 +1,6 @@
+import queue
 import time
 
-from six.moves import queue
 from workflows.services.common_service import CommonService
 
 

@@ -1,7 +1,7 @@
+import queue
 import time
 
 from dlstbx.util.rrdtool import RRDTool
-from six.moves import queue
 from workflows.services.common_service import CommonService
 
 

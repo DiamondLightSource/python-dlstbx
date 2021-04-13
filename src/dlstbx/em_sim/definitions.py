@@ -7,7 +7,7 @@ tests = {
         "src_prefix": ("",),
         "results": {
             "motion_correction": {
-                "micrograph_name": "MotionCorr/job002/Movies/Frames/*_frameImage.mrc",
+                "micrograph_name": "MotionCorr/job002/Movies/Frames/20170629_00021_frameImage.mrc",
                 "total_motion": approx(250, 10),
                 "early_motion": approx(2.5, 0.5),
                 "late_motion": approx(15, 2),

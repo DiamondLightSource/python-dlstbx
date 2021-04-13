@@ -17,6 +17,11 @@ import shutil
 import sys
 import time
 import uuid
+import ispyb.sqlalchemy
+import sqlalchemy.orm
+from sqlalchemy.orm import Load
+import sqlalchemy.func
+from ispyb.sqlalchemy import DataCollection, BLSession, Proposal
 
 import dlstbx.dc_sim.dbserverclient
 import dlstbx.em_sim.definitions
@@ -183,70 +188,69 @@ def mkdir_p(path):
 
 
 def retrieve_sessionid(_db, _visit):
-    rows = _db.doQuery(
-        "SELECT s.sessionid "
-        "FROM BLSession s "
-        "  INNER JOIN Proposal p ON p.proposalid = s.proposalid "
-        "WHERE concat(p.proposalcode, p.proposalnumber, '-', s.visit_number)= '%s'"
-        % _visit
+
+    query = (
+        _db.query(BLSession, Proposal)
+        .options(
+            Load(BLSession).load_only("sessionId", "visit_number", "proposalId"),
+            Load(Proposal).load_only("proposalId", "proposalCode", "proposalNumber"),
+        )
+        .join(
+            Propsal,
+            Propsal.proposalId == BLSession.proposalId,
+        )
+        .filter(
+            sqlalchemy.func.concat(
+                Proposal.proposalCode, Proposal.proposalNumber, BLSession.visit_number
+            )
+            == _visit
+        )
     )
-    if rows[0][0] is None:
+
+    query_results = query.first()
+
+    if query_results.sessionId is None:
         sys.exit("Could not find sessionid for visit %s" % _visit)
-    return int(rows[0][0])
-
-
-def retrieve_datacollection_group_values(_db, _src_dcgid):
-    _db.cursor.execute(
-        "SELECT comments, blsampleid, experimenttype, starttime, endtime, crystalclass, detectormode, actualsamplebarcode, "
-        "actualsampleslotincontainer, actualcontainerbarcode, actualcontainerslotinsc, workflowid, xtalsnapshotfullpath "
-        "FROM DataCollectionGroup "
-        "WHERE datacollectiongroupid=%d" % _src_dcgid
-    )
-
-    desc = [d[0] for d in _db.cursor.description]
-    result = [dict(zip(desc, line)) for line in _db.cursor]
-
-    if len(result) == 0:
-        sys.exit("Could not find datacollectiongroup %s" % _src_dcgid)
-    return result[0]
-
+    return query_results.sessionId
 
 def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
-    if _prefix is None:
-        prefix_line = "AND imageprefix is NULL "
-    else:
-        prefix_line = "AND imageprefix='%s' " % _prefix
 
-    _db.cursor.execute(
-        "SELECT datacollectionid, datacollectiongroupid, "
-        "runstatus, imagesuffix, filetemplate, comments, printableforreport, "
-        "FROM DataCollection "
-        "WHERE sessionid=%d "
-        "AND imagedirectory='%s' "
-        "%s "
-        "AND datacollectionnumber=%d "
-        % (_sessionid, _dir + "/", prefix_line, _run_number)
+    records_to_collect = [
+        "dataCollectionId",
+        "dataCollectionGroupId",
+        "runStatus",
+        "imageSuffix",
+        "fileTemplate",
+        "comments",
+        "printableForReport",
+    ]
+
+    query = (
+        _db.query(DataCollection)
+        .options(Load(DataCollection).load_only(*records_to_collect))
+        .filter(DataCollection.SESSIONID == _sessionid)
+        .filter(DataCollection.imageDirectory == _dir + "/")
+        .filter(DataCollection.dataCollectionNumber == _run_number)
     )
 
-    desc = [d[0] for d in _db.cursor.description]
-    result = [dict(zip(desc, line)) for line in _db.cursor]
+    if _prefix is None:
+        query.filter(DataCollection.imagePrefix == None)
+    else:
+        query.filter(DataCollection.imagePrefix == _prefix)
+
+    query_results = query.all()
+    required_lines = []
+    for q in query_results:
+        required_lines.append([q.getattr(r) for r in records_to_collect])
+
+    desc = [d.lower() for d in records_to_collect]
+    result = [dict(zip(desc, line)) for line in required_lines]
 
     if not result[0].get("datacollectionid"):
         sys.exit("Could not find the datacollectionid for visit %s" % _dir)
     if not result[0].get("startimagenumber"):
         sys.exit("Could not find the startimagenumber for the row")
     return result[0]
-
-
-def retrieve_max_dcnumber(_db, _sessionid, _dest_dir, _dest_prefix):
-    rows = _db.doQuery(
-        "SELECT max(datacollectionnumber) "
-        "FROM DataCollection "
-        "WHERE sessionid=%d "
-        "AND imagedirectory='%s' "
-        "AND imageprefix='%s'" % (_sessionid, _dest_dir + "/", _dest_prefix)
-    )
-    return rows[0][0]
 
 
 def simulate(
@@ -263,6 +267,11 @@ def simulate(
     data_collection_group_id=None,
     scenario_name=None,
 ):
+
+    url = ispyb.sqlalchemy.url("/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg")
+    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+    db_session = sqlalchemy.orm.Session(bind=engine)
+
     _db = dlstbx.dc_sim.mydb.DB()
     dbsc = dlstbx.dc_sim.dbserverclient.DbserverClient(DBSERVER_HOST, DBSERVER_PORT)
 
@@ -271,7 +280,7 @@ def simulate(
     log.debug("SessionID is %r", src_sessionid)
 
     row = retrieve_datacollection_values(
-        _db, src_sessionid, _src_dir, _src_prefix, _src_run_number
+        db_session, src_sessionid, _src_dir, _src_prefix, _src_run_number
     )
 
     src_dcid = int(row["datacollectionid"])

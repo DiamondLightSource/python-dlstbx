@@ -55,6 +55,12 @@ console_scripts = [
     "it.status=dlstbx.cli.it_status:run",
 ]
 
+# Console scripts that will have libtbx dispatchers generated in the release
+swirltbx_hacks = [
+    "ispyb.job",
+    "ispyb.last_data_collections_on",
+]
+
 known_wrappers = [  # please keep alphabetically sorted
     "align_crystal = dlstbx.wrapper.dlstbx_align_crystal:AlignCrystalWrapper",
     "autobuild = dlstbx.wrapper.autobuild:AutoBuildWrapper",
@@ -167,7 +173,8 @@ setup(
         "console_scripts": sorted(console_scripts),
         "libtbx.dispatcher.script": [
             "%s=%s" % (x.split("=")[0], x.split("=")[0]) for x in console_scripts
-        ],
+        ]
+        + ["%s=%s" % x for x in swirltbx_hacks],
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.wrappers": sorted(known_wrappers),

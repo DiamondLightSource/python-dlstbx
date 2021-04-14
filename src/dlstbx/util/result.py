@@ -19,6 +19,17 @@ class Result(TestCase):
         self.stderr = None  # standard error
         self.start_time = timeit.default_timer()
 
+    def __repr__(self):
+        if self.is_failure():
+            status = "failure"
+        elif self.is_error():
+            status = "error"
+        elif self.is_skipped():
+            status = "skipped"
+        else:
+            status = "success"
+        return f"<Result {self.classname}.{self.name} ({status})>"
+
     def update_timer(self):
         self.set_time(timeit.default_timer() - self.start_time)
 

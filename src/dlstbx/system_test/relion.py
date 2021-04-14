@@ -13,6 +13,7 @@ class RelionStopService(CommonSystemTest):
 
         if not tmp_basepath.exists():
             tmp_basepath.mkdir(parents=True)
+            tmp_basepath.chmod(0o2777)
             self.log.warning(f"{tmp_basepath} newly created. Skipping test")
             return
 

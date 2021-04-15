@@ -227,7 +227,9 @@ class NXsample(H5Mapping):
 
     @cached_property
     def depends_on(self):
-        return h5str(self._handle["depends_on"][()])
+        return NXtransformationsAxis(
+            self._handle[self._handle["depends_on"][()]], self.transformations[0]
+        )
 
     @cached_property
     def temperature(self):
@@ -261,46 +263,49 @@ class NXtransformations(H5Mapping):
         return self._axes
 
 
-class NXtransformationsAxis:
-    def __init__(self, axis, transformations):
-        self._axis = axis
+class NXtransformationsAxis(H5Mapping):
+    def __init__(self, handle, transformations):
+        super().__init__(handle)
         self._transformations = transformations
 
     @cached_property
     def name(self):
-        return h5str(self._axis.name)
+        return h5str(self._handle.name)
 
     @cached_property
     def units(self):
-        if "units" in self._axis.attrs:
-            return self._axis.attrs["units"]
+        if "units" in self._handle.attrs:
+            return h5str(self._handle.attrs["units"])
 
     @cached_property
     def transformation_type(self):
-        if "transformation" in self._axis.attrs:
-            return h5str(self._axis.attrs["transformation_type"])
+        if "transformation_type" in self._handle.attrs:
+            return h5str(self._handle.attrs["transformation_type"])
 
     @cached_property
     def vector(self):
-        if "vector" in self._axis.attrs:
-            return self._axis.attrs["vector"]
+        if "vector" in self._handle.attrs:
+            return self._handle.attrs["vector"]
 
     @cached_property
     def offset(self):
-        if "offset" in self._axis.attrs:
-            return self._axis.attrs["offset"]
+        if "offset" in self._handle.attrs:
+            return self._handle.attrs["offset"]
 
     @cached_property
     def offset_units(self):
-        if "offset_units" in self._axis.attrs:
-            return h5str(self._axis.attrs["offset_units"])
+        if "offset_units" in self._handle.attrs:
+            return h5str(self._handle.attrs["offset_units"])
 
     @cached_property
     def depends_on(self):
-        if "depends_on" in self._axis.attrs:
-            depends_on = h5str(self._axis.attrs["depends_on"])
+        if "depends_on" in self._handle.attrs:
+            depends_on = h5str(self._handle.attrs["depends_on"])
             if depends_on != ".":
                 return self._transformations.axes[depends_on.split("/")[-1]]
+
+    def __getitem__(self, key):
+        return self._handle[key]
 
 
 class NXinstrument(H5Mapping):

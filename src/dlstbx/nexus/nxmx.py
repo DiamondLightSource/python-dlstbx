@@ -12,94 +12,6 @@ ureg = pint.UnitRegistry()
 logger = logging.getLogger(__name__)
 
 
-class Transformation:
-    def __init__(
-        self, values, vector, transformation_type, offset=None, depends_on=None
-    ):
-        self.values = values
-        self.vector = np.repeat(vector.reshape(1, vector.size), values.size, axis=0)
-        self.transformation_type = transformation_type
-        self.offset = offset
-        self.depends_on = depends_on
-
-    def compose(self):
-        if self.transformation_type == "rotation":
-            R = Rotation.from_rotvec(
-                self.values[:, np.newaxis] * self.vector
-            ).as_matrix()
-            T = np.zeros((self.values.size, 3))
-        else:
-            R = np.identity(3)
-            T = self.values[:, np.newaxis] * self.vector
-        if self.offset is not None:
-            T += self.offset
-        A = np.repeat(np.identity(4).reshape((1, 4, 4)), self.values.size, axis=0)
-        A[:, :3, :3] = R
-        A[:, :3, 3] = T
-        if self.depends_on:
-            return self.depends_on.compose() @ A
-        return A
-
-
-def get_dependency_chain(transformation):
-    dependency_chain = []
-    while True:
-        logging.debug(f"{transformation.name} =>")
-        dependency_chain.append(transformation)
-        depends_on = transformation.depends_on
-        if not depends_on:
-            break
-        transformation = depends_on
-    return dependency_chain
-
-
-def get_cumulative_transformation(dependency_chain):
-    t = None
-    for transformation in reversed(dependency_chain):
-        transformation_type = transformation.transformation_type
-        values = transformation[()] * ureg(transformation.units)
-        values = (
-            values.to("mm")
-            if transformation_type == "translation"
-            else values.to("rad")
-        )
-        offset = transformation.offset
-        t = Transformation(
-            values.magnitude,
-            transformation.vector,
-            transformation_type,
-            offset=offset,
-            depends_on=t,
-        )
-    return t.compose()
-
-
-def get_rotation_axes(dependency_chain):
-    axes = []
-    angles = []
-    axis_names = []
-    is_scan_axis = []
-
-    for transformation in dependency_chain:
-        if transformation.transformation_type != "rotation":
-            continue
-        values = transformation[()]
-        values = (values * ureg(transformation.units)).to("degrees").magnitude
-        is_scan = len(transformation) > 1 and not np.all(values == values[0])
-        axes.append(transformation.vector)
-        angles.append(values[0])
-        try:
-            axis_names.append(transformation.name.split("/")[-1])
-        except AttributeError:
-            axis_names.append(transformation.nxpath.split("/")[-1])
-        is_scan_axis.append(is_scan)
-
-    Axes = namedtuple("axes", ["axes", "angles", "names", "is_scan_axis"])
-    return Axes(
-        np.array(axes), np.array(angles), np.array(axis_names), np.array(is_scan_axis)
-    )
-
-
 NXNode = Union[h5py.File, h5py.Group]
 
 
@@ -512,3 +424,97 @@ class NXbeam(H5Mapping):
     def incident_polarisation_stokes(self):
         if "incident_polarisation_stokes" in self._handle:
             return self._handle["incident_polarisation_stokes"][()]
+
+
+class Transformation:
+    def __init__(
+        self, values, vector, transformation_type, offset=None, depends_on=None
+    ):
+        self.values = values
+        self.vector = np.repeat(vector.reshape(1, vector.size), values.size, axis=0)
+        self.transformation_type = transformation_type
+        self.offset = offset
+        self.depends_on = depends_on
+
+    def compose(self) -> np.ndarray:
+        if self.transformation_type == "rotation":
+            R = Rotation.from_rotvec(
+                self.values[:, np.newaxis] * self.vector
+            ).as_matrix()
+            T = np.zeros((self.values.size, 3))
+        else:
+            R = np.identity(3)
+            T = self.values[:, np.newaxis] * self.vector
+        if self.offset is not None:
+            T += self.offset
+        A = np.repeat(np.identity(4).reshape((1, 4, 4)), self.values.size, axis=0)
+        A[:, :3, :3] = R
+        A[:, :3, 3] = T
+        if self.depends_on:
+            return self.depends_on.compose() @ A
+        return A
+
+
+def get_dependency_chain(
+    transformation: NXtransformationsAxis,
+) -> List[NXtransformationsAxis]:
+    dependency_chain = []
+    while True:
+        logging.debug(f"{transformation.name} =>")
+        dependency_chain.append(transformation)
+        depends_on = transformation.depends_on
+        if not depends_on:
+            break
+        transformation = depends_on
+    return dependency_chain
+
+
+def get_cumulative_transformation(
+    dependency_chain: List[NXtransformationsAxis],
+) -> np.ndarray:
+    t = None
+    for transformation in reversed(dependency_chain):
+        transformation_type = transformation.transformation_type
+        values = transformation[()] * ureg(transformation.units)
+        values = (
+            values.to("mm")
+            if transformation_type == "translation"
+            else values.to("rad")
+        )
+        offset = transformation.offset
+        t = Transformation(
+            values.magnitude,
+            transformation.vector,
+            transformation_type,
+            offset=offset,
+            depends_on=t,
+        )
+    return t.compose()
+
+
+Axes = namedtuple("axes", ["axes", "angles", "names", "is_scan_axis"])
+
+
+def get_rotation_axes(dependency_chain: List[NXtransformationsAxis]) -> Axes:
+    axes = []
+    angles = []
+    axis_names = []
+    is_scan_axis = []
+
+    for transformation in dependency_chain:
+        if transformation.transformation_type != "rotation":
+            continue
+        values = transformation[()]
+        values = (values * ureg(transformation.units)).to("degrees").magnitude
+        is_scan = len(transformation) > 1 and not np.all(values == values[0])
+        axes.append(transformation.vector)
+        angles.append(values[0])
+        try:
+            axis_names.append(transformation.name.split("/")[-1])
+        except AttributeError:
+            axis_names.append(transformation.nxpath.split("/")[-1])
+        is_scan_axis.append(is_scan)
+
+    return Axes(
+        np.array(axes), np.array(angles), np.array(axis_names), np.array(is_scan_axis)
+    )

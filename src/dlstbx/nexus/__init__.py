@@ -1,4 +1,5 @@
 import h5py
+import logging
 import numpy as np
 import pint
 from collections import namedtuple
@@ -6,6 +7,9 @@ from scipy.spatial.transform import Rotation
 from typing import List, Optional, Tuple, Union
 
 ureg = pint.UnitRegistry()
+
+
+logger = logging.getLogger(__name__)
 
 
 class Transformation:
@@ -40,12 +44,12 @@ class Transformation:
 def get_dependency_chain(transformation):
     dependency_chain = []
     while True:
-        print(f"{transformation.name} =>")
+        logging.debug(f"{transformation.name} =>")
         dependency_chain.append(transformation)
-        depends_on = transformation.attrs.get("depends_on", ".")
-        if depends_on == ".":
+        depends_on = transformation.depends_on
+        if not depends_on:
             break
-        transformation = transformation.parent[depends_on]
+        transformation = depends_on
     return dependency_chain
 
 
@@ -91,7 +95,7 @@ def get_rotation_axes(sample):
             except AttributeError:
                 axis_names.append(transformation.nxpath.split("/")[-1])
             is_scan_axis.append(is_scan)
-        if not depends_on or depends_on == ".":
+        if not depends_on:
             break
         transformation = depends_on
 

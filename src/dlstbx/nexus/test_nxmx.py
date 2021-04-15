@@ -2,7 +2,7 @@ import h5py
 import numpy as np
 import pytest
 
-import dlstbx.nexus
+from dlstbx.nexus import nxmx
 
 
 @pytest.fixture
@@ -103,23 +103,23 @@ def nxmx_example(tmp_path):
 
 
 def test_nxentry(nxmx_example):
-    nxentry = dlstbx.nexus.NXentry(nxmx_example["/entry"])
+    nxentry = nxmx.NXentry(nxmx_example["/entry"])
     assert nxentry.definition == "NXmx"
 
     assert len(nxentry.samples) == 1
-    assert isinstance(nxentry.samples[0], dlstbx.nexus.NXsample)
+    assert isinstance(nxentry.samples[0], nxmx.NXsample)
     assert len(nxentry.instruments) == 1
-    assert isinstance(nxentry.instruments[0], dlstbx.nexus.NXinstrument)
-    assert isinstance(nxentry.source, dlstbx.nexus.NXsource)
+    assert isinstance(nxentry.instruments[0], nxmx.NXinstrument)
+    assert isinstance(nxentry.source, nxmx.NXsource)
     assert len(nxentry.data) == 1
-    assert isinstance(nxentry.data[0], dlstbx.nexus.NXdata)
+    assert isinstance(nxentry.data[0], nxmx.NXdata)
 
 
 def test_nxmx(nxmx_example):
-    nxmx = dlstbx.nexus.NXmx(nxmx_example)
-    assert len(nxmx) == 1
-    assert nxmx.keys() == nxmx_example.keys()
-    entries = nxmx.entries
+    nx = nxmx.NXmx(nxmx_example)
+    assert len(nx) == 1
+    assert nx.keys() == nxmx_example.keys()
+    entries = nx.entries
     assert len(entries) == 1
     nxentry = entries[0]
     assert nxentry.definition == "NXmx"
@@ -164,10 +164,9 @@ def test_nxmx(nxmx_example):
 
 
 def test_get_rotation_axes(nxmx_example):
-    nxmx = dlstbx.nexus.NXmx(nxmx_example)
-    sample = nxmx.entries[0].samples[0]
-    dependency_chain = dlstbx.nexus.get_dependency_chain(sample.depends_on)
-    axes = dlstbx.nexus.get_rotation_axes(dependency_chain)
+    sample = nxmx.NXmx(nxmx_example).entries[0].samples[0]
+    dependency_chain = nxmx.get_dependency_chain(sample.depends_on)
+    axes = nxmx.get_rotation_axes(dependency_chain)
     assert np.all(axes.is_scan_axis == [False, False, True])
     assert np.all(axes.names == ["phi", "chi", "omega"])
     assert np.all(axes.angles == [0.0, 0.0, 0.0])
@@ -177,9 +176,8 @@ def test_get_rotation_axes(nxmx_example):
 
 
 def test_get_dependency_chain(nxmx_example):
-    nxmx = dlstbx.nexus.NXmx(nxmx_example)
-    sample = nxmx.entries[0].samples[0]
-    dependency_chain = dlstbx.nexus.get_dependency_chain(sample.depends_on)
+    sample = nxmx.NXmx(nxmx_example).entries[0].samples[0]
+    dependency_chain = nxmx.get_dependency_chain(sample.depends_on)
     assert [d.name for d in dependency_chain] == [
         "/entry/sample/transformations/phi",
         "/entry/sample/transformations/chi",
@@ -188,10 +186,9 @@ def test_get_dependency_chain(nxmx_example):
 
 
 def test_get_cumulative_transformation(nxmx_example):
-    nxmx = dlstbx.nexus.NXmx(nxmx_example)
-    sample = nxmx.entries[0].samples[0]
-    dependency_chain = dlstbx.nexus.get_dependency_chain(sample.depends_on)
-    A = dlstbx.nexus.get_cumulative_transformation(dependency_chain)
+    sample = nxmx.NXmx(nxmx_example).entries[0].samples[0]
+    dependency_chain = nxmx.get_dependency_chain(sample.depends_on)
+    A = nxmx.get_cumulative_transformation(dependency_chain)
     assert A.shape == (10, 4, 4)
     assert np.all(
         A[0]

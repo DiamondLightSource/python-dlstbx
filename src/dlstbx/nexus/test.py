@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 
-from . import get_dependency_chain, get_cumulative_transformation
+from .nxmx import get_dependency_chain, get_cumulative_transformation
 
 import dlstbx.nexus
 
@@ -426,7 +426,7 @@ def test(nxsample, tmp_path):
         omega_offset=omega_offset,
     )
     f = h5py.File(nxs)
-    nxmx = dlstbx.nexus.NXmx(f)
+    nxmx = dlstbx.nexus.nxmx.NXmx(f)
     sample = nxmx.entries[0].samples[0]
     dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)
@@ -442,7 +442,7 @@ def test(nxsample, tmp_path):
         omega_offset=omega_offset,
     )
     f = h5py.File(nxs)
-    nxmx = dlstbx.nexus.NXmx(f)
+    nxmx = dlstbx.nexus.nxmx.NXmx(f)
     sample = nxmx.entries[0].samples[0]
     dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)
@@ -458,7 +458,7 @@ def test(nxsample, tmp_path):
         omega_offset=omega_offset,
     )
     f = h5py.File(nxs)
-    nxmx = dlstbx.nexus.NXmx(f)
+    nxmx = dlstbx.nexus.nxmx.NXmx(f)
     sample = nxmx.entries[0].samples[0]
     dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)
@@ -644,7 +644,7 @@ def test_smargon_sample_stages(nxsample, tmp_path):
         sam_z=sam_xyz[:, 2],
     )
     f = h5py.File(nxs)
-    nxmx = dlstbx.nexus.NXmx(f)
+    nxmx = dlstbx.nexus.nxmx.NXmx(f)
     sample = nxmx.entries[0].samples[0]
     dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)
@@ -660,7 +660,7 @@ def test_smargon_sample_stages(nxsample, tmp_path):
         sam_z=sam_xyz_o45[:, 2],
     )
     f = h5py.File(nxs)
-    nxmx = dlstbx.nexus.NXmx(f)
+    nxmx = dlstbx.nexus.nxmx.NXmx(f)
     sample = nxmx.entries[0].samples[0]
     dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)
@@ -676,7 +676,7 @@ def test_smargon_sample_stages(nxsample, tmp_path):
         sam_z=sam_xyz_o90[:, 2],
     )
     f = h5py.File(nxs)
-    nxmx = dlstbx.nexus.NXmx(f)
+    nxmx = dlstbx.nexus.nxmx.NXmx(f)
     sample = nxmx.entries[0].samples[0]
     dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)

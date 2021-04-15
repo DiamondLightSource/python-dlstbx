@@ -3,23 +3,18 @@ import ispyb
 import ispyb.model.__future__
 import ispyb.sqlalchemy
 from ispyb.sqlalchemy import MotionCorrection, CTF
+import sqlalchemy
 from sqlalchemy.orm import Load
-
-
-def collect_ctf_results(db, dcid):
-    db.cursosr.execute(
-        "SELECT astigmatism, astigmatism_angle, max_estimated_resolution, estiamted_defocus, cc_value"
-        f"FROM CTF WHERE datacollectionid={dcid}"
-    )
-    desc = [d[0] for d in db.cursor.description]
-    result = [dict(zip(desc, line)) for line in db.cursor]
-    return result
 
 
 def check_test_outcome(test, db):
     failed_tests = []
     overall = {}
     expected_outcome = df.tests.get(test["scenario"], {}).get("results")
+
+    url = ispyb.sqlalchemy.url("/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg")
+    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+    db_session = sqlalchemy.orm.Session(bind=engine)
 
     if expected_outcome == {}:
         print("Scenario %s is happy with any outcome." % test["scenario"])
@@ -31,8 +26,12 @@ def check_test_outcome(test, db):
         return
 
     for dcid in test["DCIDs"]:
-        data_collection = db.get_data_collection(dcid)
-        outcomes = check_relion_outcomes(data_collection, expected_outcome)
+        data_collection_results = {}
+        data_collection_results["motion_correction"] = retrieve_motioncorr(
+            db_session, dcid
+        )
+        data_collection_results["ctf"] = retrieve_ctf(db_session, dcid)
+        outcomes = check_relion_outcomes(data_collection_results, expected_outcome)
 
         for program in expected_outcome.get("required", []):
             if program not in outcomes or outcomes[program]["success"] is None:
@@ -86,7 +85,7 @@ def retrieve_ctf(db_session, dcid):
             MotionCorrection,
             MotionCorrection.motionCorrectionId == CTF.motionCorrectionId,
         )
-        .filter(MotionCorrection.dataCollectionId == dcid)
+        .filter(MotionCorrection.autoProcProgramId == autoprocid)
     )
     query_results = query.all()
     required_records = [
@@ -102,7 +101,7 @@ def retrieve_ctf(db_session, dcid):
     return [dict(zip(required_records, line)) for line in required_lines]
 
 
-def check_relion_outcomes(data_collection, expected_outcome):
+def check_relion_outcomes(data_collection_results, expected_outcome):
     all_programs = [
         "relion",
     ]

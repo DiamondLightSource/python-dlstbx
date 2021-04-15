@@ -18,12 +18,13 @@ import sys
 import time
 import uuid
 import ispyb.sqlalchemy
+import sqlalchemy
 import sqlalchemy.orm
 from sqlalchemy.orm import Load
 import sqlalchemy.func
 from ispyb.sqlalchemy import DataCollection, BLSession, Proposal
 
-import dlstbx.dc_sim.dbserverclient
+import dlstbx.em_sim.dbserverclient
 import dlstbx.em_sim.definitions
 import dlstbx.dc_sim.mydb
 
@@ -130,6 +131,16 @@ def populate_dc_xml_template(
     return temp
 
 
+def process_params_xml(params):
+    xmlstring = '<?xml version="1.0" encoding="ISO-8859-1"?> \n'
+    xmlstring += "<ProcessingJobParameter> \n"
+    for k, v in params.items():
+        xmlstring += f"<parameterKey>{k}</parameterKey> \n"
+        xmlstring += f"<parameterValue>{v}</parameterValue> \n"
+    xmlstring += "</ProcessingJobParameter>"
+    return xmlstring
+
+
 dcg_temp_xml_format = (
     '<?xml version="1.0" encoding="ISO-8859-1"?>'
     "<DataCollectionGroup>"
@@ -158,6 +169,15 @@ dc_temp_xml = (
     "<comments>{comments}</comments>"
     "<printableForReport>%d</printableForReport>"
     "</DataCollection>"
+)
+
+proc_temp_xml = (
+    '<?xml version="1.0" encoding="ISO-8859-1"?>'
+    "<ProcessingJob>"
+    "<dataCollectionId>%d</dataCollectionId>"
+    "<recordTimestamp>%s</recordTimestamp>"
+    "<recipe>%s</recipe>"
+    "</ProcessingJob>"
 )
 
 dc_endtime_temp_xml = (
@@ -265,6 +285,7 @@ def simulate(
     _dest_visit_dir,
     _dest_dir,
     _sample_id,
+    proc_params,
     data_collection_group_id=None,
     scenario_name=None,
 ):
@@ -327,6 +348,11 @@ def simulate(
     log.debug("(dbserver) Ingest the datacollection XML")
     datacollectionid = dbsc.storeDataCollection(dc_xml)
 
+    params_xml = process_params_xml(proc_params)
+
+    log.debug("(dbserver) Ingest the process job parameter XML")
+    procparamsid = dbsc.storeProcessJobParameter(params_xml)
+
     run_at_params = [str(datacollectionid)]
 
     command = [f"{EM_SCRIPTS_DIR}/RunAtStartOfCollect-{_beamline}.sh"]
@@ -377,18 +403,19 @@ def simulate(
 
 
 def call_sim(test_name, beamline):
-    scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
+    scenario = dlstbx.em_sim.definitions.tests.get(test_name)
     if not scenario:
         sys.exit("%s is not a valid test scenario" % test_name)
 
     src_dir = scenario["src_dir"]
     sample_id = scenario.get("use_sample_id")
     src_prefix = scenario["src_prefix"]
+    proc_params = scenario["proc_params"]
 
     # Calculate the destination directory
     now = datetime.datetime.now()
     # These proposal numbers need to be updated every year
-    proposal = "cm28212-1"
+    proposal = "cm28212"
 
     for cm_dir in os.listdir(f"/dls/{beamline}/data/{now:%Y}"):
         if cm_dir.startswith(proposal):
@@ -461,6 +488,7 @@ def call_sim(test_name, beamline):
                 dest_visit_dir,
                 dest_dir,
                 sample_id,
+                proc_params,
                 data_collection_group_id=dcg,
                 scenario_name=test_name,
             )

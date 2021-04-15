@@ -56,17 +56,17 @@ def get_dependency_chain(transformation):
 def get_cumulative_transformation(dependency_chain):
     t = None
     for transformation in reversed(dependency_chain):
-        transformation_type = transformation.attrs["transformation_type"]
-        values = transformation[()] * ureg(transformation.attrs["units"])
+        transformation_type = transformation.transformation_type
+        values = transformation[()] * ureg(transformation.units)
         values = (
             values.to("mm")
             if transformation_type == "translation"
             else values.to("rad")
         )
-        offset = transformation.attrs.get("offset")
+        offset = transformation.offset
         t = Transformation(
             values.magnitude,
-            transformation.attrs["vector"],
+            transformation.vector,
             transformation_type,
             offset=offset,
             depends_on=t,

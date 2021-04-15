@@ -74,7 +74,7 @@ def nxmx_example(tmp_path):
     sample = entry.create_group("sample")
     sample.attrs["NX_class"] = "NXsample"
     sample["name"] = "mysample"
-    sample["depends_on"] = b"/entry/sample/transformations/omega"
+    sample["depends_on"] = b"/entry/sample/transformations/phi"
 
     transformations = sample.create_group("transformations")
     transformations.attrs["NX_class"] = "NXtransformations"
@@ -128,7 +128,7 @@ def test_nxmx(nxmx_example):
     assert len(samples) == 1
     sample = samples[0]
     assert sample.name == "mysample"
-    assert sample.depends_on.name == "/entry/sample/transformations/omega"
+    assert sample.depends_on.name == "/entry/sample/transformations/phi"
     assert sample.temperature is None
 
     transformations = sample.transformations
@@ -161,3 +161,15 @@ def test_nxmx(nxmx_example):
 
     assert nxentry.source.name == "Diamond"
     assert nxentry.source.short_name == "DLS"
+
+
+def test_get_rotation_axes(nxmx_example):
+    nxmx = dlstbx.nexus.NXmx(nxmx_example)
+    sample = nxmx.entries[0].samples[0]
+    axes = dlstbx.nexus.get_rotation_axes(sample)
+    assert np.all(axes.is_scan_axis == [False, False, True])
+    assert np.all(axes.names == ["phi", "chi", "omega"])
+    assert np.all(axes.angles == [0.0, 0.0, 0.0])
+    assert np.all(
+        axes.axes == np.array([[-1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [-1.0, 0.0, 0.0]])
+    )

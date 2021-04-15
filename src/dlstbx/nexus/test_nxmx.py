@@ -166,7 +166,8 @@ def test_nxmx(nxmx_example):
 def test_get_rotation_axes(nxmx_example):
     nxmx = dlstbx.nexus.NXmx(nxmx_example)
     sample = nxmx.entries[0].samples[0]
-    axes = dlstbx.nexus.get_rotation_axes(sample)
+    dependency_chain = dlstbx.nexus.get_dependency_chain(sample.depends_on)
+    axes = dlstbx.nexus.get_rotation_axes(dependency_chain)
     assert np.all(axes.is_scan_axis == [False, False, True])
     assert np.all(axes.names == ["phi", "chi", "omega"])
     assert np.all(axes.angles == [0.0, 0.0, 0.0])

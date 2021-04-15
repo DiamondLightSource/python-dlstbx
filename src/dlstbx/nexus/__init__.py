@@ -74,30 +74,25 @@ def get_cumulative_transformation(dependency_chain):
     return t.compose()
 
 
-def get_rotation_axes(sample):
+def get_rotation_axes(dependency_chain):
     axes = []
     angles = []
     axis_names = []
     is_scan_axis = []
 
-    transformation = sample.depends_on
-    while True:
-        transformation_type = transformation.transformation_type
-        depends_on = transformation.depends_on
-        if transformation_type == "rotation":
-            values = transformation[()]
-            values = (values * ureg(transformation.units)).to("degrees").magnitude
-            is_scan = len(transformation) > 1 and not np.all(values == values[0])
-            axes.append(transformation.vector)
-            angles.append(values[0])
-            try:
-                axis_names.append(transformation.name.split("/")[-1])
-            except AttributeError:
-                axis_names.append(transformation.nxpath.split("/")[-1])
-            is_scan_axis.append(is_scan)
-        if not depends_on:
-            break
-        transformation = depends_on
+    for transformation in dependency_chain:
+        if transformation.transformation_type != "rotation":
+            continue
+        values = transformation[()]
+        values = (values * ureg(transformation.units)).to("degrees").magnitude
+        is_scan = len(transformation) > 1 and not np.all(values == values[0])
+        axes.append(transformation.vector)
+        angles.append(values[0])
+        try:
+            axis_names.append(transformation.name.split("/")[-1])
+        except AttributeError:
+            axis_names.append(transformation.nxpath.split("/")[-1])
+        is_scan_axis.append(is_scan)
 
     Axes = namedtuple("axes", ["axes", "angles", "names", "is_scan_axis"])
     return Axes(

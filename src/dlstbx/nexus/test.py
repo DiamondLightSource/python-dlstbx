@@ -5,6 +5,8 @@ from scipy.spatial.transform import Rotation
 
 from . import get_dependency_chain, get_cumulative_transformation
 
+import dlstbx.nexus
+
 
 @pytest.fixture
 def nxsample(tmp_path):
@@ -16,6 +18,7 @@ def nxsample(tmp_path):
 
         entry = f.create_group("/entry")
         entry.attrs["NX_class"] = "NXentry"
+        entry["definition"] = "NXmx"
 
         sample = entry.create_group("sample")
         sample.attrs["NX_class"] = "NXsample"
@@ -423,10 +426,9 @@ def test(nxsample, tmp_path):
         omega_offset=omega_offset,
     )
     f = h5py.File(nxs)
-    sample = f["/entry/sample"]
-    depends_on = sample["depends_on"][()]
-    dependency_chain = get_dependency_chain(f[depends_on])
-    print(sample["/entry/sample/transformations/omega"][()])
+    nxmx = dlstbx.nexus.NXmx(f)
+    sample = nxmx.entries[0].samples[0]
+    dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)
     print(f"Final A:\n{A[0].round(3)}")
     coords_o0 = np.array([A[0] @ c for c in coords])
@@ -440,10 +442,9 @@ def test(nxsample, tmp_path):
         omega_offset=omega_offset,
     )
     f = h5py.File(nxs)
-    sample = f["/entry/sample"]
-    depends_on = sample["depends_on"][()]
-    print(sample["/entry/sample/transformations/omega"][()])
-    dependency_chain = get_dependency_chain(f[depends_on])
+    nxmx = dlstbx.nexus.NXmx(f)
+    sample = nxmx.entries[0].samples[0]
+    dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)
     print(f"Final A:\n{A[0].round(3)}")
     coords_o45 = np.array([A[0] @ c for c in coords])
@@ -457,10 +458,9 @@ def test(nxsample, tmp_path):
         omega_offset=omega_offset,
     )
     f = h5py.File(nxs)
-    sample = f["/entry/sample"]
-    depends_on = sample["depends_on"][()]
-    print(sample["/entry/sample/transformations/omega"][()])
-    dependency_chain = get_dependency_chain(f[depends_on])
+    nxmx = dlstbx.nexus.NXmx(f)
+    sample = nxmx.entries[0].samples[0]
+    dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)
     print(f"Final A:\n{A[0].round(3)}")
     coords_o90 = np.array([A[0] @ c for c in coords])
@@ -644,9 +644,9 @@ def test_smargon_sample_stages(nxsample, tmp_path):
         sam_z=sam_xyz[:, 2],
     )
     f = h5py.File(nxs)
-    sample = f["/entry/sample"]
-    depends_on = sample["depends_on"][()]
-    dependency_chain = get_dependency_chain(f[depends_on])
+    nxmx = dlstbx.nexus.NXmx(f)
+    sample = nxmx.entries[0].samples[0]
+    dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)
     print(f"Final A:\n{A[0].round(3)}")
     # coords_o0 = (A[0] @ coords.T).T
@@ -660,9 +660,9 @@ def test_smargon_sample_stages(nxsample, tmp_path):
         sam_z=sam_xyz_o45[:, 2],
     )
     f = h5py.File(nxs)
-    sample = f["/entry/sample"]
-    depends_on = sample["depends_on"][()]
-    dependency_chain = get_dependency_chain(f[depends_on])
+    nxmx = dlstbx.nexus.NXmx(f)
+    sample = nxmx.entries[0].samples[0]
+    dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)
     print(f"Final A:\n{A[0].round(3)}")
     # coords_o45 = (A[0] @ coords.T).T
@@ -676,9 +676,9 @@ def test_smargon_sample_stages(nxsample, tmp_path):
         sam_z=sam_xyz_o90[:, 2],
     )
     f = h5py.File(nxs)
-    sample = f["/entry/sample"]
-    depends_on = sample["depends_on"][()]
-    dependency_chain = get_dependency_chain(f[depends_on])
+    nxmx = dlstbx.nexus.NXmx(f)
+    sample = nxmx.entries[0].samples[0]
+    dependency_chain = get_dependency_chain(sample.depends_on)
     A = get_cumulative_transformation(dependency_chain)
     print(f"Final A:\n{A[0].round(3)}")
     # coords_o90 = (A[0] @ coords.T).T

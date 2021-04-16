@@ -130,17 +130,18 @@ def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
     else:
         query.filter(DataCollection.imagePrefix == _prefix)
 
-    query_results = query.all()
-    required_lines = []
-    for q in query_results:
-        required_lines.append([q.getattr(r) for r in records_to_collect])
+    return query.first()
+    #query_results = query.all()
+    #required_lines = []
+    #for q in query_results:
+    #    required_lines.append([q.getattr(r) for r in records_to_collect])
 
-    desc = [d.lower() for d in records_to_collect]
-    result = [dict(zip(desc, line)) for line in required_lines]
+    #desc = [d.lower() for d in records_to_collect]
+    #result = [dict(zip(desc, line)) for line in required_lines]
 
-    if not result[0].get("datacollectionid"):
-        sys.exit("Could not find the datacollectionid for visit %s" % _dir)
-    return result[0]
+    #if not result[0].get("datacollectionid"):
+    #    sys.exit("Could not find the datacollectionid for visit %s" % _dir)
+    #return result[0]
 
 
 def simulate(
@@ -171,8 +172,8 @@ def simulate(
         db_session, src_sessionid, _src_dir, _src_prefix, _src_run_number
     )
 
-    src_dcid = int(row["datacollectionid"])
-    src_dcgid = int(row["datacollectiongroupid"])
+    src_dcid = int(row.dataCollectionId)
+    src_dcgid = int(row.dataCollectionGroupId)
 
     log.debug(
         "Source dataset from DCID %r, DCGID %r",
@@ -189,8 +190,6 @@ def simulate(
     # at the moment just use the already existing data collection and make a new processing job
     datacollectiongroupid = src_dcgid  # data_collection_group_id
     datacollectionid = src_dcid
-
-    blsample_id = None
 
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -209,7 +208,7 @@ def simulate(
         job_param_values = (0, procjobid, k, v)
         procjobparamid = ispyb.mx_processing.upsert_job_parameter(job_param_vales)
 
-    run_at_params = [str(datacollectionid)]
+    run_at_params = [str(procjobid)]
 
     command = [f"{EM_SCRIPTS_DIR}/RunAtStartOfCollect-{_beamline}.sh"]
     command.extend(run_at_params)
@@ -221,17 +220,6 @@ def simulate(
         log.debug(result["stdout"])
         log.debug(result["stderr"])
         log.error("RunAtStartOfCollect failed with exit code %d", result["exitcode"])
-
-    command = [f"{EM_SCRIPTS_DIR}/RunAtEndOfCollect-{_beamline}.sh"]
-    command.extend(run_at_params)
-    log.info("command: %s", " ".join(command))
-    result = procrunner.run(command, timeout=180)
-    log.info("runtime: %s", result["runtime"])
-    if result["exitcode"] or result["timeout"]:
-        log.info("timeout: %s", result["timeout"])
-        log.debug(result["stdout"])
-        log.debug(result["stderr"])
-        log.error("RunAtEndOfCollect failed with exit code %d", result["exitcode"])
 
     return datacollectionid, datacollectiongroupid
 
@@ -262,12 +250,7 @@ def call_sim(test_name, beamline):
     # Set mandatory parameters
     dest_visit_dir = f"/dls/{beamline}/data/{now:%Y}/{dest_visit}"
 
-    dest_dir_fmt = (
-        "{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
-    )
-    dest_dir = dest_dir_fmt.format(
-        now=now, dest_visit_dir=dest_visit_dir, random=str(uuid.uuid4())[:8]
-    )
+    dest_dir = f"{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{str(uuid.uuid4())[:8]}"
 
     # Extract necessary info from the source directory path
     m1 = re.search(r"(/dls/(\S+?)/data/\d+/)(\S+)", src_dir)
@@ -287,10 +270,6 @@ def call_sim(test_name, beamline):
     start_script = f"{EM_SCRIPTS_DIR}/RunAtStartOfCollect-{beamline}.sh"
     if not os.path.exists(start_script):
         log.error("The file %s was not found.", start_script)
-        sys.exit(1)
-    end_script = f"{EM_SCRIPTS_DIR}/RunAtEndOfCollect-{beamline}.sh"
-    if not os.path.exists(end_script):
-        log.error("The file %s was not found.", end_script)
         sys.exit(1)
 
     # Create destination directory

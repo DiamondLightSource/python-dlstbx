@@ -52,6 +52,7 @@ def check_test_outcome(test, db):
         test["success"] = True
 
     print(test)
+    return test
 
 
 def retrieve_motioncorr(db_session, dcid):

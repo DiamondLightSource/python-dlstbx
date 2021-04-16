@@ -25,6 +25,7 @@ def ctf_res_dict():
 
 tests = {
     "relion": {
+        "dcid": 6018191,
         "src_dir": "/dls/m12/data/2021/cm28212-1/raw",
         "src_run_num": (1),
         "src_prefix": ("",),

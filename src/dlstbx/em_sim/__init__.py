@@ -1,7 +1,7 @@
 # Functions to simulate a data collection
 #
 # This
-# * inserts new entries into the datacollection table using the DbserverClient.py script
+# * inserts new entries into the processjob table
 # * copies images from the source data collection
 # * runs the scripts RunAtStartOfDataCollection.sh and RunAtEndOfDataCollection.sh
 #   at appropriate times.
@@ -24,7 +24,6 @@ from sqlalchemy.orm import Load
 import sqlalchemy.func
 from ispyb.sqlalchemy import DataCollection, BLSession, Proposal
 
-import dlstbx.em_sim.dbserverclient
 import dlstbx.em_sim.definitions
 import dlstbx.dc_sim.mydb
 
@@ -67,134 +66,6 @@ def copy_via_temp_file(source, destination):
 
 def clean_nan_null_minusone(s):
     return re.sub(r"\<[^<>]*\>(null|nan|-1)\</[^<>]*\>", "", s)
-
-
-def populate_dcg_xml_template(_sessionid, _blsample_id):
-    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    blsample_id_elem = ""
-    if _blsample_id is not None:
-        blsample_id_elem = "<blSampleId>%d</blSampleId>\n" % _blsample_id
-
-    temp = dcg_temp_xml_format.format(
-        sessionid=_sessionid,
-        blsample_xml=blsample_id_elem,
-        comments="Simulated datacollection.",
-        experimenttype=None,
-        starttime=nowstr,
-        crystalclass=None,
-        detectormode=None,
-    )
-
-    # remove lines with null, nan and -1 values:
-    temp = clean_nan_null_minusone(temp)
-    return temp
-
-
-def populate_dc_xml_template(
-    _row,
-    _sessionid,
-    _dcg_id,
-    _dir,
-    _prefix,
-    _run_number,
-    _blsample_id,
-    scenario_name=None,
-):
-    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    suffix = _row["imagesuffix"]
-
-    file_template = "Frames/*.tiff"
-
-    blsample_id_elem = ""
-
-    temp = dc_temp_xml % (
-        _sessionid,
-        _dcg_id,
-        blsample_id_elem,
-        _run_number,
-        nowstr,
-        s(_row["runstatus"]),
-        _dir,
-        _prefix,
-        suffix,
-        file_template,
-        i(_row["printableforreport"]),
-    )
-    temp = temp.format(
-        comments=f"Simulated datacollection ({scenario_name})."
-        if scenario_name
-        else "Simulated datacollection."
-    )
-
-    # remove lines with null, nan and -1 values:
-    temp = clean_nan_null_minusone(temp)
-    return temp
-
-
-def process_params_xml(params):
-    xmlstring = '<?xml version="1.0" encoding="ISO-8859-1"?> \n'
-    xmlstring += "<ProcessingJobParameter> \n"
-    for k, v in params.items():
-        xmlstring += f"<parameterKey>{k}</parameterKey> \n"
-        xmlstring += f"<parameterValue>{v}</parameterValue> \n"
-    xmlstring += "</ProcessingJobParameter>"
-    return xmlstring
-
-
-dcg_temp_xml_format = (
-    '<?xml version="1.0" encoding="ISO-8859-1"?>'
-    "<DataCollectionGroup>"
-    "<sessionId>{sessionid}</sessionId>"
-    "{blsample_xml}"
-    "<experimentType>{experimenttype}</experimentType>"
-    "<startTime>{starttime}</startTime>"
-    "<crystalClass>{crystalclass}</crystalClass>"
-    "<detectorMode>{detectormode}</detectorMode>"
-    "<comments>{comments}</comments>"
-    "</DataCollectionGroup>"
-)
-
-dc_temp_xml = (
-    '<?xml version="1.0" encoding="ISO-8859-1"?>'
-    "<DataCollection>"
-    "<sessionId>%d</sessionId>"
-    "<dataCollectionGroupId>%d</dataCollectionGroupId>"
-    "%s<dataCollectionNumber>%d</dataCollectionNumber>"
-    "<startTime>%s</startTime>"
-    "<runStatus>%s</runStatus>"
-    "<imageDirectory>%s</imageDirectory>"
-    "<imagePrefix>%s</imagePrefix>"
-    "<imageSuffix>%s</imageSuffix>"
-    "<fileTemplate>%s</fileTemplate>"
-    "<comments>{comments}</comments>"
-    "<printableForReport>%d</printableForReport>"
-    "</DataCollection>"
-)
-
-proc_temp_xml = (
-    '<?xml version="1.0" encoding="ISO-8859-1"?>'
-    "<ProcessingJob>"
-    "<dataCollectionId>%d</dataCollectionId>"
-    "<recordTimestamp>%s</recordTimestamp>"
-    "<recipe>%s</recipe>"
-    "</ProcessingJob>"
-)
-
-dc_endtime_temp_xml = (
-    '<?xml version="1.0" encoding="ISO-8859-1"?>'
-    "<DataCollection>"
-    "<dataCollectionId>%d</dataCollectionId>"
-    "<endTime>%s</endTime>"
-    "</DataCollection>"
-)
-
-dcg_endtime_temp_xml = (
-    '<?xml version="1.0" encoding="ISO-8859-1"?>'
-    "<DataCollectionGroup>"
-    "<dataCollectionGroupId>%d</dataCollectionGroupId>"
-    "<endTime>%s</endTime>"
-    "</DataCollectionGroup>"
-)
 
 
 def mkdir_p(path):
@@ -269,8 +140,6 @@ def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
 
     if not result[0].get("datacollectionid"):
         sys.exit("Could not find the datacollectionid for visit %s" % _dir)
-    if not result[0].get("startimagenumber"):
-        sys.exit("Could not find the startimagenumber for the row")
     return result[0]
 
 
@@ -286,7 +155,7 @@ def simulate(
     _dest_dir,
     _sample_id,
     proc_params,
-    data_collection_group_id=None,
+    data_collection_group_id,
     scenario_name=None,
 ):
 
@@ -294,11 +163,8 @@ def simulate(
     engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
     db_session = sqlalchemy.orm.Session(bind=engine)
 
-    _db = dlstbx.dc_sim.mydb.DB()
-    dbsc = dlstbx.dc_sim.dbserverclient.DbserverClient(DBSERVER_HOST, DBSERVER_PORT)
-
     log.debug("Getting the source SessionID")
-    src_sessionid = retrieve_sessionid(_db, _src_visit)
+    src_sessionid = retrieve_sessionid(db_session, _src_visit)
     log.debug("SessionID is %r", src_sessionid)
 
     row = retrieve_datacollection_values(
@@ -316,42 +182,32 @@ def simulate(
 
     # Get the sessionid for the dest_visit
     log.debug("(SQL) Getting the destination sessionid")
-    sessionid = retrieve_sessionid(_db, _dest_visit)
+    sessionid = retrieve_sessionid(db_session, _dest_visit)
 
     run_number = _src_run_number
 
-    if data_collection_group_id is None:
-        # Produce a DataCollectionGroup xml blob from the template
-        dcg_xml = populate_dcg_xml_template(sessionid, None)
-
-        # Ingest the DataCollectionGroup xml data using the DbserverClient
-        log.debug("(dbserver) Ingest the datacollectiongroup XML")
-        datacollectiongroupid = dbsc.storeDataCollectionGroup(dcg_xml)
-    else:
-        datacollectiongroupid = data_collection_group_id
+    # at the moment just use the already existing data collection and make a new processing job
+    datacollectiongroupid = src_dcgid  # data_collection_group_id
+    datacollectionid = src_dcid
 
     blsample_id = None
 
-    # Produce a DataCollection xml blob from the template and use the new run number
-    dc_xml = populate_dc_xml_template(
-        row,
-        sessionid,
-        datacollectiongroupid,
-        _dest_dir + "/",
-        _dest_prefix,
-        run_number,
-        blsample_id,
-        scenario_name=scenario_name,
+    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    proc_job_values = (
+        0,
+        datacollectionid,
+        "RELION",
+        "Submitted as a test",
+        nowstr,
+        "relion",
+        0,
     )
+    procjobid = ispyb.mx_processing.upsert_job(proc_job_vales)
 
-    # Ingest the DataCollection xml blob data using the DbserverClient
-    log.debug("(dbserver) Ingest the datacollection XML")
-    datacollectionid = dbsc.storeDataCollection(dc_xml)
-
-    params_xml = process_params_xml(proc_params)
-
-    log.debug("(dbserver) Ingest the process job parameter XML")
-    procparamsid = dbsc.storeProcessJobParameter(params_xml)
+    for k, v in proc_params.items():
+        job_param_values = (0, procjobid, k, v)
+        procjobparamid = ispyb.mx_processing.upsert_job_parameter(job_param_vales)
 
     run_at_params = [str(datacollectionid)]
 
@@ -365,28 +221,6 @@ def simulate(
         log.debug(result["stdout"])
         log.debug(result["stderr"])
         log.error("RunAtStartOfCollect failed with exit code %d", result["exitcode"])
-
-    # Populate a datacollection XML blob
-    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    dc_xml = dc_endtime_temp_xml % (datacollectionid, nowstr)
-    print(dc_xml)
-    log.debug(
-        "(dbserver) Ingest the datacollection XML to update with the d.c. end time"
-    )
-    dbsc.updateDbObject(dc_xml)
-
-    # Populate a datacollectiongroup XML blob
-    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    dcg_xml = dcg_endtime_temp_xml % (datacollectiongroupid, nowstr)
-    print(dcg_xml)
-
-    # Ingest the DataCollectionGroup xml blob using the DbserverClient
-    log.debug(
-        "(dbserver) Ingest the datacollectiongroup XML to update with the d.c.g. end time"
-    )
-    dbsc.updateDbObject(dcg_xml)
 
     command = [f"{EM_SCRIPTS_DIR}/RunAtEndOfCollect-{_beamline}.sh"]
     command.extend(run_at_params)

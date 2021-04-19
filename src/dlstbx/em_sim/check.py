@@ -7,7 +7,7 @@ import sqlalchemy
 from sqlalchemy.orm import Load
 
 
-def check_test_outcome(test, db):
+def check_test_outcome(test):
     failed_tests = []
     overall = {}
     expected_outcome = df.tests.get(test["scenario"], {}).get("results")
@@ -56,19 +56,25 @@ def check_test_outcome(test, db):
 
 
 def retrieve_motioncorr(db_session, jpid):
-    query = db_session.query(MotionCorrection).filter(
-        MotionCorrection.dataCollectionId == dcid
+    query = (
+        db_session.query(MotionCorrection, AutoProcProgram)
+        .options(
+            Load(AutoProcProgram).load_only("autoProcProgramId", "processingJobId"),
+        )
+        .join(
+            AutoProcProgram,
+            AutoProcProgram.autoProcProgramId == MotionCorrection.autoProcProgramId,
+        )
+        .filter(AutoProcProgram.processingJobId == jpid)
     )
+
     query_results = query.all()
-    required_records = [
-        "micrographFullPath",
-        "totalMotion",
-        "averageMotionPerFrame",
-    ]
-    required_lines = []
-    for qr in query_results:
-        required_lines.append([q.getattr(r) for r in required_records])
-    return [dict(zip(required_records, line)) for line in required_lines]
+    if len(query_results) != 1:
+        raise ValueError(
+            f"Only one autoProcProgramId was expected for this processingJobId but {len(query_results)} were found"
+        )
+
+    return query_results[0][0]
 
 
 def retrieve_ctf(db_session, jpid):
@@ -81,17 +87,12 @@ def retrieve_ctf(db_session, jpid):
         .filter(MotionCorrection.autoProcProgramId == autoprocid)
     )
     query_results = query.all()
-    required_records = [
-        "astimagtism",
-        "astigmatismAngle",
-        "maxResolution",
-        "estimatedDefocus",
-        "ccValue",
-    ]
-    required_lines = []
-    for qr in query_results:
-        required_lines.append([q.getattr(r) for r in required_records])
-    return [dict(zip(required_records, line)) for line in required_lines]
+    if len(query_results) != 1:
+        raise ValueError(
+            f"Only one autoProcProgramId was expected for this processingJobId but {len(query_results)} were found"
+        )
+
+    return query_results[0][0]
 
 
 def check_relion_outcomes(data_collection_results, expected_outcome, jpid):
@@ -122,15 +123,10 @@ def check_relion_outcomes(data_collection_results, expected_outcome, jpid):
 
     for table in ("motion_corr", "ctf"):
         for variable in tabvars[table]:
-            outcome = data_collection_results.get(variable)
-            if outcome is None or expected_outcome[variable] != outcome:
+            outcome = getattr(data_collection_results[table], variable, None)
+            if outcome is None or expected_outcome[table][variable] != outcome:
                 failure_reasons.append(
-                    error_explanation.format(
-                        variable=variable,
-                        value=outcome,
-                        expected=expected_outcome[variable],
-                        jpid=jpid,
-                    )
+                    f"{variable}: {outcome} outside range {expected_outcome[variable]}, program: relion, JobID:{jpid}"
                 )
 
     if failure_reasons:

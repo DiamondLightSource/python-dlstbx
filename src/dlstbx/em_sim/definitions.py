@@ -39,7 +39,7 @@ tests = {
             "angpix": "0.885",
             "motioncor_binning": "1",
             "motioncor_doseperframe": "1.277",
-            "stop_after_ctf_estimation": "true",
+            "stop_after_ctf_estimation": "false",
         },
         "results": {
             "motion_correction": {(motion_corr_res_dict(i) for i in range(21, 50))},

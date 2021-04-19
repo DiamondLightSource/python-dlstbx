@@ -1,13 +1,13 @@
 from pytest import approx
 
 tests = {
-    "gridscan": {
+    "i04-eiger-gridscan": {
         "src_dir": "/dls/i04/data/2021/cm28182-2/xraycentring/manual",
         "src_run_num": (29,),
         "src_prefix": ("xrc",),
         "results": {},
     },
-    "high-multiplicity": {
+    "i04-eiger-high-mult": {
         "src_dir": "/dls/i04/data/2021/cm28182-1/20210226/gw/swmr/TestThaumatin/Se-Thaumatin6",
         "src_run_num": (1,),
         "src_prefix": ("Se-Thaumatin6_400hz_24images",),
@@ -20,7 +20,7 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "example-i04": {
+    "i04-eiger-native": {
         "src_dir": "/dls/i04/data/2021/cm28182-2/20210416/TestInsulin/insulin1",
         "src_run_num": (1,),
         "src_prefix": ("insulin1",),
@@ -48,7 +48,7 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "insulin-2016": {
+    "insulin-2016-todo-replace": {
         "src_dir": "/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2",
         "src_run_num": (2,),
         "src_prefix": ("INS2",),
@@ -61,7 +61,7 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "mad-multi": {
+    "mad-multi-todo-replace": {
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170111/ZnMAD",
         "src_run_num": (1,),
         "src_prefix": ("sp0092_Zn_pk", "sp0092_Zn_if", "sp0092_Zn_hrm"),
@@ -92,7 +92,7 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "native": {
+    "i03-eiger-native": {
         "src_dir": "/dls/i03/data/2021/cm28170-2/TestProteinaseK/protk_1",
         "src_run_num": (1,),
         "src_prefix": ("protk_1",),
@@ -173,23 +173,11 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "sad": {
-        "src_dir": "/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1",
+    "i04-eiger-sad-single": {
+        "src_dir": "/dls/i04/data/2021/cm28182-1/20210311/TestInsulin/ZincInsulinB4/",
         "src_run_num": (1,),
-        "src_prefix": ("X1_weak_M1S1",),
-        "results": {
-            "a": approx(100, abs=100),
-            "b": approx(100, abs=100),
-            "c": approx(100, abs=100),
-            "alpha": approx(180, abs=180),
-            "beta": approx(180, abs=180),
-            "gamma": approx(180, abs=180),
-        },
-    },
-    "sad-multi": {
-        "src_dir": "/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1",
-        "src_run_num": (1, 3),
-        "src_prefix": ("X1_strong_M1S1",),
+        "src_prefix": ("ZincInsulinB4",),
+        "use_sample_id": 3275609,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

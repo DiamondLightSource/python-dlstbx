@@ -75,7 +75,7 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "i04-eiger-sad-multi-dcg": {
+    "i04-sad-multi-dcg": {
         "src_dir": "/dls/i04/data/2021/cm28182-1/20210311/TestInsulin/ZincInsulinB4/",
         "src_run_num": (
             1,
@@ -92,7 +92,24 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "i03-eiger-native": {
+    "i03-native-multi-nondcg": {
+        "src_dir": "/dls/i03/data/2021/cm28170-1/Blah/xtal_1",
+        "src_run_num": (
+            1,
+            2,
+        ),
+        "src_prefix": ("xtal_1",),
+        "use_sample_id": 3221630,
+        "results": {
+            "a": approx(100, abs=100),
+            "b": approx(100, abs=100),
+            "c": approx(100, abs=100),
+            "alpha": approx(180, abs=180),
+            "beta": approx(180, abs=180),
+            "gamma": approx(180, abs=180),
+        },
+    },
+    "i03-native": {
         "src_dir": "/dls/i03/data/2021/cm28170-2/TestProteinaseK/protk_1",
         "src_run_num": (1,),
         "src_prefix": ("protk_1",),

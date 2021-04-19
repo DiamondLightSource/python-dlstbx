@@ -75,6 +75,23 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
+    "i04-eiger-sad-multi-dcg": {
+        "src_dir": "/dls/i04/data/2021/cm28182-1/20210311/TestInsulin/ZincInsulinB4/",
+        "src_run_num": (
+            1,
+            2,
+        ),
+        "src_prefix": ("ZincInsulinB4",),
+        "use_sample_id": 3275609,
+        "results": {
+            "a": approx(100, abs=100),
+            "b": approx(100, abs=100),
+            "c": approx(100, abs=100),
+            "alpha": approx(180, abs=180),
+            "beta": approx(180, abs=180),
+            "gamma": approx(180, abs=180),
+        },
+    },
     "native": {
         "src_dir": "/dls/i03/data/2021/cm28170-2/TestProteinaseK/protk_1",
         "src_run_num": (1,),

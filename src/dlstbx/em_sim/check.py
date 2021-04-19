@@ -27,14 +27,14 @@ def check_test_outcome(test, db):
 
     program = "relion"
     data_collection_results = {}
-    for dcid in test["DCIDs"]:
-        data_collection_results[dcid] = {}
+    for jpid in test["JobIDs"]:
+        data_collection_results[jpid] = {}
         data_collection_results["motion_correction"] = retrieve_motioncorr(
-            db_session, dcid
+            db_session, jpid
         )
-        data_collection_results["ctf"] = retrieve_ctf(db_session, dcid)
+        data_collection_results["ctf"] = retrieve_ctf(db_session, jpid)
         outcomes = check_relion_outcomes(
-            data_collection_results, expected_outcome, dcid
+            data_collection_results, expected_outcome, jpid
         )
 
         overall.setdefault(program, True)
@@ -55,7 +55,7 @@ def check_test_outcome(test, db):
     return test
 
 
-def retrieve_motioncorr(db_session, dcid):
+def retrieve_motioncorr(db_session, jpid):
     query = db_session.query(MotionCorrection).filter(
         MotionCorrection.dataCollectionId == dcid
     )
@@ -71,7 +71,7 @@ def retrieve_motioncorr(db_session, dcid):
     return [dict(zip(required_records, line)) for line in required_lines]
 
 
-def retrieve_ctf(db_session, dcid):
+def retrieve_ctf(db_session, jpid):
     query = (
         db_session.query(CTF, MotionCorrection)
         .join(
@@ -94,12 +94,12 @@ def retrieve_ctf(db_session, dcid):
     return [dict(zip(required_records, line)) for line in required_lines]
 
 
-def check_relion_outcomes(data_collection_results, expected_outcome, dcid):
+def check_relion_outcomes(data_collection_results, expected_outcome, jpid):
     all_programs = [
         "relion",
     ]
     error_explanation = (
-        "{variable}: {value} outside range {expected}, program: {program}, DCID:{dcid}"
+        "{variable}: {value} outside range {expected}, program: {program}, JobID:{jpid}"
     )
     outcomes = {program: {"success": None} for program in all_programs}
 
@@ -129,7 +129,7 @@ def check_relion_outcomes(data_collection_results, expected_outcome, dcid):
                         variable=variable,
                         value=outcome,
                         expected=expected_outcome[variable],
-                        dcid=dcid,
+                        jpid=jpid,
                     )
                 )
 

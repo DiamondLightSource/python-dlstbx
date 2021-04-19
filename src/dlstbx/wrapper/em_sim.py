@@ -23,12 +23,13 @@ class EMSimWrapper(zocalo.wrapper.BaseWrapper):
         start = time.time()
 
         # Simulate the data collection
-        dcids = dlstbx.em_sim.call_sim(test_name=scenario, beamline=beamline)
+        dcids, pjids = dlstbx.em_sim.call_sim(test_name=scenario, beamline=beamline)
 
         result = {
             "beamline": beamline,
             "scenario": scenario,
             "DCIDs": dcids,
+            "JobIDs": pjids,
             "time_start": start,
             "time_end": time.time(),
         }

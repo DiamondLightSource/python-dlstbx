@@ -226,7 +226,7 @@ def simulate(
         log.debug(result["stderr"])
         log.error("RunAtStartOfCollect failed with exit code %d", result["exitcode"])
 
-    return datacollectionid, datacollectiongroupid
+    return datacollectionid, datacollectiongroupid, procjobid
 
 
 def call_sim(test_name, beamline):
@@ -291,6 +291,7 @@ def call_sim(test_name, beamline):
     # Call simulate
     dcid_list = []
     dcg_list = []
+    pjid_list = []
     for src_run_number in scenario["src_run_num"]:
         for src_prefix in scenario["src_prefix"]:
             dest_prefix = src_prefix
@@ -298,7 +299,7 @@ def call_sim(test_name, beamline):
                 dcg = dcg_list[0]
             else:
                 dcg = None
-            dcid, dcg = simulate(
+            dcid, dcg, pjid = simulate(
                 dest_visit,
                 beamline,
                 src_dir,
@@ -313,9 +314,10 @@ def call_sim(test_name, beamline):
                 data_collection_group_id=dcg,
                 scenario_name=test_name,
             )
+            pjid_list.append(pjid)
             dcid_list.append(dcid)
             dcg_list.append(dcg)
             if scenario.get("delay"):
                 log.info("Sleeping for %s seconds" % scenario["delay"])
                 time.sleep(scenario["delay"])
-    return dcid_list
+    return dcid_list, pjid_list

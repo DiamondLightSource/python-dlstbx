@@ -12,7 +12,7 @@ def check_test_outcome(test, db):
     overall = {}
     expected_outcome = df.tests.get(test["scenario"], {}).get("results")
 
-    url = ispyb.sqlalchemy.url("/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg")
+    url = ispyb.sqlalchemy.url("/dls_sw/dasc/mariadb/credentials/ispyb.cfg")
     engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
     db_session = sqlalchemy.orm.Session(bind=engine)
 

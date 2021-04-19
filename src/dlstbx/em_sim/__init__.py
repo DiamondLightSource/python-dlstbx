@@ -21,7 +21,6 @@ import ispyb.sqlalchemy
 import sqlalchemy
 import sqlalchemy.orm
 from sqlalchemy.orm import Load
-import sqlalchemy.func
 from ispyb.sqlalchemy import DataCollection, BLSession, Proposal
 
 import dlstbx.em_sim.definitions
@@ -87,12 +86,15 @@ def retrieve_sessionid(_db, _visit):
             Load(Proposal).load_only("proposalId", "proposalCode", "proposalNumber"),
         )
         .join(
-            Propsal,
-            Propsal.proposalId == BLSession.proposalId,
+            Proposal,
+            Proposal.proposalId == BLSession.proposalId,
         )
         .filter(
             sqlalchemy.func.concat(
-                Proposal.proposalCode, Proposal.proposalNumber, BLSession.visit_number
+                Proposal.proposalCode,
+                Proposal.proposalNumber,
+                "-",
+                BLSession.visit_number,
             )
             == _visit
         )
@@ -100,9 +102,12 @@ def retrieve_sessionid(_db, _visit):
 
     query_results = query.first()
 
-    if query_results.sessionId is None:
+    if query_results is None:
+        sys.exit("Query to obtain sessionid failed for %s" % _visit)
+
+    if query_results[0].sessionId is None:
         sys.exit("Could not find sessionid for visit %s" % _visit)
-    return query_results.sessionId
+    return query_results[0].sessionId
 
 
 def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
@@ -131,17 +136,17 @@ def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
         query.filter(DataCollection.imagePrefix == _prefix)
 
     return query.first()
-    #query_results = query.all()
-    #required_lines = []
-    #for q in query_results:
+    # query_results = query.all()
+    # required_lines = []
+    # for q in query_results:
     #    required_lines.append([q.getattr(r) for r in records_to_collect])
 
-    #desc = [d.lower() for d in records_to_collect]
-    #result = [dict(zip(desc, line)) for line in required_lines]
+    # desc = [d.lower() for d in records_to_collect]
+    # result = [dict(zip(desc, line)) for line in required_lines]
 
-    #if not result[0].get("datacollectionid"):
+    # if not result[0].get("datacollectionid"):
     #    sys.exit("Could not find the datacollectionid for visit %s" % _dir)
-    #return result[0]
+    # return result[0]
 
 
 def simulate(
@@ -160,7 +165,7 @@ def simulate(
     scenario_name=None,
 ):
 
-    url = ispyb.sqlalchemy.url("/dls_sw/dasc/mariadb/credentials/ispyb_scripts.cfg")
+    url = ispyb.sqlalchemy.url("/dls_sw/dasc/mariadb/credentials/ispyb.cfg")
     engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
     db_session = sqlalchemy.orm.Session(bind=engine)
 
@@ -208,7 +213,7 @@ def simulate(
         job_param_values = (0, procjobid, k, v)
         procjobparamid = ispyb.mx_processing.upsert_job_parameter(job_param_vales)
 
-    run_at_params = [str(procjobid)]
+    run_at_params = ["-p", str(procjobid)]
 
     command = [f"{EM_SCRIPTS_DIR}/RunAtStartOfCollect-{_beamline}.sh"]
     command.extend(run_at_params)
@@ -240,7 +245,7 @@ def call_sim(test_name, beamline):
     proposal = "cm28212"
 
     for cm_dir in os.listdir(f"/dls/{beamline}/data/{now:%Y}"):
-        if cm_dir.startswith(proposal):
+        if cm_dir.startswith(proposal + "-" + str(scenario["src_run_num"][0])):
             dest_visit = cm_dir
             break
     else:
@@ -251,6 +256,8 @@ def call_sim(test_name, beamline):
     dest_visit_dir = f"/dls/{beamline}/data/{now:%Y}/{dest_visit}"
 
     dest_dir = f"{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{str(uuid.uuid4())[:8]}"
+
+    print("destination directory:", dest_dir)
 
     # Extract necessary info from the source directory path
     m1 = re.search(r"(/dls/(\S+?)/data/\d+/)(\S+)", src_dir)
@@ -274,6 +281,7 @@ def call_sim(test_name, beamline):
 
     # Create destination directory
     log.debug("Creating directory %s", dest_dir)
+
     mkdir_p(dest_dir)
     if os.path.isdir(dest_dir):
         log.info("Directory %s created successfully", dest_dir)

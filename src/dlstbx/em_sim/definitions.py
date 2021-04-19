@@ -27,7 +27,7 @@ tests = {
     "relion": {
         "dcid": 6018191,
         "src_dir": "/dls/m12/data/2021/cm28212-1/raw",
-        "src_run_num": (1),
+        "src_run_num": (1,),
         "src_prefix": ("",),
         "proc_params": {
             "acquisition_software": "SerialEM",
@@ -42,8 +42,8 @@ tests = {
             "stop_after_ctf_estimation": "true",
         },
         "results": {
-            "motion_correction": {[motion_corr_res_dict(i) for i in range(21, 50)]},
-            "ctf": {[ctf_res_dict() for i in range(21, 50)]},
+            "motion_correction": {(motion_corr_res_dict(i) for i in range(21, 50))},
+            "ctf": {(ctf_res_dict() for i in range(21, 50))},
         },
     },
 }

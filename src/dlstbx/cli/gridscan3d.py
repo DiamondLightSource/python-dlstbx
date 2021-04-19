@@ -2,9 +2,6 @@
 3D gridscan analysis from 2 x 2D perpendicular gridscans.
 """
 
-# Always include a __future__ import if backward compatibility with Python 2 is intended
-from __future__ import absolute_import, division, print_function
-
 import enum
 import logging
 import numpy as np

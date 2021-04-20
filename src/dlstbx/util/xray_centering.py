@@ -1,6 +1,6 @@
 import dataclasses
 import enum
-from typing import Tuple
+from typing import List, Tuple
 
 import numpy as np
 import scipy.ndimage
@@ -31,6 +31,7 @@ class Result:
     message: str = "fail"
     best_image: int = None
     reflections_in_best_image: int = None
+    best_region: List[Tuple[int, int]] = None
 
 
 def main(
@@ -77,9 +78,10 @@ def main(
     structure = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
     labels, n_regions = scipy.ndimage.label(threshold, structure=structure)
     unique, counts = np.unique(labels, return_counts=True)
-    best_region = unique[np.argmax(counts[1:]) + 1]
-    com = scipy.ndimage.center_of_mass((labels == best_region) * np.ones(labels.shape))
+    best = unique[np.argmax(counts[1:]) + 1]
+    com = scipy.ndimage.center_of_mass((labels == best) * np.ones(labels.shape))
     output.append(f"grid:\n{threshold}")
+    result.best_region = list(zip(*np.where(labels == best)))
 
     if 0:
         import matplotlib.pyplot as plt

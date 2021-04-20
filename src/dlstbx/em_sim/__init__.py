@@ -22,6 +22,7 @@ import sqlalchemy
 import sqlalchemy.orm
 from sqlalchemy.orm import Load
 from ispyb.sqlalchemy import DataCollection, BLSession, Proposal
+from workflows.transport.stomp_transport import StompTransport
 
 import dlstbx.em_sim.definitions
 import dlstbx.dc_sim.mydb
@@ -213,18 +214,15 @@ def simulate(
         job_param_values = (0, procjobid, k, v)
         procjobparamid = ispyb.mx_processing.upsert_job_parameter(job_param_vales)
 
-    run_at_params = ["-p", str(procjobid)]
+    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
+    StompTransport.load_configuration_file(default_configuration)
+    stomp = StompTransport()
+    stomp.connect()
+    stomp.send()
 
-    command = [f"{EM_SCRIPTS_DIR}/RunAtStartOfCollect-{_beamline}.sh"]
-    command.extend(run_at_params)
-    log.info("command: %s", " ".join(command))
-    result = procrunner.run(command, timeout=180)
-    log.info("runtime: %s", result["runtime"])
-    if result["exitcode"] or result["timeout"]:
-        log.info("timeout: %s", result["timeout"])
-        log.debug(result["stdout"])
-        log.debug(result["stderr"])
-        log.error("RunAtStartOfCollect failed with exit code %d", result["exitcode"])
+    dispatcher_message = {"parameters": {"ispyb_process": procjobid}}
+
+    stomp.send("processing_recipe", dispatcher_message)
 
     return datacollectionid, datacollectiongroupid, procjobid
 

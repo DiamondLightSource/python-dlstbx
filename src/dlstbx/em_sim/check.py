@@ -2,7 +2,7 @@ import dlstbx.em_sim.definitions as df
 import ispyb
 import ispyb.model.__future__
 import ispyb.sqlalchemy
-from ispyb.sqlalchemy import MotionCorrection, CTF
+from ispyb.sqlalchemy import MotionCorrection, CTF, AutoProcProgram
 import sqlalchemy
 from sqlalchemy.orm import Load
 
@@ -29,10 +29,10 @@ def check_test_outcome(test):
     data_collection_results = {}
     for jpid in test["JobIDs"]:
         data_collection_results[jpid] = {}
-        data_collection_results["motion_correction"] = retrieve_motioncorr(
+        data_collection_results[jpid]["motion_correction"] = retrieve_motioncorr(
             db_session, jpid
         )
-        data_collection_results["ctf"] = retrieve_ctf(db_session, jpid)
+        data_collection_results[jpid]["ctf"] = retrieve_ctf(db_session, jpid)
         outcomes = check_relion_outcomes(
             data_collection_results, expected_outcome, jpid
         )
@@ -69,12 +69,8 @@ def retrieve_motioncorr(db_session, jpid):
     )
 
     query_results = query.all()
-    if len(query_results) != 1:
-        raise ValueError(
-            f"Only one autoProcProgramId was expected for this processingJobId but {len(query_results)} were found"
-        )
 
-    return query_results[0][0]
+    return [q[0] for q in query_results]
 
 
 def retrieve_ctf(db_session, jpid):
@@ -87,12 +83,8 @@ def retrieve_ctf(db_session, jpid):
         .filter(MotionCorrection.autoProcProgramId == autoprocid)
     )
     query_results = query.all()
-    if len(query_results) != 1:
-        raise ValueError(
-            f"Only one autoProcProgramId was expected for this processingJobId but {len(query_results)} were found"
-        )
 
-    return query_results[0][0]
+    return [q[0] for q in query_results]
 
 
 def check_relion_outcomes(data_collection_results, expected_outcome, jpid):
@@ -107,8 +99,8 @@ def check_relion_outcomes(data_collection_results, expected_outcome, jpid):
     failure_reasons = []
 
     tabvars = {
-        "motion_corr": [
-            "micrographFulPath",
+        "motion_correction": [
+            "micrographFullPath",
             "totalMotion",
             "averageMotionPerFrame",
         ],
@@ -121,13 +113,16 @@ def check_relion_outcomes(data_collection_results, expected_outcome, jpid):
         ],
     }
 
-    for table in ("motion_corr", "ctf"):
+    for table in ("motion_correction", "ctf"):
         for variable in tabvars[table]:
-            outcome = getattr(data_collection_results[table], variable, None)
-            if outcome is None or expected_outcome[table][variable] != outcome:
-                failure_reasons.append(
-                    f"{variable}: {outcome} outside range {expected_outcome[variable]}, program: relion, JobID:{jpid}"
+            for i, expoutcome in enumerate(expected_outcome[table]):
+                outcome = getattr(
+                    data_collection_results[jpid][table][i], variable, None
                 )
+                if outcome is None or expoutcome[variable] != outcome:
+                    failure_reasons.append(
+                        f"{variable}: {outcome} outside range {expoutcome[variable]}, program: relion, JobID:{jpid}"
+                    )
 
     if failure_reasons:
         outcomes["relion"]["success"] = False

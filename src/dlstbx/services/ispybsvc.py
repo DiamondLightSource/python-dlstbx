@@ -41,8 +41,8 @@ class DLSISPyB(EM_Mixin, CommonService):
             # which was connected to a different database server in the DB cluster. If
             # we were to process it immediately we may run into a DB synchronization
             # fault. Avoid this by giving the DB cluster a bit of time to settle.
-            self.log.debug("Received redelivered message, holding for a second.")
-            time.sleep(1)
+            self.log.debug("Received redelivered message, holding for a moment.")
+            time.sleep(0.5)
 
         if not rw:
             # Incoming message is not a recipe message. Simple messages can be valid

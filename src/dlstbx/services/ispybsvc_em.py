@@ -1,11 +1,9 @@
 import ispyb
 from ispyb.sqlalchemy import MotionCorrection
-import sqlalchemy.orm
-import pathlib
 
 
 class EM_Mixin:
-    def do_insert_ctf(self, parameters, **kwargs):
+    def do_insert_ctf(self, *, parameters, session, **kwargs):
         params = self.ispyb.em_acquisition.get_data_collection_params()
         params["id"] = parameters("dcid")
         dcid = parameters("dcid")
@@ -14,10 +12,11 @@ class EM_Mixin:
         try:
             result = self.ispyb.em_acquisition.insert_ctf(
                 ctf_id=parameters("ctf_id"),
-                motion_correction_id=self.get_motioncorrection_id(
+                motion_correction_id=self._get_motioncorrection_id(
                     parameters("dcid"),
                     parameters("micrograph_full_path"),
                     parameters("auto_proc_program_id"),
+                    session,
                 ),
                 auto_proc_program_id=parameters("auto_proc_program_id"),
                 box_size_x=parameters("box_size_x"),
@@ -45,35 +44,30 @@ class EM_Mixin:
             )
             return False
 
-    def get_motioncorrection_id(
-        self, datacollectionid, micrographname, autoproc_program_id
+    def _get_motioncorrection_id(
+        self, datacollectionid, micrographname, autoproc_program_id, db_session
     ):
-        url = ispyb.sqlalchemy.url(
-            pathlib.Path("/dls_sw/dasc/mariadb/credentials/ispyb.cfg")
+        query = db_session.query(MotionCorrection).filter(
+            MotionCorrection.dataCollectionId == datacollectionid,
+            MotionCorrection.micrographFullPath == micrographname,
+            MotionCorrection.autoProcProgramId == autoproc_program_id,
         )
-        engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
-        Session = sqlalchemy.orm.sessionmaker(bind=engine)
-        with Session() as db_session:
-            query = db_session.query(MotionCorrection).filter(
-                MotionCorrection.dataCollectionId == datacollectionid,
-                MotionCorrection.micrographFullPath == micrographname,
-                MotionCorrection.autoProcProgramId == autoproc_program_id,
-            )
-        for item in query.all():
+        results = query.all()
+        for item in results:
             print(
                 "MCID: ",
                 item.motionCorrectionId,
                 ", Dose per frame: ",
                 item.dosePerFrame,
             )
-        if not query.all():
+        if not results:
             self.log.info(
                 f"No Motion Correction ID found. DCID: {datacollectionid}, MG: {micrographname}, APPID: {autoproc_program_id}"
             )
             # raise Exception("No Motion Correction ID found")
             return 1200
         else:
-            mcid = query.all()[0].motionCorrectionId
+            mcid = results[0].motionCorrectionId
             self.log.info(f"Found Motion Correction ID: {mcid}")
             return mcid
 

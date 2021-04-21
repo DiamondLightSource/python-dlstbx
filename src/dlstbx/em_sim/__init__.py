@@ -166,17 +166,19 @@ def simulate(
     scenario_name=None,
 ):
 
-    url = ispyb.sqlalchemy.url("/dls_sw/dasc/mariadb/credentials/ispyb.cfg")
+    url = ispyb.sqlalchemy.url()
     engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
-    db_session = sqlalchemy.orm.Session(bind=engine)
+    db_session = sqlalchemy.orm.sessionmaker(bind=engine)
 
     log.debug("Getting the source SessionID")
-    src_sessionid = retrieve_sessionid(db_session, _src_visit)
+    with db_session() as dbs:
+        src_sessionid = retrieve_sessionid(dbs, _src_visit)
     log.debug("SessionID is %r", src_sessionid)
 
-    row = retrieve_datacollection_values(
-        db_session, src_sessionid, _src_dir, _src_prefix, _src_run_number
-    )
+    with db_session() as dbs:
+        row = retrieve_datacollection_values(
+            dbs, src_sessionid, _src_dir, _src_prefix, _src_run_number
+        )
 
     src_dcid = int(row.dataCollectionId)
     src_dcgid = int(row.dataCollectionGroupId)
@@ -189,7 +191,8 @@ def simulate(
 
     # Get the sessionid for the dest_visit
     log.debug("(SQL) Getting the destination sessionid")
-    sessionid = retrieve_sessionid(db_session, _dest_visit)
+    with db_session() as dbs:
+        sessionid = retrieve_sessionid(dbs, _dest_visit)
 
     run_number = _src_run_number
 

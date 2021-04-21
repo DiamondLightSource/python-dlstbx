@@ -12,9 +12,9 @@ def check_test_outcome(test):
     overall = {}
     expected_outcome = df.tests.get(test["scenario"], {}).get("results")
 
-    url = ispyb.sqlalchemy.url("/dls_sw/dasc/mariadb/credentials/ispyb.cfg")
+    url = ispyb.sqlalchemy.url()
     engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
-    db_session = sqlalchemy.orm.Session(bind=engine)
+    db_session = sqlalchemy.orm.sessionmaker(bind=engine)
 
     if expected_outcome == {}:
         print("Scenario %s is happy with any outcome." % test["scenario"])
@@ -29,10 +29,11 @@ def check_test_outcome(test):
     data_collection_results = {}
     for jpid in test["JobIDs"]:
         data_collection_results[jpid] = {}
-        data_collection_results[jpid]["motion_correction"] = retrieve_motioncorr(
-            db_session, jpid
-        )
-        data_collection_results[jpid]["ctf"] = retrieve_ctf(db_session, jpid)
+        with db_session() as dbs:
+            data_collection_results[jpid]["motion_correction"] = retrieve_motioncorr(
+                dbs, jpid
+            )
+            data_collection_results[jpid]["ctf"] = retrieve_ctf(dbs, jpid)
         outcomes = check_relion_outcomes(
             data_collection_results, expected_outcome, jpid
         )

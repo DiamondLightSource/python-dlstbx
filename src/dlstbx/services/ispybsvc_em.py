@@ -65,7 +65,7 @@ class EM_Mixin:
                 f"No Motion Correction ID found. DCID: {datacollectionid}, MG: {micrographname}, APPID: {autoproc_program_id}"
             )
             # raise Exception("No Motion Correction ID found")
-            return 1200
+            return None
         else:
             mcid = results[0].motionCorrectionId
             self.log.info(f"Found Motion Correction ID: {mcid}")

@@ -26,7 +26,7 @@ class OfflineTransport(CommonTransport):
         self._connected = False
 
     def _output(self, message, details=None):
-        offlog.info(f"Transport: {message}")
+        offlog.info(f"Offline Transport: {message}")
         if details:
             offlog.debug(details)
 

@@ -1,8 +1,9 @@
 import os.path
 import time
 
-import ispyb
+import ispyb.sqlalchemy
 import mysql.connector
+import sqlalchemy.orm
 import workflows.recipe
 from workflows.services.common_service import CommonService
 import json
@@ -22,7 +23,12 @@ class DLSISPyB(EM_Mixin, CommonService):
         """Subscribe the ISPyB connector queue. Received messages must be
         acknowledged. Prepare ISPyB database connection."""
         self.log.info("ISPyB connector using ispyb v%s", ispyb.__version__)
-        self.ispyb = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
+        self.ispyb = ispyb.open()
+        self._ispyb_sessionmaker = sqlalchemy.orm.sessionmaker(
+            bind=sqlalchemy.create_engine(
+                ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
+            )
+        )
         self.log.debug("ISPyB connector starting")
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -108,9 +114,14 @@ class DLSISPyB(EM_Mixin, CommonService):
                     base_value = base_value.replace("$" + key, str(rw.environment[key]))
             return base_value
 
-        result = getattr(self, "do_" + command)(
-            rw=rw, message=message, parameters=parameters, transaction=txn
-        )
+        with self._ispyb_sessionmaker() as session:
+            result = getattr(self, "do_" + command)(
+                rw=rw,
+                message=message,
+                parameters=parameters,
+                session=session,
+                transaction=txn,
+            )
 
         store_result = rw.recipe_step["parameters"].get("store_result")
         if store_result and result and "return_value" in result:

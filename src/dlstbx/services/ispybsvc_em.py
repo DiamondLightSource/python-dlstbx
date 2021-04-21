@@ -1,21 +1,24 @@
 import ispyb
+from ispyb.sqlalchemy import MotionCorrection
+import sqlalchemy.orm
+import pathlib
 
 
 class EM_Mixin:
     def do_insert_ctf(self, parameters, **kwargs):
-        # This gives some output we can read from; the motion correction ID doesn't work without the ISPyB components in place
-
-        dcid = parameters("datacollection_id")
-        micrograph_name = parameters("micrograph_name")
-        self.log.info(f"Would insert CTF parameters. DCID: {dcid} {micrograph_name}")
-        return {"success": True, "return_value": None}
+        params = self.ispyb.em_acquisition.get_data_collection_params()
+        params["id"] = parameters("dcid")
+        dcid = parameters("dcid")
+        self.log.info(f"Inserting CTF parameters. DCID: {dcid}")
 
         try:
             result = self.ispyb.em_acquisition.insert_ctf(
                 ctf_id=parameters("ctf_id"),
                 motion_correction_id=self.get_motioncorrection_id(
-                    parameters("datacollection_id"), parameters("micrograph_name")
-                )["motioncorrection_id"],
+                    parameters("dcid"),
+                    parameters("micrograph_full_path"),
+                    parameters("auto_proc_program_id"),
+                ),
                 auto_proc_program_id=parameters("auto_proc_program_id"),
                 box_size_x=parameters("box_size_x"),
                 box_size_y=parameters("box_size_y"),
@@ -42,26 +45,42 @@ class EM_Mixin:
             )
             return False
 
-    def get_motioncorrection_id(self, datacollectionid, micrographname):
-        """Not implemented yet"""
-        return {"motioncorrection_id": 1234}
+    def get_motioncorrection_id(
+        self, datacollectionid, micrographname, autoproc_program_id
+    ):
+        url = ispyb.sqlalchemy.url(
+            pathlib.Path("/dls_sw/dasc/mariadb/credentials/ispyb.cfg")
+        )
+        engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+        Session = sqlalchemy.orm.sessionmaker(bind=engine)
+        with Session() as db_session:
+            query = db_session.query(MotionCorrection).filter(
+                MotionCorrection.dataCollectionId == datacollectionid,
+                MotionCorrection.micrographFullPath == micrographname,
+                MotionCorrection.autoProcProgramId == autoproc_program_id,
+            )
+        for item in query.all():
+            print(
+                "MCID: ",
+                item.motionCorrectionId,
+                ", Dose per frame: ",
+                item.dosePerFrame,
+            )
+        if not query.all():
+            self.log.info(
+                f"No Motion Correction ID found. DCID: {datacollectionid}, MG: {micrographname}, APPID: {autoproc_program_id}"
+            )
+            # raise Exception("No Motion Correction ID found")
+            return 1200
+        else:
+            mcid = query.all()[0].motionCorrectionId
+            self.log.info(f"Found Motion Correction ID: {mcid}")
+            return mcid
 
     def do_insert_motion_correction(self, parameters, **kwargs):
-        # This gives some output we can read from; the motion correction ID doesn't work without the ISPyB components in place
-
-        dcid = parameters("datacollection_id")
-        micrograph_name = parameters("micrograph_name")
-        self.log.info(
-            f"Would insert Motion Correction parameters. DCID: {dcid} {micrograph_name}"
-        )
-        return {"success": True, "return_value": None}
-
-        # insert_motion_correction still needs to be implemented in the ISPyB API
+        self.log.info(f"Inserting Motion Correction parameters.")
         try:
             result = self.ispyb.em_acquisition.insert_motion_correction(
-                motion_correction_id=self.get_motioncorrection_id(
-                    parameters("datacollection_id"), parameters("micrograph_name")
-                )["motioncorrection_id"],
                 movie_id=parameters("movie_id"),
                 auto_proc_program_id=parameters("auto_proc_program_id"),
                 image_number=parameters("image_number"),

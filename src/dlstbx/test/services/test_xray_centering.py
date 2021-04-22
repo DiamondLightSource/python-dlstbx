@@ -79,7 +79,7 @@ def test_xray_centering(mocker, tmp_path):
         "reflections_in_best_image": 249,
         "snapshot_offset": mock.ANY,
         "status": "ok",
-        "steps": (7, 5),
+        "steps": mock.ANY,
     }
     results_json = tmp_path / "Dials5AResults.json"
     assert results_json.exists()

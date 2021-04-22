@@ -15,7 +15,7 @@ class EM_Mixin:
                 motion_correction_id=self._get_motioncorrection_id(
                     parameters("dcid"),
                     parameters("micrograph_full_path"),
-                    parameters("auto_proc_program_id"),
+                    parameters("program_id"),
                     session,
                 ),
                 auto_proc_program_id=parameters("auto_proc_program_id"),
@@ -35,6 +35,7 @@ class EM_Mixin:
                 fft_theoretical_full_path=parameters("fft_theoretical_full_path"),
                 comments=parameters("comments"),
             )
+            self.log.info(f"Created CTF record {result} for DCID {dcid}")
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
             self.log.error(
@@ -48,35 +49,29 @@ class EM_Mixin:
         self, datacollectionid, micrographname, autoproc_program_id, db_session
     ):
         query = db_session.query(MotionCorrection).filter(
-            MotionCorrection.dataCollectionId == datacollectionid,
+            # insert_motion_correction() doesn't currently use the DCID. The entries in the MotionCorrection table therefore don't have a DCID, so we can't filter by this value.
+            MotionCorrection.dataCollectionId.is_(None),
             MotionCorrection.micrographFullPath == micrographname,
             MotionCorrection.autoProcProgramId == autoproc_program_id,
         )
         results = query.all()
-        for item in results:
-            print(
-                "MCID: ",
-                item.motionCorrectionId,
-                ", Dose per frame: ",
-                item.dosePerFrame,
-            )
-        if not results:
+        if results:
+            mcid = results[0].motionCorrectionId
+            self.log.info(f"Found Motion Correction ID: {mcid}")
+            return mcid
+        else:
             self.log.info(
                 f"No Motion Correction ID found. DCID: {datacollectionid}, MG: {micrographname}, APPID: {autoproc_program_id}"
             )
             # raise Exception("No Motion Correction ID found")
-            return 1200
-        else:
-            mcid = results[0].motionCorrectionId
-            self.log.info(f"Found Motion Correction ID: {mcid}")
-            return mcid
+            return None
 
     def do_insert_motion_correction(self, parameters, **kwargs):
         self.log.info(f"Inserting Motion Correction parameters.")
         try:
             result = self.ispyb.em_acquisition.insert_motion_correction(
                 movie_id=parameters("movie_id"),
-                auto_proc_program_id=parameters("auto_proc_program_id"),
+                auto_proc_program_id=parameters("program_id"),
                 image_number=parameters("image_number"),
                 first_frame=parameters("first_frame"),
                 last_frame=parameters("last_frame"),
@@ -94,6 +89,7 @@ class EM_Mixin:
                 patches_used_y=parameters("patches_used_y"),
                 comments=parameters("comments"),
             )
+            self.log.info(f"Created MotionCorrection record {result}")
 
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:

@@ -35,7 +35,7 @@ class Result:
 
 
 def main(
-    data,
+    data: np.ndarray,
     steps: Tuple[int, int],
     box_size_px: Tuple[float, float],
     snapshot_offset: Tuple[float, float],

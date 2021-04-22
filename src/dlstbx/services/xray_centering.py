@@ -1,13 +1,36 @@
 import errno
 import json
+import dataclasses
 import os
 import threading
 import time
+
+import numpy as np
 
 import dlstbx.util.symlink
 import dlstbx.util.xray_centering
 import workflows.recipe
 from workflows.services.common_service import CommonService
+
+
+@dataclasses.dataclass
+class CenteringData:
+    steps_x: int
+    steps_y: int
+    headers: list
+    recipewrapper: dict
+    last_activity: float = dataclasses.field(default_factory=time.time)
+
+    def __post_init__(self):
+        self.data = np.empty(self.image_count, dtype=int)
+
+    @property
+    def image_count(self):
+        return int(self.steps_x * self.steps_y)
+
+    @property
+    def images_seen(self):
+        return len(self.headers)
 
 
 class DLSXRayCentering(CommonService):
@@ -43,7 +66,7 @@ class DLSXRayCentering(CommonService):
         self._next_garbage_collection = time.time() + 60
         with self._centering_lock:
             for dcid in list(self._centering_data):
-                age = time.time() - self._centering_data[dcid]["last_activity"]
+                age = time.time() - self._centering_data[dcid].last_activity
                 if age > 15 * 60:
                     self.log.info("Expiring X-Ray Centering session for DCID %r", dcid)
                     rw = self._centering_data[dcid]["recipewrapper"]
@@ -97,55 +120,48 @@ class DLSXRayCentering(CommonService):
             if dcid in self._centering_data:
                 cd = self._centering_data[dcid]
             else:
-                cd = {
-                    "steps_x": gridinfo.get("steps_x"),
-                    "steps_y": gridinfo.get("steps_y"),
-                    "images_seen": 0,
-                    "headers": [],
-                    "data": [],
-                    "recipewrapper": rw,
-                }
-                cd["image_count"] = cd["steps_x"] * cd["steps_y"]
+                cd = CenteringData(
+                    steps_x=int(gridinfo["steps_x"]),
+                    steps_y=int(gridinfo["steps_y"]),
+                    headers=[],
+                    recipewrapper=rw,
+                )
                 self._centering_data[dcid] = cd
                 self.log.info(
-                    "First record arrived for X-ray centering on DCID {dcid}, "
-                    "{cd[steps_x]} x {cd[steps_y]} grid, {cd[image_count]} images in total".format(
-                        dcid=dcid, cd=cd
-                    )
+                    f"First record arrived for X-ray centering on DCID {dcid}, "
+                    "{cd.steps_x} x {cd.steps_y} grid, {cd.image_count} images in total"
                 )
 
-            cd["images_seen"] += 1
-            cd["last_activity"] = time.time()
-            cd["headers"].append(header)
+            cd.last_activity = time.time()
+            cd.headers.append(header)
             self.log.debug(
                 "Received PIA result for DCID %d image %d, %d of %d expected results",
                 dcid,
                 file_number,
-                cd["images_seen"],
-                cd["image_count"],
+                cd.images_seen,
+                cd.image_count,
             )
-            cd["data"].append((file_number, spots_count))
+            cd.data[file_number - 1] = spots_count
 
-            if cd["images_seen"] == cd["image_count"]:
+            if cd.images_seen == cd.image_count:
                 self.log.info(
                     "All records arrived for X-ray centering on DCID %d", dcid
                 )
                 result, output = dlstbx.util.xray_centering.main(
-                    cd["data"],
-                    numBoxesX=cd["steps_x"],
-                    numBoxesY=cd["steps_y"],
-                    snaked=bool(gridinfo.get("snaked")),
-                    orientation=gridinfo.get("orientation"),
-                    boxSizeXPixels=1000
-                    * gridinfo["dx_mm"]
-                    / gridinfo["pixelsPerMicronX"],
-                    boxSizeYPixels=1000
-                    * gridinfo["dy_mm"]
-                    / gridinfo["pixelsPerMicronY"],
-                    topLeft=(
+                    cd.data,
+                    steps=(cd.steps_x, cd.steps_y),
+                    box_size_px=(
+                        1000 * gridinfo["dx_mm"] / gridinfo["pixelsPerMicronX"],
+                        1000 * gridinfo["dy_mm"] / gridinfo["pixelsPerMicronY"],
+                    ),
+                    snapshot_offset=(
                         float(gridinfo.get("snapshot_offsetXPixel")),
                         float(gridinfo.get("snapshot_offsetYPixel")),
                     ),
+                    snaked=bool(gridinfo.get("snaked")),
+                    orientation=dlstbx.util.xray_centering.Orientation[
+                        gridinfo["orientation"].upper()
+                    ],
                 )
                 self.log.debug(output)
 
@@ -165,7 +181,18 @@ class DLSXRayCentering(CommonService):
                         else:
                             raise
                     with open(parameters["output"], "w") as fh:
-                        json.dump(result, fh, sort_keys=True)
+
+                        def convert(o):
+                            if isinstance(o, np.integer):
+                                return int(o)
+                            raise TypeError
+
+                        json.dump(
+                            dataclasses.asdict(result),
+                            fh,
+                            sort_keys=True,
+                            default=convert,
+                        )
                     if parameters.get("results_symlink"):
                         # Create symbolic link above working directory
                         dlstbx.util.symlink.create_parent_symlink(
@@ -187,12 +214,12 @@ class DLSXRayCentering(CommonService):
 
                 # Acknowledge all messages
                 txn = rw.transport.transaction_begin()
-                for h in cd["headers"]:
+                for h in cd.headers:
                     rw.transport.ack(h, transaction=txn)
 
                 # Send results onwards
                 rw.set_default_channel("success")
-                rw.send_to("success", result, transaction=txn)
+                rw.send_to("success", dataclasses.asdict(result), transaction=txn)
                 rw.transport.transaction_commit(txn)
 
                 del self._centering_data[dcid]

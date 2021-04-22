@@ -130,3 +130,57 @@ def test_xray_centering_second_example():
         "status": "ok",
         "steps": (36, 23),
     }
+
+
+def test_vertical():
+    # fmt: off
+    data = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 9, 20, 21, 21, 11, 3, 13, 35, 40, 45, 49, 53, 59, 75, 76, 78, 80, 75, 78, 75, 79, 83, 86, 90, 94, 107, 114, 107, 99, 91, 86, 77, 73, 63, 52, 37, 22, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    # fmt: on
+    results, stdout = dlstbx.util.xray_centering.main(
+        data,
+        steps=(1, 80),
+        box_size_px=(24.096385542168676, 6.024096385542169),
+        snapshot_offset=(446.952, 123.036),
+        snaked=True,
+        orientation=dlstbx.util.xray_centering.Orientation.VERTICAL,
+    )
+    print(stdout)
+    assert "There are 114 reflections in image #52." in stdout
+    print(dataclasses.asdict(results))
+    assert dataclasses.asdict(results) == {
+        "steps": (1, 80),
+        "box_size_px": (24.096385542168676, 6.024096385542169),
+        "snapshot_offset": (446.952, 123.036),
+        "centre_x": 459.00019277108436,
+        "centre_y": 412.1926265060241,
+        "centre_x_box": 0.5,
+        "centre_y_box": 48.0,
+        "status": "ok",
+        "message": "ok",
+        "best_image": 52,
+        "reflections_in_best_image": 114,
+        "best_region": [
+            (37, 0),
+            (38, 0),
+            (39, 0),
+            (40, 0),
+            (41, 0),
+            (42, 0),
+            (43, 0),
+            (44, 0),
+            (45, 0),
+            (46, 0),
+            (47, 0),
+            (48, 0),
+            (49, 0),
+            (50, 0),
+            (51, 0),
+            (52, 0),
+            (53, 0),
+            (54, 0),
+            (55, 0),
+            (56, 0),
+            (57, 0),
+            (58, 0),
+        ],
+    }

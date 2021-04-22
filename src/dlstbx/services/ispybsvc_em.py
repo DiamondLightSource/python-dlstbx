@@ -35,6 +35,7 @@ class EM_Mixin:
                 fft_theoretical_full_path=parameters("fft_theoretical_full_path"),
                 comments=parameters("comments"),
             )
+            self.log.info(f"Created CTF record {result} for DCID {dcid}")
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
             self.log.error(
@@ -94,6 +95,7 @@ class EM_Mixin:
                 patches_used_y=parameters("patches_used_y"),
                 comments=parameters("comments"),
             )
+            self.log.info(f"Created MotionCorrection record {result}")
 
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:

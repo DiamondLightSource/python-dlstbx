@@ -80,7 +80,7 @@ def main(
     unique, counts = np.unique(labels, return_counts=True)
     best = unique[np.argmax(counts[1:]) + 1]
     com = scipy.ndimage.center_of_mass((labels == best) * np.ones(labels.shape))
-    output.append(f"grid:\n{threshold}")
+    output.append(f"grid:\n{threshold}".replace(" 0", " ."))
     result.best_region = list(zip(*np.where(labels == best)))
 
     if 0:

@@ -23,11 +23,14 @@ class CenteringData:
 
     def __post_init__(self):
         self.data = np.empty(self.image_count)
-        self.images_seen = 0
 
     @property
     def image_count(self):
         return int(self.steps_x * self.steps_y)
+
+    @property
+    def images_seen(self):
+        return len(self.headers)
 
 
 class DLSXRayCentering(CommonService):
@@ -129,7 +132,6 @@ class DLSXRayCentering(CommonService):
                     "{cd.steps_x} x {cd.steps_y} grid, {cd.image_count} images in total"
                 )
 
-            cd.images_seen += 1
             cd.last_activity = time.time()
             cd.headers.append(header)
             self.log.debug(

@@ -22,7 +22,7 @@ class CenteringData:
     last_activity: float = dataclasses.field(default_factory=time.time)
 
     def __post_init__(self):
-        self.data = np.empty(self.image_count)
+        self.data = np.empty(self.image_count, dtype=int)
 
     @property
     def image_count(self):

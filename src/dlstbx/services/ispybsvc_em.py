@@ -55,23 +55,16 @@ class EM_Mixin:
             MotionCorrection.autoProcProgramId == autoproc_program_id,
         )
         results = query.all()
-        for item in results:
-            print(
-                "MCID: ",
-                item.motionCorrectionId,
-                ", Dose per frame: ",
-                item.dosePerFrame,
-            )
-        if not results:
+        if results:
+            mcid = results[0].motionCorrectionId
+            self.log.info(f"Found Motion Correction ID: {mcid}")
+            return mcid
+        else:
             self.log.info(
                 f"No Motion Correction ID found. DCID: {datacollectionid}, MG: {micrographname}, APPID: {autoproc_program_id}"
             )
             # raise Exception("No Motion Correction ID found")
             return None
-        else:
-            mcid = results[0].motionCorrectionId
-            self.log.info(f"Found Motion Correction ID: {mcid}")
-            return mcid
 
     def do_insert_motion_correction(self, parameters, **kwargs):
         self.log.info(f"Inserting Motion Correction parameters.")

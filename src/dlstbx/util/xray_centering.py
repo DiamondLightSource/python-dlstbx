@@ -54,7 +54,6 @@ def main(
         f"snapshot_offset: {snapshot_offset}",
     ]
 
-    data = data.reshape(tuple(reversed(steps)))
     if orientation == Orientation.VERTICAL:
         data = data.reshape(steps)
         data = data.transpose()
@@ -68,9 +67,12 @@ def main(
         result.message = "No good images found"
         return result, output
 
-    if snaked:
+    if snaked and orientation == Orientation.HORIZONTAL:
         # Reverse the direction of every second row
         data[1::2, :] = data[1::2, ::-1]
+    elif snaked and orientation == Orientation.VERTICAL:
+        # Reverse the direction of every second row
+        data[:, 1::2] = data[::-1, 1::2]
 
     result.best_image = best_image
     result.reflections_in_best_image = maximum_spots

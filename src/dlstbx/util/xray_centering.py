@@ -41,7 +41,7 @@ def main(
     snapshot_offset: Tuple[float, float],
     snaked: bool,
     orientation: Orientation,
-):
+) -> Tuple[Result, str]:
     result = Result(
         steps,
         box_size_px=box_size_px,

@@ -29,7 +29,7 @@ def test_xray_centering():
     )
     print(stdout)
     assert "There are 592 reflections in image #32." in stdout
-    assert "[  0   0 402 592 538 394   0   0   0   0   0   0   0   0]" in stdout
+    assert "[  .   . 402 592 538 394   .   .   .   .   .   .   .   .]" in stdout
     assert dataclasses.asdict(results) == {
         "best_image": 32,
         "best_region": sorted(
@@ -110,7 +110,7 @@ def test_xray_centering_second_example():
 
     assert "There are 14 reflections in image #351." in stdout
     assert (
-        "[ 0  0  0  0  0  0  0  0  7  9 12  9  8  0 10  8  9  0  0  0  0  0  0  0"
+        "[ .  .  .  .  .  .  .  .  7  9 12  9  8  . 10  8  9  .  .  .  .  .  .  ."
         in stdout
     )
     best_region = sorted(

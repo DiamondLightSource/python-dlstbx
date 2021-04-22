@@ -15,7 +15,7 @@ class EM_Mixin:
                 motion_correction_id=self._get_motioncorrection_id(
                     parameters("dcid"),
                     parameters("micrograph_full_path"),
-                    parameters("auto_proc_program_id"),
+                    parameters("program_id"),
                     session,
                 ),
                 auto_proc_program_id=parameters("auto_proc_program_id"),
@@ -76,7 +76,7 @@ class EM_Mixin:
         try:
             result = self.ispyb.em_acquisition.insert_motion_correction(
                 movie_id=parameters("movie_id"),
-                auto_proc_program_id=parameters("auto_proc_program_id"),
+                auto_proc_program_id=parameters("program_id"),
                 image_number=parameters("image_number"),
                 first_frame=parameters("first_frame"),
                 last_frame=parameters("last_frame"),

@@ -187,9 +187,12 @@ class DLSXRayCentering(CommonService):
                                 return int(o)
                             raise TypeError
 
-                        d = dataclasses.asdict(result)
-                        self.log.debug(d)
-                        json.dump(d, fh, sort_keys=True, default=convert)
+                        json.dump(
+                            dataclasses.asdict(result),
+                            fh,
+                            sort_keys=True,
+                            default=convert,
+                        )
                     if parameters.get("results_symlink"):
                         # Create symbolic link above working directory
                         dlstbx.util.symlink.create_parent_symlink(
@@ -216,7 +219,7 @@ class DLSXRayCentering(CommonService):
 
                 # Send results onwards
                 rw.set_default_channel("success")
-                rw.send_to("success", result, transaction=txn)
+                rw.send_to("success", dataclasses.asdict(result), transaction=txn)
                 rw.transport.transaction_commit(txn)
 
                 del self._centering_data[dcid]

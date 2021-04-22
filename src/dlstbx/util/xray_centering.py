@@ -71,7 +71,7 @@ def main(
         # Reverse the direction of every second row
         data[1::2, :] = data[1::2, ::-1]
     elif snaked and orientation == Orientation.VERTICAL:
-        # Reverse the direction of every second row
+        # Reverse the direction of every second column
         data[:, 1::2] = data[::-1, 1::2]
 
     result.best_image = best_image

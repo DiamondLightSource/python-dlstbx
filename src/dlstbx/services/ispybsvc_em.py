@@ -49,7 +49,8 @@ class EM_Mixin:
         self, datacollectionid, micrographname, autoproc_program_id, db_session
     ):
         query = db_session.query(MotionCorrection).filter(
-            MotionCorrection.dataCollectionId == datacollectionid,
+            # insert_motion_correction() doesn't currently use the DCID. The entries in the MotionCorrection table therefore don't have a DCID, so we can't filter by this value.
+            MotionCorrection.dataCollectionId.is_(None),
             MotionCorrection.micrographFullPath == micrographname,
             MotionCorrection.autoProcProgramId == autoproc_program_id,
         )

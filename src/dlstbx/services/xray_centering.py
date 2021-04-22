@@ -181,9 +181,15 @@ class DLSXRayCentering(CommonService):
                         else:
                             raise
                     with open(parameters["output"], "w") as fh:
+
+                        def convert(o):
+                            if isinstance(o, np.integer):
+                                return int(o)
+                            raise TypeError
+
                         d = dataclasses.asdict(result)
                         self.log.debug(d)
-                        json.dump(d, fh, sort_keys=True)
+                        json.dump(d, fh, sort_keys=True, default=convert)
                     if parameters.get("results_symlink"):
                         # Create symbolic link above working directory
                         dlstbx.util.symlink.create_parent_symlink(

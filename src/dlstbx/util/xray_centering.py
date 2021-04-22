@@ -88,7 +88,9 @@ def main(
 
         _, (ax1, ax2) = plt.subplots(nrows=2)
         ax1.imshow(data)
+        ax1.scatter(com[1], com[0])
         ax2.imshow(labels)
+        ax2.scatter(com[1], com[0])
         plt.show()
 
     centre_x_box, centre_y_box = reversed([c + 0.5 for c in com])

@@ -694,6 +694,8 @@ class DLSTrigger(CommonService):
         path_ext = parameters("path_ext")
         if not path_ext:
             path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
+        shelxc_path = parameters("shelxc_path")
+        fast_ep_path = parameters("fast_ep_path")
 
         msg = rw.payload
         big_ep_parameters = {
@@ -724,6 +726,8 @@ class DLSTrigger(CommonService):
                 "ispyb_process": jobid,
                 "pipeline": pipeline,
                 "path_ext": path_ext,
+                "shelxc_path": shelxc_path,
+                "fast_ep_path": fast_ep_path,
                 "msg": rw.payload,
             },
         }

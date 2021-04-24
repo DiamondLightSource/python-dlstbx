@@ -9,9 +9,16 @@ from argparse import Namespace
 from jinja2.environment import Environment
 from jinja2.loaders import PackageLoader
 from jinja2.exceptions import UndefinedError
-from dlstbx.util import big_ep_helpers
-from dlstbx.util import processing_stats
 from dlstbx.util.symlink import create_parent_symlink
+from dlstbx.util.big_ep_helpers import (
+    copy_results,
+    send_results_to_ispyb,
+    ispyb_write_model_json,
+    write_coot_script,
+    write_sequence_file,
+    spacegroup_short,
+)
+from dlstbx.util.processing_stats import get_model_data
 
 logger = logging.getLogger("dlstbx.wrap.autoSHARP")
 
@@ -25,7 +32,7 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
         os.symlink(working_directory.join("autoSHARP"), self.msg._wd)
         os.symlink(results_directory.join("autoSHARP"), self.msg._results_wd)
 
-        big_ep_helpers.write_sequence_file(self.msg, working_directory.strpath)
+        write_sequence_file(self.msg, working_directory.strpath)
 
         try:
             self.msg.enableArpWarp = self.msg.resolution < 2.5
@@ -33,9 +40,7 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
             self.msg.enableArpWarp = False
 
         if hasattr(self.msg, "spacegroup"):
-            self.msg.spacegroup = big_ep_helpers.spacegroup_short(
-                self.msg.spacegroup, logger
-            )
+            self.msg.spacegroup = spacegroup_short(self.msg.spacegroup, logger)
 
         shutil.copyfile(
             self.msg.hklin, working_directory.join(os.path.basename(self.msg.hklin))
@@ -79,33 +84,16 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
                             )
                         else:
                             mdl_dict.update({"fwt": "FWT", "phwt": "PHWT", "fom": None})
-                        try:
-                            mdl_dict.update(
-                                processing_stats.get_pdb_chain_stats(
-                                    mdl_dict["pdb"], logger
-                                )
-                            )
+                        model_data = get_model_data(self.msg._wd, mdl_dict, logger)
+                        if model_data is None:
+                            return
 
-                            (
-                                map_filename,
-                                mapcc,
-                                mapcc_dmin,
-                            ) = processing_stats.get_mapfile_stats(
-                                self.msg._wd, mdl_dict, logger
-                            )
-                            mdl_dict["map"] = map_filename
-                            mdl_dict["mapcc"] = mapcc
-                            mdl_dict["mapcc_dmin"] = mapcc_dmin
-
-                        except Exception:
-                            logger.exception("autoSHARP results parsing error")
-                        self.msg.model = mdl_dict
-                        big_ep_helpers.ispyb_write_model_json(self.msg, logger)
-                        return self.msg
-                logger.error("Cannot find record with autoSHARP output files")
+                        mdl_dict.update(model_data)
+                        return mdl_dict
+                logger.info("Cannot find record with autoSHARP output files")
                 return None
         except IOError:
-            logger.exception("Cannot find .autoSHARP results file")
+            logger.info("Cannot find .autoSHARP results file")
             return None
 
     def run(self):
@@ -168,24 +156,32 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
             )
             logger.debug(result["stdout"])
             logger.debug(result["stderr"])
-        try:
-            self.get_autosharp_model_files(working_directory.strpath)
-        except Exception:
+        mdl_dict = self.get_autosharp_model_files(working_directory.strpath)
+        if mdl_dict is None:
             if success:
                 logger.exception("Error reading autoSHARP model files")
+            else:
+                logger.info("Cannot process autoSHARP results")
             return False
+
+        self.msg.model = mdl_dict
+        ispyb_write_model_json(self.msg, logger)
+        write_coot_script(self.msg._wd, mdl_dict)
 
         if "devel" not in params:
             if params.get("results_directory"):
-                big_ep_helpers.copy_results(
+                copy_results(
                     working_directory.strpath, results_directory.strpath, logger
                 )
                 if params.get("create_symlink"):
                     create_parent_symlink(
                         results_directory.strpath, f"autoSHARP-{ppl}", levels=1
                     )
-                return big_ep_helpers.send_results_to_ispyb(
-                    self.msg._results_wd, self.record_result_individual_file, logger
+                return send_results_to_ispyb(
+                    self.msg._results_wd,
+                    mdl_dict,
+                    params.get("log_files"),
+                    self.record_result_individual_file,
                 )
             else:
                 logger.debug("Result directory not specified")

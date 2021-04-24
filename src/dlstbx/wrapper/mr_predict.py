@@ -196,6 +196,7 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
                                 "file_path": str(results_directory),
                                 "file_name": mr_result.name,
                                 "file_type": "result",
+                                "importance_rank": 1,
                             }
                         )
                     except Exception:

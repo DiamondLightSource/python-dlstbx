@@ -138,6 +138,7 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
                         "file_path": destination.dirname,
                         "file_name": destination.basename,
                         "file_type": filetype,
+                        "importance_rank": 1,
                     }
                 )
 

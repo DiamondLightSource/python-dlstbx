@@ -10,9 +10,15 @@ from jinja2.exceptions import UndefinedError
 
 import py
 from dlstbx.util.symlink import create_parent_symlink
-from dlstbx.util import processing_stats
-from dlstbx.util import big_ep_helpers
 import shutil
+from dlstbx.util.processing_stats import get_model_data
+from dlstbx.util.big_ep_helpers import (
+    ispyb_write_model_json,
+    write_coot_script,
+    send_results_to_ispyb,
+    copy_results,
+    write_sequence_file,
+)
 
 
 logger = logging.getLogger("dlstbx.wrap.autobuild")
@@ -29,7 +35,7 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
         if not os.path.exists(self.msg._wd):
             os.makedirs(self.msg._wd)
 
-        big_ep_helpers.write_sequence_file(self.msg)
+        write_sequence_file(self.msg)
 
         self.msg.autosol_hklin = os.path.join(
             self.msg._wd, os.path.basename(self.msg.hklin)
@@ -48,23 +54,12 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
             "phwt": "PHWT",
             "fom": None,
         }
-        try:
-            mdl_dict.update(
-                processing_stats.get_pdb_chain_stats(mdl_dict["pdb"], logger)
-            )
+        model_data = get_model_data(self.msg._wd, mdl_dict, logger)
+        if model_data is None:
+            return
 
-            (map_filename, mapcc, mapcc_dmin) = processing_stats.get_mapfile_stats(
-                self.msg._wd, mdl_dict, logger
-            )
-            if map_filename:
-                mdl_dict["map"] = map_filename
-                mdl_dict["mapcc"] = mapcc
-                mdl_dict["mapcc_dmin"] = mapcc_dmin
-
-            self.msg.model = mdl_dict
-            big_ep_helpers.ispyb_write_model_json(self.msg, logger)
-        except Exception:
-            logger.info("Cannot process AutoBuild results files")
+        mdl_dict.update(model_data)
+        return mdl_dict
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -156,24 +151,33 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
             )
             logger.debug(result["stdout"])
             logger.debug(result["stderr"])
-        try:
-            self.get_autobuild_model_files()
-        except Exception:
+
+        mdl_dict = self.get_autobuild_model_files()
+        if mdl_dict is None:
             if success:
                 logger.exception("Error reading AutoBuild results")
+            else:
+                logger.info("Cannot process AutoBuild results")
             return False
+
+        self.msg.model = mdl_dict
+        ispyb_write_model_json(self.msg, logger)
+        write_coot_script(self.msg._wd, mdl_dict)
 
         if "devel" not in params:
             if params.get("results_directory"):
-                big_ep_helpers.copy_results(
+                copy_results(
                     working_directory.strpath, results_directory.strpath, logger
                 )
                 if params.get("create_symlink"):
                     create_parent_symlink(
                         results_directory.strpath, f"AutoBuild-{ppl}", levels=1
                     )
-                return big_ep_helpers.send_results_to_ispyb(
-                    self.msg._results_wd, self.record_result_individual_file, logger
+                return send_results_to_ispyb(
+                    self.msg._results_wd,
+                    mdl_dict,
+                    params.get("log_files"),
+                    self.record_result_individual_file,
                 )
             else:
                 logger.debug("Result directory not specified")

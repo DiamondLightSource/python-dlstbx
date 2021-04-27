@@ -114,7 +114,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
                         results_directory.strpath, params["create_symlink"]
                     )
             for f in working_directory.listdir():
-                if f.basename.startswith("shelxc"):
+                if f.ext in [".log", ".hkl", ".sh", ".ins", ".cif"]:
                     f.copy(results_directory)
         except NameError:
             logger.debug(

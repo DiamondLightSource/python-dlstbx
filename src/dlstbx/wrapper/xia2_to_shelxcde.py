@@ -87,7 +87,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
             logger.debug("SHELXC log is empty")
             return False
 
-        shelxc_log = os.path.join(working_directory.strpath, "shelxc.log")
+        shelxc_log = os.path.join(working_directory.strpath, "results_shelxc.log")
         with open(shelxc_log, "w") as fp:
             fp.write(result["stdout"].decode("latin1"))
 

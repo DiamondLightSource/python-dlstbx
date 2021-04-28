@@ -32,15 +32,7 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
 
     message, parameters = ispyb_filter(message, parameters)
 
-    assert message == {"dummy_msg": mock.sentinel.dummy_msg, "default_recipe": mock.ANY}
-    for service in [
-        "per-image-analysis-rotation",
-        "processing-fast-dp",
-        "processing-xia2-3dii",
-        "processing-xia2-dials",
-        "processing-autoproc",
-    ]:
-        assert service in message["default_recipe"]
+    assert message == {"dummy_msg": mock.sentinel.dummy_msg}
     assert parameters["ispyb_beamline"] == "i03"
     assert parameters["ispyb_dcid"] == ds["gphl_C2"]
     assert isinstance(parameters["ispyb_dc_class"], dict)
@@ -76,7 +68,7 @@ def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples():
         parameters = {"ispyb_dcid": dcid}
         print(f"{example}: {dcid}")
         message, parameters = ispyb_filter(message, parameters)
-        assert message == {"default_recipe": mock.ANY}
+        assert message == {}
         assert len(parameters) > 10
 
 

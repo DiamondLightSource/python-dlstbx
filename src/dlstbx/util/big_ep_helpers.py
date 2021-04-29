@@ -293,6 +293,7 @@ def get_map_model_from_json(json_path):
     with open(abs_json_path) as json_file:
         msg_json = json.load(json_file)
     return {
+        "mtz": msg_json["mtz"],
         "pdb": msg_json["pdb"],
         "map": msg_json["map"],
         "data": {
@@ -387,8 +388,9 @@ def copy_results(working_directory, results_directory, logger):
         logger.warning("Failed to run sed command to update paths", exc_info=True)
 
 
-def send_results_to_ispyb(results_directory, mdl_dict, log_files, record_result):
+def send_results_to_ispyb(results_directory, log_files, record_result):
     result = False
+    mdl_dict = get_map_model_from_json(results_directory)
     try:
         for key in ["pdb", "map", "mtz"]:
             fp = mdl_dict[key]
@@ -415,4 +417,12 @@ def send_results_to_ispyb(results_directory, mdl_dict, log_files, record_result)
                     "importance_rank": 1,
                 }
             )
+    record_result(
+        {
+            "file_path": results_directory,
+            "file_name": "big_ep_model_ispyb.json",
+            "file_type": "Result",
+            "importance_rank": 2,
+        }
+    )
     return result

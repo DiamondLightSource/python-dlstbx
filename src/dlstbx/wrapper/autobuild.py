@@ -174,8 +174,7 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
                         results_directory.strpath, f"AutoBuild-{ppl}", levels=1
                     )
                 return send_results_to_ispyb(
-                    self.msg._results_wd,
-                    mdl_dict,
+                    params.get("results_directory"),
                     params.get("log_files"),
                     self.record_result_individual_file,
                 )

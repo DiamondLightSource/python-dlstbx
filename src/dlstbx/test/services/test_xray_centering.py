@@ -122,11 +122,12 @@ def test_xray_centering_invalid_parameters(mocker, tmp_path, caplog):
     with caplog.at_level(logging.ERROR):
         xc.add_pia_result(rw, {"some": "header"}, message)
     assert (
-        "X-ray centering service called with invalid parameters: 1 validation error for Parameters"
+        """\
+X-ray centering service called with invalid parameters: 1 validation error for RecipeStep
+parameters -> dcid
+  value is not a valid integer (type=type_error.integer)
+"""
         in caplog.text
-    )
-    assert (
-        "dcid\n  value is not a valid integer (type=type_error.integer)" in caplog.text
     )
     caplog.clear()
 
@@ -138,7 +139,11 @@ def test_xray_centering_invalid_parameters(mocker, tmp_path, caplog):
     with caplog.at_level(logging.ERROR):
         xc.add_pia_result(rw, {"some": "header"}, message)
     assert (
-        "X-ray centering service called with invalid parameters: 1 validation error for GridInfo"
+        """\
+X-ray centering service called with invalid parameters: 1 validation error for RecipeStep
+gridinfo -> steps_x
+  field required (type=value_error.missing)
+"""
         in caplog.text
     )
     assert "steps_x\n  field required (type=value_error.missing)" in caplog.text

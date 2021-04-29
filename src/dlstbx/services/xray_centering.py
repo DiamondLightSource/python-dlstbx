@@ -69,9 +69,9 @@ class DLSXRayCentering(CommonService):
                 age = time.time() - self._centering_data[dcid].last_activity
                 if age > 15 * 60:
                     self.log.info("Expiring X-Ray Centering session for DCID %r", dcid)
-                    rw = self._centering_data[dcid]["recipewrapper"]
+                    rw = self._centering_data[dcid].recipewrapper
                     txn = rw.transport.transaction_begin()
-                    for header in self._centering_data[dcid]["headers"]:
+                    for header in self._centering_data[dcid].headers:
                         rw.transport.ack(header, transaction=txn)
                     rw.send_to("abort", {}, transaction=txn)
                     rw.transport.transaction_commit(txn)

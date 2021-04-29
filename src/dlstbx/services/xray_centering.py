@@ -37,6 +37,11 @@ class Parameters(pydantic.BaseModel):
     results_symlink: pathlib.Path = None
 
 
+class Message(pydantic.BaseModel):
+    file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
+    n_spots_total: pydantic.PositiveInt
+
+
 class CenteringData(pydantic.BaseModel):
     image_count: int
     recipewrapper: workflows.recipe.wrapper.RecipeWrapper
@@ -130,17 +135,12 @@ class DLSXRayCentering(CommonService):
                 rw.transport.nack(header)
             return
         dcid = parameters.dcid
-
-        if (
-            not message
-            or not message.get("file-number")
-            or message.get("n_spots_total") is None
-        ):
-            self.log.error("X-ray centering service called without valid payload")
+        try:
+            message = Message(**message)
+        except pydantic.ValidationError as e:
+            self.log.error("X-ray centering service called with invalid payload: %s", e)
             rw.transport.nack(header)
             return
-        file_number = message["file-number"]
-        spots_count = message["n_spots_total"]
 
         with self._centering_lock:
             if dcid in self._centering_data:
@@ -161,11 +161,11 @@ class DLSXRayCentering(CommonService):
             self.log.debug(
                 "Received PIA result for DCID %d image %d, %d of %d expected results",
                 dcid,
-                file_number,
+                message.file_number,
                 cd.images_seen,
                 gridinfo.image_count,
             )
-            cd.data[file_number - 1] = spots_count
+            cd.data[message.file_number - 1] = message.n_spots_total
 
             if cd.images_seen == gridinfo.image_count:
                 self.log.info(

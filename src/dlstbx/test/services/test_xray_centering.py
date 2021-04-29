@@ -142,3 +142,20 @@ def test_xray_centering_invalid_parameters(mocker, tmp_path, caplog):
         in caplog.text
     )
     assert "steps_x\n  field required (type=value_error.missing)" in caplog.text
+    caplog.clear()
+
+    m = generate_recipe_message(parameters, gridinfo)
+    rw = RecipeWrapper(message=m, transport=t)
+    message = {"n_spots_total": -1, "file_number": 1}
+    with caplog.at_level(logging.ERROR):
+        xc.add_pia_result(rw, {"some": "header"}, message)
+    assert (
+        """\
+X-ray centering service called with invalid payload: 2 validation errors for Message
+file-number
+  field required (type=value_error.missing)
+n_spots_total
+  ensure this value is greater than 0 (type=value_error.number.not_gt; limit_value=0)
+"""
+        in caplog.text
+    )

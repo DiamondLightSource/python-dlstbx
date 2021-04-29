@@ -1,38 +1,16 @@
 import ispyb
-from ispyb.sqlalchemy import MotionCorrection, Movie
+from ispyb.sqlalchemy import MotionCorrection
 
 
 class EM_Mixin:
-    def do_insert_movie(self, parameters, **kwargs):
-        params = self.ispyb.em_acquisition.get_movie_params()
-        for k in params.keys():
-            params[k] = parameters.get(k)
-
-        self.log.info(f"Inserting movie parameters")
-        try:
-            movieId = self.ispyb.em_acquisition.insert_movie(list(params.values()))
-        except (ispyb.ISPyBException, AssertionError) as e:
-            self.log.error(
-                "Inserting screening results: '%s' caused exception '%s'.",
-                params,
-                e,
-                exc_info=True,
-            )
-            return {"success": True, "return_value": movieId}
-
     def do_insert_ctf(self, *, parameters, session, **kwargs):
         dcid = parameters("dcid")
         self.log.info(f"Inserting CTF parameters. DCID: {dcid}")
-
-        movie_params = self.ispyb.em_acquisition.get_movie_params()
-        movie_number = movie_params["movieNumber"]
         try:
             result = self.ispyb.em_acquisition.insert_ctf(
                 ctf_id=parameters("ctf_id"),
                 motion_correction_id=self._get_motioncorrection_id(
-                    parameters("dcid"),
-                    movie_number,
-                    parameters("micrograph_full_path"),
+                    parameters("micrograph_name"),
                     parameters("program_id"),
                     session,
                 ),
@@ -65,23 +43,15 @@ class EM_Mixin:
 
     def _get_motioncorrection_id(
         self,
-        datacollectionid,
-        movie_number,
         micrographname,
         autoproc_program_id,
         db_session,
     ):
-
-        movie_query = db_session.query(Movie).filter(
-            Movie.dataCollectionId == datacollectionid,
-            Movie.movieNumber == movie_number,
+        self.log.info(
+            f"Looking for Motion Correction ID."
+            f"Micrograph name: {micrographname} APPID: {autoproc_program_id}"
         )
-        movie_id = movie_query.all()[0].movieId
         mc_query = db_session.query(MotionCorrection).filter(
-            # insert_motion_correction() doesn't currently use the DCID.
-            # The entries in the MotionCorrection table therefore don't have a DCID, so we can't filter by this value.
-            # MotionCorrection.dataCollectionId.is_(None),
-            MotionCorrection.movieId == movie_id,
             MotionCorrection.micrographFullPath == micrographname,
             MotionCorrection.autoProcProgramId == autoproc_program_id,
         )
@@ -92,25 +62,11 @@ class EM_Mixin:
             return mcid
         else:
             self.log.info(
-                f"No Motion Correction ID found. DCID: {datacollectionid}, MG: {micrographname}, APPID: {autoproc_program_id}"
+                f"No Motion Correction ID found. MG: {micrographname}, APPID: {autoproc_program_id}"
             )
             raise Exception("No Motion Correction ID found")
 
-    def do_insert_motion_correction(self, parameters, **kwargs):  # session,
-
-        # Create movie record so that we can access a DCID. The Movie and Motion Correction tables are linked.
-        # Currently don't have write access via SQLAlchemy for ispyb_zocalo user.
-        # values = Movie(dataCollectionId=6018191)
-        # session.add(values)
-        # session.commit()
-
-        # Create movie record using stored procedures for now.
-        movie_params = self.ispyb.em_acquisition.get_movie_params()
-        dc_params = self.ispyb.em_acquisition.get_data_collection_params()
-        movie_params["dataCollectionId"] = dc_params["id"]
-        movie_params["movieNumber"] = parameters("image_number")
-        self.do_insert_movie(movie_params)
-
+    def do_insert_motion_correction(self, parameters, **kwargs):
         self.log.info(f"Inserting Motion Correction parameters.")
         try:
             result = self.ispyb.em_acquisition.insert_motion_correction(
@@ -123,7 +79,7 @@ class EM_Mixin:
                 total_motion=parameters("total_motion"),
                 average_motion_per_frame=parameters("average_motion_per_frame"),
                 drift_plot_full_path=parameters("drift_plot_full_path"),
-                micrograph_full_path=parameters("micrograph_full_path"),
+                micrograph_full_path=parameters("micrograph_name"),
                 micrograph_snapshot_full_path=parameters(
                     "micrograph_snapshot_full_path"
                 ),

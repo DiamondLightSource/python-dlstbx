@@ -61,10 +61,10 @@ class EM_Mixin:
             self.log.info(f"Found Motion Correction ID: {mcid}")
             return mcid
         else:
-            self.log.info(
+            self.log.error(
                 f"No Motion Correction ID found. MG: {micrographname}, APPID: {autoproc_program_id}"
             )
-            raise Exception("No Motion Correction ID found")
+            return None
 
     def do_insert_motion_correction(self, parameters, **kwargs):
         self.log.info(f"Inserting Motion Correction parameters.")

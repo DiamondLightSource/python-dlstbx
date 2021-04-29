@@ -1,4 +1,5 @@
 import json
+import logging
 from unittest import mock
 
 import workflows.transport.common_transport
@@ -86,3 +87,58 @@ def test_xray_centering(mocker, tmp_path):
     results = json.loads(results_json.read_bytes())
     assert expected_results == results
     send_to.assert_called_with("success", expected_results, transaction=mock.ANY)
+
+
+def test_xray_centering_invalid_parameters(mocker, tmp_path, caplog):
+    # https://ispyb.diamond.ac.uk/dc/visit/cm28170-2/id/6153461
+    parameters = {
+        "dcid": "6153461",
+        "output": tmp_path / "Dials5AResults.json",
+        "log": tmp_path / "Dials5AResults.txt",
+    }
+    gridinfo = {
+        "orientation": "horizontal",
+        "snapshot_offsetYPixel": 57.0822,
+        "gridInfoId": 1337162,
+        "dx_mm": 0.04,
+        "steps_y": 5.0,
+        "pixelsPerMicronX": 0.438,
+        "steps_x": 7.0,
+        "pixelsPerMicronY": 0.438,
+        "snaked": 1,
+        "snapshot_offsetXPixel": 79.9863,
+        "dy_mm": 0.04,
+    }
+
+    mock_transport = mock.Mock()
+    xc = dlstbx.services.xray_centering.DLSXRayCentering()
+    setattr(xc, "_transport", mock_transport)
+    xc.initializing()
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+
+    m = generate_recipe_message({**parameters, "dcid": "foo"}, gridinfo)
+    rw = RecipeWrapper(message=m, transport=t)
+    message = {"n_spots_total": 10, "file-number": 1}
+    with caplog.at_level(logging.ERROR):
+        xc.add_pia_result(rw, {"some": "header"}, message)
+    assert (
+        "X-ray centering service called with invalid parameters: 1 validation error for Parameters"
+        in caplog.text
+    )
+    assert (
+        "dcid\n  value is not a valid integer (type=type_error.integer)" in caplog.text
+    )
+    caplog.clear()
+
+    m = generate_recipe_message(
+        parameters, {k: v for k, v in gridinfo.items() if k != "steps_x"}
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    message = {"n_spots_total": 10, "file-number": 1}
+    with caplog.at_level(logging.ERROR):
+        xc.add_pia_result(rw, {"some": "header"}, message)
+    assert (
+        "X-ray centering service called with invalid parameters: 1 validation error for GridInfo"
+        in caplog.text
+    )
+    assert "steps_x\n  field required (type=value_error.missing)" in caplog.text

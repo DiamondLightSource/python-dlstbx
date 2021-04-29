@@ -37,9 +37,14 @@ class Parameters(pydantic.BaseModel):
     results_symlink: pathlib.Path = None
 
 
+class RecipeStep(pydantic.BaseModel):
+    parameters: Parameters
+    gridinfo: GridInfo
+
+
 class Message(pydantic.BaseModel):
     file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
-    n_spots_total: pydantic.PositiveInt
+    n_spots_total: pydantic.NonNegativeInt
 
 
 class CenteringData(pydantic.BaseModel):
@@ -109,8 +114,9 @@ class DLSXRayCentering(CommonService):
         """Process incoming PIA result."""
 
         try:
-            parameters = Parameters(**rw.recipe_step.get("parameters", {}))
-            gridinfo = GridInfo(**rw.recipe_step.get("gridinfo", {}))
+            recipe_step = RecipeStep(**rw.recipe_step)
+            parameters = recipe_step.parameters
+            gridinfo = recipe_step.gridinfo
         except pydantic.ValidationError as e:
             self.log.error(
                 "X-ray centering service called with invalid parameters: %s", e

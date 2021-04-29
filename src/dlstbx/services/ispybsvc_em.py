@@ -14,7 +14,7 @@ class EM_Mixin:
                     parameters("program_id"),
                     session,
                 ),
-                auto_proc_program_id=parameters("auto_proc_program_id"),
+                auto_proc_program_id=parameters("program_id"),
                 box_size_x=parameters("box_size_x"),
                 box_size_y=parameters("box_size_y"),
                 min_resolution=parameters("min_resolution"),

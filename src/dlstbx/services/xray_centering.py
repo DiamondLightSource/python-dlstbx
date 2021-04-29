@@ -1,11 +1,11 @@
-import errno
 import json
 import dataclasses
-import os
+import pathlib
 import threading
 import time
 
 import numpy as np
+import pydantic
 
 import dlstbx.util.symlink
 import dlstbx.util.xray_centering
@@ -13,24 +13,47 @@ import workflows.recipe
 from workflows.services.common_service import CommonService
 
 
-@dataclasses.dataclass
-class CenteringData:
+class GridInfo(pydantic.BaseModel):
     steps_x: int
     steps_y: int
-    headers: list
-    recipewrapper: dict
-    last_activity: float = dataclasses.field(default_factory=time.time)
-
-    def __post_init__(self):
-        self.data = np.empty(self.image_count, dtype=int)
+    dx_mm: float
+    dy_mm: float
+    pixelsPerMicronX: float
+    pixelsPerMicronY: float
+    snapshot_offsetXPixel: float
+    snapshot_offsetYPixel: float
+    snaked: bool
+    orientation: dlstbx.util.xray_centering.Orientation
 
     @property
-    def image_count(self):
-        return int(self.steps_x * self.steps_y)
+    def image_count(self) -> int:
+        return self.steps_x * self.steps_y
+
+
+class Parameters(pydantic.BaseModel):
+    dcid: int
+    output: pathlib.Path = None
+    log: pathlib.Path = None
+    results_symlink: pathlib.Path = None
+
+
+class CenteringData(pydantic.BaseModel):
+    image_count: int
+    recipewrapper: workflows.recipe.wrapper.RecipeWrapper
+    headers: list = pydantic.Field(default_factory=list)
+    last_activity: float = pydantic.Field(default_factory=time.time)
+    data: np.ndarray = None
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.data = np.empty(self.image_count, dtype=int)
 
     @property
     def images_seen(self):
         return len(self.headers)
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class DLSXRayCentering(CommonService):
@@ -80,13 +103,16 @@ class DLSXRayCentering(CommonService):
     def add_pia_result(self, rw, header, message):
         """Process incoming PIA result."""
 
-        parameters = rw.recipe_step.get("parameters")
-        if not parameters or not parameters.get("dcid"):
-            self.log.error("X-ray centering service called without recipe parameters")
+        try:
+            parameters = Parameters(**rw.recipe_step.get("parameters", {}))
+            gridinfo = GridInfo(**rw.recipe_step.get("gridinfo", {}))
+        except pydantic.ValidationError as e:
+            self.log.error(
+                "X-ray centering service called with invalid parameters: %s", e
+            )
             rw.transport.nack(header)
             return
-        gridinfo = rw.recipe_step.get("gridinfo")
-        if not gridinfo or not isinstance(gridinfo, dict):
+        if not gridinfo:
             if (
                 rw.recipe_step.get("comment")
                 and "Diffraction grid scan of 1 by 1 images"
@@ -103,7 +129,7 @@ class DLSXRayCentering(CommonService):
                 )
                 rw.transport.nack(header)
             return
-        dcid = int(parameters["dcid"])
+        dcid = parameters.dcid
 
         if (
             not message
@@ -121,15 +147,13 @@ class DLSXRayCentering(CommonService):
                 cd = self._centering_data[dcid]
             else:
                 cd = CenteringData(
-                    steps_x=int(gridinfo["steps_x"]),
-                    steps_y=int(gridinfo["steps_y"]),
-                    headers=[],
+                    image_count=gridinfo.image_count,
                     recipewrapper=rw,
                 )
                 self._centering_data[dcid] = cd
                 self.log.info(
                     f"First record arrived for X-ray centering on DCID {dcid}, "
-                    f"{cd.steps_x} x {cd.steps_y} grid, {cd.image_count} images in total"
+                    f"{gridinfo.steps_x} x {gridinfo.steps_y} grid, {gridinfo.image_count} images in total"
                 )
 
             cd.last_activity = time.time()
@@ -139,48 +163,39 @@ class DLSXRayCentering(CommonService):
                 dcid,
                 file_number,
                 cd.images_seen,
-                cd.image_count,
+                gridinfo.image_count,
             )
             cd.data[file_number - 1] = spots_count
 
-            if cd.images_seen == cd.image_count:
+            if cd.images_seen == gridinfo.image_count:
                 self.log.info(
                     "All records arrived for X-ray centering on DCID %d", dcid
                 )
                 result, output = dlstbx.util.xray_centering.main(
                     cd.data,
-                    steps=(cd.steps_x, cd.steps_y),
+                    steps=(gridinfo.steps_x, gridinfo.steps_y),
                     box_size_px=(
-                        1000 * gridinfo["dx_mm"] / gridinfo["pixelsPerMicronX"],
-                        1000 * gridinfo["dy_mm"] / gridinfo["pixelsPerMicronY"],
+                        1000 * gridinfo.dx_mm / gridinfo.pixelsPerMicronX,
+                        1000 * gridinfo.dy_mm / gridinfo.pixelsPerMicronY,
                     ),
                     snapshot_offset=(
-                        float(gridinfo.get("snapshot_offsetXPixel")),
-                        float(gridinfo.get("snapshot_offsetYPixel")),
+                        gridinfo.snapshot_offsetXPixel,
+                        gridinfo.snapshot_offsetYPixel,
                     ),
-                    snaked=bool(gridinfo.get("snaked")),
-                    orientation=dlstbx.util.xray_centering.Orientation[
-                        gridinfo["orientation"].upper()
-                    ],
+                    snaked=gridinfo.snaked,
+                    orientation=gridinfo.orientation,
                 )
                 self.log.debug(output)
 
                 # Write result file
-                if parameters.get("output"):
+                if parameters.output:
                     self.log.info(
                         "Writing X-Ray centering results for DCID %d to %s",
                         dcid,
-                        parameters["output"],
+                        parameters.output,
                     )
-                    path = os.path.dirname(parameters["output"])
-                    try:
-                        os.makedirs(path)
-                    except OSError as exc:
-                        if exc.errno == errno.EEXIST and os.path.isdir(path):
-                            pass
-                        else:
-                            raise
-                    with open(parameters["output"], "w") as fh:
+                    parameters.output.parent.mkdir(parents=True, exist_ok=True)
+                    with parameters.output.open("w") as fh:
 
                         def convert(o):
                             if isinstance(o, np.integer):
@@ -193,24 +208,16 @@ class DLSXRayCentering(CommonService):
                             sort_keys=True,
                             default=convert,
                         )
-                    if parameters.get("results_symlink"):
+                    if parameters.results_symlink:
                         # Create symbolic link above working directory
                         dlstbx.util.symlink.create_parent_symlink(
-                            path, parameters["results_symlink"]
+                            parameters.output.parent, parameters.results_symlink
                         )
 
                 # Write human-readable result file
-                if parameters.get("log"):
-                    path = os.path.dirname(parameters["log"])
-                    try:
-                        os.makedirs(path)
-                    except OSError as exc:
-                        if exc.errno == errno.EEXIST and os.path.isdir(path):
-                            pass
-                        else:
-                            raise
-                    with open(parameters["log"], "w") as fh:
-                        fh.write(output)
+                if parameters.log:
+                    parameters.log.parent.mkdir(parents=True, exist_ok=True)
+                    parameters.log.write_text(output)
 
                 # Acknowledge all messages
                 txn = rw.transport.transaction_begin()

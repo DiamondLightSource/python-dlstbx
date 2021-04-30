@@ -4,21 +4,25 @@ from ispyb.sqlalchemy import MotionCorrection
 
 class EM_Mixin:
     def do_insert_ctf(self, *, parameters, session, **kwargs):
-        params = self.ispyb.em_acquisition.get_data_collection_params()
-        params["id"] = parameters("dcid")
         dcid = parameters("dcid")
+        micrographname = parameters("micrograph_name")
+        appid = parameters("program_id")
+        mcid = self._get_motioncorrection_id(
+            micrographname,
+            appid,
+            session,
+        )
+        if mcid is None:
+            self.log.error(
+                f"No Motion Correction ID found. MG: {micrographname}, APPID: {appid}"
+            )
+            return False
         self.log.info(f"Inserting CTF parameters. DCID: {dcid}")
-
         try:
             result = self.ispyb.em_acquisition.insert_ctf(
                 ctf_id=parameters("ctf_id"),
-                motion_correction_id=self._get_motioncorrection_id(
-                    parameters("dcid"),
-                    parameters("micrograph_full_path"),
-                    parameters("program_id"),
-                    session,
-                ),
-                auto_proc_program_id=parameters("auto_proc_program_id"),
+                motion_correction_id=mcid,
+                auto_proc_program_id=parameters("program_id"),
                 box_size_x=parameters("box_size_x"),
                 box_size_y=parameters("box_size_y"),
                 min_resolution=parameters("min_resolution"),
@@ -46,24 +50,24 @@ class EM_Mixin:
             return False
 
     def _get_motioncorrection_id(
-        self, datacollectionid, micrographname, autoproc_program_id, db_session
+        self,
+        micrographname,
+        autoproc_program_id,
+        db_session,
     ):
-        query = db_session.query(MotionCorrection).filter(
-            # insert_motion_correction() doesn't currently use the DCID. The entries in the MotionCorrection table therefore don't have a DCID, so we can't filter by this value.
-            MotionCorrection.dataCollectionId.is_(None),
+        self.log.info(
+            f"Looking for Motion Correction ID. Micrograph name: {micrographname} APPID: {autoproc_program_id}"
+        )
+        mc_query = db_session.query(MotionCorrection).filter(
             MotionCorrection.micrographFullPath == micrographname,
             MotionCorrection.autoProcProgramId == autoproc_program_id,
         )
-        results = query.all()
+        results = mc_query.all()
         if results:
             mcid = results[0].motionCorrectionId
             self.log.info(f"Found Motion Correction ID: {mcid}")
             return mcid
         else:
-            self.log.info(
-                f"No Motion Correction ID found. DCID: {datacollectionid}, MG: {micrographname}, APPID: {autoproc_program_id}"
-            )
-            # raise Exception("No Motion Correction ID found")
             return None
 
     def do_insert_motion_correction(self, parameters, **kwargs):
@@ -79,7 +83,7 @@ class EM_Mixin:
                 total_motion=parameters("total_motion"),
                 average_motion_per_frame=parameters("average_motion_per_frame"),
                 drift_plot_full_path=parameters("drift_plot_full_path"),
-                micrograph_full_path=parameters("micrograph_full_path"),
+                micrograph_full_path=parameters("micrograph_name"),
                 micrograph_snapshot_full_path=parameters(
                     "micrograph_snapshot_full_path"
                 ),

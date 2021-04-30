@@ -56,8 +56,7 @@ class EM_Mixin:
         db_session,
     ):
         self.log.info(
-            f"Looking for Motion Correction ID."
-            f"Micrograph name: {micrographname} APPID: {autoproc_program_id}"
+            f"Looking for Motion Correction ID. Micrograph name: {micrographname} APPID: {autoproc_program_id}"
         )
         mc_query = db_session.query(MotionCorrection).filter(
             MotionCorrection.micrographFullPath == micrographname,

@@ -111,16 +111,13 @@ class EM_Mixin:
     def do_insert_class2d(self, parameters, **kwargs):
         # This gives some output we can read from; ISPyB doesn't have fields for Class 2D yet
 
-        dcid = parameters("datacollection_id")
-        ref_image = parameters("reference_image")
-        self.log.info(f"Would insert Class 2D parameters. DCID: {dcid} {ref_image}")
+        dcid = parameters("dcid")
+        self.log.info(f"Would insert Class 2D parameters. DCID: {dcid}")
         return {"success": True, "return_value": None}
 
     def do_insert_class3d(self, parameters, **kwargs):
         # This gives some output we can read from; ISPyB doesn't have fields for Class 3D yet
 
-        dcid = parameters("datacollection_id")
-        ref_image = parameters("reference_image")
-
-        self.log.info(f"Would insert Class 3D parameters. DCID: {dcid} {ref_image}")
+        dcid = parameters("dcid")
+        self.log.info(f"Would insert Class 3D parameters. DCID: {dcid}")
         return {"success": True, "return_value": None}

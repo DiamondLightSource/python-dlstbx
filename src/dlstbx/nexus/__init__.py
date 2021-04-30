@@ -22,3 +22,9 @@ def get_dxtbx_goniometer(sample):
             flex.std_string(axes.names),
             int(np.where(axes.is_scan_axis)[0][0]),
         )
+
+
+def get_dxtbx_beam(beam):
+    return dxtbx.model.BeamFactory.make_beam(
+        sample_to_source=(0, 0, 1), wavelength=beam.incident_wavelength
+    )

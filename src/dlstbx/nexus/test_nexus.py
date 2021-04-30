@@ -11,3 +11,11 @@ def test_get_dxtbx_goniometer(nxmx_example):
     assert list(gonio.get_axes()) == [(1.0, 0.0, 0.0), (0.0, 0.0, 1.0), (1.0, 0.0, 0.0)]
     assert list(gonio.get_names()) == ["phi", "chi", "omega"]
     assert gonio.get_scan_axis() == 2
+
+
+def test_get_dxtbx_beam(nxmx_example):
+    instrument = dlstbx.nexus.nxmx.NXmx(nxmx_example).entries[0].instruments[0]
+    beam = dlstbx.nexus.get_dxtbx_beam(instrument.beams[0])
+    assert isinstance(beam, dxtbx.model.Beam)
+    assert beam.get_wavelength() == 0.976223
+    assert beam.get_sample_to_source_direction() == (0.0, 0.0, 1.0)

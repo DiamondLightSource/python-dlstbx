@@ -50,11 +50,7 @@ def gridscan3d(
         # Reverse the direction of every second column
         data[:, :, 1::2] = data[:, ::-1, 1::2]
 
-    nx, ny = data.shape[1:]
-    grid3d = np.zeros((nx, ny, ny))
-    for i in range(nx):
-        grid3d[i, :, :] = np.outer(data[0][i, :], data[1][i, :])
-
+    grid3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
     max_idx = tuple(r[0] for r in np.where(grid3d == grid3d.max()))
 
     if plot:
@@ -68,6 +64,7 @@ def gridscan3d(
             ax.yaxis.set_major_locator(MaxNLocator(integer=True))
         plt.show()
 
+        nx = grid3d.shape[0]
         vmax = grid3d[max_idx]
         fig, axes = plt.subplots(nrows=1, ncols=nx)
         for i in range(nx):

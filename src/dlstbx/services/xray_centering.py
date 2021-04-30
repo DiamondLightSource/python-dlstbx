@@ -3,12 +3,14 @@ import dataclasses
 import pathlib
 import threading
 import time
+from typing import List
 
 import numpy as np
 import pydantic
 
 import dlstbx.util.symlink
 import dlstbx.util.xray_centering
+import dlstbx.util.xray_centering_3d
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -36,9 +38,10 @@ class Parameters(pydantic.BaseModel):
     "Recipe parameters used by the X-ray centering service"
 
     dcid: int
+    dcg_dcids: List[int] = None
     output: pathlib.Path = None
     log: pathlib.Path = None
-    results_symlink: pathlib.Path = None
+    results_symlink: str = None
 
 
 class RecipeStep(pydantic.BaseModel):
@@ -52,7 +55,7 @@ class Message(pydantic.BaseModel):
 
 
 class CenteringData(pydantic.BaseModel):
-    image_count: int
+    gridinfo: GridInfo
     recipewrapper: workflows.recipe.wrapper.RecipeWrapper
     headers: list = pydantic.Field(default_factory=list)
     last_activity: float = pydantic.Field(default_factory=time.time)
@@ -60,7 +63,7 @@ class CenteringData(pydantic.BaseModel):
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.data = np.empty(self.image_count, dtype=int)
+        self.data = np.empty(self.gridinfo.image_count, dtype=int)
 
     @property
     def images_seen(self):
@@ -145,6 +148,7 @@ class DLSXRayCentering(CommonService):
                 rw.transport.nack(header)
             return
         dcid = parameters.dcid
+        dcg_dcids = parameters.dcg_dcids
         try:
             message = Message(**message)
         except pydantic.ValidationError as e:
@@ -157,7 +161,7 @@ class DLSXRayCentering(CommonService):
                 cd = self._centering_data[dcid]
             else:
                 cd = CenteringData(
-                    image_count=gridinfo.image_count,
+                    gridinfo=gridinfo,
                     recipewrapper=rw,
                 )
                 self._centering_data[dcid] = cd
@@ -177,7 +181,46 @@ class DLSXRayCentering(CommonService):
             )
             cd.data[message.file_number - 1] = message.n_spots_total
 
-            if cd.images_seen == gridinfo.image_count:
+            if dcg_dcids and cd.images_seen == gridinfo.image_count:
+                data = [cd.data]
+                for _dcid in dcg_dcids:
+                    _cd = self._centering_data.get(_dcid)
+                    if not _cd:
+                        break
+                    if _cd.images_seen != _cd.gridinfo.image_count:
+                        break
+                    data.append(_cd.data)
+                else:
+                    # All results present
+                    self.log.info(
+                        f"All records arrived for X-ray centering on DCIDs {dcg_dcids + [dcid]}"
+                    )
+
+                    result = dlstbx.util.xray_centering_3d.gridscan3d(
+                        data=np.array(data),
+                        steps=(gridinfo.steps_x, gridinfo.steps_y),
+                        snaked=gridinfo.snaked,
+                        orientation=gridinfo.orientation,
+                        plot=False,
+                    )
+                    self.log.info(f"3D X-ray centering result: {result}")
+
+                    # Acknowledge all messages
+                    txn = rw.transport.transaction_begin()
+                    for _dcid in dcg_dcids + [dcid]:
+                        cd = self._centering_data[_dcid]
+                        for h in cd.headers:
+                            rw.transport.ack(h, transaction=txn)
+
+                    # Send results onwards
+                    rw.set_default_channel("success")
+                    rw.send_to("success", result, transaction=txn)
+                    rw.transport.transaction_commit(txn)
+
+                    for _dcid in dcg_dcids + [dcid]:
+                        del self._centering_data[_dcid]
+
+            elif cd.images_seen == gridinfo.image_count:
                 self.log.info(
                     "All records arrived for X-ray centering on DCID %d", dcid
                 )
@@ -221,7 +264,7 @@ class DLSXRayCentering(CommonService):
                     if parameters.results_symlink:
                         # Create symbolic link above working directory
                         dlstbx.util.symlink.create_parent_symlink(
-                            parameters.output.parent, parameters.results_symlink
+                            str(parameters.output.parent), parameters.results_symlink
                         )
 
                 # Write human-readable result file

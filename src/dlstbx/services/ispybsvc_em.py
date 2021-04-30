@@ -5,15 +5,23 @@ from ispyb.sqlalchemy import MotionCorrection
 class EM_Mixin:
     def do_insert_ctf(self, *, parameters, session, **kwargs):
         dcid = parameters("dcid")
+        micrographname = parameters("micrograph_name")
+        appid = parameters("program_id")
+        mcid = self._get_motioncorrection_id(
+            micrographname,
+            appid,
+            session,
+        )
+        if mcid is None:
+            self.log.error(
+                f"No Motion Correction ID found. MG: {micrographname}, APPID: {appid}"
+            )
+            return False
         self.log.info(f"Inserting CTF parameters. DCID: {dcid}")
         try:
             result = self.ispyb.em_acquisition.insert_ctf(
                 ctf_id=parameters("ctf_id"),
-                motion_correction_id=self._get_motioncorrection_id(
-                    parameters("micrograph_name"),
-                    parameters("program_id"),
-                    session,
-                ),
+                motion_correction_id=mcid,
                 auto_proc_program_id=parameters("program_id"),
                 box_size_x=parameters("box_size_x"),
                 box_size_y=parameters("box_size_y"),
@@ -61,9 +69,6 @@ class EM_Mixin:
             self.log.info(f"Found Motion Correction ID: {mcid}")
             return mcid
         else:
-            self.log.error(
-                f"No Motion Correction ID found. MG: {micrographname}, APPID: {autoproc_program_id}"
-            )
             return None
 
     def do_insert_motion_correction(self, parameters, **kwargs):

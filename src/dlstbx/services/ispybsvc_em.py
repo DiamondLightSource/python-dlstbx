@@ -104,19 +104,32 @@ class EM_Mixin:
             )
             return False
 
+    def do_insert_particle_picker(self, parameters, **kwargs):
+        # We don't yet have a way of inserting information from this message
+
+        appid = parameters("program_id")
+        dcid = parameters("dcid")
+        self.log.info(
+            f"Would insert particle picker parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
+        return {"success": True, "return_value": None}
+
     def do_insert_class2d(self, parameters, **kwargs):
         # This gives some output we can read from; ISPyB doesn't have fields for Class 2D yet
 
-        dcid = parameters("datacollection_id")
-        ref_image = parameters("reference_image")
-        self.log.info(f"Would insert Class 2D parameters. DCID: {dcid} {ref_image}")
+        appid = parameters("program_id")
+        dcid = parameters("dcid")
+        self.log.info(
+            f"Would insert Class 2D parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
         return {"success": True, "return_value": None}
 
     def do_insert_class3d(self, parameters, **kwargs):
         # This gives some output we can read from; ISPyB doesn't have fields for Class 3D yet
 
-        dcid = parameters("datacollection_id")
-        ref_image = parameters("reference_image")
-
-        self.log.info(f"Would insert Class 3D parameters. DCID: {dcid} {ref_image}")
+        appid = parameters("program_id")
+        dcid = parameters("dcid")
+        self.log.info(
+            f"Would insert Class 3D parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
         return {"success": True, "return_value": None}

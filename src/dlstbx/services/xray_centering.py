@@ -14,6 +14,8 @@ from workflows.services.common_service import CommonService
 
 
 class GridInfo(pydantic.BaseModel):
+    "The subset of GridInfo fields required by the X-ray centering service"
+
     steps_x: int
     steps_y: int
     dx_mm: float
@@ -31,6 +33,8 @@ class GridInfo(pydantic.BaseModel):
 
 
 class Parameters(pydantic.BaseModel):
+    "Recipe parameters used by the X-ray centering service"
+
     dcid: int
     output: pathlib.Path = None
     log: pathlib.Path = None

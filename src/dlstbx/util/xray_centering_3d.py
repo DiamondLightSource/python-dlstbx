@@ -1,8 +1,14 @@
 from typing import Tuple
 
+import logging
+import math
 import numpy as np
+import scipy.ndimage
 
 from dlstbx.util.xray_centering import Orientation
+
+
+logger = logging.getLogger(__name__)
 
 
 def gridscan3d(
@@ -52,6 +58,8 @@ def gridscan3d(
 
     grid3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
     max_idx = tuple(r[0] for r in np.where(grid3d == grid3d.max()))
+    com = [c + 0.5 for c in scipy.ndimage.center_of_mass(grid3d)]
+    logger.info(f"Max pixel: {max_idx}\nCentre of mass: {com}")
 
     if plot:
         import matplotlib.pyplot as plt
@@ -72,6 +80,8 @@ def gridscan3d(
             axes[i].yaxis.set_major_locator(MaxNLocator(integer=True))
             if i == max_idx[0]:
                 axes[i].scatter(max_idx[2], max_idx[1], marker="x", c="red")
+            if i == math.floor(com[0]):
+                axes[i].scatter(com[2], com[1], marker="x", c="grey")
         plt.show()
 
     return max_idx

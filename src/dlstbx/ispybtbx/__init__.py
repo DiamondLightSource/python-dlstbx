@@ -365,6 +365,18 @@ class ispybtbx:
             )
             return {"dcids": list(itertools.chain.from_iterable(query.all()))}
 
+    def get_dcg_dcids(self, dc_info):
+        dcid = dc_info.get("dataCollectionId")
+        dcgid = dc_info.get("dataCollectionGroupId")
+        if not dcgid:
+            return
+        with Session() as session:
+            query = session.query(isa.DataCollection.dataCollectionId).filter(
+                isa.DataCollection.dataCollectionGroupId == dcgid,
+                isa.DataCollection.dataCollectionId != dcid,
+            )
+            return list(itertools.chain.from_iterable(query.all()))
+
     def get_space_group_and_unit_cell(self, dcid):
         with Session() as session:
             query = (
@@ -831,6 +843,7 @@ def ispyb_filter(message, parameters):
     if related_dcids:
         parameters["ispyb_related_dcids"].append(related_dcids)
     logger.debug(f"ispyb_related_dcids: {parameters['ispyb_related_dcids']}")
+    parameters["ispyb_dcg_dcids"] = i.get_dcg_dcids(dc_info)
 
     if (
         "ispyb_processing_job" in parameters

@@ -105,19 +105,27 @@ class EM_Mixin:
 
         appid = parameters("program_id")
         dcid = parameters("dcid")
-        self.log.info(f"Would insert particle picker parameters. AutoProcProgramID: {appid}, DCID: {dcid}")
+        self.log.info(
+            f"Would insert particle picker parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
         return {"success": True, "return_value": None}
 
     def do_insert_class2d(self, parameters, **kwargs):
         # This gives some output we can read from; ISPyB doesn't have fields for Class 2D yet
 
+        appid = parameters("program_id")
         dcid = parameters("dcid")
-        self.log.info(f"Would insert Class 2D parameters. DCID: {dcid}")
+        self.log.info(
+            f"Would insert Class 2D parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
         return {"success": True, "return_value": None}
 
     def do_insert_class3d(self, parameters, **kwargs):
         # This gives some output we can read from; ISPyB doesn't have fields for Class 3D yet
 
+        appid = parameters("program_id")
         dcid = parameters("dcid")
-        self.log.info(f"Would insert Class 3D parameters. DCID: {dcid}")
+        self.log.info(
+            f"Would insert Class 3D parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
         return {"success": True, "return_value": None}

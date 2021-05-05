@@ -221,7 +221,6 @@ def simulate(
     StompTransport.load_configuration_file(default_configuration)
     stomp = StompTransport()
     stomp.connect()
-    stomp.send()
 
     dispatcher_message = {"parameters": {"ispyb_process": procjobid}}
 

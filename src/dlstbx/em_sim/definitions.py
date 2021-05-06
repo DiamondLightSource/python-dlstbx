@@ -23,6 +23,10 @@ def ctf_res_dict():
     return res
 
 
+frame_numbers = (
+    list(range(21, 32)) + list(range(35, 38)) + [39, 40] + list(range(42, 50))
+)
+
 tests = {
     "relion": {
         "dcid": 6258983,
@@ -42,8 +46,8 @@ tests = {
             "stop_after_ctf_estimation": "false",
         },
         "results": {
-            "motion_correction": tuple(motion_corr_res_dict(i) for i in range(21, 50)),
-            "ctf": tuple(ctf_res_dict() for i in range(21, 50)),
+            "motion_correction": tuple(motion_corr_res_dict(i) for i in frame_numbers),
+            "ctf": tuple(ctf_res_dict() for i in frame_numbers),
         },
     },
 }

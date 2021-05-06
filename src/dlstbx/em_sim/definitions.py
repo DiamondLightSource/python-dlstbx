@@ -26,13 +26,13 @@ def ctf_res_dict():
 tests = {
     "relion": {
         "dcid": 6018191,
-        "src_dir": "/dls/m12/data/2021/cm28212-1/raw",
+        "src_dir": "/dls/m12/data/2021/cm28212-2/raw",
         "src_run_num": (1,),
         "src_prefix": ("",),
         "proc_params": {
             "acquisition_software": "SerialEM",
-            "import_images": "/dls/m12/data/2021/cm28212-1/raw/Frames/*.tiff",
-            "motioncor_gainreference": "/dls/m12/data/2021/cm28212-1/processing/gaim.mrc",
+            "import_images": "/dls/m12/data/2021/cm28212-2/raw/Frames/*.tiff",
+            "motioncor_gainreference": "/dls/m12/data/2021/cm28212-2/processing/gaim.mrc",
             "voltage": "200",
             "Cs": "2.7",
             "ctffind_do_phaseshift": "false",

@@ -75,7 +75,7 @@ def retrieve_motioncorr(db_session, jpid):
 
     query_results = query.all()
 
-    return [q[0] for q in query_results], autoprocpid
+    return [q for q in query_results], autoprocpid
 
 
 def retrieve_ctf(db_session, autoprocid):

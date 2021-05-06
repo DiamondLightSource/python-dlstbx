@@ -1,6 +1,5 @@
 from unittest import mock
 import pytest
-import random
 import time
 
 import dlstbx.em_sim.check
@@ -106,7 +105,7 @@ def test_check_test_outcome_success(
     db_ctf.estiamtedDefocus = 10800
     db_ctf.ccValue = 0.15
 
-    mock_mcorr.return_value = [db_motion_corr(_) for _ in range(21, 50)]
+    mock_mcorr.return_value = [db_motion_corr(_) for _ in range(21, 50)], 1
     mock_ctf.return_value = [db_ctf for _ in range(21, 50)]
 
     test = {
@@ -153,7 +152,7 @@ def test_check_test_outcome_failure(
     db_ctf.estiamtedDefocus = 10800
     db_ctf.ccValue = 0.15
 
-    mock_mcorr.return_value = [db_motion_corr(_) for _ in range(21, 50)]
+    mock_mcorr.return_value = [db_motion_corr(_) for _ in range(21, 50)], 1
     mock_ctf.return_value = [db_ctf for _ in range(21, 50)]
 
     test = {

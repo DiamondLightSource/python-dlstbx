@@ -2,7 +2,6 @@ import glob
 import logging
 import os
 import py
-import sys
 
 import procrunner
 import zocalo.wrapper
@@ -89,26 +88,17 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
             else:
                 edna_site = ""
             f.write(
-                """\
+                f"""\
 module load global/cluster
-module load %(edna_module)s
-export DCID=%(dcid)s
-export COMMENTS="%(comments)s"
-export SHORT_COMMENTS="%(short_comments)s"
-%(edna_site)s
+module load {edna_module}
+export DCID={params["dcid"]}
+export COMMENTS="{short_comments}"
+export SHORT_COMMENTS="{sparams["name"]}"
+{edna_site}
 edna-plugin-launcher \
   --execute EDPluginControlInterfacev1_2 --DEBUG \
-  --inputFile %(input_file)s \
-  --outputFile %(output_file)s"""
-                % dict(
-                    comments=short_comments,
-                    short_comments=sparams["name"],
-                    edna_module=edna_module,
-                    dcid=params["dcid"],
-                    edna_site=edna_site,
-                    input_file=strategy_xml,
-                    output_file=results_xml,
-                )
+  --inputFile {strategy_xml} \
+  --outputFile {results_xml}"""
             )
         commands = [
             "sh",
@@ -140,19 +130,23 @@ edna-plugin-launcher \
             logger.debug(result["stdout"].decode("latin1"))
             logger.debug(result["stderr"].decode("latin1"))
 
-        # generate two different html pages
-        # not sure which if any of these are actually used/required
+        wrap_edna2html_sh = working_directory.join("wrap_edna2html.sh")
         edna2html_home = "/dls_sw/apps/edna/edna-20140709"
         edna2html = os.path.join(
             edna2html_home, "libraries/EDNA2html-0.0.10a/EDNA2html"
         )
-        commands = [
-            edna2html,
-            '--title="%s"' % short_comments,
-            "--run_basename=%s/EDNAStrategy" % working_directory.strpath,
-            "--portable",
-            "--basename=%s/summary" % working_directory.strpath,
-        ]
+        with wrap_edna2html_sh.open("w") as f:
+            f.write(
+                f"""\
+module load {edna_module}
+{edna2html} \
+--title="{short_comments}" \
+--run_basename={working_directory}/EDNAStrategy \
+--portable \
+--basename={working_directory}/summary
+"""
+            )
+        commands = ["sh", wrap_edna2html_sh.strpath]
         logger.info("Running command: %s", " ".join(commands))
         result = procrunner.run(
             commands,
@@ -178,8 +172,6 @@ edna-plugin-launcher \
             )
             logger.debug(result["stdout"].decode("latin1"))
             logger.debug(result["stderr"].decode("latin1"))
-
-        self.edna2html(edna2html_home, results_xml)
 
         # copy output files to result directory
         logger.info(
@@ -385,26 +377,3 @@ edna-plugin-launcher \
         output = output + "</XSDataInputInterfacev2_2>"
 
         return output
-
-    @staticmethod
-    def edna2html(edna_home, result_xml):
-        sys.path.append(os.path.join(edna_home, "kernel", "src"))
-        from EDFactoryPluginStatic import EDFactoryPluginStatic
-
-        EDFactoryPluginStatic.loadModule("XSDataInterfacev1_2")
-        from XSDataInterfacev1_2 import XSDataResultInterface
-
-        xsDataResultInterface = XSDataResultInterface.parseFile(result_xml.strpath)
-        characterisationResult = xsDataResultInterface.resultCharacterisation
-        EDFactoryPluginStatic.loadModule("XSDataSimpleHTMLPagev1_0")
-        from XSDataSimpleHTMLPagev1_0 import XSDataInputSimpleHTMLPage
-
-        xsDataInputSimpleHTMLPage = XSDataInputSimpleHTMLPage()
-        xsDataInputSimpleHTMLPage.characterisationResult = characterisationResult
-        edPluginHTML = EDFactoryPluginStatic.loadPlugin(
-            "EDPluginExecSimpleHTMLPagev1_0"
-        )
-        edPluginHTML.dataInput = xsDataInputSimpleHTMLPage
-        edPluginHTML.executeSynchronous()
-        xsDataResult = edPluginHTML.dataOutput
-        logger.info(xsDataResult.pathToHTMLFile.path.value)

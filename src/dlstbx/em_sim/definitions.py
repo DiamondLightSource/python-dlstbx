@@ -16,8 +16,8 @@ def ctf_res_dict():
     res = {
         "astigmatism": approx(247, 0.75),
         "astigmatismAngle": approx(83, 0.75),
-        "maxEstimatedResolution": approx(5, 0.75),
-        "estiamtedDefocus": approx(10800, 0.75),
+        "estimatedResolution": approx(5, 0.75),
+        "estimatedDefocus": approx(10800, 0.75),
         "ccValue": approx(0.15, 0.75),
     }
     return res

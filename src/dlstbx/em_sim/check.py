@@ -112,8 +112,8 @@ def check_relion_outcomes(data_collection_results, expected_outcome, jpid):
         "ctf": [
             "astigmatism",
             "astigmatismAngle",
-            "maxEstimatedResolution",
-            "estiamtedDefocus",
+            "estimatedResolution",
+            "estimatedDefocus",
             "ccValue",
         ],
     }

@@ -12,7 +12,6 @@ import errno
 import logging
 import os
 import re
-import procrunner
 import shutil
 import sys
 import time
@@ -131,10 +130,7 @@ def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
         .filter(DataCollection.dataCollectionNumber == _run_number)
     )
 
-    if _prefix is None:
-        query.filter(DataCollection.imagePrefix == None)
-    else:
-        query.filter(DataCollection.imagePrefix == _prefix)
+    query.filter(DataCollection.imagePrefix == _prefix)
 
     return query.first()
     # query_results = query.all()
@@ -190,11 +186,11 @@ def simulate(
     )
 
     # Get the sessionid for the dest_visit
-    log.debug("(SQL) Getting the destination sessionid")
-    with db_session() as dbs:
-        sessionid = retrieve_sessionid(dbs, _dest_visit)
+    # log.debug("(SQL) Getting the destination sessionid")
+    # with db_session() as dbs:
+    #    sessionid = retrieve_sessionid(dbs, _dest_visit)
 
-    run_number = _src_run_number
+    # run_number = _src_run_number
 
     # at the moment just use the already existing data collection and make a new processing job
     datacollectiongroupid = src_dcgid  # data_collection_group_id
@@ -211,11 +207,11 @@ def simulate(
         "relion",
         0,
     )
-    procjobid = ispyb.mx_processing.upsert_job(proc_job_vales)
+    procjobid = ispyb.mx_processing.upsert_job(proc_job_values)
 
     for k, v in proc_params.items():
         job_param_values = (0, procjobid, k, v)
-        procjobparamid = ispyb.mx_processing.upsert_job_parameter(job_param_vales)
+        ispyb.mx_processing.upsert_job_parameter(job_param_values)
 
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
     StompTransport.load_configuration_file(default_configuration)
@@ -273,11 +269,6 @@ def call_sim(test_name, beamline):
         sys.exit(
             "ERROR: The src_dir parameter does not appear to contain a valid visit directory."
         )
-
-    start_script = f"{EM_SCRIPTS_DIR}/RunAtStartOfCollect-{beamline}.sh"
-    if not os.path.exists(start_script):
-        log.error("The file %s was not found.", start_script)
-        sys.exit(1)
 
     # Create destination directory
     log.debug("Creating directory %s", dest_dir)

@@ -30,10 +30,9 @@ def check_test_outcome(test):
     for jpid in test["JobIDs"]:
         data_collection_results[jpid] = {}
         with db_session() as dbs:
-            data_collection_results[jpid]["motion_correction"] = retrieve_motioncorr(
-                dbs, jpid
-            )
-            data_collection_results[jpid]["ctf"] = retrieve_ctf(dbs, jpid)
+            motioncorr_data, autoprocpid = retrieve_motioncorr(dbs, jpid)
+            data_collection_results[jpid]["motion_correction"] = motioncorr_data
+            data_collection_results[jpid]["ctf"] = retrieve_ctf(dbs, autoprocpid)
         outcomes = check_relion_outcomes(
             data_collection_results, expected_outcome, jpid
         )
@@ -57,24 +56,29 @@ def check_test_outcome(test):
 
 
 def retrieve_motioncorr(db_session, jpid):
-    query = (
-        db_session.query(MotionCorrection, AutoProcProgram)
+    autoproc_query = (
+        db_session.query(AutoProcProgram)
         .options(
             Load(AutoProcProgram).load_only("autoProcProgramId", "processingJobId"),
-        )
-        .join(
-            AutoProcProgram,
-            AutoProcProgram.autoProcProgramId == MotionCorrection.autoProcProgramId,
         )
         .filter(AutoProcProgram.processingJobId == jpid)
     )
 
+    autoproc_query_result = autoproc_query.order_by(
+        AutoProcProgram.autoProcProgramId.desc()
+    ).first()
+    autoprocpid = autoproc_query_result.autoProcProgramId
+
+    query = db_session.query(MotionCorrection).filter(
+        MotionCorrection.autoProcProgramId == autoprocpid
+    )
+
     query_results = query.all()
 
-    return [q[0] for q in query_results]
+    return [q[0] for q in query_results], autoprocpid
 
 
-def retrieve_ctf(db_session, jpid):
+def retrieve_ctf(db_session, autoprocid):
     query = (
         db_session.query(CTF, MotionCorrection)
         .join(
@@ -92,9 +96,9 @@ def check_relion_outcomes(data_collection_results, expected_outcome, jpid):
     all_programs = [
         "relion",
     ]
-    error_explanation = (
-        "{variable}: {value} outside range {expected}, program: {program}, JobID:{jpid}"
-    )
+    # error_explanation = (
+    #    "{variable}: {value} outside range {expected}, program: {program}, JobID:{jpid}"
+    # )
     outcomes = {program: {"success": None} for program in all_programs}
 
     failure_reasons = []

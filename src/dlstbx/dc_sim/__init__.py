@@ -76,6 +76,7 @@ def populate_blsample_xml_template(_row):
         s(_row["comments"]),
         s(_row["blsamplestatus"]),
         s(_row["lastknowncenteringposition"]),
+        s(_row["crystalid"]),
     )
 
     # remove lines with null, nan and -1 values:
@@ -216,6 +217,7 @@ blsample_xml = (
     "<blSampleStatus>%s</blSampleStatus>"
     "<isInSampleChanger>False</isInSampleChanger>"
     "<lastKnownCenteringPosition>%s</lastKnownCenteringPosition>"
+    "<crystalId>%s</crystalId>"
     "</BLSample>"
 )
 
@@ -404,7 +406,7 @@ def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
 def retrieve_blsample_values(_db, _src_blsampleid):
     _db.cursor.execute(
         "SELECT blsampleid, name, code, location, holderlength, looplength, looptype, wirewidth, comments, "
-        "blsamplestatus, lastknowncenteringposition "
+        "blsamplestatus, lastknowncenteringposition, crystalid "
         "FROM BLSample "
         "WHERE blsampleid=%d " % _src_blsampleid
     )
@@ -451,6 +453,7 @@ def simulate(
     _dest_visit_dir,
     _dest_dir,
     _sample_id,
+    copy_sample_id=None,
     data_collection_group_id=None,
     scenario_name=None,
 ):
@@ -507,7 +510,10 @@ def simulate(
     log.debug("(SQL) Getting values from the source datacollectiongroup record")
     dcg_row = retrieve_datacollection_group_values(_db, src_dcgid)
 
-    src_blsampleid = dcg_row["blsampleid"]
+    if copy_sample_id:
+        src_blsampleid = copy_sample_id
+    else:
+        src_blsampleid = dcg_row["blsampleid"]
 
     log.debug(
         "(filesystem) Copy the xtal snapshot(s) (if any) from source to target directories"
@@ -690,6 +696,8 @@ def call_sim(test_name, beamline):
 
     src_dir = scenario["src_dir"]
     sample_id = scenario.get("use_sample_id")
+    copy_sample_id = scenario.get("copy_sample_id")
+    assert not all([sample_id, copy_sample_id])
     src_prefix = scenario["src_prefix"]
 
     # Calculate the destination directory
@@ -786,6 +794,7 @@ def call_sim(test_name, beamline):
                 dest_visit_dir,
                 dest_dir,
                 sample_id,
+                copy_sample_id=copy_sample_id,
                 data_collection_group_id=dcg,
                 scenario_name=test_name,
             )

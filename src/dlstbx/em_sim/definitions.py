@@ -4,21 +4,21 @@ from pytest import approx
 def motion_corr_res_dict(image_number):
     res = {
         "micrographFullPath": f"MotionCorr/job002/Movies/Frames/20170629_000{image_number}_frameImage.mrc",
-        "totalMotion": approx(250, 0.2),
+        "totalMotion": approx(15, 0.75),
         # "early_motion": approx(2.5, 0.5),
         # "late_motion": approx(15, 2),
-        "averageMotionPerFrame": approx(16, 0.2),
+        "averageMotionPerFrame": approx(16, 0.75),
     }
     return res
 
 
 def ctf_res_dict():
     res = {
-        "astigmatism": approx(247, 0.2),
-        "astigmatismAngle": approx(83, 0.2),
-        "maxEstimatedResolution": approx(5, 0.2),
-        "estiamtedDefocus": approx(10800, 0.2),
-        "ccValue": approx(0.15, 0.2),
+        "astigmatism": approx(247, 0.75),
+        "astigmatismAngle": approx(83, 0.75),
+        "maxEstimatedResolution": approx(5, 0.75),
+        "estiamtedDefocus": approx(10800, 0.75),
+        "ccValue": approx(0.15, 0.75),
     }
     return res
 

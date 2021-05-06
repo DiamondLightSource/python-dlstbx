@@ -195,13 +195,13 @@ module load {edna_module}
             tmpdir = pathlib.Path(params["temporary_directory"])
         else:
             tmpdir = working_directory / ".image-tmp"
-        tmpdir.ensure(dir=True)
+        tmpdir.mkdir(parents=True, exist_ok=True)
         master_h5 = os.path.join(params["image_directory"], params["image_template"])
         prefix = params["image_template"].split("master.h5")[0]
         params["image_pattern"] = prefix + "%04d.cbf"
         logger.info("Image pattern: %s", params["image_pattern"])
         logger.info(
-            "Converting %s to %s" % (master_h5, tmpdir.join(params["image_pattern"]))
+            "Converting %s to %s" % (master_h5, tmpdir / (params["image_pattern"]))
         )
         result = procrunner.run(
             ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],

@@ -1,6 +1,6 @@
-import glob
 import logging
 import os
+import pathlib
 import py
 
 import procrunner
@@ -226,7 +226,7 @@ module load {edna_module}
             logger.debug(result["stdout"].decode("latin1"))
             logger.debug(result["stderr"].decode("latin1"))
         params["orig_image_directory"] = params["image_directory"]
-        params["image_directory"] = tmpdir
+        params["image_directory"] = str(tmpdir)
         return success
 
     def generate_modified_headers(
@@ -235,34 +235,32 @@ module load {edna_module}
         params = self.recwrap.recipe_step["job_parameters"]
 
         def behead(cif_in, cif_out):
-            logger.info(f"Writing modified file {cif_in} to {cif_out.strpath}")
-            assert os.path.exists(cif_in)
-            assert not cif_out.check()
+            logger.info(f"Writing modified file {cif_in} to {cif_out}")
+            assert cif_in.exists(), cif_in
+            assert not cif_out.exists(), cif_out
 
-            with open(cif_in, "rb") as fh:
-                data = fh.read()
+            data = cif_in.read_bytes()
 
             if b"# This and all subsequent lines will" in data:
                 head = data.split(b"# This and all subsequent lines will")[0]
                 tail = data.split(b"CBF_BYTE_OFFSET little_endian")[-1]
                 data = head + tail
 
-            cif_out.write_binary(data)
+            cif_out.write_bytes(data)
 
-        working_directory = py.path.local(params["working_directory"])
-        tmpdir = working_directory.join("image-tmp")
-        tmpdir.ensure(dir=True)
+        if params.get("temporary_directory"):
+            tmpdir = pathlib.Path(params["temporary_directory"])
+        else:
+            tmpdir = pathlib.Path(params["working_directory"]) / ".image-tmp"
+        tmpdir.mkdir(parents=True, exist_ok=True)
 
-        template = os.path.join(params["image_directory"], params["image_template"])
-
-        g = glob.glob(template.replace("#", "?"))
-        logger.info(template)
-        logger.info(g)
-        for f in g:
-            behead(f, tmpdir.join(os.path.basename(f)))
+        image_directory = pathlib.Path(params["image_directory"])
+        template = params["image_template"].replace("#", "?")
+        for f in image_directory.glob(template):
+            behead(f, tmpdir / f.name)
 
         params["orig_image_directory"] = params["image_directory"]
-        params["image_directory"] = tmpdir
+        params["image_directory"] = str(tmpdir)
 
     def make_edna_xml(
         self,
@@ -325,7 +323,7 @@ module load {edna_module}
         # 3) Echo out the full path for each image.
 
         logger.info(str(list(params.keys())))
-        image_directory = params["image_directory"]
+        image_directory = pathlib.Path(params["image_directory"])
         image_first = int(params["image_first"])
         image_last = int(params["image_last"])
 
@@ -339,7 +337,7 @@ module load {edna_module}
 
         logger.info(f"{image_pattern} {image_first}:{image_last}")
         for i_image in range(image_first, image_last + 1):
-            image_file_name = image_directory.join(image_pattern % i_image)
+            image_file_name = image_directory / (image_pattern % i_image)
             output = (
                 output
                 + """

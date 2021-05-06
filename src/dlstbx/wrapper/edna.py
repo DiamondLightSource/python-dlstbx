@@ -1,7 +1,7 @@
 import logging
 import os
 import pathlib
-import py
+import shutil
 
 import procrunner
 import zocalo.wrapper
@@ -14,12 +14,14 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
-        logger.info("working_directory: %s" % working_directory.strpath)
-        working_directory.ensure(dir=True)
+        working_directory = pathlib.Path(params["working_directory"])
+        results_directory = pathlib.Path(params["results_directory"])
+        working_directory.mkdir(parents=True)
+        results_directory.mkdir(parents=True, exist_ok=True)
+        logger.info("working_directory: {working_directory}")
+        assert working_directory.is_dir()
         try:  # set Synchweb to swirl
-            results_directory.join("summary.html").ensure()
+            (results_directory / "summary.html").touch()
         except OSError:
             pass  # it'll be fine
 
@@ -56,8 +58,8 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
 
         multiplicity = sparams["multiplicity"]
         i_over_sig_i = sparams["i_over_sig_i"]
-        EDNAStrategy = working_directory.join("EDNAStrategy")
-        EDNAStrategy.ensure(dir=True)
+        EDNAStrategy = working_directory / "EDNAStrategy"
+        EDNAStrategy.mkdir()
         with open("%s.xml" % EDNAStrategy, "w") as f:
             f.write(
                 self.make_edna_xml(
@@ -76,19 +78,17 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
             i_over_sig_i,
             strategy_lifespan,
         )
-        with working_directory.join("Strategy.txt").open("w") as f:
-            f.write(short_comments)
+        (working_directory / "Strategy.txt").write_text(short_comments)
 
-        strategy_xml = working_directory.join("EDNAStrategy.xml")
-        results_xml = working_directory.join("results.xml")
-        wrap_edna_sh = working_directory.join("wrap_edna.sh")
-        with wrap_edna_sh.open("w") as f:
-            if beamline == "i24":
-                edna_site = "export EDNA_SITE=DLS_i24"
-            else:
-                edna_site = ""
-            f.write(
-                f"""\
+        strategy_xml = working_directory / "EDNAStrategy.xml"
+        results_xml = working_directory / "results.xml"
+        if beamline == "i24":
+            edna_site = "export EDNA_SITE=DLS_i24"
+        else:
+            edna_site = ""
+        wrap_edna_sh = working_directory / "wrap_edna.sh"
+        wrap_edna_sh.write_text(
+            f"""\
 module load global/cluster
 module load {edna_module}
 export DCID={params["dcid"]}
@@ -99,14 +99,14 @@ edna-plugin-launcher \
   --execute EDPluginControlInterfacev1_2 --DEBUG \
   --inputFile {strategy_xml} \
   --outputFile {results_xml}"""
-            )
+        )
         commands = [
             "sh",
-            wrap_edna_sh.strpath,
-            strategy_xml.strpath,
-            results_xml.strpath,
+            wrap_edna_sh,
+            strategy_xml,
+            results_xml,
         ]
-        logger.info("Running command: %s", " ".join(commands))
+        logger.info("Running command: %s", " ".join(str(c) for c in commands))
         result = procrunner.run(
             commands,
             working_directory=EDNAStrategy,
@@ -130,14 +130,13 @@ edna-plugin-launcher \
             logger.debug(result["stdout"].decode("latin1"))
             logger.debug(result["stderr"].decode("latin1"))
 
-        wrap_edna2html_sh = working_directory.join("wrap_edna2html.sh")
+        wrap_edna2html_sh = working_directory / "wrap_edna2html.sh"
         edna2html_home = "/dls_sw/apps/edna/edna-20140709"
         edna2html = os.path.join(
             edna2html_home, "libraries/EDNA2html-0.0.10a/EDNA2html"
         )
-        with wrap_edna2html_sh.open("w") as f:
-            f.write(
-                f"""\
+        wrap_edna2html_sh.write_text(
+            f"""\
 module load {edna_module}
 {edna2html} \
 --title="{short_comments}" \
@@ -145,9 +144,9 @@ module load {edna_module}
 --portable \
 --basename={working_directory}/summary
 """
-            )
-        commands = ["sh", wrap_edna2html_sh.strpath]
-        logger.info("Running command: %s", " ".join(commands))
+        )
+        commands = ["sh", wrap_edna2html_sh]
+        logger.info("Running command: %s", " ".join(str(c) for c in commands))
         result = procrunner.run(
             commands,
             working_directory=working_directory,
@@ -174,31 +173,28 @@ module load {edna_module}
             logger.debug(result["stderr"].decode("latin1"))
 
         # copy output files to result directory
-        logger.info(
-            "Copying results from %s to %s"
-            % (working_directory.strpath, results_directory.strpath)
-        )
+        logger.info(f"Copying results from {working_directory} to {results_directory}")
 
         source_dir = working_directory / "EDNAStrategy"
         dest_dir = results_directory / ("EDNA%s" % sparams["name"])
-        source_dir.copy(dest_dir)
+        shutil.copytree(source_dir, dest_dir)
         src = working_directory / "EDNAStrategy.xml"
         dst = results_directory / ("EDNA%s.xml" % sparams["name"])
-        src.copy(dst)
+        shutil.copy(src, dst)
         for fname in ("summary.html", "results.xml"):
             src = working_directory / fname
             dst = results_directory / fname
-            if src.check() and (not dst.check() or dst.size() == 0):
-                src.copy(dst)
+            if src.is_file() and (not dst.is_file() or dst.stat().st_size == 0):
+                shutil.copy(src, dst)
         return success
 
     def hdf5_to_cbf(self):
         params = self.recwrap.recipe_step["job_parameters"]
-        working_directory = py.path.local(params["working_directory"])
+        working_directory = pathlib.Path(params["working_directory"])
         if params.get("temporary_directory"):
-            tmpdir = py.path.local(params["temporary_directory"])
+            tmpdir = pathlib.Path(params["temporary_directory"])
         else:
-            tmpdir = working_directory.join(".image-tmp")
+            tmpdir = working_directory / ".image-tmp"
         tmpdir.ensure(dir=True)
         master_h5 = os.path.join(params["image_directory"], params["image_template"])
         prefix = params["image_template"].split("master.h5")[0]

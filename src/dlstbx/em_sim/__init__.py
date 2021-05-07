@@ -241,7 +241,7 @@ def call_sim(test_name, beamline):
     proposal = "cm28212"
 
     for cm_dir in os.listdir(f"/dls/{beamline}/data/{now:%Y}"):
-        if cm_dir.startswith(proposal + "-" + str(scenario["src_run_num"][0])):
+        if cm_dir.startswith(proposal + "-" + str(scenario["src_dc_version"][0])):
             dest_visit = cm_dir
             break
     else:

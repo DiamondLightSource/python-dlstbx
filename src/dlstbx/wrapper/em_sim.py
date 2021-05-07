@@ -41,5 +41,5 @@ class EMSimWrapper(zocalo.wrapper.BaseWrapper):
         else:
             logger.error("Simulated data collection failed")
 
-        self.recwrap.send_to("em_sim", result)
+        self.recwrap.send_to("dc_sim", result)
         return bool(dcids)

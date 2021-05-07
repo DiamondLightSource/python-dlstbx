@@ -44,6 +44,13 @@ def run():
         dest="test",
         help="Run in ActiveMQ testing (zocdev) namespace",
     )
+
+    parser.add_option(
+        "--em", action="store_true", dest="em_flag", help="Only check EM related tests"
+    )
+
+    options, args = parser.parse_args()
+
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
     if "--test" in sys.argv:
         default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
@@ -124,25 +131,28 @@ def run():
     # Check all test runs that do not yet have a definite outcome
     for testruns in test_results.values():
         for testrun in testruns:
-            if testrun.get("success") is None:
-                print("Verifying", testrun)
-                dlstbx.dc_sim.check.check_test_outcome(testrun, ispyb_conn)
-                # 3 possible outcomes:
-                # The test can be successful (testrun['success'] = True)
-                # it can fail (testrun['success'] = False; testrun['reason'] set)
-                # or it can be inconclusive (eg. because results are missing)
-                # in which case no changes are made
-
-            if (
-                testrun.get("success") is None
-                and testrun["time_end"] < time.time() - test_timeout
+            if (options.get("em_flag") and testrun.get("scenario") == "relion") or (
+                not options.get("em_flag") and testrun.get("scenario") != "relion"
             ):
-                print("Rejecting with timeout:", testrun)
-                testrun["success"] = False
-                existing_reason = testrun.get("reason")
-                testrun["reason"] = "No valid results appeared within timeout"
-                if existing_reason:
-                    testrun["reason"] += " (%s)" % existing_reason
+                if testrun.get("success") is None:
+                    print("Verifying", testrun)
+                    dlstbx.dc_sim.check.check_test_outcome(testrun, ispyb_conn)
+                    # 3 possible outcomes:
+                    # The test can be successful (testrun['success'] = True)
+                    # it can fail (testrun['success'] = False; testrun['reason'] set)
+                    # or it can be inconclusive (eg. because results are missing)
+                    # in which case no changes are made
+
+                if (
+                    testrun.get("success") is None
+                    and testrun["time_end"] < time.time() - test_timeout
+                ):
+                    print("Rejecting with timeout:", testrun)
+                    testrun["success"] = False
+                    existing_reason = testrun.get("reason")
+                    testrun["reason"] = "No valid results appeared within timeout"
+                    if existing_reason:
+                        testrun["reason"] += " (%s)" % existing_reason
 
     # Show all known test results
     from pprint import pprint

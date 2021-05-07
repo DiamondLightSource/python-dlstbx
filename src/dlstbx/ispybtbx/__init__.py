@@ -11,7 +11,7 @@ import ispyb.sqlalchemy as isa
 import marshmallow.fields
 import sqlalchemy
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from sqlalchemy.orm import Load, aliased, joinedload, sessionmaker
+from sqlalchemy.orm import Load, aliased, joinedload, sessionmaker, selectinload
 
 
 logger = logging.getLogger("dlstbx.ispybtbx")
@@ -117,10 +117,13 @@ class ispybtbx:
                 query = (
                     session.query(isa.ProcessingJob)
                     .options(
-                        joinedload(isa.ProcessingJob.ProcessingJobParameters),
-                        joinedload(
-                            isa.ProcessingJob.ProcessingJobImageSweeps
-                        ).joinedload(isa.ProcessingJobImageSweep.DataCollection),
+                        selectinload(isa.ProcessingJob.ProcessingJobParameters),
+                        selectinload(isa.ProcessingJob.ProcessingJobImageSweeps)
+                        .selectinload(isa.ProcessingJobImageSweep.DataCollection)
+                        .load_only(
+                            isa.DataCollection.imageDirectory,
+                            isa.DataCollection.fileTemplate,
+                        ),
                     )
                     .filter(isa.ProcessingJob.processingJobId == reprocessing_id)
                 )

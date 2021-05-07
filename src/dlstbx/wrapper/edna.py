@@ -200,7 +200,7 @@ module load {edna_module}
         params["image_pattern"] = prefix + "%04d.cbf"
         logger.info("Image pattern: %s", params["image_pattern"])
         logger.info(
-            "Converting %s to %s" % (master_h5, tmpdir / (params["image_pattern"]))
+            "Converting %s to %s", master_h5, tmpdir / (params["image_pattern"])
         )
         result = procrunner.run(
             ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],

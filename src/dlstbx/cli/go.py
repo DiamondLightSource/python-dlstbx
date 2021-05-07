@@ -187,12 +187,7 @@ def run():
         key, value = kv.split("=", 1)
         message["parameters"][key] = value
 
-    if (
-        not options.recipe
-        and not options.recipefile
-        and not (options.default and not options.nodcid)
-        and not options.reprocess
-    ):
+    if not options.recipe and not options.recipefile and not options.reprocess:
         sys.exit("No recipes specified.")
 
     if options.recipefile:

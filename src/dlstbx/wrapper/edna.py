@@ -19,7 +19,6 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
         working_directory.mkdir(parents=True)
         results_directory.mkdir(parents=True, exist_ok=True)
         logger.info("working_directory: {working_directory}")
-        assert working_directory.is_dir()
         try:  # set Synchweb to swirl
             (results_directory / "summary.html").touch()
         except OSError:

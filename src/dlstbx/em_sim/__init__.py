@@ -167,9 +167,9 @@ def simulate(
 
     # create symlink to Movies data
     log.info(
-        f"Created symlink between {pathlib.Path(_src_dir) / 'raw'} and {pathlib.Path(_dest_dir) / 'raw'}"
+        f"Created symlink between {_src_dir} and {pathlib.Path(_dest_dir) / 'raw'}"
     )
-    os.symlink(pathlib.Path(_src_dir) / "raw", pathlib.Path(_dest_dir) / "raw")
+    os.symlink(_src_dir, pathlib.Path(_dest_dir) / "raw")
 
     i = ispyb.open()
 
@@ -192,6 +192,7 @@ def simulate(
             dcparams[key] = getattr(row, attr)
         dcparams["parentid"] = datacollectiongroupid
         dcparams["imgdir"] = str(pathlib.Path(_dest_dir) / "raw")
+        dcparams["visitid"] = src_sessionid
         datacollectionid = i.mx_acquisition.upsert_data_collection(
             list(dcparams.values())
         )
@@ -220,7 +221,7 @@ def simulate(
             job_param_values = (None, procjobid, k, v)
         else:
             job_param_values = (None, procjobid, k, _dest_dir + "/raw/Frames/*.tiff")
-        ispyb.mx_processing.upsert_job_parameter(job_param_values)
+        i.mx_processing.upsert_job_parameter(job_param_values)
 
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
     StompTransport.load_configuration_file(default_configuration)

@@ -129,7 +129,7 @@ class DLSXRayCentering(CommonService):
                 self._centering_data[dcid] = cd
                 self.log.info(
                     f"First record arrived for X-ray centering on DCID {dcid}, "
-                    "{cd.steps_x} x {cd.steps_y} grid, {cd.image_count} images in total"
+                    f"{cd.steps_x} x {cd.steps_y} grid, {cd.image_count} images in total"
                 )
 
             cd.last_activity = time.time()

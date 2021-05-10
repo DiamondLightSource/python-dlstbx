@@ -12,10 +12,12 @@ import errno
 import logging
 import os
 import re
+import pathlib
 import shutil
 import sys
 import time
 import uuid
+import ispyb
 import ispyb.sqlalchemy
 import sqlalchemy
 import sqlalchemy.orm
@@ -27,11 +29,6 @@ import dlstbx.em_sim.definitions
 import dlstbx.dc_sim.mydb
 
 log = logging.getLogger("dlstbx.em_sim")
-
-# Constants
-EM_SCRIPTS_DIR = "/dls_sw/apps/EM/sim-scripts"
-DBSERVER_HOST = "sci-serv3"
-DBSERVER_PORT = "2611"
 
 
 def f(_v):
@@ -133,17 +130,6 @@ def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
     query.filter(DataCollection.imagePrefix == _prefix)
 
     return query.first()
-    # query_results = query.all()
-    # required_lines = []
-    # for q in query_results:
-    #    required_lines.append([q.getattr(r) for r in records_to_collect])
-
-    # desc = [d.lower() for d in records_to_collect]
-    # result = [dict(zip(desc, line)) for line in required_lines]
-
-    # if not result[0].get("datacollectionid"):
-    #    sys.exit("Could not find the datacollectionid for visit %s" % _dir)
-    # return result[0]
 
 
 def simulate(
@@ -179,38 +165,55 @@ def simulate(
     src_dcid = int(row.dataCollectionId)
     src_dcgid = int(row.dataCollectionGroupId)
 
+    # create symlink to Movies data
+    os.symlink(pathlib.Path(_src_dir) / "raw", pathlib.Path(_dest_dir) / "raw")
+
+    i = ispyb.open()
+
+    if data_collection_group_id is None:
+        dcgparams = i.mx_acquisition.get_data_collection_group_params()
+        dcgparams["parentid"] = src_sessionid
+        dcgparams["experimenttype"] = "EM"
+        dcgparams["comments"] = "Created for simulated data collection"
+        datacollectiongroupid = i.mx_acquisition.upsert_data_collection_group(
+            list(dcgparams.values())
+        )
+        dcparams = i.mx_acquisition.get_data_collection_params()
+        key_maps = {
+            "runStatus": "run_status",
+            "imageSuffix": "imgsuffix",
+            "fileTemplate": "file_template",
+            "comments": "comments",
+        }
+        for attr, key in key_maps.items():
+            dcparams[key] = getattr(row, attr)
+        dcparams["parentid"] = datacollectiongroupid
+        dcparams["imgdir"] = pathlib.Path(_dest_dir) / "raw"
+        datacollectionid = i.mx_acquisition.upsert_data_collection(
+            list(dcparams.values())
+        )
+    else:
+        datacollectiongroupid = data_collection_group_id
+        datacollectionid = src_dcid
+
     log.debug(
         "Source dataset from DCID %r, DCGID %r",
         src_dcid,
         src_dcgid,
     )
 
-    # Get the sessionid for the dest_visit
-    # log.debug("(SQL) Getting the destination sessionid")
-    # with db_session() as dbs:
-    #    sessionid = retrieve_sessionid(dbs, _dest_visit)
+    # nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # run_number = _src_run_number
-
-    # at the moment just use the already existing data collection and make a new processing job
-    datacollectiongroupid = src_dcgid  # data_collection_group_id
-    datacollectionid = src_dcid
-
-    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    proc_job_values = (
-        0,
-        datacollectionid,
-        "RELION",
-        "Submitted as a test",
-        nowstr,
-        "relion",
-        0,
-    )
-    procjobid = ispyb.mx_processing.upsert_job(proc_job_values)
+    proc_job_values = i.mx_processing.get_job_params()
+    proc_job_values["datacollectionid"] = datacollectionid
+    proc_job_values["display_name"] = "RELION"
+    proc_job_values["comments"] = "Submitted as part of simulated data collection"
+    proc_job_values["recipe"] = "relion"
+    proc_job_values["automatic"] = 0
+    procjobid = i.mx_processing.upsert_job(list(proc_job_values.values()))
 
     for k, v in proc_params.items():
-        job_param_values = (0, procjobid, k, v)
+        job_param_values = (None, procjobid, k, v)
         ispyb.mx_processing.upsert_job_parameter(job_param_values)
 
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"

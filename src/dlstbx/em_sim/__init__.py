@@ -166,6 +166,9 @@ def simulate(
     src_dcgid = int(row.dataCollectionGroupId)
 
     # create symlink to Movies data
+    log.info(
+        f"Created symlink between {pathlib.Path(_src_dir) / 'raw'} and {pathlib.Path(_dest_dir) / 'raw'}"
+    )
     os.symlink(pathlib.Path(_src_dir) / "raw", pathlib.Path(_dest_dir) / "raw")
 
     i = ispyb.open()
@@ -188,7 +191,7 @@ def simulate(
         for attr, key in key_maps.items():
             dcparams[key] = getattr(row, attr)
         dcparams["parentid"] = datacollectiongroupid
-        dcparams["imgdir"] = pathlib.Path(_dest_dir) / "raw"
+        dcparams["imgdir"] = str(pathlib.Path(_dest_dir) / "raw")
         datacollectionid = i.mx_acquisition.upsert_data_collection(
             list(dcparams.values())
         )
@@ -213,7 +216,10 @@ def simulate(
     procjobid = i.mx_processing.upsert_job(list(proc_job_values.values()))
 
     for k, v in proc_params.items():
-        job_param_values = (None, procjobid, k, v)
+        if k != "import_images":
+            job_param_values = (None, procjobid, k, v)
+        else:
+            job_param_values = (None, procjobid, k, _dest_dir + "/raw/Frames/*.tiff")
         ispyb.mx_processing.upsert_job_parameter(job_param_values)
 
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"

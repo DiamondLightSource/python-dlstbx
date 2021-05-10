@@ -131,9 +131,17 @@ def run():
     # Check all test runs that do not yet have a definite outcome
     for testruns in test_results.values():
         for testrun in testruns:
-            if (options.get("em_flag") and testrun.get("scenario") == "relion") or (
-                not options.get("em_flag") and testrun.get("scenario") != "relion"
-            ):
+            if options.get("em_flag") and testrun.get("scenario") == "relion":
+                if testrun.get("success") is None:
+                    print("Verifying", testrun)
+                    dlstbx.em_sim.check.check_test_outcome(testrun)
+                    # 3 possible outcomes:
+                    # The test can be successful (testrun['success'] = True)
+                    # it can fail (testrun['success'] = False; testrun['reason'] set)
+                    # or it can be inconclusive (eg. because results are missing)
+                    # in which case no changes are made
+
+            elif testrun.get("scenario") != "relion" and not options.get("em_flag"):
                 if testrun.get("success") is None:
                     print("Verifying", testrun)
                     dlstbx.dc_sim.check.check_test_outcome(testrun, ispyb_conn)
@@ -143,16 +151,21 @@ def run():
                     # or it can be inconclusive (eg. because results are missing)
                     # in which case no changes are made
 
-                if (
-                    testrun.get("success") is None
-                    and testrun["time_end"] < time.time() - test_timeout
-                ):
-                    print("Rejecting with timeout:", testrun)
-                    testrun["success"] = False
-                    existing_reason = testrun.get("reason")
-                    testrun["reason"] = "No valid results appeared within timeout"
-                    if existing_reason:
-                        testrun["reason"] += " (%s)" % existing_reason
+            if (
+                testrun.get("success") is None
+                and testrun["time_end"] < time.time() - test_timeout
+            ):
+                print("Rejecting with timeout:", testrun)
+                testrun["success"] = False
+                existing_reason = testrun.get("reason")
+                testrun["reason"] = "No valid results appeared within timeout"
+                if existing_reason:
+                    testrun["reason"] += " (%s)" % existing_reason
+                if options.get("em_flag") and testrun.get("scenario") == "relion":
+                    stop_message = {
+                        "parameters": {"ispyb_process": testrun["JobIDs"][0]}
+                    }
+                    stomp.send("relion.dev.stop", stop_message)
 
     # Show all known test results
     from pprint import pprint

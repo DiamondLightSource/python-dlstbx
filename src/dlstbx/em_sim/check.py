@@ -33,6 +33,11 @@ def check_test_outcome(test):
             motioncorr_data, autoprocpid = retrieve_motioncorr(dbs, jpid)
             data_collection_results[jpid]["motion_correction"] = motioncorr_data
             data_collection_results[jpid]["ctf"] = retrieve_ctf(dbs, autoprocpid)
+        if (
+            len(data_collection_results[jpid]["motion_correction"]) == 0
+            or len(data_collection_results[jpid]["ctf"]) == 0
+        ):
+            continue
         outcomes = check_relion_outcomes(
             data_collection_results, expected_outcome, jpid
         )

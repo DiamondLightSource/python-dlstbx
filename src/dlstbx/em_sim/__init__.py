@@ -26,7 +26,6 @@ from ispyb.sqlalchemy import DataCollection, BLSession, Proposal
 from workflows.transport.stomp_transport import StompTransport
 
 import dlstbx.em_sim.definitions
-import dlstbx.dc_sim.mydb
 
 log = logging.getLogger("dlstbx.em_sim")
 

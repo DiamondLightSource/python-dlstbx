@@ -223,8 +223,9 @@ def simulate(
         i.mx_processing.upsert_job_parameter(job_param_values)
 
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-    StompTransport.load_configuration_file(default_configuration)
+    # StompTransport.load_configuration_file(default_configuration)
     stomp = StompTransport()
+    stomp.load_configuration_file(default_configuration)
     stomp.connect()
 
     dispatcher_message = {"parameters": {"ispyb_process": procjobid}}

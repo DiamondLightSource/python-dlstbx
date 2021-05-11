@@ -5,7 +5,7 @@ import ispyb.sqlalchemy
 from ispyb.sqlalchemy import MotionCorrection, CTF, AutoProcProgram
 import sqlalchemy
 from sqlalchemy.orm import Load
-from workflows.transport.stomp_transport import StompTransport
+import workflows.transport.stomp_transport as st
 
 
 def check_test_outcome(test):
@@ -55,8 +55,9 @@ def check_test_outcome(test):
         test["success"] = False
         test["reason"] = "\n".join(failed_tests)
         default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-        StompTransport.load_configuration_file(default_configuration)
-        stomp = StompTransport()
+        # StompTransport.load_configuration_file(default_configuration)
+        stomp = st.StompTransport()
+        stomp.load_configuration_file(default_configuration)
         stomp.connect()
         stop_message = {"parameters": {"ispyb_process": test["JobIDs"][0]}}
         stomp.send("relion.dev.stop", stop_message)
@@ -64,8 +65,9 @@ def check_test_outcome(test):
     if all(overall.values()):
         test["success"] = True
         default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-        StompTransport.load_configuration_file(default_configuration)
-        stomp = StompTransport()
+        # StompTransport.load_configuration_file(default_configuration)
+        stomp = st.StompTransport()
+        stomp.load_configuration_file(default_configuration)
         stomp.connect()
         stop_message = {"parameters": {"ispyb_process": test["JobIDs"][0]}}
         stomp.send("relion.dev.stop", stop_message)

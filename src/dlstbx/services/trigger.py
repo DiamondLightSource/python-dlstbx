@@ -822,6 +822,10 @@ class DLSTrigger(CommonService):
         if not path_ext:
             path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+        spacegroup = parameters("spacegroup")
+        if spacegroup:
+            path_ext += "-" + spacegroup
+
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = bool(parameters("automatic"))
         jp["comments"] = parameters("comment")

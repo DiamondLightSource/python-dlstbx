@@ -144,7 +144,7 @@ class EM_Mixin:
         try:
             result = self.ispyb.em_acquisition.insert_particle_picker(
                 particle_picker_id=parameters("particle_picker_id"),
-                first_motion_correction_id=None,
+                first_motion_correction_id=parameters("first_motion_correction_id"),
                 auto_proc_program_id=parameters("program_id"),
                 particle_picking_template=parameters("particle_picking_template"),
                 particle_diameter=parameters("particle_diameter"),

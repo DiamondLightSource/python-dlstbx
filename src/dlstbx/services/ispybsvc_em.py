@@ -115,8 +115,8 @@ class EM_Mixin:
                         list(driftparams.values())
                     )
                     self.log.info(f"Created MotionCorrectionDrift record {driftid}")
+                return {"success": True, "return_value": result}
 
-            return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
             self.log.error(
                 "Inserting motion correction entry caused exception '%s'.",
@@ -125,35 +125,162 @@ class EM_Mixin:
             )
             return False
 
-    def do_insert_particle_picker(self, parameters, **kwargs):
-        # We don't yet have a way of inserting information from this message
+    def do_insert_particle_picker(self, *, parameters, session, **kwargs):
 
         appid = parameters("program_id")
         dcid = parameters("dcid")
-        self.log.info(
-            f"Would insert particle picker parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        micrographname = parameters("micrograph_name")
+        mcid = self._get_motioncorrection_id(
+            micrographname,
+            appid,
+            session,
         )
-        return {"success": True, "return_value": None}
+        if mcid is None:
+            self.log.error(
+                f"No Motion Correction ID found. MG: {micrographname}, APPID: {appid}"
+            )
+            return False
+        self.log.info(f"Inserting Particle Picker parameters. DCID: {dcid}")
+        try:
+            result = self.ispyb.em_acquisition.insert_particle_picker(
+                particle_picker_id=parameters("particle_picker_id"),
+                first_motion_correction_id=None,
+                auto_proc_program_id=parameters("program_id"),
+                particle_picking_template=parameters("particle_picking_template"),
+                particle_diameter=parameters("particle_diameter"),
+                number_of_particles=parameters("number_of_particles"),
+            )
+            self.log.info(f"Created ParticlePicker record {result} for DCID {dcid}")
+            return {"success": True, "return_value": result}
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting Particle Picker entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+            return False
 
     def do_insert_class2d(self, parameters, **kwargs):
-        # This gives some output we can read from; ISPyB doesn't have fields for Class 2D yet
 
-        appid = parameters("program_id")
         dcid = parameters("dcid")
-        self.log.info(
-            f"Would insert Class 2D parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
-        )
-        return {"success": True, "return_value": None}
+        self.log.info(f"Inserting 2D Classification parameters. DCID: {dcid}")
+        try:
+            result = self.ispyb.em_acquisition.insert_particle_classification_group(
+                particle_classification_group_id=parameters(
+                    "particle_classification_group_id"
+                ),
+                particle_picker_id=parameters("particle_picker_id"),
+                auto_proc_program_id=parameters("program_id"),
+                type="2D",
+                batch_number=parameters("batch_number"),
+                number_of_particles_per_batch=parameters(
+                    "number_of_particles_per_batch"
+                ),
+                number_of_classes_per_batch=parameters("number_of_classes_per_batch"),
+                symmetry=parameters("symmetry"),
+            )
+            self.log.info(
+                f"Created 2D Classification Group record {result} for DCID {dcid}"
+            )
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting 2D Classification Group entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+        try:
+            result = self.ispyb.em_acquisition.insert_particle_classification(
+                particle_classification_id=parameters("particle_classification_id"),
+                particle_classification_group_id=parameters(
+                    "particle_classification_group_id"
+                ),
+                class_number=parameters("class_number"),
+                class_image_full_path=parameters("class_image_full_path"),
+                particles_per_class=parameters("partices_per_class"),
+                rotation_accuracy=parameters("rotation_accuracy"),
+                translation_accuracy=parameters("translation_accuracy"),
+                estimated_resolution=parameters("estimated_resolution"),
+                overall_fourier_completeness=parameters("overall_fourier_completeness"),
+            )
+            self.log.info(f"Created 2D Classification record {result} for DCID {dcid}")
+            return {"success": True, "return_value": result}
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting 2D Classification entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+            return False
 
     def do_insert_class3d(self, parameters, **kwargs):
-        # This gives some output we can read from; ISPyB doesn't have fields for Class 3D yet
 
-        appid = parameters("program_id")
         dcid = parameters("dcid")
-        self.log.info(
-            f"Would insert Class 3D parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
-        )
-        return {"success": True, "return_value": None}
+        self.log.info(f"Inserting CryoEM Initial Model parameters. DCID: {dcid}")
+        try:
+            result = self.ispyb.em_acquisition.insert_cryoem_initial_model(
+                cryoem_initial_model_id=parameters("cryoem_inital_model_id"),
+                particle_classification_id=parameters("particle_classification_id"),
+                resolution=parameters("resolution"),
+                number_of_particles=parameters("number_of_particles"),
+            )
+            self.log.info(
+                f"Created CryoEM Initial Model record {result} for DCID {dcid}"
+            )
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting CryoEM Initial Model entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+
+        self.log.info(f"Inserting 3D Classification parameters. DCID: {dcid}")
+        try:
+            result = self.ispyb.em_acquisition.insert_particle_classification_group(
+                particle_classification_group_id=parameters(
+                    "particle_classification_group_id"
+                ),
+                particle_picker_id=parameters("particle_picker_id"),
+                auto_proc_program_id=parameters("program_id"),
+                type="3D",
+                batch_number=parameters("batch_number"),
+                number_of_particles_per_batch=parameters(
+                    "number_of_particles_per_batch"
+                ),
+                number_of_classes_per_batch=parameters("number_of_classes_per_batch"),
+                symmetry=parameters("symmetry"),
+            )
+            self.log.info(
+                f"Created 3D Classification Group record {result} for DCID {dcid}"
+            )
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting 3D Classification Group entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+        try:
+            result = self.ispyb.em_acquisition.insert_particle_classification(
+                particle_classification_id=parameters("particle_classification_id"),
+                particle_classification_group_id=parameters(
+                    "particle_classification_group_id"
+                ),
+                class_number=parameters("class_number"),
+                class_image_full_path=parameters("class_image_full_path"),
+                particles_per_class=parameters("partices_per_class"),
+                rotation_accuracy=parameters("rotation_accuracy"),
+                translation_accuracy=parameters("translation_accuracy"),
+                estimated_resolution=parameters("estimated_resolution"),
+                overall_fourier_completeness=parameters("overall_fourier_completeness"),
+            )
+            self.log.info(f"Created 3D Classification record {result} for DCID {dcid}")
+            return {"success": True, "return_value": result}
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting 3D Classification entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+            return False
 
     def do_insert_particle_classification_group(self, parameters, **kwargs):
 

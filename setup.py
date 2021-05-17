@@ -119,7 +119,6 @@ service_list = [
     "DLSTrigger = dlstbx.services.trigger:DLSTrigger",
     "DLSValidation = dlstbx.services.validation:DLSValidation",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
-    "FakeNews = dlstbx.services.fake_news:FakeNews",
     "LoadProducer = dlstbx.services.load_producer:LoadProducer",
     "LoadReceiver = dlstbx.services.load_receiver:LoadReceiver",
 ]

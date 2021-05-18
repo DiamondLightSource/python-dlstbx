@@ -729,13 +729,14 @@ class DLSFileWatcher(CommonService):
         # Cache file handles locally to minimise repeatedly re-opening the same data file(s)
         file_handles = {}
 
+        images_found = []
         try:
             # Look for images
-            images_found = 0
             while (
                 image_count is not None
                 and status["seen-images"] < image_count
-                and images_found < rw.recipe_step["parameters"].get("burst-limit", 100)
+                and len(images_found)
+                < rw.recipe_step["parameters"].get("burst-limit", 100)
             ):
                 m, frame = file_map[status["seen-images"]]
                 h5_data_file, dsetname = dataset_files[m]
@@ -755,9 +756,7 @@ class DLSFileWatcher(CommonService):
                     s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
                     if s.size == 0:
                         break
-                    self.log.debug(
-                        f"Found image {status['seen-images']} (size={s.size})"
-                    )
+                    images_found.append((status["seen-images"], s.size))
                 except Exception as e:
                     if not is_known_hdf5_exception(e):
                         self.log.error(f"Error reading {h5_data_file}", exc_info=True)
@@ -769,8 +768,6 @@ class DLSFileWatcher(CommonService):
                     # another round of processing
                     self.log.info(f"Error reading {h5_data_file}", exc_info=True)
                     break
-
-                images_found += 1
 
                 def notify_function(output):
                     rw.send_to(
@@ -798,6 +795,13 @@ class DLSFileWatcher(CommonService):
                 )
                 status["seen-images"] += 1
         finally:
+            if images_found:
+                self.log.debug(
+                    "Found %d images: %s",
+                    len(images_found),
+                    ", ".join(f"{i[0]} (size={i[1]})" for i in images_found),
+                )
+
             # Clean up file handles
             for f in file_handles.values():
                 f.close()
@@ -858,7 +862,7 @@ class DLSFileWatcher(CommonService):
             return
 
         message_delay = rw.recipe_step["parameters"].get("burst-wait")
-        if images_found == 0:
+        if not images_found:
             # If no images were found, check timeout conditions.
             if status["seen-images"] == 0:
                 # For first file: relevant timeout is 'timeout-first', with fallback 'timeout', with fallback 1 hour
@@ -949,8 +953,8 @@ class DLSFileWatcher(CommonService):
             # Otherwise note last time progress was made
             status["last-seen"] = time.time()
             self.log.info(
-                "%d  images found for %s (total: %d out of %d) within %.2f seconds",
-                images_found,
+                "%d images found for %s (total: %d out of %d) within %.2f seconds",
+                len(images_found),
                 rw.recipe_step["parameters"]["hdf5"],
                 status["seen-images"],
                 image_count,

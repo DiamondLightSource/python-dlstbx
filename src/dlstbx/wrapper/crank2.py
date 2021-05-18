@@ -102,9 +102,7 @@ class Crank2Wrapper(zocalo.wrapper.BaseWrapper):
         except Exception:
             logger.exception("Error configuring pointless jobs")
             return False
-        tmpl_env = Environment(
-            loader=PackageLoader("dlstbx.util.big_ep", "big_ep_templates")
-        )
+        tmpl_env = Environment(loader=PackageLoader("dlstbx.util", "big_ep_templates"))
         pointless_template = tmpl_env.get_template("pointless.sh")
         pointless_script = working_directory.join("run_pointless.sh")
         with open(pointless_script, "w") as fp:

@@ -122,9 +122,7 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
             logger.exception("Error configuring autoSHARP jobs")
             return False
 
-        tmpl_env = Environment(
-            loader=PackageLoader("dlstbx.util.big_ep", "big_ep_templates")
-        )
+        tmpl_env = Environment(loader=PackageLoader("dlstbx.util", "big_ep_templates"))
         autosharp_template = tmpl_env.get_template("autoSHARP.sh")
         autosharp_script = working_directory.join("start_autoSHARP.sh")
         with open(autosharp_script, "w") as fp:

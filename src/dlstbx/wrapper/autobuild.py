@@ -88,9 +88,7 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
             logger.exception("Error configuring autoSol jobs")
             return False
 
-        tmpl_env = Environment(
-            loader=PackageLoader("dlstbx.util.big_ep", "big_ep_templates")
-        )
+        tmpl_env = Environment(loader=PackageLoader("dlstbx.util", "big_ep_templates"))
         autosol_template = tmpl_env.get_template("autosol.sh")
         autosol_script = os.path.join(self.msg._wd, "run_autosol.sh")
         with open(autosol_script, "w") as fp:

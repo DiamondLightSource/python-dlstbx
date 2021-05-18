@@ -23,9 +23,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
 
         working_directory.ensure(dir=True)
 
-        tmpl_env = Environment(
-            loader=PackageLoader("dlstbx.util.big_ep", "big_ep_templates")
-        )
+        tmpl_env = Environment(loader=PackageLoader("dlstbx.util", "big_ep_templates"))
 
         dcid = params["dcid"]
         fast_ep_path = params["fast_ep_path"]

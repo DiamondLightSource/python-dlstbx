@@ -198,8 +198,7 @@ class NXtransformations(H5Mapping):
 
     @cached_property
     def default(self):
-        if "default" in self._handle.attrs:
-            return h5str(self._handle.attrs["default"])
+        return h5str(self._handle.attrs.get("default"))
 
     @cached_property
     def axes(self):
@@ -217,35 +216,29 @@ class NXtransformationsAxis(H5Mapping):
 
     @cached_property
     def units(self):
-        if "units" in self._handle.attrs:
-            return h5str(self._handle.attrs["units"])
+        return h5str(self._handle.attrs.get("units"))
 
     @cached_property
     def transformation_type(self):
-        if "transformation_type" in self._handle.attrs:
-            return h5str(self._handle.attrs["transformation_type"])
+        return h5str(self._handle.attrs.get("transformation_type"))
 
     @cached_property
     def vector(self):
-        if "vector" in self._handle.attrs:
-            return self._handle.attrs["vector"]
+        return self._handle.attrs.get("vector")
 
     @cached_property
     def offset(self):
-        if "offset" in self._handle.attrs:
-            return self._handle.attrs["offset"]
+        return self._handle.attrs.get("offset")
 
     @cached_property
     def offset_units(self):
-        if "offset_units" in self._handle.attrs:
-            return h5str(self._handle.attrs["offset_units"])
+        return h5str(self._handle.attrs.get("offset_units"))
 
     @cached_property
     def depends_on(self):
-        if "depends_on" in self._handle.attrs:
-            depends_on = h5str(self._handle.attrs["depends_on"])
-            if depends_on != ".":
-                return self._transformations.axes[depends_on.split("/")[-1]]
+        depends_on = h5str(self._handle.attrs.get("depends_on"))
+        if depends_on and depends_on != ".":
+            return self._transformations.axes[depends_on.split("/")[-1]]
 
     def __getitem__(self, key):
         return self._handle[key]
@@ -394,8 +387,7 @@ class NXsource(H5Mapping):
 
     @cached_property
     def short_name(self):
-        if "short_name" in self._handle["name"].attrs:
-            return h5str(self._handle["name"].attrs["short_name"])
+        return h5str(self._handle["name"].attrs.get("short_name"))
 
 
 class NXbeam(H5Mapping):

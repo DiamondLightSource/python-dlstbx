@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 NXNode = Union[h5py.File, h5py.Group]
 
 
-def h5str(h5_value: Union[str, np.string_, bytes]) -> str:
+def h5str(h5_value: Optional[Union[str, np.string_, bytes]]) -> Optional[str]:
     """
     Convert a value returned an h5py attribute to str.
 
@@ -28,7 +28,9 @@ def h5str(h5_value: Union[str, np.string_, bytes]) -> str:
     return h5_value
 
 
-def find_classes(node: NXNode, *nx_classes: Optional[str]) -> Tuple[List[h5py.Group]]:
+def find_classes(
+    node: NXNode, *nx_classes: Optional[str]
+) -> Tuple[List[h5py.Group], ...]:
     """
     Find instances of multiple NXclass types within the children of the current node.
 

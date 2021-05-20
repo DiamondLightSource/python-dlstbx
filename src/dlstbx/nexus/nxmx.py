@@ -263,7 +263,7 @@ class NXinstrument(H5Mapping):
 
     @cached_property
     def short_name(self):
-        return h5str(self._handle["name"].attrs["short_name"])
+        return h5str(self._handle["name"].attrs.get("short_name"))
 
     @cached_property
     def time_zone(self):

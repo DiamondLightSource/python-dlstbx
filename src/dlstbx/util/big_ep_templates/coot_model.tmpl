@@ -4,6 +4,7 @@ handle_read_ccp4_map("{{ map_file }}", 0)
 {% if pdb_file %}
 read_pdb("{{ pdb_file }}")
 {% endif %}
+set_map_radius_em(12.0)
 set_last_map_contour_level(1.5)
 set_do_anti_aliasing(1)
 graphics_draw()

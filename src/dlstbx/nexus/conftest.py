@@ -32,7 +32,7 @@ def nxmx_example(tmp_path):
         detector["beam_center_x"] = 2079.79727597266
         detector["beam_center_y"] = 2225.38773853771
         detector["count_time"] = 0.00285260857097799
-        detector["depends_on"] = "/entry/instrument/transformations/det_z"
+        detector["depends_on"] = "/entry/instrument/detector/transformations/det_z"
         detector["description"] = "Eiger 16M"
         detector["distance"] = 0.237015940260233
         data = detector.create_dataset("data", data=np.zeros((100, 100)))
@@ -40,6 +40,14 @@ def nxmx_example(tmp_path):
         detector["sensor_thickness"] = 0.00045
         detector["x_pixel_size"] = 7.5e-05
         detector["y_pixel_size"] = 7.5e-05
+
+        detector_transformations = detector.create_group("transformations")
+        detector_transformations.attrs["NX_class"] = "NXtransformations"
+        det_z = detector_transformations.create_dataset("det_z", data=np.array([289.3]))
+        det_z.attrs["depends_on"] = b"."
+        det_z.attrs["transformation_type"] = b"translation"
+        det_z.attrs["units"] = b"mm"
+        det_z.attrs["vector"] = np.array([0.0, 0.0, 1.0])
 
         module = detector.create_group("module")
         module.attrs["NX_class"] = "NXdetector_module"
@@ -70,7 +78,7 @@ def nxmx_example(tmp_path):
 
         module_offset = module.create_dataset("module_offset", data=0)
         module_offset.attrs["transformation_type"] = "translation"
-        module_offset.attrs["depends_on"] = "/entry/instrument/transformations/det_z"
+        module_offset.attrs["depends_on"] = "/entry/instrument/detector/transformations/det_z"
         module_offset.attrs["vector"] = np.array([1.0, 0.0, 0.0])
         module_offset.attrs["offset"] = np.array([0.155985, 0.166904, -0])
         module_offset.attrs["unit"] = "m"

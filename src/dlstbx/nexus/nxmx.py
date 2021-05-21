@@ -463,7 +463,7 @@ def get_dependency_chain(
         logging.debug(f"{transformation.name} =>")
         dependency_chain.append(transformation)
         depends_on = transformation.depends_on
-        if not depends_on:
+        if depends_on is None:
             break
         transformation = depends_on
     return dependency_chain

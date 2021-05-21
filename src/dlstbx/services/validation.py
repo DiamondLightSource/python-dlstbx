@@ -102,13 +102,17 @@ class DLSValidation(CommonService):
             el = dxtbx.model.experiment_list.ExperimentListFactory.from_filenames(
                 [filename]
             )
-        except KeyError as e:
+        except Exception as e:
             if "unable to open external file" in str(e):
                 failname = str(e)
                 if failname.split("'")[1:2]:
                     failname = failname.split("'")[1]
                 return fail(f"data collection is missing linked file: {failname}")
-            raise
+            self.log.warning(
+                f"Unhandled {type(e).__name__} exception reading {filename}",
+                exc_info=True,
+            )
+            return fail(f"Unhandled {type(e).__name__} exception reading {filename}")
 
         wavelength = el.beams()[0].get_wavelength()
 

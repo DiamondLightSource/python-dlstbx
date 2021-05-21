@@ -1,6 +1,11 @@
+import h5py
 import numpy as np
+import pytest
 
 from dlstbx.nexus import nxmx
+
+# Incantations to create an in-memory file in h5py.
+h5_in_memory = {"driver": "core", "backing_store": False}
 
 
 def test_nxentry(nxmx_example):
@@ -74,6 +79,32 @@ def test_get_rotation_axes(nxmx_example):
     assert np.all(
         axes.axes == np.array([[-1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [-1.0, 0.0, 0.0]])
     )
+
+
+@pytest.mark.parametrize(
+    "scan_data", [np.array(0), np.array([0])], ids=["scalar", "vector"]
+)
+def test_get_rotation_axis_scalar_or_vector(scan_data):
+    """
+    Test that single-valued rotation axis positions can be scalar or vector.
+
+    A rotation axis with a single angular position may be recorded in a HDF5 NeXus
+    file either as an array data set with a single entry, or as a scalar data set.
+    Both are equally valid.  Check that they are handled correctly in get_rotation_axis.
+    """
+    # Create a basic h5py data set.  A non-empty string file name is required,
+    # even though there is no corresponding file.
+    with h5py.File(" ", "w", **h5_in_memory) as f:
+        # Create a single data set representing the goniometer axis.
+        scan_axis = f.create_dataset("dummy_axis", data=scan_data)
+        # Add the attributes of a rotation scan axis aligned with the x axis.
+        scan_axis.attrs["transformation_type"] = "rotation"
+        scan_axis.attrs["vector"] = (1, 0, 0)
+        scan_axis.attrs["units"] = "degrees"
+
+        # Test that we can interpret the rotation axis datum.
+        scan_axes = [nxmx.NXtransformationsAxis(scan_axis, None)]
+        nxmx.get_rotation_axes(scan_axes)
 
 
 def test_get_dependency_chain(nxmx_example):

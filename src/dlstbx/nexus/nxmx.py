@@ -495,10 +495,7 @@ def get_rotation_axes(dependency_chain: List[NXtransformationsAxis]) -> Axes:
     for transformation in dependency_chain:
         if transformation.transformation_type != "rotation":
             continue
-        values = transformation[()]
-        if not values.shape:
-            # We have a scalar dataset
-            values = np.array([values])
+        values = np.atleast_1d(transformation[()])
         values = (values * ureg(transformation.units)).to("degrees").magnitude
         is_scan = len(values) > 1 and not np.all(values == values[0])
         axes.append(transformation.vector)

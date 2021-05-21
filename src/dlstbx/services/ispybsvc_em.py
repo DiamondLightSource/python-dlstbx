@@ -73,8 +73,16 @@ class EM_Mixin:
     def do_insert_motion_correction(self, parameters, **kwargs):
         self.log.info(f"Inserting Motion Correction parameters.")
         try:
+            movieid = None
+            if parameters("movie_id") is None:
+                movie_params = self.ispyb.em_acquisition.get_movie_params()
+                movie_params["dataCollectionId"] = parameters("dcid")
+                movie_params["movieNumber"] = parameters("image_number")
+                movie_params["movieFullPath"] = parameters("micrograph_name")
+                movieid = self.ispyb.em_acquisition.insert_movie(movie_params)
+                self.log.info(f"Created Movie record {movieid}")
             result = self.ispyb.em_acquisition.insert_motion_correction(
-                movie_id=parameters("movie_id"),
+                movie_id=parameters("movie_id") or movieid,
                 auto_proc_program_id=parameters("program_id"),
                 image_number=parameters("image_number"),
                 first_frame=parameters("first_frame"),
@@ -94,6 +102,17 @@ class EM_Mixin:
                 comments=parameters("comments"),
             )
             self.log.info(f"Created MotionCorrection record {result}")
+            driftparams = self.ispyb.em_acquisition.get_motion_correction_drift_params()
+            driftparams["motionCorrectionId"] = result
+            if parameters("drift_frames") is not None:
+                for frame, x, y in parameters("drift_frames"):
+                    driftparams["frameNumber"] = frame
+                    driftparams["deltaX"] = x
+                    driftparams["deltaY"] = y
+                    driftid = self.ispyb.em_acquisition.insert_motion_correction_drift(
+                        driftparams
+                    )
+                    self.log.info(f"Created MotionCorrectionDrift record {driftid}")
 
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:

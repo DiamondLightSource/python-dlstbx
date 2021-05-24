@@ -38,6 +38,7 @@ console_scripts = [
     "dlstbx.process=dlstbx.cli.process:run",  # deprecated
     "dlstbx.queue_drain=dlstbx.cli.queue_drain:run",
     "dlstbx.queue_monitor=dlstbx.cli.queue_monitor:run",
+    "dlstbx.queue_monitor_rmq=dlstbx.cli.queue_monitor_rmq:run",
     "dlstbx.run_dozor=dlstbx.cli.run_dozor:run",
     "dlstbx.run_system_tests=dlstbx.cli.run_system_tests:run",
     "dlstbx.service=dlstbx.cli.service:run",

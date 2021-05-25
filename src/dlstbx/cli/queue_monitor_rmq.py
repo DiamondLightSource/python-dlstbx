@@ -64,30 +64,19 @@ def print_stats(stats: pd.DataFrame) -> None:
     # messages_unacknowledged - Number of messages delivered to clients but not yet acknowledged.messages
     # messages - Sum of ready and unacknowledged messages (queue depth).
 
-    # Translate to ActiveMQ field names
-    stats = stats.rename(
-        columns={
-            "name": "shortdest",
-            "consumers": "ConsumerCount",
-            "messages_unacknowledged": "InFlightCount",
-            "messages_ready": "QueueSize",
-        }
-    )
-
     # Convert rates to equivalent number of messages in last 5 seconds
-    stats["change-EnqueueCount"] = (
+    stats["change_publish_rate"] = (
         stats["message_stats.publish_details.rate"] * 5
     ).apply(np.ceil)
-    stats["change-DequeueCount"] = (
+    stats["change_deliver_rate"] = (
         stats["message_stats.deliver_get_details.rate"] * 5
     ).apply(np.ceil)
 
     stats = stats.fillna(0.0).astype(int, errors="ignore")
-    stats["name"] = stats["shortdest"]
     stats = stats[stats["messages"] > 0].set_index("name")
     stats = stats.sort_index().sort_values(by="messages")
     status = stats.to_dict(orient="index")
-    longest = stats.astype(str).applymap(len).max()
+    longest = stats.reset_index().astype(str).applymap(len).max()
 
     c_gray = "\x1b[30m"
     c_green = "\x1b[32m"
@@ -98,16 +87,16 @@ def print_stats(stats: pd.DataFrame) -> None:
     c_bold = "\x1b[1m"
 
     line = (
-        "{colour[namespace]}{0[shortdest]:{longest[shortdest]}}{colour[reset]}  "
-        "{colour[input]}{0[change-EnqueueCount]:{longest[change-EnqueueCount]}} "
-        ">{colour[hold]}[ {filter_zero[QueueSize]:{longest[QueueSize]}} | {colour[listeners]}{filter_zero[ConsumerCount]:<{longest[ConsumerCount]}}{colour[hold]} | {colour[flight]}{filter_zero[InFlightCount]:<{longest[InFlightCount]}}{colour[hold]} ]"
-        "{colour[output]}> {filter_zero[change-DequeueCount]:<{longest[change-DequeueCount]}}{colour[reset]}"
+        "{colour[namespace]}{qname:{longest[name]}}{colour[reset]}  "
+        "{colour[input]}{0[change_publish_rate]:{longest[change_publish_rate]}} "
+        ">{colour[hold]}[ {filter_zero[messages_ready]:{longest[messages_ready]}} | {colour[listeners]}{filter_zero[consumers]:<{longest[consumers]}}{colour[hold]} | {colour[flight]}{filter_zero[messages_unacknowledged]:<{longest[messages_unacknowledged]}}{colour[hold]} ]"
+        "{colour[output]}> {filter_zero[change_deliver_rate]:<{longest[change_deliver_rate]}}{colour[reset]}"
     )
     #   line +=  " -- {0[relevance]}{colour[reset]}"
 
     print("\033[H\033[J", end="")
     queue_sep = "{header}ActiveMQ status: {highlight}{queues}{header} queues containing {highlight}{messages}{header} messages{reset}".format(
-        messages=stats["QueueSize"].sum(),
+        messages=stats["messages_ready"].sum(),
         queues=len(stats),
         highlight=c_bold + c_yellow,
         reset=c_reset,
@@ -115,37 +104,39 @@ def print_stats(stats: pd.DataFrame) -> None:
     )
     print(queue_sep)
 
-    for dname in status.keys():
+    for qname in status.keys():
         colour = {
-            "input": c_green if status[dname]["change-EnqueueCount"] else c_gray,
-            "hold": c_blue if status[dname]["QueueSize"] else c_gray,
+            "input": c_green if status[qname]["change_publish_rate"] else c_gray,
+            "hold": c_blue if status[qname]["messages_ready"] else c_gray,
             "flight": c_blue
-            if status[dname]["QueueSize"] or status[dname]["InFlightCount"]
+            if status[qname]["messages_ready"]
+            or status[qname]["messages_unacknowledged"]
             else c_gray,
-            "output": c_green if status[dname]["change-DequeueCount"] else c_gray,
+            "output": c_green if status[qname]["change_deliver_rate"] else c_gray,
             "reset": c_reset,
-            "listeners": c_yellow if status[dname]["ConsumerCount"] else c_gray,
+            "listeners": c_yellow if status[qname]["consumers"] else c_gray,
             "namespace": c_magenta
-            # if status[dname]["shortdest.prefix"] == "zocdev"
+            # if status[qname]["shortdest.prefix"] == "zocdev"
             # else "",
         }
-    filter_zero = {
-        key: status[dname][key] if status[dname][key] > 0 else ""
-        for key in (
-            "change-DequeueCount",
-            "InFlightCount",
-            "QueueSize",
-            "ConsumerCount",
+        filter_zero = {
+            key: status[qname][key] if status[qname][key] > 0 else ""
+            for key in (
+                "change_deliver_rate",
+                "messages_unacknowledged",
+                "messages_ready",
+                "consumers",
+            )
+        }
+        print(
+            line.format(
+                status[qname],
+                qname=qname,
+                longest=longest,
+                colour=colour,
+                filter_zero=filter_zero,
+            )
         )
-    }
-    print(
-        line.format(
-            status[dname],
-            longest=longest,
-            colour=colour,
-            filter_zero=filter_zero,
-        )
-    )
 
     print(
         "\n{header}What do the numbers mean:{reset}".format(

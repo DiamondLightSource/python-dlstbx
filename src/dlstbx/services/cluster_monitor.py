@@ -1,9 +1,18 @@
 import collections
+import enum
 import logging
 import time
 
+from prometheus_client import start_http_server, Gauge
+
 import dlstbx.util.cluster
 from workflows.services.common_service import CommonService
+
+
+class NodeStatus(enum.Enum):
+    RUNNING = 1
+    SUSPENDED = 2
+    BROKEN = 3
 
 
 class DLSClusterMonitor(CommonService):
@@ -48,6 +57,40 @@ class DLSClusterMonitor(CommonService):
     def initializing(self):
         """Set up monitoring timer. Do not subscribe to anything."""
         self.log.info("Cluster monitor starting")
+
+        start_http_server(8000)
+
+        # Prometheus instruments
+        self._cluster_utilization = Gauge(
+            name="zocalo_cluster_utilization",
+            documentation="Zocalo cluster utilization",
+            labelnames=("cluster", "node_type", "metric"),
+        )
+        self._cluster_jobs_waiting = Gauge(
+            name="zocalo_cluster_jobs_waiting",
+            documentation="Number of waiting cluster jobs",
+            labelnames=("cluster", "queue"),
+        )
+        self._node_status = Gauge(
+            "zocalo_cluster_node_status",
+            "Current status of a given queue on a given cluster node. The status is represented as a numerical value where `running=1', `broken=2' and `suspended=3'.",
+            labelnames=("node", "queue"),
+        )
+        self._node_slots_all = Gauge(
+            "zocalo_cluster_node_slots_all",
+            "Total number of available cluster slots for a given queue on a given node.",
+            labelnames=("node", "queue"),
+        )
+        self._node_slots_used = Gauge(
+            "zocalo_cluster_node_slots_used",
+            "Total number of used cluster slots for a given queue on a given node.",
+            labelnames=("node", "queue"),
+        )
+        self._node_slots_reserved = Gauge(
+            "zocalo_cluster_node_slots_reserved",
+            "Total number of reserved cluster slots for a given queue on a given node.",
+            labelnames=("node", "queue"),
+        )
 
         # Generate cluster statistics up to every 30 seconds.
         # Statistics go with debug level to a separate logger so they can be
@@ -106,6 +149,12 @@ class DLSClusterMonitor(CommonService):
             cluster=cluster,
             timestamp=timestamp,
         )
+        for queue, v in waiting_jobs_per_queue.items():
+            if queue.endswith(".q"):
+                self._cluster_jobs_waiting.labels(
+                    cluster,
+                    queue,
+                ).set(v)
 
         cluster_nodes = self.cluster_statistics.get_nodelist_from_queuelist(queuelist)
         node_summary = {
@@ -118,6 +167,15 @@ class DLSClusterMonitor(CommonService):
             cluster=cluster,
             timestamp=timestamp,
         )
+        for node, stats in node_summary.items():
+            for queue, v in stats.items():
+                if queue.endswith(".q"):
+                    self._node_status.labels(node, queue).set(
+                        NodeStatus[stats["status"].upper()].value
+                    )
+                    self._node_slots_all.labels(node, queue).set(v["slots"])
+                    self._node_slots_used.labels(node, queue).set(v["used"])
+                    self._node_slots_reserved.labels(node, queue).set(v["reserved"])
 
         corestats = {}
         corestats["cpu"] = {"total": 0, "broken": 0}
@@ -219,13 +277,22 @@ class DLSClusterMonitor(CommonService):
         self.report_statistic(
             corestats, description="utilization", cluster=cluster, timestamp=timestamp
         )
+        for nodetype in ("cpu", "gpu"):
+            for metric, value in corestats[nodetype].items():
+                self._cluster_utilization.labels(
+                    cluster,
+                    nodetype,
+                    metric,
+                ).set(value)
 
-    def report_statistic(self, data, **kwargs):
+    def report_statistic(
+        self, data: dict, *, description: str, cluster: str, timestamp: float
+    ) -> None:
         data_pack = {
             "statistic-group": "cluster",
-            "statistic": kwargs["description"],
-            "statistic-cluster": kwargs["cluster"],
-            "statistic-timestamp": kwargs["timestamp"],
+            "statistic": description,
+            "statistic-cluster": cluster,
+            "statistic-timestamp": timestamp,
         }
         data_pack.update(data)
         self._transport.broadcast("transient.statistics.cluster", data_pack)

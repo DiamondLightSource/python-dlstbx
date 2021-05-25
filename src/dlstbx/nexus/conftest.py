@@ -9,7 +9,7 @@ def pytest_configure():
 
 
 @pytest.fixture
-def nxmx_example(tmp_path):
+def nxmx_example():
     with h5py.File(" ", mode="w", **pytest.h5_in_memory) as f:
         entry = f.create_group("/entry")
         entry.attrs["NX_class"] = "NXentry"

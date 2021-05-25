@@ -82,9 +82,7 @@ def nxmx_example():
 
         module_offset = module.create_dataset("module_offset", data=0)
         module_offset.attrs["transformation_type"] = "translation"
-        module_offset.attrs[
-            "depends_on"
-        ] = "/entry/instrument/detector/transformations/det_z"
+        module_offset.attrs["depends_on"] = detector["depends_on"]
         module_offset.attrs["vector"] = np.array([1.0, 0.0, 0.0])
         module_offset.attrs["offset"] = np.array([0.155985, 0.166904, -0])
         module_offset.attrs["unit"] = "m"

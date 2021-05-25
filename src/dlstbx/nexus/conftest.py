@@ -3,10 +3,14 @@ import numpy as np
 import pytest
 
 
+def pytest_configure():
+    # Incantations to create an in-memory file in h5py.
+    pytest.h5_in_memory = {"driver": "core", "backing_store": False}
+
+
 @pytest.fixture
 def nxmx_example(tmp_path):
-    filename = tmp_path / "entry.nxs"
-    with h5py.File(filename, mode="w") as f:
+    with h5py.File(" ", mode="w", **pytest.h5_in_memory) as f:
         entry = f.create_group("/entry")
         entry.attrs["NX_class"] = "NXentry"
         entry["definition"] = "NXmx"
@@ -78,7 +82,9 @@ def nxmx_example(tmp_path):
 
         module_offset = module.create_dataset("module_offset", data=0)
         module_offset.attrs["transformation_type"] = "translation"
-        module_offset.attrs["depends_on"] = "/entry/instrument/detector/transformations/det_z"
+        module_offset.attrs[
+            "depends_on"
+        ] = "/entry/instrument/detector/transformations/det_z"
         module_offset.attrs["vector"] = np.array([1.0, 0.0, 0.0])
         module_offset.attrs["offset"] = np.array([0.155985, 0.166904, -0])
         module_offset.attrs["unit"] = "m"

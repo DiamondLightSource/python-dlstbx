@@ -4,9 +4,6 @@ import pytest
 
 from dlstbx.nexus import nxmx
 
-# Incantations to create an in-memory file in h5py.
-h5_in_memory = {"driver": "core", "backing_store": False}
-
 
 def test_nxentry(nxmx_example):
     nxentry = nxmx.NXentry(nxmx_example["/entry"])
@@ -94,7 +91,7 @@ def test_get_rotation_axis_scalar_or_vector(scan_data):
     """
     # Create a basic h5py data set.  A non-empty string file name is required,
     # even though there is no corresponding file.
-    with h5py.File(" ", "w", **h5_in_memory) as f:
+    with h5py.File(" ", "w", **pytest.h5_in_memory) as f:
         # Create a single data set representing the goniometer axis.
         scan_axis = f.create_dataset("dummy_axis", data=scan_data)
         # Add the attributes of a rotation scan axis aligned with the x axis.

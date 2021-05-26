@@ -358,14 +358,28 @@ class NXdetector(H5Mapping):
         return thickness[()] * ureg(units)
 
     @cached_property
-    def underload_value(self):
+    def underload_value(self) -> Optional[int]:
+        """The lowest value at which pixels for this detector would be reasonably be measured.
+
+        For example, given a saturation_value and an underload_value, the valid pixels
+        are those less than or equal to the saturation_value and greater than or equal
+        to the underload_value.
+        """
         if "underload_value" in self._handle:
             return self._handle["underload_value"][()]
 
     @cached_property
-    def overload_value(self):
-        if "overload_value" in self._handle:
-            return self._handle["overload_value"][()]
+    def saturation_value(self) -> Optional[int]:
+        """The value at which the detector goes into saturation.
+
+        Data above this value is known to be invalid.
+
+        For example, given a saturation_value and an underload_value, the valid pixels
+        are those less than or equal to the saturation_value and greater than or equal
+        to the underload_value.
+        """
+        if "saturation_value" in self._handle:
+            return self._handle["saturation_value"][()]
 
     @cached_property
     def modules(self):

@@ -70,8 +70,8 @@ def get_dxtbx_detector(
         else -0x7FFFFFFF
     )
     overload = (
-        nxdetector.overload_value
-        if nxdetector.overload_value is not None
+        nxdetector.saturation_value
+        if nxdetector.saturation_value is not None
         else 0x7FFFFFFF
     )
     trusted_range = (underload, overload)

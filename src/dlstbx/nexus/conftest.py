@@ -46,6 +46,8 @@ def nxmx_example():
         detector["sensor_thickness"].attrs["units"] = b"m"
         detector["x_pixel_size"] = 7.5e-05
         detector["y_pixel_size"] = 7.5e-05
+        detector["underload_value"] = -1
+        detector["saturation_value"] = 9266
 
         detector_transformations = detector.create_group("transformations")
         detector_transformations.attrs["NX_class"] = "NXtransformations"

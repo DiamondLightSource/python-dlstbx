@@ -67,7 +67,7 @@ def nxmx_example():
         ] = "/entry/instrument/detector/module/module_offset"
         fast_pixel_direction.attrs["vector"] = np.array([-1.0, 0.0, 0.0])
         fast_pixel_direction.attrs["offset"] = np.array([0.0, 0.0, 0.0])
-        fast_pixel_direction.attrs["unit"] = "m"
+        fast_pixel_direction.attrs["units"] = "m"
 
         slow_pixel_direction = module.create_dataset(
             "slow_pixel_direction", data=7.5e-5
@@ -78,14 +78,14 @@ def nxmx_example():
         ] = "/entry/instrument/detector/module/module_offset"
         slow_pixel_direction.attrs["vector"] = np.array([0.0, -1.0, 0.0])
         slow_pixel_direction.attrs["offset"] = np.array([0.0, 0.0, 0.0])
-        slow_pixel_direction.attrs["unit"] = "m"
+        slow_pixel_direction.attrs["units"] = "m"
 
         module_offset = module.create_dataset("module_offset", data=0)
         module_offset.attrs["transformation_type"] = "translation"
         module_offset.attrs["depends_on"] = detector["depends_on"]
         module_offset.attrs["vector"] = np.array([1.0, 0.0, 0.0])
         module_offset.attrs["offset"] = np.array([0.155985, 0.166904, -0])
-        module_offset.attrs["unit"] = "m"
+        module_offset.attrs["units"] = "m"
 
         sample = entry.create_group("sample")
         sample.attrs["NX_class"] = "NXsample"

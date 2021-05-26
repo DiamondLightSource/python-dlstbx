@@ -51,13 +51,13 @@ def test_nxmx(nxmx_example):
 
     assert len(instrument.beams) == 1
     beam = instrument.beams[0]
-    assert beam.incident_wavelength == 0.976223
+    assert beam.incident_wavelength.to("angstrom").magnitude == 0.976223
 
     assert len(instrument.detectors) == 1
     detector = instrument.detectors[0]
     assert detector.description == "Eiger 16M"
     assert detector.sensor_material == "Silicon"
-    assert detector.sensor_thickness == 0.00045
+    assert detector.sensor_thickness.to("mm").magnitude == 0.45
 
     assert len(detector.modules) == 1
     module = detector.modules[0]

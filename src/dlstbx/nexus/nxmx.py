@@ -224,8 +224,9 @@ class NXtransformationsAxis(H5Mapping):
         return self._handle.attrs.get("vector")
 
     @cached_property
-    def offset(self):
-        return self._handle.attrs.get("offset")
+    def offset(self) -> pint.quantity:
+        if "offset" in self._handle.attrs:
+            return self._handle.attrs.get("offset") * ureg(self.offset_units)
 
     @cached_property
     def offset_units(self):
@@ -237,8 +238,8 @@ class NXtransformationsAxis(H5Mapping):
         if depends_on and depends_on != ".":
             return NXtransformationsAxis(self._handle.parent[depends_on])
 
-    def __getitem__(self, key):
-        return self._handle[key]
+    def __getitem__(self, key) -> pint.Quantity:
+        return self._handle[key] * ureg(self.units)
 
 
 class NXinstrument(H5Mapping):
@@ -351,12 +352,29 @@ class NXdetector(H5Mapping):
         return h5str(self._handle["sensor_material"][()])
 
     @cached_property
-    def sensor_thickness(self):
-        return h5str(self._handle["sensor_thickness"][()])
+    def sensor_thickness(self) -> pint.Quantity:
+        thickness = self._handle["sensor_thickness"]
+        units = thickness.attrs["units"]
+        return thickness[()] * ureg(units)
+
+    @cached_property
+    def underload_value(self):
+        if "underload_value" in self._handle:
+            return self._handle["underload_value"][()]
+
+    @cached_property
+    def overload_value(self):
+        if "overload_value" in self._handle:
+            return self._handle["overload_value"][()]
 
     @cached_property
     def modules(self):
         return [NXdetector_module(module) for module in self._modules]
+
+    @cached_property
+    def type(self):
+        if "type" in self._handle:
+            return h5str(self._handle["type"][()])
 
 
 class NXdetector_module(H5Mapping):
@@ -399,8 +417,10 @@ class NXsource(H5Mapping):
 
 class NXbeam(H5Mapping):
     @cached_property
-    def incident_wavelength(self):
-        return self._handle["incident_wavelength"][()]
+    def incident_wavelength(self) -> pint.Quantity:
+        wavelength = self._handle["incident_wavelength"]
+        units = wavelength.attrs["units"]
+        return wavelength[()] * ureg(units)
 
     @cached_property
     def flux(self):
@@ -475,7 +495,7 @@ def get_cumulative_transformation(
         transformation_type = transformation.transformation_type
         if transformation_type == "translation":
             assert transformation.units is not None
-        values = np.atleast_1d(transformation[()]) * ureg(transformation.units)
+        values = np.atleast_1d(transformation[()])
         values = (
             values.to("mm")
             if transformation_type == "translation"
@@ -505,7 +525,7 @@ def get_rotation_axes(dependency_chain: List[NXtransformationsAxis]) -> Axes:
         if transformation.transformation_type != "rotation":
             continue
         values = np.atleast_1d(transformation[()])
-        values = (values * ureg(transformation.units)).to("degrees").magnitude
+        values = values.to("degrees").magnitude
         is_scan = len(values) > 1 and not np.all(values == values[0])
         axes.append(transformation.vector)
         angles.append(values[0])

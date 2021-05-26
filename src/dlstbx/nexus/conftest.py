@@ -30,6 +30,7 @@ def nxmx_example():
         beam = instrument.create_group("beam")
         beam.attrs["NX_class"] = "NXbeam"
         beam["incident_wavelength"] = 0.976223
+        beam["incident_wavelength"].attrs["units"] = "angstrom"
 
         detector = instrument.create_group("detector")
         detector.attrs["NX_class"] = "NXdetector"
@@ -42,6 +43,7 @@ def nxmx_example():
         data = detector.create_dataset("data", data=np.zeros((100, 100)))
         detector["sensor_material"] = "Silicon"
         detector["sensor_thickness"] = 0.00045
+        detector["sensor_thickness"].attrs["units"] = "m"
         detector["x_pixel_size"] = 7.5e-05
         detector["y_pixel_size"] = 7.5e-05
 

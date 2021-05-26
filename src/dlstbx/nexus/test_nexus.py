@@ -33,7 +33,7 @@ def test_get_dxtbx_detector(nxmx_example):
     assert len(detector) == 1
     panel = detector[0]
     assert panel.get_distance() == 289.3
-    assert panel.get_origin() == (-0.155985, 0.166904, -289.3)
+    assert panel.get_origin() == (-155.985, 166.904, -289.3)
     assert panel.get_material() == "Si"
     assert panel.get_pixel_size() == (0.075, 0.075)
     assert panel.get_slow_axis() == (0.0, -1.0, 0.0)

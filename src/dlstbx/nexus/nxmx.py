@@ -497,13 +497,15 @@ def get_cumulative_transformation(
             assert transformation.units is not None
         values = np.atleast_1d(transformation[()])
         values = (
-            values.to("mm")
+            values.to("mm").magnitude
             if transformation_type == "translation"
-            else values.to("rad")
+            else values.to("rad").magnitude
         )
         offset = transformation.offset
+        if offset is not None:
+            offset = offset.to("mm").magnitude
         t = Transformation(
-            values.magnitude,
+            values,
             transformation.vector,
             transformation_type,
             offset=offset,

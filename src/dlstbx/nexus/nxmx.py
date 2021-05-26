@@ -354,7 +354,7 @@ class NXdetector(H5Mapping):
     @cached_property
     def sensor_thickness(self) -> pint.Quantity:
         thickness = self._handle["sensor_thickness"]
-        units = thickness.attrs["units"]
+        units = h5str(thickness.attrs["units"])
         return thickness[()] * ureg(units)
 
     @cached_property
@@ -419,7 +419,7 @@ class NXbeam(H5Mapping):
     @cached_property
     def incident_wavelength(self) -> pint.Quantity:
         wavelength = self._handle["incident_wavelength"]
-        units = wavelength.attrs["units"]
+        units = h5str(wavelength.attrs["units"])
         return wavelength[()] * ureg(units)
 
     @cached_property

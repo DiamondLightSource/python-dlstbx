@@ -30,7 +30,7 @@ def nxmx_example():
         beam = instrument.create_group("beam")
         beam.attrs["NX_class"] = "NXbeam"
         beam["incident_wavelength"] = 0.976223
-        beam["incident_wavelength"].attrs["units"] = "angstrom"
+        beam["incident_wavelength"].attrs["units"] = b"angstrom"
 
         detector = instrument.create_group("detector")
         detector.attrs["NX_class"] = "NXdetector"
@@ -43,7 +43,7 @@ def nxmx_example():
         data = detector.create_dataset("data", data=np.zeros((100, 100)))
         detector["sensor_material"] = "Silicon"
         detector["sensor_thickness"] = 0.00045
-        detector["sensor_thickness"].attrs["units"] = "m"
+        detector["sensor_thickness"].attrs["units"] = b"m"
         detector["x_pixel_size"] = 7.5e-05
         detector["y_pixel_size"] = 7.5e-05
 
@@ -69,7 +69,7 @@ def nxmx_example():
         ] = "/entry/instrument/detector/module/module_offset"
         fast_pixel_direction.attrs["vector"] = np.array([-1.0, 0.0, 0.0])
         fast_pixel_direction.attrs["offset"] = np.array([0.0, 0.0, 0.0])
-        fast_pixel_direction.attrs["units"] = "m"
+        fast_pixel_direction.attrs["units"] = b"m"
 
         slow_pixel_direction = module.create_dataset(
             "slow_pixel_direction", data=7.5e-5
@@ -80,14 +80,14 @@ def nxmx_example():
         ] = "/entry/instrument/detector/module/module_offset"
         slow_pixel_direction.attrs["vector"] = np.array([0.0, -1.0, 0.0])
         slow_pixel_direction.attrs["offset"] = np.array([0.0, 0.0, 0.0])
-        slow_pixel_direction.attrs["units"] = "m"
+        slow_pixel_direction.attrs["units"] = b"m"
 
         module_offset = module.create_dataset("module_offset", data=0)
         module_offset.attrs["transformation_type"] = "translation"
         module_offset.attrs["depends_on"] = detector["depends_on"]
         module_offset.attrs["vector"] = np.array([1.0, 0.0, 0.0])
         module_offset.attrs["offset"] = np.array([0.155985, 0.166904, -0])
-        module_offset.attrs["units"] = "m"
+        module_offset.attrs["units"] = b"m"
 
         sample = entry.create_group("sample")
         sample.attrs["NX_class"] = "NXsample"

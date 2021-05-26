@@ -22,8 +22,8 @@ KNOWN_SENSOR_MATERIALS = {
 MCSTAS_TO_IMGCIF = np.diag([-1, 1, -1])
 
 
-def get_dxtbx_goniometer(sample):
-    dependency_chain = nxmx.get_dependency_chain(sample.depends_on)
+def get_dxtbx_goniometer(nxsample: nxmx.NXsample) -> dxtbx.model.Goniometer:
+    dependency_chain = nxmx.get_dependency_chain(nxsample.depends_on)
     axes = nxmx.get_rotation_axes(dependency_chain)
     if len(axes.axes) == 1:
         return dxtbx.model.GoniometerFactory.make_goniometer(
@@ -39,19 +39,21 @@ def get_dxtbx_goniometer(sample):
         )
 
 
-def get_dxtbx_beam(beam):
+def get_dxtbx_beam(nxbeam: nxmx.NXbeam) -> dxtbx.model.Beam:
     return dxtbx.model.BeamFactory.make_beam(
         sample_to_source=(0, 0, 1),
-        wavelength=beam.incident_wavelength.to("angstrom").magnitude,
+        wavelength=nxbeam.incident_wavelength.to("angstrom").magnitude,
     )
 
 
-def get_dxtbx_detector(detector, beam):
-    detector_type = detector.type
+def get_dxtbx_detector(
+    nxdetector: nxmx.NXdetector, nxbeam: nxmx.NXbeam
+) -> dxtbx.model.Detector:
+    detector_type = nxdetector.type
     if not detector_type:
         detector_type = "unknown"
 
-    module = detector.modules[0]
+    module = nxdetector.modules[0]
     fast_axis = MCSTAS_TO_IMGCIF @ module.fast_pixel_direction.vector
     slow_axis = MCSTAS_TO_IMGCIF @ module.slow_pixel_direction.vector
     dependency_chain = nxmx.get_dependency_chain(module.module_offset)
@@ -63,23 +65,27 @@ def get_dxtbx_detector(detector, beam):
     )
     image_size = module.data_size
     underload = (
-        detector.underload_value
-        if detector.underload_value is not None
+        nxdetector.underload_value
+        if nxdetector.underload_value is not None
         else -0x7FFFFFFF
     )
     overload = (
-        detector.overload_value if detector.overload_value is not None else 0x7FFFFFFF
+        nxdetector.overload_value
+        if nxdetector.overload_value is not None
+        else 0x7FFFFFFF
     )
     trusted_range = (underload, overload)
 
-    material = KNOWN_SENSOR_MATERIALS.get(detector.sensor_material)
+    material = KNOWN_SENSOR_MATERIALS.get(nxdetector.sensor_material)
     if not material:
-        raise ValueError(f"Unknown material: {detector.sensor_material}")
-    thickness = detector.sensor_thickness.to("mm").magnitude
+        raise ValueError(f"Unknown material: {nxdetector.sensor_material}")
+    thickness = nxdetector.sensor_thickness.to("mm").magnitude
     table = eltbx.attenuation_coefficient.get_table(material)
-    mu = table.mu_at_angstrom(beam.incident_wavelength.to("angstrom").magnitude) / 10.0
+    mu = (
+        table.mu_at_angstrom(nxbeam.incident_wavelength.to("angstrom").magnitude) / 10.0
+    )
     px_mm = dxtbx.model.ParallaxCorrectedPxMmStrategy(mu, thickness)
-    name = detector.path
+    name = nxdetector.path
 
     return dxtbx.model.DetectorFactory.make_detector(
         detector_type,

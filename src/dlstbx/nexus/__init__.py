@@ -18,7 +18,7 @@ KNOWN_SENSOR_MATERIALS = {
 def get_dxtbx_goniometer(sample):
     dependency_chain = nxmx.get_dependency_chain(sample.depends_on)
     axes = nxmx.get_rotation_axes(dependency_chain)
-    R = np.array((-1, 0, 0, 0, 1, 0, 0, 0, -1)).reshape((3, 3))
+    R = np.diag([-1, 1, -1])
     if len(axes.axes) == 1:
         return dxtbx.model.GoniometerFactory.make_goniometer(
             R @ axes.axes[0], np.identity(3)

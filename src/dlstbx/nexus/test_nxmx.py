@@ -100,7 +100,7 @@ def test_get_rotation_axis_scalar_or_vector(scan_data):
         scan_axis.attrs["units"] = "degrees"
 
         # Test that we can interpret the rotation axis datum.
-        scan_axes = [nxmx.NXtransformationsAxis(scan_axis, None)]
+        scan_axes = [nxmx.NXtransformationsAxis(scan_axis)]
         nxmx.get_rotation_axes(scan_axes)
 
 

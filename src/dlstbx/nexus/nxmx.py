@@ -170,9 +170,7 @@ class NXsample(H5Mapping):
 
     @cached_property
     def depends_on(self):
-        return NXtransformationsAxis(
-            self._handle[self._handle["depends_on"][()]], self.transformations[0]
-        )
+        return NXtransformationsAxis(self._handle[self._handle["depends_on"][()]])
 
     @cached_property
     def temperature(self):
@@ -191,7 +189,7 @@ class NXtransformations(H5Mapping):
     def __init__(self, handle):
         super().__init__(handle)
         self._axes = {
-            k: NXtransformationsAxis(v, self)
+            k: NXtransformationsAxis(v)
             for k, v in handle.items()
             if isinstance(v, h5py.Dataset)
         }
@@ -206,9 +204,8 @@ class NXtransformations(H5Mapping):
 
 
 class NXtransformationsAxis(H5Mapping):
-    def __init__(self, handle, transformations):
+    def __init__(self, handle):
         super().__init__(handle)
-        self._transformations = transformations
 
     @cached_property
     def name(self):
@@ -238,7 +235,7 @@ class NXtransformationsAxis(H5Mapping):
     def depends_on(self):
         depends_on = h5str(self._handle.attrs.get("depends_on"))
         if depends_on and depends_on != ".":
-            return self._transformations.axes[depends_on.split("/")[-1]]
+            return NXtransformationsAxis(self._handle.parent[depends_on])
 
     def __getitem__(self, key):
         return self._handle[key]
@@ -253,8 +250,14 @@ class NXinstrument(H5Mapping):
             self._detector_groups,
             self._detectors,
             self._beams,
+            self._transformations,
         ) = find_classes(
-            handle, "NXattenuator", "NXdetector_group", "NXdetector", "NXbeam"
+            handle,
+            "NXattenuator",
+            "NXdetector_group",
+            "NXdetector",
+            "NXbeam",
+            "NXtransformations",
         )
 
     @cached_property
@@ -284,6 +287,13 @@ class NXinstrument(H5Mapping):
     @cached_property
     def beams(self):
         return [NXbeam(beam) for beam in self._beams]
+
+    @cached_property
+    def transformations(self):
+        return [
+            NXtransformations(transformations)
+            for transformations in self._transformations
+        ]
 
 
 class NXdetector(H5Mapping):
@@ -365,19 +375,16 @@ class NXdetector_module(H5Mapping):
 
     @cached_property
     def module_offset(self):
-        # XXX should return a NXtransformationsAxis
         if "module_offset" in self._handle:
-            return self._handle["module_offset"][()]
+            return NXtransformationsAxis(self._handle["module_offset"])
 
     @cached_property
     def fast_pixel_direction(self):
-        # XXX should return a NXtransformationsAxis
-        return self._handle["fast_pixel_direction"][()]
+        return NXtransformationsAxis(self._handle["fast_pixel_direction"])
 
     @cached_property
     def slow_pixel_direction(self):
-        # XXX should return a NXtransformationsAxis
-        return self._handle["slow_pixel_direction"][()]
+        return NXtransformationsAxis(self._handle["slow_pixel_direction"])
 
 
 class NXsource(H5Mapping):

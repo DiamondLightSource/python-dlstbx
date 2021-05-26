@@ -33,16 +33,15 @@ def test_get_dxtbx_detector(nxmx_example):
     assert len(detector) == 1
     panel = detector[0]
     assert panel.get_distance() == 289.3
-    assert panel.get_origin() == (0.155985, 0.166904, 289.3)
+    assert panel.get_origin() == (-0.155985, 0.166904, -289.3)
     assert panel.get_material() == "Si"
-    assert panel.get_origin() == (0.155985, 0.166904, 289.3)
     assert panel.get_pixel_size() == (0.075, 0.075)
     assert panel.get_slow_axis() == (0.0, -1.0, 0.0)
-    assert panel.get_fast_axis() == (-1.0, 0.0, 0.0)
+    assert panel.get_fast_axis() == (1.0, 0.0, 0.0)
     assert panel.get_image_size() == (4148, 4362)
     assert panel.get_image_size_mm() == pytest.approx((311.09999999999997, 327.15))
     assert panel.get_name() == "/entry/instrument/detector"
-    assert panel.get_normal() == (0.0, 0.0, 1.0)
+    assert panel.get_normal() == (0.0, 0.0, -1.0)
     px_mm = panel.get_px_mm_strategy()
     assert px_mm.t0() == panel.get_thickness() == 0.45
     assert px_mm.mu() == panel.get_mu() == pytest.approx(3.9217189904637366)

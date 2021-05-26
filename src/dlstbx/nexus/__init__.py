@@ -15,18 +15,24 @@ KNOWN_SENSOR_MATERIALS = {
 }
 
 
+# Conversion from the McStas coordinate system as used by NeXus to the imgCIF
+# coordinate system conventionally used by dxtbx:
+#   https://manual.nexusformat.org/design.html#design-coordinatesystem
+#   https://www.iucr.org/__data/iucr/cifdic_html/2/cif_img.dic/Caxis.html
+MCSTAS_TO_IMGCIF = np.diag([-1, 1, -1])
+
+
 def get_dxtbx_goniometer(sample):
     dependency_chain = nxmx.get_dependency_chain(sample.depends_on)
     axes = nxmx.get_rotation_axes(dependency_chain)
-    R = np.diag([-1, 1, -1])
     if len(axes.axes) == 1:
         return dxtbx.model.GoniometerFactory.make_goniometer(
-            R @ axes.axes[0], np.identity(3)
+            MCSTAS_TO_IMGCIF @ axes.axes[0], np.identity(3)
         )
     else:
         assert np.sum(axes.is_scan_axis) == 1, "only one scan axis is supported"
         return dxtbx.model.GoniometerFactory.make_multi_axis_goniometer(
-            flex.vec3_double(R @ axes.axes),
+            flex.vec3_double(MCSTAS_TO_IMGCIF @ axes.axes),
             flex.double(axes.angles),
             flex.std_string(axes.names),
             int(np.where(axes.is_scan_axis)[0][0]),
@@ -46,12 +52,11 @@ def get_dxtbx_detector(detector, beam):
         detector_type = "unknown"
 
     module = detector.modules[0]
-    fast_axis = module.fast_pixel_direction.vector
-    slow_axis = module.slow_pixel_direction.vector
-    # origin = module.module_offset.vector
+    fast_axis = MCSTAS_TO_IMGCIF @ module.fast_pixel_direction.vector
+    slow_axis = MCSTAS_TO_IMGCIF @ module.slow_pixel_direction.vector
     dependency_chain = nxmx.get_dependency_chain(module.module_offset)
     A = nxmx.get_cumulative_transformation(dependency_chain)
-    origin = A[0, :3, 3]
+    origin = MCSTAS_TO_IMGCIF @ A[0, :3, 3]
     pixel_size = (
         module.fast_pixel_direction[()].to("mm").magnitude,
         module.slow_pixel_direction[()].to("mm").magnitude,

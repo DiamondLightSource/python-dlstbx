@@ -460,7 +460,7 @@ def get_dependency_chain(
     transformation: NXtransformationsAxis,
 ) -> List[NXtransformationsAxis]:
     dependency_chain = []
-    while transformation:
+    while transformation is not None:
         logging.debug(f"{transformation.name} =>")
         dependency_chain.append(transformation)
         transformation = transformation.depends_on
@@ -473,7 +473,9 @@ def get_cumulative_transformation(
     t = None
     for transformation in reversed(dependency_chain):
         transformation_type = transformation.transformation_type
-        values = transformation[()] * ureg(transformation.units)
+        if transformation_type == "translation":
+            assert transformation.units is not None
+        values = np.atleast_1d(transformation[()]) * ureg(transformation.units)
         values = (
             values.to("mm")
             if transformation_type == "translation"

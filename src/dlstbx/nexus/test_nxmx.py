@@ -114,6 +114,64 @@ def test_get_dependency_chain(nxmx_example):
     ]
 
 
+@pytest.fixture
+def detector_depends_on_example():
+    with h5py.File(" ", "w", **pytest.h5_in_memory) as f:
+        module = f.create_group("/entry/instrument/detector/module")
+        module.attrs["NX_class"] = "NXdetector_module"
+
+        fast_pixel_direction = module.create_dataset(
+            "fast_pixel_direction", data=7.5e-5
+        )
+        fast_pixel_direction.attrs["transformation_type"] = "translation"
+        fast_pixel_direction.attrs[
+            "depends_on"
+        ] = "/entry/instrument/detector/module/module_offset"
+        fast_pixel_direction.attrs["vector"] = np.array([-1.0, 0.0, 0.0])
+        fast_pixel_direction.attrs["offset"] = np.array([0.0, 0.0, 0.0])
+        fast_pixel_direction.attrs["units"] = "m"
+
+        module_offset = module.create_dataset("module_offset", data=0)
+        module_offset.attrs["transformation_type"] = "translation"
+        module_offset.attrs[
+            "depends_on"
+        ] = "/entry/instrument/detector/transformations/det_z"
+        module_offset.attrs["vector"] = np.array([1.0, 0.0, 0.0])
+        module_offset.attrs["offset"] = np.array([0.155985, 0.166904, -0])
+        module_offset.attrs["units"] = "m"
+
+        transformations = f.create_group("/entry/instrument/detector/transformations")
+        det_z = transformations.create_dataset("det_z", data=np.array([289.3]))
+        det_z.attrs["depends_on"] = b"."
+        det_z.attrs["transformation_type"] = b"translation"
+        det_z.attrs["units"] = b"mm"
+        det_z.attrs["vector"] = np.array([0.0, 0.0, 1.0])
+
+        yield f
+
+
+def test_get_dependency_chain_detector(detector_depends_on_example):
+    fast_pixel_direction = detector_depends_on_example[
+        "/entry/instrument/detector/module/fast_pixel_direction"
+    ]
+    fast_axis = nxmx.NXtransformationsAxis(fast_pixel_direction)
+    dependency_chain = nxmx.get_dependency_chain(fast_axis)
+    assert len(dependency_chain) == 3
+    A = nxmx.get_cumulative_transformation(dependency_chain)
+    assert A.shape == (1, 4, 4)
+    assert np.allclose(
+        A[0],
+        np.array(
+            [
+                [1.0, 0.0, 0.0, 8.09850e-02],
+                [0.0, 1.0, 0.0, 1.66904e-01],
+                [0.0, 0.0, 1.0, 2.89300e02],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
+    )
+
+
 def test_get_cumulative_transformation(nxmx_example):
     sample = nxmx.NXmx(nxmx_example).entries[0].samples[0]
     dependency_chain = nxmx.get_dependency_chain(sample.depends_on)

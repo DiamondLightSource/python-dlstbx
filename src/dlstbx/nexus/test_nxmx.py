@@ -26,13 +26,15 @@ def test_nxmx(nxmx_example):
     assert len(entries) == 1
     nxentry = entries[0]
     assert nxentry.definition == "NXmx"
+    assert nxentry.path == "/entry"
 
     samples = nxentry.samples
     assert len(samples) == 1
     sample = samples[0]
     assert sample.name == "mysample"
-    assert sample.depends_on.name == "/entry/sample/transformations/phi"
+    assert sample.depends_on.path == "/entry/sample/transformations/phi"
     assert sample.temperature is None
+    assert sample.path == "/entry/sample"
 
     transformations = sample.transformations
     assert len(transformations) == 1
@@ -40,7 +42,7 @@ def test_nxmx(nxmx_example):
     assert len(axes) == 3
     assert set(axes.keys()) == {"chi", "omega", "phi"}
     phi_depends_on = axes["phi"].depends_on
-    assert phi_depends_on.name == "/entry/sample/transformations/chi"
+    assert phi_depends_on.path == "/entry/sample/transformations/chi"
 
     assert len(nxentry.instruments) == 1
     instrument = nxentry.instruments[0]
@@ -107,7 +109,7 @@ def test_get_rotation_axis_scalar_or_vector(scan_data):
 def test_get_dependency_chain(nxmx_example):
     sample = nxmx.NXmx(nxmx_example).entries[0].samples[0]
     dependency_chain = nxmx.get_dependency_chain(sample.depends_on)
-    assert [d.name for d in dependency_chain] == [
+    assert [d.path for d in dependency_chain] == [
         "/entry/sample/transformations/phi",
         "/entry/sample/transformations/chi",
         "/entry/sample/transformations/omega",
@@ -157,6 +159,11 @@ def test_get_dependency_chain_detector(detector_depends_on_example):
     fast_axis = nxmx.NXtransformationsAxis(fast_pixel_direction)
     dependency_chain = nxmx.get_dependency_chain(fast_axis)
     assert len(dependency_chain) == 3
+    assert [d.path for d in dependency_chain] == [
+        "/entry/instrument/detector/module/fast_pixel_direction",
+        "/entry/instrument/detector/module/module_offset",
+        "/entry/instrument/detector/transformations/det_z",
+    ]
     A = nxmx.get_cumulative_transformation(dependency_chain)
     assert A.shape == (1, 4, 4)
     assert np.allclose(

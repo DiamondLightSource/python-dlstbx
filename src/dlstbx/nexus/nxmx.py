@@ -88,6 +88,10 @@ class H5Mapping(Mapping):
     def __len__(self):
         return len(self._handle)
 
+    @cached_property
+    def path(self):
+        return h5str(self._handle.name)
+
 
 class NXmx(H5Mapping):
     def __init__(self, handle):
@@ -206,10 +210,6 @@ class NXtransformations(H5Mapping):
 class NXtransformationsAxis(H5Mapping):
     def __init__(self, handle):
         super().__init__(handle)
-
-    @cached_property
-    def name(self):
-        return h5str(self._handle.name)
 
     @cached_property
     def units(self):
@@ -461,7 +461,7 @@ def get_dependency_chain(
 ) -> List[NXtransformationsAxis]:
     dependency_chain = []
     while transformation is not None:
-        logging.debug(f"{transformation.name} =>")
+        logging.debug(f"{transformation.path} =>")
         dependency_chain.append(transformation)
         transformation = transformation.depends_on
     return dependency_chain
@@ -509,10 +509,7 @@ def get_rotation_axes(dependency_chain: List[NXtransformationsAxis]) -> Axes:
         is_scan = len(values) > 1 and not np.all(values == values[0])
         axes.append(transformation.vector)
         angles.append(values[0])
-        try:
-            axis_names.append(transformation.name.split("/")[-1])
-        except AttributeError:
-            axis_names.append(transformation.nxpath.split("/")[-1])
+        axis_names.append(transformation.path.split("/")[-1])
         is_scan_axis.append(is_scan)
 
     return Axes(

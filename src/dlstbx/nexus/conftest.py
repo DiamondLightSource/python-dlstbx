@@ -48,6 +48,8 @@ def nxmx_example():
         detector["y_pixel_size"] = 7.5e-05
         detector["underload_value"] = -1
         detector["saturation_value"] = 9266
+        detector["frame_time"] = 0.1
+        detector["frame_time"].attrs["units"] = "s"
 
         detector_transformations = detector.create_group("transformations")
         detector_transformations.attrs["NX_class"] = "NXtransformations"

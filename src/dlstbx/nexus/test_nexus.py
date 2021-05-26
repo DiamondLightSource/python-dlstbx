@@ -23,6 +23,16 @@ def test_get_dxtbx_beam(nxmx_example):
     assert beam.get_sample_to_source_direction() == (0.0, 0.0, 1.0)
 
 
+def test_get_dxtbx_scan(nxmx_example):
+    sample = dlstbx.nexus.nxmx.NXmx(nxmx_example).entries[0].samples[0]
+    instrument = dlstbx.nexus.nxmx.NXmx(nxmx_example).entries[0].instruments[0]
+    scan = dlstbx.nexus.get_dxtbx_scan(sample, instrument.detectors[0])
+    assert scan.get_num_images() == 10
+    assert scan.get_image_range() == (1, 10)
+    assert scan.get_oscillation_range() == (0.0, 10.0)
+    assert list(scan.get_exposure_times()) == [0.1] * 10
+
+
 def test_get_dxtbx_detector(nxmx_example):
     instrument = dlstbx.nexus.nxmx.NXmx(nxmx_example).entries[0].instruments[0]
     detector = dlstbx.nexus.get_dxtbx_detector(

@@ -390,6 +390,14 @@ class NXdetector(H5Mapping):
         if "type" in self._handle:
             return h5str(self._handle["type"][()])
 
+    @cached_property
+    def frame_time(self) -> Optional[pint.Quantity]:
+        """This is time for each frame. This is exposure_time + readout time."""
+        if "frame_time" in self._handle:
+            frame_time = self._handle["frame_time"]
+            units = h5str(frame_time.attrs["units"])
+            return frame_time[()] * ureg(units)
+
 
 class NXdetector_module(H5Mapping):
     @cached_property

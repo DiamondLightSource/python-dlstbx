@@ -46,6 +46,56 @@ def get_dxtbx_beam(nxbeam: nxmx.NXbeam) -> dxtbx.model.Beam:
     )
 
 
+def get_dxtbx_scan(
+    nxsample: nxmx.NXsample, nxdetector: nxmx.NXdetector
+) -> dxtbx.model.Scan:
+    dependency_chain = nxmx.get_dependency_chain(nxsample.depends_on)
+    scan_axis = None
+    for t in dependency_chain:
+        if (
+            t.transformation_type == "rotation"
+            and len(t) > 1
+            and not np.all(t[()] == t[0])
+        ):
+            scan_axis = t
+            break
+
+    if scan_axis is None:
+        scan_axis = nxsample.depends_on
+
+    is_rotation = scan_axis.transformation_type == "rotation"
+    num_images = len(scan_axis)
+    image_range = (1, num_images)
+
+    if is_rotation and num_images > 1:
+        oscillation = (
+            float(scan_axis[0].to("degree").magnitude),
+            float((scan_axis[1] - scan_axis[0]).to("degree").magnitude),
+        )
+    else:
+        oscillation = (
+            float(scan_axis[0].to("degree").magnitude) if is_rotation else 0,
+            0,
+        )
+
+    if nxdetector.frame_time is not None:
+        frame_time = nxdetector.frame_time.to("seconds").magnitude
+        exposure_times = flex.double(num_images, frame_time)
+        epochs = flex.double_range(0, num_images) * frame_time
+    else:
+        exposure_times = flex.double(num_images, 0)
+        epochs = flex.double(num_images, 0)
+
+    return dxtbx.model.Scan(
+        image_range,
+        tuple(int(o) for o in oscillation),
+        exposure_times,
+        epochs,
+        batch_offset=0,
+        deg=True,
+    )
+
+
 def get_dxtbx_detector(
     nxdetector: nxmx.NXdetector, nxbeam: nxmx.NXbeam
 ) -> dxtbx.model.Detector:

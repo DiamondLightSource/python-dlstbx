@@ -131,6 +131,7 @@ def detector_depends_on_example():
         ] = "/entry/instrument/detector/module/module_offset"
         fast_pixel_direction.attrs["vector"] = np.array([-1.0, 0.0, 0.0])
         fast_pixel_direction.attrs["offset"] = np.array([0.0, 0.0, 0.0])
+        fast_pixel_direction.attrs["offset_units"] = "m"
         fast_pixel_direction.attrs["units"] = "m"
 
         module_offset = module.create_dataset("module_offset", data=0)
@@ -140,6 +141,7 @@ def detector_depends_on_example():
         ] = "/entry/instrument/detector/transformations/det_z"
         module_offset.attrs["vector"] = np.array([1.0, 0.0, 0.0])
         module_offset.attrs["offset"] = np.array([0.155985, 0.166904, -0])
+        module_offset.attrs["offset_units"] = "m"
         module_offset.attrs["units"] = "m"
 
         transformations = f.create_group("/entry/instrument/detector/transformations")
@@ -170,9 +172,9 @@ def test_get_dependency_chain_detector(detector_depends_on_example):
         A[0],
         np.array(
             [
-                [1.0, 0.0, 0.0, 8.09850e-02],
-                [0.0, 1.0, 0.0, 1.66904e-01],
-                [0.0, 0.0, 1.0, 2.89300e02],
+                [1.0, 0.0, 0.0, 155.91],
+                [0.0, 1.0, 0.0, 166.904],
+                [0.0, 0.0, 1.0, 289.3],
                 [0.0, 0.0, 0.0, 1.0],
             ]
         ),

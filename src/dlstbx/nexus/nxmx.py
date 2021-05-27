@@ -230,7 +230,16 @@ class NXtransformationsAxis(H5Mapping):
 
     @cached_property
     def offset_units(self):
-        return h5str(self._handle.attrs.get("offset_units"))
+        if "offset_units" in self._handle.attrs:
+            return h5str(self._handle.attrs.get("offset_units"))
+        # This shouldn't be the case, but DLS EIGER NeXus files include offset without
+        # accompanying offset_units, so use units instead (which should strictly only
+        # apply to vector, not offset.
+        # See also https://jira.diamond.ac.uk/browse/MXGDA-3668
+        logger.warning(
+            f"'offset_units' attribute not present for {self.path}, falling back to 'units'"
+        )
+        return self.units
 
     @cached_property
     def depends_on(self):

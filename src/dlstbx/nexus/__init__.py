@@ -100,11 +100,37 @@ def get_dxtbx_detector(
     nxdetector: nxmx.NXdetector, nxbeam: nxmx.NXbeam
 ) -> dxtbx.model.Detector:
     module = nxdetector.modules[0]
-    fast_axis = MCSTAS_TO_IMGCIF @ module.fast_pixel_direction.vector
-    slow_axis = MCSTAS_TO_IMGCIF @ module.slow_pixel_direction.vector
+
+    # Apply any rotation components of the dependency chain to the fast axis
+    fast_axis_depends_on = [
+        t
+        for t in nxmx.get_dependency_chain(module.fast_pixel_direction.depends_on)
+        if t.transformation_type == "rotation"
+    ]
+    if fast_axis_depends_on:
+        R = nxmx.get_cumulative_transformation(fast_axis_depends_on)[0, :3, :3]
+    else:
+        R = np.identity(3)
+    fast_axis = MCSTAS_TO_IMGCIF @ R @ module.fast_pixel_direction.vector
+
+    # Apply any rotation components of the dependency chain to the slow axis
+    slow_axis_depends_on = [
+        t
+        for t in nxmx.get_dependency_chain(module.slow_pixel_direction.depends_on)
+        if t.transformation_type == "rotation"
+    ]
+    if slow_axis_depends_on:
+        R = nxmx.get_cumulative_transformation(slow_axis_depends_on)[0, :3, :3]
+    else:
+        R = np.identity(3)
+    slow_axis = MCSTAS_TO_IMGCIF @ R @ module.slow_pixel_direction.vector
+
+    # Apply all components of the dependency chain to the module offset to get the
+    # dxtbx panel origin
     dependency_chain = nxmx.get_dependency_chain(module.module_offset)
     A = nxmx.get_cumulative_transformation(dependency_chain)
     origin = MCSTAS_TO_IMGCIF @ A[0, :3, 3]
+
     pixel_size = (
         module.fast_pixel_direction[()].to("mm").magnitude,
         module.slow_pixel_direction[()].to("mm").magnitude,

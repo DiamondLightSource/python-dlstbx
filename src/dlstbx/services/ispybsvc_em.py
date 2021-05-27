@@ -79,7 +79,9 @@ class EM_Mixin:
                 movie_params["dataCollectionId"] = parameters("dcid")
                 movie_params["movieNumber"] = parameters("image_number")
                 movie_params["movieFullPath"] = parameters("micrograph_name")
-                movieid = self.ispyb.em_acquisition.insert_movie(movie_params)
+                movieid = self.ispyb.em_acquisition.insert_movie(
+                    list(movie_params.values())
+                )
                 self.log.info(f"Created Movie record {movieid}")
             result = self.ispyb.em_acquisition.insert_motion_correction(
                 movie_id=parameters("movie_id") or movieid,
@@ -110,7 +112,7 @@ class EM_Mixin:
                     driftparams["deltaX"] = x
                     driftparams["deltaY"] = y
                     driftid = self.ispyb.em_acquisition.insert_motion_correction_drift(
-                        driftparams
+                        list(driftparams.values())
                     )
                     self.log.info(f"Created MotionCorrectionDrift record {driftid}")
 

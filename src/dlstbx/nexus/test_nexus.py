@@ -54,6 +54,7 @@ def test_get_dxtbx_detector(nxmx_example):
     assert panel.get_name() == "/entry/instrument/detector"
     assert panel.get_normal() == (0.0, 0.0, -1.0)
     assert panel.get_trusted_range() == (-1, 9266)
+    assert panel.get_type() == "SENSOR_PAD"
     px_mm = panel.get_px_mm_strategy()
     assert px_mm.t0() == panel.get_thickness() == 0.45
     assert px_mm.mu() == panel.get_mu() == pytest.approx(3.9217189904637366)

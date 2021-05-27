@@ -99,10 +99,6 @@ def get_dxtbx_scan(
 def get_dxtbx_detector(
     nxdetector: nxmx.NXdetector, nxbeam: nxmx.NXbeam
 ) -> dxtbx.model.Detector:
-    detector_type = nxdetector.type
-    if not detector_type:
-        detector_type = "unknown"
-
     module = nxdetector.modules[0]
     fast_axis = MCSTAS_TO_IMGCIF @ module.fast_pixel_direction.vector
     slow_axis = MCSTAS_TO_IMGCIF @ module.slow_pixel_direction.vector
@@ -138,7 +134,7 @@ def get_dxtbx_detector(
     name = nxdetector.path
 
     return dxtbx.model.DetectorFactory.make_detector(
-        detector_type,
+        "SENSOR_PAD",
         fast_axis,
         slow_axis,
         origin,

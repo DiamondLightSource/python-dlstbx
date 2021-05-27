@@ -88,7 +88,7 @@ def get_dxtbx_scan(
 
     return dxtbx.model.Scan(
         image_range,
-        tuple(int(o) for o in oscillation),
+        tuple(float(o) for o in oscillation),
         exposure_times,
         epochs,
         batch_offset=0,

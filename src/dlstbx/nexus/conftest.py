@@ -103,7 +103,7 @@ def nxmx_example():
 
         transformations = sample.create_group("transformations")
         transformations.attrs["NX_class"] = "NXtransformations"
-        omega = transformations.create_dataset("omega", data=np.arange(0, 10))
+        omega = transformations.create_dataset("omega", data=np.arange(0, 1, 0.1))
         omega.attrs["depends_on"] = b"."
         omega.attrs["transformation_type"] = b"rotation"
         omega.attrs["units"] = b"deg"

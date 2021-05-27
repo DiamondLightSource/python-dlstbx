@@ -32,7 +32,7 @@ def get_dxtbx_goniometer(nxsample: nxmx.NXsample) -> dxtbx.model.Goniometer:
     else:
         assert np.sum(axes.is_scan_axis) == 1, "only one scan axis is supported"
         return dxtbx.model.GoniometerFactory.make_multi_axis_goniometer(
-            flex.vec3_double(MCSTAS_TO_IMGCIF @ axes.axes),
+            flex.vec3_double((MCSTAS_TO_IMGCIF @ axes.axes.T).T),
             flex.double(axes.angles),
             flex.std_string(axes.names),
             int(np.where(axes.is_scan_axis)[0][0]),

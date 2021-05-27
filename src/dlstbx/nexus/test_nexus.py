@@ -10,7 +10,11 @@ def test_get_dxtbx_goniometer(nxmx_example):
     assert isinstance(gonio, dxtbx.model.MultiAxisGoniometer)
     assert gonio.get_rotation_axis() == (1.0, 0.0, 0.0)
     assert list(gonio.get_angles()) == [0.0, 0.0, 0.0]
-    assert list(gonio.get_axes()) == [(1.0, 0.0, 0.0), (0.0, 0.0, 1.0), (1.0, 0.0, 0.0)]
+    assert list(gonio.get_axes()) == [
+        (1.0, 0.0, 0.0),
+        (0.0, 0.0, -1.0),
+        (1.0, 0.0, 0.0),
+    ]
     assert list(gonio.get_names()) == ["phi", "chi", "omega"]
     assert gonio.get_scan_axis() == 2
 

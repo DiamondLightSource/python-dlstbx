@@ -163,32 +163,6 @@ class NXdata(H5Mapping):
         return self._handle.attrs.get("signal")
 
 
-class NXsample(H5Mapping):
-    def __init__(self, handle):
-        super().__init__(handle)
-        self._transformations = find_class(handle, "NXtransformations")
-
-    @cached_property
-    def name(self):
-        return h5str(self._handle["name"][()])
-
-    @cached_property
-    def depends_on(self):
-        return NXtransformationsAxis(self._handle[self._handle["depends_on"][()]])
-
-    @cached_property
-    def temperature(self):
-        if "temperature" in self._handle:
-            return self._handle["temperature"][()]
-
-    @cached_property
-    def transformations(self):
-        return [
-            NXtransformations(transformations)
-            for transformations in self._transformations
-        ]
-
-
 class NXtransformations(H5Mapping):
     def __init__(self, handle):
         super().__init__(handle)
@@ -249,6 +223,47 @@ class NXtransformationsAxis(H5Mapping):
 
     def __getitem__(self, key) -> pint.Quantity:
         return self._handle[key] * ureg(self.units)
+
+
+class NXsample(H5Mapping):
+    def __init__(self, handle):
+        super().__init__(handle)
+        self._transformations = find_class(handle, "NXtransformations")
+
+    @cached_property
+    def name(self) -> str:
+        """Descriptive name of sample"""
+        return h5str(self._handle["name"][()])
+
+    @cached_property
+    def depends_on(self) -> NXtransformationsAxis:
+        """The axis on which the sample position depends"""
+        return NXtransformationsAxis(self._handle[self._handle["depends_on"][()]])
+
+    @cached_property
+    def temperature(self) -> pint.Quantity:
+        if "temperature" in self._handle:
+            temperature = self._handle["temperature"]
+            units = h5str(temperature.attrs["units"])
+            return temperature[()] * ureg(units)
+
+    @cached_property
+    def transformations(self) -> NXtransformations:
+        """This is the recommended location for sample goniometer and other related axes.
+
+        This is a requirement to describe for any scan experiment. The reason it is
+        optional is mainly to accommodate XFEL single shot exposures.
+
+        Use of the depends_on field and the NXtransformations group is strongly
+        recommended. As noted above this should be an absolute requirement to have for
+        any scan experiment.
+
+        The reason it is optional is mainly to accommodate XFEL single shot exposures.
+        """
+        return [
+            NXtransformations(transformations)
+            for transformations in self._transformations
+        ]
 
 
 class NXinstrument(H5Mapping):

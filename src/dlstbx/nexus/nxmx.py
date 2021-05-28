@@ -512,7 +512,7 @@ def get_dependency_chain(
 ) -> List[NXtransformationsAxis]:
     dependency_chain = []
     while transformation is not None:
-        logging.debug(f"{transformation.path} =>")
+        logger.debug(f"{transformation.path} =>")
         dependency_chain.append(transformation)
         transformation = transformation.depends_on
     return dependency_chain

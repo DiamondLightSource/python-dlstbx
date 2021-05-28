@@ -5,8 +5,7 @@ import tempfile
 import procrunner
 from pprint import pformat
 
-from dlstbx.cli import mr_predict
-from dlstbx.util import mr_utils
+from dlstbx.util import mr_predict, mr_utils
 from pathlib import Path
 from shutil import copyfile
 import subprocess
@@ -197,6 +196,7 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
                                 "file_path": str(results_directory),
                                 "file_name": mr_result.name,
                                 "file_type": "result",
+                                "importance_rank": 1,
                             }
                         )
                     except Exception:

@@ -8,7 +8,7 @@ import procrunner
 from pprint import pformat
 from functools import reduce
 
-from dlstbx.cli import ep_predict
+from dlstbx.util import ep_predict
 
 logger = logging.getLogger("dlstbx.wrap.ep_predict")
 
@@ -68,7 +68,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
         try:
             metrics_data[-1] = params["energy_scan_info"]["fpp"]
         except KeyError:
-            el = params["diffraction_plan_info"]["anomalousscatterer"]
+            el = params["diffraction_plan_info"]["anomalousScatterer"]
             if metrics_data[-1] < 2.8:
                 from cctbx.eltbx import sasaki as tbl_fpfdp
             else:
@@ -95,7 +95,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
             return False
 
         fmt_script_path = ep_predict.__file__
-        # Avoid preompiled module incompatibility between Python 2 & 3
+        # Avoid preompiled module incompatibility between Python versions
         fmt_script_path = (
             fmt_script_path[:-1]
             if fmt_script_path.endswith(".pyc")
@@ -161,6 +161,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
                         "file_path": destination.dirname,
                         "file_name": destination.basename,
                         "file_type": "result",
+                        "importance_rank": 1,
                     }
                 )
             except Exception:

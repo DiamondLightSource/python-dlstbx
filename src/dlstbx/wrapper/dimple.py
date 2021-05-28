@@ -1,4 +1,6 @@
+import configparser
 import glob
+import itertools
 import logging
 import copy
 import os
@@ -8,7 +10,6 @@ import dlstbx.util.symlink
 import procrunner
 import py
 import zocalo.wrapper
-from six.moves import configparser
 
 logger = logging.getLogger("dlstbx.wrap.dimple")
 
@@ -58,21 +59,21 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             "store_result": "ispyb_mxmr_run_id",
             "scaling_id": scaling_id,
             "pipeline": "dimple",
-            "log_file": log_file.strpath,
+            "logfile": log_file.strpath,
             "success": 1,
             "starttime": starttime,
             "endtime": endtime,
-            "rfree_start": log.getfloat("refmac5 restr", "ini_free_r"),
-            "rfree_end": log.getfloat("refmac5 restr", "free_r"),
-            "r_start": log.getfloat("refmac5 restr", "ini_overall_r"),
-            "r_end": log.getfloat("refmac5 restr", "overall_r"),
+            "rfreestart": log.getfloat("refmac5 restr", "ini_free_r"),
+            "rfreeend": log.getfloat("refmac5 restr", "free_r"),
+            "rstart": log.getfloat("refmac5 restr", "ini_overall_r"),
+            "rend": log.getfloat("refmac5 restr", "overall_r"),
             "message": msg,
-            "run_dir": self.results_directory.strpath,
-            "input_MTZ_file": dimple_args[0],
-            "input_coord_file": dimple_args[1],
-            "output_MTZ_file": self.results_directory.join("final.mtz").strpath,
-            "output_coord_file": self.results_directory.join("final.pdb").strpath,
-            "cmd_line": (
+            "rundir": self.results_directory.strpath,
+            "inputmtzfile": dimple_args[0],
+            "inputcoordfile": dimple_args[1],
+            "outputmtzfile": self.results_directory.join("final.mtz").strpath,
+            "outputcoordfile": self.results_directory.join("final.pdb").strpath,
+            "cmdline": (
                 log.get("workflow", "prog")
                 + " "
                 + log.get("workflow", "args").replace("\n", " ")
@@ -232,6 +233,34 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         if success:
             logger.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()
+
+        # Record AutoProcAttachments (SCI-9692)
+        attachments = {
+            self.results_directory.join("final.mtz"): ("result", 1),
+            self.results_directory.join("final.pdb"): ("result", 1),
+            self.results_directory.join("dimple.log"): ("log", 2),
+            self.results_directory.join("screen.log"): ("log", 1),
+        }
+        attachments.update(
+            {
+                log_file: ("log", 1)
+                for log_file in itertools.chain(
+                    self.results_directory.visit(fil="[0-9]*-find-blobs.log"),
+                    self.results_directory.visit(fil="[0-9]*-refmac5_restr.log"),
+                )
+            }
+        )
+        logger.info(attachments)
+        for file_name, (file_type, importance_rank) in attachments.items():
+            if file_name.check(file=1):
+                self.record_result_individual_file(
+                    {
+                        "file_path": file_name.dirname,
+                        "file_name": file_name.basename,
+                        "file_type": file_type,
+                        "importance_rank": importance_rank,
+                    }
+                )
 
         # Update SynchWeb tick hack file
         if self.params.get("synchweb_ticks") and self.params.get(

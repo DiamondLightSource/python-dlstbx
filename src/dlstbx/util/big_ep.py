@@ -15,6 +15,7 @@ import procrunner
 import tempfile
 
 import matplotlib as mpl
+from dlstbx.util.big_ep_helpers import get_map_model_from_json
 
 mpl.use("Agg")
 import matplotlib.pyplot as plt
@@ -214,53 +215,18 @@ def read_settings_file(tmpl_data):
         tmpl_data.update({"settings": msg_json})
 
 
-def get_map_model_from_json(json_path):
-
-    abs_json_path = os.path.join(json_path, "big_ep_model_ispyb.json")
-    with open(abs_json_path) as json_file:
-        msg_json = json.load(json_file)
-    return {
-        "pdb": msg_json["pdb"],
-        "map": msg_json["map"],
-        "data": {
-            "residues": "{}".format(msg_json["total"]),
-            "max_frag": "{}".format(msg_json["max"]),
-            "frag": "{}".format(msg_json["fragments"]),
-            "mapcc": "{:.2f} ({:.2f})".format(
-                msg_json["mapcc"], msg_json["mapcc_dmin"]
-            ),
-        },
-    }
-
-
 def generate_model_snapshots(tmpl_env, tmpl_data):
     root_wd = tmpl_data["_root_wd"]
-    paths = [
-        p
-        for p in glob.glob(os.path.join(tmpl_data["big_ep_path"], "*", "*", "*"))
-        if os.path.isdir(p)
-    ]
-
-    try:
-        autosharp_path = next(iter(filter(lambda p: "autoSHARP" in p, paths)))
-    except StopIteration:
-        autosharp_path = None
-    try:
-        autosol_path = next(iter(filter(lambda p: "AutoSol" in p, paths)))
-    except StopIteration:
-        autosol_path = None
-    try:
-        crank2_path = next(iter(filter(lambda p: "crank2" in p, paths)))
-    except StopIteration:
-        crank2_path = None
 
     tmpl_data.update({"model_images": {}})
     tmpl_data.update({"model_data": {}})
 
+    model_path = tmpl_data["big_ep_path"]
+    if tmpl_data["pipeline"] == "autoSHARP":
+        model_path = os.path.join(tmpl_data["big_ep_path"], tmpl_data["pipeline"])
+    logger.info(f"Model path: {model_path}")
     for tag_name, map_model_path in {
-        "autoSHARP": autosharp_path,
-        "AutoBuild": autosol_path,
-        "Crank2": crank2_path,
+        tmpl_data["pipeline"]: model_path,
     }.items():
         try:
             mdl_data = get_map_model_from_json(map_model_path)
@@ -294,30 +260,29 @@ def generate_model_snapshots(tmpl_env, tmpl_data):
             )
             f.write(coot_script)
 
-        with open(coot_sh, "wt") as f:
-            f.write(
-                os.linesep.join(
-                    [
-                        "#!/bin/bash",
-                        ". /etc/profile.d/modules.sh",
-                        "module purge",
-                        "module load ccp4",
-                        "module load python/2.7",
-                        f"coot --python {model_py} --no-graphics --no-guano",
-                        "cat raster_{0}.r3d | render -transparent -png {0}.png".format(
-                            img_name
-                        ),
-                    ]
-                )
+        sh_script = [
+            "#!/bin/bash",
+            ". /etc/profile.d/modules.sh",
+            "module purge",
+            "module load ccp4",
+            "module load python/3",
+            f"coot --python {model_py} --no-graphics --no-guano",
+        ]
+        for idx in range(3):
+            sh_script.append(
+                f"cat raster_{img_name}_{idx}.r3d | render -transparent -png {img_name}_{idx}.png"
             )
+        with open(coot_sh, "wt") as f:
+            f.write(os.linesep.join(sh_script))
 
         procrunner.run(["sh", coot_sh], working_directory=root_wd)
-        try:
-            with open(os.path.join(root_wd, f"{img_name}.png"), "rb") as f:
-                img_data = f.read()
-                tmpl_data["html_images"][img_name] = img_data
-        except OSError:
-            pass
+        for idx in range(3):
+            try:
+                with open(os.path.join(root_wd, f"{img_name}_{idx}.png"), "rb") as f:
+                    img_data = f.read()
+                    tmpl_data["html_images"]["_".join([img_name, str(idx)])] = img_data
+            except OSError:
+                pass
         tmpl_data["model_data"].update({tag_name: mdl_data["data"]})
 
 
@@ -405,7 +370,7 @@ def get_email_subject(log_file, visit):
     return sub
 
 
-def send_html_email_message(msg, to_addrs, tmpl_data):
+def send_html_email_message(msg, pipeline, to_addrs, tmpl_data):
     def add_images(m):
 
         for cid, img in tmpl_data["html_images"].items():
@@ -425,7 +390,7 @@ def send_html_email_message(msg, to_addrs, tmpl_data):
         message = MIMEMultipart("related")
         message["From"] = from_addr
         message["To"] = ",".join(to_addrs)
-        message["Subject"] = " ".join(["[phasing-html]", subject])
+        message["Subject"] = " ".join([f"[phasing-html:{pipeline}]", subject])
         txt = MIMEText(msg, "html")
         message.attach(txt)
         add_images(message)

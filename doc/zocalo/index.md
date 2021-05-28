@@ -66,7 +66,7 @@ This provides a "birds-eye" overview of connected services, their activity statu
 
 Some other services you can see on this snapshot of the overview:
 - `DLS Cluster Service` - this allows submitting of jobs to the cluster
-- `DLS Cluster Monitor` - This generates data for the cluster monitoring page that can be accessed at http://ws154.diamond.ac.uk:3000 and gives a general overview of the current load on the cluster and ActiveMQ server:
+- `DLS Cluster Monitor` - This generates data for the cluster monitoring page that can be accessed at http://ws312.diamond.ac.uk:3000 and gives a general overview of the current load on the cluster and ActiveMQ server:
     ![Cluster Monitor](cluster_monitor.png)
 
 To get a list of possible services, you can run

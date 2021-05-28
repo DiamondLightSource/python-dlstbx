@@ -4,6 +4,7 @@ import pytest
 import workflows.recipe
 import dxtbx.model.experiment_list
 from workflows.services.common_service import CommonService
+import dlstbx.util.hdf5 as hdf5_util
 
 
 class DLSValidation(CommonService):
@@ -71,18 +72,47 @@ class DLSValidation(CommonService):
 
         fail = functools.partial(self.fail_validation, rw, header, output)
 
+        # Verify HDF5 file version is _not_ compatible with HDF5 1.8 format
+        if filename.endswith((".h5", ".nxs")):
+            if not hdf5_util.is_readable(filename):
+                return fail(f"{filename} is an invalid HDF5 file")
+            errors = [
+                link
+                for link in hdf5_util.find_all_references(filename)
+                if not hdf5_util.is_readable(link)
+            ]
+            if errors:
+                return fail(
+                    f"HDF5 file {filename} links to invalid file(s) %s"
+                    % ", ".join(errors)
+                )
+            hdf_18 = [
+                link
+                for link, image_count in hdf5_util.find_all_references(filename).items()
+                if image_count and hdf5_util.is_HDF_1_8_compatible(link)
+            ]
+            if hdf_18:
+                return fail(
+                    f"HDF5 file {filename} links to HDF5 1.8 format data in %s"
+                    % ", ".join(hdf_18)
+                )
+
         # Create experiment list
         try:
             el = dxtbx.model.experiment_list.ExperimentListFactory.from_filenames(
                 [filename]
             )
-        except KeyError as e:
+        except Exception as e:
             if "unable to open external file" in str(e):
                 failname = str(e)
                 if failname.split("'")[1:2]:
                     failname = failname.split("'")[1]
                 return fail(f"data collection is missing linked file: {failname}")
-            raise
+            self.log.warning(
+                f"Unhandled {type(e).__name__} exception reading {filename}",
+                exc_info=True,
+            )
+            return fail(f"Unhandled {type(e).__name__} exception reading {filename}")
 
         wavelength = el.beams()[0].get_wavelength()
 
@@ -90,9 +120,9 @@ class DLSValidation(CommonService):
             return fail("wavelength not set in image header")
 
         if output.get("beamline") == "i04-1":
-            if wavelength < 0.9100 or wavelength > 0.9200:
+            if wavelength < 0.9100 or wavelength > 0.9300:
                 return fail(
-                    f"Image wavelength {wavelength} outside of allowed range for I04-1 (0.9100-0.9200)"
+                    f"Image wavelength {wavelength} outside of allowed range for I04-1 (0.9100-0.9300)"
                 )
 
         if output.get("ispyb_wavelength"):

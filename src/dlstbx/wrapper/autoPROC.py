@@ -114,9 +114,13 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 }
             )
 
-        autoproc_version = autoproc_xml["AutoProcProgramContainer"]["AutoProcProgram"][
-            "processingPrograms"
-        ]
+        autoproc_version = (
+            autoproc_xml["AutoProcProgramContainer"]["AutoProcProgram"][
+                "processingPrograms"
+            ]
+            .split("(")[1]
+            .split()[0]
+        )
         logger.debug(f"autoPROC version: {autoproc_version}")
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
@@ -208,28 +212,29 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                     "refined_ybeam": int_result["refinedXBeam"],
                     "refined_detector_dist": int_result["refinedDetectorDistance"],
                 }
-                # autoPROC reports beam centre in px rather than mm
-                params = self.recwrap.recipe_step["job_parameters"]
-                image_template = params["autoproc"]["image_template"]
-                if image_template.endswith(".h5"):
-                    px_to_mm = 0.075
-                else:
-                    px_to_mm = 0.172
-                if "20200918" in autoproc_version:
-                    # Known bug in this version of autoPROC:
-                    # We reported the direct beam position in pixels within that
-                    # ISPyB-compatible XML file, when other programs apparently
-                    # reported it in mm. So we wanted to change it to mm as well,
-                    # but did that fix in two places at the same time ...
-                    # resulting in multiplying by (pixelsize)**2 instead of just
-                    # pixelsize.
-                    px_to_mm = 1 / px_to_mm
-                for beam_direction in ("refined_xbeam", "refined_ybeam"):
-                    if integration[beam_direction]:
-                        integration[beam_direction] = (
-                            float(integration[beam_direction]) * px_to_mm
-                        )
-                    logger.debug(f"{beam_direction}: {integration[beam_direction]}")
+                if autoproc_version < "20210420":
+                    # autoPROC reports beam centre in px rather than mm
+                    params = self.recwrap.recipe_step["job_parameters"]
+                    image_template = params["autoproc"]["image_template"]
+                    if image_template.endswith(".h5"):
+                        px_to_mm = 0.075
+                    else:
+                        px_to_mm = 0.172
+                    if autoproc_version == "20200918":
+                        # Known bug in this version of autoPROC:
+                        # We reported the direct beam position in pixels within that
+                        # ISPyB-compatible XML file, when other programs apparently
+                        # reported it in mm. So we wanted to change it to mm as well,
+                        # but did that fix in two places at the same time ...
+                        # resulting in multiplying by (pixelsize)**2 instead of just
+                        # pixelsize.
+                        px_to_mm = 1 / px_to_mm
+                    for beam_direction in ("refined_xbeam", "refined_ybeam"):
+                        if integration[beam_direction]:
+                            integration[beam_direction] = (
+                                float(integration[beam_direction]) * px_to_mm
+                            )
+                        logger.debug(f"{beam_direction}: {integration[beam_direction]}")
 
                 if n > 0 or special_program_name:
                     # make sure only the first integration of the original program
@@ -244,7 +249,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             )
 
         if attachments:
-            for filename, dirname, filetype in attachments:
+            for filename, dirname, filetype, importance_rank in attachments:
                 ispyb_command_list.append(
                     {
                         "ispyb_command": "add_program_attachment",
@@ -252,6 +257,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                         "file_name": filename,
                         "file_path": dirname,
                         "file_type": filetype,
+                        "importance_rank": importance_rank,
                     }
                 )
 
@@ -560,6 +566,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 )
         allfiles = []  # flat list
         anisofiles = []  # tuples of file name, dir name, file type
+        attachments = []  # tuples of file name, dir name, file type
         for filename in working_directory.listdir():
             keep_as = keep.get(filename.basename, filename.ext in copy_extensions)
             if not keep_as:
@@ -569,30 +576,45 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             filename.copy(destination)
             if filename.basename not in keep:
                 continue  # only copy file, do not register in ISPyB
+            importance_rank = {
+                "truncate-unique.mtz": 1,
+                "staraniso_alldata-unique.mtz": 1,
+                "summary.html": 1,
+            }.get(filename.basename, 2)
             if "staraniso" in filename.basename:
-                anisofiles.append((destination.basename, destination.dirname, keep_as))
+                anisofiles.append(
+                    (
+                        destination.basename,
+                        destination.dirname,
+                        keep_as,
+                        importance_rank,
+                    )
+                )
             else:
                 if keep_as == "log":
                     # also record log files for staraniso
                     anisofiles.append(
-                        (destination.basename, destination.dirname, keep_as)
+                        (
+                            destination.basename,
+                            destination.dirname,
+                            keep_as,
+                            importance_rank,
+                        )
                     )
+                attachments.append(
+                    (
+                        destination.basename,
+                        destination.dirname,
+                        keep_as,
+                        importance_rank,
+                    )
+                )
                 allfiles.append(destination.strpath)
-                self.record_result_individual_file(
-                    {
-                        "file_path": destination.dirname,
-                        "file_name": destination.basename,
-                        "file_type": keep_as,
-                    }
-                )
-                logger.debug(
-                    "Recording file %s as %s in ISPyB", destination.basename, keep_as
-                )
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
         if success and autoproc_xml:
-            success = self.send_results_to_ispyb(autoproc_xml)
+            success = self.send_results_to_ispyb(autoproc_xml, attachments=attachments)
         if success and staraniso_xml:
             success = self.send_results_to_ispyb(
                 staraniso_xml,

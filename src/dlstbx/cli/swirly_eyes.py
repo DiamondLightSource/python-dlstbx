@@ -37,10 +37,14 @@ def run():
 
     options, args = parser.parse_args()
 
-    while options.forever:
-        l = swirly_lines.pop(0)
-        print(l)
-        swirly_lines.append(l)
-        time.sleep(0.05)
-    print(swirly)
-    sys.stdout.write("\033[0m")
+    try:
+        while options.forever:
+            l = swirly_lines.pop(0)
+            print(l)
+            swirly_lines.append(l)
+            time.sleep(0.05)
+        print(swirly)
+    except KeyboardInterrupt:
+        print()
+    finally:
+        sys.stdout.write("\033[0m")

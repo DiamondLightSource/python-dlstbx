@@ -205,6 +205,9 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
                         "file_path": result_file.dirname,
                         "file_name": result_file.basename,
                         "file_type": "log",
+                        "importance_rank": 1
+                        if result_file.basename == "xia2.html"
+                        else 2,
                     }
                 )
 
@@ -219,6 +222,9 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
                         "file_path": result_file.dirname,
                         "file_name": result_file.basename,
                         "file_type": file_type,
+                        "importance_rank": 1
+                        if result_file.basename.endswith("_free.mtz")
+                        else 2,
                     }
                 )
                 allfiles.append(result_file.strpath)
@@ -236,6 +242,7 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
                         "file_path": result_file.dirname,
                         "file_name": result_file.basename,
                         "file_type": file_type,
+                        "importance_rank": 2,
                     }
                 )
                 allfiles.append(result_file.strpath)

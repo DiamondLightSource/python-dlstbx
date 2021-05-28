@@ -63,18 +63,6 @@ class DLSMimas(CommonService):
                 )
                 dc_class_mimas = dlstbx.mimas.MimasDCClass.UNDEFINED
 
-        gridscan = step.get("gridscan")
-        if isinstance(gridscan, bool):
-            pass
-        elif isinstance(gridscan, str):
-            if gridscan.lower() == "true":
-                gridscan = True
-            elif gridscan.lower() == "false":
-                gridscan = False
-            else:
-                return f"Invalid Mimas request rejected (gridscan = {gridscan})"
-        else:
-            return f"Invalid Mimas request rejected (gridscan = {gridscan!r})"
         sweep_list = tuple(
             dlstbx.mimas.MimasISPyBSweep(*info)
             for info in (step.get("sweep_list") or [])
@@ -113,7 +101,6 @@ class DLSMimas(CommonService):
             runstatus=step.get("run_status"),
             spacegroup=spacegroup,
             unitcell=cell,
-            isitagridscan=gridscan,
             getsweepslistfromsamedcg=sweep_list,
             preferred_processing=step.get("preferred_processing"),
             detectorclass=detectorclass,

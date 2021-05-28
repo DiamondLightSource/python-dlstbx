@@ -288,38 +288,40 @@ def write_sequence_file(msg, working_directory=None):
         fp.write(fasta_sequence(msg.sequence).format(80))
 
 
-def get_map_model_from_json(json_path, logger):
-    try:
-        abs_json_path = os.path.join(json_path, "big_ep_model_ispyb.json")
-        result = {"json": abs_json_path}
-        with open(abs_json_path, "r") as json_file:
-            msg_json = json.load(json_file)
-        result.update({k: msg_json[k] for k in ["pdb", "map", "mtz"]})
-        return result
-    except Exception:
-        logger.warning(f"Couldn't read map/model data from {abs_json_path}")
+def get_map_model_from_json(json_path):
+    abs_json_path = os.path.join(json_path, "big_ep_model_ispyb.json")
+    with open(abs_json_path) as json_file:
+        msg_json = json.load(json_file)
+    return {
+        "mtz": msg_json["mtz"],
+        "pdb": msg_json["pdb"],
+        "map": msg_json["map"],
+        "data": {
+            "residues": "{}".format(msg_json["total"]),
+            "max_frag": "{}".format(msg_json["max"]),
+            "frag": "{}".format(msg_json["fragments"]),
+            "mapcc": "{:.2f} ({:.2f})".format(
+                msg_json["mapcc"], msg_json["mapcc_dmin"]
+            ),
+        },
+    }
 
 
-def write_coot_script(working_directory, logger):
+def write_coot_script(working_directory, mdl_dict):
     coot_script = [
         "set_map_radius(20.0)",
         "set_dynamic_map_sampling_on()",
         "set_dynamic_map_size_display_on()",
     ]
 
-    try:
-        fp = get_map_model_from_json(working_directory, logger)
-    except Exception:
-        logger.warning("Cannot read big_ep summary json file")
-        return
-    if os.path.isfile(fp["pdb"]):
+    if os.path.isfile(mdl_dict["pdb"]):
         coot_script.append(
-            'read_pdb("{}")'.format(os.path.relpath(fp["pdb"], working_directory))
+            'read_pdb("{}")'.format(os.path.relpath(mdl_dict["pdb"], working_directory))
         )
-    if os.path.isfile(fp["map"]):
+    if os.path.isfile(mdl_dict["map"]):
         coot_script.append(
             'handle_read_ccp4_map("{}", 0)'.format(
-                os.path.relpath(fp["map"], working_directory)
+                os.path.relpath(mdl_dict["map"], working_directory)
             )
         )
     with open(os.path.join(working_directory, "models.py"), "w") as fp:
@@ -354,8 +356,6 @@ def ispyb_write_model_json(msg, logger):
     except IOError:
         logger.exception("Error creating legacy log file for SynchWeb")
 
-    write_coot_script(msg._wd, logger)
-
 
 def copy_results(working_directory, results_directory, logger):
     def ignore_func(directory, files):
@@ -365,6 +365,11 @@ def copy_results(working_directory, results_directory, logger):
             fp = pth.join(f)
             if not fp.check():
                 ignore_list.append(f)
+                continue
+            if os.path.islink(fp):
+                dest = os.readlink(fp)
+                if not os.path.isfile(dest):
+                    ignore_list.append(f)
         return ignore_list
 
     shutil.copytree(
@@ -383,33 +388,41 @@ def copy_results(working_directory, results_directory, logger):
         logger.warning("Failed to run sed command to update paths", exc_info=True)
 
 
-def send_results_to_ispyb(results_directory, record_result, logger):
+def send_results_to_ispyb(results_directory, log_files, record_result):
     result = False
+    mdl_dict = get_map_model_from_json(results_directory)
     try:
-        f = get_map_model_from_json(results_directory, logger)
-        for fp in f.values():
+        for key in ["pdb", "map", "mtz"]:
+            fp = mdl_dict[key]
             if os.path.isfile(fp):
                 record_result(
                     {
                         "file_path": os.path.dirname(fp),
                         "file_name": os.path.basename(fp),
                         "file_type": "Result",
+                        "importance_rank": 1,
                     }
                 )
                 result = True
     except Exception:
         pass
 
-    log_files = [
-        "LISTautoSHARP.html",
-        "phenix_autosol.log",
-        "phenix_autobuild.log",
-        "crank2.log",
-    ]
-    for fp in log_files:
-        pipeline_logfile = os.path.join(results_directory, fp)
+    for pipeline_logfile in log_files:
         if os.path.isfile(pipeline_logfile):
             record_result(
-                {"file_path": results_directory, "file_name": fp, "file_type": "log"}
+                {
+                    "file_path": os.path.dirname(pipeline_logfile),
+                    "file_name": os.path.basename(pipeline_logfile),
+                    "file_type": "log",
+                    "importance_rank": 1,
+                }
             )
+    record_result(
+        {
+            "file_path": results_directory,
+            "file_name": "big_ep_model_ispyb.json",
+            "file_type": "Result",
+            "importance_rank": 2,
+        }
+    )
     return result

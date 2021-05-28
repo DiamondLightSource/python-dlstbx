@@ -3,7 +3,6 @@
 #   Process a datacollection
 #
 
-
 import getpass
 import json
 import os
@@ -12,7 +11,6 @@ import sys
 from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
 
-import warnings
 import workflows
 from workflows.transport.stomp_transport import StompTransport
 import workflows.recipe
@@ -24,8 +22,8 @@ def run():
     parser = OptionParser(
         usage="dlstbx.go [options] dcid",
         description="Triggers processing of a standard "
-        "recipe, of an arbitrary recipe from a local file, of default recipes "
-        "for a data collection ID, or of an entry in the ISPyB processing table.",
+        "recipe, of an arbitrary recipe from a local file, or of an entry in the "
+        "ISPyB processing table.",
     )
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
@@ -65,21 +63,6 @@ def run():
         action="store_true",
         default=False,
         help="Trigger recipe without specifying a data collection ID",
-    )
-    parser.add_option(
-        "-d",
-        "--default",
-        dest="default",
-        action="store_true",
-        default=False,
-        help=SUPPRESS_HELP,
-    )
-    parser.add_option(
-        "--not",
-        dest="disable",
-        action="append",
-        default=[],
-        help="Do not run this recipe. Only evaluated when --default is used",
     )
     parser.add_option(
         "--drop",
@@ -204,12 +187,7 @@ def run():
         key, value = kv.split("=", 1)
         message["parameters"][key] = value
 
-    if (
-        not options.recipe
-        and not options.recipefile
-        and not (options.default and not options.nodcid)
-        and not options.reprocess
-    ):
+    if not options.recipe and not options.recipefile and not options.reprocess:
         sys.exit("No recipes specified.")
 
     if options.recipefile:
@@ -245,19 +223,6 @@ def run():
         send_to_stomp_or_defer(message)
         print("\nReprocessing task submitted for ID %d." % dcid)
         sys.exit(0)
-
-    if options.default:
-        # Take a DCID. Find a list of default recipe names.
-        from dlstbx.ispybtbx import ispyb_filter
-
-        warnings.warn("The -d/--default option has been deprecated", FutureWarning)
-
-        default_recipes = ispyb_filter({}, {"ispyb_dcid": dcid})[0]["default_recipe"]
-
-        # Merge with any manually specified recipes
-        message["recipes"] = list(
-            (set(message["recipes"]) | set(default_recipes)) - set(options.disable)
-        )
 
     if message["recipes"]:
         print("Running recipes", message["recipes"])

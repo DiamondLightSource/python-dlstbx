@@ -275,6 +275,9 @@ class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
                         "file_path": destination.dirname,
                         "file_name": destination.basename,
                         "file_type": filetype,
+                        "importance_rank": 1
+                        if destination.basename in ("scaled.mtz", "xia2.multiplex.html")
+                        else 2,
                     }
                 )
         if allfiles:

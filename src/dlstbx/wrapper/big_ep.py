@@ -39,7 +39,7 @@ def get_bigep_parameters(big_ep_params, working_directory, logger):
 
     try:
         msg_default["atom"] = big_ep_params["diffraction_plan_info"][
-            "anomalousscatterer"
+            "anomalousScatterer"
         ]
     except Exception:
         logger.debug(f"Anomalous scatterer info for dcid {dcid} not available")

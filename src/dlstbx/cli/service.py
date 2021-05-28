@@ -49,6 +49,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         logging.getLogger("workflows").setLevel(logging.INFO)
         logging.getLogger("xia2").setLevel(logging.INFO)
         logging.getLogger("zocalo").setLevel(logging.DEBUG)
+        logging.getLogger("ispyb").setLevel(logging.INFO)
 
         self.log = logging.getLogger("dlstbx.service")
         self.log.setLevel(logging.DEBUG)
@@ -151,7 +152,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
 
         amq_handler = workflows.logging.CallbackHandler(logging_call)
         if not self.options.verbose:
-            amq_handler.setLevel(logging.INFO)
+            amq_handler.setLevel(logging.WARNING)
         logging.getLogger().addHandler(amq_handler)
 
         if self.options.service_restart:

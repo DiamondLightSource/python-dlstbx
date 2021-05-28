@@ -18,7 +18,7 @@ class DLSMimasBacklog(CommonService):
         """Subscribe to mimas.held and transient.statistics.cluster"""
         self.log.info("MimasBacklog service starting up")
 
-        self._max_jobs_waiting = 10
+        self._max_jobs_waiting = 60
         self._jobs_waiting = self._max_jobs_waiting
         self._last_cluster_update = time.time()
         self._held_data = None

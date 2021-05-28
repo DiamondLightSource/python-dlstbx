@@ -1,3 +1,4 @@
+import dataclasses
 import itertools
 
 import dlstbx.mimas
@@ -30,7 +31,6 @@ def test_validation_of_scenario():
             a=10, b=10.0, c=10, alpha=90.0, beta=90, gamma=90
         ),
         spacegroup=dlstbx.mimas.MimasISPyBSpaceGroup("P41212"),
-        isitagridscan=False,
         getsweepslistfromsamedcg=(
             dlstbx.mimas.MimasISPyBSweep(DCID=1, start=1, end=100),
         ),
@@ -46,8 +46,6 @@ def test_validation_of_scenario():
         ("dcclass", None),
         ("dcclass", 1),
         ("event", dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid")),
-        ("isitagridscan", ""),
-        ("isitagridscan", "True"),
         (
             "getsweepslistfromsamedcg",
             dlstbx.mimas.MimasRecipeInvocation(DCID=1, recipe="invalid"),
@@ -71,7 +69,7 @@ def test_validation_of_scenario():
         ("detectorclass", "ADSC"),
     ]:
         print(f"testing {key}: {value}")
-        invalid_scenario = valid_scenario._replace(**{key: value})
+        invalid_scenario = dataclasses.replace(valid_scenario, **{key: value})
         with pytest.raises(ValueError):
             dlstbx.mimas.validate(invalid_scenario)
 
@@ -88,7 +86,7 @@ def test_validation_of_recipe_invocation():
         ("recipe", None),
     ]:
         print(f"testing {key}: {value}")
-        invalid_invocation = valid_invocation._replace(**{key: value})
+        invalid_invocation = dataclasses.replace(valid_invocation, **{key: value})
         with pytest.raises(ValueError):
             dlstbx.mimas.validate(invalid_invocation)
 
@@ -126,7 +124,7 @@ def test_validation_of_ispyb_invocation():
         ("sweeps", None),
     ]:
         print(f"testing {key}: {value}")
-        invalid_invocation = valid_invocation._replace(**{key: value})
+        invalid_invocation = dataclasses.replace(valid_invocation, **{key: value})
         with pytest.raises(ValueError):
             dlstbx.mimas.validate(invalid_invocation)
 
@@ -146,7 +144,7 @@ def test_validation_of_ispyb_parameters():
         ("value", False),
     ]:
         print(f"testing {key}: {value}")
-        invalid = valid._replace(**{key: value})
+        invalid = dataclasses.replace(valid, **{key: value})
         with pytest.raises(ValueError):
             dlstbx.mimas.validate(invalid)
 
@@ -172,7 +170,7 @@ def test_validation_of_ispyb_sweeps():
         ("end", 5),
     ]:
         print(f"testing {key}: {value}")
-        invalid = valid._replace(**{key: value})
+        invalid = dataclasses.replace(valid, **{key: value})
         with pytest.raises(ValueError):
             dlstbx.mimas.validate(invalid)
 
@@ -192,7 +190,7 @@ def test_validation_of_ispyb_unit_cells():
         [("alpha", 180), ("beta", 180), ("gamma", 180)],
     ):
         print(f"testing {key}: {value}")
-        invalid = valid._replace(**{key: value})
+        invalid = dataclasses.replace(valid, **{key: value})
         with pytest.raises(ValueError):
             dlstbx.mimas.validate(invalid)
 

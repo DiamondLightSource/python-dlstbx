@@ -1,7 +1,7 @@
 import logging
 
 import ispyb.connector.mysqlsp.main
-from six.moves import configparser
+import configparser
 
 log = logging.getLogger("dlstbx.dc_sim")
 

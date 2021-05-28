@@ -8,12 +8,12 @@
 import errno
 import json
 import os
+import queue
 import re
 import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
-from six.moves import queue
 from workflows.transport.stomp_transport import StompTransport
 
 

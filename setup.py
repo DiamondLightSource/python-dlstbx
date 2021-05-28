@@ -9,14 +9,10 @@ __version_tag__ = "1.0.dev"
 console_scripts = [
     "dials.swirly_eyes=dlstbx.cli.swirly_eyes:run",
     "dlstbx.align_crystal=dlstbx.cli.align_crystal:run",
-    "dlstbx.compare_screening_results=dlstbx.cli.compare_screening_results:run",
     "dlstbx.dc_sim_verify=dlstbx.cli.dc_sim_verify:run",
     "dlstbx.dlq_check=dlstbx.cli.dlq_check:run",
     "dlstbx.dlq_purge=dlstbx.cli.dlq_purge:run",
     "dlstbx.dlq_reinject=dlstbx.cli.dlq_reinject:run",
-    "dlstbx.eiger_emulator=dlstbx.cli.eiger_emulator:run",
-    "dlstbx.eiger_slurper=dlstbx.cli.eiger_slurper:run",
-    "dlstbx.ep_predict=dlstbx.cli.ep_predict:runmain",
     "dlstbx.ep_predict_phase=dlstbx.cli.ep_predict_phase:run",
     "dlstbx.ep_predict_results=dlstbx.cli.ep_predict_results:runmain",
     "dlstbx.find_funny_eiger_frames=dlstbx.cli.find_funny_eiger_frames:run",
@@ -24,27 +20,19 @@ console_scripts = [
     "dlstbx.fix_cluster_jobs=dlstbx.cli.fix_cluster_jobs:run",
     "dlstbx.get_activemq_statistics=dlstbx.cli.get_activemq_statistics:run",
     "dlstbx.get_graylog_statistics=dlstbx.cli.get_graylog_statistics:run",
-    "dlstbx.get_pia_results=dlstbx.cli.get_pia_results:run",
-    "dlstbx.get_processing_statistics=dlstbx.cli.get_processing_statistics:run",
-    "dlstbx.get_screening_results=dlstbx.cli.get_screening_results:run",
     "dlstbx.go=dlstbx.cli.go:run",
     "dlstbx.graylog=dlstbx.cli.graylog:run",
     "dlstbx.gridscan3d=dlstbx.cli.gridscan3d:run",
     "dlstbx.h5rewrite=dlstbx.cli.h5rewrite:cli",
     "dlstbx.hdf5_missing_frames=dlstbx.cli.hdf5_missing_frames:run",
-    "dlstbx.last_data_collections_on=dlstbx.cli.last_data_collections_on:run",
-    "dlstbx.list_all_entry_points=dlstbx.cli.list_all_entry_points:run",
+    "dlstbx.last_data_collections_on=dlstbx.cli.last_data_collections_on:main",
     "dlstbx.log=dlstbx.cli.log:run",
-    "dlstbx.log_alert=dlstbx.cli.log_alert:run",
     "dlstbx.mimas=dlstbx.cli.mimas:run",
     "dlstbx.monitor_beamline=dlstbx.cli.monitor_beamline:run",
-    "dlstbx.mr_predict=dlstbx.cli.mr_predict:runmain",
     "dlstbx.mr_predict_results=dlstbx.cli.mr_predict_results:runmain",
-    "dlstbx.odin2files=dlstbx.cli.odin2files:run",
     "dlstbx.pickup=dlstbx.cli.pickup:run",
     "dlstbx.pilatus_settings_check=dlstbx.cli.pilatus_settings_check:run",
     "dlstbx.plot_reflections=dlstbx.cli.plot_reflections:run",
-    "dlstbx.process=dlstbx.cli.process:run",  # deprecated
     "dlstbx.queue_drain=dlstbx.cli.queue_drain:run",
     "dlstbx.queue_monitor=dlstbx.cli.queue_monitor:run",
     "dlstbx.run_dozor=dlstbx.cli.run_dozor:run",
@@ -59,22 +47,26 @@ console_scripts = [
     "dlstbx.wrap_fast_dp=dlstbx.cli.wrap_fast_dp:main",
     "dlstbx.wrap_multi_xia2=dlstbx.cli.wrap_multi_xia2:main",
     "eiger2xds=dlstbx.cli.eiger2xds:run",
+    "em.visits=dlstbx.cli.em_visits:run",
     "i19.tail=dlstbx.cli.i19_tail:run",
-    "ispyb.job=dlstbx.cli.ispyb_job:run",
-    "ispyb.reprocessing=dlstbx.cli.ispyb_job:run",  # deprecated
-    "ispyb.rpc=dlstbx.cli.ispyb_call:run",
     "it.status=dlstbx.cli.it_status:run",
+]
+
+# Console scripts that will have libtbx dispatchers generated in the release
+swirltbx_hacks = [
+    "ispyb.job",
+    "ispyb.last_data_collections_on",
 ]
 
 known_wrappers = [  # please keep alphabetically sorted
     "align_crystal = dlstbx.wrapper.dlstbx_align_crystal:AlignCrystalWrapper",
-    "autobuild = dlstbx.wrapper.autobuild:AutoBuildWrapper",
+    "AutoBuild = dlstbx.wrapper.autobuild:AutoBuildWrapper",
     "autoproc = dlstbx.wrapper.autoPROC:autoPROCWrapper",
-    "autosharp = dlstbx.wrapper.autoSHARP:autoSHARPWrapper",
+    "autoSHARP = dlstbx.wrapper.autoSHARP:autoSHARPWrapper",
     "best = dlstbx.wrapper.best:BESTWrapper",
     "big_ep = dlstbx.wrapper.big_ep:BigEPWrapper",
     "big_ep_report = dlstbx.wrapper.big_ep_report:BigEPReportWrapper",
-    "crank2 = dlstbx.wrapper.crank2:Crank2Wrapper",
+    "Crank2 = dlstbx.wrapper.crank2:Crank2Wrapper",
     "dc_sim = dlstbx.wrapper.dc_sim:DCSimWrapper",
     "dimple = dlstbx.wrapper.dimple:DimpleWrapper",
     "dozor = dlstbx.wrapper.dozor:DozorWrapper",
@@ -87,14 +79,13 @@ known_wrappers = [  # please keep alphabetically sorted
     "mr_predict = dlstbx.wrapper.mr_predict:MRPredictWrapper",
     "mrbump = dlstbx.wrapper.mrbump:MrBUMPWrapper",
     "phaser_ellg  = dlstbx.wrapper.phaser_ellg:PhasereLLGWrapper",
-    "relion = dlstbx.wrapper.relion:RelionWrapper",
     "rlv = dlstbx.wrapper.rlv:RLVWrapper",
     "screen19 = dlstbx.wrapper.screen19:Screen19Wrapper",
     "screen19_mx = dlstbx.wrapper.screen19_mx:Screen19MXWrapper",
     "shelxc_stats = dlstbx.wrapper.shelxc_stats:ShelxcStatsWrapper",
     "spotcounts = dlstbx.wrapper.spot_counts_per_image:SCPIWrapper",
     "stepped_transmission = dlstbx.wrapper.stepped_transmission:SteppedTransmissionWrapper",
-    "timg = dlstbx.wrapper.timg:TopazWrapper",
+    # "timg = dlstbx.wrapper.timg:TopazWrapper",  # tentatively disabled
     "topaz3 = dlstbx.wrapper.topaz3_wrapper:Topaz3Wrapper",
     "xia2 = dlstbx.wrapper.xia2:Xia2Wrapper",
     "xia2.multiplex = dlstbx.wrapper.xia2_multiplex:Xia2MultiplexWrapper",
@@ -114,7 +105,6 @@ service_list = [
     "DLSController = dlstbx.services.controller:DLSController",
     "DLSDispatcher = dlstbx.services.dispatcher:DLSDispatcher",
     "DLSDropfilePickup = dlstbx.services.dropfile_pickup:DLSDropfilePickup",
-    "DLSDummy = dlstbx.services.sample_dummy:DLSDummy",
     "DLSFileWatcher = dlstbx.services.filewatcher:DLSFileWatcher",
     "DLSISPyB = dlstbx.services.ispybsvc:DLSISPyB",
     "DLSISPyBPIA = dlstbx.services.ispybsvc_pia:DLSISPyBPIA",
@@ -126,17 +116,11 @@ service_list = [
     "DLSNotifyGDA = dlstbx.services.notifygda:DLSNotifyGDA",
     "DLSPerImageAnalysis = dlstbx.services.per_image_analysis:DLSPerImageAnalysis",
     "DLSStatistics = dlstbx.services.statistics:DLSStatistics",
-    "DLSStreamdumperI022 = dlstbx.services.stream_dumper:DLSStreamdumperI022",
-    "DLSStreamdumperI03 = dlstbx.services.stream_dumper:DLSStreamdumperI03",
-    "DLSStreamdumperI04 = dlstbx.services.stream_dumper:DLSStreamdumperI04",
-    "DLSStreamdumperI24 = dlstbx.services.stream_dumper:DLSStreamdumperI24",
-    "DLSStreamdumperTest = dlstbx.services.stream_dumper:DLSStreamdumperTest",
     "DLSTrigger = dlstbx.services.trigger:DLSTrigger",
     "DLSValidation = dlstbx.services.validation:DLSValidation",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
-    "FakeNews = dlstbx.services.fake_news:FakeNews",
-    "LoadProducer = dlstbx.services.load_producer:LoadProducer",
-    "LoadReceiver = dlstbx.services.load_receiver:LoadReceiver",
+    # "LoadProducer = dlstbx.services.load_producer:LoadProducer",  # tentatively disabled
+    # "LoadReceiver = dlstbx.services.load_receiver:LoadReceiver",  # tentatively disabled
 ]
 
 
@@ -186,11 +170,10 @@ setup(
     ],
     entry_points={
         "console_scripts": sorted(console_scripts),
-        "dlstbx.wrappers": sorted(known_wrappers),
-        "dxtbx.format": sorted(dxtbx_formats),
         "libtbx.dispatcher.script": [
             "%s=%s" % (x.split("=")[0], x.split("=")[0]) for x in console_scripts
-        ],
+        ]
+        + ["%s=%s" % (x, x) for x in swirltbx_hacks],
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.wrappers": sorted(known_wrappers),

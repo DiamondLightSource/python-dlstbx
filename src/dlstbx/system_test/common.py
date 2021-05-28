@@ -253,14 +253,22 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
         )
         self._add_timer(at_time=min_wait)
 
-    def timer_event(self, at_time=None, callback=None, args=None, kwargs=None):
+    def timer_event(
+        self, at_time=None, callback=None, args=None, kwargs=None, expect_return=...
+    ):
         if args is None:
             args = []
         if kwargs is None:
             kwargs = {}
         assert at_time, "need to specify time for event"
         assert callback, "need to specify callback function"
-        self._add_timer(at_time=at_time, callback=callback, args=args, kwargs=kwargs)
+        self._add_timer(
+            at_time=at_time,
+            callback=callback,
+            args=args,
+            kwargs=kwargs,
+            expect_return=expect_return,
+        )
 
     def apply_parameters(self, item):
         """Recursively apply formatting to {item}s in a data structure, leaving

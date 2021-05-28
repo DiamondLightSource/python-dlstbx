@@ -1,9 +1,9 @@
 import os.path
 import time
 
-import dlstbx.util.gda
-import ispyb
+import ispyb.sqlalchemy
 import mysql.connector
+import sqlalchemy.orm
 import workflows.recipe
 from workflows.services.common_service import CommonService
 import json
@@ -23,7 +23,12 @@ class DLSISPyB(EM_Mixin, CommonService):
         """Subscribe the ISPyB connector queue. Received messages must be
         acknowledged. Prepare ISPyB database connection."""
         self.log.info("ISPyB connector using ispyb v%s", ispyb.__version__)
-        self.ispyb = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
+        self.ispyb = ispyb.open()
+        self._ispyb_sessionmaker = sqlalchemy.orm.sessionmaker(
+            bind=sqlalchemy.create_engine(
+                ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
+            )
+        )
         self.log.debug("ISPyB connector starting")
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -42,8 +47,8 @@ class DLSISPyB(EM_Mixin, CommonService):
             # which was connected to a different database server in the DB cluster. If
             # we were to process it immediately we may run into a DB synchronization
             # fault. Avoid this by giving the DB cluster a bit of time to settle.
-            self.log.debug("Received redelivered message, holding for a second.")
-            time.sleep(1)
+            self.log.debug("Received redelivered message, holding for a moment.")
+            time.sleep(0.5)
 
         if not rw:
             # Incoming message is not a recipe message. Simple messages can be valid
@@ -109,9 +114,14 @@ class DLSISPyB(EM_Mixin, CommonService):
                     base_value = base_value.replace("$" + key, str(rw.environment[key]))
             return base_value
 
-        result = getattr(self, "do_" + command)(
-            rw=rw, message=message, parameters=parameters, transaction=txn
-        )
+        with self._ispyb_sessionmaker() as session:
+            result = getattr(self, "do_" + command)(
+                rw=rw,
+                message=message,
+                parameters=parameters,
+                session=session,
+                transaction=txn,
+            )
 
         store_result = rw.recipe_step["parameters"].get("store_result")
         if store_result and result and "return_value" in result:
@@ -405,30 +415,6 @@ class DLSISPyB(EM_Mixin, CommonService):
                 self.ispyb.mx_processing.upsert_quality_indicators,
                 list(params.values()),
             )
-            gdahost = parameters("notify-gda")
-            if gdahost:
-                if "{" in gdahost:
-                    self.log.warning(
-                        "Could not notify GDA, %s is not a valid hostname", gdahost
-                    )
-                elif gdahost == "mx-control":
-                    pass  # skip
-                elif result is None:
-                    self.log.info(
-                        "Could not notify GDA, stored procedure returned 'None'"
-                    )
-                else:
-                    # We still notify in the legacy manner by sending a UDP package with DCID+imagenumber
-                    try:
-                        dlstbx.util.gda.notify(
-                            gdahost,
-                            9877,
-                            "IQI:{p[datacollectionid]}:{p[image_number]}".format(
-                                p=params
-                            ).encode("latin-1"),
-                        )
-                    except Exception as e:
-                        self.log.warning("Could not notify GDA: %s", e, exc_info=True)
         except ispyb.ReadWriteError as e:
             self.log.error(
                 "Could not write PIA results %s to database: %s",

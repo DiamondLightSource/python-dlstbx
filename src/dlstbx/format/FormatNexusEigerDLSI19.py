@@ -1,11 +1,16 @@
 import h5py
 
+from dials.array_family import flex
 from dxtbx.format.FormatNexusEigerDLS import FormatNexusEigerDLS
+from dxtbx.format.nexus import dataset_as_flex
 
 import dlstbx.nexus.nxmx
 
 
 class FormatNexusEigerDLSI19(FormatNexusEigerDLS):
+
+    _cached_file_handle = None
+
     @staticmethod
     def understand(image_file):
         with h5py.File(image_file, "r") as f:
@@ -36,3 +41,17 @@ class FormatNexusEigerDLSI19(FormatNexusEigerDLS):
 
     def get_static_mask(self, index=None, goniometer=None):
         return None
+
+    def get_raw_data(self, index):
+        if self._cached_file_handle is None:
+            self._cached_file_handle = h5py.File(self._image_file, "r")
+
+        nxmx = dlstbx.nexus.nxmx.NXmx(self._cached_file_handle)
+        nxdata = nxmx.entries[0].data[0]
+        data = nxdata[nxdata.signal]
+        _, height, width = data.shape
+        data_as_flex = dataset_as_flex(
+            data, (slice(index, index + 1, 1), slice(0, height, 1), slice(0, width, 1))
+        )
+        data_as_flex.reshape(flex.grid(data_as_flex.all()[1:]))
+        return data_as_flex

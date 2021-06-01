@@ -95,7 +95,8 @@ known_wrappers = [  # please keep alphabetically sorted
 ]
 
 dxtbx_formats = [
-    "FormatNexusEigerDLSI19:FormatNexusEigerDLS = dlstbx.format.FormatNexusEigerDLSI19:FormatNexusEigerDLSI19",
+    "FormatNXmx:FormatNexusEiger = dlstbx.format.FormatNXmx:FormatNXmx",
+    "FormatNXmxDLS:FormatNXmx = dlstbx.format.FormatNXmxDLS:FormatNXmxDLS",
 ]
 
 service_list = [

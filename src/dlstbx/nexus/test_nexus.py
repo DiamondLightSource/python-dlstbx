@@ -3,6 +3,8 @@ import numpy as np
 import pytest
 
 import dxtbx.model
+from scitbx.array_family import flex
+
 import dlstbx.nexus.nxmx
 
 
@@ -146,3 +148,41 @@ def test_get_dxtbx_detector_with_two_theta(detector_with_two_theta):
         -30.01668254145155,
     )
     assert panel.get_distance() == pytest.approx(120)
+
+
+@pytest.fixture
+def pixel_mask_example():
+    with h5py.File(" ", "w", **pytest.h5_in_memory) as f:
+        detector = f.create_group("/entry/instrument/detector")
+        detector.attrs["NX_class"] = "NXdetector"
+
+        module = detector.create_group("module")
+        module.attrs["NX_class"] = "NXdetector_module"
+        module.create_dataset("data_origin", data=np.array([0.0, 0.0]))
+        module.create_dataset("data_size", data=np.array([4362, 4148]))
+
+        nf = 1028  # module pixels fast
+        ns = 512  # module pixels slow
+        df = 12  # module gap fast
+        ds = 38  # module gap slow
+
+        mask = np.zeros((4362, 4148), dtype="i8")
+        for j in range(mask.shape[1] // (nf + df)):
+            mask[:, (j + 1) * nf + j * df : (j + 1) * (nf + df)] = 1
+        for i in range(mask.shape[0] // (ns + ds)):
+            mask[(i + 1) * ns + i * ds : (i + 1) * (ns + ds), :] = 1
+
+        detector.create_dataset("pixel_mask", data=mask)
+        yield f
+
+
+def test_get_static_mask(pixel_mask_example):
+    det = dlstbx.nexus.nxmx.NXdetector(pixel_mask_example["/entry/instrument/detector"])
+    mask = dlstbx.nexus.get_static_mask(det)
+    assert len(mask) == 1
+    assert isinstance(mask[0], flex.bool)
+    assert mask[0].all() == (4362, 4148)
+    assert np.all(
+        mask[0].as_numpy_array()
+        == (pixel_mask_example["/entry/instrument/detector/pixel_mask"][()] == 0)
+    )

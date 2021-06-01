@@ -367,9 +367,73 @@ class NXdetector(H5Mapping):
             return self._handle["beam_center_y"][()]
 
     @cached_property
-    def pixel_mask(self):
+    def pixel_mask_applied(self) -> Optional[bool]:
+        """
+        True when the pixel mask correction has been applied in the electronics, false
+        otherwise (optional).
+        """
+        if "pixel_mask_applied" in self._handle:
+            return self._handle["pixel_mask_applied"][()]
+
+    @cached_property
+    def pixel_mask(self) -> Optional[np.ndarray]:
+        """The 32-bit pixel mask for the detector.
+
+        Can be either one mask for the whole dataset (i.e. an array with indices i, j)
+        or each frame can have its own mask (in which case it would be an array with
+        indices nP, i, j).
+
+        Contains a bit field for each pixel to signal dead, blind, high or otherwise
+        unwanted or undesirable pixels. They have the following meaning:
+
+          - bit 0: gap (pixel with no sensor)
+
+          - bit 1: dead
+
+          - bit 2: under-responding
+
+          - bit 3: over-responding
+
+          - bit 4: noisy
+
+          - bit 5: -undefined-
+
+          - bit 6: pixel is part of a cluster of problematic pixels (bit set in addition
+                   to others)
+
+          - bit 7: -undefined-
+
+          - bit 8: user defined mask (e.g. around beamstop)
+
+          - bits 9-30: -undefined-
+
+          - bit 31: virtual pixel (corner pixel with interpolated value)
+
+        Normal data analysis software would not take pixels into account when a bit in
+        (mask & 0x0000FFFF) is set. Tag bit in the upper two bytes would indicate
+        special pixel properties that normally would not be a sole reason to reject the
+        intensity value (unless lower bits are set.
+
+        If the full bit depths is not required, providing a mask with fewer bits is
+        permissible.
+
+        If needed, additional pixel masks can be specified by including additional
+        entries named pixel_mask_N, where N is an integer. For example, a general bad
+        pixel mask could be specified in pixel_mask that indicates noisy and dead
+        pixels, and an additional pixel mask from experiment-specific shadowing could be
+        specified in pixel_mask_2. The cumulative mask is the bitwise OR of pixel_mask
+        and any pixel_mask_N entries.
+
+        If provided, it is recommended that it be compressed.
+        """
         if "pixel_mask" in self._handle:
             return self._handle["pixel_mask"][()]
+
+    @cached_property
+    def bit_depth_readout(self) -> Optional[int]:
+        """How many bits the electronics record per pixel (recommended)."""
+        if "bit_depth_readout" in self._handle:
+            return self._handle["bit_depth_readout"][()]
 
     @cached_property
     def sensor_material(self):

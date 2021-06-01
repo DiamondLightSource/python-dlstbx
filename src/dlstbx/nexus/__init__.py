@@ -1,7 +1,10 @@
+from typing import Tuple
+
 import numpy as np
 
 import dxtbx.model
 from cctbx import eltbx
+from dxtbx.format.nexus import dataset_as_flex
 from scitbx.array_family import flex
 
 from . import nxmx
@@ -176,3 +179,16 @@ def get_dxtbx_detector(
         # pedestal=None,
         # identifier="",
     )
+
+
+def get_static_mask(nxdetector: nxmx.NXdetector) -> Tuple[flex.bool]:
+    pixel_mask = nxdetector["pixel_mask"]
+    if pixel_mask and pixel_mask.ndim == 2:
+        all_slices = [
+            tuple(
+                slice(int(start), int(start + step), 1)
+                for start, step in zip(module.data_origin, module.data_size)
+            )
+            for module in nxdetector.modules
+        ]
+        return tuple(dataset_as_flex(pixel_mask, slices) == 0 for slices in all_slices)

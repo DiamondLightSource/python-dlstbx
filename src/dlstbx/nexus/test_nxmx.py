@@ -62,7 +62,7 @@ def test_nxmx(nxmx_example):
     assert len(detector.modules) == 1
     module = detector.modules[0]
     assert np.all(module.data_origin == [0, 0])
-    assert np.all(module.data_size == [4148, 4362])
+    assert np.all(module.data_size == [4362, 4148])
 
     assert nxentry.source.name == "Diamond"
     assert nxentry.source.short_name == "DLS"

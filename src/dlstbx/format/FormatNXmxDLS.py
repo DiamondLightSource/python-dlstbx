@@ -5,6 +5,7 @@ import h5py
 from dials.array_family import flex
 from dxtbx.format.FormatNexusEigerDLS import FormatNexusEigerDLS
 
+import dlstbx.nexus
 from dlstbx.format.FormatNXmx import FormatNXmx
 
 # Hack to switch off the FormatNexusEigerDLS format class
@@ -44,12 +45,12 @@ class FormatNXmxDLS(FormatNXmx):
     @staticmethod
     def understand(image_file):
         with h5py.File(image_file, "r") as handle:
-            name = FormatNXmxDLS.get_instrument_name(handle)
+            name = dlstbx.nexus.nxmx.h5str(FormatNXmxDLS.get_instrument_name(handle))
             if name is None:
                 return False
-            if name.lower() in (b"i03", b"i04", b"i24", b"vmxi"):
+            if name.lower() in {"i03", "i04", "i24", "vmxi"}:
                 return True
-            if name.upper().startswith(b"DLS "):
+            if name.upper().startswith("DLS ") and "i19-2" not in name.lower():
                 return True
         return False
 
@@ -71,8 +72,13 @@ class FormatNXmxDLS(FormatNXmx):
         super()._start()
         # Due to a bug the dimensions (but not the values) of the pixel_mask array
         # are reversed. See https://jira.diamond.ac.uk/browse/MXGDA-3675.
-        for m in self._static_mask:
-            m.reshape(flex.grid(reversed(m.all())))
+        if self._static_mask:
+            for m in self._static_mask:
+                m.reshape(flex.grid(reversed(m.all())))
+        # /entry/instrument/detector/module/data_size is also reversed:
+        # https://jira.diamond.ac.uk/browse/MXGDA-3676
+        for panel in self._detector_model:
+            panel.set_image_size(tuple(reversed(panel.get_image_size())))
 
     def get_raw_data(self, index):
         data = super().get_raw_data(index)

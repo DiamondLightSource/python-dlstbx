@@ -62,7 +62,7 @@ def nxmx_example():
         module = detector.create_group("module")
         module.attrs["NX_class"] = "NXdetector_module"
         module.create_dataset("data_origin", data=np.array([0.0, 0.0]))
-        module.create_dataset("data_size", data=np.array([4148, 4362]))
+        module.create_dataset("data_size", data=np.array([4362, 4148]))
 
         fast_pixel_direction = module.create_dataset(
             "fast_pixel_direction", data=7.5e-5

@@ -138,7 +138,9 @@ def get_dxtbx_detector(
         module.fast_pixel_direction[()].to("mm").magnitude,
         module.slow_pixel_direction[()].to("mm").magnitude,
     )
-    image_size = module.data_size
+    # dxtbx requires image size in the order fast, slow - which is the reverse of what
+    # is stored in module.data_size
+    image_size = reversed(module.data_size)
     underload = (
         nxdetector.underload_value
         if nxdetector.underload_value is not None
@@ -182,7 +184,7 @@ def get_dxtbx_detector(
 
 
 def get_static_mask(nxdetector: nxmx.NXdetector) -> Tuple[flex.bool]:
-    pixel_mask = nxdetector["pixel_mask"]
+    pixel_mask = nxdetector.get("pixel_mask")
     if pixel_mask and pixel_mask.ndim == 2:
         all_slices = [
             tuple(

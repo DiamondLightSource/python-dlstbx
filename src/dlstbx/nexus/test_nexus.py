@@ -23,6 +23,52 @@ def test_get_dxtbx_goniometer(nxmx_example):
     assert gonio.get_scan_axis() == 2
 
 
+@pytest.fixture
+def nxsample_gridscan():
+    with h5py.File(" ", mode="w", **pytest.h5_in_memory) as f:
+        entry = f.create_group("/entry")
+        entry.attrs["NX_class"] = "NXentry"
+        entry["definition"] = "NXmx"
+
+        sample = entry.create_group("sample")
+        sample.attrs["NX_class"] = "NXsample"
+        sample["name"] = "mysample"
+        sample["depends_on"] = b"/entry/sample/transformations/phi"
+
+        transformations = sample.create_group("transformations")
+        transformations.attrs["NX_class"] = "NXtransformations"
+        omega = transformations.create_dataset("omega", data=np.full(10, 60))
+        omega.attrs["depends_on"] = b"."
+        omega.attrs["transformation_type"] = b"rotation"
+        omega.attrs["units"] = b"deg"
+        omega.attrs["vector"] = np.array([-1.0, 0.0, 0.0])
+        omega.attrs["omega_offset"] = np.array([0.0, 0.0, 0.0])
+
+        phi = transformations.create_dataset("phi", data=np.array([0.0]))
+        phi.attrs["depends_on"] = b"/entry/sample/transformations/chi"
+        phi.attrs["transformation_type"] = b"rotation"
+        phi.attrs["units"] = b"deg"
+        phi.attrs["vector"] = np.array([-1.0, 0, 0])
+
+        chi = transformations.create_dataset("chi", data=np.array([0.0]))
+        chi.attrs["depends_on"] = b"/entry/sample/transformations/omega"
+        chi.attrs["transformation_type"] = b"rotation"
+        chi.attrs["units"] = b"deg"
+        chi.attrs["vector"] = np.array([0, 0, 1])
+
+        yield f
+
+
+def test_get_dxtbx_goniometer_grid_scan(nxsample_gridscan):
+    sample = dlstbx.nexus.nxmx.NXmx(nxsample_gridscan).entries[0].samples[0]
+    gonio = dlstbx.nexus.get_dxtbx_goniometer(sample)
+    assert isinstance(gonio, dxtbx.model.MultiAxisGoniometer)
+    assert gonio.get_rotation_axis() == (1.0, 0.0, 0.0)
+    assert list(gonio.get_angles()) == [0.0, 0.0, 60.0]
+    assert list(gonio.get_names()) == ["phi", "chi", "omega"]
+    assert gonio.get_scan_axis() == 0
+
+
 def test_get_dxtbx_beam(nxmx_example):
     instrument = dlstbx.nexus.nxmx.NXmx(nxmx_example).entries[0].instruments[0]
     beam = dlstbx.nexus.get_dxtbx_beam(instrument.beams[0])

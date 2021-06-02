@@ -8,7 +8,7 @@ from scitbx.array_family import flex
 import dlstbx.nexus.nxmx
 
 
-def test_get_dxtbx_goniometer(nxmx_example):
+def test_get_dxtbx_goniometer_multi_axis(nxmx_example):
     sample = dlstbx.nexus.nxmx.NXmx(nxmx_example).entries[0].samples[0]
     gonio = dlstbx.nexus.get_dxtbx_goniometer(sample)
     assert isinstance(gonio, dxtbx.model.MultiAxisGoniometer)
@@ -21,6 +21,38 @@ def test_get_dxtbx_goniometer(nxmx_example):
     ]
     assert list(gonio.get_names()) == ["phi", "chi", "omega"]
     assert gonio.get_scan_axis() == 2
+
+
+@pytest.fixture
+def nxsample_single_axis():
+    with h5py.File(" ", mode="w", **pytest.h5_in_memory) as f:
+        entry = f.create_group("/entry")
+        entry.attrs["NX_class"] = "NXentry"
+        entry["definition"] = "NXmx"
+
+        sample = entry.create_group("sample")
+        sample.attrs["NX_class"] = "NXsample"
+        sample["name"] = "mysample"
+        sample["depends_on"] = b"/entry/sample/transformations/omega"
+
+        transformations = sample.create_group("transformations")
+        transformations.attrs["NX_class"] = "NXtransformations"
+        omega = transformations.create_dataset("omega", data=np.arange(0, 60, 0.1))
+        omega.attrs["depends_on"] = b"."
+        omega.attrs["transformation_type"] = b"rotation"
+        omega.attrs["units"] = b"deg"
+        omega.attrs["vector"] = np.array([0, 1, 0])
+
+        yield f
+
+
+def test_get_dxtbx_goniometer_single_axis(nxsample_single_axis):
+    sample = dlstbx.nexus.nxmx.NXmx(nxsample_single_axis).entries[0].samples[0]
+    gonio = dlstbx.nexus.get_dxtbx_goniometer(sample)
+    assert isinstance(gonio, dxtbx.model.Goniometer)
+    assert gonio.get_rotation_axis() == (0.0, 1.0, 0.0)
+    assert gonio.get_fixed_rotation() == (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+    assert gonio.get_setting_rotation() == (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 
 
 @pytest.fixture

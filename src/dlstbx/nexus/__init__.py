@@ -30,7 +30,7 @@ def get_dxtbx_goniometer(nxsample: nxmx.NXsample) -> dxtbx.model.Goniometer:
     axes = nxmx.get_rotation_axes(dependency_chain)
     if len(axes.axes) == 1:
         return dxtbx.model.GoniometerFactory.make_goniometer(
-            MCSTAS_TO_IMGCIF @ axes.axes[0], np.identity(3)
+            MCSTAS_TO_IMGCIF @ axes.axes[0], np.identity(3).flatten()
         )
     else:
         if np.sum(axes.is_scan_axis) == 0:

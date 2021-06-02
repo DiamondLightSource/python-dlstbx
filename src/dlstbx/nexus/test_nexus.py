@@ -37,7 +37,7 @@ def nxsample_gridscan():
 
         transformations = sample.create_group("transformations")
         transformations.attrs["NX_class"] = "NXtransformations"
-        omega = transformations.create_dataset("omega", data=np.full(10, 60))
+        omega = transformations.create_dataset("omega", data=np.full(15, 60))
         omega.attrs["depends_on"] = b"."
         omega.attrs["transformation_type"] = b"rotation"
         omega.attrs["units"] = b"deg"
@@ -51,10 +51,37 @@ def nxsample_gridscan():
         phi.attrs["vector"] = np.array([-1.0, 0, 0])
 
         chi = transformations.create_dataset("chi", data=np.array([0.0]))
-        chi.attrs["depends_on"] = b"/entry/sample/transformations/omega"
+        chi.attrs["depends_on"] = b"/entry/sample/transformations/sam_x"
         chi.attrs["transformation_type"] = b"rotation"
         chi.attrs["units"] = b"deg"
         chi.attrs["vector"] = np.array([0, 0, 1])
+
+        sam_x = transformations.create_dataset("sam_x", data=np.full(15, 300))
+        sam_x.attrs["depends_on"] = b"/entry/sample/transformations/sam_y"
+        sam_x.attrs["equipment_component"] = b"goniometer"
+        sam_x.attrs["transformation_type"] = b"translation"
+        sam_x.attrs["units"] = b"mm"
+        sam_x.attrs["vector"] = np.array([1.0, 0.0, 0.0])
+
+        sam_y = transformations.create_dataset("sam_y", data=np.arange(0, 150, 10))
+        sam_y.attrs["depends_on"] = b"/entry/sample/transformations/sam_z"
+        sam_y.attrs["equipment_component"] = b"goniometer"
+        sam_y.attrs["transformation_type"] = b"translation"
+        sam_y.attrs["units"] = b"mm"
+        sam_y.attrs["vector"] = np.array([0.0, 1.0, 0.0])
+
+        sam_z = transformations.create_dataset("sam_z", data=0)
+        sam_z.attrs["depends_on"] = b"/entry/sample/transformations/omega"
+        sam_z.attrs["equipment_component"] = b"goniometer"
+        sam_z.attrs["transformation_type"] = b"translation"
+        sam_z.attrs["units"] = b"mm"
+        sam_z.attrs["vector"] = np.array([0.0, 0.0, 1.0])
+
+        instrument = entry.create_group("instrument")
+        instrument.attrs["NX_class"] = "NXinstrument"
+
+        detector = instrument.create_group("detector")
+        detector.attrs["NX_class"] = "NXdetector"
 
         yield f
 
@@ -86,6 +113,17 @@ def test_get_dxtbx_scan(nxmx_example):
     assert scan.get_oscillation() == (0.0, 0.1)
     assert scan.get_oscillation_range() == (0.0, 1.0)
     assert list(scan.get_exposure_times()) == [0.1] * 10
+
+
+def test_get_dxtbx_scan_grid_scan(nxsample_gridscan):
+    sample = dlstbx.nexus.nxmx.NXmx(nxsample_gridscan).entries[0].samples[0]
+    instrument = dlstbx.nexus.nxmx.NXmx(nxsample_gridscan).entries[0].instruments[0]
+    scan = dlstbx.nexus.get_dxtbx_scan(sample, instrument.detectors[0])
+    assert scan.get_num_images() == 15
+    assert scan.get_image_range() == (1, 15)
+    assert scan.get_oscillation() == (0.0, 0.0)
+    assert scan.get_oscillation_range() == (0.0, 0.0)
+    assert list(scan.get_exposure_times()) == [0.0] * 15
 
 
 def test_get_dxtbx_detector(nxmx_example):

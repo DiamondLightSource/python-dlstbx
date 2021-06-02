@@ -60,6 +60,7 @@ def get_dxtbx_scan(
     dependency_chain = nxmx.get_dependency_chain(nxsample.depends_on)
     scan_axis = None
     for t in dependency_chain:
+        # Find the first varying rotation axis
         if (
             t.transformation_type == "rotation"
             and len(t) > 1
@@ -67,6 +68,13 @@ def get_dxtbx_scan(
         ):
             scan_axis = t
             break
+
+    if scan_axis is None:
+        # Fall back on the first varying axis of any type
+        for t in dependency_chain:
+            if len(t) > 1 and not np.all(t[()] == t[0]):
+                scan_axis = t
+                break
 
     if scan_axis is None:
         scan_axis = nxsample.depends_on

@@ -1,13 +1,13 @@
 import h5py
 
 from dials.array_family import flex
-from dxtbx.format.FormatNexusEiger import FormatNexusEiger
+from dxtbx.format.FormatNexus import FormatNexus
 from dxtbx.format.nexus import dataset_as_flex
 
 import dlstbx.nexus
 
 
-class FormatNXmx(FormatNexusEiger):
+class FormatNXmx(FormatNexus):
 
     _cached_file_handle = None
 

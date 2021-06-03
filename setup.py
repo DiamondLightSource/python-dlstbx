@@ -95,7 +95,7 @@ known_wrappers = [  # please keep alphabetically sorted
 ]
 
 dxtbx_formats = [
-    "FormatNXmx:FormatNexusEiger = dlstbx.format.FormatNXmx:FormatNXmx",
+    "FormatNXmx:FormatNexus = dlstbx.format.FormatNXmx:FormatNXmx",
     "FormatNXmxDLS:FormatNXmx = dlstbx.format.FormatNXmxDLS:FormatNXmxDLS",
 ]
 

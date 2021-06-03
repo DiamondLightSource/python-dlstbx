@@ -182,7 +182,8 @@ def get_dxtbx_detector(
     thickness = nxdetector.sensor_thickness.to("mm").magnitude
     table = eltbx.attenuation_coefficient.get_table(material)
     mu = (
-        table.mu_at_angstrom(nxbeam.incident_wavelength.to("angstrom").magnitude) / 10.0
+        table.mu_at_angstrom(nxbeam.incident_wavelength.to("angstrom").magnitude.item())
+        / 10.0
     )
     px_mm = dxtbx.model.ParallaxCorrectedPxMmStrategy(mu, thickness)
     name = nxdetector.path

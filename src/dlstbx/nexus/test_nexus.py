@@ -158,6 +158,17 @@ def test_get_dxtbx_beam(nxmx_example):
     assert beam.get_sample_to_source_direction() == (0.0, 0.0, 1.0)
 
 
+def test_get_dxtbx_beam_array_length_1():
+    with h5py.File(" ", mode="w", **pytest.h5_in_memory) as f:
+        beam = f.create_group("/entry/instrument/beam")
+        beam.attrs["NX_class"] = "NXbeam"
+        beam["incident_wavelength"] = np.array([0.987])
+        beam["incident_wavelength"].attrs["units"] = b"angstrom"
+
+        nxbeam = dlstbx.nexus.nxmx.NXbeam(f["/entry/instrument/beam"])
+        assert dlstbx.nexus.get_dxtbx_beam(nxbeam).get_wavelength() == 0.987
+
+
 def test_get_dxtbx_scan(nxmx_example):
     sample = dlstbx.nexus.nxmx.NXmx(nxmx_example).entries[0].samples[0]
     instrument = dlstbx.nexus.nxmx.NXmx(nxmx_example).entries[0].instruments[0]

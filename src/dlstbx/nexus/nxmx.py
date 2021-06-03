@@ -326,9 +326,15 @@ class NXdetector(H5Mapping):
         (self._modules,) = find_classes(handle, "NXdetector_module")
 
     @cached_property
-    def depends_on(self):
-        if "depends_on" in self._hande:
-            return h5str(self._handle["depends_on"][()])
+    def depends_on(self) -> Optional[NXtransformationsAxis]:
+        """The axis on which the detector position depends.
+
+        NeXus path to the detector positioner axis that most directly supports the
+        detector. In the case of a single-module detector, the detector axis chain may
+        start here.
+        """
+        if "depends_on" in self._handle:
+            return NXtransformationsAxis(self._handle[self._handle["depends_on"][()]])
 
     @cached_property
     def data(self):

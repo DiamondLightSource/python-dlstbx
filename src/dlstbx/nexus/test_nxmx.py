@@ -58,6 +58,9 @@ def test_nxmx(nxmx_example):
     assert detector.description == "Eiger 16M"
     assert detector.sensor_material == "Silicon"
     assert detector.sensor_thickness.to("mm").magnitude == 0.45
+    assert (
+        detector.depends_on.path == "/entry/instrument/detector/transformations/det_z"
+    )
 
     assert len(detector.modules) == 1
     module = detector.modules[0]

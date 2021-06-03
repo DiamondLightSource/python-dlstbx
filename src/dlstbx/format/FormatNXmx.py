@@ -60,7 +60,12 @@ class FormatNXmx(FormatNexus):
 
         nxmx = dlstbx.nexus.nxmx.NXmx(self._cached_file_handle)
         nxdata = nxmx.entries[0].data[0]
-        data = nxdata[nxdata.signal]
+        nxdetector = nxmx.entries[0].instruments[0].detectors[0]
+        return dlstbx.nexus.get_raw_data(nxdata, nxdetector, index)
+        if nxdata.signal:
+            data = nxdata[nxdata.signal]
+        else:
+            data = list(nxdata.values())[0]
         _, height, width = data.shape
         data_as_flex = dataset_as_flex(
             data, (slice(index, index + 1, 1), slice(0, height, 1), slice(0, width, 1))

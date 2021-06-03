@@ -209,9 +209,9 @@ class NXtransformationsAxis(H5Mapping):
         # accompanying offset_units, so use units instead (which should strictly only
         # apply to vector, not offset.
         # See also https://jira.diamond.ac.uk/browse/MXGDA-3668
-        logger.warning(
-            f"'offset_units' attribute not present for {self.path}, falling back to 'units'"
-        )
+        # logger.warning(
+        # f"'offset_units' attribute not present for {self.path}, falling back to 'units'"
+        # )
         return self.units
 
     @cached_property

@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 
@@ -125,96 +125,128 @@ def get_dxtbx_scan(
 def get_dxtbx_detector(
     nxdetector: nxmx.NXdetector, nxbeam: nxmx.NXbeam
 ) -> dxtbx.model.Detector:
-    module = nxdetector.modules[0]
 
-    # Apply any rotation components of the dependency chain to the fast axis
-    fast_axis_depends_on = [
-        t
-        for t in nxmx.get_dependency_chain(module.fast_pixel_direction.depends_on)
-        if t.transformation_type == "rotation"
-    ]
-    if fast_axis_depends_on:
-        R = nxmx.get_cumulative_transformation(fast_axis_depends_on)[0, :3, :3]
+    detector = dxtbx.model.Detector()
+
+    if len(nxdetector.modules) > 1:
+        root = detector.hierarchy()
     else:
-        R = np.identity(3)
-    fast_axis = MCSTAS_TO_IMGCIF @ R @ module.fast_pixel_direction.vector
+        root = detector
 
-    # Apply any rotation components of the dependency chain to the slow axis
-    slow_axis_depends_on = [
-        t
-        for t in nxmx.get_dependency_chain(module.slow_pixel_direction.depends_on)
-        if t.transformation_type == "rotation"
-    ]
-    if slow_axis_depends_on:
-        R = nxmx.get_cumulative_transformation(slow_axis_depends_on)[0, :3, :3]
-    else:
-        R = np.identity(3)
-    slow_axis = MCSTAS_TO_IMGCIF @ R @ module.slow_pixel_direction.vector
+    for module in nxdetector.modules:
 
-    # Apply all components of the dependency chain to the module offset to get the
-    # dxtbx panel origin
-    dependency_chain = nxmx.get_dependency_chain(module.fast_pixel_direction.depends_on)
-    A = nxmx.get_cumulative_transformation(dependency_chain)
-    origin = MCSTAS_TO_IMGCIF @ A[0, :3, 3]
+        # Apply any rotation components of the dependency chain to the fast axis
+        fast_axis_depends_on = [
+            t
+            for t in nxmx.get_dependency_chain(module.fast_pixel_direction.depends_on)
+            if t.transformation_type == "rotation"
+        ]
+        if fast_axis_depends_on:
+            R = nxmx.get_cumulative_transformation(fast_axis_depends_on)[0, :3, :3]
+        else:
+            R = np.identity(3)
+        fast_axis = MCSTAS_TO_IMGCIF @ R @ module.fast_pixel_direction.vector
 
-    pixel_size = (
-        module.fast_pixel_direction[()].to("mm").magnitude,
-        module.slow_pixel_direction[()].to("mm").magnitude,
-    )
-    # dxtbx requires image size in the order fast, slow - which is the reverse of what
-    # is stored in module.data_size
-    image_size = reversed(module.data_size)
-    underload = (
-        nxdetector.underload_value
-        if nxdetector.underload_value is not None
-        else -0x7FFFFFFF
-    )
-    overload = (
-        nxdetector.saturation_value
-        if nxdetector.saturation_value is not None
-        else 0x7FFFFFFF
-    )
-    trusted_range = (underload, overload)
+        # Apply any rotation components of the dependency chain to the slow axis
+        slow_axis_depends_on = [
+            t
+            for t in nxmx.get_dependency_chain(module.slow_pixel_direction.depends_on)
+            if t.transformation_type == "rotation"
+        ]
+        if slow_axis_depends_on:
+            R = nxmx.get_cumulative_transformation(slow_axis_depends_on)[0, :3, :3]
+        else:
+            R = np.identity(3)
+        slow_axis = MCSTAS_TO_IMGCIF @ R @ module.slow_pixel_direction.vector
 
-    material = KNOWN_SENSOR_MATERIALS.get(nxdetector.sensor_material)
-    if not material:
-        raise ValueError(f"Unknown material: {nxdetector.sensor_material}")
-    thickness = nxdetector.sensor_thickness.to("mm").magnitude
-    table = eltbx.attenuation_coefficient.get_table(material)
-    mu = (
-        table.mu_at_angstrom(nxbeam.incident_wavelength.to("angstrom").magnitude.item())
-        / 10.0
-    )
-    px_mm = dxtbx.model.ParallaxCorrectedPxMmStrategy(mu, thickness)
-    name = nxdetector.path
+        # Apply all components of the dependency chain to the module offset to get the
+        # dxtbx panel origin
+        dependency_chain = nxmx.get_dependency_chain(
+            module.fast_pixel_direction.depends_on
+        )
+        A = nxmx.get_cumulative_transformation(dependency_chain)
+        origin = MCSTAS_TO_IMGCIF @ A[0, :3, 3]
 
-    return dxtbx.model.DetectorFactory.make_detector(
-        "SENSOR_PAD",
-        fast_axis,
-        slow_axis,
-        origin,
-        pixel_size,
-        image_size,
-        trusted_range=trusted_range,
-        px_mm=px_mm,
-        name=name,
-        thickness=thickness,
-        material=material,
-        mu=mu,
-        # gain=None,
-        # pedestal=None,
-        # identifier="",
+        pixel_size = (
+            module.fast_pixel_direction[()].to("mm").magnitude.item(),
+            module.slow_pixel_direction[()].to("mm").magnitude.item(),
+        )
+        # dxtbx requires image size in the order fast, slow - which is the reverse of what
+        # is stored in module.data_size
+        image_size = tuple(map(int, module.data_size[::-1]))
+        underload = (
+            float(nxdetector.underload_value)
+            if nxdetector.underload_value is not None
+            else -0x7FFFFFFF
+        )
+        overload = (
+            float(nxdetector.saturation_value)
+            if nxdetector.saturation_value is not None
+            else 0x7FFFFFFF
+        )
+        trusted_range = (underload, overload)
+
+        material = KNOWN_SENSOR_MATERIALS.get(nxdetector.sensor_material)
+        if not material:
+            raise ValueError(f"Unknown material: {nxdetector.sensor_material}")
+        thickness = nxdetector.sensor_thickness.to("mm").magnitude
+        table = eltbx.attenuation_coefficient.get_table(material)
+        mu = (
+            table.mu_at_angstrom(
+                nxbeam.incident_wavelength.to("angstrom").magnitude.item()
+            )
+            / 10.0
+        )
+        px_mm = dxtbx.model.ParallaxCorrectedPxMmStrategy(mu, thickness)
+        name = nxdetector.path
+
+        p = root.add_panel()
+        p.set_type("SENSOR_PAD")
+        p.set_name(name)
+        p.set_local_frame(fast_axis, slow_axis, origin)
+        p.set_pixel_size(pixel_size)
+        p.set_image_size(image_size)
+        p.set_trusted_range(trusted_range)
+        p.set_thickness(thickness)
+        p.set_material(material)
+        p.set_mu(mu)
+        p.set_px_mm_strategy(px_mm)
+        # p.set_identifier(identifier)
+
+    return detector
+
+
+def get_detector_module_slices(
+    nxdetector: nxmx.NXdetector,
+) -> Tuple[Tuple[slice, ...], ...]:
+    return tuple(
+        tuple(
+            slice(int(start), int(start + step), 1)
+            for start, step in zip(module.data_origin, module.data_size)
+        )
+        for module in nxdetector.modules
     )
 
 
 def get_static_mask(nxdetector: nxmx.NXdetector) -> Tuple[flex.bool]:
     pixel_mask = nxdetector.get("pixel_mask")
     if pixel_mask and pixel_mask.ndim == 2:
-        all_slices = [
-            tuple(
-                slice(int(start), int(start + step), 1)
-                for start, step in zip(module.data_origin, module.data_size)
-            )
-            for module in nxdetector.modules
-        ]
+        all_slices = get_detector_module_slices(nxdetector)
         return tuple(dataset_as_flex(pixel_mask, slices) == 0 for slices in all_slices)
+
+
+def get_raw_data(
+    nxdata: nxmx.NXdata, nxdetector: nxmx.NXdetector, index: int
+) -> Tuple[Union[flex.double, flex.int]]:
+    if nxdata.signal:
+        data = nxdata[nxdata.signal]
+    else:
+        data = list(nxdata.values())[0]
+    all_data = []
+    for module_slices in get_detector_module_slices(nxdetector):
+        slices = [slice(index, index + 1, 1)]
+        slices.extend(module_slices)
+        data_as_flex = dataset_as_flex(data, tuple(slices))
+        data_as_flex.reshape(flex.grid(data_as_flex.all()[1:]))
+        all_data.append(data_as_flex)
+    return tuple(all_data)

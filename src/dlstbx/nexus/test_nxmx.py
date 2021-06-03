@@ -114,6 +114,25 @@ def test_get_dependency_chain(nxmx_example):
         "/entry/sample/transformations/chi",
         "/entry/sample/transformations/omega",
     ]
+    assert (
+        str(dependency_chain)
+        == """\
+/entry/sample/transformations/phi = [0] degree
+  @transformation_type = rotation
+  @vector = [-1.  0.  0.]
+  @offset = None
+  @depends_on = /entry/sample/transformations/chi
+/entry/sample/transformations/chi = [0] degree
+  @transformation_type = rotation
+  @vector = [0 0 1]
+  @offset = None
+  @depends_on = /entry/sample/transformations/omega
+/entry/sample/transformations/omega = [0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9] degree
+  @transformation_type = rotation
+  @vector = [-1.  0.  0.]
+  @offset = None
+  @depends_on = ."""
+    )
 
 
 @pytest.fixture

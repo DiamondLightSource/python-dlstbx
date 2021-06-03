@@ -1,10 +1,14 @@
+import dataclasses
 import h5py
 import logging
 import numpy as np
 import pint
 from collections import namedtuple
+from collections.abc import Mapping
+from functools import cached_property
 from scipy.spatial.transform import Rotation
-from typing import List, Optional, Tuple, Union
+from typing import Iterator, List, Optional, Tuple, Union
+
 
 ureg = pint.UnitRegistry()
 
@@ -68,11 +72,6 @@ def find_class(node: NXNode, nx_class: Optional[str]) -> List[h5py.Group]:
         The list of matching nodes for the specified NXclass type.
     """
     return find_classes(node, nx_class)[0]
-
-
-from functools import cached_property
-
-from collections.abc import Mapping
 
 
 class H5Mapping(Mapping):
@@ -586,19 +585,47 @@ class Transformation:
         return A
 
 
+@dataclasses.dataclass(frozen=True)
+class DependencyChain:
+    transformations: List[NXtransformationsAxis]
+
+    def __iter__(self) -> Iterator[NXtransformationsAxis]:
+        return iter(self.transformations)
+
+    def __getitem__(self, idx) -> NXtransformationsAxis:
+        return self.transformations[idx]
+
+    def __len__(self) -> int:
+        return len(self.transformations)
+
+    def __str__(self):
+        string = []
+        for t in self.transformations:
+            depends_on = t.depends_on.path if t.depends_on else "."
+            string.extend(
+                [
+                    f"{t.path} = {t[()]:g}",
+                    f"  @transformation_type = {t.transformation_type}",
+                    f"  @vector = {t.vector}",
+                    f"  @offset = {t.offset}",
+                    f"  @depends_on = {depends_on}",
+                ]
+            )
+        return "\n".join(string)
+
+
 def get_dependency_chain(
     transformation: NXtransformationsAxis,
-) -> List[NXtransformationsAxis]:
-    dependency_chain = []
+) -> DependencyChain:
+    transformations = []
     while transformation is not None:
-        logger.debug(f"{transformation.path} =>")
-        dependency_chain.append(transformation)
+        transformations.append(transformation)
         transformation = transformation.depends_on
-    return dependency_chain
+    return DependencyChain(transformations)
 
 
 def get_cumulative_transformation(
-    dependency_chain: List[NXtransformationsAxis],
+    dependency_chain: DependencyChain,
 ) -> np.ndarray:
     t = None
     for transformation in reversed(dependency_chain):
@@ -627,7 +654,7 @@ def get_cumulative_transformation(
 Axes = namedtuple("axes", ["axes", "angles", "names", "is_scan_axis"])
 
 
-def get_rotation_axes(dependency_chain: List[NXtransformationsAxis]) -> Axes:
+def get_rotation_axes(dependency_chain: DependencyChain) -> Axes:
     axes = []
     angles = []
     axis_names = []

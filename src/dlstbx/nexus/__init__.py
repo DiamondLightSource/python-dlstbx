@@ -1,3 +1,4 @@
+import logging
 from typing import Tuple
 
 import numpy as np
@@ -8,6 +9,9 @@ from dxtbx.format.nexus import dataset_as_flex
 from scitbx.array_family import flex
 
 from . import nxmx
+
+
+logger = logging.getLogger(__name__)
 
 
 KNOWN_SENSOR_MATERIALS = {
@@ -27,6 +31,7 @@ MCSTAS_TO_IMGCIF = np.diag([-1, 1, -1])
 
 def get_dxtbx_goniometer(nxsample: nxmx.NXsample) -> dxtbx.model.Goniometer:
     dependency_chain = nxmx.get_dependency_chain(nxsample.depends_on)
+    logging.debug("Sample dependency chain: %s", dependency_chain)
     axes = nxmx.get_rotation_axes(dependency_chain)
     if len(axes.axes) == 1:
         return dxtbx.model.GoniometerFactory.make_goniometer(
@@ -58,6 +63,7 @@ def get_dxtbx_scan(
     nxsample: nxmx.NXsample, nxdetector: nxmx.NXdetector
 ) -> dxtbx.model.Scan:
     dependency_chain = nxmx.get_dependency_chain(nxsample.depends_on)
+    logging.debug("Sample dependency chain: %s", dependency_chain)
     scan_axis = None
     for t in dependency_chain:
         # Find the first varying rotation axis

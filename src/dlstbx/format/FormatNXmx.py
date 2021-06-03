@@ -35,8 +35,21 @@ class FormatNXmx(FormatNexus):
             self._scan_model = dlstbx.nexus.get_dxtbx_scan(nxsample, nxdetector)
             self._static_mask = dlstbx.nexus.get_static_mask(nxdetector)
 
+            if self._scan_model:
+                self._num_images = len(self._scan_model)
+            else:
+                nxdata = nxmx.entries[0].data[0]
+                if nxdata.signal:
+                    data = nxdata[nxdata.signal]
+                else:
+                    data = list(nxdata.values())[0]
+                self._num_images, *_ = data.shape
+
     def _beam(self, index=None):
         return self._beam_model
+
+    def get_num_images(self) -> int:
+        return self._num_images
 
     def get_static_mask(self, index=None, goniometer=None):
         return self._static_mask

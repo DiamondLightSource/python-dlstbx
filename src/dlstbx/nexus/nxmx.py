@@ -237,7 +237,9 @@ class NXsample(H5Mapping):
     @cached_property
     def depends_on(self) -> NXtransformationsAxis:
         """The axis on which the sample position depends"""
-        return NXtransformationsAxis(self._handle[self._handle["depends_on"][()]])
+        depends_on = h5str(self._handle["depends_on"][()])
+        if depends_on and depends_on != ".":
+            return NXtransformationsAxis(self._handle[depends_on])
 
     @cached_property
     def temperature(self) -> pint.Quantity:

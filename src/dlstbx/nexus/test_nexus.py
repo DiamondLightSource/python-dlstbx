@@ -56,6 +56,28 @@ def test_get_dxtbx_goniometer_single_axis(nxsample_single_axis):
 
 
 @pytest.fixture
+def nxsample_no_depends_on():
+    with h5py.File(" ", mode="w", **pytest.h5_in_memory) as f:
+        sample = f.create_group("/entry/sample")
+        sample.attrs["NX_class"] = "NXsample"
+        sample["depends_on"] = b"."
+        yield f
+
+
+def test_get_dxtbx_goniometer_sample_no_depends_on_returns_none(nxsample_no_depends_on):
+    nxsample = dlstbx.nexus.nxmx.NXsample(nxsample_no_depends_on["/entry/sample"])
+    assert dlstbx.nexus.get_dxtbx_goniometer(nxsample) is None
+
+
+def test_get_dxtbx_scan_sample_no_depends_on_returns_none(
+    nxsample_no_depends_on, mocker
+):
+    nxsample = dlstbx.nexus.nxmx.NXsample(nxsample_no_depends_on["/entry/sample"])
+    nxdetector = mocker.Mock()
+    assert dlstbx.nexus.get_dxtbx_scan(nxsample, nxdetector) is None
+
+
+@pytest.fixture
 def nxsample_gridscan():
     with h5py.File(" ", mode="w", **pytest.h5_in_memory) as f:
         entry = f.create_group("/entry")

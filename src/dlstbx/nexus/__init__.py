@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -29,7 +29,9 @@ KNOWN_SENSOR_MATERIALS = {
 MCSTAS_TO_IMGCIF = np.diag([-1, 1, -1])
 
 
-def get_dxtbx_goniometer(nxsample: nxmx.NXsample) -> dxtbx.model.Goniometer:
+def get_dxtbx_goniometer(nxsample: nxmx.NXsample) -> Optional[dxtbx.model.Goniometer]:
+    if not nxsample.depends_on:
+        return None
     dependency_chain = nxmx.get_dependency_chain(nxsample.depends_on)
     logging.debug("Sample dependency chain: %s", dependency_chain)
     axes = nxmx.get_rotation_axes(dependency_chain)
@@ -61,7 +63,9 @@ def get_dxtbx_beam(nxbeam: nxmx.NXbeam) -> dxtbx.model.Beam:
 
 def get_dxtbx_scan(
     nxsample: nxmx.NXsample, nxdetector: nxmx.NXdetector
-) -> dxtbx.model.Scan:
+) -> Optional[dxtbx.model.Scan]:
+    if not nxsample.depends_on:
+        return None
     dependency_chain = nxmx.get_dependency_chain(nxsample.depends_on)
     logging.debug("Sample dependency chain: %s", dependency_chain)
     scan_axis = None

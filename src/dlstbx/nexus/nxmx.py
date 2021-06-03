@@ -302,7 +302,7 @@ class NXinstrument(H5Mapping):
 
     @cached_property
     def detector_groups(self):
-        return self._detector_groups
+        return [NXdetector_group(group) for group in self._detector_groups]
 
     @cached_property
     def detectors(self):
@@ -318,6 +318,60 @@ class NXinstrument(H5Mapping):
             NXtransformations(transformations)
             for transformations in self._transformations
         ]
+
+
+class NXdetector_group(H5Mapping):
+    """Optional logical grouping of detectors.
+
+    Each detector is represented as an NXdetector with its own detector data array. Each
+    detector data array may be further decomposed into array sections by use of
+    NXdetector_module groups. Detectors can be grouped logically together using
+    NXdetector_group. Groups can be further grouped hierarchically in a single
+    NXdetector_group (for example, if there are multiple detectors at an endstation or
+    multiple endstations at a facility). Alternatively, multiple NXdetector_groups can
+    be provided.
+
+    The groups are defined hierarchically, with names given in the group_names field,
+    unique identifying indices given in the field group_index, and the level in the
+    hierarchy given in the group_parent field. For example if an x-ray detector group,
+    DET, consists of four detectors in a rectangular array:
+
+        DTL    DTR
+        DLL    DLR
+
+    We could have:
+
+        group_names: ["DET", "DTL", "DTR", "DLL", "DLR"]
+        group_index: [1, 2, 3, 4, 5]
+        group_parent:  [-1, 1, 1, 1, 1]
+    """
+
+    @cached_property
+    def group_names(self) -> np.ndarray:
+        """
+        An array of the names of the detectors or the names of hierarchical groupings of
+        detectors.
+        """
+        return self._handle["group_names"].asstr()[()]
+
+    @cached_property
+    def group_index(self) -> np.ndarray:
+        """An array of unique identifiers for detectors or groupings of detectors.
+
+        Each ID is a unique ID for the corresponding detector or group named in the
+        field group_names. The IDs are positive integers starting with 1.
+        """
+        return self._handle["group_index"][()]
+
+    @cached_property
+    def group_parent(self) -> np.ndarray:
+        """
+        An array of the hierarchical levels of the parents of detectors or groupings of
+        detectors.
+
+        A top-level grouping has parent level -1.
+        """
+        return self._handle["group_parent"][()]
 
 
 class NXdetector(H5Mapping):

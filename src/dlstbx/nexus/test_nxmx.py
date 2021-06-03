@@ -219,3 +219,32 @@ def test_get_cumulative_transformation(nxmx_example):
             ]
         )
     )
+
+
+@pytest.fixture
+def detector_group():
+    with h5py.File(" ", "w", **pytest.h5_in_memory) as f:
+        entry = f.create_group("entry")
+        entry.attrs["NX_class"] = "NXentry"
+        entry["definition"] = "NXmx"
+        instrument = entry.create_group("instrument")
+        instrument.attrs["NX_class"] = "NXinstrument"
+
+        group = instrument.create_group("detector_group")
+        group.attrs["NX_class"] = "NXdetector_group"
+
+        group.create_dataset(
+            "group_names",
+            data=[np.string_(n) for n in ("DET", "DTL", "DTR", "DLL", "DLR")],
+            dtype="S12",
+        )
+        group.create_dataset("group_index", data=np.array([1, 2, 3, 4, 5]))
+        group.create_dataset("group_parent", data=np.array([-1, 1, 1, 1]))
+        yield f
+
+
+def test_nxdetector_group(detector_group):
+    group = nxmx.NXmx(detector_group).entries[0].instruments[0].detector_groups[0]
+    assert list(group.group_names) == ["DET", "DTL", "DTR", "DLL", "DLR"]
+    assert list(group.group_index) == [1, 2, 3, 4, 5]
+    assert list(group.group_parent) == [-1, 1, 1, 1]

@@ -153,7 +153,7 @@ def get_dxtbx_detector(
 
     # Apply all components of the dependency chain to the module offset to get the
     # dxtbx panel origin
-    dependency_chain = nxmx.get_dependency_chain(module.module_offset)
+    dependency_chain = nxmx.get_dependency_chain(module.fast_pixel_direction.depends_on)
     A = nxmx.get_cumulative_transformation(dependency_chain)
     origin = MCSTAS_TO_IMGCIF @ A[0, :3, 3]
 

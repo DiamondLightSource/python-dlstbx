@@ -119,7 +119,9 @@ def dumb_to_value(dumb):
     return None
 
 
-def common_listener(beamline, header, message):
+def common_listener(beamline, frame):
+    header = frame.headers
+    message = frame.body
     destination = header["destination"]
     if (beamline, destination) == ("i23", "/topic/gda.event.flux"):
         return
@@ -181,7 +183,7 @@ def run():
     for bl, settings in bl_settings.items():
         settings["listener"] = stomp.listener.ConnectionListener()
         #  settings["listener"] = stomp.listener.PrintingListener()
-        settings["listener"].on_before_message = lambda x, y: (x, y)
+        settings["listener"].on_before_message = lambda x: x
         settings["listener"].on_message = functools.partial(common_listener, bl)
 
         settings["connection"] = stomp.Connection(

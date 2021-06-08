@@ -16,9 +16,10 @@ import dlstbx.util.result
 import ispyb
 import junit_xml
 import workflows.recipe
-from six.moves import queue
+import queue
 from workflows.transport.stomp_transport import StompTransport
 
+from pprint import pprint
 
 processqueue = queue.Queue()
 
@@ -44,12 +45,9 @@ def run():
         dest="test",
         help="Run in ActiveMQ testing (zocdev) namespace",
     )
-
     parser.add_option(
         "--em", action="store_true", dest="em_flag", help="Only check EM related tests"
     )
-
-    options, args = parser.parse_args()
 
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
     if "--test" in sys.argv:
@@ -132,7 +130,7 @@ def run():
     for testruns in test_results.values():
         for testrun in testruns:
             # use em_sim.check for EM tests
-            if testrun.get("beamline").startswith("m"):
+            if testrun.get("beamline").startswith(("e", "m")):
                 if testrun.get("success") is None:
                     print("Verifying", testrun)
                     dlstbx.em_sim.check.check_test_outcome(testrun)
@@ -158,8 +156,6 @@ def run():
                     testrun["reason"] += " (%s)" % existing_reason
 
     # Show all known test results
-    from pprint import pprint
-
     pprint(test_results)
 
     # If there are results then put summary back on results queue
@@ -224,22 +220,14 @@ def run():
     # Export results
     ts = junit_xml.TestSuite(
         "Simulated data collections",
-        [
-            jr
-            for jr in junit_results
-            if not jr.classname.startswith("m") and not jr.classname.startswith("e")
-        ],
+        [jr for jr in junit_results if not jr.classname.startswith(("e", "m"))],
     )
     with open("output.xml", "w") as f:
         junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
 
     emts = junit_xml.TestSuite(
         "EM simulated data collections",
-        [
-            jr
-            for jr in junit_results
-            if jr.classname.startswith("m") or jr.classname.startswith("e")
-        ],
+        [jr for jr in junit_results if jr.classname.startswith(("e", "m"))],
     )
     with open("output_em.xml", "w") as f:
         junit_xml.TestSuite.to_file(f, [emts], prettyprint=True)

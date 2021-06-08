@@ -170,7 +170,7 @@ def simulate(
     )
     os.symlink(_src_dir, pathlib.Path(_dest_dir) / "raw")
 
-    data_files = list(pathlib.Path(_src_dir).glob("**/*"))
+    data_files = [f for f in pathlib.Path(_src_dir).glob("**/*") if f.is_file()]
     for df in data_files[:5]:
         shutil.copyfile(df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir))
 

@@ -161,11 +161,6 @@ def run():
                 testrun["reason"] = "No valid results appeared within timeout"
                 if existing_reason:
                     testrun["reason"] += " (%s)" % existing_reason
-                if options.get("em_flag") and testrun.get("scenario") == "relion":
-                    stop_message = {
-                        "parameters": {"ispyb_process": testrun["JobIDs"][0]}
-                    }
-                    stomp.send("relion.dev.stop", stop_message)
 
     # Show all known test results
     from pprint import pprint

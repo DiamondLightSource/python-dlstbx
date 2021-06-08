@@ -164,15 +164,19 @@ def simulate(
     src_dcid = int(row.dataCollectionId)
     src_dcgid = int(row.dataCollectionGroupId)
 
-    # create symlink to Movies data
+    # start copying over data files
     log.info(
-        f"Created symlink between {_src_dir} and {pathlib.Path(_dest_dir) / 'raw'}"
+        f"Copying first 5 files from {_src_dir} to {pathlib.Path(_dest_dir) / 'raw'}"
     )
-    os.symlink(_src_dir, pathlib.Path(_dest_dir) / "raw")
 
+    data_dirs = [f for f in pathlib.Path(_src_dir).glob("**/*") if f.is_dir()]
     data_files = [f for f in pathlib.Path(_src_dir).glob("**/*") if f.is_file()]
+    for dd in data_dirs:
+        mkdir_p(pathlib.Path(_dest_dir) / "raw" / dd.relative_to(_src_dir))
     for df in data_files[:5]:
-        shutil.copyfile(df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir))
+        copy_via_temp_file(
+            df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir)
+        )
 
     i = ispyb.open()
 
@@ -227,7 +231,6 @@ def simulate(
         i.mx_processing.upsert_job_parameter(job_param_values)
 
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-    # StompTransport.load_configuration_file(default_configuration)
     stomp = StompTransport()
     stomp.load_configuration_file(default_configuration)
     stomp.connect()
@@ -238,13 +241,21 @@ def simulate(
 
     num_data_file_blocks = len(data_files) // 5
     for i in range(1, num_data_file_blocks):
+        log.info(
+            f"Waiting and then copying another 5 files from {_src_dir} to {pathlib.Path(_dest_dir) / 'raw'}"
+        )
         time.sleep(5 * 60)
         for df in data_files[i * 5 : (i + 1) * 5]:
-            shutil.copyfile(
+            copy_via_temp_file(
                 df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir)
             )
+    log.info(
+        f"Copying remaining files from {_src_dir} to {pathlib.Path(_dest_dir) / 'raw'}"
+    )
     for df in data_files[num_data_file_blocks * 5 :]:
-        shutil.copyfile(df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir))
+        copy_via_temp_file(
+            df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir)
+        )
 
     return datacollectionid, datacollectiongroupid, procjobid
 

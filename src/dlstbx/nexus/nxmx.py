@@ -2,10 +2,11 @@ import dataclasses
 import h5py
 import logging
 import numpy as np
+import operator
 import pint
 from collections import namedtuple
 from collections.abc import Mapping
-from functools import cached_property
+from functools import cached_property, reduce
 from scipy.spatial.transform import Rotation
 from typing import Iterator, List, Optional, Tuple, Union
 
@@ -222,6 +223,34 @@ class NXtransformationsAxis(H5Mapping):
 
     def __getitem__(self, key) -> pint.Quantity:
         return self._handle[key] * ureg(self.units)
+
+    @cached_property
+    def matrix(self) -> np.ndarray:
+
+        values = np.atleast_1d(self[()])
+        if np.any(values):
+            values = (
+                values.to("mm").magnitude
+                if self.transformation_type == "translation"
+                else values.to("rad").magnitude
+            )
+        else:
+            values = values.magnitude
+
+        if self.transformation_type == "rotation":
+            R = Rotation.from_rotvec(values[:, np.newaxis] * self.vector).as_matrix()
+            T = np.zeros((values.size, 3))
+        else:
+            R = np.identity(3)
+            T = values[:, np.newaxis] * self.vector
+
+        if np.any(self.offset):
+            T += self.offset.to("mm").magnitude
+
+        A = np.repeat(np.identity(4).reshape((1, 4, 4)), values.size, axis=0)
+        A[:, :3, :3] = R
+        A[:, :3, 3] = T
+        return A
 
 
 class NXsample(H5Mapping):
@@ -618,35 +647,6 @@ class NXbeam(H5Mapping):
             return self._handle["incident_polarisation_stokes"][()]
 
 
-class Transformation:
-    def __init__(
-        self, values, vector, transformation_type, offset=None, depends_on=None
-    ):
-        self.values = values
-        self.vector = np.repeat(vector.reshape(1, vector.size), values.size, axis=0)
-        self.transformation_type = transformation_type
-        self.offset = offset
-        self.depends_on = depends_on
-
-    def compose(self) -> np.ndarray:
-        if self.transformation_type == "rotation":
-            R = Rotation.from_rotvec(
-                self.values[:, np.newaxis] * self.vector
-            ).as_matrix()
-            T = np.zeros((self.values.size, 3))
-        else:
-            R = np.identity(3)
-            T = self.values[:, np.newaxis] * self.vector
-        if self.offset is not None:
-            T += self.offset
-        A = np.repeat(np.identity(4).reshape((1, 4, 4)), self.values.size, axis=0)
-        A[:, :3, :3] = R
-        A[:, :3, 3] = T
-        if self.depends_on:
-            return self.depends_on.compose() @ A
-        return A
-
-
 @dataclasses.dataclass(frozen=True)
 class DependencyChain:
     transformations: List[NXtransformationsAxis]
@@ -689,28 +689,7 @@ def get_dependency_chain(
 def get_cumulative_transformation(
     dependency_chain: DependencyChain,
 ) -> np.ndarray:
-    t = None
-    for transformation in reversed(dependency_chain):
-        transformation_type = transformation.transformation_type
-        if transformation_type == "translation":
-            assert transformation.units is not None
-        values = np.atleast_1d(transformation[()])
-        values = (
-            values.to("mm").magnitude
-            if transformation_type == "translation"
-            else values.to("rad").magnitude
-        )
-        offset = transformation.offset
-        if offset is not None:
-            offset = offset.to("mm").magnitude
-        t = Transformation(
-            values,
-            transformation.vector,
-            transformation_type,
-            offset=offset,
-            depends_on=t,
-        )
-    return t.compose()
+    return reduce(operator.__matmul__, reversed([t.matrix for t in dependency_chain]))
 
 
 Axes = namedtuple("axes", ["axes", "angles", "names", "is_scan_axis"])

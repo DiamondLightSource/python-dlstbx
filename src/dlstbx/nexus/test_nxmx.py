@@ -66,6 +66,25 @@ def test_nxmx(nxmx_example):
     module = detector.modules[0]
     assert np.all(module.data_origin == [0, 0])
     assert np.all(module.data_size == [4362, 4148])
+    assert module.fast_pixel_direction.matrix.shape == (1, 4, 4)
+    assert list(module.fast_pixel_direction.matrix.flatten()) == [
+        1,
+        0,
+        0,
+        -0.075,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+    ]
 
     assert nxentry.source.name == "Diamond"
     assert nxentry.source.short_name == "DLS"

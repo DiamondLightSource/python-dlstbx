@@ -170,6 +170,10 @@ def simulate(
     )
     os.symlink(_src_dir, pathlib.Path(_dest_dir) / "raw")
 
+    data_files = list(pathlib.Path(_src_dir).glob("**/*"))
+    for df in data_files[:5]:
+        shutil.copyfile(df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir))
+
     i = ispyb.open()
 
     if data_collection_group_id is None:
@@ -231,6 +235,16 @@ def simulate(
     dispatcher_message = {"parameters": {"ispyb_process": procjobid}}
 
     stomp.send("processing_recipe", dispatcher_message)
+
+    num_data_file_blocks = len(data_files) // 5
+    for i in range(1, num_data_file_blocks):
+        time.sleep(5 * 60)
+        for df in data_files[i * 5 : (i + 1) * 5]:
+            shutil.copyfile(
+                df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir)
+            )
+    for df in data_files[num_data_file_blocks * 5 :]:
+        shutil.copyfile(df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir))
 
     return datacollectionid, datacollectiongroupid, procjobid
 

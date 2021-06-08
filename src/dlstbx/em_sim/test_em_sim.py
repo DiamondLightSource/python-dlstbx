@@ -8,7 +8,6 @@ import dlstbx.em_sim.definitions
 all_programs = ["relion"]
 
 
-# @mock.patch("workflows.transport.stomp_transport")
 def test_check_relion_outcomes_pass_checks():
     frame_numbers = (
         list(range(21, 32)) + list(range(35, 38)) + [39, 40] + list(range(42, 50))
@@ -85,14 +84,13 @@ def test_check_relion_outcomes_fail_checks():
     ]
 
 
-@mock.patch("workflows.transport.stomp_transport.StompTransport")
 @mock.patch("dlstbx.em_sim.check.retrieve_motioncorr")
 @mock.patch("dlstbx.em_sim.check.retrieve_ctf")
 @mock.patch("ispyb.sqlalchemy.url")
 @mock.patch("sqlalchemy.create_engine")
 @mock.patch("sqlalchemy.orm.Session")
 def test_check_test_outcome_success(
-    mock_sess, mock_eng, mock_url, mock_ctf, mock_mcorr, mock_stomp_transport
+    mock_sess, mock_eng, mock_url, mock_ctf, mock_mcorr
 ):
 
     frame_numbers = (
@@ -102,8 +100,6 @@ def test_check_test_outcome_success(
     mock_url.return_value = ""
     mock_eng.return_value = mock.Mock()
     mock_sess.return_value = mock.Mock()
-
-    mock_stomp_transport.return_value = mock.Mock()
 
     def db_motion_corr(i):
         motion_corr = mock.Mock()
@@ -133,19 +129,16 @@ def test_check_test_outcome_success(
         "time_end": time.time() - 1,
     }
     test = dlstbx.em_sim.check.check_test_outcome(test)
-    mock_stomp_transport.return_value.load_configuration_file.assert_called_once()
-    mock_stomp_transport.return_value.send.assert_called_once()
     assert test["success"]
 
 
-@mock.patch("workflows.transport.stomp_transport.StompTransport")
 @mock.patch("dlstbx.em_sim.check.retrieve_motioncorr")
 @mock.patch("dlstbx.em_sim.check.retrieve_ctf")
 @mock.patch("ispyb.sqlalchemy.url")
 @mock.patch("sqlalchemy.create_engine")
 @mock.patch("sqlalchemy.orm.Session")
 def test_check_test_outcome_failure(
-    mock_sess, mock_eng, mock_url, mock_ctf, mock_mcorr, mock_stomp_transport
+    mock_sess, mock_eng, mock_url, mock_ctf, mock_mcorr
 ):
 
     frame_numbers = (
@@ -155,8 +148,6 @@ def test_check_test_outcome_failure(
     mock_url.return_value = ""
     mock_eng.return_value = mock.Mock()
     mock_sess.return_value = mock.Mock()
-
-    mock_stomp_transport.return_value = mock.Mock()
 
     def db_motion_corr(i):
         motion_corr = mock.Mock()
@@ -189,8 +180,6 @@ def test_check_test_outcome_failure(
         "time_end": time.time() - 1,
     }
     test_checked = dlstbx.em_sim.check.check_test_outcome(test)
-    mock_stomp_transport.return_value.load_configuration_file.assert_called_once()
-    mock_stomp_transport.return_value.send.assert_called_once()
     assert not test_checked["success"]
     assert (
         test_checked["reason"]

@@ -131,17 +131,13 @@ def run():
     # Check all test runs that do not yet have a definite outcome
     for testruns in test_results.values():
         for testrun in testruns:
-            if options.get("em_flag") and testrun.get("scenario") == "relion":
+            # use em_sim.check for EM tests
+            if testrun.get("beamline").startswith("m"):
                 if testrun.get("success") is None:
                     print("Verifying", testrun)
                     dlstbx.em_sim.check.check_test_outcome(testrun)
-                    # 3 possible outcomes:
-                    # The test can be successful (testrun['success'] = True)
-                    # it can fail (testrun['success'] = False; testrun['reason'] set)
-                    # or it can be inconclusive (eg. because results are missing)
-                    # in which case no changes are made
 
-            elif testrun.get("scenario") != "relion" and not options.get("em_flag"):
+            else:
                 if testrun.get("success") is None:
                     print("Verifying", testrun)
                     dlstbx.dc_sim.check.check_test_outcome(testrun, ispyb_conn)
@@ -150,7 +146,6 @@ def run():
                     # it can fail (testrun['success'] = False; testrun['reason'] set)
                     # or it can be inconclusive (eg. because results are missing)
                     # in which case no changes are made
-
             if (
                 testrun.get("success") is None
                 and testrun["time_end"] < time.time() - test_timeout
@@ -227,9 +222,27 @@ def run():
         junit_results.append(r)
 
     # Export results
-    ts = junit_xml.TestSuite("Simulated data collections", junit_results)
+    ts = junit_xml.TestSuite(
+        "Simulated data collections",
+        [
+            jr
+            for jr in junit_results
+            if not jr.classname.startswith("m") and not jr.classname.startswith("e")
+        ],
+    )
     with open("output.xml", "w") as f:
         junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
+
+    emts = junit_xml.TestSuite(
+        "EM simulated data collections",
+        [
+            jr
+            for jr in junit_results
+            if jr.classname.startswith("m") or jr.classname.startswith("e")
+        ],
+    )
+    with open("output_em.xml", "w") as f:
+        junit_xml.TestSuite.to_file(f, [emts], prettyprint=True)
 
     time.sleep(0.3)
     if not test_results:

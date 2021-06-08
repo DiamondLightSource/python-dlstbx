@@ -81,7 +81,18 @@ class FormatNXmxDLS(FormatNXmx):
             panel.set_image_size(tuple(reversed(panel.get_image_size())))
 
     def get_raw_data(self, index):
-        data = super().get_raw_data(index)
+        if self._cached_file_handle is None:
+            self._cached_file_handle = h5py.File(self._image_file, "r")
+
+        # /entry/instrument/detector/module/data_size is reversed:
+        # https://jira.diamond.ac.uk/browse/MXGDA-3676
+        nxmx = dlstbx.nexus.nxmx.NXmx(self._cached_file_handle)
+        nxdata = nxmx.entries[0].data[0]
+        nxdetector = nxmx.entries[0].instruments[0].detectors[0]
+        for module in nxdetector.modules:
+            module.data_size = module.data_size[::-1]
+        data = dlstbx.nexus.get_raw_data(nxdata, nxdetector, index)[0]
+
         if self._bit_depth_image:
             # if 32 bit then it is a signed int, I think if 8, 16 then it is
             # unsigned with the highest two values assigned as masking values

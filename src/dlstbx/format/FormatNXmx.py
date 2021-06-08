@@ -1,8 +1,6 @@
 import h5py
 
-from dials.array_family import flex
 from dxtbx.format.FormatNexus import FormatNexus
-from dxtbx.format.nexus import dataset_as_flex
 
 import dlstbx.nexus
 
@@ -62,13 +60,3 @@ class FormatNXmx(FormatNexus):
         nxdata = nxmx.entries[0].data[0]
         nxdetector = nxmx.entries[0].instruments[0].detectors[0]
         return dlstbx.nexus.get_raw_data(nxdata, nxdetector, index)
-        if nxdata.signal:
-            data = nxdata[nxdata.signal]
-        else:
-            data = list(nxdata.values())[0]
-        _, height, width = data.shape
-        data_as_flex = dataset_as_flex(
-            data, (slice(index, index + 1, 1), slice(0, height, 1), slice(0, width, 1))
-        )
-        data_as_flex.reshape(flex.grid(data_as_flex.all()[1:]))
-        return data_as_flex

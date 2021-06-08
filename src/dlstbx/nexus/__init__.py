@@ -135,37 +135,99 @@ def get_dxtbx_detector(
 
     for module in nxdetector.modules:
 
-        # Apply any rotation components of the dependency chain to the fast axis
-        fast_axis_depends_on = [
-            t
-            for t in nxmx.get_dependency_chain(module.fast_pixel_direction.depends_on)
-            if t.transformation_type == "rotation"
-        ]
-        if fast_axis_depends_on:
-            R = nxmx.get_cumulative_transformation(fast_axis_depends_on)[0, :3, :3]
+        if len(nxdetector.modules) > 1:
+            if module.fast_pixel_direction.depends_on is not None:
+                reversed_dependency_chain = list(
+                    reversed(
+                        nxmx.get_dependency_chain(
+                            module.fast_pixel_direction.depends_on
+                        )
+                    )
+                )
+                pg = None
+                for i in range(len(reversed_dependency_chain)):
+                    name = reversed_dependency_chain[i].path
+                    if pg is None:
+                        pg = root
+                        A = nxmx.get_cumulative_transformation(
+                            reversed_dependency_chain[i : i + 1]
+                        )
+                        origin = MCSTAS_TO_IMGCIF @ A[0, :3, 3]
+                        fast = (
+                            MCSTAS_TO_IMGCIF @ (A @ np.array((-1, 0, 0, 1)))[0, :3]
+                            - origin
+                        )
+                        slow = (
+                            MCSTAS_TO_IMGCIF @ (A @ np.array((0, 1, 0, 1)))[0, :3]
+                            - origin
+                        )
+                        pg.set_local_frame(fast, slow, origin)
+                        pg.set_name(name)
+                        continue
+                    pg_names = [child.get_name() for child in pg]
+                    if name in pg_names:
+                        pg = pg[pg_names.index(name)]
+                        continue
+                    else:
+                        pg = pg.add_group()
+                    A = nxmx.get_cumulative_transformation(
+                        reversed_dependency_chain[i : i + 1]
+                    )
+                    origin = MCSTAS_TO_IMGCIF @ A[0, :3, 3]
+                    fast = (
+                        MCSTAS_TO_IMGCIF @ (A @ np.array((-1, 0, 0, 1)))[0, :3] - origin
+                    )
+                    slow = (
+                        MCSTAS_TO_IMGCIF @ (A @ np.array((0, 1, 0, 1)))[0, :3] - origin
+                    )
+                    pg.set_local_frame(fast, slow, origin)
+                    pg.set_name(name)
         else:
-            R = np.identity(3)
-        fast_axis = MCSTAS_TO_IMGCIF @ R @ module.fast_pixel_direction.vector
+            pg = root
 
-        # Apply any rotation components of the dependency chain to the slow axis
-        slow_axis_depends_on = [
-            t
-            for t in nxmx.get_dependency_chain(module.slow_pixel_direction.depends_on)
-            if t.transformation_type == "rotation"
-        ]
-        if slow_axis_depends_on:
-            R = nxmx.get_cumulative_transformation(slow_axis_depends_on)[0, :3, :3]
+        if isinstance(pg, dxtbx.model.DetectorNode):
+            # Hierarchical detector model
+            fast_axis = MCSTAS_TO_IMGCIF @ module.fast_pixel_direction.vector
+            slow_axis = MCSTAS_TO_IMGCIF @ module.slow_pixel_direction.vector
+            origin = np.array((0.0, 0.0, 0.0))
         else:
-            R = np.identity(3)
-        slow_axis = MCSTAS_TO_IMGCIF @ R @ module.slow_pixel_direction.vector
+            # Flat detector model
 
-        # Apply all components of the dependency chain to the module offset to get the
-        # dxtbx panel origin
-        dependency_chain = nxmx.get_dependency_chain(
-            module.fast_pixel_direction.depends_on
-        )
-        A = nxmx.get_cumulative_transformation(dependency_chain)
-        origin = MCSTAS_TO_IMGCIF @ A[0, :3, 3]
+            # Apply any rotation components of the dependency chain to the fast axis
+            fast_axis_depends_on = [
+                t
+                for t in nxmx.get_dependency_chain(
+                    module.fast_pixel_direction.depends_on
+                )
+                if t.transformation_type == "rotation"
+            ]
+            if fast_axis_depends_on:
+                R = nxmx.get_cumulative_transformation(fast_axis_depends_on)[0, :3, :3]
+            else:
+                R = np.identity(3)
+            fast_axis = MCSTAS_TO_IMGCIF @ R @ module.fast_pixel_direction.vector
+
+            # Apply any rotation components of the dependency chain to the slow axis
+            slow_axis_depends_on = [
+                t
+                for t in nxmx.get_dependency_chain(
+                    module.slow_pixel_direction.depends_on
+                )
+                if t.transformation_type == "rotation"
+            ]
+            if slow_axis_depends_on:
+                R = nxmx.get_cumulative_transformation(slow_axis_depends_on)[0, :3, :3]
+            else:
+                R = np.identity(3)
+            slow_axis = MCSTAS_TO_IMGCIF @ R @ module.slow_pixel_direction.vector
+
+            # Apply all components of the dependency chain to the module offset to get the
+            # dxtbx panel origin
+            dependency_chain = nxmx.get_dependency_chain(
+                module.fast_pixel_direction.depends_on
+            )
+            A = nxmx.get_cumulative_transformation(dependency_chain)
+            origin = MCSTAS_TO_IMGCIF @ A[0, :3, 3]
 
         pixel_size = (
             module.fast_pixel_direction[()].to("mm").magnitude.item(),
@@ -200,7 +262,7 @@ def get_dxtbx_detector(
         px_mm = dxtbx.model.ParallaxCorrectedPxMmStrategy(mu, thickness)
         name = nxdetector.path
 
-        p = root.add_panel()
+        p = pg.add_panel()
         p.set_type("SENSOR_PAD")
         p.set_name(name)
         p.set_local_frame(fast_axis, slow_axis, origin)

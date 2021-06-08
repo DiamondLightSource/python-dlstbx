@@ -1,10 +1,9 @@
-# Functions to simulate a data collection
+# Functions to simulate an EM data collection and Relion processing
 #
 # This
 # * inserts new entries into the processjob table
 # * copies images from the source data collection
-# * runs the scripts RunAtStartOfDataCollection.sh and RunAtEndOfDataCollection.sh
-#   at appropriate times.
+# * sends the message that SynchWeb would send to launch processing to Zocalo
 
 
 import datetime

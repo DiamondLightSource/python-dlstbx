@@ -136,43 +136,23 @@ def get_dxtbx_detector(
     for module in nxdetector.modules:
 
         if len(nxdetector.modules) > 1:
+            # Set up the detector hierarchy
             if module.fast_pixel_direction.depends_on is not None:
-                reversed_dependency_chain = list(
-                    reversed(
-                        nxmx.get_dependency_chain(
-                            module.fast_pixel_direction.depends_on
-                        )
-                    )
+                reversed_dependency_chain = reversed(
+                    nxmx.get_dependency_chain(module.fast_pixel_direction.depends_on)
                 )
                 pg = None
-                for i in range(len(reversed_dependency_chain)):
-                    name = reversed_dependency_chain[i].path
+                for i, transformation in enumerate(reversed_dependency_chain):
+                    name = transformation.path
                     if pg is None:
                         pg = root
-                        A = nxmx.get_cumulative_transformation(
-                            reversed_dependency_chain[i : i + 1]
-                        )
-                        origin = MCSTAS_TO_IMGCIF @ A[0, :3, 3]
-                        fast = (
-                            MCSTAS_TO_IMGCIF @ (A @ np.array((-1, 0, 0, 1)))[0, :3]
-                            - origin
-                        )
-                        slow = (
-                            MCSTAS_TO_IMGCIF @ (A @ np.array((0, 1, 0, 1)))[0, :3]
-                            - origin
-                        )
-                        pg.set_local_frame(fast, slow, origin)
-                        pg.set_name(name)
-                        continue
                     pg_names = [child.get_name() for child in pg]
                     if name in pg_names:
                         pg = pg[pg_names.index(name)]
                         continue
                     else:
                         pg = pg.add_group()
-                    A = nxmx.get_cumulative_transformation(
-                        reversed_dependency_chain[i : i + 1]
-                    )
+                    A = transformation.matrix
                     origin = MCSTAS_TO_IMGCIF @ A[0, :3, 3]
                     fast = (
                         MCSTAS_TO_IMGCIF @ (A @ np.array((-1, 0, 0, 1)))[0, :3] - origin
@@ -183,6 +163,7 @@ def get_dxtbx_detector(
                     pg.set_local_frame(fast, slow, origin)
                     pg.set_name(name)
         else:
+            # Use a flat detector model
             pg = root
 
         if isinstance(pg, dxtbx.model.DetectorNode):
@@ -273,7 +254,6 @@ def get_dxtbx_detector(
         p.set_material(material)
         p.set_mu(mu)
         p.set_px_mm_strategy(px_mm)
-        # p.set_identifier(identifier)
 
     return detector
 

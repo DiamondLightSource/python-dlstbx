@@ -56,20 +56,21 @@ def populate_blsample_xml_template(_row):
     return temp
 
 
-def populate_dcg_xml_template(_row, _sessionid, _blsample_id):
+def populate_dcg_xml_template(datacollection, sessionid, blsample_id):
     nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    blsample_id_elem = ""
-    if _blsample_id is not None:
-        blsample_id_elem = "<blSampleId>%d</blSampleId>\n" % _blsample_id
+    if blsample_id is None:
+        blsample_id_elem = ""
+    else:
+        blsample_id_elem = f"<blSampleId>{blsample_id}</blSampleId>\n"
 
     temp = _dcg_temp_xml_format.format(
-        sessionid=_sessionid,
+        sessionid=sessionid,
         blsample_xml=blsample_id_elem,
         comments="Simulated datacollection.",
-        experimenttype=_s(_row["experimenttype"]),
+        experimenttype=_s(datacollection.DataCollectionGroup.experimentType),
         starttime=nowstr,
-        crystalclass=_s(_row["crystalclass"]),
-        detectormode=_s(_row["detectormode"]),
+        crystalclass=_s(datacollection.DataCollectionGroup.crystalClass),
+        detectormode=_s(datacollection.DataCollectionGroup.detectorMode),
     )
 
     # remove lines with null, nan and -1 values:
@@ -152,7 +153,7 @@ def populate_dc_xml_template(
         _xtal_snapshot_path[1],
         _xtal_snapshot_path[2],
         _xtal_snapshot_path[3],
-        _s(_row["rotationaxis"]),
+        _s(_row["rotationaxis"] or None),
         _f(_row["phistart"]),
         _f(_row["chistart"]),
         _f(_row["kappastart"]),

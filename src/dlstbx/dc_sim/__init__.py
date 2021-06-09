@@ -12,18 +12,18 @@ import glob
 import logging
 import os
 import re
-import procrunner
 import shutil
 import sys
 import time
 import uuid
 
+import ispyb.sqlalchemy
+import procrunner
+import sqlalchemy
+
 import dlstbx.dc_sim.dbserverclient
 import dlstbx.dc_sim.definitions
 import dlstbx.dc_sim.mydb as db
-
-import sqlalchemy
-import ispyb.sqlalchemy
 
 log = logging.getLogger("dlstbx.dc_sim")
 
@@ -37,22 +37,6 @@ def copy_via_temp_file(source, destination):
     temp_destination = os.path.join(dest_dir, temp_dest_file)
     shutil.copyfile(source, temp_destination)
     os.rename(temp_destination, destination)
-
-
-def retrieve_datacollection_group_values(_db, _src_dcgid):
-    _db.cursor.execute(
-        "SELECT comments, blsampleid, experimenttype, starttime, endtime, crystalclass, detectormode, actualsamplebarcode, "
-        "actualsampleslotincontainer, actualcontainerbarcode, actualcontainerslotinsc, workflowid, xtalsnapshotfullpath "
-        "FROM DataCollectionGroup "
-        "WHERE datacollectiongroupid=%d" % _src_dcgid
-    )
-
-    desc = [d[0] for d in _db.cursor.description]
-    result = [dict(zip(desc, line)) for line in _db.cursor]
-
-    if len(result) == 0:
-        sys.exit(f"Could not find datacollectiongroup {_src_dcgid}")
-    return result[0]
 
 
 def retrieve_grid_info_values(_db, _src_dcgid):
@@ -71,39 +55,6 @@ def retrieve_grid_info_values(_db, _src_dcgid):
     return result[0]
 
 
-def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
-    if _prefix is None:
-        prefix_line = "AND imageprefix is NULL "
-    else:
-        prefix_line = "AND imageprefix='%s' " % _prefix
-
-    _db.cursor.execute(
-        "SELECT datacollectionid, datacollectiongroupid, blsampleid, startimagenumber, "
-        "xtalsnapshotfullpath1, xtalsnapshotfullpath2, xtalsnapshotfullpath3, xtalsnapshotfullpath4, "
-        "runstatus, axisstart, axisend, axisrange, overlap, numberofimages, startimagenumber, "
-        "numberofpasses, exposuretime, imagesuffix, filetemplate, "
-        "wavelength, resolution, detectordistance, xbeam, ybeam, comments, printableforreport, "
-        "slitgapvertical, slitgaphorizontal, transmission, synchrotronmode, "
-        "rotationaxis, phistart, chistart, kappastart, omegastart, undulatorgap1, "
-        "beamsizeatsamplex, beamsizeatsampley, flux, focalspotsizeatsamplex, focalspotsizeatsampley "
-        "FROM DataCollection "
-        "WHERE sessionid=%d "
-        "AND imagedirectory='%s' "
-        "%s "
-        "AND datacollectionnumber=%d "
-        % (_sessionid, _dir + "/", prefix_line, _run_number)
-    )
-
-    desc = [d[0] for d in _db.cursor.description]
-    result = [dict(zip(desc, line)) for line in _db.cursor]
-
-    if not result[0].get("datacollectionid"):
-        sys.exit(f"Could not find the datacollectionid for visit {_dir}")
-    if not result[0].get("startimagenumber"):
-        sys.exit("Could not find the startimagenumber for the row")
-    return result[0]
-
-
 def retrieve_blsample_values(_db, _src_blsampleid):
     _db.cursor.execute(
         "SELECT blsampleid, name, code, location, holderlength, looplength, looptype, wirewidth, comments, "
@@ -119,17 +70,6 @@ def retrieve_blsample_values(_db, _src_blsampleid):
         sys.exit(f"Could not find the blsampleid for {_src_blsampleid}")
 
     return result[0]
-
-
-def retrieve_no_images(_db, _dcid):
-    rows = _db.doQuery(
-        "SELECT numberOfImages from DataCollection where datacollectionid=%d" % _dcid
-    )
-    if rows[0][0] is None:
-        sys.exit(f"Could not find the number of images for datacollectionid {_dcid}")
-    if int(rows[0][0]) == 0:
-        sys.exit(f"Could not find the number of images for datacollectionid {_dcid}")
-    return int(rows[0][0])
 
 
 def retrieve_max_dcnumber(_db, _sessionid, _dest_dir, _dest_prefix):
@@ -167,27 +107,26 @@ def _simulate(
     src_sessionid = db.retrieve_sessionid(db_session, _src_visit)
     log.debug("SessionID is {src_sessionid}")
 
-    row = retrieve_datacollection_values(
-        _db, src_sessionid, _src_dir, _src_prefix, _src_run_number
+    row = db.retrieve_datacollection(
+        db_session, src_sessionid, _src_dir, _src_prefix, _src_run_number
     )
-    if not row["rotationaxis"]:
-        row["rotationaxis"] = None
-    src_dcid = int(row["datacollectionid"])
-    src_dcgid = int(row["datacollectiongroupid"])
-    start_img_number = int(row["startimagenumber"])
-    filetemplate = row["filetemplate"]
+    src_dcid = row.dataCollectionId
+    src_dcgid = row.dataCollectionGroupId
+    start_img_number = row.startImageNumber
+    filetemplate = row.fileTemplate
     src_xtal_snapshot_path = [
-        row["xtalsnapshotfullpath1"],
-        row["xtalsnapshotfullpath2"],
-        row["xtalsnapshotfullpath3"],
-        row["xtalsnapshotfullpath4"],
+        row.xtalSnapshotFullPath1,
+        row.xtalSnapshotFullPath2,
+        row.xtalSnapshotFullPath3,
+        row.xtalSnapshotFullPath4,
     ]
     log.debug(
-        f"Source dataset from DCID {src_dcid}, DCGID {src_dcgid}, file template %r",
-        filetemplate,
+        f"Source dataset from DCID {src_dcid}, DCGID {src_dcgid}, file template {filetemplate}"
     )
 
-    no_images = retrieve_no_images(_db, src_dcid)
+    no_images = row.numberOfImages
+    if not no_images:
+        sys.exit(f"Could not find the number of images for data collection")
     log.debug(f"Source dataset has {no_images} images")
 
     # Get the sessionid for the dest_visit
@@ -209,9 +148,7 @@ def _simulate(
             run_number = int(run_number) + 1
 
     log.debug("(SQL) Getting values from the source datacollectiongroup record")
-    dcg_row = retrieve_datacollection_group_values(_db, src_dcgid)
-
-    src_blsampleid = dcg_row["blsampleid"]
+    src_blsampleid = row.DataCollectionGroup.blSampleId
 
     log.debug(
         "(filesystem) Copy the xtal snapshot(s) (if any) from source to target directories"
@@ -224,9 +161,9 @@ def _simulate(
                 dest_xtal_snapshot_path[x] = re.sub(
                     "^" + _dest_visit_dir, _dest_visit_dir + "/jpegs", png
                 )
-                dir = os.path.dirname(dest_xtal_snapshot_path[x])
-                log.debug("(filesystem) ... 'mkdir -p' %s" % dir)
-                os.makedirs(dir, exist_ok=True)
+                path = os.path.dirname(dest_xtal_snapshot_path[x])
+                log.debug("(filesystem) ... 'mkdir -p' %s" % path)
+                os.makedirs(path, exist_ok=True)
                 log.debug(
                     "(filesystem) ... copying %s to %s"
                     % (src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x])
@@ -235,7 +172,7 @@ def _simulate(
                     src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x]
                 )
 
-    log.info("539 src_blsampleid: %s", src_blsampleid)
+    log.info(f"539 src_blsampleid: {src_blsampleid}")
     log.info("539 _sample_id: %s", _sample_id)
     # Get a blsampleId either from a copy of the blsample used by the src dc or use the blsampleId provided on the command-line
     blsample_id = None
@@ -243,7 +180,7 @@ def _simulate(
         if _sample_id is None:
 
             log.debug("(SQL) Getting values from the source blsample record")
-            bls_row = retrieve_blsample_values(_db, int(src_blsampleid))
+            bls_row = retrieve_blsample_values(_db, src_blsampleid)
 
             blsample_xml = dlstbx.dc_sim.dbserverclient.populate_blsample_xml_template(
                 bls_row
@@ -261,7 +198,7 @@ def _simulate(
     if data_collection_group_id is None:
         # Produce a DataCollectionGroup xml blob from the template
         dcg_xml = dlstbx.dc_sim.dbserverclient.populate_dcg_xml_template(
-            dcg_row, sessionid, blsample_id
+            row, sessionid, blsample_id
         )
 
         # Ingest the DataCollectionGroup xml data using the DbserverClient
@@ -284,8 +221,11 @@ def _simulate(
         dbsc.storeGridInfo(gridinfo_xml)
 
     # Produce a DataCollection xml blob from the template and use the new run number
+    row_as_dictionary = {
+        name.lower(): getattr(x, name) for name in dir(row) if not name.startswith("_")
+    }
     dc_xml = dlstbx.dc_sim.dbserverclient.populate_dc_xml_template(
-        row,
+        row_as_dictionary,
         sessionid,
         datacollectiongroupid,
         no_images,

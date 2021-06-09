@@ -411,7 +411,7 @@ def simulate(
 def call_sim(test_name, beamline):
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     if not scenario:
-        sys.exit("%s is not a valid test scenario" % test_name)
+        sys.exit(f"{test_name} is not a valid test scenario")
 
     src_dir = scenario["src_dir"]
     sample_id = scenario.get("use_sample_id")
@@ -429,9 +429,7 @@ def call_sim(test_name, beamline):
             dest_visit = f"{proposal}-1"
         elif beamline == "i02-1":
             dest_visit = f"{proposal}-2"
-        dest_visit_dir = "/dls/mx/data/{proposal}/{visit}".format(
-            proposal=proposal, visit=dest_visit
-        )
+        dest_visit_dir = f"/dls/mx/data/{proposal}/{dest_visit}"
     else:
         for cm_dir in os.listdir(f"/dls/{beamline}/data/{now:%Y}"):
             if cm_dir.startswith(proposal):
@@ -442,15 +440,11 @@ def call_sim(test_name, beamline):
             sys.exit(1)
 
         # Set mandatory parameters
-        dest_visit_dir = "/dls/{beamline}/data/{now:%Y}/{dest_visit}".format(
-            beamline=beamline, now=now, dest_visit=dest_visit
-        )
+        dest_visit_dir = f"/dls/{beamline}/data/{now:%Y}/{dest_visit}"
 
-    dest_dir_fmt = (
-        "{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random}"
-    )
-    dest_dir = dest_dir_fmt.format(
-        now=now, dest_visit_dir=dest_visit_dir, random=str(uuid.uuid4())[:8]
+    random_uuid = str(uuid.uuid4())[:8]
+    dest_dir = (
+        f"{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random_uuid}"
     )
 
     # Extract necessary info from the source directory path
@@ -475,20 +469,20 @@ def call_sim(test_name, beamline):
 
     start_script = f"{MX_SCRIPTS_BINDIR}/RunAtStartOfCollect-{beamline}.sh"
     if not os.path.exists(start_script):
-        log.error("The file %s was not found.", start_script)
+        log.error(f"The file {start_script} was not found.")
         sys.exit(1)
     end_script = f"{MX_SCRIPTS_BINDIR}/RunAtEndOfCollect-{beamline}.sh"
     if not os.path.exists(end_script):
-        log.error("The file %s was not found.", end_script)
+        log.error(f"The file {end_script} was not found.")
         sys.exit(1)
 
     # Create destination directory
     log.debug("Creating directory %s", dest_dir)
     os.makedirs(dest_dir, exist_ok=True)
     if os.path.isdir(dest_dir):
-        log.info("Directory %s created successfully", dest_dir)
+        log.info(f"Directory {dest_dir} created successfully")
     else:
-        log.error("Creating directory %s failed", dest_dir)
+        log.error(f"Creating directory {dest_dir} failed")
 
     # Call simulate
     dcid_list = []
@@ -517,6 +511,6 @@ def call_sim(test_name, beamline):
             dcid_list.append(dcid)
             dcg_list.append(dcg)
             if scenario.get("delay"):
-                log.info("Sleeping for %s seconds" % scenario["delay"])
+                log.info(f"Sleeping for {scenario['delay']} seconds")
                 time.sleep(scenario["delay"])
     return dcid_list

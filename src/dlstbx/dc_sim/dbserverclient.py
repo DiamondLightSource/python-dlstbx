@@ -288,7 +288,7 @@ dcg_endtime_temp_xml = (
 
 
 class DbserverClient:
-    def __init__(self, _host, _port):
+    def __init__(self, _host=DBSERVER_HOST, _port=DBSERVER_PORT):
         self.DB_host = _host
         self.DB_port = _port
         print(f"Connection parameters are: {self.DB_host}:{self.DB_port}")

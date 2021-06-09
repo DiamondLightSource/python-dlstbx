@@ -1,6 +1,6 @@
 bitshuffle
 drmaa
-ispyb>=6.0.2,<6.1
+ispyb>=6.4.0,<6.5
 junit-xml>=1.9
 marshmallow-sqlalchemy
 msgpack-python
@@ -9,6 +9,7 @@ pika
 procrunner>=1.0.2
 pytest
 pytest-mock
+pyzmq
 pyyaml
 sqlalchemy>=1.4.0,<1.5
 stomp.py

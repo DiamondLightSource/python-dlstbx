@@ -755,9 +755,6 @@ class DLSFileWatcher(CommonService):
                     s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
                     if s.size == 0:
                         break
-                    self.log.debug(
-                        f"Found image {status['seen-images']} (size={s.size})"
-                    )
                 except Exception as e:
                     if not is_known_hdf5_exception(e):
                         self.log.error(f"Error reading {h5_data_file}", exc_info=True)
@@ -949,7 +946,7 @@ class DLSFileWatcher(CommonService):
             # Otherwise note last time progress was made
             status["last-seen"] = time.time()
             self.log.info(
-                "%d  images found for %s (total: %d out of %d) within %.2f seconds",
+                "%d images found for %s (total: %d out of %d) within %.2f seconds",
                 images_found,
                 rw.recipe_step["parameters"]["hdf5"],
                 status["seen-images"],

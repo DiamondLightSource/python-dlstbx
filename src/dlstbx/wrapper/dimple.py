@@ -1,3 +1,4 @@
+import configparser
 import glob
 import itertools
 import logging
@@ -9,7 +10,6 @@ import dlstbx.util.symlink
 import procrunner
 import py
 import zocalo.wrapper
-from six.moves import configparser
 
 logger = logging.getLogger("dlstbx.wrap.dimple")
 

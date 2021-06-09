@@ -1,4 +1,5 @@
 from dlstbx.services.ispybsvc import DLSISPyB
+import sqlalchemy
 import ispyb
 import workflows.recipe
 
@@ -19,10 +20,15 @@ class DLSISPyBPIA(DLSISPyB):
         """
         Subscribe to the temporary ISPyB PIA queue. Received messages must be
         acknowledged. Prepare ISPyB database connection.
+        This function is copied from ispybsvc.py with a changed queue name.
         """
-
         self.log.info("ISPyB PIA inserter using ispyb v%s", ispyb.__version__)
-        self.ispyb = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
+        self.ispyb = ispyb.open()
+        self._ispyb_sessionmaker = sqlalchemy.orm.sessionmaker(
+            bind=sqlalchemy.create_engine(
+                ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
+            )
+        )
         self.log.debug("ISPyB PIA inserter starting")
         workflows.recipe.wrap_subscribe(
             self._transport,

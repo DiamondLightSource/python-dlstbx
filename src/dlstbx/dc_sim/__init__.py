@@ -8,7 +8,6 @@
 
 
 import datetime
-import errno
 import glob
 import logging
 import os
@@ -37,16 +36,6 @@ def copy_via_temp_file(source, destination):
     os.rename(temp_destination, destination)
 
 
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
-
-
 def retrieve_sessionid(_db, _visit):
     rows = _db.doQuery(
         "SELECT s.sessionid "
@@ -56,7 +45,7 @@ def retrieve_sessionid(_db, _visit):
         % _visit
     )
     if rows[0][0] is None:
-        sys.exit("Could not find sessionid for visit %s" % _visit)
+        sys.exit(f"Could not find sessionid for visit {_visit}")
     return int(rows[0][0])
 
 
@@ -72,7 +61,7 @@ def retrieve_datacollection_group_values(_db, _src_dcgid):
     result = [dict(zip(desc, line)) for line in _db.cursor]
 
     if len(result) == 0:
-        sys.exit("Could not find datacollectiongroup %s" % _src_dcgid)
+        sys.exit(f"Could not find datacollectiongroup {_src_dcgid}")
     return result[0]
 
 
@@ -119,7 +108,7 @@ def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
     result = [dict(zip(desc, line)) for line in _db.cursor]
 
     if not result[0].get("datacollectionid"):
-        sys.exit("Could not find the datacollectionid for visit %s" % _dir)
+        sys.exit(f"Could not find the datacollectionid for visit {_dir}")
     if not result[0].get("startimagenumber"):
         sys.exit("Could not find the startimagenumber for the row")
     return result[0]
@@ -137,7 +126,7 @@ def retrieve_blsample_values(_db, _src_blsampleid):
     result = [dict(zip(desc, line)) for line in _db.cursor]
 
     if not result[0].get("blsampleid"):
-        sys.exit("Could not find the blsampleid for %s" % _src_blsampleid)
+        sys.exit(f"Could not find the blsampleid for {_src_blsampleid}")
 
     return result[0]
 
@@ -147,9 +136,9 @@ def retrieve_no_images(_db, _dcid):
         "SELECT numberOfImages from DataCollection where datacollectionid=%d" % _dcid
     )
     if rows[0][0] is None:
-        sys.exit("Could not find the number of images for datacollectionid %d" % _dcid)
+        sys.exit(f"Could not find the number of images for datacollectionid {_dcid}")
     if int(rows[0][0]) == 0:
-        sys.exit("Could not find the number of images for datacollectionid %d" % _dcid)
+        sys.exit(f"Could not find the number of images for datacollectionid {_dcid}")
     return int(rows[0][0])
 
 
@@ -179,10 +168,7 @@ def simulate(
     scenario_name=None,
 ):
     _db = dlstbx.dc_sim.mydb.DB()
-    dbsc = dlstbx.dc_sim.dbserverclient.DbserverClient(
-        dlstbx.dc_sim.dbserverclient.DBSERVER_HOST,
-        dlstbx.dc_sim.dbserverclient.DBSERVER_PORT,
-    )
+    dbsc = dlstbx.dc_sim.dbserverclient.DbserverClient()
 
     log.debug("Getting the source SessionID")
     src_sessionid = retrieve_sessionid(_db, _src_visit)
@@ -249,7 +235,7 @@ def simulate(
                 )
                 dir = os.path.dirname(dest_xtal_snapshot_path[x])
                 log.debug("(filesystem) ... 'mkdir -p' %s" % dir)
-                mkdir_p(dir)
+                os.makedirs(dir, exist_ok=True)
                 log.debug(
                     "(filesystem) ... copying %s to %s"
                     % (src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x])
@@ -498,7 +484,7 @@ def call_sim(test_name, beamline):
 
     # Create destination directory
     log.debug("Creating directory %s", dest_dir)
-    mkdir_p(dest_dir)
+    os.makedirs(dest_dir, exist_ok=True)
     if os.path.isdir(dest_dir):
         log.info("Directory %s created successfully", dest_dir)
     else:

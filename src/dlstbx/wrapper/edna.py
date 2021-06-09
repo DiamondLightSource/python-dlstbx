@@ -1,8 +1,7 @@
-import glob
 import logging
 import os
-import py
-import sys
+import pathlib
+import shutil
 
 import procrunner
 import zocalo.wrapper
@@ -15,12 +14,13 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
-        logger.info("working_directory: %s" % working_directory.strpath)
-        working_directory.ensure(dir=True)
+        working_directory = pathlib.Path(params["working_directory"])
+        results_directory = pathlib.Path(params["results_directory"])
+        working_directory.mkdir(parents=True)
+        results_directory.mkdir(parents=True, exist_ok=True)
+        logger.info("working_directory: {working_directory}")
         try:  # set Synchweb to swirl
-            results_directory.join("summary.html").ensure()
+            (results_directory / "summary.html").touch()
         except OSError:
             pass  # it'll be fine
 
@@ -57,8 +57,8 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
 
         multiplicity = sparams["multiplicity"]
         i_over_sig_i = sparams["i_over_sig_i"]
-        EDNAStrategy = working_directory.join("EDNAStrategy")
-        EDNAStrategy.ensure(dir=True)
+        EDNAStrategy = working_directory / "EDNAStrategy"
+        EDNAStrategy.mkdir()
         with open("%s.xml" % EDNAStrategy, "w") as f:
             f.write(
                 self.make_edna_xml(
@@ -77,46 +77,35 @@ class EdnaWrapper(zocalo.wrapper.BaseWrapper):
             i_over_sig_i,
             strategy_lifespan,
         )
-        with working_directory.join("Strategy.txt").open("w") as f:
-            f.write(short_comments)
+        (working_directory / "Strategy.txt").write_text(short_comments)
 
-        strategy_xml = working_directory.join("EDNAStrategy.xml")
-        results_xml = working_directory.join("results.xml")
-        wrap_edna_sh = working_directory.join("wrap_edna.sh")
-        with wrap_edna_sh.open("w") as f:
-            if beamline == "i24":
-                edna_site = "export EDNA_SITE=DLS_i24"
-            else:
-                edna_site = ""
-            f.write(
-                """\
+        strategy_xml = working_directory / "EDNAStrategy.xml"
+        results_xml = working_directory / "results.xml"
+        if beamline == "i24":
+            edna_site = "export EDNA_SITE=DLS_i24"
+        else:
+            edna_site = ""
+        wrap_edna_sh = working_directory / "wrap_edna.sh"
+        wrap_edna_sh.write_text(
+            f"""\
 module load global/cluster
-module load %(edna_module)s
-export DCID=%(dcid)s
-export COMMENTS="%(comments)s"
-export SHORT_COMMENTS="%(short_comments)s"
-%(edna_site)s
+module load {edna_module}
+export DCID={params["dcid"]}
+export COMMENTS="{short_comments}"
+export SHORT_COMMENTS="{sparams["name"]}"
+{edna_site}
 edna-plugin-launcher \
   --execute EDPluginControlInterfacev1_2 --DEBUG \
-  --inputFile %(input_file)s \
-  --outputFile %(output_file)s"""
-                % dict(
-                    comments=short_comments,
-                    short_comments=sparams["name"],
-                    edna_module=edna_module,
-                    dcid=params["dcid"],
-                    edna_site=edna_site,
-                    input_file=strategy_xml,
-                    output_file=results_xml,
-                )
-            )
+  --inputFile {strategy_xml} \
+  --outputFile {results_xml}"""
+        )
         commands = [
             "sh",
-            wrap_edna_sh.strpath,
-            strategy_xml.strpath,
-            results_xml.strpath,
+            wrap_edna_sh,
+            strategy_xml,
+            results_xml,
         ]
-        logger.info("Running command: %s", " ".join(commands))
+        logger.info("Running command: %s", " ".join(str(c) for c in commands))
         result = procrunner.run(
             commands,
             working_directory=EDNAStrategy,
@@ -140,20 +129,23 @@ edna-plugin-launcher \
             logger.debug(result["stdout"].decode("latin1"))
             logger.debug(result["stderr"].decode("latin1"))
 
-        # generate two different html pages
-        # not sure which if any of these are actually used/required
+        wrap_edna2html_sh = working_directory / "wrap_edna2html.sh"
         edna2html_home = "/dls_sw/apps/edna/edna-20140709"
         edna2html = os.path.join(
             edna2html_home, "libraries/EDNA2html-0.0.10a/EDNA2html"
         )
-        commands = [
-            edna2html,
-            '--title="%s"' % short_comments,
-            "--run_basename=%s/EDNAStrategy" % working_directory.strpath,
-            "--portable",
-            "--basename=%s/summary" % working_directory.strpath,
-        ]
-        logger.info("Running command: %s", " ".join(commands))
+        wrap_edna2html_sh.write_text(
+            f"""\
+module load {edna_module}
+{edna2html} \
+--title="{short_comments}" \
+--run_basename={working_directory}/EDNAStrategy \
+--portable \
+--basename={working_directory}/summary
+"""
+        )
+        commands = ["sh", wrap_edna2html_sh]
+        logger.info("Running command: %s", " ".join(str(c) for c in commands))
         result = procrunner.run(
             commands,
             working_directory=working_directory,
@@ -179,41 +171,36 @@ edna-plugin-launcher \
             logger.debug(result["stdout"].decode("latin1"))
             logger.debug(result["stderr"].decode("latin1"))
 
-        self.edna2html(edna2html_home, results_xml)
-
         # copy output files to result directory
-        logger.info(
-            "Copying results from %s to %s"
-            % (working_directory.strpath, results_directory.strpath)
-        )
+        logger.info(f"Copying results from {working_directory} to {results_directory}")
 
         source_dir = working_directory / "EDNAStrategy"
         dest_dir = results_directory / ("EDNA%s" % sparams["name"])
-        source_dir.copy(dest_dir)
+        shutil.copytree(source_dir, dest_dir)
         src = working_directory / "EDNAStrategy.xml"
         dst = results_directory / ("EDNA%s.xml" % sparams["name"])
-        src.copy(dst)
+        shutil.copy(src, dst)
         for fname in ("summary.html", "results.xml"):
             src = working_directory / fname
             dst = results_directory / fname
-            if src.check() and (not dst.check() or dst.size() == 0):
-                src.copy(dst)
+            if src.is_file() and (not dst.is_file() or dst.stat().st_size == 0):
+                shutil.copy(src, dst)
         return success
 
     def hdf5_to_cbf(self):
         params = self.recwrap.recipe_step["job_parameters"]
-        working_directory = py.path.local(params["working_directory"])
+        working_directory = pathlib.Path(params["working_directory"])
         if params.get("temporary_directory"):
-            tmpdir = py.path.local(params["temporary_directory"])
+            tmpdir = pathlib.Path(params["temporary_directory"])
         else:
-            tmpdir = working_directory.join(".image-tmp")
-        tmpdir.ensure(dir=True)
+            tmpdir = working_directory / ".image-tmp"
+        tmpdir.mkdir(parents=True, exist_ok=True)
         master_h5 = os.path.join(params["image_directory"], params["image_template"])
         prefix = params["image_template"].split("master.h5")[0]
         params["image_pattern"] = prefix + "%04d.cbf"
         logger.info("Image pattern: %s", params["image_pattern"])
         logger.info(
-            "Converting %s to %s" % (master_h5, tmpdir.join(params["image_pattern"]))
+            "Converting %s to %s", master_h5, tmpdir / (params["image_pattern"])
         )
         result = procrunner.run(
             ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],
@@ -234,7 +221,7 @@ edna-plugin-launcher \
             logger.debug(result["stdout"].decode("latin1"))
             logger.debug(result["stderr"].decode("latin1"))
         params["orig_image_directory"] = params["image_directory"]
-        params["image_directory"] = tmpdir
+        params["image_directory"] = str(tmpdir)
         return success
 
     def generate_modified_headers(
@@ -243,34 +230,32 @@ edna-plugin-launcher \
         params = self.recwrap.recipe_step["job_parameters"]
 
         def behead(cif_in, cif_out):
-            logger.info(f"Writing modified file {cif_in} to {cif_out.strpath}")
-            assert os.path.exists(cif_in)
-            assert not cif_out.check()
+            logger.info(f"Writing modified file {cif_in} to {cif_out}")
+            assert cif_in.exists(), cif_in
+            assert not cif_out.exists(), cif_out
 
-            with open(cif_in, "rb") as fh:
-                data = fh.read()
+            data = cif_in.read_bytes()
 
             if b"# This and all subsequent lines will" in data:
                 head = data.split(b"# This and all subsequent lines will")[0]
                 tail = data.split(b"CBF_BYTE_OFFSET little_endian")[-1]
                 data = head + tail
 
-            cif_out.write_binary(data)
+            cif_out.write_bytes(data)
 
-        working_directory = py.path.local(params["working_directory"])
-        tmpdir = working_directory.join("image-tmp")
-        tmpdir.ensure(dir=True)
+        if params.get("temporary_directory"):
+            tmpdir = pathlib.Path(params["temporary_directory"])
+        else:
+            tmpdir = pathlib.Path(params["working_directory"]) / ".image-tmp"
+        tmpdir.mkdir(parents=True, exist_ok=True)
 
-        template = os.path.join(params["image_directory"], params["image_template"])
-
-        g = glob.glob(template.replace("#", "?"))
-        logger.info(template)
-        logger.info(g)
-        for f in g:
-            behead(f, tmpdir.join(os.path.basename(f)))
+        image_directory = pathlib.Path(params["image_directory"])
+        template = params["image_template"].replace("#", "?")
+        for f in image_directory.glob(template):
+            behead(f, tmpdir / f.name)
 
         params["orig_image_directory"] = params["image_directory"]
-        params["image_directory"] = tmpdir
+        params["image_directory"] = str(tmpdir)
 
     def make_edna_xml(
         self,
@@ -333,7 +318,7 @@ edna-plugin-launcher \
         # 3) Echo out the full path for each image.
 
         logger.info(str(list(params.keys())))
-        image_directory = params["image_directory"]
+        image_directory = pathlib.Path(params["image_directory"])
         image_first = int(params["image_first"])
         image_last = int(params["image_last"])
 
@@ -347,7 +332,7 @@ edna-plugin-launcher \
 
         logger.info(f"{image_pattern} {image_first}:{image_last}")
         for i_image in range(image_first, image_last + 1):
-            image_file_name = image_directory.join(image_pattern % i_image)
+            image_file_name = image_directory / (image_pattern % i_image)
             output = (
                 output
                 + """
@@ -385,26 +370,3 @@ edna-plugin-launcher \
         output = output + "</XSDataInputInterfacev2_2>"
 
         return output
-
-    @staticmethod
-    def edna2html(edna_home, result_xml):
-        sys.path.append(os.path.join(edna_home, "kernel", "src"))
-        from EDFactoryPluginStatic import EDFactoryPluginStatic
-
-        EDFactoryPluginStatic.loadModule("XSDataInterfacev1_2")
-        from XSDataInterfacev1_2 import XSDataResultInterface
-
-        xsDataResultInterface = XSDataResultInterface.parseFile(result_xml.strpath)
-        characterisationResult = xsDataResultInterface.resultCharacterisation
-        EDFactoryPluginStatic.loadModule("XSDataSimpleHTMLPagev1_0")
-        from XSDataSimpleHTMLPagev1_0 import XSDataInputSimpleHTMLPage
-
-        xsDataInputSimpleHTMLPage = XSDataInputSimpleHTMLPage()
-        xsDataInputSimpleHTMLPage.characterisationResult = characterisationResult
-        edPluginHTML = EDFactoryPluginStatic.loadPlugin(
-            "EDPluginExecSimpleHTMLPagev1_0"
-        )
-        edPluginHTML.dataInput = xsDataInputSimpleHTMLPage
-        edPluginHTML.executeSynchronous()
-        xsDataResult = edPluginHTML.dataOutput
-        logger.info(xsDataResult.pathToHTMLFile.path.value)

@@ -88,8 +88,8 @@ class DLSValidation(CommonService):
                 )
             hdf_18 = [
                 link
-                for link in hdf5_util.find_all_references(filename)
-                if hdf5_util.is_HDF_1_8_compatible(link)
+                for link, image_count in hdf5_util.find_all_references(filename).items()
+                if image_count and hdf5_util.is_HDF_1_8_compatible(link)
             ]
             if hdf_18:
                 return fail(
@@ -102,13 +102,17 @@ class DLSValidation(CommonService):
             el = dxtbx.model.experiment_list.ExperimentListFactory.from_filenames(
                 [filename]
             )
-        except KeyError as e:
+        except Exception as e:
             if "unable to open external file" in str(e):
                 failname = str(e)
                 if failname.split("'")[1:2]:
                     failname = failname.split("'")[1]
                 return fail(f"data collection is missing linked file: {failname}")
-            raise
+            self.log.warning(
+                f"Unhandled {type(e).__name__} exception reading {filename}",
+                exc_info=True,
+            )
+            return fail(f"Unhandled {type(e).__name__} exception reading {filename}")
 
         wavelength = el.beams()[0].get_wavelength()
 
@@ -116,9 +120,9 @@ class DLSValidation(CommonService):
             return fail("wavelength not set in image header")
 
         if output.get("beamline") == "i04-1":
-            if wavelength < 0.9100 or wavelength > 0.9200:
+            if wavelength < 0.9100 or wavelength > 0.9300:
                 return fail(
-                    f"Image wavelength {wavelength} outside of allowed range for I04-1 (0.9100-0.9200)"
+                    f"Image wavelength {wavelength} outside of allowed range for I04-1 (0.9100-0.9300)"
                 )
 
         if output.get("ispyb_wavelength"):

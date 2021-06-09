@@ -1,5 +1,6 @@
 import collections
 import logging
+import operator
 import sys
 import time
 
@@ -9,6 +10,10 @@ import junit_xml
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.result import Result
 from workflows.transport.stomp_transport import StompTransport
+
+TimerEvent = collections.namedtuple(
+    "TimerEvent", "time, callback, expected_result, result_object"
+)
 
 
 def run():
@@ -203,18 +208,31 @@ def run():
     start_time = time.time()
 
     timer_events = []
-    for test, _ in tests.values():
+    for test, result in tests.values():
         for event in test.timers:
             event["at_time"] = event["at_time"] + start_time
             function = event.get("callback")
             if function:
                 args = event.get("args", ())
                 kwargs = event.get("kwargs", {})
-                x = lambda function=function: function(*args, **kwargs)
+                timer_events.append(
+                    TimerEvent(
+                        time=event["at_time"],
+                        result_object=result,
+                        callback=lambda function=function: function(*args, **kwargs),
+                        expected_result=event.get("expect_return", Ellipsis),
+                    )
+                )
             else:
-                x = lambda: None
-            timer_events.append((event["at_time"], x))
-    timer_events = sorted(timer_events, key=lambda tup: tup[0])
+                timer_events.append(
+                    TimerEvent(
+                        time=event["at_time"],
+                        result_object=result,
+                        callback=lambda: None,
+                        expected_result=Ellipsis,
+                    )
+                )
+    timer_events = sorted(timer_events, key=operator.attrgetter("time"))
 
     # Wait for messages and timeouts, run events
 
@@ -225,9 +243,18 @@ def run():
         # Wait fixed time period or until next event
         wait_to = time.time() + 0.2
         keep_waiting = False
-        while timer_events and time.time() > timer_events[0][0]:
+        while timer_events and time.time() > timer_events[0].time:
             event = timer_events.pop(0)
-            event[1]()
+            event_result = event.callback()
+            if event.expected_result is not Ellipsis:
+                if event.expected_result != event_result:
+                    logger.warning(
+                        f"{event.result_object.classname} timer event failed for {event.result_object.name}: return value '{event_result}' does not match '{event.expected_result}'"
+                    )
+                    event.result_object.log_error(
+                        message="Timer event failed with result '%s' instead of expected '%s'"
+                        % (event_result, event.expected_result)
+                    )
         if timer_events:
             wait_to = min(wait_to, timer_events[0][0])
             keep_waiting = True

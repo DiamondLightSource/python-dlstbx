@@ -114,9 +114,13 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 }
             )
 
-        autoproc_version = autoproc_xml["AutoProcProgramContainer"]["AutoProcProgram"][
-            "processingPrograms"
-        ]
+        autoproc_version = (
+            autoproc_xml["AutoProcProgramContainer"]["AutoProcProgram"][
+                "processingPrograms"
+            ]
+            .split("(")[1]
+            .split()[0]
+        )
         logger.debug(f"autoPROC version: {autoproc_version}")
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
@@ -208,28 +212,29 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                     "refined_ybeam": int_result["refinedXBeam"],
                     "refined_detector_dist": int_result["refinedDetectorDistance"],
                 }
-                # autoPROC reports beam centre in px rather than mm
-                params = self.recwrap.recipe_step["job_parameters"]
-                image_template = params["autoproc"]["image_template"]
-                if image_template.endswith(".h5"):
-                    px_to_mm = 0.075
-                else:
-                    px_to_mm = 0.172
-                if "20200918" in autoproc_version:
-                    # Known bug in this version of autoPROC:
-                    # We reported the direct beam position in pixels within that
-                    # ISPyB-compatible XML file, when other programs apparently
-                    # reported it in mm. So we wanted to change it to mm as well,
-                    # but did that fix in two places at the same time ...
-                    # resulting in multiplying by (pixelsize)**2 instead of just
-                    # pixelsize.
-                    px_to_mm = 1 / px_to_mm
-                for beam_direction in ("refined_xbeam", "refined_ybeam"):
-                    if integration[beam_direction]:
-                        integration[beam_direction] = (
-                            float(integration[beam_direction]) * px_to_mm
-                        )
-                    logger.debug(f"{beam_direction}: {integration[beam_direction]}")
+                if autoproc_version < "20210420":
+                    # autoPROC reports beam centre in px rather than mm
+                    params = self.recwrap.recipe_step["job_parameters"]
+                    image_template = params["autoproc"]["image_template"]
+                    if image_template.endswith(".h5"):
+                        px_to_mm = 0.075
+                    else:
+                        px_to_mm = 0.172
+                    if autoproc_version == "20200918":
+                        # Known bug in this version of autoPROC:
+                        # We reported the direct beam position in pixels within that
+                        # ISPyB-compatible XML file, when other programs apparently
+                        # reported it in mm. So we wanted to change it to mm as well,
+                        # but did that fix in two places at the same time ...
+                        # resulting in multiplying by (pixelsize)**2 instead of just
+                        # pixelsize.
+                        px_to_mm = 1 / px_to_mm
+                    for beam_direction in ("refined_xbeam", "refined_ybeam"):
+                        if integration[beam_direction]:
+                            integration[beam_direction] = (
+                                float(integration[beam_direction]) * px_to_mm
+                            )
+                        logger.debug(f"{beam_direction}: {integration[beam_direction]}")
 
                 if n > 0 or special_program_name:
                     # make sure only the first integration of the original program

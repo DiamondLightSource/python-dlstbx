@@ -154,8 +154,6 @@ def run():
                     f.write(json_str)
         else:
             pprint.pprint(parameters)
-        if message.get("default_recipe"):
-            print("Default recipes:", ", ".join(sorted(message["default_recipe"])))
         print(
             "Synchweb: https://ispyb.diamond.ac.uk/dc/visit/{0[ispyb_visit]}/id/{0[ispyb_dcid]}".format(
                 parameters

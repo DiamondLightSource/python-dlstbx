@@ -68,6 +68,7 @@ def run():
         default=False,
         help="Remove reports older than 24 hours",
     )
+    parser.add_option_group(prune)
 
     (options, args) = parser.parse_args()
 

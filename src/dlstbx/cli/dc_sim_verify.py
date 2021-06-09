@@ -4,8 +4,8 @@
 #   results. Create a report as junit.xml file.
 #
 
-
 import datetime
+import queue
 import re
 import sys
 import time
@@ -16,7 +16,6 @@ import dlstbx.util.result
 import ispyb
 import junit_xml
 import workflows.recipe
-import queue
 from workflows.transport.stomp_transport import StompTransport
 
 from pprint import pprint

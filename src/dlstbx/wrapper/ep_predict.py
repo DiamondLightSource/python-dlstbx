@@ -68,7 +68,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
         try:
             metrics_data[-1] = params["energy_scan_info"]["fpp"]
         except KeyError:
-            el = params["diffraction_plan_info"]["anomalousscatterer"]
+            el = params["diffraction_plan_info"]["anomalousScatterer"]
             if metrics_data[-1] < 2.8:
                 from cctbx.eltbx import sasaki as tbl_fpfdp
             else:
@@ -161,6 +161,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
                         "file_path": destination.dirname,
                         "file_name": destination.basename,
                         "file_type": "result",
+                        "importance_rank": 1,
                     }
                 )
             except Exception:

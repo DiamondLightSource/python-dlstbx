@@ -23,9 +23,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
 
         working_directory.ensure(dir=True)
 
-        tmpl_env = Environment(
-            loader=PackageLoader("dlstbx.util.big_ep", "big_ep_templates")
-        )
+        tmpl_env = Environment(loader=PackageLoader("dlstbx.util", "big_ep_templates"))
 
         dcid = params["dcid"]
         fast_ep_path = params["fast_ep_path"]
@@ -43,6 +41,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
 
         tmpl_data = {
             "_root_wd": working_directory.strpath,
+            "pipeline": params["pipeline"],
             "big_ep_path": params["big_ep_path"],
             "dcid": dcid,
             "visit": params["visit"],
@@ -54,14 +53,9 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             "html_images": {},
         }
 
-        logger.debug("Reading big_ep setting file")
-        try:
-            bpu.read_settings_file(tmpl_data)
-        except Exception:
-            logger.exception(
-                "Cannot generate big_ep summary report. Exception raised while reading big_ep settings file."
-            )
-            return False
+        tmpl_data.update(
+            {"settings": params.get("ispyb_parameters", self.recwrap.environment)}
+        )
 
         logger.debug("Generating model density images")
         try:
@@ -129,7 +123,9 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
                 logger.exception("Error rendering big_ep summary report")
                 return False
             fp.write(summary_html)
-            bpu.send_html_email_message(summary_html, email_list, tmpl_data)
+            bpu.send_html_email_message(
+                summary_html, params["pipeline"], email_list, tmpl_data
+            )
 
         results_directory.ensure(dir=True)
         logger.info("Copying big_ep report to %s", results_directory.strpath)
@@ -142,12 +138,13 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             destination = results_directory.join(filename.basename)
             filename.copy(destination)
             allfiles.append(destination.strpath)
-            if filetype:
+            if filename.ext == ".png":
                 self.record_result_individual_file(
                     {
                         "file_path": destination.dirname,
                         "file_name": destination.basename,
                         "file_type": filetype,
+                        "importance_rank": 2,
                     }
                 )
         return True

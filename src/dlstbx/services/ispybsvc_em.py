@@ -1,22 +1,28 @@
 import ispyb
+from ispyb.sqlalchemy import MotionCorrection
 
 
 class EM_Mixin:
-    def do_insert_ctf(self, parameters, **kwargs):
-        # This gives some output we can read from; the motion correction ID doesn't work without the ISPyB components in place
-
-        dcid = parameters("datacollection_id")
-        micrograph_name = parameters("micrograph_name")
-        self.log.info(f"Would insert CTF parameters. DCID: {dcid} {micrograph_name}")
-        return {"success": True, "return_value": None}
-
+    def do_insert_ctf(self, *, parameters, session, **kwargs):
+        dcid = parameters("dcid")
+        micrographname = parameters("micrograph_name")
+        appid = parameters("program_id")
+        mcid = self._get_motioncorrection_id(
+            micrographname,
+            appid,
+            session,
+        )
+        if mcid is None:
+            self.log.error(
+                f"No Motion Correction ID found. MG: {micrographname}, APPID: {appid}"
+            )
+            return False
+        self.log.info(f"Inserting CTF parameters. DCID: {dcid}")
         try:
             result = self.ispyb.em_acquisition.insert_ctf(
                 ctf_id=parameters("ctf_id"),
-                motion_correction_id=self.get_motioncorrection_id(
-                    parameters("datacollection_id"), parameters("micrograph_name")
-                )["motioncorrection_id"],
-                auto_proc_program_id=parameters("auto_proc_program_id"),
+                motion_correction_id=mcid,
+                auto_proc_program_id=parameters("program_id"),
                 box_size_x=parameters("box_size_x"),
                 box_size_y=parameters("box_size_y"),
                 min_resolution=parameters("min_resolution"),
@@ -33,6 +39,7 @@ class EM_Mixin:
                 fft_theoretical_full_path=parameters("fft_theoretical_full_path"),
                 comments=parameters("comments"),
             )
+            self.log.info(f"Created CTF record {result} for DCID {dcid}")
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
             self.log.error(
@@ -42,28 +49,43 @@ class EM_Mixin:
             )
             return False
 
-    def get_motioncorrection_id(self, datacollectionid, micrographname):
-        """Not implemented yet"""
-        return {"motioncorrection_id": 1234}
+    def _get_motioncorrection_id(
+        self,
+        micrographname,
+        autoproc_program_id,
+        db_session,
+    ):
+        self.log.info(
+            f"Looking for Motion Correction ID. Micrograph name: {micrographname} APPID: {autoproc_program_id}"
+        )
+        mc_query = db_session.query(MotionCorrection).filter(
+            MotionCorrection.micrographFullPath == micrographname,
+            MotionCorrection.autoProcProgramId == autoproc_program_id,
+        )
+        results = mc_query.all()
+        if results:
+            mcid = results[0].motionCorrectionId
+            self.log.info(f"Found Motion Correction ID: {mcid}")
+            return mcid
+        else:
+            return None
 
     def do_insert_motion_correction(self, parameters, **kwargs):
-        # This gives some output we can read from; the motion correction ID doesn't work without the ISPyB components in place
-
-        dcid = parameters("datacollection_id")
-        micrograph_name = parameters("micrograph_name")
-        self.log.info(
-            f"Would insert Motion Correction parameters. DCID: {dcid} {micrograph_name}"
-        )
-        return {"success": True, "return_value": None}
-
-        # insert_motion_correction still needs to be implemented in the ISPyB API
+        self.log.info(f"Inserting Motion Correction parameters.")
         try:
+            movieid = None
+            if parameters("movie_id") is None:
+                movie_params = self.ispyb.em_acquisition.get_movie_params()
+                movie_params["dataCollectionId"] = parameters("dcid")
+                movie_params["movieNumber"] = parameters("image_number")
+                movie_params["movieFullPath"] = parameters("micrograph_name")
+                movieid = self.ispyb.em_acquisition.insert_movie(
+                    list(movie_params.values())
+                )
+                self.log.info(f"Created Movie record {movieid}")
             result = self.ispyb.em_acquisition.insert_motion_correction(
-                motion_correction_id=self.get_motioncorrection_id(
-                    parameters("datacollection_id"), parameters("micrograph_name")
-                )["motioncorrection_id"],
-                movie_id=parameters("movie_id"),
-                auto_proc_program_id=parameters("auto_proc_program_id"),
+                movie_id=parameters("movie_id") or movieid,
+                auto_proc_program_id=parameters("program_id"),
                 image_number=parameters("image_number"),
                 first_frame=parameters("first_frame"),
                 last_frame=parameters("last_frame"),
@@ -71,7 +93,7 @@ class EM_Mixin:
                 total_motion=parameters("total_motion"),
                 average_motion_per_frame=parameters("average_motion_per_frame"),
                 drift_plot_full_path=parameters("drift_plot_full_path"),
-                micrograph_full_path=parameters("micrograph_full_path"),
+                micrograph_full_path=parameters("micrograph_name"),
                 micrograph_snapshot_full_path=parameters(
                     "micrograph_snapshot_full_path"
                 ),
@@ -81,6 +103,18 @@ class EM_Mixin:
                 patches_used_y=parameters("patches_used_y"),
                 comments=parameters("comments"),
             )
+            self.log.info(f"Created MotionCorrection record {result}")
+            driftparams = self.ispyb.em_acquisition.get_motion_correction_drift_params()
+            driftparams["motionCorrectionId"] = result
+            if parameters("drift_frames") is not None:
+                for frame, x, y in parameters("drift_frames"):
+                    driftparams["frameNumber"] = frame
+                    driftparams["deltaX"] = x
+                    driftparams["deltaY"] = y
+                    driftid = self.ispyb.em_acquisition.insert_motion_correction_drift(
+                        list(driftparams.values())
+                    )
+                    self.log.info(f"Created MotionCorrectionDrift record {driftid}")
 
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
@@ -91,19 +125,32 @@ class EM_Mixin:
             )
             return False
 
+    def do_insert_particle_picker(self, parameters, **kwargs):
+        # We don't yet have a way of inserting information from this message
+
+        appid = parameters("program_id")
+        dcid = parameters("dcid")
+        self.log.info(
+            f"Would insert particle picker parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
+        return {"success": True, "return_value": None}
+
     def do_insert_class2d(self, parameters, **kwargs):
         # This gives some output we can read from; ISPyB doesn't have fields for Class 2D yet
 
-        dcid = parameters("datacollection_id")
-        ref_image = parameters("reference_image")
-        self.log.info(f"Would insert Class 2D parameters. DCID: {dcid} {ref_image}")
+        appid = parameters("program_id")
+        dcid = parameters("dcid")
+        self.log.info(
+            f"Would insert Class 2D parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
         return {"success": True, "return_value": None}
 
     def do_insert_class3d(self, parameters, **kwargs):
         # This gives some output we can read from; ISPyB doesn't have fields for Class 3D yet
 
-        dcid = parameters("datacollection_id")
-        ref_image = parameters("reference_image")
-
-        self.log.info(f"Would insert Class 3D parameters. DCID: {dcid} {ref_image}")
+        appid = parameters("program_id")
+        dcid = parameters("dcid")
+        self.log.info(
+            f"Would insert Class 3D parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
         return {"success": True, "return_value": None}

@@ -1,6 +1,5 @@
 import hashlib
 import logging
-import os
 import pathlib
 from datetime import datetime
 
@@ -53,14 +52,7 @@ class DLSTrigger(CommonService):
             acknowledgement=True,
             log_extender=self.extend_log,
         )
-        credentials = os.getenv("ISPYB_CREDENTIALS")
-        if not credentials:
-            raise AttributeError(
-                "No credentials file specified via ISPYB_CREDENTIALS environment variable"
-            )
-        elif not os.path.exists(credentials):
-            raise OSError(f"Credentials file {credentials} does not exist")
-        self.ispyb = ispyb.open(credentials)
+        self.ispyb = ispyb.open()
 
     def trigger(self, rw, header, message):
         """Forward the trigger message to a specific trigger function."""
@@ -702,6 +694,8 @@ class DLSTrigger(CommonService):
         path_ext = parameters("path_ext")
         if not path_ext:
             path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
+        shelxc_path = parameters("shelxc_path")
+        fast_ep_path = parameters("fast_ep_path")
 
         msg = rw.payload
         big_ep_parameters = {
@@ -732,6 +726,8 @@ class DLSTrigger(CommonService):
                 "ispyb_process": jobid,
                 "pipeline": pipeline,
                 "path_ext": path_ext,
+                "shelxc_path": shelxc_path,
+                "fast_ep_path": fast_ep_path,
                 "msg": rw.payload,
             },
         }
@@ -825,6 +821,10 @@ class DLSTrigger(CommonService):
         path_ext = big_ep_params["path_ext"]
         if not path_ext:
             path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        spacegroup = parameters("spacegroup")
+        if spacegroup:
+            path_ext += "-" + spacegroup
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = bool(parameters("automatic"))

@@ -163,6 +163,9 @@ def run(
                                 dlstbx.mimas.MimasISPyBParameter(
                                     key="remove_blanks", value="true"
                                 ),
+                                dlstbx.mimas.MimasISPyBParameter(
+                                    key="failover", value="true"
+                                ),
                             ),
                         )
                     )

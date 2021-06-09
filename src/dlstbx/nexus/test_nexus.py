@@ -208,7 +208,7 @@ def test_get_dxtbx_detector(nxmx_example):
     assert panel.get_fast_axis() == (1.0, 0.0, 0.0)
     assert panel.get_image_size() == (4148, 4362)
     assert panel.get_image_size_mm() == pytest.approx((311.09999999999997, 327.15))
-    assert panel.get_name() == "/entry/instrument/detector"
+    assert panel.get_name() == "/entry/instrument/detector/module"
     assert panel.get_normal() == (0.0, 0.0, -1.0)
     assert panel.get_trusted_range() == (-1, 9266)
     assert panel.get_type() == "SENSOR_PAD"
@@ -297,6 +297,197 @@ def test_get_dxtbx_detector_with_two_theta(detector_with_two_theta):
         -30.01668254145155,
     )
     assert panel.get_distance() == pytest.approx(120)
+
+
+@pytest.fixture
+def hierarchical_detector():
+    with h5py.File(" ", "w", **pytest.h5_in_memory) as f:
+        beam = f.create_group("/entry/instrument/beam")
+        beam.attrs["NX_class"] = "NXbeam"
+        beam["incident_wavelength"] = 0.495937
+        beam["incident_wavelength"].attrs["units"] = b"angstrom"
+
+        detector = f.create_group("/entry/instrument/ELE_D0")
+        detector.attrs["NX_class"] = "NXdetector"
+        detector["sensor_material"] = "Si"
+        detector["sensor_thickness"] = 320
+        detector["sensor_thickness"].attrs["units"] = b"microns"
+
+        def make_module(name, depends_on, data_origin, fast_direction, slow_direction):
+            module = detector.create_group(name)
+            module.attrs["NX_class"] = "NXdetector_module"
+            module.create_dataset("data_size", data=np.array([254, 254]))
+            module.create_dataset("data_origin", data=np.array(data_origin))
+            fast = module.create_dataset("fast_pixel_direction", data=0.075)
+            fast.attrs["transformation_type"] = "translation"
+            fast.attrs["depends_on"] = depends_on
+            fast.attrs["vector"] = np.array(fast_direction)
+            fast.attrs["units"] = "mm"
+            slow = module.create_dataset("slow_pixel_direction", data=0.075)
+            slow.attrs["transformation_type"] = "translation"
+            slow.attrs["depends_on"] = depends_on
+            slow.attrs["vector"] = np.array(slow_direction)
+            slow.attrs["units"] = "mm"
+
+        make_module(
+            name="ARRAY_D0Q0M0A0",
+            depends_on="/entry/instrument/ELE_D0/transformations/AXIS_D0Q0M0A0",
+            data_origin=[1, 1],
+            fast_direction=[-0.999998, -0.001781, 0],
+            slow_direction=[-0.001781, 0.999998, 0],
+        )
+        make_module(
+            name="ARRAY_D0Q0M0A1",
+            depends_on="/entry/instrument/ELE_D0/transformations/AXIS_D0Q0M0A1",
+            data_origin=[1, 259],
+            fast_direction=[-0.999998, -0.001781, 0],
+            slow_direction=[-0.001781, 0.999998, 0],
+        )
+        make_module(
+            name="ARRAY_D0Q0M12A0",
+            depends_on="/entry/instrument/ELE_D0/transformations/AXIS_D0Q0M12A0",
+            data_origin=[6169, 1],
+            fast_direction=[-0.999996, 0.00279501, 0],
+            slow_direction=[0.00279501, 0.999996, 0],
+        )
+        make_module(
+            name="ARRAY_D0Q0M12A1",
+            depends_on="/entry/instrument/ELE_D0/transformations/AXIS_D0Q0M12A1",
+            data_origin=[6169, 259],
+            fast_direction=[-0.999996, 0.00279501, 0],
+            slow_direction=[0.00279501, 0.999996, 0],
+        )
+
+        transformations = detector.create_group("transformations")
+
+        t = transformations.create_dataset("AXIS_D0Q0M0A0", data=0)
+        t.attrs["depends_on"] = b"AXIS_D0Q0M0"
+        t.attrs["transformation_type"] = b"rotation"
+        t.attrs["offset"] = np.array([38.5842, -19.1314, 0])
+        t.attrs["offset_units"] = b"mm"
+        t.attrs["vector"] = np.array([0, 0, -1])
+        t.attrs["units"] = b"degrees"
+
+        t = transformations.create_dataset("AXIS_D0Q0M0A1", data=0)
+        t.attrs["depends_on"] = b"AXIS_D0Q0M0"
+        t.attrs["transformation_type"] = b"rotation"
+        t.attrs["offset"] = np.array([19.2342, -19.1658, 0])
+        t.attrs["offset_units"] = b"mm"
+        t.attrs["vector"] = np.array([0, 0, -1])
+        t.attrs["units"] = b"degrees"
+
+        t = transformations.create_dataset("AXIS_D0Q0M12A0", data=0)
+        t.attrs["depends_on"] = b"AXIS_D0Q0M12"
+        t.attrs["transformation_type"] = b"rotation"
+        t.attrs["offset"] = np.array([38.4963, -19.3077, 0])
+        t.attrs["offset_units"] = b"mm"
+        t.attrs["vector"] = np.array([0, 0, -1])
+        t.attrs["units"] = b"degrees"
+
+        t = transformations.create_dataset("AXIS_D0Q0M12A1", data=0)
+        t.attrs["depends_on"] = b"AXIS_D0Q0M12"
+        t.attrs["transformation_type"] = b"rotation"
+        t.attrs["offset"] = np.array([19.1463, -19.2536, 0])
+        t.attrs["offset_units"] = b"mm"
+        t.attrs["vector"] = np.array([0, 0, -1])
+        t.attrs["units"] = b"degrees"
+
+        t = transformations.create_dataset("AXIS_D0Q0M0", data=0)
+        t.attrs["depends_on"] = b"AXIS_D0Q0"
+        t.attrs["transformation_type"] = b"rotation"
+        t.attrs["offset"] = np.array([38.3107, -61.1138, 0])
+        t.attrs["offset_units"] = b"mm"
+        t.attrs["vector"] = np.array([0, 0, -1])
+        t.attrs["units"] = b"degrees"
+
+        t = transformations.create_dataset("AXIS_D0Q0M12", data=0)
+        t.attrs["depends_on"] = b"AXIS_D0Q0"
+        t.attrs["transformation_type"] = b"rotation"
+        t.attrs["offset"] = np.array([39.1843, 61.4038, 0])
+        t.attrs["offset_units"] = b"mm"
+        t.attrs["vector"] = np.array([0, 0, -1])
+        t.attrs["units"] = b"degrees"
+
+        t = transformations.create_dataset("AXIS_D0Q0", data=0)
+        t.attrs["depends_on"] = b"AXIS_D0"
+        t.attrs["transformation_type"] = b"rotation"
+        t.attrs["offset"] = np.array([75.1333, -84.6597, 0])
+        t.attrs["offset_units"] = b"mm"
+        t.attrs["vector"] = np.array([0, 0, -1])
+        t.attrs["units"] = b"degrees"
+
+        t = transformations.create_dataset("AXIS_D0", data=0)
+        t.attrs["depends_on"] = b"AXIS_RAIL"
+        t.attrs["transformation_type"] = b"rotation"
+        t.attrs["offset"] = np.array([-0.429033, 0.121021, -0.294])
+        t.attrs["offset_units"] = b"mm"
+        t.attrs["vector"] = np.array([0, 0, -1])
+        t.attrs["units"] = b"degrees"
+
+        t = transformations.create_dataset("AXIS_RAIL", data=97.83)
+        t.attrs["depends_on"] = b"."
+        t.attrs["transformation_type"] = b"translation"
+        t.attrs["offset"] = np.array([0, 0, 0])
+        t.attrs["offset_units"] = b"mm"
+        t.attrs["vector"] = np.array([0, 0, 1])
+        t.attrs["units"] = b"mm"
+
+        yield f
+
+
+def test_get_dxtbx_detector_hierarchical(hierarchical_detector):
+    det = dlstbx.nexus.nxmx.NXdetector(
+        hierarchical_detector["/entry/instrument/ELE_D0"]
+    )
+    beam = dlstbx.nexus.nxmx.NXbeam(hierarchical_detector["/entry/instrument/beam"])
+
+    detector = dlstbx.nexus.get_dxtbx_detector(det, beam)
+    assert len(detector) == 4
+
+    assert detector[0].get_name() == "/entry/instrument/ELE_D0/ARRAY_D0Q0M0A0"
+    assert detector[1].get_name() == "/entry/instrument/ELE_D0/ARRAY_D0Q0M0A1"
+    assert detector[2].get_name() == "/entry/instrument/ELE_D0/ARRAY_D0Q0M12A0"
+    assert detector[3].get_name() == "/entry/instrument/ELE_D0/ARRAY_D0Q0M12A1"
+
+    assert (
+        detector[0].parent().parent().get_name()
+        == "/entry/instrument/ELE_D0/transformations/AXIS_D0Q0M0"
+    )
+    assert (
+        detector[1].parent().parent().get_name()
+        == "/entry/instrument/ELE_D0/transformations/AXIS_D0Q0M0"
+    )
+    assert (
+        detector[2].parent().parent().get_name()
+        == "/entry/instrument/ELE_D0/transformations/AXIS_D0Q0M12"
+    )
+    assert (
+        detector[3].parent().parent().get_name()
+        == "/entry/instrument/ELE_D0/transformations/AXIS_D0Q0M12"
+    )
+    for i in range(4):
+        assert (
+            detector[i].parent().parent().parent().get_name()
+            == "/entry/instrument/ELE_D0/transformations/AXIS_D0Q0"
+        )
+        assert (
+            detector[i].parent().parent().parent().parent().get_name()
+            == "/entry/instrument/ELE_D0/transformations/AXIS_D0"
+        )
+
+    assert detector[0].get_origin() == (-151.599167, -164.783879, -97.536)
+    assert detector[0].get_local_origin() == (0.0, 0.0, 0.0)
+    assert (
+        detector[0].get_fast_axis()
+        == detector[0].get_local_fast_axis()
+        == (0.9999984140169291, -0.0017810007373656254, 0.0)
+    )
+    assert (
+        detector[0].get_slow_axis()
+        == detector[0].get_local_slow_axis()
+        == (0.0017810007373656254, 0.9999984140169291, 0.0)
+    )
+    assert detector[0].get_distance() == 97.536
 
 
 @pytest.fixture

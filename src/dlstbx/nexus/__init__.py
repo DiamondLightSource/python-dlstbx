@@ -241,7 +241,7 @@ def get_dxtbx_detector(
             / 10.0
         )
         px_mm = dxtbx.model.ParallaxCorrectedPxMmStrategy(mu, thickness)
-        name = nxdetector.path
+        name = module.path
 
         p = pg.add_panel()
         p.set_type("SENSOR_PAD")

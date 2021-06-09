@@ -87,7 +87,7 @@ def run():
                 continue
             elif "beamline" in message and "scenario" in message:
                 test_results.setdefault(
-                    "{m[beamline]}-{m[scenario]}".format(m=message), []
+                    f"{message['beamline']}-{message['scenario']}", []
                 ).append(message)
 
     except queue.Empty:
@@ -128,21 +128,14 @@ def run():
     # Check all test runs that do not yet have a definite outcome
     for testruns in test_results.values():
         for testrun in testruns:
-            # use em_sim.check for EM tests
-            if testrun.get("beamline").startswith(("e", "m")):
-                if testrun.get("success") is None:
-                    print("Verifying", testrun)
-                    dlstbx.em_sim.check.check_test_outcome(testrun)
-
-            else:
-                if testrun.get("success") is None:
-                    print("Verifying", testrun)
-                    dlstbx.dc_sim.check.check_test_outcome(testrun, ispyb_conn)
-                    # 3 possible outcomes:
-                    # The test can be successful (testrun['success'] = True)
-                    # it can fail (testrun['success'] = False; testrun['reason'] set)
-                    # or it can be inconclusive (eg. because results are missing)
-                    # in which case no changes are made
+            if testrun.get("success") is None:
+                print("Verifying", testrun)
+                dlstbx.dc_sim.check.check_test_outcome(testrun, ispyb_conn)
+                # 3 possible outcomes:
+                # The test can be successful (testrun['success'] = True)
+                # it can fail (testrun['success'] = False; testrun['reason'] set)
+                # or it can be inconclusive (eg. because results are missing)
+                # in which case no changes are made
             if (
                 testrun.get("success") is None
                 and testrun["time_end"] < time.time() - test_timeout
@@ -152,7 +145,7 @@ def run():
                 existing_reason = testrun.get("reason")
                 testrun["reason"] = "No valid results appeared within timeout"
                 if existing_reason:
-                    testrun["reason"] += " (%s)" % existing_reason
+                    testrun["reason"] += f" ({existing_reason})"
 
     # Show all known test results
     pprint(test_results)
@@ -168,9 +161,7 @@ def run():
         if not visit:
             return ""
         visit = visit.group(1)
-        return "https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dcid}".format(
-            visit=visit, dcid=dcid
-        )
+        return f"https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dcid}"
 
     # Create JUnit result records
     junit_results = []

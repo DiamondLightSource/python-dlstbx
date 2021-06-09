@@ -94,8 +94,9 @@ def _simulate(
     _dest_visit_dir,
     _dest_dir,
     _sample_id,
-    data_collection_group_id=None,
-    scenario_name=None,
+    proc_params,
+    data_collection_group_id,
+    scenario_name,
 ):
     _db = db.DB()
     dbsc = dlstbx.dc_sim.dbserverclient.DbserverClient()
@@ -336,7 +337,7 @@ def _simulate(
         log.debug(result["stderr"])
         log.error("RunAtEndOfCollect failed with exit code %d", result["exitcode"])
 
-    return datacollectionid, datacollectiongroupid
+    return datacollectionid, datacollectiongroupid, None
 
 
 def call_sim(test_name, beamline):
@@ -347,11 +348,12 @@ def call_sim(test_name, beamline):
     src_dir = scenario["src_dir"]
     sample_id = scenario.get("use_sample_id")
     src_prefix = scenario["src_prefix"]
+    proc_params = scenario.get("proc_params")
 
     # Calculate the destination directory
     now = datetime.datetime.now()
     # These proposal numbers need to be updated every year
-    if beamline.startswith("m"):
+    if beamline.startswith(("e", "m")):
         proposal = "cm28212"
     else:
         proposal = "nt28218"
@@ -398,14 +400,15 @@ def call_sim(test_name, beamline):
             "ERROR: The src_dir parameter does not appear to contain a valid visit directory."
         )
 
-    start_script = f"{MX_SCRIPTS_BINDIR}/RunAtStartOfCollect-{beamline}.sh"
-    if not os.path.exists(start_script):
-        log.error(f"The file {start_script} was not found.")
-        sys.exit(1)
-    end_script = f"{MX_SCRIPTS_BINDIR}/RunAtEndOfCollect-{beamline}.sh"
-    if not os.path.exists(end_script):
-        log.error(f"The file {end_script} was not found.")
-        sys.exit(1)
+    if scenario["type"] == "mx":
+        start_script = f"{MX_SCRIPTS_BINDIR}/RunAtStartOfCollect-{beamline}.sh"
+        if not os.path.exists(start_script):
+            log.error(f"The file {start_script} was not found.")
+            sys.exit(1)
+        end_script = f"{MX_SCRIPTS_BINDIR}/RunAtEndOfCollect-{beamline}.sh"
+        if not os.path.exists(end_script):
+            log.error(f"The file {end_script} was not found.")
+            sys.exit(1)
 
     # Create destination directory
     log.debug("Creating directory %s", dest_dir)
@@ -418,6 +421,7 @@ def call_sim(test_name, beamline):
     # Call _simulate
     dcid_list = []
     dcg_list = []
+    jobid_list = []
     for src_run_number in scenario["src_run_num"]:
         for src_prefix in scenario["src_prefix"]:
             dest_prefix = src_prefix
@@ -425,7 +429,7 @@ def call_sim(test_name, beamline):
                 dcg = dcg_list[0]
             else:
                 dcg = None
-            dcid, dcg = _simulate(
+            dcid, dcg, jobid = _simulate(
                 dest_visit,
                 beamline,
                 src_dir,
@@ -436,12 +440,14 @@ def call_sim(test_name, beamline):
                 dest_visit_dir,
                 dest_dir,
                 sample_id,
+                proc_params,
                 data_collection_group_id=dcg,
                 scenario_name=test_name,
             )
+            jobid_list.append(jobid)
             dcid_list.append(dcid)
             dcg_list.append(dcg)
             if scenario.get("delay"):
                 log.info(f"Sleeping for {scenario['delay']} seconds")
                 time.sleep(scenario["delay"])
-    return dcid_list
+    return dcid_list, jobid_list

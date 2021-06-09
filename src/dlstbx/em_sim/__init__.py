@@ -6,25 +6,20 @@
 # * sends the message that SynchWeb would send to launch processing to Zocalo
 
 
-import datetime
 import errno
 import logging
 import os
-import re
 import pathlib
 import shutil
-import sys
 import time
-import uuid
+
 import ispyb
 import ispyb.sqlalchemy
 import sqlalchemy
 import sqlalchemy.orm
-from sqlalchemy.orm import Load
-from ispyb.sqlalchemy import DataCollection, BLSession, Proposal
 from workflows.transport.stomp_transport import StompTransport
 
-import dlstbx.dc_sim.definitions
+import dlstbx.dc_sim.mydb
 
 log = logging.getLogger("dlstbx.em_sim")
 
@@ -45,64 +40,6 @@ def mkdir_p(path):
             pass
         else:
             raise
-
-
-def retrieve_sessionid(_db, _visit):
-
-    query = (
-        _db.query(BLSession, Proposal)
-        .options(
-            Load(BLSession).load_only("sessionId", "visit_number", "proposalId"),
-            Load(Proposal).load_only("proposalId", "proposalCode", "proposalNumber"),
-        )
-        .join(
-            Proposal,
-            Proposal.proposalId == BLSession.proposalId,
-        )
-        .filter(
-            sqlalchemy.func.concat(
-                Proposal.proposalCode,
-                Proposal.proposalNumber,
-                "-",
-                BLSession.visit_number,
-            )
-            == _visit
-        )
-    )
-
-    query_results = query.first()
-
-    if query_results is None:
-        sys.exit("Query to obtain sessionid failed for %s" % _visit)
-
-    if query_results[0].sessionId is None:
-        sys.exit("Could not find sessionid for visit %s" % _visit)
-    return query_results[0].sessionId
-
-
-def retrieve_datacollection_values(_db, _sessionid, _dir, _prefix, _run_number):
-
-    records_to_collect = [
-        "dataCollectionId",
-        "dataCollectionGroupId",
-        "runStatus",
-        "imageSuffix",
-        "fileTemplate",
-        "comments",
-        "printableForReport",
-    ]
-
-    query = (
-        _db.query(DataCollection)
-        .options(Load(DataCollection).load_only(*records_to_collect))
-        .filter(DataCollection.SESSIONID == _sessionid)
-        .filter(DataCollection.imageDirectory == _dir + "/")
-        .filter(DataCollection.dataCollectionNumber == _run_number)
-    )
-
-    query.filter(DataCollection.imagePrefix == _prefix)
-
-    return query.first()
 
 
 def simulate(
@@ -127,11 +64,10 @@ def simulate(
 
     log.debug("Getting the source SessionID")
     with db_session() as dbs:
-        src_sessionid = retrieve_sessionid(dbs, _src_visit)
-    log.debug("SessionID is %r", src_sessionid)
+        src_sessionid = dlstbx.dc_sim.mydb.retrieve_sessionid(dbs, _src_visit)
+        log.debug("SessionID is %r", src_sessionid)
 
-    with db_session() as dbs:
-        row = retrieve_datacollection_values(
+        row = dlstbx.dc_sim.mydb.retrieve_datacollection(
             dbs, src_sessionid, _src_dir, _src_prefix, _src_run_number
         )
 
@@ -232,92 +168,3 @@ def simulate(
         )
 
     return datacollectionid, datacollectiongroupid, procjobid
-
-
-def call_sim(test_name, beamline):
-    scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
-    if not scenario:
-        sys.exit("%s is not a valid test scenario" % test_name)
-
-    src_dir = scenario["src_dir"]
-    sample_id = scenario.get("use_sample_id")
-    src_prefix = scenario["src_prefix"]
-    proc_params = scenario["proc_params"]
-
-    # Calculate the destination directory
-    now = datetime.datetime.now()
-    # These proposal numbers need to be updated every year
-    proposal = "cm28212"
-
-    for cm_dir in os.listdir(f"/dls/{beamline}/data/{now:%Y}"):
-        if cm_dir.startswith(proposal + "-" + str(scenario["src_dc_version"][0])):
-            dest_visit = cm_dir
-            break
-    else:
-        log.error("Could not determine destination directory")
-        sys.exit(1)
-
-    # Set mandatory parameters
-    dest_visit_dir = f"/dls/{beamline}/data/{now:%Y}/{dest_visit}"
-
-    dest_dir = f"{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{str(uuid.uuid4())[:8]}"
-
-    print("destination directory:", dest_dir)
-
-    # Extract necessary info from the source directory path
-    m1 = re.search(r"(/dls/(\S+?)/data/\d+/)(\S+)", src_dir)
-    if m1:
-        subdir = m1.groups()[2]
-        m2 = re.search(r"^(\S+?)/", subdir)
-        if m2:
-            src_visit = m2.groups()[0]
-        elif subdir:
-            src_visit = subdir
-
-    if src_visit is None:
-        sys.exit(
-            "ERROR: The src_dir parameter does not appear to contain a valid visit directory."
-        )
-
-    # Create destination directory
-    log.debug("Creating directory %s", dest_dir)
-
-    mkdir_p(dest_dir)
-    if os.path.isdir(dest_dir):
-        log.info("Directory %s created successfully", dest_dir)
-    else:
-        log.error("Creating directory %s failed", dest_dir)
-
-    # Call simulate
-    dcid_list = []
-    dcg_list = []
-    pjid_list = []
-    for src_run_number in scenario["src_run_num"]:
-        for src_prefix in scenario["src_prefix"]:
-            dest_prefix = src_prefix
-            if scenario.get("dcg") and len(dcg_list):
-                dcg = dcg_list[0]
-            else:
-                dcg = None
-            dcid, dcg, pjid = simulate(
-                dest_visit,
-                beamline,
-                src_dir,
-                src_visit,
-                src_prefix,
-                src_run_number,
-                dest_prefix,
-                dest_visit_dir,
-                dest_dir,
-                sample_id,
-                proc_params,
-                data_collection_group_id=dcg,
-                scenario_name=test_name,
-            )
-            pjid_list.append(pjid)
-            dcid_list.append(dcid)
-            dcg_list.append(dcg)
-            if scenario.get("delay"):
-                log.info("Sleeping for %s seconds" % scenario["delay"])
-                time.sleep(scenario["delay"])
-    return dcid_list, pjid_list

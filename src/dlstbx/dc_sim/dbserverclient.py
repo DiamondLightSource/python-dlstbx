@@ -1,7 +1,7 @@
 import sys
 import xml.etree.cElementTree as ET
 
-from six.moves import http_client
+import http.client
 
 
 def flatten_xml(xml, tag):
@@ -15,7 +15,7 @@ class DbserverClient:
         print(f"Connection parameters are: {self.DB_host}:{self.DB_port}")
 
     def _send(self, _path, _xml):
-        conn = http_client.HTTPConnection(self.DB_host + ":" + self.DB_port)
+        conn = http.client.HTTPConnection(f"{self.DB_host}:{self.DB_port}")
         _xml = _xml.encode("latin-1")
         try:
             conn.putrequest("POST", str(_path))
@@ -30,9 +30,9 @@ class DbserverClient:
             sys.exit("socket.error - is the server available?")
         try:
             response = conn.getresponse()
-        except http_client.BadStatusLine:
+        except http.client.BadStatusLine:
             conn.close()
-            sys.exit("http_client.BadStatusLine: Unknown status code.")
+            sys.exit("http.client.BadStatusLine: Unknown status code.")
         except OSError:
             conn.close()
             sys.exit(

@@ -29,37 +29,12 @@ import dlstbx.dc_sim.definitions
 log = logging.getLogger("dlstbx.em_sim")
 
 
-def f(_v):
-    if _v is None:
-        return float("nan")
-    else:
-        return float(_v)
-
-
-def i(_v):
-    if _v is None:
-        return -1
-    else:
-        return int(_v)
-
-
-def s(_v):
-    if _v is None:
-        return "null"
-    else:
-        return str(_v)
-
-
 def copy_via_temp_file(source, destination):
     dest_dir, dest_file = os.path.split(destination)
     temp_dest_file = ".tmp." + dest_file
     temp_destination = os.path.join(dest_dir, temp_dest_file)
     shutil.copyfile(source, temp_destination)
     os.rename(temp_destination, destination)
-
-
-def clean_nan_null_minusone(s):
-    return re.sub(r"\<[^<>]*\>(null|nan|-1)\</[^<>]*\>", "", s)
 
 
 def mkdir_p(path):

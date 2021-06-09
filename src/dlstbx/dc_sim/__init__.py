@@ -20,7 +20,10 @@ import uuid
 
 import dlstbx.dc_sim.dbserverclient
 import dlstbx.dc_sim.definitions
-import dlstbx.dc_sim.mydb
+import dlstbx.dc_sim.mydb as db
+
+import sqlalchemy
+import ispyb.sqlalchemy
 
 log = logging.getLogger("dlstbx.dc_sim")
 
@@ -34,19 +37,6 @@ def copy_via_temp_file(source, destination):
     temp_destination = os.path.join(dest_dir, temp_dest_file)
     shutil.copyfile(source, temp_destination)
     os.rename(temp_destination, destination)
-
-
-def retrieve_sessionid(_db, _visit):
-    rows = _db.doQuery(
-        "SELECT s.sessionid "
-        "FROM BLSession s "
-        "  INNER JOIN Proposal p ON p.proposalid = s.proposalid "
-        "WHERE concat(p.proposalcode, p.proposalnumber, '-', s.visit_number)= '%s'"
-        % _visit
-    )
-    if rows[0][0] is None:
-        sys.exit(f"Could not find sessionid for visit {_visit}")
-    return int(rows[0][0])
 
 
 def retrieve_datacollection_group_values(_db, _src_dcgid):
@@ -153,7 +143,7 @@ def retrieve_max_dcnumber(_db, _sessionid, _dest_dir, _dest_prefix):
     return rows[0][0]
 
 
-def simulate(
+def _simulate(
     _dest_visit,
     _beamline,
     _src_dir,
@@ -167,12 +157,15 @@ def simulate(
     data_collection_group_id=None,
     scenario_name=None,
 ):
-    _db = dlstbx.dc_sim.mydb.DB()
+    _db = db.DB()
     dbsc = dlstbx.dc_sim.dbserverclient.DbserverClient()
+    url = ispyb.sqlalchemy.url()
+    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+    db_session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
     log.debug("Getting the source SessionID")
-    src_sessionid = retrieve_sessionid(_db, _src_visit)
-    log.debug("SessionID is %r", src_sessionid)
+    src_sessionid = db.retrieve_sessionid(db_session, _src_visit)
+    log.debug("SessionID is {src_sessionid}")
 
     row = retrieve_datacollection_values(
         _db, src_sessionid, _src_dir, _src_prefix, _src_run_number
@@ -190,18 +183,16 @@ def simulate(
         row["xtalsnapshotfullpath4"],
     ]
     log.debug(
-        "Source dataset from DCID %r, DCGID %r, file template %r",
-        src_dcid,
-        src_dcgid,
+        f"Source dataset from DCID {src_dcid}, DCGID {src_dcgid}, file template %r",
         filetemplate,
     )
 
     no_images = retrieve_no_images(_db, src_dcid)
-    log.debug("Source dataset has %d images" % no_images)
+    log.debug(f"Source dataset has {no_images} images")
 
     # Get the sessionid for the dest_visit
     log.debug("(SQL) Getting the destination sessionid")
-    sessionid = retrieve_sessionid(_db, _dest_visit)
+    sessionid = db.retrieve_sessionid(db_session, _dest_visit)
 
     # Get the highest run number for the datacollections of this dest_visit with the particular img.dir and prefix
     log.debug(
@@ -484,7 +475,7 @@ def call_sim(test_name, beamline):
     else:
         log.error(f"Creating directory {dest_dir} failed")
 
-    # Call simulate
+    # Call _simulate
     dcid_list = []
     dcg_list = []
     for src_run_number in scenario["src_run_num"]:
@@ -494,7 +485,7 @@ def call_sim(test_name, beamline):
                 dcg = dcg_list[0]
             else:
                 dcg = None
-            dcid, dcg = simulate(
+            dcid, dcg = _simulate(
                 dest_visit,
                 beamline,
                 src_dir,

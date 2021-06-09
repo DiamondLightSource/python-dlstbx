@@ -2,7 +2,7 @@ from unittest import mock
 import pytest
 import time
 
-import dlstbx.em_sim.check
+import dlstbx.dc_sim.check
 import dlstbx.dc_sim.definitions
 
 all_programs = ["relion"]
@@ -29,14 +29,14 @@ def test_check_relion_outcomes_pass_checks():
     db_ctf.estimatedDefocus = 10800
     db_ctf.ccValue = 0.15
 
-    dc_results = {}
-    dc_results[1] = {}
-    dc_results[1]["motion_correction"] = [db_motion_corr(_) for _ in frame_numbers]
-    dc_results[1]["ctf"] = [db_ctf for _ in frame_numbers]
+    dc_results = {
+        "motion_correction": [db_motion_corr(frame) for frame in frame_numbers],
+        "ctf": [db_ctf for _ in frame_numbers],
+    }
 
     expected_outcome = dlstbx.dc_sim.definitions.tests.get("relion", {}).get("results")
 
-    check_result = dlstbx.em_sim.check.check_relion_outcomes(
+    check_result = dlstbx.dc_sim.check.check_relion_outcomes(
         dc_results, expected_outcome, 1
     )
     assert check_result["relion"]["success"]
@@ -66,16 +66,16 @@ def test_check_relion_outcomes_fail_checks():
     db_ctf_f.estimatedDefocus = 10800
     db_ctf_f.ccValue = 0.15
 
-    dc_results_f = {}
-    dc_results_f[1] = {}
-    dc_results_f[1]["motion_correction"] = [db_motion_corr_f(_) for _ in frame_numbers]
-    dc_results_f[1]["ctf"] = [db_ctf_f for _ in frame_numbers]
+    dc_results_f = {
+        "motion_correction": [db_motion_corr_f(frame) for frame in frame_numbers],
+        "ctf": [db_ctf_f for _ in frame_numbers],
+    }
 
     expected_outcome_f = dlstbx.dc_sim.definitions.tests.get("relion", {}).get(
         "results"
     )
 
-    check_result = dlstbx.em_sim.check.check_relion_outcomes(
+    check_result = dlstbx.dc_sim.check.check_relion_outcomes(
         dc_results_f, expected_outcome_f, 1
     )
     assert not check_result["relion"]["success"]
@@ -84,8 +84,8 @@ def test_check_relion_outcomes_fail_checks():
     ]
 
 
-@mock.patch("dlstbx.em_sim.check.retrieve_motioncorr")
-@mock.patch("dlstbx.em_sim.check.retrieve_ctf")
+@mock.patch("dlstbx.dc_sim.check._retrieve_motioncorr")
+@mock.patch("dlstbx.dc_sim.check._retrieve_ctf")
 @mock.patch("ispyb.sqlalchemy.url")
 @mock.patch("sqlalchemy.create_engine")
 @mock.patch("sqlalchemy.orm.Session")
@@ -98,8 +98,6 @@ def test_check_test_outcome_success(
     )
 
     mock_url.return_value = ""
-    mock_eng.return_value = mock.Mock()
-    mock_sess.return_value = mock.Mock()
 
     def db_motion_corr(i):
         motion_corr = mock.Mock()
@@ -128,12 +126,12 @@ def test_check_test_outcome_success(
         "time_start": time.time() - 900,
         "time_end": time.time() - 1,
     }
-    test = dlstbx.em_sim.check.check_test_outcome(test)
+    test = dlstbx.dc_sim.check.check_test_outcome(test, mock.Mock())
     assert test["success"]
 
 
-@mock.patch("dlstbx.em_sim.check.retrieve_motioncorr")
-@mock.patch("dlstbx.em_sim.check.retrieve_ctf")
+@mock.patch("dlstbx.dc_sim.check._retrieve_motioncorr")
+@mock.patch("dlstbx.dc_sim.check._retrieve_ctf")
 @mock.patch("ispyb.sqlalchemy.url")
 @mock.patch("sqlalchemy.create_engine")
 @mock.patch("sqlalchemy.orm.Session")
@@ -146,8 +144,6 @@ def test_check_test_outcome_failure(
     )
 
     mock_url.return_value = ""
-    mock_eng.return_value = mock.Mock()
-    mock_sess.return_value = mock.Mock()
 
     def db_motion_corr(i):
         motion_corr = mock.Mock()
@@ -179,7 +175,7 @@ def test_check_test_outcome_failure(
         "time_start": time.time() - 900,
         "time_end": time.time() - 1,
     }
-    test_checked = dlstbx.em_sim.check.check_test_outcome(test)
+    test_checked = dlstbx.dc_sim.check.check_test_outcome(test, mock.Mock())
     assert not test_checked["success"]
     assert (
         test_checked["reason"]

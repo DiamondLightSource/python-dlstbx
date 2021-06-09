@@ -3,7 +3,7 @@ import pytest
 import time
 
 import dlstbx.em_sim.check
-import dlstbx.em_sim.definitions
+import dlstbx.dc_sim.definitions
 
 all_programs = ["relion"]
 
@@ -34,7 +34,7 @@ def test_check_relion_outcomes_pass_checks():
     dc_results[1]["motion_correction"] = [db_motion_corr(_) for _ in frame_numbers]
     dc_results[1]["ctf"] = [db_ctf for _ in frame_numbers]
 
-    expected_outcome = dlstbx.em_sim.definitions.tests.get("relion", {}).get("results")
+    expected_outcome = dlstbx.dc_sim.definitions.tests.get("relion", {}).get("results")
 
     check_result = dlstbx.em_sim.check.check_relion_outcomes(
         dc_results, expected_outcome, 1
@@ -71,7 +71,7 @@ def test_check_relion_outcomes_fail_checks():
     dc_results_f[1]["motion_correction"] = [db_motion_corr_f(_) for _ in frame_numbers]
     dc_results_f[1]["ctf"] = [db_ctf_f for _ in frame_numbers]
 
-    expected_outcome_f = dlstbx.em_sim.definitions.tests.get("relion", {}).get(
+    expected_outcome_f = dlstbx.dc_sim.definitions.tests.get("relion", {}).get(
         "results"
     )
 

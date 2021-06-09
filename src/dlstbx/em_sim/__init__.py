@@ -24,7 +24,7 @@ from sqlalchemy.orm import Load
 from ispyb.sqlalchemy import DataCollection, BLSession, Proposal
 from workflows.transport.stomp_transport import StompTransport
 
-import dlstbx.em_sim.definitions
+import dlstbx.dc_sim.definitions
 
 log = logging.getLogger("dlstbx.em_sim")
 
@@ -260,7 +260,7 @@ def simulate(
 
 
 def call_sim(test_name, beamline):
-    scenario = dlstbx.em_sim.definitions.tests.get(test_name)
+    scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     if not scenario:
         sys.exit("%s is not a valid test scenario" % test_name)
 

@@ -1,4 +1,4 @@
-import dlstbx.em_sim.definitions as df
+import dlstbx.dc_sim.definitions as df
 import ispyb
 import ispyb.model.__future__
 import ispyb.sqlalchemy

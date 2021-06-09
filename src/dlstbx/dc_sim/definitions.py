@@ -398,7 +398,6 @@ tests = {
         "src_dir": "/dls/m12/data/2021/cm28212-2/raw",
         "src_run_num": (1,),
         "src_prefix": ("",),
-        "src_dc_version": (2,),
         "proc_params": {
             "acquisition_software": "SerialEM",
             "import_images": "/dls/m12/data/2021/cm28212-2/raw/Frames/*.tiff",

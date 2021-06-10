@@ -346,7 +346,7 @@ def _simulate(
 
         # Produce a DataCollection xml blob from the template and use the new run number
         row_as_dictionary = {
-            name.lower(): getattr(x, name)
+            name.lower(): getattr(row, name)
             for name in dir(row)
             if not name.startswith("_")
         }

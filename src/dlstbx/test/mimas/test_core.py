@@ -361,7 +361,7 @@ def test_i19_rotation():
         f"zocalo.go -r per-image-analysis-rotation {dcid}",
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-smallmolecule --add-sweep={other_dcid}:1:850 --add-sweep={dcid}:1:850  --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-smallmolecule --add-sweep={other_dcid}:1:850 --add-sweep={dcid}:1:850 --add-param=absorption_level:medium --trigger",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml --add-sweep={other_dcid}:1:850 --add-sweep={dcid}:1:850  --trigger",
         f"zocalo.go -r archive-cbfs {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",

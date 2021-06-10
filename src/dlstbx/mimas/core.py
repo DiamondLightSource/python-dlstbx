@@ -108,6 +108,7 @@ def run(
                     recipe="autoprocessing-multi-xia2-smallmolecule",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    parameters=xia2_dials_absorption_params,
                 )
             )
             tasks.append(

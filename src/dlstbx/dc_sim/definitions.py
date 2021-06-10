@@ -2,6 +2,7 @@ from pytest import approx
 
 tests = {
     "gi-multi": {
+        "type": "mx",
         "src_dir": "/dls/i04/data/2013/nt5966-4/20131007/GI/P2_X3",
         "src_run_num": (2, 3, 4, 5, 6, 7, 8),
         "src_prefix": ("GI_M2S3",),
@@ -15,12 +16,14 @@ tests = {
         },
     },
     "gridscan": {
+        "type": "mx",
         "src_dir": "/dls/i04/data/2016/cm14452-2/20160425/grid/protein-1-cm14452-2/thermo_10",
         "src_run_num": (3,),
         "src_prefix": ("thermo_10",),
         "results": {},
     },
     "high-multiplicity": {
+        "type": "mx",
         "src_dir": "/dls/i03/data/2012/cm5698-4/therm2",
         "src_run_num": (1,),
         "src_prefix": ("thermc",),
@@ -34,6 +37,7 @@ tests = {
         },
     },
     "example-i04": {
+        "type": "mx",
         "src_dir": "/dls/i04/data/2017/cm16781-4/20171015/Thaum/Th_3",
         "src_run_num": (1,),
         "src_prefix": ("Th_3",),
@@ -48,6 +52,7 @@ tests = {
         },
     },
     "i23-germanate": {
+        "type": "mx",
         "src_dir": "/dls/i23/data/2017/cm16790-4/20171012/germanate_4p5keV",
         "src_run_num": (1,),
         "src_prefix": ("data_A",),
@@ -62,6 +67,7 @@ tests = {
         },
     },
     "i23-lysozyme": {
+        "type": "mx",
         "src_dir": "/dls/i23/data/2019/nr23017-1/20190117/lys_c_4p5keV",
         "src_run_num": (1,),
         "src_prefix": ("data",),
@@ -76,6 +82,7 @@ tests = {
         },
     },
     "insulin-2016": {
+        "type": "mx",
         "src_dir": "/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2",
         "src_run_num": (2,),
         "src_prefix": ("INS2",),
@@ -89,6 +96,7 @@ tests = {
         },
     },
     "mad-multi": {
+        "type": "mx",
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170111/ZnMAD",
         "src_run_num": (1,),
         "src_prefix": ("sp0092_Zn_pk", "sp0092_Zn_if", "sp0092_Zn_hrm"),
@@ -103,6 +111,7 @@ tests = {
         },
     },
     "native": {
+        "type": "mx",
         "src_dir": "/dls/i03/data/2017/cm16791-1/20170221/gw/20170221/INS2",
         "src_run_num": (1,),
         "src_prefix": ("INS2_29_2",),
@@ -117,6 +126,7 @@ tests = {
         },
     },
     "native-i04-eiger": {
+        "type": "mx",
         "src_dir": "/dls/i04/data/2019/cm23004-1/20190223/Thaum/Thau_16",
         "src_run_num": (1,),
         "src_prefix": ("Thau_16",),
@@ -131,6 +141,7 @@ tests = {
         },
     },
     "vmxi-rotation": {
+        "type": "mx",
         "src_dir": "/dls/mx/data/mx21314/mx21314-41/VMXi-AB0831/well_39/images",
         "src_run_num": (15722,),
         "src_prefix": ("image",),
@@ -145,6 +156,7 @@ tests = {
         },
     },
     "protk-au-insitu": {
+        "type": "mx",
         "src_dir": "/dls/i24/data/2017/nr16818-47/Josh/InSitu/CrystalQuickX/ProtK/Au",
         "src_run_num": (1,),
         "src_prefix": (
@@ -170,6 +182,7 @@ tests = {
         "delay": 20,
     },
     "smargon-dcg": {
+        "type": "mx",
         "src_dir": "/dls/i03/data/2018/cm19644-4/20180912/chigroup/protk",
         "src_run_num": (8, 9, 10),
         "src_prefix": ("protk",),
@@ -184,6 +197,7 @@ tests = {
         },
     },
     "eiger-dcg": {
+        "type": "mx",
         "src_dir": "/dls/i04/data/2019/cm23004-2/gw/small_multi/thau_3",
         "src_run_num": (1, 2, 3, 4),
         "src_prefix": ("thau_3",),
@@ -199,6 +213,7 @@ tests = {
         },
     },
     "inverse-beam": {
+        "type": "mx",
         "src_dir": "/dls/i23/data/2018/nr19737-17/20180510/lys6",
         "src_run_num": (1,),
         "src_prefix": ("data_2200eV_A_1_", "data_2200eV_B_1_"),
@@ -213,6 +228,7 @@ tests = {
         },
     },
     "sad": {
+        "type": "mx",
         "src_dir": "/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1",
         "src_run_num": (1,),
         "src_prefix": ("X1_weak_M1S1",),
@@ -226,6 +242,7 @@ tests = {
         },
     },
     "sad-multi": {
+        "type": "mx",
         "src_dir": "/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1",
         "src_run_num": (1, 3),
         "src_prefix": ("X1_strong_M1S1",),
@@ -239,6 +256,7 @@ tests = {
         },
     },
     "screening": {
+        "type": "mx",
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170223/group1/Thaum/Th_4",
         "src_run_num": (1,),
         "src_prefix": ("Th_4",),
@@ -254,6 +272,7 @@ tests = {
         },
     },
     "screening-i24": {
+        "type": "mx",
         "src_dir": "/dls/i24/data/2017/cm16788-3/screening/hewl/hewl_1",
         "src_run_num": (1,),
         "src_prefix": ("hewl_1",),
@@ -270,6 +289,7 @@ tests = {
         },
     },
     "screening-i04-eiger": {
+        "type": "mx",
         "src_dir": "/dls/i04/data/2019/cm23004-1/20190114/Eiger/Se_Thaum/Se_Thaum_13",
         "src_run_num": (1,),
         "src_prefix": ("Se_Thaum_13",),
@@ -291,6 +311,7 @@ tests = {
         },
     },
     "screening-smargon": {
+        "type": "mx",
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170316/Thaum/Th_4",
         "src_run_num": (2,),
         "src_prefix": ("Th_4",),
@@ -298,6 +319,7 @@ tests = {
         "results": {},
     },
     "thaumatin-eiger": {  # Yes, it does say Thermolysin.
+        "type": "mx",
         "src_dir": "/dls/i04/data/2019/cm23004-1/20190214/gw-edna-test/Thermolysin/Therm_6",
         "src_run_num": (2,),
         "src_prefix": ("Therm_6",),
@@ -311,6 +333,7 @@ tests = {
         },
     },
     "insulin-sad-eiger": {
+        "type": "mx",
         "src_dir": "/dls/i03/data/2019/cm23003-4/i03_insulin/ins_2",
         "src_run_num": (4,),
         "src_prefix": ("ins_2",),
@@ -325,6 +348,7 @@ tests = {
         },
     },
     "protk-wedge-eiger": {
+        "type": "mx",
         "src_dir": "/dls/i03/data/2020/mx23694-44/wedges/TestProteinaseK/Protk_1",
         "src_run_num": (1,),
         "src_prefix": ("Protk_1",),
@@ -339,6 +363,7 @@ tests = {
         },
     },
     "trp-multi": {
+        "type": "mx",
         "src_dir": "/dls/i04/data/2013/nt5966-4/20131007/TRP/P1_X6",
         "src_run_num": (1, 2, 3, 4),
         "src_prefix": ("TRP_M1S6",),
@@ -352,6 +377,7 @@ tests = {
         },
     },
     "i04-83": {
+        "type": "mx",
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170111/autocollect/sp0092",
         "src_run_num": (1,),
         "src_prefix": ("s_4",),
@@ -363,6 +389,48 @@ tests = {
             "alpha": approx(180, abs=180),
             "beta": approx(180, abs=180),
             "gamma": approx(180, abs=180),
+        },
+    },
+    "relion": {
+        "type": "em-spa",
+        "dcid": 6258983,
+        "frames": list(set(range(21, 50)) - {32, 33, 34, 38, 41}),
+        "src_dir": "/dls/m12/data/2021/cm28212-2/raw",
+        "src_run_num": (1,),
+        "src_prefix": (None,),
+        "proc_params": {
+            "acquisition_software": "SerialEM",
+            "import_images": "/dls/m12/data/2021/cm28212-2/raw/Frames/*.tiff",
+            "motioncor_gainreference": "/dls/m12/data/2021/cm28212-2/processing/gaim.mrc",
+            "voltage": "200",
+            "Cs": "2.7",
+            "ctffind_do_phaseshift": "false",
+            "angpix": "0.885",
+            "motioncor_binning": "1",
+            "motioncor_doseperframe": "1.277",
+            "stop_after_ctf_estimation": "false",
+        },
+        "results": {
+            "motion_correction": tuple(
+                {
+                    "micrographFullPath": f"MotionCorr/job002/Movies/Frames/20170629_000{image_number}_frameImage.mrc",
+                    "totalMotion": approx(15, 0.75),
+                    # "early_motion": approx(2.5, 0.5),
+                    # "late_motion": approx(15, 2),
+                    "averageMotionPerFrame": approx(16, 0.75),
+                }
+                for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
+            ),
+            "ctf": tuple(
+                {
+                    "astigmatism": approx(247, 0.75),
+                    "astigmatismAngle": approx(83, 0.75),
+                    "estimatedResolution": approx(5, 0.75),
+                    "estimatedDefocus": approx(10800, 0.75),
+                    "ccValue": approx(0.15, 0.75),
+                }
+                for _ in (set(range(21, 50)) - {32, 33, 34, 38, 41})
+            ),
         },
     },
 }

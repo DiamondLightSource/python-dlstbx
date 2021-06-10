@@ -1,7 +1,10 @@
+import configparser
 import logging
 
 import ispyb.connector.mysqlsp.main
-import configparser
+import sqlalchemy
+from ispyb.sqlalchemy import BLSession, DataCollection, Proposal
+from sqlalchemy.orm import Load
 
 log = logging.getLogger("dlstbx.dc_sim")
 
@@ -22,3 +25,91 @@ class DB:
             return cursor.fetchall()
         finally:
             cursor.close()
+
+
+def retrieve_datacollection(db_session, sessionid, path, prefix, run_number):
+    records_to_collect = (
+        "BLSAMPLEID",
+        "FOCALSPOTSIZEATSAMPLEX",
+        "FOCALSPOTSIZEATSAMPLEY",
+        "axisEnd",
+        "axisRange",
+        "axisStart",
+        "beamSizeAtSampleX",
+        "beamSizeAtSampleY",
+        "chiStart",
+        "comments",
+        "dataCollectionGroupId",
+        "dataCollectionId",
+        "detectorDistance",
+        "exposureTime",
+        "fileTemplate",
+        "flux",
+        "imageSuffix",
+        "kappaStart",
+        "numberOfImages",
+        "numberOfPasses",
+        "omegaStart",
+        "overlap",
+        "phiStart",
+        "printableForReport",
+        "resolution",
+        "rotationAxis",
+        "runStatus",
+        "slitGapHorizontal",
+        "slitGapVertical",
+        "startImageNumber",
+        "synchrotronMode",
+        "transmission",
+        "undulatorGap1",
+        "wavelength",
+        "xBeam",
+        "xtalSnapshotFullPath1",
+        "xtalSnapshotFullPath2",
+        "xtalSnapshotFullPath3",
+        "xtalSnapshotFullPath4",
+        "yBeam",
+    )
+
+    query = (
+        db_session.query(DataCollection)
+        .options(Load(DataCollection).load_only(*records_to_collect))
+        .filter(DataCollection.SESSIONID == sessionid)
+        .filter(DataCollection.imageDirectory == path + "/")
+        .filter(DataCollection.dataCollectionNumber == run_number)
+        .filter(DataCollection.imagePrefix == prefix)
+    )
+    result = query.first()
+    if not result:
+        raise ValueError("No matching data collection found")
+    return result
+
+
+def retrieve_sessionid(db_session, visit):
+    query = (
+        db_session.query(BLSession, Proposal)
+        .options(
+            Load(BLSession).load_only("sessionId", "visit_number", "proposalId"),
+            Load(Proposal).load_only("proposalId", "proposalCode", "proposalNumber"),
+        )
+        .join(
+            Proposal,
+            Proposal.proposalId == BLSession.proposalId,
+        )
+        .filter(
+            sqlalchemy.func.concat(
+                Proposal.proposalCode,
+                Proposal.proposalNumber,
+                "-",
+                BLSession.visit_number,
+            )
+            == visit
+        )
+    )
+
+    query_results = query.first()
+    if query_results is None:
+        raise ValueError(f"Query to obtain sessionid failed for {visit}")
+    if query_results[0].sessionId is None:
+        raise ValueError(f"Could not find sessionid for visit {visit}")
+    return query_results[0].sessionId

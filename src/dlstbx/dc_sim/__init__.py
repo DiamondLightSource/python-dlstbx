@@ -144,7 +144,7 @@ def _simulate(
         f"Source dataset from DCID {src_dcid}, DCGID {src_dcgid}, file template {filetemplate}"
     )
 
-    if dlstbx.dc_sim.definitions.tests.get[scenario_name]["type"] == "em-spa":
+    if dlstbx.dc_sim.definitions.tests[scenario_name]["type"] == "em-spa":
         # start copying over data files
         log.info(
             f"Copying first 5 files from {_src_dir} to {pathlib.Path(_dest_dir) / 'raw'}"
@@ -245,7 +245,7 @@ def _simulate(
 
         return datacollectionid, datacollectiongroupid, procjobid
 
-    if dlstbx.dc_sim.definitions.tests.get[scenario_name]["type"] == "mx":
+    if dlstbx.dc_sim.definitions.tests[scenario_name]["type"] == "mx":
         no_images = row.numberOfImages
         if not no_images:
             sys.exit(f"Could not find the number of images for data collection")

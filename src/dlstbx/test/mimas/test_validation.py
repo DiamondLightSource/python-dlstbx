@@ -195,11 +195,29 @@ def test_validation_of_ispyb_unit_cells():
             dlstbx.mimas.validate(invalid)
 
 
-def test_validataion_of_ispyb_space_groups():
+def test_validation_of_ispyb_space_groups():
     valid = dlstbx.mimas.MimasISPyBSpaceGroup(symbol="P 41 21 2")
     dlstbx.mimas.validate(valid)
     assert valid.string == "P41212"
 
     invalid = dlstbx.mimas.MimasISPyBSpaceGroup(symbol="P 5")
+    with pytest.raises(ValueError):
+        dlstbx.mimas.validate(invalid)
+
+
+def test_validation_of_ispyb_anomalous_scatterer():
+    valid = dlstbx.mimas.MimasISPyBAnomalousScatterer(symbol="S")
+    dlstbx.mimas.validate(valid)
+    assert valid.string == "S"
+
+    valid = dlstbx.mimas.MimasISPyBAnomalousScatterer(symbol="se")
+    dlstbx.mimas.validate(valid)
+    assert valid.string == "Se"
+
+    invalid = dlstbx.mimas.MimasISPyBAnomalousScatterer(symbol="X")
+    with pytest.raises(ValueError):
+        dlstbx.mimas.validate(invalid)
+
+    invalid = dlstbx.mimas.MimasISPyBAnomalousScatterer(symbol="nope")
     with pytest.raises(ValueError):
         dlstbx.mimas.validate(invalid)

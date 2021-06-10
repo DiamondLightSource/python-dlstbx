@@ -397,7 +397,7 @@ tests = {
         "frames": list(set(range(21, 50)) - {32, 33, 34, 38, 41}),
         "src_dir": "/dls/m12/data/2021/cm28212-2/raw",
         "src_run_num": (1,),
-        "src_prefix": ("",),
+        "src_prefix": (None,),
         "proc_params": {
             "acquisition_software": "SerialEM",
             "import_images": "/dls/m12/data/2021/cm28212-2/raw/Frames/*.tiff",

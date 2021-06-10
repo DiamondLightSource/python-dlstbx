@@ -82,8 +82,6 @@ def retrieve_datacollection(db_session, sessionid, path, prefix, run_number):
     result = query.first()
     if not result:
         raise ValueError("No matching data collection found")
-    if not result.startImageNumber:
-        raise ValueError("Could not find the startimagenumber for the row")
     return result
 
 

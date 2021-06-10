@@ -125,7 +125,7 @@ def _simulate(
 
     log.debug("Getting the source SessionID")
     src_sessionid = db.retrieve_sessionid(db_session, _src_visit)
-    log.debug("SessionID is {src_sessionid}")
+    log.debug(f"Source SessionID is {src_sessionid}")
 
     row = db.retrieve_datacollection(
         db_session, src_sessionid, _src_dir, _src_prefix, _src_run_number
@@ -246,9 +246,11 @@ def _simulate(
         return datacollectionid, datacollectiongroupid, procjobid
 
     if dlstbx.dc_sim.definitions.tests[scenario_name]["type"] == "mx":
+        if start_img_number is None:
+            sys.exit("Could not find the first image number for data collection")
         no_images = row.numberOfImages
         if not no_images:
-            sys.exit(f"Could not find the number of images for data collection")
+            sys.exit("Could not find the number of images for data collection")
         log.debug(f"Source dataset has {no_images} images")
 
         # Get the sessionid for the dest_visit

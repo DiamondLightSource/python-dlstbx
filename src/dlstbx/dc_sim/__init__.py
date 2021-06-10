@@ -7,7 +7,6 @@
 #   at appropriate times.
 
 import collections
-import datetime
 import errno
 import glob
 import logging
@@ -18,6 +17,7 @@ import shutil
 import sys
 import time
 import uuid
+from datetime import datetime
 
 import ispyb.sqlalchemy
 import procrunner
@@ -194,7 +194,7 @@ def _simulate(
             src_dcgid,
         )
 
-        # nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # nowstr = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         proc_job_values = i.mx_processing.get_job_params()
         proc_job_values["datacollectionid"] = datacollectionid
@@ -226,12 +226,17 @@ def _simulate(
         stomp.send("processing_recipe", dispatcher_message)
 
         num_data_file_blocks = len(data_files) // 5
+        delay = 5 * 60
         for i in range(1, num_data_file_blocks):
             log.info(
-                f"Waiting and then copying another 5 files from {_src_dir} to {pathlib.Path(_dest_dir) / 'raw'}"
+                f"Waiting {delay} seconds (until {datetime.fromtimestamp(time.time()+delay):%H:%M:%S})"
             )
-            time.sleep(5 * 60)
+            time.sleep(delay)
+            log.info(
+                f"Copying further 5 files from {_src_dir} to {pathlib.Path(_dest_dir) / 'raw'}"
+            )
             for df in data_files[i * 5 : (i + 1) * 5]:
+                log.debug(df)
                 copy_via_temp_file(
                     df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir)
                 )
@@ -239,6 +244,7 @@ def _simulate(
             f"Copying remaining files from {_src_dir} to {pathlib.Path(_dest_dir) / 'raw'}"
         )
         for df in data_files[num_data_file_blocks * 5 :]:
+            log.debug(df)
             copy_via_temp_file(
                 df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir)
             )
@@ -438,7 +444,7 @@ def _simulate(
             raise RuntimeError("Unsupported file extension for %s" % filetemplate)
 
         # Populate a datacollection XML blob
-        nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        nowstr = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         dc_xml = dlstbx.dc_sim.dbserverclient.dc_endtime_temp_xml % (
             datacollectionid,
@@ -451,7 +457,7 @@ def _simulate(
         dbsc.updateDbObject(dc_xml)
 
         # Populate a datacollectiongroup XML blob
-        nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        nowstr = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         dcg_xml = dlstbx.dc_sim.dbserverclient.dcg_endtime_temp_xml % (
             datacollectiongroupid,
@@ -496,7 +502,7 @@ def call_sim(test_name, beamline):
     time_start = time.time()
 
     # Calculate the destination directory
-    now = datetime.datetime.now()
+    now = datetime.now()
     # These proposal numbers need to be updated every year
     if beamline.startswith(("e", "m")):
         proposal = "cm28212"

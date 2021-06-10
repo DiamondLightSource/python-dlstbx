@@ -35,7 +35,16 @@ MX_SCRIPTS_BINDIR = "/dls_sw/apps/mx-scripts/bin"
 
 SimulationResult = collections.namedtuple(
     "SimulationResult",
-    ["beamline", "scenario", "DCIDs", "time_start", "time_end", "URLs", "type"],
+    [
+        "DCIDs",
+        "JobIDs",
+        "URLs",
+        "beamline",
+        "scenario",
+        "time_end",
+        "time_start",
+        "type",
+    ],
 )
 
 
@@ -610,6 +619,7 @@ def call_sim(test_name, beamline):
 
     return SimulationResult(
         DCIDs=dcid_list,
+        JobIDs=jobid_list,
         time_start=time_start,
         time_end=time.time(),
         type=scenario["type"],

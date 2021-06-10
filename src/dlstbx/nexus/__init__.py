@@ -30,6 +30,10 @@ MCSTAS_TO_IMGCIF = np.diag([-1, 1, -1])
 
 
 def get_dxtbx_goniometer(nxsample: nxmx.NXsample) -> Optional[dxtbx.model.Goniometer]:
+    """Generate a dxtbx goniometer model from an NXsample.
+
+    If the NXsample doesn't have a valid depends_on field, then return None.
+    """
     if not nxsample.depends_on:
         return None
     dependency_chain = nxmx.get_dependency_chain(nxsample.depends_on)
@@ -55,6 +59,7 @@ def get_dxtbx_goniometer(nxsample: nxmx.NXsample) -> Optional[dxtbx.model.Goniom
 
 
 def get_dxtbx_beam(nxbeam: nxmx.NXbeam) -> dxtbx.model.Beam:
+    """Generate a dxtbx beam model from an NXbeam."""
     return dxtbx.model.BeamFactory.make_beam(
         sample_to_source=(0, 0, 1),
         wavelength=nxbeam.incident_wavelength.to("angstrom").magnitude,
@@ -64,6 +69,10 @@ def get_dxtbx_beam(nxbeam: nxmx.NXbeam) -> dxtbx.model.Beam:
 def get_dxtbx_scan(
     nxsample: nxmx.NXsample, nxdetector: nxmx.NXdetector
 ) -> Optional[dxtbx.model.Scan]:
+    """Generate a dxtbx scan model from an NXsample.
+
+    If the NXsample doesn't have a valid depends_on field, then return None.
+    """
     if not nxsample.depends_on:
         return None
     dependency_chain = nxmx.get_dependency_chain(nxsample.depends_on)
@@ -125,6 +134,12 @@ def get_dxtbx_scan(
 def get_dxtbx_detector(
     nxdetector: nxmx.NXdetector, nxbeam: nxmx.NXbeam
 ) -> dxtbx.model.Detector:
+    """Generate a dxtbx detector model from an NXdetector and NXbeam.
+
+    If the NXdetector contains multiple NXdetector_modules, then a hierarchical detector
+    will be returned, else a "flat" detector model with a single panel will be returned
+    where there is only a single NXdetector_module.
+    """
 
     detector = dxtbx.model.Detector()
 
@@ -260,7 +275,12 @@ def get_dxtbx_detector(
 
 def get_detector_module_slices(
     nxdetector: nxmx.NXdetector,
-) -> Tuple[Tuple[slice, ...], ...]:
+) -> Tuple[Tuple[slice, slice], ...]:
+    """Return the slices pointing to the hyperslab of data for each module.
+
+    This will be a tuple of tuples, where each tuple contains the slices corresponding
+    to the slow and fast dimensions respectively.
+    """
     return tuple(
         tuple(
             slice(int(start), int(start + step), 1)
@@ -271,6 +291,12 @@ def get_detector_module_slices(
 
 
 def get_static_mask(nxdetector: nxmx.NXdetector) -> Tuple[flex.bool]:
+    """Return the static mask for an NXdetector.
+
+    This will be a tuple of flex.bool, of length equal to the number of modules. The
+    result is intended to be compatible with the get_static_mask() method of dxtbx
+    format classes.
+    """
     pixel_mask = nxdetector.get("pixel_mask")
     if pixel_mask and pixel_mask.ndim == 2:
         all_slices = get_detector_module_slices(nxdetector)
@@ -279,7 +305,13 @@ def get_static_mask(nxdetector: nxmx.NXdetector) -> Tuple[flex.bool]:
 
 def get_raw_data(
     nxdata: nxmx.NXdata, nxdetector: nxmx.NXdetector, index: int
-) -> Tuple[Union[flex.double, flex.int]]:
+) -> Tuple[Union[flex.float, flex.double, flex.int]]:
+    """Return the raw data for an NXdetector.
+
+    This will be a tuple of flex.float, flex.double or flex.int arrays, of length equal
+    to the number of modules. The result is intended to be compatible with the
+    get_raw_data() method of dxtbx format classes.
+    """
     if nxdata.signal:
         data = nxdata[nxdata.signal]
     else:
@@ -289,6 +321,7 @@ def get_raw_data(
         slices = [slice(index, index + 1, 1)]
         slices.extend(module_slices)
         data_as_flex = dataset_as_flex(data, tuple(slices))
-        data_as_flex.reshape(flex.grid(data_as_flex.all()[1:]))
+        # Convert a slice of a 3- or 4-dimension array to a 2D array
+        data_as_flex.reshape(flex.grid(data_as_flex.all()[-2:]))
         all_data.append(data_as_flex)
     return tuple(all_data)

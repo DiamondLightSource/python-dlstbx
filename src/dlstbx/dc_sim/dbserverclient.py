@@ -197,7 +197,7 @@ _dcg_temp_xml_format = (
     '<?xml version="1.0" encoding="ISO-8859-1"?>'
     "<DataCollectionGroup>"
     "<sessionId>{sessionid}</sessionId>"
-    "{_blsample_xml}"
+    "{blsample_xml}"
     "<experimentType>{experimenttype}</experimentType>"
     "<startTime>{starttime}</startTime>"
     "<crystalClass>{crystalclass}</crystalClass>"

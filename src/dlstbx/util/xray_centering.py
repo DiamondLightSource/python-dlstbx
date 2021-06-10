@@ -65,7 +65,7 @@ def main(
     best_image = int(idx + 1)
     if maximum_spots == 0:
         result.message = "No good images found"
-        return result, output
+        return result, "\n".join(output)
 
     if snaked and orientation == Orientation.HORIZONTAL:
         # Reverse the direction of every second row

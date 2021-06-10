@@ -6,11 +6,12 @@
 # * runs the scripts RunAtStartOfDataCollection.sh and RunAtEndOfDataCollection.sh
 #   at appropriate times.
 
-
 import datetime
+import errno
 import glob
 import logging
 import os
+import pathlib
 import re
 import shutil
 import sys
@@ -20,6 +21,7 @@ import uuid
 import ispyb.sqlalchemy
 import procrunner
 import sqlalchemy
+from workflows.transport.stomp_transport import StompTransport
 
 import dlstbx.dc_sim.dbserverclient
 import dlstbx.dc_sim.definitions
@@ -29,6 +31,16 @@ log = logging.getLogger("dlstbx.dc_sim")
 
 # Constants
 MX_SCRIPTS_BINDIR = "/dls_sw/apps/mx-scripts/bin"
+
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 
 def copy_via_temp_file(source, destination):
@@ -100,6 +112,7 @@ def _simulate(
 ):
     _db = db.DB()
     dbsc = dlstbx.dc_sim.dbserverclient.DbserverClient()
+    ispyb.sqlalchemy.enable_debug_logging()
     url = ispyb.sqlalchemy.url()
     engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
     db_session = sqlalchemy.orm.sessionmaker(bind=engine)()
@@ -125,219 +138,342 @@ def _simulate(
         f"Source dataset from DCID {src_dcid}, DCGID {src_dcgid}, file template {filetemplate}"
     )
 
-    no_images = row.numberOfImages
-    if not no_images:
-        sys.exit(f"Could not find the number of images for data collection")
-    log.debug(f"Source dataset has {no_images} images")
+    if dlstbx.dc_sim.definitions.tests.get[scenario_name]["type"] == "em-spa":
+        # start copying over data files
+        log.info(
+            f"Copying first 5 files from {_src_dir} to {pathlib.Path(_dest_dir) / 'raw'}"
+        )
 
-    # Get the sessionid for the dest_visit
-    log.debug("(SQL) Getting the destination sessionid")
-    sessionid = db.retrieve_sessionid(db_session, _dest_visit)
-
-    # Get the highest run number for the datacollections of this dest_visit with the particular img.dir and prefix
-    log.debug(
-        "(SQL) Getting the currently highest run number for this img. directory + prefix"
-    )
-    if filetemplate.endswith(".h5"):
-        # Can't change the run number otherwise the link from the master.h5 to data_*.h5 will be incorrect
-        run_number = _src_run_number
-    else:
-        run_number = retrieve_max_dcnumber(_db, sessionid, _dest_dir, _dest_prefix)
-        if run_number is None:
-            run_number = 1
-        else:
-            run_number = int(run_number) + 1
-
-    log.debug("(SQL) Getting values from the source datacollectiongroup record")
-    src_blsampleid = row.DataCollectionGroup.blSampleId
-
-    log.debug(
-        "(filesystem) Copy the xtal snapshot(s) (if any) from source to target directories"
-    )
-    dest_xtal_snapshot_path = ["", "", "", ""]
-    for x in range(0, 4):
-        if src_xtal_snapshot_path[x] is not None:
-            if os.path.exists(src_xtal_snapshot_path[x]):
-                png = re.sub("^.*/(.*)$", _dest_dir + r"/\1", src_xtal_snapshot_path[x])
-                dest_xtal_snapshot_path[x] = re.sub(
-                    "^" + _dest_visit_dir, _dest_visit_dir + "/jpegs", png
-                )
-                path = os.path.dirname(dest_xtal_snapshot_path[x])
-                log.debug("(filesystem) ... 'mkdir -p' %s" % path)
-                os.makedirs(path, exist_ok=True)
-                log.debug(
-                    "(filesystem) ... copying %s to %s"
-                    % (src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x])
-                )
-                copy_via_temp_file(
-                    src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x]
-                )
-
-    log.info(f"539 src_blsampleid: {src_blsampleid}")
-    log.info("539 _sample_id: %s", _sample_id)
-    # Get a blsampleId either from a copy of the blsample used by the src dc or use the blsampleId provided on the command-line
-    blsample_id = None
-    if src_blsampleid is not None:
-        if _sample_id is None:
-
-            log.debug("(SQL) Getting values from the source blsample record")
-            bls_row = retrieve_blsample_values(_db, src_blsampleid)
-
-            blsample_xml = dlstbx.dc_sim.dbserverclient.populate_blsample_xml_template(
-                bls_row
+        data_dirs = [f for f in pathlib.Path(_src_dir).glob("**/*") if f.is_dir()]
+        data_files = [f for f in pathlib.Path(_src_dir).glob("**/*") if f.is_file()]
+        for dd in data_dirs:
+            mkdir_p(pathlib.Path(_dest_dir) / "raw" / dd.relative_to(_src_dir))
+        for df in data_files[:5]:
+            copy_via_temp_file(
+                df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir)
             )
-            print(blsample_xml)
 
-            # Ingest the blsample data using the DbserverClient
-            log.debug("(dbserver) Ingest the blsample XML")
-            blsample_id = dbsc.storeBLSample(blsample_xml)
+        i = ispyb.open()
+
+        if data_collection_group_id is None:
+            dcgparams = i.mx_acquisition.get_data_collection_group_params()
+            dcgparams["parentid"] = src_sessionid
+            dcgparams["experimenttype"] = "EM"
+            dcgparams["comments"] = "Created for simulated data collection"
+            datacollectiongroupid = i.mx_acquisition.upsert_data_collection_group(
+                list(dcgparams.values())
+            )
+            dcparams = i.mx_acquisition.get_data_collection_params()
+            key_maps = {
+                "runStatus": "run_status",
+                "imageSuffix": "imgsuffix",
+                "fileTemplate": "file_template",
+                "comments": "comments",
+            }
+            for attr, key in key_maps.items():
+                dcparams[key] = getattr(row, attr)
+            dcparams["parentid"] = datacollectiongroupid
+            dcparams["imgdir"] = str(pathlib.Path(_dest_dir) / "raw")
+            dcparams["visitid"] = src_sessionid
+            datacollectionid = i.mx_acquisition.upsert_data_collection(
+                list(dcparams.values())
+            )
         else:
+            datacollectiongroupid = data_collection_group_id
+            datacollectionid = src_dcid
+
+        log.debug(
+            "Source dataset from DCID %r, DCGID %r",
+            src_dcid,
+            src_dcgid,
+        )
+
+        # nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        proc_job_values = i.mx_processing.get_job_params()
+        proc_job_values["datacollectionid"] = datacollectionid
+        proc_job_values["display_name"] = "RELION"
+        proc_job_values["comments"] = "Submitted as part of simulated data collection"
+        proc_job_values["recipe"] = "relion"
+        proc_job_values["automatic"] = 0
+        procjobid = i.mx_processing.upsert_job(list(proc_job_values.values()))
+
+        for k, v in proc_params.items():
+            if k != "import_images":
+                job_param_values = (None, procjobid, k, v)
+            else:
+                job_param_values = (
+                    None,
+                    procjobid,
+                    k,
+                    _dest_dir + "/raw/Frames/*.tiff",
+                )
+            i.mx_processing.upsert_job_parameter(job_param_values)
+
+        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
+        stomp = StompTransport()
+        stomp.load_configuration_file(default_configuration)
+        stomp.connect()
+
+        dispatcher_message = {"parameters": {"ispyb_process": procjobid}}
+
+        stomp.send("processing_recipe", dispatcher_message)
+
+        num_data_file_blocks = len(data_files) // 5
+        for i in range(1, num_data_file_blocks):
+            log.info(
+                f"Waiting and then copying another 5 files from {_src_dir} to {pathlib.Path(_dest_dir) / 'raw'}"
+            )
+            time.sleep(5 * 60)
+            for df in data_files[i * 5 : (i + 1) * 5]:
+                copy_via_temp_file(
+                    df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir)
+                )
+        log.info(
+            f"Copying remaining files from {_src_dir} to {pathlib.Path(_dest_dir) / 'raw'}"
+        )
+        for df in data_files[num_data_file_blocks * 5 :]:
+            copy_via_temp_file(
+                df, pathlib.Path(_dest_dir) / "raw" / df.relative_to(_src_dir)
+            )
+
+        return datacollectionid, datacollectiongroupid, procjobid
+
+    if dlstbx.dc_sim.definitions.tests.get[scenario_name]["type"] == "mx":
+        no_images = row.numberOfImages
+        if not no_images:
+            sys.exit(f"Could not find the number of images for data collection")
+        log.debug(f"Source dataset has {no_images} images")
+
+        # Get the sessionid for the dest_visit
+        log.debug("(SQL) Getting the destination sessionid")
+        sessionid = db.retrieve_sessionid(db_session, _dest_visit)
+
+        # Get the highest run number for the datacollections of this dest_visit with the particular img.dir and prefix
+        log.debug(
+            "(SQL) Getting the currently highest run number for this img. directory + prefix"
+        )
+        if filetemplate.endswith(".h5"):
+            # Can't change the run number otherwise the link from the master.h5 to data_*.h5 will be incorrect
+            run_number = _src_run_number
+        else:
+            run_number = retrieve_max_dcnumber(_db, sessionid, _dest_dir, _dest_prefix)
+            if run_number is None:
+                run_number = 1
+            else:
+                run_number = int(run_number) + 1
+
+        log.debug("(SQL) Getting values from the source datacollectiongroup record")
+        src_blsampleid = row.DataCollectionGroup.blSampleId
+
+        log.debug(
+            "(filesystem) Copy the xtal snapshot(s) (if any) from source to target directories"
+        )
+        dest_xtal_snapshot_path = ["", "", "", ""]
+        for x in range(0, 4):
+            if src_xtal_snapshot_path[x] is not None:
+                if os.path.exists(src_xtal_snapshot_path[x]):
+                    png = re.sub(
+                        "^.*/(.*)$", _dest_dir + r"/\1", src_xtal_snapshot_path[x]
+                    )
+                    dest_xtal_snapshot_path[x] = re.sub(
+                        "^" + _dest_visit_dir, _dest_visit_dir + "/jpegs", png
+                    )
+                    path = os.path.dirname(dest_xtal_snapshot_path[x])
+                    log.debug("(filesystem) ... 'mkdir -p' %s" % path)
+                    os.makedirs(path, exist_ok=True)
+                    log.debug(
+                        "(filesystem) ... copying %s to %s"
+                        % (src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x])
+                    )
+                    copy_via_temp_file(
+                        src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x]
+                    )
+
+        log.info(f"539 src_blsampleid: {src_blsampleid}")
+        log.info("539 _sample_id: %s", _sample_id)
+        # Get a blsampleId either from a copy of the blsample used by the src dc or use the blsampleId provided on the command-line
+        blsample_id = None
+        if src_blsampleid is not None:
+            if _sample_id is None:
+
+                log.debug("(SQL) Getting values from the source blsample record")
+                bls_row = retrieve_blsample_values(_db, src_blsampleid)
+
+                blsample_xml = (
+                    dlstbx.dc_sim.dbserverclient.populate_blsample_xml_template(bls_row)
+                )
+                print(blsample_xml)
+
+                # Ingest the blsample data using the DbserverClient
+                log.debug("(dbserver) Ingest the blsample XML")
+                blsample_id = dbsc.storeBLSample(blsample_xml)
+            else:
+                blsample_id = _sample_id
+        elif _sample_id is not None:
             blsample_id = _sample_id
-    elif _sample_id is not None:
-        blsample_id = _sample_id
 
-    if data_collection_group_id is None:
-        # Produce a DataCollectionGroup xml blob from the template
-        dcg_xml = dlstbx.dc_sim.dbserverclient.populate_dcg_xml_template(
-            row, sessionid, blsample_id
+        if data_collection_group_id is None:
+            # Produce a DataCollectionGroup xml blob from the template
+            dcg_xml = dlstbx.dc_sim.dbserverclient.populate_dcg_xml_template(
+                row, sessionid, blsample_id
+            )
+
+            # Ingest the DataCollectionGroup xml data using the DbserverClient
+            log.debug("(dbserver) Ingest the datacollectiongroup XML")
+            datacollectiongroupid = dbsc.storeDataCollectionGroup(dcg_xml)
+        else:
+            datacollectiongroupid = data_collection_group_id
+
+        # Get the grid info values associated with the source dcg
+        gi_row = retrieve_grid_info_values(_db, src_dcgid)
+
+        # Prouce a GridInfo xml blob from the template if the source DataCollectionGroup has one:
+        if gi_row is not None:
+            gridinfo_xml = dlstbx.dc_sim.dbserverclient.populate_grid_info_xml_template(
+                gi_row, datacollectiongroupid
+            )
+
+            # Ingest the GridInfo.xml file data using the DbserverClient
+            log.debug("(dbserver) Ingest the gridinfo XML")
+            dbsc.storeGridInfo(gridinfo_xml)
+
+        # Produce a DataCollection xml blob from the template and use the new run number
+        row_as_dictionary = {
+            name.lower(): getattr(x, name)
+            for name in dir(row)
+            if not name.startswith("_")
+        }
+        dc_xml = dlstbx.dc_sim.dbserverclient.populate_dc_xml_template(
+            row_as_dictionary,
+            sessionid,
+            datacollectiongroupid,
+            no_images,
+            _dest_dir + "/",
+            _dest_prefix,
+            run_number,
+            dest_xtal_snapshot_path,
+            blsample_id,
+            scenario_name=scenario_name,
         )
 
-        # Ingest the DataCollectionGroup xml data using the DbserverClient
-        log.debug("(dbserver) Ingest the datacollectiongroup XML")
-        datacollectiongroupid = dbsc.storeDataCollectionGroup(dcg_xml)
-    else:
-        datacollectiongroupid = data_collection_group_id
+        # Ingest the DataCollection xml blob data using the DbserverClient
+        log.debug("(dbserver) Ingest the datacollection XML")
+        datacollectionid = dbsc.storeDataCollection(dc_xml)
 
-    # Get the grid info values associated with the source dcg
-    gi_row = retrieve_grid_info_values(_db, src_dcgid)
+        run_at_params = [
+            "automaticProcessing_Yes",
+            str(datacollectionid),
+            _dest_visit_dir,
+            filetemplate,
+            _dest_dir + "/",
+            _dest_prefix + "_" + str(run_number) + "_",
+            os.path.splitext(filetemplate)[-1],
+        ]
 
-    # Prouce a GridInfo xml blob from the template if the source DataCollectionGroup has one:
-    if gi_row is not None:
-        gridinfo_xml = dlstbx.dc_sim.dbserverclient.populate_grid_info_xml_template(
-            gi_row, datacollectiongroupid
-        )
+        command = [f"{MX_SCRIPTS_BINDIR}/RunAtStartOfCollect-{_beamline}.sh"]
+        command.extend(run_at_params)
+        log.info("command: %s", " ".join(command))
+        result = procrunner.run(command, timeout=180)
+        log.info("runtime: %s", result["runtime"])
+        if result["exitcode"] or result["timeout"]:
+            log.info("timeout: %s", result["timeout"])
+            log.debug(result["stdout"])
+            log.debug(result["stderr"])
+            log.error(
+                "RunAtStartOfCollect failed with exit code %d", result["exitcode"]
+            )
 
-        # Ingest the GridInfo.xml file data using the DbserverClient
-        log.debug("(dbserver) Ingest the gridinfo XML")
-        dbsc.storeGridInfo(gridinfo_xml)
-
-    # Produce a DataCollection xml blob from the template and use the new run number
-    row_as_dictionary = {
-        name.lower(): getattr(x, name) for name in dir(row) if not name.startswith("_")
-    }
-    dc_xml = dlstbx.dc_sim.dbserverclient.populate_dc_xml_template(
-        row_as_dictionary,
-        sessionid,
-        datacollectiongroupid,
-        no_images,
-        _dest_dir + "/",
-        _dest_prefix,
-        run_number,
-        dest_xtal_snapshot_path,
-        blsample_id,
-        scenario_name=scenario_name,
-    )
-
-    # Ingest the DataCollection xml blob data using the DbserverClient
-    log.debug("(dbserver) Ingest the datacollection XML")
-    datacollectionid = dbsc.storeDataCollection(dc_xml)
-
-    run_at_params = [
-        "automaticProcessing_Yes",
-        str(datacollectionid),
-        _dest_visit_dir,
-        filetemplate,
-        _dest_dir + "/",
-        _dest_prefix + "_" + str(run_number) + "_",
-        os.path.splitext(filetemplate)[-1],
-    ]
-
-    command = [f"{MX_SCRIPTS_BINDIR}/RunAtStartOfCollect-{_beamline}.sh"]
-    command.extend(run_at_params)
-    log.info("command: %s", " ".join(command))
-    result = procrunner.run(command, timeout=180)
-    log.info("runtime: %s", result["runtime"])
-    if result["exitcode"] or result["timeout"]:
-        log.info("timeout: %s", result["timeout"])
-        log.debug(result["stdout"])
-        log.debug(result["stderr"])
-        log.error("RunAtStartOfCollect failed with exit code %d", result["exitcode"])
-
-    if filetemplate.endswith(".cbf"):
-        # Also copy images one by one from source to destination directory.
-        for x in range(start_img_number, start_img_number + no_images):
-            img_number = "%04d" % x
+        if filetemplate.endswith(".cbf"):
+            # Also copy images one by one from source to destination directory.
+            for x in range(start_img_number, start_img_number + no_images):
+                img_number = "%04d" % x
+                src_prefix = ""
+                if _src_prefix is not None:
+                    src_prefix = _src_prefix
+                src_fname = "%s_%d_%s.cbf" % (
+                    src_prefix,
+                    _src_run_number,
+                    str(img_number),
+                )
+                dest_fname = "%s_%d_%s.cbf" % (
+                    _dest_prefix,
+                    run_number,
+                    str(img_number),
+                )
+                src = os.path.join(_src_dir, src_fname)
+                target = os.path.join(_dest_dir, dest_fname)
+                log.info(f"(filesystem) Copy file {src} to {target}")
+                copy_via_temp_file(src, target)
+        elif filetemplate.endswith(".h5"):
+            files = []
             src_prefix = ""
             if _src_prefix is not None:
                 src_prefix = _src_prefix
-            src_fname = "%s_%d_%s.cbf" % (src_prefix, _src_run_number, str(img_number))
-            dest_fname = "%s_%d_%s.cbf" % (_dest_prefix, run_number, str(img_number))
-            src = os.path.join(_src_dir, src_fname)
-            target = os.path.join(_dest_dir, dest_fname)
-            log.info(f"(filesystem) Copy file {src} to {target}")
-            copy_via_temp_file(src, target)
-    elif filetemplate.endswith(".h5"):
-        files = []
-        src_prefix = ""
-        if _src_prefix is not None:
-            src_prefix = _src_prefix
-        for ext in ("_*.h5", ".nxs", "_meta.hdf5"):
-            files.extend(
-                glob.glob(
-                    os.path.join(_src_dir, filetemplate.split("_master.h5")[0] + ext)
+            for ext in ("_*.h5", ".nxs", "_meta.hdf5"):
+                files.extend(
+                    glob.glob(
+                        os.path.join(
+                            _src_dir, filetemplate.split("_master.h5")[0] + ext
+                        )
+                    )
                 )
-            )
-        for src in files:
-            dest_fname = os.path.basename(src).replace(
-                "%s_%d" % (src_prefix, _src_run_number),
-                "%s_%d" % (_dest_prefix, run_number),
-            )
-            target = os.path.join(_dest_dir, dest_fname)
-            log.info(f"(filesystem) Copy file {src} to {target}")
-            copy_via_temp_file(src, target)
-    else:
-        raise RuntimeError("Unsupported file extension for %s" % filetemplate)
+            for src in files:
+                dest_fname = os.path.basename(src).replace(
+                    "%s_%d" % (src_prefix, _src_run_number),
+                    "%s_%d" % (_dest_prefix, run_number),
+                )
+                target = os.path.join(_dest_dir, dest_fname)
+                log.info(f"(filesystem) Copy file {src} to {target}")
+                copy_via_temp_file(src, target)
+        else:
+            raise RuntimeError("Unsupported file extension for %s" % filetemplate)
 
-    # Populate a datacollection XML blob
-    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Populate a datacollection XML blob
+        nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    dc_xml = dlstbx.dc_sim.dbserverclient.dc_endtime_temp_xml % (
-        datacollectionid,
-        nowstr,
+        dc_xml = dlstbx.dc_sim.dbserverclient.dc_endtime_temp_xml % (
+            datacollectionid,
+            nowstr,
+        )
+        print(dc_xml)
+        log.debug(
+            "(dbserver) Ingest the datacollection XML to update with the d.c. end time"
+        )
+        dbsc.updateDbObject(dc_xml)
+
+        # Populate a datacollectiongroup XML blob
+        nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        dcg_xml = dlstbx.dc_sim.dbserverclient.dcg_endtime_temp_xml % (
+            datacollectiongroupid,
+            nowstr,
+        )
+        print(dcg_xml)
+
+        # Ingest the DataCollectionGroup xml blob using the DbserverClient
+        log.debug(
+            "(dbserver) Ingest the datacollectiongroup XML to update with the d.c.g. end time"
+        )
+        dbsc.updateDbObject(dcg_xml)
+
+        command = [f"{MX_SCRIPTS_BINDIR}/RunAtEndOfCollect-{_beamline}.sh"]
+        command.extend(run_at_params)
+        log.info("command: %s", " ".join(command))
+        result = procrunner.run(command, timeout=180)
+        log.info("runtime: %s", result["runtime"])
+        if result["exitcode"] or result["timeout"]:
+            log.info("timeout: %s", result["timeout"])
+            log.debug(result["stdout"])
+            log.debug(result["stderr"])
+            log.error("RunAtEndOfCollect failed with exit code %d", result["exitcode"])
+
+        return datacollectionid, datacollectiongroupid, None
+
+    raise ValueError(
+        "Unknown scenario type %s"
+        % dlstbx.dc_sim.definitions.tests.get[scenario_name]["type"]
     )
-    print(dc_xml)
-    log.debug(
-        "(dbserver) Ingest the datacollection XML to update with the d.c. end time"
-    )
-    dbsc.updateDbObject(dc_xml)
-
-    # Populate a datacollectiongroup XML blob
-    nowstr = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    dcg_xml = dlstbx.dc_sim.dbserverclient.dcg_endtime_temp_xml % (
-        datacollectiongroupid,
-        nowstr,
-    )
-    print(dcg_xml)
-
-    # Ingest the DataCollectionGroup xml blob using the DbserverClient
-    log.debug(
-        "(dbserver) Ingest the datacollectiongroup XML to update with the d.c.g. end time"
-    )
-    dbsc.updateDbObject(dcg_xml)
-
-    command = [f"{MX_SCRIPTS_BINDIR}/RunAtEndOfCollect-{_beamline}.sh"]
-    command.extend(run_at_params)
-    log.info("command: %s", " ".join(command))
-    result = procrunner.run(command, timeout=180)
-    log.info("runtime: %s", result["runtime"])
-    if result["exitcode"] or result["timeout"]:
-        log.info("timeout: %s", result["timeout"])
-        log.debug(result["stdout"])
-        log.debug(result["stderr"])
-        log.error("RunAtEndOfCollect failed with exit code %d", result["exitcode"])
-
-    return datacollectionid, datacollectiongroupid, None
 
 
 def call_sim(test_name, beamline):

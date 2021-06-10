@@ -6,6 +6,7 @@
 # * runs the scripts RunAtStartOfDataCollection.sh and RunAtEndOfDataCollection.sh
 #   at appropriate times.
 
+import collections
 import datetime
 import errno
 import glob
@@ -31,6 +32,11 @@ log = logging.getLogger("dlstbx.dc_sim")
 
 # Constants
 MX_SCRIPTS_BINDIR = "/dls_sw/apps/mx-scripts/bin"
+
+SimulationResult = collections.namedtuple(
+    "SimulationResult",
+    ["beamline", "scenario", "DCIDs", "time_start", "time_end", "URLs", "type"],
+)
 
 
 def mkdir_p(path):
@@ -485,6 +491,7 @@ def call_sim(test_name, beamline):
     sample_id = scenario.get("use_sample_id")
     src_prefix = scenario["src_prefix"]
     proc_params = scenario.get("proc_params")
+    time_start = time.time()
 
     # Calculate the destination directory
     now = datetime.datetime.now()
@@ -586,4 +593,19 @@ def call_sim(test_name, beamline):
             if scenario.get("delay"):
                 log.info(f"Sleeping for {scenario['delay']} seconds")
                 time.sleep(scenario["delay"])
-    return dcid_list, jobid_list
+
+    if not dcid_list:
+        return None
+
+    return SimulationResult(
+        DCIDs=dcid_list,
+        time_start=time_start,
+        time_end=time.time(),
+        type=scenario["type"],
+        beamline=beamline,
+        scenario=test_name,
+        URLs=[
+            f"https://ispyb.diamond.ac.uk/dc/visit/{dest_visit}/id/{dcid}"
+            for dcid in dcid_list
+        ],
+    )

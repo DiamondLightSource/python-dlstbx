@@ -1,8 +1,8 @@
 import logging
-import time
 
-import dlstbx.dc_sim
 import zocalo.wrapper
+
+import dlstbx.dc_sim.definitions
 
 logger = logging.getLogger("dlstbx.wrap.dc_sim")
 
@@ -20,25 +20,13 @@ class DCSimWrapper(zocalo.wrapper.BaseWrapper):
             beamline,
         )
 
-        start = time.time()
-
         # Simulate the data collection
-        dcids = dlstbx.dc_sim.call_sim(test_name=scenario, beamline=beamline)
+        result = dlstbx.dc_sim.call_sim(test_name=scenario, beamline=beamline)
 
-        result = {
-            "beamline": beamline,
-            "scenario": scenario,
-            "DCIDs": dcids,
-            "time_start": start,
-            "time_end": time.time(),
-        }
-
-        if dcids:
-            logger.info(
-                "Simulated data collection completed with result:\n%s", repr(result)
-            )
+        if result:
+            logger.info(f"Simulated data collection completed with {result!r}")
         else:
             logger.error("Simulated data collection failed")
 
-        self.recwrap.send_to("dc_sim", result)
-        return bool(dcids)
+        self.recwrap.send_to("dc_sim", result._asdict())
+        return bool(result)

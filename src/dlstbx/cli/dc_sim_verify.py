@@ -4,21 +4,21 @@
 #   results. Create a report as junit.xml file.
 #
 
+import collections
 import datetime
 import queue
-import re
 import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
+from pprint import pprint
 
-import dlstbx.dc_sim.check
-import dlstbx.util.result
 import ispyb
 import junit_xml
 import workflows.recipe
 from workflows.transport.stomp_transport import StompTransport
 
-from pprint import pprint
+import dlstbx.dc_sim.check
+import dlstbx.util.result
 
 processqueue = queue.Queue()
 
@@ -45,7 +45,7 @@ def run():
         help="Run in ActiveMQ testing (zocdev) namespace",
     )
     parser.add_option(
-        "--em", action="store_true", dest="em_flag", help="Only check EM related tests"
+        "--xml", action="store_true", dest="xml", help="Generate XML report files"
     )
 
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
@@ -60,7 +60,7 @@ def run():
     stomp.connect()
     txn = stomp.transaction_begin()
 
-    ispyb_conn = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
+    ispyb_conn = ispyb.open()
     ispyb.model.__future__.enable("/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg")
 
     sid = workflows.recipe.wrap_subscribe(
@@ -155,16 +155,17 @@ def run():
         stomp.send(results_queue, {"summary": test_results}, transaction=txn)
     stomp.transaction_commit(txn)
 
-    def synchweb_url(dcid):
-        directory = ispyb_conn.get_data_collection(dcid).file_directory
-        visit = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", directory)
-        if not visit:
-            return ""
-        visit = visit.group(1)
-        return f"https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dcid}"
+    if options.xml:
+        generate_xml_files(test_results)
 
+    time.sleep(0.3)  # to ensure all stomp messages have been sent
+    if not test_results:
+        exit("There are no recent simulation runs to verify")
+
+
+def generate_xml_files(test_results):
     # Create JUnit result records
-    junit_results = []
+    junit_results = collections.defaultdict(list)
     for testruns in test_results.values():
         r = dlstbx.util.result.Result()
         r.set_name(testruns[0]["scenario"])
@@ -186,8 +187,8 @@ def run():
                     r.log_message(
                         "%d further run(s) of this test ongoing" % (len(testruns) - 1)
                     )
-                for dcid in test["DCIDs"]:
-                    r.log_message(synchweb_url(dcid))
+                for url in test.get("URLs", []):
+                    r.log_message(url)
                 r.set_time(test["time_end"] - test["time_start"])
                 break
         else:
@@ -202,26 +203,21 @@ def run():
                 "Waiting on results, %d instance(s) of this test ongoing"
                 % len(testruns)
             )
-            for dcid in test["DCIDs"]:
-                r.log_message(synchweb_url(dcid))
+            for url in test.get("URLs", []):
+                r.log_message(url)
             r.set_time(testruns[0]["time_end"] - testruns[0]["time_start"])
-        junit_results.append(r)
 
-    # Export results
-    ts = junit_xml.TestSuite(
-        "Simulated data collections",
-        [jr for jr in junit_results if not jr.classname.startswith(("e", "m"))],
-    )
-    with open("output.xml", "w") as f:
-        junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
+        junit_results[test.get("type")].append(r)
 
-    emts = junit_xml.TestSuite(
-        "EM simulated data collections",
-        [jr for jr in junit_results if jr.classname.startswith(("e", "m"))],
-    )
-    with open("output_em.xml", "w") as f:
-        junit_xml.TestSuite.to_file(f, [emts], prettyprint=True)
-
-    time.sleep(0.3)
-    if not test_results:
-        exit("There are no recent simulation runs to verify")
+    # Export grouped results
+    for group in junit_results:
+        if group:
+            filename = f"output-{group}.xml"
+        else:
+            filename = "output.xml"
+        ts = junit_xml.TestSuite(
+            "Simulated data collections",
+            junit_results[group],
+        )
+        with open(filename, "w") as f:
+            junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)

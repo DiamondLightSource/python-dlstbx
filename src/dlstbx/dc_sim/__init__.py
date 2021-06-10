@@ -506,6 +506,9 @@ def call_sim(test_name, beamline):
         elif beamline == "i02-1":
             dest_visit = f"{proposal}-2"
         dest_visit_dir = f"/dls/mx/data/{proposal}/{dest_visit}"
+    elif beamline == "i04":
+        dest_visit = "nt28218-5"
+        dest_visit_dir = f"/dls/{beamline}/data/{now:%Y}/{dest_visit}"
     else:
         for cm_dir in os.listdir(f"/dls/{beamline}/data/{now:%Y}"):
             if cm_dir.startswith(proposal):

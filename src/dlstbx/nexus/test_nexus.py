@@ -526,3 +526,35 @@ def test_get_static_mask(pixel_mask_example):
         mask[0].as_numpy_array()
         == (pixel_mask_example["/entry/instrument/detector/pixel_mask"][()] == 0)
     )
+
+
+@pytest.fixture
+def nxdata_example():
+    with h5py.File(" ", "w", **pytest.h5_in_memory) as f:
+        detector = f.create_group("/entry/instrument/detector")
+        detector.attrs["NX_class"] = "NXdetector"
+
+        module = detector.create_group("module")
+        module.attrs["NX_class"] = "NXdetector_module"
+        module.create_dataset("data_origin", data=np.array([0.0, 0.0]))
+        module.create_dataset("data_size", data=np.array([4362, 4148]))
+
+        nxdata = f.create_group("/entry/data")
+        nxdata.attrs["NX_class"] = "NXdata"
+        nxdata.create_dataset(
+            "data", data=np.array([np.full((4362, 4148), i) for i in range(3)])
+        )
+        nxdata.attrs["signal"] = "/entry/data/data"
+
+        yield f
+
+
+def test_get_raw_data_single_panel(nxdata_example):
+    det = dlstbx.nexus.nxmx.NXdetector(nxdata_example["/entry/instrument/detector"])
+    nxdata = dlstbx.nexus.nxmx.NXdata(nxdata_example["/entry/data"])
+    for i in range(3):
+        raw_data = dlstbx.nexus.get_raw_data(nxdata, det, i)
+        assert len(raw_data) == 1
+        assert isinstance(raw_data[0], flex.int)
+        assert raw_data[0].all() == (4362, 4148)
+        assert raw_data[0].all_eq(i)

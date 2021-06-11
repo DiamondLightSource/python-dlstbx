@@ -3,13 +3,13 @@ import os
 import h5py
 
 from dials.array_family import flex
-from dxtbx.format.FormatNexusEigerDLS import FormatNexusEigerDLS
 
 import dlstbx.nexus
 from dlstbx.format.FormatNXmx import FormatNXmx
 
 # Hack to switch off the FormatNexusEigerDLS format class
-FormatNexusEigerDLS.understand = lambda image_file: False
+# from dxtbx.format.FormatNexusEigerDLS import FormatNexusEigerDLS
+# FormatNexusEigerDLS.understand = lambda image_file: False
 
 
 def get_bit_depth_from_meta(meta_file_name):

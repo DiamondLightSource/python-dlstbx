@@ -11,7 +11,11 @@ class FormatNXmx(FormatNexus):
 
     @staticmethod
     def understand(image_file):
-        return True
+        with h5py.File(image_file, "r") as handle:
+            name = dlstbx.nexus.nxmx.h5str(FormatNXmx.get_instrument_name(handle))
+        if name == "DLS I19-2":
+            return True
+        return False
 
     def __init__(self, image_file, **kwargs):
         """Initialise the image structure from the given file."""

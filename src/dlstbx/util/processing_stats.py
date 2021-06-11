@@ -42,34 +42,30 @@ def get_pdb_chain_stats(pdb_file, logger):
                 )
             )
             if resids:
-                try:
-                    chain_breaks = (
-                        [
-                            (0, 0),
-                        ]
-                        + [
-                            (i, l)
-                            for (i, l) in enumerate(
-                                map(
-                                    lambda x: operator.sub(*x),
-                                    zip(resids[1:], resids[:-1]),
-                                ),
-                                1,
-                            )
-                            if l > 1
-                        ]
-                        + [
-                            (len(resids), 0),
-                        ]
-                    )
-                    chain_lens = [
-                        operator.sub(x[0], y[0])
-                        for (x, y) in zip(chain_breaks[1:], chain_breaks[:-1])
+                chain_breaks = (
+                    [
+                        (0, 0),
                     ]
-                    all_chains.extend(chain_lens)
-                except Exception:
-                    logger.exception(f"Error in processing content of {pdb_file} file")
-                    return
+                    + [
+                        (i, l)
+                        for (i, l) in enumerate(
+                            map(
+                                lambda x: operator.sub(*x),
+                                zip(resids[1:], resids[:-1]),
+                            ),
+                            1,
+                        )
+                        if l > 1
+                    ]
+                    + [
+                        (len(resids), 0),
+                    ]
+                )
+                chain_lens = [
+                    operator.sub(x[0], y[0])
+                    for (x, y) in zip(chain_breaks[1:], chain_breaks[:-1])
+                ]
+                all_chains.extend(chain_lens)
     return {
         "fragments": len(all_chains),
         "total": sum(all_chains),
@@ -100,13 +96,16 @@ def get_mapfile_stats(_wd, mdl_dict, logger):
         map_data = map_coeffs.fft_map(resolution_factor=1 / 3.0)
         map_data.apply_sigma_scaling()
         map_data.as_ccp4_map(file_name=map_filepath)
-
-        mapcc, mapcc_dmin = calculate_mapcc(mdl_dict["pdb"], map_filepath, logger)
-
-        return (map_filepath, mapcc, mapcc_dmin)
     except Exception:
-        logger.exception(f"Cannot generate {map_filepath} map file")
+        logger.info(f"Cannot generate {map_filepath} map file")
         return None
+    try:
+        mapcc, mapcc_dmin = calculate_mapcc(mdl_dict["pdb"], map_filepath, logger)
+    except Exception:
+        logger.info(f"Cannot generate {map_filepath} map file")
+        return None
+
+    return (map_filepath, mapcc, mapcc_dmin)
 
 
 def calculate_mapcc(pdb_filepath, map_filepath, logger):
@@ -140,3 +139,31 @@ def calculate_mapcc(pdb_filepath, map_filepath, logger):
             f"Cannot generate mapcc value for {map_filepath} and {pdb_filepath} files"
         )
         return (0.0, 0.0)
+
+
+def get_model_data(working_directory, mdl_dict, logger):
+    model_dict = {}
+    try:
+        model_dict.update(get_pdb_chain_stats(mdl_dict["pdb"], logger))
+    except Exception:
+        logger.info("Cannot get chain stats from results files")
+        return
+
+    try:
+        (map_filename, mapcc, mapcc_dmin) = get_mapfile_stats(
+            working_directory, mdl_dict, logger
+        )
+        if map_filename:
+            model_dict.update(
+                {
+                    "map": map_filename,
+                    "mapcc": mapcc,
+                    "mapcc_dmin": mapcc_dmin,
+                }
+            )
+
+    except Exception:
+        logger.info("Cannot generate map file from results")
+        return
+
+    return model_dict

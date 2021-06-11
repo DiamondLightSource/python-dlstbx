@@ -11,7 +11,7 @@ import ispyb.sqlalchemy as isa
 import marshmallow.fields
 import sqlalchemy
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from sqlalchemy.orm import Load, aliased, joinedload, sessionmaker
+from sqlalchemy.orm import Load, aliased, joinedload, sessionmaker, selectinload
 
 
 logger = logging.getLogger("dlstbx.ispybtbx")
@@ -117,10 +117,13 @@ class ispybtbx:
                 query = (
                     session.query(isa.ProcessingJob)
                     .options(
-                        joinedload(isa.ProcessingJob.ProcessingJobParameters),
-                        joinedload(
-                            isa.ProcessingJob.ProcessingJobImageSweeps
-                        ).joinedload(isa.ProcessingJobImageSweep.DataCollection),
+                        selectinload(isa.ProcessingJob.ProcessingJobParameters),
+                        selectinload(isa.ProcessingJob.ProcessingJobImageSweeps)
+                        .selectinload(isa.ProcessingJobImageSweep.DataCollection)
+                        .load_only(
+                            isa.DataCollection.imageDirectory,
+                            isa.DataCollection.fileTemplate,
+                        ),
                     )
                     .filter(isa.ProcessingJob.processingJobId == reprocessing_id)
                 )
@@ -840,24 +843,14 @@ def ispyb_filter(message, parameters):
         return message, parameters
 
     if dc_class["grid"]:
-        if parameters["ispyb_beamline"] == "i02-2":
-            message["default_recipe"] = ["archive-nexus", "vmxi-spot-counts-per-image"]
-        else:
-            message["default_recipe"] = ["per-image-analysis-gridscan"]
         return message, parameters
 
     if dc_class["screen"]:
-        message["default_recipe"] = [
-            "per-image-analysis-rotation",
-            "strategy-edna",
-            "strategy-mosflm",
-        ]
         parameters["ispyb_images"] = ""
         return message, parameters
 
     if not dc_class["rotation"]:
         # possibly EM dataset
-        message["default_recipe"] = []
         return message, parameters
 
     # for the moment we do not want multi-xia2 for /dls/mx i.e. VMXi
@@ -896,29 +889,6 @@ def ispyb_filter(message, parameters):
                 )
 
             parameters["ispyb_images"] = ",".join(related_images)
-
-    message["default_recipe"] = [
-        "per-image-analysis-rotation",
-        "processing-autoproc",
-        "processing-fast-dp",
-        "processing-rlv",
-        "processing-xia2-3dii",
-        "processing-xia2-dials",
-    ]
-
-    if parameters["ispyb_beamline"] == "i02-2":
-        message["default_recipe"] = [
-            "archive-nexus",
-            "processing-autoproc",
-            "processing-fast-dp",
-            "processing-xia2-3dii",
-            "processing-xia2-dials",
-            "vmxi-per-image-analysis",
-        ]
-
-    if parameters["ispyb_images"]:
-        message["default_recipe"].append("processing-multi-xia2-dials")
-        message["default_recipe"].append("processing-multi-xia2-3dii")
 
     return message, parameters
 

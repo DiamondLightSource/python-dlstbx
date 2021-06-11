@@ -737,7 +737,7 @@ def test_filewatcher_watch_swmr_h5py_known_errors(exception, mocker, tmp_path, c
             raise exception
         return h5py_File(*args, **kwargs)
 
-    with mocker.patch("h5py.File", side_effect=side_effect_raise):
+    with mock.patch("h5py.File", side_effect=side_effect_raise):
         filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
     assert f"Error reading {os.fspath(h5_prefix)}_000000.h5" in caplog.text
     checkpoint.assert_any_call(

@@ -161,6 +161,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
                         "file_path": destination.dirname,
                         "file_name": destination.basename,
                         "file_type": "result",
+                        "importance_rank": 1,
                     }
                 )
             except Exception:

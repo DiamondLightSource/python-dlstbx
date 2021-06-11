@@ -1,6 +1,5 @@
 import logging
 import os
-import tempfile
 
 import dlstbx.util.symlink
 import procrunner
@@ -45,16 +44,6 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
             )
             return False
 
-        try:
-            fp = tempfile.NamedTemporaryFile(
-                prefix="shelxc_", dir=working_directory.strpath
-            )
-            prefix = os.path.splitext(os.path.basename(fp.name))[0]
-            fp.close()
-        except OSError:
-            logger.error("Could not create tmp file in the working directory")
-            return False
-
         file_list = []
         if len(data_files) > 1:
             for tag, data_file in zip(
@@ -63,7 +52,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
                 file_list.extend([tag, data_file])
         else:
             file_list = ["--sad"] + data_files
-        command = ["xia2.to_shelxcde"] + file_list + [prefix]
+        command = ["xia2.to_shelxcde"] + file_list + ["shelxc"]
         logger.info("Generating SHELXC .ins file")
         logger.info("command: %s", " ".join(command))
         result = procrunner.run(
@@ -78,7 +67,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
             logger.debug(result["stderr"].decode("latin1"))
         logger.info("runtime: %s", result["runtime"])
 
-        command = ["sh", prefix + ".sh"]
+        command = ["sh", "shelxc.sh"]
         logger.info("Starting SHELXC")
         logger.info("command: %s", " ".join(command))
         result = procrunner.run(
@@ -98,7 +87,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
             logger.debug("SHELXC log is empty")
             return False
 
-        shelxc_log = os.path.join(working_directory.strpath, prefix + "_shelxc.log")
+        shelxc_log = os.path.join(working_directory.strpath, "results_shelxc.log")
         with open(shelxc_log, "w") as fp:
             fp.write(result["stdout"].decode("latin1"))
 
@@ -125,7 +114,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
                         results_directory.strpath, params["create_symlink"]
                     )
             for f in working_directory.listdir():
-                if f.basename.startswith("shelxc"):
+                if f.ext in [".log", ".hkl", ".sh", ".ins", ".cif"]:
                     f.copy(results_directory)
         except NameError:
             logger.debug(

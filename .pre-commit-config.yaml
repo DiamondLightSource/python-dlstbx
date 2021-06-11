@@ -2,12 +2,18 @@ repos:
 
 # Automatic source code formatting
 - repo: https://github.com/psf/black
-  rev: 20.8b1
+  rev: 21.4b2
   hooks:
   - id: black
     args: [--safe, --quiet]
     files: \.pyi?$|^libtbx_config$
     types: [file]
+
+# Automatically sort imports
+- repo: https://github.com/PyCQA/isort
+  rev: 5.6.4
+  hooks:
+  - id: isort
 
 # Syntax check and some basic flake8
 - repo: https://github.com/pre-commit/pre-commit-hooks

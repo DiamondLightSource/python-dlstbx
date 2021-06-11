@@ -88,6 +88,24 @@ class DLSMimas(CommonService):
         else:
             spacegroup = None
 
+        anomalous_scatterer = None
+        diffraction_plan_info = step.get("diffraction_plan_info")
+        if diffraction_plan_info:
+            anomalous_scatterer = diffraction_plan_info.get("anomalousScatterer")
+            if anomalous_scatterer:
+                anomalous_scatterer = dlstbx.mimas.MimasISPyBAnomalousScatterer(
+                    anomalous_scatterer
+                )
+                self.log.info(f"anomalous_scatterer: {anomalous_scatterer}")
+                try:
+                    dlstbx.mimas.validate(anomalous_scatterer)
+                except ValueError:
+                    self.log.warning(
+                        f"Invalid anomalous scatterer for dcid {dcid}: {anomalous_scatterer}",
+                        exc_info=True,
+                    )
+                    anomalous_scatterer = None
+
         detectorclass = {
             "eiger": dlstbx.mimas.MimasDetectorClass.EIGER,
             "pilatus": dlstbx.mimas.MimasDetectorClass.PILATUS,
@@ -104,6 +122,7 @@ class DLSMimas(CommonService):
             getsweepslistfromsamedcg=sweep_list,
             preferred_processing=step.get("preferred_processing"),
             detectorclass=detectorclass,
+            anomalous_scatterer=anomalous_scatterer,
         )
 
     def process(self, rw, header, message):

@@ -1,23 +1,57 @@
 import dlstbx.dc_sim.definitions as df
 import ispyb
 import ispyb.model.__future__
+import ispyb.sqlalchemy
+from ispyb.sqlalchemy import MotionCorrection, CTF, AutoProcProgram
+import sqlalchemy
+from sqlalchemy.orm import Load
 
 
-def check_test_outcome(test, db):
-    failed_tests = []
-    overall = {}
+def check_test_outcome(test, db_classic, db_session=None):
     expected_outcome = df.tests.get(test["scenario"], {}).get("results")
 
+    url = ispyb.sqlalchemy.url()
+    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+    db_session = sqlalchemy.orm.sessionmaker(bind=engine)
+
     if expected_outcome == {}:
-        print("Scenario %s is happy with any outcome." % test["scenario"])
+        print(f"Scenario {test['scenario']} is happy with any outcome.")
         test["success"] = True
         return
 
     if not expected_outcome:
-        print("Skipping unknown test scenario %s" % test["scenario"])
+        print(f"Skipping unknown test scenario {test['scenario']}")
         return
 
-    for dcid in test["DCIDs"]:
+    check_functions = {
+        "mx": _check_mx_outcome,
+        "em-spa": _check_relion_outcome,
+    }
+    scenario_type = df.tests[test["scenario"]]["type"]
+    if scenario_type not in check_functions:
+        print(f"Skipping unknown test scenario type {scenario_type}")
+        return
+
+    check_function = check_functions[scenario_type]
+
+    with db_session() as dbs:
+        overall, failed_tests = check_function(test, expected_outcome, db_classic, dbs)
+
+    if failed_tests:
+        test["success"] = False
+        test["reason"] = "\n".join(failed_tests)
+
+    if all(overall.values()):
+        test["success"] = True
+
+    print(test)
+    return test
+
+
+def _check_mx_outcome(test, expected_outcome, db, db_session_unused):
+    failed_tests = []
+    overall = {}
+    for dcid in test.get("DCIDs", []):
         data_collection = db.get_data_collection(dcid)
         if getattr(data_collection, "screenings", None):
             outcomes = check_screening_outcomes(data_collection, expected_outcome)
@@ -45,15 +79,31 @@ def check_test_outcome(test, db):
                 failed_tests.extend(outcomes[program]["reason"])
             elif outcomes[program]["success"] is None and overall[program] is not False:
                 overall[program] = None
+    return overall, failed_tests
 
-    if failed_tests:
-        test["success"] = False
-        test["reason"] = "\n".join(failed_tests)
 
-    if all(overall.values()):
-        test["success"] = True
+def _check_relion_outcome(test, expected_outcome, db_unused, db):
+    failed_tests = []
+    overall = {}
+    for jobid in test.get("JobIDs", []):
+        program = "relion"
+        motioncorr_data, autoprocpid = _retrieve_motioncorr(db, jobid)
+        job_results = {
+            "motion_correction": motioncorr_data,
+            "ctf": _retrieve_ctf(db, autoprocpid),
+        }
+        if len(job_results["motion_correction"]) == 0 or len(job_results["ctf"]) == 0:
+            overall[program] = None
+            continue
+        outcomes = check_relion_outcomes(job_results, expected_outcome, jobid)
 
-    print(test)
+        overall.setdefault(program, True)
+        if outcomes[program]["success"] is False:
+            overall[program] = False
+            failed_tests.extend(outcomes[program]["reason"])
+        elif outcomes[program]["success"] is None and overall[program] is not False:
+            overall[program] = None
+    return overall, failed_tests
 
 
 def check_screening_outcomes(data_collection, expected_outcome):
@@ -142,12 +192,8 @@ def check_integration_outcomes(data_collection, expected_outcome):
                     )
                 )
 
-        if failure_reasons:
-            outcomes[integration.program.name]["success"] = False
-            outcomes[integration.program.name]["reason"] = failure_reasons
-        else:
-            outcomes[integration.program.name]["success"] = True
-            outcomes[integration.program.name]["reason"] = []
+        outcomes[integration.program.name]["success"] = not failure_reasons
+        outcomes[integration.program.name]["reason"] = failure_reasons
 
     return outcomes
 
@@ -174,6 +220,80 @@ def check_pia_outcomes(data_collection, expected_outcome):
                 ],
             }
         }
+    return outcomes
+
+
+def _retrieve_motioncorr(db_session, jobid):
+    autoproc_query = (
+        db_session.query(AutoProcProgram)
+        .options(
+            Load(AutoProcProgram).load_only("autoProcProgramId", "processingJobId"),
+        )
+        .filter(AutoProcProgram.processingJobId == jobid)
+    )
+
+    autoproc_query_result = autoproc_query.order_by(
+        AutoProcProgram.autoProcProgramId.desc()
+    ).first()
+    autoprocpid = autoproc_query_result.autoProcProgramId
+
+    query = db_session.query(MotionCorrection).filter(
+        MotionCorrection.autoProcProgramId == autoprocpid
+    )
+
+    query_results = query.all()
+
+    return list(query_results), autoprocpid
+
+
+def _retrieve_ctf(db_session, autoprocid):
+    query = (
+        db_session.query(CTF, MotionCorrection)
+        .join(
+            MotionCorrection,
+            MotionCorrection.motionCorrectionId == CTF.motionCorrectionId,
+        )
+        .filter(MotionCorrection.autoProcProgramId == autoprocid)
+    )
+    query_results = query.all()
+
+    return [q[0] for q in query_results]
+
+
+def check_relion_outcomes(job_results, expected_outcome, jobid):
+    all_programs = [
+        "relion",
+    ]
+    outcomes = {program: {"success": None} for program in all_programs}
+
+    failure_reasons = []
+
+    tabvars = {
+        "motion_correction": [
+            "micrographFullPath",
+            "totalMotion",
+            "averageMotionPerFrame",
+        ],
+        "ctf": [
+            "astigmatism",
+            "astigmatismAngle",
+            "estimatedResolution",
+            "estimatedDefocus",
+            "ccValue",
+        ],
+    }
+
+    for table in ("motion_correction", "ctf"):
+        for variable in tabvars[table]:
+            for i, expoutcome in enumerate(expected_outcome[table]):
+                outcome = getattr(job_results[table][i], variable, None)
+                if outcome is None or expoutcome[variable] != outcome:
+                    failure_reasons.append(
+                        f"{variable}: {outcome} outside range {expoutcome[variable]}, program: relion, JobID:{jobid}"
+                    )
+
+    outcomes["relion"]["success"] = not failure_reasons
+    outcomes["relion"]["reason"] = failure_reasons
     return outcomes
 
 

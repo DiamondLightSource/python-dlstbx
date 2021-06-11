@@ -38,6 +38,15 @@ class MimasISPyBSpaceGroup:
 
 
 @dataclasses.dataclass(frozen=True)
+class MimasISPyBAnomalousScatterer:
+    symbol: str
+
+    @property
+    def string(self):
+        return gemmi.Element(self.symbol).name
+
+
+@dataclasses.dataclass(frozen=True)
 class MimasISPyBSweep:
     DCID: int
     start: int
@@ -56,6 +65,7 @@ class MimasScenario:
     getsweepslistfromsamedcg: Tuple[MimasISPyBSweep] = ()
     preferred_processing: str = None
     detectorclass: MimasDetectorClass = None
+    anomalous_scatterer: str = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -119,6 +129,10 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         validate(mimasobject.spacegroup, expectedtype=MimasISPyBSpaceGroup)
     if mimasobject.detectorclass is not None:
         validate(mimasobject.detectorclass, expectedtype=MimasDetectorClass)
+    if mimasobject.anomalous_scatterer is not None:
+        validate(
+            mimasobject.anomalous_scatterer, expectedtype=MimasISPyBAnomalousScatterer
+        )
 
 
 @validate.register(MimasDCClass)
@@ -238,6 +252,18 @@ def _(mimasobject: MimasISPyBSpaceGroup, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
     gemmi.SpaceGroup(mimasobject.symbol)
+
+
+@validate.register(MimasISPyBAnomalousScatterer)
+def _(mimasobject: MimasISPyBAnomalousScatterer, expectedtype=None):
+    if expectedtype and not isinstance(mimasobject, expectedtype):
+        raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
+    if (
+        not mimasobject.symbol.isdigit() and len(mimasobject.symbol) > 2
+    ) or gemmi.Element(mimasobject.symbol).atomic_number == 0:
+        raise ValueError(
+            f"{mimasobject!r} anomalous_scatterer {mimasobject.symbol} is not a valid element"
+        )
 
 
 @functools.singledispatch

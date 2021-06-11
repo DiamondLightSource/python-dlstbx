@@ -75,6 +75,18 @@ def run(
 
     if scenario.event is dlstbx.mimas.MimasEvent.END:
 
+        # Decide absorption_level for xia2-dials jobs
+        if scenario.anomalous_scatterer:
+            absorption_level = "high"
+        else:
+            absorption_level = "medium"
+        xia2_dials_absorption_params = (
+            dlstbx.mimas.MimasISPyBParameter(
+                key="absorption_level",
+                value=absorption_level,
+            ),
+        )
+
         if scenario.beamline in ("i19-1", "i19-2"):
             # i19 is a special case
             for recipe in (
@@ -96,6 +108,7 @@ def run(
                     recipe="autoprocessing-multi-xia2-smallmolecule",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    parameters=xia2_dials_absorption_params,
                 )
             )
             tasks.append(
@@ -163,6 +176,10 @@ def run(
                                 dlstbx.mimas.MimasISPyBParameter(
                                     key="remove_blanks", value="true"
                                 ),
+                                dlstbx.mimas.MimasISPyBParameter(
+                                    key="failover", value="true"
+                                ),
+                                *xia2_dials_absorption_params,
                             ),
                         )
                     )
@@ -227,6 +244,7 @@ def run(
                             dlstbx.mimas.MimasISPyBParameter(
                                 key="resolution.cc_half_significance_level", value="0.1"
                             ),
+                            *xia2_dials_absorption_params,
                         ),
                     )
                 )
@@ -266,6 +284,7 @@ def run(
                             dlstbx.mimas.MimasISPyBParameter(
                                 key="resolution.cc_half_significance_level", value="0.1"
                             ),
+                            *xia2_dials_absorption_params,
                         ),
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
                     )
@@ -319,7 +338,10 @@ def run(
                             autostart=scenario.preferred_processing == "xia2/DIALS",
                             recipe="autoprocessing-xia2-dials",
                             source="automatic",
-                            parameters=xia2_parameters,
+                            parameters=(
+                                *xia2_parameters,
+                                *xia2_dials_absorption_params,
+                            ),
                         )
                     )
                     # xia2-3dii
@@ -364,7 +386,10 @@ def run(
                             autostart=False,
                             recipe="autoprocessing-multi-xia2-dials",
                             source="automatic",
-                            parameters=parameters,
+                            parameters=(
+                                *parameters,
+                                *xia2_dials_absorption_params,
+                            ),
                             sweeps=tuple(scenario.getsweepslistfromsamedcg),
                         )
                     )
@@ -439,6 +464,7 @@ def run(
                             dlstbx.mimas.MimasISPyBParameter(
                                 key="resolution.cc_half_significance_level", value="0.1"
                             ),
+                            *xia2_dials_absorption_params,
                         ),
                     )
                 )
@@ -474,6 +500,7 @@ def run(
                         recipe="autoprocessing-multi-xia2-dials-eiger",
                         source="automatic",
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                        parameters=xia2_dials_absorption_params,
                     )
                 )
                 # xia2-3dii
@@ -527,11 +554,6 @@ def run(
                             autostart=True,
                             recipe="autoprocessing-fast-dp-eiger",
                             source="automatic",
-                            parameters=(
-                                dlstbx.mimas.MimasISPyBParameter(
-                                    key="spacegroup", value=spacegroup
-                                ),
-                            ),
                         )
                     )
                     # xia2-dials
@@ -541,7 +563,10 @@ def run(
                             autostart=scenario.preferred_processing == "xia2/DIALS",
                             recipe="autoprocessing-xia2-dials-eiger",
                             source="automatic",
-                            parameters=parameters,
+                            parameters=(
+                                *parameters,
+                                *xia2_dials_absorption_params,
+                            ),
                         )
                     )
                     # xia2-3dii
@@ -562,7 +587,10 @@ def run(
                             autostart=False,
                             recipe="autoprocessing-multi-xia2-dials-eiger",
                             source="automatic",
-                            parameters=parameters,
+                            parameters=(
+                                *parameters,
+                                *xia2_dials_absorption_params,
+                            ),
                             sweeps=tuple(scenario.getsweepslistfromsamedcg),
                         )
                     )

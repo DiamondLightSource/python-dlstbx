@@ -2,6 +2,10 @@
 <table style="width: 800px; table-layout: fixed; border-top: 1px solid #cccccc; border-spacing: 0 5px;" cellspacing="0" cellpadding="0" width="800" bgcolor="#ebebeb">
     <tr>
         {% for ppl, data in model_data.items() %}
+        {% for idx in (0,1,2) %}
+        <td align="left"><img src="cid:{{ppl}}_model_{{idx}}" border="0"
+            alt="Map/Model" align="left" height=200 /></td>
+        {% endfor %}
         <td>
             <table cellspacing="0" cellpadding="0" width="100%" bgcolor="#ebebeb">
                 <th
@@ -10,10 +14,6 @@
                            {{ ppl }}
                 </th>
             <tbody>
-                <tr>
-                    <td align="left"><img src="cid:{{ppl}}_model" border="0"
-                        alt="Map/Model" align="left" height=200 /></td>
-                </tr>
                 <tr>
                     <td align="left">
                         <table style="width: 200px; border-spacing: 0 5px; font-size: 14px; font-family: arial;color: #575757;" width="200" bgcolor="#ebebeb">

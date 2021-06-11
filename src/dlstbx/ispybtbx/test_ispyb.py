@@ -12,6 +12,7 @@ ds = {
     "edge_set": 1722897,
     "i19_screening": 1396413,
     "cryo_em": 2097825,
+    "cryo_em_tiff": 6351623,
     "borken_dcid": 2091234,
 }
 
@@ -32,15 +33,7 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
 
     message, parameters = ispyb_filter(message, parameters)
 
-    assert message == {"dummy_msg": mock.sentinel.dummy_msg, "default_recipe": mock.ANY}
-    for service in [
-        "per-image-analysis-rotation",
-        "processing-fast-dp",
-        "processing-xia2-3dii",
-        "processing-xia2-dials",
-        "processing-autoproc",
-    ]:
-        assert service in message["default_recipe"]
+    assert message == {"dummy_msg": mock.sentinel.dummy_msg}
     assert parameters["ispyb_beamline"] == "i03"
     assert parameters["ispyb_dcid"] == ds["gphl_C2"]
     assert isinstance(parameters["ispyb_dc_class"], dict)
@@ -76,7 +69,7 @@ def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples():
         parameters = {"ispyb_dcid": dcid}
         print(f"{example}: {dcid}")
         message, parameters = ispyb_filter(message, parameters)
-        assert message == {"default_recipe": mock.ANY}
+        assert message == {}
         assert len(parameters) > 10
 
 
@@ -160,6 +153,42 @@ def test_get_datacollection_information_for_em():
     assert dc_info["imagePrefix"] is None  # because EM
     assert dc_info["wavelength"] == 0.0196875
     assert dc_info["resolution"] is None  # because EM
+
+
+def test_get_datacollection_information_for_em_tiffs():
+    i = ispybtbx()
+    dc_id = ds["cryo_em_tiff"]
+    dc_info = i.get_dc_info(dc_id)
+    assert dc_info["fileTemplate"] == "Frames/*.tiff"
+    assert dc_info["imageDirectory"] == "/dls/m02/data/2021/bi23047-54/raw/"
+    assert dc_info["startTime"] == "2021-05-18T16:31:35"
+    assert dc_info["endTime"] == "2021-05-18T16:31:35"
+    assert dc_info["startImageNumber"] is None  # because EM
+    assert dc_info["numberOfImages"] is None  # because EM
+    assert dc_info["overlap"] is None  # because EM
+    assert dc_info["axisRange"] is None  # because EM
+    assert dc_info["dataCollectionId"] == dc_id
+    assert dc_info["imagePrefix"] is None  # because EM
+    assert dc_info["imageSuffix"] == "tiff"
+    assert dc_info["wavelength"] is None  # not guaranteed to be set
+    assert dc_info["resolution"] is None  # because EM
+
+    message = {"dummy_msg": mock.sentinel.dummy_msg}
+    parameters = {
+        "dummy_param": mock.sentinel.dummy_param,
+        "ispyb_dcid": ds["cryo_em_tiff"],
+    }
+    message, parameters = ispyb_filter(message, parameters)
+    assert (
+        parameters["ispyb_image_pattern"]
+        == parameters["ispyb_image_template"]
+        == "Frames/*.tiff"
+    )
+    results_directory = "/".join(parameters["ispyb_results_directory"].split("/")[:-1])
+    working_directory = "/".join(parameters["ispyb_working_directory"].split("/")[:-1])
+    # waiting for Synchweb to generate DCs with dataCollectionNumber set to NULL
+    assert results_directory  # == '/dls/m02/data/2021/bi23047-54/processed/raw'
+    assert working_directory  # == '/dls/m02/data/2021/bi23047-54/tmp/zocalo/raw'
 
 
 def test_datacollection_classification():

@@ -33,6 +33,16 @@ def get_scenarios(dcid):
         spacegroup = dlstbx.mimas.MimasISPyBSpaceGroup(spacegroup)
     else:
         spacegroup = None
+    anomalous_scatterer = None
+    diffraction_plan_info = ispyb_info.get("ispyb_diffraction_plan")
+    if diffraction_plan_info:
+        anomalous_scatterer = ispyb_info.get("ispyb_diffraction_plan", {}).get(
+            "anomalousScatterer"
+        )
+        if anomalous_scatterer:
+            anomalous_scatterer = dlstbx.mimas.MimasISPyBAnomalousScatterer(
+                anomalous_scatterer
+            )
     dc_class = ispyb_info.get("ispyb_dc_class")
     if dc_class and dc_class["grid"]:
         dc_class_mimas = dlstbx.mimas.MimasDCClass.GRIDSCAN
@@ -64,6 +74,7 @@ def get_scenarios(dcid):
             ),
             preferred_processing=ispyb_info.get("ispyb_preferred_processing"),
             detectorclass=detectorclass,
+            anomalous_scatterer=anomalous_scatterer,
         )
         try:
             dlstbx.mimas.validate(scenario)

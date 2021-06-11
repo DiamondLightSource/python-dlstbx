@@ -1,5 +1,7 @@
 import dataclasses
+
 import numpy as np
+
 import dlstbx.util.xray_centering
 
 
@@ -27,7 +29,6 @@ def test_xray_centering():
         snaked=True,
         orientation=dlstbx.util.xray_centering.Orientation.HORIZONTAL,
     )
-    print(stdout)
     assert "There are 592 reflections in image #32." in stdout
     assert "[  .   . 402 592 538 394   .   .   .   .   .   .   .   .]" in stdout
     assert dataclasses.asdict(results) == {
@@ -106,7 +107,6 @@ def test_xray_centering_second_example():
         snaked=True,
         orientation=dlstbx.util.xray_centering.Orientation.HORIZONTAL,
     )
-    print(stdout)
 
     assert "There are 14 reflections in image #351." in stdout
     assert (
@@ -144,7 +144,6 @@ def test_vertical_1d():
         snaked=True,
         orientation=dlstbx.util.xray_centering.Orientation.VERTICAL,
     )
-    print(stdout)
     assert "There are 114 reflections in image #52." in stdout
     assert dataclasses.asdict(results) == {
         "steps": (1, 80),
@@ -197,7 +196,6 @@ def test_vertical_2d():
         snaked=True,
         orientation=dlstbx.util.xray_centering.Orientation.VERTICAL,
     )
-    print(stdout)
     assert "There are 54 reflections in image #16." in stdout
     assert dataclasses.asdict(results) == {
         "steps": (5, 6),
@@ -212,4 +210,31 @@ def test_vertical_2d():
         "best_image": 16,
         "reflections_in_best_image": 54,
         "best_region": [(3, 0), (3, 1), (4, 0), (4, 1)],
+    }
+
+
+def test_blank_scan():
+    data = np.zeros((5, 6))
+    results, stdout = dlstbx.util.xray_centering.main(
+        data,
+        steps=(5, 6),
+        box_size_px=(45.45, 45.45),
+        snapshot_offset=(339.273, 236.727),
+        snaked=True,
+        orientation=dlstbx.util.xray_centering.Orientation.VERTICAL,
+    )
+    assert isinstance(stdout, str)
+    assert dataclasses.asdict(results) == {
+        "steps": (5, 6),
+        "box_size_px": (45.45, 45.45),
+        "snapshot_offset": (339.273, 236.727),
+        "centre_x": None,
+        "centre_y": None,
+        "centre_x_box": None,
+        "centre_y_box": None,
+        "status": "fail",
+        "message": "No good images found",
+        "best_image": None,
+        "reflections_in_best_image": None,
+        "best_region": None,
     }

@@ -6,7 +6,6 @@ from typing import Tuple
 
 import gemmi
 
-
 MimasDCClass = enum.Enum("MimasDCClass", "GRIDSCAN ROTATION SCREENING UNDEFINED")
 
 MimasDetectorClass = enum.Enum("MimasDetectorClass", "PILATUS EIGER")
@@ -129,7 +128,7 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         validate(mimasobject.spacegroup, expectedtype=MimasISPyBSpaceGroup)
     if mimasobject.detectorclass is not None:
         validate(mimasobject.detectorclass, expectedtype=MimasDetectorClass)
-    if mimasobject.anomalous_scatterer is not None:
+    if mimasobject.anomalous_scatterer:
         validate(
             mimasobject.anomalous_scatterer, expectedtype=MimasISPyBAnomalousScatterer
         )

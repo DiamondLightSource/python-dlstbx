@@ -24,7 +24,7 @@ def test_check_relion_outcomes_pass_checks():
     class MotioncorrectionResult:
         micrographFullPath: str
         totalMotion = 15
-        averageMotionPerFrame = 16
+        averageMotionPerFrame = 0.5
 
     dc_results = {
         "motion_correction": [
@@ -56,7 +56,7 @@ def test_check_relion_outcomes_fail_checks():
         if i == 30:
             motion_corr.averageMotionPerFrame = -16
         else:
-            motion_corr.averageMotionPerFrame = 16
+            motion_corr.averageMotionPerFrame = 0.5
         return motion_corr
 
     dc_results_f = {
@@ -73,7 +73,7 @@ def test_check_relion_outcomes_fail_checks():
     )
     assert not check_result["relion"]["success"]
     assert check_result["relion"]["reason"] == [
-        f"averageMotionPerFrame: -16 outside range {pytest.approx(16, 0.75)}, program: relion, JobID:1"
+        f"averageMotionPerFrame: -16 outside range {pytest.approx(0.5, 1)}, program: relion, JobID:1"
     ]
 
 
@@ -90,7 +90,7 @@ def test_check_test_outcome_success(mock_sess, mock_eng, mock_ctf, mock_mcorr):
             f"MotionCorr/job002/Movies/Frames/20170629_000{i}_frameImage.mrc"
         )
         motion_corr.totalMotion = 15
-        motion_corr.averageMotionPerFrame = 16
+        motion_corr.averageMotionPerFrame = 0.5
         return motion_corr
 
     mock_mcorr.return_value = [db_motion_corr(_) for _ in frame_numbers], 1
@@ -122,9 +122,9 @@ def test_check_test_outcome_failure(mock_sess, mock_eng, mock_ctf, mock_mcorr):
         )
         motion_corr.totalMotion = 15
         if i == 30:
-            motion_corr.averageMotionPerFrame = 0
+            motion_corr.averageMotionPerFrame = -0.1
         else:
-            motion_corr.averageMotionPerFrame = 16
+            motion_corr.averageMotionPerFrame = 0.5
         return motion_corr
 
     mock_mcorr.return_value = [db_motion_corr(_) for _ in frame_numbers], 1
@@ -142,5 +142,5 @@ def test_check_test_outcome_failure(mock_sess, mock_eng, mock_ctf, mock_mcorr):
     assert not test_checked["success"]
     assert (
         test_checked["reason"]
-        == f"averageMotionPerFrame: 0 outside range {pytest.approx(16, 0.75)}, program: relion, JobID:1"
+        == f"averageMotionPerFrame: -0.1 outside range {pytest.approx(0.5, 1)}, program: relion, JobID:1"
     )

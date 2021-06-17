@@ -417,7 +417,7 @@ tests = {
                     "totalMotion": approx(15, 0.75),
                     # "early_motion": approx(2.5, 0.5),
                     # "late_motion": approx(15, 2),
-                    "averageMotionPerFrame": approx(16, 0.75),
+                    "averageMotionPerFrame": approx(0.5, 1),
                 }
                 for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
             ),

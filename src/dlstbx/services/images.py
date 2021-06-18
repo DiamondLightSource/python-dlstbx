@@ -1,7 +1,10 @@
 import errno
 import os
+import pathlib
 import re
 
+import mrcfile
+import numpy as np
 import PIL.Image
 import procrunner
 import workflows.recipe
@@ -155,4 +158,42 @@ class DLSImages(CommonService):
             fh.save(output)
 
         self.log.info("Created thumbnail %s -> %s", filename, output)
+        rw.transport.ack(header)
+
+    def do_mrc_to_jpeg(self, rw, header, message):
+        filename = rw.recipe_step.get("parameters", {}).get("file")
+        if isinstance(message, dict) and message.get("file"):
+            filename = message["file"]
+        else:
+            filename = None
+        if not filename or filename == "None":
+            self.log.debug("Skipping mrc to jpeg conversion: filename not specified")
+            rw.transport.ack(header)
+            return
+        filepath = pathlib.Path(filename)
+        if not filepath.is_file():
+            self.log.error("File {filepath} not found")
+            rw.transport.nack(header)
+            return
+        try:
+            with mrcfile.open(filepath) as mrc:
+                data = mrc.data
+        except ValueError:
+            self.log.error(
+                "File {filepath} could not be opened. It may be corrupted or not in mrc format"
+            )
+            rw.transport.nack(header)
+            return
+        data = data - data.min()
+        data *= 255 / data.max()
+        data = data.astype(np.uint8)
+        outfile = filepath.with_suffix(".jpeg")
+        if len(data.shape) == 2:
+            im = PIL.Image.fromarray(data, mode="L")
+            im.save(outfile)
+        elif len(data.shape) == 3:
+            im = PIL.Image.fromarray(data[0], mode="L")
+            im.save(outfile)
+
+        self.log.info(f"Converted mrc to jpeg {filename} -> {outfile}")
         rw.transport.ack(header)

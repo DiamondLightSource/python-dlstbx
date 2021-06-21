@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import ispyb
 import ispyb.model.__future__
 import ispyb.sqlalchemy
@@ -269,6 +271,7 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
 
     failure_reasons = []
 
+    seen_micrographs = defaultdict(int)
     for result in job_results["motion_correction"]:
         micrograph = result.micrographFullPath
         if not micrograph:
@@ -280,12 +283,28 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
                 f"Unexpected motion correction result for micrograph {micrograph}"
             )
             continue
+        seen_micrographs[micrograph] += 1
         for variable in expected_mc:
             outcome = getattr(result, variable, None)
             if outcome is None or expected_mc[variable] != outcome:
                 failure_reasons.append(
                     f"Motion correction for {micrograph} {variable}: {outcome} outside range {expected_mc[variable]} in JobID:{jobid}"
                 )
+    if len(seen_micrographs) != len(expected_outcome["motion_correction"]):
+        failure_reasons.append(
+            "Out of %d expected micrographs only %d were seen"
+            % (len(expected_outcome["motion_correction"]), len(seen_micrographs))
+        )
+    if any(count > 1 for count in seen_micrographs.values()):
+        failure_reasons.append(
+            "Motion corrected micrographs were seen more than once: %r"
+            % {
+                micrograph
+                for micrograph, count in seen_micrographs.items()
+                if count > 1
+            }
+        )
+
     for variable in (
         "astigmatism",
         "astigmatismAngle",

@@ -1,10 +1,11 @@
-import dlstbx.dc_sim.definitions as df
 import ispyb
 import ispyb.model.__future__
 import ispyb.sqlalchemy
-from ispyb.sqlalchemy import MotionCorrection, CTF, AutoProcProgram
 import sqlalchemy
+from ispyb.sqlalchemy import CTF, AutoProcProgram, MotionCorrection
 from sqlalchemy.orm import Load
+
+import dlstbx.dc_sim.definitions as df
 
 
 def check_test_outcome(test, db_classic, db_session=None):
@@ -268,29 +269,36 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
 
     failure_reasons = []
 
-    tabvars = {
-        "motion_correction": [
-            "micrographFullPath",
-            "totalMotion",
-            "averageMotionPerFrame",
-        ],
-        "ctf": [
-            "astigmatism",
-            "astigmatismAngle",
-            "estimatedResolution",
-            "estimatedDefocus",
-            "ccValue",
-        ],
-    }
-
-    for table in ("motion_correction", "ctf"):
-        for variable in tabvars[table]:
-            for i, expoutcome in enumerate(expected_outcome[table]):
-                outcome = getattr(job_results[table][i], variable, None)
-                if outcome is None or expoutcome[variable] != outcome:
-                    failure_reasons.append(
-                        f"{variable}: {outcome} outside range {expoutcome[variable]}, program: relion, JobID:{jobid}"
-                    )
+    for result in job_results["motion_correction"]:
+        micrograph = result.micrographFullPath
+        if not micrograph:
+            failure_reasons.append(f"Unexpected motion correction result: {result!r}")
+            continue
+        expected_mc = expected_outcome["motion_correction"].get(micrograph)
+        if not expected_mc:
+            failure_reasons.append(
+                f"Unexpected motion correction result for micrograph {micrograph}"
+            )
+            continue
+        for variable in expected_mc:
+            outcome = getattr(result, variable, None)
+            if outcome is None or expected_mc[variable] != outcome:
+                failure_reasons.append(
+                    f"Motion correction for {micrograph} {variable}: {outcome} outside range {expected_mc[variable]} in JobID:{jobid}"
+                )
+    for variable in (
+        "astigmatism",
+        "astigmatismAngle",
+        "estimatedResolution",
+        "estimatedDefocus",
+        "ccValue",
+    ):
+        for i, expoutcome in enumerate(expected_outcome["ctf"]):
+            outcome = getattr(job_results["ctf"][i], variable, None)
+            if outcome is None or expoutcome[variable] != outcome:
+                failure_reasons.append(
+                    f"{variable}: {outcome} outside range {expoutcome[variable]}, program: relion, JobID:{jobid}"
+                )
 
     outcomes["relion"]["success"] = not failure_reasons
     outcomes["relion"]["reason"] = failure_reasons

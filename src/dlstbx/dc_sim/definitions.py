@@ -411,16 +411,15 @@ tests = {
             "stop_after_ctf_estimation": "false",
         },
         "results": {
-            "motion_correction": tuple(
-                {
-                    "micrographFullPath": f"MotionCorr/job002/Movies/Frames/20170629_000{image_number}_frameImage.mrc",
+            "motion_correction": {
+                f"MotionCorr/job002/Movies/Frames/20170629_000{image_number}_frameImage.mrc": {
                     "totalMotion": approx(15, 0.75),
                     # "early_motion": approx(2.5, 0.5),
                     # "late_motion": approx(15, 2),
                     "averageMotionPerFrame": approx(0.5, 1),
                 }
                 for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
-            ),
+            },
             "ctf": tuple(
                 {
                     "astigmatism": approx(247, 0.75),

@@ -401,7 +401,7 @@ tests = {
         "proc_params": {
             "acquisition_software": "SerialEM",
             "import_images": "/dls/m12/data/2021/cm28212-2/raw/Frames/*.tiff",
-            "motioncor_gainreference": "/dls/m12/data/2021/cm28212-2/processing/gaim.mrc",
+            "motioncor_gainreference": "/dls/m12/data/2021/cm28212-2/processing/gain.mrc",
             "voltage": "200",
             "Cs": "2.7",
             "ctffind_do_phaseshift": "false",

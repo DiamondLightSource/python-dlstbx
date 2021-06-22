@@ -1,24 +1,21 @@
-import os
 import logging
-import zocalo
-import py
-import procrunner
+import os
 import shutil
 from argparse import Namespace
 
+import procrunner
+import py
+import zocalo
 from jinja2.environment import Environment
-from jinja2.loaders import PackageLoader
 from jinja2.exceptions import UndefinedError
-from dlstbx.util.symlink import create_parent_symlink
-from dlstbx.util.big_ep_helpers import (
-    copy_results,
-    send_results_to_ispyb,
-    ispyb_write_model_json,
-    write_coot_script,
-    write_sequence_file,
-    spacegroup_short,
-)
+from jinja2.loaders import PackageLoader
+
+from dlstbx.util.big_ep_helpers import (copy_results, ispyb_write_model_json,
+                                        send_results_to_ispyb,
+                                        spacegroup_short, write_coot_script,
+                                        write_sequence_file)
 from dlstbx.util.processing_stats import get_model_data
+from dlstbx.util.symlink import create_parent_symlink
 
 logger = logging.getLogger("dlstbx.wrap.autoSHARP")
 
@@ -156,10 +153,7 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
             logger.debug(result["stderr"])
         mdl_dict = self.get_autosharp_model_files(working_directory.strpath)
         if mdl_dict is None:
-            if success:
-                logger.exception("Error reading autoSHARP model files")
-            else:
-                logger.info("Cannot process autoSHARP results")
+            logger.info("Cannot read autoSHARP model files")
             return False
 
         self.msg.model = mdl_dict

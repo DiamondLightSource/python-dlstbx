@@ -1,16 +1,16 @@
+import json
 import os
 import shutil
+import subprocess
+from itertools import tee
 
-from cctbx.eltbx import sasaki, henke
-from iotbx import mtz
-from iotbx.bioinformatics import fasta_sequence
 import libtbx.load_env
+import py
+from cctbx.eltbx import henke, sasaki
 from cctbx.sgtbx import space_group, space_group_symbols
 from cctbx.uctbx import unit_cell
-import json
-from itertools import tee
-import py
-import subprocess
+from iotbx import mtz
+from iotbx.bioinformatics import fasta_sequence
 
 
 def get_tabulated_fp_fpp(atom, name, wavelength):
@@ -249,7 +249,7 @@ def read_mtz_datasets(msg, logger):
             isym = next((i.label() for i in dataset.columns() if i.type() == "Y"))
             tmp_dataset.update({"ISYM": isym})
         except Exception:
-            logger.warning("Warning: ISYM column is missing")
+            logger.info("Warning: ISYM column is missing")
 
         datasets.append(tmp_dataset)
 

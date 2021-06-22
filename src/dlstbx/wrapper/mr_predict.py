@@ -135,7 +135,7 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
                     ]
                 )
             except Exception:
-                logger.warning(
+                logger.info(
                     f"Error reading mr_predict input parameters for model {key}"
                 )
                 continue
@@ -148,8 +148,8 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
                 f"{mr_logfile} {params['threshold']} {fmt_metrix}\n"
             )
         if not log_files:
-            logger.warning("Incomplete input data for running MR prediction script")
-            return True
+            logger.info("No MR log files found for running MR prediction script")
+            return False
         try:
             fp = tempfile.NamedTemporaryFile(dir=working_directory)
             sfx = Path(fp.name).stem

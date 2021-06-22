@@ -1,14 +1,15 @@
-import zocalo.wrapper
-import logging
 import json
+import logging
+import subprocess
 import tempfile
-import procrunner
+from pathlib import Path
 from pprint import pformat
+from shutil import copyfile
+
+import procrunner
+import zocalo.wrapper
 
 from dlstbx.util import mr_predict, mr_utils
-from pathlib import Path
-from shutil import copyfile
-import subprocess
 
 logger = logging.getLogger("dlstbx.wrap.mr_predict")
 
@@ -22,6 +23,20 @@ clean_environment = {
 
 class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
     def run_phaser_ellg(self, working_directory, tag, params, timeout):
+        for key in (
+            "hklin",
+            "input_pdb",
+            "seq_indent",
+            "seq_file",
+            "number_molecules",
+            "resolution",
+            "spacegroup",
+        ):
+            try:
+                assert params[key]
+            except AssertionError:
+                logger.info(f"Cannot read {key} from MrBUMP logfile")
+                return None
         phaser_script = [
             "phaser << eof\n",
             f"TITLe mr_predict eLLG calculation\n",

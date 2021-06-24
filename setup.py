@@ -175,8 +175,8 @@ setup(
         "workflows.services": sorted(service_list),
         "zocalo.wrappers": sorted(known_wrappers),
         "zocalo.services.images.plugins": [
-            "do_diffraction = dlstbx.services.images:do_diffraction",
-            "do_thumbnail = dlstbx.services.images:do_thumbnail",
+            "diffraction = dlstbx.services.images:diffraction",
+            "thumbnail = dlstbx.services.images:thumbnail",
         ],
     },
     packages=find_packages("src"),

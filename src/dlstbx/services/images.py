@@ -15,7 +15,7 @@ logger = logging.getLogger("dlstbx.services.images")
 
 class FunctionParameter(NamedTuple):
     rw: workflows.recipe.wrapper.RecipeWrapper
-    header: dict[str, Any]
+    parameters: Callable[[str], Any]
     message: dict[str, Any]
 
 
@@ -33,7 +33,7 @@ class DLSImages(CommonService):
         self.log.info("Image service starting")
         self.image_functions: dict[str, Callable] = {
             e.name: e.load()
-            for e in pkg_resources.iter_entry_points("images.zocalo.service.plugins")
+            for e in pkg_resources.iter_entry_points("zocalo.services.images.plugins")
         }
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -46,47 +46,48 @@ class DLSImages(CommonService):
     def image_call(self, rw, header, message):
         """Call dispatcher."""
         command = rw.recipe_step.get("parameters", {}).get("image_command")
+
+        def parameters(key, default=None):
+            if isinstance(message, dict) and message.get(key):
+                return message[key]
+            return rw.recipe_step.get("parameters", {}).get(key, default)
+
         if self.image_functions.get(command):
-            return self.image_functions.get(command)(
-                FunctionParameter(rw, header, message)
+            result = self.image_functions.get(command)(
+                FunctionParameter(rw, parameters, message)
             )
+            if result:
+                rw.transport.ack(header)
+                return result
+            self.log.error(f"Command {command} resulted in {result}")
+            rw.transport.nack(header)
+            return
         self.log.error("Unknown command: %r", command)
         rw.transport.nack(header)
 
 
-def do_diffraction(params):
+def do_diffraction(plugin_params):
     """Take a diffraction data file and transform it into JPEGs."""
-    filename = params.rw.recipe_step.get("parameters", {}).get("file")
-    if isinstance(params.message, dict) and params.message.get("file"):
-        filename = params.message["file"]
+    filename = plugin_params.parameters("file")
 
     imageset_index = 1
     if not filename:
         # 'file' is a filename
         # 'input' is a xia2-type string, may need to remove :x:x suffix
-        filename = params.rw.recipe_step.get("parameters", {}).get("input")
-        if isinstance(params.message, dict) and params.message.get("input"):
-            filename = params.message["input"]
+        filename = plugin_params.parameters("input")
         if ":" in filename:
             filename, imageset_index = filename.split(":")[0:2]
 
     if not filename or filename == "None":
         logger.debug("Skipping diffraction JPG generation: filename not specified")
-        params.rw.transport.ack(params.header)
+        # params.rw.transport.ack(params.header)
         return
     if not os.path.exists(filename):
         logger.error("File %s not found", filename)
-        params.rw.transport.nack(params.header)
         return
-    sizex = params.rw.recipe_step.get("parameters", {}).get("size-x", 400)
-    if isinstance(params.message, dict) and params.message.get("size-x"):
-        sizex = params.message["size-x"]
-    sizey = params.rw.recipe_step.get("parameters", {}).get("size-y", 192)
-    if isinstance(params.message, dict) and params.message.get("size-y"):
-        sizey = params.message["size-y"]
-    output = params.rw.recipe_step.get("parameters", {}).get("output")
-    if isinstance(params.message, dict) and params.message.get("output"):
-        output = params.message["output"]
+    sizex = plugin_params.parameters("size-x", default=400)
+    sizey = plugin_params.parameters("size-y", default=192)
+    output = plugin_params.parameters("output")
     if not output:
         # split off extension
         output = filename[: filename.rindex(".")]
@@ -120,42 +121,30 @@ def do_diffraction(params):
             f"Export of {filename} failed with exitcode {result.returncode}:\n"
             + result.stderr.decode("utf8", "replace")
         )
-        params.rw.transport.nack(params.header)
         return
     if not os.path.exists(output):
         logger.error("Output file %s not found", output)
-        params.rw.transport.nack(params.header)
         return
     with PIL.Image.open(output) as fh:
         fh.thumbnail((sizex, sizey))
         fh.save(output_small)
 
     logger.info("Created thumbnail %s -> %s -> %s", filename, output, output_small)
-    params.rw.transport.ack(params.header)
+    return output
 
 
-def do_thumbnail(params):
+def do_thumbnail(plugin_params):
     """Take a single file and create a smaller version of the same file."""
-    filename = params.rw.recipe_step.get("parameters", {}).get("file")
-    if isinstance(params.message, dict) and params.message.get("file"):
-        filename = params.message["file"]
+    filename = plugin_params.parameters("file")
     if not filename or filename == "None":
         logger.debug("Skipping thumbnail generation: filename not specified")
-        params.rw.transport.ack(params.header)
         return
     if not os.path.exists(filename):
         logger.error("File %s not found", filename)
-        params.rw.transport.nack(params.header)
         return
-    sizex = params.rw.recipe_step.get("parameters", {}).get("size-x", 400)
-    if isinstance(params.message, dict) and params.message.get("size-x"):
-        sizex = params.message["size-x"]
-    sizey = params.rw.recipe_step.get("parameters", {}).get("size-y", 192)
-    if isinstance(params.message, dict) and params.message.get("size-y"):
-        sizey = params.message["size-y"]
-    output = params.rw.recipe_step.get("parameters", {}).get("output")
-    if isinstance(params.message, dict) and params.message.get("output"):
-        output = params.message["output"]
+    sizex = plugin_params.parameters("size-x", default=400)
+    sizey = plugin_params.parameters("size-y", default=192)
+    output = plugin_params.parameters("output")
     if not output:
         # If not set add a 't' in front of the last '.' in the filename
         output = (
@@ -167,4 +156,4 @@ def do_thumbnail(params):
         fh.save(output)
 
     logger.info("Created thumbnail %s -> %s", filename, output)
-    params.rw.transport.ack(params.header)
+    return output

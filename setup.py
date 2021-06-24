@@ -174,7 +174,7 @@ setup(
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.wrappers": sorted(known_wrappers),
-        "images.zocalo.service.plugins": [
+        "zocalo.services.images.plugins": [
             "do_diffraction = dlstbx.services.images:do_diffraction",
             "do_thumbnail = dlstbx.services.images:do_thumbnail",
         ],

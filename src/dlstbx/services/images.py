@@ -80,10 +80,10 @@ def do_diffraction(plugin_params):
 
     if not filename or filename == "None":
         logger.debug("Skipping diffraction JPG generation: filename not specified")
-        return
+        return False
     if not os.path.exists(filename):
         logger.error("File %s not found", filename)
-        return
+        return False
     sizex = plugin_params.parameters("size-x", default=400)
     sizey = plugin_params.parameters("size-y", default=192)
     output = plugin_params.parameters("output")
@@ -120,10 +120,10 @@ def do_diffraction(plugin_params):
             f"Export of {filename} failed with exitcode {result.returncode}:\n"
             + result.stderr.decode("utf8", "replace")
         )
-        return
+        return False
     if not os.path.exists(output):
         logger.error("Output file %s not found", output)
-        return
+        return False
     with PIL.Image.open(output) as fh:
         fh.thumbnail((sizex, sizey))
         fh.save(output_small)
@@ -137,10 +137,10 @@ def do_thumbnail(plugin_params):
     filename = plugin_params.parameters("file")
     if not filename or filename == "None":
         logger.debug("Skipping thumbnail generation: filename not specified")
-        return
+        return False
     if not os.path.exists(filename):
         logger.error("File %s not found", filename)
-        return
+        return False
     sizex = plugin_params.parameters("size-x", default=400)
     sizey = plugin_params.parameters("size-y", default=192)
     output = plugin_params.parameters("output")

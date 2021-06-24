@@ -80,7 +80,6 @@ def do_diffraction(plugin_params):
 
     if not filename or filename == "None":
         logger.debug("Skipping diffraction JPG generation: filename not specified")
-        # params.rw.transport.ack(params.header)
         return
     if not os.path.exists(filename):
         logger.error("File %s not found", filename)

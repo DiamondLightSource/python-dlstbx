@@ -1,6 +1,7 @@
 import os
 import subprocess
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 # Version number is determined either by git revision (which takes precendence)
 # or a static version number which is updated by bump2version
@@ -173,6 +174,10 @@ setup(
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.wrappers": sorted(known_wrappers),
+        "zocalo.services.images.plugins": [
+            "diffraction = dlstbx.services.images:diffraction",
+            "thumbnail = dlstbx.services.images:thumbnail",
+        ],
     },
     packages=find_packages("src"),
     package_dir={"": "src"},

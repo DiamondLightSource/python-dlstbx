@@ -13,14 +13,22 @@ from workflows.services.common_service import CommonService
 logger = logging.getLogger("dlstbx.services.images")
 
 
-class FunctionParameter(NamedTuple):
+class PluginParameter(NamedTuple):
     rw: workflows.recipe.wrapper.RecipeWrapper
     parameters: Callable[[str], Any]
     message: dict[str, Any]
 
 
 class DLSImages(CommonService):
-    """A service that generates images and thumbnails."""
+    """
+    A service that generates images and thumbnails.
+    Plugin functions can be registered under the entry point
+    'zocalo.services.images.plugins'. The contract is that a plugin function
+    takes a single argument of type PluginParameter, and returns a truthy value
+    to acknowledge success, and a falsy value to reject the related message.
+    Functions may choose to return a list of files that were generated, but
+    this is optional at this time.
+    """
 
     # Human readable service name
     _service_name = "DLS Images"
@@ -44,7 +52,7 @@ class DLSImages(CommonService):
         )
 
     def image_call(self, rw, header, message):
-        """Call dispatcher."""
+        """Pass incoming message to the relevant plugin function."""
         command = rw.recipe_step.get("parameters", {}).get("image_command")
 
         def parameters(key, default=None):
@@ -52,21 +60,20 @@ class DLSImages(CommonService):
                 return message[key]
             return rw.recipe_step.get("parameters", {}).get(key, default)
 
-        if self.image_functions.get(command):
-            result = self.image_functions.get(command)(
-                FunctionParameter(rw, parameters, message)
-            )
-            if result:
-                rw.transport.ack(header)
-                return result
-            self.log.error(f"Command {command} resulted in {result}")
+        if command not in self.image_functions:
+            self.log.error("Unknown command: %r", command)
             rw.transport.nack(header)
             return
-        self.log.error("Unknown command: %r", command)
-        rw.transport.nack(header)
+
+        result = self.image_functions[command](PluginParameter(rw, parameters, message))
+        if result:
+            rw.transport.ack(header)
+        else:
+            self.log.error(f"Command {command} resulted in {result}")
+            rw.transport.nack(header)
 
 
-def do_diffraction(plugin_params):
+def diffraction(plugin_params: PluginParameter):
     """Take a diffraction data file and transform it into JPEGs."""
     filename = plugin_params.parameters("file")
 
@@ -129,10 +136,10 @@ def do_diffraction(plugin_params):
         fh.save(output_small)
 
     logger.info("Created thumbnail %s -> %s -> %s", filename, output, output_small)
-    return output
+    return [output, output_small]
 
 
-def do_thumbnail(plugin_params):
+def thumbnail(plugin_params: PluginParameter):
     """Take a single file and create a smaller version of the same file."""
     filename = plugin_params.parameters("file")
     if not filename or filename == "None":
@@ -155,4 +162,4 @@ def do_thumbnail(plugin_params):
         fh.save(output)
 
     logger.info("Created thumbnail %s -> %s", filename, output)
-    return output
+    return [output]

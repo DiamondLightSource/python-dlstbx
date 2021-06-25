@@ -2,7 +2,7 @@ import errno
 import logging
 import os
 import re
-from typing import Any, Callable, NamedTuple
+from typing import Any, Callable, Dict, NamedTuple
 
 import PIL.Image
 import pkg_resources
@@ -16,7 +16,7 @@ logger = logging.getLogger("dlstbx.services.images")
 class PluginParameter(NamedTuple):
     rw: workflows.recipe.wrapper.RecipeWrapper
     parameters: Callable[[str], Any]
-    message: dict[str, Any]
+    message: Dict[str, Any]
 
 
 class DLSImages(CommonService):

@@ -162,8 +162,15 @@ class DLSTrigger(CommonService):
             )
             for dc, pdb in query.all():
                 if pdb.code is not None:
-                    pdb_files.append(pdb.code)
-                elif pdb.contents is not None:
+                    pdb_code = pdb.code.strip()
+                    if pdb_code.isalnum() and len(pdb_code) == 4:
+                        pdb_files.append(pdb_code)
+                        continue
+                    elif pdb_code != "":
+                        self.log.warning(
+                            f"Invalid input PDB code for running Dimple: {pdb.code}"
+                        )
+                if pdb.contents not in ("", None):
                     sha1 = hashlib.sha1(pdb.contents.encode()).hexdigest()
                     assert pdb.name and "/" not in pdb.name, "Invalid PDB file name"
                     pdb_dir = pdb_tmpdir / sha1

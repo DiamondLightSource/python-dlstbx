@@ -67,6 +67,13 @@ class Status(Base):
             )
         return tc
 
+    def as_testsuite(self, suite_name=None):
+        return junit_xml.TestSuite(
+            suite_name or self.Timestamp,
+            test_cases=[self.as_testcase()],
+            timestamp=self.Timestamp.isoformat(),
+        )
+
 
 class database:
     """API for access to the zocalo health status database (nee profiling database)"""

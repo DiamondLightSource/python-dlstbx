@@ -2,6 +2,7 @@
 #
 # LIBTBX_SET_DISPATCHER_NAME it.status
 
+import collections
 import datetime
 import logging
 import operator
@@ -108,12 +109,20 @@ def run():
         ]
 
     if options.output:
-        junit_suite = junit_xml.TestSuite(
-            "IT Health", test_cases=[s.as_testcase() for s in status]
-        )
+        grouped_cases = collections.defaultdict(list)
+        for s in status:
+            grouped_cases[s.Timestamp].append(s.as_testcase())
         with open(options.output, "w") as fh:
             junit_xml.to_xml_report_file(
-                fh, [junit_suite], prettyprint=True, encoding="UTF-8"
+                fh,
+                [
+                    junit_xml.TestSuite(
+                        timestamp, timestamp=timestamp.isoformat(), test_cases=cases
+                    )
+                    for timestamp, cases in grouped_cases.items()
+                ],
+                prettyprint=True,
+                encoding="UTF-8",
             )
         exit()
 

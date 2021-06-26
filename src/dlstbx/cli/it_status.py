@@ -2,13 +2,13 @@
 #
 # LIBTBX_SET_DISPATCHER_NAME it.status
 
-
 import datetime
 import logging
+import operator
 import sys
 from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
 
-import dlstbx.profiling
+import dlstbx.util.it_health
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
 
@@ -40,6 +40,7 @@ def run():
         "--level",
         dest="level",
         metavar="LVL",
+        type=int,
         default=0,
         help="Warning level (0-9: OK, 11-19: Warn, 20+: Error)",
     )
@@ -72,117 +73,103 @@ def run():
 
     (options, args) = parser.parse_args()
 
-    error_exists = False
+    db = dlstbx.util.it_health.database()
 
-    def store_status():
-        db = dlstbx.profiling.database()
-        db.set_infrastructure_status(
+    if options.prune:
+        records = db.prune()
+        print(f"Database successfully pruned, {records} entries removed")
+
+    if options.source:
+        db.set_status(
             source=options.source,
             level=options.level,
             message=options.message,
             url=options.URL,
         )
+        if not args:
+            exit()
 
-    def prune_database():
-        dlstbx.profiling.database().prune()
-        print("Database successfully pruned")
+    if hasattr(ColorStreamHandler, "_get_color"):
 
-    def display_status(issues):
-        global error_exists
-        if hasattr(ColorStreamHandler, "_get_color"):
+        def setbold():
+            sys.stdout.write(ColorStreamHandler.BOLD)
 
-            def setbold():
-                sys.stdout.write(ColorStreamHandler.BOLD)
+        def setcolor(level):
+            sys.stdout.write(getattr(ColorStreamHandler, "_get_color")(level))
 
-            def setcolor(level):
-                sys.stdout.write(getattr(ColorStreamHandler, "_get_color")(level))
+        def resetcolor():
+            sys.stdout.write(ColorStreamHandler.DEFAULT)
 
-            def resetcolor():
-                sys.stdout.write(ColorStreamHandler.DEFAULT)
+    else:
+        setbold = lambda: None
+        setcolor = lambda x: None
+        resetcolor = lambda: None
 
-        else:
-            setbold = lambda: None
-            setcolor = lambda x: None
-            resetcolor = lambda: None
+    status = sorted(db.get_status(), key=operator.attrgetter("Level"), reverse=True)
+    if args:
+        prefixes = tuple(x.rstrip(".") + "." for x in args)
+        status = [
+            s for s in status if s.Source in args or s.Source.startswith(prefixes)
+        ]
 
-        db = dlstbx.profiling.database()
-        status = db.get_infrastructure_status()
-        status = sorted(status, key=lambda s: -s["Level"])
-        if issues:
-            prefixes = [x.rstrip(".") + "." for x in issues]
-            status = list(
-                filter(
-                    lambda x: x["Source"] in issues
-                    or any(x["Source"].startswith(y) for y in prefixes),
-                    status,
-                )
-            )
-
-        for group, colour in (
-            ("Error", logging.ERROR),
-            ("Warning", logging.WARNING),
-            ("Information", logging.INFO),
-        ):
-            select = [s for s in status if s["Group"] == group]
-            if select:
+    error_seen = False
+    for group, colour in (
+        ("Error", logging.ERROR),
+        ("Warning", logging.WARNING),
+        ("Information", logging.INFO),
+    ):
+        select = [s for s in status if s.Group == group]
+        if select:
+            resetcolor()
+            setcolor(colour)
+            if not options.quiet:
+                if options.verbosity > 0 or group != "Information":
+                    setbold()
+                    print(
+                        "\n%d %s message%s:"
+                        % (len(select), group, "" if len(select) == 1 else "s")
+                    )
+                else:
+                    print(
+                        "\n%d %s message%s omitted"
+                        % (len(select), group, "" if len(select) == 1 else "s")
+                    )
+            if group == "Information" and (options.quiet or options.verbosity == 0):
+                continue
+            if group == "Error":
+                error_seen = True
+            base_indent = "" if options.quiet else "  "
+            for s in select:
                 resetcolor()
                 setcolor(colour)
-                if not options.quiet:
-                    if options.verbosity > 0 or group != "Information":
-                        setbold()
-                        print(
-                            "\n%d %s message%s:"
-                            % (len(select), group, "" if len(select) == 1 else "s")
-                        )
-                    else:
-                        print(
-                            "\n%d %s message%s omitted"
-                            % (len(select), group, "" if len(select) == 1 else "s")
-                        )
-                if group == "Information" and (options.quiet or options.verbosity == 0):
-                    continue
-                if group == "Error":
-                    error_exists = True
-                base_indent = "" if options.quiet else "  "
-                for s in select:
-                    resetcolor()
-                    setcolor(colour)
-                    age = (datetime.datetime.now() - s["Timestamp"]).seconds
-                    if age < 30:
-                        age = "just now"
-                    elif age < 90:
-                        age = "%d sec ago" % age
-                    elif age < 90 * 60:
-                        age = "%d min ago" % round(age / 60)
-                    else:
-                        age = "%.1f hrs ago" % (age / 60 / 60)
-                    if s["Level"] > 0:
-                        setbold()
-                    print(base_indent + s["Source"] + ":", end=" ")
-                    resetcolor()
-                    setcolor(colour)
-                    print(" %s (%s)" % (s["Message"], age))
-                    indent = base_indent + (len(s["Source"]) + 2) * " "
-                    if (
-                        s["MessageBody"]
-                        and not options.quiet
-                        and (group != "Information" or options.verbosity > 2)
-                    ):
-                        print(indent + s["MessageBody"].replace("\n", "\n" + indent))
-                    if (
-                        s["URL"]
-                        and (group != "Information" or options.verbosity > 1)
-                        and not (options.quiet > 1)
-                    ):
-                        print(indent + s["URL"])
-        resetcolor()
-
-    if options.prune:
-        prune_database()
-    elif options.source:
-        store_status()
-    else:
-        display_status(args)
-
-    if error_exists:
-        sys.exit(1)
+                age = (datetime.datetime.now() - s.Timestamp).seconds
+                if age < 30:
+                    age = "just now"
+                elif age < 90:
+                    age = f"{age} sec ago"
+                elif age < 90 * 60:
+                    age = f"{round(age / 60)} min ago"
+                else:
+                    age = f"{age / 60 / 60:.1f} hrs ago"
+                if s.Level > 0:
+                    setbold()
+                print(f"{base_indent}{s.Source}", end=": ")
+                resetcolor()
+                setcolor(colour)
+                print(f" {s.Message} ({age})")
+                indent = base_indent + (len(s.Source) + 2) * " "
+                if (
+                    s.MessageBody
+                    and not options.quiet
+                    and (group != "Information" or options.verbosity > 2)
+                ):
+                    print(indent + s.MessageBody.replace("\n", "\n" + indent))
+                if (
+                    s.URL
+                    and (group != "Information" or options.verbosity > 1)
+                    and not (options.quiet > 1)
+                ):
+                    print(indent + s.URL)
+    resetcolor()
+    if error_seen:
+        exit(1)

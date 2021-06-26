@@ -3,6 +3,7 @@ import logging
 import pathlib
 from typing import List
 
+import junit_xml
 import sqlalchemy.ext.declarative
 import sqlalchemy.orm
 import sqlalchemy.sql.expression
@@ -41,6 +42,30 @@ class Status(Base):
 
     def __repr__(self):
         return f"<Status L{self.Level:03d} {self.Source}: {self.Message} ({self.Timestamp})"
+
+    def as_testcase(self):
+        s_class = ".".join(self.Source.split(".")[:-1]) or "zocalo"
+        if "." not in s_class:
+            s_class = f"zocalo.{s_class}"
+        s_name = self.Source.split(".")[-1]
+        s_message = (self.Message or "").strip()
+        s_body = (self.MessageBody or "").rstrip()
+        if self.Level >= 10:
+            tc = junit_xml.TestCase(
+                classname=s_class,
+                name=s_name,
+            )
+            if self.Level >= 20:
+                tc.add_failure_info(s_message, s_body)
+            else:
+                tc.add_skipped_info(s_message, s_body)
+        else:
+            tc = junit_xml.TestCase(
+                classname=s_class,
+                name=s_name,
+                stdout=f"{s_message}\n\n{s_body}" if s_body else s_message,
+            )
+        return tc
 
 
 class database:

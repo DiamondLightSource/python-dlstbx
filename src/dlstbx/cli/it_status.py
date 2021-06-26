@@ -8,6 +8,8 @@ import operator
 import sys
 from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
 
+import junit_xml
+
 import dlstbx.util.it_health
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
@@ -24,6 +26,15 @@ def run():
     )
     parser.add_option(
         "-q", action="count", dest="quiet", default=0, help="Be more quiet (up to 2x)"
+    )
+    parser.add_option(
+        "-o",
+        "--output",
+        "--xml",
+        dest="output",
+        metavar="OUTFILE",
+        default=None,
+        help="Write status to a JUnit XML file",
     )
 
     report = OptionGroup(parser, "to add a report to the database")
@@ -86,8 +97,25 @@ def run():
             message=options.message,
             url=options.URL,
         )
-        if not args:
+        if not args and not options.output:
             exit()
+
+    status = sorted(db.get_status(), key=operator.attrgetter("Level"), reverse=True)
+    if args:
+        prefixes = tuple(x.rstrip(".") + "." for x in args)
+        status = [
+            s for s in status if s.Source in args or s.Source.startswith(prefixes)
+        ]
+
+    if options.output:
+        junit_suite = junit_xml.TestSuite(
+            "IT Health", test_cases=[s.as_testcase() for s in status]
+        )
+        with open(options.output, "w") as fh:
+            junit_xml.to_xml_report_file(
+                fh, [junit_suite], prettyprint=True, encoding="UTF-8"
+            )
+        exit()
 
     if hasattr(ColorStreamHandler, "_get_color"):
 
@@ -104,13 +132,6 @@ def run():
         setbold = lambda: None
         setcolor = lambda x: None
         resetcolor = lambda: None
-
-    status = sorted(db.get_status(), key=operator.attrgetter("Level"), reverse=True)
-    if args:
-        prefixes = tuple(x.rstrip(".") + "." for x in args)
-        status = [
-            s for s in status if s.Source in args or s.Source.startswith(prefixes)
-        ]
 
     error_seen = False
     for group, colour in (

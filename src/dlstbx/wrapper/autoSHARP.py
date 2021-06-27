@@ -10,10 +10,14 @@ from jinja2.environment import Environment
 from jinja2.exceptions import UndefinedError
 from jinja2.loaders import PackageLoader
 
-from dlstbx.util.big_ep_helpers import (copy_results, ispyb_write_model_json,
-                                        send_results_to_ispyb,
-                                        spacegroup_short, write_coot_script,
-                                        write_sequence_file)
+from dlstbx.util.big_ep_helpers import (
+    copy_results,
+    ispyb_write_model_json,
+    send_results_to_ispyb,
+    spacegroup_short,
+    write_coot_script,
+    write_sequence_file,
+)
 from dlstbx.util.processing_stats import get_model_data
 from dlstbx.util.symlink import create_parent_symlink
 

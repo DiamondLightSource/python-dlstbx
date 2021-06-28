@@ -5,6 +5,7 @@ junit-xml>=1.9
 marshmallow-sqlalchemy
 msgpack-python
 networkx
+pandas
 pika
 procrunner>=1.0.2
 pytest

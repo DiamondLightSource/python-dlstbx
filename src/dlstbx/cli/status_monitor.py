@@ -15,9 +15,11 @@ from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
 
 import workflows
+import workflows.services
 import workflows.transport
-from dlstbx.util.version import dlstbx_version
 from workflows.services.common_service import CommonService
+
+from dlstbx.util.version import dlstbx_version
 
 # Our conda-based installers are fundamentally broken.
 # Thankfully this only manifests in curses.
@@ -535,6 +537,17 @@ def run():
     version = dlstbx_version()
     parser = OptionParser(usage="dlstbx.status_monitor [options]", version=version)
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+    known_services = workflows.services.get_known_services()
+    parser.add_option(
+        "-s",
+        "--service",
+        dest="services",
+        metavar="SVC",
+        action="append",
+        default=[],
+        help="Stop all instances of a service. Use 'none' for instances without "
+        "loaded service. Known services: " + ", ".join(known_services),
+    )
     parser.add_option(
         "-n",
         action="store_true",
@@ -590,6 +603,14 @@ def run():
             return bool(matcher.search(message["host"]))
 
         filters.append(is_host_match)
+
+    if options.services:
+        service_list = set(options.services)
+
+        def is_service_match(message):
+            return message.get("serviceclass") in service_list
+
+        filters.append(is_service_match)
 
     monitor = monitor(
         transport=options.transport, version=version, filters=filters, test=options.test

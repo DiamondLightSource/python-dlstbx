@@ -45,8 +45,23 @@ def find_all_references(startfile):
                     image_count[filename] = None
                     continue
                 raise
-            else:
+            if not shape[0]:
                 image_count[filename] += shape[0]
+                continue
+            chunk_size = (
+                fhed[entry]
+                .id.get_chunk_info_by_coord(tuple(c - 1 for c in fhed[entry].shape))
+                .size
+            )
+            if not chunk_size:
+                log.warning(
+                    "Referenced file {filename} has a zero-sized final chunk size.",
+                    filename,
+                    exc_info=True,
+                )
+                image_count[filename] += 0
+                continue
+            image_count[filename] += shape[0]
     return image_count
 
 

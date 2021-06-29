@@ -4,27 +4,25 @@ import pathlib
 from datetime import datetime
 
 import ispyb
-import workflows.recipe
 import sqlalchemy.engine
 import sqlalchemy.orm
-from sqlalchemy.orm import Load, contains_eager, joinedload
-from workflows.services.common_service import CommonService
-
+import workflows.recipe
 from ispyb.sqlalchemy import (
+    PDB,
+    AutoProcIntegration,
     AutoProcProgram,
     AutoProcProgramAttachment,
-    AutoProcIntegration,
     BLSample,
     BLSession,
     Crystal,
     DataCollection,
-    PDB,
     ProcessingJob,
     Proposal,
     Protein,
     ProteinHasPDB,
 )
-
+from sqlalchemy.orm import Load, contains_eager, joinedload
+from workflows.services.common_service import CommonService
 
 Session = sqlalchemy.orm.sessionmaker(
     bind=sqlalchemy.create_engine(
@@ -766,7 +764,7 @@ class DLSTrigger(CommonService):
 
         with Session() as session:
             query = (
-                session.query(Proposal)
+                session.query(Proposal, BLSession)
                 .join(BLSession, BLSession.proposalId == Proposal.proposalId)
                 .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
                 .filter(DataCollection.dataCollectionId == dcid)
@@ -778,8 +776,10 @@ class DLSTrigger(CommonService):
             )
             return False
 
-        if proposal.proposalCode in ("lb", "in", "sw"):
-            self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
+        if proposal.Proposal.proposalCode in ("lb", "in", "sw"):
+            self.log.info(
+                f"Skipping big_ep trigger for {proposal.Proposal.proposalCode} visit"
+            )
             return {"success": True}
 
         try:
@@ -805,6 +805,14 @@ class DLSTrigger(CommonService):
             big_ep_params = None
             for app in query.all():
                 if app.autoProcProgramId == program_id:
+                    if (
+                        proposal.BLSession.beamLineName == "i23"
+                        and "multi" not in app.processingPrograms
+                    ):
+                        self.log.info(
+                            f"Skipping big_ep trigger for {app.processingPrograms} data on i23"
+                        )
+                        return {"success": True}
                     big_ep_params = parameters(app.processingPrograms)
                     break
         try:

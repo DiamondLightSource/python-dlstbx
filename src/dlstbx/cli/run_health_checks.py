@@ -35,28 +35,30 @@ def check_activemq_dlq(db_status):
 
         if messages == 0:
             level = REPORT_PASS
+            new_message = f"Error cleared at {now}"
         else:
             level = REPORT_ERROR
+            new_message = f"First message seen at {now}"
+
+        if source in db_status and db_status[source].MessageBody:
+            if level < db_status[source].Level:
+                # error level improved - append message
+                new_message = (
+                    db_status[source].MessageBody
+                    + "\n"
+                    + report_updates[source].MessageBody
+                )
+            elif level == db_status[source].Level:
+                # error level stays the same - keep message
+                new_message = db_status[source].MessageBody
+            # else: error level worsened - replace message
 
         report_updates[source] = Status(
             Source=source,
             Level=level,
             Message=f"{messages} message{'s' if messages > 1 else ''} in {queue}",
-            MessageBody=f"First message seen at {now}"
-            if messages
-            else f"Error cleared at {now}",
+            MessageBody=new_message,
         )
-
-        if (
-            source in db_status
-            and db_status[source].MessageBody
-            and level < db_status[source].Level
-        ):
-            report_updates[source].MessageBody = (
-                db_status[source].MessageBody
-                + "\n"
-                + report_updates[source].MessageBody
-            )
 
     for report in db_status:
         if report.startswith(check_prefix):

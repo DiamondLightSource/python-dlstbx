@@ -1,15 +1,16 @@
 import configparser
+import copy
 import glob
 import itertools
 import logging
-import copy
 import os
 import shutil
 
-import dlstbx.util.symlink
 import procrunner
 import py
 import zocalo.wrapper
+
+import dlstbx.util.symlink
 
 logger = logging.getLogger("dlstbx.wrap.dimple")
 
@@ -117,9 +118,9 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         if not os.path.exists(mtz):
             logger.error("Could not find data file %s to process", mtz)
             return False
-        pdb = self.params.get("ispyb_parameters", {}).get("pdb") or self.params[
-            "dimple"
-        ].get("pdb", [])
+        pdb = self.params.get("ispyb_parameters", {}).get("pdb") or self.params.get(
+            "dimple", {}
+        ).get("pdb")
         if not pdb:
             logger.error("Not running dimple as no PDB file available")
             return False

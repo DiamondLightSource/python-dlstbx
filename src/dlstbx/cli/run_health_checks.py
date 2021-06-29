@@ -43,11 +43,7 @@ def check_activemq_dlq(db_status):
         if source in db_status and db_status[source].MessageBody:
             if level < db_status[source].Level:
                 # error level improved - append message
-                new_message = (
-                    db_status[source].MessageBody
-                    + "\n"
-                    + report_updates[source].MessageBody
-                )
+                new_message = db_status[source].MessageBody + "\n" + new_message
             elif level == db_status[source].Level:
                 # error level stays the same - keep message
                 new_message = db_status[source].MessageBody

@@ -38,6 +38,7 @@ console_scripts = [
     "dlstbx.queue_monitor=dlstbx.cli.queue_monitor:run",
     "dlstbx.queue_monitor_rmq=dlstbx.cli.queue_monitor_rmq:run",
     "dlstbx.run_dozor=dlstbx.cli.run_dozor:run",
+    "dlstbx.run_health_checks=dlstbx.cli.run_health_checks:run",
     "dlstbx.run_system_tests=dlstbx.cli.run_system_tests:run",
     "dlstbx.service=dlstbx.cli.service:run",
     "dlstbx.show_recipeID=dlstbx.cli.show_recipeID:run",

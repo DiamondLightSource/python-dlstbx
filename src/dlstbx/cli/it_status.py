@@ -92,7 +92,7 @@ def run():
         print(f"Database successfully pruned, {records} entries removed")
 
     if options.source:
-        db.set_status(
+        db.set_status_components(
             source=options.source,
             level=options.level,
             message=options.message,
@@ -186,7 +186,7 @@ def run():
                 print(f"{base_indent}{s.Source}", end=": ")
                 resetcolor()
                 setcolor(colour)
-                print(f" {s.Message} ({age})")
+                print(f"{s.Message} ({age})")
                 indent = base_indent + (len(s.Source) + 2) * " "
                 if (
                     s.MessageBody

@@ -113,39 +113,49 @@ class database:
 
     def set_status(
         self,
+        status: Status,
+    ) -> None:
+        if not status.Source:
+            raise ValueError("Source of status message undefined")
+        if status.Level is None:
+            raise ValueError("Warning level of status message undefined")
+        if not status.Message:
+            raise ValueError("Message undefined")
+
+        with self._sessionmaker() as session:
+            session.merge(status)
+            session.commit()
+
+        statlog = logging.getLogger(f"ithealth.{status.Source}")
+        logdest = statlog.debug
+        if status.Level > 9:
+            logdest = statlog.warning
+        if status.Level > 19:
+            logdest = statlog.error
+        logdest(status.Message, extra={"fullmessage": status.MessageBody})
+
+    def set_status_components(
+        self,
         source: str = None,
         level: int = None,
         message: str = None,
+        *,
         fullmessage=None,
         url=None,
         ext=None,
     ) -> None:
         if ext:
             ext = json.dumps(ext)
-        assert source, "Source of status message undefined"
-        assert level is not None, "Warning level of status message undefined"
-        assert message, "Message undefined"
-
-        new_status = Status(
-            Source=source,
-            Level=level,
-            Message=message,
-            MessageBody=fullmessage,
-            URL=url,
-            ExtData=ext,
+        self.set_status(
+            Status(
+                Source=source,
+                Level=level,
+                Message=message,
+                MessageBody=fullmessage,
+                URL=url,
+                ExtData=ext,
+            )
         )
-        with self._sessionmaker() as session:
-            session.merge(new_status)
-            session.commit()
-
-        statlog = logging.getLogger("ithealth." + source)
-        statlog.setLevel(logging.DEBUG)
-        logdest = statlog.debug
-        if level > 9:
-            logdest = statlog.warning
-        if level > 19:
-            logdest = statlog.error
-        logdest(message, extra={"fullmessage": fullmessage})
 
     def prune(self) -> int:
         one_day_ago = sqlalchemy.sql.expression.text("NOW() - INTERVAL 1 DAY")

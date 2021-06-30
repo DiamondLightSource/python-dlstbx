@@ -3,6 +3,7 @@ import collections
 import functools
 import logging
 import re
+import typing
 from datetime import datetime
 
 import dlstbx
@@ -22,7 +23,12 @@ Status = functools.partial(
 logger = logging.getLogger("dlstbx.cli.run_health_checks")
 
 
-def check_activemq_dlq(db_status):
+class CheckFunctionCall(typing.NamedTuple):
+    current_status: typing.Dict[str, dlstbx.util.it_health.Status]
+
+
+def check_activemq_dlq(cfc: CheckFunctionCall):
+    db_status = cfc.current_status
     status = dlstbx.cli.dlq_check.check_dlq()
     check_prefix = "zocalo.dlq.activemq."
     now = f"{datetime.now():%Y-%m-%d %H:%M:%S}"
@@ -74,8 +80,8 @@ def check_activemq_dlq(db_status):
     return report_updates.values()
 
 
-def check_gfps_expulsion(db_status):
-    check = "dls.filesystem.gpfs-expulsion"
+def check_gfps_expulsion(cfc: CheckFunctionCall) -> dlstbx.util.it_health.Status:
+    check = "it.filesystem.gpfs-expulsion"
     g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
     g.stream = "5d8cd831e7e1f54f98464d3f"  # switch to syslog stream
     g.filters = ["application_name:mmfs", "message:expelling"]
@@ -92,15 +98,15 @@ def check_gfps_expulsion(db_status):
 
     if errors == 0:
         level = REPORT_PASS
-        message = "No GPFS expulsions seen over the past 2 hours"
+        message = "No nodes ejected from GPFS in the past 2 hours"
         messagebody = ""
     else:
         if errors == 1:
             level = REPORT_WARNING
-            message = "One GPFS expulsion seen over the past 2 hours"
+            message = "One node ejection from GPFS seen in the past 2 hours"
         else:
             level = REPORT_ERROR
-            message = f"{errors} GPFS expulsions seen over the past 2 hours"
+            message = f"{errors} node ejections from GPFS seen in the past 2 hours"
         messagebody = "\n".join(
             ["By cluster group:"]
             + [f"  {count:3d}x {cluster}" for cluster, count in clusters.most_common()]
@@ -111,6 +117,11 @@ def check_gfps_expulsion(db_status):
 
 
 def run():
+    check_functions = {
+        "activemq": check_activemq_dlq,
+        "gpfs": check_gfps_expulsion,
+    }
+
     parser = argparse.ArgumentParser(
         description="Run infrastructure checks and report results to a database."
     )
@@ -123,10 +134,25 @@ def run():
         default=False,
         help="enable logging to graylog",
     )
+    parser.add_argument(
+        "--check",
+        dest="check",
+        action="append",
+        metavar="CHK",
+        default=[],
+        type=str,
+        choices=tuple(check_functions),
+        help="run specific check only",
+    )
     options = parser.parse_args()
 
     if options.graylog:
         dlstbx.enable_graylog(live=True)
+
+    if options.check:
+        check_functions = {
+            key: value for key, value in check_functions.items() if key in options.check
+        }
 
     root_logger = logging.getLogger("dlstbx")
     root_logger.setLevel(logging.INFO)
@@ -142,12 +168,11 @@ def run():
         logger.error(f"Could not connect to IT health database: {e}", exc_info=True)
         exit(1)
 
-    check_functions = (check_activemq_dlq, check_gfps_expulsion)
-
     try:
-        for fn in check_functions:
+        for fn in check_functions.values():
+            call_args = CheckFunctionCall(current_status=current_db_status.copy())
             try:
-                outcomes = fn(db_status=current_db_status.copy()) or []
+                outcomes = fn(call_args) or []
             except Exception as e:
                 logger.error(
                     f"Health check function {fn.__name__} raised exception: {e}",

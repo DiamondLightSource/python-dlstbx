@@ -1,12 +1,15 @@
 import argparse
+import collections
 import functools
 import logging
+import re
 from datetime import datetime
 
 import dlstbx
 import dlstbx.cli.dlq_check
 import dlstbx.util.it_health
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
+from dlstbx.util.graylog import GraylogAPI
 
 REPORT_ERROR = 20
 REPORT_WARNING = 10
@@ -71,6 +74,42 @@ def check_activemq_dlq(db_status):
     return report_updates.values()
 
 
+def check_gfps_expulsion(db_status):
+    check = "dls.filesystem.gpfs-expulsion"
+    g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
+    g.stream = "5d8cd831e7e1f54f98464d3f"  # switch to syslog stream
+    g.filters = ["application_name:mmfs", "message:expelling"]
+
+    errors, hosts, clusters = 0, collections.Counter(), collections.Counter()
+    host_and_cluster = re.compile(r"Expelling: [0-9.:]+ \(([^ ]+) in ([^ ]+)\)$")
+    for m in g.get_all_messages(time=7200):
+        errors += 1
+        match = host_and_cluster.search(m["message"])
+        if match:
+            host, cluster = match.groups()
+            hosts[host] += 1
+            clusters[cluster] += 1
+
+    if errors == 0:
+        level = REPORT_PASS
+        message = "No GPFS expulsions seen over the past 2 hours"
+        messagebody = ""
+    else:
+        if errors == 1:
+            level = REPORT_WARNING
+            message = "One GPFS expulsion seen over the past 2 hours"
+        else:
+            level = REPORT_ERROR
+            message = f"{errors} GPFS expulsions seen over the past 2 hours"
+        messagebody = "\n".join(
+            ["By cluster group:"]
+            + [f"  {count:3d}x {cluster}" for cluster, count in clusters.most_common()]
+            + ["", "By host:"]
+            + [f"  {count:3d}x {host}" for host, count in clusters.most_common()]
+        )
+    return Status(Source=check, Level=level, Message=message, MessageBody=messagebody)
+
+
 def run():
     parser = argparse.ArgumentParser(
         description="Run infrastructure checks and report results to a database."
@@ -103,12 +142,12 @@ def run():
         logger.error(f"Could not connect to IT health database: {e}", exc_info=True)
         exit(1)
 
-    check_functions = (check_activemq_dlq,)
+    check_functions = (check_activemq_dlq, check_gfps_expulsion)
 
     try:
         for fn in check_functions:
             try:
-                outcomes = fn(db_status=current_db_status.copy())
+                outcomes = fn(db_status=current_db_status.copy()) or []
             except Exception as e:
                 logger.error(
                     f"Health check function {fn.__name__} raised exception: {e}",

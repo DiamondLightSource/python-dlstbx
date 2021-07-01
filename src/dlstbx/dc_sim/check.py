@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 
 import ispyb
@@ -8,6 +9,8 @@ from ispyb.sqlalchemy import CTF, AutoProcProgram, MotionCorrection
 from sqlalchemy.orm import Load
 
 import dlstbx.dc_sim.definitions as df
+
+logger = logging.getLogger("dlxtbx.dc_sim.check")
 
 
 def check_test_outcome(test, db_classic, db_session=None):
@@ -38,7 +41,16 @@ def check_test_outcome(test, db_classic, db_session=None):
     check_function = check_functions[scenario_type]
 
     with db_session() as dbs:
-        overall, failed_tests = check_function(test, expected_outcome, db_classic, dbs)
+        try:
+            overall, failed_tests = check_function(
+                test, expected_outcome, db_classic, dbs
+            )
+        except Exception as e:
+            print(f"Test validation failed with {e}, leaving test alone")
+            logger.error(
+                f"dc_sim valication for {scenario_type} failed with {e}", exc_info=True
+            )
+            return test
 
     if failed_tests:
         test["success"] = False

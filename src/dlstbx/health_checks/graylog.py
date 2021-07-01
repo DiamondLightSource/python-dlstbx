@@ -1,5 +1,6 @@
 import collections
 import re
+from operator import itemgetter
 
 from dlstbx.health_checks import REPORT, CheckFunctionCall, Status
 from dlstbx.util.graylog import GraylogAPI
@@ -7,6 +8,7 @@ from dlstbx.util.graylog import GraylogAPI
 
 def check_graylog_is_alive(cfc: CheckFunctionCall) -> Status:
     check = "services.graylog.alive"
+    url = "https://graylog2.diamond.ac.uk/"
     g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
     messages = g.get_messages()
 
@@ -15,7 +17,7 @@ def check_graylog_is_alive(cfc: CheckFunctionCall) -> Status:
             Source=check,
             Level=REPORT.PASS,
             Message=f"Messages are appearing in Graylog ({len(messages)} in 10 minutes)",
-            URL="https://graylog2.diamond.ac.uk/",
+            URL=url,
         )
     else:
         return Status(
@@ -23,7 +25,7 @@ def check_graylog_is_alive(cfc: CheckFunctionCall) -> Status:
             Level=REPORT.ERROR,
             Message=f"No messages have appeared in Graylog for at least 10 minutes",
             MessageBody="According to Graylog there have not been any messages in the Data Analysis stream for the last 10 minutes",
-            URL="https://graylog2.diamond.ac.uk/",
+            URL=url,
         )
 
 
@@ -61,3 +63,34 @@ def check_gfps_expulsion(cfc: CheckFunctionCall) -> Status:
             + [f"  {count:3d}x {host}" for host, count in clusters.most_common()]
         )
     return Status(Source=check, Level=level, Message=message, MessageBody=messagebody)
+
+
+def check_filesystem_is_responsive(cfc: CheckFunctionCall) -> Status:
+    check = "it.filesystem.responsiveness"
+    url = "https://graylog2.diamond.ac.uk/dashboards/5a5c7f4eddab6253b0d28d1c"
+    g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
+    g.filters = ["facility:dlstbx.services.filewatcher", "stat-time-max:>5"]
+
+    messages = list(g.get_all_messages(time=1800))
+    if not messages:
+        return Status(
+            Source=check,
+            Level=REPORT.PASS,
+            Message="Filesystem response times normal",
+            MessageBody="No filesystem accesses slower than 5 seconds observed in the last 30 minutes",
+            URL=url,
+        )
+
+    worst_case = sorted(messages, key=itemgetter("stat-time-max"))[-1]
+    most_recent = sorted(messages, key=itemgetter("localtime"))[-1]
+    return Status(
+        Source=check,
+        Level=REPORT.ERROR,
+        Message="Filesystems are slower than normal",
+        MessageBody=(
+            f"{len(messages)} filesystem stat() calls slower than 5 seconds found in the last 30 minutes.\n"
+            f"worst occurrence at {worst_case['localtime']:%Y-%m-%d %H:%M:%S} with {worst_case['stat-time-max']:.1f} seconds,\n"
+            f"last occurrence at {most_recent['localtime']:%Y-%m-%d %H:%M:%S} with {most_recent['stat-time-max']:.1f} seconds"
+        ),
+        URL=url,
+    )

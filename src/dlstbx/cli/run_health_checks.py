@@ -16,6 +16,7 @@ def run():
         "activemq": dlstbx.health_checks.activemq.check_activemq_dlq,
         "gpfs": dlstbx.health_checks.graylog.check_gfps_expulsion,
         "graylog": dlstbx.health_checks.graylog.check_graylog_is_alive,
+        "slowfs": dlstbx.health_checks.graylog.check_filesystem_is_responsive,
     }
 
     parser = argparse.ArgumentParser(

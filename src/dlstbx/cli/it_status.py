@@ -11,7 +11,7 @@ from optparse import SUPPRESS_HELP, OptionGroup, OptionParser
 
 import junit_xml
 
-import dlstbx.util.it_health
+import dlstbx.health_checks
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
 
@@ -85,7 +85,7 @@ def run():
 
     (options, args) = parser.parse_args()
 
-    db = dlstbx.util.it_health.database()
+    db = dlstbx.health_checks.database()
 
     if options.prune:
         records = db.prune()

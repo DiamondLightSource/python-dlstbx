@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import json
 import logging
 import pathlib
-from typing import List
+import types
+from typing import Dict, List, NamedTuple
 
 import junit_xml
 import sqlalchemy.ext.declarative
@@ -10,7 +13,14 @@ import sqlalchemy.sql.expression
 from sqlalchemy import TIMESTAMP, Column, LargeBinary, String, Text, select, text
 from sqlalchemy.dialects.mysql import TINYINT
 
+# deliberately not declared as an IntEnum so that it can be passed to the sqlalchemy Status() class
+REPORT = types.SimpleNamespace(PASS=0, WARNING=10, ERROR=20)
+
 Base = sqlalchemy.ext.declarative.declarative_base()
+
+
+class CheckFunctionCall(NamedTuple):
+    current_status: Dict[str, Status]
 
 
 class Status(Base):

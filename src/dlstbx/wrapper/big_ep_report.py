@@ -9,6 +9,16 @@ from jinja2.loaders import PackageLoader
 
 import dlstbx.util.big_ep as bpu
 import dlstbx.util.fast_ep as fpu
+from dlstbx.util.big_ep_helpers import (
+    copy_results,
+    get_autobuild_model_files,
+    get_autosharp_model_files,
+    get_crank2_model_files,
+    ispyb_write_model_json,
+    send_results_to_ispyb,
+    write_coot_script,
+)
+from dlstbx.util.symlink import create_parent_symlink
 
 logger = logging.getLogger("dlstbx.wrap.big_ep_report")
 
@@ -39,10 +49,15 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             params["data"] = params.get(
                 "ispyb_parameters", self.recwrap.environment
             ).get("data", "N/A")
+        try:
+            pipeline = params["pipeline"]
+        except KeyError:
+            pipeline = params.get("ispyb_parameters", self.recwrap.environment).get(
+                "pipeline", "N/A"
+            )
 
         tmpl_data = {
-            "_root_wd": working_directory.strpath,
-            "pipeline": params["pipeline"],
+            "pipeline": pipeline,
             "big_ep_path": params["big_ep_path"],
             "dcid": dcid,
             "visit": params["visit"],
@@ -54,13 +69,49 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             "html_images": {},
         }
 
-        tmpl_data.update(
-            {"settings": params.get("ispyb_parameters", self.recwrap.environment)}
-        )
+        tmpl_data.update({"settings": self.recwrap.environment["msg"]})
+
+        if pipeline == "autoSHARP":
+            mdl_dict = get_autosharp_model_files(working_directory, logger)
+        elif pipeline == "AutoBuild":
+            mdl_dict = get_autobuild_model_files(working_directory, logger)
+        elif pipeline == "Crank2":
+            mdl_dict = get_crank2_model_files(working_directory, logger)
+        if mdl_dict is None:
+            logger.warning(f"Cannot process {pipeline} results")
+            return True
+
+        ispyb_write_model_json(str(working_directory), mdl_dict, logger)
+        write_coot_script(str(working_directory), mdl_dict)
+
+        if "devel" not in params:
+            skip_copy = [".launch", ".recipewrap"]
+            singularity_image = params.get("singularity_image")
+            if singularity_image:
+                skip_copy.append(singularity_image)
+            if params.get("results_directory"):
+                copy_results(
+                    working_directory.strpath,
+                    results_directory.strpath,
+                    skip_copy,
+                    logger,
+                )
+                if params.get("create_symlink"):
+                    upstream = params["create_symlink"].replace("/", "-")
+                    create_parent_symlink(
+                        results_directory.strpath, f"{pipeline}-{upstream}", levels=1
+                    )
+                send_results_to_ispyb(
+                    params.get("results_directory"),
+                    params.get("log_files"),
+                    self.record_result_individual_file,
+                )
+            else:
+                logger.debug("Result directory not specified")
 
         logger.debug("Generating model density images")
         try:
-            bpu.generate_model_snapshots(tmpl_env, tmpl_data)
+            bpu.generate_model_snapshots(working_directory.strpath, tmpl_env, tmpl_data)
         except Exception:
             logger.debug(
                 "Exception raised while generating model snapshots", exc_info=True
@@ -124,9 +175,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
                 logger.exception("Error rendering big_ep summary report")
                 return False
             fp.write(summary_html)
-            bpu.send_html_email_message(
-                summary_html, params["pipeline"], email_list, tmpl_data
-            )
+            bpu.send_html_email_message(summary_html, pipeline, email_list, tmpl_data)
 
         results_directory.ensure(dir=True)
         logger.info("Copying big_ep report to %s", results_directory.strpath)

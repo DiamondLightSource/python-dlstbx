@@ -828,6 +828,115 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
+    def trigger_big_ep_cloud(self, rw, header, parameters, session, **kwargs):
+        dcid = parameters("dcid")
+        if not dcid:
+            self.log.error("big_ep_cloud trigger failed: No DCID specified")
+            return False
+        pipeline = parameters("pipeline")
+        if not pipeline:
+            self.log.error("big_ep_cloud trigger failed: No pipeline specified")
+            return False
+
+        query = (
+            session.query(Proposal, BLSession)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        proposal = query.first()
+        if not proposal:
+            self.log.error(
+                f"big_ep_cloud trigger failed: no proposal associated with dcid={dcid}"
+            )
+            return False
+
+        if (
+            (
+                proposal.Proposal.proposalCode != "mx"
+                or proposal.Proposal.proposalNumber != "23694"
+            )
+            and (
+                proposal.Proposal.proposalCode != "nt"
+                or proposal.Proposal.proposalNumber != "28218"
+            )
+            and proposal.Proposal.proposalCode != "cm"
+        ):
+            self.log.info(
+                f"Skipping big_ep_cloud trigger for {proposal.Proposal.proposalCode}{proposal.Proposal.proposalNumber} visit"
+            )
+            return {"success": True}
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = bool(parameters("automatic"))
+        jp["comments"] = parameters("comment")
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = pipeline
+        jp["recipe"] = "postprocessing-big-ep-cloud"
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"big_ep_cloud trigger: generated JobID {jobid}")
+
+        try:
+            program_id = int(parameters("program_id"))
+        except (TypeError, ValueError):
+            self.log.error("big_ep_cloud trigger failed: Invalid program_id specified")
+            return False
+        data = parameters("data")
+        if not data:
+            self.log.error("big_ep_cloud trigger failed: No input data file specified")
+            return False
+        path_ext = parameters("path_ext")
+        if not path_ext:
+            path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
+        shelxc_path = parameters("shelxc_path")
+        fast_ep_path = parameters("fast_ep_path")
+        transfer_input_files = os.path.basename(data)
+        if pipeline == "autoSHARP":
+            transfer_output_files = "autoSHARP"
+        elif pipeline == "AutoBuild":
+            transfer_output_files = "AutoSol_run_1_, PDS, AutoBuild_run_1_"
+        elif pipeline == "Crank2":
+            transfer_output_files = (
+                "crank2, run_Crank2.sh, crank2.log, pointless.log, crank2_config.xml"
+            )
+        else:
+            self.log.error(f"big_ep_cloud trigger failed: unknown pipeline {pipeline}")
+            return False
+
+        big_ep_parameters = {
+            "pipeline": pipeline,
+            "program_id": program_id,
+            "data": data,
+        }
+
+        for key, value in big_ep_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(f"big_ep_cloud trigger: generated JobParameterID {jppid}")
+
+        self.log.debug(f"big_ep_cloud trigger: Processing job {jobid} created")
+
+        message = {
+            "recipes": [],
+            "parameters": {
+                "ispyb_process": jobid,
+                "pipeline": pipeline,
+                "path_ext": path_ext,
+                "shelxc_path": shelxc_path,
+                "fast_ep_path": fast_ep_path,
+                "transfer_input_files": transfer_input_files,
+                "transfer_output_files": transfer_output_files,
+            },
+        }
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"big_ep_cloud trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
     def trigger_big_ep(self, rw, header, parameters, session, **kwargs):
         dcid = parameters("dcid")
         if not dcid:

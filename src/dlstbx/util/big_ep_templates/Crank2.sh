@@ -1,6 +1,16 @@
+{% if not singularity_image %}
 . /etc/profile.d/modules.sh
 
-module load {{ ccp4_module }}
+module load ccp4
+{% endif %}
+
+pointless hklin {{ wd }}/{{ input_hkl }} hklout {{ wd }}/{{ hklin }} << eof > pointless.log
+spacegroup {{ spacegroup }}
+{% if resol_high %}
+resolution high {{ resol_high }}
+{% endif %}
+#reindex h,k,l
+eof
 
 cat > crank2_config.xml << EOF
 <?xml version='1.0' encoding='utf-8'?>
@@ -26,22 +36,22 @@ cat > crank2_config.xml << EOF
     </model>
     <sequence typ="protein">
       <attr_set_by_crank>['xname']</attr_set_by_crank>
-      <file typ="fasta">{{ seqin }}</file>
+      <file typ="fasta">{{ wd }}/{{ seqin_filename }}</file>
       <monomers_asym>1</monomers_asym>
-      <residues_mon>{{ _nres }}</residues_mon>
+      <residues_mon>{{ nres }}</residues_mon>
     </sequence>
 {% for data in datasets %}
     <fsigf typ="plus">
       <attr_set_by_crank>['xname',]</attr_set_by_crank>
       <dname>{{ data.name }}</dname>
-      <file typ="mtz">{{ hklin }}</file>
+      <file typ="mtz">{{ wd }}/{{ hklin }}</file>
       <i>{{ data.column_list[0][0] }}</i>
       <sigi>{{ data.column_list[1][0] }}</sigi>
     </fsigf>
     <fsigf typ="minus">
       <attr_set_by_crank>['xname',]</attr_set_by_crank>
       <dname>{{ data.name }}</dname>
-      <file typ="mtz">{{ hklin }}</file>
+      <file typ="mtz">{{ wd }}/{{ hklin }}</file>
       <i>{{ data.column_list[2][0] }}</i>
       <sigi>{{ data.column_list[3][0] }}</sigi>
     </fsigf>
@@ -58,7 +68,7 @@ cat > crank2_config.xml << EOF
         </key>
       </program>
     </process>
-    <param><bigcyc>10</bigcyc></param>
+    <param><bigcyc>3</bigcyc></param>
   </process>
   {% if enableArpWarp %}
   <process>mbref<program>arpwarp
@@ -76,6 +86,4 @@ cat > crank2_config.xml << EOF
 </process>
 EOF
 
-{% set parse_logfile = [_wd, 'crank2.log']|join('/') %}
-
-stdbuf -oL {{ crank2_bin }} --xmlin=crank2_config.xml > {{ parse_logfile }}
+stdbuf -oL ccp4-python $CCP4/share/ccp4i/crank2/crank2.py --xmlin=crank2_config.xml > crank2.log

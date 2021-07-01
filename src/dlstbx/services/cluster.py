@@ -2,6 +2,7 @@ import errno
 import json
 import os
 import pathlib
+from pprint import pformat
 
 import procrunner
 import workflows.recipe
@@ -25,6 +26,7 @@ cluster_queue_mapping = {
         "admin": "test-admin.q",
     },
     "hamilton": {"default": "all.q"},
+    "htcondor": {},
 }
 
 
@@ -126,6 +128,9 @@ class DLSCluster(CommonService):
             )
             self._transport.nack(header)
             return
+        elif cluster == "htcondor":
+            # TODO: What are the restrictions for submitting jobs to HTCondor?
+            pass
         else:
             self.log.warning(
                 "No cluster project set for job (%s)",
@@ -244,40 +249,73 @@ class DLSCluster(CommonService):
             self._transport.nack(header)
             return
 
-        submission = [
-            ". /etc/profile.d/modules.sh",
-            "module load global/" + cluster,
-            # thanks to Modules 3.2 weirdness qsub may now be a function
-            # calling the real qsub command, but eating up its parameters.
-            "unset -f qsub",
-            "qsub %s << EOF" % submission_params,
-            "#!/bin/bash",
-            ". /etc/profile.d/modules.sh",
-            "cd " + workingdir,
-            commands,
-            "EOF",
-        ]
-        self.log.debug(
-            "Cluster (%s) submission parameters: %s", cluster, submission_params
-        )
-        self.log.debug("Commands: %s", commands)
-        self.log.debug("Working directory: %s", workingdir)
-        self.log.debug(str(rw.recipe_step))
-        result = procrunner.run(
-            ["/bin/bash"],
-            stdin="\n".join(submission).encode("latin1"),
-            working_directory=workingdir,
-        )
-        if result.returncode:
-            self.log.error(
-                "Could not submit cluster job:\n%s\n%s",
-                result.stdout.decode("latin1"),
-                result.stderr.decode("latin1"),
+        if cluster in ("cluster", "testcluster", "hamilton"):
+            submission = [
+                ". /etc/profile.d/modules.sh",
+                "module load global/" + cluster,
+                # thanks to Modules 3.2 weirdness qsub may now be a function
+                # calling the real qsub command, but eating up its parameters.
+                "unset -f qsub",
+                "qsub %s << EOF" % submission_params,
+                "#!/bin/bash",
+                ". /etc/profile.d/modules.sh",
+                "cd " + workingdir,
+                commands,
+                "EOF",
+            ]
+            self.log.debug(
+                "Cluster (%s) submission parameters: %s", cluster, submission_params
             )
-            self._transport.nack(header)
-            return
-        assert b"has been submitted" in result.stdout
-        jobnumber = result.stdout.split()[2].decode("latin1")
+            self.log.debug("Commands: %s", commands)
+            self.log.debug("Working directory: %s", workingdir)
+            self.log.debug(str(rw.recipe_step))
+            result = procrunner.run(
+                ["/bin/bash"],
+                stdin="\n".join(submission).encode("latin1"),
+                working_directory=workingdir,
+            )
+            if result.returncode:
+                self.log.error(
+                    "Could not submit cluster job:\n%s\n%s",
+                    result.stdout.decode("latin1"),
+                    result.stderr.decode("latin1"),
+                )
+                self._transport.nack(header)
+                return
+            assert b"has been submitted" in result.stdout
+            jobnumber = result.stdout.split()[2].decode("latin1")
+        elif cluster == "htcondor":
+            current_wd = os.getcwd()
+            self.log.info(commands.split("\n", 1))
+            cluster_exec, cluster_args = commands.split("\n", 1)
+            htcondor_submit = {"executable": cluster_exec, "arguments": cluster_args}
+            for key, val in parameters["cluster_submission_parameters"].items():
+                if key in ("transfer_input_files", "transfer_output_files"):
+                    htcondor_submit[key] = ",".join(val)
+                else:
+                    htcondor_submit[key] = val
+            try:
+                import htcondor
+
+                coll = htcondor.Collector(htcondor.param["COLLECTOR_HOST"])
+                schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
+                schedd = htcondor.Schedd(schedd_ad)
+                self.log.debug(
+                    f"Address of the Schedd is: {str(schedd_ad['MyAddress'])}"
+                )
+                os.chdir(workingdir)
+                htcondor_job = htcondor.Submit(htcondor_submit)
+
+                with schedd.transaction() as txn:
+                    jobnumber = htcondor_job.queue(txn, count=1)
+            except Exception:
+                self.log.error(
+                    f"Could not submit HTCondor job:\n{pformat(htcondor_submit)}",
+                )
+                self._transport.nack(header)
+                return
+            finally:
+                os.chdir(current_wd)
 
         # Conditionally acknowledge receipt of the message
         txn = self._transport.transaction_begin()

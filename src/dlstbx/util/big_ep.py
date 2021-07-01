@@ -215,8 +215,7 @@ def read_settings_file(tmpl_data):
         tmpl_data.update({"settings": msg_json})
 
 
-def generate_model_snapshots(tmpl_env, tmpl_data):
-    root_wd = tmpl_data["_root_wd"]
+def generate_model_snapshots(root_wd, tmpl_env, tmpl_data):
 
     tmpl_data.update({"model_images": {}})
     tmpl_data.update({"model_data": {}})

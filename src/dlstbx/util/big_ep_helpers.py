@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import subprocess
+from copy import deepcopy
 from itertools import tee
 
 import libtbx.load_env
@@ -11,6 +12,8 @@ from cctbx.sgtbx import space_group, space_group_symbols
 from cctbx.uctbx import unit_cell
 from iotbx import mtz
 from iotbx.bioinformatics import fasta_sequence
+
+from dlstbx.util.processing_stats import get_model_data
 
 
 def get_tabulated_fp_fpp(atom, name, wavelength):
@@ -107,18 +110,6 @@ def get_heavy_atom_job(msg):
         msg.nres = int(mw / 110)
         msg.sequence = "A" * msg.nres
 
-    msg._wd = os.path.join(
-        msg._wd, "_".join([msg.atom, str(msg.nsites), msg.spacegroup])
-    )
-    msg._results_wd = os.path.join(
-        msg._results_wd, "_".join([msg.atom, str(msg.nsites), msg.spacegroup])
-    )
-    msg._root_wd = msg._wd
-    if not os.path.exists(msg._wd):
-        os.makedirs(msg._wd)
-
-    return msg
-
 
 def number_sites_estimate(cell, pointgroup):
     """Guess # heavy atoms likely to be in here (as a floating point number)
@@ -151,7 +142,7 @@ def read_data(msg):
 
     mtz_data = __read_mtz_object(mtz_obj)
     if not mtz_data:
-        raise ValueError("No anomalous intensity data found in %s" % msg._hklin)
+        raise ValueError("No anomalous intensity data found in %s" % msg.hklin)
 
     msg.nrefl = mtz_obj.n_reflections()
     msg.pointgroup = mtz_data.space_group().type().number()
@@ -160,8 +151,6 @@ def read_data(msg):
         assert msg.nsites > 0
     except (AttributeError, AssertionError):
         msg.nsites = number_sites_estimate(msg.unit_cell, msg.pointgroup)
-
-    return msg
 
 
 def read_mtz_datasets(msg, logger):
@@ -254,38 +243,134 @@ def read_mtz_datasets(msg, logger):
         datasets.append(tmp_dataset)
 
     msg.datasets = datasets
-    return msg
 
 
-def write_settings_file(msg):
+def write_settings_file(working_directory, msg):
 
     json_data = json.dumps(
         {
             "atom": msg.atom,
-            "dataset": "|".join([ds["name"] for ds in msg.datasets]),
+            "dataset": msg.dataset_names,
             "spacegroup": msg.spacegroup,
             "nsites": msg.nsites,
-            "compound": "Protein",
+            "compound": msg.compound,
             "sequence": msg.sequence,
         },
         indent=4,
         separators=(",", ":"),
     )
-    with open(os.path.join(msg._wd, "big_ep_settings.json"), "w") as json_file:
+    settings_path = working_directory / "big_ep_settings.json"
+    with open(settings_path, "w") as json_file:
         json_file.write(json_data)
 
     return msg
 
 
-def write_sequence_file(msg, working_directory=None):
+def write_sequence_file(working_directory, msg):
     msg.seqin_filename = "sequence.fasta"
-    if working_directory:
-        msg.seqin = os.path.join(working_directory, msg.seqin_filename)
-    else:
-        msg.seqin = os.path.join(msg._wd, msg.seqin_filename)
+    seqin = working_directory / msg.seqin_filename
 
-    with open(msg.seqin, "w") as fp:
+    with open(seqin, "w") as fp:
         fp.write(fasta_sequence(msg.sequence).format(80))
+
+
+def get_autosharp_model_files(working_directory, logger):
+
+    parse_value = lambda v: v.split("=")[1][1:-2]
+
+    try:
+        with open(str(working_directory / ".autoSHARP"), "r") as f:
+            lines = f.readlines()
+            for mtz_line, pdb_line in zip(lines[:0:-1], lines[-2::-1]):
+                if "autoSHARP_modelmtz=" in mtz_line and "autoSHARP_model=" in pdb_line:
+                    # pdb_filename = parse_value(pdb_line).replace(
+                    #    str(working_directory, "autoSHARP"), self.msg._wd
+                    # )
+                    # mtz_filename = parse_value(mtz_line).replace(
+                    #    str(working_directory  "autoSHARP"), self.msg._wd
+                    # )
+                    mdl_dict = {
+                        "pdb": parse_value(pdb_line),
+                        "mtz": parse_value(mtz_line),
+                        "pipeline": "autoSHARP",
+                        "map": "",
+                        "mapcc": 0.0,
+                        "mapcc_dmin": 0.0,
+                    }
+                    if "LJS" in os.path.basename(mdl_dict["mtz"]):
+                        mdl_dict.update(
+                            {
+                                "fwt": "parrot.F_phi.F",
+                                "phwt": "parrot.F_phi.phi",
+                                "fom": None,
+                            }
+                        )
+                    else:
+                        mdl_dict.update({"fwt": "FWT", "phwt": "PHWT", "fom": None})
+                    model_data = get_model_data(
+                        str(working_directory), mdl_dict, logger
+                    )
+                    if model_data is None:
+                        return
+
+                    mdl_dict.update(model_data)
+                    return mdl_dict
+            logger.info("Cannot find record with autoSHARP output files")
+            return None
+    except IOError:
+        logger.info("Cannot find .autoSHARP results file")
+        return None
+
+
+def get_autobuild_model_files(working_directory, logger):
+
+    mdl_dict = {
+        "pdb": str(working_directory / "AutoBuild_run_1_" / "overall_best.pdb"),
+        "mtz": str(
+            working_directory
+            / "AutoBuild_run_1_"
+            / "overall_best_denmod_map_coeffs.mtz"
+        ),
+        "pipeline": "AutoBuild",
+        "fwt": "FWT",
+        "phwt": "PHWT",
+        "fom": None,
+    }
+    model_data = get_model_data(str(working_directory), mdl_dict, logger)
+    if model_data is None:
+        return
+
+    mdl_dict.update(model_data)
+    return mdl_dict
+
+
+def get_crank2_model_files(working_directory, logger):
+
+    ref_pth = working_directory / "crank2" / "5-comb_phdmmb" / "ref"
+    dmfull_pth = working_directory / "crank2" / "5-comb_phdmmb" / "dmfull" / "ref"
+
+    if os.path.isdir(ref_pth):
+        mdl_dict = {
+            "pdb": str(ref_pth / "sepsubstrprot" / "part.pdb"),
+            "mtz": str(ref_pth / "refmac" / "REFMAC5.mtz"),
+            "pipeline": "Crank2",
+        }
+    elif os.path.isdir(dmfull_pth):
+        mdl_dict = {
+            "pdb": str(dmfull_pth / "sepsubstrprot" / "part.pdb"),
+            "mtz": str(dmfull_pth / "REFMAC5.mtz"),
+            "pipeline": "Crank2",
+        }
+    else:
+        return
+
+    mdl_dict.update({"fwt": "REFM_FWT", "phwt": "REFM_PHWT", "fom": None})
+    model_data = get_model_data(str(working_directory), mdl_dict, logger)
+    if model_data is None:
+        return
+
+    mdl_dict.update(model_data)
+    return mdl_dict
 
 
 def get_map_model_from_json(json_path):
@@ -339,27 +424,29 @@ def write_coot_script(working_directory, mdl_dict):
         )
 
 
-def ispyb_write_model_json(msg, logger):
+def ispyb_write_model_json(working_directory, mdl_dict, logger):
 
-    json_data = json.dumps(msg.model, indent=4, separators=(",", ":"))
-    with open(os.path.join(msg._wd, "big_ep_model_ispyb.json"), "w") as json_file:
+    json_data = json.dumps(mdl_dict, indent=4, separators=(",", ":"))
+    with open(
+        os.path.join(working_directory, "big_ep_model_ispyb.json"), "w"
+    ) as json_file:
         json_file.write(json_data)
-    try:
-        if os.path.isfile(msg.synchweb_ticks):
-            fp = open(msg.synchweb_ticks, "a")
-        else:
-            fp = open(msg.synchweb_ticks, "w")
-            fp.write("Legacy log file to update ap_status in SynchWeb\n")
-        fp.write("Results for Residues")
-        fp.write(json_data)
-        fp.close()
-    except IOError:
-        logger.exception("Error creating legacy log file for SynchWeb")
+    # try:
+    #    if os.path.isfile(msg.synchweb_ticks):
+    #        fp = open(msg.synchweb_ticks, "a")
+    #    else:
+    #        fp = open(msg.synchweb_ticks, "w")
+    #        fp.write("Legacy log file to update ap_status in SynchWeb\n")
+    #    fp.write("Results for Residues")
+    #    fp.write(json_data)
+    #    fp.close()
+    # except IOError:
+    #    logger.exception("Error creating legacy log file for SynchWeb")
 
 
-def copy_results(working_directory, results_directory, logger):
+def copy_results(working_directory, results_directory, skip_copy, logger):
     def ignore_func(directory, files):
-        ignore_list = [".launch", ".recipewrap"]
+        ignore_list = deepcopy(skip_copy)
         pth = py.path.local(directory)
         for f in files:
             fp = pth.join(f)

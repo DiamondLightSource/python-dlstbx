@@ -16,10 +16,11 @@ import os
 import sys
 import time
 
-import dlstbx.util
 import workflows
 import workflows.contrib.start_service
 import workflows.logging
+
+import dlstbx.util
 from dlstbx import enable_graylog
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.version import dlstbx_version
@@ -45,11 +46,11 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         logging.getLogger("dials").setLevel(logging.INFO)
         logging.getLogger("dlstbx").setLevel(logging.DEBUG)
         logging.getLogger("dxtbx").setLevel(logging.INFO)
-        # logging.getLogger('stomp.py').setLevel(logging.DEBUG)
+        logging.getLogger("ispyb").setLevel(logging.INFO)
+        logging.getLogger("relion").setLevel(logging.INFO)
         logging.getLogger("workflows").setLevel(logging.INFO)
         logging.getLogger("xia2").setLevel(logging.INFO)
         logging.getLogger("zocalo").setLevel(logging.DEBUG)
-        logging.getLogger("ispyb").setLevel(logging.INFO)
 
         self.log = logging.getLogger("dlstbx.service")
         self.log.setLevel(logging.DEBUG)

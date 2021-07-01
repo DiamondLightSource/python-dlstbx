@@ -15,15 +15,28 @@ from sqlalchemy.dialects.mysql import TINYINT
 
 # deliberately not declared as an IntEnum so that it can be passed to the sqlalchemy Status() class
 REPORT = types.SimpleNamespace(PASS=0, WARNING=10, ERROR=20)
-
-Base = sqlalchemy.ext.declarative.declarative_base()
+timestamp_default = None
 
 
 class CheckFunctionCall(NamedTuple):
+    """Interface for custom check functions"""
+
     current_status: Dict[str, Status]
 
 
-class Status(Base):
+def _timestamping_constructor(instance, **kwargs):
+    if timestamp_default and not kwargs.get("Timestamp"):
+        kwargs["Timestamp"] = timestamp_default
+    for attr, value in kwargs.items():
+        setattr(instance, attr, value)
+
+
+_TSBase = sqlalchemy.ext.declarative.declarative_base(
+    constructor=_timestamping_constructor
+)
+
+
+class Status(_TSBase):
     __tablename__ = "infrastructure_status"
     __table_args__ = {"comment": "reports of DLS infrastructure"}
 

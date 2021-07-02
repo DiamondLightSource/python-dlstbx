@@ -129,6 +129,18 @@ def check_filesystem_is_responsive(cfc: CheckFunctionInterface) -> Status:
 
     worst_case = sorted(messages, key=itemgetter("stat-time-max"))[-1]
     most_recent = sorted(messages, key=itemgetter("localtime"))[-1]
+
+    if len(messages) == 1 and worst_case["stat-time-max"] <= 15:
+        return Status(
+            Source=check,
+            Level=REPORT.WARNING,
+            Message="Filesystem access time spike detected",
+            MessageBody=(
+                f"Single slow filesystem stat() call occurred at {worst_case['localtime']:%Y-%m-%d %H:%M:%S},"
+                f" taking {worst_case['stat-time-max']:.1f} seconds"
+            ),
+            URL=_graylog_dashboard,
+        )
     return Status(
         Source=check,
         Level=REPORT.ERROR,

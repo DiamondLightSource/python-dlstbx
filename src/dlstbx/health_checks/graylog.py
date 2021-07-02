@@ -1,14 +1,19 @@
 import collections
+import logging
 import re
 from operator import itemgetter
 
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 from dlstbx.util.graylog import GraylogAPI
 
+_graylog_url = "https://graylog2.diamond.ac.uk/"
+_graylog_dashboard = (
+    "https://graylog2.diamond.ac.uk/dashboards/5a5c7f4eddab6253b0d28d1c"
+)
+
 
 def check_graylog_is_alive(cfc: CheckFunctionInterface) -> Status:
     check = "services.graylog.alive"
-    url = "https://graylog2.diamond.ac.uk/"
     g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
     messages = g.get_messages()
 
@@ -17,7 +22,7 @@ def check_graylog_is_alive(cfc: CheckFunctionInterface) -> Status:
             Source=check,
             Level=REPORT.PASS,
             Message=f"Messages are appearing in Graylog ({len(messages)} in 10 minutes)",
-            URL=url,
+            URL=_graylog_url,
         )
     else:
         return Status(
@@ -25,8 +30,50 @@ def check_graylog_is_alive(cfc: CheckFunctionInterface) -> Status:
             Level=REPORT.ERROR,
             Message=f"No messages have appeared in Graylog for at least 10 minutes",
             MessageBody="According to Graylog there have not been any messages in the Data Analysis stream for the last 10 minutes",
-            URL=url,
+            URL=_graylog_url,
         )
+
+
+def check_graylog_has_history(cfc: CheckFunctionInterface) -> Status:
+    check = "services.graylog.history"
+
+    g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
+    stats = g.get_history_statistics()
+    if not stats or not stats.get("range", {}).get("days"):
+        return Status(
+            Source=check,
+            Level=REPORT.ERROR,
+            Message="Could not retrieve Graylog statistics",
+            URL=_graylog_dashboard,
+        )
+
+    log = logging.getLogger("ithealth.graylog.statistics")
+    log.setLevel(logging.DEBUG)
+    log.info(
+        "graylog statistics update",
+        extra={
+            "graylog_days": stats["range"]["days"],
+            "message_count": stats["message_count"],
+        },
+    )
+
+    storage_status = (
+        f"{stats['range']['days']:.2f} days of message history kept in Graylog"
+        f" (total of {stats['message_count']} zocalo messages)"
+    )
+    if stats["range"]["days"] >= 14:
+        result_level = REPORT.PASS
+    elif stats["range"]["days"] >= 7:
+        result_level = REPORT.WARNING
+    else:
+        result_level = REPORT.ERROR
+
+    return Status(
+        Source=check,
+        Level=result_level,
+        Message=storage_status,
+        URL=_graylog_dashboard,
+    )
 
 
 def check_gfps_expulsion(cfc: CheckFunctionInterface) -> Status:
@@ -67,7 +114,6 @@ def check_gfps_expulsion(cfc: CheckFunctionInterface) -> Status:
 
 def check_filesystem_is_responsive(cfc: CheckFunctionInterface) -> Status:
     check = "it.filesystem.responsiveness"
-    url = "https://graylog2.diamond.ac.uk/dashboards/5a5c7f4eddab6253b0d28d1c"
     g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
     g.filters = ["facility:dlstbx.services.filewatcher", "stat-time-max:>5"]
 
@@ -78,7 +124,7 @@ def check_filesystem_is_responsive(cfc: CheckFunctionInterface) -> Status:
             Level=REPORT.PASS,
             Message="Filesystem response times normal",
             MessageBody="No filesystem accesses slower than 5 seconds observed in the last 30 minutes",
-            URL=url,
+            URL=_graylog_dashboard,
         )
 
     worst_case = sorted(messages, key=itemgetter("stat-time-max"))[-1]
@@ -92,5 +138,5 @@ def check_filesystem_is_responsive(cfc: CheckFunctionInterface) -> Status:
             f"worst occurrence at {worst_case['localtime']:%Y-%m-%d %H:%M:%S} with {worst_case['stat-time-max']:.1f} seconds,\n"
             f"last occurrence at {most_recent['localtime']:%Y-%m-%d %H:%M:%S} with {most_recent['stat-time-max']:.1f} seconds"
         ),
-        URL=url,
+        URL=_graylog_dashboard,
     )

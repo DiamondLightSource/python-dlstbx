@@ -1,6 +1,7 @@
 import dataclasses
 
 import numpy as np
+import pytest
 
 import dlstbx.util.xray_centering
 
@@ -238,3 +239,63 @@ def test_blank_scan():
         "reflections_in_best_image": None,
         "best_region": None,
     }
+
+
+@pytest.mark.parametrize("reflections_per_image", (1, 5))
+def test_single_connected_region(reflections_per_image):
+    """
+    Ensure that an X-ray centring grid can consist of a single connected region.
+
+    Ensure that the X-ray centring utility does not depend on the input data
+    containing any zeros.  Such a circumstance might occur if the data represent a
+    single connected region.
+    """
+    result, _ = dlstbx.util.xray_centering.main(
+        data=reflections_per_image * np.ones(100),
+        steps=(10, 10),
+        box_size_px=(1, 1),
+        snapshot_offset=(0, 0),
+        snaked=False,
+        orientation=dlstbx.util.xray_centering.Orientation.HORIZONTAL,
+    )
+    assert result.status == "ok"
+    assert result.message == "ok"
+    assert result.best_image == 1
+    assert result.reflections_in_best_image == reflections_per_image
+    np.testing.assert_array_equal(
+        result.best_region, np.transpose(np.unravel_index(np.arange(100), (10, 10)))
+    )
+    assert result.centre_x == result.centre_x_box == 5
+    assert result.centre_y == result.centre_y_box == 5
+
+
+def test_no_disconnected_points():
+    """
+    Ensure that an X-ray centring grid can contain no disconnected points.
+
+    Ensure that the X-ray centring utility does not depend on the input data
+    containing any zeros.  Such a circumstance might occur if connected regions span
+    the entire grid, with no points in the grid being disconnected.
+    """
+    A = 6 * np.ones((6, 6))
+    B = 5 * np.ones((6, 4))
+    C = 4 * np.ones((4, 4))
+    D = 3 * np.ones((4, 6))
+    data = np.block([[A, B], [C, D]])
+    result, _ = dlstbx.util.xray_centering.main(
+        data=data.flatten(),
+        steps=(10, 10),
+        box_size_px=(1, 1),
+        snapshot_offset=(0, 0),
+        snaked=False,
+        orientation=dlstbx.util.xray_centering.Orientation.HORIZONTAL,
+    )
+    assert result.status == "ok"
+    assert result.message == "ok"
+    assert result.best_image == 1
+    assert result.reflections_in_best_image == 6
+    np.testing.assert_array_equal(
+        result.best_region, np.transpose(np.unravel_index(np.arange(100), (10, 10)))
+    )
+    assert result.centre_x == result.centre_x_box == 5
+    assert result.centre_y == result.centre_y_box == 5

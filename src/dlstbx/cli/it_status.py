@@ -117,7 +117,9 @@ def run():
                 fh,
                 [
                     junit_xml.TestSuite(
-                        timestamp, timestamp=timestamp.isoformat(), test_cases=cases
+                        "health checks",
+                        timestamp=timestamp.isoformat(),
+                        test_cases=cases,
                     )
                     for timestamp, cases in grouped_cases.items()
                 ],

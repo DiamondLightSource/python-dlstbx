@@ -91,16 +91,6 @@ def main(
     output.append(f"grid:\n{threshold}".replace(" 0", " ."))
     result.best_region = list(zip(*np.where(labels == best)))
 
-    if 0:
-        import matplotlib.pyplot as plt
-
-        _, (ax1, ax2) = plt.subplots(nrows=2)
-        ax1.imshow(data)
-        ax1.scatter(com[1], com[0])
-        ax2.imshow(labels)
-        ax2.scatter(com[1], com[0])
-        plt.show()
-
     centre_x_box, centre_y_box = reversed([c + 0.5 for c in com])
     centre_x = snapshot_offset[0] + centre_x_box * box_size_px[0]
     centre_y = snapshot_offset[1] + centre_y_box * box_size_px[1]

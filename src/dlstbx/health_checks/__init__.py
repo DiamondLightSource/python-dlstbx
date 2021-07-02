@@ -4,6 +4,7 @@ import json
 import logging
 import pathlib
 import types
+from datetime import datetime
 from typing import Dict, List, NamedTuple
 
 import junit_xml
@@ -131,6 +132,8 @@ class database:
             raise ValueError("Warning level of status message undefined")
         if not status.Message:
             raise ValueError("Message undefined")
+        if not status.Timestamp:
+            status.Timestamp = datetime.now()
 
         with self._sessionmaker() as session:
             session.merge(status)

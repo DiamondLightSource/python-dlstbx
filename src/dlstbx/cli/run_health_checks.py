@@ -1,6 +1,5 @@
 import argparse
 import logging
-from datetime import datetime
 
 import dlstbx.cli.dlq_check
 import dlstbx.health_checks as hc
@@ -66,9 +65,10 @@ def run():
         exit(1)
 
     try:
-        hc.timestamp_default = datetime.now()
         for fn in check_functions.values():
-            call_args = hc.CheckFunctionCall(current_status=current_db_status.copy())
+            call_args = hc.CheckFunctionInterface(
+                current_status=current_db_status.copy()
+            )
             try:
                 outcomes = fn(call_args) or []
             except Exception as e:

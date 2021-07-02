@@ -15,28 +15,15 @@ from sqlalchemy.dialects.mysql import TINYINT
 
 # deliberately not declared as an IntEnum so that it can be passed to the sqlalchemy Status() class
 REPORT = types.SimpleNamespace(PASS=0, WARNING=10, ERROR=20)
-timestamp_default = None
+
+_Base = sqlalchemy.ext.declarative.declarative_base()
 
 
-class CheckFunctionCall(NamedTuple):
-    """Interface for custom check functions"""
-
+class CheckFunctionInterface(NamedTuple):
     current_status: Dict[str, Status]
 
 
-def _timestamping_constructor(instance, **kwargs):
-    if timestamp_default and not kwargs.get("Timestamp"):
-        kwargs["Timestamp"] = timestamp_default
-    for attr, value in kwargs.items():
-        setattr(instance, attr, value)
-
-
-_TSBase = sqlalchemy.ext.declarative.declarative_base(
-    constructor=_timestamping_constructor
-)
-
-
-class Status(_TSBase):
+class Status(_Base):
     __tablename__ = "infrastructure_status"
     __table_args__ = {"comment": "reports of DLS infrastructure"}
 
@@ -64,15 +51,22 @@ class Status(_TSBase):
     ExtData = Column(LargeBinary)
 
     def __repr__(self):
-        return f"<Status L{self.Level:03d} {self.Source}: {self.Message} ({self.Timestamp})"
+        if self.Timestamp:
+            return f"<Status L{self.Level:03d} {self.Source}: {self.Message} ({self.Timestamp})"
+        else:
+            return f"<Status L{self.Level:03d} {self.Source}: {self.Message}"
 
-    def as_testcase(self):
+    def as_testcase(self, include_timestamp=False):
         s_class = ".".join(self.Source.split(".")[:-1]) or "zocalo"
         if "." not in s_class:
             s_class = f"zocalo.{s_class}"
         s_name = self.Source.split(".")[-1]
         s_message = (self.Message or "").strip()
         s_body = (self.MessageBody or "").rstrip()
+        if include_timestamp:
+            if s_body:
+                s_body += "\n\n"
+            s_body += f"Test run at {self.Timestamp}"
         if self.Level >= 10:
             tc = junit_xml.TestCase(
                 classname=s_class,
@@ -89,13 +83,6 @@ class Status(_TSBase):
                 stdout=f"{s_message}\n\n{s_body}" if s_body else s_message,
             )
         return tc
-
-    def as_testsuite(self, suite_name=None):
-        return junit_xml.TestSuite(
-            suite_name or self.Timestamp,
-            test_cases=[self.as_testcase()],
-            timestamp=self.Timestamp.isoformat(),
-        )
 
 
 class database:

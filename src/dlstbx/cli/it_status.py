@@ -2,7 +2,6 @@
 #
 # LIBTBX_SET_DISPATCHER_NAME it.status
 
-import collections
 import datetime
 import logging
 import operator
@@ -109,20 +108,19 @@ def run():
         ]
 
     if options.output:
-        grouped_cases = collections.defaultdict(list)
-        for s in status:
-            grouped_cases[s.Timestamp].append(s.as_testcase())
+        if not status:
+            exit("No records found in database")
+        most_recent_test = sorted(s.Timestamp for s in status)[-1]
+        test_suite = junit_xml.TestSuite(
+            "it.status",
+            timestamp=most_recent_test.isoformat(),
+            test_cases=[s.as_testcase() for s in status],
+        )
+
         with open(options.output, "w") as fh:
             junit_xml.to_xml_report_file(
                 fh,
-                [
-                    junit_xml.TestSuite(
-                        "health checks",
-                        timestamp=timestamp.isoformat(),
-                        test_cases=cases,
-                    )
-                    for timestamp, cases in grouped_cases.items()
-                ],
+                [test_suite],
                 prettyprint=True,
                 encoding="UTF-8",
             )

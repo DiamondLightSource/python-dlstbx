@@ -2,10 +2,10 @@ from datetime import datetime
 
 import dlstbx
 import dlstbx.cli.dlq_check
-from dlstbx.health_checks import REPORT, CheckFunctionCall, Status
+from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 
 
-def check_activemq_dlq(cfc: CheckFunctionCall):
+def check_activemq_dlq(cfc: CheckFunctionInterface):
     db_status = cfc.current_status
     status = dlstbx.cli.dlq_check.check_dlq()
     check_prefix = "zocalo.dlq.activemq."

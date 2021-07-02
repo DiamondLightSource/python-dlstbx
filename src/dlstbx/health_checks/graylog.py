@@ -2,11 +2,11 @@ import collections
 import re
 from operator import itemgetter
 
-from dlstbx.health_checks import REPORT, CheckFunctionCall, Status
+from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 from dlstbx.util.graylog import GraylogAPI
 
 
-def check_graylog_is_alive(cfc: CheckFunctionCall) -> Status:
+def check_graylog_is_alive(cfc: CheckFunctionInterface) -> Status:
     check = "services.graylog.alive"
     url = "https://graylog2.diamond.ac.uk/"
     g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
@@ -29,7 +29,7 @@ def check_graylog_is_alive(cfc: CheckFunctionCall) -> Status:
         )
 
 
-def check_gfps_expulsion(cfc: CheckFunctionCall) -> Status:
+def check_gfps_expulsion(cfc: CheckFunctionInterface) -> Status:
     check = "it.filesystem.gpfs-expulsion"
     g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
     g.stream = "5d8cd831e7e1f54f98464d3f"  # switch to syslog stream
@@ -65,7 +65,7 @@ def check_gfps_expulsion(cfc: CheckFunctionCall) -> Status:
     return Status(Source=check, Level=level, Message=message, MessageBody=messagebody)
 
 
-def check_filesystem_is_responsive(cfc: CheckFunctionCall) -> Status:
+def check_filesystem_is_responsive(cfc: CheckFunctionInterface) -> Status:
     check = "it.filesystem.responsiveness"
     url = "https://graylog2.diamond.ac.uk/dashboards/5a5c7f4eddab6253b0d28d1c"
     g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")

@@ -13,10 +13,13 @@ from workflows.services.common_service import CommonService
 logger = logging.getLogger("dlstbx.services.images")
 
 
-class PluginParameter(NamedTuple):
+class PluginInterface(NamedTuple):
     rw: workflows.recipe.wrapper.RecipeWrapper
     parameters: Callable[[str], Any]
     message: Dict[str, Any]
+
+
+PluginParameter = PluginInterface  # backwards-compatibility, 20210702
 
 
 class DLSImages(CommonService):
@@ -24,7 +27,7 @@ class DLSImages(CommonService):
     A service that generates images and thumbnails.
     Plugin functions can be registered under the entry point
     'zocalo.services.images.plugins'. The contract is that a plugin function
-    takes a single argument of type PluginParameter, and returns a truthy value
+    takes a single argument of type PluginInterface, and returns a truthy value
     to acknowledge success, and a falsy value to reject the related message.
     Functions may choose to return a list of files that were generated, but
     this is optional at this time.
@@ -65,23 +68,23 @@ class DLSImages(CommonService):
             rw.transport.nack(header)
             return
 
-        result = self.image_functions[command](PluginParameter(rw, parameters, message))
+        result = self.image_functions[command](PluginInterface(rw, parameters, message))
         if result:
             rw.transport.ack(header)
         else:
-            self.log.error(f"Command {command} resulted in {result}")
+            self.log.error(f"Command {command!r} returned {result!r}")
             rw.transport.nack(header)
 
 
-def diffraction(plugin_params: PluginParameter):
+def diffraction(plugin: PluginInterface):
     """Take a diffraction data file and transform it into JPEGs."""
-    filename = plugin_params.parameters("file")
+    filename = plugin.parameters("file")
 
     imageset_index = 1
     if not filename:
         # 'file' is a filename
         # 'input' is a xia2-type string, may need to remove :x:x suffix
-        filename = plugin_params.parameters("input")
+        filename = plugin.parameters("input")
         if ":" in filename:
             filename, imageset_index = filename.split(":")[0:2]
 
@@ -91,9 +94,9 @@ def diffraction(plugin_params: PluginParameter):
     if not os.path.exists(filename):
         logger.error("File %s not found", filename)
         return False
-    sizex = plugin_params.parameters("size-x", default=400)
-    sizey = plugin_params.parameters("size-y", default=192)
-    output = plugin_params.parameters("output")
+    sizex = plugin.parameters("size-x", default=400)
+    sizey = plugin.parameters("size-y", default=192)
+    output = plugin.parameters("output")
     if not output:
         # split off extension
         output = filename[: filename.rindex(".")]
@@ -139,18 +142,18 @@ def diffraction(plugin_params: PluginParameter):
     return [output, output_small]
 
 
-def thumbnail(plugin_params: PluginParameter):
+def thumbnail(plugin: PluginInterface):
     """Take a single file and create a smaller version of the same file."""
-    filename = plugin_params.parameters("file")
+    filename = plugin.parameters("file")
     if not filename or filename == "None":
         logger.debug("Skipping thumbnail generation: filename not specified")
         return False
     if not os.path.exists(filename):
         logger.error("File %s not found", filename)
         return False
-    sizex = plugin_params.parameters("size-x", default=400)
-    sizey = plugin_params.parameters("size-y", default=192)
-    output = plugin_params.parameters("output")
+    sizex = plugin.parameters("size-x", default=400)
+    sizey = plugin.parameters("size-y", default=192)
+    output = plugin.parameters("output")
     if not output:
         # If not set add a 't' in front of the last '.' in the filename
         output = (

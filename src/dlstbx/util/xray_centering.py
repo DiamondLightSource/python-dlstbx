@@ -55,10 +55,9 @@ def main(
     ]
 
     if orientation == Orientation.VERTICAL:
-        data = data.reshape(steps)
-        data = data.transpose()
+        data = data.reshape(steps).T
     else:
-        data = data.reshape(tuple(reversed(steps)))
+        data = data.reshape(*reversed(steps))
 
     idx = np.argmax(data)
     maximum_spots = data[np.unravel_index(idx, data.shape)]

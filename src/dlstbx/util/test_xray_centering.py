@@ -1,6 +1,7 @@
 import dataclasses
 
 import numpy as np
+import pytest
 
 import dlstbx.util.xray_centering
 
@@ -238,3 +239,53 @@ def test_blank_scan():
         "reflections_in_best_image": None,
         "best_region": None,
     }
+
+
+A = 6 * np.ones((6, 6))
+B = 5 * np.ones((6, 4))
+C = 4 * np.ones((4, 4))
+D = 3 * np.ones((4, 6))
+
+
+@pytest.mark.parametrize(
+    ("data", "reflections_in_best_image"),
+    (
+        (np.ones(100), 1),
+        (5 * np.ones(100), 5),
+        (np.block([[A, B], [C, D]]).flatten(), 6),
+    ),
+)
+def test_single_connected_region(data, reflections_in_best_image):
+    """
+    Ensure that an X-ray centring grid can consist entirely of strong diffraction.
+
+    Usually a grid scan will consist of some strongly diffracting images and some
+    weakly diffracting images.  The X-ray centring utility differentiates between
+    strong and weak and then finds connected regions of strong diffraction.  Usually
+    there will be one or more connected regions, and some images that are weakly
+    diffracting and hence disconnected.  Sometimes though, every image may be strongly
+    diffracting.  In such cases the entire grid is a single connected region.  This
+    is a valid (if trivial) case for X-ray centring, so we should accept it.
+
+    Test that X-ray centring works on a data set in which every image meets the
+    criterion for strong diffraction.  The default criterion is that an image
+    contains a number of reflections equal to or greater than half the number of
+    reflections in the strongest-diffracting image.
+    """
+    result, _ = dlstbx.util.xray_centering.main(
+        data=data,
+        steps=(10, 10),
+        box_size_px=(1, 1),
+        snapshot_offset=(0, 0),
+        snaked=False,
+        orientation=dlstbx.util.xray_centering.Orientation.HORIZONTAL,
+    )
+    assert result.status == "ok"
+    assert result.message == "ok"
+    assert result.best_image == 1
+    assert result.reflections_in_best_image == reflections_in_best_image
+    np.testing.assert_array_equal(
+        result.best_region, np.transpose(np.unravel_index(np.arange(100), (10, 10)))
+    )
+    assert result.centre_x == result.centre_x_box == 5
+    assert result.centre_y == result.centre_y_box == 5

@@ -55,10 +55,9 @@ def main(
     ]
 
     if orientation == Orientation.VERTICAL:
-        data = data.reshape(steps)
-        data = data.transpose()
+        data = data.reshape(steps).T
     else:
-        data = data.reshape(tuple(reversed(steps)))
+        data = data.reshape(*reversed(steps))
 
     idx = np.argmax(data)
     maximum_spots = data[np.unravel_index(idx, data.shape)]
@@ -80,23 +79,17 @@ def main(
 
     threshold = (data >= 0.5 * maximum_spots) * data
     # Count corner-corner contacts as a contiguous region
-    structure = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]])
+    structure = np.ones((3, 3))
     labels, n_regions = scipy.ndimage.label(threshold, structure=structure)
-    unique, counts = np.unique(labels, return_counts=True)
+    # Ensure that there is always at least one '0' in 'labels', to avoid 'counts[1:]'
+    # being empty.  This might occur if the entire grid is a single connected region.
+    labels_with_zero = np.concatenate([np.zeros(1, int), labels.flatten()])
+
+    unique, counts = np.unique(labels_with_zero, return_counts=True)
     best = unique[np.argmax(counts[1:]) + 1]
-    com = scipy.ndimage.center_of_mass((labels == best) * np.ones(labels.shape))
+    com = scipy.ndimage.center_of_mass(labels == best)
     output.append(f"grid:\n{threshold}".replace(" 0", " ."))
     result.best_region = list(zip(*np.where(labels == best)))
-
-    if 0:
-        import matplotlib.pyplot as plt
-
-        _, (ax1, ax2) = plt.subplots(nrows=2)
-        ax1.imshow(data)
-        ax1.scatter(com[1], com[0])
-        ax2.imshow(labels)
-        ax2.scatter(com[1], com[0])
-        plt.show()
 
     centre_x_box, centre_y_box = reversed([c + 0.5 for c in com])
     centre_x = snapshot_offset[0] + centre_x_box * box_size_px[0]

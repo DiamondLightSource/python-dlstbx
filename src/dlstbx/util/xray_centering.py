@@ -81,12 +81,10 @@ def main(
     # Count corner-corner contacts as a contiguous region
     structure = np.ones((3, 3))
     labels, n_regions = scipy.ndimage.label(threshold, structure=structure)
-    # Ensure that there is always at least one '0' in 'labels', to avoid 'counts[1:]'
-    # being empty.  This might occur if the entire grid is a single connected region.
-    labels_with_zero = np.concatenate([np.zeros(1, int), labels.flatten()])
-
-    unique, counts = np.unique(labels_with_zero, return_counts=True)
-    best = unique[np.argmax(counts[1:]) + 1]
+    unique, counts = np.unique(labels, return_counts=True)
+    # When finding the biggest labelled region, ignore the unlabelled regions
+    # (label == 0), if there are any (i.e. if unique[0] == 0).
+    best = unique[np.argmax(counts)] if unique[0] else unique[np.argmax(counts[1:]) + 1]
     com = scipy.ndimage.center_of_mass(labels == best)
     output.append(f"grid:\n{threshold}".replace(" 0", " ."))
     result.best_region = list(zip(*np.where(labels == best)))

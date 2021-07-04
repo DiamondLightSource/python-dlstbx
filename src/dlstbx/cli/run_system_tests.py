@@ -4,12 +4,13 @@ import operator
 import sys
 import time
 
+import junit_xml
+from workflows.transport.stomp_transport import StompTransport
+
 import dlstbx
 import dlstbx.system_test
-import junit_xml
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.result import Result
-from workflows.transport.stomp_transport import StompTransport
 
 TimerEvent = collections.namedtuple(
     "TimerEvent", "time, callback, expected_result, result_object"

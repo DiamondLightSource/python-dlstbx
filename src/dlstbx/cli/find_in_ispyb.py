@@ -16,9 +16,10 @@ import re
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
 
-import dlstbx.ispybtbx
 import py
 import workflows.recipe
+
+import dlstbx.ispybtbx
 
 recipe_matcher = re.compile(
     "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"

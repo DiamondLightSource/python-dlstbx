@@ -1,3 +1,4 @@
+import json
 import os.path
 import time
 
@@ -6,7 +7,7 @@ import mysql.connector
 import sqlalchemy.orm
 import workflows.recipe
 from workflows.services.common_service import CommonService
-import json
+
 from dlstbx.services.ispybsvc_em import EM_Mixin
 
 

@@ -1,9 +1,8 @@
 import datetime
-import pytest
-import workflows.transport.common_transport
-from workflows.recipe.wrapper import RecipeWrapper
 from unittest import mock
 
+import pytest
+import workflows.transport.common_transport
 from ispyb.sqlalchemy import (
     AutoProcIntegration,
     AutoProcProgram,
@@ -12,6 +11,7 @@ from ispyb.sqlalchemy import (
     DataCollectionGroup,
     ProcessingJob,
 )
+from workflows.recipe.wrapper import RecipeWrapper
 
 
 @pytest.fixture

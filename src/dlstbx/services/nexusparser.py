@@ -1,8 +1,9 @@
 import os.path
 
-import dlstbx.util.hdf5
 import workflows.recipe
 from workflows.services.common_service import CommonService
+
+import dlstbx.util.hdf5
 
 
 class DLSNexusParser(CommonService):

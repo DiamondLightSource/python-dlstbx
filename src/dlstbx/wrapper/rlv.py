@@ -3,9 +3,10 @@ import logging
 import os
 import shutil
 
-import dlstbx.util.symlink
 import procrunner
 import zocalo.wrapper
+
+import dlstbx.util.symlink
 
 logger = logging.getLogger("dlstbx.wrap.rlv")
 

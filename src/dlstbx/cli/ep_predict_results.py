@@ -1,8 +1,9 @@
-from dlstbx.ispybtbx import ispybtbx
 import argparse
-from pprint import pprint
 import json
 from datetime import datetime
+from pprint import pprint
+
+from dlstbx.ispybtbx import ispybtbx
 
 
 def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):

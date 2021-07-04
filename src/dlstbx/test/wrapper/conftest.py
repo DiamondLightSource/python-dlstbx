@@ -1,10 +1,11 @@
 from unittest import mock
+
 import procrunner
-import pytest
 import py.path
+import pytest
 import workflows
-import workflows.transport.common_transport
 import workflows.recipe.wrapper
+import workflows.transport.common_transport
 
 
 @pytest.fixture

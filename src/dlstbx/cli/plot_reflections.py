@@ -15,8 +15,8 @@ nproc = Auto
 
 
 def run(args=None):
-    from libtbx.phil import command_line
     from dxtbx.datablock import DataBlockFactory
+    from libtbx.phil import command_line
 
     if not args:
         args = sys.argv[1:]

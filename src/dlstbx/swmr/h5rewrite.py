@@ -1,12 +1,12 @@
-import bitshuffle.h5
-import h5py
 import logging
 import math
-import numpy as np
 import pathlib
 import time
 from typing import Optional, Tuple, Union
 
+import bitshuffle.h5
+import h5py
+import numpy as np
 
 logger = logging.getLogger("dlstbx.h5rewrite")
 

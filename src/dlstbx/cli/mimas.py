@@ -14,7 +14,6 @@ import argparse
 import dlstbx.ispybtbx
 import dlstbx.mimas.core
 
-
 _readable = {
     dlstbx.mimas.MimasEvent.START: "start of data collection",
     dlstbx.mimas.MimasEvent.END: "end of data collection",

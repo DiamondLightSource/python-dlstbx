@@ -1,7 +1,8 @@
-from dlstbx.services.ispybsvc import DLSISPyB
-import sqlalchemy
 import ispyb
+import sqlalchemy
 import workflows.recipe
+
+from dlstbx.services.ispybsvc import DLSISPyB
 
 
 class DLSISPyBPIA(DLSISPyB):

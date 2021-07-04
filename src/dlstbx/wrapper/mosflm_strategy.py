@@ -1,9 +1,9 @@
 import json
 import logging
 import os
-import py
 
 import procrunner
+import py
 import zocalo.wrapper
 
 logger = logging.getLogger("dlstbx.wrap.mosflm_strategy")

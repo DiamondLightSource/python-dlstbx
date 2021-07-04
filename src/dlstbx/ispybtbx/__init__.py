@@ -5,14 +5,13 @@ import logging
 import os
 import re
 import uuid
-import yaml
 
 import ispyb.sqlalchemy as isa
 import marshmallow.fields
 import sqlalchemy
+import yaml
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from sqlalchemy.orm import Load, aliased, joinedload, sessionmaker, selectinload
-
+from sqlalchemy.orm import Load, aliased, joinedload, selectinload, sessionmaker
 
 logger = logging.getLogger("dlstbx.ispybtbx")
 

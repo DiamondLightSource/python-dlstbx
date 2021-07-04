@@ -1,25 +1,23 @@
 import logging
-import zocalo
+import os
+from argparse import Namespace
+
 import procrunner
 import py
-from argparse import Namespace
-import os
-
+import zocalo
 from jinja2.environment import Environment
-from jinja2.loaders import PackageLoader
 from jinja2.exceptions import UndefinedError
+from jinja2.loaders import PackageLoader
 
-from dlstbx.util.symlink import create_parent_symlink
 from dlstbx.util.big_ep_helpers import (
-    write_coot_script,
-    ispyb_write_model_json,
     copy_results,
+    ispyb_write_model_json,
     send_results_to_ispyb,
+    write_coot_script,
     write_sequence_file,
 )
-from dlstbx.util.processing_stats import (
-    get_model_data,
-)
+from dlstbx.util.processing_stats import get_model_data
+from dlstbx.util.symlink import create_parent_symlink
 
 logger = logging.getLogger("dlstbx.wrap.crank2")
 

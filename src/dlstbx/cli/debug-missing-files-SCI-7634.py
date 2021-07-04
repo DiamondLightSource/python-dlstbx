@@ -4,13 +4,14 @@
 #
 
 
-import ispyb
 import json
 import os
 import re
 import string
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
+
+import ispyb
 
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.graylog import GraylogAPI

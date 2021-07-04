@@ -1,14 +1,14 @@
 import json
 import logging
 import os
+from pprint import pformat
+
 import procrunner
 import py
 import xmltodict
-from pprint import pformat
-
 import zocalo.wrapper
-import dlstbx.util.symlink
 
+import dlstbx.util.symlink
 
 logger = logging.getLogger("dlstbx.wrap.fast_ep")
 

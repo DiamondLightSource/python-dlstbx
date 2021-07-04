@@ -9,19 +9,20 @@ import logging
 import os
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
-import pkg_resources
 
-import dlstbx.util.offline_transport
+import pkg_resources
 import workflows
 import workflows.recipe.wrapper
 import workflows.services.common_service
 import workflows.transport
 import workflows.util
 import zocalo.wrapper
+from workflows.transport.stomp_transport import StompTransport
+
+import dlstbx.util.offline_transport
 from dlstbx import enable_graylog
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.version import dlstbx_version
-from workflows.transport.stomp_transport import StompTransport
 
 
 def run(cmdline_args=sys.argv[1:]):

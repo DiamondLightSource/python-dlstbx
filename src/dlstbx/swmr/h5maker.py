@@ -1,12 +1,12 @@
 import argparse
-import h5py
 import logging
-import numpy
-import pathlib
 import os
+import pathlib
 import random
 import time
 
+import h5py
+import numpy
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@ import json
 import os
 import sys
 import time
-from optparse import OptionParser, SUPPRESS_HELP
+from optparse import SUPPRESS_HELP, OptionParser
 
 from workflows.transport.stomp_transport import StompTransport
 

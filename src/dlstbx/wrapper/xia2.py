@@ -3,10 +3,11 @@ import logging
 import os
 import subprocess
 
-import dlstbx.util.symlink
-import zocalo.wrapper
 import procrunner
 import py
+import zocalo.wrapper
+
+import dlstbx.util.symlink
 
 logger = logging.getLogger("dlstbx.wrap.xia2")
 

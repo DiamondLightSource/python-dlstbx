@@ -1,13 +1,14 @@
 import os
-
 import tempfile
 from math import ceil
+
 import matplotlib as mpl
 
 mpl.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
 import networkx as nx
+import numpy as np
+
 from dlstbx.util.radar_plot import radar_factory
 
 

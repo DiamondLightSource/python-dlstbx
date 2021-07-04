@@ -1,5 +1,6 @@
-import dlstbx.system_test
 import pytest
+
+import dlstbx.system_test
 from dlstbx.system_test.common import CommonSystemTest
 
 

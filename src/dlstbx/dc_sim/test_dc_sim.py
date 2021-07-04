@@ -1,7 +1,8 @@
-from unittest import mock
-import pytest
 import random
 import time
+from unittest import mock
+
+import pytest
 
 import dlstbx.dc_sim.check
 import dlstbx.dc_sim.definitions

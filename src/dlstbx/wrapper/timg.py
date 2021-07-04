@@ -1,8 +1,8 @@
+import datetime
 import logging
 import os
 
 import zocalo.wrapper
-import datetime
 
 logger = logging.getLogger("dlstbx.wrap.timg")
 

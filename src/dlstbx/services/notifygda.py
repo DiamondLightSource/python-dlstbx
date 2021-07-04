@@ -1,6 +1,7 @@
-import dlstbx.util.gda
 import workflows.recipe
 from workflows.services.common_service import CommonService
+
+import dlstbx.util.gda
 
 
 class DLSNotifyGDA(CommonService):

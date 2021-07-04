@@ -1,8 +1,9 @@
-import zocalo.wrapper
-from copy import deepcopy
-from dlstbx.util.shelxc import reduce_shelxc_results
 import logging
+from copy import deepcopy
 
+import zocalo.wrapper
+
+from dlstbx.util.shelxc import reduce_shelxc_results
 
 logger = logging.getLogger("dlstbx.wrap.shelxc_stats")
 

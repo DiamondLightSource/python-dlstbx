@@ -1,12 +1,13 @@
-import zocalo.wrapper
-import logging
-import py
 import json
-import tempfile
+import logging
 import os
-import procrunner
-from pprint import pformat
+import tempfile
 from functools import reduce
+from pprint import pformat
+
+import procrunner
+import py
+import zocalo.wrapper
 
 from dlstbx.util import ep_predict
 

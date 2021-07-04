@@ -1,6 +1,7 @@
-import dlstbx.mimas.core
 import workflows.recipe
 from workflows.services.common_service import CommonService
+
+import dlstbx.mimas.core
 
 
 class DLSMimas(CommonService):

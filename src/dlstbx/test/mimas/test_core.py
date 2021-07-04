@@ -1,15 +1,16 @@
 import functools
+
 import pytest
 
 import dlstbx.mimas.core
 from dlstbx.mimas import (
-    MimasScenario,
     MimasDCClass,
-    MimasEvent,
     MimasDetectorClass,
+    MimasEvent,
     MimasISPyBAnomalousScatterer,
     MimasISPyBSpaceGroup,
     MimasISPyBSweep,
+    MimasScenario,
 )
 
 

@@ -7,8 +7,8 @@ if sys.version_info < (3, 7):
 
 
 def berkel_me():
-    from numbers import Number
     import builtins
+    from numbers import Number
 
     def _(a, b, log=None):
         builtins.isinstance, builtins.isklassinstance = (

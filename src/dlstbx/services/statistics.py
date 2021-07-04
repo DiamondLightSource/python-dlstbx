@@ -1,8 +1,9 @@
 import queue
 import time
 
-from dlstbx.util.rrdtool import RRDTool
 from workflows.services.common_service import CommonService
+
+from dlstbx.util.rrdtool import RRDTool
 
 
 class DLSStatistics(CommonService):

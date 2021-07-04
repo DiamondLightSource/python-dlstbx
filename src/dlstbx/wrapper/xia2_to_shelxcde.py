@@ -1,12 +1,13 @@
+import glob
 import logging
 import os
 
-import dlstbx.util.symlink
 import procrunner
 import py
 import zocalo.wrapper
+
+import dlstbx.util.symlink
 from dlstbx.util.shelxc import parse_shelxc_logs
-import glob
 
 logger = logging.getLogger("dlstbx.wrap.xia2.to_shelxcde")
 

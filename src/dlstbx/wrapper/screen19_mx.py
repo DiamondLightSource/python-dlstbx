@@ -1,9 +1,11 @@
-import zocalo.wrapper
 import logging
-import py
-import tempfile
 import os
+import tempfile
+
 import procrunner
+import py
+import zocalo.wrapper
+
 import dlstbx.util.symlink
 
 logger = logging.getLogger("dlstbx.wrap.screen19_mx")
@@ -18,12 +20,12 @@ clean_environment = {
 
 class Screen19MXWrapper(zocalo.wrapper.BaseWrapper):
     def send_html_email_message(self, msg, email_params, img):
-        import smtplib
         import getpass
         import platform
+        import smtplib
+        from email.mime.image import MIMEImage
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
-        from email.mime.image import MIMEImage
         from time import sleep
 
         try:

@@ -5,7 +5,6 @@ import os
 import procrunner
 import py
 import zocalo.wrapper
-
 from dxtbx.serialize import load
 
 logger = logging.getLogger("dlstbx.wrap.dlstbx.align_crystal")

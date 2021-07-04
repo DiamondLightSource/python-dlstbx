@@ -10,8 +10,8 @@ import time
 from datetime import datetime
 from optparse import SUPPRESS_HELP, OptionParser
 
-from workflows.transport.stomp_transport import StompTransport
 import workflows.recipe.wrapper
+from workflows.transport.stomp_transport import StompTransport
 
 
 def show_cluster_info(step):

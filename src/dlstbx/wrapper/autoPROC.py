@@ -1,15 +1,15 @@
 import logging
 import os
-import py
 import xml.etree.ElementTree
 
+import procrunner
+import py
+import zocalo.wrapper
 from dxtbx.model.experiment_list import ExperimentListFactory
 from dxtbx.serialize import xds
 
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
-import procrunner
-import zocalo.wrapper
 
 logger = logging.getLogger("dlstbx.wrap.autoPROC")
 

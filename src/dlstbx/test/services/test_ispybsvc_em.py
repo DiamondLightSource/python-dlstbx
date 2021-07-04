@@ -1,6 +1,8 @@
 from unittest import mock
+
 import ispyb
 import pytest
+
 import dlstbx.services.ispybsvc_em as em
 
 

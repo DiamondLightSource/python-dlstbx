@@ -1,11 +1,11 @@
 import argparse
-from pprint import pprint
 import json
+from datetime import datetime
 from pathlib import Path
+from pprint import pprint
 
 from dlstbx.ispybtbx import ispybtbx
 from dlstbx.util import mr_utils
-from datetime import datetime
 
 
 def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):

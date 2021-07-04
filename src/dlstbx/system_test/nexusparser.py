@@ -1,5 +1,6 @@
-from dlstbx.system_test.common import CommonSystemTest
 from workflows.recipe import Recipe
+
+from dlstbx.system_test.common import CommonSystemTest
 
 imagepath = "/dls/mx/data/nt24686/nt24686-7/VMXi-AB5081/well_113/images/"
 

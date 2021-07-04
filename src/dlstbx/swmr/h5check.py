@@ -1,9 +1,9 @@
-import h5py
 import logging
 import os
-import time
 import sys
+import time
 
+import h5py
 
 logger = logging.getLogger(__name__)
 

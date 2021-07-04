@@ -2,8 +2,9 @@ import collections
 import logging
 import time
 
-import dlstbx.util.cluster
 from workflows.services.common_service import CommonService
+
+import dlstbx.util.cluster
 
 
 class DLSClusterMonitor(CommonService):

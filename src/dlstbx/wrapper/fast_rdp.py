@@ -2,11 +2,12 @@ import json
 import logging
 import os
 
-import dlstbx.util.symlink
-from dlstbx.util.merging_statistics import get_merging_statistics
 import procrunner
 import py
 import zocalo.wrapper
+
+import dlstbx.util.symlink
+from dlstbx.util.merging_statistics import get_merging_statistics
 
 logger = logging.getLogger("dlstbx.wrap.fast_rdp")
 

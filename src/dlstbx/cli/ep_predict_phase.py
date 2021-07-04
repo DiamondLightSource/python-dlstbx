@@ -1,10 +1,12 @@
-from dlstbx.ispybtbx import ispybtbx
-from pprint import pprint
-import procrunner
-from time import sleep
 import argparse
-from pathlib import Path
 import re
+from pathlib import Path
+from pprint import pprint
+from time import sleep
+
+import procrunner
+
+from dlstbx.ispybtbx import ispybtbx
 
 
 def read_ispyb_data(jobids):

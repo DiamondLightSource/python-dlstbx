@@ -1,12 +1,13 @@
-import bitshuffle  # noqa, F401; cf. https://github.com/DiamondLightSource/python-dlstbx/issues/5
 import logging
 import time
 
-import dlstbx.util.sanity
+import bitshuffle  # noqa, F401; cf. https://github.com/DiamondLightSource/python-dlstbx/issues/5
 import workflows.recipe
 from dials.command_line.find_spots_server import work
-from dlstbx.services.filewatcher import is_file_selected
 from workflows.services.common_service import CommonService
+
+import dlstbx.util.sanity
+from dlstbx.services.filewatcher import is_file_selected
 
 
 class DLSPerImageAnalysis(CommonService):

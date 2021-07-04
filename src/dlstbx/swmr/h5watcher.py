@@ -1,9 +1,10 @@
 import array
-import h5py
 import itertools
 import os
 import time
 from dataclasses import dataclass, field
+
+import h5py
 
 
 @dataclass

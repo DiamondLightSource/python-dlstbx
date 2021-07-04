@@ -1,8 +1,9 @@
-import pyparsing as pp
-from pyparsing import Literal, Group, OneOrMore, SkipTo, nums, Regex, Word
 import logging
-import numpy as np
 from pprint import pformat
+
+import numpy as np
+import pyparsing as pp
+from pyparsing import Group, Literal, OneOrMore, Regex, SkipTo, Word, nums
 from scipy.stats.stats import ttest_1samp
 
 logger = logging.getLogger("dlstbx.util.shelxc")

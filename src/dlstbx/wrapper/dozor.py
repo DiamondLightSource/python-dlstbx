@@ -4,12 +4,13 @@ import re
 
 import procrunner
 import zocalo.wrapper
+from dxtbx.datablock import DataBlockTemplateImporter
+
 from dlstbx.util.dxtbx_to_dozor import (
     dxtbx_to_dozor,
     parse_dozor_output,
     write_dozor_input,
 )
-from dxtbx.datablock import DataBlockTemplateImporter
 
 logger = logging.getLogger("dlstbx.wrap.dozor")
 

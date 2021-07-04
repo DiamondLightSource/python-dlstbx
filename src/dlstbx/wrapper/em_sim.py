@@ -1,8 +1,9 @@
 import logging
 import time
 
-import dlstbx.em_sim
 import zocalo.wrapper
+
+import dlstbx.em_sim
 
 logger = logging.getLogger("dlstbx.wrap.em_sim")
 

@@ -1,10 +1,10 @@
-import sys
 import json
+import sys
 
 
 def run(model_file, output_file, threshold, metrics):
-    from numpy import array
     import joblib
+    from numpy import array
 
     with open(model_file, "rb") as fp:
         classifier_data = joblib.load(fp)

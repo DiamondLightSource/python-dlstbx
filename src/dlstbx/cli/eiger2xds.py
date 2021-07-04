@@ -1,11 +1,8 @@
 import os
 
 import iotbx.phil
+from dials.util.options import OptionParser, flatten_experiments
 from dxtbx.serialize import xds
-
-from dials.util.options import flatten_experiments
-from dials.util.options import OptionParser
-
 
 help_message = """
 """

@@ -3,8 +3,9 @@ import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
-from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from workflows.transport.stomp_transport import StompTransport
+
+from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
 
 class DLSLog:

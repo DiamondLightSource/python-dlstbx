@@ -1,28 +1,28 @@
-from email.mime.image import MIMEImage
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import getpass
 import glob
-from iotbx import data_plots
 import json
 import logging
 import math
-import numpy as np
 import os
-import smtplib
 import platform
-import getpass
-import procrunner
+import smtplib
 import tempfile
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 import matplotlib as mpl
+import numpy as np
+import procrunner
+from iotbx import data_plots
+
 from dlstbx.util.big_ep_helpers import get_map_model_from_json
 
 mpl.use("Agg")
-import matplotlib.pyplot as plt
-
 from smtplib import SMTPSenderRefused
 from time import sleep
 
+import matplotlib.pyplot as plt
 
 params = {
     "axes.labelsize": 20,

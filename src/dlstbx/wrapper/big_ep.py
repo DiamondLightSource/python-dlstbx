@@ -1,22 +1,22 @@
-import os
-import logging
-import zocalo
-
-from datetime import datetime
-import py
-import json
-from argparse import Namespace
 import getpass
+import json
+import logging
+import os
+from argparse import Namespace
+from datetime import datetime
 from pprint import pformat
+
+import py
+import zocalo
 from iotbx import mtz
+
 from dlstbx.util.big_ep_helpers import (
-    write_settings_file,
+    copy_results,
+    get_heavy_atom_job,
     read_data,
     read_mtz_datasets,
-    get_heavy_atom_job,
-    copy_results,
+    write_settings_file,
 )
-
 
 logger = logging.getLogger("dlstbx.wrap.big_ep")
 

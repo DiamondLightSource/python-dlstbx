@@ -1,9 +1,10 @@
 import functools
 
+import dxtbx.model.experiment_list
 import pytest
 import workflows.recipe
-import dxtbx.model.experiment_list
 from workflows.services.common_service import CommonService
+
 import dlstbx.util.hdf5 as hdf5_util
 
 

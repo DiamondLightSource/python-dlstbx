@@ -1,13 +1,14 @@
-from jinja2.environment import Environment
-from jinja2.loaders import PackageLoader
-from jinja2.exceptions import UndefinedError
-
 import logging
 import os
-import dlstbx.util.fast_ep as fpu
-import dlstbx.util.big_ep as bpu
+
 import py
 import zocalo.wrapper
+from jinja2.environment import Environment
+from jinja2.exceptions import UndefinedError
+from jinja2.loaders import PackageLoader
+
+import dlstbx.util.big_ep as bpu
+import dlstbx.util.fast_ep as fpu
 
 logger = logging.getLogger("dlstbx.wrap.big_ep_report")
 

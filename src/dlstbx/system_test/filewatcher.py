@@ -1,8 +1,9 @@
 import os.path
 
+from workflows.recipe import Recipe
+
 import dlstbx.util
 from dlstbx.system_test.common import CommonSystemTest
-from workflows.recipe import Recipe
 
 tmpdir = dlstbx.util.dls_tmp_folder_date()
 

@@ -1,9 +1,10 @@
 import logging
+
+import procrunner
 import py
+import zocalo.wrapper
 
 import dlstbx.util.symlink
-import procrunner
-import zocalo.wrapper
 
 logger = logging.getLogger("dlstbx.wrap.screen19")
 

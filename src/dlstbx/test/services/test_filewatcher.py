@@ -1,13 +1,12 @@
 import collections
 import logging
-import pytest
 import os
 import threading
 import time
 from unittest import mock
 
 import h5py
-
+import pytest
 import workflows.transport.common_transport
 from workflows.recipe.wrapper import RecipeWrapper
 

@@ -1,5 +1,6 @@
 # pytest configuration file
 import os
+
 import ispyb.sqlalchemy
 import pytest
 from sqlalchemy import create_engine

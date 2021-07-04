@@ -1,12 +1,13 @@
+import itertools
 import json
 import logging
-import itertools
-import py
 
-from cctbx import uctbx
-import dlstbx.util.symlink
 import procrunner
+import py
 import zocalo.wrapper
+from cctbx import uctbx
+
+import dlstbx.util.symlink
 
 logger = logging.getLogger("dlstbx.wrap.xia2.multiplex")
 

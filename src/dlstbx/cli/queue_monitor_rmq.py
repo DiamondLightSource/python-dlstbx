@@ -4,14 +4,14 @@
 #
 
 import argparse
+import json
 import logging
 import time
-
-import json
-import numpy as np
-import pandas as pd
 import urllib.parse
 import urllib.request
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger("dlstbx.queue_monitor")
 

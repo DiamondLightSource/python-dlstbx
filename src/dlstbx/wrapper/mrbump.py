@@ -1,11 +1,12 @@
 import logging
-import py
+import os
+import tempfile
 
 import procrunner
+import py
 import zocalo.wrapper
-import os
+
 import dlstbx.util.symlink
-import tempfile
 
 logger = logging.getLogger("dlstbx.wrap.mrbump")
 

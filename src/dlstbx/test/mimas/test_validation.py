@@ -1,8 +1,9 @@
 import dataclasses
 import itertools
 
-import dlstbx.mimas
 import pytest
+
+import dlstbx.mimas
 
 
 def test_validation_of_unknown_objects():

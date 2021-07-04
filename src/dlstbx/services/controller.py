@@ -1,12 +1,13 @@
-import dlstbx.util.jmxstats
 import json
 import os.path
 import threading
 import time
 
 import procrunner
-from dlstbx.controller.strategyenvironment import StrategyEnvironment
 from workflows.services.common_service import CommonService
+
+import dlstbx.util.jmxstats
+from dlstbx.controller.strategyenvironment import StrategyEnvironment
 
 
 class DLSController(CommonService):

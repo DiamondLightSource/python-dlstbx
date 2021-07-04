@@ -1,5 +1,6 @@
 import json
 from unittest import mock
+
 import dlstbx.ispybtbx
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
 

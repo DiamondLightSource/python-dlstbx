@@ -110,8 +110,9 @@ def parse_dozor_output(output):
 
 
 if __name__ == "__main__":
-    from dxtbx import load
     import sys
+
+    from dxtbx import load
 
     for img in sys.argv[1:]:
         write_dozor_input(dxtbx_to_dozor(load(img)), "-")

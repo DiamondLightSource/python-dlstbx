@@ -1,13 +1,15 @@
 """
 Example of a basic wrapper script
 """
-import zocalo
-from pathlib import Path
 import logging
 import tempfile
-from dlstbx.util import mr_utils
-import procrunner
+from pathlib import Path
 from pprint import pformat
+
+import procrunner
+import zocalo
+
+from dlstbx.util import mr_utils
 
 logger = logging.getLogger("dlstbx.wrap.phaser_ellg")
 

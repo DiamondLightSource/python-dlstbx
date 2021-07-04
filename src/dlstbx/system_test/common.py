@@ -2,7 +2,6 @@ import collections
 import logging
 import string
 import uuid
-
 from unittest import mock
 
 CollectedTest = collections.namedtuple(

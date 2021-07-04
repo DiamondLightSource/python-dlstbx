@@ -3,13 +3,15 @@
 # can also be run directly to install missing packages
 # command line options are passed through to the conda install process
 
-import dlstbx
 import json
 import os
 import pathlib
-import pkg_resources
 import subprocess
 import sys
+
+import pkg_resources
+
+import dlstbx
 
 dlstbx_path = dlstbx.__file__
 

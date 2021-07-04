@@ -1,10 +1,11 @@
 import copy
 import json
 import os.path
-
 from unittest import mock
-from dlstbx.system_test.common import CommonSystemTest
+
 from workflows.recipe import Recipe
+
+from dlstbx.system_test.common import CommonSystemTest
 
 
 class DispatcherService(CommonSystemTest):

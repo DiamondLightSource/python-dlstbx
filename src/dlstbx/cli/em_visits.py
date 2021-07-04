@@ -1,5 +1,6 @@
-import ispyb
 import operator
+
+import ispyb
 
 
 def run():

@@ -4,10 +4,11 @@
 #
 
 
-import py
 import sys
 from argparse import SUPPRESS, ArgumentParser
 from datetime import datetime
+
+import py
 
 import dlstbx.util.colorstreamhandler
 

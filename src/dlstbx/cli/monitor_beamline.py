@@ -3,17 +3,19 @@
 
 import base64
 import datetime
-import dlstbx.gda_interface.dejava
 import functools
 import itertools
 import json
 import math
-import queue
 import pprint
-import stomp
+import queue
 import threading
 import time
+
+import stomp
 import StringIO
+
+import dlstbx.gda_interface.dejava
 
 beamlines = {
     "i02-1",

@@ -9,10 +9,10 @@ import json
 import logging
 import os
 import shutil
+import tempfile
 
 import procrunner
 import zocalo.wrapper
-import tempfile
 
 logger = logging.getLogger("dlstbx.wrap.topaz3")
 

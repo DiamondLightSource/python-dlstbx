@@ -47,9 +47,22 @@ def _get_epics_status(name):
             MessageBody=f"{epics_result[0]}\n{epics_result[1]}",
         )
 
+    level = REPORT.PASS
+    if epics_result[0] == "No Beam":
+        level = REPORT.WARNING
+    elif epics_result[0] not in {
+        "User",
+        "Special",
+        "BL Startup",
+        "Mach. Dev.",
+        "Shutdown",
+    }:
+        # ie. "Injection"
+        level += 1
+
     return Status(
         Source=name,
-        Level=REPORT.PASS,
+        Level=level,
         Message=f"Diamond mode: {epics_result[0]}",
         MessageBody=epics_result[1],
     )

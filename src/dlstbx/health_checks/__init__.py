@@ -57,6 +57,24 @@ class Status(_Base):
         else:
             return f"<Status L{self.Level:03d} {self.Source}: {self.Message}"
 
+    @property
+    def age(self):
+        if self.Timestamp:
+            return (datetime.now() - self.Timestamp).seconds
+        return 0
+
+    @property
+    def age_str(self):
+        age = self.age
+        if age < 30:
+            return "just now"
+        elif age < 90:
+            return f"{age} sec ago"
+        elif age < 90 * 60:
+            return f"{round(age / 60)} min ago"
+        else:
+            return f"{age / 60 / 60:.1f} hrs ago"
+
     def as_testcase(self, include_timestamp=False):
         s_class = ".".join(self.Source.split(".")[:-1]) or "zocalo"
         if "." not in s_class:

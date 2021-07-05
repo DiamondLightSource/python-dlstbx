@@ -2,7 +2,6 @@
 #
 # LIBTBX_SET_DISPATCHER_NAME it.status
 
-import datetime
 import logging
 import operator
 import sys
@@ -35,6 +34,13 @@ def run():
         metavar="OUTFILE",
         default=None,
         help="Write status to a JUnit XML file",
+    )
+    parser.add_option(
+        "--generate-templates",
+        dest="templates",
+        action="store_true",
+        default=False,
+        help="write Jenkins notification templates to current directory",
     )
 
     report = OptionGroup(parser, "to add a report to the database")
@@ -107,6 +113,9 @@ def run():
             s for s in status if s.Source in args or s.Source.startswith(prefixes)
         ]
 
+    if options.templates:
+        generate_templates(status)
+
     if options.output:
         if not status:
             exit("No records found in database")
@@ -172,21 +181,12 @@ def run():
             for s in select:
                 resetcolor()
                 setcolor(colour)
-                age = (datetime.datetime.now() - s.Timestamp).seconds
-                if age < 30:
-                    age = "just now"
-                elif age < 90:
-                    age = f"{age} sec ago"
-                elif age < 90 * 60:
-                    age = f"{round(age / 60)} min ago"
-                else:
-                    age = f"{age / 60 / 60:.1f} hrs ago"
                 if s.Level > 0:
                     setbold()
                 print(f"{base_indent}{s.Source}", end=": ")
                 resetcolor()
                 setcolor(colour)
-                print(f"{s.Message} ({age})")
+                print(f"{s.Message} ({s.age_str})")
                 indent = base_indent + (len(s.Source) + 2) * " "
                 if (
                     s.MessageBody
@@ -203,3 +203,7 @@ def run():
     resetcolor()
     if error_seen:
         exit(1)
+
+
+def generate_templates(status):
+    pass

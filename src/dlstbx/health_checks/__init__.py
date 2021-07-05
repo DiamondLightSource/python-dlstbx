@@ -22,6 +22,7 @@ _Base = sqlalchemy.ext.declarative.declarative_base()
 
 class CheckFunctionInterface(NamedTuple):
     current_status: Dict[str, Status]
+    name: str
 
 
 class Status(_Base):
@@ -53,9 +54,9 @@ class Status(_Base):
 
     def __repr__(self):
         if self.Timestamp:
-            return f"<Status L{self.Level:03d} {self.Source}: {self.Message} ({self.Timestamp})"
+            return f"<Status L{self.Level:03d} {self.Source}: {self.Message} ({self.Timestamp})>"
         else:
-            return f"<Status L{self.Level:03d} {self.Source}: {self.Message}"
+            return f"<Status L{self.Level:03d} {self.Source}: {self.Message}>"
 
     @property
     def age(self):

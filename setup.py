@@ -122,6 +122,15 @@ service_list = [
     # "LoadReceiver = dlstbx.services.load_receiver:LoadReceiver",  # tentatively disabled
 ]
 
+health_checks = [
+    "activemq = dlstbx.health_checks.activemq:check_activemq_dlq",
+    "gpfs = dlstbx.health_checks.graylog:check_gfps_expulsion",
+    "services.epics.available = dlstbx.health_checks.epics:get_diamond_ring_status",
+    "graylog-alive = dlstbx.health_checks.graylog:check_graylog_is_alive",
+    "graylog-history = dlstbx.health_checks.graylog:check_graylog_has_history",
+    "slowfs = dlstbx.health_checks.graylog:check_filesystem_is_responsive",
+]
+
 
 def get_git_revision():
     """Try to obtain the current git revision number"""
@@ -175,11 +184,12 @@ setup(
         + ["%s=%s" % (x, x) for x in swirltbx_hacks],
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
-        "zocalo.wrappers": sorted(known_wrappers),
+        "zocalo.health_checks": sorted(health_checks),
         "zocalo.services.images.plugins": [
             "diffraction = dlstbx.services.images:diffraction",
             "thumbnail = dlstbx.services.images:thumbnail",
         ],
+        "zocalo.wrappers": sorted(known_wrappers),
     },
     packages=find_packages("src"),
     package_dir={"": "src"},

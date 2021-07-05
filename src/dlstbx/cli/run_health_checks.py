@@ -1,10 +1,10 @@
 import argparse
 import logging
 
+import pkg_resources
+
 import dlstbx.cli.dlq_check
 import dlstbx.health_checks as hc
-import dlstbx.health_checks.activemq
-import dlstbx.health_checks.graylog
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
 logger = logging.getLogger("dlstbx.cli.run_health_checks")
@@ -12,11 +12,7 @@ logger = logging.getLogger("dlstbx.cli.run_health_checks")
 
 def run():
     check_functions = {
-        "activemq": dlstbx.health_checks.activemq.check_activemq_dlq,
-        "gpfs": dlstbx.health_checks.graylog.check_gfps_expulsion,
-        "graylog-alive": dlstbx.health_checks.graylog.check_graylog_is_alive,
-        "graylog-history": dlstbx.health_checks.graylog.check_graylog_has_history,
-        "slowfs": dlstbx.health_checks.graylog.check_filesystem_is_responsive,
+        e.name: e.load for e in pkg_resources.iter_entry_points("zocalo.health_checks")
     }
 
     parser = argparse.ArgumentParser(
@@ -48,7 +44,9 @@ def run():
 
     if options.check:
         check_functions = {
-            key: value for key, value in check_functions.items() if key in options.check
+            name: loader
+            for name, loader in check_functions.items()
+            if name in options.check
         }
 
     root_logger = logging.getLogger("dlstbx")
@@ -66,10 +64,11 @@ def run():
         exit(1)
 
     try:
-        for fn in check_functions.values():
+        for name, loader in check_functions.items():
             call_args = hc.CheckFunctionInterface(
-                current_status=current_db_status.copy()
+                current_status=current_db_status.copy(), name=name
             )
+            fn = loader()
             try:
                 outcomes = fn(call_args) or []
             except Exception as e:

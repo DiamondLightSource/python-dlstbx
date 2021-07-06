@@ -241,17 +241,17 @@ def test_blank_scan():
     }
 
 
-A = 6 * np.ones((6, 6))
-B = 5 * np.ones((6, 4))
-C = 4 * np.ones((4, 4))
-D = 3 * np.ones((4, 6))
+A = np.full((6, 6), 6, int)
+B = np.full((6, 4), 5, int)
+C = np.full((4, 4), 4, int)
+D = np.full((4, 6), 3, int)
 
 
 @pytest.mark.parametrize(
     ("data", "reflections_in_best_image"),
     (
-        (np.ones(100), 1),
-        (5 * np.ones(100), 5),
+        (np.ones(100, int), 1),
+        (np.full(100, 5, int), 5),
         (np.block([[A, B], [C, D]]).flatten(), 6),
     ),
 )

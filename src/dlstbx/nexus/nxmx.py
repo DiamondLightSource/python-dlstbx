@@ -732,26 +732,16 @@ class NXdetector(H5Mapping):
         unwanted or undesirable pixels. They have the following meaning:
 
           - bit 0: gap (pixel with no sensor)
-
           - bit 1: dead
-
           - bit 2: under-responding
-
           - bit 3: over-responding
-
           - bit 4: noisy
-
           - bit 5: -undefined-
-
           - bit 6: pixel is part of a cluster of problematic pixels (bit set in addition
                    to others)
-
           - bit 7: -undefined-
-
           - bit 8: user defined mask (e.g. around beamstop)
-
           - bits 9-30: -undefined-
-
           - bit 31: virtual pixel (corner pixel with interpolated value)
 
         Normal data analysis software would not take pixels into account when a bit in

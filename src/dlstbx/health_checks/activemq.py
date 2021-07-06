@@ -13,12 +13,12 @@ def check_activemq_dlq(cfc: CheckFunctionInterface):
 
     report_updates = {}
     for queue, messages in status.items():
-        source = queue
-        if source.startswith("DLQ."):
-            source = source[4:]
-        if source.startswith("zocalo."):
-            source = source[7:]
-        source = check_prefix + source
+        if queue.startswith("DLQ."):
+            queue = queue[4:]
+        display_name = queue
+        if queue.startswith("zocalo."):
+            queue = queue[7:]
+        queue = check_prefix + queue
 
         if messages == 0:
             level = REPORT.PASS
@@ -27,19 +27,19 @@ def check_activemq_dlq(cfc: CheckFunctionInterface):
             level = REPORT.ERROR
             new_message = f"First message seen at {now}"
 
-        if source in db_status and db_status[source].MessageBody:
-            if level < db_status[source].Level:
+        if queue in db_status and db_status[queue].MessageBody:
+            if level < db_status[queue].Level:
                 # error level improved - append message
-                new_message = db_status[source].MessageBody + "\n" + new_message
-            elif level == db_status[source].Level:
+                new_message = db_status[queue].MessageBody + "\n" + new_message
+            elif level == db_status[queue].Level:
                 # error level stayed the same - keep message
-                new_message = db_status[source].MessageBody
+                new_message = db_status[queue].MessageBody
             # else: error level worsened - replace message
 
-        report_updates[source] = Status(
-            Source=source,
+        report_updates[queue] = Status(
+            Source=queue,
             Level=level,
-            Message=f"{messages} message{'' if messages == 1 else 's'} in {queue}",
+            Message=f"{messages} message{'' if messages == 1 else 's'} in {display_name}",
             MessageBody=new_message,
         )
 

@@ -1,8 +1,7 @@
+import dxtbx.model
 import h5py
 import numpy as np
 import pytest
-
-import dxtbx.model
 from scitbx.array_family import flex
 
 import dlstbx.nexus.nxmx
@@ -479,15 +478,15 @@ def test_get_dxtbx_detector_hierarchical(hierarchical_detector):
     assert detector[0].get_local_origin() == (0.0, 0.0, 0.0)
     assert (
         detector[0].get_fast_axis()
-        == detector[0].get_local_fast_axis()
+        == pytest.approx(detector[0].get_local_fast_axis())
         == (0.9999984140169291, -0.0017810007373656254, 0.0)
     )
     assert (
         detector[0].get_slow_axis()
-        == detector[0].get_local_slow_axis()
+        == pytest.approx(detector[0].get_local_slow_axis())
         == (0.0017810007373656254, 0.9999984140169291, 0.0)
     )
-    assert detector[0].get_distance() == 97.536
+    assert detector[0].get_distance() == pytest.approx(97.536)
 
 
 @pytest.fixture

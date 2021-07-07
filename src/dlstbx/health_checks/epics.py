@@ -53,11 +53,9 @@ def _get_epics_status(name):
     elif epics_result[0] not in {
         "User",
         "Special",
-        "BL Startup",
-        "Mach. Dev.",
         "Shutdown",
     }:
-        # ie. "Injection"
+        # ie. "Injection", "BL Startup", "Mach. Dev."
         level += 1
 
     return Status(

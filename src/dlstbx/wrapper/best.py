@@ -251,11 +251,23 @@ class BESTWrapper(zocalo.wrapper.BaseWrapper):
                 command.append(flg)
             elif value:
                 command.extend([flg, str(value)])
-        data_path = Path(data_path) / params["crystal"] / "SAD" / "SWEEP1" / "integrate"
-        corr_path = str(data_path / "CORRECT.LP")
-        bkg_path = str(data_path / "BKGPIX.cbf")
-        hkl_path = str(data_path / "XDS_ASCII.HKL")
-        command.extend(["-xds", corr_path, bkg_path, hkl_path])
+
+        xds_files = None
+        for data_path in (
+            Path(data_path),
+            Path(data_path) / params["crystal"] / "SAD" / "SWEEP1" / "integrate",
+        ):
+            corr_path = data_path / "CORRECT.LP"
+            bkg_path = data_path / "BKGPIX.cbf"
+            hkl_path = data_path / "XDS_ASCII.HKL"
+            if all(f.is_file() for f in (corr_path, bkg_path, hkl_path)):
+                xds_files = ["-xds", str(corr_path), str(bkg_path), str(hkl_path)]
+                break
+        if xds_files is None:
+            logger.exception("Cannot find XDS output files")
+            return False
+        command.extend(xds_files)
+
         logger.info(f"Running BEST command: {' '.join(command)}")
         try:
             result = procrunner.run(

@@ -64,11 +64,19 @@ class DLSImages(CommonService):
             return rw.recipe_step.get("parameters", {}).get(key, default)
 
         if command not in self.image_functions:
-            self.log.error("Unknown command: %r", command)
+            self.log.error(f"Unknown command: {command!r}")
             rw.transport.nack(header)
             return
 
-        result = self.image_functions[command](PluginInterface(rw, parameters, message))
+        try:
+            result = self.image_functions[command](
+                PluginInterface(rw, parameters, message)
+            )
+        except PermissionError as e:
+            self.log.error(f"Command {command!r} raised {e}", exc_info=True)
+            rw.transport.nack(header)
+            return
+
         if result:
             rw.transport.ack(header)
         else:

@@ -112,6 +112,12 @@ def run():
         status = [
             s for s in status if s.Source in args or s.Source.startswith(prefixes)
         ]
+        if (
+            not options.quiet
+            and not options.verbosity
+            and all(s.Source in args for s in status)
+        ):
+            options.verbosity = 1
 
     if options.templates:
         generate_templates(status)

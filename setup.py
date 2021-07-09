@@ -131,6 +131,7 @@ health_checks = [
     "activemq = dlstbx.health_checks.activemq:check_activemq_dlq",
     "gpfs = dlstbx.health_checks.graylog:check_gfps_expulsion",
     "services.epics.available = dlstbx.health_checks.epics:get_diamond_ring_status",
+    "services.mx.agamemnon = dlstbx.health_checks.network:check_agamemnon",
     "graylog-alive = dlstbx.health_checks.graylog:check_graylog_is_alive",
     "graylog-history = dlstbx.health_checks.graylog:check_graylog_has_history",
     "slowfs = dlstbx.health_checks.graylog:check_filesystem_is_responsive",

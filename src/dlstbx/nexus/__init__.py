@@ -1,15 +1,13 @@
 import logging
 from typing import Optional, Tuple, Union
 
-import numpy as np
-
 import dxtbx.model
+import numpy as np
 from cctbx import eltbx
 from dxtbx.format.nexus import dataset_as_flex
 from scitbx.array_family import flex
 
 from . import nxmx
-
 
 logger = logging.getLogger(__name__)
 

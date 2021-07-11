@@ -1,10 +1,8 @@
-from typing import Union
-from pathlib import Path
-
 import os
+from pathlib import Path
+from typing import Union
 
 import h5py
-
 from dials.array_family import flex
 
 import dlstbx.nexus

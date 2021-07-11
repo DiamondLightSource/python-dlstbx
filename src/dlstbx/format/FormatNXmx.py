@@ -1,5 +1,4 @@
 import h5py
-
 from dxtbx.format.FormatNexus import FormatNexus
 
 import dlstbx.nexus

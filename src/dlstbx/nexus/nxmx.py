@@ -1,16 +1,17 @@
 from __future__ import annotations
+
 import dataclasses
-import h5py
 import logging
-import numpy as np
 import operator
-import pint
 from collections import namedtuple
 from collections.abc import Mapping
 from functools import cached_property, reduce
-from scipy.spatial.transform import Rotation
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 
+import h5py
+import numpy as np
+import pint
+from scipy.spatial.transform import Rotation
 
 # NeXus field type for type annotations
 # https://manual.nexusformat.org/nxdl-types.html#nxdl-field-types-and-units

@@ -44,6 +44,14 @@ def run():
         default=False,
         help="do not write results to database",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        default=False,
+        help="show more detail",
+    )
     options = parser.parse_args()
 
     if options.graylog:
@@ -81,7 +89,7 @@ def run():
                 outcomes = fn(call_args) or []
             except Exception as e:
                 logger.error(
-                    f"Health check function {fn.__name__} raised exception: {e}",
+                    f"Health check {name} raised exception: {e}",
                     exc_info=True,
                 )
                 continue
@@ -98,17 +106,21 @@ def run():
                     )
                     deferred_failure = True
                     continue
+                verbose_level = f" ({outcome.Level})" if options.verbose else ""
                 if outcome.Level >= hc.REPORT.ERROR:
                     logger.info(
-                        f"Recording outcome for {fn.__name__}: {outcome.Source} failed with {outcome.Message}"
+                        f"Recording failure outcome for {outcome.Source} with {outcome.Message}{verbose_level}",
+                        extra={"level": outcome.Level},
                     )
                 elif outcome.Level >= hc.REPORT.WARNING:
                     logger.info(
-                        f"Recording outcome for {fn.__name__}: {outcome.Source} warned with {outcome.Message}"
+                        f"Recording warning outcome for {outcome.Source} with {outcome.Message}{verbose_level}",
+                        extra={"level": outcome.Level},
                     )
                 else:
                     logger.info(
-                        f"Recording outcome for {fn.__name__}: {outcome.Source} passed"
+                        f"Recording pass outcome for {outcome.Source}{verbose_level}",
+                        extra={"level": outcome.Level},
                     )
     except KeyboardInterrupt:
         exit(1)

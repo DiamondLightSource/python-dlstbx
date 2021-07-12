@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import pathlib
@@ -103,6 +104,38 @@ class Status(_Base):
                 stdout=f"{s_message}\n\n{s_body}" if s_body else s_message,
             )
         return tc
+
+
+def limit_level(*, max_increase=REPORT.WARNING):
+    """
+    A decorator that affects the reported error levels of health checks.
+
+    max_increase: limits the maximum level increase compared to the last run
+    """
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(cfc: CheckFunctionInterface):
+            def _limit(status):
+                current_status = cfc.current_status.get(status.Source)
+                if not current_status:
+                    return status  # unknown previous status
+                if status.Level <= current_status.Level:
+                    return status  # things stayed the same or have improved
+                # smooth out transient errors by limiting how fast errors are escalated
+                status.Level = min(current_status.Level + max_increase, status.Level)
+                return status
+
+            results = func(cfc)
+            if not results:
+                return results
+            if isinstance(results, Status):
+                return _limit(results)
+            return [_limit(r) for r in results]
+
+        return wrapper
+
+    return decorator
 
 
 class database:

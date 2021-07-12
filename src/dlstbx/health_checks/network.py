@@ -1,8 +1,11 @@
 import re
 import socket
+import subprocess
 import urllib.request
 
-from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
+import procrunner
+
+from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status, limit_level
 
 
 def _check_service(URL, checkname, servicename):
@@ -120,3 +123,42 @@ def check_uas(cfc: CheckFunctionInterface):
     URL = "https://uas.diamond.ac.uk/"
     servicename = "UAS"
     return _check_service(URL, cfc.name, servicename)
+
+
+@limit_level(max_increase=7)
+def check_internet(cfc: CheckFunctionInterface):
+    command = ("ping", "-c", "1", "-W", "1", "8.8.8.8")
+    try:
+        result = procrunner.run(
+            command,
+            print_stdout=False,
+            print_stderr=False,
+            timeout=5,
+            raise_timeout_exception=True,
+        )
+    except subprocess.TimeoutExpired:
+        return Status(
+            Source=cfc.name,
+            Level=REPORT.ERROR,
+            Message="Internet connection is down",
+            MessageBody="Timeout running 'ping' command",
+        )
+
+    if result.returncode:
+        output = (result.stderr or result.stdout).decode("latin-1").rstrip()
+        return Status(
+            Source=cfc.name,
+            Level=REPORT.ERROR,
+            Message="Internet connection is down",
+            MessageBody=output,
+        )
+    latency = re.search(b" time=([0-9.]+) ?ms", result.stdout)
+    if latency:
+        latency = ", " + latency.group(1).decode("latin-1") + " ms latency"
+    else:
+        latency = ""
+    return Status(
+        Source=cfc.name,
+        Level=REPORT.PASS,
+        Message=f"Internet connection is up{latency}",
+    )

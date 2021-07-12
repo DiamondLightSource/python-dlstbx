@@ -141,6 +141,7 @@ health_checks = [
     "services.mx.agamemnon = dlstbx.health_checks.network:check_agamemnon",
     "services.mx.dbserver = dlstbx.health_checks.network:check_dbserver",
     "services.zocalo.stash = dlstbx.health_checks.zocalo:check_zocalo_stash",
+    "dls.network.internet = dlstbx.health_checks.network:check_internet",
     "zocalo.dlq.activemq = dlstbx.health_checks.activemq:check_activemq_dlq",
 ]
 

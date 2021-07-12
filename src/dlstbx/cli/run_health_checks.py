@@ -37,6 +37,13 @@ def run():
         choices=tuple(check_functions),
         help="run specific check only",
     )
+    parser.add_argument(
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        default=False,
+        help="do not write results to database",
+    )
     options = parser.parse_args()
 
     if options.graylog:
@@ -63,6 +70,7 @@ def run():
         logger.error(f"Could not connect to IT health database: {e}", exc_info=True)
         exit(1)
 
+    deferred_failure = False
     try:
         for name, loader in check_functions.items():
             call_args = hc.CheckFunctionInterface(
@@ -81,12 +89,14 @@ def run():
                 outcomes = [outcomes]
             for outcome in outcomes:
                 try:
-                    db.set_status(outcome)
+                    if not options.dry_run:
+                        db.set_status(outcome)
                 except Exception as e:
                     logger.error(
                         f"Could not record {fn.__name__} outcome {outcome} due to raised exception: {e}",
                         exc_info=True,
                     )
+                    deferred_failure = True
                     continue
                 if outcome.Level >= hc.REPORT.ERROR:
                     logger.info(
@@ -104,4 +114,6 @@ def run():
         exit(1)
     except BaseException as e:
         logger.critical(f"Encountered unexpected exception: {e}", exc_info=True)
+        exit(1)
+    if deferred_failure:
         exit(1)

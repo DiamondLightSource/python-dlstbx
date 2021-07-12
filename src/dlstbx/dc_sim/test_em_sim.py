@@ -84,7 +84,7 @@ def test_check_relion_outcomes_fail_checks():
     )
     assert not check_result["relion"]["success"]
     assert check_result["relion"]["reason"] == [
-        f"Motion correction for MotionCorr/job002/Movies/Frames/20170629_00030_frameImage.mrc averageMotionPerFrame: -16 outside range {pytest.approx(0.5, 1)} in JobID:1"
+        f"motion correction for MotionCorr/job002/Movies/Frames/20170629_00030_frameImage.mrc averageMotionPerFrame: -16 outside range {pytest.approx(0.5, 1)} in JobID:1"
     ]
 
 

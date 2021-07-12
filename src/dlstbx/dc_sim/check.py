@@ -282,70 +282,47 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
     outcomes = {program: {"success": None} for program in all_programs}
 
     failure_reasons = []
-
-    seen_micrographs = defaultdict(int)
-    for result in job_results["motion_correction"]:
-        micrograph = result.micrographFullPath
-        if not micrograph:
-            failure_reasons.append(f"Unexpected motion correction result: {result!r}")
-            continue
-        expected_mc = expected_outcome["motion_correction"].get(micrograph)
-        if not expected_mc:
+    for record_type, readable_name in (
+        ("motion_correction", "motion correction"),
+        ("ctf", "CTF"),
+    ):
+        seen_records = defaultdict(int)
+        for result in job_results[record_type]:
+            micrograph = result.micrographFullPath
+            if not micrograph:
+                failure_reasons.append(f"Unexpected {readable_name} result: {result!r}")
+                continue
+            expected_record = expected_outcome[record_type].get(micrograph)
+            if not expected_record:
+                failure_reasons.append(
+                    f"Unexpected {readable_name} result for micrograph {micrograph}"
+                )
+                continue
+            seen_records[micrograph] += 1
+            for variable in expected_record:
+                outcome = getattr(result, variable, None)
+                if outcome is None or expected_record[variable] != outcome:
+                    failure_reasons.append(
+                        f"{readable_name} for {micrograph} {variable}: {outcome} "
+                        f"outside range {expected_record[variable]} in JobID:{jobid}"
+                    )
+        if len(seen_records) != len(expected_outcome[record_type]):
             failure_reasons.append(
-                f"Unexpected motion correction result for micrograph {micrograph}"
+                f"Out of {len(expected_outcome[record_type])} expected micrographs "
+                f"only {len(seen_records)} were seen"
             )
-            continue
-        seen_micrographs[micrograph] += 1
-        for variable in expected_mc:
-            outcome = getattr(result, variable, None)
-            if outcome is None or expected_mc[variable] != outcome:
-                failure_reasons.append(
-                    f"Motion correction for {micrograph} {variable}: {outcome} outside range {expected_mc[variable]} in JobID:{jobid}"
-                )
-    if len(seen_micrographs) != len(expected_outcome["motion_correction"]):
-        failure_reasons.append(
-            "Out of %d expected micrographs only %d were seen"
-            % (len(expected_outcome["motion_correction"]), len(seen_micrographs))
-        )
-    if any(count > 1 for count in seen_micrographs.values()):
-        failure_reasons.append(
-            "Motion corrected micrographs were seen more than once: %r"
-            % {
-                micrograph
-                for micrograph, count in seen_micrographs.items()
-                if count > 1
-            }
-        )
+        if any(count > 1 for count in seen_records.values()):
+            failure_reasons.append(
+                f"{readable_name} micrographs were seen more than once: %r"
+                % {
+                    micrograph
+                    for micrograph, count in seen_records.items()
+                    if count > 1
+                }
+            )
 
-    seen_ctfs = defaultdict(int)
-    for result in job_results["ctf"]:
-        micrograph = result.micrographFullPath
-        if not micrograph:
-            failure_reasons.append(f"Unexpected CTF result: {result!r}")
-            continue
-        expected_ctf = expected_outcome["ctf"].get(micrograph)
-        if not expected_ctf:
-            failure_reasons.append(f"Unexpected CTF result for micrograph {micrograph}")
-            continue
-        seen_ctfs[micrograph] += 1
-        for variable in expected_ctf:
-            outcome = getattr(result, variable, None)
-            if outcome is None or expected_ctf[variable] != outcome:
-                failure_reasons.append(
-                    f"CTF for {micrograph} {variable}: {outcome} outside range {expected_ctf[variable]} in JobID:{jobid}"
-                )
-    if len(seen_ctfs) != len(expected_outcome["ctf"]):
-        failure_reasons.append(
-            f"Out of {len(expected_outcome['ctf'])} expected CTF results only {len(seen_ctfs)} were seen"
-        )
-    if any(count > 1 for count in seen_ctfs.values()):
-        failure_reasons.append(
-            "CTF micrographs were seen more than once: %r"
-            % {micrograph for micrograph, count in seen_ctfs.items() if count > 1}
-        )
-
-    outcomes["relion"]["success"] = not failure_reasons
     outcomes["relion"]["reason"] = failure_reasons
+    outcomes["relion"]["success"] = not failure_reasons
     return outcomes
 
 

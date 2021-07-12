@@ -334,6 +334,15 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
                 failure_reasons.append(
                     f"CTF for {micrograph} {variable}: {outcome} outside range {expected_ctf[variable]} in JobID:{jobid}"
                 )
+    if len(seen_ctfs) != len(expected_outcome["ctf"]):
+        failure_reasons.append(
+            f"Out of {len(expected_outcome['ctf'])} expected CTF results only {len(seen_ctfs)} were seen"
+        )
+    if any(count > 1 for count in seen_ctfs.values()):
+        failure_reasons.append(
+            "CTF micrographs were seen more than once: %r"
+            % {micrograph for micrograph, count in seen_ctfs.items() if count > 1}
+        )
 
     outcomes["relion"]["success"] = not failure_reasons
     outcomes["relion"]["reason"] = failure_reasons

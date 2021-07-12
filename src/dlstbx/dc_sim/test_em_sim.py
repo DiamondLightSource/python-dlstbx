@@ -9,19 +9,20 @@ import dlstbx.dc_sim.definitions
 
 
 @dataclass(frozen=True)
+class MotioncorrectionResult:
+    micrographFullPath: str
+    totalMotion: float = 15
+    averageMotionPerFrame: float = 0.5
+
+
+@dataclass(frozen=True)
 class CTFResult:
+    MotionCorrection: MotioncorrectionResult
     astigmatism = 247
     astigmatismAngle = 83
     estimatedResolution = 5
     estimatedDefocus = 10800
     ccValue = 0.15
-
-
-@dataclass(frozen=True)
-class MotioncorrectionResult:
-    micrographFullPath: str
-    totalMotion: float = 15
-    averageMotionPerFrame: float = 0.5
 
 
 def test_check_relion_outcomes_pass_checks():
@@ -34,7 +35,14 @@ def test_check_relion_outcomes_pass_checks():
             )
             for frame in frame_numbers
         ],
-        "ctf": [CTFResult() for _ in frame_numbers],
+        "ctf": [
+            CTFResult(
+                MotionCorrection=MotioncorrectionResult(
+                    micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+                )
+            )
+            for frame in frame_numbers
+        ],
     }
 
     expected_outcome = dlstbx.dc_sim.definitions.tests.get("relion", {}).get("results")
@@ -61,7 +69,10 @@ def test_check_relion_outcomes_fail_checks():
 
     dc_results_f = {
         "motion_correction": [db_motion_corr_f(frame) for frame in frame_numbers],
-        "ctf": [CTFResult() for _ in frame_numbers],
+        "ctf": [
+            CTFResult(MotionCorrection=db_motion_corr_f(frame))
+            for frame in frame_numbers
+        ],
     }
 
     expected_outcome_f = dlstbx.dc_sim.definitions.tests.get("relion", {}).get(
@@ -73,7 +84,7 @@ def test_check_relion_outcomes_fail_checks():
     )
     assert not check_result["relion"]["success"]
     assert check_result["relion"]["reason"] == [
-        f"Motion correction for MotionCorr/job002/Movies/Frames/20170629_00030_frameImage.mrc averageMotionPerFrame: -16 outside range {pytest.approx(0.5, 1)} in JobID:1"
+        f"motion correction for MotionCorr/job002/Movies/Frames/20170629_00030_frameImage.mrc averageMotionPerFrame: -16 outside range {pytest.approx(0.5, 1)} in JobID:1"
     ]
 
 
@@ -94,7 +105,9 @@ def test_check_test_outcome_success(mock_sess, mock_eng, mock_ctf, mock_mcorr):
         return motion_corr
 
     mock_mcorr.return_value = [db_motion_corr(_) for _ in frame_numbers], 1
-    mock_ctf.return_value = [CTFResult() for _ in frame_numbers]
+    mock_ctf.return_value = [
+        CTFResult(MotionCorrection=db_motion_corr(frame)) for frame in frame_numbers
+    ]
 
     test = {
         "beamline": "m12",
@@ -128,7 +141,9 @@ def test_check_test_outcome_failure(mock_sess, mock_eng, mock_ctf, mock_mcorr):
         return motion_corr
 
     mock_mcorr.return_value = [db_motion_corr(_) for _ in frame_numbers], 1
-    mock_ctf.return_value = [CTFResult() for _ in frame_numbers]
+    mock_ctf.return_value = [
+        CTFResult(MotionCorrection=db_motion_corr(frame)) for frame in frame_numbers
+    ]
 
     test = {
         "beamline": "m12",

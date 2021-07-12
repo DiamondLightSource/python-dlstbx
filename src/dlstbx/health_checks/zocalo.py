@@ -4,7 +4,15 @@ from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 
 
 def check_zocalo_stash(cfc: CheckFunctionInterface):
-    count = len(os.listdir("/dls_sw/apps/zocalo/dropfiles/"))
+    try:
+        count = len(os.listdir("/dls_sw/apps/zocalo/dropfiles/"))
+    except PermissionError:
+        return Status(
+            Source=cfc.name,
+            Level=REPORT.WARNING,
+            Message=f"PermissionError on attempting to read dropfile location",
+            MessageBody="Please ensure the check is run as user dlshudson or gda2",
+        )
 
     if count:
         return Status(

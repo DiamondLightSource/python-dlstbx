@@ -317,18 +317,22 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
             }
         )
 
-    for variable in (
-        "astigmatism",
-        "astigmatismAngle",
-        "estimatedResolution",
-        "estimatedDefocus",
-        "ccValue",
-    ):
-        for i, expoutcome in enumerate(expected_outcome["ctf"]):
-            outcome = getattr(job_results["ctf"][i], variable, None)
-            if outcome is None or expoutcome[variable] != outcome:
+    seen_ctfs = defaultdict(int)
+    for result in job_results["ctf"]:
+        micrograph = result.micrographFullPath
+        if not micrograph:
+            failure_reasons.append(f"Unexpected CTF result: {result!r}")
+            continue
+        expected_ctf = expected_outcome["ctf"].get(micrograph)
+        if not expected_ctf:
+            failure_reasons.append(f"Unexpected CTF result for micrograph {micrograph}")
+            continue
+        seen_ctfs[micrograph] += 1
+        for variable in expected_ctf:
+            outcome = getattr(result, variable, None)
+            if outcome is None or expected_ctf[variable] != outcome:
                 failure_reasons.append(
-                    f"{variable}: {outcome} outside range {expoutcome[variable]}, program: relion, JobID:{jobid}"
+                    f"CTF for {micrograph} {variable}: {outcome} outside range {expected_ctf[variable]} in JobID:{jobid}"
                 )
 
     outcomes["relion"]["success"] = not failure_reasons

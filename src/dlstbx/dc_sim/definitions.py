@@ -420,16 +420,16 @@ tests = {
                 }
                 for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
             },
-            "ctf": tuple(
-                {
+            "ctf": {
+                f"MotionCorr/job002/Movies/Frames/20170629_000{image_number}_frameImage.mrc": {
                     "astigmatism": approx(247, 0.75),
                     "astigmatismAngle": approx(83, 0.75),
                     "estimatedResolution": approx(5, 0.75),
                     "estimatedDefocus": approx(10800, 0.75),
                     "ccValue": approx(0.15, 0.75),
                 }
-                for _ in (set(range(21, 50)) - {32, 33, 34, 38, 41})
-            ),
+                for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
+            },
         },
     },
 }

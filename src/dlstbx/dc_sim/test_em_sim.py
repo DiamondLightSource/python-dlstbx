@@ -10,6 +10,7 @@ import dlstbx.dc_sim.definitions
 
 @dataclass(frozen=True)
 class CTFResult:
+    micrographFullPath: str
     astigmatism = 247
     astigmatismAngle = 83
     estimatedResolution = 5
@@ -34,7 +35,12 @@ def test_check_relion_outcomes_pass_checks():
             )
             for frame in frame_numbers
         ],
-        "ctf": [CTFResult() for _ in frame_numbers],
+        "ctf": [
+            CTFResult(
+                micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+            )
+            for frame in frame_numbers
+        ],
     }
 
     expected_outcome = dlstbx.dc_sim.definitions.tests.get("relion", {}).get("results")
@@ -61,7 +67,12 @@ def test_check_relion_outcomes_fail_checks():
 
     dc_results_f = {
         "motion_correction": [db_motion_corr_f(frame) for frame in frame_numbers],
-        "ctf": [CTFResult() for _ in frame_numbers],
+        "ctf": [
+            CTFResult(
+                micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+            )
+            for frame in frame_numbers
+        ],
     }
 
     expected_outcome_f = dlstbx.dc_sim.definitions.tests.get("relion", {}).get(
@@ -94,7 +105,12 @@ def test_check_test_outcome_success(mock_sess, mock_eng, mock_ctf, mock_mcorr):
         return motion_corr
 
     mock_mcorr.return_value = [db_motion_corr(_) for _ in frame_numbers], 1
-    mock_ctf.return_value = [CTFResult() for _ in frame_numbers]
+    mock_ctf.return_value = [
+        CTFResult(
+            micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+        )
+        for frame in frame_numbers
+    ]
 
     test = {
         "beamline": "m12",
@@ -128,7 +144,12 @@ def test_check_test_outcome_failure(mock_sess, mock_eng, mock_ctf, mock_mcorr):
         return motion_corr
 
     mock_mcorr.return_value = [db_motion_corr(_) for _ in frame_numbers], 1
-    mock_ctf.return_value = [CTFResult() for _ in frame_numbers]
+    mock_ctf.return_value = [
+        CTFResult(
+            micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+        )
+        for frame in frame_numbers
+    ]
 
     test = {
         "beamline": "m12",

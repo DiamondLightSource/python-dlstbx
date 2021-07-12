@@ -55,4 +55,4 @@ def check_activemq_dlq(cfc: CheckFunctionInterface):
                     + f"Error cleared at {now}",
                 )
 
-    return report_updates.values()
+    return list(report_updates.values())

@@ -1,4 +1,5 @@
 import argparse
+import concurrent.futures
 import logging
 
 import pkg_resources
@@ -18,7 +19,6 @@ def run():
     parser = argparse.ArgumentParser(
         description="Run infrastructure checks and report results to a database."
     )
-
     parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
     parser.add_argument(
         "--graylog",
@@ -34,7 +34,7 @@ def run():
         metavar="CHK",
         default=[],
         type=str,
-        choices=tuple(check_functions),
+        choices=sorted(check_functions),
         help="run specific check only",
     )
     parser.add_argument(
@@ -78,50 +78,25 @@ def run():
         logger.error(f"Could not connect to IT health database: {e}", exc_info=True)
         exit(1)
 
+    call_arguments = {
+        name: hc.CheckFunctionInterface(
+            current_status=current_db_status.copy(), name=name
+        )
+        for name in check_functions
+    }
+
     deferred_failure = False
     try:
-        for name, loader in check_functions.items():
-            call_args = hc.CheckFunctionInterface(
-                current_status=current_db_status.copy(), name=name
-            )
-            fn = loader()
-            try:
-                outcomes = fn(call_args) or []
-            except Exception as e:
-                logger.error(
-                    f"Health check {name} raised exception: {e}",
-                    exc_info=True,
-                )
-                continue
-            if isinstance(outcomes, hc.Status):
-                outcomes = [outcomes]
-            for outcome in outcomes:
-                try:
-                    if not options.dry_run:
-                        db.set_status(outcome)
-                except Exception as e:
-                    logger.error(
-                        f"Could not record {fn.__name__} outcome {outcome} due to raised exception: {e}",
-                        exc_info=True,
-                    )
+        with concurrent.futures.ProcessPoolExecutor(max_workers=5) as executor:
+            results = {
+                executor.submit(check_functions[name](), call_arguments[name]): name
+                for name in check_functions
+            }
+
+            for future in concurrent.futures.as_completed(results):
+                name = results[future]
+                if not _process_check_result(name, future, db, options):
                     deferred_failure = True
-                    continue
-                verbose_level = f" ({outcome.Level})" if options.verbose else ""
-                if outcome.Level >= hc.REPORT.ERROR:
-                    logger.info(
-                        f"Recording failure outcome for {outcome.Source} with {outcome.Message}{verbose_level}",
-                        extra={"level": outcome.Level},
-                    )
-                elif outcome.Level >= hc.REPORT.WARNING:
-                    logger.info(
-                        f"Recording warning outcome for {outcome.Source} with {outcome.Message}{verbose_level}",
-                        extra={"level": outcome.Level},
-                    )
-                else:
-                    logger.info(
-                        f"Recording pass outcome for {outcome.Source}{verbose_level}",
-                        extra={"level": outcome.Level},
-                    )
     except KeyboardInterrupt:
         exit(1)
     except BaseException as e:
@@ -129,3 +104,45 @@ def run():
         exit(1)
     if deferred_failure:
         exit(1)
+
+
+def _process_check_result(name, future, db, options):
+    try:
+        outcomes = future.result() or []
+    except Exception as e:
+        logger.error(
+            f"Health check {name} raised exception: {e}",
+            exc_info=True,
+        )
+        return True  # might want to handle this internally?
+    if isinstance(outcomes, hc.Status):
+        outcomes = [outcomes]
+    database_error = False
+    for outcome in outcomes:
+        try:
+            if not options.dry_run:
+                db.set_status(outcome)
+        except Exception as e:
+            logger.error(
+                f"Could not record {name} outcome {outcome} due to {e}",
+                exc_info=True,
+            )
+            database_error = True
+            continue
+        verbose_level = f" ({outcome.Level})" if options.verbose else ""
+        if outcome.Level >= hc.REPORT.ERROR:
+            logger.info(
+                f"Recording failure outcome for {outcome.Source} with {outcome.Message}{verbose_level}",
+                extra={"level": outcome.Level},
+            )
+        elif outcome.Level >= hc.REPORT.WARNING:
+            logger.info(
+                f"Recording warning outcome for {outcome.Source} with {outcome.Message}{verbose_level}",
+                extra={"level": outcome.Level},
+            )
+        else:
+            logger.info(
+                f"Recording pass outcome for {outcome.Source}{verbose_level}",
+                extra={"level": outcome.Level},
+            )
+    return not database_error

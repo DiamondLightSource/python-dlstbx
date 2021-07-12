@@ -8,7 +8,7 @@ from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 def check_activemq_dlq(cfc: CheckFunctionInterface):
     db_status = cfc.current_status
     status = dlstbx.cli.dlq_check.check_dlq()
-    check_prefix = "zocalo.dlq.activemq."
+    check_prefix = cfc.name + "."
     now = f"{datetime.now():%Y-%m-%d %H:%M:%S}"
 
     report_updates = {}

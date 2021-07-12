@@ -13,20 +13,19 @@ _graylog_dashboard = (
 
 
 def check_graylog_is_alive(cfc: CheckFunctionInterface) -> Status:
-    check = "services.graylog.alive"
     g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
     messages = g.get_messages()
 
     if messages:
         return Status(
-            Source=check,
+            Source=cfc.name,
             Level=REPORT.PASS,
             Message=f"Messages are appearing in Graylog ({len(messages)} in 10 minutes)",
             URL=_graylog_url,
         )
     else:
         return Status(
-            Source=check,
+            Source=cfc.name,
             Level=REPORT.ERROR,
             Message=f"No messages have appeared in Graylog for at least 10 minutes",
             MessageBody="According to Graylog there have not been any messages in the Data Analysis stream for the last 10 minutes",
@@ -35,13 +34,11 @@ def check_graylog_is_alive(cfc: CheckFunctionInterface) -> Status:
 
 
 def check_graylog_has_history(cfc: CheckFunctionInterface) -> Status:
-    check = "services.graylog.history"
-
     g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
     stats = g.get_history_statistics()
     if not stats or not stats.get("range", {}).get("days"):
         return Status(
-            Source=check,
+            Source=cfc.name,
             Level=REPORT.ERROR,
             Message="Could not retrieve Graylog statistics",
             URL=_graylog_dashboard,
@@ -69,7 +66,7 @@ def check_graylog_has_history(cfc: CheckFunctionInterface) -> Status:
         result_level = REPORT.ERROR
 
     return Status(
-        Source=check,
+        Source=cfc.name,
         Level=result_level,
         Message=storage_status,
         URL=_graylog_dashboard,
@@ -77,7 +74,6 @@ def check_graylog_has_history(cfc: CheckFunctionInterface) -> Status:
 
 
 def check_gfps_expulsion(cfc: CheckFunctionInterface) -> Status:
-    check = "it.filesystem.gpfs-expulsion"
     g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
     g.stream = "5d8cd831e7e1f54f98464d3f"  # switch to syslog stream
     g.filters = ["application_name:mmfs", "message:expelling"]
@@ -109,18 +105,19 @@ def check_gfps_expulsion(cfc: CheckFunctionInterface) -> Status:
             + ["", "By host:"]
             + [f"  {count:3d}x {host}" for host, count in clusters.most_common()]
         )
-    return Status(Source=check, Level=level, Message=message, MessageBody=messagebody)
+    return Status(
+        Source=cfc.name, Level=level, Message=message, MessageBody=messagebody
+    )
 
 
 def check_filesystem_is_responsive(cfc: CheckFunctionInterface) -> Status:
-    check = "it.filesystem.responsiveness"
     g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
     g.filters = ["facility:dlstbx.services.filewatcher", "stat-time-max:>5"]
 
     messages = list(g.get_all_messages(time=1800))
     if not messages:
         return Status(
-            Source=check,
+            Source=cfc.name,
             Level=REPORT.PASS,
             Message="Filesystem response times normal",
             MessageBody="No filesystem accesses slower than 5 seconds observed in the last 30 minutes",
@@ -132,7 +129,7 @@ def check_filesystem_is_responsive(cfc: CheckFunctionInterface) -> Status:
 
     if len(messages) == 1 and worst_case["stat-time-max"] <= 15:
         return Status(
-            Source=check,
+            Source=cfc.name,
             Level=REPORT.WARNING,
             Message="Filesystem access time spike detected",
             MessageBody=(
@@ -142,7 +139,7 @@ def check_filesystem_is_responsive(cfc: CheckFunctionInterface) -> Status:
             URL=_graylog_dashboard,
         )
     return Status(
-        Source=check,
+        Source=cfc.name,
         Level=REPORT.ERROR,
         Message="Filesystems are slower than normal",
         MessageBody=(

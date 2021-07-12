@@ -140,6 +140,7 @@ health_checks = [
     "services.dls.uas = dlstbx.health_checks.network:check_uas",
     "services.mx.agamemnon = dlstbx.health_checks.network:check_agamemnon",
     "services.mx.dbserver = dlstbx.health_checks.network:check_dbserver",
+    "services.zocalo.stash = dlstbx.health_checks.zocalo:check_zocalo_stash",
     "slowfs = dlstbx.health_checks.graylog:check_filesystem_is_responsive",
 ]
 

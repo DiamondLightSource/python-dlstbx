@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from operator import attrgetter
 
 import ispyb
 import ispyb.model.__future__
@@ -282,13 +283,13 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
     outcomes = {program: {"success": None} for program in all_programs}
 
     failure_reasons = []
-    for record_type, readable_name in (
-        ("motion_correction", "motion correction"),
-        ("ctf", "CTF"),
+    for record_type, readable_name, get_micrograph_path in (
+        ("motion_correction", "motion correction", attrgetter("micrographFullPath")),
+        ("ctf", "CTF", attrgetter("MotionCorrection.micrographFullPath")),
     ):
         seen_records = defaultdict(int)
         for result in job_results[record_type]:
-            micrograph = result.micrographFullPath
+            micrograph = get_micrograph_path(result)
             if not micrograph:
                 failure_reasons.append(f"Unexpected {readable_name} result: {result!r}")
                 continue

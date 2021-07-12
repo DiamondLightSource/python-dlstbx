@@ -9,20 +9,20 @@ import dlstbx.dc_sim.definitions
 
 
 @dataclass(frozen=True)
-class CTFResult:
+class MotioncorrectionResult:
     micrographFullPath: str
+    totalMotion: float = 15
+    averageMotionPerFrame: float = 0.5
+
+
+@dataclass(frozen=True)
+class CTFResult:
+    MotionCorrection: MotioncorrectionResult
     astigmatism = 247
     astigmatismAngle = 83
     estimatedResolution = 5
     estimatedDefocus = 10800
     ccValue = 0.15
-
-
-@dataclass(frozen=True)
-class MotioncorrectionResult:
-    micrographFullPath: str
-    totalMotion: float = 15
-    averageMotionPerFrame: float = 0.5
 
 
 def test_check_relion_outcomes_pass_checks():
@@ -37,7 +37,9 @@ def test_check_relion_outcomes_pass_checks():
         ],
         "ctf": [
             CTFResult(
-                micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+                MotionCorrection=MotioncorrectionResult(
+                    micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+                )
             )
             for frame in frame_numbers
         ],
@@ -68,9 +70,7 @@ def test_check_relion_outcomes_fail_checks():
     dc_results_f = {
         "motion_correction": [db_motion_corr_f(frame) for frame in frame_numbers],
         "ctf": [
-            CTFResult(
-                micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
-            )
+            CTFResult(MotionCorrection=db_motion_corr_f(frame))
             for frame in frame_numbers
         ],
     }
@@ -106,10 +106,7 @@ def test_check_test_outcome_success(mock_sess, mock_eng, mock_ctf, mock_mcorr):
 
     mock_mcorr.return_value = [db_motion_corr(_) for _ in frame_numbers], 1
     mock_ctf.return_value = [
-        CTFResult(
-            micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
-        )
-        for frame in frame_numbers
+        CTFResult(MotionCorrection=db_motion_corr(frame)) for frame in frame_numbers
     ]
 
     test = {
@@ -145,10 +142,7 @@ def test_check_test_outcome_failure(mock_sess, mock_eng, mock_ctf, mock_mcorr):
 
     mock_mcorr.return_value = [db_motion_corr(_) for _ in frame_numbers], 1
     mock_ctf.return_value = [
-        CTFResult(
-            micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
-        )
-        for frame in frame_numbers
+        CTFResult(MotionCorrection=db_motion_corr(frame)) for frame in frame_numbers
     ]
 
     test = {

@@ -1030,3 +1030,42 @@ class DLSISPyB(EM_Mixin, CommonService):
                     continue
                 else:
                     raise
+
+    def _do_buffer_store(self, *, parameters, session, **kwargs):
+        """Write an entry into the zc_ZocaloBuffer table.
+
+        The buffer table allows decoupling of the message-sending client
+        and the database server-side assigned primary keys. The client defines
+        a unique reference (uuid) that it will use to refer to a real primary
+        key value (reference). All uuids are relative to an AutoProcProgramID
+        and will be stored for a limited time based on the underlying
+        AutoProcProgram record.
+        """
+        entry = ispyb.sqlalchemy.ZcZocaloBuffer(
+            AutoProcProgramID=parameters("program_id"),
+            UUID=parameters("uuid"),
+            Reference=parameters("reference"),
+        )
+        session.merge(entry)
+        session.commit()
+        return {"success": True, "return_value": entry.UUID}
+
+    def _do_buffer_retrieve(self, *, parameters, session, **kwargs):
+        """Retrieve an entry from the zc_ZocaloBuffer table.
+
+        Given an AutoProcProgramID and a client-defined unique reference (uuid)
+        retrieve a reference value from the database if possible.
+        """
+        query = (
+            session.query(ispyb.sqlalchemy.ZcZocaloBuffer)
+            .filter(
+                ispyb.sqlalchemy.ZcZocaloBuffer.AutoProcProgramID
+                == parameters("program_id")
+            )
+            .filter(ispyb.sqlalchemy.ZcZocaloBuffer.UUID == parameters("uuid"))
+        )
+        try:
+            result = query.one()
+            return {"success": True, "return_value": result.Reference}
+        except sqlalchemy.exc.NoResultFound:
+            return {"success": False}

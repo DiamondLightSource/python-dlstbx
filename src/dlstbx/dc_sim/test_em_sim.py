@@ -18,8 +18,8 @@ class MotioncorrectionResult:
 @dataclass(frozen=True)
 class CTFResult:
     MotionCorrection: MotioncorrectionResult
-    astigmatism = 247
-    astigmatismAngle = 83
+    astigmatism: float = 247
+    astigmatismAngle: float = 83
     estimatedResolution = 5
     estimatedDefocus = 10800
     ccValue = 0.15
@@ -39,7 +39,9 @@ def test_check_relion_outcomes_pass_checks():
             CTFResult(
                 MotionCorrection=MotioncorrectionResult(
                     micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
-                )
+                ),
+                astigmatism=(0 if frame == 23 else 247),
+                astigmatismAngle=(-35 if frame == 23 else 83),
             )
             for frame in frame_numbers
         ],
@@ -70,7 +72,11 @@ def test_check_relion_outcomes_fail_checks():
     dc_results_f = {
         "motion_correction": [db_motion_corr_f(frame) for frame in frame_numbers],
         "ctf": [
-            CTFResult(MotionCorrection=db_motion_corr_f(frame))
+            CTFResult(
+                MotionCorrection=db_motion_corr_f(frame),
+                astigmatism=(0 if frame == 23 else 247),
+                astigmatismAngle=(-35 if frame == 23 else 83),
+            )
             for frame in frame_numbers
         ],
     }
@@ -106,7 +112,12 @@ def test_check_test_outcome_success(mock_sess, mock_eng, mock_ctf, mock_mcorr):
 
     mock_mcorr.return_value = [db_motion_corr(_) for _ in frame_numbers], 1
     mock_ctf.return_value = [
-        CTFResult(MotionCorrection=db_motion_corr(frame)) for frame in frame_numbers
+        CTFResult(
+            MotionCorrection=db_motion_corr(frame),
+            astigmatism=(0 if frame == 23 else 247),
+            astigmatismAngle=(-35 if frame == 23 else 83),
+        )
+        for frame in frame_numbers
     ]
 
     test = {
@@ -140,9 +151,14 @@ def test_check_test_outcome_failure(mock_sess, mock_eng, mock_ctf, mock_mcorr):
             motion_corr.averageMotionPerFrame = 0.5
         return motion_corr
 
-    mock_mcorr.return_value = [db_motion_corr(_) for _ in frame_numbers], 1
+    mock_mcorr.return_value = [db_motion_corr(frame) for frame in frame_numbers], 1
     mock_ctf.return_value = [
-        CTFResult(MotionCorrection=db_motion_corr(frame)) for frame in frame_numbers
+        CTFResult(
+            MotionCorrection=db_motion_corr(frame),
+            astigmatism=(0 if frame == 23 else 247),
+            astigmatismAngle=(-35 if frame == 23 else 83),
+        )
+        for frame in frame_numbers
     ]
 
     test = {

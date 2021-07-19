@@ -945,8 +945,8 @@ class DLSISPyB(EM_Mixin, CommonService):
         def parameters(parameter, replace_variables=True):
             """Slight change in behaviour compared to 'parameters' in a direct call:
             If the value is defined in the command list item then this takes
-            precedence. Otherwise we check the original message content. Finally
-            we look in parameters dictionary of the recipe step for the
+            precedence. Otherwise we check the original message content. Finally,
+            we look in the parameters dictionary of the recipe step for the
             multipart_message command.
             String replacement rules apply as usual."""
             if parameter in current_command:
@@ -1069,3 +1069,11 @@ class DLSISPyB(EM_Mixin, CommonService):
             return {"success": True, "return_value": result.Reference}
         except sqlalchemy.exc.NoResultFound:
             return {"success": False}
+
+    def do_buffer(self, rw, message, session, **kwargs):
+        """The buffer command supports running buffer lookups before running
+        a command, and optionally storing the result in a buffer after running
+        the command. It also takes care of checkpointing in case a required
+        buffer value is not yet available."""
+        self.log.info("Ignoring unsupported buffer call")
+        return {"success": True, "return_value": None}

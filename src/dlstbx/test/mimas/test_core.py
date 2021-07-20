@@ -45,6 +45,7 @@ def test_eiger_rotation(anomalous_scatterer, absorption_level):
         f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r processing-rlv {dcid}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger  --add-param=resolution.cc_half_significance_level:0.1",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger   --trigger",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
@@ -81,6 +82,7 @@ def test_eiger_rotation_multixia2(anomalous_scatterer, absorption_level):
         f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r processing-rlv {dcid}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger   --trigger",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-3dii-eiger --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600",

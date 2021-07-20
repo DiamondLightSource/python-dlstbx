@@ -453,6 +453,12 @@ def run(
             # Always run xia2 and autoPROC without space group set
 
             if scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION:
+                # RLV
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID, recipe="processing-rlv"
+                    )
+                )
                 # xia2-dials
                 tasks.append(
                     dlstbx.mimas.MimasISPyBJobInvocation(

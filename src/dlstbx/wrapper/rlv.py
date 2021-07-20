@@ -25,9 +25,14 @@ class RLVWrapper(zocalo.wrapper.BaseWrapper):
 
         command = [
             "dials.import",
-            "template=%s" % params["template"],
             f"image_range={params['image_first']},{params['image_last']}",
         ]
+        template = params["template"]
+        if template.endswith((".h5", ".nxs")):
+            command.append(template)
+        else:
+            command.append(f"template={template}")
+        "template=%s" % params["template"],
         logger.info("command: %s", " ".join(command))
         result = procrunner.run(command, timeout=params.get("timeout"))
         if result["exitcode"] or result["timeout"]:

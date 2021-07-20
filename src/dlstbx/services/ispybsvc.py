@@ -911,19 +911,23 @@ class DLSISPyB(EM_Mixin, CommonService):
                 "Multipart message call can not be used with simple messages"
             )
             return False
+        if not isinstance(message, dict) and message is not None:
+            self.log.warning(
+                "Multipart messages with non-dictionary messages are deprecated"
+            )
 
-        checkpoint = 1
+        step = 1
         commands = rw.recipe_step["parameters"].get("ispyb_command_list")
         if isinstance(message, dict) and isinstance(
             message.get("ispyb_command_list"), list
         ):
             commands = message["ispyb_command_list"]
-            checkpoint = message.get("checkpoint", 0) + 1
+            step = message.get("checkpoint", 0) + 1
         if not commands:
             self.log.error("Received multipart message containing no commands")
             return False
 
-        current_command = commands.pop(0)
+        current_command = commands[0]
         command = current_command.get("ispyb_command")
         if not command:
             self.log.error(
@@ -935,14 +939,14 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
         self.log.debug(
             "Processing step %d of multipart message (%s) with %d further steps",
-            checkpoint,
+            step,
             command,
-            len(commands),
+            len(commands) - 1,
         )
 
         # Create a parameter lookup function specific to this step of the
         # multipart message
-        def parameters(parameter, replace_variables=True):
+        def step_parameters(parameter, replace_variables=True):
             """Slight change in behaviour compared to 'parameters' in a direct call:
             If the value is defined in the command list item then this takes
             precedence. Otherwise we check the original message content. Finally,
@@ -973,10 +977,16 @@ class DLSISPyB(EM_Mixin, CommonService):
                     base_value = base_value.replace("$" + key, str(rw.environment[key]))
             return base_value
 
-        kwargs["parameters"] = parameters
+        kwargs["parameters"] = step_parameters
+
+        # If this step previously checkpointed then override the message passed
+        # to the step.
+        step_message = message
+        if isinstance(message, dict):
+            step_message = message.get("step_message", message)
 
         # Run the multipart step
-        result = getattr(self, "do_" + command)(rw=rw, message=message, **kwargs)
+        result = getattr(self, "do_" + command)(rw=rw, message=step_message, **kwargs)
 
         # Store step result if appropriate
         store_result = current_command.get("store_result")
@@ -988,10 +998,26 @@ class DLSISPyB(EM_Mixin, CommonService):
                 store_result,
             )
 
+        # If the current step has checkpointed then need to manage this
+        if result and result.get("checkpoint"):
+            self.log.debug("Checkpointing for sub-command %s", command)
+
+            if isinstance(message, dict):
+                checkpoint_dictionary = message
+            else:
+                checkpoint_dictionary = {}
+            checkpoint_dictionary["checkpoint"] = step - 1
+            checkpoint_dictionary["ispyb_command_list"] = commands
+            checkpoint_dictionary["step_message"] = result.get("return_value")
+            return {"checkpoint": True, "return_value": checkpoint_dictionary}
+
         # If the step did not succeed then propagate failure
         if not result or not result.get("success"):
             self.log.debug("Multipart command failed")
             return result
+
+        # Step has completed, so remove from queue
+        commands.pop(0)
 
         # If the multipart command is finished then propagate success
         if not commands:
@@ -1005,8 +1031,10 @@ class DLSISPyB(EM_Mixin, CommonService):
             checkpoint_dictionary = message
         else:
             checkpoint_dictionary = {}
-        checkpoint_dictionary["checkpoint"] = checkpoint
+        checkpoint_dictionary["checkpoint"] = step
         checkpoint_dictionary["ispyb_command_list"] = commands
+        if "step_message" in checkpoint_dictionary:
+            del checkpoint_dictionary["step_message"]
         return {"checkpoint": True, "return_value": checkpoint_dictionary}
 
     def _retry_mysql_call(self, function, *args, **kwargs):

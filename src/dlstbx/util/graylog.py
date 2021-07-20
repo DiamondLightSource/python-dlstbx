@@ -71,6 +71,23 @@ class GraylogAPI:
             "parsed": parsed,
         }
 
+    def cluster_info(self):
+        cluster = self._get("cluster")
+        if not cluster["success"]:
+            return False
+        return cluster["parsed"]
+
+    def unprocessed_messages(self, node):
+        backlog = self._get(
+            f"cluster/{node}/metrics/namespace/org.graylog2.journal.entries-uncommitted"
+        )
+        if not backlog["success"]:
+            return False
+        try:
+            return backlog["parsed"]["metrics"][0]["metric"]["value"]
+        except Exception:
+            return False
+
     @staticmethod
     def epoch_to_graylog(timestamp):
         return datetime.datetime.fromtimestamp(timestamp).isoformat().replace("T", " ")

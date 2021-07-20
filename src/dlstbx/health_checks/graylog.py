@@ -70,13 +70,15 @@ def check_graylog_is_healthy(cfc: CheckFunctionInterface) -> Status:
     if live_nodes < 3:
         issues.append("Fewer than three nodes present in the cluster")
 
-    backlog = {node: g.unprocessed_messages(node) for node in nodes}
+    backlog = {node: g.unprocessed_messages(node) for node in sorted(nodes)}
     backlog_sum = 0
     for node, node_info in backlog.items():
         if node_info is False:
             issues.append(f"Could not read backlog information for node {node}")
         else:
             backlog_sum += node_info
+            if node_info > 10000:
+                issues.append(f"Node {node} has {node_info} messages in backlog")
 
     if backlog_sum > 100000:
         return Status(

@@ -543,7 +543,7 @@ def test_filewatcher_watch_swmr(mocker, tmp_path):
                     "hdf5-index": 99,
                     "file": master_h5,
                     "file-number": i + 1,
-                    "parameters": {"scan_range": f"100,100"},
+                    "parameters": {"scan_range": "100,100"},
                 },
                 transaction=mocker.ANY,
             ),

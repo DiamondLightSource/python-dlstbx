@@ -39,7 +39,7 @@ class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
                 return None
         phaser_script = [
             "phaser << eof\n",
-            f"TITLe mr_predict eLLG calculation\n",
+            "TITLe mr_predict eLLG calculation\n",
             "MODE MR_ELLG\n",
             f"HKLIn {params['hklin']}\n",
             "LABIn F=F SIGF=SIGF\n",

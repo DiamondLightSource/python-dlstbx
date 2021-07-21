@@ -10,7 +10,7 @@ def check_zocalo_stash(cfc: CheckFunctionInterface):
         return Status(
             Source=cfc.name,
             Level=REPORT.WARNING,
-            Message=f"PermissionError on attempting to read dropfile location",
+            Message="PermissionError on attempting to read dropfile location",
             MessageBody="Please ensure the check is run as user dlshudson or gda2",
         )
 
@@ -24,5 +24,5 @@ def check_zocalo_stash(cfc: CheckFunctionInterface):
     return Status(
         Source=cfc.name,
         Level=REPORT.PASS,
-        Message=f"No unprocessed Zocalo messages waiting",
+        Message="No unprocessed Zocalo messages waiting",
     )

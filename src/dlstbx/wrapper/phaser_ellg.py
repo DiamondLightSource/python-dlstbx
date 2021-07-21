@@ -29,7 +29,7 @@ class PhasereLLGWrapper(zocalo.wrapper.BaseWrapper):
         for tag, model_params in metrics.items():
             phaser_script = [
                 "phaser << eof\n",
-                f"TITLe mr_predict eLLG calculation\n",
+                "TITLe mr_predict eLLG calculation\n",
                 "MODE MR_ELLG\n",
                 f"HKLIn {model_params['hklin']}\n",
                 "LABIn F=F SIGF=SIGF\n",

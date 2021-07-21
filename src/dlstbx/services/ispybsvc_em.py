@@ -71,7 +71,7 @@ class EM_Mixin:
             return None
 
     def do_insert_motion_correction(self, parameters, **kwargs):
-        self.log.info(f"Inserting Motion Correction parameters.")
+        self.log.info("Inserting Motion Correction parameters.")
         try:
             movieid = None
             if parameters("movie_id") is None:

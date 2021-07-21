@@ -59,7 +59,7 @@ def get_bigep_parameters(big_ep_params, working_directory, logger):
     try:
         msg_default["nsites"] = big_ep_params["nsites"]
     except KeyError:
-        logger.debug(f"Number of heavy atom sites was not specified")
+        logger.debug("Number of heavy atom sites was not specified")
 
     try:
         assert big_ep_params["resolution"]

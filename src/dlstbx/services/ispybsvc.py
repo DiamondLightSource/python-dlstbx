@@ -917,7 +917,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 "Multipart message call can not be used with simple messages"
             )
             return False
-        if not isinstance(message, dict) and message is not None:
+        if not isinstance(message, dict) and message:
             self.log.warning(
                 "Multipart messages with non-dictionary messages are deprecated"
             )

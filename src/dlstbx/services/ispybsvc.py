@@ -8,6 +8,7 @@ import sqlalchemy.orm
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
+import dlstbx.services.ispybsvc_buffer as buffer
 from dlstbx.services.ispybsvc_em import EM_Mixin
 
 
@@ -1059,49 +1060,131 @@ class DLSISPyB(EM_Mixin, CommonService):
                 else:
                     raise
 
-    def _do_buffer_store(self, *, parameters, session, **kwargs):
-        """Write an entry into the zc_ZocaloBuffer table.
-
-        The buffer table allows decoupling of the message-sending client
-        and the database server-side assigned primary keys. The client defines
-        a unique reference (uuid) that it will use to refer to a real primary
-        key value (reference). All uuids are relative to an AutoProcProgramID
-        and will be stored for a limited time based on the underlying
-        AutoProcProgram record.
-        """
-        entry = ispyb.sqlalchemy.ZcZocaloBuffer(
-            AutoProcProgramID=parameters("program_id"),
-            UUID=parameters("uuid"),
-            Reference=parameters("reference"),
-        )
-        session.merge(entry)
-        session.commit()
-        return {"success": True, "return_value": entry.UUID}
-
-    def _do_buffer_retrieve(self, *, parameters, session, **kwargs):
-        """Retrieve an entry from the zc_ZocaloBuffer table.
-
-        Given an AutoProcProgramID and a client-defined unique reference (uuid)
-        retrieve a reference value from the database if possible.
-        """
-        query = (
-            session.query(ispyb.sqlalchemy.ZcZocaloBuffer)
-            .filter(
-                ispyb.sqlalchemy.ZcZocaloBuffer.AutoProcProgramID
-                == parameters("program_id")
-            )
-            .filter(ispyb.sqlalchemy.ZcZocaloBuffer.UUID == parameters("uuid"))
-        )
-        try:
-            result = query.one()
-            return {"success": True, "return_value": result.Reference}
-        except sqlalchemy.exc.NoResultFound:
-            return {"success": False}
-
-    def do_buffer(self, rw, message, session, **kwargs):
+    def do_buffer(self, rw, message, session, parameters, **kwargs):
         """The buffer command supports running buffer lookups before running
         a command, and optionally storing the result in a buffer after running
         the command. It also takes care of checkpointing in case a required
-        buffer value is not yet available."""
-        self.log.info("Ignoring unsupported buffer call")
-        return {"success": True, "return_value": None}
+        buffer value is not yet available.
+
+        As an example, if you want to send this message to the ISPyB service:
+
+        {
+            "ispyb_command": "insert_thing",
+            "parent_id": "$ispyb_thing_parent_id",
+            "store_result": "ispyb_thing_id",
+            "parameter_a": ...,
+            "parameter_b": ...,
+        }
+
+        and want to look up the parent_id using the buffer with your unique
+        reference UUID1 you could write:
+
+        {
+            "ispyb_command": "buffer",
+            "program_id": "$ispyb_autoprocprogram_id",
+            "buffer_lookup": {
+                "parent_id": UUID1,
+            },
+            "buffer_command": {
+                "ispyb_command": "insert_thing",
+                "parameter_a": ...,
+                "parameter_b": ...,
+            },
+            "buffer_store": UUID2,
+            "store_result": "ispyb_thing_id",
+        }
+
+        which would also store the result under buffer reference UUID2.
+        """
+
+        if not rw.environment.get("has_recipe_wrapper", True):
+            self.log.error("Buffer call can not be used with simple messages")
+            return False
+
+        if not isinstance(message, dict):
+            self.log.error("Invalid buffer call: message must be a dictionary")
+            return False
+
+        if not isinstance(message.get("buffer_command"), dict) or not message[
+            "buffer_command"
+        ].get("ispyb_command"):
+            self.log.error("Invalid buffer call: no buffer command specified")
+            return False
+
+        if "buffer_expiry_time" not in message:
+            message["buffer_expiry_time"] = time.time() + 3600
+
+        # Prepare command: Resolve all references
+        program_id = parameters("program_id")
+        if message.get("buffer_lookup"):
+            if not isinstance(message["buffer_lookup"], dict):
+                self.log.error(
+                    "Invalid buffer call: buffer_lookup dictionary is not a dictionary"
+                )
+                return False
+            if not program_id:
+                self.log.error("Invalid buffer call: program_id is undefined")
+                return False
+            for entry in list(message["buffer_lookup"]):
+                buffer_result = buffer.load(
+                    session=session,
+                    program=program_id,
+                    uuid=message["buffer_lookup"][entry],
+                )
+                if buffer_result.success:
+                    # resolve value and continue
+                    message["buffer_command"][entry] = buffer_result.value
+                    del message["buffer_lookup"][entry]
+                    continue
+
+                # value can not yet be resolved, put request back in the queue
+                if message["buffer_expiry_time"] < time.time():
+                    self.log.warning(
+                        "Buffer call could not be resolved: entry not found"
+                    )
+                    return False
+
+                return {"checkpoint": True, "return_value": message}
+
+        # Run the actual command
+        result = getattr(self, "do_" + message["buffer_command"]["ispyb_command"])(
+            rw=rw,
+            message=message["buffer_command"],
+            session=session,
+            parameters=parameters,
+            **kwargs,
+        )
+
+        # Store result if appropriate
+        store_result = message.get("store_result")
+        if store_result and result and "return_value" in result:
+            rw.environment[store_result] = result["return_value"]
+            self.log.debug(
+                "Storing result '%s' in environment variable '%s'",
+                result["return_value"],
+                store_result,
+            )
+
+        # If the actual command has checkpointed then need to manage this
+        if result and result.get("checkpoint"):
+            self.log.debug("Checkpointing for buffered function")
+            message["buffer_command"] = result["return_value"]
+            return {"checkpoint": True, "return_value": message}
+
+        # If the command did not succeed then propagate failure
+        if not result or not result.get("success"):
+            self.log.warning("Buffered command failed")
+            # should become debug level eventually, the actual function will do the warning
+            return result
+
+        # Optionally store a reference to the result in the buffer table
+        if message.get("buffer_store"):
+            buffer.store(
+                session=session,
+                program=program_id,
+                uuid=message["buffer_store"],
+                reference=result["return_value"],
+            )
+
+        # Finally, propagate result
+        return result

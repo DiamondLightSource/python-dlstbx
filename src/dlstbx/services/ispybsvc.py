@@ -1148,6 +1148,11 @@ class DLSISPyB(EM_Mixin, CommonService):
                     # resolve value and continue
                     message["buffer_command"][entry] = buffer_result.value
                     del message["buffer_lookup"][entry]
+                    self.log.debug(
+                        "Successfully resolved buffer reference %d to %d",
+                        entry,
+                        buffer_result.value,
+                    )
                     continue
 
                 # value can not yet be resolved, put request back in the queue
@@ -1192,6 +1197,7 @@ class DLSISPyB(EM_Mixin, CommonService):
 
         # Optionally store a reference to the result in the buffer table
         if message.get("buffer_store"):
+            self.log.debug("Storing buffer result for UUID %r", message["buffer_store"])
             buffer.store(
                 session=session,
                 program=program_id,

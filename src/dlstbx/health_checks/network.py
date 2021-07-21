@@ -57,6 +57,7 @@ def check_agamemnon(cfc: CheckFunctionInterface):
             Source=cfc.name,
             Level=REPORT.ERROR,
             Message=f"Connection to {servicename} timed out",
+            MessageBody="",
             URL=URL,
         )
     except urllib.error.URLError as e:
@@ -78,6 +79,7 @@ def check_agamemnon(cfc: CheckFunctionInterface):
             Source=cfc.name,
             Level=REPORT.PASS,
             Message=f"{servicename}{version} is alive and responsive",
+            MessageBody="",
             URL=URL,
         )
     return Status(

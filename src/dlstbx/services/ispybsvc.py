@@ -144,7 +144,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         elif result and result.get("checkpoint"):
             rw.checkpoint(
                 result.get("return_value"),
-                delay=rw.recipe_step["parameters"].get("delay"),
+                delay=rw.recipe_step["parameters"].get("delay", result.get("delay")),
                 transaction=txn,
             )
             rw.transport.ack(header, transaction=txn)
@@ -1182,7 +1182,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         if result and result.get("checkpoint"):
             self.log.debug("Checkpointing for buffered function")
             message["buffer_command"] = result["return_value"]
-            return {"checkpoint": True, "return_value": message}
+            return {"checkpoint": True, "return_value": message, "delay": 15}
 
         # If the command did not succeed then propagate failure
         if not result or not result.get("success"):

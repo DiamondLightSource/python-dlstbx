@@ -12,6 +12,10 @@ import dlstbx.services.ispybsvc_buffer as buffer
 from dlstbx.services.ispybsvc_em import EM_Mixin
 
 
+def lookup_command(command, refclass):
+    return getattr(refclass, "do_" + command, None)
+
+
 class DLSISPyB(EM_Mixin, CommonService):
     """A service that receives information to be written to ISPyB."""
 
@@ -83,7 +87,8 @@ class DLSISPyB(EM_Mixin, CommonService):
             self.log.error("Received message is not a valid ISPyB command")
             rw.transport.nack(header)
             return
-        if not hasattr(self, "do_" + command):
+        command_function = lookup_command(command, self)
+        if not command_function:
             self.log.error("Received unknown ISPyB command (%s)", command)
             rw.transport.nack(header)
             return
@@ -117,7 +122,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             return base_value
 
         with self._ispyb_sessionmaker() as session:
-            result = getattr(self, "do_" + command)(
+            result = command_function(
                 rw=rw,
                 message=message,
                 parameters=parameters,
@@ -935,7 +940,8 @@ class DLSISPyB(EM_Mixin, CommonService):
                 "Multipart command %s is not a valid ISPyB command", current_command
             )
             return False
-        if not hasattr(self, "do_" + command):
+        command_function = lookup_command(command, self)
+        if not command_function:
             self.log.error("Received unknown ISPyB command (%s)", command)
             return False
         self.log.debug(
@@ -987,7 +993,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             step_message = message.get("step_message", message)
 
         # Run the multipart step
-        result = getattr(self, "do_" + command)(rw=rw, message=step_message, **kwargs)
+        result = command_function(rw=rw, message=step_message, **kwargs)
 
         # Store step result if appropriate
         store_result = current_command.get("store_result")
@@ -1111,6 +1117,13 @@ class DLSISPyB(EM_Mixin, CommonService):
             self.log.error("Invalid buffer call: no buffer command specified")
             return False
 
+        command_function = lookup_command(
+            message["buffer_command"]["ispyb_command"], self
+        )
+        if not command_function:
+            self.log.error("Invalid buffer call: unknown command specified")
+            return False
+
         if "buffer_expiry_time" not in message:
             message["buffer_expiry_time"] = time.time() + 3600
 
@@ -1147,7 +1160,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 return {"checkpoint": True, "return_value": message}
 
         # Run the actual command
-        result = getattr(self, "do_" + message["buffer_command"]["ispyb_command"])(
+        result = command_function(
             rw=rw,
             message=message["buffer_command"],
             session=session,

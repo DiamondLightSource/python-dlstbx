@@ -154,3 +154,30 @@ class EM_Mixin:
             f"Would insert Class 3D parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
         )
         return {"success": True, "return_value": None}
+
+    def do_insert_particle_classification_group(self, parameters, **kwargs):
+
+        appid = parameters("program_id")
+        dcid = parameters("dcid")
+        self.log.info(
+            f"Would insert particle classification group parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
+        return {"success": True, "return_value": None}
+
+    def do_insert_particle_classification(self, parameters, **kwargs):
+
+        appid = parameters("program_id")
+        dcid = parameters("dcid")
+        self.log.info(
+            f"Would insert particle classification parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
+        return {"success": True, "return_value": None}
+
+    def do_insert_cryoem_initial_model(self, parameters, **kwargs):
+
+        appid = parameters("program_id")
+        dcid = parameters("dcid")
+        self.log.info(
+            f"Would insert cryoem initial model parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
+        )
+        return {"success": True, "return_value": None}

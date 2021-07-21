@@ -988,9 +988,9 @@ class DLSISPyB(EM_Mixin, CommonService):
 
         # If this step previously checkpointed then override the message passed
         # to the step.
-        step_message = message
+        step_message = current_command
         if isinstance(message, dict):
-            step_message = message.get("step_message", message)
+            step_message = message.get("step_message", step_message)
 
         # Run the multipart step
         result = command_function(rw=rw, message=step_message, **kwargs)

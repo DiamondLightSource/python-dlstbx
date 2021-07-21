@@ -456,7 +456,7 @@ def run(
                 # RLV
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="processing-rlv"
+                        DCID=scenario.DCID, recipe="processing-rlv-eiger"
                     )
                 )
                 # xia2-dials

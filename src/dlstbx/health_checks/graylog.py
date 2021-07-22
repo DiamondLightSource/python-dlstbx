@@ -77,10 +77,10 @@ def check_graylog_is_healthy(cfc: CheckFunctionInterface) -> Status:
             issues.append(f"Could not read backlog information for node {node}")
         else:
             backlog_sum += node_info
-            if node_info > 10000:
+            if node_info > 40000:
                 issues.append(f"Node {node} has {node_info} messages in backlog")
 
-    if backlog_sum > 100000:
+    if backlog_sum > 200000:
         return Status(
             Source=cfc.name,
             Level=REPORT.ERROR,
@@ -88,7 +88,7 @@ def check_graylog_is_healthy(cfc: CheckFunctionInterface) -> Status:
             MessageBody="\n".join(issues),
             URL=_graylog_url,
         )
-    if backlog_sum > 10000:
+    if backlog_sum > 40000:
         return Status(
             Source=cfc.name,
             Level=REPORT.WARNING,
@@ -107,7 +107,7 @@ def check_graylog_is_healthy(cfc: CheckFunctionInterface) -> Status:
     return Status(
         Source=cfc.name,
         Level=REPORT.PASS,
-        Message="Graylog cluster intact",
+        Message="Graylog cluster healthy",
         MessageBody=f"Backlog of {backlog_sum} messages",
         URL=_graylog_url,
     )

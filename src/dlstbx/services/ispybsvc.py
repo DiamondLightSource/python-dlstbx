@@ -917,10 +917,12 @@ class DLSISPyB(EM_Mixin, CommonService):
                 "Multipart message call can not be used with simple messages"
             )
             return False
-        if not isinstance(message, dict) and message:
-            self.log.warning(
-                "Multipart messages with non-dictionary messages are deprecated"
-            )
+        # if not isinstance(message, dict) and message:
+        #     self.log.warning(
+        #         "Multipart messages with non-dictionary messages are deprecated"
+        #     )
+        # Disabling this warning 2021-07-22, as this does occur, even though the messages
+        # in that case are discarded as far as I can tell.
 
         step = 1
         commands = rw.recipe_step["parameters"].get("ispyb_command_list")

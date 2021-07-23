@@ -49,7 +49,7 @@ def check_test_outcome(test, db_classic, db_session=None):
         except Exception as e:
             print(f"Test validation failed with {e}, leaving test alone")
             logger.error(
-                f"dc_sim valication for {scenario_type} failed with {e}", exc_info=True
+                f"dc_sim validation for {scenario_type} failed with {e}", exc_info=True
             )
             return test
 
@@ -283,6 +283,7 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
     outcomes = {program: {"success": None} for program in all_programs}
 
     failure_reasons = []
+    count_based_failure_reasons = []
     for record_type, readable_name, get_micrograph_path in (
         ("motion_correction", "motion correction", attrgetter("micrographFullPath")),
         ("ctf", "CTF", attrgetter("MotionCorrection.micrographFullPath")),
@@ -308,7 +309,8 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
                         f"outside range {expected_record[variable]} in JobID:{jobid}"
                     )
         if len(seen_records) != len(expected_outcome[record_type]):
-            failure_reasons.append(
+            # if the lengths don't match the test is inconclusive so will need to set success to None
+            count_based_failure_reasons.append(
                 f"Out of {len(expected_outcome[record_type])} expected micrographs "
                 f"only {len(seen_records)} were seen"
             )
@@ -322,8 +324,10 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
                 }
             )
 
-    outcomes["relion"]["reason"] = failure_reasons
+    outcomes["relion"]["reason"] = failure_reasons + count_based_failure_reasons
     outcomes["relion"]["success"] = not failure_reasons
+    if outcomes["relion"]["success"] and count_based_failure_reasons:
+        outcomes["relion"]["success"] = None
     return outcomes
 
 

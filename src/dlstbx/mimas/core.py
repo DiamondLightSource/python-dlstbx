@@ -101,6 +101,23 @@ def run(
                     )
                 )
 
+            if scenario.spacegroup:
+                # Space group is set, run xia2 with space group
+                spacegroup = scenario.spacegroup.string
+                symmetry_parameters = (
+                    dlstbx.mimas.MimasISPyBParameter(
+                        key="spacegroup", value=spacegroup
+                    ),
+                )
+                if scenario.unitcell:
+                    symmetry_parameters += (
+                        dlstbx.mimas.MimasISPyBParameter(
+                            key="unit_cell", value=scenario.unitcell.string
+                        ),
+                    )
+            else:
+                symmetry_parameters = ()
+
             tasks.append(
                 dlstbx.mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
@@ -108,7 +125,7 @@ def run(
                     recipe="autoprocessing-multi-xia2-smallmolecule",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                    parameters=xia2_dials_absorption_params,
+                    parameters=(*symmetry_parameters, *xia2_dials_absorption_params),
                 )
             )
             tasks.append(
@@ -118,6 +135,7 @@ def run(
                     recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    parameters=symmetry_parameters,
                 )
             )
 

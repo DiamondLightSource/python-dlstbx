@@ -49,7 +49,7 @@ class EM_Mixin:
             )
             return False
 
-    def do_insert_ctf_buffer(self, *, parameters, session, **kwargs):
+    def do_insert_ctf_buffer(self, parameters, session, **kwargs):
         dcid = parameters("dcid")
         self.log.info(f"Inserting CTF parameters. DCID: {dcid}")
         try:
@@ -149,7 +149,7 @@ class EM_Mixin:
                         list(driftparams.values())
                     )
                     self.log.info(f"Created MotionCorrectionDrift record {driftid}")
-                return {"success": True, "return_value": result}
+            return {"success": True, "return_value": result}
 
         except ispyb.ISPyBException as e:
             self.log.error(
@@ -204,7 +204,7 @@ class EM_Mixin:
                         list(driftparams.values())
                     )
                     self.log.info(f"Created MotionCorrectionDrift record {driftid}")
-                return {"success": True, "return_value": result}
+            return {"success": True, "return_value": result}
 
         except ispyb.ISPyBException as e:
             self.log.error(
@@ -214,7 +214,7 @@ class EM_Mixin:
             )
             return False
 
-    def do_insert_particle_picker(self, *, parameters, session, **kwargs):
+    def do_insert_particle_picker(self, parameters, session, **kwargs):
         # We don't yet have a way of inserting information from this message
 
         appid = parameters("program_id")
@@ -224,7 +224,7 @@ class EM_Mixin:
         )
         return {"success": True, "return_value": None}
 
-    def do_insert_particle_picker_buffer(self, *, parameters, session, **kwargs):
+    def do_insert_particle_picker_buffer(self, parameters, session, **kwargs):
 
         dcid = parameters("dcid")
         self.log.info(f"Inserting Particle Picker parameters. DCID: {dcid}")

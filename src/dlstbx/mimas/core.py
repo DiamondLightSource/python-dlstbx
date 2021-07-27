@@ -89,8 +89,22 @@ def run(
 
         if scenario.beamline in ("i19-1", "i19-2"):
             # i19 is a special case
+            if scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.PILATUS:
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID,
+                        recipe="archive-cbfs",
+                    )
+                )
+            elif scenario.detectorclass == dlstbx.mimas.MimasDetectorClass.EIGER:
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID,
+                        recipe="archive-nexus",
+                    )
+                )
+
             for recipe in (
-                "archive-cbfs",
                 "strategy-screen19",
                 "processing-rlv",
                 "generate-crystal-thumbnails",

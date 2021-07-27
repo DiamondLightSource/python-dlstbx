@@ -384,16 +384,28 @@ def test_i19(symmetry, symmetry_params):
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
         f"zocalo.go -r per-image-analysis-rotation {dcid}",
     }
+    xia2_dials_mimas_zocalo_command = (
+        "ispyb.job",
+        "--new",
+        f"--dcid={dcid}",
+        "--source=automatic",
+        "--recipe=autoprocessing-multi-xia2-smallmolecule",
+        f"--add-sweep={dcid}:1:850",
+        f"--add-sweep={other_dcid}:1:850",
+    )
+    xia2_aimless_mimas_zocalo_command = (
+        "ispyb.job",
+        "--new",
+        f"--dcid={dcid}",
+        "--source=automatic",
+        "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+        f"--add-sweep={dcid}:1:850",
+        f"--add-sweep={other_dcid}:1:850",
+    )
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         " ".join(
             (
-                "ispyb.job",
-                "--new",
-                f"--dcid={dcid}",
-                "--source=automatic",
-                "--recipe=autoprocessing-multi-xia2-smallmolecule",
-                f"--add-sweep={dcid}:1:850",
-                f"--add-sweep={other_dcid}:1:850",
+                *xia2_dials_mimas_zocalo_command,
                 *symmetry_params,
                 "--add-param=absorption_level:medium",
                 "--trigger",
@@ -401,42 +413,13 @@ def test_i19(symmetry, symmetry_params):
         ),
         " ".join(
             (
-                "ispyb.job",
-                "--new",
-                f"--dcid={dcid}",
-                "--source=automatic",
-                "--recipe=autoprocessing-multi-xia2-smallmolecule",
-                f"--add-sweep={dcid}:1:850",
-                f"--add-sweep={other_dcid}:1:850",
+                *xia2_dials_mimas_zocalo_command,
                 "--add-param=absorption_level:medium",
                 "--trigger",
             )
         ),
-        " ".join(
-            (
-                "ispyb.job",
-                "--new",
-                f"--dcid={dcid}",
-                "--source=automatic",
-                "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
-                f"--add-sweep={dcid}:1:850",
-                f"--add-sweep={other_dcid}:1:850",
-                *symmetry_params,
-                "--trigger",
-            )
-        ),
-        " ".join(
-            (
-                "ispyb.job",
-                "--new",
-                f"--dcid={dcid}",
-                "--source=automatic",
-                "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
-                f"--add-sweep={dcid}:1:850",
-                f"--add-sweep={other_dcid}:1:850",
-                "--trigger",
-            )
-        ),
+        " ".join((*xia2_aimless_mimas_zocalo_command, *symmetry_params, "--trigger")),
+        " ".join((*xia2_aimless_mimas_zocalo_command, "--trigger")),
         f"zocalo.go -r archive-cbfs {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r processing-rlv {dcid}",

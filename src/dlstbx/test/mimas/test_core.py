@@ -46,10 +46,10 @@ def test_eiger_rotation(anomalous_scatterer, absorption_level):
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r processing-rlv-eiger {dcid}",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger  --add-param=resolution.cc_half_significance_level:0.1",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger   --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger --trigger",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger  --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r archive-nexus {dcid}",
@@ -84,11 +84,11 @@ def test_eiger_rotation_multixia2(anomalous_scatterer, absorption_level):
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r processing-rlv-eiger {dcid}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger   --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger --trigger",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-3dii-eiger --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-dials-eiger --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=absorption_level:{absorption_level}",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger  --add-param=resolution.cc_half_significance_level:0.1",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger  --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
@@ -187,9 +187,9 @@ def test_cbf_rotation(anomalous_scatterer, absorption_level):
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp   --trigger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r processing-rlv {dcid}",
     }
@@ -222,11 +222,11 @@ def test_cbf_rotation_multixia2(anomalous_scatterer, absorption_level):
         f"zocalo.go -r per-image-analysis-rotation {dcid}",
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp   --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp --trigger",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-dials --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level}",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii --add-param=resolution.cc_half_significance_level:0.1",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-3dii --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=resolution.cc_half_significance_level:0.1",
         f"zocalo.go -r processing-rlv {dcid}",
@@ -258,12 +258,12 @@ def test_cbf_rotation_with_spacegroup(anomalous_scatterer, absorption_level):
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC  --add-param=spacegroup:P43212",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp  --add-param=spacegroup:P43212 --trigger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii  --add-param=resolution.cc_half_significance_level:0.1 --add-param=spacegroup:P43212",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials  --add-param=resolution.cc_half_significance_level:0.1 --add-param=spacegroup:P43212 --add-param=absorption_level:{absorption_level} --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC --add-param=spacegroup:P43212",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp --add-param=spacegroup:P43212 --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii --add-param=resolution.cc_half_significance_level:0.1 --add-param=spacegroup:P43212",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials --add-param=resolution.cc_half_significance_level:0.1 --add-param=spacegroup:P43212 --add-param=absorption_level:{absorption_level} --trigger",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r processing-rlv {dcid}",
     }
@@ -333,9 +333,9 @@ def test_vmxi_rotation(anomalous_scatterer, absorption_level):
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger   --trigger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger  --add-param=resolution.cc_half_significance_level:0.1",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger  --add-param=resolution.cc_half_significance_level:0.1 --add-param=remove_blanks:true --add-param=failover:true --add-param=absorption_level:{absorption_level} --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger --add-param=resolution.cc_half_significance_level:0.1 --add-param=remove_blanks:true --add-param=failover:true --add-param=absorption_level:{absorption_level} --trigger",
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
@@ -365,7 +365,7 @@ def test_i19_rotation():
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-smallmolecule --add-sweep={other_dcid}:1:850 --add-sweep={dcid}:1:850 --add-param=absorption_level:medium --trigger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml --add-sweep={other_dcid}:1:850 --add-sweep={dcid}:1:850  --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml --add-sweep={other_dcid}:1:850 --add-sweep={dcid}:1:850 --trigger",
         f"zocalo.go -r archive-cbfs {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r processing-rlv {dcid}",

@@ -337,28 +337,35 @@ def _(mimasobject: MimasRecipeInvocation):
 @zocalo_command_line.register(MimasISPyBJobInvocation)
 def _(mimasobject: MimasISPyBJobInvocation):
     if mimasobject.comment:
-        comment = f"--comment={mimasobject.comment!r} "
+        comment = (f"--comment={mimasobject.comment!r}",)
     else:
-        comment = ""
+        comment = ()
     if mimasobject.displayname:
-        displayname = f"--display={mimasobject.displayname!r} "
+        displayname = (f"--display={mimasobject.displayname!r}",)
     else:
-        displayname = ""
-    parameters = " ".join(
-        f"--add-param={p.key}:{p.value}" for p in mimasobject.parameters
-    )
-    sweeps = " ".join(
-        f"--add-sweep={s.DCID}:{s.start}:{s.end}" for s in mimasobject.sweeps
-    )
+        displayname = ()
+    parameters = (f"--add-param={p.key}:{p.value}" for p in mimasobject.parameters)
+    sweeps = (f"--add-sweep={s.DCID}:{s.start}:{s.end}" for s in mimasobject.sweeps)
     if mimasobject.autostart:
-        trigger = "--trigger "
+        trigger = ("--trigger",)
     else:
-        trigger = ""
-    triggervars = " ".join(
+        trigger = ()
+    triggervars = (
         f"--trigger-variable={tv.key}:{tv.value}" for tv in mimasobject.triggervariables
     )
 
-    return (
-        f"ispyb.job --new --dcid={mimasobject.DCID} --source={mimasobject.source} --recipe={mimasobject.recipe} "
-        f"{sweeps} {parameters} {displayname}{comment}{trigger}{triggervars}"
+    return " ".join(
+        (
+            "ispyb.job",
+            "--new",
+            f"--dcid={mimasobject.DCID}",
+            f"--source={mimasobject.source}",
+            f"--recipe={mimasobject.recipe}",
+            *sweeps,
+            *parameters,
+            *displayname,
+            *comment,
+            *trigger,
+            *triggervars,
+        )
     )

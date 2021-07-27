@@ -405,10 +405,35 @@ def test_i19(symmetry, symmetry_params):
                 "--new",
                 f"--dcid={dcid}",
                 "--source=automatic",
+                "--recipe=autoprocessing-multi-xia2-smallmolecule",
+                f"--add-sweep={dcid}:1:850",
+                f"--add-sweep={other_dcid}:1:850",
+                "--add-param=absorption_level:medium",
+                "--trigger",
+            )
+        ),
+        " ".join(
+            (
+                "ispyb.job",
+                "--new",
+                f"--dcid={dcid}",
+                "--source=automatic",
                 "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
                 f"--add-sweep={dcid}:1:850",
                 f"--add-sweep={other_dcid}:1:850",
                 *symmetry_params,
+                "--trigger",
+            )
+        ),
+        " ".join(
+            (
+                "ispyb.job",
+                "--new",
+                f"--dcid={dcid}",
+                "--source=automatic",
+                "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                f"--add-sweep={dcid}:1:850",
+                f"--add-sweep={other_dcid}:1:850",
                 "--trigger",
             )
         ),

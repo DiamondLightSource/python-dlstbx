@@ -115,8 +115,30 @@ def run(
                             key="unit_cell", value=scenario.unitcell.string
                         ),
                     )
-            else:
-                symmetry_parameters = ()
+
+                tasks.append(
+                    dlstbx.mimas.MimasISPyBJobInvocation(
+                        DCID=scenario.DCID,
+                        autostart=True,
+                        recipe="autoprocessing-multi-xia2-smallmolecule",
+                        source="automatic",
+                        sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                        parameters=(
+                            *symmetry_parameters,
+                            *xia2_dials_absorption_params,
+                        ),
+                    )
+                )
+                tasks.append(
+                    dlstbx.mimas.MimasISPyBJobInvocation(
+                        DCID=scenario.DCID,
+                        autostart=True,
+                        recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                        source="automatic",
+                        sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                        parameters=symmetry_parameters,
+                    )
+                )
 
             tasks.append(
                 dlstbx.mimas.MimasISPyBJobInvocation(
@@ -125,7 +147,7 @@ def run(
                     recipe="autoprocessing-multi-xia2-smallmolecule",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                    parameters=(*symmetry_parameters, *xia2_dials_absorption_params),
+                    parameters=xia2_dials_absorption_params,
                 )
             )
             tasks.append(
@@ -135,7 +157,6 @@ def run(
                     recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                    parameters=symmetry_parameters,
                 )
             )
 

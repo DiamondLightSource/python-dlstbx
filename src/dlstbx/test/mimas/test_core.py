@@ -343,7 +343,12 @@ def test_vmxi_rotation(anomalous_scatterer, absorption_level):
     }
 
 
-def test_i19_rotation():
+@pytest.mark.parametrize(
+    "detectorclass, data_format",
+    [(MimasDetectorClass.PILATUS, "cbfs"), (MimasDetectorClass.EIGER, "nexus")],
+    ids=("Pilatus", "Eiger"),
+)
+def test_i19_rotation(detectorclass, data_format):
     dcid = 6356585
     other_dcid = 6356546
     scenario = functools.partial(
@@ -358,7 +363,7 @@ def test_i19_rotation():
             MimasISPyBSweep(DCID=dcid, start=1, end=850),
         ),
         preferred_processing="xia2/DIALS",
-        detectorclass=MimasDetectorClass.PILATUS,
+        detectorclass=detectorclass,
     )
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
         f"zocalo.go -r per-image-analysis-rotation {dcid}",
@@ -366,7 +371,7 @@ def test_i19_rotation():
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-smallmolecule --add-sweep={other_dcid}:1:850 --add-sweep={dcid}:1:850 --add-param=absorption_level:medium --trigger",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml --add-sweep={other_dcid}:1:850 --add-sweep={dcid}:1:850  --trigger",
-        f"zocalo.go -r archive-cbfs {dcid}",
+        f"zocalo.go -r archive-{data_format} {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r processing-rlv {dcid}",
         f"zocalo.go -r strategy-screen19 {dcid}",

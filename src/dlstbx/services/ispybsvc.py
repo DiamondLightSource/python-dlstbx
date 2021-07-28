@@ -1127,7 +1127,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
 
         if "buffer_expiry_time" not in message:
-            message["buffer_expiry_time"] = time.time() + 3600
+            message["buffer_expiry_time"] = time.time() + 300
 
         # Prepare command: Resolve all references
         program_id = parameters("program_id")

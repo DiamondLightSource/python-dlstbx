@@ -23,11 +23,18 @@ def run(
     if scenario.event is dlstbx.mimas.MimasEvent.START:
         if scenario.beamline in ("i19-1", "i19-2"):
             # i19 is a special case
-            tasks.append(
-                dlstbx.mimas.MimasRecipeInvocation(
-                    DCID=scenario.DCID, recipe="per-image-analysis-rotation"
+            if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS:
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID, recipe="per-image-analysis-rotation"
+                    )
                 )
-            )
+            elif scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.EIGER:
+                tasks.append(
+                    dlstbx.mimas.MimasRecipeInvocation(
+                        DCID=scenario.DCID, recipe="per-image-analysis-rotation-swmr"
+                    )
+                )
 
         elif scenario.beamline == "i02-2":
             # VMXi is also a special case

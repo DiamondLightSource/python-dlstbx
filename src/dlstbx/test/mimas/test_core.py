@@ -344,8 +344,10 @@ def test_vmxi_rotation(anomalous_scatterer, absorption_level):
 
 
 def test_i19_rotation():
-    dcid = 6356585
-    other_dcid = 6356546
+    """Test the I19 rotation scenario."""
+    dcid = 6356546
+    other_dcid = 6356585
+
     scenario = functools.partial(
         MimasScenario,
         DCID=dcid,
@@ -354,8 +356,8 @@ def test_i19_rotation():
         beamline="i19-1",
         runstatus="DataCollection Successful",
         getsweepslistfromsamedcg=(
-            MimasISPyBSweep(DCID=other_dcid, start=1, end=850),
             MimasISPyBSweep(DCID=dcid, start=1, end=850),
+            MimasISPyBSweep(DCID=other_dcid, start=1, end=850),
         ),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.PILATUS,
@@ -364,8 +366,120 @@ def test_i19_rotation():
         f"zocalo.go -r per-image-analysis-rotation {dcid}",
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-smallmolecule --add-sweep={other_dcid}:1:850 --add-sweep={dcid}:1:850 --add-param=absorption_level:medium --trigger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml --add-sweep={other_dcid}:1:850 --add-sweep={dcid}:1:850 --trigger",
+        " ".join(
+            (
+                "ispyb.job",
+                "--new",
+                f"--dcid={dcid}",
+                "--source=automatic",
+                "--recipe=autoprocessing-multi-xia2-smallmolecule",
+                f"--add-sweep={dcid}:1:850",
+                f"--add-sweep={other_dcid}:1:850",
+                "--add-param=absorption_level:medium",
+                "--trigger",
+            )
+        ),
+        " ".join(
+            (
+                "ispyb.job",
+                "--new",
+                f"--dcid={dcid}",
+                "--source=automatic",
+                "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                f"--add-sweep={dcid}:1:850",
+                f"--add-sweep={other_dcid}:1:850",
+                "--trigger",
+            )
+        ),
+        f"zocalo.go -r archive-cbfs {dcid}",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r processing-rlv {dcid}",
+        f"zocalo.go -r strategy-screen19 {dcid}",
+    }
+
+
+def test_i19_rotation_with_symmetry():
+    """Test the I19 rotation scenario with specified crystal symmetry."""
+    dcid = 6356546
+    other_dcid = 6356585
+
+    spacegroup = dlstbx.mimas.MimasISPyBSpaceGroup("P21")
+    unitcell = dlstbx.mimas.MimasISPyBUnitCell(10.89, 8.69, 7.77, 90.0, 103.0, 90.0)
+
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.ROTATION,
+        event=MimasEvent.START,
+        beamline="i19-1",
+        runstatus="DataCollection Successful",
+        getsweepslistfromsamedcg=(
+            MimasISPyBSweep(DCID=dcid, start=1, end=850),
+            MimasISPyBSweep(DCID=other_dcid, start=1, end=850),
+        ),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.PILATUS,
+        spacegroup=spacegroup,
+        unitcell=unitcell,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r per-image-analysis-rotation {dcid}",
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        " ".join(
+            (
+                "ispyb.job",
+                "--new",
+                f"--dcid={dcid}",
+                "--source=automatic",
+                "--recipe=autoprocessing-multi-xia2-smallmolecule",
+                f"--add-sweep={dcid}:1:850",
+                f"--add-sweep={other_dcid}:1:850",
+                "--add-param=spacegroup:P1211",
+                "--add-param=unit_cell:10.89,8.69,7.77,90.0,103.0,90.0",
+                "--add-param=absorption_level:medium",
+                "--trigger",
+            )
+        ),
+        " ".join(
+            (
+                "ispyb.job",
+                "--new",
+                f"--dcid={dcid}",
+                "--source=automatic",
+                "--recipe=autoprocessing-multi-xia2-smallmolecule",
+                f"--add-sweep={dcid}:1:850",
+                f"--add-sweep={other_dcid}:1:850",
+                "--add-param=absorption_level:medium",
+                "--trigger",
+            )
+        ),
+        " ".join(
+            (
+                "ispyb.job",
+                "--new",
+                f"--dcid={dcid}",
+                "--source=automatic",
+                "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                f"--add-sweep={dcid}:1:850",
+                f"--add-sweep={other_dcid}:1:850",
+                "--add-param=spacegroup:P1211",
+                "--add-param=unit_cell:10.89,8.69,7.77,90.0,103.0,90.0",
+                "--trigger",
+            )
+        ),
+        " ".join(
+            (
+                "ispyb.job",
+                "--new",
+                f"--dcid={dcid}",
+                "--source=automatic",
+                "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                f"--add-sweep={dcid}:1:850",
+                f"--add-sweep={other_dcid}:1:850",
+                "--trigger",
+            )
+        ),
         f"zocalo.go -r archive-cbfs {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r processing-rlv {dcid}",

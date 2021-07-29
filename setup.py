@@ -63,6 +63,7 @@ swirltbx_hacks = [
 
 known_wrappers = [  # please keep alphabetically sorted
     "align_crystal = dlstbx.wrapper.dlstbx_align_crystal:AlignCrystalWrapper",
+    "AlphaFold = dlstbx.wrapper.alphafold:AlphaFoldWrapper",
     "AutoBuild = dlstbx.wrapper.autobuild:AutoBuildWrapper",
     "autoproc = dlstbx.wrapper.autoPROC:autoPROCWrapper",
     "autoSHARP = dlstbx.wrapper.autoSHARP:autoSHARPWrapper",

@@ -1,11 +1,13 @@
 import json
 import os.path
+import pathlib
 import time
 
 import ispyb.sqlalchemy
 import mysql.connector
 import sqlalchemy.orm
 import workflows.recipe
+from ispyb.sqlalchemy import PDB, ProteinHasPDB
 from workflows.services.common_service import CommonService
 
 import dlstbx.services.ispybsvc_buffer as buffer
@@ -900,6 +902,37 @@ class DLSISPyB(EM_Mixin, CommonService):
                 exc_info=True,
             )
             return False
+
+    def do_insert_pdb_files(self, *, parameters, session, **kwargs):
+        protein_id = parameters("protein_id")
+        if not protein_id:
+            self.log.error(
+                "No protein_id found in message",
+                exc_info=True,
+            )
+
+        pdb_files = [pathlib.Path(p) for p in parameters("pdb_files")]
+        if not pdb_files:
+            self.log.error(
+                "No pdb_files found in message",
+                exc_info=True,
+            )
+
+        for pdb_file in pdb_files:
+            if not pdb_file.is_file():
+                self.log.warning(
+                    f"PDB file {pdb_file} does not appear to exist",
+                    exc_info=True,
+                )
+                continue
+
+            pdb = PDB(name=pdb_file.name, contents=pdb_file.read_text())
+            protein_has_pdb = ProteinHasPDB(proteinid=protein_id, PDB=pdb)
+            self.log.debug(f"Inserting PDB {pdb.name} for proteinId {protein_id}")
+
+            session.add_all([pdb, protein_has_pdb])
+
+        session.commit()
 
     def do_multipart_message(self, rw, message, **kwargs):
         """The multipart_message command allows the recipe or client to specify a

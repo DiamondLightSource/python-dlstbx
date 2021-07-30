@@ -284,9 +284,7 @@ class EM_Mixin:
         )
         return {"success": True, "return_value": None}
 
-    def do_insert_particle_classification_group(
-        self, parameters, message=None, **kwargs
-    ):
+    def do_insert_particle_classification(self, parameters, message=None, **kwargs):
         if message is None:
             message = {}
         dcid = parameters("dcid")
@@ -326,7 +324,9 @@ class EM_Mixin:
             )
             return False
 
-    def do_insert_particle_classification(self, parameters, message=None, **kwargs):
+    def do_insert_particle_classification_group(
+        self, parameters, message=None, **kwargs
+    ):
         if message is None:
             message = {}
         dcid = parameters("dcid")

@@ -88,6 +88,7 @@ def test_multiplex(
     from dlstbx.services.trigger import DLSTrigger
 
     trigger = DLSTrigger()
+    trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
     trigger.ispyb = testdb
@@ -179,6 +180,7 @@ def test_dimple_trigger(
     from dlstbx.services.trigger import DLSTrigger
 
     trigger = DLSTrigger()
+    trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
     trigger.ispyb = testdb
@@ -209,7 +211,7 @@ def test_dimple_trigger(
         }
 
 
-def test_ep_predict(db_session, testconfig, testdb, mocker, monkeypatch):
+def test_ep_predict(db_session_factory, testconfig, testdb, mocker, monkeypatch):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 993677
     message = {
@@ -236,6 +238,7 @@ def test_ep_predict(db_session, testconfig, testdb, mocker, monkeypatch):
     from dlstbx.services.trigger import DLSTrigger
 
     trigger = DLSTrigger()
+    trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
     trigger.ispyb = testdb
@@ -245,27 +248,28 @@ def test_ep_predict(db_session, testconfig, testdb, mocker, monkeypatch):
     kall = send.mock_calls[0]
     name, args, kwargs = kall
     pjid = args[0]["result"]
-    pj = (
-        db_session.query(ProcessingJob)
-        .filter(ProcessingJob.processingJobId == pjid)
-        .one()
-    )
-    assert pj.displayName == "ep_predict"
-    assert pj.recipe == "postprocessing-ep-predict"
-    assert pj.dataCollectionId == dcid
-    assert pj.automatic
-    params = {
-        (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
-    }
-    assert params == {
-        ("threshold", "0.8"),
-        ("data", "/path/to/xia2-dials/xia2.json"),
-        ("program", "xia2 dials"),
-        ("program_id", "123456"),
-    }
+    with db_session_factory() as db_session:
+        pj = (
+            db_session.query(ProcessingJob)
+            .filter(ProcessingJob.processingJobId == pjid)
+            .one()
+        )
+        assert pj.displayName == "ep_predict"
+        assert pj.recipe == "postprocessing-ep-predict"
+        assert pj.dataCollectionId == dcid
+        assert pj.automatic
+        params = {
+            (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+        }
+        assert params == {
+            ("threshold", "0.8"),
+            ("data", "/path/to/xia2-dials/xia2.json"),
+            ("program", "xia2 dials"),
+            ("program_id", "123456"),
+        }
 
 
-def test_fast_ep(db_session, testconfig, testdb, mocker, monkeypatch):
+def test_fast_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 993677
     message = {
@@ -293,6 +297,7 @@ def test_fast_ep(db_session, testconfig, testdb, mocker, monkeypatch):
     from dlstbx.services.trigger import DLSTrigger
 
     trigger = DLSTrigger()
+    trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
     trigger.ispyb = testdb
@@ -302,26 +307,27 @@ def test_fast_ep(db_session, testconfig, testdb, mocker, monkeypatch):
     kall = send.mock_calls[0]
     name, args, kwargs = kall
     pjid = args[0]["result"]
-    pj = (
-        db_session.query(ProcessingJob)
-        .filter(ProcessingJob.processingJobId == pjid)
-        .one()
-    )
-    assert pj.displayName == "fast_ep"
-    assert pj.recipe == "postprocessing-fast-ep"
-    assert pj.dataCollectionId == dcid
-    assert pj.automatic
-    params = {
-        (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
-    }
-    assert params == {
-        ("check_go_fast_ep", "1"),
-        ("data", "/path/to/fast_dp/fast_dp.mtz"),
-        ("scaling_id", "123456"),
-    }
+    with db_session_factory() as db_session:
+        pj = (
+            db_session.query(ProcessingJob)
+            .filter(ProcessingJob.processingJobId == pjid)
+            .one()
+        )
+        assert pj.displayName == "fast_ep"
+        assert pj.recipe == "postprocessing-fast-ep"
+        assert pj.dataCollectionId == dcid
+        assert pj.automatic
+        params = {
+            (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+        }
+        assert params == {
+            ("check_go_fast_ep", "1"),
+            ("data", "/path/to/fast_dp/fast_dp.mtz"),
+            ("scaling_id", "123456"),
+        }
 
 
-def test_big_ep(db_session, testconfig, testdb, mocker, monkeypatch):
+def test_big_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 1002287
     message = {
@@ -353,6 +359,7 @@ def test_big_ep(db_session, testconfig, testdb, mocker, monkeypatch):
     from dlstbx.services.trigger import DLSTrigger
 
     trigger = DLSTrigger()
+    trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
     rw = RecipeWrapper(message=message, transport=t)
     trigger.ispyb = testdb
@@ -373,23 +380,24 @@ def test_big_ep(db_session, testconfig, testdb, mocker, monkeypatch):
         },
     )
     pjid = t.send.call_args.args[1]["parameters"]["ispyb_process"]
-    pj = (
-        db_session.query(ProcessingJob)
-        .filter(ProcessingJob.processingJobId == pjid)
-        .one()
-    )
-    assert pj.displayName == "big_ep"
-    assert pj.recipe == "postprocessing-big-ep"
-    assert pj.dataCollectionId == dcid
-    assert pj.automatic
-    params = {
-        (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
-    }
-    assert params == {
-        (
-            "scaled_unmerged_mtz",
-            "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
-        ),
-        ("data", "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz"),
-        ("program_id", "56986673"),
-    }
+    with db_session_factory() as db_session:
+        pj = (
+            db_session.query(ProcessingJob)
+            .filter(ProcessingJob.processingJobId == pjid)
+            .one()
+        )
+        assert pj.displayName == "big_ep"
+        assert pj.recipe == "postprocessing-big-ep"
+        assert pj.dataCollectionId == dcid
+        assert pj.automatic
+        params = {
+            (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+        }
+        assert params == {
+            (
+                "scaled_unmerged_mtz",
+                "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
+            ),
+            ("data", "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz"),
+            ("program_id", "56986673"),
+        }

@@ -12,6 +12,8 @@ class DLSBridge(CommonService):
     _logger_name = "dlstbx.services.bridge"
 
     queues = {}
+    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
+    PikaTransport.load_configuration_file(default_configuration)
     pika_transport = PikaTransport()
 
     def initializing(self):

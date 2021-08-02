@@ -401,3 +401,66 @@ def test_big_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
             ("data", "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz"),
             ("program_id", "56986673"),
         }
+
+
+def test_mrbump(db_session_factory, testconfig, testdb, mocker, monkeypatch, tmp_path):
+    monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
+    dcid = 1002287
+    message = {
+        "recipe": {
+            "1": {
+                "service": "DLS Trigger",
+                "queue": "trigger",
+                "parameters": {
+                    "target": "mrbump",
+                    "dcid": f"{dcid}",
+                    "comment": "MrBUMP triggered by automatic xia2-3dii",
+                    "automatic": True,
+                    "user_pdb_directory": None,
+                    "pdb_tmpdir": tmp_path,
+                    "protein_info": {
+                        "sequence": "FVNQHLCGSHLVEALYLVCGERGFFYTPKA\nGIVEQCCTSICSLYQLENYCN",
+                    },
+                    "hklin": "/path/to/xia2-3dii/DataFiles/nt28218v5_xThau161_free.mtz",
+                },
+            },
+        },
+        "recipe-pointer": 1,
+    }
+    from dlstbx.services.trigger import DLSTrigger
+
+    trigger = DLSTrigger()
+    trigger._ispyb_sessionmaker = db_session_factory
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    rw = RecipeWrapper(message=message, transport=t)
+    trigger.ispyb = testdb
+    send = mocker.spy(rw, "send")
+    trigger.trigger(rw, {"some": "header"}, message)
+    send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
+    t.send.assert_called_once_with(
+        "processing_recipe",
+        {
+            "parameters": {
+                "ispyb_process": mock.ANY,
+            },
+            "recipes": [],
+        },
+    )
+    pjid = t.send.call_args.args[1]["parameters"]["ispyb_process"]
+    with db_session_factory() as db_session:
+        pj = (
+            db_session.query(ProcessingJob)
+            .filter(ProcessingJob.processingJobId == pjid)
+            .one()
+        )
+        assert pj.displayName == "MrBUMP"
+        assert pj.recipe == "postprocessing-mrbump"
+        assert pj.dataCollectionId == dcid
+        assert pj.automatic
+        params = {
+            (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+        }
+        assert params == {
+            ("scaling_id", None),
+            ("hklin", "/path/to/xia2-3dii/DataFiles/nt28218v5_xThau161_free.mtz"),
+        }

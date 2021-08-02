@@ -1,10 +1,12 @@
 import logging
 import os
+import pathlib
+import shutil
 import tempfile
 
 import procrunner
-import py
 import zocalo.wrapper
+from iotbx.bioinformatics import fasta_sequence
 
 import dlstbx.util.symlink
 
@@ -21,8 +23,6 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
         seq_filename = os.path.join(
             working_directory, "seq_{}.fasta".format(params["dcid"])
         )
-        from iotbx.bioinformatics import fasta_sequence
-
         with open(seq_filename, "w") as fp:
             fp.write(fasta_sequence(sequence).format(80))
 
@@ -31,10 +31,14 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
         for mdl in module_params:
             mrbump_script.append(f"module load {mdl}")
 
-        mrbump_command = [
-            "mrbump",
-            "hklin {}".format(params["ispyb_parameters"]["hklin"]),
-        ]
+        mrbump_command = ["mrbump"]
+
+        hklin = params.get("ispyb_parameters", {}).get("hklin")
+        if hklin:
+            assert len(hklin) == 1, f"More than one hklin provided: {hklin}"
+            mrbump_command.append(f"hklin {hklin[0]}")
+        # Alternatively hklin could be provided in cdl_params
+
         for arg, val in cdl_params.items():
             mrbump_command.append(f"{arg} {val}")
         mrbump_command.append(f"seqin {seq_filename}")
@@ -63,8 +67,8 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
+        working_directory = pathlib.Path(params["working_directory"])
+        results_directory = pathlib.Path(params["results_directory"])
 
         try:
             sequence = params["protein_info"]["sequence"]
@@ -77,39 +81,54 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
             )
             return False
 
-        working_directory.ensure(dir=True)
+        working_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                working_directory.strpath, params["create_symlink"]
+                str(working_directory), params["create_symlink"]
             )
 
         # Create results directory and symlink if they don't already exist
-        results_directory.ensure(dir=True)
+        results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                results_directory.strpath, params["create_symlink"]
+                str(results_directory), params["create_symlink"]
             )
 
         command, mrbump_script = self.construct_script(
-            params, working_directory.strpath, sequence
+            params, working_directory, sequence
         )
         logger.info("command: %s", command)
         stdin_params = params["mrbump"]["stdin"]
-        stdin = "\n".join(f"{k} {v}" for k, v in stdin_params.items()) + "\nEND"
+
+        # Extend stdin with those provided in ispyb_parameters
+        localfiles = []
+        for k, v in params.get("ispyb_parameters", {}).items():
+            if k == "hklin":
+                # This is provided as command line keyword and handled elsewhere
+                continue
+            if k == "localfiles":
+                localfiles = [f"{k} {vi}" for vi in v]
+            else:
+                # Everything in ispyb_parameters is a list, but we're only interested
+                # in the first item (there should only be one item)
+                stdin_params[k] = v[0]
+
+        stdin = localfiles + [f"{k} {v}" for k, v in stdin_params.items()]
+        stdin = "\n".join(stdin) + "\nEND"
         logger.info("mrbump stdin: %s", stdin)
 
-        with open(os.path.join(working_directory.strpath, "MRBUMP.log"), "w") as fp:
+        with (working_directory / "MRBUMP.log").open("w") as fp:
             result = procrunner.run(
                 ["sh", mrbump_script],
                 stdin=stdin.encode("utf-8"),
                 callback_stdout=lambda x: print(x, file=fp),
-                working_directory=working_directory.strpath,
+                working_directory=working_directory,
                 timeout=params.get("timeout"),
             )
             success = not result["exitcode"] and not result["timeout"]
-            hklout = py.path.local(params["mrbump"]["command"]["hklout"])
-            xyzout = py.path.local(params["mrbump"]["command"]["xyzout"])
-            success = success and hklout.check() and xyzout.check()
+            hklout = pathlib.Path(params["mrbump"]["command"]["hklout"])
+            xyzout = pathlib.Path(params["mrbump"]["command"]["xyzout"])
+            success = success and hklout.is_file() and xyzout.is_file()
             if success:
                 fp.write("Looks like MrBUMP succeeded")
                 logger.info("mrbump successful, took %.1f seconds", result["runtime"])
@@ -123,21 +142,21 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
                 logger.debug(result["stdout"].decode("latin1"))
                 logger.debug(result["stderr"].decode("latin1"))
 
-        logger.info("Copying MrBUMP results to %s", results_directory.strpath)
+        logger.info(f"Copying MrBUMP results to {results_directory}")
         keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}
         allfiles = []
-        for filename in working_directory.listdir():
-            filetype = keep_ext.get(filename.ext)
+        for filename in working_directory.iterdir():
+            filetype = keep_ext.get(filename.suffix)
             if filetype is None:
                 continue
-            destination = results_directory.join(filename.basename)
-            filename.copy(destination)
-            allfiles.append(destination.strpath)
+            destination = results_directory / filename.name
+            shutil.copy(filename, destination)
+            allfiles.append(destination)
             if filetype:
                 self.record_result_individual_file(
                     {
-                        "file_path": destination.dirname,
-                        "file_name": destination.basename,
+                        "file_path": str(destination.parent),
+                        "file_name": destination.name,
                         "file_type": filetype,
                         "importance_rank": 1,
                     }

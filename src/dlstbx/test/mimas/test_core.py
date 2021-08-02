@@ -344,14 +344,14 @@ def test_vmxi_rotation(anomalous_scatterer, absorption_level):
 
 
 @pytest.mark.parametrize(
-    "detectorclass, pia_type, data_format",
+    "detectorclass, pia_type, xia2_type, data_format",
     [
-        (MimasDetectorClass.PILATUS, "", "cbfs"),
-        (MimasDetectorClass.EIGER, "-swmr", "nexus"),
+        (MimasDetectorClass.PILATUS, "", "", "cbfs"),
+        (MimasDetectorClass.EIGER, "-swmr", "-nexus", "nexus"),
     ],
     ids=("Pilatus", "Eiger"),
 )
-def test_i19_rotation(detectorclass, pia_type, data_format):
+def test_i19_rotation(detectorclass, pia_type, xia2_type, data_format):
     """Test the I19 rotation scenario."""
     dcid = 6356546
     other_dcid = 6356585
@@ -380,7 +380,7 @@ def test_i19_rotation(detectorclass, pia_type, data_format):
                 "--new",
                 f"--dcid={dcid}",
                 "--source=automatic",
-                "--recipe=autoprocessing-multi-xia2-smallmolecule",
+                f"--recipe=autoprocessing-multi-xia2-smallmolecule{xia2_type}",
                 f"--add-sweep={dcid}:1:850",
                 f"--add-sweep={other_dcid}:1:850",
                 "--add-param=absorption_level:medium",
@@ -393,7 +393,7 @@ def test_i19_rotation(detectorclass, pia_type, data_format):
                 "--new",
                 f"--dcid={dcid}",
                 "--source=automatic",
-                "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                f"--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml{xia2_type}",
                 f"--add-sweep={dcid}:1:850",
                 f"--add-sweep={other_dcid}:1:850",
                 "--trigger",
@@ -407,14 +407,14 @@ def test_i19_rotation(detectorclass, pia_type, data_format):
 
 
 @pytest.mark.parametrize(
-    "detectorclass, pia_type, data_format",
+    "detectorclass, pia_type, xia2_type, data_format",
     [
-        (MimasDetectorClass.PILATUS, "", "cbfs"),
-        (MimasDetectorClass.EIGER, "-swmr", "nexus"),
+        (MimasDetectorClass.PILATUS, "", "", "cbfs"),
+        (MimasDetectorClass.EIGER, "-swmr", "-nexus", "nexus"),
     ],
     ids=("Pilatus", "Eiger"),
 )
-def test_i19_rotation_with_symmetry(detectorclass, pia_type, data_format):
+def test_i19_rotation_with_symmetry(detectorclass, pia_type, xia2_type, data_format):
     """Test the I19 rotation scenario with specified crystal symmetry."""
     dcid = 6356546
     other_dcid = 6356585
@@ -448,7 +448,7 @@ def test_i19_rotation_with_symmetry(detectorclass, pia_type, data_format):
                 "--new",
                 f"--dcid={dcid}",
                 "--source=automatic",
-                "--recipe=autoprocessing-multi-xia2-smallmolecule",
+                f"--recipe=autoprocessing-multi-xia2-smallmolecule{xia2_type}",
                 f"--add-sweep={dcid}:1:850",
                 f"--add-sweep={other_dcid}:1:850",
                 "--add-param=spacegroup:P1211",
@@ -463,7 +463,7 @@ def test_i19_rotation_with_symmetry(detectorclass, pia_type, data_format):
                 "--new",
                 f"--dcid={dcid}",
                 "--source=automatic",
-                "--recipe=autoprocessing-multi-xia2-smallmolecule",
+                f"--recipe=autoprocessing-multi-xia2-smallmolecule{xia2_type}",
                 f"--add-sweep={dcid}:1:850",
                 f"--add-sweep={other_dcid}:1:850",
                 "--add-param=absorption_level:medium",
@@ -476,7 +476,7 @@ def test_i19_rotation_with_symmetry(detectorclass, pia_type, data_format):
                 "--new",
                 f"--dcid={dcid}",
                 "--source=automatic",
-                "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                f"--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml{xia2_type}",
                 f"--add-sweep={dcid}:1:850",
                 f"--add-sweep={other_dcid}:1:850",
                 "--add-param=spacegroup:P1211",
@@ -490,7 +490,7 @@ def test_i19_rotation_with_symmetry(detectorclass, pia_type, data_format):
                 "--new",
                 f"--dcid={dcid}",
                 "--source=automatic",
-                "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                f"--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml{xia2_type}",
                 f"--add-sweep={dcid}:1:850",
                 f"--add-sweep={other_dcid}:1:850",
                 "--trigger",

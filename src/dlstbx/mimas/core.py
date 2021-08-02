@@ -22,7 +22,7 @@ def run(
 
     if scenario.event is dlstbx.mimas.MimasEvent.START:
         if scenario.beamline in ("i19-1", "i19-2"):
-            # i19 is a special case
+            # I19 is a special case
             if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
@@ -141,7 +141,10 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=True,
-                        recipe="autoprocessing-multi-xia2-smallmolecule",
+                        recipe="autoprocessing-multi-xia2-smallmolecule"
+                        if scenario.detectorclass
+                        is dlstbx.mimas.MimasDetectorClass.PILATUS
+                        else "autoprocessing-multi-xia2-smallmolecule-nexus",
                         source="automatic",
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
                         parameters=(
@@ -154,7 +157,10 @@ def run(
                     dlstbx.mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=True,
-                        recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                        recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml"
+                        if scenario.detectorclass
+                        is dlstbx.mimas.MimasDetectorClass.PILATUS
+                        else "autoprocessing-multi-xia2-smallmolecule-dials-aiml-nexus",
                         source="automatic",
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
                         parameters=symmetry_parameters,
@@ -165,7 +171,9 @@ def run(
                 dlstbx.mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=True,
-                    recipe="autoprocessing-multi-xia2-smallmolecule",
+                    recipe="autoprocessing-multi-xia2-smallmolecule"
+                    if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS
+                    else "autoprocessing-multi-xia2-smallmolecule-nexus",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
                     parameters=xia2_dials_absorption_params,
@@ -175,7 +183,9 @@ def run(
                 dlstbx.mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=True,
-                    recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                    recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml"
+                    if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS
+                    else "autoprocessing-multi-xia2-smallmolecule-dials-aiml-nexus",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
                 )

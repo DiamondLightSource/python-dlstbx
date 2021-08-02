@@ -657,47 +657,55 @@ class DLSTrigger(CommonService):
             session, dcid, pdb_tmpdir, user_pdb_dir=user_pdb_dir
         )
 
-        jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = bool(parameters("automatic"))
-        jp["comments"] = parameters("comment")
-        jp["datacollectionid"] = dcid
-        jp["display_name"] = "MrBUMP"
-        jp["recipe"] = "postprocessing-mrbump"
-        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"mrbump trigger: generated JobID {jobid}")
+        jobids = []
 
-        mrbump_parameters = {
-            "hklin": parameters("hklin"),
-            "scaling_id": parameters("scaling_id"),
-        }
-        if pdb_files:
-            mrbump_parameters["dophmmer"] = "False"
-            mrbump_parameters["mdlunmod"] = "True"
+        for pdb_files in {(), tuple(pdb_files)}:
+            jp = self.ispyb.mx_processing.get_job_params()
+            jp["automatic"] = bool(parameters("automatic"))
+            jp["comments"] = parameters("comment")
+            jp["datacollectionid"] = dcid
+            jp["display_name"] = "MrBUMP"
+            jp["recipe"] = "postprocessing-mrbump"
+            jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+            jobids.append(jobid)
+            self.log.debug(f"mrbump trigger: generated JobID {jobid}")
 
-        for key, value in mrbump_parameters.items():
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = key
-            jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(f"mrbump trigger: generated JobParameterID {jppid}")
+            mrbump_parameters = {
+                "hklin": parameters("hklin"),
+                "scaling_id": parameters("scaling_id"),
+            }
+            if pdb_files:
+                mrbump_parameters["dophmmer"] = "False"
+                mrbump_parameters["mdlunmod"] = "True"
 
-        for pdb_file in pdb_files:
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = "localfile"
-            jpp["parameter_value"] = pdb_file
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(f"mrbump trigger: generated JobParameterID {jppid}")
+            for key, value in mrbump_parameters.items():
+                jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                jpp["job_id"] = jobid
+                jpp["parameter_key"] = key
+                jpp["parameter_value"] = value
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                    list(jpp.values())
+                )
+                self.log.debug(f"mrbump trigger: generated JobParameterID {jppid}")
 
-        self.log.debug(f"mrbump trigger: Processing job {jobid} created")
+            for pdb_file in pdb_files:
+                jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                jpp["job_id"] = jobid
+                jpp["parameter_key"] = "localfile"
+                jpp["parameter_value"] = pdb_file
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                    list(jpp.values())
+                )
+                self.log.debug(f"mrbump trigger: generated JobParameterID {jppid}")
 
-        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-        rw.transport.send("processing_recipe", message)
+            self.log.debug(f"mrbump trigger: Processing job {jobid} created")
 
-        self.log.info(f"mrbump trigger: Processing job {jobid} triggered")
+            message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+            rw.transport.send("processing_recipe", message)
 
-        return {"success": True, "return_value": jobid}
+            self.log.info(f"mrbump trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobids}
 
     def trigger_big_ep_launcher(self, rw, header, parameters, session, **kwargs):
         dcid = parameters("dcid")

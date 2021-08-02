@@ -412,7 +412,7 @@ def test_mrbump(db_session_factory, testconfig, testdb, mocker, monkeypatch, tmp
                     "pdb_tmpdir": tmp_path,
                     "scaling_id": 123456,
                     "protein_info": {
-                        "sequence": "FVNQHLCGSHLVEALYLVCGERGFFYTPKA\nGIVEQCCTSICSLYQLENYCN",
+                        "sequence": "ABCDEFG",
                     },
                     "hklin": "/path/to/xia2-3dii/DataFiles/foo_free.mtz",
                 },
@@ -479,7 +479,7 @@ def test_mrbump_with_model(
                     "user_pdb_directory": user_pdb_directory,
                     "pdb_tmpdir": tmp_path,
                     "protein_info": {
-                        "sequence": "FVNQHLCGSHLVEALYLVCGERGFFYTPKA\nGIVEQCCTSICSLYQLENYCN",
+                        "sequence": "ABCDEFG",
                     },
                     "hklin": "/path/to/xia2-3dii/DataFiles/foo_free.mtz",
                 },
@@ -495,33 +495,50 @@ def test_mrbump_with_model(
     send = mocker.spy(rw, "send")
     trigger.trigger(rw, {"some": "header"}, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
-    t.send.assert_called_once_with(
-        "processing_recipe",
-        {
-            "parameters": {
-                "ispyb_process": mock.ANY,
-            },
-            "recipes": [],
-        },
+    t.send.assert_has_calls(
+        [
+            mock.call(
+                "processing_recipe",
+                {
+                    "parameters": {
+                        "ispyb_process": mock.ANY,
+                    },
+                    "recipes": [],
+                },
+            ),
+        ]
+        * 2
     )
-    pjid = t.send.call_args.args[1]["parameters"]["ispyb_process"]
+    all_params = []
     with db_session_factory() as db_session:
-        pj = (
-            db_session.query(ProcessingJob)
-            .filter(ProcessingJob.processingJobId == pjid)
-            .one()
-        )
-        assert pj.displayName == "MrBUMP"
-        assert pj.recipe == "postprocessing-mrbump"
-        assert pj.dataCollectionId == dcid
-        assert pj.automatic
-        params = {
-            (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
-        }
-        assert params == {
-            ("mdlunmod", "True"),
-            ("dophmmer", "False"),
-            ("hklin", "/path/to/xia2-3dii/DataFiles/foo_free.mtz"),
-            ("scaling_id", "123456"),
-            ("localfile", str(user_pdb_directory / "test.pdb")),
-        }
+        for args, kwargs in t.send.call_args_list:
+            pjid = args[1]["parameters"]["ispyb_process"]
+            pj = (
+                db_session.query(ProcessingJob)
+                .filter(ProcessingJob.processingJobId == pjid)
+                .one()
+            )
+            assert pj.displayName == "MrBUMP"
+            assert pj.recipe == "postprocessing-mrbump"
+            assert pj.dataCollectionId == dcid
+            assert pj.automatic
+            params = {
+                (pjp.parameterKey, pjp.parameterValue)
+                for pjp in pj.ProcessingJobParameters
+            }
+            all_params.append(params)
+    assert sorted(all_params) == sorted(
+        [
+            {
+                ("mdlunmod", "True"),
+                ("dophmmer", "False"),
+                ("hklin", "/path/to/xia2-3dii/DataFiles/foo_free.mtz"),
+                ("scaling_id", "123456"),
+                ("localfile", str(user_pdb_directory / "test.pdb")),
+            },
+            {
+                ("hklin", "/path/to/xia2-3dii/DataFiles/foo_free.mtz"),
+                ("scaling_id", "123456"),
+            },
+        ]
+    )

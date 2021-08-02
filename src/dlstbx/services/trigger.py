@@ -672,6 +672,7 @@ class DLSTrigger(CommonService):
         }
         if pdb_files:
             mrbump_parameters["dophmmer"] = "False"
+            mrbump_parameters["mdlunmod"] = "True"
 
         for key, value in mrbump_parameters.items():
             jpp = self.ispyb.mx_processing.get_job_parameter_params()

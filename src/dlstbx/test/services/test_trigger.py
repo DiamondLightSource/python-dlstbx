@@ -13,6 +13,8 @@ from ispyb.sqlalchemy import (
 )
 from workflows.recipe.wrapper import RecipeWrapper
 
+from dlstbx.services.trigger import DLSTrigger
+
 
 @pytest.fixture
 def insert_multiplex_input(db_session):
@@ -85,8 +87,6 @@ def test_multiplex(
         },
         "recipe-pointer": 1,
     }
-    from dlstbx.services.trigger import DLSTrigger
-
     trigger = DLSTrigger()
     trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -177,8 +177,6 @@ def test_dimple_trigger(
         },
         "recipe-pointer": 1,
     }
-    from dlstbx.services.trigger import DLSTrigger
-
     trigger = DLSTrigger()
     trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -235,8 +233,6 @@ def test_ep_predict(db_session_factory, testconfig, testdb, mocker, monkeypatch)
         },
         "recipe-pointer": 1,
     }
-    from dlstbx.services.trigger import DLSTrigger
-
     trigger = DLSTrigger()
     trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -294,8 +290,6 @@ def test_fast_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
         },
         "recipe-pointer": 1,
     }
-    from dlstbx.services.trigger import DLSTrigger
-
     trigger = DLSTrigger()
     trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -356,8 +350,6 @@ def test_big_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
         },
         "recipe-pointer": 1,
     }
-    from dlstbx.services.trigger import DLSTrigger
-
     trigger = DLSTrigger()
     trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -428,8 +420,6 @@ def test_mrbump(db_session_factory, testconfig, testdb, mocker, monkeypatch, tmp
         },
         "recipe-pointer": 1,
     }
-    from dlstbx.services.trigger import DLSTrigger
-
     trigger = DLSTrigger()
     trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -497,8 +487,6 @@ def test_mrbump_with_model(
         },
         "recipe-pointer": 1,
     }
-    from dlstbx.services.trigger import DLSTrigger
-
     trigger = DLSTrigger()
     trigger._ispyb_sessionmaker = db_session_factory
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)

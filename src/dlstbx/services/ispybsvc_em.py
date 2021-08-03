@@ -72,7 +72,7 @@ class EM_Mixin:
                 astigmatism=full_parameters("astigmatism"),
                 defocus_step_size=full_parameters("defocus_step_size"),
                 astigmatism_angle=full_parameters("astigmatism_angle"),
-                estimated_resolution=full_parameters("max_estimated_resolution"),
+                estimated_resolution=full_parameters("estimated_resolution"),
                 estimated_defocus=full_parameters("estimated_defocus"),
                 amplitude_contrast=full_parameters("amplitude_contrast"),
                 cc_value=full_parameters("cc_value"),

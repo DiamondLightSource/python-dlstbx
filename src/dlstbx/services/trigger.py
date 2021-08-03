@@ -2,7 +2,7 @@ import hashlib
 import logging
 import pathlib
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import ispyb
 import sqlalchemy.engine
@@ -110,7 +110,8 @@ class DLSTrigger(CommonService):
         dcid: int,
         pdb_tmpdir: pathlib.Path,
         user_pdb_dir: Optional[pathlib.Path] = None,
-    ) -> List[pathlib.Path]:
+        ignore_pdb_codes: bool = False,
+    ) -> List[Union[pathlib.Path, str]]:
         """Get linked PDB files for a given data collection ID.
 
         Valid PDB codes will be returned as the code, PDB files will be copied into a
@@ -128,7 +129,7 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == dcid)
         )
         for dc, pdb in query.all():
-            if pdb.code is not None:
+            if not ignore_pdb_codes and pdb.code is not None:
                 pdb_code = pdb.code.strip()
                 if pdb_code.isalnum() and len(pdb_code) == 4:
                     pdb_files.append(pdb_code)
@@ -654,7 +655,11 @@ class DLSTrigger(CommonService):
         if user_pdb_dir:
             user_pdb_dir = pathlib.Path(user_pdb_dir)
         pdb_files = self.get_linked_pdb_files_for_dcid(
-            session, dcid, pdb_tmpdir, user_pdb_dir=user_pdb_dir
+            session,
+            dcid,
+            pdb_tmpdir,
+            user_pdb_dir=user_pdb_dir,
+            ignore_pdb_codes=True,
         )
 
         jobids = []

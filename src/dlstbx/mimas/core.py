@@ -68,15 +68,13 @@ def run(
             if scenario.dcclass is dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID,
-                        recipe="per-image-analysis-gridscan-swmr",
+                        DCID=scenario.DCID, recipe="per-image-analysis-gridscan-swmr"
                     )
                 )
             else:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID,
-                        recipe="per-image-analysis-rotation-swmr",
+                        DCID=scenario.DCID, recipe="per-image-analysis-rotation-swmr"
                     )
                 )
 
@@ -100,16 +98,14 @@ def run(
                 for recipe in "archive-cbfs", "processing-rlv":
                     tasks.append(
                         dlstbx.mimas.MimasRecipeInvocation(
-                            DCID=scenario.DCID,
-                            recipe=recipe,
+                            DCID=scenario.DCID, recipe=recipe
                         )
                     )
             elif scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.EIGER:
                 for recipe in "archive-nexus", "processing-rlv-eiger":
                     tasks.append(
                         dlstbx.mimas.MimasRecipeInvocation(
-                            DCID=scenario.DCID,
-                            recipe=recipe,
+                            DCID=scenario.DCID, recipe=recipe
                         )
                     )
 

@@ -344,14 +344,16 @@ def test_vmxi_rotation(anomalous_scatterer, absorption_level):
 
 
 @pytest.mark.parametrize(
-    "detectorclass, pia_type, aimless_string, xia2_type, data_format",
+    "detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type",
     [
-        (MimasDetectorClass.PILATUS, "", "dials-aiml", "", "cbfs"),
-        (MimasDetectorClass.EIGER, "-swmr", "d-a", "-nexus", "nexus"),
+        (MimasDetectorClass.PILATUS, "", "dials-aiml", "", "cbfs", ""),
+        (MimasDetectorClass.EIGER, "-swmr", "d-a", "-nexus", "nexus", "-eiger"),
     ],
     ids=("Pilatus", "Eiger"),
 )
-def test_i19_rotation(detectorclass, pia_type, aimless_string, xia2_type, data_format):
+def test_i19_rotation(
+    detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type
+):
     """Test the I19 rotation scenario."""
     dcid = 6356546
     other_dcid = 6356585
@@ -401,21 +403,21 @@ def test_i19_rotation(detectorclass, pia_type, aimless_string, xia2_type, data_f
         ),
         f"zocalo.go -r archive-{data_format} {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
-        f"zocalo.go -r processing-rlv {dcid}",
+        f"zocalo.go -r processing-rlv{rlv_type} {dcid}",
         f"zocalo.go -r strategy-screen19 {dcid}",
     }
 
 
 @pytest.mark.parametrize(
-    "detectorclass, pia_type, aimless_string, xia2_type, data_format",
+    "detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type",
     [
-        (MimasDetectorClass.PILATUS, "", "dials-aiml", "", "cbfs"),
-        (MimasDetectorClass.EIGER, "-swmr", "d-a", "-nexus", "nexus"),
+        (MimasDetectorClass.PILATUS, "", "dials-aiml", "", "cbfs", ""),
+        (MimasDetectorClass.EIGER, "-swmr", "d-a", "-nexus", "nexus", "-eiger"),
     ],
     ids=("Pilatus", "Eiger"),
 )
 def test_i19_rotation_with_symmetry(
-    detectorclass, pia_type, aimless_string, xia2_type, data_format
+    detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type
 ):
     """Test the I19 rotation scenario with specified crystal symmetry."""
     dcid = 6356546
@@ -500,6 +502,6 @@ def test_i19_rotation_with_symmetry(
         ),
         f"zocalo.go -r archive-{data_format} {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
-        f"zocalo.go -r processing-rlv {dcid}",
+        f"zocalo.go -r processing-rlv{rlv_type} {dcid}",
         f"zocalo.go -r strategy-screen19 {dcid}",
     }

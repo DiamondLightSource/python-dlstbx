@@ -303,7 +303,7 @@ class EM_Mixin:
                     ),
                     class_number=full_parameters("class_number"),
                     class_image_full_path=full_parameters("class_image_full_path"),
-                    particles_per_class=full_parameters("partices_per_class"),
+                    particles_per_class=full_parameters("particles_per_class"),
                     rotation_accuracy=full_parameters("rotation_accuracy"),
                     translation_accuracy=full_parameters("translation_accuracy"),
                     estimated_resolution=full_parameters("estimated_resolution"),

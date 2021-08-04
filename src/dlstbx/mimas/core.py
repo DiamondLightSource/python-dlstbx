@@ -160,7 +160,7 @@ def run(
                         recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml"
                         if scenario.detectorclass
                         is dlstbx.mimas.MimasDetectorClass.PILATUS
-                        else "autoprocessing-multi-xia2-smallmolecule-dials-aiml-nexus",
+                        else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
                         source="automatic",
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
                         parameters=symmetry_parameters,
@@ -185,7 +185,7 @@ def run(
                     autostart=True,
                     recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml"
                     if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS
-                    else "autoprocessing-multi-xia2-smallmolecule-dials-aiml-nexus",
+                    else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
                 )

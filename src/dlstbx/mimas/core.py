@@ -68,15 +68,13 @@ def run(
             if scenario.dcclass is dlstbx.mimas.MimasDCClass.GRIDSCAN:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID,
-                        recipe="per-image-analysis-gridscan-swmr",
+                        DCID=scenario.DCID, recipe="per-image-analysis-gridscan-swmr"
                     )
                 )
             else:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID,
-                        recipe="per-image-analysis-rotation-swmr",
+                        DCID=scenario.DCID, recipe="per-image-analysis-rotation-swmr"
                     )
                 )
 
@@ -97,25 +95,21 @@ def run(
         if scenario.beamline in ("i19-1", "i19-2"):
             # i19 is a special case
             if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS:
-                tasks.append(
-                    dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID,
-                        recipe="archive-cbfs",
+                for recipe in "archive-cbfs", "processing-rlv":
+                    tasks.append(
+                        dlstbx.mimas.MimasRecipeInvocation(
+                            DCID=scenario.DCID, recipe=recipe
+                        )
                     )
-                )
             elif scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.EIGER:
-                tasks.append(
-                    dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID,
-                        recipe="archive-nexus",
+                for recipe in "archive-nexus", "processing-rlv-eiger":
+                    tasks.append(
+                        dlstbx.mimas.MimasRecipeInvocation(
+                            DCID=scenario.DCID, recipe=recipe
+                        )
                     )
-                )
 
-            for recipe in (
-                "strategy-screen19",
-                "processing-rlv",
-                "generate-crystal-thumbnails",
-            ):
+            for recipe in "strategy-screen19", "generate-crystal-thumbnails":
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
                         DCID=scenario.DCID, recipe=recipe

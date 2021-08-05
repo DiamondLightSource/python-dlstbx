@@ -87,8 +87,7 @@ def run(
             absorption_level = "medium"
         xia2_dials_absorption_params = (
             dlstbx.mimas.MimasISPyBParameter(
-                key="absorption_level",
-                value=absorption_level,
+                key="absorption_level", value=absorption_level
             ),
         )
 
@@ -102,7 +101,11 @@ def run(
                         )
                     )
             elif scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.EIGER:
-                for recipe in "archive-nexus", "processing-rlv-eiger":
+                for recipe in (
+                    "archive-nexus",
+                    "processing-rlv-eiger",
+                    "generate-diffraction-preview",
+                ):
                     tasks.append(
                         dlstbx.mimas.MimasRecipeInvocation(
                             DCID=scenario.DCID, recipe=recipe

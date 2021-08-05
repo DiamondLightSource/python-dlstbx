@@ -347,7 +347,7 @@ def test_vmxi_rotation(anomalous_scatterer, absorption_level):
     "detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type",
     [
         (MimasDetectorClass.PILATUS, "", "dials-aiml", "", "cbfs", ""),
-        (MimasDetectorClass.EIGER, "-swmr", "d-a", "-nexus", "nexus", "-eiger"),
+        (MimasDetectorClass.EIGER, "-swmr-i19", "d-a", "-nexus", "nexus", "-eiger"),
     ],
     ids=("Pilatus", "Eiger"),
 )
@@ -416,7 +416,7 @@ def test_i19_rotation(
     "detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type",
     [
         (MimasDetectorClass.PILATUS, "", "dials-aiml", "", "cbfs", ""),
-        (MimasDetectorClass.EIGER, "-swmr", "d-a", "-nexus", "nexus", "-eiger"),
+        (MimasDetectorClass.EIGER, "-swmr-i19", "d-a", "-nexus", "nexus", "-eiger"),
     ],
     ids=("Pilatus", "Eiger"),
 )

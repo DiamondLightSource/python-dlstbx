@@ -32,7 +32,8 @@ def run(
             elif scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.EIGER:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="per-image-analysis-rotation-swmr"
+                        DCID=scenario.DCID,
+                        recipe="per-image-analysis-rotation-swmr-i19",
                     )
                 )
 

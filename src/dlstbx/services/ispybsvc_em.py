@@ -385,10 +385,8 @@ class EM_Mixin:
                     particle_classification_id=full_parameters(
                         "particle_classification_id"
                     ),
-                    resolution=full_parameters("init_model_resolution"),
-                    number_of_particles=full_parameters(
-                        "init_model_number_of_particles"
-                    ),
+                    resolution=full_parameters("resolution"),
+                    number_of_particles=full_parameters("number_of_particles"),
                 )
             )
             self.log.info(

@@ -347,7 +347,7 @@ def test_vmxi_rotation(anomalous_scatterer, absorption_level):
     "detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type",
     [
         (MimasDetectorClass.PILATUS, "", "dials-aiml", "", "cbfs", ""),
-        (MimasDetectorClass.EIGER, "-swmr", "d-a", "-nexus", "nexus", "-eiger"),
+        (MimasDetectorClass.EIGER, "-swmr-i19", "d-a", "-nexus", "nexus", "-eiger"),
     ],
     ids=("Pilatus", "Eiger"),
 )
@@ -404,15 +404,19 @@ def test_i19_rotation(
         f"zocalo.go -r archive-{data_format} {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r processing-rlv{rlv_type} {dcid}",
-        f"zocalo.go -r strategy-screen19 {dcid}",
-    }
+        f"zocalo.go -r strategy-screen19{rlv_type} {dcid}",
+    }.union(
+        {f"zocalo.go -r generate-diffraction-preview {dcid}"}
+        if detectorclass is MimasDetectorClass.EIGER
+        else set()
+    )
 
 
 @pytest.mark.parametrize(
     "detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type",
     [
         (MimasDetectorClass.PILATUS, "", "dials-aiml", "", "cbfs", ""),
-        (MimasDetectorClass.EIGER, "-swmr", "d-a", "-nexus", "nexus", "-eiger"),
+        (MimasDetectorClass.EIGER, "-swmr-i19", "d-a", "-nexus", "nexus", "-eiger"),
     ],
     ids=("Pilatus", "Eiger"),
 )
@@ -503,5 +507,9 @@ def test_i19_rotation_with_symmetry(
         f"zocalo.go -r archive-{data_format} {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r processing-rlv{rlv_type} {dcid}",
-        f"zocalo.go -r strategy-screen19 {dcid}",
-    }
+        f"zocalo.go -r strategy-screen19{rlv_type} {dcid}",
+    }.union(
+        {f"zocalo.go -r generate-diffraction-preview {dcid}"}
+        if detectorclass is MimasDetectorClass.EIGER
+        else set()
+    )

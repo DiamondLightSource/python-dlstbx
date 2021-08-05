@@ -32,7 +32,8 @@ def run(
             elif scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.EIGER:
                 tasks.append(
                     dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe="per-image-analysis-rotation-swmr"
+                        DCID=scenario.DCID,
+                        recipe="per-image-analysis-rotation-swmr-i19",
                     )
                 )
 
@@ -87,34 +88,37 @@ def run(
             absorption_level = "medium"
         xia2_dials_absorption_params = (
             dlstbx.mimas.MimasISPyBParameter(
-                key="absorption_level",
-                value=absorption_level,
+                key="absorption_level", value=absorption_level
             ),
         )
 
         if scenario.beamline in ("i19-1", "i19-2"):
             # i19 is a special case
             if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS:
-                for recipe in "archive-cbfs", "processing-rlv":
+                for recipe in "archive-cbfs", "processing-rlv", "strategy-screen19":
                     tasks.append(
                         dlstbx.mimas.MimasRecipeInvocation(
                             DCID=scenario.DCID, recipe=recipe
                         )
                     )
             elif scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.EIGER:
-                for recipe in "archive-nexus", "processing-rlv-eiger":
+                for recipe in (
+                    "archive-nexus",
+                    "processing-rlv-eiger",
+                    "generate-diffraction-preview",
+                    "strategy-screen19-eiger",
+                ):
                     tasks.append(
                         dlstbx.mimas.MimasRecipeInvocation(
                             DCID=scenario.DCID, recipe=recipe
                         )
                     )
 
-            for recipe in "strategy-screen19", "generate-crystal-thumbnails":
-                tasks.append(
-                    dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe=recipe
-                    )
+            tasks.append(
+                dlstbx.mimas.MimasRecipeInvocation(
+                    DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
                 )
+            )
 
             if scenario.spacegroup:
                 # Space group is set, run xia2 with space group

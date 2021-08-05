@@ -95,7 +95,7 @@ def run(
         if scenario.beamline in ("i19-1", "i19-2"):
             # i19 is a special case
             if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS:
-                for recipe in "archive-cbfs", "processing-rlv":
+                for recipe in "archive-cbfs", "processing-rlv", "strategy-screen19":
                     tasks.append(
                         dlstbx.mimas.MimasRecipeInvocation(
                             DCID=scenario.DCID, recipe=recipe
@@ -106,6 +106,7 @@ def run(
                     "archive-nexus",
                     "processing-rlv-eiger",
                     "generate-diffraction-preview",
+                    "strategy-screen19-eiger",
                 ):
                     tasks.append(
                         dlstbx.mimas.MimasRecipeInvocation(
@@ -113,12 +114,11 @@ def run(
                         )
                     )
 
-            for recipe in "strategy-screen19", "generate-crystal-thumbnails":
-                tasks.append(
-                    dlstbx.mimas.MimasRecipeInvocation(
-                        DCID=scenario.DCID, recipe=recipe
-                    )
+            tasks.append(
+                dlstbx.mimas.MimasRecipeInvocation(
+                    DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
                 )
+            )
 
             if scenario.spacegroup:
                 # Space group is set, run xia2 with space group

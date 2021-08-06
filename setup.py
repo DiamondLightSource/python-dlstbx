@@ -44,6 +44,7 @@ console_scripts = [
     "dlstbx.show_recipeID=dlstbx.cli.show_recipeID:run",
     "dlstbx.shutdown=dlstbx.cli.shutdown:run",
     "dlstbx.status_monitor=dlstbx.cli.status_monitor:run",
+    "dlstbx.trim_pdb_bfactors=dlstbx.cli.trim_pdb_bfactors:run",
     "dlstbx.tumbleweed=dlstbx.cli.tumbleweed:run",
     "dlstbx.version=dlstbx.cli.version:run",
     "dlstbx.wrap=dlstbx.cli.wrap:run",

@@ -10,7 +10,6 @@ from ispyb.sqlalchemy import (
     AutoProcProgram,
     DataCollection,
     MotionCorrection,
-    ParticlePicker,
     ProcessingJob,
 )
 from sqlalchemy.orm import Load
@@ -101,17 +100,17 @@ def run():
                             .filter(CTF.autoProcProgramId == proc[0].autoProcProgramId)
                             .count()
                         )
-                        parpickcount = (
-                            db_session.query(ParticlePicker)
-                            .options(Load(ParticlePicker).load_only("particlePickerId"))
-                            .filter(ParticlePicker.programId == proc[0].programId)
-                            .count()
-                        )
+                        # parpickcount = (
+                        #    db_session.query(ParticlePicker)
+                        #    .options(Load(ParticlePicker).load_only("particlePickerId"))
+                        #    .filter(ParticlePicker.programId == proc[0].autoProcProgramId)
+                        #    .count()
+                        # )
                     msg.update(
                         {
                             "mcresults": mccount,
                             "ctfresults": ctfcount,
-                            "parpickresults": parpickcount,
+                            # "parpickresults": parpickcount,
                         }
                     )
                 msgs.append(msg)

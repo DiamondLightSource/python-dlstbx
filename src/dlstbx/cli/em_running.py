@@ -126,4 +126,8 @@ def run():
                     print(f"{'':<15} motion corrected micrographs {m['mcresults']}")
                 if m.get("ctfresults") is not None:
                     print(f"{'':<15} CTF estimations {m['ctfresults']}")
+                if m.get("parpickresults") is not None:
+                    print(
+                        f"{'':<15} particles picked from {m['parpickresults']} micrographs"
+                    )
             print()

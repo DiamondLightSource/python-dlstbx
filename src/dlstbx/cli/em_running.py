@@ -1,6 +1,6 @@
 import argparse
+import datetime
 import time
-from datetime import datetime
 
 import ispyb
 import ispyb.sqlalchemy
@@ -11,6 +11,7 @@ from ispyb.sqlalchemy import (
     DataCollection,
     MotionCorrection,
     ProcessingJob,
+    VRun,
 )
 from sqlalchemy.orm import Load
 
@@ -21,6 +22,31 @@ def run():
     parser.add_argument("-v", action="store_true", default=False)
     args = parser.parse_args()
     sessions = []
+
+    url = ispyb.sqlalchemy.url()
+    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+    db_session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
+
+    with db_session_maker() as db_session:
+        now = datetime.datetime.now()
+        query = (
+            db_session.query(VRun)
+            .filter(VRun.startDate < now)
+            .filter(VRun.endDate > now)
+        )
+        current_run = query.first().run
+
+    run_year = int(current_run.split("-")[0])
+    run_number = int(current_run.split("-")[1])
+    # there are 5 runs per year
+    if run_number == 1:
+        last_year = run_year - 1
+        last_number = "05"
+    else:
+        last_year = run_year
+        last_number = f"{run_number-1:02d}"
+    last_run = f"{last_year}-{last_number}"
+
     with ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg") as i:
         if args.microscope is None:
             beamlines = ["m02", "m03", "m04", "m05", "m06", "m07", "m08", "m11", "m12"]
@@ -33,12 +59,11 @@ def run():
                 sessions.extend(
                     i.core.retrieve_sessions_for_beamline_and_run(beamline, None)
                 )
+                sessions.extend(
+                    i.core.retrieve_sessions_for_beamline_and_run(beamline, last_run)
+                )
         except ispyb.NoResult:
             pass
-
-    url = ispyb.sqlalchemy.url()
-    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
-    db_session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
 
     apps = {}
     with db_session_maker() as db_session:
@@ -73,14 +98,26 @@ def run():
         for proc in apps[sess["session"]]:
             if proc[0].processingStatus is None:
                 start_time = proc[0].processingStartTime
-                age = datetime.fromtimestamp(time.time()) - start_time
-                msg = {
-                    "progid": proc[0].autoProcProgramId,
-                    "pid": proc[0].processingJobId,
-                    "days": age.days,
-                    "hours": age.seconds // 3600,
-                    "mins": (age.seconds // 60) % 60,
-                }
+                if start_time is not None:
+                    age = datetime.datetime.fromtimestamp(time.time()) - start_time
+                else:
+                    age = None
+                try:
+                    msg = {
+                        "progid": proc[0].autoProcProgramId,
+                        "pid": proc[0].processingJobId,
+                        "days": age.days,
+                        "hours": age.seconds // 3600,
+                        "mins": (age.seconds // 60) % 60,
+                    }
+                except AttributeError:
+                    msg = {
+                        "progid": proc[0].autoProcProgramId,
+                        "pid": proc[0].processingJobId,
+                        "days": "???",
+                        "hours": "???",
+                        "mins": "???",
+                    }
                 if args.v:
                     with db_session_maker() as db_session:
                         mccount = (

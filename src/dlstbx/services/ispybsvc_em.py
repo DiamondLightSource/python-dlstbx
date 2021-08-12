@@ -366,10 +366,10 @@ class EM_Mixin:
             )
             return False
 
-    def do_insert_cryoem_initial_model(self, parameters, message, **kwargs):
-        return {"success": True, "return_value": None}
+    # def do_insert_cryoem_initial_model(self, parameters, message, **kwargs):
+    #    return {"success": True, "return_value": None}
 
-    def do_insert_cryoem_initial_model_full(self, parameters, message, **kwargs):
+    def do_insert_cryoem_initial_model(self, parameters, message, **kwargs):
         if message is None:
             message = {}
         dcid = parameters("dcid")

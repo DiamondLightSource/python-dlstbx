@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import pathlib
 import time
 
 import ispyb
@@ -66,18 +67,23 @@ def run():
             pass
 
     apps = {}
+    imgdirs = {}
     with db_session_maker() as db_session:
         for sess in sessions:
             query = (
                 db_session.query(DataCollection)
                 .options(
-                    Load(DataCollection).load_only("SESSIONID", "dataCollectionId")
+                    Load(DataCollection).load_only(
+                        "SESSIONID", "dataCollectionId", "imageDirectory"
+                    )
                 )
                 .filter(DataCollection.SESSIONID == sess["sessionId"])
             )
             datacollections = list(query.all())
+            imgdirs[sess["session"]] = {}
             apps[sess["session"]] = []
             for dc in datacollections:
+                imgdirs[sess["session"]][dc.dataCollectionId] = dc.imageDirectory
                 query = (
                     db_session.query(AutoProcProgram, ProcessingJob)
                     .join(
@@ -143,11 +149,22 @@ def run():
                         #    .filter(ParticlePicker.programId == proc[0].autoProcProgramId)
                         #    .count()
                         # )
+                        fileglob = pathlib.Path(
+                            imgdirs[sess["session"]][proc[1].dataCollectionId]
+                        ).glob("**/*")
+                        most_recent = max(
+                            datetime.datetime.fromtimestamp(p.stat().st_mtime)
+                            for p in fileglob
+                        )
+                        tdiff = now - most_recent
                     msg.update(
                         {
                             "mcresults": mccount,
                             "ctfresults": ctfcount,
                             # "parpickresults": parpickcount,
+                            "mod_days": tdiff.days,
+                            "mod_hours": tdiff.seconds // 3600,
+                            "mod_mins": (tdiff.seconds // 60) % 60,
                         }
                     )
                 msgs.append(msg)
@@ -165,5 +182,9 @@ def run():
                 if m.get("parpickresults") is not None:
                     print(
                         f"{'':<15} particles picked from {m['parpickresults']} micrographs"
+                    )
+                if m.get("mod_days") is not None:
+                    print(
+                        f"{'':<15} time since last data transfer: {m['mod_days']} days, {m['mod_hours']} hours, {m['mod_mins']} minutes"
                     )
             print()

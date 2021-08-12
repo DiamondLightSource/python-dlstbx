@@ -41,6 +41,7 @@ console_scripts = [
     "dlstbx.run_health_checks=dlstbx.cli.run_health_checks:run",
     "dlstbx.run_system_tests=dlstbx.cli.run_system_tests:run",
     "dlstbx.service=dlstbx.cli.service:run",
+    "dlstbx.service_rabbit=dlstbx.cli.service_rabbit:run",
     "dlstbx.show_recipeID=dlstbx.cli.show_recipeID:run",
     "dlstbx.shutdown=dlstbx.cli.shutdown:run",
     "dlstbx.status_monitor=dlstbx.cli.status_monitor:run",
@@ -51,6 +52,7 @@ console_scripts = [
     "dlstbx.wrap_multi_xia2=dlstbx.cli.wrap_multi_xia2:main",
     "eiger2xds=dlstbx.cli.eiger2xds:run",
     "em.visits=dlstbx.cli.em_visits:run",
+    "em.running=dlstbx.cli.em_running:run",
     "i19.tail=dlstbx.cli.i19_tail:run",
     "it.status=dlstbx.cli.it_status:run",
 ]
@@ -123,6 +125,8 @@ service_list = [
     "DLSTrigger = dlstbx.services.trigger:DLSTrigger",
     "DLSValidation = dlstbx.services.validation:DLSValidation",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
+    "DLSBridge = dlstbx.services.bridge:DLSBridge",
+    "DLSReverseBridge = dlstbx.services.bridge_reverse:DLSReverseBridge",
     # "LoadProducer = dlstbx.services.load_producer:LoadProducer",  # tentatively disabled
     # "LoadReceiver = dlstbx.services.load_receiver:LoadReceiver",  # tentatively disabled
 ]

@@ -1,3 +1,6 @@
+from functools import partial
+
+import workflows
 from workflows.services.common_service import CommonService
 from workflows.transport.pika_transport import PikaTransport
 
@@ -11,25 +14,37 @@ class DLSBridge(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.bridge"
 
-    queues = {}
-    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
-    PikaTransport.load_configuration_file(default_configuration)
-    pika_transport = PikaTransport()
+    queues = {"bridge.test": "bridge.test"}
 
     def initializing(self):
         self.log.debug("Bridge service starting")
-        for queue in self.queues.items():
+        default_configuration = (
+            "/dls_sw/apps/zocalo/secrets/rabbitmq/credentials-zocalo.cfg"
+        )
+        PikaTransport.load_configuration_file(default_configuration)
+        self.pika_transport = PikaTransport()
+
+        print("initialising DLSBridge service")
+        for queue in self.queues:
             self._transport.subscribe(
-                self._transport,
                 queue,
-                self.receive_msg,
+                partial(self.receive_msg, args=(self.queues[queue])),
             )
 
-    def receive_msg(self, header, message):
-        if "ConsumerInfo" in message:
+    def receive_msg(self, header, message, args):
+        send_to = args
+        if send_to:
             self.pika_transport.connect()
-            self.pika_transport.broadcast(
-                self.queues[message["ConsumerInfo"]["destination"]["string"]],
-                message,
-                headers=header,
-            )
+            try:
+                self.pika_transport.send(
+                    send_to,
+                    message,
+                    headers=header,
+                )
+                self.pika_transport.ack(header)
+            except workflows.Disconnected:
+                self.log.error("Connection to RabbitMQ failed")
+                self.pika_transport.nack(header)
+        else:
+            self.log.error("No destination queue specified")
+            self.pika_transport.nack(header)

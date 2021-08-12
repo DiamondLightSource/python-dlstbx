@@ -80,10 +80,7 @@ def run():
                 .filter(DataCollection.SESSIONID == sess["sessionId"])
             )
             datacollections = list(query.all())
-            imgdirs[sess["session"]] = {}
-            apps[sess["session"]] = []
             for dc in datacollections:
-                imgdirs[sess["session"]][dc.dataCollectionId] = dc.imageDirectory
                 query = (
                     db_session.query(AutoProcProgram, ProcessingJob)
                     .join(
@@ -92,8 +89,16 @@ def run():
                         == AutoProcProgram.processingJobId,
                     )
                     .filter(ProcessingJob.dataCollectionId == dc.dataCollectionId)
+                    .filter(AutoProcProgram.processingStatus == None)
                 )
-                apps[sess["session"]].extend(query.all())
+                query_result = query.all()
+                if query_result:
+                    if apps.get(sess["session"]) is None:
+                        apps[sess["session"]] = []
+                    apps[sess["session"]].extend(query.all())
+                    if imgdirs.get(sess["session"]) is None:
+                        imgdirs[sess["session"]] = {}
+                    imgdirs[sess["session"]][dc.dataCollectionId] = dc.imageDirectory
 
         if args.microscope:
             print(
@@ -101,77 +106,77 @@ def run():
             )
         else:
             print("running jobs in the current run: \n")
-        for sess in sessions:
-            msgs = []
-            for proc in apps[sess["session"]]:
-                if proc[0].processingStatus is None:
-                    start_time = proc[0].processingStartTime
-                    if start_time is not None:
-                        age = datetime.datetime.fromtimestamp(time.time()) - start_time
-                    else:
-                        age = None
-                    try:
-                        msg = {
-                            "progid": proc[0].autoProcProgramId,
-                            "pid": proc[0].processingJobId,
-                            "days": age.days,
-                            "hours": age.seconds // 3600,
-                            "mins": (age.seconds // 60) % 60,
+        msgs = {}
+        for sess, procs in apps.items():
+            for proc in procs:
+                start_time = proc[0].processingStartTime
+                if start_time is not None:
+                    age = datetime.datetime.fromtimestamp(time.time()) - start_time
+                else:
+                    age = None
+                try:
+                    msg = {
+                        "progid": proc[0].autoProcProgramId,
+                        "pid": proc[0].processingJobId,
+                        "days": age.days,
+                        "hours": age.seconds // 3600,
+                        "mins": (age.seconds // 60) % 60,
+                    }
+                except AttributeError:
+                    msg = {
+                        "progid": proc[0].autoProcProgramId,
+                        "pid": proc[0].processingJobId,
+                        "days": "???",
+                        "hours": "???",
+                        "mins": "???",
+                    }
+                if args.v:
+                    mccount = (
+                        db_session.query(MotionCorrection)
+                        .options(Load(MotionCorrection).load_only("motionCorrectionId"))
+                        .filter(
+                            MotionCorrection.autoProcProgramId
+                            == proc[0].autoProcProgramId
+                        )
+                        .count()
+                    )
+                    ctfcount = (
+                        db_session.query(CTF)
+                        .options(Load(CTF).load_only("ctfId"))
+                        .filter(CTF.autoProcProgramId == proc[0].autoProcProgramId)
+                        .count()
+                    )
+                    # parpickcount = (
+                    #    db_session.query(ParticlePicker)
+                    #    .options(Load(ParticlePicker).load_only("particlePickerId"))
+                    #    .filter(ParticlePicker.programId == proc[0].autoProcProgramId)
+                    #    .count()
+                    # )
+                    fileglob = pathlib.Path(
+                        imgdirs[sess][proc[1].dataCollectionId]
+                    ).glob("**/*")
+                    most_recent = max(
+                        datetime.datetime.fromtimestamp(p.stat().st_mtime)
+                        for p in fileglob
+                    )
+                    tdiff = now - most_recent
+                    msg.update(
+                        {
+                            "mcresults": mccount,
+                            "ctfresults": ctfcount,
+                            # "parpickresults": parpickcount,
+                            "mod_days": tdiff.days,
+                            "mod_hours": tdiff.seconds // 3600,
+                            "mod_mins": (tdiff.seconds // 60) % 60,
                         }
-                    except AttributeError:
-                        msg = {
-                            "progid": proc[0].autoProcProgramId,
-                            "pid": proc[0].processingJobId,
-                            "days": "???",
-                            "hours": "???",
-                            "mins": "???",
-                        }
-                    if args.v:
-                        mccount = (
-                            db_session.query(MotionCorrection)
-                            .options(
-                                Load(MotionCorrection).load_only("motionCorrectionId")
-                            )
-                            .filter(
-                                MotionCorrection.autoProcProgramId
-                                == proc[0].autoProcProgramId
-                            )
-                            .count()
-                        )
-                        ctfcount = (
-                            db_session.query(CTF)
-                            .options(Load(CTF).load_only("ctfId"))
-                            .filter(CTF.autoProcProgramId == proc[0].autoProcProgramId)
-                            .count()
-                        )
-                        # parpickcount = (
-                        #    db_session.query(ParticlePicker)
-                        #    .options(Load(ParticlePicker).load_only("particlePickerId"))
-                        #    .filter(ParticlePicker.programId == proc[0].autoProcProgramId)
-                        #    .count()
-                        # )
-                        fileglob = pathlib.Path(
-                            imgdirs[sess["session"]][proc[1].dataCollectionId]
-                        ).glob("**/*")
-                        most_recent = max(
-                            datetime.datetime.fromtimestamp(p.stat().st_mtime)
-                            for p in fileglob
-                        )
-                        tdiff = now - most_recent
-                        msg.update(
-                            {
-                                "mcresults": mccount,
-                                "ctfresults": ctfcount,
-                                # "parpickresults": parpickcount,
-                                "mod_days": tdiff.days,
-                                "mod_hours": tdiff.seconds // 3600,
-                                "mod_mins": (tdiff.seconds // 60) % 60,
-                            }
-                        )
-                    msgs.append(msg)
-        if msgs:
-            print(f"session: {sess['session']}:")
-            for m in msgs:
+                    )
+                if msgs.get(sess) is None:
+                    msgs[sess] = []
+                msgs[sess].append(msg)
+    if msgs:
+        for sess, sess_msgs in msgs.items():
+            print(f"session: {sess}:")
+            for m in sess_msgs:
                 print(f"{'':<10} program ID: {m['progid']}, job ID: {m['pid']}")
                 print(
                     f"{'':<15} age: {m['days']} days, {m['hours']} hours, {m['mins']} minutes"

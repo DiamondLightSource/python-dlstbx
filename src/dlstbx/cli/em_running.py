@@ -95,37 +95,38 @@ def run():
                 )
                 apps[sess["session"]].extend(query.all())
 
-    if args.microscope:
-        print(f"running jobs for microscope {args.microscope} in the current run: \n")
-    else:
-        print("running jobs in the current run: \n")
-    for sess in sessions:
-        msgs = []
-        for proc in apps[sess["session"]]:
-            if proc[0].processingStatus is None:
-                start_time = proc[0].processingStartTime
-                if start_time is not None:
-                    age = datetime.datetime.fromtimestamp(time.time()) - start_time
-                else:
-                    age = None
-                try:
-                    msg = {
-                        "progid": proc[0].autoProcProgramId,
-                        "pid": proc[0].processingJobId,
-                        "days": age.days,
-                        "hours": age.seconds // 3600,
-                        "mins": (age.seconds // 60) % 60,
-                    }
-                except AttributeError:
-                    msg = {
-                        "progid": proc[0].autoProcProgramId,
-                        "pid": proc[0].processingJobId,
-                        "days": "???",
-                        "hours": "???",
-                        "mins": "???",
-                    }
-                if args.v:
-                    with db_session_maker() as db_session:
+        if args.microscope:
+            print(
+                f"running jobs for microscope {args.microscope} in the current run: \n"
+            )
+        else:
+            print("running jobs in the current run: \n")
+        for sess in sessions:
+            msgs = []
+            for proc in apps[sess["session"]]:
+                if proc[0].processingStatus is None:
+                    start_time = proc[0].processingStartTime
+                    if start_time is not None:
+                        age = datetime.datetime.fromtimestamp(time.time()) - start_time
+                    else:
+                        age = None
+                    try:
+                        msg = {
+                            "progid": proc[0].autoProcProgramId,
+                            "pid": proc[0].processingJobId,
+                            "days": age.days,
+                            "hours": age.seconds // 3600,
+                            "mins": (age.seconds // 60) % 60,
+                        }
+                    except AttributeError:
+                        msg = {
+                            "progid": proc[0].autoProcProgramId,
+                            "pid": proc[0].processingJobId,
+                            "days": "???",
+                            "hours": "???",
+                            "mins": "???",
+                        }
+                    if args.v:
                         mccount = (
                             db_session.query(MotionCorrection)
                             .options(
@@ -157,17 +158,17 @@ def run():
                             for p in fileglob
                         )
                         tdiff = now - most_recent
-                    msg.update(
-                        {
-                            "mcresults": mccount,
-                            "ctfresults": ctfcount,
-                            # "parpickresults": parpickcount,
-                            "mod_days": tdiff.days,
-                            "mod_hours": tdiff.seconds // 3600,
-                            "mod_mins": (tdiff.seconds // 60) % 60,
-                        }
-                    )
-                msgs.append(msg)
+                        msg.update(
+                            {
+                                "mcresults": mccount,
+                                "ctfresults": ctfcount,
+                                # "parpickresults": parpickcount,
+                                "mod_days": tdiff.days,
+                                "mod_hours": tdiff.seconds // 3600,
+                                "mod_mins": (tdiff.seconds // 60) % 60,
+                            }
+                        )
+                    msgs.append(msg)
         if msgs:
             print(f"session: {sess['session']}:")
             for m in msgs:

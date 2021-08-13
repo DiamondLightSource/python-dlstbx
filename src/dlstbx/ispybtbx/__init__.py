@@ -55,30 +55,30 @@ Session = sessionmaker(
 )
 
 
-def setup_marshmallow_schema():
-    with Session() as session:
-        # https://marshmallow-sqlalchemy.readthedocs.io/en/latest/recipes.html#automatically-generating-schemas-for-sqlalchemy-models
-        for class_ in isa.Base.registry._class_registry.values():
-            if hasattr(class_, "__tablename__"):
+def setup_marshmallow_schema(session):
+    # https://marshmallow-sqlalchemy.readthedocs.io/en/latest/recipes.html#automatically-generating-schemas-for-sqlalchemy-models
+    for class_ in isa.Base.registry._class_registry.values():
+        if hasattr(class_, "__tablename__"):
 
-                class Meta(object):
-                    model = class_
-                    sqla_session = session
-                    load_instance = True
-                    include_fk = True
+            class Meta(object):
+                model = class_
+                sqla_session = session
+                load_instance = True
+                include_fk = True
+                include_relationships = True
 
-                TYPE_MAPPING = SQLAlchemyAutoSchema.TYPE_MAPPING.copy()
-                TYPE_MAPPING.update({decimal.Decimal: marshmallow.fields.Float})
-                schema_class_name = "%sSchema" % class_.__name__
-                schema_class = type(
-                    schema_class_name,
-                    (SQLAlchemyAutoSchema,),
-                    {
-                        "Meta": Meta,
-                        "TYPE_MAPPING": TYPE_MAPPING,
-                    },
-                )
-                setattr(class_, "__marshmallow__", schema_class)
+            TYPE_MAPPING = SQLAlchemyAutoSchema.TYPE_MAPPING.copy()
+            TYPE_MAPPING.update({decimal.Decimal: marshmallow.fields.Float})
+            schema_class_name = "%sSchema" % class_.__name__
+            schema_class = type(
+                schema_class_name,
+                (SQLAlchemyAutoSchema,),
+                {
+                    "Meta": Meta,
+                    "TYPE_MAPPING": TYPE_MAPPING,
+                },
+            )
+            setattr(class_, "__marshmallow__", schema_class)
 
 
 re_visit_base = re.compile(r"^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
@@ -86,7 +86,8 @@ re_visit_base = re.compile(r"^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
 
 class ispybtbx:
     def __init__(self):
-        setup_marshmallow_schema()
+        with Session() as session:
+            setup_marshmallow_schema(session)
         self.log = logging.getLogger("dlstbx.ispybtbx")
         self.log.debug("ISPyB objects set up")
 

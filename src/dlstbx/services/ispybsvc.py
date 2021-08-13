@@ -7,10 +7,11 @@ import ispyb.sqlalchemy
 import mysql.connector
 import sqlalchemy.orm
 import workflows.recipe
-from ispyb.sqlalchemy import PDB, ProteinHasPDB
+from ispyb.sqlalchemy import PDB, AutoProcProgram, MXMRRun, ProteinHasPDB
 from workflows.services.common_service import CommonService
 
 import dlstbx.services.ispybsvc_buffer as buffer
+from dlstbx.ispybtbx import setup_marshmallow_schema
 from dlstbx.services.ispybsvc_em import EM_Mixin
 
 
@@ -37,6 +38,9 @@ class DLSISPyB(EM_Mixin, CommonService):
                 ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
             )
         )
+        with self._ispyb_sessionmaker() as session:
+            setup_marshmallow_schema(session)
+
         self.log.debug("ISPyB connector starting")
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -804,16 +808,34 @@ class DLSISPyB(EM_Mixin, CommonService):
         )
         return {"success": True, "return_value": scalingId}
 
-    def do_insert_mxmr_run(self, parameters, **kwargs):
-        params = self.ispyb.mx_processing.get_run_params()
-        for k in params.keys():
-            if parameters(k) is not None:
-                params[k] = parameters(k)
-        params["parentid"] = parameters("scaling_id")
-        self.log.debug(params)
-        mxmr_run_id = self.ispyb.mx_processing.upsert_run(list(params.values()))
-        self.log.info("Written MXMRRun record with ID %s" % mxmr_run_id)
-        return {"success": True, "return_value": mxmr_run_id}
+    def do_insert_mxmr_run(self, *, parameters, session, **kwargs):
+        mxmr_data = parameters("MXMRRun")
+
+        if not mxmr_data:
+            self.log.warning("No MXMRRun data in do_insert_mxmr_run message")
+
+        # marshmallow-sqlalchemy doesn't appear to handle doubly-nested relationships,
+        # so first deserialize the AutoProcProgram/AutoProcProgramAttachements first
+        # and then separately deserialize the MXMRRun/MXMRRunBlobs
+        app_data = mxmr_data.get("AutoProcProgram")
+        if not app_data:
+            self.log.warning("No AutoProcProgram data in do_insert_mxmr_run message")
+            return False
+
+        del mxmr_data["AutoProcProgram"]
+        app_schema = AutoProcProgram.__marshmallow__()
+        app = app_schema.load(app_data, transient=True)
+        session.add(app)
+
+        mxmr_schema = MXMRRun.__marshmallow__()
+        mxmrrun = MXMRRun(AutoProcProgram=app)
+        mxmr_schema.load(mxmr_data, instance=mxmrrun, transient=True)
+        session.add(mxmrrun)
+
+        session.commit()
+
+        self.log.info(f"Written MXMRRun record with ID {mxmrrun.mxMRRunId}")
+        return {"success": True, "return_value": mxmrrun.mxMRRunId}
 
     def do_insert_mxmr_run_blob(self, parameters, **kwargs):
         params = self.ispyb.mx_processing.get_run_blob_params()

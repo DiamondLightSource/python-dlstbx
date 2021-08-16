@@ -95,7 +95,7 @@ def print_stats(stats: pd.DataFrame) -> None:
     #   line +=  " -- {0[relevance]}{colour[reset]}"
 
     print("\033[H\033[J", end="")
-    queue_sep = "{header}ActiveMQ status: {highlight}{queues}{header} queues containing {highlight}{messages}{header} messages{reset}".format(
+    queue_sep = "{header}RabbitMQ status: {highlight}{queues}{header} queues containing {highlight}{messages}{header} messages{reset}".format(
         messages=stats["messages_ready"].sum(),
         queues=len(stats),
         highlight=c_bold + c_yellow,
@@ -156,7 +156,7 @@ def run():
         "--test",
         action="store_true",
         dest="test",
-        help="Connect to personal development ActiveMQ server",
+        help="Connect to personal development RabbitMQ server",
     )
     parser.add_argument(
         "--interval",

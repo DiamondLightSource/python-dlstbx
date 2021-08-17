@@ -100,11 +100,6 @@ known_wrappers = [  # please keep alphabetically sorted
     "xoalign = dlstbx.wrapper.xoalign:XOalignWrapper",
 ]
 
-dxtbx_formats = [
-    "FormatNXmx:FormatNexus = dlstbx.format.FormatNXmx:FormatNXmx",
-    "FormatNXmxDLS:FormatNXmx = dlstbx.format.FormatNXmxDLS:FormatNXmxDLS",
-]
-
 service_list = [
     "DLSArchiver = dlstbx.services.archiver:DLSArchiver",
     "DLSCluster = dlstbx.services.cluster:DLSCluster",
@@ -196,7 +191,6 @@ setup(
     ],
     entry_points={
         "console_scripts": sorted(console_scripts),
-        "dxtbx.format": sorted(dxtbx_formats),
         "libtbx.dispatcher.script": [
             "%s=%s" % (x.split("=")[0], x.split("=")[0]) for x in console_scripts
         ]

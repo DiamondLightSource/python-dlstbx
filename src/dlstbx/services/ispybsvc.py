@@ -19,6 +19,23 @@ def lookup_command(command, refclass):
     return getattr(refclass, "do_" + command, None)
 
 
+import string
+from collections import ChainMap
+
+
+class ChainMapWithReplacement(ChainMap):
+    def __init__(self, *maps, environment=None) -> None:
+        super().__init__(*maps)
+        self._environment = environment
+
+    def __getitem__(self, k):
+        v = super().__getitem__(k)
+        if self._environment and "$" in v:
+            template = string.Template(v)
+            return template.substitute(**self._environment)
+        return v
+
+
 class DLSISPyB(EM_Mixin, CommonService):
     """A service that receives information to be written to ISPyB."""
 
@@ -103,30 +120,11 @@ class DLSISPyB(EM_Mixin, CommonService):
         txn = rw.transport.transaction_begin()
         rw.set_default_channel("output")
 
-        def parameters(parameter, replace_variables=True):
-            if isinstance(message, dict):
-                base_value = message.get(
-                    parameter, rw.recipe_step["parameters"].get(parameter)
-                )
-            else:
-                base_value = rw.recipe_step["parameters"].get(parameter)
-            if (
-                not replace_variables
-                or not base_value
-                or not isinstance(base_value, str)
-                or "$" not in base_value
-            ):
-                return base_value
-            for key in sorted(rw.environment, key=len, reverse=True):
-                if "${" + key + "}" in base_value:
-                    base_value = base_value.replace(
-                        "${" + key + "}", str(rw.environment[key])
-                    )
-                # Replace longest keys first, as the following replacement is
-                # not well-defined when one key is a prefix of another:
-                if "$" + key in base_value:
-                    base_value = base_value.replace("$" + key, str(rw.environment[key]))
-            return base_value
+        parameters = ChainMapWithReplacement(
+            message if isinstance(message, dict) else {},
+            rw.recipe_step["parameters"],
+            substitutions=rw.environment,
+        )
 
         try:
             with self._ispyb_sessionmaker() as session:
@@ -809,7 +807,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         return {"success": True, "return_value": scalingId}
 
     def do_insert_mxmr_run(self, *, parameters, session, **kwargs):
-        mxmr_data = parameters("MXMRRun")
+        mxmr_data = parameters["MXMRRun"]
 
         if not mxmr_data:
             self.log.warning("No MXMRRun data in do_insert_mxmr_run message")
@@ -840,9 +838,9 @@ class DLSISPyB(EM_Mixin, CommonService):
     def do_insert_mxmr_run_blob(self, parameters, **kwargs):
         params = self.ispyb.mx_processing.get_run_blob_params()
         for k in params.keys():
-            if parameters(k) is not None:
-                params[k] = parameters(k)
-        params["parentid"] = parameters("mxmr_run_id")
+            if (v := parameters.get(k)) is not None:
+                params[k] = v
+        params["parentid"] = parameters["mxmr_run_id"]
         self.log.debug(params)
         mxmr_run_blob_id = self.ispyb.mx_processing.upsert_run_blob(
             list(params.values())
@@ -853,7 +851,7 @@ class DLSISPyB(EM_Mixin, CommonService):
     def do_retrieve_programs_for_job_id(self, parameters, **kwargs):
         """Retrieve the processing instances associated with the given processing job ID"""
 
-        processingJobId = parameters("rpid")
+        processingJobId = parameters["rpid"]
         result = self.ispyb.mx_processing.retrieve_programs_for_job_id(processingJobId)
         serial_result = []
         for row in result:

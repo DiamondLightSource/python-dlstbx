@@ -51,7 +51,6 @@ console_scripts = [
     "dlstbx.wrap_multi_xia2=dlstbx.cli.wrap_multi_xia2:main",
     "eiger2xds=dlstbx.cli.eiger2xds:run",
     "em.visits=dlstbx.cli.em_visits:run",
-    "em.running=dlstbx.cli.em_running:run",
     "i19.tail=dlstbx.cli.i19_tail:run",
     "it.status=dlstbx.cli.it_status:run",
 ]

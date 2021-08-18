@@ -14,7 +14,10 @@ class DLSReverseBridge(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.bridge_reverse"
 
-    queues = {"bridge.test": "bridge.test"}
+    queues = {
+        "bridge.test": "bridge.test",
+        "transient.destination": "transient.destination",
+    }
 
     def initializing(self):
         self.log.debug("Reverse Bridge service starting")

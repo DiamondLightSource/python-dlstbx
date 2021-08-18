@@ -14,7 +14,10 @@ class DLSBridge(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.bridge"
 
-    queues = {"bridge.test": "bridge.test"}
+    queues = {
+        "bridge.test": "bridge.test",
+        "transient.transaction": "transient.transaction",
+    }
 
     def initializing(self):
         self.log.debug("Bridge service starting")

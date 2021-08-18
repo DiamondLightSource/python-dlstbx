@@ -48,10 +48,10 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         logging.getLogger("dxtbx").setLevel(logging.INFO)
         logging.getLogger("ispyb").setLevel(logging.DEBUG)
         logging.getLogger("relion").setLevel(logging.INFO)
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
         logging.getLogger("workflows").setLevel(logging.INFO)
         logging.getLogger("xia2").setLevel(logging.INFO)
         logging.getLogger("zocalo").setLevel(logging.DEBUG)
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.DEBUG)
 
         self.log = logging.getLogger("dlstbx.service")
         self.log.setLevel(logging.DEBUG)
@@ -130,6 +130,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
             self.console.setLevel(logging.DEBUG)
             logging.getLogger("dials").setLevel(logging.DEBUG)
             logging.getLogger("dlstbx").setLevel(logging.DEBUG)
+            logging.getLogger("sqlalchemy.engine").setLevel(logging.DEBUG)
             logging.getLogger("xia2").setLevel(logging.DEBUG)
         if options.debug:
             logging.getLogger("workflows").setLevel(logging.DEBUG)

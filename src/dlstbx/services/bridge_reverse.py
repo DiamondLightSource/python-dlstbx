@@ -21,7 +21,7 @@ class DLSReverseBridge(CommonService):
 
     def initializing(self):
         self.log.debug("Reverse Bridge service starting")
-        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
+        default_configuration = "/dls_sw/apps/zocalo/secrets/activemq-credentials.yml"
         StompTransport.load_configuration_file(default_configuration)
         self.stomp_transport = StompTransport()
 

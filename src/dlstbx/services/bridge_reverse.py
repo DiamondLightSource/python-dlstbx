@@ -43,8 +43,11 @@ class DLSReverseBridge(CommonService):
                     headers=header,
                 )
                 self.stomp_transport.ack(header)
+                self.log.info(f"message {message} sent to {send_to}")
             except workflows.Disconnected:
-                self.log.error("Connection to ActiveMQ failed")
+                self.log.error(
+                    f"Connection to ActiveMQ failed: trying to send to {send_to}"
+                )
                 self.stomp_transport.nack(header)
         else:
             self.log.error("No destination queue specified")

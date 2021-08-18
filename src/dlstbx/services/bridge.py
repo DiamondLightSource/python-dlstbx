@@ -45,8 +45,11 @@ class DLSBridge(CommonService):
                     headers=header,
                 )
                 self.pika_transport.ack(header)
+                self.log.info(f"message {message} sent to {send_to}")
             except workflows.Disconnected:
-                self.log.error("Connection to RabbitMQ failed")
+                self.log.error(
+                    f"Connection to RabbitMQ failed: trying to send to {send_to}"
+                )
                 self.pika_transport.nack(header)
         else:
             self.log.error("No destination queue specified")

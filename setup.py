@@ -126,6 +126,8 @@ service_list = [
     "DLSTrigger = dlstbx.services.trigger:DLSTrigger",
     "DLSValidation = dlstbx.services.validation:DLSValidation",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
+    "DLSBridge = dlstbx.services.bridge:DLSBridge",
+    "DLSReverseBridge = dlstbx.services.bridge_reverse:DLSReverseBridge",
     # "LoadProducer = dlstbx.services.load_producer:LoadProducer",  # tentatively disabled
     # "LoadReceiver = dlstbx.services.load_receiver:LoadReceiver",  # tentatively disabled
 ]

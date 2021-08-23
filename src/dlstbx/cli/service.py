@@ -19,6 +19,7 @@ import time
 import workflows
 import workflows.contrib.start_service
 import workflows.logging
+import zocalo.configuration
 
 import dlstbx.util
 from dlstbx import enable_graylog
@@ -60,24 +61,22 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         enable_graylog(live=self.use_live_infrastructure)
 
     def __init__(self):
-        # change settings when in live mode
-        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
-        if "--live" in sys.argv:
-            self.use_live_infrastructure = True
-            default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-
-        # initialize logging
+        # load configuration and initialize logging
+        self._zc = zocalo.configuration.from_file()
+        envs = self._zc.activate()
+        self.use_live_infrastructure = ("live" in envs) or (
+            "default" in envs
+        )  # deprecated
         self.setup_logging()
 
-        self.log.debug("Loading dlstbx credentials")
-
-        # override default stomp host
-        from workflows.transport.stomp_transport import StompTransport
-
-        try:
-            StompTransport.load_configuration_file(default_configuration)
-        except workflows.Error as e:
-            self.log.warning(e)
+        if (
+            self._zc.storage
+            and self._zc.storage.get("zocalo.default_transport")
+            in workflows.transport.get_known_transports()
+        ):
+            workflows.transport.default_transport = self._zc.storage[
+                "zocalo.default_transport"
+            ]
 
     def on_parser_preparation(self, parser):
         parser.add_option(
@@ -111,19 +110,8 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
             default=False,
             help="Restart service on failure",
         )
-        parser.add_option(
-            "--test",
-            action="store_true",
-            dest="test",
-            help="Run in ActiveMQ testing namespace (zocdev, default)",
-        )
-        parser.add_option(
-            "--live",
-            action="store_true",
-            dest="test",
-            help="Run in ActiveMQ live namespace (zocalo)",
-        )
-        self.log.debug("Launching " + str(sys.argv))
+        self._zc.add_command_line_options(parser)
+        self.log.debug("Launching %r", sys.argv)
 
     def on_parsing(self, options, args):
         if options.verbose:
@@ -140,6 +128,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         kwargs["verbose_service"] = True
         kwargs["environment"] = kwargs.get("environment", {})
         kwargs["environment"]["live"] = self.use_live_infrastructure
+        kwargs["environment"]["config"] = self._zc
         return kwargs
 
     def on_frontend_preparation(self, frontend):
@@ -161,7 +150,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         if self.options.service_restart:
             frontend.restart_service = True
 
-        extended_status = {}
+        extended_status = {"zocalo": zocalo.__version__, "dlstbx": dlstbx_version()}
         if self.options.tag:
             extended_status["tag"] = self.options.tag
         for env in ("SGE_CELL", "JOB_ID"):
@@ -171,8 +160,6 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
             split_name = os.environ["HOSTNAME"].split("-")
             container_image = ":".join(split_name[:2])
             extended_status["container_image"] = container_image
-
-        extended_status["dlstbx"] = dlstbx_version()
 
         original_status_function = frontend.get_status
 

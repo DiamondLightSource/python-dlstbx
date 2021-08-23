@@ -3,14 +3,6 @@
 #   Starts a workflow service
 #
 
-# Note that the call semantics of dlstbx.service differs from other dlstbx
-# commands. dlstbx.service defaults to running in the testing ActiveMQ
-# namespace (zocdev), rather than the live namespace (zocalo). This is to
-# stop servers started by developers on their machines accidentally interfering
-# with live data processing.
-# To run a live server you must specify '--live'
-
-
 import logging
 import os
 import sys

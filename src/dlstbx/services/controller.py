@@ -60,7 +60,7 @@ class DLSController(CommonService):
         # instances bookkeeping and allocation.
         self._se = StrategyEnvironment()
 
-        if self._environment.get("live"):
+        if self._environment.get("live"):  # XXX deprecated
             self.strategy_file = (
                 "/dls_sw/apps/zocalo/live/strategy/controller-strategy.json"
             )

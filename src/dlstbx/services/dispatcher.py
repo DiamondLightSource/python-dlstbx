@@ -36,7 +36,7 @@ class DLSDispatcher(CommonService):
         self.log.info("Dispatcher starting")
         self.recipe_basepath = "/dls_sw/apps/zocalo/live/recipes"
 
-        if self._environment.get("live"):
+        if self._environment.get("live"):  # XXX deprecated
             try:
                 os.makedirs(self._logbook, 0o775)
             except OSError:

@@ -115,7 +115,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
     def before_frontend_construction(self, kwargs):
         kwargs["verbose_service"] = True
         kwargs["environment"] = kwargs.get("environment", {})
-        kwargs["environment"]["live"] = self.use_live_infrastructure
+        kwargs["environment"]["live"] = self.use_live_infrastructure  # XXX deprecated
         kwargs["environment"]["config"] = self._zc
         return kwargs
 

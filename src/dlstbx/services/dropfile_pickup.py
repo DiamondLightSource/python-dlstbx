@@ -19,7 +19,7 @@ class DLSDropfilePickup(CommonService):
         """Subscribe to a synchronization queue to ensure only
         one instance of this service is active at a time."""
         self.log.info("Dropfile Pickup service starting")
-        if self._environment.get("live"):
+        if self._environment.get("live"):  # XXX deprecated
             #     self.location = '/dls_sw/apps/zocalo/dropfiles'
             self.location = "/dls/tmp/wra62962/directories/dropfiles"
         else:

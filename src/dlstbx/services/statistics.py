@@ -19,7 +19,7 @@ class DLSStatistics(CommonService):
         """Subscribe to the cluster submission queue.
         Received messages must be acknowledged."""
         self.log.info("Statistics service starting")
-        if self._environment.get("live"):
+        if self._environment.get("live"):  # XXX deprecated
             self.rrd = RRDTool("/dls_sw/apps/zocalo/statistics")
         else:
             self.rrd = RRDTool(".")

@@ -14,7 +14,6 @@ import workflows.logging
 import zocalo.configuration
 
 import dlstbx.util
-from dlstbx import enable_graylog
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.version import dlstbx_version
 
@@ -48,9 +47,6 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
 
         self.log = logging.getLogger("dlstbx.service")
         self.log.setLevel(logging.DEBUG)
-
-        # Enable logging to graylog
-        enable_graylog(live=self.use_live_infrastructure)
 
     def __init__(self):
         # load configuration and initialize logging

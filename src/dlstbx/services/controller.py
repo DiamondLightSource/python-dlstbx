@@ -64,16 +64,10 @@ class DLSController(CommonService):
             self.strategy_file = (
                 "/dls_sw/apps/zocalo/live/strategy/controller-strategy.json"
             )
-            self.scipion_launch_script = (
-                "/dls_sw/apps/zocalo/live/scipion/launch_service"
-            )
             self.service_launch_script = "/dls_sw/apps/zocalo/live/launch_service"
             self.namespace = "zocalo"
         else:
             self.strategy_file = "/dls_sw/apps/zocalo/controller-strategy-test.json"
-            self.scipion_launch_script = (
-                "/dls_sw/apps/zocalo/live/scipion/launch_service_zocdev"
-            )
             self.service_launch_script = (
                 "/dls_sw/apps/zocalo/live/launch_service_zocdev"
             )
@@ -403,7 +397,7 @@ class DLSController(CommonService):
                     str(e),
                     exc_info=True,
                 )
-        if soft_fail or attempt.get("type") == "scipion":
+        if soft_fail:
             self.log.info(
                 "Could not start %s, all available options exhausted", service
             )
@@ -453,29 +447,6 @@ class DLSController(CommonService):
     def launch_testcluster(self, **kwargs):
         kwargs["cluster"] = "testcluster"
         return self.launch_cluster(**kwargs)
-
-    def launch_scipion(
-        self, service=None, cluster="", queue="", module="", tag="", **kwargs
-    ):
-        assert service
-        result = procrunner.run(
-            [self.scipion_launch_script, service],
-            environment_override={
-                "CLUSTER": cluster,
-                "QUEUE": queue,
-                "MODULE": module,
-                "TAG": tag,
-            },
-            timeout=15,
-        )
-        self.log.debug(
-            "Cluster launcher script for %s returned result: %s",
-            service,
-            json.dumps(result),
-        )
-        # Trying to start jobs can be very time intensive, ensure the master status is not lost during balancing
-        self.self_check()
-        return result.get("exitcode") == 0
 
     def kill_service(self, instance):
         self.log.info(

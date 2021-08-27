@@ -54,7 +54,7 @@ class StrategyEnvironment:
             if "launch" not in svc:
                 continue
             for l in new_launchers[svc["service"]]:
-                for attrib in ("module", "servicecmd"):
+                for attrib in ("environment", "module", "servicecmd"):
                     if attrib in svc and attrib not in l:
                         l[attrib] = svc[attrib]
         with self.lock:

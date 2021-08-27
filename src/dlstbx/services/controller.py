@@ -418,6 +418,7 @@ class DLSController(CommonService):
         module="",
         tag="",
         servicecmd="",
+        environment="",
         **kwargs
     ):
         assert service
@@ -432,6 +433,7 @@ class DLSController(CommonService):
                 "RUNTIMELIMIT": runtimelimit,
                 "SERVICECMD": servicecmd,
                 "TAG": tag,
+                "ENVIRONMENT": environment,
             },
             timeout=15,
         )

@@ -36,6 +36,7 @@ def test_xray_centering(mocker, tmp_path):
     # https://ispyb.diamond.ac.uk/dc/visit/cm28170-2/id/6153461
     parameters = {
         "dcid": "6153461",
+        "experiment_type": "SAD",
         "output": tmp_path / "Dials5AResults.json",
         "log": tmp_path / "Dials5AResults.txt",
     }
@@ -93,6 +94,7 @@ def test_xray_centering_invalid_parameters(mocker, tmp_path, caplog):
     # https://ispyb.diamond.ac.uk/dc/visit/cm28170-2/id/6153461
     parameters = {
         "dcid": "6153461",
+        "experiment_type": "SAD",
         "output": tmp_path / "Dials5AResults.json",
         "log": tmp_path / "Dials5AResults.txt",
     }
@@ -164,3 +166,59 @@ n_spots_total
 """
         in caplog.text
     )
+
+
+def test_xray_centering_3d(mocker, tmp_path, caplog):
+    # https://ispyb.diamond.ac.uk/dc/visit/cm26458-4/id/5476360
+    # https://ispyb.diamond.ac.uk/dc/visit/cm26458-4/id/5476366
+
+    dcids = (5476360, 5476366)
+    parameters = {
+        "dcid": f"{dcids[0]}",
+        "dcg_dcids": [],
+        "experiment_type": "Mesh3D",
+    }
+
+    gridinfo = {
+        "dx_mm": 0.02,
+        "dy_mm": 0.02,
+        "gridInfoId": 1061461,
+        "orientation": "horizontal",
+        "pixelsPerMicronX": 0.438,
+        "pixelsPerMicronY": 0.438,
+        "snaked": 1,
+        "snapshot_offsetXPixel": 363.352,
+        "snapshot_offsetYPixel": 274.936,
+        "steps_x": 14.0,
+        "steps_y": 9.0,
+    }
+
+    mock_transport = mock.Mock()
+    xc = dlstbx.services.xray_centering.DLSXRayCentering()
+    setattr(xc, "_transport", mock_transport)
+    xc.initializing()
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    # fmt: off
+    spots_count_m45 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 10, 7, 0, 0, 0, 0, 0, 0, 6, 20, 29, 29, 27, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 9, 16, 16, 12, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    spot_counts_p45 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 15, 16, 11, 6, 0, 0, 0, 0, 3, 10, 11, 15, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    # fmt: on
+    m = generate_recipe_message(parameters, gridinfo)
+    rw = RecipeWrapper(message=m, transport=t)
+    send_to = mocker.spy(rw, "send_to")
+    for i, n_spots in enumerate(spots_count_m45):
+        message = {"n_spots_total": n_spots, "file-number": i + 1}
+        xc.add_pia_result(rw, {"some": "header"}, message)
+    send_to.assert_not_called()
+
+    m = generate_recipe_message(
+        {**parameters, "dcg_dcids": [dcids[0]], "dcid": dcids[1]}, gridinfo
+    )
+    rw = RecipeWrapper(message=m, transport=t)
+    send_to = mocker.spy(rw, "send_to")
+    with caplog.at_level(logging.DEBUG):
+        for i, n_spots in enumerate(spot_counts_p45):
+            message = {"n_spots_total": n_spots, "file-number": i + 1}
+            xc.add_pia_result(rw, {"some": "header"}, message)
+    assert "Max pixel: (4, 5, 4)" in caplog.text
+    assert "Centre of mass:" in caplog.text
+    send_to.assert_called_with("success", (4, 5, 4), transaction=mock.ANY)

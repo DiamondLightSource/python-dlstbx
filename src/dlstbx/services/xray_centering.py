@@ -1,7 +1,5 @@
 import dataclasses
-import errno
 import json
-import os
 import pathlib
 import threading
 import time
@@ -40,6 +38,7 @@ class Parameters(pydantic.BaseModel):
     "Recipe parameters used by the X-ray centering service"
 
     dcid: int
+    experiment_type: str
     dcg_dcids: List[int] = None
     output: pathlib.Path = None
     log: pathlib.Path = None
@@ -222,7 +221,10 @@ class DLSXRayCentering(CommonService):
                     for _dcid in dcg_dcids + [dcid]:
                         del self._centering_data[_dcid]
 
-            elif cd.images_seen == gridinfo.image_count:
+            elif (
+                parameters.experiment_type != "Mesh3D"
+                and cd.images_seen == gridinfo.image_count
+            ):
                 self.log.info(
                     "All records arrived for X-ray centering on DCID %d", dcid
                 )

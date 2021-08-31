@@ -160,7 +160,7 @@ X-ray centering service called with invalid payload: 2 validation errors for Mes
 file-number
   field required (type=value_error.missing)
 n_spots_total
-  ensure this value is greater than 0 (type=value_error.number.not_gt; limit_value=0)
+  ensure this value is greater than or equal to 0 (type=value_error.number.not_ge; limit_value=0)
 """
         in caplog.text
     )

@@ -4,62 +4,73 @@ from datetime import datetime
 from pathlib import Path
 from pprint import pprint
 
-from dlstbx.ispybtbx import ispybtbx
+import ispyb
+import ispyb.sqlalchemy
+import sqlalchemy
+from ispyb.sqlalchemy import (
+    AutoProcProgram,
+    AutoProcProgramAttachment,
+    DataCollection,
+    ProcessingJob,
+    ProcessingJobParameter,
+)
+
 from dlstbx.util import mr_utils
 
 
 def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
 
-    ispyb_conn = ispybtbx()
+    url = ispyb.sqlalchemy.url()
+    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+    db_session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
 
-    str_jobids = []
-    if jobids:
-        if len(jobids) == 1:
-            str_jobids.append(f"AND pj.processingJobId = {jobids[0]}")
-        else:
-            str_jobids.append(f"AND pj.processingJobId IN {tuple(jobids)}")
-        print(f"Reading data for following ep_predict jobids: {jobids}")
-    if dtstamp_start:
-        str_jobids.append(f"AND pj.recordTimestamp > '{dtstamp_start}'")
-    if dtstamp_end:
-        str_jobids.append(f"AND pj.recordTimestamp < '{dtstamp_end}'")
-    str_jobids = " ".join(str_jobids)
+    with db_session_maker() as db_session:
+        query = (
+            db_session.query(
+                ProcessingJob.processingJobId.label("rpid"),
+                DataCollection.dataCollectionId.label("dc_id"),
+                AutoProcProgramAttachment.filePath.label("filepath"),
+                AutoProcProgramAttachment.fileName.label("mr_predict_json"),
+                ProcessingJobParameter.parameterValue.label("mrbump_logfile"),
+                ProcessingJob.recordTimestamp.label("datetime_stamp"),
+            )
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
+            .join(
+                ProcessingJobParameter,
+                ProcessingJobParameter.processingJobId == ProcessingJob.processingJobId,
+            )
+            .join(
+                AutoProcProgramAttachment,
+                AutoProcProgramAttachment.autoProcProgramId
+                == AutoProcProgram.autoProcProgramId,
+            )
+            .join(
+                DataCollection,
+                DataCollection.dataCollectionId == ProcessingJob.dataCollectionId,
+            )
+            .filter(AutoProcProgramAttachment.fileType == "Result")
+            .filter(ProcessingJobParameter.parameterValue.like("%MRBUMP.log"))
+            .filter(ProcessingJob.processingJobId > 3700000)
+            .filter(ProcessingJob.displayName == "mr_predict")
+        )
+        if jobids:
+            if len(jobids) == 1:
+                query.filter(ProcessingJob.processingJobId == int(jobids[0]))
+            else:
+                query.filter(
+                    ProcessingJob.processingJobId.in_(tuple(int(jid) for jid in jobids))
+                )
+            print(f"Reading data for following ep_predict jobids: {jobids}")
+        if dtstamp_start:
+            query.filter(ProcessingJob.recordTimestamp > f"{dtstamp_start}")
+        if dtstamp_end:
+            query.filter(ProcessingJob.recordTimestamp < f"{dtstamp_end}")
+        rows = list(query.distinct().all())
 
-    sql_str = f"""
-SELECT DISTINCT
-    pj.processingJobId AS rpid,
-    dc.dataCollectionId AS dc_id,
-    appa.filePath as filepath,
-    appa.fileName AS mr_predict_json,
-    pjp.parameterValue AS mrbump_logfile,
-    pj.recordTimestamp AS datetime_stamp
-FROM
-    ProcessingJob pj
-INNER JOIN AutoProcProgram app ON
-    app.processingJobId = pj.processingJobId
-INNER JOIN ProcessingJobParameter pjp ON pjp.processingJobId = pj.processingJobId
-INNER JOIN AutoProcProgramAttachment appa ON
-    appa.autoProcProgramId = app.autoProcProgramId
-INNER JOIN DataCollection dc ON
-    dc.dataCollectionId = pj.dataCollectionId
-WHERE
-    appa.fileType = "Result"
-    AND pjp.parameterValue LIKE "%MRBUMP.log"
-    AND pj.processingjobid > 3700000
-    AND pj.displayName = 'mr_predict'
-    {str_jobids}
-"""
-
-    columns = (
-        "rpid",
-        "dc_id",
-        "filepath",
-        "mr_predict_json",
-        "mrbump_logfile",
-        "datetime_stamp",
-    )
-    rows = ispyb_conn.execute(sql_str)
-    results = [dict(zip(columns, rec)) for rec in rows]
+    results = [dict(zip(row.keys(), row)) for row in rows]
     print(f"Found {len(rows)} relevant records in ISPyB")
     return results[:]
 

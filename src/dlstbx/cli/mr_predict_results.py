@@ -25,6 +25,24 @@ def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
     db_session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
 
     with db_session_maker() as db_session:
+        filter_list = [
+            AutoProcProgramAttachment.fileType == "Result",
+            ProcessingJobParameter.parameterValue.like("%MRBUMP.log"),
+            ProcessingJob.processingJobId > 3700000,
+            ProcessingJob.displayName == "mr_predict",
+        ]
+        if jobids:
+            if len(jobids) == 1:
+                filter_list.append(ProcessingJob.processingJobId == int(jobids[0]))
+            else:
+                filter_list.append(
+                    ProcessingJob.processingJobId.in_(tuple(int(jid) for jid in jobids))
+                )
+            print(f"Reading data for following ep_predict jobids: {jobids}")
+        if dtstamp_start:
+            filter_list.append(ProcessingJob.recordTimestamp > dtstamp_start)
+        if dtstamp_end:
+            filter_list.append(ProcessingJob.recordTimestamp < dtstamp_end)
         query = (
             db_session.query(
                 ProcessingJob.processingJobId.label("rpid"),
@@ -51,23 +69,8 @@ def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
                 DataCollection,
                 DataCollection.dataCollectionId == ProcessingJob.dataCollectionId,
             )
-            .filter(AutoProcProgramAttachment.fileType == "Result")
-            .filter(ProcessingJobParameter.parameterValue.like("%MRBUMP.log"))
-            .filter(ProcessingJob.processingJobId > 3700000)
-            .filter(ProcessingJob.displayName == "mr_predict")
+            .filter(*filter_list)
         )
-        if jobids:
-            if len(jobids) == 1:
-                query.filter(ProcessingJob.processingJobId == int(jobids[0]))
-            else:
-                query.filter(
-                    ProcessingJob.processingJobId.in_(tuple(int(jid) for jid in jobids))
-                )
-            print(f"Reading data for following ep_predict jobids: {jobids}")
-        if dtstamp_start:
-            query.filter(ProcessingJob.recordTimestamp > f"{dtstamp_start}")
-        if dtstamp_end:
-            query.filter(ProcessingJob.recordTimestamp < f"{dtstamp_end}")
         rows = list(query.distinct().all())
 
     results = [dict(zip(row.keys(), row)) for row in rows]

@@ -205,7 +205,7 @@ tests = {
     },
     "i04-eiger-sad-single": {
         "type": "mx",
-        "src_dir": "/dls/i04/data/2021/cm28182-1/20210311/TestInsulin/ZincInsulinB4/",
+        "src_dir": "/dls/i04/data/2021/cm28182-1/20210311/TestInsulin/ZincInsulinB4",
         "src_run_num": (1,),
         "src_prefix": ("ZincInsulinB4",),
         "use_sample_id": 3275609,

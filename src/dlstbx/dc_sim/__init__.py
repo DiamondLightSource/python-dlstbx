@@ -18,6 +18,7 @@ import sys
 import time
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 import ispyb.sqlalchemy
 import procrunner
@@ -504,7 +505,7 @@ def call_sim(test_name, beamline):
     if not scenario:
         sys.exit(f"{test_name} is not a valid test scenario")
 
-    src_dir = scenario["src_dir"]
+    src_dir = Path(scenario["src_dir"])
     sample_id = scenario.get("use_sample_id")
     src_prefix = scenario["src_prefix"]
     proc_params = scenario.get("proc_params")
@@ -522,29 +523,36 @@ def call_sim(test_name, beamline):
             dest_visit = f"{proposal}-1"
         elif beamline == "i02-1":
             dest_visit = f"{proposal}-2"
-        dest_visit_dir = f"/dls/mx/data/{proposal}/{dest_visit}"
+        dest_visit_dir = Path(f"/dls/mx/data/{proposal}/{dest_visit}")
     elif beamline == "i04":
         dest_visit = "nt28218-5"
-        dest_visit_dir = f"/dls/{beamline}/data/{now:%Y}/{dest_visit}"
+        dest_visit_dir = Path(f"/dls/{beamline}/data/{now:%Y}/{dest_visit}")
     else:
-        for cm_dir in os.listdir(f"/dls/{beamline}/data/{now:%Y}"):
-            if cm_dir.startswith(proposal):
-                dest_visit = cm_dir
+        for cm_dir in Path(f"/dls/{beamline}/data/{now:%Y}").iterdir():
+            if cm_dir.name.startswith(proposal):
+                dest_visit = cm_dir.name
                 break
         else:
             log.error("Could not determine destination directory")
             sys.exit(1)
 
         # Set mandatory parameters
-        dest_visit_dir = f"/dls/{beamline}/data/{now:%Y}/{dest_visit}"
+        dest_visit_dir = Path(f"/dls/{beamline}/data/{now:%Y}/{dest_visit}")
 
     random_uuid = str(uuid.uuid4())[:8]
     dest_dir = (
-        f"{dest_visit_dir}/tmp/{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random_uuid}"
+        dest_visit_dir
+        / "tmp"
+        / f"{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random_uuid}"
     )
 
+    if not src_dir.is_dir():
+        sys.exit(
+            "ERROR: The src_dir parameter does not appear to contain a valid directory."
+        )
+
     # Extract necessary info from the source directory path
-    m1 = re.search(r"(/dls/(\S+?)/data/\d+/)(\S+)", src_dir)
+    m1 = re.search(r"(/dls/(\S+?)/data/\d+/)(\S+)", str(src_dir))
     if m1:
         subdir = m1.groups()[2]
         m2 = re.search(r"^(\S+?)/", subdir)
@@ -553,7 +561,7 @@ def call_sim(test_name, beamline):
         elif subdir:
             src_visit = subdir
     else:
-        m1 = re.search(r"(/dls/mx/data/)(\S+)", src_dir)
+        m1 = re.search(r"(/dls/mx/data/)(\S+)", str(src_dir))
         if m1:
             subdir = m1.groups()[1]
             src_visit = subdir.split(os.sep)[1]
@@ -574,12 +582,12 @@ def call_sim(test_name, beamline):
             sys.exit(1)
 
     # Create destination directory
-    log.debug("Creating directory %s", dest_dir)
-    os.makedirs(dest_dir, exist_ok=True)
-    if os.path.isdir(dest_dir):
-        log.info(f"Directory {dest_dir} created successfully")
-    else:
-        log.error(f"Creating directory {dest_dir} failed")
+    log.debug(f"Creating directory {str(dest_dir)}")
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        log.info(f"Directory {str(dest_dir)} created successfully.")
+    except Exception:
+        sys.exit(f"ERROR: Creating directory {str(dest_dir)} failed.")
 
     # Call _simulate
     dcid_list = []
@@ -595,13 +603,13 @@ def call_sim(test_name, beamline):
             dcid, dcg, jobid = _simulate(
                 dest_visit,
                 beamline,
-                src_dir,
+                str(src_dir),
                 src_visit,
                 src_prefix,
                 src_run_number,
                 dest_prefix,
-                dest_visit_dir,
-                dest_dir,
+                str(dest_visit_dir),
+                str(dest_dir),
                 sample_id,
                 proc_params,
                 data_collection_group_id=dcg,

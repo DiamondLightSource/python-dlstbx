@@ -23,6 +23,9 @@ from dials.util.version import dials_version
 
 import h5py  # This must be after the first dxtbx import
 
+from dlstbx.util import xray_centering
+from dlstbx.util import xray_centering_3d
+
 
 logger = logging.getLogger("dials.gridscan3d")
 
@@ -75,11 +78,10 @@ def gridscan3d(
     Returns:
         max_idx: the index of the maximum point of the resulting 3D array
     """
-    refl_counts = []
-    omega_values = []
 
     assert len(experiment_lists) == len(reflection_tables) == 2
 
+    data = []
     for experiments, reflections in zip(experiment_lists, reflection_tables):
         reflections.centroid_px_to_mm(experiments)
         reflections.map_centroids_to_reciprocal_space(experiments)
@@ -92,54 +94,30 @@ def gridscan3d(
             ]
 
         unique_x = np.array(sorted(set(x)))
-        xmin = min(unique_x)
-        dx = list(set(unique_x[1:] - unique_x[:-1]))[0]
         unique_y = np.array(sorted(set(y)))
-        ymin = min(unique_y)
-        dy = list(set(unique_y[1:] - unique_y[:-1]))[0]
 
         logger.debug(f"x: {sorted(unique_x)}")
         logger.debug(f"y: {sorted(unique_x)}")
         logger.debug(f"z: {sorted(set(z))}")
         logger.debug(f"omega: {sorted(set(omega))}")
 
-        refl_count = np.zeros((len(unique_x), len(unique_y)))
-        for i, (x_, y_) in enumerate(zip(x, y)):
+        n = len(experiments)
+        nx = len(unique_x)
+        ny = len(unique_y)
+        data.append(np.zeros(n))
+        for i in range(n):
             refl = reflections.select(reflections["id"] == i)
             stats = per_image_analysis.stats_for_reflection_table(refl)._asdict()
             logger.debug(stats)
-            refl_count[int((x_ - xmin) / dx), int((y_ - ymin) / dy)] = stats[metric]
+            data[-1][i] = stats[metric]
 
-        refl_counts.append(refl_count)
-        omega_values.append(sorted(set(omega))[0])
-
-    nx, ny = refl_counts[0].shape
-    grid3d = np.zeros((nx, ny, ny))
-    for i in range(nx):
-        grid3d[i, :, :] = np.outer(refl_counts[0][i, :], refl_counts[1][i, :])
-
-    max_idx = tuple(r[0] for r in np.where(grid3d == grid3d.max()))
-
-    if plot:
-        import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator
-
-        fig, axes = plt.subplots(nrows=1, ncols=2)
-        vmax = max(counts.max() for counts in refl_counts)
-        for ax, refl_count, omega in zip(axes, refl_counts, omega_values):
-            ax.imshow(refl_count, vmin=0, vmax=vmax)
-            ax.set_title(f"omega = {omega}")
-            ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-        plt.show()
-
-        vmax = grid3d[max_idx]
-        fig, axes = plt.subplots(nrows=1, ncols=nx)
-        for i in range(nx):
-            axes[i].imshow(grid3d[i, :, :], vmin=0, vmax=vmax)
-            axes[i].yaxis.set_major_locator(MaxNLocator(integer=True))
-            if i == max_idx[0]:
-                axes[i].scatter(max_idx[2], max_idx[1], marker="x", c="red")
-        plt.show()
+    max_idx = xray_centering_3d.gridscan3d(
+        data=np.array(data),
+        steps=(nx, ny),
+        snaked=True,
+        orientation=xray_centering.Orientation.HORIZONTAL,
+        plot=plot,
+    )
     return max_idx
 
 

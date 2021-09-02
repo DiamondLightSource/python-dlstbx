@@ -468,3 +468,11 @@ def test_ready_for_processing():
     assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True
     parameters = {"ispyb_wait_for_runstatus": False, "ispyb_dcid": 5990969}
     assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True
+
+
+def test_get_dcg_dcids():
+    assert ispybtbx().get_dcg_dcids(
+        {"dataCollectionId": 6222263, "dataCollectionGroupId": 5617586}
+    ) == [6222221, 6222245]
+    msg, param = ispyb_filter({}, {"ispyb_dcid": 6222263})
+    assert param["ispyb_dcg_dcids"] == [6222221, 6222245]

@@ -1282,3 +1282,28 @@ class DLSTrigger(CommonService):
             self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobids}
+
+    def trigger_alphafold(
+        self, rw, header, message, *, parameter_map, session, transaction, **kwargs
+    ):
+        protein_id = parameter_map["protein_id"]
+        self.log.debug(f"AlphaFold trigger called for protein_id={protein_id}")
+
+        query = session.query(Protein).filter(Protein.proteinId == protein_id)
+        protein = query.first()
+        if not protein.sequence:
+            self.log.warning(
+                f"AlphaFold triggered for Protein without a sequence (protein_id={protein_id})"
+            )
+            return False
+        message = {
+            "recipes": ["alphafold"],
+            "parameters": {
+                "ispyb_protein_id": protein_id,
+                "ispyb_protein_sequence": protein.sequence,
+                "ispyb_protein_name": protein.name,
+            },
+        }
+        rw.transport.send("processing_recipe", message)
+        self.log.info(f"AlphaFold triggered with parameters:\n{message}")
+        return {"success": True}

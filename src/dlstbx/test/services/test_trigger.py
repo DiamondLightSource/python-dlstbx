@@ -10,6 +10,7 @@ from ispyb.sqlalchemy import (
     DataCollection,
     DataCollectionGroup,
     ProcessingJob,
+    Protein,
 )
 from workflows.recipe.wrapper import RecipeWrapper
 
@@ -541,4 +542,64 @@ def test_mrbump_with_model(
                 ("scaling_id", "123456"),
             },
         ]
+    )
+
+
+@pytest.fixture
+def insert_protein_with_sequence(db_session):
+    protein = Protein(
+        proposalId=141666,
+        name="Test_Insulin",
+        acronym="Test_Insulin",
+        description="Insulin",
+        sequence="GIVEQCCASVCSLYQLENYCNFVNQHLCGSHLVEALYLVCGERGFFYTPKA",
+    )
+    db_session.add(protein)
+    db_session.commit()
+    return protein.proteinId
+
+
+def test_alphafold(
+    insert_protein_with_sequence,
+    db_session_factory,
+    testconfig,
+    testdb,
+    mocker,
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
+    protein_id = insert_protein_with_sequence
+
+    message = {
+        "recipe": {
+            "1": {
+                "service": "DLS Trigger",
+                "queue": "trigger",
+                "parameters": {
+                    "target": "alphafold",
+                    "protein_id": f"{protein_id}",
+                },
+            },
+        },
+        "recipe-pointer": 1,
+    }
+    trigger = DLSTrigger()
+    trigger._ispyb_sessionmaker = db_session_factory
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    rw = RecipeWrapper(message=message, transport=t)
+    trigger.ispyb = testdb
+    send = mocker.spy(rw, "send")
+    trigger.trigger(rw, {"some": "header"}, message)
+    send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
+    t.send.assert_called_once_with(
+        "processing_recipe",
+        {
+            "recipes": ["alphafold"],
+            "parameters": {
+                "ispyb_protein_id": f"{protein_id}",
+                "ispyb_protein_sequence": "GIVEQCCASVCSLYQLENYCNFVNQHLCGSHLVEALYLVCGERGFFYTPKA",
+                "ispyb_protein_name": "Test_Insulin",
+            },
+        },
     )

@@ -912,6 +912,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 exc_info=True,
             )
 
+        source = parameters("source")
         pdb_files = [pathlib.Path(p) for p in parameters("pdb_files")]
         if not pdb_files:
             self.log.error(
@@ -927,7 +928,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 )
                 continue
 
-            pdb = PDB(name=pdb_file.name, contents=pdb_file.read_text())
+            pdb = PDB(name=pdb_file.name, contents=pdb_file.read_text(), source=source)
             protein_has_pdb = ProteinHasPDB(proteinid=protein_id, PDB=pdb)
             self.log.debug(f"Inserting PDB {pdb.name} for proteinId {protein_id}")
 

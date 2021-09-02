@@ -3,6 +3,21 @@ import errno
 import os
 import re
 import stat
+import string
+from collections import ChainMap
+
+
+class ChainMapWithReplacement(ChainMap):
+    def __init__(self, *maps, substitutions=None) -> None:
+        super().__init__(*maps)
+        self._substitutions = substitutions
+
+    def __getitem__(self, k):
+        v = super().__getitem__(k)
+        if self._substitutions and "$" in v:
+            template = string.Template(v)
+            return template.substitute(**self._substitutions)
+        return v
 
 
 def _create_tmp_folder(tmp_folder):

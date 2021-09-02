@@ -25,6 +25,8 @@ from ispyb.sqlalchemy import (
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.services.common_service import CommonService
 
+from dlstbx.util import ChainMapWithReplacement
+
 
 class DLSTrigger(CommonService):
     """A service that creates and runs downstream processing jobs."""
@@ -86,12 +88,19 @@ class DLSTrigger(CommonService):
                     base_value = base_value.replace("$" + key, str(rw.environment[key]))
             return base_value
 
+        parameter_map = ChainMapWithReplacement(
+            message if isinstance(message, dict) else {},
+            rw.recipe_step["parameters"],
+            substitutions=rw.environment,
+        )
+
         with self._ispyb_sessionmaker() as session:
             result = getattr(self, "trigger_" + target)(
                 rw=rw,
                 header=header,
                 message=message,
                 parameters=parameters,
+                parameter_map=parameter_map,
                 session=session,
                 transaction=txn,
             )

@@ -1,8 +1,9 @@
 import hashlib
 import logging
 import pathlib
+from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import List, Optional
 
 import ispyb
 import sqlalchemy.engine
@@ -26,6 +27,17 @@ from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.services.common_service import CommonService
 
 from dlstbx.util import ChainMapWithReplacement
+from dlstbx.util.pdb import trim_pdb_bfactors
+
+
+@dataclass(frozen=True)
+class PDBFileOrCode:
+    filepath: Optional[pathlib.Path] = None
+    code: Optional[str] = None
+    source: Optional[str] = None
+
+    def __str__(self):
+        return str(self.filepath) if self.filepath else str(self.code)
 
 
 class DLSTrigger(CommonService):
@@ -120,7 +132,7 @@ class DLSTrigger(CommonService):
         pdb_tmpdir: pathlib.Path,
         user_pdb_dir: Optional[pathlib.Path] = None,
         ignore_pdb_codes: bool = False,
-    ) -> List[Union[pathlib.Path, str]]:
+    ) -> List[PDBFileOrCode]:
         """Get linked PDB files for a given data collection ID.
 
         Valid PDB codes will be returned as the code, PDB files will be copied into a
@@ -141,7 +153,7 @@ class DLSTrigger(CommonService):
             if not ignore_pdb_codes and pdb.code is not None:
                 pdb_code = pdb.code.strip()
                 if pdb_code.isalnum() and len(pdb_code) == 4:
-                    pdb_files.append(pdb_code)
+                    pdb_files.append(PDBFileOrCode(code=pdb_code, source=pdb.source))
                     continue
                 elif pdb_code != "":
                     self.log.warning(
@@ -155,7 +167,9 @@ class DLSTrigger(CommonService):
                 pdb_filepath = pdb_dir / pdb.name
                 if not pdb_filepath.exists():
                     pdb_filepath.write_text(pdb.contents)
-                pdb_files.append(str(pdb_filepath))
+                pdb_files.append(
+                    PDBFileOrCode(filepath=pdb_filepath, source=pdb.source)
+                )
 
         if user_pdb_dir and user_pdb_dir.is_dir():
             # Look for matching .pdb files in user directory
@@ -163,7 +177,7 @@ class DLSTrigger(CommonService):
                 if not f.stem or f.suffix != ".pdb" or not f.is_file():
                     continue
                 self.log.info(f)
-                pdb_files.append(str(f))
+                pdb_files.append(PDBFileOrCode(filepath=f))
         return pdb_files
 
     def trigger_dimple(self, rw, header, parameters, session, **kwargs):
@@ -224,6 +238,7 @@ class DLSTrigger(CommonService):
                 % dcid
             )
             return {"success": True}
+        pdb_files = [str(p) for p in pdb_files]
         self.log.info("PDB files: %s", ", ".join(pdb_files))
 
         dc = (
@@ -703,10 +718,20 @@ class DLSTrigger(CommonService):
                 self.log.debug(f"mrbump trigger: generated JobParameterID {jppid}")
 
             for pdb_file in pdb_files:
+                filepath = pdb_file.filepath
+                if pdb_file.source == "AlphaFold":
+                    trimmed = filepath.with_name(
+                        filepath.stem + "_trimmed" + filepath.suffix
+                    )
+                    trim_pdb_bfactors(
+                        filepath, trimmed, atom_selection="bfactor >= 70", set_b_iso=20
+                    )
+                    filepath = trimmed
+
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()
                 jpp["job_id"] = jobid
                 jpp["parameter_key"] = "localfile"
-                jpp["parameter_value"] = pdb_file
+                jpp["parameter_value"] = str(filepath)
                 jppid = self.ispyb.mx_processing.upsert_job_parameter(
                     list(jpp.values())
                 )

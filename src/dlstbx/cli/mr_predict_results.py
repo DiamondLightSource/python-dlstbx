@@ -63,7 +63,7 @@ def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
                 query = query.filter(
                     ProcessingJob.processingJobId.in_(tuple(int(jid) for jid in jobids))
                 )
-            print(f"Reading data for following ep_predict jobids: {jobids}")
+            print(f"Reading data for following mr_predict jobids: {jobids}")
         if dtstamp_start:
             query = query.filter(ProcessingJob.recordTimestamp > dtstamp_start)
         if dtstamp_end:

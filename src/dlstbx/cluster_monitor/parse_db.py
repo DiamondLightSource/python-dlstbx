@@ -75,21 +75,21 @@ class DBParser:
             metrics[metric_line.metric].append(metric_line)
 
         for m, lines in metrics.items():
-            as_text += self._type_line(lines[0].metric_type, m)
+            as_text += self._type_line(lines[0].metric_type.name, m)
             for l in lines:
-                as_text += self._metric_line(l)
+                as_text += self._metric_line(l, m)
             as_text += "\n"
         return as_text
 
     @staticmethod
     def _type_line(metric_type, metric_name):
-        return f"# TYPE {metric_name} {metric_type}"
+        return f"# TYPE {metric_name} {metric_type}\n"
 
     @staticmethod
     def _metric_line(db_row, metric_name):
         if db_row.timestamp is not None:
-            return f"{metric_name}{{db_row.labels}} {db_row.value} {db_row.timestamp}"
-        return f"{metric_name}{{db_row.labels}} {db_row.value}"
+            return f"{metric_name}{{db_row.metric_labels}} {db_row.metric_value} {db_row.timestamp}\n"
+        return f"{metric_name}{{db_row.metric_labels}} {db_row.metric_value}\n"
 
     def prune(self):
         one_hour_ago = sqlalchemy.sql.expression.text("NOW() - INTERVAL 1 HOUR")

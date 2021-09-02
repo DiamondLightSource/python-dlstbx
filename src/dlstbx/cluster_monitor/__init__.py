@@ -1,9 +1,18 @@
+import enum
+
 import sqlalchemy.ext.declarative
 from sqlalchemy import TIMESTAMP, Column, String, text
 from sqlalchemy.dialects.mysql import FLOAT, INTEGER
 from sqlalchemy.types import Enum
 
 _Base = sqlalchemy.ext.declarative.declarative_base()
+
+
+class TypeEnum(enum.Enum):
+    counter = 1
+    gauge = 2
+    histogram = 3
+    summary = 4
 
 
 class PrometheusClusterMonitor(_Base):
@@ -27,7 +36,7 @@ class PrometheusClusterMonitor(_Base):
         nullable=False,
     )
     metric_type = Column(
-        Enum(("counter", "gauge", "histogram", "summary")),
+        Enum(TypeEnum),
         comment="Type of Prometheus metric",
         nullable=False,
     )

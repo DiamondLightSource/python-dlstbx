@@ -1,7 +1,7 @@
 import argparse
 import time
 
-from dlstbx import cluster_monitor
+from dlstbx.cluster_monitor import parse_db
 
 
 def _parse_labels_to_string(labels):
@@ -19,7 +19,7 @@ def run():
     parser.add_argument("--id", dest="job_id")
     parser.add_argument("--pid", dest="program_id")
     parser.add_argument("-t", "--timestamp", dest="timestamp")
-    parser.add_argument("-h", "--host", dest="host")
+    parser.add_argument("--host", dest="host")
     parser.add_argument("--cluster", dest="cluster")
     args = parser.parse_args()
 
@@ -33,7 +33,7 @@ def run():
 
     labels_string = _parse_labels_to_string(labels)
 
-    db_parser = cluster_monitor.parse_db.DBParser()
+    db_parser = parse_db.DBParser()
 
     if args.start:
         db_parser.insert(
@@ -43,11 +43,11 @@ def run():
             metric_value=1,
             cluster_id=args.job_id,
             auto_proc_program_id=args.program_id,
-            timestamp=time.now(),
+            timestamp=time.time(),
         )
         return
     if args.end:
-        _now = time.now()
+        _now = time.time()
         db_parser.insert(
             metric="clusters_current_job_count",
             metric_labels=labels_string,

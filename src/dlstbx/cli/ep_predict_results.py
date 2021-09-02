@@ -3,100 +3,135 @@ import json
 from datetime import datetime
 from pprint import pprint
 
-from dlstbx.ispybtbx import ispybtbx
+import ispyb
+import ispyb.sqlalchemy
+import sqlalchemy
+import sqlalchemy.orm
+from ispyb.sqlalchemy import (
+    AutoProcProgram,
+    AutoProcProgramAttachment,
+    ProcessingJob,
+    ProcessingJobParameter,
+)
 
 
 def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
 
-    ispyb_conn = ispybtbx()
+    url = ispyb.sqlalchemy.url()
+    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+    db_session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
 
-    str_jobids = []
-    if jobids:
-        if len(jobids) == 1:
-            str_jobids.append(f"AND pj.processingJobId = {jobids[0]}")
-        else:
-            str_jobids.append(f"AND pj.processingJobId IN {tuple(jobids)}")
-        print(f"Reading data for following ep_predict jobids: {jobids}")
-    if dtstamp_start:
-        str_jobids.append(f"AND pj.recordTimestamp > '{dtstamp_start}'")
-    if dtstamp_end:
-        str_jobids.append(f"AND pj.recordTimestamp < '{dtstamp_end}'")
-    str_jobids = " ".join(str_jobids)
+    with db_session_maker() as db_session:
+        subquery_up = (
+            db_session.query(
+                ProcessingJob.processingJobId,
+                ProcessingJob.dataCollectionId,
+                AutoProcProgram.autoProcProgramId,
+                AutoProcProgram.processingCommandLine,
+                AutoProcProgramAttachment.filePath,
+            )
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
+            .join(
+                AutoProcProgramAttachment,
+                AutoProcProgramAttachment.autoProcProgramId
+                == AutoProcProgram.autoProcProgramId,
+            )
+            .filter(ProcessingJob.processingJobId > 3700000)
+        ).subquery()
 
-    sql_str = f"""
-SELECT DISTINCT
-    pj.processingJobId as rpid,
-    app.autoprocprogramid as program_id,
-    pj.dataCollectionId as dc_id,
-    app.processingCommandLine as name,
-    appa.filePath as filepath,
-    pjdown.processingJobId as bigep_jobid,
-    CONCAT(appadown.filePath, "/", appadown.fileName) as bigep_json,
-    CONCAT(appaep.filePath, "/", appaep.fileName) as ep_predict_json,
-    pj.recordTimestamp AS datetime_stamp
-FROM
-    ProcessingJob pj
-INNER JOIN ProcessingJobParameter pjp ON
-    pj.processingJobId = pjp.processingJobId
-INNER JOIN (
-    SELECT
-        pj2.processingJobId,
-        pj2.datacollectionid
-    FROM
-        ProcessingJob pj2
-    WHERE
-        pj2.processingjobid > 3700000) pjup ON
-    pjup.datacollectionid = pj.dataCollectionId
-INNER JOIN AutoProcProgram app ON
-    app.processingJobId = pjup.processingJobId
-INNER JOIN AutoProcProgramAttachment appa ON
-    appa.autoProcProgramId = app.autoProcProgramId
-INNER JOIN (
-    SELECT
-        pj2.processingJobId,
-        pj2.datacollectionid,
-        pj2.recipe
-    FROM
-        ProcessingJob pj2
-    WHERE
-        pj2.processingjobid > 3700000) pjdown ON
-    pjdown.datacollectionid = pj.dataCollectionId
-INNER JOIN ProcessingJobParameter pjpdown ON
-    pjpdown.processingJobId = pjdown.processingJobId
-INNER JOIN AutoProcProgram appdown ON
-    appdown.processingJobId = pjdown.processingJobId
-INNER JOIN AutoProcProgramAttachment appadown ON
-    appadown.autoProcProgramId = appdown.autoProcProgramId
-INNER JOIN AutoProcProgram appep ON
-    appep.processingJobId = pj.processingJobId
-INNER JOIN AutoProcProgramAttachment appaep ON
-    appaep.autoProcProgramId = appep.autoProcProgramId
-WHERE
-    pjup.processingjobid <> pj.processingjobid
-    AND pjp.parameterKey = 'data'
-    AND INSTR(pjp.parameterValue, appa.filePath) = 1
-    AND pjpdown.parameterKey = "program_id"
-    AND pjpdown.parameterValue = app.autoprocprogramid
-    AND pjdown.recipe = "postprocessing-big-ep-launcher"
-    AND appadown.fileName = "big_ep_model_ispyb.json"
-    AND pj.processingjobid > 3700000
-    AND pj.displayName = 'ep_predict'
-    {str_jobids}
-"""
+        subquery_down = (
+            db_session.query(
+                ProcessingJob.processingJobId,
+                ProcessingJob.dataCollectionId,
+                ProcessingJobParameter.parameterValue,
+                AutoProcProgramAttachment.filePath,
+                AutoProcProgramAttachment.fileName,
+            )
+            .join(
+                ProcessingJobParameter,
+                ProcessingJobParameter.processingJobId == ProcessingJob.processingJobId,
+            )
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
+            .join(
+                AutoProcProgramAttachment,
+                AutoProcProgramAttachment.autoProcProgramId
+                == AutoProcProgram.autoProcProgramId,
+            )
+            .filter(ProcessingJob.processingJobId > 3700000)
+            .filter(ProcessingJob.recipe == "postprocessing-big-ep-launcher")
+            .filter(ProcessingJobParameter.parameterKey == "program_id")
+            .filter(AutoProcProgramAttachment.fileName == "big_ep_model_ispyb.json")
+        ).subquery()
 
-    columns = (
-        "rpid",
-        "program_id",
-        "dc_id",
-        "pipeline",
-        "filepath",
-        "bigep_jobid",
-        "bigep_json",
-        "ep_predict_json",
-        "datetime_stamp",
-    )
-    rows = ispyb_conn.execute(sql_str)
-    results = [dict(zip(columns, rec)) for rec in rows]
+        query = (
+            db_session.query(
+                ProcessingJob.processingJobId.label("rpid"),
+                AutoProcProgram.autoProcProgramId.label("program_id"),
+                ProcessingJob.dataCollectionId.label("dc_id"),
+                subquery_up.c.processingCommandLine.label("name"),
+                subquery_up.c.filePath.label("filepath"),
+                subquery_down.c.processingJobId.label("bigep_jobid"),
+                sqlalchemy.func.concat(
+                    subquery_down.c.filePath, "/", subquery_down.c.fileName
+                ).label("bigep_json"),
+                sqlalchemy.func.concat(
+                    AutoProcProgramAttachment.filePath,
+                    "/",
+                    AutoProcProgramAttachment.fileName,
+                ).label("ep_predict_json"),
+                ProcessingJob.recordTimestamp.label("datetime_stamp"),
+            )
+            .join(
+                ProcessingJobParameter,
+                ProcessingJobParameter.processingJobId == ProcessingJob.processingJobId,
+            )
+            .join(
+                subquery_up,
+                subquery_up.c.dataCollectionId == ProcessingJob.dataCollectionId,
+            )
+            .join(
+                subquery_down,
+                subquery_down.c.dataCollectionId == ProcessingJob.dataCollectionId,
+            )
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
+            .join(
+                AutoProcProgramAttachment,
+                AutoProcProgramAttachment.autoProcProgramId
+                == AutoProcProgram.autoProcProgramId,
+            )
+            .filter(subquery_up.c.processingJobId != ProcessingJob.processingJobId)
+            .filter(subquery_down.c.parameterValue == subquery_up.c.autoProcProgramId)
+            .filter(ProcessingJobParameter.parameterKey == "data")
+            .filter(
+                ProcessingJobParameter.parameterValue.contains(subquery_up.c.filePath)
+            )
+            .filter(ProcessingJob.processingJobId > 3700000)
+            .filter(ProcessingJob.displayName == "ep_predict")
+        )
+        if jobids:
+            if len(jobids) == 1:
+                query = query.filter(ProcessingJob.processingJobId == int(jobids[0]))
+            else:
+                query = query.filter(
+                    ProcessingJob.processingJobId.in_(tuple(int(jid) for jid in jobids))
+                )
+            print(f"Reading data for following ep_predict jobids: {jobids}")
+        if dtstamp_start:
+            query = query.filter(ProcessingJob.recordTimestamp > dtstamp_start)
+        if dtstamp_end:
+            query = query.filter(ProcessingJob.recordTimestamp < dtstamp_end)
+        rows = list(query.distinct().all())
+
+    results = [dict(zip(row.keys(), row)) for row in rows]
     print(f"Found {len(rows)} relevant records in ISPyB")
     return results[:]
 

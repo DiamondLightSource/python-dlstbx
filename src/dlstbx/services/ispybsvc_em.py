@@ -253,6 +253,7 @@ class EM_Mixin:
                 particle_picking_template=full_parameters("particle_picking_template"),
                 particle_diameter=full_parameters("particle_diameter"),
                 number_of_particles=full_parameters("number_of_particles"),
+                summary_image_full_path=full_parameters("summary_image_full_path"),
             )
             self.log.info(f"Created ParticlePicker record {result} for DCID {dcid}")
             return {"success": True, "return_value": result}
@@ -304,6 +305,7 @@ class EM_Mixin:
                     class_number=full_parameters("class_number"),
                     class_image_full_path=full_parameters("class_image_full_path"),
                     particles_per_class=full_parameters("particles_per_class"),
+                    class_distribution=full_parameters("class_distribution"),
                     rotation_accuracy=full_parameters("rotation_accuracy"),
                     translation_accuracy=full_parameters("translation_accuracy"),
                     estimated_resolution=full_parameters("estimated_resolution"),
@@ -313,12 +315,12 @@ class EM_Mixin:
                 )
             )
             self.log.info(
-                f"Created particle classification group record {class_group_result} for DCID {dcid}"
+                f"Created particle classification record {class_group_result} for DCID {dcid}"
             )
             return {"success": True, "return_value": class_group_result}
         except ispyb.ISPyBException as e:
             self.log.error(
-                "Inserting particle classification group entry caused exception '%s'.",
+                "Inserting particle classification entry caused exception '%s'.",
                 e,
                 exc_info=True,
             )
@@ -355,12 +357,12 @@ class EM_Mixin:
                 )
             )
             self.log.info(
-                f"Created particle classification record {class_result} for DCID {dcid}"
+                f"Created particle classification group record {class_result} for DCID {dcid}"
             )
             return {"success": True, "return_value": class_result}
         except ispyb.ISPyBException as e:
             self.log.error(
-                "Inserting particle classification entry caused exception '%s'.",
+                "Inserting particle classification group entry caused exception '%s'.",
                 e,
                 exc_info=True,
             )

@@ -4,97 +4,145 @@ from pathlib import Path
 from pprint import pprint
 from time import sleep
 
+import ispyb.sqlalchemy
 import procrunner
-
-from dlstbx.ispybtbx import ispybtbx
+import sqlalchemy.orm
+from ispyb.sqlalchemy import (
+    AutoProcProgram,
+    AutoProcProgramAttachment,
+    ProcessingJob,
+    ProcessingJobParameter,
+)
+from sqlalchemy import Integer, cast, desc, or_
 
 
 def read_ispyb_data(jobids):
-    ispyb_conn = ispybtbx()
+    url = ispyb.sqlalchemy.url()
+    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+    db_session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
 
-    if len(jobids) == 1:
-        str_jobids = f"= {jobids[0]}"
-    else:
-        str_jobids = f"IN {tuple(jobids)}"
-    print(f"Reading data for following ep_predict jobids: {jobids}")
+    with db_session_maker() as db_session:
+        subquery_up = (
+            db_session.query(
+                ProcessingJob.processingJobId,
+                ProcessingJob.dataCollectionId,
+                AutoProcProgram.autoProcProgramId,
+                AutoProcProgram.processingCommandLine,
+                AutoProcProgramAttachment.filePath,
+                AutoProcProgramAttachment.fileName,
+            )
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
+            .join(
+                AutoProcProgramAttachment,
+                AutoProcProgramAttachment.autoProcProgramId
+                == AutoProcProgram.autoProcProgramId,
+            )
+            .filter(ProcessingJob.processingJobId > 3700000)
+            .filter(AutoProcProgramAttachment.fileType == "Result")
+            .filter(
+                or_(
+                    AutoProcProgramAttachment.fileName.contains("free.mtz"),
+                    AutoProcProgramAttachment.fileName.contains("unique.mtz"),
+                )
+            )
+        ).subquery()
 
-    sql_str = f"""
-SELECT DISTINCT
-    pj.processingJobId as rpid,
-    app.autoprocprogramid as program_id,
-    pj.dataCollectionId as dc_id,
-    app.processingCommandLine as name,
-    appa.filePath as filepath,
-    appa.fileName as filename
-FROM
-    ProcessingJob pj
-INNER JOIN ProcessingJobParameter pjp ON
-    pj.processingJobId = pjp.processingJobId
-INNER JOIN (
-    SELECT
-        pj2.processingJobId,
-        pj2.datacollectionid
-    FROM
-        ProcessingJob pj2
-    WHERE
-        pj2.processingjobid > 3700000) pjup on
-    pjup.datacollectionid = pj.dataCollectionId
-INNER JOIN AutoProcProgram app ON
-    app.processingJobId = pjup.processingJobId
-INNER JOIN AutoProcProgramAttachment appa ON
-    appa.autoProcProgramId = app.autoProcProgramId
-WHERE
-    pjup.processingjobid <> pj.processingjobid
-    AND pjp.parameterKey = 'program_id'
-    AND pjp.parameterValue = appa.autoProcProgramId
-    AND appa.fileType = "Result"
-    AND (appa.fileName LIKE "%free.mtz"
-         OR appa.filename LIKE "%unique.mtz")
-    AND pj.processingJobId {str_jobids}"""
+        query = (
+            db_session.query(
+                ProcessingJob.processingJobId.label("rpid"),
+                subquery_up.c.autoProcProgramId.label("program_id"),
+                ProcessingJob.dataCollectionId.label("dc_id"),
+                subquery_up.c.processingCommandLine.label("pipeline"),
+                subquery_up.c.filePath.label("filepath"),
+                subquery_up.c.fileName.label("filename"),
+            )
+            .join(
+                ProcessingJobParameter,
+                ProcessingJobParameter.processingJobId == ProcessingJob.processingJobId,
+            )
+            .join(
+                subquery_up,
+                subquery_up.c.dataCollectionId == ProcessingJob.dataCollectionId,
+            )
+            .join(
+                AutoProcProgram,
+                AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
+            )
+            .join(
+                AutoProcProgramAttachment,
+                AutoProcProgramAttachment.autoProcProgramId
+                == AutoProcProgram.autoProcProgramId,
+            )
+            .filter(subquery_up.c.processingJobId != ProcessingJob.processingJobId)
+            .filter(ProcessingJobParameter.parameterKey == "program_id")
+            .filter(
+                ProcessingJobParameter.parameterValue == subquery_up.c.autoProcProgramId
+            )
+            .filter(ProcessingJob.processingJobId > 3700000)
+        )
+        if jobids:
+            if len(jobids) == 1:
+                query = query.filter(ProcessingJob.processingJobId == int(jobids[0]))
+            else:
+                query = query.filter(
+                    ProcessingJob.processingJobId.in_(tuple(int(jid) for jid in jobids))
+                )
+            print(f"Reading data for following ep_predict jobids: {jobids}")
+        rows = list(query.distinct().all())
 
-    columns = ("program_id", "dc_id", "pipeline", "filepath", "filename")
-
-    results = {
-        rec[0]: dict(zip(columns, rec[1:])) for rec in ispyb_conn.execute(sql_str)
-    }
+    results = {row["rpid"]: dict(list(zip(row.keys(), row))[1:]) for row in rows}
+    print(f"Found {len(rows)} relevant records in ISPyB")
+    pprint(results)
     return results
 
 
 def read_big_ep_jobids(data, last_records=True):
 
-    programids = {data[v]["program_id"]: v for v in data}
-    if not programids:
-        raise ValueError("program_id values not found")
-    if len(programids) == 1:
-        str_programids = f"= {tuple(programids)[0]}"
-    else:
-        str_programids = f"IN {tuple(programids)}"
-    if last_records:
-        str_last_records = f"DESC LIMIT {len(programids)}"
-    else:
-        str_last_records = ""
+    url = ispyb.sqlalchemy.url()
+    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+    db_session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
 
-    ispyb_conn = ispybtbx()
+    with db_session_maker() as db_session:
+        query = (
+            db_session.query(
+                ProcessingJobParameter.processingJobId.label("rpid"),
+                cast(ProcessingJobParameter.parameterValue, Integer).label(
+                    "program_id"
+                ),
+            )
+            .join(
+                ProcessingJob,
+                ProcessingJob.processingJobId == ProcessingJobParameter.processingJobId,
+            )
+            .filter(ProcessingJobParameter.parameterKey == "program_id")
+            .filter(
+                or_(
+                    ProcessingJob.recipe == "postprocessing-big-ep",
+                    ProcessingJob.recipe == "postprocessing-big-ep-setup",
+                )
+            )
+        )
+        programids = {data[v]["program_id"]: v for v in data}
+        if not programids:
+            raise ValueError("program_id values not found")
+        if len(programids) == 1:
+            query = query.filter(
+                ProcessingJobParameter.parameterValue == tuple(programids)[0]
+            )
+        else:
+            query = query.filter(
+                ProcessingJobParameter.parameterValue.in_(tuple(programids))
+            )
+        if last_records:
+            query = query.order_by(desc(ProcessingJobParameter.processingJobId)).limit(
+                len(programids)
+            )
+        rows = list(query.distinct().all())
 
-    sql_str = f"""
-SELECT
-    pjp.processingJobId as rpid,
-    CAST(pjp.parameterValue AS UNSIGNED) as program_id
-FROM
-    ProcessingJobParameter pjp
-INNER JOIN ProcessingJob pj ON
-    pj.processingJobId = pjp.processingJobId
-WHERE
-    pjp.parameterKey = "program_id"
-    AND pjp.parameterValue {str_programids}
-    AND (pj.recipe = "postprocessing-big-ep"
-         OR pj.recipe = "postprocessing-big-ep-setup")
-ORDER BY pjp.processingJobId {str_last_records}
- """
-
-    columns = ("rpid", "program_id")
-    rows = ispyb_conn.execute(sql_str)
-    results = [dict(zip(columns, row)) for row in rows]
+    results = [dict(zip(row.keys(), row)) for row in rows]
     results = {programids[res["program_id"]]: res for res in results}
     if results:
         print(
@@ -182,8 +230,8 @@ def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
             print("Unrecognised file path %s" % filepath)
             continue
         command = [
-            "dlstbx.go",
-            "--test",
+            "zocalo.go",
+            "-e test",
             "-s",
             f"path_ext={path_ext}",
             "-p",

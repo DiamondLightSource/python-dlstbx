@@ -4,7 +4,6 @@ from datetime import datetime
 from pathlib import Path
 from pprint import pprint
 
-import ispyb
 import ispyb.sqlalchemy
 import sqlalchemy
 from ispyb.sqlalchemy import (

@@ -3,9 +3,7 @@ import json
 from datetime import datetime
 from pprint import pprint
 
-import ispyb
 import ispyb.sqlalchemy
-import sqlalchemy
 import sqlalchemy.orm
 from ispyb.sqlalchemy import (
     AutoProcProgram,

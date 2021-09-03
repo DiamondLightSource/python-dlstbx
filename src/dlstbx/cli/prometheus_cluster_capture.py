@@ -39,7 +39,7 @@ def run():
         db_parser.insert(
             metric="clusters_current_job_count",
             metric_labels=labels_string,
-            metric_type="counter",
+            metric_type="gauge",
             metric_value=1,
             cluster_id=args.job_id,
             auto_proc_program_id=args.program_id,
@@ -51,7 +51,7 @@ def run():
         db_parser.insert(
             metric="clusters_current_job_count",
             metric_labels=labels_string,
-            metric_type="counter",
+            metric_type="gauge",
             metric_value=-1,
             cluster_id=args.job_id,
             auto_proc_program_id=args.program_id,

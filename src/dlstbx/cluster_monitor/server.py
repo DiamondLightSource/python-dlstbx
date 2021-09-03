@@ -7,7 +7,7 @@ app = Flask(__name__)
 dbparser = parse_db.DBParser()
 
 
-@app.route("/", methods=["PUT"])
+@app.route("/metrics", methods=["GET"])
 def create_prometheus_text():
     return dbparser.text
 

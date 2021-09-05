@@ -1,12 +1,11 @@
-from typing import Tuple
-
 import logging
 import math
+from typing import Tuple
+
 import numpy as np
 import scipy.ndimage
 
 from dlstbx.util.xray_centering import Orientation
-
 
 logger = logging.getLogger(__name__)
 

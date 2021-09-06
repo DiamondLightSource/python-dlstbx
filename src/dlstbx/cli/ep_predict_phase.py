@@ -46,6 +46,7 @@ def read_ispyb_data(jobids):
                 or_(
                     AutoProcProgramAttachment.fileName.contains("free.mtz"),
                     AutoProcProgramAttachment.fileName.contains("unique.mtz"),
+                    AutoProcProgramAttachment.fileName == "scaled.mtz",
                 )
             )
         ).subquery()
@@ -159,6 +160,18 @@ def run_ispyb_job(data, debug, dry_run):
         if not filename.is_file():
             print(f"File {filename} not found. Skipping.")
             continue
+        if "xia2.multiplex" in str(filename):
+            unmerged_filename = Path(v["filepath"]) / "scaled_unmerged.mtz"
+        elif "xia2" in str(filename):
+            unmerged_filename = Path(v["filepath"]) / v["filename"].replace(
+                "_free.mtz", "_scaled_unmerged.mtz"
+            )
+        elif "autoPROC" in str(filename):
+            unmerged_filename = Path(v["filepath"]) / "aimless_unmerged.mtz"
+        else:
+            print(f"Unrecognised file path {str(filename)}")
+            continue
+
         visit_match = re.search(r"/([a-z]{2}[0-9]{4,5}-[0-9]+)/", v["filepath"])
         try:
             visit = visit_match.group(1)
@@ -180,11 +193,13 @@ def run_ispyb_job(data, debug, dry_run):
             "--comment",
             "big_ep via ep_predict_phase",
             "--recipe",
-            "postprocessing-big-ep-setup",
+            "postprocessing-big-ep",
             "--add-param",
             f"program_id:{v['program_id']}",
             "--add-param",
             f"data:{filename}",
+            "--add-param",
+            f"scaled_unmerged_mtz:{unmerged_filename}",
         ]
         print(f"\nRegister BigEP job: {' '.join(command)}")
 
@@ -218,6 +233,8 @@ def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
             path_ext = "multi-xia2/3dii"
         elif "multi-xia2-dials" in filepath:
             path_ext = "multi-xia2/dials"
+        elif "xia2.multiplex" in filepath:
+            path_ext = "xia2.multiplex"
         elif "3dii" in filepath:
             path_ext = "xia2/3dii-run"
         elif "dials" in filepath:
@@ -231,9 +248,12 @@ def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
             continue
         command = [
             "zocalo.go",
-            "-e test",
+            "-e",
+            "test",
             "-s",
             f"path_ext={path_ext}",
+            "-s",
+            "force=true",
             "-p",
             str(v["rpid"]),
         ]

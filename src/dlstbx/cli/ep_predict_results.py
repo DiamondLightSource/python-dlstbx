@@ -11,6 +11,7 @@ from ispyb.sqlalchemy import (
     ProcessingJob,
     ProcessingJobParameter,
 )
+from sqlalchemy import or_
 
 
 def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
@@ -90,14 +91,6 @@ def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
                 ProcessingJobParameter.processingJobId == ProcessingJob.processingJobId,
             )
             .join(
-                subquery_up,
-                subquery_up.c.dataCollectionId == ProcessingJob.dataCollectionId,
-            )
-            .join(
-                subquery_down,
-                subquery_down.c.dataCollectionId == ProcessingJob.dataCollectionId,
-            )
-            .join(
                 AutoProcProgram,
                 AutoProcProgram.processingJobId == ProcessingJob.processingJobId,
             )
@@ -106,11 +99,24 @@ def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
                 AutoProcProgramAttachment.autoProcProgramId
                 == AutoProcProgram.autoProcProgramId,
             )
+            .join(
+                subquery_up,
+                subquery_up.c.dataCollectionId == ProcessingJob.dataCollectionId,
+            )
+            .outerjoin(
+                subquery_down,
+                subquery_down.c.dataCollectionId == ProcessingJob.dataCollectionId,
+            )
             .filter(subquery_up.c.processingJobId != ProcessingJob.processingJobId)
-            .filter(subquery_down.c.parameterValue == subquery_up.c.autoProcProgramId)
-            .filter(ProcessingJobParameter.parameterKey == "data")
+            .filter(ProcessingJobParameter.parameterKey == "program_id")
             .filter(
-                ProcessingJobParameter.parameterValue.contains(subquery_up.c.filePath)
+                ProcessingJobParameter.parameterValue == subquery_up.c.autoProcProgramId
+            )
+            .filter(
+                or_(
+                    subquery_down.c.parameterValue == subquery_up.c.autoProcProgramId,
+                    subquery_down.c.parameterValue.is_(None),
+                )
             )
             .filter(ProcessingJob.processingJobId > 3700000)
             .filter(ProcessingJob.displayName == "ep_predict")
@@ -130,38 +136,23 @@ def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
         rows = list(query.distinct().all())
 
     results = [dict(zip(row.keys(), row)) for row in rows]
-    print(f"Found {len(rows)} relevant records in ISPyB")
+    print(f"Found {len(results)} ep_predict records in ISPyB")
+    big_ep_results = [res for res in results if res["bigep_jobid"] is not None]
+    print(f"Found {len(big_ep_results)} BigEP results in ISPyB")
     return results[:]
 
 
 def read_bigep_results(rows):
     results = {}
     for row in rows:
+
         rpid = row["rpid"]
         if rpid not in results:
-            results[rpid] = {}
-        try:
-            with open(row["bigep_json"]) as fp:
-                res = json.load(fp)
-        except Exception:
-            print(
-                f"Cannot read big_ep results file {row['bigep_json']} for jobid {rpid}"
-            )
-            continue
-        try:
-            results[rpid][res["pipeline"]] = res
-        except KeyError:
-            if "autoSHARP" in row["bigep_json"]:
-                ppl = "autoSHARP"
-            elif "AutoSol" in row["bigep_json"]:
-                ppl = "AutoBuild"
-            elif "crank2" in row["bigep_json"]:
-                ppl = "Crank2"
-            else:
-                raise ValueError(
-                    f"Unidentified model building pipeline for {row['bigep_json']}"
-                )
-            results[rpid][ppl] = res
+            results[rpid] = {
+                k: row[k]
+                for k in ("dc_id", "program_id", "name", "filepath", "bigep_jobid")
+            }
+
         try:
             with open(row["ep_predict_json"]) as fp:
                 res = json.load(fp)
@@ -174,6 +165,30 @@ def read_bigep_results(rows):
         results[rpid]["ep_predict"]["datetime_stamp"] = row[
             "datetime_stamp"
         ].isoformat()
+
+        if row["bigep_json"]:
+            try:
+                with open(row["bigep_json"]) as fp:
+                    res = json.load(fp)
+            except Exception:
+                print(
+                    f"Cannot read big_ep results for {row['ep_predict_json']} jobid {rpid}"
+                )
+                continue
+            try:
+                results[rpid][res["pipeline"]] = res
+            except KeyError:
+                if "autoSHARP" in row["bigep_json"]:
+                    ppl = "autoSHARP"
+                elif "AutoSol" in row["bigep_json"]:
+                    ppl = "AutoBuild"
+                elif "crank2" in row["bigep_json"]:
+                    ppl = "Crank2"
+                else:
+                    raise ValueError(
+                        f"Unidentified model building pipeline for {row['bigep_json']}"
+                    )
+                results[rpid][ppl] = res
     return results
 
 

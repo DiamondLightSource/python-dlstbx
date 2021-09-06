@@ -10,6 +10,7 @@ from ispyb.sqlalchemy import (
     DataCollection,
     DataCollectionGroup,
     ProcessingJob,
+    ProcessingJobParameter,
     Protein,
 )
 from workflows.recipe.wrapper import RecipeWrapper
@@ -29,32 +30,50 @@ def insert_multiplex_input(db_session):
             numberOfImages=25,
         )
         dcs.append(dc)
-        pj = ProcessingJob(
-            DataCollection=dc,
-            automatic=True,
-        )
-        app = AutoProcProgram(
-            ProcessingJob=pj,
-            processingStatus=1,
-            processingStartTime=datetime.datetime.now(),
-            processingPrograms="xia2 dials",
-        )
-        api = AutoProcIntegration(DataCollection=dc, AutoProcProgram=app)
-        db_session.add_all([dcg, dc, api, app, pj])
-        for ext in ("expt", "refl"):
-            db_session.add(
-                AutoProcProgramAttachment(
-                    AutoProcProgram=app,
-                    filePath=f"/path/to/xia2-dials-{i}",
-                    fileName=f"integrated.{ext}",
-                )
+        db_session.add_all([dcg, dc])
+        for sg in (None, "P422"):
+            pj = ProcessingJob(
+                DataCollection=dc,
+                automatic=True,
             )
+            pjps = []
+            if sg:
+                pjps = [
+                    ProcessingJobParameter(
+                        ProcessingJob=pj,
+                        parameterKey="spacegroup",
+                        parameterValue=sg,
+                    )
+                ]
+            app = AutoProcProgram(
+                ProcessingJob=pj,
+                processingStatus=1,
+                processingStartTime=datetime.datetime.now(),
+                processingPrograms="xia2 dials",
+            )
+            api = AutoProcIntegration(DataCollection=dc, AutoProcProgram=app)
+            db_session.add_all([api, app, pj] + pjps)
+            for ext in ("expt", "refl"):
+                db_session.add(
+                    AutoProcProgramAttachment(
+                        AutoProcProgram=app,
+                        filePath=f"/path/to/xia2-dials-{i}{('-' + sg) if sg else ''}",
+                        fileName=f"integrated.{ext}",
+                    )
+                )
     db_session.commit()
     return [dc.dataCollectionId for dc in dcs]
 
 
+@pytest.mark.parametrize("spacegroup", [None, "P422"])
 def test_multiplex(
-    insert_multiplex_input, db_session_factory, testconfig, testdb, mocker, monkeypatch
+    insert_multiplex_input,
+    db_session_factory,
+    testconfig,
+    testdb,
+    mocker,
+    monkeypatch,
+    spacegroup,
 ):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcids = insert_multiplex_input
@@ -67,7 +86,9 @@ def test_multiplex(
                     "wavelength": "1.03936",
                     "comment": "xia2.multiplex triggered by automatic xia2-dials",
                     "automatic": True,
-                    "ispyb_parameters": None,
+                    "ispyb_parameters": {"spacegroup": spacegroup}
+                    if spacegroup
+                    else {},
                     "related_dcids": [
                         {
                             "dcids": dcids[:-1],
@@ -114,21 +135,26 @@ def test_multiplex(
         params = {
             (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
         }
-        assert params == {
-            (
-                "data",
-                "/path/to/xia2-dials-2/integrated.expt;/path/to/xia2-dials-2/integrated.refl",
-            ),
-            (
-                "data",
-                "/path/to/xia2-dials-1/integrated.expt;/path/to/xia2-dials-1/integrated.refl",
-            ),
-            (
-                "data",
-                "/path/to/xia2-dials-0/integrated.expt;/path/to/xia2-dials-0/integrated.refl",
-            ),
-            ("sample_group_id", "123"),
-        }
+        sg_extra = ("-" + spacegroup) if spacegroup else ""
+        assert (
+            params
+            == {
+                (
+                    "data",
+                    f"/path/to/xia2-dials-2{sg_extra}/integrated.expt;/path/to/xia2-dials-2{sg_extra}/integrated.refl",
+                ),
+                (
+                    "data",
+                    f"/path/to/xia2-dials-1{sg_extra}/integrated.expt;/path/to/xia2-dials-1{sg_extra}/integrated.refl",
+                ),
+                (
+                    "data",
+                    f"/path/to/xia2-dials-0{sg_extra}/integrated.expt;/path/to/xia2-dials-0{sg_extra}/integrated.refl",
+                ),
+                ("sample_group_id", "123"),
+            }
+            | ({("spacegroup", spacegroup)} if spacegroup else set())
+        )
 
 
 @pytest.fixture

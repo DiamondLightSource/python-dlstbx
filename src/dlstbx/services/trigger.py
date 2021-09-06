@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 
 import ispyb
+import pydantic
 import sqlalchemy.engine
 import sqlalchemy.orm
 import workflows.recipe
@@ -102,6 +103,7 @@ class DLSTrigger(CommonService):
             return base_value
 
         parameter_map = ChainMapWithReplacement(
+            rw.recipe_step["parameters"].get("ispyb_parameters", {}),
             message if isinstance(message, dict) else {},
             rw.recipe_step["parameters"],
             substitutions=rw.environment,
@@ -1076,7 +1078,7 @@ class DLSTrigger(CommonService):
         return {"success": True, "return_value": None}
 
     def trigger_multiplex(
-        self, rw, header, message, parameters, session, transaction, **kwargs
+        self, rw, header, message, parameter_map, session, transaction, **kwargs
     ):
         """Trigger a xia2.multiplex job for a given data collection.
 
@@ -1149,18 +1151,42 @@ class DLSTrigger(CommonService):
             "backoff-multiplier": 2, # default
         }
         """
-        dcid = parameters("dcid")
-        if not dcid:
-            self.log.error("xia2.multiplex trigger failed: No DCID specified")
+
+        class RelatedDCIDs(pydantic.BaseModel):
+            dcids: List[int]
+            sample_id: Optional[int] = pydantic.Field(gt=0)
+            sample_group_id: Optional[int] = pydantic.Field(gt=0)
+            name: str
+
+        class MultiplexParameters(pydantic.BaseModel):
+            dcid: int = pydantic.Field(gt=0)
+            related_dcids: List[RelatedDCIDs]
+            wavelength: Optional[float] = pydantic.Field(gt=0)
+            spacegroup: Optional[str]
+            automatic: Optional[bool] = False
+            comment: Optional[str] = None
+            backoff_delay: Optional[float] = pydantic.Field(
+                default=8, alias="backoff-delay"
+            )
+            backoff_max_try: Optional[int] = pydantic.Field(
+                default=10, alias="backoff-max-try"
+            )
+            backoff_multiplier: Optional[float] = pydantic.Field(
+                default=2, alias="backoff-multiplier"
+            )
+
+        try:
+            params = MultiplexParameters(**parameter_map)
+        except pydantic.ValidationError as e:
+            self.log.error(
+                "xia2.multiplex trigger called with invalid parameters: %s", e
+            )
             return False
 
-        dcid = int(dcid)
-        wavelength = float(parameters("wavelength"))
-        ispyb_params = parameters("ispyb_parameters")
-        spacegroup = ispyb_params.get("spacegroup") if ispyb_params else None
+        dcid = params.dcid
 
         # Take related dcids from recipe in preference
-        related_dcids = parameters("related_dcids")
+        related_dcids = params.related_dcids
         self.log.info(f"related_dcids={related_dcids}")
 
         if not related_dcids:
@@ -1172,15 +1198,14 @@ class DLSTrigger(CommonService):
         # Calculate message delay for exponential backoff in case a processing
         # program for a related data collection is still running, in which case
         # we checkpoint with the calculated message delay
-        delay_base = rw.recipe_step["parameters"].get("backoff-delay", 8)
-        max_try = rw.recipe_step["parameters"].get("backoff-max-try", 10)
-        delay_multiplier = rw.recipe_step["parameters"].get("backoff-multiplier", 2)
         status = {
             "ntry": 0,
         }
         if isinstance(message, dict):
             status.update(message.get("trigger-status", {}))
-        message_delay = delay_base * delay_multiplier ** status["ntry"]
+        message_delay = (
+            params.backoff_delay * params.backoff_multiplier ** status["ntry"]
+        )
         status["ntry"] += 1
         self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
 
@@ -1190,7 +1215,7 @@ class DLSTrigger(CommonService):
         for group in related_dcids:
             self.log.debug(f"group: {group}")
             # Select only those dcids that were collected before the triggering dcid
-            dcids = [d for d in group["dcids"] if d < dcid]
+            dcids = [d for d in group.dcids if d < dcid]
 
             # Add the current dcid at the beginning of the list
             dcids.insert(0, dcid)
@@ -1251,10 +1276,10 @@ class DLSTrigger(CommonService):
             data_files = []
             for dc, app, pj in query.all():
                 # Select only those dcids at the same wavelength as the triggering dcid
-                if wavelength and dc.wavelength != wavelength:
+                if params.wavelength and dc.wavelength != params.wavelength:
                     self.log.debug(
                         f"Discarding appid {app.autoProcProgramId} (wavelength does not match input):\n"
-                        f"    {dc.wavelength} != {wavelength}"
+                        f"    {dc.wavelength} != {params.wavelength}"
                     )
                     continue
 
@@ -1268,18 +1293,19 @@ class DLSTrigger(CommonService):
                     if param.parameterKey == "spacegroup":
                         job_spacegroup_param = param.parameterValue
                         break
-                if spacegroup and (
-                    not job_spacegroup_param or job_spacegroup_param != spacegroup
+                if params.spacegroup and (
+                    not job_spacegroup_param
+                    or job_spacegroup_param != params.spacegroup
                 ):
                     self.log.debug(f"Discarding appid {app.autoProcProgramId}")
                     continue
-                elif job_spacegroup_param and not spacegroup:
+                elif job_spacegroup_param and not params.spacegroup:
                     self.log.debug(f"Discarding appid {app.autoProcProgramId}")
                     continue
 
                 # Check for any programs that are yet to finish (or fail)
                 if app.processingStatus != 1 or not app.processingStartTime:
-                    if status["ntry"] >= max_try:
+                    if status["ntry"] >= params.backoff_max_try:
                         # Give up waiting for this program to finish and trigger
                         # multiplex with remaining related results are available
                         self.log.info(
@@ -1328,13 +1354,15 @@ class DLSTrigger(CommonService):
                 )
                 continue
 
+            self.log.debug(set(dcids))
+            self.log.debug(multiplex_job_dcids)
             if set(dcids) in multiplex_job_dcids:
                 continue
             multiplex_job_dcids.append(set(dcids))
 
             jp = self.ispyb.mx_processing.get_job_params()
-            jp["automatic"] = bool(parameters("automatic"))
-            jp["comments"] = parameters("comment")
+            jp["automatic"] = params.automatic
+            jp["comments"] = params.comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "xia2.multiplex"
             jp["recipe"] = "postprocessing-xia2-multiplex"
@@ -1371,19 +1399,19 @@ class DLSTrigger(CommonService):
                     f"xia2.multiplex trigger: generated JobImageSweepID {jispid}"
                 )
 
-            for k in ("sample_id", "sample_group_id"):
-                if k in group:
-                    jpp = self.ispyb.mx_processing.get_job_parameter_params()
-                    jpp["job_id"] = jobid
-                    jpp["parameter_key"] = k
-                    jpp["parameter_value"] = group[k]
-                    jppid = self.ispyb.mx_processing.upsert_job_parameter(
-                        list(jpp.values())
-                    )
-                    self.log.debug(
-                        f"xia2.multiplex trigger: generated JobParameterID {jppid} {k}={group[k]}"
-                    )
-                    break
+            (k, group_id) = (
+                ("sample_id", group.sample_id)
+                if group.sample_id
+                else ("sample_group_id", group.sample_group_id)
+            )
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = k
+            jpp["parameter_value"] = group_id
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"xia2.multiplex trigger: generated JobParameterID {jppid} {k}={group_id}"
+            )
 
             for files in data_files:
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()
@@ -1399,11 +1427,11 @@ class DLSTrigger(CommonService):
                     ),
                     "\n".join(files),
                 )
-            if spacegroup:
+            if params.spacegroup:
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()
                 jpp["job_id"] = jobid
                 jpp["parameter_key"] = "spacegroup"
-                jpp["parameter_value"] = spacegroup
+                jpp["parameter_value"] = params.spacegroup
                 jppid = self.ispyb.mx_processing.upsert_job_parameter(
                     list(jpp.values())
                 )
@@ -1412,7 +1440,7 @@ class DLSTrigger(CommonService):
                         jppid
                     ),
                     jpp["parameter_key"],
-                    spacegroup,
+                    params.spacegroup,
                 )
 
             message = {"recipes": [], "parameters": {"ispyb_process": jobid}}

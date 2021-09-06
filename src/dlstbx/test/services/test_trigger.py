@@ -171,7 +171,7 @@ def insert_dimple_input(db_session):
     return dc.dataCollectionId
 
 
-def test_dimple_trigger(
+def test_dimple(
     insert_dimple_input,
     db_session_factory,
     testconfig,

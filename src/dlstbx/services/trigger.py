@@ -42,6 +42,38 @@ class PDBFileOrCode:
         return str(self.filepath) if self.filepath else str(self.code)
 
 
+class DimpleParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    scaling_id: int = pydantic.Field(gt=0)
+    mtz: pathlib.Path
+    pdb_tmpdir: pathlib.Path
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    user_pdb_directory: Optional[pathlib.Path] = None
+    set_synchweb_status: Optional[bool] = False
+
+
+class RelatedDCIDs(pydantic.BaseModel):
+    dcids: List[int]
+    sample_id: Optional[int] = pydantic.Field(gt=0)
+    sample_group_id: Optional[int] = pydantic.Field(gt=0)
+    name: str
+
+
+class MultiplexParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    related_dcids: List[RelatedDCIDs]
+    wavelength: Optional[float] = pydantic.Field(gt=0)
+    spacegroup: Optional[str]
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    backoff_delay: Optional[float] = pydantic.Field(default=8, alias="backoff-delay")
+    backoff_max_try: Optional[int] = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: Optional[float] = pydantic.Field(
+        default=2, alias="backoff-multiplier"
+    )
+
+
 class DLSTrigger(CommonService):
     """A service that creates and runs downstream processing jobs."""
 
@@ -183,7 +215,7 @@ class DLSTrigger(CommonService):
                 pdb_files.append(PDBFileOrCode(filepath=f))
         return pdb_files
 
-    def trigger_dimple(self, rw, header, parameters, session, **kwargs):
+    def trigger_dimple(self, rw, header, *, parameter_map, session, **kwargs):
         """Trigger a dimple job for a given data collection.
 
         Identify any PDB files or PDB codes associated with the given data collection.
@@ -221,18 +253,17 @@ class DLSTrigger(CommonService):
             "pdb_tmpdir": "/path/to/pdb_tmpdir",
         }
         """
-        dcid = parameters("dcid")
-        if not dcid:
-            self.log.error("Dimple trigger failed: No DCID specified")
+
+        try:
+            params = DimpleParameters(**parameter_map)
+        except pydantic.ValidationError as e:
+            self.log.error("Dimple trigger called with invalid parameters: %s", e)
             return False
 
-        pdb_tmpdir = pathlib.Path(parameters("pdb_tmpdir"))
-        user_pdb_dir = parameters("user_pdb_directory")
-        if user_pdb_dir:
-            user_pdb_dir = pathlib.Path(user_pdb_dir)
+        dcid = params.dcid
 
         pdb_files = self.get_linked_pdb_files_for_dcid(
-            session, dcid, pdb_tmpdir, user_pdb_dir=user_pdb_dir
+            session, dcid, params.pdb_tmpdir, user_pdb_dir=params.user_pdb_directory
         )
 
         if not pdb_files:
@@ -250,11 +281,11 @@ class DLSTrigger(CommonService):
             .one()
         )
         dimple_parameters = {
-            "data": [parameters("mtz")],
-            "scaling_id": [parameters("scaling_id")],
+            "data": [os.fspath(params.mtz)],
+            "scaling_id": [params.scaling_id],
             "pdb": pdb_files,
         }
-        if parameters("set_synchweb_status"):
+        if params.set_synchweb_status:
             dimple_parameters["set_synchweb_status"] = [1]
 
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
@@ -265,8 +296,8 @@ class DLSTrigger(CommonService):
         self.log.debug("Dimple trigger: Starting")
 
         jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = bool(parameters("automatic"))
-        jp["comments"] = parameters("comment")
+        jp["automatic"] = params.automatic
+        jp["comments"] = params.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "DIMPLE"
         jp["recipe"] = "postprocessing-dimple"
@@ -1151,29 +1182,6 @@ class DLSTrigger(CommonService):
             "backoff-multiplier": 2, # default
         }
         """
-
-        class RelatedDCIDs(pydantic.BaseModel):
-            dcids: List[int]
-            sample_id: Optional[int] = pydantic.Field(gt=0)
-            sample_group_id: Optional[int] = pydantic.Field(gt=0)
-            name: str
-
-        class MultiplexParameters(pydantic.BaseModel):
-            dcid: int = pydantic.Field(gt=0)
-            related_dcids: List[RelatedDCIDs]
-            wavelength: Optional[float] = pydantic.Field(gt=0)
-            spacegroup: Optional[str]
-            automatic: Optional[bool] = False
-            comment: Optional[str] = None
-            backoff_delay: Optional[float] = pydantic.Field(
-                default=8, alias="backoff-delay"
-            )
-            backoff_max_try: Optional[int] = pydantic.Field(
-                default=10, alias="backoff-max-try"
-            )
-            backoff_multiplier: Optional[float] = pydantic.Field(
-                default=2, alias="backoff-multiplier"
-            )
 
         try:
             params = MultiplexParameters(**parameter_map)

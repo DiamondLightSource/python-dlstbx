@@ -74,15 +74,12 @@ def parse_shelxc_logs(shelxc_log):
 
 def reduce_shelxc_results(msg, params):
 
-    RESOL_CUTOFF = params["resol_cutoff"]
-    DSIG_CUTOFF = params["dsig_cutoff"]
-    HIGHRES_CUTOFF = params["dmin_cutoff"]
-    CCAVER_CUTOFF = params["ccaver_cutoff"]
-    AUTOCORR_CUTOFF = params["autocorr_cutoff"]
-    try:
-        FORCE = params["force"]
-    except KeyError:
-        FORCE = False
+    RESOL_CUTOFF = params.get("resol_cutoff", -1.0)
+    DSIG_CUTOFF = params.get("dsig_cutoff", -1.0)
+    HIGHRES_CUTOFF = params.get("dmin_cutoff", -1.0)
+    CCAVER_CUTOFF = params.get("ccaver_cutoff", -1.0)
+    AUTOCORR_CUTOFF = params.get("autocorr_cutoff", -1.0)
+    FORCE = params.get("force", False)
     chisq_data = None
 
     msg.update(

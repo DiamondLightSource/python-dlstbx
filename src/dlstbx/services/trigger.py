@@ -952,6 +952,7 @@ class DLSTrigger(CommonService):
                 "data": data,
                 "scaled_unmerged_mtz": scaled_unmerged_mtz,
                 "path_ext": path_ext,
+                "force": False,
             },
             "recipes": [],
         }

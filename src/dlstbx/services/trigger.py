@@ -69,6 +69,21 @@ class MrBumpParameters(pydantic.BaseModel):
     set_synchweb_status: Optional[bool] = False
 
 
+class DiffractionPlanInfo(pydantic.BaseModel):
+    anomalousScatterer: Optional[str] = None
+
+
+class EPPredictParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+    program: str
+    program_id: int = pydantic.Field(gt=0)
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    data: pathlib.Path
+    threshold: float
+
+
 class RelatedDCIDs(pydantic.BaseModel):
     dcids: List[int]
     sample_id: Optional[int] = pydantic.Field(gt=0)
@@ -344,11 +359,15 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    def trigger_ep_predict(self, rw, header, parameters, session, **kwargs):
-        dcid = parameters("dcid")
-        if not dcid:
-            self.log.error("ep_predict trigger failed: No DCID specified")
+    def trigger_ep_predict(self, rw, header, *, parameter_map, session, **kwargs):
+
+        try:
+            params = EPPredictParameters(**parameter_map)
+        except pydantic.ValidationError as e:
+            self.log.error("ep_predict trigger called with invalid parameters: %s", e)
             return False
+
+        dcid = params.dcid
 
         query = (
             session.query(DataCollection, Proposal)
@@ -370,34 +389,16 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        diffraction_plan_info = parameters("diffraction_plan_info")
-        if not diffraction_plan_info:
+        if not params.diffraction_plan_info:
             self.log.info(
                 "Skipping ep_predict trigger: diffraction plan information not available"
             )
             return {"success": True}
-        try:
-            anom_scatterer = diffraction_plan_info["anomalousScatterer"]
-            if not anom_scatterer:
-                self.log.info(
-                    "Skipping ep_predict trigger: No anomalous scatterer specified"
-                )
-                return {"success": True}
-        except Exception:
+        if not params.diffraction_plan_info.anomalousScatterer:
             self.log.info(
-                "Skipping ep_predict trigger: Cannot read anomalous scatterer setting"
+                "Skipping ep_predict trigger: No anomalous scatterer specified"
             )
             return {"success": True}
-        try:
-            program = parameters("program")
-        except Exception:
-            self.log.warning("ep_predict trigger: Upstream program name not specified")
-            program = ""
-        try:
-            program_id = int(parameters("program_id"))
-        except (TypeError, ValueError):
-            self.log.error("ep_predict trigger failed: Invalid program_id specified")
-            return False
 
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = dcid
@@ -405,8 +406,8 @@ class DLSTrigger(CommonService):
         jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
 
         jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = bool(parameters("automatic"))
-        jp["comments"] = parameters("comment")
+        jp["automatic"] = params.automatic
+        jp["comments"] = params.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "ep_predict"
         jp["recipe"] = "postprocessing-ep-predict"
@@ -414,10 +415,10 @@ class DLSTrigger(CommonService):
         self.log.debug(f"ep_predict trigger: generated JobID {jobid}")
 
         ep_parameters = {
-            "program": program,
-            "program_id": program_id,
-            "data": parameters("data"),
-            "threshold": parameters("threshold"),
+            "program": params.program,
+            "program_id": params.program_id,
+            "data": os.fspath(params.data),
+            "threshold": params.threshold,
         }
 
         for key, value in ep_parameters.items():
@@ -437,9 +438,9 @@ class DLSTrigger(CommonService):
         message = {
             "parameters": {
                 "ispyb_process": jobid,
-                "program": program,
-                "data": parameters("data"),
-                "threshold": parameters("threshold"),
+                "program": params.program,
+                "data": os.fspath(params.data),
+                "threshold": params.threshold,
             },
             "recipes": [],
         }

@@ -88,8 +88,8 @@ class DBParser:
     @staticmethod
     def _metric_line(db_row, metric_name):
         if db_row.timestamp is not None:
-            return f"{metric_name}{{db_row.metric_labels}} {db_row.metric_value} {db_row.timestamp}\n"
-        return f"{metric_name}{{db_row.metric_labels}} {db_row.metric_value}\n"
+            return f"{metric_name}{{{db_row.metric_labels}}} {db_row.metric_value} {db_row.timestamp}\n"
+        return f"{metric_name}{{{db_row.metric_labels}}} {db_row.metric_value}\n"
 
     def prune(self):
         one_hour_ago = sqlalchemy.sql.expression.text("NOW() - INTERVAL 1 HOUR")

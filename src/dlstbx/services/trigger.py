@@ -209,23 +209,6 @@ class DLSTrigger(CommonService):
         txn = rw.transport.transaction_begin()
         rw.set_default_channel("output")
 
-        def parameters(parameter, replace_variables=True):
-            if isinstance(message, dict):
-                base_value = message.get(parameter, params.get(parameter))
-            else:
-                base_value = params.get(parameter)
-            if (
-                not replace_variables
-                or not base_value
-                or not isinstance(base_value, str)
-                or "$" not in base_value
-            ):
-                return base_value
-            for key in rw.environment:
-                if "$" + key in base_value:
-                    base_value = base_value.replace("$" + key, str(rw.environment[key]))
-            return base_value
-
         parameter_map = ChainMapWithReplacement(
             rw.recipe_step["parameters"].get("ispyb_parameters", {}),
             message if isinstance(message, dict) else {},
@@ -238,7 +221,6 @@ class DLSTrigger(CommonService):
                 rw=rw,
                 header=header,
                 message=message,
-                parameters=parameters,
                 parameter_map=parameter_map,
                 session=session,
                 transaction=txn,

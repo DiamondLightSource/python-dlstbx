@@ -368,6 +368,7 @@ def test_big_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
                 "data": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz",
                 "scaled_unmerged_mtz": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
                 "path_ext": "xia2/dials-run",
+                "force": False,
             },
             "recipes": [],
         },

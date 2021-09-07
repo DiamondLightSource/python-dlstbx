@@ -84,6 +84,17 @@ class EPPredictParameters(pydantic.BaseModel):
     threshold: float
 
 
+class MRPredictParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+    program: str
+    program_id: int = pydantic.Field(gt=0)
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    data: pathlib.Path
+    threshold: float
+
+
 class RelatedDCIDs(pydantic.BaseModel):
     dcids: List[int]
     sample_id: Optional[int] = pydantic.Field(gt=0)
@@ -450,11 +461,15 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    def trigger_mr_predict(self, rw, header, parameters, session, **kwargs):
-        dcid = parameters("dcid")
-        if not dcid:
-            self.log.error("mr_predict trigger failed: No DCID specified")
+    def trigger_mr_predict(self, rw, header, *, parameter_map, session, **kwargs):
+
+        try:
+            params = MRPredictParameters(**parameter_map)
+        except pydantic.ValidationError as e:
+            self.log.error("mr_predict trigger called with invalid parameters: %s", e)
             return False
+
+        dcid = params.dcid
 
         query = (
             session.query(Proposal)
@@ -474,26 +489,15 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        diffraction_plan_info = parameters("diffraction_plan_info")
-        if not diffraction_plan_info:
+        if not params.diffraction_plan_info:
             self.log.info(
                 "Skipping mr_predict trigger: diffraction plan information not available"
             )
             return {"success": True}
-        try:
-            program_id = int(parameters("program_id"))
-        except (TypeError, ValueError):
-            self.log.error("mr_predict trigger failed: Invalid program_id specified")
-            return False
-        try:
-            program = parameters("program")
-        except Exception:
-            self.log.warning("mr_predict trigger: Upstream program name not specified")
-            program = ""
 
         jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = bool(parameters("automatic"))
-        jp["comments"] = parameters("comment")
+        jp["automatic"] = params.automatic
+        jp["comments"] = params.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "mr_predict"
         jp["recipe"] = "postprocessing-mr-predict"
@@ -501,10 +505,10 @@ class DLSTrigger(CommonService):
         self.log.debug(f"mr_predict trigger: generated JobID {jobid}")
 
         mr_parameters = {
-            "program_id": program_id,
-            "program": program,
-            "data": parameters("data"),
-            "threshold": parameters("threshold"),
+            "program_id": params.program_id,
+            "program": params.program_id,
+            "data": params.data,
+            "threshold": params.threshold,
         }
 
         for key, value in mr_parameters.items():
@@ -520,9 +524,9 @@ class DLSTrigger(CommonService):
         message = {
             "parameters": {
                 "ispyb_process": jobid,
-                "program": program,
-                "data": parameters("data"),
-                "threshold": parameters("threshold"),
+                "program": params.program,
+                "data": params.data,
+                "threshold": params.threshold,
             },
             "recipes": [],
         }

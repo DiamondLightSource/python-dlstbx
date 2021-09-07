@@ -105,6 +105,15 @@ class Screen19MXParameters(pydantic.BaseModel):
     data: pathlib.Path
 
 
+class BigEPParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+    program_id: int = pydantic.Field(gt=0)
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    spacegroup: Optional[str]
+
+
 class RelatedDCIDs(pydantic.BaseModel):
     dcids: List[int]
     sample_id: Optional[int] = pydantic.Field(gt=0)
@@ -1001,24 +1010,19 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    def trigger_big_ep(self, rw, header, parameters, session, **kwargs):
-        dcid = parameters("dcid")
-        if not dcid:
-            self.log.error("big_ep trigger failed: No DCID specified")
+    def trigger_big_ep(self, rw, header, *, parameter_map, session, **kwargs):
+
+        try:
+            params = BigEPParameters(**parameter_map)
+        except pydantic.ValidationError as e:
+            self.log.error("big_ep trigger called with invalid parameters: %s", e)
             return False
 
-        diffraction_plan_info = parameters("diffraction_plan_info")
-        try:
-            anom_scatterer = diffraction_plan_info["anomalousScatterer"]
-            if not anom_scatterer:
-                self.log.info(
-                    "Skipping big_ep trigger: No anomalous scatterer specified"
-                )
-                return {"success": True}
-        except Exception:
-            self.log.info(
-                "Skipping big_ep trigger: Cannot read anomalous scatterer setting"
-            )
+        dcid = params.dcid
+
+        anom_scatterer = params.diffraction_plan_info.anomalousScatterer
+        if not anom_scatterer:
+            self.log.info("Skipping big_ep trigger: No anomalous scatterer specified")
             return {"success": True}
 
         query = (
@@ -1027,24 +1031,11 @@ class DLSTrigger(CommonService):
             .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
             .filter(DataCollection.dataCollectionId == dcid)
         )
-        proposal = query.first()
-        if not proposal:
-            self.log.error(
-                f"big_ep trigger failed: no proposal associated with dcid={dcid}"
-            )
-            return False
-
-        if proposal.Proposal.proposalCode in ("lb", "in", "sw"):
-            self.log.info(
-                f"Skipping big_ep trigger for {proposal.Proposal.proposalCode} visit"
-            )
+        proposal, blsession = query.first()
+        if proposal.proposalCode in ("lb", "in", "sw"):
+            self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
-        try:
-            program_id = int(parameters("program_id"))
-        except (TypeError, ValueError):
-            self.log.error("big_ep trigger failed: Invalid program_id specified")
-            return False
         query = (
             session.query(AutoProcProgram)
             .join(
@@ -1060,16 +1051,16 @@ class DLSTrigger(CommonService):
         )
         big_ep_params = None
         for app in query.all():
-            if app.autoProcProgramId == program_id:
+            if app.autoProcProgramId == params.program_id:
                 if (
-                    proposal.BLSession.beamLineName == "i23"
+                    blsession.beamLineName == "i23"
                     and "multi" not in app.processingPrograms
                 ):
                     self.log.info(
                         f"Skipping big_ep trigger for {app.processingPrograms} data on i23"
                     )
                     return {"success": True}
-                big_ep_params = parameters(app.processingPrograms)
+                big_ep_params = parameter_map[app.processingPrograms]
                 break
         try:
             assert big_ep_params
@@ -1093,13 +1084,13 @@ class DLSTrigger(CommonService):
         if not path_ext:
             path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        spacegroup = parameters("spacegroup")
+        spacegroup = params.spacegroup
         if spacegroup:
             path_ext += "-" + spacegroup
 
         jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = bool(parameters("automatic"))
-        jp["comments"] = parameters("comment")
+        jp["automatic"] = params.automatic
+        jp["comments"] = params.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "big_ep"
         jp["recipe"] = "postprocessing-big-ep"
@@ -1107,7 +1098,7 @@ class DLSTrigger(CommonService):
         self.log.debug(f"big_ep trigger: generated JobID {jobid}")
 
         big_ep_parameters = {
-            "program_id": program_id,
+            "program_id": params.program_id,
             "data": data,
             "scaled_unmerged_mtz": scaled_unmerged_mtz,
         }
@@ -1125,7 +1116,7 @@ class DLSTrigger(CommonService):
         message = {
             "parameters": {
                 "ispyb_process": jobid,
-                "program_id": program_id,
+                "program_id": params.program_id,
                 "data": data,
                 "scaled_unmerged_mtz": scaled_unmerged_mtz,
                 "path_ext": path_ext,

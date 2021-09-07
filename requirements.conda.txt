@@ -1,6 +1,6 @@
 bitshuffle
 drmaa
-ispyb>=6.7.0,<6.8
+ispyb>=6.8.0,<6.9
 junit-xml>=1.9
 marshmallow-sqlalchemy
 msgpack-python

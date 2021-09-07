@@ -114,6 +114,23 @@ class BigEPParameters(pydantic.BaseModel):
     spacegroup: Optional[str]
 
 
+class FastEPParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+    scaling_id: int = pydantic.Field(gt=0)
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    mtz: pathlib.Path
+
+
+class BestParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    program_id: int = pydantic.Field(gt=0)
+    data: pathlib.Path
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+
+
 class RelatedDCIDs(pydantic.BaseModel):
     dcids: List[int]
     sample_id: Optional[int] = pydantic.Field(gt=0)
@@ -608,34 +625,28 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    def trigger_best(self, rw, header, parameters, session, **kwargs):
-        dcid = parameters("dcid")
-        if not dcid:
-            self.log.error("best trigger failed: No DCID specified")
-            return False
+    def trigger_best(self, rw, header, *, parameter_map, session, **kwargs):
 
-        diffraction_plan_info = parameters("diffraction_plan_info")
-        if not diffraction_plan_info:
-            self.log.info(
-                "Skipping best trigger: diffraction plan information not available"
-            )
-            return {"success": True}
         try:
-            program_id = int(parameters("program_id"))
-        except (TypeError, ValueError):
-            self.log.error("best trigger failed: Invalid program_id specified")
+            params = BestParameters(**parameter_map)
+        except pydantic.ValidationError as e:
+            self.log.error("best trigger called with invalid parameters: %s", e)
             return False
 
+        dcid = params.dcid
         jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = bool(parameters("automatic"))
-        jp["comments"] = parameters("comment")
+        jp["automatic"] = params.automatic
+        jp["comments"] = params.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "best"
         jp["recipe"] = "postprocessing-best"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug("best trigger: generated JobID {}".format(jobid))
 
-        best_parameters = {"program_id": program_id, "data": parameters("data")}
+        best_parameters = {
+            "program_id": params.program_id,
+            "data": os.fspath(params.data),
+        }
 
         for key, value in best_parameters.items():
             jpp = self.ispyb.mx_processing.get_job_parameter_params()
@@ -648,7 +659,7 @@ class DLSTrigger(CommonService):
         self.log.debug("best trigger: Processing job {} created".format(jobid))
 
         message = {
-            "parameters": {"ispyb_process": jobid, "data": parameters("data")},
+            "parameters": {"ispyb_process": jobid, "data": params.data},
             "recipes": [],
         }
         rw.transport.send("processing_recipe", message)
@@ -657,29 +668,20 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    def trigger_fast_ep(self, rw, header, parameters, session, **kwargs):
-        dcid = parameters("dcid")
-        if not dcid:
-            self.log.error("fast_ep trigger failed: No DCID specified")
+    def trigger_fast_ep(self, rw, header, *, parameter_map, session, **kwargs):
+
+        try:
+            params = FastEPParameters(**parameter_map)
+        except pydantic.ValidationError as e:
+            self.log.error("fast_ep trigger called with invalid parameters: %s", e)
             return False
 
-        diffraction_plan_info = parameters("diffraction_plan_info")
-        if not diffraction_plan_info:
-            self.log.info(
-                "Skipping fast_ep trigger: diffraction plan information not available"
-            )
-            return {"success": True}
-        try:
-            anom_scatterer = diffraction_plan_info["anomalousScatterer"]
-            if not anom_scatterer:
-                self.log.info(
-                    "Skipping fast_ep trigger: No anomalous scatterer specified"
-                )
-                return {"success": True}
-        except Exception:
-            self.log.info(
-                "Skipping fast_ep trigger: Cannot read anomalous scatterer setting"
-            )
+        dcid = params.dcid
+        if (
+            not params.diffraction_plan_info
+            or not params.diffraction_plan_info.anomalousScatterer
+        ):
+            self.log.info("Skipping fast_ep trigger: no anomalous scatterer specified")
             return {"success": True}
 
         query = session.query(DataCollection).filter(
@@ -692,8 +694,8 @@ class DLSTrigger(CommonService):
         jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
 
         jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = bool(parameters("automatic"))
-        jp["comments"] = parameters("comment")
+        jp["automatic"] = params.automatic
+        jp["comments"] = params.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "fast_ep"
         jp["recipe"] = "postprocessing-fast-ep"
@@ -701,9 +703,9 @@ class DLSTrigger(CommonService):
         self.log.debug(f"fast_ep trigger: generated JobID {jobid}")
 
         fast_ep_parameters = {
-            "check_go_fast_ep": bool(parameters("automatic")),
-            "data": parameters("mtz"),
-            "scaling_id": parameters("scaling_id"),
+            "check_go_fast_ep": params.automatic,
+            "data": os.fspath(params.mtz),
+            "scaling_id": params.scaling_id,
         }
 
         for key, value in fast_ep_parameters.items():

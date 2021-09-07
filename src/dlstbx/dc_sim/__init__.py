@@ -523,12 +523,12 @@ def call_sim(test_name, beamline):
             dest_visit = f"{proposal}-1"
         elif beamline == "i02-1":
             dest_visit = f"{proposal}-2"
-        dest_visit_dir = Path(f"/dls/mx/data/{proposal}/{dest_visit}")
+        dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
     elif beamline == "i04":
         dest_visit = "nt28218-5"
-        dest_visit_dir = Path(f"/dls/{beamline}/data/{now:%Y}/{dest_visit}")
+        dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
     else:
-        for cm_dir in Path(f"/dls/{beamline}/data/{now:%Y}").iterdir():
+        for cm_dir in Path("/dls", beamline, "data", str(now.year)).iterdir():
             if cm_dir.name.startswith(proposal):
                 dest_visit = cm_dir.name
                 break
@@ -537,13 +537,14 @@ def call_sim(test_name, beamline):
             sys.exit(1)
 
         # Set mandatory parameters
-        dest_visit_dir = Path(f"/dls/{beamline}/data/{now:%Y}/{dest_visit}")
+        dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
 
     random_uuid = str(uuid.uuid4())[:8]
     dest_dir = (
         dest_visit_dir
         / "tmp"
-        / f"{now:%Y-%m-%d}/{now:%H}-{now:%M}-{now:%S}-{random_uuid}"
+        / f"{now:%Y-%m-%d}"
+        / f"{now:%H}-{now:%M}-{now:%S}-{random_uuid}"
     )
 
     if not src_dir.is_dir():
@@ -582,12 +583,12 @@ def call_sim(test_name, beamline):
             sys.exit(1)
 
     # Create destination directory
-    log.debug(f"Creating directory {str(dest_dir)}")
+    log.debug(f"Creating directory {dest_dir}")
     try:
         dest_dir.mkdir(parents=True, exist_ok=True)
-        log.info(f"Directory {str(dest_dir)} created successfully.")
+        log.info(f"Directory {dest_dir} created successfully.")
     except Exception:
-        sys.exit(f"ERROR: Creating directory {str(dest_dir)} failed.")
+        sys.exit(f"ERROR: Creating directory {dest_dir} failed.")
 
     # Call _simulate
     dcid_list = []

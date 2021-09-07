@@ -95,6 +95,16 @@ class MRPredictParameters(pydantic.BaseModel):
     threshold: float
 
 
+class Screen19MXParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    visit: str
+    test_visit: str
+    program_id: int = pydantic.Field(gt=0)
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    data: pathlib.Path
+
+
 class RelatedDCIDs(pydantic.BaseModel):
     dcids: List[int]
     sample_id: Optional[int] = pydantic.Field(gt=0)
@@ -536,29 +546,25 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    def trigger_screen19_mx(self, rw, header, parameters, session, **kwargs):
-        dcid = parameters("dcid")
-        if not dcid:
-            self.log.error("screen19_mx trigger failed: No DCID specified")
+    def trigger_screen19_mx(self, rw, header, *, parameter_map, session, **kwargs):
+
+        try:
+            params = Screen19MXParameters(**parameter_map)
+        except pydantic.ValidationError as e:
+            self.log.error("screen19_mx trigger called with invalid parameters: %s", e)
             return False
 
-        visit = parameters("visit")
-        test_visit = parameters("test_visit")
-        if visit and test_visit and visit != test_visit:
-            self.log.info(
-                f"screen19_mx trigger: processing is enabled only for testing in {test_visit}"
+        dcid = params.dcid
+
+        if params.visit and params.test_visit and params.visit != params.test_visit:
+            self.log.debug(
+                f"screen19_mx trigger: processing is enabled only for testing in {params.test_visit}"
             )
             return {"success": True}
 
-        try:
-            program_id = int(parameters("program_id"))
-        except (TypeError, ValueError):
-            self.log.error("screen19_mx trigger failed: Invalid program_id specified")
-            return False
-
         jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = bool(parameters("automatic"))
-        jp["comments"] = parameters("comment")
+        jp["automatic"] = params.automatic
+        jp["comments"] = params.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "screen19_mx"
         jp["recipe"] = "postprocessing-screen19-mx"
@@ -566,8 +572,8 @@ class DLSTrigger(CommonService):
         self.log.debug(f"screen19_mx trigger: generated JobID {jobid}")
 
         screen19_parameters = {
-            "program_id": program_id,
-            "data": parameters("data"),
+            "program_id": params.program_id,
+            "data": params.data,
         }
 
         for key, value in screen19_parameters.items():
@@ -583,7 +589,7 @@ class DLSTrigger(CommonService):
         message = {
             "parameters": {
                 "ispyb_process": jobid,
-                "data": parameters("data"),
+                "data": params.data,
             },
             "recipes": [],
         }

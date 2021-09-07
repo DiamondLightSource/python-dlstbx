@@ -8,7 +8,7 @@ from dlstbx.cluster_monitor import parse_db
 logger = logging.getLogger("dlstbx.wrap.cluster_monitor")
 
 
-class ClusterMonitorPrometheus(zocalo.wrapper.BaseWrapper):
+class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

@@ -75,6 +75,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "best = dlstbx.wrapper.best:BESTWrapper",
     "big_ep = dlstbx.wrapper.big_ep:BigEPWrapper",
     "big_ep_report = dlstbx.wrapper.big_ep_report:BigEPReportWrapper",
+    "cluster_monitor = dlstbx.wrapper.cluster_monitor:ClusterMonitorPrometheusWrapper",
     "Crank2 = dlstbx.wrapper.crank2:Crank2Wrapper",
     "dc_sim = dlstbx.wrapper.dc_sim:DCSimWrapper",
     "dimple = dlstbx.wrapper.dimple:DimpleWrapper",

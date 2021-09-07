@@ -114,6 +114,20 @@ class BigEPParameters(pydantic.BaseModel):
     spacegroup: Optional[str]
 
 
+class BigEPLauncherParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    pipeline = str
+    data: pathlib.Path
+    shelxc_path: pathlib.Path
+    fast_ep_path: pathlib.Path
+    program_id: int = pydantic.Field(gt=0)
+    path_ext: Optional[str] = pydantic.Field(
+        default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+
+
 class FastEPParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
@@ -825,49 +839,30 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobids}
 
-    def trigger_big_ep_launcher(self, rw, header, parameters, session, **kwargs):
-        dcid = parameters("dcid")
-        if not dcid:
-            self.log.error("big_ep_launcher trigger failed: No DCID specified")
-            return False
-        pipeline = parameters("pipeline")
-        if not pipeline:
-            self.log.error("big_ep_launcher trigger failed: No pipeline specified")
+    def trigger_big_ep_launcher(self, rw, header, *, parameter_map, session, **kwargs):
+
+        try:
+            params = BigEPLauncherParameters(**parameter_map)
+        except pydantic.ValidationError as e:
+            self.log.error(
+                "big_ep_launcher trigger called with invalid parameters: %s", e
+            )
             return False
 
         jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = bool(parameters("automatic"))
-        jp["comments"] = parameters("comment")
-        jp["datacollectionid"] = dcid
-        jp["display_name"] = pipeline
+        jp["automatic"] = params.automatic
+        jp["comments"] = params.comment
+        jp["datacollectionid"] = params.dcid
+        jp["display_name"] = params.pipeline
         jp["recipe"] = "postprocessing-big-ep-launcher"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep_launcher trigger: generated JobID {jobid}")
 
-        try:
-            program_id = int(parameters("program_id"))
-        except (TypeError, ValueError):
-            self.log.error(
-                "big_ep_launcher trigger failed: Invalid program_id specified"
-            )
-            return False
-        data = parameters("data")
-        if not data:
-            self.log.error(
-                "big_ep_launcher trigger failed: No input data file specified"
-            )
-            return False
-        path_ext = parameters("path_ext")
-        if not path_ext:
-            path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
-        shelxc_path = parameters("shelxc_path")
-        fast_ep_path = parameters("fast_ep_path")
-
         msg = rw.payload
         big_ep_parameters = {
-            "pipeline": pipeline,
-            "program_id": program_id,
-            "data": data,
+            "pipeline": params.pipeline,
+            "program_id": params.program_id,
+            "data": os.fspath(params.data),
             "atom": msg.get("atom"),
             "dataset": "|".join([ds["name"] for ds in msg.get("datasets", [])]),
             "spacegroup": msg.get("spacegroup"),
@@ -890,10 +885,10 @@ class DLSTrigger(CommonService):
             "recipes": [],
             "parameters": {
                 "ispyb_process": jobid,
-                "pipeline": pipeline,
-                "path_ext": path_ext,
-                "shelxc_path": shelxc_path,
-                "fast_ep_path": fast_ep_path,
+                "pipeline": params.pipeline,
+                "path_ext": params.path_ext,
+                "shelxc_path": os.fspath(params.shelxc_path),
+                "fast_ep_path": os.fspath(params.fast_ep_path),
                 "msg": rw.payload,
             },
         }

@@ -53,6 +53,22 @@ class DimpleParameters(pydantic.BaseModel):
     set_synchweb_status: Optional[bool] = False
 
 
+class ProteinInfo(pydantic.BaseModel):
+    sequence: Optional[str] = None
+
+
+class MrBumpParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    scaling_id: int = pydantic.Field(gt=0)
+    protein_info: ProteinInfo
+    hklin: pathlib.Path
+    pdb_tmpdir: pathlib.Path
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    user_pdb_directory: Optional[pathlib.Path] = None
+    set_synchweb_status: Optional[bool] = False
+
+
 class RelatedDCIDs(pydantic.BaseModel):
     dcids: List[int]
     sample_id: Optional[int] = pydantic.Field(gt=0)
@@ -691,15 +707,23 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    def trigger_mrbump(self, rw, header, parameters, session, **kwargs):
-        dcid = parameters("dcid")
+    def trigger_mrbump(self, rw, header, *, parameter_map, session, **kwargs):
+
+        try:
+            params = MrBumpParameters(**parameter_map)
+        except pydantic.ValidationError as e:
+            self.log.error(
+                "xia2.multiplex trigger called with invalid parameters: %s", e
+            )
+            return False
+
+        dcid = params.dcid
         if not dcid:
             self.log.error("mrbump trigger failed: No DCID specified")
             return False
 
-        protein_info = parameters("protein_info")
         try:
-            if not protein_info["sequence"]:
+            if not params.protein_info.sequence:
                 self.log.info(
                     "Skipping mrbump trigger: sequence information not available"
                 )
@@ -708,15 +732,11 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping mrbump trigger: Cannot read sequence information")
             return {"success": True}
 
-        pdb_tmpdir = pathlib.Path(parameters("pdb_tmpdir"))
-        user_pdb_dir = parameters("user_pdb_directory")
-        if user_pdb_dir:
-            user_pdb_dir = pathlib.Path(user_pdb_dir)
         pdb_files = self.get_linked_pdb_files_for_dcid(
             session,
             dcid,
-            pdb_tmpdir,
-            user_pdb_dir=user_pdb_dir,
+            params.pdb_tmpdir,
+            user_pdb_dir=params.user_pdb_directory,
             ignore_pdb_codes=True,
         )
 
@@ -724,8 +744,8 @@ class DLSTrigger(CommonService):
 
         for pdb_files in {(), tuple(pdb_files)}:
             jp = self.ispyb.mx_processing.get_job_params()
-            jp["automatic"] = bool(parameters("automatic"))
-            jp["comments"] = parameters("comment")
+            jp["automatic"] = params.automatic
+            jp["comments"] = params.comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "MrBUMP"
             jp["recipe"] = "postprocessing-mrbump"
@@ -734,8 +754,8 @@ class DLSTrigger(CommonService):
             self.log.debug(f"mrbump trigger: generated JobID {jobid}")
 
             mrbump_parameters = {
-                "hklin": parameters("hklin"),
-                "scaling_id": parameters("scaling_id"),
+                "hklin": os.fspath(params.hklin),
+                "scaling_id": params.scaling_id,
             }
             if pdb_files:
                 mrbump_parameters["dophmmer"] = "False"

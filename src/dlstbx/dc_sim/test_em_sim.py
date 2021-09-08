@@ -25,6 +25,12 @@ class CTFResult:
     ccValue = 0.15
 
 
+@dataclass(frozen=True)
+class ParticlePickerResult:
+    MotionCorrection: MotioncorrectionResult
+    numberOfParticles: int = 200
+
+
 def test_check_relion_outcomes_pass_checks():
     frame_numbers = dlstbx.dc_sim.definitions.tests["relion"]["frames"]
 
@@ -45,6 +51,16 @@ def test_check_relion_outcomes_pass_checks():
             )
             for frame in frame_numbers
         ],
+        "particle_picker": [
+            ParticlePickerResult(
+                MotionCorrection=MotioncorrectionResult(
+                    micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+                ),
+                numberOfParticles=200,
+            )
+            for frame in frame_numbers
+        ],
+        "particle_classification": range(50),
     }
 
     expected_outcome = dlstbx.dc_sim.definitions.tests.get("relion", {}).get("results")
@@ -79,6 +95,16 @@ def test_check_relion_outcomes_fail_checks():
             )
             for frame in frame_numbers
         ],
+        "particle_picker": [
+            ParticlePickerResult(
+                MotionCorrection=MotioncorrectionResult(
+                    micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+                ),
+                numberOfParticles=200,
+            )
+            for frame in frame_numbers
+        ],
+        "particle_classification": range(50),
     }
 
     expected_outcome_f = dlstbx.dc_sim.definitions.tests.get("relion", {}).get(
@@ -96,9 +122,13 @@ def test_check_relion_outcomes_fail_checks():
 
 @mock.patch("dlstbx.dc_sim.check._retrieve_motioncorr")
 @mock.patch("dlstbx.dc_sim.check._retrieve_ctf")
+@mock.patch("dlstbx.dc_sim.check._retrieve_particle_picker")
+@mock.patch("dlstbx.dc_sim.check._retrieve_particle_classification")
 @mock.patch("sqlalchemy.create_engine")
 @mock.patch("sqlalchemy.orm.Session")
-def test_check_test_outcome_success(mock_sess, mock_eng, mock_ctf, mock_mcorr):
+def test_check_test_outcome_success(
+    mock_sess, mock_eng, mock_classification, mock_parpick, mock_ctf, mock_mcorr
+):
     frame_numbers = dlstbx.dc_sim.definitions.tests["relion"]["frames"]
 
     def db_motion_corr(i):
@@ -119,6 +149,16 @@ def test_check_test_outcome_success(mock_sess, mock_eng, mock_ctf, mock_mcorr):
         )
         for frame in frame_numbers
     ]
+    mock_parpick.return_value = [
+        ParticlePickerResult(
+            MotionCorrection=MotioncorrectionResult(
+                micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+            ),
+            numberOfParticles=200,
+        )
+        for frame in frame_numbers
+    ]
+    mock_classification.return_value = [None for _ in range(50)]
 
     test = {
         "beamline": "m12",
@@ -134,9 +174,13 @@ def test_check_test_outcome_success(mock_sess, mock_eng, mock_ctf, mock_mcorr):
 
 @mock.patch("dlstbx.dc_sim.check._retrieve_motioncorr")
 @mock.patch("dlstbx.dc_sim.check._retrieve_ctf")
+@mock.patch("dlstbx.dc_sim.check._retrieve_particle_picker")
+@mock.patch("dlstbx.dc_sim.check._retrieve_particle_classification")
 @mock.patch("sqlalchemy.create_engine")
 @mock.patch("sqlalchemy.orm.Session")
-def test_check_test_outcome_failure(mock_sess, mock_eng, mock_ctf, mock_mcorr):
+def test_check_test_outcome_failure(
+    mock_sess, mock_eng, mock_classification, mock_parpick, mock_ctf, mock_mcorr
+):
     frame_numbers = dlstbx.dc_sim.definitions.tests["relion"]["frames"]
 
     def db_motion_corr(i):
@@ -160,6 +204,16 @@ def test_check_test_outcome_failure(mock_sess, mock_eng, mock_ctf, mock_mcorr):
         )
         for frame in frame_numbers
     ]
+    mock_parpick.return_value = [
+        ParticlePickerResult(
+            MotionCorrection=MotioncorrectionResult(
+                micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+            ),
+            numberOfParticles=200,
+        )
+        for frame in frame_numbers
+    ]
+    mock_classification.return_value = [None for _ in range(50)]
 
     test = {
         "beamline": "m12",

@@ -4,7 +4,7 @@ import pathlib
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 
-from dlstbx.cluster_monitor import PrometheusClusterMonitor
+from dlstbx.prometheus_cluster_monitor import PrometheusClusterMonitor
 
 
 class DBParser:

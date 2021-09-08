@@ -3,7 +3,7 @@ import time
 
 import zocalo.wrapper
 
-from dlstbx.cluster_monitor import parse_db
+from dlstbx.prometheus_cluster_monitor import parse_db
 
 logger = logging.getLogger("dlstbx.wrap.cluster_monitor")
 
@@ -14,7 +14,7 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
 
         db_parser = parse_db.DBParser()
 
-        params = self.recwrap.recipe_step["job_parameters"]
+        params = self.recwrap.recipe_step["parameters"]
         event = params["event"]
         labels = {
             "cluster": params.get("cluster"),
@@ -33,7 +33,7 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
             metric_types.extend(["gauge", "gauge"])
         if event == "start":
             metrics.append("clusters_total_job_count")
-            metric_types.extend("counter")
+            metric_types.append("counter")
             values = [1]
             if params.get("num_gpus") is not None:
                 values.extend([params.get("num_gpus"), params.get("num_mpi_ranks")])

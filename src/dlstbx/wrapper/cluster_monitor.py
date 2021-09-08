@@ -39,7 +39,9 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
             metric_types.append("counter")
             values = [1]
             if params.get("num_gpus") is not None:
-                values.extend([params.get("num_gpus"), params.get("num_mpi_ranks")])
+                values.append(params.get("num_gpus"))
+            if params.get("num_mpi_ranks") is not None:
+                values.append(params.get("num_mpi_ranks"))
             values.append(1)
             for met, met_type, val in zip(metrics, metric_types, values):
                 if met_type == "counter":
@@ -58,7 +60,9 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
         elif event == "end":
             values = [1]
             if params.get("num_gpus") is not None:
-                values.extend([-params.get("num_gpus"), -params.get("num_mpi_ranks")])
+                values.append(-params.get("num_gpus"))
+            if params.get("num_mpi_ranks") is not None:
+                values.append(-params.get("num_mpi_ranks"))
             for met, met_type, val in zip(metrics, metric_types, values):
                 db_parser.insert(
                     metric=met,

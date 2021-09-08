@@ -316,6 +316,12 @@ tests = {
                 }
                 for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
             },
+            "particle_picker": {
+                f"MotionCorr/job002/Movies/Frames/20170629_000{image_number}_frameImage.mrc": {
+                    "numberOfParticles": approx(250, 0.5),
+                }
+                for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
+            },
         },
     },
 }

@@ -20,12 +20,14 @@ def test_chain_map():
     )
     assert parameter_map["abc"] == 123
     assert parameter_map["def"] == 456
+    assert parameter_map["ghi"] == 789
     assert parameter_map["bar"] == "$foo"
     assert "foo" not in parameter_map
 
     parameter_map = ChainMapWithReplacement(
-        params,
         other_params,
+        params,
         substitutions=substitutions,
     )
     assert parameter_map["bar"] == "bar"
+    assert parameter_map["abc"] == 321

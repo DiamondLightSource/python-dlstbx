@@ -1,32 +1,18 @@
 from pytest import approx
 
 tests = {
-    "gi-multi": {
+    "i04-eiger-gridscan": {
         "type": "mx",
-        "src_dir": "/dls/i04/data/2013/nt5966-4/20131007/GI/P2_X3",
-        "src_run_num": (2, 3, 4, 5, 6, 7, 8),
-        "src_prefix": ("GI_M2S3",),
-        "results": {
-            "a": approx(100, abs=100),
-            "b": approx(100, abs=100),
-            "c": approx(100, abs=100),
-            "alpha": approx(180, abs=180),
-            "beta": approx(180, abs=180),
-            "gamma": approx(180, abs=180),
-        },
-    },
-    "gridscan": {
-        "type": "mx",
-        "src_dir": "/dls/i04/data/2016/cm14452-2/20160425/grid/protein-1-cm14452-2/thermo_10",
-        "src_run_num": (3,),
-        "src_prefix": ("thermo_10",),
+        "src_dir": "/dls/i04/data/2021/cm28182-2/xraycentring/manual",
+        "src_run_num": (29,),
+        "src_prefix": ("xrc",),
         "results": {},
     },
-    "high-multiplicity": {
+    "i04-eiger-high-mult": {
         "type": "mx",
-        "src_dir": "/dls/i03/data/2012/cm5698-4/therm2",
+        "src_dir": "/dls/i04/data/2021/cm28182-1/20210226/gw/swmr/TestThaumatin/Se-Thaumatin6",
         "src_run_num": (1,),
-        "src_prefix": ("thermc",),
+        "src_prefix": ("Se-Thaumatin6_400hz_24images",),
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -36,27 +22,12 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "example-i04": {
+    "i04-eiger-native": {
         "type": "mx",
-        "src_dir": "/dls/i04/data/2017/cm16781-4/20171015/Thaum/Th_3",
+        "src_dir": "/dls/i04/data/2021/cm28182-2/20210416/TestInsulin/insulin1",
         "src_run_num": (1,),
-        "src_prefix": ("Th_3",),
-        "use_sample_id": 790046,
-        "results": {
-            "a": approx(100, abs=100),
-            "b": approx(100, abs=100),
-            "c": approx(100, abs=100),
-            "alpha": approx(180, abs=180),
-            "beta": approx(180, abs=180),
-            "gamma": approx(180, abs=180),
-        },
-    },
-    "i23-germanate": {
-        "type": "mx",
-        "src_dir": "/dls/i23/data/2017/cm16790-4/20171012/germanate_4p5keV",
-        "src_run_num": (1,),
-        "src_prefix": ("data_A",),
-        "use_sample_id": 1172864,
+        "src_prefix": ("insulin1",),
+        "use_sample_id": 3343400,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -81,7 +52,7 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "insulin-2016": {
+    "insulin-2016-todo-replace": {
         "type": "mx",
         "src_dir": "/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2",
         "src_run_num": (2,),
@@ -95,7 +66,7 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "mad-multi": {
+    "mad-multi-todo-replace": {
         "type": "mx",
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170111/ZnMAD",
         "src_run_num": (1,),
@@ -110,12 +81,15 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "native": {
+    "i04-sad-multi-dcg": {
         "type": "mx",
-        "src_dir": "/dls/i03/data/2017/cm16791-1/20170221/gw/20170221/INS2",
-        "src_run_num": (1,),
-        "src_prefix": ("INS2_29_2",),
-        "use_sample_id": 787559,
+        "src_dir": "/dls/i04/data/2021/cm28182-1/20210311/TestInsulin/ZincInsulinB4/",
+        "src_run_num": (
+            1,
+            2,
+        ),
+        "src_prefix": ("ZincInsulinB4",),
+        "use_sample_id": 3275609,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -125,12 +99,30 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "native-i04-eiger": {
+    "i03-native-multi-nondcg": {
         "type": "mx",
-        "src_dir": "/dls/i04/data/2019/cm23004-1/20190223/Thaum/Thau_16",
+        "src_dir": "/dls/i03/data/2021/cm28170-1/Blah/xtal_1",
+        "src_run_num": (
+            1,
+            2,
+        ),
+        "src_prefix": ("xtal_1",),
+        "use_sample_id": 3221630,
+        "results": {
+            "a": approx(100, abs=100),
+            "b": approx(100, abs=100),
+            "c": approx(100, abs=100),
+            "alpha": approx(180, abs=180),
+            "beta": approx(180, abs=180),
+            "gamma": approx(180, abs=180),
+        },
+    },
+    "i03-native": {
+        "type": "mx",
+        "src_dir": "/dls/i03/data/2021/cm28170-2/TestProteinaseK/protk_1",
         "src_run_num": (1,),
-        "src_prefix": ("Thau_16",),
-        "use_sample_id": 1970289,
+        "src_prefix": ("protk_1",),
+        "use_sample_id": 3351191,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -196,22 +188,6 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "eiger-dcg": {
-        "type": "mx",
-        "src_dir": "/dls/i04/data/2019/cm23004-2/gw/small_multi/thau_3",
-        "src_run_num": (1, 2, 3, 4),
-        "src_prefix": ("thau_3",),
-        "use_sample_id": 2158377,
-        "dcg": True,
-        "results": {
-            "a": approx(100, abs=100),
-            "b": approx(100, abs=100),
-            "c": approx(100, abs=100),
-            "alpha": approx(180, abs=180),
-            "beta": approx(180, abs=180),
-            "gamma": approx(180, abs=180),
-        },
-    },
     "inverse-beam": {
         "type": "mx",
         "src_dir": "/dls/i23/data/2018/nr19737-17/20180510/lys6",
@@ -227,25 +203,12 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "sad": {
+    "i04-eiger-sad-single": {
         "type": "mx",
-        "src_dir": "/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1",
+        "src_dir": "/dls/i04/data/2021/cm28182-1/20210311/TestInsulin/ZincInsulinB4",
         "src_run_num": (1,),
-        "src_prefix": ("X1_weak_M1S1",),
-        "results": {
-            "a": approx(100, abs=100),
-            "b": approx(100, abs=100),
-            "c": approx(100, abs=100),
-            "alpha": approx(180, abs=180),
-            "beta": approx(180, abs=180),
-            "gamma": approx(180, abs=180),
-        },
-    },
-    "sad-multi": {
-        "type": "mx",
-        "src_dir": "/dls/i02/data/2013/nt5964-1/2013_02_08/GW/DNA/P1/X1",
-        "src_run_num": (1, 3),
-        "src_prefix": ("X1_strong_M1S1",),
+        "src_prefix": ("ZincInsulinB4",),
+        "use_sample_id": 3275609,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -288,28 +251,6 @@ tests = {
             "required": ("EDNA MXv1", "mosflm"),
         },
     },
-    "screening-i04-eiger": {
-        "type": "mx",
-        "src_dir": "/dls/i04/data/2019/cm23004-1/20190114/Eiger/Se_Thaum/Se_Thaum_13",
-        "src_run_num": (1,),
-        "src_prefix": ("Se_Thaum_13",),
-        "use_sample_id": 1976400,
-        "results": {
-            "a": approx(57.91, abs=2),
-            "b": approx(57.91, abs=2),
-            "c": approx(149.806, abs=2),
-            "alpha": approx(90, abs=0),
-            "beta": approx(90, abs=0),
-            "gamma": approx(90, abs=0),
-            "spacegroup": "P4",
-            "required": (
-                "EDNA MXv1",
-                "mosflm",
-                "dials.align_crystal",
-                "Stepped transmission 1",
-            ),
-        },
-    },
     "screening-smargon": {
         "type": "mx",
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170316/Thaum/Th_4",
@@ -318,70 +259,11 @@ tests = {
         "use_sample_id": 790048,
         "results": {},
     },
-    "thaumatin-eiger": {  # Yes, it does say Thermolysin.
-        "type": "mx",
-        "src_dir": "/dls/i04/data/2019/cm23004-1/20190214/gw-edna-test/Thermolysin/Therm_6",
-        "src_run_num": (2,),
-        "src_prefix": ("Therm_6",),
-        "results": {
-            "a": approx(100, abs=100),
-            "b": approx(100, abs=100),
-            "c": approx(100, abs=100),
-            "alpha": approx(180, abs=180),
-            "beta": approx(180, abs=180),
-            "gamma": approx(180, abs=180),
-        },
-    },
-    "insulin-sad-eiger": {
-        "type": "mx",
-        "src_dir": "/dls/i03/data/2019/cm23003-4/i03_insulin/ins_2",
-        "src_run_num": (4,),
-        "src_prefix": ("ins_2",),
-        "use_sample_id": 2558653,
-        "results": {
-            "a": approx(100, abs=100),
-            "b": approx(100, abs=100),
-            "c": approx(100, abs=100),
-            "alpha": approx(180, abs=180),
-            "beta": approx(180, abs=180),
-            "gamma": approx(180, abs=180),
-        },
-    },
-    "protk-wedge-eiger": {
-        "type": "mx",
-        "src_dir": "/dls/i03/data/2020/mx23694-44/wedges/TestProteinaseK/Protk_1",
-        "src_run_num": (1,),
-        "src_prefix": ("Protk_1",),
-        "use_sample_id": 2981359,
-        "results": {
-            "a": approx(100, abs=100),
-            "b": approx(100, abs=100),
-            "c": approx(100, abs=100),
-            "alpha": approx(180, abs=180),
-            "beta": approx(180, abs=180),
-            "gamma": approx(180, abs=180),
-        },
-    },
     "trp-multi": {
         "type": "mx",
         "src_dir": "/dls/i04/data/2013/nt5966-4/20131007/TRP/P1_X6",
         "src_run_num": (1, 2, 3, 4),
         "src_prefix": ("TRP_M1S6",),
-        "results": {
-            "a": approx(100, abs=100),
-            "b": approx(100, abs=100),
-            "c": approx(100, abs=100),
-            "alpha": approx(180, abs=180),
-            "beta": approx(180, abs=180),
-            "gamma": approx(180, abs=180),
-        },
-    },
-    "i04-83": {
-        "type": "mx",
-        "src_dir": "/dls/i04/data/2017/cm16781-1/20170111/autocollect/sp0092",
-        "src_run_num": (1,),
-        "src_prefix": ("s_4",),
-        "use_sample_id": 694302,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

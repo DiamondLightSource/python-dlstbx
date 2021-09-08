@@ -24,6 +24,9 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
             "command": params.get("command"),
         }
         labels_string = self._parse_labels_to_string(labels)
+        labels_string_no_ids = self._parse_labels_to_string(
+            labels, ignore=["cluster_job_id", "auto_proc_program_id"]
+        )
         metrics = ["clusters_current_job_count"]
         metric_types = ["gauge"]
         if params.get("num_gpus") is not None:
@@ -39,9 +42,13 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
                 values.extend([params.get("num_gpus"), params.get("num_mpi_ranks")])
             values.append(1)
             for met, met_type, val in zip(metrics, metric_types, values):
+                if met_type == "counter":
+                    ls = labels_string_no_ids
+                else:
+                    ls = labels_string
                 db_parser.insert(
                     metric=met,
-                    metric_labels=labels_string,
+                    metric_labels=ls,
                     metric_type=met_type,
                     metric_value=val,
                     cluster_id=params.get("job_id"),
@@ -65,8 +72,10 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
                 )
 
     @staticmethod
-    def _parse_labels_to_string(labels):
+    def _parse_labels_to_string(labels, ignore=None):
+        _ignore = ignore or []
         as_str = ""
         for k, v in labels.items():
-            as_str += f'{k}="{v}",'
+            if k not in _ignore:
+                as_str += f'{k}="{v}",'
         return as_str[:-1]

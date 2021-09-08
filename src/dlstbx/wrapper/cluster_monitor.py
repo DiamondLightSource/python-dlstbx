@@ -34,14 +34,14 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
                 ["current_gpus_in_use_count", "current_mpi_ranks_in_use_count"]
             )
             metric_types.extend(["gauge", "gauge"])
+        optional_gauge_labels = ["num_gpus", "num_mpi_ranks"]
         if event == "start":
             metrics.append("clusters_total_job_count")
             metric_types.append("counter")
             values = [1]
-            if params.get("num_gpus") is not None:
-                values.append(params.get("num_gpus"))
-            if params.get("num_mpi_ranks") is not None:
-                values.append(params.get("num_mpi_ranks"))
+            for ogl in optional_gauge_labels:
+                if params.get(ogl) is not None:
+                    values.append(params.get(ogl))
             values.append(1)
             for met, met_type, val in zip(metrics, metric_types, values):
                 if met_type == "counter":
@@ -59,10 +59,9 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
                 )
         elif event == "end":
             values = [1]
-            if params.get("num_gpus") is not None:
-                values.append(-params.get("num_gpus"))
-            if params.get("num_mpi_ranks") is not None:
-                values.append(-params.get("num_mpi_ranks"))
+            for ogl in optional_gauge_labels:
+                if params.get(ogl) is not None:
+                    values.append(-params.get(ogl))
             for met, met_type, val in zip(metrics, metric_types, values):
                 db_parser.insert(
                     metric=met,

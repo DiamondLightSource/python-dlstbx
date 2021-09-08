@@ -21,6 +21,8 @@ def run():
     parser.add_argument("-t", "--timestamp", dest="timestamp")
     parser.add_argument("--host", dest="host")
     parser.add_argument("--cluster", dest="cluster")
+    parser.add_argument("--gpus", dest="num_gpus", type=int)
+    parser.add_argument("--ranks", dest="num_ranks", type=int)
     args = parser.parse_args()
 
     labels = {
@@ -45,6 +47,25 @@ def run():
             auto_proc_program_id=args.program_id,
             timestamp=time.time(),
         )
+        if args.num_gpus:
+            db_parser.insert(
+                metric="current_gpus_in_use_count",
+                metric_labels=labels_string,
+                metric_type="gauge",
+                metric_value=args.num_gpus,
+                cluster_id=args.job_id,
+                auto_proc_program_id=args.program_id,
+                timestamp=time.time(),
+            )
+            db_parser.insert(
+                metric="current_mpi_ranks_in_use_count",
+                metric_labels=labels_string,
+                metric_type="gauge",
+                metric_value=args.num_ranks,
+                cluster_id=args.job_id,
+                auto_proc_program_id=args.program_id,
+                timestamp=time.time(),
+            )
         return
     if args.end:
         _now = time.time()
@@ -58,4 +79,23 @@ def run():
             timestamp=_now,
             cluster_end_timestamp=_now,
         )
+        if args.num_gpus:
+            db_parser.insert(
+                metric="current_gpus_in_use_count",
+                metric_labels=labels_string,
+                metric_type="gauge",
+                metric_value=-args.num_gpus,
+                cluster_id=args.job_id,
+                auto_proc_program_id=args.program_id,
+                timestamp=time.time(),
+            )
+            db_parser.insert(
+                metric="current_mpi_ranks_in_use_count",
+                metric_labels=labels_string,
+                metric_type="gauge",
+                metric_value=-args.num_ranks,
+                cluster_id=args.job_id,
+                auto_proc_program_id=args.program_id,
+                timestamp=time.time(),
+            )
         return

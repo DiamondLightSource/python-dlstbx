@@ -727,7 +727,7 @@ class DLSTrigger(CommonService):
                     trim_pdb_bfactors(
                         os.fspath(filepath),
                         os.fspath(trimmed),
-                        atom_selection="bfactor >= 70",
+                        atom_selection="bfactor > 70",
                         set_b_iso=20,
                     )
                     filepath = trimmed

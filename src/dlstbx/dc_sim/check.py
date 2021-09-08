@@ -6,7 +6,14 @@ import ispyb
 import ispyb.model.__future__
 import ispyb.sqlalchemy
 import sqlalchemy
-from ispyb.sqlalchemy import CTF, AutoProcProgram, MotionCorrection
+from ispyb.sqlalchemy import (
+    CTF,
+    AutoProcProgram,
+    MotionCorrection,
+    ParticleClassification,
+    ParticleClassificationGroup,
+    ParticlePicker,
+)
 from sqlalchemy.orm import Load
 
 import dlstbx.dc_sim.definitions as df
@@ -107,8 +114,17 @@ def _check_relion_outcome(test, expected_outcome, db_unused, db):
         job_results = {
             "motion_correction": motioncorr_data,
             "ctf": _retrieve_ctf(db, autoprocpid),
+            "particle_picker": _retrieve_particle_picker(db, autoprocpid),
+            "particle_classification": _retrieve_particle_classification(
+                db, autoprocpid
+            ),
         }
-        if len(job_results["motion_correction"]) == 0 or len(job_results["ctf"]) == 0:
+        if (
+            len(job_results["motion_correction"]) == 0
+            or len(job_results["ctf"]) == 0
+            or len(job_results["particle_picker"]) == 0
+            or len(job_results["particle_classification"]) != 50
+        ):
             overall[program] = None
             continue
         outcomes = check_relion_outcomes(job_results, expected_outcome, jobid)
@@ -276,6 +292,37 @@ def _retrieve_ctf(db_session, autoprocid):
     return [q[0] for q in query_results]
 
 
+def _retrieve_particle_picker(db_session, autoprocid):
+    query = (
+        db_session.query(ParticlePicker, MotionCorrection)
+        .join(
+            MotionCorrection,
+            MotionCorrection.motionCorrectionId
+            == ParticlePicker.firstMotionCorrectionId,
+        )
+        .filter(MotionCorrection.autoProcProgramId == autoprocid)
+    )
+    query_results = query.all()
+
+    return [q[0] for q in query_results]
+
+
+def _retrieve_particle_classification(db_session, autoprocid):
+    query = (
+        db_session.query(ParticleClassification, ParticleClassificationGroup)
+        .join(
+            ParticleClassificationGroup,
+            ParticleClassificationGroup.particleClassificationGroupId
+            == ParticleClassification.particleClassificationGroupId,
+        )
+        .filter(ParticleClassificationGroup.programId == autoprocid)
+    )
+
+    query_results = query.all()
+
+    return [q[0] for q in query_results]
+
+
 def check_relion_outcomes(job_results, expected_outcome, jobid):
     all_programs = [
         "relion",
@@ -287,6 +334,11 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
     for record_type, readable_name, get_micrograph_path in (
         ("motion_correction", "motion correction", attrgetter("micrographFullPath")),
         ("ctf", "CTF", attrgetter("MotionCorrection.micrographFullPath")),
+        (
+            "particle_picker",
+            "Particle Picker",
+            attrgetter("MotionCorrection.micrographFullPath"),
+        ),
     ):
         seen_records = defaultdict(int)
         for result in job_results[record_type]:

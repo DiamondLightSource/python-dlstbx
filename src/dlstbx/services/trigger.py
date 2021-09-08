@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import os
 import pathlib
 from dataclasses import dataclass
 from datetime import datetime
@@ -724,14 +725,17 @@ class DLSTrigger(CommonService):
                         filepath.stem + "_trimmed" + filepath.suffix
                     )
                     trim_pdb_bfactors(
-                        filepath, trimmed, atom_selection="bfactor >= 70", set_b_iso=20
+                        os.fspath(filepath),
+                        os.fspath(trimmed),
+                        atom_selection="bfactor >= 70",
+                        set_b_iso=20,
                     )
                     filepath = trimmed
 
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()
                 jpp["job_id"] = jobid
                 jpp["parameter_key"] = "localfile"
-                jpp["parameter_value"] = str(filepath)
+                jpp["parameter_value"] = os.fspath(filepath)
                 jppid = self.ispyb.mx_processing.upsert_job_parameter(
                     list(jpp.values())
                 )

@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
@@ -29,6 +29,16 @@ class DBParser:
                 sqlalchemy_url, connect_args={"use_pure": True}
             )
         )
+
+    def lookup(self, filter_by: Dict[str, Any]):
+        with self._sessionmaker() as session:
+            query = session.query(PrometheusClusterMonitor).filter(
+                **{
+                    getattr(PrometheusClusterMonitor, col): val
+                    for col, val in filter_by.items()
+                }
+            )
+        return query
 
     def insert(
         self,

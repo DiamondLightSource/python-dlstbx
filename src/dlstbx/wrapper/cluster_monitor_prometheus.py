@@ -22,6 +22,7 @@ class Counter:
         event_based_params: Optional[Dict[str, Dict]] = {
             "end": {"cluster_end_timestamp": time.time()}
         },
+        **kwargs,
     ):
         self.name = name
         self.labels = labels or []
@@ -29,13 +30,14 @@ class Counter:
         self.event_based_params = event_based_params or {}
         self.behaviour = behaviour
         self.value_key = value_key
+        self.extra_arguments = kwargs
 
     def value(
-        self, event: str, value: Union[int, float], **kwargs
+        self, event: str, value: Union[int, float], params: dict, **kwargs
     ) -> Union[int, float]:
         if self.behaviour.get(event) is None:
             return 0
-        return self.behaviour[event](value, **kwargs)
+        return self.behaviour[event](value, **{params, kwargs})
 
     def validate(self, params: dict) -> bool:
         for t in self.triggers:
@@ -50,9 +52,7 @@ class Counter:
                 as_str += f'{l}="{params[l]}",'
         return as_str[:-1]
 
-    def send_to_db(
-        self, event: str, params: dict, dbparser: DBParser, **kwargs
-    ) -> bool:
+    def send_to_db(self, event: str, params: dict, dbparser: DBParser) -> bool:
         if not self.validate(params):
             return False
         if self.value_key is None:
@@ -67,7 +67,7 @@ class Counter:
             metric=self.name,
             metric_labels=self.parse_labels(params),
             metric_type="gauge",
-            metric_value=self.value(event, value, **kwargs),
+            metric_value=self.value(event, value, params, **self.extra_arguments),
             cluster_id=params.get("cluster_job_id"),
             auto_proc_program_id=params.get("auto_proc_program_id"),
             timestamp=params.get("timestamp"),
@@ -111,7 +111,7 @@ class Gauge(Counter):
             metric=self.name,
             metric_labels=self.parse_labels(params),
             metric_type="gauge",
-            metric_value=self.value(event, value, **kwargs),
+            metric_value=self.value(event, value, params, **kwargs),
             cluster_id=params.get("cluster_job_id"),
             auto_proc_program_id=params.get("auto_proc_program_id"),
             timestamp=params.get("timestamp"),
@@ -120,6 +120,8 @@ class Gauge(Counter):
 
 
 class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
+    db_parser = DBParser()
+
     def _metrics(self, params: dict) -> list:
         standard_gauge_labels = [
             "cluster",
@@ -156,13 +158,18 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
                 labels=standard_counter_labels,
                 triggers=["cluster", "cluster_job_id"],
             ),
+            Counter(
+                "cluster_cumulative_job_time",
+                labels=standard_counter_labels,
+                triggers=["cluster", "cluster_job_id"],
+                value_key="timestamp",
+                behaviour={"info": self._timestamp_diff},
+            ),
         ]
         return metrics
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
-
-        db_parser = DBParser()
 
         params = self.recwrap.recipe_step["parameters"]
         event = params["event"]
@@ -170,4 +177,28 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
         metrics = self._metrics(params)
 
         for m in metrics:
-            m.send_to_db(event, params, db_parser)
+            m.send_to_db(event, params, self.db_parser)
+
+        return True
+
+    def _timestamp_diff(self, value: float, **kwargs) -> float:
+        other_metric = kwargs["other_metric"]
+        cluster_id = kwargs["cluster_job_id"]
+        row = self.db_parser.lookup({"metric": other_metric, "cluster_id": cluster_id})
+        if len(row) != 1:
+            cluster = kwargs["cluster"]
+            correct_cluster = []
+            for r in row:
+                labels = r.metric_labels.split(",")
+                if cluster in [
+                    l.split("=")[1] for l in labels if l.split("=")[0] == "cluster"
+                ]:
+                    correct_cluster.append(r)
+            if len(correct_cluster) != 1:
+                raise ValueError(
+                    f"There should be exactly one database row for metric {other_metric} and cluster job id {cluster_id}"
+                )
+            else:
+                row = correct_cluster
+        start_time = row.timestamp
+        return value - start_time

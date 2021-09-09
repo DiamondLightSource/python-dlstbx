@@ -106,7 +106,7 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
             if k == "hklin":
                 # This is provided as command line keyword and handled elsewhere
                 continue
-            if k == "localfiles":
+            if k == "localfile":
                 localfiles = [f"{k} {vi}" for vi in v]
             else:
                 # Everything in ispyb_parameters is a list, but we're only interested

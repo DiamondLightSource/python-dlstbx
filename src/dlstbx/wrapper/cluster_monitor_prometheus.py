@@ -43,7 +43,7 @@ class Counter:
                 return False
         return True
 
-    def labels(self, params: dict) -> str:
+    def parse_labels(self, params: dict) -> str:
         as_str = ""
         for l in self.labels:
             if params.get(l) is not None:
@@ -65,7 +65,7 @@ class Counter:
         extra_params = self.event_based_params.get(event, {})
         dbparser.insert(
             metric=self.name,
-            metric_labels=self.labels(params),
+            metric_labels=self.parse_labels(params),
             metric_type="gauge",
             metric_value=self.value(event, value, **kwargs),
             cluster_id=params.get("cluster_job_id"),
@@ -109,7 +109,7 @@ class Gauge(Counter):
             return False
         dbparser.insert(
             metric=self.name,
-            metric_labels=self.labels(params),
+            metric_labels=self.parse_labels(params),
             metric_type="gauge",
             metric_value=self.value(event, value, **kwargs),
             cluster_id=params.get("cluster_job_id"),

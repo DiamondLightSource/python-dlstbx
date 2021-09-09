@@ -1027,42 +1027,36 @@ class DLSTrigger(CommonService):
                 DataCollection.dataCollectionId == AutoProcIntegration.dataCollectionId,
             )
             .filter(DataCollection.dataCollectionId == dcid)
+            .filter(AutoProcProgram.autoProcProgramId == params.program_id)
         )
-        big_ep_params = None
-        for app in query.all():
-            if app.autoProcProgramId == params.program_id:
-                if (
-                    blsession.beamLineName == "i23"
-                    and "multi" not in app.processingPrograms
-                ):
-                    self.log.info(
-                        f"Skipping big_ep trigger for {app.processingPrograms} data on i23"
-                    )
-                    return {"success": True}
-                big_ep_params = parameter_map[app.processingPrograms]
-                break
-        try:
-            assert big_ep_params
-        except (AssertionError, NameError):
+
+        app = query.first()
+        if not app:
             self.log.error(
                 "big_ep trigger failed: No input data provided for program %s",
                 app.processingPrograms,
             )
             return False
-        data = big_ep_params["data"]
-        if not data:
-            self.log.error("big_ep trigger failed: No input data file specified")
-            return False
-        scaled_unmerged_mtz = big_ep_params["scaled_unmerged_mtz"]
-        if not scaled_unmerged_mtz:
-            self.log.error(
-                "big_ep trigger failed: No input scaled unmerged mtz file specified"
+        if blsession.beamLineName == "i23" and "multi" not in app.processingPrograms:
+            self.log.info(
+                f"Skipping big_ep trigger for {app.processingPrograms} data on i23"
             )
-            return False
-        path_ext = big_ep_params["path_ext"]
-        if not path_ext:
-            path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
+            return {"success": True}
 
+        class BigEPParams(pydantic.BaseModel):
+            data: pathlib.Path
+            scaled_unmerged_mtz: pathlib.Path
+            path_ext: Optional[str] = pydantic.Field(
+                default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S")
+            )
+
+        try:
+            big_ep_params = BigEPParams(**parameter_map.get(app.processingPrograms, {}))
+        except pydantic.ValidationError as e:
+            self.log.error("big_ep trigger called with invalid parameters: %s", e)
+            return False
+
+        path_ext = big_ep_params.path_ext
         spacegroup = params.spacegroup
         if spacegroup:
             path_ext += "-" + spacegroup
@@ -1078,8 +1072,8 @@ class DLSTrigger(CommonService):
 
         big_ep_parameters = {
             "program_id": params.program_id,
-            "data": data,
-            "scaled_unmerged_mtz": scaled_unmerged_mtz,
+            "data": os.fspath(big_ep_params.data),
+            "scaled_unmerged_mtz": os.fspath(big_ep_params.scaled_unmerged_mtz),
         }
 
         for key, value in big_ep_parameters.items():
@@ -1096,8 +1090,8 @@ class DLSTrigger(CommonService):
             "parameters": {
                 "ispyb_process": jobid,
                 "program_id": params.program_id,
-                "data": data,
-                "scaled_unmerged_mtz": scaled_unmerged_mtz,
+                "data": os.fspath(big_ep_params.data),
+                "scaled_unmerged_mtz": os.fspath(big_ep_params.scaled_unmerged_mtz),
                 "path_ext": path_ext,
                 "force": False,
             },

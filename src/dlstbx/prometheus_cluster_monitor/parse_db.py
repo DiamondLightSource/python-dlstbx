@@ -1,5 +1,6 @@
 import json
 import pathlib
+from datetime import datetime
 from typing import Any, Dict, Optional, Union
 
 import sqlalchemy
@@ -33,12 +34,10 @@ class DBParser:
     def lookup(self, filter_by: Dict[str, Any]):
         with self._sessionmaker() as session:
             query = session.query(PrometheusClusterMonitor).filter(
-                **{
-                    getattr(PrometheusClusterMonitor, col): val
-                    for col, val in filter_by.items()
-                }
+                getattr(PrometheusClusterMonitor, col) == val
+                for col, val in filter_by.items()
             )
-        return query
+        return query.all()
 
     def insert(
         self,
@@ -57,7 +56,7 @@ class DBParser:
             metric_type=metric_type,
             metric_labels=metric_labels,
             metric_value=metric_value,
-            timestamp=timestamp,
+            timestamp=datetime.fromtimestamp(timestamp),
             auto_proc_program_id=auto_proc_program_id,
             cluster_end_timestamp=cluster_end_timestamp,
         )
@@ -65,7 +64,7 @@ class DBParser:
             cluster_id=cluster_id,
             metric_type=metric_type,
             metric_value=PrometheusClusterMonitor.metric_value + metric_value,
-            timestamp=timestamp,
+            timestamp=datetime.fromtimestamp(timestamp),
             auto_proc_program_id=auto_proc_program_id,
             cluster_end_timestamp=cluster_end_timestamp,
         )
@@ -90,7 +89,7 @@ class DBParser:
             metric_type=metric_type,
             metric_labels=metric_labels,
             metric_value=0,
-            timestamp=timestamp,
+            timestamp=datetime.fromtimestamp(timestamp),
             auto_proc_program_id=auto_proc_program_id,
             cluster_end_timestamp=cluster_end_timestamp,
         )
@@ -98,7 +97,7 @@ class DBParser:
             cluster_id=cluster_id,
             metric_type=metric_type,
             metric_value=0,
-            timestamp=timestamp,
+            timestamp=datetime.fromtimestamp(timestamp),
             auto_proc_program_id=auto_proc_program_id,
             cluster_end_timestamp=cluster_end_timestamp,
         )
@@ -131,8 +130,6 @@ class DBParser:
 
     @staticmethod
     def _metric_line(db_row, metric_name: str) -> str:
-        if db_row.timestamp is not None:
-            return f"{metric_name}{{{db_row.metric_labels}}} {db_row.metric_value} {db_row.timestamp}\n"
         return f"{metric_name}{{{db_row.metric_labels}}} {db_row.metric_value}\n"
 
     def prune(self) -> list:

@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime
 from typing import Callable, Dict, Optional, Union
 
 import zocalo.wrapper
@@ -37,7 +38,7 @@ class Counter:
     ) -> Union[int, float]:
         if self.behaviour.get(event) is None:
             return 0
-        return self.behaviour[event](value, **{params, kwargs})
+        return self.behaviour[event](value, **{**params, **kwargs})
 
     def validate(self, params: dict) -> bool:
         for t in self.triggers:
@@ -136,6 +137,16 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
             "command",
         ]
         metrics = [
+            # this must happen before time stamps are updated as it needs to
+            # collect the last time stamp information
+            Counter(
+                "cluster_cumulative_job_time",
+                labels=standard_counter_labels,
+                triggers=["cluster", "cluster_job_id"],
+                value_key="timestamp",
+                behaviour={"end": self._timestamp_diff},
+                other_metric="cluster_current_num_jobs",
+            ),
             Gauge(
                 "cluster_current_num_jobs",
                 labels=standard_gauge_labels,
@@ -157,13 +168,6 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
                 "cluster_total_num_jobs",
                 labels=standard_counter_labels,
                 triggers=["cluster", "cluster_job_id"],
-            ),
-            Counter(
-                "cluster_cumulative_job_time",
-                labels=standard_counter_labels,
-                triggers=["cluster", "cluster_job_id"],
-                value_key="timestamp",
-                behaviour={"end": self._timestamp_diff},
             ),
         ]
         return metrics
@@ -200,5 +204,7 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
                 )
             else:
                 row = correct_cluster
-        start_time = row.timestamp
+        start_time = datetime.timestamp(row[0].timestamp)
+        if not start_time:
+            return 0
         return value - start_time

@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Callable, Dict, Union
+from typing import Callable, Dict, Optional, Union
 
 import zocalo.wrapper
 
@@ -13,13 +13,13 @@ class Counter:
     def __init__(
         self,
         name: str,
-        labels: Union[list, None] = None,
-        triggers: Union[list, None] = None,
+        labels: Optional[list] = None,
+        triggers: Optional[list] = None,
         behaviour: Dict[str, Callable] = {
             "start": lambda x, **kwargs: x,
         },
-        value_key: Union[str, None] = None,
-        event_based_params: Union[Dict[str, Dict], None] = {
+        value_key: Optional[str] = None,
+        event_based_params: Optional[Dict[str, Dict]] = {
             "end": {"cluster_end_timestamp": time.time()}
         },
     ):
@@ -80,13 +80,13 @@ class Gauge(Counter):
     def __init__(
         self,
         name: str,
-        labels: Union[list, None] = None,
-        triggers: Union[list, None] = None,
+        labels: Optional[list] = None,
+        triggers: Optional[list] = None,
         behaviour: Dict[str, Callable] = {
             "start": lambda x, **kwargs: x,
             "end": lambda x, **kwargs: -x,
         },
-        value_key: Union[str, None] = None,
+        value_key: Optional[str] = None,
     ):
         super().__init__(
             name,

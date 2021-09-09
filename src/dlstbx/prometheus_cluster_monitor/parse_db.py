@@ -1,5 +1,6 @@
 import json
 import pathlib
+from typing import Optional, Union
 
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
@@ -31,15 +32,15 @@ class DBParser:
 
     def insert(
         self,
-        metric,
-        cluster_id,
-        metric_type,
-        metric_labels="",
-        metric_value=0,
-        timestamp=None,
-        auto_proc_program_id=None,
-        cluster_end_timestamp=None,
-    ):
+        metric: str,
+        cluster_id: int,
+        metric_type: str,
+        metric_labels: str = "",
+        metric_value: Union[int, float] = 0,
+        timestamp: Optional[float] = None,
+        auto_proc_program_id: Optional[int] = None,
+        cluster_end_timestamp: Optional[float] = None,
+    ) -> None:
         insert_cmd = insert(PrometheusClusterMonitor).values(
             metric=metric,
             cluster_id=cluster_id,
@@ -65,14 +66,14 @@ class DBParser:
 
     def reset(
         self,
-        metric,
-        cluster_id,
-        metric_type,
-        metric_labels="",
-        timestamp=None,
+        metric: str,
+        cluster_id: int,
+        metric_type: str,
+        metric_labels: str = "",
+        timestamp: Optional[float] = None,
         auto_proc_program_id=None,
         cluster_end_timestamp=None,
-    ):
+    ) -> None:
         insert_cmd = insert(PrometheusClusterMonitor).values(
             metric=metric,
             cluster_id=cluster_id,
@@ -97,7 +98,7 @@ class DBParser:
         return
 
     @property
-    def text(self):
+    def text(self) -> str:
         as_text = ""
         with self._sessionmaker() as session:
             query = session.query(PrometheusClusterMonitor).all()
@@ -115,16 +116,16 @@ class DBParser:
         return as_text
 
     @staticmethod
-    def _type_line(metric_type, metric_name):
+    def _type_line(metric_type: str, metric_name: str) -> str:
         return f"# TYPE {metric_name} {metric_type}\n"
 
     @staticmethod
-    def _metric_line(db_row, metric_name):
+    def _metric_line(db_row, metric_name: str) -> str:
         if db_row.timestamp is not None:
             return f"{metric_name}{{{db_row.metric_labels}}} {db_row.metric_value} {db_row.timestamp}\n"
         return f"{metric_name}{{{db_row.metric_labels}}} {db_row.metric_value}\n"
 
-    def prune(self):
+    def prune(self) -> list:
         one_hour_ago = sqlalchemy.sql.expression.text("NOW() - INTERVAL 1 HOUR")
         with self._sessionmaker() as session:
             records_pruned = (

@@ -66,7 +66,7 @@ class Counter:
         dbparser.insert(
             metric=self.name,
             metric_labels=self.parse_labels(params),
-            metric_type="gauge",
+            metric_type="counter",
             metric_value=self.value(event, value, params, **self.extra_arguments),
             cluster_id=params.get("cluster_job_id"),
             auto_proc_program_id=params.get("auto_proc_program_id"),
@@ -163,7 +163,7 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
                 labels=standard_counter_labels,
                 triggers=["cluster", "cluster_job_id"],
                 value_key="timestamp",
-                behaviour={"info": self._timestamp_diff},
+                behaviour={"end": self._timestamp_diff},
             ),
         ]
         return metrics

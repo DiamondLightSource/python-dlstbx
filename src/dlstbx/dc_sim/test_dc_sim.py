@@ -56,7 +56,7 @@ def make_dummy_db_and_test_dictionary(beamline, scenario, results):
 
 
 def test_check_should_return_NONE_if_no_processing_results_have_arrived_yet():
-    db, result = make_dummy_db_and_test_dictionary("i03", "native", {2960726: []})
+    db, result = make_dummy_db_and_test_dictionary("i03", "i03-native", {2960726: []})
 
     dlstbx.dc_sim.check.check_test_outcome(result, db)
 
@@ -65,7 +65,7 @@ def test_check_should_return_NONE_if_no_processing_results_have_arrived_yet():
 
 def test_check_should_return_NONE_if_some_successful_processing_results_are_available():
     db, result = make_dummy_db_and_test_dictionary(
-        "i03", "native", {2960726: [(p, True) for p in all_programs[:2]]}
+        "i03", "i03-native", {2960726: [(p, True) for p in all_programs[:2]]}
     )
 
     dlstbx.dc_sim.check.check_test_outcome(result, db)
@@ -75,7 +75,7 @@ def test_check_should_return_NONE_if_some_successful_processing_results_are_avai
 
 def test_check_should_return_PASS_if_all_processing_results_are_good():
     db, result = make_dummy_db_and_test_dictionary(
-        "i03", "native", {2960726: [(p, True) for p in all_programs]}
+        "i03", "i03-native", {2960726: [(p, True) for p in all_programs]}
     )
 
     dlstbx.dc_sim.check.check_test_outcome(result, db)
@@ -86,7 +86,7 @@ def test_check_should_return_PASS_if_all_processing_results_are_good():
 def test_check_should_return_PASS_if_all_processing_results_are_good_no_matter_what_other_programs_say():
     db, result = make_dummy_db_and_test_dictionary(
         "i03",
-        "native",
+        "i03-native",
         {2960726: [(p, True) for p in all_programs] + [("random program", False)]},
     )
 
@@ -101,7 +101,7 @@ def test_check_should_ignore_invalid_results_if_another_valid_result_exists_from
 
     # case where only a single program returned results: outcome should be undecided
     db, result = make_dummy_db_and_test_dictionary(
-        "i03", "native", {2960726: [(program, True), (program, False)]}
+        "i03", "i03-native", {2960726: [(program, True), (program, False)]}
     )
 
     dlstbx.dc_sim.check.check_test_outcome(result, db)
@@ -111,7 +111,7 @@ def test_check_should_ignore_invalid_results_if_another_valid_result_exists_from
     # case where all programs passed: outcome should be PASS
     db, result = make_dummy_db_and_test_dictionary(
         "i03",
-        "native",
+        "i03-native",
         {2960726: [(program, False)] + [(p, True) for p in all_programs]},
     )
 
@@ -122,7 +122,7 @@ def test_check_should_ignore_invalid_results_if_another_valid_result_exists_from
 
 def test_check_should_return_FAIL_if_all_processing_results_are_bad():
     db, result = make_dummy_db_and_test_dictionary(
-        "i03", "native", {2960726: [(p, False) for p in all_programs]}
+        "i03", "i03-native", {2960726: [(p, False) for p in all_programs]}
     )
 
     dlstbx.dc_sim.check.check_test_outcome(result, db)
@@ -138,7 +138,7 @@ def test_check_should_return_FAIL_if_one_processing_result_is_bad(broken_program
     random.shuffle(broken_results)
 
     db, result = make_dummy_db_and_test_dictionary(
-        "i03", "native", {2960726: broken_results}
+        "i03", "i03-native", {2960726: broken_results}
     )
 
     dlstbx.dc_sim.check.check_test_outcome(result, db)
@@ -153,7 +153,7 @@ def test_check_should_return_FAIL_if_one_processing_result_is_bad(broken_program
 @pytest.mark.parametrize("broken_program", all_programs)
 def test_check_should_return_FAIL_if_a_single_processing_result_is_bad(broken_program):
     db, result = make_dummy_db_and_test_dictionary(
-        "i03", "native", {2960726: [(broken_program, False)]}
+        "i03", "i03-native", {2960726: [(broken_program, False)]}
     )
 
     dlstbx.dc_sim.check.check_test_outcome(result, db)
@@ -177,7 +177,7 @@ def test_check_should_not_be_confused_by_other_programs_appearing_instead_of_kno
     program_list.remove(missing_program)
     program_list.add(added_program)
     db, result = make_dummy_db_and_test_dictionary(
-        "i03", "native", {2960726: [(p, True) for p in program_list]}
+        "i03", "i03-native", {2960726: [(p, True) for p in program_list]}
     )
 
     dlstbx.dc_sim.check.check_test_outcome(result, db)

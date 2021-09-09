@@ -63,6 +63,39 @@ class DBParser:
             session.commit()
         return
 
+    def reset(
+        self,
+        metric,
+        cluster_id,
+        metric_type,
+        metric_labels="",
+        timestamp=None,
+        auto_proc_program_id=None,
+        cluster_end_timestamp=None,
+    ):
+        insert_cmd = insert(PrometheusClusterMonitor).values(
+            metric=metric,
+            cluster_id=cluster_id,
+            metric_type=metric_type,
+            metric_labels=metric_labels,
+            metric_value=0,
+            timestamp=timestamp,
+            auto_proc_program_id=auto_proc_program_id,
+            cluster_end_timestamp=cluster_end_timestamp,
+        )
+        update = insert_cmd.on_duplicate_key_update(
+            cluster_id=cluster_id,
+            metric_type=metric_type,
+            metric_value=0,
+            timestamp=timestamp,
+            auto_proc_program_id=auto_proc_program_id,
+            cluster_end_timestamp=cluster_end_timestamp,
+        )
+        with self._sessionmaker() as session:
+            session.execute(update)
+            session.commit()
+        return
+
     @property
     def text(self):
         as_text = ""

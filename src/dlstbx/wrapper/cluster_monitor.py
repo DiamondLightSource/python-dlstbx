@@ -1,84 +1,173 @@
 import logging
 import time
+from typing import Callable, Dict, Union
 
 import zocalo.wrapper
 
-from dlstbx.prometheus_cluster_monitor import parse_db
+from dlstbx.prometheus_cluster_monitor.parse_db import DBParser
 
 logger = logging.getLogger("dlstbx.wrap.cluster_monitor")
 
 
+class Counter:
+    def __init__(
+        self,
+        name: str,
+        labels: Union[list, None] = None,
+        triggers: Union[list, None] = None,
+        behaviour: Dict[str, Callable] = {
+            "start": lambda x, **kwargs: x,
+        },
+        value_key: Union[str, None] = None,
+        event_based_params: Union[Dict[str, Dict], None] = {
+            "end": {"cluster_end_timestamp": time.time()}
+        },
+    ):
+        self.name = name
+        self.labels = labels or []
+        self.triggers = triggers or []
+        self.event_based_params = event_based_params or {}
+        self.behaviour = behaviour
+        self.value_key = value_key
+
+    def value(
+        self, event: str, value: Union[int, float], **kwargs
+    ) -> Union[int, float]:
+        if self.behaviour.get(event) is None:
+            return 0
+        return self.behaviour[event](value, **kwargs)
+
+    def validate(self, params: dict) -> bool:
+        for t in self.triggers:
+            if params.get(t) is None:
+                return False
+        return True
+
+    def labels(self, params: dict) -> str:
+        as_str = ""
+        for l in self.labels:
+            if params.get(l) is not None:
+                as_str += f'{l}="{params[l]}",'
+        return as_str[:-1]
+
+    def send_to_db(
+        self, event: str, params: dict, dbparser: DBParser, **kwargs
+    ) -> bool:
+        if not self.validate(params):
+            return False
+        if self.value_key is None:
+            value = 1
+        else:
+            value = params[self.value_key]
+        # counter cannot decrease (unless via a reset to 0)
+        if not value or value < 0:
+            return False
+        extra_params = self.event_based_params.get(event, {})
+        dbparser.insert(
+            metric=self.name,
+            metric_labels=self.labels(params),
+            metric_type="gauge",
+            metric_value=self.value(event, value, **kwargs),
+            cluster_id=params.get("cluster_job_id"),
+            auto_proc_program_id=params.get("auto_proc_program_id"),
+            timestamp=params.get("timestamp"),
+            **extra_params,
+        )
+        return True
+
+
+class Gauge(Counter):
+    def __init__(
+        self,
+        name: str,
+        labels: Union[list, None] = None,
+        triggers: Union[list, None] = None,
+        behaviour: Dict[str, Callable] = {
+            "start": lambda x, **kwargs: x,
+            "end": lambda x, **kwargs: -x,
+        },
+        value_key: Union[str, None] = None,
+    ):
+        super().__init__(
+            name,
+            labels=labels,
+            triggers=triggers,
+            behaviour=behaviour,
+            value_key=value_key,
+        )
+
+    def send_to_db(
+        self, event: str, params: dict, dbparser: DBParser, **kwargs
+    ) -> bool:
+        if not self.validate(params):
+            return False
+        if self.value_key is None:
+            value = 1
+        else:
+            value = params[self.value_key]
+        if not value:
+            return False
+        dbparser.insert(
+            metric=self.name,
+            metric_labels=self.labels(params),
+            metric_type="gauge",
+            metric_value=self.value(event, value, **kwargs),
+            cluster_id=params.get("cluster_job_id"),
+            auto_proc_program_id=params.get("auto_proc_program_id"),
+            timestamp=params.get("timestamp"),
+        )
+        return True
+
+
 class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
+    def _metrics(self, params: dict) -> list:
+        standard_gauge_labels = [
+            "cluster",
+            "host_name",
+            "auto_proc_program_id",
+            "cluster_job_id",
+            "command",
+        ]
+        standard_counter_labels = [
+            "cluster",
+            "host_name",
+            "command",
+        ]
+        metrics = [
+            Gauge(
+                "cluster_current_num_jobs",
+                labels=standard_gauge_labels,
+                triggers=["cluster", "cluster_job_id"],
+            ),
+            Gauge(
+                "cluster_current_num_gpus_in_use",
+                labels=standard_gauge_labels,
+                triggers=["cluster", "cluster_job_id", "num_gpus"],
+                value_key="num_gpus",
+            ),
+            Gauge(
+                "cluster_current_num_mpi_ranks_in_use",
+                labels=standard_gauge_labels,
+                triggers=["cluster", "cluster_job_id", "num_mpi_ranks"],
+                value_key="num_mpi_ranks",
+            ),
+            Counter(
+                "cluster_total_num_jobs",
+                labels=standard_counter_labels,
+                triggers=["cluster", "cluster_job_id"],
+            ),
+        ]
+        return metrics
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
-        db_parser = parse_db.DBParser()
+        db_parser = DBParser()
 
         params = self.recwrap.recipe_step["parameters"]
         event = params["event"]
-        labels = {
-            "cluster": params.get("cluster"),
-            "host_name": params.get("host"),
-            "auto_proc_program_id": params.get("program_id"),
-            "cluster_job_id": params.get("job_id"),
-            "command": params.get("command"),
-        }
-        labels_string = self._parse_labels_to_string(labels)
-        labels_string_no_ids = self._parse_labels_to_string(
-            labels, ignore=["cluster_job_id", "auto_proc_program_id"]
-        )
-        metrics = ["clusters_current_job_count"]
-        metric_types = ["gauge"]
-        if params.get("num_gpus") is not None:
-            metrics.extend(
-                ["current_gpus_in_use_count", "current_mpi_ranks_in_use_count"]
-            )
-            metric_types.extend(["gauge", "gauge"])
-        optional_gauge_labels = ["num_gpus", "num_mpi_ranks"]
-        if event == "start":
-            metrics.append("clusters_total_job_count")
-            metric_types.append("counter")
-            values = [1]
-            for ogl in optional_gauge_labels:
-                if params.get(ogl) is not None:
-                    values.append(params.get(ogl))
-            values.append(1)
-            for met, met_type, val in zip(metrics, metric_types, values):
-                if met_type == "counter":
-                    ls = labels_string_no_ids
-                else:
-                    ls = labels_string
-                db_parser.insert(
-                    metric=met,
-                    metric_labels=ls,
-                    metric_type=met_type,
-                    metric_value=val,
-                    cluster_id=params.get("job_id"),
-                    auto_proc_program_id=params.get("program_id"),
-                    timestamp=params.get("timestamp"),
-                )
-        elif event == "end":
-            values = [1]
-            for ogl in optional_gauge_labels:
-                if params.get(ogl) is not None:
-                    values.append(-params.get(ogl))
-            for met, met_type, val in zip(metrics, metric_types, values):
-                db_parser.insert(
-                    metric=met,
-                    metric_labels=labels_string,
-                    metric_type=met_type,
-                    metric_value=val,
-                    cluster_id=params.get("job_id"),
-                    auto_proc_program_id=params.get("program_id"),
-                    timestamp=params.get("timestamp"),
-                    cluster_end_timestamp=time.time(),
-                )
 
-    @staticmethod
-    def _parse_labels_to_string(labels, ignore=None):
-        _ignore = ignore or []
-        as_str = ""
-        for k, v in labels.items():
-            if k not in _ignore:
-                as_str += f'{k}="{v}",'
-        return as_str[:-1]
+        metrics = self._metrics(params)
+
+        for m in metrics:
+            m.send_to_db(event, params, db_parser)

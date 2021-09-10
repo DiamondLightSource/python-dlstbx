@@ -77,25 +77,32 @@ class DLSValidation(CommonService):
         if filename.endswith((".h5", ".nxs")):
             if not hdf5_util.is_readable(filename):
                 return fail(f"{filename} is an invalid HDF5 file")
-            errors = [
-                link
-                for link in hdf5_util.find_all_references(filename)
-                if not hdf5_util.is_readable(link)
-            ]
-            if errors:
+            try:
+                errors = [
+                    link
+                    for link in hdf5_util.find_all_references(filename)
+                    if not hdf5_util.is_readable(link)
+                ]
+                if errors:
+                    return fail(
+                        f"HDF5 file {filename} links to invalid file(s) %s"
+                        % ", ".join(errors)
+                    )
+                hdf_18 = [
+                    link
+                    for link, image_count in hdf5_util.find_all_references(
+                        filename
+                    ).items()
+                    if image_count and hdf5_util.is_HDF_1_8_compatible(link)
+                ]
+                if hdf_18:
+                    return fail(
+                        f"HDF5 file {filename} links to HDF5 1.8 format data in %s"
+                        % ", ".join(hdf_18)
+                    )
+            except Exception as e:
                 return fail(
-                    f"HDF5 file {filename} links to invalid file(s) %s"
-                    % ", ".join(errors)
-                )
-            hdf_18 = [
-                link
-                for link, image_count in hdf5_util.find_all_references(filename).items()
-                if image_count and hdf5_util.is_HDF_1_8_compatible(link)
-            ]
-            if hdf_18:
-                return fail(
-                    f"HDF5 file {filename} links to HDF5 1.8 format data in %s"
-                    % ", ".join(hdf_18)
+                    f"Unhandled {type(e).__name__} exception reading {filename}"
                 )
 
         # Create experiment list

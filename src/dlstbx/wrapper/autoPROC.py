@@ -49,9 +49,9 @@ def read_autoproc_xml(xml_file):
             """
             if tree is None:
                 return accum
-            if tree.getchildren():
+            if len(tree):
                 accum[tree.tag] = {}
-                for each in tree.getchildren():
+                for each in tree:
                     result = internal_iter(each, {})
                     if each.tag in accum[tree.tag]:
                         if not isinstance(accum[tree.tag][each.tag], list):

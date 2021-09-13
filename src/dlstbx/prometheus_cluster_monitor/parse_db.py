@@ -170,7 +170,7 @@ class DBParser:
     def _metric_line(db_row, metric_name: str) -> str:
         return f"{metric_name}{{{db_row.metric_labels}}} {db_row.metric_value}\n"
 
-    def prune(self) -> list:
+    def prune(self) -> int:
         one_hour_ago = sqlalchemy.sql.expression.text("NOW() - INTERVAL 1 HOUR")
         with self._sessionmaker() as session:
             records_pruned = (
@@ -179,4 +179,11 @@ class DBParser:
                 .delete(synchronize_session=False)
             )
             session.commit()
-            return records_pruned
+            info_records_pruned = (
+                session.query(ClusterJobInfo)
+                .filter(ClusterJobInfo.end_time < one_hour_ago)
+                .delete(synchronize_session=False)
+            )
+            session.commit()
+            records_pruned += info_records_pruned
+        return records_pruned

@@ -35,15 +35,17 @@ class DBParser:
     def lookup(self, filter_by: Dict[str, Any]):
         with self._sessionmaker() as session:
             query = session.query(PrometheusClusterMonitor).filter(
-                getattr(PrometheusClusterMonitor, col) == val
-                for col, val in filter_by.items()
+                *[
+                    getattr(PrometheusClusterMonitor, col) == val
+                    for col, val in filter_by.items()
+                ]
             )
         return query.all()
 
     def lookup_cluster_info(self, filter_by: Dict[str, Any]):
         with self._sessionmaker() as session:
             query = session.query(ClusterJobInfo).filter(
-                getattr(ClusterJobInfo, col) == val for col, val in filter_by.items()
+                *[getattr(ClusterJobInfo, col) == val for col, val in filter_by.items()]
             )
         return query.all()
 
@@ -68,6 +70,7 @@ class DBParser:
             cluster=cluster,
             cluster_id=cluster_id,
             auto_proc_program_id=appid,
+            start_time=ClusterJobInfo.start_time,
             end_time=end_time,
         )
         with self._sessionmaker() as session:

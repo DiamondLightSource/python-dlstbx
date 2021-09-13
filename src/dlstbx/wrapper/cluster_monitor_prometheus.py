@@ -151,6 +151,7 @@ class Histogram(Metric):
             value_key=value_key,
         )
         self.boundaries = boundaries
+        self.labels.append("le")
 
     def send_to_db(
         self, event: str, params: dict, dbparser: DBParser, **kwargs
@@ -172,7 +173,7 @@ class Histogram(Metric):
             dbparser.insert(
                 metric=self.name,
                 metric_labels=self.parse_labels({**params, "le": b}),
-                metric_type="gauge",
+                metric_type="histogram",
                 metric_value=self.value(event, bin_value, params, **kwargs),
                 cluster_id=params.get("cluster_job_id"),
                 auto_proc_program_id=params.get("auto_proc_program_id"),
@@ -185,7 +186,7 @@ class Histogram(Metric):
         dbparser.insert(
             metric=self.name,
             metric_labels=self.parse_labels({**params, "le": "+Inf"}),
-            metric_type="gauge",
+            metric_type="histogram",
             metric_value=self.value(event, bin_value, params, **kwargs),
             cluster_id=params.get("cluster_job_id"),
             auto_proc_program_id=params.get("auto_proc_program_id"),
@@ -266,18 +267,21 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
 
         metrics = self._metrics(params)
 
-        if params.get("cluster_id") is not None and params.get("cluster") is not None:
+        if (
+            params.get("cluster_job_id") is not None
+            and params.get("cluster") is not None
+        ):
             if event == "start":
                 self.db_parser.insert_cluster_info(
                     params["cluster"],
-                    params["cluster_id"],
+                    params["cluster_job_id"],
                     start_time=params.get("timestamp"),
                     appid=params.get("auto_proc_program_id"),
                 )
             if event == "end":
                 self.db_parser.insert_cluster_info(
                     params["cluster"],
-                    params["cluster_id"],
+                    params["cluster_job_id"],
                     end_time=params.get("timestamp"),
                     appid=params.get("auto_proc_program_id"),
                 )
@@ -291,14 +295,16 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
         cluster_id = kwargs["cluster_job_id"]
         cluster = kwargs["cluster"]
         try:
-            rows = self.db_parser.lookup({"cluster_id": cluster_id, "cluster": cluster})
+            rows = self.db_parser.lookup_cluster_info(
+                {"cluster_id": cluster_id, "cluster": cluster}
+            )
             row = rows[0]
         except IndexError:
             logger.error(
                 f"No cluster jobs found in ClusterJobInfo table for cluster {cluster}, ID {cluster_id}"
             )
             raise
-        start_time = datetime.timestamp(row[0].timestamp)
+        start_time = datetime.timestamp(row.start_time)
         if not start_time:
             return 0
         return value - start_time
@@ -312,7 +318,9 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
             )
             return 0
         try:
-            rows = self.db_parser.lookup({"cluster_id": cluster_id, "cluster": cluster})
+            rows = self.db_parser.lookup_cluster_info(
+                {"cluster_id": cluster_id, "cluster": cluster}
+            )
             row = rows[0]
         except IndexError:
             logger.error(

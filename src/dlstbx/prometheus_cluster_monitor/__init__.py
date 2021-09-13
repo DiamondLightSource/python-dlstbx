@@ -61,3 +61,34 @@ class PrometheusClusterMonitor(_Base):
         comment="Reference to the AutoProcProgram the cluster job is attached to",
         autoincrement=False,
     )
+
+
+class ClusterJobInfo(_Base):
+    __tablename__ = "ClusterJobInfo"
+
+    cluster = Column(
+        String(250),
+        nullable=False,
+        comment="Name of cluster",
+        primary_key=True,
+    )
+    cluster_id = Column(
+        INTEGER(10),
+        primary_key=True,
+        comment="ID of the cluster job",
+        autoincrement=False,
+        nullable=False,
+    )
+    auto_proc_program_id = Column(
+        INTEGER(10),
+        comment="Reference to the AutoProcProgram the cluster job is attached to",
+        autoincrement=False,
+    )
+    start_time = Column(
+        TIMESTAMP,
+        comment="Start time of cluster job",
+    )
+    end_time = Column(
+        TIMESTAMP,
+        comment="End time of cluster job",
+    )

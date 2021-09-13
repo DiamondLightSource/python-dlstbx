@@ -224,7 +224,6 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
                 triggers=["cluster", "cluster_job_id"],
                 value_key="timestamp",
                 behaviour={"end": self._timestamp_diff},
-                other_metric="cluster_current_num_jobs",
             ),
             Gauge(
                 "cluster_current_num_jobs",
@@ -249,11 +248,12 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
                 triggers=["cluster", "cluster_job_id"],
             ),
             Histogram(
-                "cluster_motion_correction_processing_rate",
+                "cluster_motion_correction_time_per_micrograph",
                 [2, 4, 6, 8, 10, 12],
                 labels=image_labels,
                 triggers=["cluster", "cluster_job_id", "num_corrected_micrographs"],
                 value_key="num_corrected_micrographs",
+                behaviour={"info": self._duration_ratio},
             ),
         ]
         return metrics
@@ -266,31 +266,58 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
 
         metrics = self._metrics(params)
 
+        if params.get("cluster_id") is not None and params.get("cluster") is not None:
+            if event == "start":
+                self.db_parser.insert_cluster_info(
+                    params["cluster"],
+                    params["cluster_id"],
+                    start_time=params.get("timestamp"),
+                    appid=params.get("auto_proc_program_id"),
+                )
+            if event == "end":
+                self.db_parser.insert_cluster_info(
+                    params["cluster"],
+                    params["cluster_id"],
+                    end_time=params.get("timestamp"),
+                    appid=params.get("auto_proc_program_id"),
+                )
+
         for m in metrics:
             m.send_to_db(event, params, self.db_parser)
 
         return True
 
     def _timestamp_diff(self, value: float, **kwargs) -> float:
-        other_metric = kwargs["other_metric"]
         cluster_id = kwargs["cluster_job_id"]
-        row = self.db_parser.lookup({"metric": other_metric, "cluster_id": cluster_id})
-        if len(row) != 1:
-            cluster = kwargs["cluster"]
-            correct_cluster = []
-            for r in row:
-                labels = r.metric_labels.split(",")
-                if cluster in [
-                    l.split("=")[1] for l in labels if l.split("=")[0] == "cluster"
-                ]:
-                    correct_cluster.append(r)
-            if len(correct_cluster) != 1:
-                raise ValueError(
-                    f"There should be exactly one database row for metric {other_metric} and cluster job id {cluster_id}"
-                )
-            else:
-                row = correct_cluster
+        cluster = kwargs["cluster"]
+        try:
+            rows = self.db_parser.lookup({"cluster_id": cluster_id, "cluster": cluster})
+            row = rows[0]
+        except IndexError:
+            logger.error(
+                f"No cluster jobs found in ClusterJobInfo table for cluster {cluster}, ID {cluster_id}"
+            )
+            raise
         start_time = datetime.timestamp(row[0].timestamp)
         if not start_time:
             return 0
         return value - start_time
+
+    def _duration_ratio(self, value: float, **kwargs) -> float:
+        cluster_id = kwargs["cluster_job_id"]
+        cluster = kwargs["cluster"]
+        if not value:
+            logger.warning(
+                f"Value passed to duration ratio calculation was {value} for cluster {cluster}, ID {cluster_id}: returning 0."
+            )
+            return 0
+        try:
+            rows = self.db_parser.lookup({"cluster_id": cluster_id, "cluster": cluster})
+            row = rows[0]
+        except IndexError:
+            logger.error(
+                f"No cluster jobs found in ClusterJobInfo table for cluster {cluster}, ID {cluster_id}"
+            )
+            raise
+        duration = datetime.timestamp(row.end_time) - datetime.timestamp(row.start_time)
+        return duration / value

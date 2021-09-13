@@ -1,12 +1,13 @@
 import json
 import pathlib
+import time
 from datetime import datetime
 from typing import Any, Dict, Optional, Union
 
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 
-from dlstbx.prometheus_cluster_monitor import PrometheusClusterMonitor
+from dlstbx.prometheus_cluster_monitor import ClusterJobInfo, PrometheusClusterMonitor
 
 
 class DBParser:
@@ -39,6 +40,41 @@ class DBParser:
             )
         return query.all()
 
+    def lookup_cluster_info(self, filter_by: Dict[str, Any]):
+        with self._sessionmaker() as session:
+            query = session.query(ClusterJobInfo).filter(
+                getattr(ClusterJobInfo, col) == val for col, val in filter_by.items()
+            )
+        return query.all()
+
+    def insert_cluster_info(
+        self,
+        cluster: str,
+        cluster_id: int,
+        appid: Optional[int] = None,
+        start_time: Optional[float] = None,
+        end_time: Optional[float] = None,
+    ) -> None:
+        if start_time is None:
+            start_time = time.time()
+        insert_cmd = insert(ClusterJobInfo).values(
+            cluster=cluster,
+            cluster_id=cluster_id,
+            auto_proc_program_id=appid,
+            start_time=datetime.fromtimestamp(start_time),
+            end_time=end_time,
+        )
+        update = insert_cmd.on_duplicate_key_update(
+            cluster=cluster,
+            cluster_id=cluster_id,
+            auto_proc_program_id=appid,
+            end_time=end_time,
+        )
+        with self._sessionmaker() as session:
+            session.execute(update)
+            session.commit()
+        return
+
     def insert(
         self,
         metric: str,
@@ -50,6 +86,8 @@ class DBParser:
         auto_proc_program_id: Optional[int] = None,
         cluster_end_timestamp: Optional[float] = None,
     ) -> None:
+        if timestamp is None:
+            timestamp = time.time()
         insert_cmd = insert(PrometheusClusterMonitor).values(
             metric=metric,
             cluster_id=cluster_id,

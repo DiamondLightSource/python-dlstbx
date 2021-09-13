@@ -130,6 +130,7 @@ service_list = [
 health_checks = [
     "it.filesystem.gpfs-expulsion = dlstbx.health_checks.graylog:check_gfps_expulsion",
     "it.filesystem.responsiveness = dlstbx.health_checks.graylog:check_filesystem_is_responsive",
+    "services.activemq = dlstbx.health_checks.activemq:check_activemq_health",
     "services.dls.cas = dlstbx.health_checks.network:check_cas",
     "services.dls.epics = dlstbx.health_checks.epics:get_diamond_ring_status",
     "services.dls.gitlab = dlstbx.health_checks.network:check_gitlab",

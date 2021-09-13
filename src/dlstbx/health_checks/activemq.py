@@ -2,6 +2,7 @@ from datetime import datetime
 
 import dlstbx
 import dlstbx.cli.dlq_check
+from dlstbx.cli.get_activemq_statistics import ActiveMQAPI
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 
 
@@ -41,6 +42,7 @@ def check_activemq_dlq(cfc: CheckFunctionInterface):
             Level=level,
             Message=f"{messages} message{'' if messages == 1 else 's'} in {display_name}",
             MessageBody=new_message,
+            URL="http://activemq.diamond.ac.uk/",
         )
 
     for report in db_status:
@@ -53,6 +55,65 @@ def check_activemq_dlq(cfc: CheckFunctionInterface):
                     MessageBody=db_status[report].MessageBody
                     + "\n"
                     + f"Error cleared at {now}",
+                    URL="http://activemq.diamond.ac.uk/",
+                )
+
+    return list(report_updates.values())
+
+
+def check_activemq_health(cfc: CheckFunctionInterface):
+    db_status = cfc.current_status
+    check_prefix = cfc.name + "."
+
+    checks = {
+        check_prefix + "storage.persistent": ("StorePercentUsage", 50),
+        check_prefix + "storage.temporary": ("TempPercentUsage", 50),
+        check_prefix + "storage.memory": ("MemoryPercentUsage", 75),
+        check_prefix + "connections": ("ConnectionsCount", 850),
+        check_prefix + "heap_memory": ("HeapMemoryUsed", 27 * 1024 * 1024 * 1024),
+    }
+    report_updates = {}
+    now = f"{datetime.now():%Y-%m-%d %H:%M:%S}"
+
+    amq = ActiveMQAPI()
+    amq.connect()
+    available_keys = {k[3:].lower(): k for k in dir(amq) if k.startswith("get")}
+    for check in checks:
+        check_key, check_limit = checks[check]
+        check_function = getattr(amq, available_keys[check_key.lower()])
+        value = check_function()
+        if value is None:
+            report_updates[check] = Status(
+                Source=check,
+                Level=REPORT.ERROR,
+                Message="ActiveMQ is running outside normal parameters",
+                MessageBody=f"Could not determine value for {check_key}",
+                URL="http://activemq.diamond.ac.uk/",
+            )
+        elif value > check_limit:
+            report_updates[check] = Status(
+                Source=check,
+                Level=REPORT.ERROR,
+                Message="ActiveMQ is running outside normal parameters",
+                MessageBody=f"{check_key}: {value}, which exceeds warning threshold of {check_limit}",
+                URL="http://activemq.diamond.ac.uk/",
+            )
+
+    for report in db_status:
+        for check in checks:
+            if (
+                check in db_status
+                and check not in report_updates
+                and db_status[check].Level != REPORT.PASS
+            ):
+                report_updates[check] = Status(
+                    Source=check,
+                    Level=REPORT.PASS,
+                    Message="ActiveMQ is running normally",
+                    MessageBody=db_status[report].MessageBody
+                    + "\n"
+                    + f"Error cleared at {now}",
+                    URL="http://activemq.diamond.ac.uk/",
                 )
 
     return list(report_updates.values())

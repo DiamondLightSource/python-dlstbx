@@ -10,7 +10,7 @@ from dlstbx.prometheus_cluster_monitor.parse_db import DBParser
 logger = logging.getLogger("dlstbx.wrap.cluster_monitor")
 
 
-class Counter:
+class Metric:
     def __init__(
         self,
         name: str,
@@ -53,6 +53,13 @@ class Counter:
                 as_str += f'{l}="{params[l]}",'
         return as_str[:-1]
 
+    def send_to_db(self, event: str, params: dict, dbparser: DBParser):
+        raise NotImplementedError(
+            f"No method to insert into database backend for {self}"
+        )
+
+
+class Counter(Metric):
     def send_to_db(self, event: str, params: dict, dbparser: DBParser) -> bool:
         if not self.validate(params):
             return False
@@ -77,7 +84,7 @@ class Counter:
         return True
 
 
-class Gauge(Counter):
+class Gauge(Metric):
     def __init__(
         self,
         name: str,
@@ -120,6 +127,72 @@ class Gauge(Counter):
         return True
 
 
+class Histogram(Metric):
+    def __init__(
+        self,
+        name: str,
+        boundaries: list,
+        labels: Optional[list] = None,
+        triggers: Optional[list] = None,
+        behaviour: Dict[str, Callable] = {
+            "start": lambda x, **kwargs: x,
+        },
+        value_key: Optional[str] = None,
+        event_based_params: Optional[Dict[str, Dict]] = {
+            "end": {"cluster_end_timestamp": time.time()}
+        },
+        **kwargs,
+    ):
+        super().__init__(
+            name,
+            labels=labels,
+            triggers=triggers,
+            behaviour=behaviour,
+            value_key=value_key,
+        )
+        self.boundaries = boundaries
+
+    def send_to_db(
+        self, event: str, params: dict, dbparser: DBParser, **kwargs
+    ) -> bool:
+        if not self.validate(params):
+            return False
+        if self.value_key is None:
+            raise ValueError("Must specify a value key for histogram metric")
+        value = params[self.value_key]
+        if not isinstance(value, (int, float)):
+            raise ValueError("Must specify a numeric value for histogram metric")
+        captured = False
+        for b in self.boundaries:
+            if value < b and not captured:
+                bin_value = value
+                captured = True
+            else:
+                bin_value = 0
+            dbparser.insert(
+                metric=self.name,
+                metric_labels=self.parse_labels({**params, "le": b}),
+                metric_type="gauge",
+                metric_value=self.value(event, bin_value, params, **kwargs),
+                cluster_id=params.get("cluster_job_id"),
+                auto_proc_program_id=params.get("auto_proc_program_id"),
+                timestamp=params.get("timestamp"),
+            )
+        if captured:
+            bin_value = 0
+        else:
+            bin_value = value
+        dbparser.insert(
+            metric=self.name,
+            metric_labels=self.parse_labels({**params, "le": "+Inf"}),
+            metric_type="gauge",
+            metric_value=self.value(event, bin_value, params, **kwargs),
+            cluster_id=params.get("cluster_job_id"),
+            auto_proc_program_id=params.get("auto_proc_program_id"),
+            timestamp=params.get("timestamp"),
+        )
+
+
 class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
     db_parser = DBParser()
 
@@ -135,6 +208,12 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
             "cluster",
             "host_name",
             "command",
+        ]
+        image_labels = [
+            "cluster",
+            "host_name",
+            "command",
+            "num_pixels",
         ]
         metrics = [
             # this must happen before time stamps are updated as it needs to
@@ -168,6 +247,13 @@ class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
                 "cluster_total_num_jobs",
                 labels=standard_counter_labels,
                 triggers=["cluster", "cluster_job_id"],
+            ),
+            Histogram(
+                "cluster_motion_correction_processing_rate",
+                [2, 4, 6, 8, 10, 12],
+                labels=image_labels,
+                triggers=["cluster", "cluster_job_id", "num_corrected_micrographs"],
+                value_key="num_corrected_micrographs",
             ),
         ]
         return metrics

@@ -2,6 +2,7 @@ import errno
 import logging
 import os
 import re
+import time
 from typing import Any, Callable, Dict, NamedTuple
 
 import PIL.Image
@@ -121,6 +122,7 @@ def diffraction(plugin: PluginInterface):
                 raise
     output_small = output[: output.rindex(".")] + ".thumb.jpeg"
 
+    start = time.perf_counter()
     result = procrunner.run(
         [
             "dials.export_bitmaps",
@@ -133,6 +135,7 @@ def diffraction(plugin: PluginInterface):
             'output.file="%s"' % output,
         ]
     )
+    export = time.perf_counter()
     if result.returncode:
         logger.error(
             f"Export of {filename} failed with exitcode {result.returncode}:\n"
@@ -145,8 +148,16 @@ def diffraction(plugin: PluginInterface):
     with PIL.Image.open(output) as fh:
         fh.thumbnail((sizex, sizey))
         fh.save(output_small)
+    done = time.perf_counter()
 
-    logger.info("Created thumbnail %s -> %s -> %s", filename, output, output_small)
+    logger.info(
+        "Created thumbnail %s -> %s (%.1f sec) -> %s (%.1f sec)",
+        filename,
+        output,
+        export - start,
+        output_small,
+        done - export,
+    )
     return [output, output_small]
 
 
@@ -168,9 +179,11 @@ def thumbnail(plugin: PluginInterface):
             filename[: filename.rindex(".")] + "t" + filename[filename.rindex(".") :]
         )
 
+    start = time.perf_counter()
     with PIL.Image.open(filename) as fh:
         fh.thumbnail((sizex, sizey))
         fh.save(output)
+    timing = time.perf_counter() - start
 
-    logger.info("Created thumbnail %s -> %s", filename, output)
+    logger.info("Created thumbnail %s -> %s in %.1f seconds", filename, output, timing)
     return [output]

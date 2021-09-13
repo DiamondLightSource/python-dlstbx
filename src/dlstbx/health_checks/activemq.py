@@ -61,6 +61,17 @@ def check_activemq_dlq(cfc: CheckFunctionInterface):
     return list(report_updates.values())
 
 
+def _format_number(n):
+    if n > 3000000000:
+        return f"{n/1000000000:.1f}G"
+    elif n > 3000000:
+        return f"{n/1000000:.1f}M"
+    elif n > 3000:
+        return f"{n/1000:.1f}K"
+    else:
+        return n
+
+
 def check_activemq_health(cfc: CheckFunctionInterface):
     db_status = cfc.current_status
     check_prefix = cfc.name + "."
@@ -96,7 +107,7 @@ def check_activemq_health(cfc: CheckFunctionInterface):
                 Source=check,
                 Level=REPORT.ERROR,
                 Message="ActiveMQ is running outside normal parameters",
-                MessageBody=f"{check_key}: {value}, which exceeds error threshold of {check_limit}",
+                MessageBody=f"{check_key}: {_format_number(value)}, which exceeds error threshold of {_format_number(check_limit)}",
                 URL="http://activemq.diamond.ac.uk/",
             )
         elif value > check_warning:
@@ -104,7 +115,7 @@ def check_activemq_health(cfc: CheckFunctionInterface):
                 Source=check,
                 Level=REPORT.WARNING,
                 Message="ActiveMQ is running outside normal parameters",
-                MessageBody=f"{check_key}: {value}, which exceeds warning threshold of {check_limit}",
+                MessageBody=f"{check_key}: {_format_number(value)}, which exceeds warning threshold of {_format_number(check_warning)}",
                 URL="http://activemq.diamond.ac.uk/",
             )
 

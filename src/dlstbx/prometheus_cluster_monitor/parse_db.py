@@ -59,19 +59,23 @@ class DBParser:
     ) -> None:
         if start_time is None:
             start_time = time.time()
+        if end_time is None:
+            end = None
+        else:
+            end = datetime.fromtimestamp(end_time)
         insert_cmd = insert(ClusterJobInfo).values(
             cluster=cluster,
             cluster_id=cluster_id,
             auto_proc_program_id=appid,
             start_time=datetime.fromtimestamp(start_time),
-            end_time=end_time,
+            end_time=end,
         )
         update = insert_cmd.on_duplicate_key_update(
             cluster=cluster,
             cluster_id=cluster_id,
             auto_proc_program_id=appid,
             start_time=ClusterJobInfo.start_time,
-            end_time=end_time,
+            end_time=end,
         )
         with self._sessionmaker() as session:
             session.execute(update)

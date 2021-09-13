@@ -119,7 +119,7 @@ def check_activemq_health(cfc: CheckFunctionInterface):
                     Source=check,
                     Level=REPORT.PASS,
                     Message="ActiveMQ is running normally",
-                    MessageBody=db_status[report].MessageBody
+                    MessageBody=(db_status[report].MessageBody or "")
                     + "\n"
                     + f"Error cleared at {now}",
                     URL="http://activemq.diamond.ac.uk/",

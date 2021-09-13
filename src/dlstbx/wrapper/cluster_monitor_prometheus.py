@@ -164,9 +164,12 @@ class Histogram(Metric):
         if not isinstance(value, (int, float)):
             raise ValueError("Must specify a numeric value for histogram metric")
         captured = False
+        value_for_sum = 0
+        metric_value = self.value(event, value, params, **kwargs)
         for b in self.boundaries:
-            if value < b and not captured:
-                bin_value = value
+            if metric_value < b and not captured:
+                value_for_sum = metric_value
+                bin_value = 1
                 captured = True
             else:
                 bin_value = 0
@@ -174,7 +177,7 @@ class Histogram(Metric):
                 metric=self.name,
                 metric_labels=self.parse_labels({**params, "le": b}),
                 metric_type="histogram",
-                metric_value=self.value(event, bin_value, params, **kwargs),
+                metric_value=bin_value,
                 cluster_id=params.get("cluster_job_id"),
                 auto_proc_program_id=params.get("auto_proc_program_id"),
                 timestamp=params.get("timestamp"),
@@ -182,12 +185,31 @@ class Histogram(Metric):
         if captured:
             bin_value = 0
         else:
-            bin_value = value
+            bin_value = 1
+            value_for_sum = metric_value
         dbparser.insert(
             metric=self.name,
             metric_labels=self.parse_labels({**params, "le": "+Inf"}),
             metric_type="histogram",
-            metric_value=self.value(event, bin_value, params, **kwargs),
+            metric_value=bin_value,
+            cluster_id=params.get("cluster_job_id"),
+            auto_proc_program_id=params.get("auto_proc_program_id"),
+            timestamp=params.get("timestamp"),
+        )
+        dbparser.insert(
+            metric=self.name + "_count",
+            metric_labels=self.parse_labels(params),
+            metric_type="histogram",
+            metric_value=1,
+            cluster_id=params.get("cluster_job_id"),
+            auto_proc_program_id=params.get("auto_proc_program_id"),
+            timestamp=params.get("timestamp"),
+        )
+        dbparser.insert(
+            metric=self.name + "_sum",
+            metric_labels=self.parse_labels(params),
+            metric_type="histogram",
+            metric_value=value_for_sum,
             cluster_id=params.get("cluster_job_id"),
             auto_proc_program_id=params.get("auto_proc_program_id"),
             timestamp=params.get("timestamp"),

@@ -154,9 +154,16 @@ class DBParser:
             query = session.query(PrometheusClusterMonitor).all()
         metrics = {}
         for metric_line in query:
-            if metric_line.metric not in metrics.keys():
-                metrics[metric_line.metric] = []
-            metrics[metric_line.metric].append(metric_line)
+            # do this becasue of histograms
+            if metric_line.metric.endswith("_count"):
+                metric_name = metric_line.metric[:-6]
+            elif metric_line.metric.endswith("_sum"):
+                metric_name = metric_line.metric[:-4]
+            else:
+                metric_name = metric_line.metric
+            if metric_name not in metrics.keys():
+                metrics[metric_name] = []
+            metrics[metric_name].append(metric_line)
 
         for m, lines in metrics.items():
             as_text += self._type_line(lines[0].metric_type.name, m)

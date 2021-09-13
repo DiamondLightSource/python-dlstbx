@@ -65,12 +65,13 @@ def check_activemq_health(cfc: CheckFunctionInterface):
     db_status = cfc.current_status
     check_prefix = cfc.name + "."
 
+    GB = 1024 * 1024 * 1024
     checks = {
-        check_prefix + "storage.persistent": ("StorePercentUsage", 50),
-        check_prefix + "storage.temporary": ("TempPercentUsage", 50),
-        check_prefix + "storage.memory": ("MemoryPercentUsage", 75),
-        check_prefix + "connections": ("ConnectionsCount", 850),
-        check_prefix + "heap_memory": ("HeapMemoryUsed", 27 * 1024 * 1024 * 1024),
+        check_prefix + "storage.persistent": ("StorePercentUsage", 25, 50),
+        check_prefix + "storage.temporary": ("TempPercentUsage", 25, 50),
+        check_prefix + "storage.memory": ("MemoryPercentUsage", 50, 75),
+        check_prefix + "connections": ("ConnectionsCount", 650, 850),
+        check_prefix + "heap_memory": ("HeapMemoryUsed", 55 * GB, 59 * GB),
     }
     report_updates = {}
     now = f"{datetime.now():%Y-%m-%d %H:%M:%S}"
@@ -79,7 +80,7 @@ def check_activemq_health(cfc: CheckFunctionInterface):
     amq.connect()
     available_keys = {k[3:].lower(): k for k in dir(amq) if k.startswith("get")}
     for check in checks:
-        check_key, check_limit = checks[check]
+        check_key, check_warning, check_limit = checks[check]
         check_function = getattr(amq, available_keys[check_key.lower()])
         value = check_function()
         if value is None:
@@ -94,6 +95,14 @@ def check_activemq_health(cfc: CheckFunctionInterface):
             report_updates[check] = Status(
                 Source=check,
                 Level=REPORT.ERROR,
+                Message="ActiveMQ is running outside normal parameters",
+                MessageBody=f"{check_key}: {value}, which exceeds error threshold of {check_limit}",
+                URL="http://activemq.diamond.ac.uk/",
+            )
+        elif value > check_warning:
+            report_updates[check] = Status(
+                Source=check,
+                Level=REPORT.WARNING,
                 Message="ActiveMQ is running outside normal parameters",
                 MessageBody=f"{check_key}: {value}, which exceeds warning threshold of {check_limit}",
                 URL="http://activemq.diamond.ac.uk/",

@@ -167,6 +167,10 @@ class MultiplexParameters(pydantic.BaseModel):
     )
 
 
+class AlphaFoldParameters(pydantic.BaseModel):
+    protein_id: int = pydantic.Field(gt=0)
+
+
 class DLSTrigger(CommonService):
     """A service that creates and runs downstream processing jobs."""
 
@@ -1473,15 +1477,16 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobids}
 
+    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     def trigger_alphafold(
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
-        parameter_map: Mapping,
+        parameters: AlphaFoldParameters,
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        protein_id = parameter_map["protein_id"]
+        protein_id = parameters.protein_id
         self.log.debug(f"AlphaFold trigger called for protein_id={protein_id}")
 
         query = session.query(Protein).filter(Protein.proteinId == protein_id)
@@ -1491,6 +1496,7 @@ class DLSTrigger(CommonService):
                 f"AlphaFold triggered for Protein without a sequence (protein_id={protein_id})"
             )
             return False
+
         message = {
             "recipes": ["alphafold"],
             "parameters": {

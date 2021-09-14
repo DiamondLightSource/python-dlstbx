@@ -624,7 +624,7 @@ def test_alphafold(
         {
             "recipes": ["alphafold"],
             "parameters": {
-                "ispyb_protein_id": f"{protein_id}",
+                "ispyb_protein_id": protein_id,
                 "ispyb_protein_sequence": "GIVEQCCASVCSLYQLENYCNFVNQHLCGSHLVEALYLVCGERGFFYTPKA",
                 "ispyb_protein_name": "Test_Insulin",
             },

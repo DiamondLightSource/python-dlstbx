@@ -76,8 +76,6 @@ class Counter(Metric):
             metric_labels=self.parse_labels(params),
             metric_type="counter",
             metric_value=self.value(event, value, params, **self.extra_arguments),
-            cluster_id=params.get("cluster_job_id"),
-            auto_proc_program_id=params.get("auto_proc_program_id"),
             timestamp=params.get("timestamp"),
             **extra_params,
         )
@@ -120,8 +118,6 @@ class Gauge(Metric):
             metric_labels=self.parse_labels(params),
             metric_type="gauge",
             metric_value=self.value(event, value, params, **kwargs),
-            cluster_id=params.get("cluster_job_id"),
-            auto_proc_program_id=params.get("auto_proc_program_id"),
             timestamp=params.get("timestamp"),
         )
         return True
@@ -178,8 +174,6 @@ class Histogram(Metric):
                 metric_labels=self.parse_labels({**params, "le": b}),
                 metric_type="histogram",
                 metric_value=bin_value,
-                cluster_id=params.get("cluster_job_id"),
-                auto_proc_program_id=params.get("auto_proc_program_id"),
                 timestamp=params.get("timestamp"),
             )
         if captured:
@@ -192,8 +186,6 @@ class Histogram(Metric):
             metric_labels=self.parse_labels({**params, "le": "+Inf"}),
             metric_type="histogram",
             metric_value=bin_value,
-            cluster_id=params.get("cluster_job_id"),
-            auto_proc_program_id=params.get("auto_proc_program_id"),
             timestamp=params.get("timestamp"),
         )
         dbparser.insert(
@@ -201,8 +193,6 @@ class Histogram(Metric):
             metric_labels=self.parse_labels(params),
             metric_type="histogram",
             metric_value=1,
-            cluster_id=params.get("cluster_job_id"),
-            auto_proc_program_id=params.get("auto_proc_program_id"),
             timestamp=params.get("timestamp"),
         )
         dbparser.insert(
@@ -210,8 +200,6 @@ class Histogram(Metric):
             metric_labels=self.parse_labels(params),
             metric_type="histogram",
             metric_value=value_for_sum,
-            cluster_id=params.get("cluster_job_id"),
-            auto_proc_program_id=params.get("auto_proc_program_id"),
             timestamp=params.get("timestamp"),
         )
 

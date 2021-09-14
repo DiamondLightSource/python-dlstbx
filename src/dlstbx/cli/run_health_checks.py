@@ -64,11 +64,10 @@ def run():
             if name in options.check
         }
 
-    root_logger = logging.getLogger("dlstbx")
-    root_logger.setLevel(logging.INFO)
     console = ColorStreamHandler()
     console.setLevel(logging.DEBUG if True else logging.INFO)
     logging.getLogger().addHandler(console)
+    logging.getLogger("dlstbx").setLevel(logging.INFO)
     logging.getLogger("ithealth").setLevel(logging.CRITICAL)
 
     try:

@@ -49,18 +49,6 @@ class PrometheusClusterMonitor(_Base):
         TIMESTAMP,
         comment="Time that cluster job finished. Used for pruning",
     )
-    cluster_id = Column(
-        INTEGER(10),
-        primary_key=True,
-        comment="ID of the cluster job",
-        autoincrement=False,
-        nullable=False,
-    )
-    auto_proc_program_id = Column(
-        INTEGER(10),
-        comment="Reference to the AutoProcProgram the cluster job is attached to",
-        autoincrement=False,
-    )
 
 
 class ClusterJobInfo(_Base):

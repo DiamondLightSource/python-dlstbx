@@ -85,32 +85,26 @@ class DBParser:
     def insert(
         self,
         metric: str,
-        cluster_id: int,
         metric_type: str,
         metric_labels: str = "",
         metric_value: Union[int, float] = 0,
         timestamp: Optional[float] = None,
-        auto_proc_program_id: Optional[int] = None,
         cluster_end_timestamp: Optional[float] = None,
     ) -> None:
         if timestamp is None:
             timestamp = time.time()
         insert_cmd = insert(PrometheusClusterMonitor).values(
             metric=metric,
-            cluster_id=cluster_id,
             metric_type=metric_type,
             metric_labels=metric_labels,
             metric_value=metric_value,
             timestamp=datetime.fromtimestamp(timestamp),
-            auto_proc_program_id=auto_proc_program_id,
             cluster_end_timestamp=cluster_end_timestamp,
         )
         update = insert_cmd.on_duplicate_key_update(
-            cluster_id=cluster_id,
             metric_type=metric_type,
             metric_value=PrometheusClusterMonitor.metric_value + metric_value,
             timestamp=datetime.fromtimestamp(timestamp),
-            auto_proc_program_id=auto_proc_program_id,
             cluster_end_timestamp=cluster_end_timestamp,
         )
         with self._sessionmaker() as session:
@@ -121,29 +115,23 @@ class DBParser:
     def reset(
         self,
         metric: str,
-        cluster_id: int,
         metric_type: str,
         metric_labels: str = "",
         timestamp: Optional[float] = None,
-        auto_proc_program_id=None,
         cluster_end_timestamp=None,
     ) -> None:
         insert_cmd = insert(PrometheusClusterMonitor).values(
             metric=metric,
-            cluster_id=cluster_id,
             metric_type=metric_type,
             metric_labels=metric_labels,
             metric_value=0,
             timestamp=datetime.fromtimestamp(timestamp),
-            auto_proc_program_id=auto_proc_program_id,
             cluster_end_timestamp=cluster_end_timestamp,
         )
         update = insert_cmd.on_duplicate_key_update(
-            cluster_id=cluster_id,
             metric_type=metric_type,
             metric_value=0,
             timestamp=datetime.fromtimestamp(timestamp),
-            auto_proc_program_id=auto_proc_program_id,
             cluster_end_timestamp=cluster_end_timestamp,
         )
         with self._sessionmaker() as session:

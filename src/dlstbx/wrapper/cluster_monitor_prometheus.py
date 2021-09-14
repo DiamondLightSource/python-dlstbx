@@ -174,7 +174,7 @@ class Histogram(Metric):
             else:
                 bin_value = 0
             dbparser.insert(
-                metric=self.name,
+                metric=self.name + "_bucket",
                 metric_labels=self.parse_labels({**params, "le": b}),
                 metric_type="histogram",
                 metric_value=bin_value,
@@ -188,7 +188,7 @@ class Histogram(Metric):
             bin_value = 1
             value_for_sum = metric_value
         dbparser.insert(
-            metric=self.name,
+            metric=self.name + "_bucket",
             metric_labels=self.parse_labels({**params, "le": "+Inf"}),
             metric_type="histogram",
             metric_value=bin_value,

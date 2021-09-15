@@ -46,40 +46,29 @@ class Metric:
                 return False
         return True
 
-    def parse_labels(self, params: dict) -> str:
-        as_str = ""
-        for l in self.labels:
-            if params.get(l) is not None:
-                as_str += f'{l}="{params[l]}",'
-        return as_str[:-1]
-
-    def send_to_db(self, event: str, params: dict, dbparser: ZocaloDBInterface):
+    def send_to_db(self, event: str, params: dict):
         raise NotImplementedError(
             f"No method to insert into database backend for {self}"
         )
 
 
 class Counter(Metric):
-    def send_to_db(self, event: str, params: dict, dbparser: ZocaloDBInterface) -> bool:
+    def send_to_db(self, event: str, params: dict) -> dict:
         if not self.validate(params):
-            return False
+            return {}
         if self.value_key is None:
             value = 1
         else:
             value = params[self.value_key]
-        # counter cannot decrease (unless via a reset to 0)
-        if not value or value < 0:
-            return False
-        extra_params = self.event_based_params.get(event, {})
-        dbparser.insert(
-            metric=self.name,
-            metric_labels=self.parse_labels(params),
-            metric_type="counter",
-            metric_value=self.value(event, value, params, **self.extra_arguments),
-            timestamp=params.get("timestamp"),
-            **extra_params,
-        )
-        return True
+        result = {
+            "metric_type": "counter",
+            "metric_name": self.name,
+            "metric_labels": params,
+            "value": self.value(event, value, params, **self.extra_arguments),
+            "timestamp": params.get("timestamp"),
+            "metric_finished": False,
+        }
+        return result
 
 
 class Gauge(Metric):
@@ -102,25 +91,25 @@ class Gauge(Metric):
             value_key=value_key,
         )
 
-    def send_to_db(
-        self, event: str, params: dict, dbparser: ZocaloDBInterface, **kwargs
-    ) -> bool:
+    def send_to_db(self, event: str, params: dict, **kwargs) -> dict:
         if not self.validate(params):
-            return False
+            return {}
         if self.value_key is None:
             value = 1
         else:
             value = params[self.value_key]
         if not value:
-            return False
-        dbparser.insert(
-            metric=self.name,
-            metric_labels=self.parse_labels(params),
-            metric_type="gauge",
-            metric_value=self.value(event, value, params, **kwargs),
-            timestamp=params.get("timestamp"),
-        )
-        return True
+            return {}
+        extra_params = self.event_based_params.get(event, {})
+        result = {
+            "metric_type": "gauge",
+            "metric_name": self.name,
+            "metric_labels": params,
+            "value": self.value(event, value, params, **kwargs),
+            "timestamp": params.get("timestamp"),
+            "metric_finished": bool(extra_params.get("cluster_end_timestamp")),
+        }
+        return result
 
 
 class Histogram(Metric):
@@ -149,59 +138,21 @@ class Histogram(Metric):
         self.boundaries = boundaries
         self.labels.append("le")
 
-    def send_to_db(
-        self, event: str, params: dict, dbparser: ZocaloDBInterface, **kwargs
-    ) -> bool:
+    def send_to_db(self, event: str, params: dict, **kwargs) -> bool:
         if not self.validate(params):
-            return False
+            return {}
         if self.value_key is None:
             raise ValueError("Must specify a value key for histogram metric")
         value = params[self.value_key]
-        if not isinstance(value, (int, float)):
-            raise ValueError("Must specify a numeric value for histogram metric")
-        captured = False
-        value_for_sum = 0
-        metric_value = self.value(event, value, params, **kwargs)
-        for b in self.boundaries:
-            if metric_value < b and not captured:
-                value_for_sum = metric_value
-                bin_value = 1
-                captured = True
-            else:
-                bin_value = 0
-            dbparser.insert(
-                metric=self.name + "_bucket",
-                metric_labels=self.parse_labels({**params, "le": b}),
-                metric_type="histogram",
-                metric_value=bin_value,
-                timestamp=params.get("timestamp"),
-            )
-        if captured:
-            bin_value = 0
-        else:
-            bin_value = 1
-            value_for_sum = metric_value
-        dbparser.insert(
-            metric=self.name + "_bucket",
-            metric_labels=self.parse_labels({**params, "le": "+Inf"}),
-            metric_type="histogram",
-            metric_value=bin_value,
-            timestamp=params.get("timestamp"),
-        )
-        dbparser.insert(
-            metric=self.name + "_count",
-            metric_labels=self.parse_labels(params),
-            metric_type="histogram",
-            metric_value=1,
-            timestamp=params.get("timestamp"),
-        )
-        dbparser.insert(
-            metric=self.name + "_sum",
-            metric_labels=self.parse_labels(params),
-            metric_type="histogram",
-            metric_value=value_for_sum,
-            timestamp=params.get("timestamp"),
-        )
+        result = {
+            "metric_type": "histogram",
+            "metric_name": self.name,
+            "metric_labels": params,
+            "value": self.value(event, value, params, **kwargs),
+            "timestamp": params.get("timestamp"),
+            "metric_finished": False,
+        }
+        return result
 
 
 class RelionPrometheusMetricsWrapper(zocalo.wrapper.BaseWrapper):
@@ -297,7 +248,9 @@ class RelionPrometheusMetricsWrapper(zocalo.wrapper.BaseWrapper):
                 )
 
         for m in metrics:
-            m.send_to_db(event, params, self.db_parser)
+            prom_msg = m.send_to_db(event, params)
+            if prom_msg:
+                self.recwrap.send_to("prometheus", prom_msg)
 
         return True
 

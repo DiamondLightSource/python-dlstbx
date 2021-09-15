@@ -287,7 +287,7 @@ class DLSPromInterface(CommonService):
         if command == "reset":
             self.log.error("reset command is not supported for metric type histogram")
             return False
-        if not params["bins"]:
+        if not params.get("bins"):
             self.log.error(
                 "Bin upper values must be specified for metric type histogram"
             )

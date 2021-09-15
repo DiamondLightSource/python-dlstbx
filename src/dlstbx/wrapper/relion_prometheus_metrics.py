@@ -146,7 +146,6 @@ class Histogram(Metric):
             value_key=value_key,
         )
         self.boundaries = boundaries
-        self.labels.append("le")
 
     def send_to_db(self, event: str, params: dict, **kwargs) -> bool:
         if not self.validate(params):
@@ -163,6 +162,7 @@ class Histogram(Metric):
             "value": self.value(event, value, params, **kwargs),
             "timestamp": params.get("timestamp"),
             "metric_finished": False,
+            "bins": self.boundaries,
         }
         return result
 

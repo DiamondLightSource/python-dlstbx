@@ -1,4 +1,6 @@
 import enum
+import json
+import pathlib
 
 import sqlalchemy.ext.declarative
 from sqlalchemy import TIMESTAMP, Column, String, text
@@ -80,3 +82,22 @@ class ClusterJobInfo(_Base):
         TIMESTAMP,
         comment="End time of cluster job",
     )
+
+
+def get_sessionmaker():
+    try:
+        configuration = pathlib.Path(
+            "/dls_sw/apps/zocalo/secrets/sql-zocalo-profiling.json"
+        ).read_text()
+    except PermissionError:
+        configuration = pathlib.Path(
+            "/dls_sw/apps/zocalo/secrets/sql-zocalo-readonly.json"
+        ).read_text()
+    secret_ingredients = json.loads(configuration)
+    sqlalchemy_url = "mysql+mysqlconnector://{user}:{passwd}@{host}:{port}/{db}".format(
+        **secret_ingredients
+    )
+    _sessionmaker = sqlalchemy.orm.sessionmaker(
+        bind=sqlalchemy.create_engine(sqlalchemy_url, connect_args={"use_pure": True})
+    )
+    return _sessionmaker

@@ -1,15 +1,15 @@
 from flask import Flask
 
-from dlstbx.prometheus_interface_tools import parse_db
+from dlstbx.prometheus_interface_tools import zocalo_database
 
 app = Flask(__name__)
 
-dbparser = parse_db.DBParser()
+dbinterface = zocalo_database.ZocaloDBInterface()
 
 
 @app.route("/metrics", methods=["GET"])
 def create_prometheus_text():
-    return dbparser.text
+    return dbinterface.prom_text
 
 
 def run():

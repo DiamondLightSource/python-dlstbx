@@ -1,46 +1,20 @@
-import json
-import pathlib
 import time
 from datetime import datetime
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 
-from dlstbx.prometheus_interface_tools import ClusterJobInfo, PrometheusInterface
+from dlstbx.prometheus_interface_tools import (
+    ClusterJobInfo,
+    PrometheusInterface,
+    get_sessionmaker,
+)
 
 
-class DBParser:
+class ZocaloDBInterface:
     def __init__(self):
-        try:
-            configuration = pathlib.Path(
-                "/dls_sw/apps/zocalo/secrets/sql-zocalo-profiling.json"
-            ).read_text()
-        except PermissionError:
-            configuration = pathlib.Path(
-                "/dls_sw/apps/zocalo/secrets/sql-zocalo-readonly.json"
-            ).read_text()
-        secret_ingredients = json.loads(configuration)
-        sqlalchemy_url = (
-            "mysql+mysqlconnector://{user}:{passwd}@{host}:{port}/{db}".format(
-                **secret_ingredients
-            )
-        )
-        self._sessionmaker = sqlalchemy.orm.sessionmaker(
-            bind=sqlalchemy.create_engine(
-                sqlalchemy_url, connect_args={"use_pure": True}
-            )
-        )
-
-    def lookup(self, filter_by: Dict[str, Any]):
-        with self._sessionmaker() as session:
-            query = session.query(PrometheusInterface).filter(
-                *[
-                    getattr(PrometheusInterface, col) == val
-                    for col, val in filter_by.items()
-                ]
-            )
-        return query.all()
+        self._sessionmaker = get_sessionmaker()
 
     def lookup_cluster_info(self, filter_by: Dict[str, Any]):
         with self._sessionmaker() as session:
@@ -82,65 +56,8 @@ class DBParser:
             session.commit()
         return
 
-    def insert(
-        self,
-        metric: str,
-        metric_type: str,
-        metric_labels: str = "",
-        metric_value: Union[int, float] = 0,
-        timestamp: Optional[float] = None,
-        cluster_end_timestamp: Optional[float] = None,
-    ) -> None:
-        if timestamp is None:
-            timestamp = time.time()
-        insert_cmd = insert(PrometheusInterface).values(
-            metric=metric,
-            metric_type=metric_type,
-            metric_labels=metric_labels,
-            metric_value=metric_value,
-            timestamp=datetime.fromtimestamp(timestamp),
-            cluster_end_timestamp=cluster_end_timestamp,
-        )
-        update = insert_cmd.on_duplicate_key_update(
-            metric_type=metric_type,
-            metric_value=PrometheusInterface.metric_value + metric_value,
-            timestamp=datetime.fromtimestamp(timestamp),
-            cluster_end_timestamp=cluster_end_timestamp,
-        )
-        with self._sessionmaker() as session:
-            session.execute(update)
-            session.commit()
-        return
-
-    def reset(
-        self,
-        metric: str,
-        metric_type: str,
-        metric_labels: str = "",
-        timestamp: Optional[float] = None,
-        cluster_end_timestamp=None,
-    ) -> None:
-        insert_cmd = insert(PrometheusInterface).values(
-            metric=metric,
-            metric_type=metric_type,
-            metric_labels=metric_labels,
-            metric_value=0,
-            timestamp=datetime.fromtimestamp(timestamp),
-            cluster_end_timestamp=cluster_end_timestamp,
-        )
-        update = insert_cmd.on_duplicate_key_update(
-            metric_type=metric_type,
-            metric_value=0,
-            timestamp=datetime.fromtimestamp(timestamp),
-            cluster_end_timestamp=cluster_end_timestamp,
-        )
-        with self._sessionmaker() as session:
-            session.execute(update)
-            session.commit()
-        return
-
     @property
-    def text(self) -> str:
+    def prom_text(self) -> str:
         as_text = ""
         with self._sessionmaker() as session:
             query = session.query(PrometheusInterface).all()

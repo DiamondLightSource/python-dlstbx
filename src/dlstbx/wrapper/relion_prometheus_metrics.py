@@ -5,7 +5,7 @@ from typing import Callable, Dict, Optional, Union
 
 import zocalo.wrapper
 
-from dlstbx.prometheus_interface_tools.parse_db import DBParser
+from dlstbx.prometheus_interface_tools.zocalo_database import ZocaloDBInterface
 
 logger = logging.getLogger("dlstbx.wrap.relion_prometheus_metrics")
 
@@ -53,14 +53,14 @@ class Metric:
                 as_str += f'{l}="{params[l]}",'
         return as_str[:-1]
 
-    def send_to_db(self, event: str, params: dict, dbparser: DBParser):
+    def send_to_db(self, event: str, params: dict, dbparser: ZocaloDBInterface):
         raise NotImplementedError(
             f"No method to insert into database backend for {self}"
         )
 
 
 class Counter(Metric):
-    def send_to_db(self, event: str, params: dict, dbparser: DBParser) -> bool:
+    def send_to_db(self, event: str, params: dict, dbparser: ZocaloDBInterface) -> bool:
         if not self.validate(params):
             return False
         if self.value_key is None:
@@ -103,7 +103,7 @@ class Gauge(Metric):
         )
 
     def send_to_db(
-        self, event: str, params: dict, dbparser: DBParser, **kwargs
+        self, event: str, params: dict, dbparser: ZocaloDBInterface, **kwargs
     ) -> bool:
         if not self.validate(params):
             return False
@@ -150,7 +150,7 @@ class Histogram(Metric):
         self.labels.append("le")
 
     def send_to_db(
-        self, event: str, params: dict, dbparser: DBParser, **kwargs
+        self, event: str, params: dict, dbparser: ZocaloDBInterface, **kwargs
     ) -> bool:
         if not self.validate(params):
             return False
@@ -205,7 +205,7 @@ class Histogram(Metric):
 
 
 class RelionPrometheusMetricsWrapper(zocalo.wrapper.BaseWrapper):
-    db_parser = DBParser()
+    db_parser = ZocaloDBInterface()
 
     def _metrics(self, params: dict) -> list:
         standard_gauge_labels = [

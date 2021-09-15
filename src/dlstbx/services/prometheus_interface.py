@@ -9,7 +9,7 @@ import workflows
 from sqlalchemy.dialects.mysql import insert
 from workflows.services.common_service import CommonService
 
-from dlstbx.prometheus_cluster_monitor import PrometheusClusterMonitor
+from dlstbx.prometheus_interface_tools import PrometheusClusterMonitor
 
 
 class DLSPromInterface(CommonService):

@@ -5,7 +5,7 @@ from typing import Callable, Dict, Optional, Union
 
 import zocalo.wrapper
 
-from dlstbx.prometheus_cluster_monitor.parse_db import DBParser
+from dlstbx.prometheus_interface_tools.parse_db import DBParser
 
 logger = logging.getLogger("dlstbx.wrap.cluster_monitor")
 

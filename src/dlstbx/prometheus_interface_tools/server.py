@@ -1,6 +1,6 @@
 from flask import Flask
 
-from dlstbx.prometheus_cluster_monitor import parse_db
+from dlstbx.prometheus_interface_tools import parse_db
 
 app = Flask(__name__)
 

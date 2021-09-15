@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, Union
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 
-from dlstbx.prometheus_cluster_monitor import ClusterJobInfo, PrometheusClusterMonitor
+from dlstbx.prometheus_interface_tools import ClusterJobInfo, PrometheusClusterMonitor
 
 
 class DBParser:

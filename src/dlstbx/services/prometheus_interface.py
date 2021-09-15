@@ -198,7 +198,7 @@ class DLSPromInterface(CommonService):
                 captured = True
             else:
                 bin_value = 0
-            labelstring = self._labelstring({**labels, "le": ul})
+            labelstring = self._parse_labels({**labels, "le": ul})
             self._update_simple(
                 "histogram",
                 name + "_bucket",

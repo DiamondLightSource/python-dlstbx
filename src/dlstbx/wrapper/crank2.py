@@ -21,6 +21,13 @@ from dlstbx.util.symlink import create_parent_symlink
 
 logger = logging.getLogger("dlstbx.wrap.crank2")
 
+clean_environment = {
+    "LD_LIBRARY_PATH": "",
+    "LOADEDMODULES": "",
+    "PYTHONPATH": "",
+    "_LMFILES_": "",
+}
+
 
 class Crank2Wrapper(zocalo.wrapper.BaseWrapper):
     def setup_pointless_jobs(self, working_directory):
@@ -149,6 +156,7 @@ class Crank2Wrapper(zocalo.wrapper.BaseWrapper):
             ["sh", crank2_script],
             timeout=params.get("timeout"),
             working_directory=self.msg._wd,
+            environment_override=clean_environment,
         )
         logger.info("command: %s", " ".join(result["command"]))
         logger.info("runtime: %s", result["runtime"])

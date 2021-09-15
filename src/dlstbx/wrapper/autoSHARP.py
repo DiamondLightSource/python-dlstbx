@@ -23,6 +23,13 @@ from dlstbx.util.symlink import create_parent_symlink
 
 logger = logging.getLogger("dlstbx.wrap.autoSHARP")
 
+clean_environment = {
+    "LD_LIBRARY_PATH": "",
+    "LOADEDMODULES": "",
+    "PYTHONPATH": "",
+    "_LMFILES_": "",
+}
+
 
 class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
     def setup_autosharp_jobs(self, working_directory, results_directory):
@@ -138,6 +145,7 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
             ["sh", autosharp_script.strpath],
             timeout=params.get("timeout"),
             working_directory=working_directory,
+            environment_override=clean_environment,
         )
         logger.info("command: %s", " ".join(result["command"]))
         logger.info("runtime: %s", result["runtime"])

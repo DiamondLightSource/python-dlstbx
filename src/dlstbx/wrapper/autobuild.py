@@ -22,6 +22,13 @@ from dlstbx.util.symlink import create_parent_symlink
 
 logger = logging.getLogger("dlstbx.wrap.autobuild")
 
+clean_environment = {
+    "LD_LIBRARY_PATH": "",
+    "LOADEDMODULES": "",
+    "PYTHONPATH": "",
+    "_LMFILES_": "",
+}
+
 
 class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
     def setup_autosol_jobs(self, working_directory, results_directory):
@@ -131,6 +138,7 @@ class AutoBuildWrapper(zocalo.wrapper.BaseWrapper):
             ["sh", autobuild_script],
             timeout=params.get("timeout"),
             working_directory=self.msg._wd,
+            environment_override=clean_environment,
         )
         logger.info("command: %s", " ".join(result["command"]))
         logger.info("runtime: %s", result["runtime"])

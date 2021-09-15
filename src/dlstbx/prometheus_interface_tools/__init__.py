@@ -17,8 +17,8 @@ class TypeEnum(enum.Enum):
     summary = 4
 
 
-class PrometheusClusterMonitor(_Base):
-    __tablename__ = "PrometheusClusterMonitor"
+class PrometheusInterface(_Base):
+    __tablename__ = "PrometheusInterface"
 
     metric = Column(
         String(250),

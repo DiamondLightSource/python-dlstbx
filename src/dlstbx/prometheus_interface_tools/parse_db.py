@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, Union
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 
-from dlstbx.prometheus_interface_tools import ClusterJobInfo, PrometheusClusterMonitor
+from dlstbx.prometheus_interface_tools import ClusterJobInfo, PrometheusInterface
 
 
 class DBParser:
@@ -34,9 +34,9 @@ class DBParser:
 
     def lookup(self, filter_by: Dict[str, Any]):
         with self._sessionmaker() as session:
-            query = session.query(PrometheusClusterMonitor).filter(
+            query = session.query(PrometheusInterface).filter(
                 *[
-                    getattr(PrometheusClusterMonitor, col) == val
+                    getattr(PrometheusInterface, col) == val
                     for col, val in filter_by.items()
                 ]
             )
@@ -93,7 +93,7 @@ class DBParser:
     ) -> None:
         if timestamp is None:
             timestamp = time.time()
-        insert_cmd = insert(PrometheusClusterMonitor).values(
+        insert_cmd = insert(PrometheusInterface).values(
             metric=metric,
             metric_type=metric_type,
             metric_labels=metric_labels,
@@ -103,7 +103,7 @@ class DBParser:
         )
         update = insert_cmd.on_duplicate_key_update(
             metric_type=metric_type,
-            metric_value=PrometheusClusterMonitor.metric_value + metric_value,
+            metric_value=PrometheusInterface.metric_value + metric_value,
             timestamp=datetime.fromtimestamp(timestamp),
             cluster_end_timestamp=cluster_end_timestamp,
         )
@@ -120,7 +120,7 @@ class DBParser:
         timestamp: Optional[float] = None,
         cluster_end_timestamp=None,
     ) -> None:
-        insert_cmd = insert(PrometheusClusterMonitor).values(
+        insert_cmd = insert(PrometheusInterface).values(
             metric=metric,
             metric_type=metric_type,
             metric_labels=metric_labels,
@@ -143,7 +143,7 @@ class DBParser:
     def text(self) -> str:
         as_text = ""
         with self._sessionmaker() as session:
-            query = session.query(PrometheusClusterMonitor).all()
+            query = session.query(PrometheusInterface).all()
         metrics = {}
         for metric_line in query:
             # do this becasue of histograms
@@ -176,8 +176,8 @@ class DBParser:
         one_hour_ago = sqlalchemy.sql.expression.text("NOW() - INTERVAL 1 HOUR")
         with self._sessionmaker() as session:
             records_pruned = (
-                session.query(PrometheusClusterMonitor)
-                .filter(PrometheusClusterMonitor.cluster_end_timestamp < one_hour_ago)
+                session.query(PrometheusInterface)
+                .filter(PrometheusInterface.cluster_end_timestamp < one_hour_ago)
                 .delete(synchronize_session=False)
             )
             session.commit()

@@ -9,7 +9,7 @@ import workflows
 from sqlalchemy.dialects.mysql import insert
 from workflows.services.common_service import CommonService
 
-from dlstbx.prometheus_interface_tools import PrometheusClusterMonitor
+from dlstbx.prometheus_interface_tools import PrometheusInterface
 
 
 class DLSPromInterface(CommonService):
@@ -127,7 +127,7 @@ class DLSPromInterface(CommonService):
             cluster_end_timestamp = None
         else:
             cluster_end_timestamp = datetime.fromtimestamp(time.time())
-        insert_cmd = insert(PrometheusClusterMonitor).values(
+        insert_cmd = insert(PrometheusInterface).values(
             metric=name,
             metric_type=mtype,
             metric_labels=labels,
@@ -183,7 +183,7 @@ class DLSPromInterface(CommonService):
             cluster_end_timestamp = None
         else:
             cluster_end_timestamp = datetime.fromtimestamp(time.time())
-        insert_cmd = insert(PrometheusClusterMonitor).values(
+        insert_cmd = insert(PrometheusInterface).values(
             metric=name,
             metric_type=mtype,
             metric_labels=labels,
@@ -193,7 +193,7 @@ class DLSPromInterface(CommonService):
         )
         update = insert_cmd.on_duplicate_key_update(
             metric_type=mtype,
-            metric_value=PrometheusClusterMonitor.metric_value + value,
+            metric_value=PrometheusInterface.metric_value + value,
             timestamp=datetime.fromtimestamp(timestamp),
             cluster_end_timestamp=cluster_end_timestamp,
         )

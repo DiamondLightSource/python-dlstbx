@@ -62,6 +62,8 @@ class Counter(Metric):
     def send_to_db(self, event: str, params: dict) -> dict:
         if not self.validate(params):
             return {}
+        if event not in self.behaviour.keys():
+            return {}
         if self.value_key is None:
             value = 1
         else:
@@ -99,6 +101,8 @@ class Gauge(Metric):
 
     def send_to_db(self, event: str, params: dict, **kwargs) -> dict:
         if not self.validate(params):
+            return {}
+        if event not in self.behaviour.keys():
             return {}
         if self.value_key is None:
             value = 1
@@ -146,6 +150,8 @@ class Histogram(Metric):
 
     def send_to_db(self, event: str, params: dict, **kwargs) -> bool:
         if not self.validate(params):
+            return {}
+        if event not in self.behaviour.keys():
             return {}
         if self.value_key is None:
             raise ValueError("Must specify a value key for histogram metric")

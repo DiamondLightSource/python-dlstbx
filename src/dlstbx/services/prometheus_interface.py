@@ -92,6 +92,7 @@ class DLSPromInterface(CommonService):
                 metric_type,
                 params,
             )
+        rw.transport.ack(header)
 
     def _reset(
         self,

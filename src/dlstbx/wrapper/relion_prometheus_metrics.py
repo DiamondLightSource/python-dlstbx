@@ -33,6 +33,12 @@ class Metric:
         self.value_key = value_key
         self.extra_arguments = kwargs
 
+    def _label_filter(self, params: dict) -> dict:
+        filtered = {}
+        for l in self.labels:
+            filtered[l] = params[l]
+        return filtered
+
     def value(
         self, event: str, value: Union[int, float], params: dict, **kwargs
     ) -> Union[int, float]:
@@ -63,7 +69,7 @@ class Counter(Metric):
         result = {
             "metric_type": "counter",
             "metric_name": self.name,
-            "metric_labels": params,
+            "metric_labels": self._label_filter(params),
             "value": self.value(event, value, params, **self.extra_arguments),
             "timestamp": params.get("timestamp"),
             "metric_finished": False,
@@ -104,7 +110,7 @@ class Gauge(Metric):
         result = {
             "metric_type": "gauge",
             "metric_name": self.name,
-            "metric_labels": params,
+            "metric_labels": self._label_filter(params),
             "value": self.value(event, value, params, **kwargs),
             "timestamp": params.get("timestamp"),
             "metric_finished": bool(extra_params.get("cluster_end_timestamp")),
@@ -147,7 +153,7 @@ class Histogram(Metric):
         result = {
             "metric_type": "histogram",
             "metric_name": self.name,
-            "metric_labels": params,
+            "metric_labels": self._label_filter(params),
             "value": self.value(event, value, params, **kwargs),
             "timestamp": params.get("timestamp"),
             "metric_finished": False,

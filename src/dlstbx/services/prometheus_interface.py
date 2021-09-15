@@ -1,15 +1,12 @@
 import datetime
-import json
-import pathlib
 import time
 from typing import Optional, Union
 
-import sqlalchemy
 import workflows
 from sqlalchemy.dialects.mysql import insert
 from workflows.services.common_service import CommonService
 
-from dlstbx.prometheus_interface_tools import PrometheusInterface
+from dlstbx.prometheus_interface_tools import PrometheusInterface, get_sessionmaker
 
 
 class DLSPromInterface(CommonService):
@@ -22,26 +19,8 @@ class DLSPromInterface(CommonService):
     _logger_name = "dlstbx.services.prometheus_interface"
 
     def initializing(self) -> None:
-        try:
-            configuration = pathlib.Path(
-                "/dls_sw/apps/zocalo/secrets/sql-zocalo-profiling.json"
-            ).read_text()
-        except PermissionError:
-            configuration = pathlib.Path(
-                "/dls_sw/apps/zocalo/secrets/sql-zocalo-readonly.json"
-            ).read_text()
-        secret_ingredients = json.loads(configuration)
-        sqlalchemy_url = (
-            "mysql+mysqlconnector://{user}:{passwd}@{host}:{port}/{db}".format(
-                **secret_ingredients
-            )
-        )
-        self._sessionmaker = sqlalchemy.orm.sessionmaker(
-            bind=sqlalchemy.create_engine(
-                sqlalchemy_url, connect_args={"use_pure": True}
-            )
-        )
-        self.log.debug("Prometheus interface starting")
+        self.log.info("Prometheus interface starting")
+        self._sessionmaker = get_sessionmaker()
         workflows.recipe.wrap_subscribe(
             self._transport,
             "prom_interface",
@@ -80,19 +59,21 @@ class DLSPromInterface(CommonService):
             rw.send = rw.dummy
             message = message["content"]
 
-        command = rw.recipe_step["parameters"].get("command")
+        params = {**rw.recipe_step["parameters"], **message}
+
+        command = params.get("command")
         if command not in ["update", "reset"]:
             self.log.error(
                 f"Received message does not contain a valid command, options are update or reset: {command}"
             )
             rw.transport.nack(header)
             return None
-        metric_type = rw.recipe_step["parameters"].get("metric_type")
+        metric_type = params.get("metric_type")
         if metric_type not in ["counter", "gauge", "histogram"]:
             self.log.error(f"Received metric type is not valid: {metric_type}")
             rw.transport.nack(header)
             return None
-        validated = self._validate(metric_type, command, rw.recipe_step["parameters"])
+        validated = self._validate(metric_type, command, params)
         if not validated:
             self.log.error("Validation of message failed")
             rw.transport.nack(header)
@@ -100,18 +81,16 @@ class DLSPromInterface(CommonService):
         if command == "reset":
             self._reset(
                 metric_type,
-                rw.recipe_step["parameters"]["metric_name"],
-                self._parse_labels(
-                    rw.recipe_step["parameters"].get("metric_labels", {})
-                ),
-                rw.recipe_step["parameters"]["value"],
-                rw.recipe_step["parameters"].get("timestamp"),
-                rw.recipe_step["parameters"].get("metric_finished"),
+                params["metric_name"],
+                self._parse_labels(params.get("metric_labels", {})),
+                params["value"],
+                params.get("timestamp"),
+                params.get("metric_finished"),
             )
         elif command == "update":
             self._update(
                 metric_type,
-                rw.recipe_step["parameters"],
+                params,
             )
 
     def _reset(

@@ -143,7 +143,7 @@ class DLSPromInterface(CommonService):
         elif mtype == "histogram":
             self._update_hist(
                 params["metric_name"],
-                self._parse_labels(params.get("metric_labels", {})),
+                params.get("metric_labels", {}),
                 params["value"],
                 tstamp,
                 endtstamp,

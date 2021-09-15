@@ -7,7 +7,7 @@ import zocalo.wrapper
 
 from dlstbx.prometheus_interface_tools.parse_db import DBParser
 
-logger = logging.getLogger("dlstbx.wrap.cluster_monitor")
+logger = logging.getLogger("dlstbx.wrap.relion_prometheus_metrics")
 
 
 class Metric:
@@ -204,7 +204,7 @@ class Histogram(Metric):
         )
 
 
-class ClusterMonitorPrometheusWrapper(zocalo.wrapper.BaseWrapper):
+class RelionPrometheusMetricsWrapper(zocalo.wrapper.BaseWrapper):
     db_parser = DBParser()
 
     def _metrics(self, params: dict) -> list:

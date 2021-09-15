@@ -52,10 +52,11 @@ def get_bigep_parameters(big_ep_params, working_directory, logger):
     try:
         msg_default["spacegroup"] = big_ep_params["spacegroup"]
     except KeyError:
-        mtz_obj = mtz.object(msg_default["hklin"])
-        msg_default["spacegroup"] = (
-            mtz_obj.space_group().type().lookup_symbol().replace(" ", "")
-        )
+        if not msg_default.get("spacegroup"):
+            mtz_obj = mtz.object(msg_default["hklin"])
+            msg_default["spacegroup"] = (
+                mtz_obj.space_group().type().lookup_symbol().replace(" ", "")
+            )
     try:
         msg_default["nsites"] = big_ep_params["nsites"]
     except KeyError:

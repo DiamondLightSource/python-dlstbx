@@ -1,5 +1,7 @@
 import ispyb
-from ispyb.sqlalchemy import MotionCorrection
+import sqlalchemy.exc
+import sqlalchemy.orm
+from ispyb.sqlalchemy import MotionCorrection, RelativeIceThickness
 
 
 class EM_Mixin:
@@ -82,6 +84,37 @@ class EM_Mixin:
             self.log.info(f"Created CTF record {result} for DCID {dcid}")
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting CTF entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+            return False
+
+    def do_insert_relative_ice_thickness(
+        self, parameters, session, message=None, **kwargs
+    ):
+        if message is None:
+            message = {}
+        dcid = parameters("dcid")
+        self.log.info(f"Inserting Relative Ice Thickness parameters. DCID: {dcid}")
+
+        def full_parameters(param):
+            return message.get(param) or parameters(param)
+
+        try:
+            values = RelativeIceThickness(
+                motionCorrectionId=full_parameters("motion_correction_id"),
+                autoProcProgramId=full_parameters("program_id"),
+                minimum=full_parameters("minimum"),
+                q1=full_parameters("q1"),
+                median=full_parameters("median"),
+                q3=full_parameters("q3"),
+                maximum=full_parameters("maximum"),
+            )
+            session.add(values)
+            session.commit()
+        except sqlalchemy.exc.SQLAlchemyError as e:
             self.log.error(
                 "Inserting CTF entry caused exception '%s'.",
                 e,

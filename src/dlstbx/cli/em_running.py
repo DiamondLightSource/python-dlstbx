@@ -50,7 +50,18 @@ def run():
 
     with ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg") as i:
         if args.microscope is None:
-            beamlines = ["m02", "m03", "m04", "m05", "m06", "m07", "m08", "m11", "m12"]
+            beamlines = [
+                "m02",
+                "m03",
+                "m04",
+                "m05",
+                "m06",
+                "m07",
+                "m08",
+                "m10",
+                "m11",
+                "m12",
+            ]
         else:
             beamlines = [args.microscope]
 

@@ -226,17 +226,7 @@ class EM_Mixin:
             )
             return False
 
-    def do_insert_particle_picker(self, parameters, **kwargs):
-        # We don't yet have a way of inserting information from this message
-
-        appid = parameters("program_id")
-        dcid = parameters("dcid")
-        self.log.info(
-            f"Would insert particle picker parameters. AutoProcProgramID: {appid}, DCID: {dcid}"
-        )
-        return {"success": True, "return_value": None}
-
-    def do_insert_particle_picker_buffer(self, parameters, message=None, **kwargs):
+    def do_insert_particle_picker(self, parameters, message=None, **kwargs):
         if message is None:
             message = {}
         dcid = parameters("dcid")
@@ -264,6 +254,9 @@ class EM_Mixin:
                 exc_info=True,
             )
             return False
+
+    do_insert_particle_picker_buffer = do_insert_particle_picker
+    # Deprecated 2021-09-20
 
     def do_insert_class2d(self, parameters, **kwargs):
         # This gives some output we can read from; ISPyB doesn't have fields for Class 2D yet

@@ -190,12 +190,9 @@ class DLSPromInterface(CommonService):
         finished: Optional[bool],
         bins: list,
     ) -> None:
-        captured = False
         for ul in bins:
-            if value < ul and not captured:
-                value_for_sum = value
+            if value < ul:
                 bin_value = 1
-                captured = True
             else:
                 bin_value = 0
             labelstring = self._parse_labels({**labels, "le": ul})
@@ -207,16 +204,11 @@ class DLSPromInterface(CommonService):
                 timestamp,
                 finished,
             )
-        if captured:
-            bin_value = 0
-        else:
-            bin_value = 1
-            value_for_sum = value
         self._update_simple(
             "histogram",
             name + "_bucket",
             self._parse_labels({**labels, "le": "+Inf"}),
-            bin_value,
+            1,
             timestamp,
             finished,
         )
@@ -232,7 +224,7 @@ class DLSPromInterface(CommonService):
             "histogram",
             name + "_sum",
             self._parse_labels(labels),
-            value_for_sum,
+            value,
             timestamp,
             finished,
         )

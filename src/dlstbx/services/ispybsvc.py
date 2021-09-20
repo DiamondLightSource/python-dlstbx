@@ -986,6 +986,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             step,
             command,
             len(commands) - 1,
+            extra={"ispyb-message-parts": len(commands)} if step == 1 else {},
         )
 
         # Create a parameter lookup function specific to this step of the

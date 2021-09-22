@@ -4,7 +4,7 @@ import sys
 import urllib
 from optparse import SUPPRESS_HELP, OptionParser
 
-import zocalo
+import zocalo.configuration
 
 import dlstbx.util.jmxstats
 

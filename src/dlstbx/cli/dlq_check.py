@@ -1,5 +1,10 @@
+import base64
+import json
 import sys
+import urllib
 from optparse import SUPPRESS_HELP, OptionParser
+
+import zocalo
 
 import dlstbx.util.jmxstats
 
@@ -44,6 +49,27 @@ def check_dlq(namespace=None):
     return queuedata
 
 
+def check_dlq_rabbitmq(namespace=None):
+    zc = zocalo.configuration.from_file()
+    zc.activate_environment("live")
+    url = zc.rabbitmqapi["base_url"]
+    request = urllib.request.Request(f"{url}/queues", method="GET")
+    authstring = base64.b64encode(
+        f"{zc.rabbitmqapi['username']}:{zc.rabbitmqapi['password']}".encode()
+    ).decode()
+    request.add_header("Authorization", f"Basic {authstring}")
+    request.add_header("Content-Type", "application/json")
+    with urllib.request.urlopen(request) as response:
+        reply = response.read()
+    queue_info = json.loads(reply)
+    dlq_info = {}
+    for q in queue_info:
+        if q["name"].startswith("dlq."):
+            if namespace is None or q["vhost"] == namespace:
+                dlq_info[q["name"]] = int(q["messages"])
+    return dlq_info
+
+
 def run():
     parser = OptionParser(usage="dlstbx.dlq_check [options]")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
@@ -54,11 +80,23 @@ def run():
         default="",
         help="Restrict check to this namespace",
     )
+    parser.add_option(
+        "-r",
+        "--rabbitmq",
+        dest="rabbit",
+        action="store_true",
+        help="Check rabbitmq dead letter queues",
+    )
     (options, args) = parser.parse_args()
 
-    dlqs = check_dlq(namespace=options.namespace)
-    for queue, count in dlqs.items():
-        print("DLQ for %s contains %d entries" % (queue.replace("DLQ.", ""), count))
+    if not options.rabbit:
+        dlqs = check_dlq(namespace=options.namespace)
+        for queue, count in dlqs.items():
+            print("DLQ for %s contains %d entries" % (queue.replace("DLQ.", ""), count))
+    else:
+        dlqs = check_dlq_rabbitmq(namespace=options.namespace)
+        for queue, count in dlqs.items():
+            print("DLQ for %s contains %d entries" % (queue.replace("dlq.", ""), count))
     total = sum(dlqs.values())
     if total:
         print("Total of %d DLQ messages found" % total)

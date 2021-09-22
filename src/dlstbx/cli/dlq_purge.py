@@ -14,10 +14,22 @@ import sys
 import time
 from optparse import SUPPRESS_HELP, OptionParser
 
-from workflows.transport.stomp_transport import StompTransport
+import workflows
+import zocalo.configuration
+
+# from workflows.transport.stomp_transport import StompTransport
 
 
 def run():
+    zc = zocalo.configuration.from_file()
+    zc.activate()
+    default_transport = workflows.transport.default_transport
+    if (
+        zc.storage
+        and zc.storage.get("zocalo.default_transport")
+        in workflows.transport.get_known_transports()
+    ):
+        default_transport = zc.storage["zocalo.default_transport"]
     parser = OptionParser(usage="dlstbx.dlq_purge [options] [queue [queue ...]]")
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
@@ -27,10 +39,8 @@ def run():
         dest="test",
         help="Run in ActiveMQ testing (zocdev) namespace",
     )
-    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
     dlqprefix = "zocalo"
     if "--test" in sys.argv:
-        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
         dlqprefix = "zocdev"
     # override default stomp host
     parser.add_option(
@@ -40,11 +50,22 @@ def run():
         type=float,
         help="Wait this many seconds for ActiveMQ replies",
     )
-    StompTransport.load_configuration_file(default_configuration)
+    parser.add_option(
+        "-t",
+        "--transport",
+        dest="transport",
+        metavar="TRN",
+        default=default_transport,
+        help="Transport mechanism. Known mechanisms: "
+        + ", ".join(workflows.transport.get_known_transports())
+        + " (default: %default)",
+    )
 
-    StompTransport.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser)
     (options, args) = parser.parse_args(["--stomp-prfx=DLQ"] + sys.argv[1:])
-    stomp = StompTransport()
+    if options.transport == "PikaTransport":
+        args = ["dlq." + a for a in args if a != "--stomp-prfx=DLQ"]
+    transport = workflows.transport.lookup(options.transport)()
 
     characterfilter = re.compile(r"[^a-zA-Z0-9._-]+", re.UNICODE)
     idlequeue = queue.Queue()
@@ -92,15 +113,15 @@ def run():
                 filename=os.path.join(filepath, filename),
             )
         )
-        stomp.ack(header)
+        transport.ack(header)
         idlequeue.put_nowait("done")
 
-    stomp.connect()
+    transport.connect()
     if not args:
         args = [dlqprefix + ".>"]
     for queue_ in args:
         print("Looking for DLQ messages in " + queue_)
-        stomp.subscribe(queue_, receive_dlq_message, acknowledgement=True)
+        transport.subscribe(queue_, receive_dlq_message, acknowledgement=True)
     try:
         idlequeue.get(True, options.wait or 3)
         while True:

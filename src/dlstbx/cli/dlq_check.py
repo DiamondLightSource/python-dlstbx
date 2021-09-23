@@ -13,10 +13,8 @@ from zocalo.util.jmxstats import JMXAPI
 #
 
 
-def check_dlq(namespace=None):
+def check_dlq(zc, namespace=None):
     """Monitor ActiveMQ queue activity."""
-    zc = zocalo.configuration.from_file()
-    zc.activate_environment("live")
     jmx = JMXAPI(zc)
     if namespace:
         namespace = namespace + "."
@@ -49,9 +47,7 @@ def check_dlq(namespace=None):
     return queuedata
 
 
-def check_dlq_rabbitmq(namespace=None):
-    zc = zocalo.configuration.from_file()
-    zc.activate_environment("live")
+def check_dlq_rabbitmq(zc, namespace=None):
     url = zc.rabbitmqapi["base_url"]
     request = urllib.request.Request(f"{url}/queues", method="GET")
     authstring = base64.b64encode(
@@ -87,14 +83,17 @@ def run():
         action="store_true",
         help="Check rabbitmq dead letter queues",
     )
+    zc = zocalo.configuration.from_file()
+    zc.activate_environment()
+    zc.add_command_line_options(parser)
     (options, args) = parser.parse_args()
 
     if not options.rabbit:
-        dlqs = check_dlq(namespace=options.namespace)
+        dlqs = check_dlq(zc, namespace=options.namespace)
         for queue, count in dlqs.items():
             print("DLQ for %s contains %d entries" % (queue.replace("DLQ.", ""), count))
     else:
-        dlqs = check_dlq_rabbitmq(namespace=options.namespace)
+        dlqs = check_dlq_rabbitmq(zc, namespace=options.namespace)
         for queue, count in dlqs.items():
             print("DLQ for %s contains %d entries" % (queue.replace("dlq.", ""), count))
     total = sum(dlqs.values())

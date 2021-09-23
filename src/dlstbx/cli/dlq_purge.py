@@ -64,7 +64,7 @@ def run():
     workflows.transport.add_command_line_options(parser)
     (options, args) = parser.parse_args(["--stomp-prfx=DLQ"] + sys.argv[1:])
     if options.transport == "PikaTransport":
-        args = ["dlq." + a for a in args if a != "--stomp-prfx=DLQ"]
+        args = ["dlq." + a for a in args]
     transport = workflows.transport.lookup(options.transport)()
 
     characterfilter = re.compile(r"[^a-zA-Z0-9._-]+", re.UNICODE)

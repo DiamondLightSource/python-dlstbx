@@ -5,8 +5,7 @@ import urllib
 from optparse import SUPPRESS_HELP, OptionParser
 
 import zocalo.configuration
-
-import dlstbx.util.jmxstats
+from zocalo.util.jmxstats import JMXAPI
 
 #
 # dlstbx.dlq_check
@@ -16,8 +15,9 @@ import dlstbx.util.jmxstats
 
 def check_dlq(namespace=None):
     """Monitor ActiveMQ queue activity."""
-
-    jmx = dlstbx.util.jmxstats.JMXAPI()
+    zc = zocalo.configuration.from_file()
+    zc.activate_environment("live")
+    jmx = JMXAPI(zc)
     if namespace:
         namespace = namespace + "."
     else:

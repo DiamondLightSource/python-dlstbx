@@ -60,7 +60,7 @@ def run():
         + ", ".join(workflows.transport.get_known_transports())
         + " (default: %default)",
     )
-
+    zc.add_command_line_options(parser)
     workflows.transport.add_command_line_options(parser)
     (options, args) = parser.parse_args(["--stomp-prfx=DLQ"] + sys.argv[1:])
     if options.transport == "PikaTransport":

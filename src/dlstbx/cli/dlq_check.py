@@ -83,10 +83,32 @@ def run():
         action="store_true",
         help="Check rabbitmq dead letter queues",
     )
+    parser.add_option(
+        "--jmx-test-creds",
+        dest="jmx_creds",
+        default=None,
+        help="Config file containing JMX credentials",
+    )
     zc = zocalo.configuration.from_file()
     zc.activate()
     zc.add_command_line_options(parser)
     (options, args) = parser.parse_args()
+    if options.jmx_creds is not None:
+        import configparser
+
+        config = configparser.ConfigParser()
+        config.read(options.jmx_creds)
+        setattr(
+            zc,
+            "jmx",
+            {
+                "host": config["jmx"]["host"],
+                "port": config["jmx"]["port"],
+                "base_url": config["jmx"]["baseurl"],
+                "username": config["jmx"]["username"],
+                "password": config["jmx"]["password"],
+            },
+        )
 
     if not options.rabbit:
         dlqs = check_dlq(zc, namespace=options.namespace)

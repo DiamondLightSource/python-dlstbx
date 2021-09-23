@@ -219,6 +219,9 @@ def print_stats(stats: pd.DataFrame, transport_prefix: str) -> None:
     )
 
     for sep, stats in ((queue_sep, queue_stats), (topic_sep, topic_stats)):
+        if not len(stats):
+            continue
+
         print(sep)
         stats = stats[stats["relevance"] > 0]
         status = stats.to_dict(orient="index")

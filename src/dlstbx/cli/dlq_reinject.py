@@ -109,38 +109,70 @@ def run():
         if options.verbose:
             pprint(dlqmsg)
 
-        destination = (
-            dlqmsg["header"]
-            .get("original-destination", dlqmsg["header"]["destination"])
-            .split("/", 2)
-        )
-        if destination[1] == "queue":
-            print("sending...")
-            send_function = transport.send
-        elif destination[1] == "topic":
-            print("broadcasting...")
-            send_function = transport.broadcast
-        else:
-            sys.exit("Cannot process message, unknown message mechanism")
-        if options.destination_override:
-            destination[2] = options.destination_override
-        header = dlqmsg["header"]
-        for drop_field in (
-            "content-length",
-            "destination",
-            "expires",
-            "message-id",
-            "original-destination",
-            "originalExpiration",
-            "subscription",
-            "timestamp",
-            "redelivered",
-        ):
-            if drop_field in header:
-                del header[drop_field]
-        send_function(
-            destination[2], dlqmsg["message"], headers=header, ignore_namespace=True
-        )
+        if options.transport == "StompTransport":
+            destination = (
+                dlqmsg["header"]
+                .get("original-destination", dlqmsg["header"]["destination"])
+                .split("/", 2)
+            )
+            if destination[1] == "queue":
+                print("sending...")
+                send_function = transport.send
+            elif destination[1] == "topic":
+                print("broadcasting...")
+                send_function = transport.broadcast
+            else:
+                sys.exit("Cannot process message, unknown message mechanism")
+            if options.destination_override:
+                destination[2] = options.destination_override
+            header = dlqmsg["header"]
+            for drop_field in (
+                "content-length",
+                "destination",
+                "expires",
+                "message-id",
+                "original-destination",
+                "originalExpiration",
+                "subscription",
+                "timestamp",
+                "redelivered",
+            ):
+                if drop_field in header:
+                    del header[drop_field]
+            send_function(
+                destination[2], dlqmsg["message"], headers=header, ignore_namespace=True
+            )
+        elif options.transport == "PikaTransport":
+            exchange = dlqmsg["header"].get("x-death", {}).get("exchange")
+            if exchange:
+                import base64
+                import urllib
+
+                url = zc.rabbitmqapi["base_url"]
+                request = urllib.request.Request(f"{url}/excahnges", method="GET")
+                authstring = base64.b64encode(
+                    f"{zc.rabbitmqapi['username']}:{zc.rabbitmqapi['password']}".encode()
+                ).decode()
+                request.add_header("Authorization", f"Basic {authstring}")
+                request.add_header("Content-Type", "application/json")
+                with urllib.request.urlopen(request) as response:
+                    reply = response.read()
+                exchange_info = json.loads(reply)
+                for exch in exchange_info:
+                    if exch["name"] == exchange:
+                        if exch["type"] == "fanout":
+                            transport.broadcast(
+                                options.destination_override or destination,
+                                dlqmsg["message"],
+                                headers=header,
+                            )
+            else:
+                destination = dlqmsg["header"].get("x-death", {}).get("queue")
+                transport.send(
+                    options.destination_override or destination,
+                    dlqmsg["message"],
+                    headers=header,
+                )
         if options.remove:
             os.remove(dlqfile)
         print("Done.\n")

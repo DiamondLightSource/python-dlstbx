@@ -14,10 +14,14 @@ import time
 from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
 
-from workflows.transport.stomp_transport import StompTransport
+import workflows.transport
+import zocalo.configuration
 
 
 def run():
+    zc = zocalo.configuration.from_file()
+    zc.activate()
+    default_transport = workflows.transport.default_transport
     parser = OptionParser(usage="dlstbx.dlq_reinject [options] file [file [..]]")
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
@@ -28,12 +32,6 @@ def run():
         default=False,
         dest="remove",
         help="Delete file on successful reinjection",
-    )
-    parser.add_option(
-        "--test",
-        action="store_true",
-        dest="test",
-        help="Run in ActiveMQ testing (zocdev) namespace",
     )
     parser.add_option(
         "-v",
@@ -58,14 +56,21 @@ def run():
         dest="wait",
         help="Wait this many seconds between reinjections",
     )
-    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-    if "--test" in sys.argv:
-        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
-    # override default stomp host
-    StompTransport.load_configuration_file(default_configuration)
+    parser.add_option(
+        "-t",
+        "--transport",
+        dest="transport",
+        metavar="TRN",
+        default=default_transport,
+        help="Transport mechanism. Known mechanisms: "
+        + ", ".join(workflows.transport.get_known_transports())
+        + " (default: %default)",
+    )
 
-    StompTransport.add_command_line_options(parser)
+    zc.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser)
     (options, args) = parser.parse_args()
+    transport = workflows.transport.lookup(options.transport)()
 
     stdin = []
     if select.select([sys.stdin], [], [], 0.0)[0]:
@@ -82,8 +87,7 @@ def run():
         print("No DLQ message files given.")
         sys.exit(0)
 
-    stomp = StompTransport()
-    stomp.connect()
+    transport.connect()
 
     first = True
     for dlqfile in args + stdin:
@@ -112,10 +116,10 @@ def run():
         )
         if destination[1] == "queue":
             print("sending...")
-            send_function = stomp.send
+            send_function = transport.send
         elif destination[1] == "topic":
             print("broadcasting...")
-            send_function = stomp.broadcast
+            send_function = transport.broadcast
         else:
             sys.exit("Cannot process message, unknown message mechanism")
         if options.destination_override:
@@ -141,4 +145,4 @@ def run():
             os.remove(dlqfile)
         print("Done.\n")
 
-    stomp.disconnect()
+    transport.disconnect()

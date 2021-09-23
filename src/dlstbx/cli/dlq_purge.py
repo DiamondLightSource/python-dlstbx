@@ -33,15 +33,7 @@ def run():
     parser = OptionParser(usage="dlstbx.dlq_purge [options] [queue [queue ...]]")
 
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-    parser.add_option(
-        "--test",
-        action="store_true",
-        dest="test",
-        help="Run in ActiveMQ testing (zocdev) namespace",
-    )
     dlqprefix = "zocalo"
-    if "--test" in sys.argv:
-        dlqprefix = "zocdev"
     # override default stomp host
     parser.add_option(
         "--wait",

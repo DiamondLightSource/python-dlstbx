@@ -84,7 +84,7 @@ def run():
         help="Check rabbitmq dead letter queues",
     )
     zc = zocalo.configuration.from_file()
-    zc.activate_environment()
+    zc.activate()
     zc.add_command_line_options(parser)
     (options, args) = parser.parse_args()
 

@@ -4,6 +4,7 @@
 #
 
 import argparse
+import configparser
 import getpass
 import json
 import logging
@@ -13,6 +14,7 @@ import urllib.parse
 import urllib.request
 
 import pandas as pd
+import workflows
 
 logger = logging.getLogger("dlstbx.queue_monitor")
 
@@ -20,18 +22,27 @@ logger = logging.getLogger("dlstbx.queue_monitor")
 RABBITMQ_HOST = "rabbitmq1.diamond.ac.uk"
 
 
-def get_rabbitmq_stats() -> pd.DataFrame:
+def load_rabbitmq_request(config_filename: str) -> urllib.request.Request:
+    cfgparser = configparser.ConfigParser(allow_no_value=True)
+    if not cfgparser.read(config_filename):
+        raise workflows.Error(
+            f"Could not read from configuration file {config_filename}"
+        )
+    rabbitmq_host = cfgparser.get("rabbitmq", "host")
     password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
     password_mgr.add_password(
         realm=None,
-        uri=f"http://{RABBITMQ_HOST}:15672/api/",
-        user="guest",
-        passwd="guest",
+        uri=f"http://{rabbitmq_host}:15672/api/",
+        user=cfgparser.get("rabbitmq", "username"),
+        passwd=cfgparser.get("rabbitmq", "password"),
     )
     handler = urllib.request.HTTPBasicAuthHandler(password_mgr)
     opener = urllib.request.build_opener(handler)
     urllib.request.install_opener(opener)
-    request = urllib.request.Request(f"http://{RABBITMQ_HOST}:15672/api/queues")
+    return urllib.request.Request(f"http://{rabbitmq_host}:15672/api/queues")
+
+
+def get_rabbitmq_stats(request: urllib.request.Request) -> pd.DataFrame:
     with urllib.request.urlopen(request) as response:
         json_str = response.read()
     stats = pd.json_normalize(json.loads(json_str))
@@ -149,7 +160,7 @@ def get_activemq_stats() -> pd.DataFrame:
     return stats
 
 
-def print_stats(stats: pd.DataFrame) -> None:
+def print_stats(stats: pd.DataFrame, transport_prefix: str) -> None:
     """Main display function"""
 
     # https://activemq.apache.org/how-do-i-find-the-size-of-a-queue
@@ -190,13 +201,14 @@ def print_stats(stats: pd.DataFrame) -> None:
     for dtype in ("queue", "topic"):
 
         stats = all_stats[all_stats["dtype"] == dtype]
-        queue_sep = "{header}RabbitMQ status: {highlight}{queues}{header} {dtype}s containing {highlight}{messages}{header} messages{reset}".format(
+        queue_sep = "{header}{transport_prefix} status: {highlight}{queues}{header} {dtype}s containing {highlight}{messages}{header} messages{reset}".format(
             messages=stats["messages_ready"].sum(),
             queues=len(stats),
             highlight=c_bold + c_yellow,
             reset=c_reset,
             header=c_reset + c_yellow,
             dtype=dtype,
+            transport_prefix=transport_prefix,
         )
         print(queue_sep)
 
@@ -284,11 +296,19 @@ def run():
             )
         else:
             jmx = dlstbx.util.jmxstats.JMXAPI()
+        transport_prefix = "ActiveMQ"
+
+    else:
+        default_configuration = (
+            "/dls_sw/apps/zocalo/secrets/rabbitmq/credentials-zocalo.cfg"
+        )
+        rmq_api_request = load_rabbitmq_request(default_configuration)
+        transport_prefix = "RabbitMQ"
 
     try:
         while True:
             if args.rabbitmq:
-                stats = get_rabbitmq_stats()
+                stats = get_rabbitmq_stats(rmq_api_request)
             else:
                 stats = get_activemq_stats()
 
@@ -320,7 +340,7 @@ def run():
                 stats["change_publish_rate"] = 0
                 stats["change_deliver_rate"] = 0
                 stats["changehist_publish_rate"] = 0
-            print_stats(stats)
+            print_stats(stats, transport_prefix=transport_prefix)
             previous_stats = stats
             time.sleep(args.gather_interval)
     except KeyboardInterrupt:

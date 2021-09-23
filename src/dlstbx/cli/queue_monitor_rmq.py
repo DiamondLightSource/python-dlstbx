@@ -198,20 +198,28 @@ def print_stats(stats: pd.DataFrame, transport_prefix: str) -> None:
 
     print("\033[H\033[J", end="")
 
-    for dtype in ("queue", "topic"):
+    queue_stats = all_stats[all_stats["dtype"] == "queue"]
+    topic_stats = all_stats[all_stats["dtype"] == "topic"]
 
-        stats = all_stats[all_stats["dtype"] == dtype]
-        queue_sep = "{header}{transport_prefix} status: {highlight}{queues}{header} {dtype}s containing {highlight}{messages}{header} messages{reset}".format(
-            messages=stats["messages_ready"].sum(),
-            queues=len(stats),
+    queue_sep = "{header}{transport_prefix} status: {highlight}{queues}{header} queues containing {highlight}{messages}{header} messages{reset}".format(
+        messages=queue_stats["messages_ready"].sum(),
+        queues=len(queue_stats),
+        highlight=c_bold + c_yellow,
+        reset=c_reset,
+        header=c_reset + c_yellow,
+        transport_prefix=transport_prefix,
+    )
+    topic_sep = (
+        "\n{header}ActiveMQ status: {highlight}{topics}{header} topics{reset}".format(
+            topics=len(topic_stats),
             highlight=c_bold + c_yellow,
             reset=c_reset,
             header=c_reset + c_yellow,
-            dtype=dtype,
-            transport_prefix=transport_prefix,
         )
-        print(queue_sep)
+    )
 
+    for sep, stats in ((queue_sep, queue_stats), (topic_sep, topic_stats)):
+        print(sep)
         stats = stats[stats["relevance"] > 0]
         status = stats.to_dict(orient="index")
 

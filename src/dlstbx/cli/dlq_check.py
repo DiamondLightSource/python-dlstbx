@@ -98,17 +98,19 @@ def run():
 
         config = configparser.ConfigParser()
         config.read(options.jmx_creds)
-        setattr(
-            zc,
-            "jmx",
-            {
-                "host": config["jmx"]["host"],
-                "port": config["jmx"]["port"],
-                "base_url": config["jmx"]["baseurl"],
-                "username": config["jmx"]["username"],
-                "password": config["jmx"]["password"],
-            },
-        )
+
+        class ZocConfigCuckoo:
+            def __init__(self, jmx: dict):
+                self.jmx = jmx
+
+        jmx = {
+            "host": config["jmx"]["host"],
+            "port": config["jmx"]["port"],
+            "base_url": config["jmx"]["baseurl"],
+            "username": config["jmx"]["username"],
+            "password": config["jmx"]["password"],
+        }
+        zc = ZocConfigCuckoo(jmx)
 
     if not options.rabbit:
         dlqs = check_dlq(zc, namespace=options.namespace)

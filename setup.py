@@ -145,6 +145,7 @@ health_checks = [
     "services.zocalo.stash = dlstbx.health_checks.zocalo:check_zocalo_stash",
     "dls.network.internet = dlstbx.health_checks.network:check_internet",
     "zocalo.dlq.activemq = dlstbx.health_checks.activemq:check_activemq_dlq",
+    "zocalo.dlq.rabbitmq = dlstbx.health_checks.rabbitmq:check_rabbitmq_dlq",
 ]
 
 

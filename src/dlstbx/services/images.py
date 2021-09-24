@@ -30,6 +30,8 @@ class DLSImages(CommonService):
     'zocalo.services.images.plugins'. The contract is that a plugin function
     takes a single argument of type PluginInterface, and returns a truthy value
     to acknowledge success, and a falsy value to reject the related message.
+    If a falsy value is returned that is not False then, additionally, an error
+    is logged.
     Functions may choose to return a list of files that were generated, but
     this is optional at this time.
     """
@@ -80,6 +82,11 @@ class DLSImages(CommonService):
 
         if result:
             rw.transport.ack(header)
+        elif result is False:
+            # The assumption here is that if a function returns explicit
+            # 'False' then it has already taken care of logging, so we
+            # don't need yet another log record.
+            rw.transport.nack(header)
         else:
             self.log.error(f"Command {command!r} returned {result!r}")
             rw.transport.nack(header)

@@ -123,14 +123,23 @@ class DLSISPyB(EM_Mixin, CommonService):
                     base_value = base_value.replace("$" + key, str(rw.environment[key]))
             return base_value
 
-        with self._ispyb_sessionmaker() as session:
-            result = command_function(
-                rw=rw,
-                message=message,
-                parameters=parameters,
-                session=session,
-                transaction=txn,
+        try:
+            with self._ispyb_sessionmaker() as session:
+                result = command_function(
+                    rw=rw,
+                    message=message,
+                    parameters=parameters,
+                    session=session,
+                    transaction=txn,
+                )
+        except Exception as e:
+            self.log.error(
+                f"Uncaught exception {e} in ISPyB function {command} , quarantining message.",
+                exc_info=True,
             )
+            rw.transport.transaction_abort(txn)
+            rw.transport.nack(header)
+            return
 
         store_result = rw.recipe_step["parameters"].get("store_result")
         if store_result and result and "return_value" in result:
@@ -272,7 +281,7 @@ class DLSISPyB(EM_Mixin, CommonService):
     def do_register_processing(self, parameters, **kwargs):
         program = parameters("program")
         cmdline = parameters("cmdline")
-        environment = parameters("environment")
+        environment = parameters("environment") or ""
         if isinstance(environment, dict):
             environment = ", ".join(
                 f"{key}={value}" for key, value in environment.items()
@@ -986,6 +995,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             step,
             command,
             len(commands) - 1,
+            extra={"ispyb-message-parts": len(commands)} if step == 1 else {},
         )
 
         # Create a parameter lookup function specific to this step of the

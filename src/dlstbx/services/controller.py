@@ -187,7 +187,6 @@ class DLSController(CommonService):
                                 "transient.controller",
                                 self.receive_sync_msg,
                                 exclusive=True,
-                                transformation=True,
                             )
                         )
                         self.log.debug("Controller may now become master")

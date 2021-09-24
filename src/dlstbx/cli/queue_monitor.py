@@ -5,7 +5,6 @@
 
 import argparse
 import configparser
-import getpass
 import json
 import logging
 import re
@@ -15,6 +14,8 @@ import urllib.request
 
 import pandas as pd
 import workflows
+import zocalo.configuration
+import zocalo.util.jmxstats
 
 logger = logging.getLogger("dlstbx.queue_monitor")
 
@@ -281,32 +282,25 @@ def run():
         help="Show stats for the RabbitMQ server",
     )
     parser.add_argument(
-        "--test",
-        action="store_true",
-        dest="test",
-        help="Connect to personal development RabbitMQ server",
-    )
-    parser.add_argument(
         "--interval",
         dest="gather_interval",
         default=5,
         help="Interval (in seconds) at which to gather statistics",
     )
 
+    # Load configuration
+    zc = zocalo.configuration.from_file()
+    zc.activate()
+    zc.add_command_line_options(parser)
+
     args = parser.parse_args()
 
     previous_stats = None
 
     if not args.rabbitmq:
-        import dlstbx.util.jmxstats
 
         global jmx
-        if args.test:
-            jmx = dlstbx.util.jmxstats.JMXAPI(
-                "/dls/tmp/%s/zocdev-activemq/latest-credentials" % getpass.getuser()
-            )
-        else:
-            jmx = dlstbx.util.jmxstats.JMXAPI()
+        jmx = zocalo.util.jmxstats.JMXAPI(zc)
         transport_prefix = "ActiveMQ"
 
     else:

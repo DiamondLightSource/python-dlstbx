@@ -4,7 +4,6 @@
 #
 
 import argparse
-import configparser
 import json
 import logging
 import re
@@ -13,34 +12,30 @@ import urllib.parse
 import urllib.request
 
 import pandas as pd
-import workflows
 import zocalo.configuration
 import zocalo.util.jmxstats
 
 logger = logging.getLogger("dlstbx.queue_monitor")
 
 
-RABBITMQ_HOST = "rabbitmq1.diamond.ac.uk"
-
-
-def load_rabbitmq_request(config_filename: str) -> urllib.request.Request:
-    cfgparser = configparser.ConfigParser(allow_no_value=True)
-    if not cfgparser.read(config_filename):
-        raise workflows.Error(
-            f"Could not read from configuration file {config_filename}"
+def load_rabbitmq_request(
+    zc: zocalo.configuration.Configuration,
+) -> urllib.request.Request:
+    if not zc.rabbitmqapi:
+        raise zocalo.ConfigurationError(
+            "There are no RabbitMQ API credentials configured in your environment"
         )
-    rabbitmq_host = cfgparser.get("rabbitmq", "host")
     password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
     password_mgr.add_password(
         realm=None,
-        uri=f"http://{rabbitmq_host}:15672/api/",
-        user=cfgparser.get("rabbitmq", "username"),
-        passwd=cfgparser.get("rabbitmq", "password"),
+        uri=zc.rabbitmqapi["base_url"],
+        user=zc.rabbitmqapi["username"],
+        passwd=zc.rabbitmqapi["password"],
     )
     handler = urllib.request.HTTPBasicAuthHandler(password_mgr)
     opener = urllib.request.build_opener(handler)
     urllib.request.install_opener(opener)
-    return urllib.request.Request(f"http://{rabbitmq_host}:15672/api/queues")
+    return urllib.request.Request(f"{zc.rabbitmqapi['base_url']}/queues")
 
 
 def get_rabbitmq_stats(request: urllib.request.Request) -> pd.DataFrame:
@@ -298,16 +293,11 @@ def run():
     previous_stats = None
 
     if not args.rabbitmq:
-
         global jmx
         jmx = zocalo.util.jmxstats.JMXAPI(zc)
         transport_prefix = "ActiveMQ"
-
     else:
-        default_configuration = (
-            "/dls_sw/apps/zocalo/secrets/rabbitmq/credentials-zocalo.cfg"
-        )
-        rmq_api_request = load_rabbitmq_request(default_configuration)
+        rmq_api_request = load_rabbitmq_request(zc)
         transport_prefix = "RabbitMQ"
 
     try:

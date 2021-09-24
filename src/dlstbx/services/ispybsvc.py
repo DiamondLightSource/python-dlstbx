@@ -281,7 +281,7 @@ class DLSISPyB(EM_Mixin, CommonService):
     def do_register_processing(self, parameters, **kwargs):
         program = parameters("program")
         cmdline = parameters("cmdline")
-        environment = parameters("environment")
+        environment = parameters("environment") or ""
         if isinstance(environment, dict):
             environment = ", ".join(
                 f"{key}={value}" for key, value in environment.items()

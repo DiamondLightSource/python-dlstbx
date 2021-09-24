@@ -4,6 +4,7 @@ import sys
 import urllib
 from optparse import SUPPRESS_HELP, OptionParser
 
+import workflows.transport
 import zocalo.configuration
 from zocalo.util.jmxstats import JMXAPI
 
@@ -61,12 +62,20 @@ def check_dlq_rabbitmq(zc, namespace=None):
     dlq_info = {}
     for q in queue_info:
         if q["name"].startswith("dlq."):
-            if namespace is None or q["vhost"] == namespace:
+            if (namespace is None or q["vhost"] == namespace) and int(q["messages"]):
                 dlq_info[q["name"]] = int(q["messages"])
     return dlq_info
 
 
 def run():
+    zc = zocalo.configuration.from_file()
+    zc.activate()
+    if (
+        zc.storage
+        and zc.storage.get("zocalo.default_transport")
+        in workflows.transport.get_known_transports()
+    ):
+        default_transport = zc.storage["zocalo.default_transport"]
     parser = OptionParser(usage="dlstbx.dlq_check [options]")
     parser.add_option("-?", action="help", help=SUPPRESS_HELP)
     parser.add_option(
@@ -84,13 +93,15 @@ def run():
         help="Check rabbitmq dead letter queues",
     )
     parser.add_option(
-        "--jmx-test-creds",
-        dest="jmx_creds",
-        default=None,
-        help="Config file containing JMX credentials",
+        "-t",
+        "--transport",
+        dest="transport",
+        metavar="TRN",
+        default=default_transport,
+        help="Transport mechanism. Known mechanisms: "
+        + ", ".join(workflows.transport.get_known_transports())
+        + " (default: %default)",
     )
-    zc = zocalo.configuration.from_file()
-    zc.activate()
     zc.add_command_line_options(parser)
     (options, args) = parser.parse_args()
     if options.jmx_creds is not None:
@@ -112,14 +123,16 @@ def run():
         }
         zc = ZocConfigCuckoo(jmx)
 
-    if not options.rabbit:
+    if options.transport == "StompTransport":
         dlqs = check_dlq(zc, namespace=options.namespace)
         for queue, count in dlqs.items():
             print("DLQ for %s contains %d entries" % (queue.replace("DLQ.", ""), count))
-    else:
-        dlqs = check_dlq_rabbitmq(zc, namespace=options.namespace)
+    elif options.transport == "PikaTransport":
+        dlqs = check_dlq_rabbitmq(zc, namespace=options.namespace or "zocalo")
         for queue, count in dlqs.items():
             print("DLQ for %s contains %d entries" % (queue.replace("dlq.", ""), count))
+    else:
+        print(f"Transport {options.transport} not recognised")
     total = sum(dlqs.values())
     if total:
         print("Total of %d DLQ messages found" % total)

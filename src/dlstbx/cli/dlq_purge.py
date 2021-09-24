@@ -59,6 +59,11 @@ def run():
         args = ["dlq." + a for a in args]
     transport = workflows.transport.lookup(options.transport)()
 
+    if zc.storage and zc.storage.get("dlq_purge_location"):
+        dlq_dump_path = zc.storage["dlq_purge_location"]
+    else:
+        dlq_dump_path = "./DLQ"
+
     characterfilter = re.compile(r"[^a-zA-Z0-9._-]+", re.UNICODE)
     idlequeue = queue.Queue()
 
@@ -67,7 +72,7 @@ def run():
         timestamp = time.localtime(int(header["timestamp"]) / 1000)
         millisec = int(header["timestamp"]) % 1000
         filepath = os.path.join(
-            "/dls/tmp/zocalo/DLQ",
+            dlq_dump_path,
             time.strftime("%Y-%m-%d", timestamp),
             #       time.strftime('%H-%M', timestamp),
         )

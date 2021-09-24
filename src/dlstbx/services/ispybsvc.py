@@ -123,14 +123,23 @@ class DLSISPyB(EM_Mixin, CommonService):
                     base_value = base_value.replace("$" + key, str(rw.environment[key]))
             return base_value
 
-        with self._ispyb_sessionmaker() as session:
-            result = command_function(
-                rw=rw,
-                message=message,
-                parameters=parameters,
-                session=session,
-                transaction=txn,
+        try:
+            with self._ispyb_sessionmaker() as session:
+                result = command_function(
+                    rw=rw,
+                    message=message,
+                    parameters=parameters,
+                    session=session,
+                    transaction=txn,
+                )
+        except Exception as e:
+            self.log.error(
+                f"Uncaught exception {e} in ISPyB function {command} , quarantining message.",
+                exc_info=True,
             )
+            rw.transport.transaction_abort(txn)
+            rw.transport.nack(header)
+            return
 
         store_result = rw.recipe_step["parameters"].get("store_result")
         if store_result and result and "return_value" in result:

@@ -114,6 +114,7 @@ class EM_Mixin:
             )
             session.add(values)
             session.commit()
+            return {"success": True, "return_value": values.relativeIceThicknessId}
         except sqlalchemy.exc.SQLAlchemyError as e:
             self.log.error(
                 "Inserting CTF entry caused exception '%s'.",

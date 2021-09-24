@@ -175,6 +175,14 @@ class Crank2Wrapper(zocalo.wrapper.BaseWrapper):
             logger.debug(result["stdout"])
             logger.debug(result["stderr"])
 
+        mdl_dict = self.get_crank2_model_files()
+        if mdl_dict is None:
+            logger.info("Cannot process crank2 results")
+        else:
+            self.msg.model = mdl_dict
+            ispyb_write_model_json(self.msg, logger)
+            write_coot_script(self.msg._wd, mdl_dict)
+
         if "devel" not in params:
             if params.get("results_directory"):
                 copy_results(
@@ -184,26 +192,15 @@ class Crank2Wrapper(zocalo.wrapper.BaseWrapper):
                     create_parent_symlink(
                         results_directory.strpath, f"crank2-{ppl}", levels=1
                     )
+                if mdl_dict:
+                    return send_results_to_ispyb(
+                        params.get("results_directory"),
+                        params.get("log_files"),
+                        self.record_result_individual_file,
+                    )
             else:
                 logger.debug("Result directory not specified")
 
-        mdl_dict = self.get_crank2_model_files()
         if mdl_dict is None:
-            if success:
-                logger.exception("Error reading crank2 results")
-            else:
-                logger.info("Cannot process crank2 results")
             return False
-
-        self.msg.model = mdl_dict
-        ispyb_write_model_json(self.msg, logger)
-        write_coot_script(self.msg._wd, mdl_dict)
-
-        if "devel" not in params and params.get("results_directory") and mdl_dict:
-            return send_results_to_ispyb(
-                params.get("results_directory"),
-                params.get("log_files"),
-                self.record_result_individual_file,
-            )
-
         return True

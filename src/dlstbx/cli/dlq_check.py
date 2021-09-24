@@ -87,11 +87,10 @@ def run():
         help="Restrict check to this namespace",
     )
     parser.add_option(
-        "-r",
-        "--rabbitmq",
-        dest="rabbit",
-        action="store_true",
-        help="Check rabbitmq dead letter queues",
+        "--jmx-test-creds",
+        dest="jmx_creds",
+        default=None,
+        help="Config file containing JMX credentials",
     )
     parser.add_option(
         "-t",

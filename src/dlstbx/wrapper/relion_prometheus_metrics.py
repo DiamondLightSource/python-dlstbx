@@ -302,5 +302,7 @@ class RelionPrometheusMetricsWrapper(zocalo.wrapper.BaseWrapper):
                 f"No cluster jobs found in ClusterJobInfo table for cluster {cluster}, ID {cluster_id}"
             )
             raise
+        if row.end_time is None:
+            return 0
         duration = datetime.timestamp(row.end_time) - datetime.timestamp(row.start_time)
         return duration / value

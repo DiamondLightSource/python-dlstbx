@@ -185,7 +185,7 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
         ispyb_write_model_json(self.msg, logger)
         write_coot_script(self.msg._wd, mdl_dict)
 
-        if "devel" not in params and params.get("results_directory"):
+        if "devel" not in params and params.get("results_directory") and mdl_dict:
             return send_results_to_ispyb(
                 os.path.join(params.get("results_directory"), "autoSHARP"),
                 params.get("log_files"),

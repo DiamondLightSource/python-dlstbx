@@ -121,7 +121,7 @@ def run() -> None:
             )
         )
         if rabbitmq:
-            transport.ack(header, subscription_id=header["delivery_tag"])
+            transport.ack(header, subscription_id=header["message-id"])
         else:
             transport.ack(header)
         idlequeue.put_nowait("done")

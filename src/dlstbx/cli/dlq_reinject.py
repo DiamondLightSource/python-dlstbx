@@ -143,13 +143,14 @@ def run() -> None:
                 destination[2], dlqmsg["message"], headers=header, ignore_namespace=True
             )
         elif options.transport == "PikaTransport":
-            exchange = dlqmsg["header"].get("x-death", {}).get("exchange")
+            header = dlqmsg["header"]
+            exchange = header.get("headers", {}).get("x-death", {}).get("exchange")
             if exchange:
                 import base64
                 import urllib
 
                 url = zc.rabbitmqapi["base_url"]
-                request = urllib.request.Request(f"{url}/excahnges", method="GET")
+                request = urllib.request.Request(f"{url}/exchanges", method="GET")
                 authstring = base64.b64encode(
                     f"{zc.rabbitmqapi['username']}:{zc.rabbitmqapi['password']}".encode()
                 ).decode()
@@ -167,7 +168,7 @@ def run() -> None:
                                 headers=header,
                             )
             else:
-                destination = dlqmsg["header"].get("x-death", {}).get("queue")
+                destination = header.get("headers", {}).get("x-death", {}).get("queue")
                 transport.send(
                     options.destination_override or destination,
                     dlqmsg["message"],

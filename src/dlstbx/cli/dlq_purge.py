@@ -67,10 +67,14 @@ def run() -> None:
     characterfilter = re.compile(r"[^a-zA-Z0-9._-]+", re.UNICODE)
     idlequeue = queue.Queue()
 
-    def receive_dlq_message(header, message):
+    def receive_dlq_message(header, message, rabbitmq=False):
         idlequeue.put_nowait("start")
-        timestamp = time.localtime(int(header["timestamp"]) / 1000)
-        millisec = int(header["timestamp"]) % 1000
+        if rabbitmq:
+            msg_time = int(header["x-death"]["time"])
+        else:
+            msg_time = int(header["timestamp"])
+        timestamp = time.localtime(msg_time / 1000)
+        millisec = msg_time % 1000
         filepath = os.path.join(
             dlq_dump_path,
             time.strftime("%Y-%m-%d", timestamp),

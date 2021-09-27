@@ -73,18 +73,12 @@ def run() -> None:
         if rabbitmq:
             from datetime import datetime
 
-            msg_time = int(
-                datetime.timestamp(
-                    header["pika-properties"].headers["x-death"][0]["time"]
-                )
-            )
-            _pass_on_header = header["pika-properties"].headers
-            _pass_on_header["x-death"][0]["time"] = datetime.timestamp(
-                _pass_on_header["x-death"][0]["time"]
+            msg_time = int(datetime.timestamp(header["headers"]["x-death"][0]["time"]))
+            header["headers"]["x-death"][0]["time"] = datetime.timestamp(
+                header["headers"]["x-death"][0]["time"]
             )
         else:
             msg_time = int(header["timestamp"])
-            _pass_on_header = header
         timestamp = time.localtime(msg_time / 1000)
         millisec = msg_time % 1000
         filepath = os.path.join(
@@ -113,7 +107,7 @@ def run() -> None:
                 "date": time.strftime("%Y-%m-%d"),
                 "time": time.strftime("%H:%M:%S"),
             },
-            "header": _pass_on_header,
+            "header": header,
             "message": message,
         }
 
@@ -127,7 +121,7 @@ def run() -> None:
             )
         )
         if rabbitmq:
-            transport.ack(header, subscription_id=header["pika-method"].delivery_tag)
+            transport.ack(header, subscription_id=header["delivery_tag"])
         else:
             transport.ack(header)
         idlequeue.put_nowait("done")

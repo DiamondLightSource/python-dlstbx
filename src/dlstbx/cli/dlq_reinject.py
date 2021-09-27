@@ -144,7 +144,7 @@ def run() -> None:
             )
         elif options.transport == "PikaTransport":
             header = dlqmsg["header"]
-            exchange = header.get("headers", {}).get("x-death", {}).get("exchange")
+            exchange = header.get("headers", {}).get("x-death", {})[0].get("exchange")
             if exchange:
                 import base64
                 import urllib
@@ -162,13 +162,17 @@ def run() -> None:
                 for exch in exchange_info:
                     if exch["name"] == exchange:
                         if exch["type"] == "fanout":
+                            header = _rabbit_prepare_header(header)
                             transport.broadcast(
                                 options.destination_override or destination,
                                 dlqmsg["message"],
                                 headers=header,
                             )
             else:
-                destination = header.get("headers", {}).get("x-death", {}).get("queue")
+                destination = (
+                    header.get("headers", {}).get("x-death", {})[0].get("queue")
+                )
+                header = _rabbit_prepare_header(header)
                 transport.send(
                     options.destination_override or destination,
                     dlqmsg["message"],
@@ -179,3 +183,20 @@ def run() -> None:
         print("Done.\n")
 
     transport.disconnect()
+
+
+def _rabbit_prepare_header(header: dict) -> dict:
+    drop = (
+        "message-id",
+        "routing_key",
+        "redelivered",
+        "exchange",
+        "consumer_tag",
+        "delivery_mode",
+    )
+    for key, value in header.items():
+        if key in drop:
+            del header[drop]
+        else:
+            header[key] = str(value)
+    return header

@@ -71,9 +71,17 @@ def run() -> None:
     def receive_dlq_message(header, message, rabbitmq=False):
         idlequeue.put_nowait("start")
         if rabbitmq:
-            msg_time = int(header["x-death"]["time"])
+            from datetime import datetime
+
+            msg_time = int(
+                datetime.timestamp(
+                    header["pika-properties"].headers["x-death"][0]["time"]
+                )
+            )
+            _pass_on_header = header["pika-properties"].headers
         else:
             msg_time = int(header["timestamp"])
+            _pass_on_header = header
         timestamp = time.localtime(msg_time / 1000)
         millisec = msg_time % 1000
         filepath = os.path.join(
@@ -87,7 +95,7 @@ def run() -> None:
             + "-"
             + "%03d" % millisec
             + "-"
-            + characterfilter.sub("_", header["message-id"])
+            + characterfilter.sub("_", str(header["message-id"]))
         )
         try:
             os.makedirs(filepath)
@@ -102,7 +110,7 @@ def run() -> None:
                 "date": time.strftime("%Y-%m-%d"),
                 "time": time.strftime("%H:%M:%S"),
             },
-            "header": header,
+            "header": _pass_on_header,
             "message": message,
         }
 

@@ -20,7 +20,7 @@ import zocalo.configuration
 # from workflows.transport.stomp_transport import StompTransport
 
 
-def run():
+def run() -> None:
     zc = zocalo.configuration.from_file()
     zc.activate()
     default_transport = workflows.transport.default_transport

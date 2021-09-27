@@ -18,7 +18,7 @@ import workflows.transport
 import zocalo.configuration
 
 
-def run():
+def run() -> None:
     zc = zocalo.configuration.from_file()
     zc.activate()
     default_transport = workflows.transport.default_transport

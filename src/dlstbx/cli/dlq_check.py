@@ -6,6 +6,7 @@ from optparse import SUPPRESS_HELP, OptionParser
 
 import workflows.transport
 import zocalo.configuration
+from zocalo.configuration import Configuration
 from zocalo.util.jmxstats import JMXAPI
 
 #
@@ -14,7 +15,7 @@ from zocalo.util.jmxstats import JMXAPI
 #
 
 
-def check_dlq(zc, namespace=None):
+def check_dlq(zc: Configuration, namespace: str = None) -> dict:
     """Monitor ActiveMQ queue activity."""
     jmx = JMXAPI(zc)
     if namespace:
@@ -48,7 +49,7 @@ def check_dlq(zc, namespace=None):
     return queuedata
 
 
-def check_dlq_rabbitmq(zc, namespace=None):
+def check_dlq_rabbitmq(zc: Configuration, namespace: str = None) -> dict:
     url = zc.rabbitmqapi["base_url"]
     request = urllib.request.Request(f"{url}/queues", method="GET")
     authstring = base64.b64encode(
@@ -67,7 +68,7 @@ def check_dlq_rabbitmq(zc, namespace=None):
     return dlq_info
 
 
-def run():
+def run() -> None:
     zc = zocalo.configuration.from_file()
     zc.activate()
     default_transport = workflows.transport.default_transport

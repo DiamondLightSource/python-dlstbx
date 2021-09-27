@@ -12,6 +12,7 @@ import queue
 import re
 import sys
 import time
+from functools import partial
 from optparse import SUPPRESS_HELP, OptionParser
 
 import workflows
@@ -122,7 +123,14 @@ def run() -> None:
         args = [dlqprefix + ".>"]
     for queue_ in args:
         print("Looking for DLQ messages in " + queue_)
-        transport.subscribe(queue_, receive_dlq_message, acknowledgement=True)
+        if options.transport == "PikaTransport":
+            transport.subscribe(
+                queue_,
+                partial(receive_dlq_message, rabbitmq=True),
+                acknowledgement=True,
+            )
+        else:
+            transport.subscribe(queue_, receive_dlq_message, acknowledgement=True)
     try:
         idlequeue.get(True, options.wait or 3)
         while True:

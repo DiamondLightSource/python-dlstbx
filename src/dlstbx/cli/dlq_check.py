@@ -88,12 +88,6 @@ def run() -> None:
         help="Restrict check to this namespace",
     )
     parser.add_option(
-        "--jmx-test-creds",
-        dest="jmx_creds",
-        default=None,
-        help="Config file containing JMX credentials",
-    )
-    parser.add_option(
         "-t",
         "--transport",
         dest="transport",
@@ -105,24 +99,6 @@ def run() -> None:
     )
     zc.add_command_line_options(parser)
     (options, args) = parser.parse_args()
-    if options.jmx_creds is not None:
-        import configparser
-
-        config = configparser.ConfigParser()
-        config.read(options.jmx_creds)
-
-        class ZocConfigCuckoo:
-            def __init__(self, jmx: dict):
-                self.jmx = jmx
-
-        jmx = {
-            "host": config["jmx"]["host"],
-            "port": config["jmx"]["port"],
-            "base_url": config["jmx"]["baseurl"],
-            "username": config["jmx"]["username"],
-            "password": config["jmx"]["password"],
-        }
-        zc = ZocConfigCuckoo(jmx)
 
     if options.transport == "StompTransport":
         dlqs = check_dlq(zc, namespace=options.namespace)

@@ -5,6 +5,14 @@ import workflows.recipe
 from workflows.services.common_service import CommonService
 
 
+class _SafeDict(dict):
+    """A dictionary that returns undefined keys as {keyname}.
+    This can be used to selectively replace variables in datastructures."""
+
+    def __missing__(self, key):
+        return "{" + key + "}"
+
+
 class DLSMailer(CommonService):
     """A service that generates emails from messages."""
 
@@ -95,7 +103,9 @@ class DLSMailer(CommonService):
         else:
             pprint_message = pprint.pformat(message)
 
-        content = content.format(payload=message, pprint_payload=pprint_message)
+        content = content.format_map(
+            _SafeDict(payload=message, pprint_payload=pprint_message)
+        )
 
         self.log.info("Sending mail notification %r to %r", subject, recipients)
 

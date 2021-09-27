@@ -79,6 +79,9 @@ def run() -> None:
                 )
             )
             _pass_on_header = header["pika-properties"].headers
+            _pass_on_header["x-death"][0]["time"] = datetime.timestamp(
+                _pass_on_header["x-death"][0]["time"]
+            )
         else:
             msg_time = int(header["timestamp"])
             _pass_on_header = header
@@ -123,7 +126,10 @@ def run() -> None:
                 filename=os.path.join(filepath, filename),
             )
         )
-        transport.ack(header)
+        if rabbitmq:
+            transport.ack(header, subscription_id=header["pika-method"].delivery_tag)
+        else:
+            transport.ack(header)
         idlequeue.put_nowait("done")
 
     transport.connect()

@@ -194,8 +194,17 @@ def test_get_datacollection_information_for_em_tiffs():
 
 def test_datacollection_classification():
     i = ispybtbx()
-    dc = {"axisRange": 0, "numberOfImages": 1800, "overlap": 0}
+    dc = {
+        "axisRange": 0,
+        "numberOfImages": 1800,
+        "overlap": 0,
+        "gridinfo": {"steps_x": 1, "steps_y": 80},
+    }
     assert i.classify_dc(dc) == {"grid": True, "rotation": False, "screen": False}
+
+    i = ispybtbx()
+    dc = {"axisRange": 0, "numberOfImages": 1, "overlap": 0, "gridinfo": {}}
+    assert i.classify_dc(dc) == {"grid": False, "rotation": False, "screen": True}
 
     dc = {"axisRange": 90, "numberOfImages": 1800, "overlap": 0}
     assert i.classify_dc(dc) == {"grid": False, "rotation": True, "screen": False}
@@ -476,3 +485,10 @@ def test_get_dcg_dcids():
     ) == [6222221, 6222245]
     msg, param = ispyb_filter({}, {"ispyb_dcid": 6222263})
     assert param["ispyb_dcg_dcids"] == [6222221, 6222245]
+
+
+def test_dcg_experiment_type():
+    _, params = ispyb_filter({}, {"ispyb_dcid": 6903084})
+    assert params["ispyb_dcg_experiment_type"] == "Mesh"
+    _, params = ispyb_filter({}, {"ispyb_dcid": 6921153})
+    assert params["ispyb_dcg_experiment_type"] == "SAD"

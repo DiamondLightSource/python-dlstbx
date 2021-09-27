@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import uuid
+from typing import Optional
 
 import ispyb.sqlalchemy as isa
 import marshmallow.fields
@@ -376,6 +377,15 @@ class ispybtbx:
             )
             return list(itertools.chain.from_iterable(query.all()))
 
+    def get_dcg_experiment_type(self, dcgid: int) -> Optional[str]:
+        if not dcgid:
+            return
+        with Session() as session:
+            query = session.query(isa.DataCollectionGroup.experimentType).filter(
+                isa.DataCollectionGroup.dataCollectionGroupId == dcgid
+            )
+            return query.one()[0]
+
     def get_space_group_and_unit_cell(self, dcid):
         with Session() as session:
             query = (
@@ -603,11 +613,7 @@ class ispybtbx:
         return start, end
 
     def dc_info_is_grid_scan(self, dc_info):
-        number_of_images = dc_info.get("numberOfImages")
-        axis_range = dc_info.get("axisRange")
-        if number_of_images is None or axis_range is None:
-            return None
-        return number_of_images > 1 and axis_range == 0.0
+        return bool(dc_info.get("gridinfo"))
 
     def dc_info_is_screening(self, dc_info):
         if dc_info.get("numberOfImages") is None:
@@ -755,6 +761,10 @@ def ispyb_filter(message, parameters):
         parameters["ispyb_preferred_datacentre"] = "cluster"
     parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info)
     parameters["ispyb_dc_info"] = dc_info
+    parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(dc_info)
+    parameters["ispyb_dcg_experiment_type"] = i.get_dcg_experiment_type(
+        dc_info.get("dataCollectionGroupId")
+    )
     dc_class = i.classify_dc(dc_info)
     parameters["ispyb_dc_class"] = dc_class
     diff_plan_info = i.get_diffractionplan_from_dcid(dc_id)
@@ -764,8 +774,6 @@ def ispyb_filter(message, parameters):
     energy_scan_info = i.get_energy_scan_from_dcid(dc_id)
     parameters["ispyb_energy_scan_info"] = energy_scan_info
     start, end = i.dc_info_to_start_end(dc_info)
-    if dc_class["grid"]:
-        parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(dc_info)
     priority_processing = i.get_priority_processing_for_dc_info(dc_info)
     if not priority_processing:
         priority_processing = "xia2/DIALS"

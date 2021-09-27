@@ -59,8 +59,8 @@ def run() -> None:
         args = ["dlq." + a for a in args]
     transport = workflows.transport.lookup(options.transport)()
 
-    if zc.storage and zc.storage.get("dlq_purge_location"):
-        dlq_dump_path = zc.storage["dlq_purge_location"]
+    if zc.storage and zc.storage.get("zocalo.dlq.purge_location"):
+        dlq_dump_path = zc.storage["zocalo.dlq.purge_location"]
     else:
         dlq_dump_path = "./DLQ"
 

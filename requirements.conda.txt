@@ -3,7 +3,7 @@ drmaa
 ispyb>=6.9.0,<6.10
 junit-xml>=1.9
 marshmallow-sqlalchemy
-minio
+minio>=7.1.0
 msgpack-python
 networkx
 pandas
@@ -13,7 +13,7 @@ procrunner>=1.0.2
 pydantic
 pytest
 pytest-mock
-python-htcondor
+python-htcondor>=9.2.0
 pyzmq
 pyyaml
 sqlalchemy>=1.4.0,<1.5

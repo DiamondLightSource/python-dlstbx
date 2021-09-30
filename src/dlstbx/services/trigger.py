@@ -870,7 +870,7 @@ class DLSTrigger(CommonService):
             "program_id": parameters.program_id,
             "data": os.fspath(parameters.data),
             "atom": msg.get("atom"),
-            "dataset": "|".join([ds["name"] for ds in msg.get("datasets", [])]),
+            "dataset": "|".join(ds["name"] for ds in msg.get("datasets", [])),
             "spacegroup": msg.get("spacegroup"),
             "nsites": msg.get("nsites"),
             "compound": "Protein",

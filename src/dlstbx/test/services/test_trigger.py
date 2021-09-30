@@ -423,6 +423,92 @@ def test_big_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
         }
 
 
+@pytest.mark.parametrize(
+    "pipeline,transfer_output_files",
+    [
+        ("autoSHARP", "autoSHARP"),
+        ("AutoBuild", "AutoSol_run_1_, PDS, AutoBuild_run_1_"),
+        (
+            "Crank2",
+            "crank2, run_Crank2.sh, crank2.log, pointless.log, crank2_config.xml",
+        ),
+    ],
+)
+def test_big_ep_cloud(
+    db_session_factory,
+    testconfig,
+    testdb,
+    mocker,
+    monkeypatch,
+    pipeline,
+    transfer_output_files,
+):
+    monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
+    dcid = 1002287
+    message = {
+        "recipe": {
+            "1": {
+                "parameters": {
+                    "target": "big_ep_cloud",
+                    "dcid": dcid,
+                    "pipeline": pipeline,
+                    "comment": "big_ep_cloud triggered by automatic xia2-dials",
+                    "automatic": True,
+                    "program_id": 56986673,
+                    "data": "/path/to/data.mtz",
+                    "shelxc_path": "/path/to/shelxc",
+                    "fast_ep_path": "/path/to/fast_ep",
+                    "path_ext": "20210930_115830",
+                },
+            },
+        },
+        "recipe-pointer": 1,
+    }
+    trigger = DLSTrigger()
+    trigger._ispyb_sessionmaker = db_session_factory
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    rw = RecipeWrapper(message=message, transport=t)
+    trigger.ispyb = testdb
+    send = mocker.spy(rw, "send")
+    trigger.trigger(rw, {"some": "header"}, message)
+    send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
+    print(t.send.call_args)
+    t.send.assert_called_once_with(
+        "processing_recipe",
+        {
+            "recipes": [],
+            "parameters": {
+                "ispyb_process": mock.ANY,
+                "pipeline": pipeline,
+                "path_ext": "20210930_115830",
+                "shelxc_path": "/path/to/shelxc",
+                "fast_ep_path": "/path/to/fast_ep",
+                "transfer_input_files": "data.mtz",
+                "transfer_output_files": transfer_output_files,
+            },
+        },
+    )
+    pjid = t.send.call_args.args[1]["parameters"]["ispyb_process"]
+    with db_session_factory() as db_session:
+        pj = (
+            db_session.query(ProcessingJob)
+            .filter(ProcessingJob.processingJobId == pjid)
+            .one()
+        )
+        assert pj.displayName == pipeline
+        assert pj.recipe == "postprocessing-big-ep-cloud"
+        assert pj.dataCollectionId == dcid
+        assert pj.automatic
+        params = {
+            (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+        }
+        assert params == {
+            ("data", "/path/to/data.mtz"),
+            ("pipeline", pipeline),
+            ("program_id", "56986673"),
+        }
+
+
 def test_mrbump(db_session_factory, testconfig, testdb, mocker, monkeypatch, tmp_path):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 1002287

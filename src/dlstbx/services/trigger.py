@@ -4,7 +4,7 @@ import os
 import pathlib
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Mapping, Optional
+from typing import Dict, List, Literal, Mapping, Optional
 
 import ispyb
 import pydantic
@@ -117,7 +117,7 @@ class BigEPParameters(pydantic.BaseModel):
 
 class BigEPLauncherParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    pipeline = str
+    pipeline: Literal["autoSHARP", "AutoBuild", "Crank2"]
     data: pathlib.Path
     shelxc_path: pathlib.Path
     fast_ep_path: pathlib.Path
@@ -853,7 +853,6 @@ class DLSTrigger(CommonService):
         rw: workflows.recipe.RecipeWrapper,
         *,
         parameters: BigEPLauncherParameters,
-        session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
         jp = self.ispyb.mx_processing.get_job_params()
@@ -905,39 +904,31 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    def trigger_big_ep_cloud(self, rw, header, parameters, session, **kwargs):
-        dcid = parameters("dcid")
-        if not dcid:
-            self.log.error("big_ep_cloud trigger failed: No DCID specified")
-            return False
-        pipeline = parameters("pipeline")
-        if not pipeline:
-            self.log.error("big_ep_cloud trigger failed: No pipeline specified")
-            return False
+    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    def trigger_big_ep_cloud(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: BigEPLauncherParameters,
+        session,
+        **kwargs,
+    ):
 
         query = (
-            session.query(Proposal, BLSession)
+            session.query(Proposal)
             .join(BLSession, BLSession.proposalId == Proposal.proposalId)
             .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
-            .filter(DataCollection.dataCollectionId == dcid)
+            .filter(DataCollection.dataCollectionId == parameters.dcid)
         )
         proposal = query.first()
-        if not proposal:
-            self.log.error(
-                f"big_ep_cloud trigger failed: no proposal associated with dcid={dcid}"
-            )
-            return False
+        if proposal.proposalCode in ("lb", "in", "sw"):
+            self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
+            return {"success": True}
 
         if (
-            (
-                proposal.Proposal.proposalCode != "mx"
-                or proposal.Proposal.proposalNumber != "23694"
-            )
-            and (
-                proposal.Proposal.proposalCode != "nt"
-                or proposal.Proposal.proposalNumber != "28218"
-            )
-            and proposal.Proposal.proposalCode != "cm"
+            (proposal.proposalCode != "mx" or proposal.proposalNumber != "23694")
+            and (proposal.proposalCode != "nt" or proposal.proposalNumber != "28218")
+            and proposal.proposalCode != "cm"
         ):
             self.log.info(
                 f"Skipping big_ep_cloud trigger for {proposal.Proposal.proposalCode}{proposal.Proposal.proposalNumber} visit"
@@ -945,45 +936,33 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = bool(parameters("automatic"))
-        jp["comments"] = parameters("comment")
-        jp["datacollectionid"] = dcid
-        jp["display_name"] = pipeline
+        jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = parameters.pipeline
         jp["recipe"] = "postprocessing-big-ep-cloud"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep_cloud trigger: generated JobID {jobid}")
 
         try:
-            program_id = int(parameters("program_id"))
+            program_id = parameters.program_id
         except (TypeError, ValueError):
             self.log.error("big_ep_cloud trigger failed: Invalid program_id specified")
             return False
-        data = parameters("data")
-        if not data:
-            self.log.error("big_ep_cloud trigger failed: No input data file specified")
-            return False
-        path_ext = parameters("path_ext")
-        if not path_ext:
-            path_ext = datetime.now().strftime("%Y%m%d_%H%M%S")
-        shelxc_path = parameters("shelxc_path")
-        fast_ep_path = parameters("fast_ep_path")
-        transfer_input_files = os.path.basename(data)
-        if pipeline == "autoSHARP":
+        transfer_input_files = parameters.data.name
+        if parameters.pipeline == "autoSHARP":
             transfer_output_files = "autoSHARP"
-        elif pipeline == "AutoBuild":
+        elif parameters.pipeline == "AutoBuild":
             transfer_output_files = "AutoSol_run_1_, PDS, AutoBuild_run_1_"
-        elif pipeline == "Crank2":
+        elif parameters.pipeline == "Crank2":
             transfer_output_files = (
                 "crank2, run_Crank2.sh, crank2.log, pointless.log, crank2_config.xml"
             )
-        else:
-            self.log.error(f"big_ep_cloud trigger failed: unknown pipeline {pipeline}")
-            return False
 
         big_ep_parameters = {
-            "pipeline": pipeline,
+            "pipeline": parameters.pipeline,
             "program_id": program_id,
-            "data": data,
+            "data": os.fspath(parameters.data),
         }
 
         for key, value in big_ep_parameters.items():
@@ -1000,10 +979,10 @@ class DLSTrigger(CommonService):
             "recipes": [],
             "parameters": {
                 "ispyb_process": jobid,
-                "pipeline": pipeline,
-                "path_ext": path_ext,
-                "shelxc_path": shelxc_path,
-                "fast_ep_path": fast_ep_path,
+                "pipeline": parameters.pipeline,
+                "path_ext": parameters.path_ext,
+                "shelxc_path": os.fspath(parameters.shelxc_path),
+                "fast_ep_path": os.fspath(parameters.fast_ep_path),
                 "transfer_input_files": transfer_input_files,
                 "transfer_output_files": transfer_output_files,
             },

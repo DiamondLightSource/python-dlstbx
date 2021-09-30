@@ -234,8 +234,8 @@ class DLSTrigger(CommonService):
                 )
             except pydantic.ValidationError as e:
                 self.log.error(
-                    f"{target.capitalize()} trigger called with invalid parameters: %s",
-                    e,
+                    f"{target.capitalize()} trigger called with invalid parameters: {e}",
+                    exc_info=True,
                 )
                 return False
 

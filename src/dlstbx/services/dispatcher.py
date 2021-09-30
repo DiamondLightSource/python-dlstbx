@@ -261,7 +261,16 @@ class DLSDispatcher(CommonService):
                     )
                     self._transport.nack(header)
                     return
-                recipe.apply_parameters(parameters)
+                try:
+                    recipe.apply_parameters(parameters)
+                except Exception as e:
+                    self.log.error(
+                        "Failed to apply_parameters to recipe: %s",
+                        str(e),
+                        exc_info=True,
+                    )
+                    self._transport.nack(header)
+                    return
                 full_recipe = full_recipe.merge(recipe)
 
             # Conditionally acknowledge receipt of the message

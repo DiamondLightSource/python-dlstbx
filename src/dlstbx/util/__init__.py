@@ -14,7 +14,7 @@ class ChainMapWithReplacement(ChainMap):
 
     def __getitem__(self, k):
         v = super().__getitem__(k)
-        if self._substitutions and "$" in v:
+        if self._substitutions and isinstance(v, str) and "$" in v:
             template = string.Template(v)
             return template.substitute(**self._substitutions)
         return v

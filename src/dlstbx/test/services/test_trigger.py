@@ -10,6 +10,7 @@ from ispyb.sqlalchemy import (
     DataCollection,
     DataCollectionGroup,
     ProcessingJob,
+    ProcessingJobParameter,
     Protein,
 )
 from workflows.recipe.wrapper import RecipeWrapper
@@ -29,32 +30,50 @@ def insert_multiplex_input(db_session):
             numberOfImages=25,
         )
         dcs.append(dc)
-        pj = ProcessingJob(
-            DataCollection=dc,
-            automatic=True,
-        )
-        app = AutoProcProgram(
-            ProcessingJob=pj,
-            processingStatus=1,
-            processingStartTime=datetime.datetime.now(),
-            processingPrograms="xia2 dials",
-        )
-        api = AutoProcIntegration(DataCollection=dc, AutoProcProgram=app)
-        db_session.add_all([dcg, dc, api, app, pj])
-        for ext in ("expt", "refl"):
-            db_session.add(
-                AutoProcProgramAttachment(
-                    AutoProcProgram=app,
-                    filePath=f"/path/to/xia2-dials-{i}",
-                    fileName=f"integrated.{ext}",
-                )
+        db_session.add_all([dcg, dc])
+        for sg in (None, "P422"):
+            pj = ProcessingJob(
+                DataCollection=dc,
+                automatic=True,
             )
+            pjps = []
+            if sg:
+                pjps = [
+                    ProcessingJobParameter(
+                        ProcessingJob=pj,
+                        parameterKey="spacegroup",
+                        parameterValue=sg,
+                    )
+                ]
+            app = AutoProcProgram(
+                ProcessingJob=pj,
+                processingStatus=1,
+                processingStartTime=datetime.datetime.now(),
+                processingPrograms="xia2 dials",
+            )
+            api = AutoProcIntegration(DataCollection=dc, AutoProcProgram=app)
+            db_session.add_all([api, app, pj] + pjps)
+            for ext in ("expt", "refl"):
+                db_session.add(
+                    AutoProcProgramAttachment(
+                        AutoProcProgram=app,
+                        filePath=f"/path/to/xia2-dials-{i}{('-' + sg) if sg else ''}",
+                        fileName=f"integrated.{ext}",
+                    )
+                )
     db_session.commit()
     return [dc.dataCollectionId for dc in dcs]
 
 
+@pytest.mark.parametrize("spacegroup", [None, "P422"])
 def test_multiplex(
-    insert_multiplex_input, db_session_factory, testconfig, testdb, mocker, monkeypatch
+    insert_multiplex_input,
+    db_session_factory,
+    testconfig,
+    testdb,
+    mocker,
+    monkeypatch,
+    spacegroup,
 ):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcids = insert_multiplex_input
@@ -67,7 +86,9 @@ def test_multiplex(
                     "wavelength": "1.03936",
                     "comment": "xia2.multiplex triggered by automatic xia2-dials",
                     "automatic": True,
-                    "ispyb_parameters": None,
+                    "ispyb_parameters": {"spacegroup": spacegroup}
+                    if spacegroup
+                    else {},
                     "related_dcids": [
                         {
                             "dcids": dcids[:-1],
@@ -114,21 +135,26 @@ def test_multiplex(
         params = {
             (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
         }
-        assert params == {
-            (
-                "data",
-                "/path/to/xia2-dials-2/integrated.expt;/path/to/xia2-dials-2/integrated.refl",
-            ),
-            (
-                "data",
-                "/path/to/xia2-dials-1/integrated.expt;/path/to/xia2-dials-1/integrated.refl",
-            ),
-            (
-                "data",
-                "/path/to/xia2-dials-0/integrated.expt;/path/to/xia2-dials-0/integrated.refl",
-            ),
-            ("sample_group_id", "123"),
-        }
+        sg_extra = ("-" + spacegroup) if spacegroup else ""
+        assert (
+            params
+            == {
+                (
+                    "data",
+                    f"/path/to/xia2-dials-2{sg_extra}/integrated.expt;/path/to/xia2-dials-2{sg_extra}/integrated.refl",
+                ),
+                (
+                    "data",
+                    f"/path/to/xia2-dials-1{sg_extra}/integrated.expt;/path/to/xia2-dials-1{sg_extra}/integrated.refl",
+                ),
+                (
+                    "data",
+                    f"/path/to/xia2-dials-0{sg_extra}/integrated.expt;/path/to/xia2-dials-0{sg_extra}/integrated.refl",
+                ),
+                ("sample_group_id", "123"),
+            }
+            | ({("spacegroup", spacegroup)} if spacegroup else set())
+        )
 
 
 @pytest.fixture
@@ -145,7 +171,7 @@ def insert_dimple_input(db_session):
     return dc.dataCollectionId
 
 
-def test_dimple_trigger(
+def test_dimple(
     insert_dimple_input,
     db_session_factory,
     testconfig,
@@ -397,6 +423,92 @@ def test_big_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
         }
 
 
+@pytest.mark.parametrize(
+    "pipeline,transfer_output_files",
+    [
+        ("autoSHARP", "autoSHARP"),
+        ("AutoBuild", "AutoSol_run_1_, PDS, AutoBuild_run_1_"),
+        (
+            "Crank2",
+            "crank2, run_Crank2.sh, crank2.log, pointless.log, crank2_config.xml",
+        ),
+    ],
+)
+def test_big_ep_cloud(
+    db_session_factory,
+    testconfig,
+    testdb,
+    mocker,
+    monkeypatch,
+    pipeline,
+    transfer_output_files,
+):
+    monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
+    dcid = 1002287
+    message = {
+        "recipe": {
+            "1": {
+                "parameters": {
+                    "target": "big_ep_cloud",
+                    "dcid": dcid,
+                    "pipeline": pipeline,
+                    "comment": "big_ep_cloud triggered by automatic xia2-dials",
+                    "automatic": True,
+                    "program_id": 56986673,
+                    "data": "/path/to/data.mtz",
+                    "shelxc_path": "/path/to/shelxc",
+                    "fast_ep_path": "/path/to/fast_ep",
+                    "path_ext": "20210930_115830",
+                },
+            },
+        },
+        "recipe-pointer": 1,
+    }
+    trigger = DLSTrigger()
+    trigger._ispyb_sessionmaker = db_session_factory
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    rw = RecipeWrapper(message=message, transport=t)
+    trigger.ispyb = testdb
+    send = mocker.spy(rw, "send")
+    trigger.trigger(rw, {"some": "header"}, message)
+    send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
+    print(t.send.call_args)
+    t.send.assert_called_once_with(
+        "processing_recipe",
+        {
+            "recipes": [],
+            "parameters": {
+                "ispyb_process": mock.ANY,
+                "pipeline": pipeline,
+                "path_ext": "20210930_115830",
+                "shelxc_path": "/path/to/shelxc",
+                "fast_ep_path": "/path/to/fast_ep",
+                "transfer_input_files": "data.mtz",
+                "transfer_output_files": transfer_output_files,
+            },
+        },
+    )
+    pjid = t.send.call_args.args[1]["parameters"]["ispyb_process"]
+    with db_session_factory() as db_session:
+        pj = (
+            db_session.query(ProcessingJob)
+            .filter(ProcessingJob.processingJobId == pjid)
+            .one()
+        )
+        assert pj.displayName == pipeline
+        assert pj.recipe == "postprocessing-big-ep-cloud"
+        assert pj.dataCollectionId == dcid
+        assert pj.automatic
+        params = {
+            (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
+        }
+        assert params == {
+            ("data", "/path/to/data.mtz"),
+            ("pipeline", pipeline),
+            ("program_id", "56986673"),
+        }
+
+
 def test_mrbump(db_session_factory, testconfig, testdb, mocker, monkeypatch, tmp_path):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 1002287
@@ -598,7 +710,7 @@ def test_alphafold(
         {
             "recipes": ["alphafold"],
             "parameters": {
-                "ispyb_protein_id": f"{protein_id}",
+                "ispyb_protein_id": protein_id,
                 "ispyb_protein_sequence": "GIVEQCCASVCSLYQLENYCNFVNQHLCGSHLVEALYLVCGERGFFYTPKA",
                 "ispyb_protein_name": "Test_Insulin",
             },

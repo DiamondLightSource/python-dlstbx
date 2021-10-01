@@ -5,6 +5,7 @@
 #
 
 
+import argparse
 import errno
 import json
 import os
@@ -14,7 +15,6 @@ import sys
 import time
 from datetime import datetime
 from functools import partial
-from optparse import SUPPRESS_HELP, OptionParser
 
 import workflows
 import zocalo.configuration
@@ -32,9 +32,11 @@ def run() -> None:
         in workflows.transport.get_known_transports()
     ):
         default_transport = zc.storage["zocalo.default_transport"]
-    parser = OptionParser(usage="dlstbx.dlq_purge [options] [queue [queue ...]]")
+    parser = argparse.ArgumentParser(
+        usage="dlstbx.dlq_purge [options] [queue [queue ...]]"
+    )
 
-    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+    parser.add_option("-?", action="help", help=argparse.SUPPRESS)
     dlqprefix = "zocalo"
     # override default stomp host
     parser.add_option(
@@ -52,7 +54,7 @@ def run() -> None:
         default=default_transport,
         help="Transport mechanism. Known mechanisms: "
         + ", ".join(workflows.transport.get_known_transports())
-        + " (default: %default)",
+        + f" (default: {default_transport})",
     )
     zc.add_command_line_options(parser)
     workflows.transport.add_command_line_options(parser)

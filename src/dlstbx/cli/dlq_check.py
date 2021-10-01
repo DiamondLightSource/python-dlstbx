@@ -77,7 +77,8 @@ def run() -> None:
         in workflows.transport.get_known_transports()
     ):
         default_transport = zc.storage["zocalo.default_transport"]
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser("dlstbx.dlq_check [options]")
+    parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
     parser.add_argument(
         "-n",
         "--namespace",

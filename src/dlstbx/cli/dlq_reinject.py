@@ -5,13 +5,13 @@
 #
 
 
+import argparse
 import json
 import os
 import re
 import select
 import sys
 import time
-from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
 
 import workflows.transport
@@ -22,10 +22,12 @@ def run() -> None:
     zc = zocalo.configuration.from_file()
     zc.activate()
     default_transport = workflows.transport.default_transport
-    parser = OptionParser(usage="dlstbx.dlq_reinject [options] file [file [..]]")
+    parser = argparse.ArgumentParser(
+        usage="dlstbx.dlq_reinject [options] file [file [..]]"
+    )
 
-    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-    parser.add_option(
+    parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
+    parser.add_argument(
         "-r",
         "--remove",
         action="store_true",
@@ -33,7 +35,7 @@ def run() -> None:
         dest="remove",
         help="Delete file on successful reinjection",
     )
-    parser.add_option(
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -41,7 +43,7 @@ def run() -> None:
         dest="verbose",
         help="Show message contents",
     )
-    parser.add_option(
+    parser.add_argument(
         "-d",
         "--destination",
         action="store",
@@ -49,14 +51,14 @@ def run() -> None:
         dest="destination_override",
         help="Reinject messages to a different destination. Any name given must include the stomp prefix.",
     )
-    parser.add_option(
+    parser.add_argument(
         "-w",
         "--wait",
         default=None,
         dest="wait",
         help="Wait this many seconds between reinjections",
     )
-    parser.add_option(
+    parser.add_argument(
         "-t",
         "--transport",
         dest="transport",
@@ -64,7 +66,7 @@ def run() -> None:
         default=default_transport,
         help="Transport mechanism. Known mechanisms: "
         + ", ".join(workflows.transport.get_known_transports())
-        + " (default: %default)",
+        + f" (default: {default_transport})",
     )
 
     zc.add_command_line_options(parser)

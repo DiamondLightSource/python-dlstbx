@@ -234,10 +234,9 @@ class DLSTrigger(CommonService):
                 )
             except pydantic.ValidationError as e:
                 self.log.error(
-                    f"{target.capitalize()} trigger called with invalid parameters: {e}",
-                    exc_info=True,
+                    f"{target.capitalize()} trigger called with invalid parameters: {e}"
                 )
-                return False
+                result = None
 
         if result and result.get("success"):
             rw.send({"result": result.get("return_value")}, transaction=txn)

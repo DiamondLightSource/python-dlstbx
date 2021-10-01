@@ -1,4 +1,5 @@
 import datetime
+import logging
 from unittest import mock
 
 import pytest
@@ -716,3 +717,27 @@ def test_alphafold(
             },
         },
     )
+
+
+def test_invalid_params(db_session_factory, caplog):
+    message = {
+        "recipe": {
+            "1": {
+                "service": "DLS Trigger",
+                "queue": "trigger",
+                "parameters": {
+                    "target": "dimple",
+                },
+            },
+        },
+        "recipe-pointer": 1,
+    }
+    trigger = DLSTrigger()
+    trigger._ispyb_sessionmaker = db_session_factory
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    rw = RecipeWrapper(message=message, transport=t)
+    with caplog.at_level(logging.ERROR):
+        trigger.trigger(rw, {"some": "header"}, message)
+    assert "Dimple trigger called with invalid parameters" in caplog.text
+    t.nack.assert_called_once()
+    t.transaction_abort.assert_called_once()

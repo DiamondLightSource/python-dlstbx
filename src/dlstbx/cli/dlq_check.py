@@ -112,7 +112,7 @@ def run() -> None:
         print(f"Transport {options.transport} not recognised")
     total = sum(dlqs.values())
     if total:
-        print("Total of %d DLQ messages found" % total)
+        print(f"Total of {total} DLQ messages found")
         sys.exit(1)
     else:
         print("No DLQ messages found")

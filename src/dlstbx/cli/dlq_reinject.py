@@ -81,7 +81,7 @@ def run() -> None:
                 break
             if dlq_purge_filename_format.match(line):
                 stdin.append(line.strip())
-        print("%d filenames read from stdin" % len(stdin))
+        print(f"{len(stdin)} filenames read from stdin")
 
     if not args and not stdin:
         print("No DLQ message files given.")
@@ -196,7 +196,7 @@ def _rabbit_prepare_header(header: dict) -> dict:
     )
     for key, value in header.items():
         if key in drop:
-            del header[drop]
+            del header[key]
         else:
             header[key] = str(value)
     return header

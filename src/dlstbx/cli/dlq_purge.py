@@ -121,6 +121,7 @@ def run() -> None:
             )
         )
         if rabbitmq:
+            # subscription_id does nothing for RabbitMQ but it is currently required by workflows
             transport.ack(header, subscription_id=header["message-id"])
         else:
             transport.ack(header)

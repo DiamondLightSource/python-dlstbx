@@ -36,7 +36,7 @@ def run() -> None:
         usage="dlstbx.dlq_purge [options] [queue [queue ...]]"
     )
 
-    parser.add_option("-?", action="help", help=argparse.SUPPRESS)
+    parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
     dlqprefix = "zocalo"
     # override default stomp host
     parser.add_option(
@@ -46,7 +46,7 @@ def run() -> None:
         type=float,
         help="Wait this many seconds for ActiveMQ replies",
     )
-    parser.add_option(
+    parser.add_argument(
         "-t",
         "--transport",
         dest="transport",

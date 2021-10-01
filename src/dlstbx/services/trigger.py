@@ -560,7 +560,7 @@ class DLSTrigger(CommonService):
         mr_parameters = {
             "program_id": parameters.program_id,
             "program": parameters.program_id,
-            "data": parameters.data,
+            "data": os.fspath(parameters.data),
             "threshold": parameters.threshold,
         }
 
@@ -578,7 +578,7 @@ class DLSTrigger(CommonService):
             "parameters": {
                 "ispyb_process": jobid,
                 "program": parameters.program,
-                "data": parameters.data,
+                "data": os.fspath(parameters.data),
                 "threshold": parameters.threshold,
             },
             "recipes": [],
@@ -621,7 +621,7 @@ class DLSTrigger(CommonService):
 
         screen19_parameters = {
             "program_id": parameters.program_id,
-            "data": parameters.data,
+            "data": os.fspath(parameters.data),
         }
 
         for key, value in screen19_parameters.items():
@@ -637,7 +637,7 @@ class DLSTrigger(CommonService):
         message = {
             "parameters": {
                 "ispyb_process": jobid,
-                "data": parameters.data,
+                "data": os.fspath(parameters.data),
             },
             "recipes": [],
         }
@@ -681,7 +681,7 @@ class DLSTrigger(CommonService):
         self.log.debug("best trigger: Processing job {} created".format(jobid))
 
         message = {
-            "parameters": {"ispyb_process": jobid, "data": parameters.data},
+            "parameters": {"ispyb_process": jobid, "data": os.fspath(parameters.data)},
             "recipes": [],
         }
         rw.transport.send("processing_recipe", message)

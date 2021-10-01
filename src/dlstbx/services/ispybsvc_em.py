@@ -116,6 +116,7 @@ class EM_Mixin:
                 movie_params["dataCollectionId"] = full_parameters("dcid")
                 movie_params["movieNumber"] = full_parameters("image_number")
                 movie_params["movieFullPath"] = full_parameters("micrograph_full_path")
+                movie_params["createdTimeStamp"] = full_parameters("created_time_stamp")
                 movieid = self.ispyb.em_acquisition.insert_movie(
                     list(movie_params.values())
                 )

@@ -56,7 +56,7 @@ def check_rabbitmq_dlq(cfc: CheckFunctionInterface):
                     MessageBody=db_status[report].MessageBody
                     + "\n"
                     + f"Error cleared at {now}",
-                    URL="http://rabbitmq1.diamond.ac.uk/",
+                    URL="http://rabbitmq1.diamond.ac.uk:15672/",
                 )
 
     return list(report_updates.values())

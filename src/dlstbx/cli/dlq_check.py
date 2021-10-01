@@ -109,7 +109,7 @@ def run() -> None:
         for queue, count in dlqs.items():
             print("DLQ for %s contains %d entries" % (queue.replace("dlq.", ""), count))
     else:
-        print(f"Transport {options.transport} not recognised")
+        exit(f"Transport {options.transport} not recognised")
     total = sum(dlqs.values())
     if total:
         print(f"Total of {total} DLQ messages found")

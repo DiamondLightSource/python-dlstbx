@@ -12,6 +12,7 @@ import queue
 import re
 import sys
 import time
+from datetime import datetime
 from functools import partial
 from optparse import SUPPRESS_HELP, OptionParser
 
@@ -71,8 +72,6 @@ def run() -> None:
     def receive_dlq_message(header, message, rabbitmq=False):
         idlequeue.put_nowait("start")
         if rabbitmq:
-            from datetime import datetime
-
             msg_time = int(datetime.timestamp(header["headers"]["x-death"][0]["time"]))
             header["headers"]["x-death"][0]["time"] = datetime.timestamp(
                 header["headers"]["x-death"][0]["time"]

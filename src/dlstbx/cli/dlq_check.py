@@ -1,8 +1,7 @@
+import argparse
 import base64
 import json
-import sys
 import urllib
-from optparse import SUPPRESS_HELP, OptionParser
 
 import workflows.transport
 import zocalo.configuration
@@ -78,18 +77,19 @@ def run() -> None:
         in workflows.transport.get_known_transports()
     ):
         default_transport = zc.storage["zocalo.default_transport"]
-    parser = OptionParser(usage="dlstbx.dlq_check [options]")
-    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-    parser.add_option(
+    parser = argparse.ArgumentParser(usage="dlstbx.dlq_check [options]")
+    parser.add_argument(
         "-n",
         "--namespace",
+        type=str,
         dest="namespace",
         default="",
         help="Restrict check to this namespace",
     )
-    parser.add_option(
+    parser.add_argument(
         "-t",
         "--transport",
+        type=str,
         dest="transport",
         metavar="TRN",
         default=default_transport,
@@ -98,18 +98,18 @@ def run() -> None:
         + " (default: %default)",
     )
     zc.add_command_line_options(parser)
-    (options, args) = parser.parse_args()
+    args = parser.parse_args()
 
-    if options.transport == "StompTransport":
-        dlqs = check_dlq(zc, namespace=options.namespace)
+    if args.transport == "StompTransport":
+        dlqs = check_dlq(zc, namespace=args.namespace)
         for queue, count in dlqs.items():
             print("DLQ for %s contains %d entries" % (queue.replace("DLQ.", ""), count))
-    elif options.transport == "PikaTransport":
-        dlqs = check_dlq_rabbitmq(zc, namespace=options.namespace or "zocalo")
+    elif args.transport == "PikaTransport":
+        dlqs = check_dlq_rabbitmq(zc, namespace=args.namespace or "zocalo")
         for queue, count in dlqs.items():
             print("DLQ for %s contains %d entries" % (queue.replace("dlq.", ""), count))
     else:
-        exit(f"Transport {options.transport} not recognised")
+        exit(f"Transport {args.transport} not recognised")
     total = sum(dlqs.values())
     if total:
         exit(f"Total of {total} DLQ messages found")

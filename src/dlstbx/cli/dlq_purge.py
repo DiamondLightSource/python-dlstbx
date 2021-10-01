@@ -39,7 +39,7 @@ def run() -> None:
     parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
     dlqprefix = "zocalo"
     # override default stomp host
-    parser.add_option(
+    parser.add_argument(
         "--wait",
         action="store",
         dest="wait",
@@ -58,10 +58,12 @@ def run() -> None:
     )
     zc.add_command_line_options(parser)
     workflows.transport.add_command_line_options(parser)
-    (options, args) = parser.parse_args(["--stomp-prfx=DLQ"] + sys.argv[1:])
-    if options.transport == "PikaTransport":
-        args = ["dlq." + a for a in args]
-    transport = workflows.transport.lookup(options.transport)()
+    (known_args, unknown_args) = parser.parse_known_args(
+        ["--stomp-prfx=DLQ"] + sys.argv[1:]
+    )
+    if known_args.transport == "PikaTransport":
+        args = ["dlq." + a for a in unknown_args]
+    transport = workflows.transport.lookup(known_args.transport)()
 
     if zc.storage and zc.storage.get("zocalo.dlq.purge_location"):
         dlq_dump_path = zc.storage["zocalo.dlq.purge_location"]
@@ -133,7 +135,7 @@ def run() -> None:
         args = [dlqprefix + ".>"]
     for queue_ in args:
         print("Looking for DLQ messages in " + queue_)
-        if options.transport == "PikaTransport":
+        if known_args.transport == "PikaTransport":
             transport.subscribe(
                 queue_,
                 partial(receive_dlq_message, rabbitmq=True),
@@ -142,8 +144,8 @@ def run() -> None:
         else:
             transport.subscribe(queue_, receive_dlq_message, acknowledgement=True)
     try:
-        idlequeue.get(True, options.wait or 3)
+        idlequeue.get(True, known_args.wait or 3)
         while True:
-            idlequeue.get(True, options.wait or 0.1)
+            idlequeue.get(True, known_args.wait or 0.1)
     except queue.Empty:
         print("Done.")

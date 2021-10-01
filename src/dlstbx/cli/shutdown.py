@@ -3,28 +3,47 @@
 #   Stop a dlstbx service
 #
 
-
+import argparse
 import sys
-from optparse import SUPPRESS_HELP, OptionParser
 
 import workflows
 import workflows.services
-from workflows.transport.stomp_transport import StompTransport
+import workflows.transport
+import zocalo.configuration
 
 # Example: dlstbx.shutdown computer.12345
 #          dlstbx.shutdown --all
 
 
 def run():
-    parser = OptionParser()
+    parser = argparse.ArgumentParser()
 
-    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
     # parser.add_option("--all", dest="all",
     #     action="store_true", default=False,
     #     help="Stop all dlstbx services (use with caution)")
 
+    # Load configuration
+    zc = zocalo.configuration.from_file()
+    zc.activate()
+
+    default_transport = workflows.transport.default_transport
+    if (
+        zc.storage
+        and zc.storage.get("zocalo.default_transport")
+        in workflows.transport.get_known_transports()
+    ):
+        default_transport = zc.storage["zocalo.default_transport"]
+
     known_services = workflows.services.get_known_services()
-    parser.add_option(
+
+    parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "HOSTS",
+        nargs="*",
+        type=str,
+        help="Specific service instances specified as hostname.pid",
+    )
+    parser.add_argument(
         "-s",
         "--service",
         dest="services",
@@ -34,51 +53,43 @@ def run():
         help="Stop all instances of a service. Use 'none' for instances without "
         "loaded service. Known services: " + ", ".join(known_services),
     )
-    parser.add_option(
-        "--test",
-        action="store_true",
-        dest="test",
-        help="Run in ActiveMQ testing namespace (zocdev, default)",
+    parser.add_argument(
+        "-t",
+        "--transport",
+        dest="transport",
+        metavar="TRN",
+        default=default_transport,
+        help="Transport mechanism. Known mechanisms: "
+        + ", ".join(workflows.transport.get_known_transports())
+        + f" (default: {default_transport})",
     )
-    parser.add_option(
-        "--live",
-        action="store_true",
-        dest="test",
-        help="Run in ActiveMQ live namespace (zocalo)",
-    )
+    zc.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser)
+    args = parser.parse_args(sys.argv[1:])
 
-    # change settings when in live mode
-    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
-    if "--live" in sys.argv:
-        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-
-    StompTransport.load_configuration_file(default_configuration)
-    StompTransport.add_command_line_options(parser)
-    (options, args) = parser.parse_args(sys.argv[1:])
-    stomp = StompTransport()
-
-    if not options.services and not len(args):
+    if not args.services and not len(args.HOSTS):
         print("Need to specify one or more services to shut down.")
         print("Either specify service groups with -s or specify specific instances")
         print("as: hostname.pid")
         sys.exit(1)
 
-    stomp.connect()
+    transport = workflows.transport.lookup(args.transport)()
+    transport.connect()
 
-    for host in args:
+    for host in args.HOSTS:
         if not host.startswith("uk.ac.diamond."):
             host = "uk.ac.diamond." + host
 
         message = {"command": "shutdown", "host": host}
 
-        stomp.broadcast("command", message)
+        transport.broadcast("command", message)
         print("Shutting down", host)
 
-    for service in options.services:
+    for service in args.services:
         if service.lower() == "none":
             # Special case for placeholder instances
             service = None
         message = {"command": "shutdown", "service": service}
 
-        stomp.broadcast("command", message)
+        transport.broadcast("command", message)
         print("Stopping all instances of", service)

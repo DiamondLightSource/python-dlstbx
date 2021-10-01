@@ -77,7 +77,7 @@ def run() -> None:
         in workflows.transport.get_known_transports()
     ):
         default_transport = zc.storage["zocalo.default_transport"]
-    parser = argparse.ArgumentParser(usage="dlstbx.dlq_check [options]")
+    parser = argparse.ArgumentParser()
     parser.add_argument(
         "-n",
         "--namespace",
@@ -95,7 +95,7 @@ def run() -> None:
         default=default_transport,
         help="Transport mechanism. Known mechanisms: "
         + ", ".join(workflows.transport.get_known_transports())
-        + " (default: %default)",
+        + f" (default: {default_transport})",
     )
     zc.add_command_line_options(parser)
     args = parser.parse_args()

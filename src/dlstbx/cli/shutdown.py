@@ -4,6 +4,7 @@
 #
 
 import argparse
+import socket
 import sys
 
 import workflows
@@ -77,8 +78,9 @@ def run():
     transport.connect()
 
     for host in args.HOSTS:
-        if not host.startswith("uk.ac.diamond."):
-            host = "uk.ac.diamond." + host
+        if host.count(".") == 1:
+            # See also workflows.util.generate_unique_host_id()
+            host = ".".join(reversed(socket.gethostname().split(".")[1:])) + "." + host
 
         message = {"command": "shutdown", "host": host}
 

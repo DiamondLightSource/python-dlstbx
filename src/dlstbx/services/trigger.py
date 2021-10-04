@@ -150,7 +150,6 @@ class RelatedDCIDs(pydantic.BaseModel):
     dcids: List[int]
     sample_id: Optional[int] = pydantic.Field(gt=0)
     sample_group_id: Optional[int] = pydantic.Field(gt=0)
-    name: str
 
 
 class MultiplexParameters(pydantic.BaseModel):

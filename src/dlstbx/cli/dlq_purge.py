@@ -54,14 +54,19 @@ def run() -> None:
         + ", ".join(workflows.transport.get_known_transports())
         + f" (default: {default_transport})",
     )
+    parser.add_argument(
+        "queues",
+        nargs="*",
+        help="Queues to purge of dead letters. For RabbitMQ do not include the dlq. prefix in the queue names",
+    )
     zc.add_command_line_options(parser)
     workflows.transport.add_command_line_options(parser)
-    (known_args, unknown_args) = parser.parse_known_args(
-        ["--stomp-prfx=DLQ"] + sys.argv[1:]
-    )
-    if known_args.transport == "PikaTransport":
-        args = ["dlq." + a for a in unknown_args]
-    transport = workflows.transport.lookup(known_args.transport)()
+    args = parser.parse_args(["--stomp-prfx=DLQ"] + sys.argv[1:])
+    if args.transport == "PikaTransport":
+        queues = ["dlq." + a for a in args.queues]
+    else:
+        queues = args.queues
+    transport = workflows.transport.lookup(args.transport)()
 
     if zc.storage and zc.storage.get("zocalo.dlq.purge_location"):
         dlq_dump_path = zc.storage["zocalo.dlq.purge_location"]
@@ -129,20 +134,18 @@ def run() -> None:
         idlequeue.put_nowait("done")
 
     transport.connect()
-    if not args:
-        args = [dlqprefix + ".>"]
-    for queue_ in args:
+    if not queues:
+        queues = [dlqprefix + ".>"]
+    for queue_ in queues:
         print("Looking for DLQ messages in " + queue_)
         transport.subscribe(
             queue_,
-            partial(
-                receive_dlq_message, rabbitmq=known_args.transport == "PikaTransport"
-            ),
+            partial(receive_dlq_message, rabbitmq=args.transport == "PikaTransport"),
             acknowledgement=True,
         )
     try:
-        idlequeue.get(True, known_args.wait or 3)
+        idlequeue.get(True, args.wait or 3)
         while True:
-            idlequeue.get(True, known_args.wait or 0.1)
+            idlequeue.get(True, args.wait or 0.1)
     except queue.Empty:
         print("Done.")

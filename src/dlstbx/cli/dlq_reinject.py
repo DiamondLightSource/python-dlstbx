@@ -69,11 +69,14 @@ def run() -> None:
         + ", ".join(workflows.transport.get_known_transports())
         + f" (default: {default_transport})",
     )
+    parser.add_argument(
+        "files", nargs="*", help="File(s) containing DLQ messages to be reinjected"
+    )
 
     zc.add_command_line_options(parser)
     workflows.transport.add_command_line_options(parser)
-    (known_args, unknown_args) = parser.parse_known_args()
-    transport = workflows.transport.lookup(known_args.transport)()
+    args = parser.parse_args()
+    transport = workflows.transport.lookup(args.transport)()
 
     stdin = []
     if select.select([sys.stdin], [], [], 0.0)[0]:
@@ -86,19 +89,19 @@ def run() -> None:
                 stdin.append(line.strip())
         print(f"{len(stdin)} filenames read from stdin")
 
-    if not unknown_args and not stdin:
+    if not args.files:
         print("No DLQ message files given.")
         sys.exit(0)
 
     transport.connect()
 
     first = True
-    for dlqfile in unknown_args + stdin:
+    for dlqfile in args.files:
         if not os.path.exists(dlqfile):
             print(f"Ignoring missing file {dlqfile}")
             continue
-        if not first and known_args.wait:
-            time.sleep(float(known_args.wait))
+        if not first and args.wait:
+            time.sleep(float(args.wait))
         first = False
         with open(dlqfile) as fh:
             dlqmsg = json.load(fh)
@@ -109,10 +112,10 @@ def run() -> None:
             or not dlqmsg.get("message")
         ):
             sys.exit("File is not a valid DLQ message.")
-        if known_args.verbose:
+        if args.verbose:
             pprint(dlqmsg)
 
-        if known_args.transport == "StompTransport":
+        if args.transport == "StompTransport":
             destination = (
                 dlqmsg["header"]
                 .get("original-destination", dlqmsg["header"]["destination"])
@@ -126,8 +129,8 @@ def run() -> None:
                 send_function = transport.broadcast
             else:
                 sys.exit("Cannot process message, unknown message mechanism")
-            if known_args.destination_override:
-                destination[2] = known_args.destination_override
+            if args.destination_override:
+                destination[2] = args.destination_override
             header = dlqmsg["header"]
             for drop_field in (
                 "content-length",
@@ -145,7 +148,7 @@ def run() -> None:
             send_function(
                 destination[2], dlqmsg["message"], headers=header, ignore_namespace=True
             )
-        elif known_args.transport == "PikaTransport":
+        elif args.transport == "PikaTransport":
             header = dlqmsg["header"]
             exchange = header.get("headers", {}).get("x-death", {})[0].get("exchange")
             if exchange:
@@ -160,7 +163,7 @@ def run() -> None:
                         if exch["type"] == "fanout":
                             header = _rabbit_prepare_header(header)
                             transport.broadcast(
-                                known_args.destination_override or destination,
+                                args.destination_override or destination,
                                 dlqmsg["message"],
                                 headers=header,
                             )
@@ -170,11 +173,11 @@ def run() -> None:
                 )
                 header = _rabbit_prepare_header(header)
                 transport.send(
-                    known_args.destination_override or destination,
+                    args.destination_override or destination,
                     dlqmsg["message"],
                     headers=header,
                 )
-        if known_args.remove:
+        if args.remove:
             os.remove(dlqfile)
         print("Done.\n")
 

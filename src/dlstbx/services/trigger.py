@@ -61,7 +61,7 @@ class ProteinInfo(pydantic.BaseModel):
 class MrBumpParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     scaling_id: int = pydantic.Field(gt=0)
-    protein_info: ProteinInfo
+    protein_info: Optional[ProteinInfo] = None
     hklin: pathlib.Path
     pdb_tmpdir: pathlib.Path
     automatic: Optional[bool] = False
@@ -765,14 +765,8 @@ class DLSTrigger(CommonService):
             self.log.error("mrbump trigger failed: No DCID specified")
             return False
 
-        try:
-            if not parameters.protein_info.sequence:
-                self.log.info(
-                    "Skipping mrbump trigger: sequence information not available"
-                )
-                return {"success": True}
-        except Exception:
-            self.log.info("Skipping mrbump trigger: Cannot read sequence information")
+        if not (parameters.protein_info and parameters.protein_info.sequence):
+            self.log.info("Skipping mrbump trigger: sequence information not available")
             return {"success": True}
 
         pdb_files = self.get_linked_pdb_files_for_dcid(

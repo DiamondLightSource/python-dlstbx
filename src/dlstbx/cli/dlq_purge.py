@@ -134,14 +134,11 @@ def run() -> None:
         args = [dlqprefix + ".>"]
     for queue_ in args:
         print("Looking for DLQ messages in " + queue_)
-        if known_args.transport == "PikaTransport":
-            transport.subscribe(
-                queue_,
-                partial(receive_dlq_message, rabbitmq=True),
-                acknowledgement=True,
-            )
-        else:
-            transport.subscribe(queue_, receive_dlq_message, acknowledgement=True)
+        transport.subscribe(
+            queue_,
+            partial(receive_dlq_message, rabbitmq=known_args.transport == "PikaTransport),
+            acknowledgement=True,
+        )
     try:
         idlequeue.get(True, known_args.wait or 3)
         while True:

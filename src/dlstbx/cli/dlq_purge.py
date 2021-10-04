@@ -62,7 +62,9 @@ def run() -> None:
     def receive_dlq_message(header, message, rabbitmq=False):
         idlequeue.put_nowait("start")
         if rabbitmq:
-            msg_time = int(datetime.timestamp(header["headers"]["x-death"][0]["time"]))
+            msg_time = (
+                int(datetime.timestamp(header["headers"]["x-death"][0]["time"])) * 1000
+            )
             header["headers"]["x-death"][0]["time"] = datetime.timestamp(
                 header["headers"]["x-death"][0]["time"]
             )

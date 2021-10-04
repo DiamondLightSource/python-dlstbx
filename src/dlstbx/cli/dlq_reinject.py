@@ -185,12 +185,12 @@ def run() -> None:
 
 
 def _rabbit_prepare_header(header: dict) -> dict:
-    drop = (
+    drop = {
         "message-id",
         "routing_key",
         "redelivered",
         "exchange",
         "consumer_tag",
         "delivery_mode",
-    )
+    }
     return {k: str(v) for k, v in header.items() if k not in drop}

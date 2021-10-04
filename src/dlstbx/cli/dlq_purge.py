@@ -19,7 +19,6 @@ from functools import partial
 import workflows
 import zocalo.configuration
 
-# from workflows.transport.stomp_transport import StompTransport
 
 
 def run() -> None:

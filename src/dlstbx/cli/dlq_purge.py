@@ -23,13 +23,6 @@ import zocalo.configuration
 def run() -> None:
     zc = zocalo.configuration.from_file()
     zc.activate()
-    default_transport = workflows.transport.default_transport
-    if (
-        zc.storage
-        and zc.storage.get("zocalo.default_transport")
-        in workflows.transport.get_known_transports()
-    ):
-        default_transport = zc.storage["zocalo.default_transport"]
     parser = argparse.ArgumentParser(
         usage="dlstbx.dlq_purge [options] [queue [queue ...]]"
     )
@@ -45,22 +38,12 @@ def run() -> None:
         help="Wait this many seconds for ActiveMQ replies",
     )
     parser.add_argument(
-        "-t",
-        "--transport",
-        dest="transport",
-        metavar="TRN",
-        default=default_transport,
-        help="Transport mechanism. Known mechanisms: "
-        + ", ".join(workflows.transport.get_known_transports())
-        + f" (default: {default_transport})",
-    )
-    parser.add_argument(
         "queues",
         nargs="*",
         help="Queues to purge of dead letters. For RabbitMQ do not include the dlq. prefix in the queue names",
     )
     zc.add_command_line_options(parser)
-    workflows.transport.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser, transport_argument=True)
     args = parser.parse_args(["--stomp-prfx=DLQ"] + sys.argv[1:])
     if args.transport == "PikaTransport":
         queues = ["dlq." + a for a in args.queues]

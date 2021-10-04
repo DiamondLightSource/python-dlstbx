@@ -64,13 +64,6 @@ def check_dlq_rabbitmq(zc: Configuration, namespace: str = None) -> dict:
 def run() -> None:
     zc = zocalo.configuration.from_file()
     zc.activate()
-    default_transport = workflows.transport.default_transport
-    if (
-        zc.storage
-        and zc.storage.get("zocalo.default_transport")
-        in workflows.transport.get_known_transports()
-    ):
-        default_transport = zc.storage["zocalo.default_transport"]
     parser = argparse.ArgumentParser("dlstbx.dlq_check [options]")
     parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
     parser.add_argument(
@@ -81,18 +74,8 @@ def run() -> None:
         default="",
         help="Restrict check to this namespace",
     )
-    parser.add_argument(
-        "-t",
-        "--transport",
-        type=str,
-        dest="transport",
-        metavar="TRN",
-        default=default_transport,
-        help="Transport mechanism. Known mechanisms: "
-        + ", ".join(workflows.transport.get_known_transports())
-        + f" (default: {default_transport})",
-    )
     zc.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser, transport_argument=True)
     args = parser.parse_args()
 
     if args.transport == "StompTransport":

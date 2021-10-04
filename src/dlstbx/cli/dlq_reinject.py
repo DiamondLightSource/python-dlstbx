@@ -22,7 +22,6 @@ from zocalo.util.rabbitmq import http_api_request
 def run() -> None:
     zc = zocalo.configuration.from_file()
     zc.activate()
-    default_transport = workflows.transport.default_transport
     parser = argparse.ArgumentParser(
         usage="dlstbx.dlq_reinject [options] file [file [..]]"
     )
@@ -60,21 +59,11 @@ def run() -> None:
         help="Wait this many seconds between reinjections",
     )
     parser.add_argument(
-        "-t",
-        "--transport",
-        dest="transport",
-        metavar="TRN",
-        default=default_transport,
-        help="Transport mechanism. Known mechanisms: "
-        + ", ".join(workflows.transport.get_known_transports())
-        + f" (default: {default_transport})",
-    )
-    parser.add_argument(
         "files", nargs="*", help="File(s) containing DLQ messages to be reinjected"
     )
 
     zc.add_command_line_options(parser)
-    workflows.transport.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser, transport_argument=True)
     args = parser.parse_args()
     transport = workflows.transport.lookup(args.transport)()
 

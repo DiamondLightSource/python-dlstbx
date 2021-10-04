@@ -20,7 +20,6 @@ import workflows
 import zocalo.configuration
 
 
-
 def run() -> None:
     zc = zocalo.configuration.from_file()
     zc.activate()
@@ -136,7 +135,9 @@ def run() -> None:
         print("Looking for DLQ messages in " + queue_)
         transport.subscribe(
             queue_,
-            partial(receive_dlq_message, rabbitmq=known_args.transport == "PikaTransport),
+            partial(
+                receive_dlq_message, rabbitmq=known_args.transport == "PikaTransport"
+            ),
             acknowledgement=True,
         )
     try:

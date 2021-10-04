@@ -1,5 +1,4 @@
 import argparse
-import base64
 import json
 import urllib
 
@@ -7,6 +6,7 @@ import workflows.transport
 import zocalo.configuration
 from zocalo.configuration import Configuration
 from zocalo.util.jmxstats import JMXAPI
+from zocalo.util.rabbitmq import http_api_request
 
 #
 # dlstbx.dlq_check
@@ -49,14 +49,8 @@ def check_dlq(zc: Configuration, namespace: str = None) -> dict:
 
 
 def check_dlq_rabbitmq(zc: Configuration, namespace: str = None) -> dict:
-    url = zc.rabbitmqapi["base_url"]
-    request = urllib.request.Request(f"{url}/queues", method="GET")
-    authstring = base64.b64encode(
-        f"{zc.rabbitmqapi['username']}:{zc.rabbitmqapi['password']}".encode()
-    ).decode()
-    request.add_header("Authorization", f"Basic {authstring}")
-    request.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(request) as response:
+    _api_request = http_api_request(zc, "/queues")
+    with urllib.request.urlopen(_api_request) as response:
         reply = response.read()
     queue_info = json.loads(reply)
     dlq_info = {}

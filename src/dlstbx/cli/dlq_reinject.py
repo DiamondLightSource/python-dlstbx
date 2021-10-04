@@ -16,6 +16,7 @@ from pprint import pprint
 
 import workflows.transport
 import zocalo.configuration
+from zocalo.util.rabbitmq import http_api_request
 
 
 def run() -> None:
@@ -148,17 +149,10 @@ def run() -> None:
             header = dlqmsg["header"]
             exchange = header.get("headers", {}).get("x-death", {})[0].get("exchange")
             if exchange:
-                import base64
                 import urllib
 
-                url = zc.rabbitmqapi["base_url"]
-                request = urllib.request.Request(f"{url}/exchanges", method="GET")
-                authstring = base64.b64encode(
-                    f"{zc.rabbitmqapi['username']}:{zc.rabbitmqapi['password']}".encode()
-                ).decode()
-                request.add_header("Authorization", f"Basic {authstring}")
-                request.add_header("Content-Type", "application/json")
-                with urllib.request.urlopen(request) as response:
+                _api_request = http_api_request(zc, "/queues")
+                with urllib.request.urlopen(_api_request) as response:
                     reply = response.read()
                 exchange_info = json.loads(reply)
                 for exch in exchange_info:

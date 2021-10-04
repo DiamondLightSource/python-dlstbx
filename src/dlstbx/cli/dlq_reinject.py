@@ -196,9 +196,4 @@ def _rabbit_prepare_header(header: dict) -> dict:
         "consumer_tag",
         "delivery_mode",
     )
-    for key, value in header.items():
-        if key in drop:
-            del header[key]
-        else:
-            header[key] = str(value)
-    return header
+    return {k: str(v) for k, v in header.items() if k not in drop}

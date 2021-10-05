@@ -78,10 +78,16 @@ def read_mr_results(rows):
     results = {}
     for row in rows:
         rpid = row["rpid"]
-        if rpid not in results:
-            results[rpid] = {
-                "MrBUMP": mr_utils.get_mrbump_metrics(row["mrbump_logfile"])
-            }
+        try:
+            if rpid not in results:
+                results[rpid] = {
+                    "MrBUMP": mr_utils.get_mrbump_metrics(row["mrbump_logfile"])
+                }
+        except Exception:
+            print(
+                f"Cannot read MrBUMP results in {row['mrbump_logfile']} for jobid {rpid}"
+            )
+            continue
         json_logfile = Path(row["filepath"]) / row["mr_predict_json"]
         try:
             results[rpid]["mr_predict"] = json.loads(json_logfile.read_text())
@@ -89,7 +95,7 @@ def read_mr_results(rows):
                 "datetime_stamp"
             ].isoformat()
         except Exception:
-            print(f"Cannot read results for jobid {rpid}")
+            print(f"Cannot read mr_predict results in {json_logfile} for jobid {rpid}")
             continue
     return results
 

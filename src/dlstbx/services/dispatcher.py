@@ -42,10 +42,11 @@ class DLSDispatcher(CommonService):
                 os.makedirs(self._logbook, 0o775)
             except OSError:
                 pass  # Ignore if exists
-            if not os.access(self._logbook, os.R_OK | os.W_OK | os.X_OK):
+            if os.access(self._logbook, os.R_OK | os.W_OK | os.X_OK):
+                self.log.debug(f"Using logbook location {self._logbook}")
+            else:
                 self.log.error(f"Logbook disabled: Can not write to {self._logbook}")
                 self._logbook = None
-            self.log.debug(f"Using logbook location {self._logbook}")
         else:
             self.log.info(
                 "Logbook disabled: zocalo.dispatcher.logbook_location not defined"

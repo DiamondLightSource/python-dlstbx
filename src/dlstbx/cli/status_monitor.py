@@ -64,12 +64,17 @@ class Monitor:
             self.headline += " v%s" % version.split(" ")[1].split("-")[0]
         self.headline += " -- quit with Ctrl+C"
         self.log_box = None
-        self._transport.subscribe_broadcast(
-            "transient.status", self.update_status, retroactive=True
-        )
-        self.last_info = None
         self.last_info_messages = 0
-        self._transport.subscribe_broadcast("transient.log", self.print_log_message)
+        self.last_info = None
+        # We're connected, so we need to stop the transport if these fail
+        try:
+            self._transport.subscribe_broadcast(
+                "transient.status", self.update_status, retroactive=True
+            )
+            self._transport.subscribe_broadcast("transient.log", self.print_log_message)
+        except BaseException:
+            self._transport.disconnect()
+            raise
 
         dlstbx_version_num = re.search("dlstbx ([0-9.]*)", dlstbx_version()).group(1)
         self.version_dlstbx = tuple(int(i) for i in dlstbx_version_num.split("."))

@@ -920,7 +920,7 @@ class DLSTrigger(CommonService):
             and proposal.proposalCode != "cm"
         ):
             self.log.info(
-                f"Skipping big_ep_cloud trigger for {proposal.Proposal.proposalCode}{proposal.Proposal.proposalNumber} visit"
+                f"Skipping big_ep_cloud trigger for {proposal.proposalCode}{proposal.proposalNumber} visit"
             )
             return {"success": True}
 

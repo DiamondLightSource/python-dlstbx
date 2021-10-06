@@ -428,8 +428,16 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        dcid = parameters.dcid
+        if (
+            not parameters.diffraction_plan_info
+            or not parameters.diffraction_plan_info.anomalousScatterer
+        ):
+            self.log.info(
+                "Skipping ep_predict trigger: no anomalous scatterer specified"
+            )
+            return {"success": True}
 
+        dcid = parameters.dcid
         query = (
             session.query(DataCollection, Proposal)
             .join(BLSession, BLSession.proposalId == Proposal.proposalId)
@@ -447,17 +455,6 @@ class DLSTrigger(CommonService):
         if proposal.proposalCode in ("lb", "in", "sw"):
             self.log.info(
                 f"Skipping ep_predict trigger for {proposal.proposalCode} visit"
-            )
-            return {"success": True}
-
-        if not parameters.diffraction_plan_info:
-            self.log.info(
-                "Skipping ep_predict trigger: diffraction plan information not available"
-            )
-            return {"success": True}
-        if not parameters.diffraction_plan_info.anomalousScatterer:
-            self.log.info(
-                "Skipping ep_predict trigger: No anomalous scatterer specified"
             )
             return {"success": True}
 
@@ -697,7 +694,6 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        dcid = parameters.dcid
         if (
             not parameters.diffraction_plan_info
             or not parameters.diffraction_plan_info.anomalousScatterer
@@ -705,6 +701,7 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping fast_ep trigger: no anomalous scatterer specified")
             return {"success": True}
 
+        dcid = parameters.dcid
         query = session.query(DataCollection).filter(
             DataCollection.dataCollectionId == dcid
         )
@@ -995,8 +992,6 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        dcid = parameters.dcid
-
         if not (
             parameters.diffraction_plan_info
             and parameters.diffraction_plan_info.anomalousScatterer
@@ -1004,6 +999,7 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping big_ep trigger: No anomalous scatterer specified")
             return {"success": True}
 
+        dcid = parameters.dcid
         query = (
             session.query(Proposal, BLSession)
             .join(BLSession, BLSession.proposalId == Proposal.proposalId)

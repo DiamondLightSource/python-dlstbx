@@ -131,8 +131,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
                 frontend._transport.broadcast("transient.log", record)
 
         amq_handler = workflows.logging.CallbackHandler(logging_call)
-        if not self.options.verbose:
-            amq_handler.setLevel(logging.WARNING)
+        amq_handler.setLevel(logging.WARNING)
         logging.getLogger().addHandler(amq_handler)
 
         if self.options.service_restart:

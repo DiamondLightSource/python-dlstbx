@@ -27,25 +27,30 @@ class DLSDispatcher(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.dispatcher"
 
-    # Store a copy of all dispatch messages in this location
-    _logbook = "/dls/tmp/zocalo/dispatcher"
-
     def initializing(self):
         """Subscribe to the processing_recipe queue. Received messages must be acknowledged."""
-        # self._environment.get('live') can be used to distinguish live/test mode
         self.log.info("Dispatcher starting")
-        self.recipe_basepath = "/dls_sw/apps/zocalo/live/recipes"
-
-        if self._environment.get("live"):  # XXX deprecated
+        self.recipe_basepath = self._environment["config"].storage.get(
+            "zocalo.recipe_directory"
+        )
+        # Store a copy of all dispatch messages in this location
+        self._logbook = self._environment["config"].storage.get(
+            "zocalo.dispatcher.logbook_location"
+        )
+        if self._logbook:
             try:
                 os.makedirs(self._logbook, 0o775)
             except OSError:
                 pass  # Ignore if exists
-            if not os.access(self._logbook, os.R_OK | os.W_OK | os.X_OK):
-                self.log.error("Logbook disabled: Can not write to location")
+            if os.access(self._logbook, os.R_OK | os.W_OK | os.X_OK):
+                self.log.debug(f"Using logbook location {self._logbook}")
+            else:
+                self.log.error(f"Logbook disabled: Can not write to {self._logbook}")
                 self._logbook = None
         else:
-            self.log.info("Logbook disabled: Not running in live mode")
+            self.log.info(
+                "Logbook disabled: zocalo.dispatcher.logbook_location not defined"
+            )
             self._logbook = None
 
         workflows.recipe.wrap_subscribe(
@@ -86,7 +91,7 @@ class DLSDispatcher(CommonService):
                 default=str,
                 indent=2,
                 separators=(",", ": "),
-                **kwargs
+                **kwargs,
             )
 
         try:

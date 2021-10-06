@@ -997,8 +997,10 @@ class DLSTrigger(CommonService):
     ):
         dcid = parameters.dcid
 
-        anom_scatterer = parameters.diffraction_plan_info.anomalousScatterer
-        if not anom_scatterer:
+        if not (
+            parameters.diffraction_plan_info
+            and parameters.diffraction_plan_info.anomalousScatterer
+        ):
             self.log.info("Skipping big_ep trigger: No anomalous scatterer specified")
             return {"success": True}
 

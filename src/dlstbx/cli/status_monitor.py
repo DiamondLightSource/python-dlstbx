@@ -388,7 +388,7 @@ class Monitor:
                                         curses.color_pair(2) + curses.A_BOLD,
                                     )
                                 else:
-                                    card.addstr(host)
+                                    card.addstr(host[0])
                                 card.move(2, 0)
                                 card.addstr("State: ", curses.color_pair(3))
                                 if "status" in status:

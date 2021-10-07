@@ -1,7 +1,11 @@
+import datetime
 import json
 import logging
 from unittest import mock
 
+import dateutil
+import h5py
+import pytest
 import workflows.transport.common_transport
 from workflows.recipe.wrapper import RecipeWrapper
 
@@ -222,3 +226,37 @@ def test_xray_centering_3d(mocker, tmp_path, caplog):
     assert "Max pixel: (4, 5, 4)" in caplog.text
     assert "Centre of mass:" in caplog.text
     send_to.assert_called_with("success", (4, 5, 4), transaction=mock.ANY)
+
+
+@pytest.fixture
+def hdf5_end_time_example(tmp_path):
+    h5 = tmp_path / "end_time.h5"
+    with h5py.File(h5, mode="w") as f:
+        entry = f.create_group("/entry")
+        entry.attrs["NX_class"] = "NXentry"
+        entry["definition"] = "NXmx"
+        entry["start_time"] = "2021-09-10T06:54:37Z"
+        entry["end_time"] = "2021-09-10T06:55:09Z"
+        entry["end_time_estimated"] = "2021-09-10T06:55:09Z"
+    return h5
+
+
+def test_get_end_of_data_collection_time_hdf5(hdf5_end_time_example):
+    assert dlstbx.services.xray_centering.get_end_of_data_collection_time(
+        hdf5_end_time_example
+    ) == dateutil.parser.isoparse("2021-09-10T06:55:09Z")
+
+
+@pytest.fixture
+def fake_cbf(tmp_path):
+    cbf = tmp_path / "fake.cbf"
+    cbf.touch()
+    return cbf
+
+
+def test_get_end_of_data_collection_time_cbf(fake_cbf):
+    assert dlstbx.services.xray_centering.get_end_of_data_collection_time(
+        fake_cbf
+    ) == datetime.datetime.fromtimestamp(
+        fake_cbf.stat().st_mtime, tz=datetime.timezone.utc
+    )

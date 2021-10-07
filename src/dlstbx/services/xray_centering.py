@@ -1,10 +1,13 @@
 import dataclasses
+import datetime
 import json
 import pathlib
 import threading
 import time
-from typing import List
+from typing import List, Optional
 
+import dxtbx.nexus.nxmx
+import h5py
 import numpy as np
 import pydantic
 import workflows.recipe
@@ -43,6 +46,9 @@ class Parameters(pydantic.BaseModel):
     output: pathlib.Path = None
     log: pathlib.Path = None
     results_symlink: str = None
+    hdf5: Optional[pathlib.Path] = None
+    pattern: Optional[str] = None
+    pattern_end: Optional[int] = pydantic.Field(alias="pattern-end")
 
 
 class RecipeStep(pydantic.BaseModel):
@@ -72,6 +78,21 @@ class CenteringData(pydantic.BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+
+def get_end_of_data_collection_time(
+    filepath: pathlib.Path,
+) -> Optional[datetime.datetime]:
+    if not filepath:
+        return None
+    elif filepath.suffix in {".h5", ".nxs"}:
+        with h5py.File(filepath, mode="r") as handle:
+            nxmx = dxtbx.nexus.nxmx.NXmx(handle)
+            return nxmx.entries[0].end_time or nxmx.entries[0].end_time_estimated
+    else:
+        return datetime.datetime.fromtimestamp(
+            filepath.stat().st_mtime, tz=datetime.timezone.utc
+        )
 
 
 class DLSXRayCentering(CommonService):
@@ -246,10 +267,14 @@ class DLSXRayCentering(CommonService):
 
                 # Write result file
                 if parameters.output:
+                    dc_end_time = get_end_of_data_collection_time(
+                        pathlib.Path(parameters.pattern % parameters.pattern_end)
+                        if parameters.pattern
+                        else parameters.hdf5
+                    )
+                    self.log.debug(f"Data collection end time: {dc_end_time}")
                     self.log.info(
-                        "Writing X-Ray centering results for DCID %d to %s",
-                        dcid,
-                        parameters.output,
+                        f"Writing X-Ray centering results for DCID {dcid} to {parameters.output}",
                     )
                     parameters.output.parent.mkdir(parents=True, exist_ok=True)
                     with parameters.output.open("w") as fh:
@@ -265,6 +290,13 @@ class DLSXRayCentering(CommonService):
                             sort_keys=True,
                             default=convert,
                         )
+                        now = datetime.datetime.now(tz=datetime.timezone.utc)
+                        self.log.debug(f"X-Ray centering results written at {now}")
+                        if dc_end_time:
+                            latency = now - dc_end_time
+                            self.log.debug(
+                                f"X-Ray centering latency: {latency.total_seconds()} seconds"
+                            )
                     if parameters.results_symlink:
                         # Create symbolic link above working directory
                         dlstbx.util.symlink.create_parent_symlink(

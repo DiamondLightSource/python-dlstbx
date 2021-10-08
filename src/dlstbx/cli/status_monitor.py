@@ -551,7 +551,8 @@ def run():
         metavar="SVC",
         action="append",
         default=[],
-        help="Filter status only to specified services. Known services: "
+        help="Filter status only to specified services. Use 'none' for "
+        + "instances without a loaded service. Known services: "
         + ", ".join(known_services),
     )
     parser.add_argument(

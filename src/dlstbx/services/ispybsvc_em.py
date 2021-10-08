@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import ispyb
 import sqlalchemy.exc
 import sqlalchemy.orm
@@ -116,7 +118,9 @@ class EM_Mixin:
                 movie_params["dataCollectionId"] = full_parameters("dcid")
                 movie_params["movieNumber"] = full_parameters("image_number")
                 movie_params["movieFullPath"] = full_parameters("micrograph_full_path")
-                movie_params["createdTimeStamp"] = full_parameters("created_time_stamp")
+                movie_params["createdTimeStamp"] = datetime.fromtimestamp(
+                    full_parameters("created_time_stamp")
+                ).strftime("%Y-%m-%d %H:%M:%S")
                 movieid = self.ispyb.em_acquisition.insert_movie(
                     list(movie_params.values())
                 )

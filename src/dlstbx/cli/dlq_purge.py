@@ -5,6 +5,7 @@
 #
 
 
+import argparse
 import errno
 import json
 import os
@@ -12,49 +13,67 @@ import queue
 import re
 import sys
 import time
-from optparse import SUPPRESS_HELP, OptionParser
+from datetime import datetime
+from functools import partial
 
-from workflows.transport.stomp_transport import StompTransport
+import workflows
+import zocalo.configuration
 
 
-def run():
-    parser = OptionParser(usage="dlstbx.dlq_purge [options] [queue [queue ...]]")
-
-    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-    parser.add_option(
-        "--test",
-        action="store_true",
-        dest="test",
-        help="Run in ActiveMQ testing (zocdev) namespace",
+def run() -> None:
+    zc = zocalo.configuration.from_file()
+    zc.activate()
+    parser = argparse.ArgumentParser(
+        usage="dlstbx.dlq_purge [options] [queue [queue ...]]"
     )
-    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
+
+    parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
     dlqprefix = "zocalo"
-    if "--test" in sys.argv:
-        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
-        dlqprefix = "zocdev"
     # override default stomp host
-    parser.add_option(
+    parser.add_argument(
         "--wait",
         action="store",
         dest="wait",
         type=float,
         help="Wait this many seconds for ActiveMQ replies",
     )
-    StompTransport.load_configuration_file(default_configuration)
+    parser.add_argument(
+        "queues",
+        nargs="*",
+        help="Queues to purge of dead letters. For RabbitMQ do not include the dlq. prefix in the queue names",
+    )
+    zc.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser, transport_argument=True)
+    args = parser.parse_args(["--stomp-prfx=DLQ"] + sys.argv[1:])
+    if args.transport == "PikaTransport":
+        queues = ["dlq." + a for a in args.queues]
+    else:
+        queues = args.queues
+    transport = workflows.transport.lookup(args.transport)()
 
-    StompTransport.add_command_line_options(parser)
-    (options, args) = parser.parse_args(["--stomp-prfx=DLQ"] + sys.argv[1:])
-    stomp = StompTransport()
+    if zc.storage and zc.storage.get("zocalo.dlq.purge_location"):
+        dlq_dump_path = zc.storage["zocalo.dlq.purge_location"]
+    else:
+        dlq_dump_path = "./DLQ"
 
     characterfilter = re.compile(r"[^a-zA-Z0-9._-]+", re.UNICODE)
     idlequeue = queue.Queue()
 
-    def receive_dlq_message(header, message):
+    def receive_dlq_message(header, message, rabbitmq=False):
         idlequeue.put_nowait("start")
-        timestamp = time.localtime(int(header["timestamp"]) / 1000)
-        millisec = int(header["timestamp"]) % 1000
+        if rabbitmq:
+            msg_time = (
+                int(datetime.timestamp(header["headers"]["x-death"][0]["time"])) * 1000
+            )
+            header["headers"]["x-death"][0]["time"] = datetime.timestamp(
+                header["headers"]["x-death"][0]["time"]
+            )
+        else:
+            msg_time = int(header["timestamp"])
+        timestamp = time.localtime(msg_time / 1000)
+        millisec = msg_time % 1000
         filepath = os.path.join(
-            "/dls/tmp/zocalo/DLQ",
+            dlq_dump_path,
             time.strftime("%Y-%m-%d", timestamp),
             #       time.strftime('%H-%M', timestamp),
         )
@@ -64,7 +83,7 @@ def run():
             + "-"
             + "%03d" % millisec
             + "-"
-            + characterfilter.sub("_", header["message-id"])
+            + characterfilter.sub("_", str(header["message-id"]))
         )
         try:
             os.makedirs(filepath)
@@ -92,18 +111,26 @@ def run():
                 filename=os.path.join(filepath, filename),
             )
         )
-        stomp.ack(header)
+        if rabbitmq:
+            # subscription_id does nothing for RabbitMQ but it is currently required by workflows
+            transport.ack(header, subscription_id=header["message-id"])
+        else:
+            transport.ack(header)
         idlequeue.put_nowait("done")
 
-    stomp.connect()
-    if not args:
-        args = [dlqprefix + ".>"]
-    for queue_ in args:
+    transport.connect()
+    if not queues:
+        queues = [dlqprefix + ".>"]
+    for queue_ in queues:
         print("Looking for DLQ messages in " + queue_)
-        stomp.subscribe(queue_, receive_dlq_message, acknowledgement=True)
+        transport.subscribe(
+            queue_,
+            partial(receive_dlq_message, rabbitmq=args.transport == "PikaTransport"),
+            acknowledgement=True,
+        )
     try:
-        idlequeue.get(True, options.wait or 3)
+        idlequeue.get(True, args.wait or 3)
         while True:
-            idlequeue.get(True, options.wait or 0.1)
+            idlequeue.get(True, args.wait or 0.1)
     except queue.Empty:
         print("Done.")

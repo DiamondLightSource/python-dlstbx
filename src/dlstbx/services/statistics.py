@@ -1,3 +1,4 @@
+import os
 import queue
 import time
 
@@ -21,7 +22,7 @@ class DLSStatistics(CommonService):
         self.log.info("Statistics service starting")
 
         rrd_path = self._environment["config"].storage.get(
-            "zocalo.statistics.rrd_location", "."
+            "zocalo.statistics.rrd_location", os.path.abspath(os.path.curdir)
         )
         self.log.debug(f"Using RRD path {rrd_path}")
         self.rrd = RRDTool(rrd_path)

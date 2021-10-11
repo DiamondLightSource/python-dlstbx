@@ -26,7 +26,6 @@ class DLSStatistics(CommonService):
         )
         self.log.debug(f"Using RRD path {rrd_path}")
         self.rrd = RRDTool(rrd_path)
-
         self.rrd_file = {}
 
         self.unlocked_write_from = 0

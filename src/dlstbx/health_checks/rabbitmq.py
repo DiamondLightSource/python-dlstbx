@@ -11,7 +11,7 @@ def check_rabbitmq_dlq(cfc: CheckFunctionInterface):
     zc = zocalo.configuration.from_file()
     zc.activate_environment("live")
     db_status = cfc.current_status
-    status = dlstbx.cli.dlq_check.check_rabbitmq_dlq(zc)
+    status = dlstbx.cli.dlq_check.check_dlq_rabbitmq(zc)
     check_prefix = cfc.name + "."
     now = f"{datetime.now():%Y-%m-%d %H:%M:%S}"
 

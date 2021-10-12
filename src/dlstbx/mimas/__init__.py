@@ -58,6 +58,7 @@ class MimasScenario:
     dcclass: MimasDCClass
     event: MimasEvent
     beamline: str
+    visit: str
     runstatus: str
     spacegroup: MimasISPyBSpaceGroup = None
     unitcell: MimasISPyBUnitCell = None
@@ -114,6 +115,9 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
     if type(mimasobject.DCID) != int:
         raise ValueError(f"{mimasobject!r} has non-integer DCID")
+    if mimasobject.visit is not None:
+        if type(mimasobject.visit) != str:
+            raise ValueError(f"{mimasobject!r} has non-string visit")
     validate(mimasobject.dcclass, expectedtype=MimasDCClass)
     validate(mimasobject.event, expectedtype=MimasEvent)
     if type(mimasobject.getsweepslistfromsamedcg) not in (list, tuple):

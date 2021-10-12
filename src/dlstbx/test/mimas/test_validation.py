@@ -28,6 +28,7 @@ def test_validation_of_scenario():
         dcclass=dlstbx.mimas.MimasDCClass.ROTATION,
         event=dlstbx.mimas.MimasEvent.START,
         beamline="i03",
+        visit="nt28218-3",
         unitcell=dlstbx.mimas.MimasISPyBUnitCell(
             a=10, b=10.0, c=10, alpha=90.0, beta=90, gamma=90
         ),

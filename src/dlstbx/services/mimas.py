@@ -7,7 +7,7 @@ import dlstbx.mimas.core
 class DLSMimas(CommonService):
     """
     Business logic component. Given a data collection ID and some description
-    of event circumstances (beamline, experiment description, start or end of
+    of event circumstances (beamline, visit, experiment description, start or end of
     scan) this service decides what recipes should be run with what settings.
     """
 
@@ -117,6 +117,7 @@ class DLSMimas(CommonService):
             dcclass=dc_class_mimas,
             event=event,
             beamline=step.get("beamline"),
+            visit=step.get("visit"),
             runstatus=step.get("run_status"),
             spacegroup=spacegroup,
             unitcell=cell,

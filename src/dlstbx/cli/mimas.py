@@ -64,6 +64,7 @@ def get_scenarios(dcid):
             dcclass=dc_class_mimas,
             event=event,
             beamline=ispyb_info["ispyb_beamline"],
+            visit=ispyb_info["ispyb_visit"],
             runstatus=ispyb_info["ispyb_dc_info"]["runStatus"],
             spacegroup=spacegroup,
             unitcell=cell,

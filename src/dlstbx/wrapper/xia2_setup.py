@@ -1,7 +1,6 @@
 import configparser
 import glob
 import logging
-import shutil
 import urllib
 from datetime import timedelta
 from pathlib import Path
@@ -14,11 +13,11 @@ import dlstbx.util.symlink
 logger = logging.getLogger("dlstbx.wrap.xia2_setup")
 
 
-def write_singularity_script(working_directory, image_name):
+def write_singularity_script(working_directory, singularity_image):
     singularity_script = working_directory / "run_singularity.sh"
     commands = [
         "#!/bin/bash",
-        f"/usr/bin/singularity exec --home ${{PWD}} --bind ${{PWD}}/TMP:/opt/xia2/tmp ${{PWD}}/{image_name} $@",
+        f"/usr/bin/singularity exec --home ${{PWD}} --bind ${{PWD}}/TMP:/opt/xia2/tmp {singularity_image} $@",
     ]
     with open(singularity_script, "w") as fp:
         fp.write("\n".join(commands))
@@ -94,9 +93,7 @@ class Xia2SetupWrapper(zocalo.wrapper.BaseWrapper):
         singularity_image = params.get("singularity_image")
         if singularity_image:
             try:
-                shutil.copy(singularity_image, str(working_directory))
-                image_name = Path(singularity_image).name
-                write_singularity_script(working_directory, image_name)
+                write_singularity_script(working_directory, singularity_image)
             except Exception:
                 logger.exception("Error writing singularity script")
                 return False

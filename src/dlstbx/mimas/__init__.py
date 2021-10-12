@@ -58,6 +58,7 @@ class MimasScenario:
     dcclass: MimasDCClass
     event: MimasEvent
     beamline: str
+    visit: str
     runstatus: str
     spacegroup: MimasISPyBSpaceGroup = None
     unitcell: MimasISPyBUnitCell = None

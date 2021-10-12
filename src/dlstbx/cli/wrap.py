@@ -15,11 +15,11 @@ import workflows
 import workflows.recipe.wrapper
 import workflows.services.common_service
 import workflows.transport
+import workflows.transport.offline_transport
 import workflows.util
 import zocalo.wrapper
 from workflows.transport.stomp_transport import StompTransport
 
-import dlstbx.util.offline_transport
 from dlstbx import enable_graylog
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 from dlstbx.util.version import dlstbx_version
@@ -136,7 +136,7 @@ def run(cmdline_args=sys.argv[1:]):
 
     # Connect to transport and start sending notifications
     if options.offline:
-        transport = dlstbx.util.offline_transport.OfflineTransport()
+        transport = workflows.transport.offline_transport.OfflineTransport()
     else:
         transport = workflows.transport.lookup(options.transport)()
     transport.connect()

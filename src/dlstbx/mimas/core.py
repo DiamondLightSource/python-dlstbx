@@ -654,13 +654,15 @@ def run(
                         )
                     )
                     # xia2-dials on STRC/IRIS cloud
-                    if scenario.beamline in ("i03", "i04") and any(
-                        v in scenario.visit for v in ("cm", "nt28218", "mx23694")
+                    if (
+                        scenario.beamline in {"i03", "i04"}
+                        and scenario.visit
+                        and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
                     ):
                         tasks.append(
                             dlstbx.mimas.MimasISPyBJobInvocation(
                                 DCID=scenario.DCID,
-                                autostart=scenario.preferred_processing == "xia2/DIALS",
+                                autostart=True,
                                 recipe="autoprocessing-xia2-dials-eiger-cloud",
                                 source="automatic",
                                 parameters=(

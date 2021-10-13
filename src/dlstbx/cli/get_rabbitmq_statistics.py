@@ -4,7 +4,7 @@ import logging
 import sys
 import urllib
 import urllib.error
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import workflows.transport
 import zocalo.configuration
@@ -21,7 +21,7 @@ class RabbitMQAPI:
     def __init__(self, zc: zocalo.configuration.Configuration):
         self._zc = zc
 
-    def health_checks(self) -> str:
+    def health_checks(self) -> Tuple[Dict[str, Any], Dict[str, str]]:
         # https://rawcdn.githack.com/rabbitmq/rabbitmq-server/v3.9.7/deps/rabbitmq_management/priv/www/api/index.html
         HEALTH_CHECKS = {
             "/health/checks/alarms",
@@ -48,7 +48,7 @@ class RabbitMQAPI:
         return success, failure
 
     @property
-    def connections(self):
+    def connections(self) -> List[Dict[str, Any]]:
         with urllib.request.urlopen(
             http_api_request(self._zc, "/connections")
         ) as response:
@@ -91,6 +91,7 @@ class RabbitMQAPI:
         with urllib.request.urlopen(http_api_request(self._zc, "/queues")) as response:
             nodes = json.loads(response.read())
         useful_keys = {
+            "consumers",
             "name",
             "memory",
             "messages",
@@ -99,7 +100,7 @@ class RabbitMQAPI:
             "message_stats.publish",
             "message_stats.publish_details.rate",
             "message_stats.deliver_get",
-            "message_stats.deliver_get.rate",
+            "message_stats.deliver_get_details.rate",
         }
         filtered = [
             {k: v for k, v in node.items() if k in useful_keys} for node in nodes

@@ -4,51 +4,32 @@
 #
 
 import argparse
-import json
 import logging
 import re
 import time
-import urllib.parse
-import urllib.request
 
 import pandas as pd
 import zocalo.configuration
 import zocalo.util.jmxstats
-from zocalo.util.rabbitmq import http_api_request
+
+from dlstbx.cli.get_rabbitmq_statistics import RabbitMQAPI
 
 logger = logging.getLogger("dlstbx.queue_monitor")
 
 
-def get_rabbitmq_stats(request: urllib.request.Request) -> pd.DataFrame:
-    with urllib.request.urlopen(request) as response:
-        json_str = response.read()
-    stats = pd.json_normalize(json.loads(json_str))
-    fields = [
-        "name",
-        "consumers",
-        "messages",
-        "messages_ready",
-        "messages_unacknowledged",
-        "message_stats.publish",
-        "message_stats.publish_details.rate",
-        "message_stats.deliver_get",
-        "message_stats.deliver_get_details.rate",
-        "name.prefix",  # custom field added below
-        "dtype",  # custom field added below
-    ]
+def get_rabbitmq_stats(rmq: RabbitMQAPI) -> pd.DataFrame:
+    stats = pd.json_normalize(rmq.queues)
 
     # If there have been no recently published or delivered messages then these fields
     # might not be present
     if "message_stats.publish" not in stats:
         stats["message_stats.publish"] = 0
-        stats["message_stats.publish_details.rate"] = 0
     if "message_stats.deliver_get" not in stats:
         stats["message_stats.deliver_get"] = 0
-        stats["message_stats.deliver_get_details.rate"] = 0
 
     stats["name.prefix"] = stats["name"].str.split(".", 1).str[0]
     stats["dtype"] = "queue"  # RabbitMQ doesn't have the same queue/topic distinction
-    return stats[fields]
+    return stats
 
 
 def get_activemq_queue_and_topic_info() -> pd.DataFrame:
@@ -112,9 +93,7 @@ def get_activemq_stats() -> pd.DataFrame:
             "messages_ready",
             "messages_unacknowledged",
             "message_stats.publish",
-            "message_stats.publish_details.rate",
             "message_stats.deliver_get",
-            "message_stats.deliver_get_details.rate",
         ]
     )
     for dtype, destinations in zip(
@@ -278,13 +257,13 @@ def run():
         jmx = zocalo.util.jmxstats.JMXAPI(zc)
         transport_prefix = "ActiveMQ"
     else:
-        rmq_api_request = http_api_request(zc, api_path="/queues")
+        rmq = RabbitMQAPI(zc)
         transport_prefix = "RabbitMQ"
 
     try:
         while True:
             if args.rabbitmq:
-                stats = get_rabbitmq_stats(rmq_api_request)
+                stats = get_rabbitmq_stats(rmq)
             else:
                 stats = get_activemq_stats()
 

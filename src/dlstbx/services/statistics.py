@@ -1,3 +1,4 @@
+import os
 import queue
 import time
 
@@ -19,10 +20,12 @@ class DLSStatistics(CommonService):
         """Subscribe to the cluster submission queue.
         Received messages must be acknowledged."""
         self.log.info("Statistics service starting")
-        if self._environment.get("live"):  # XXX deprecated
-            self.rrd = RRDTool("/dls_sw/apps/zocalo/statistics")
-        else:
-            self.rrd = RRDTool(".")
+
+        rrd_path = self._environment["config"].storage.get(
+            "zocalo.statistics.rrd_location", os.path.abspath(os.path.curdir)
+        )
+        self.log.debug(f"Using RRD path {rrd_path}")
+        self.rrd = RRDTool(rrd_path)
         self.rrd_file = {}
 
         self.unlocked_write_from = 0

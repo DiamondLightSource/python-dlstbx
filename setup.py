@@ -21,6 +21,7 @@ console_scripts = [
     "dlstbx.fix_cluster_jobs=dlstbx.cli.fix_cluster_jobs:run",
     "dlstbx.get_activemq_statistics=dlstbx.cli.get_activemq_statistics:run",
     "dlstbx.get_graylog_statistics=dlstbx.cli.get_graylog_statistics:run",
+    "dlstbx.get_rabbitmq_statistics=dlstbx.cli.get_rabbitmq_statistics:run",
     "dlstbx.go=dlstbx.cli.go:run",
     "dlstbx.graylog=dlstbx.cli.graylog:run",
     "dlstbx.gridscan3d=dlstbx.cli.gridscan3d:run",

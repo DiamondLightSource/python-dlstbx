@@ -93,6 +93,7 @@ class RabbitMQAPI:
         useful_keys = {
             "consumers",
             "name",
+            "vhost",
             "memory",
             "messages",
             "messages_ready",

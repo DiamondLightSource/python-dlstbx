@@ -75,7 +75,6 @@ def check_rabbitmq_health(cfc: CheckFunctionInterface):
 
     success, failures = rmq.health_checks()
     for check, msg in failures.items():
-
         report_updates[check] = Status(
             Source=check_prefix + check.replace("/", "."),
             Level=REPORT.ERROR,
@@ -84,8 +83,29 @@ def check_rabbitmq_health(cfc: CheckFunctionInterface):
             URL=zc.rabbitmqapi["base_url"],
         )
 
+    for node in rmq.nodes:
+        for alarm in {"disk_free_alarm", "mem_alarm"}:
+            check = check_prefix + "." + alarm
+            if node[alarm]:
+                report_updates[check] = Status(
+                    Source=check,
+                    Level=REPORT.ERROR,
+                    Message="RabbitMQ is running outside normal parameters",
+                    MessageBody=f"{node['name']}: {alarm}={node[alarm]}",
+                    URL=zc.rabbitmqapi["base_url"],
+                )
+            elif check in db_status and db_status[check].Level != REPORT.PASS:
+                report_updates[check] = Status(
+                    Source=check,
+                    Level=REPORT.PASS,
+                    MessageBody=(db_status[check].MessageBody or "")
+                    + "\n"
+                    + f"Error cleared at {now}",
+                    URL=zc.rabbitmqapi["base_url"],
+                )
+
     for report in db_status:
-        for check, _ in success.items():
+        for check in success:
             if (
                 check in db_status
                 and check not in report_updates

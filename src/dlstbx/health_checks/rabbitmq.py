@@ -1,10 +1,10 @@
 from datetime import datetime
 
 import zocalo.configuration
+from zocalo.util.rabbitmq import RabbitMQAPI
 
 import dlstbx
 import dlstbx.cli.dlq_check
-from dlstbx.cli.get_rabbitmq_statistics import RabbitMQAPI
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 
 

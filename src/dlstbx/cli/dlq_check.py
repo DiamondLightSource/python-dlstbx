@@ -4,8 +4,7 @@ import workflows.transport
 import zocalo.configuration
 from zocalo.configuration import Configuration
 from zocalo.util.jmxstats import JMXAPI
-
-from dlstbx.cli.get_rabbitmq_statistics import RabbitMQAPI
+from zocalo.util.rabbitmq import RabbitMQAPI
 
 #
 # dlstbx.dlq_check

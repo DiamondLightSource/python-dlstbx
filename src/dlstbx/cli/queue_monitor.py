@@ -11,8 +11,7 @@ import time
 import pandas as pd
 import zocalo.configuration
 import zocalo.util.jmxstats
-
-from dlstbx.cli.get_rabbitmq_statistics import RabbitMQAPI
+from zocalo.util.rabbitmq import RabbitMQAPI
 
 logger = logging.getLogger("dlstbx.queue_monitor")
 

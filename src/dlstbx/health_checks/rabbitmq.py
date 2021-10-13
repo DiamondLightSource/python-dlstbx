@@ -68,16 +68,37 @@ def check_rabbitmq_health(cfc: CheckFunctionInterface):
     zc.activate_environment("live")
     rmq = RabbitMQAPI(zc)
 
+    db_status = cfc.current_status
+    check_prefix = cfc.name
     report_updates = {}
+    now = f"{datetime.now():%Y-%m-%d %H:%M:%S}"
 
-    _, failures = rmq.health_checks()
+    success, failures = rmq.health_checks()
     for check, msg in failures.items():
+
         report_updates[check] = Status(
-            Source=check,
+            Source=check_prefix + check.replace("/", "."),
             Level=REPORT.ERROR,
             Message="RabbitMQ is running outside normal parameters",
             MessageBody=msg,
             URL=zc.rabbitmqapi["base_url"],
         )
+
+    for report in db_status:
+        for check, _ in success.items():
+            if (
+                check in db_status
+                and check not in report_updates
+                and db_status[check].Level != REPORT.PASS
+            ):
+                report_updates[check] = Status(
+                    Source=check_prefix + check.replace("/", "."),
+                    Level=REPORT.PASS,
+                    Message="RabbitMQ is running normally",
+                    MessageBody=(db_status[report].MessageBody or "")
+                    + "\n"
+                    + f"Error cleared at {now}",
+                    URL=zc.rabbitmqapi["base_url"],
+                )
 
     return list(report_updates.values())

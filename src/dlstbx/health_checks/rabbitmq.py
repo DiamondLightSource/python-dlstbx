@@ -4,6 +4,7 @@ import zocalo.configuration
 
 import dlstbx
 import dlstbx.cli.dlq_check
+from dlstbx.cli.get_rabbitmq_statistics import RabbitMQAPI
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 
 
@@ -58,5 +59,25 @@ def check_rabbitmq_dlq(cfc: CheckFunctionInterface):
                     + f"Error cleared at {now}",
                     URL="http://rabbitmq1.diamond.ac.uk:15672/",
                 )
+
+    return list(report_updates.values())
+
+
+def check_rabbitmq_health(cfc: CheckFunctionInterface):
+    zc = zocalo.configuration.from_file()
+    zc.activate_environment("live")
+    rmq = RabbitMQAPI(zc)
+
+    report_updates = {}
+
+    _, failures = rmq.health_checks()
+    for check, msg in failures.items():
+        report_updates[check] = Status(
+            Source=check,
+            Level=REPORT.ERROR,
+            Message="RabbitMQ is running outside normal parameters",
+            MessageBody=msg,
+            URL=zc.rabbitmqapi["base_url"],
+        )
 
     return list(report_updates.values())

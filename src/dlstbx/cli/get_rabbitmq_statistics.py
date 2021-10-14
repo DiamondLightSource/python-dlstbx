@@ -42,7 +42,7 @@ def run():
     _, hc_failures = rmq.health_checks
 
     def readable_memory(value):
-        return "{:.1f} MB".format(value / 1024 / 1024)
+        return "{:.0f} MB".format(value / 1024 / 1024)
 
     connections_count = len(rmq.connections)
     nodes = rmq.nodes
@@ -82,9 +82,8 @@ def run():
 RabbitMQ connections: {colour(connections_count, 400, 600)}{connections_count}{colourreset()}
 
 Storage statistics:
-   memory    :{colour(memory, 10, 30)}{memory:>3} %{colourreset()}
-   fd_used   :{colour(fd_used, 0.5 * fd_total, 0.9 * fd_total)}{fd_used:>3} {colourreset()}
-   disk_free :{colour(-disk_free, -10 * disk_free_limit, disk_free_limit)}{readable_memory(disk_free):>3} {colourreset()}
-
+   memory    :{colour(memory, 10, 30)}{memory:>7.2f} %{colourreset()}
+   fd_used   :{colour(fd_used, 0.5 * fd_total, 0.9 * fd_total)}{fd_used:>7} {colourreset()}
+   disk_free :{colour(-disk_free, -10 * disk_free_limit, disk_free_limit)}{readable_memory(disk_free):>10} {colourreset()}
 """
     )

@@ -39,7 +39,7 @@ def run():
     parser.parse_args()
 
     rmq = RabbitMQAPI(zc)
-    _, hc_failures = rmq.health_checks()
+    _, hc_failures = rmq.health_checks
 
     def readable_memory(value):
         return "{:.1f} MB".format(value / 1024 / 1024)

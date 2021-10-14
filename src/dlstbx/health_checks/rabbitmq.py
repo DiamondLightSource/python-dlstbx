@@ -73,7 +73,7 @@ def check_rabbitmq_health(cfc: CheckFunctionInterface):
     report_updates = {}
     now = f"{datetime.now():%Y-%m-%d %H:%M:%S}"
 
-    success, failures = rmq.health_checks()
+    success, failures = rmq.health_checks
     for check, msg in failures.items():
         report_updates[check] = Status(
             Source=check_prefix + check.replace("/", "."),

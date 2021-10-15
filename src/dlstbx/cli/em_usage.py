@@ -2,8 +2,10 @@ import datetime
 import pathlib
 
 import ispyb.sqlalchemy
+import pandas as pd
 import sqlalchemy
 from ispyb.sqlalchemy import VRun
+from relion import Project
 from relion.cli import project_timeline
 
 
@@ -56,6 +58,20 @@ def run() -> None:
         except ispyb.NoResult:
             pass
 
+    job_info = {
+        "start_time": [],
+        "end_time": [],
+        "job": [],
+        "schedule": [],
+        "cluster_id": [],
+        "cluster_type": [],
+        "num_mics": [],
+        "useful": [],
+        "cluster_start_time": [],
+        "image_size": [],
+    }
+    df_all = pd.DataFrame(job_info)
+
     with db_session_maker() as db_session:
         for m, sess_list in sessions.items():
             for sess in sess_list:
@@ -64,9 +80,20 @@ def run() -> None:
                     / m
                     / "data"
                     / str(last_year)
-                    / f"{sess['projectCode']}-{sess['visit_number']}"
+                    / sess["session"]
                     / "processed"
                 )
                 for autoproc_dir in processed_dir.glob("*/*"):
                     if not autoproc_dir.is_symlink():
-                        project_timeline._get_dataframe(autoproc_dir)
+                        df = project_timeline._get_dataframe(
+                            Project(autoproc_dir / "relion", cluster=True)
+                        )
+                        if not df.empty:
+                            df_all = pd.concat([df_all, df])
+
+    df_all["total_time"] = df_all["total_time"].dt.total_seconds()
+    print(
+        df_all[["job", "image_size", "total_time"]]
+        .groupby(["image_size", "job"])
+        .mean()
+    )

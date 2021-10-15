@@ -53,6 +53,7 @@ console_scripts = [
     "eiger2xds=dlstbx.cli.eiger2xds:run",
     "em.visits=dlstbx.cli.em_visits:run",
     "em.running=dlstbx.cli.em_running:run",
+    "em.usage=dlstbx.cli.em_usage:run",
     "i19.tail=dlstbx.cli.i19_tail:run",
     "it.status=dlstbx.cli.it_status:run",
 ]

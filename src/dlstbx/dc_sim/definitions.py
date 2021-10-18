@@ -218,6 +218,21 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
+    "i04-eiger-sad-wedged": {
+        "type": "mx",
+        "src_dir": "/dls/i04/data/2021/cm28182-2/TestInsulin/insulin2",
+        "src_run_num": (4,),
+        "src_prefix": ("insulin2_wedged",),
+        "use_sample_id": 3343403,
+        "results": {
+            "a": approx(100, abs=100),
+            "b": approx(100, abs=100),
+            "c": approx(100, abs=100),
+            "alpha": approx(180, abs=180),
+            "beta": approx(180, abs=180),
+            "gamma": approx(180, abs=180),
+        },
+    },
     "screening": {
         "type": "mx",
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170223/group1/Thaum/Th_4",

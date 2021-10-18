@@ -56,13 +56,11 @@ class HTCondorWatcher(CommonService):
         schedd = htcondor.Schedd(schedd_ad)
 
         # List jobs to wait for
-        self.log.info(pformat(rw.payload))
         try:
             joblist = rw.payload["jobid"]
             if isinstance(joblist, int):
                 joblist = [joblist]
             jobcount = len(joblist)
-            self.log.info(pformat(joblist))
         except KeyError:
             self.log.error("Field 'jobid' is missing from the received message.")
             rw.transport.transaction_commit(txn)
@@ -96,7 +94,7 @@ class HTCondorWatcher(CommonService):
                     constraint=f"ClusterId=={jobid}",
                     attr_list=["ClusterId", "ProcId", "JobStatus", "Out"],
                 )
-                self.log.info(f"res: {pformat(res)}")
+                self.log.info(f"schedd status: {pformat(res)}")
                 if res and res[0]["JobStatus"] not in (3, 4):
                     seen_jobs.append(jobid)
 

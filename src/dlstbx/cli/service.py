@@ -120,20 +120,6 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         return kwargs
 
     def on_frontend_preparation(self, frontend):
-        self.log.info("Attaching ActiveMQ logging to transport")
-
-        def logging_call(record):
-            if frontend._transport.is_connected():
-                try:
-                    record = record.__dict__["records"]
-                except Exception:
-                    record = record.__dict__
-                frontend._transport.broadcast("transient.log", record)
-
-        amq_handler = workflows.logging.CallbackHandler(logging_call)
-        amq_handler.setLevel(logging.WARNING)
-        logging.getLogger().addHandler(amq_handler)
-
         if self.options.service_restart:
             frontend.restart_service = True
 

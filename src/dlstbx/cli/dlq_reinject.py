@@ -5,23 +5,29 @@
 #
 
 
+import argparse
 import json
 import os
 import re
 import select
 import sys
 import time
-from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
 
-from workflows.transport.stomp_transport import StompTransport
+import workflows.transport
+import zocalo.configuration
+from zocalo.util.rabbitmq import http_api_request
 
 
-def run():
-    parser = OptionParser(usage="dlstbx.dlq_reinject [options] file [file [..]]")
+def run() -> None:
+    zc = zocalo.configuration.from_file()
+    zc.activate()
+    parser = argparse.ArgumentParser(
+        usage="dlstbx.dlq_reinject [options] file [file [..]]"
+    )
 
-    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-    parser.add_option(
+    parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
+    parser.add_argument(
         "-r",
         "--remove",
         action="store_true",
@@ -29,13 +35,7 @@ def run():
         dest="remove",
         help="Delete file on successful reinjection",
     )
-    parser.add_option(
-        "--test",
-        action="store_true",
-        dest="test",
-        help="Run in ActiveMQ testing (zocdev) namespace",
-    )
-    parser.add_option(
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -43,7 +43,7 @@ def run():
         dest="verbose",
         help="Show message contents",
     )
-    parser.add_option(
+    parser.add_argument(
         "-d",
         "--destination",
         action="store",
@@ -51,21 +51,21 @@ def run():
         dest="destination_override",
         help="Reinject messages to a different destination. Any name given must include the stomp prefix.",
     )
-    parser.add_option(
+    parser.add_argument(
         "-w",
         "--wait",
         default=None,
         dest="wait",
         help="Wait this many seconds between reinjections",
     )
-    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-    if "--test" in sys.argv:
-        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
-    # override default stomp host
-    StompTransport.load_configuration_file(default_configuration)
+    parser.add_argument(
+        "files", nargs="*", help="File(s) containing DLQ messages to be reinjected"
+    )
 
-    StompTransport.add_command_line_options(parser)
-    (options, args) = parser.parse_args()
+    zc.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser, transport_argument=True)
+    args = parser.parse_args()
+    transport = workflows.transport.lookup(args.transport)()
 
     stdin = []
     if select.select([sys.stdin], [], [], 0.0)[0]:
@@ -76,22 +76,21 @@ def run():
                 break
             if dlq_purge_filename_format.match(line):
                 stdin.append(line.strip())
-        print("%d filenames read from stdin" % len(stdin))
+        print(f"{len(stdin)} filenames read from stdin")
 
-    if not args and not stdin:
+    if not args.files:
         print("No DLQ message files given.")
         sys.exit(0)
 
-    stomp = StompTransport()
-    stomp.connect()
+    transport.connect()
 
     first = True
-    for dlqfile in args + stdin:
+    for dlqfile in args.files:
         if not os.path.exists(dlqfile):
             print(f"Ignoring missing file {dlqfile}")
             continue
-        if not first and options.wait:
-            time.sleep(float(options.wait))
+        if not first and args.wait:
+            time.sleep(float(args.wait))
         first = False
         with open(dlqfile) as fh:
             dlqmsg = json.load(fh)
@@ -102,43 +101,85 @@ def run():
             or not dlqmsg.get("message")
         ):
             sys.exit("File is not a valid DLQ message.")
-        if options.verbose:
+        if args.verbose:
             pprint(dlqmsg)
 
-        destination = (
-            dlqmsg["header"]
-            .get("original-destination", dlqmsg["header"]["destination"])
-            .split("/", 2)
-        )
-        if destination[1] == "queue":
-            print("sending...")
-            send_function = stomp.send
-        elif destination[1] == "topic":
-            print("broadcasting...")
-            send_function = stomp.broadcast
-        else:
-            sys.exit("Cannot process message, unknown message mechanism")
-        if options.destination_override:
-            destination[2] = options.destination_override
-        header = dlqmsg["header"]
-        for drop_field in (
-            "content-length",
-            "destination",
-            "expires",
-            "message-id",
-            "original-destination",
-            "originalExpiration",
-            "subscription",
-            "timestamp",
-            "redelivered",
-        ):
-            if drop_field in header:
-                del header[drop_field]
-        send_function(
-            destination[2], dlqmsg["message"], headers=header, ignore_namespace=True
-        )
-        if options.remove:
+        if args.transport == "StompTransport":
+            destination = (
+                dlqmsg["header"]
+                .get("original-destination", dlqmsg["header"]["destination"])
+                .split("/", 2)
+            )
+            if destination[1] == "queue":
+                print("sending...")
+                send_function = transport.send
+            elif destination[1] == "topic":
+                print("broadcasting...")
+                send_function = transport.broadcast
+            else:
+                sys.exit("Cannot process message, unknown message mechanism")
+            if args.destination_override:
+                destination[2] = args.destination_override
+            header = dlqmsg["header"]
+            for drop_field in (
+                "content-length",
+                "destination",
+                "expires",
+                "message-id",
+                "original-destination",
+                "originalExpiration",
+                "subscription",
+                "timestamp",
+                "redelivered",
+            ):
+                if drop_field in header:
+                    del header[drop_field]
+            send_function(
+                destination[2], dlqmsg["message"], headers=header, ignore_namespace=True
+            )
+        elif args.transport == "PikaTransport":
+            header = dlqmsg["header"]
+            exchange = header.get("headers", {}).get("x-death", {})[0].get("exchange")
+            if exchange:
+                import urllib
+
+                _api_request = http_api_request(zc, "/queues")
+                with urllib.request.urlopen(_api_request) as response:
+                    reply = response.read()
+                exchange_info = json.loads(reply)
+                for exch in exchange_info:
+                    if exch["name"] == exchange:
+                        if exch["type"] == "fanout":
+                            header = _rabbit_prepare_header(header)
+                            transport.broadcast(
+                                args.destination_override or destination,
+                                dlqmsg["message"],
+                                headers=header,
+                            )
+            else:
+                destination = (
+                    header.get("headers", {}).get("x-death", {})[0].get("queue")
+                )
+                header = _rabbit_prepare_header(header)
+                transport.send(
+                    args.destination_override or destination,
+                    dlqmsg["message"],
+                    headers=header,
+                )
+        if args.remove:
             os.remove(dlqfile)
         print("Done.\n")
 
-    stomp.disconnect()
+    transport.disconnect()
+
+
+def _rabbit_prepare_header(header: dict) -> dict:
+    drop = {
+        "message-id",
+        "routing_key",
+        "redelivered",
+        "exchange",
+        "consumer_tag",
+        "delivery_mode",
+    }
+    return {k: str(v) for k, v in header.items() if k not in drop}

@@ -14,28 +14,9 @@ import urllib.request
 import pandas as pd
 import zocalo.configuration
 import zocalo.util.jmxstats
+from zocalo.util.rabbitmq import http_api_request
 
 logger = logging.getLogger("dlstbx.queue_monitor")
-
-
-def load_rabbitmq_request(
-    zc: zocalo.configuration.Configuration,
-) -> urllib.request.Request:
-    if not zc.rabbitmqapi:
-        raise zocalo.ConfigurationError(
-            "There are no RabbitMQ API credentials configured in your environment"
-        )
-    password_mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-    password_mgr.add_password(
-        realm=None,
-        uri=zc.rabbitmqapi["base_url"],
-        user=zc.rabbitmqapi["username"],
-        passwd=zc.rabbitmqapi["password"],
-    )
-    handler = urllib.request.HTTPBasicAuthHandler(password_mgr)
-    opener = urllib.request.build_opener(handler)
-    urllib.request.install_opener(opener)
-    return urllib.request.Request(f"{zc.rabbitmqapi['base_url']}/queues")
 
 
 def get_rabbitmq_stats(request: urllib.request.Request) -> pd.DataFrame:
@@ -297,7 +278,7 @@ def run():
         jmx = zocalo.util.jmxstats.JMXAPI(zc)
         transport_prefix = "ActiveMQ"
     else:
-        rmq_api_request = load_rabbitmq_request(zc)
+        rmq_api_request = http_api_request(zc, api_path="/queues")
         transport_prefix = "RabbitMQ"
 
     try:

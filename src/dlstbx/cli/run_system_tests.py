@@ -1,3 +1,4 @@
+import argparse
 import collections
 import logging
 import operator
@@ -5,7 +6,8 @@ import sys
 import time
 
 import junit_xml
-from workflows.transport.stomp_transport import StompTransport
+import workflows.transport
+import zocalo.configuration
 
 import dlstbx
 import dlstbx.system_test
@@ -28,25 +30,31 @@ def run():
     logger.setLevel(logging.DEBUG)
     logger = logging.getLogger("dlstbx.system_test")
 
-    # Set up transport: override default stomp host
-    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-    test_mode = False
-    if "--test" in sys.argv:
-        logger.info("Running on test configuration")
-        test_mode = True
-        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
-        sys.argv = [x for x in sys.argv if x != "--test"]
+    parser = argparse.ArgumentParser(
+        usage="dlstbx.run_system_tests [options]",
+        description="Run Zocalo system tests",
+    )
+    parser.add_argument("tests", nargs="*", help="Only run these tests")
+
+    parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
+
+    # Load configuration
+    zc = zocalo.configuration.from_file()
+    zc.activate()
+    zc.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser, transport_argument=True)
+
+    args = parser.parse_args()
+    test_mode = "test" in zc.active_environments
 
     # Only log to graylog for live tests
     if not test_mode:
         dlstbx.enable_graylog()
 
-    StompTransport.load_configuration_file(default_configuration)
-
-    transport = StompTransport()
+    transport = workflows.transport.lookup(args.transport)()
     transport.connect()
     if not transport.is_connected():
-        logger.critical("Could not connect to ActiveMQ server")
+        logger.critical("Could not connect to message broker")
         sys.exit(1)
 
     # Load system tests
@@ -56,11 +64,11 @@ def run():
     systest_count = len(systest_classes)
     logger.info("Found %d system test classes" % systest_count)
 
-    if sys.argv[1:] and systest_count:
+    if args.tests and systest_count:
         systest_classes = {
             n: cls
             for n, cls in systest_classes.items()
-            if any(n.lower().startswith(v.lower()) for v in sys.argv[1:])
+            if any(n.lower().startswith(v.lower()) for v in args.tests)
         }
         logger.info(
             "Filtered %d classes via command line arguments"

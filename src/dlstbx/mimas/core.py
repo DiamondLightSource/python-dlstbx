@@ -565,6 +565,27 @@ def run(
                         source="automatic",
                     )
                 )
+                # xia2-dials on STRC/IRIS cloud
+                if (
+                    scenario.beamline in {"i03", "i04"}
+                    and scenario.visit
+                    and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
+                ):
+                    tasks.append(
+                        dlstbx.mimas.MimasISPyBJobInvocation(
+                            DCID=scenario.DCID,
+                            autostart=True,
+                            recipe="autoprocessing-xia2-dials-eiger-cloud",
+                            source="automatic",
+                            parameters=(
+                                dlstbx.mimas.MimasISPyBParameter(
+                                    key="resolution.cc_half_significance_level",
+                                    value="0.1",
+                                ),
+                                *xia2_dials_absorption_params,
+                            ),
+                        )
+                    )
             if multi_xia2:
                 # xia2-dials
                 tasks.append(
@@ -653,6 +674,24 @@ def run(
                             parameters=parameters,
                         )
                     )
+                    # xia2-dials on STRC/IRIS cloud
+                    if (
+                        scenario.beamline in {"i03", "i04"}
+                        and scenario.visit
+                        and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
+                    ):
+                        tasks.append(
+                            dlstbx.mimas.MimasISPyBJobInvocation(
+                                DCID=scenario.DCID,
+                                autostart=True,
+                                recipe="autoprocessing-xia2-dials-eiger-cloud",
+                                source="automatic",
+                                parameters=(
+                                    *parameters,
+                                    *xia2_dials_absorption_params,
+                                ),
+                            )
+                        )
                 if multi_xia2:
                     # xia2-dials
                     tasks.append(

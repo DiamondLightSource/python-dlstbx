@@ -154,10 +154,13 @@ class EM_Mixin:
                     driftparams["frameNumber"] = frame
                     driftparams["deltaX"] = x
                     driftparams["deltaY"] = y
-                    driftid = self.ispyb.em_acquisition.insert_motion_correction_drift(
+                    self.ispyb.em_acquisition.insert_motion_correction_drift(
                         list(driftparams.values())
                     )
-                    self.log.info(f"Created MotionCorrectionDrift record {driftid}")
+                self.log.info(
+                    "Created %d MotionCorrectionDrift records",
+                    len(full_parameters("drift_frames")),
+                )
             return {"success": True, "return_value": result}
 
         except ispyb.ISPyBException as e:

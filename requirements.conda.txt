@@ -18,6 +18,6 @@ pyzmq
 pyyaml
 sqlalchemy>=1.4.0,<1.5
 stomp.py
-workflows>=2.0
+workflows>=2.14
 xmltodict
-zocalo>=0.9.1
+zocalo>=0.10.0

@@ -105,7 +105,6 @@ def run(
                 for recipe in (
                     "archive-nexus",
                     "processing-rlv-eiger",
-                    "generate-diffraction-preview",
                     "strategy-screen19-eiger",
                 ):
                     tasks.append(

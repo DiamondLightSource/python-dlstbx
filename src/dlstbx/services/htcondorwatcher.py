@@ -1,7 +1,6 @@
 import time
 from pprint import pformat
 
-import htcondor
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -51,6 +50,8 @@ class HTCondorWatcher(CommonService):
         os_stat_profiler = Profiler()
 
         # Look for jobs
+        import htcondor
+
         coll = htcondor.Collector(htcondor.param["COLLECTOR_HOST"])
         schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
         schedd = htcondor.Schedd(schedd_ad)

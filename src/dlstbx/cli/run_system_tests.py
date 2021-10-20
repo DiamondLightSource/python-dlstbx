@@ -119,7 +119,7 @@ def run():
     unexpected_messages.count = 0
 
     def handle_receipt(header, message):
-        expected_messages = channels[channel_lookup[header["subscription"]]]
+        expected_messages = channels[channel_lookup[str(header["subscription"])]]
         for expected_message in expected_messages:
             if not expected_message.get("received"):
                 if expected_message["message"] == message:
@@ -178,9 +178,11 @@ def run():
     for n, (queue, topic) in enumerate(channels.keys()):
         logger.debug("%2d: Subscribing to %s" % (n + 1, queue))
         if queue:
-            sub_id = transport.subscribe(queue, handle_receipt)
+            sub_id = transport.subscribe(queue, handle_receipt, temporary=True)
         if topic:
-            sub_id = transport.subscribe_broadcast(topic, handle_receipt)
+            sub_id = transport.subscribe_broadcast(
+                topic, handle_receipt, temporary=True
+            )
         channel_lookup[str(sub_id)] = (queue, topic)
         # subscriptions may be expensive on the server side, so apply some rate limiting
         # so that the server can catch up and replies on this connection are not unduly

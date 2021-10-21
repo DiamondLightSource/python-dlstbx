@@ -2,7 +2,7 @@ import argparse
 from typing import List, Optional
 
 import pandas as pd
-from relion.zocalo.alchemy import RelionJobInfo
+from relion.zocalo.alchemy import ClusterJobInfo, RelionJobInfo, RelionPipelineInfo
 from sqlalchemy.orm import Load
 from sqlalchemy.orm.session import sessionmaker
 
@@ -11,18 +11,43 @@ from dlstbx.cli.em_usage_collect import _get_sessionmaker
 
 def _db_to_df(columns: List[str], values: Optional[list] = None) -> pd.DataFrame:
     _sessionmaker: sessionmaker = _get_sessionmaker()
+    pipeline_columns = [
+        c for c in columns if c in RelionPipelineInfo.__table__.columns.keys()
+    ]
+    job_columns = [c for c in columns if c in RelionJobInfo.__table__.columns.keys()]
+    cluster_columns = [
+        c for c in columns if c in ClusterJobInfo.__table__.columns.keys()
+    ]
+    extras = [
+        c
+        for c, p in zip(
+            ["cluster_id", "pipeline_id"], [cluster_columns, pipeline_columns]
+        )
+        if p
+    ]
     with _sessionmaker() as session:
-        if values:
+        if pipeline_columns:
             query = (
-                session.query(RelionJobInfo)
-                .options(Load(RelionJobInfo).load_only(*columns))
-                .filter(
-                    *[getattr(RelionJobInfo, c) == v for c, v in zip(columns, values)]
+                session.query(RelionJobInfo, RelionPipelineInfo)
+                .options(
+                    Load(RelionJobInfo).load_only(*(job_columns + extras)),
+                    Load(RelionPipelineInfo).load_only(
+                        *(pipeline_columns + ["pipeline_id"])
+                    ),
+                )
+                .join(
+                    RelionPipelineInfo,
+                    RelionPipelineInfo.pipeline_id == RelionJobInfo.pipeline_id,
                 )
             )
         else:
             query = session.query(RelionJobInfo).options(
-                Load(RelionJobInfo).load_only(*columns)
+                Load(RelionJobInfo).load_only(*(job_columns + extras))
+            )
+
+        if values:
+            query = query.filter(
+                *[getattr(RelionJobInfo, c) == v for c, v in zip(job_columns, values)]
             )
 
         query_result = query.all()

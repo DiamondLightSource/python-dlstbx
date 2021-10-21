@@ -25,24 +25,33 @@ def _db_to_df(columns: List[str], values: Optional[list] = None) -> pd.DataFrame
         )
         if p
     ]
+    tables = [
+        c
+        for c, p in zip(
+            [RelionJobInfo, RelionPipelineInfo, ClusterJobInfo],
+            [True, pipeline_columns, cluster_columns],
+        )
+        if p
+    ]
     with _sessionmaker() as session:
+        query = session.query(*tables).options(
+            Load(RelionJobInfo).load_only(*(job_columns + extras))
+        )
         if pipeline_columns:
-            query = (
-                session.query(RelionJobInfo, RelionPipelineInfo)
-                .options(
-                    Load(RelionJobInfo).load_only(*(job_columns + extras)),
-                    Load(RelionPipelineInfo).load_only(
-                        *(pipeline_columns + ["pipeline_id"])
-                    ),
-                )
-                .join(
-                    RelionPipelineInfo,
-                    RelionPipelineInfo.pipeline_id == RelionJobInfo.pipeline_id,
-                )
+            query = query.options(
+                Load(RelionPipelineInfo).load_only(
+                    *(pipeline_columns + ["pipeline_id"])
+                ),
+            ).join(
+                RelionPipelineInfo,
+                RelionPipelineInfo.pipeline_id == RelionJobInfo.pipeline_id,
             )
-        else:
-            query = session.query(RelionJobInfo).options(
-                Load(RelionJobInfo).load_only(*(job_columns + extras))
+        if cluster_columns:
+            query = query.options(
+                Load(ClusterJobInfo).load_only(*(cluster_columns + ["cluster_id"])),
+            ).join(
+                ClusterJobInfo,
+                ClusterJobInfo.cluster_id == RelionJobInfo.cluster_id,
             )
 
         if values:
@@ -53,12 +62,34 @@ def _db_to_df(columns: List[str], values: Optional[list] = None) -> pd.DataFrame
         query_result = query.all()
     df = pd.DataFrame({c: [] for c in columns})
     for r in query_result:
-        if pipeline_columns:
+        if pipeline_columns and cluster_columns:
             df = df.append(
                 {
-                    c: (getattr(r[0], c) or 0)
+                    c: (getattr(r[1], c) or 0)
                     if c in pipeline_columns
-                    else (getattr(r[1], c) or 0)
+                    else (getattr(r[2], c) or 0)
+                    if c in cluster_columns
+                    else (getattr(r[0], c) or 0)
+                    for c in columns
+                },
+                ignore_index=True,
+            )
+        elif pipeline_columns:
+            df = df.append(
+                {
+                    c: (getattr(r[1], c) or 0)
+                    if c in pipeline_columns
+                    else (getattr(r[0], c) or 0)
+                    for c in columns
+                },
+                ignore_index=True,
+            )
+        elif cluster_columns:
+            df = df.append(
+                {
+                    c: (getattr(r[1], c) or 0)
+                    if c in cluster_columns
+                    else (getattr(r[0], c) or 0)
                     for c in columns
                 },
                 ignore_index=True,

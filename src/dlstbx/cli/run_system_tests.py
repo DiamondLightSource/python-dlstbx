@@ -178,7 +178,8 @@ def run():
     for n, (queue, topic) in enumerate(channels.keys()):
         logger.debug("%2d: Subscribing to %s" % (n + 1, queue))
         if queue:
-            sub_id = transport.subscribe(queue, handle_receipt, temporary=True)
+            transport.queue_declare(queue, auto_delete=True)
+            sub_id = transport.subscribe(queue, handle_receipt)
         if topic:
             sub_id = transport.subscribe_broadcast(
                 topic, handle_receipt, temporary=True

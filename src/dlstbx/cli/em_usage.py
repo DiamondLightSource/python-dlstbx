@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import json
 import pathlib
@@ -9,7 +10,7 @@ import sqlalchemy
 from ispyb.sqlalchemy import VRun
 from relion import Project
 from relion.cli import project_timeline
-from relion.zocalo.alchemy import ClusterJobInfo, RelionJobInfo
+from relion.zocalo.alchemy import ClusterJobInfo, RelionJobInfo, RelionPipelineInfo
 from sqlalchemy.dialects.mysql import insert
 
 
@@ -32,29 +33,67 @@ def _get_sessionmaker():
     return _sessionmaker
 
 
-def _df_to_db(df: pd.DataFrame, appid: Optional[int] = None):
+def _df_to_db(
+    df: pd.DataFrame, microscope: str, path: str, appid: Optional[int] = None
+):
+    image_x = df.iloc[0]["image_size"][0]
+    image_y = df.iloc[0]["image_size"][1]
     session_maker = _get_sessionmaker()
     with session_maker() as session:
+        insert_cmd = insert(RelionPipelineInfo).values(
+            image_x=image_x,
+            image_y=image_y,
+            microscope=microscope,
+            project_path=path,
+        )
+        pipeline_cursor = session.execute(insert_cmd)
+        pid = pipeline_cursor.inserted_primary_key[0]
+        session.commit()
         for index, row in df.iterrows():
-            insert_cmd = insert(ClusterJobInfo).values(
-                cluster="hamilton",
-                cluster_id=row["cluster_id"],
-                auto_proc_program_id=appid,
-                start_time=row["cluster_start_time"],
-                end_time=row["end_time"],
-            )
-            session.execute(insert_cmd)
+            if row["cluster_id"] == "N/A":
+                cluster_id = None
+            else:
+                cluster_id = row["cluster_id"]
+            if cluster_id:
+                insert_cmd = insert(ClusterJobInfo).values(
+                    cluster="hamilton",
+                    cluster_id=cluster_id,
+                    auto_proc_program_id=appid,
+                    start_time=row["cluster_start_time"].strftime("%Y-%m-%d %H:%M:%S"),
+                    end_time=row["end_time"].strftime("%Y-%m-%d %H:%M:%S"),
+                )
+                session.execute(insert_cmd)
             insert_cmd = insert(RelionJobInfo).values(
-                cluster_id=row["cluster_id"],
-                relion_start_time=row["start_time"],
+                cluster_id=cluster_id,
+                relion_start_time=row["start_time"].strftime("%Y-%m-%d %H:%M:%S"),
                 num_micrographs=row["num_mics"],
                 job_name=row["job"],
+                pipeline_id=pid,
             )
             session.execute(insert_cmd)
             session.commit()
 
 
 def run() -> None:
+    parser = argparse.ArgumentParser()
+
+    all_microscopes = [
+        "m02",
+        "m03",
+        "m04",
+        "m05",
+        "m06",
+        "m07",
+        "m08",
+        "m10",
+        "m11",
+        "m12",
+    ]
+    parser.add_argument(
+        "-m", action="append", dest="microscopes", default=all_microscopes
+    )
+    args = parser.parse_args()
+
     sessions = []
 
     url = ispyb.sqlalchemy.url()
@@ -81,24 +120,12 @@ def run() -> None:
         last_number = f"{run_number-1:02d}"
     last_run = f"{last_year}-{last_number}"
 
-    beamlines = [
-        "m02",
-        "m03",
-        "m04",
-        "m05",
-        "m06",
-        "m07",
-        "m08",
-        "m10",
-        "m11",
-        "m12",
-    ]
-    sessions = {b: [] for b in beamlines}
+    sessions = {m: [] for m in args.microscopes}
     with ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg") as i:
         try:
-            for beamline in beamlines:
-                sessions[beamline].extend(
-                    i.core.retrieve_sessions_for_beamline_and_run(beamline, last_run)
+            for mic in args.microscopes:
+                sessions[mic].extend(
+                    i.core.retrieve_sessions_for_beamline_and_run(mic, last_run)
                 )
         except ispyb.NoResult:
             pass
@@ -133,12 +160,6 @@ def run() -> None:
                         Project(autoproc_dir / "relion", cluster=True)
                     )
                     if not df.empty:
-                        _df_to_db(df)
+                        print(f"{len(df.index)} jobs found in {autoproc_dir}")
+                        _df_to_db(df, m, str(autoproc_dir / "relion"))
                         df_all = pd.concat([df_all, df])
-
-    df_all["total_time"] = df_all["total_time"].dt.total_seconds()
-    print(
-        df_all[["job", "image_size", "total_time"]]
-        .groupby(["image_size", "job"])
-        .mean()
-    )

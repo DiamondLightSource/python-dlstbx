@@ -53,7 +53,18 @@ def _db_to_df(columns: List[str], values: Optional[list] = None) -> pd.DataFrame
         query_result = query.all()
     df = pd.DataFrame({c: [] for c in columns})
     for r in query_result:
-        df = df.append({c: getattr(r, c) or 0 for c in columns}, ignore_index=True)
+        if pipeline_columns:
+            df = df.append(
+                {
+                    c: (getattr(r[0], c) or 0)
+                    if c in pipeline_columns
+                    else (getattr(r[1], c) or 0)
+                    for c in columns
+                },
+                ignore_index=True,
+            )
+        else:
+            df = df.append({c: getattr(r, c) or 0 for c in columns}, ignore_index=True)
     return df
 
 

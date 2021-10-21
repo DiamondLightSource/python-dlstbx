@@ -12,15 +12,23 @@ from dlstbx.cli.em_usage_collect import _get_sessionmaker
 def _db_to_df(columns: List[str], values: Optional[list] = None) -> pd.DataFrame:
     _sessionmaker: sessionmaker = _get_sessionmaker()
     with _sessionmaker() as session:
-        query = (
-            session.query(RelionJobInfo)
-            .options(Load(RelionJobInfo).load_only(*columns))
-            .filter(*[getattr(RelionJobInfo, c) == v for c, v in zip(columns, values)])
-        )
+        if values:
+            query = (
+                session.query(RelionJobInfo)
+                .options(Load(RelionJobInfo).load_only(*columns))
+                .filter(
+                    *[getattr(RelionJobInfo, c) == v for c, v in zip(columns, values)]
+                )
+            )
+        else:
+            query = session.query(RelionJobInfo).options(
+                Load(RelionJobInfo).load_only(*columns)
+            )
+
         query_result = query.all()
     df = pd.DataFrame({c: [] for c in columns})
     for r in query_result:
-        df = df.append({c: getattr(r, c) for c in columns})
+        df = df.append({c: getattr(r, c) or 0 for c in columns}, ignore_index=True)
     return df
 
 

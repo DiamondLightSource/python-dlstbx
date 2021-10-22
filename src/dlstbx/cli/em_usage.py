@@ -132,11 +132,14 @@ def run() -> None:
     args = parser.parse_args()
 
     extras = []
-    if "total_time" in args.average:
+    if "total_time" in args.average_these:
+        args.average_these.remove("total_time")
         extras.extend(["relion_start_time", "end_time"])
-    if "run_time" in args.average:
+    if "run_time" in args.average_these:
+        args.average_these.remove("run_time")
         extras.extend(["start_time", "end_time"])
-    if "queue_time" in args.average:
+    if "queue_time" in args.average_these:
+        args.average_these.remove("queue_time")
         extras.extend(["start_time", "end_time", "relion_start_time"])
 
     extras = list(set(extras))

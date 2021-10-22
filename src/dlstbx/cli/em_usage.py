@@ -2,6 +2,7 @@ import argparse
 from typing import List, Optional
 
 import pandas as pd
+import plotly.express as px
 from relion.zocalo.alchemy import ClusterJobInfo, RelionJobInfo, RelionPipelineInfo
 from sqlalchemy.orm import Load
 from sqlalchemy.orm.session import sessionmaker
@@ -129,6 +130,16 @@ def run() -> None:
         action="append",
         dest="values",
     )
+    parser.add_argument(
+        "-p",
+        "--plot",
+        default=None,
+        dest="plot",
+        help="Variable to be plotted as a histogram",
+    )
+    parser.add_argument(
+        "-x", dest="x_axis", help="x variable of histogram to be plotted"
+    )
     args = parser.parse_args()
 
     extras = []
@@ -169,3 +180,7 @@ def run() -> None:
 
     print(df.groupby(args.group_by).mean())
     print(df.groupby(args.group_by).std())
+
+    if args.p:
+        fig = px.bar(df, x=args.x, y=args.p)
+        fig.write_html("em_usage.html")

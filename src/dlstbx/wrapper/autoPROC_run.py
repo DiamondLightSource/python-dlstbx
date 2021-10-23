@@ -23,11 +23,10 @@ clean_environment = {
 
 
 class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
-    def construct_commandline(self, params):
+    def construct_commandline(self, working_directory, params):
         """Construct autoPROC command line.
         Takes job parameter dictionary, returns array."""
 
-        working_directory = params.get("working_directory", os.getcwd())
         image_template = params["autoproc"]["image_template"]
         image_directory = params["autoproc"].get("image_directory", os.getcwd())
         image_first = params["autoproc"]["image_first"]
@@ -35,6 +34,7 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
         image_pattern = params["image_pattern"]
         project = params["autoproc"].get("project")
         crystal = params["autoproc"].get("crystal")
+        nproc = params["autoproc"].get("nproc")
 
         beamline = params["beamline"]
 
@@ -43,15 +43,14 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
 
         command = [
             "process",
-            "-xml",
-            "autoPROC_XdsKeyword_MAXIMUM_NUMBER_OF_PROCESSORS=12",
+            f"-nthreads={nproc}",
             "-M",
             "HighResCutOnCChalf",
             'autoPROC_CreateSummaryImageHrefLink="no"',
             'autoPROC_Summary2Base64_Run="yes"',
             'StopIfSubdirExists="no"',
             "-d",
-            working_directory,
+            str(working_directory),
         ]
         if project:
             command.append(f"pname={project}")
@@ -186,19 +185,23 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        working_directory = Path(params.get("working_directory", os.getcwd()))
+        working_directory = (
+            Path(params.get("working_directory", os.getcwd())) / "autoPROC"
+        )
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        try:
-            s3_urls = self.recwrap.payload["s3_urls"]
-            for filename, s3_url in s3_urls.items():
-                file_data = requests.get(s3_url)
-                with open(filename, "wb") as fp:
-                    fp.write(file_data.content)
-        except (KeyError, TypeError):
-            logger.error("Cannot read input files from S3 store.")
+        if "s3_urls" in self.recwrap.payload:
+            try:
+                s3_urls = self.recwrap.payload["s3_urls"]
+                for filename, s3_url in s3_urls.items():
+                    file_data = requests.get(s3_url)
+                    with open(filename, "wb") as fp:
+                        fp.write(file_data.content)
+            except (KeyError, TypeError):
+                logger.error("Cannot read input files from S3 store.")
+                return False
 
-        command = self.construct_commandline(params)
+        command = self.construct_commandline(working_directory, params)
 
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings

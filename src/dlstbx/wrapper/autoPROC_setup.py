@@ -1,7 +1,6 @@
 import configparser
 import glob
 import logging
-import shutil
 import urllib
 from datetime import timedelta
 from pathlib import Path
@@ -27,7 +26,7 @@ def write_singularity_script(working_directory, image_name):
     singularity_script = working_directory / "run_singularity.sh"
     commands = [
         "#!/bin/bash",
-        f"/usr/bin/singularity exec --home ${{PWD}} ${{PWD}}/{image_name} $@",
+        f"/usr/bin/singularity exec --home ${{PWD}} {image_name} $@",
     ]
     with open(singularity_script, "w") as fp:
         fp.write("\n".join(commands))
@@ -94,15 +93,15 @@ class autoPROCSetupWrapper(zocalo.wrapper.BaseWrapper):
         working_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                str(working_directory), params["create_symlink"]
+                str(working_directory), params["create_symlink"], levels=1
             )
 
         singularity_image = params.get("singularity_image")
         if singularity_image:
             try:
-                shutil.copy(singularity_image, str(working_directory))
-                image_name = Path(singularity_image).name
-                write_singularity_script(working_directory, image_name)
+                # shutil.copy(singularity_image, str(working_directory))
+                # image_name = Path(singularity_image).name
+                write_singularity_script(working_directory, singularity_image)
             except Exception:
                 logger.exception("Error writing singularity script")
                 return False

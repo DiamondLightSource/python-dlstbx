@@ -388,5 +388,5 @@ class autoPROCResultsWrapper(zocalo.wrapper.BaseWrapper):
                     special_program_name="autoPROC+STARANISO",
                     attachments=anisofiles,
                 )
-
-        return success
+            return success
+        return False

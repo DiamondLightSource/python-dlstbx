@@ -84,7 +84,7 @@ class Xia2SetupWrapper(zocalo.wrapper.BaseWrapper):
         working_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                str(working_directory), params["create_symlink"]
+                str(working_directory), params["create_symlink"], levels=1
             )
 
         tmp_path = working_directory / "TMP"

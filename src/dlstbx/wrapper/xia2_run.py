@@ -11,7 +11,7 @@ logger = logging.getLogger("dlstbx.wrap.xia2_run")
 
 
 class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
-    def construct_commandline(self, params):
+    def construct_commandline(self, working_directory, params, is_cloud=False):
         """Construct xia2 command line.
         Takes job parameter dictionary, returns array."""
 
@@ -26,6 +26,8 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
                 values = values.split(",")
             if not isinstance(values, (list, tuple)):
                 values = [values]
+            if param == "image" and is_cloud:
+                values = [str(working_directory / val) for val in values]
             for v in values:
                 command.append(f"{param}={v}")
 
@@ -48,24 +50,31 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
 
+        is_cloud = False
         try:
             s3_urls = self.recwrap.payload["s3_urls"]
             for filename, s3_url in s3_urls.items():
                 file_data = requests.get(s3_url)
-                with open(filename, "wb") as fp:
+                filepath = working_directory / filename
+                with open(filepath, "wb") as fp:
                     fp.write(file_data.content)
-        except KeyError:
+                is_cloud = True
+        except (KeyError, TypeError):
             logger.error("Cannot read input files from S3 store.")
 
-        command = self.construct_commandline(params)
+        command = self.construct_commandline(working_directory, params, is_cloud)
         logger.info("command: %s", " ".join(command))
 
+        procrunner_directory = working_directory / "-".join(
+            ["xia2", params["xia2"]["pipeline"]]
+        )
+        procrunner_directory.mkdir(parents=True, exist_ok=True)
         try:
             result = procrunner.run(
                 command,
                 timeout=params.get("timeout"),
                 raise_timeout_exception=True,
-                working_directory=str(working_directory),
+                working_directory=str(procrunner_directory),
             )
         except subprocess.TimeoutExpired as te:
             success = False

@@ -23,19 +23,6 @@ def get_rabbitmq_stats(request: urllib.request.Request) -> pd.DataFrame:
     with urllib.request.urlopen(request) as response:
         json_str = response.read()
     stats = pd.json_normalize(json.loads(json_str))
-    fields = [
-        "name",
-        "consumers",
-        "messages",
-        "messages_ready",
-        "messages_unacknowledged",
-        "message_stats.publish",
-        "message_stats.publish_details.rate",
-        "message_stats.deliver_get",
-        "message_stats.deliver_get_details.rate",
-        "name.prefix",  # custom field added below
-        "dtype",  # custom field added below
-    ]
 
     # If there have been no recently published or delivered messages then these fields
     # might not be present
@@ -48,7 +35,7 @@ def get_rabbitmq_stats(request: urllib.request.Request) -> pd.DataFrame:
 
     stats["name.prefix"] = stats["name"].str.split(".", 1).str[0]
     stats["dtype"] = "queue"  # RabbitMQ doesn't have the same queue/topic distinction
-    return stats[fields]
+    return stats.set_index("name")
 
 
 def get_activemq_queue_and_topic_info() -> pd.DataFrame:
@@ -134,7 +121,7 @@ def get_activemq_stats() -> pd.DataFrame:
             stats = stats.append(row, ignore_index=True)
 
     stats["messages"] = stats["messages_ready"] + stats["messages_unacknowledged"]
-    return stats
+    return stats.set_index("name")
 
 
 def print_stats(stats: pd.DataFrame, transport_prefix: str) -> None:
@@ -153,7 +140,7 @@ def print_stats(stats: pd.DataFrame, transport_prefix: str) -> None:
     # messages_unacknowledged - Number of messages delivered to clients but not yet acknowledged.messages
     # messages - Sum of ready and unacknowledged messages (queue depth).
 
-    all_stats = stats.fillna(0.0).astype(int, errors="ignore").set_index("name")
+    all_stats = stats.fillna(0.0).astype(int, errors="ignore")
     all_stats = all_stats.sort_index().sort_values(by="messages", ascending=False)
     longest = all_stats.reset_index().astype(str).applymap(len).max()
 

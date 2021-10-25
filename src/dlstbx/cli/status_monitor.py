@@ -3,18 +3,19 @@
 #   Starts a status monitor (what do you expect?)
 #
 
+import argparse
 import curses
 import os
 import re
 import sys
 import threading
 import time
-from optparse import SUPPRESS_HELP, OptionParser
 from pprint import pprint
 
 import workflows
 import workflows.services
 import workflows.transport
+import zocalo.configuration
 from workflows.services.common_service import CommonService
 
 from dlstbx.util.version import dlstbx_version
@@ -427,61 +428,60 @@ class RawMonitor:
 
 def run():
     version = dlstbx_version()
-    parser = OptionParser(usage="dlstbx.status_monitor [options]", version=version)
-    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--version", action="version", version=version)
+    parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
     known_services = workflows.services.get_known_services()
-    parser.add_option(
+    parser.add_argument(
         "-s",
         "--service",
         dest="services",
         metavar="SVC",
         action="append",
         default=[],
-        help="Stop all instances of a service. Use 'none' for instances without "
-        "loaded service. Known services: " + ", ".join(known_services),
+        help="Filter status only to specified services. Use 'none' for "
+        + "instances without a loaded service. Known services: "
+        + ", ".join(known_services),
     )
-    parser.add_option(
+    parser.add_argument(
         "-n",
         action="store_true",
         dest="nofancy",
         default=False,
         help="Do not draw fancy borders",
     )
-    parser.add_option(
-        "-t",
-        "--transport",
-        dest="transport",
-        metavar="TRN",
-        default="stomp",
-        help="Transport mechanism, default '%default'",
-    )
-    parser.add_option(
+    parser.add_argument(
         "--host",
         dest="hostfilter",
         default=None,
         help="Filter to hosts matching this regular expression",
     )
-
-    parser.add_option(
+    parser.add_argument(
         "--test",
         action="store_true",
         dest="test",
-        help="Run in ActiveMQ testing (zocdev) namespace",
+        help=argparse.SUPPRESS,
     )
-    parser.add_option(
+    parser.add_argument(
         "--raw", action="store_true", dest="raw", help="Show raw status messages"
     )
-    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-    if "--test" in sys.argv:
-        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
 
-    # override default stomp host
-    from workflows.transport.stomp_transport import StompTransport
+    # Load zocalo configuration
+    zc = zocalo.configuration.from_file()
+    zc.add_command_line_options(parser)
+    # Implicitly extracts the environment parameter from sys.argv in
+    # advance of adding to our ArgumentParser.  We need this before the
+    # add_command_line_options because plugins might change defaults
+    zc.activate()
 
-    StompTransport.load_configuration_file(default_configuration)
+    workflows.transport.add_command_line_options(parser, transport_argument=True)
+    options = parser.parse_args()
 
-    workflows.transport.add_command_line_options(parser)
-    (options, args) = parser.parse_args()
+    # Deprecated: Remove after 2021
+    if options.test:
+        sys.exit(
+            "Error: --test is deprecated. Please use '-e test' to specify a test environment"
+        )
 
     monitor = Monitor
     if options.raw:

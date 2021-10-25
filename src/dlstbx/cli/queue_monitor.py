@@ -17,7 +17,7 @@ logger = logging.getLogger("dlstbx.queue_monitor")
 
 
 def get_rabbitmq_stats(rmq: RabbitMQAPI) -> pd.DataFrame:
-    stats = pd.json_normalize(rmq.queues)
+    stats = pd.json_normalize(rmq.get("queues").json())
 
     # If there have been no recently published or delivered messages then these fields
     # might not be present
@@ -256,7 +256,7 @@ def run():
         jmx = zocalo.util.jmxstats.JMXAPI(zc)
         transport_prefix = "ActiveMQ"
     else:
-        rmq = RabbitMQAPI(zc)
+        rmq = RabbitMQAPI.from_zocalo_configuration(zc)
         transport_prefix = "RabbitMQ"
 
     try:

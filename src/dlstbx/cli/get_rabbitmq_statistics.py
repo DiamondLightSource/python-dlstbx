@@ -38,22 +38,22 @@ def run():
 
     parser.parse_args()
 
-    rmq = RabbitMQAPI(zc)
+    rmq = RabbitMQAPI.from_zocalo_configuration(zc)
     _, hc_failures = rmq.health_checks
 
     def readable_memory(value):
         return "{:.0f} MB".format(value / 1024 / 1024)
 
-    connections_count = len(rmq.connections)
-    nodes = rmq.nodes
+    connections_count = len(rmq.connections())
+    nodes = rmq.nodes()
 
-    memory = max([node["mem_used"] / node["mem_limit"] for node in nodes]) * 100
-    disk_free = min([node["disk_free"] for node in nodes])
+    memory = max([node.mem_used / node.mem_limit for node in nodes]) * 100
+    disk_free = min([node.disk_free for node in nodes])
     disk_free_limit = [
-        node["disk_free_limit"] for node in nodes if node["disk_free"] == disk_free
+        node.disk_free_limit for node in nodes if node.disk_free == disk_free
     ][0]
-    fd_used = max([node["fd_used"] for node in nodes])
-    fd_total = [node["fd_total"] for node in nodes if node["fd_used"] == fd_used][0]
+    fd_used = max([node.fd_used for node in nodes])
+    fd_total = [node.fd_total for node in nodes if node.fd_used == fd_used][0]
 
     def colour(value, warnlevel, errlevel):
         if not sys.stdout.isatty():

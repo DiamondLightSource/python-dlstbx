@@ -66,7 +66,7 @@ def check_rabbitmq_dlq(cfc: CheckFunctionInterface):
 def check_rabbitmq_health(cfc: CheckFunctionInterface):
     zc = zocalo.configuration.from_file()
     zc.activate_environment("live")
-    rmq = RabbitMQAPI(zc)
+    rmq = RabbitMQAPI.from_zocalo_configuration(zc)
 
     db_status = cfc.current_status
     check_prefix = cfc.name
@@ -83,15 +83,15 @@ def check_rabbitmq_health(cfc: CheckFunctionInterface):
             URL=zc.rabbitmqapi["base_url"],
         )
 
-    for node in rmq.nodes:
+    for node in rmq.nodes():
         for alarm in {"disk_free_alarm", "mem_alarm"}:
             check = check_prefix + "." + alarm
-            if node[alarm]:
+            if getattr(node, alarm):
                 report_updates[check] = Status(
                     Source=check,
                     Level=REPORT.ERROR,
                     Message="RabbitMQ is running outside normal parameters",
-                    MessageBody=f"{node['name']}: {alarm}={node[alarm]}",
+                    MessageBody=f"{node.name}: {alarm}={node.alarm}",
                     URL=zc.rabbitmqapi["base_url"],
                 )
             elif check in db_status and db_status[check].Level != REPORT.PASS:

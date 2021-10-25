@@ -28,7 +28,6 @@ console_scripts = [
     "dlstbx.h5rewrite=dlstbx.cli.h5rewrite:cli",
     "dlstbx.hdf5_missing_frames=dlstbx.cli.hdf5_missing_frames:run",
     "dlstbx.last_data_collections_on=dlstbx.cli.last_data_collections_on:main",
-    "dlstbx.log=dlstbx.cli.log:run",
     "dlstbx.mimas=dlstbx.cli.mimas:run",
     "dlstbx.monitor_beamline=dlstbx.cli.monitor_beamline:run",
     "dlstbx.mr_predict_results=dlstbx.cli.mr_predict_results:runmain",

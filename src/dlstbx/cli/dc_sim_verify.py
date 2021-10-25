@@ -24,7 +24,9 @@ processqueue = queue.Queue()
 
 results_queue = "reduce.dc_sim"
 test_results = {}
-test_timeout = 3600  # fail scenarios that have not succeeded after 1 hour
+# Fail scenarios that have not succeeded after 2 hours.
+# Accommodate for possibility of 1 hour time zone difference between workstations.
+test_timeout = 2 * 3600
 forget_test_after = 2 * 24 * 3600  # forget test after 2 days
 
 

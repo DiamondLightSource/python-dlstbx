@@ -28,7 +28,7 @@ def get_rabbitmq_stats(rmq: RabbitMQAPI) -> pd.DataFrame:
 
     stats["name.prefix"] = stats["name"].str.split(".", 1).str[0]
     stats["dtype"] = "queue"  # RabbitMQ doesn't have the same queue/topic distinction
-    return stats
+    return stats.set_index("name")
 
 
 def get_activemq_queue_and_topic_info() -> pd.DataFrame:
@@ -112,7 +112,7 @@ def get_activemq_stats() -> pd.DataFrame:
             stats = stats.append(row, ignore_index=True)
 
     stats["messages"] = stats["messages_ready"] + stats["messages_unacknowledged"]
-    return stats
+    return stats.set_index("name")
 
 
 def print_stats(stats: pd.DataFrame, transport_prefix: str) -> None:
@@ -131,7 +131,7 @@ def print_stats(stats: pd.DataFrame, transport_prefix: str) -> None:
     # messages_unacknowledged - Number of messages delivered to clients but not yet acknowledged.messages
     # messages - Sum of ready and unacknowledged messages (queue depth).
 
-    all_stats = stats.fillna(0.0).astype(int, errors="ignore").set_index("name")
+    all_stats = stats.fillna(0.0).astype(int, errors="ignore")
     all_stats = all_stats.sort_index().sort_values(by="messages", ascending=False)
     longest = all_stats.reset_index().astype(str).applymap(len).max()
 

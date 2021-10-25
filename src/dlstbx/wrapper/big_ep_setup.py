@@ -4,8 +4,9 @@ import os
 import shutil
 from argparse import Namespace
 from pathlib import Path
-from pprint import pformat, pprint
+from pprint import pformat
 
+import ispyb
 import zocalo
 from iotbx import mtz
 
@@ -186,12 +187,30 @@ def write_singularity_script(working_directory, image_name):
         fp.write("\n".join(commands))
 
 
+def record_big_ep_settings_in_ispyb(rpid, msg):
+    big_ep_settings = {
+        "atom": msg.atom,
+        "dataset": msg.dataset_names,
+        "spacegroup": msg.spacegroup,
+        "nsites": msg.nsites,
+        "compound": msg.compound,
+        "sequence": msg.sequence,
+    }
+    ispyb_conn = ispyb.open()
+    for key, value in big_ep_settings.items():
+        jpp = ispyb_conn.mx_processing.get_job_parameter_params()
+        jpp["job_id"] = rpid
+        jpp["parameter_key"] = key
+        jpp["parameter_value"] = value
+        ispyb_conn.mx_processing.upsert_job_parameter(list(jpp.values()))
+    logger.info(f"big_ep settings jobid {rpid}: {pformat(big_ep_settings)}")
+
+
 class BigEPSetupWrapper(zocalo.wrapper.BaseWrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
-        pprint(params)
         self.recwrap.environment.update(params["ispyb_parameters"])
 
         working_directory = Path(params["working_directory"])
@@ -236,7 +255,10 @@ class BigEPSetupWrapper(zocalo.wrapper.BaseWrapper):
             write_settings_file(working_directory, msg)
         except Exception:
             logger.exception("Error reading big_ep parameters")
-            return False
+        try:
+            record_big_ep_settings_in_ispyb(params["rpid"], msg)
+        except Exception:
+            logger.exception("Error recording big_ep settings into ISPyB")
 
         try:
             if pipeline == "Crank2":

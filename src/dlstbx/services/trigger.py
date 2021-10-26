@@ -205,6 +205,8 @@ class DLSTrigger(CommonService):
             self.log.error("No trigger target defined in recipe")
             rw.transport.nack(header)
             return
+        if target in {"big_ep_cluster", "big_ep_cloud"}:
+            target = "big_ep_common"
         if not hasattr(self, "trigger_" + target):
             self.log.error("Unknown target %s defined in recipe", target)
             rw.transport.nack(header)
@@ -979,6 +981,105 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"big_ep_cloud trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    def trigger_big_ep_common(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: BigEPLauncherParameters,
+        session,
+        **kwargs,
+    ):
+
+        query = (
+            session.query(Proposal)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == parameters.dcid)
+        )
+        proposal = query.first()
+        if proposal.proposalCode in ("lb", "in", "sw"):
+            self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
+            return {"success": True}
+
+        if (
+            (proposal.proposalCode != "mx" or proposal.proposalNumber != "23694")
+            and (proposal.proposalCode != "nt" or proposal.proposalNumber != "28218")
+            and proposal.proposalCode != "cm"
+        ):
+            self.log.info(
+                f"Skipping big_ep_common trigger for {proposal.proposalCode}{proposal.proposalNumber} visit"
+            )
+            return {"success": True}
+
+        params = rw.recipe_step.get("parameters", {})
+        target = params.get("target")
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = parameters.pipeline
+        if target == "big_ep_cluster":
+            jp["recipe"] = "postprocessing-big-ep-cluster"
+        elif target == "big_ep_cloud":
+            jp["recipe"] = "postprocessing-big-ep-cloud"
+        else:
+            self.log.error(
+                f"big_ep_common trigger failed: Invalid target specified {target}"
+            )
+            return False
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"big_ep_common trigger: generated JobID {jobid}")
+
+        try:
+            program_id = parameters.program_id
+        except (TypeError, ValueError):
+            self.log.error("big_ep_common trigger failed: Invalid program_id specified")
+            return False
+        big_ep_parameters = {
+            "pipeline": parameters.pipeline,
+            "program_id": program_id,
+            "data": os.fspath(parameters.data),
+            "path_ext": parameters.path_ext,
+            "shelxc_path": os.fspath(parameters.shelxc_path),
+            "fast_ep_path": os.fspath(parameters.fast_ep_path),
+        }
+        if target == "big_ep_cloud":
+            transfer_input_files = parameters.data.name
+            if parameters.pipeline == "autoSHARP":
+                transfer_output_files = "autoSHARP"
+            elif parameters.pipeline == "AutoBuild":
+                transfer_output_files = "AutoSol_run_1_, PDS, AutoBuild_run_1_"
+            elif parameters.pipeline == "Crank2":
+                transfer_output_files = "crank2, run_Crank2.sh, crank2.log, pointless.log, crank2_config.xml"
+            big_ep_parameters.update(
+                {
+                    "transfer_input_files": transfer_input_files,
+                    "transfer_output_files": transfer_output_files,
+                }
+            )
+
+        for key, value in big_ep_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(f"big_ep_cloud trigger: generated JobParameterID {jppid}")
+
+        self.log.debug(f"big_ep_common trigger: Processing job {jobid} created")
+
+        message = {
+            "recipes": [],
+            "parameters": {"ispyb_process": jobid},
+        }
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"big_ep_common trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 

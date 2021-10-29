@@ -14,57 +14,69 @@ import os
 import sys
 import time
 from argparse import ArgumentParser
+from typing import List, Optional
 
-from workflows.transport.stomp_transport import StompTransport
+import workflows.transport
+import zocalo.configuration
+
+parser = ArgumentParser(description=__doc__)
+parser.add_argument(
+    "-d",
+    "--delay",
+    type=int,
+    default=2,
+    help="Number of seconds to wait between message dispatches.",
+)
+parser.add_argument(
+    "-w",
+    "--wait",
+    type=int,
+    default=60,
+    help="Number of seconds to wait initially.",
+)
+parser.add_argument(
+    "-v",
+    "--verbose",
+    action="store_true",
+    default=False,
+    help="Show raw message before sending.",
+)
+workflows.transport.add_command_line_options(parser, transport_argument=True)
 
 
-def run():
-    dropdir = "/dls_sw/apps/zocalo/dropfiles"
-    parser = ArgumentParser(description="Processes dlstbx.go backlog")
+def run(parser: ArgumentParser = parser, args: Optional[List[str]] = None):
+    zc = zocalo.configuration.from_file()
+    zc.activate()
 
-    parser.add_argument(
-        "-d",
-        "--delay",
-        type=int,
-        default=2,
-        help="Number of seconds to wait between message dispatches",
-    )
-    parser.add_argument(
-        "-w",
-        "--wait",
-        type=int,
-        default=60,
-        help="Number of seconds to wait initially",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        default=False,
-        help="Show raw message before sending",
-    )
+    zc.add_command_line_options(parser)
 
-    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-    StompTransport.load_configuration_file(default_configuration)
-    StompTransport.add_command_line_options(parser)
-    args = parser.parse_args()
+    try:
+        dropdir = zc.storage["zocalo.go.fallback_location"]
+    except KeyError:
+        sys.exit(
+            "The Zocalo configuration contains no specified location for drop files.  "
+            "No drop files could be retrieved."
+        )
+
+    args = parser.parse_args(args)
+
+    transport = workflows.transport.lookup(args.transport)()
 
     try:
         files = os.listdir(dropdir)
     except OSError:
-        sys.exit("This program is only available to privileged users")
+        sys.exit("This program is only available to privileged users.")
 
-    print("Found %d files" % len(files))
+    print(f"Found {len(files)} files.")
     if not files:
         sys.exit()
 
     if args.wait:
-        print("Waiting %d seconds" % args.wait)
+        print(f"Waiting {args.wait} seconds.")
         time.sleep(args.wait)
 
-    print("Connecting to stomp...")
-    stomp = StompTransport()
-    stomp.connect()
+    print("Connecting to transport layer...")
+    transport.connect()
 
     file_info = {f: {"filename": os.path.join(dropdir, f)} for f in files}
     hosts = {}
@@ -99,22 +111,21 @@ def run():
     file_count = len(file_info)
     for f in sorted(file_info, key=lambda f: file_info[f]["priority"], reverse=True):
         print(
-            "Sending {f} from host {finfo[originating-host]} with recipes {finfo[recipes]}".format(
-                f=f, finfo=file_info[f]
-            )
+            f"Sending {f} from host {file_info[f]['originating-host']} with recipes "
+            f"{file_info[f]['recipes']}."
         )
         assert os.path.exists(file_info[f]["filename"])
-        stomp.send(
+        transport.send(
             "processing_recipe",
             file_info[f]["message"],
             headers=file_info[f]["headers"],
         )
         os.remove(file_info[f]["filename"])
-        count = count + 1
-        print(f"Done ({count} of {file_count})")
+        count += 1
+        print(f"Done ({count} of {file_count}).")
         try:
             time.sleep(args.delay)
         except KeyboardInterrupt:
-            print("CTRL+C - stopping")
+            print("CTRL+C — stopping.")
             time.sleep(0.5)
             sys.exit(1)

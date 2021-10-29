@@ -2,40 +2,32 @@ import json
 import os
 import sys
 import time
-from optparse import SUPPRESS_HELP, OptionParser
+from argparse import ArgumentParser
 
 from workflows.transport.stomp_transport import StompTransport
 
 
 def run():
     dropdir = "/dls_sw/apps/zocalo/dropfiles"
-    parser = OptionParser(
-        usage="dlstbx.pickup [options]", description="Processes dlstbx.go backlog"
-    )
+    parser = ArgumentParser(description="Processes dlstbx.go backlog")
 
-    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
-    parser.add_option(
+    parser.add_argument(
         "-d",
         "--delay",
-        dest="delay",
-        action="store",
-        type="int",
+        type=int,
         default=2,
         help="Number of seconds to wait between message dispatches",
     )
-    parser.add_option(
+    parser.add_argument(
         "-w",
         "--wait",
-        dest="wait",
-        action="store",
-        type="int",
+        type=int,
         default=60,
         help="Number of seconds to wait initially",
     )
-    parser.add_option(
+    parser.add_argument(
         "-v",
         "--verbose",
-        dest="verbose",
         action="store_true",
         default=False,
         help="Show raw message before sending",
@@ -44,7 +36,7 @@ def run():
     default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
     StompTransport.load_configuration_file(default_configuration)
     StompTransport.add_command_line_options(parser)
-    (options, args) = parser.parse_args(sys.argv[1:])
+    args = parser.parse_args()
 
     try:
         files = os.listdir(dropdir)
@@ -55,9 +47,9 @@ def run():
     if not files:
         sys.exit()
 
-    if options.wait:
-        print("Waiting %d seconds" % options.wait)
-        time.sleep(options.wait)
+    if args.wait:
+        print("Waiting %d seconds" % args.wait)
+        time.sleep(args.wait)
 
     print("Connecting to stomp...")
     stomp = StompTransport()
@@ -110,7 +102,7 @@ def run():
         count = count + 1
         print(f"Done ({count} of {file_count})")
         try:
-            time.sleep(options.delay)
+            time.sleep(args.delay)
         except KeyboardInterrupt:
             print("CTRL+C - stopping")
             time.sleep(0.5)

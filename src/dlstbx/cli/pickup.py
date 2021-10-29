@@ -1,3 +1,14 @@
+"""
+Processes a ``dlstbx.go`` backlog.
+
+If ``dlstbx.go`` cannot make a connection to a message queue server, the fallback is to
+save the request to disk at a location specified in the ``zocalo.go.fallback_location``
+field of the Zocalo configuration.  Once a connection has been re-established,
+this utility can be used to feed the backlog into the message queue.  Messages will
+be injected from the backlog gradually, to avoid swamping new messages with too many
+old messages reinjected at once.
+"""
+
 import json
 import os
 import sys

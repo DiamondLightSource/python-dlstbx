@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 from argparse import Namespace
 from pathlib import Path
 from pprint import pformat
@@ -9,6 +10,8 @@ import zocalo
 from jinja2.environment import Environment
 from jinja2.exceptions import UndefinedError
 from jinja2.loaders import PackageLoader
+
+from dlstbx.util.big_ep_helpers import write_sequence_file, write_settings_file
 
 logger = logging.getLogger("dlstbx.wrap.big_ep_run")
 
@@ -23,17 +26,31 @@ class BigEPRunWrapper(zocalo.wrapper.BaseWrapper):
         # Collect parameters from payload and check them
         self.msg = Namespace(**self.recwrap.environment["msg"])
 
+        pipeline = self.recwrap.environment.get("pipeline")
+
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
-        self.msg.wd = str(working_directory)
+        output_directory = working_directory / pipeline
+        output_directory.mkdir(parents=True, exist_ok=True)
 
-        pipeline = self.recwrap.environment.get("pipeline")
+        input_mtz = Path(params["ispyb_parameters"]["data"]).name
+        shutil.move(working_directory / input_mtz, output_directory)
+        self.msg.wd = str(output_directory)
 
         tmpl_env = Environment(loader=PackageLoader("dlstbx.util", "big_ep_templates"))
         pipeline_template = tmpl_env.get_template(f"{pipeline}.sh")
-        pipeline_script = working_directory / f"run_{pipeline}.sh"
+        pipeline_script = output_directory / f"run_{pipeline}.sh"
 
         self.msg.singularity_image = params.get("singularity_image")
+
+        try:
+            write_sequence_file(output_directory, self.msg)
+        except Exception:
+            logger.exception("Error writing sequence file")
+        try:
+            write_settings_file(output_directory, self.msg)
+        except Exception:
+            logger.exception("Error reading big_ep parameters")
 
         logger.info(f"Message object: {pformat(self.msg)}")
         logger.info(f"Parameters: {params}")
@@ -48,7 +65,7 @@ class BigEPRunWrapper(zocalo.wrapper.BaseWrapper):
         result = procrunner.run(
             ["sh", pipeline_script],
             timeout=params.get("timeout"),
-            working_directory=working_directory,
+            working_directory=output_directory,
         )
         logger.info("command: %s", " ".join(result["command"]))
         logger.info("runtime: %s", result["runtime"])

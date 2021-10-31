@@ -86,9 +86,6 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
 
         if "devel" not in params:
             skip_copy = [".launch", ".recipewrap"]
-            singularity_image = params.get("singularity_image")
-            if singularity_image:
-                skip_copy.append(singularity_image)
             if params.get("results_directory"):
                 copy_results(
                     working_directory.strpath,
@@ -99,7 +96,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
                 if params.get("create_symlink"):
                     upstream = params["create_symlink"].replace("/", "-")
                     create_parent_symlink(
-                        results_directory.strpath, f"{pipeline}-{upstream}", levels=1
+                        results_directory.strpath, f"{pipeline}-{upstream}"
                     )
                 send_results_to_ispyb(
                     params.get("results_directory"),

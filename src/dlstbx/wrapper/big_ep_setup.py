@@ -15,8 +15,6 @@ from dlstbx.util.big_ep_helpers import (
     read_data,
     read_mtz_datasets,
     spacegroup_short,
-    write_sequence_file,
-    write_settings_file,
 )
 from dlstbx.util.symlink import create_parent_symlink
 
@@ -103,30 +101,12 @@ def bootstrap_pipeline(params, working_directory, logger):
     """Read command-line options and setup data processing parameters"""
 
     big_ep_params = get_bigep_parameters(params, working_directory, logger)
-
-    # big_ep_params.update(
-    #    {
-    #        "sharp_module": params["sharp_module"],
-    #        "phenix_module": params["phenix_module"],
-    #        "ccp4_module": params["ccp4_module"],
-    #        "crank2_bin": params["crank2_bin"],
-    #    }
-    # )
-
     msg = Namespace(**big_ep_params)
     return msg
 
 
 def setup_autosharp_jobs(msg, working_directory):
     """Setup input directory to run autoSHARP."""
-
-    # msg._wd = os.path.join(msg._wd, "autoSHARP")
-    # msg._results_wd = os.path.join(msg._results_wd, "autoSHARP")
-    # os.symlink(working_directory.join("autoSHARP"), msg._wd)
-    # os.symlink(results_directory.join("autoSHARP"), msg._results_wd)
-
-    write_sequence_file(working_directory, msg)
-
     try:
         msg.enableArpWarp = msg.resolution < 2.5
     except Exception:
@@ -142,15 +122,6 @@ def setup_autosharp_jobs(msg, working_directory):
 
 def setup_autosol_jobs(msg, working_directory):
     """Setup working directory for running Phenix AutoSol pipeline"""
-
-    # msg._wd = os.path.join(msg._wd, "AutoSol")
-    # msg._results_wd = os.path.join(msg._results_wd, "AutoSol")
-    # os.symlink(working_directory, msg._wd)
-    # if not os.path.exists(msg._wd):
-    #    os.makedirs(msg._wd)
-
-    write_sequence_file(working_directory, msg)
-
     msg.autosol_hklin = os.path.basename(msg.hklin)
 
     shutil.copyfile(msg.hklin, str(working_directory / msg.autosol_hklin))
@@ -173,8 +144,6 @@ def setup_crank2_jobs(working_directory, msg):
         msg.enableArpWarp = msg.resolution < 2.5
     except Exception:
         msg.enableArpWarp = False
-
-    write_sequence_file(working_directory, msg)
 
 
 def write_singularity_script(working_directory, image_name):
@@ -252,10 +221,6 @@ class BigEPSetupWrapper(zocalo.wrapper.BaseWrapper):
             logger.exception("Error reading big_ep parameters")
             return False
         try:
-            write_settings_file(working_directory, msg)
-        except Exception:
-            logger.exception("Error reading big_ep parameters")
-        try:
             record_big_ep_settings_in_ispyb(params["rpid"], msg)
         except Exception:
             logger.exception("Error recording big_ep settings into ISPyB")
@@ -274,8 +239,6 @@ class BigEPSetupWrapper(zocalo.wrapper.BaseWrapper):
         singularity_image = params.get("singularity_image")
         if singularity_image:
             try:
-                # shutil.copy(singularity_image, str(working_directory))
-                # image_name = Path(singularity_image).name
                 write_singularity_script(working_directory, singularity_image)
             except Exception:
                 logger.exception("Error writing singularity script")
@@ -283,7 +246,6 @@ class BigEPSetupWrapper(zocalo.wrapper.BaseWrapper):
 
         logger.info("Sending message to downstream channel")
         logger.info(f"Message: {msg}")
-        # self.recwrap.send_to("downstream", vars(msg))
         self.recwrap.environment["msg"] = vars(msg)
 
         email_message = pformat(

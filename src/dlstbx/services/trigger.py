@@ -1048,20 +1048,6 @@ class DLSTrigger(CommonService):
             "shelxc_path": os.fspath(parameters.shelxc_path),
             "fast_ep_path": os.fspath(parameters.fast_ep_path),
         }
-        if target == "big_ep_cloud":
-            transfer_input_files = parameters.data.name
-            if parameters.pipeline == "autoSHARP":
-                transfer_output_files = "autoSHARP"
-            elif parameters.pipeline == "AutoBuild":
-                transfer_output_files = "AutoSol_run_1_, PDS, AutoBuild_run_1_"
-            elif parameters.pipeline == "Crank2":
-                transfer_output_files = "crank2, run_Crank2.sh, crank2.log, pointless.log, crank2_config.xml"
-            big_ep_parameters.update(
-                {
-                    "transfer_input_files": transfer_input_files,
-                    "transfer_output_files": transfer_output_files,
-                }
-            )
 
         for key, value in big_ep_parameters.items():
             jpp = self.ispyb.mx_processing.get_job_parameter_params()

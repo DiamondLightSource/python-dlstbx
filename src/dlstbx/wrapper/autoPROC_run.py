@@ -43,7 +43,6 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
 
         command = [
             "process",
-            f"-nthreads={nproc}",
             "-M",
             "HighResCutOnCChalf",
             'autoPROC_CreateSummaryImageHrefLink="no"',
@@ -51,6 +50,7 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
             'StopIfSubdirExists="no"',
             "-d",
             str(working_directory),
+            f"-nthreads={nproc}",
         ]
         if project:
             command.append(f"pname={project}")

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import zocalo.configuration
+from zocalo.util.rabbitmq import RabbitMQAPI
 
 import dlstbx
 import dlstbx.cli.dlq_check
@@ -43,7 +44,7 @@ def check_rabbitmq_dlq(cfc: CheckFunctionInterface):
             Level=level,
             Message=f"{messages} message{'' if messages == 1 else 's'} in {display_name}",
             MessageBody=new_message,
-            URL="http://rabbitmq1.diamond.ac.uk:15672/",
+            URL=zc.rabbitmqapi["base_url"],
         )
 
     for report in db_status:
@@ -56,7 +57,68 @@ def check_rabbitmq_dlq(cfc: CheckFunctionInterface):
                     MessageBody=db_status[report].MessageBody
                     + "\n"
                     + f"Error cleared at {now}",
-                    URL="http://rabbitmq1.diamond.ac.uk:15672/",
+                    URL=zc.rabbitmqapi["base_url"],
+                )
+
+    return list(report_updates.values())
+
+
+def check_rabbitmq_health(cfc: CheckFunctionInterface):
+    zc = zocalo.configuration.from_file()
+    zc.activate_environment("live")
+    rmq = RabbitMQAPI.from_zocalo_configuration(zc)
+
+    db_status = cfc.current_status
+    check_prefix = cfc.name
+    report_updates = {}
+    now = f"{datetime.now():%Y-%m-%d %H:%M:%S}"
+
+    success, failures = rmq.health_checks
+    for check, msg in failures.items():
+        report_updates[check] = Status(
+            Source=check_prefix + check.replace("/", "."),
+            Level=REPORT.ERROR,
+            Message="RabbitMQ is running outside normal parameters",
+            MessageBody=msg,
+            URL=zc.rabbitmqapi["base_url"],
+        )
+
+    for node in rmq.nodes():
+        for alarm in {"disk_free_alarm", "mem_alarm"}:
+            check = check_prefix + "." + alarm
+            if getattr(node, alarm):
+                report_updates[check] = Status(
+                    Source=check,
+                    Level=REPORT.ERROR,
+                    Message="RabbitMQ is running outside normal parameters",
+                    MessageBody=f"{node.name}: {alarm}={node.alarm}",
+                    URL=zc.rabbitmqapi["base_url"],
+                )
+            elif check in db_status and db_status[check].Level != REPORT.PASS:
+                report_updates[check] = Status(
+                    Source=check,
+                    Level=REPORT.PASS,
+                    MessageBody=(db_status[check].MessageBody or "")
+                    + "\n"
+                    + f"Error cleared at {now}",
+                    URL=zc.rabbitmqapi["base_url"],
+                )
+
+    for report in db_status:
+        for check in success:
+            if (
+                check in db_status
+                and check not in report_updates
+                and db_status[check].Level != REPORT.PASS
+            ):
+                report_updates[check] = Status(
+                    Source=check_prefix + check.replace("/", "."),
+                    Level=REPORT.PASS,
+                    Message="RabbitMQ is running normally",
+                    MessageBody=(db_status[report].MessageBody or "")
+                    + "\n"
+                    + f"Error cleared at {now}",
+                    URL=zc.rabbitmqapi["base_url"],
                 )
 
     return list(report_updates.values())

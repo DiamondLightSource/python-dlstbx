@@ -31,7 +31,6 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
         image_directory = params["autoproc"].get("image_directory", os.getcwd())
         image_first = params["autoproc"]["image_first"]
         image_last = params["autoproc"]["image_last"]
-        image_pattern = params["image_pattern"]
         project = params["autoproc"].get("project")
         crystal = params["autoproc"].get("crystal")
         nproc = params["autoproc"].get("nproc")
@@ -113,7 +112,7 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
 
         else:
             first_image_path = os.path.join(
-                image_directory, image_pattern % int(image_first)
+                image_directory, image_template % int(image_first)
             )
             untrusted_rectangles = self.get_untrusted_rectangles(first_image_path)
             if untrusted_rectangles:

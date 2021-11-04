@@ -27,7 +27,12 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
             if not isinstance(values, (list, tuple)):
                 values = [values]
             if param == "image" and is_cloud:
-                values = [str(working_directory / val) for val in values]
+                update_values = []
+                for val in values:
+                    pth, sweep = val.split(":", 1)
+                    cloud_path = str(working_directory / Path(pth).name)
+                    update_values.append(":".join([cloud_path, sweep]))
+                values = update_values
             for v in values:
                 command.append(f"{param}={v}")
 
@@ -65,9 +70,7 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
         command = self.construct_commandline(working_directory, params, is_cloud)
         logger.info("command: %s", " ".join(command))
 
-        procrunner_directory = working_directory / "-".join(
-            ["xia2", params["xia2"]["pipeline"]]
-        )
+        procrunner_directory = working_directory / params["create_symlink"]
         procrunner_directory.mkdir(parents=True, exist_ok=True)
         try:
             result = procrunner.run(

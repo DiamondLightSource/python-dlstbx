@@ -14,6 +14,8 @@ import dlstbx.util.symlink
 import dlstbx.util.xray_centering
 import dlstbx.util.xray_centering_3d
 
+from prometheus_client import Counter, Gauge, Histogram, start_http_server
+
 
 class GridInfo(pydantic.BaseModel):
     "The subset of GridInfo fields required by the X-ray centering service"
@@ -54,6 +56,10 @@ class Message(pydantic.BaseModel):
     file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
     n_spots_total: pydantic.NonNegativeInt
 
+    file_detected_timestamp: pydantic.NonNegativeFloat = pydantic.Field(alias="file-detected-timestamp")
+    file: str
+    #beam_line: str = pydantic.Field(["file"].split("/dls/")[1].split("/data/"[0]))
+
 
 class CenteringData(pydantic.BaseModel):
     gridinfo: GridInfo
@@ -72,6 +78,37 @@ class CenteringData(pydantic.BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+
+class prometheus_metrics():
+
+    def __init__(self, metrics_on):
+        self._metrics_on = True
+
+    def open_endpoint(port, address=""):
+        try:
+            start_http_server(port, address)
+        except:
+            """log its failure"""
+
+    def create_metrics(self):
+        self.complete_centering = Counter(
+        "complete_centerings",
+        "Counts total number of completed x-ray centerings",
+        ["beam_line"]
+        )
+
+        self.analysis_latency = Histogram(
+        "analysis_latency",
+        "The time passed (s) from end of data collection to end of x-ray centering",
+        ["beam_line"],
+        buckets = [ 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        unit= "s"
+        )
+
+    def set_metrics(self, bl, lat):
+        self.complete_centering.labels(bl).inc()
+        self.analysis_latency.labels(bl).observe(lat)
 
 
 class DLSXRayCentering(CommonService):
@@ -101,6 +138,12 @@ class DLSXRayCentering(CommonService):
             exclusive=True,
             log_extender=self.extend_log,
         )
+
+        self._prom_metrics = prometheus_metrics(True)
+        if self._prom_metrics:
+            prometheus_metrics.open_endpoint(8000,"localhost")
+            self._prom_metrics.create_metrics()
+
 
     def garbage_collect(self):
         """Throw away partial scan results after a while."""
@@ -182,6 +225,13 @@ class DLSXRayCentering(CommonService):
             )
             cd.data[message.file_number - 1] = message.n_spots_total
 
+            # make note of timestamp of last file read in for latency metric
+            last_file_read_at = 0.0
+            if message.file_detected_timestamp > last_file_read_at:
+                last_file_read_at = message.file_detected_timestamp
+            # does this check everyone?
+
+
             if dcg_dcids and cd.images_seen == gridinfo.image_count:
                 data = [cd.data]
                 for _dcid in dcg_dcids:
@@ -242,6 +292,15 @@ class DLSXRayCentering(CommonService):
                     snaked=gridinfo.snaked,
                     orientation=gridinfo.orientation,
                 )
+                # ---
+
+                # latency calculation & metrics
+                r_latency = time.time() - last_file_read_at
+                beam_line = message.file.split("/dls/")[1].split("/data/")[0]
+
+                self._prom_metrics.set_metrics(beam_line,r_latency)
+
+                # ---
                 self.log.debug(output)
 
                 # Write result file

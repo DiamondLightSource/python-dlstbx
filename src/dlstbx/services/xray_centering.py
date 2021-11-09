@@ -82,7 +82,7 @@ class CenteringData(pydantic.BaseModel):
 
 class prometheus_metrics():
 
-    def __init__(self, metrics_on):
+    def __init__(self):
         self._metrics_on = True
 
     def open_endpoint(port, address=""):
@@ -97,7 +97,6 @@ class prometheus_metrics():
         "Counts total number of completed x-ray centerings",
         ["beam_line"]
         )
-
         self.analysis_latency = Histogram(
         "analysis_latency",
         "The time passed (s) from end of data collection to end of x-ray centering",
@@ -117,6 +116,7 @@ class DLSXRayCentering(CommonService):
 
     _service_name = "DLS X-Ray Centering"
     _logger_name = "dlstbx.services.xray-centering"
+    _metrics = None
 
     def initializing(self):
         """Try to exclusively subscribe to the x-ray centering queue. Received messages must be acknowledged.
@@ -139,10 +139,17 @@ class DLSXRayCentering(CommonService):
             log_extender=self.extend_log,
         )
 
-        self._prom_metrics = prometheus_metrics(True)
-        if self._prom_metrics:
-            prometheus_metrics.open_endpoint(8000,"localhost")
-            self._prom_metrics.create_metrics()
+        # if the -m metrics flag was used to start service, initialise metrics
+        if self._environment.get("metrics"):
+            self._metrics = self._environment.get("metrics")
+            try:
+                self._prom_metrics = prometheus_metrics()
+            except:
+                self.log.info("Failed to create metrics instance")
+
+            if self._prom_metrics:
+                prometheus_metrics.open_endpoint(8000,"localhost")
+                self._prom_metrics.create_metrics()
 
 
     def garbage_collect(self):
@@ -225,12 +232,13 @@ class DLSXRayCentering(CommonService):
             )
             cd.data[message.file_number - 1] = message.n_spots_total
 
-            # make note of timestamp of last file read in for latency metric
+            # Save timestamp of last file read in for latency metric
             last_file_read_at = 0.0
-            if message.file_detected_timestamp > last_file_read_at:
-                last_file_read_at = message.file_detected_timestamp
-            # does this check everyone?
-
+            self.log.info(self._metrics)
+            if self._metrics:
+                if message.file_detected_timestamp > last_file_read_at:
+                    last_file_read_at = message.file_detected_timestamp
+            
 
             if dcg_dcids and cd.images_seen == gridinfo.image_count:
                 data = [cd.data]
@@ -292,15 +300,15 @@ class DLSXRayCentering(CommonService):
                     snaked=gridinfo.snaked,
                     orientation=gridinfo.orientation,
                 )
-                # ---
 
-                # latency calculation & metrics
-                r_latency = time.time() - last_file_read_at
-                beam_line = message.file.split("/dls/")[1].split("/data/")[0]
+                # latency calculation, labels & metrics
+                if self._metrics:
+                    r_latency = time.time() - last_file_read_at
+                    beam_line = message.file.split("/dls/")[1].split("/data/")[0]
+                    
+                    self._prom_metrics.set_metrics(beam_line,r_latency)
 
-                self._prom_metrics.set_metrics(beam_line,r_latency)
 
-                # ---
                 self.log.debug(output)
 
                 # Write result file

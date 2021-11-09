@@ -12,13 +12,6 @@ import dlstbx.util.symlink
 
 logger = logging.getLogger("dlstbx.wrap.fast_ep")
 
-clean_environment = {
-    "LD_LIBRARY_PATH": "",
-    "LOADEDMODULES": "",
-    "PYTHONPATH": "",
-    "_LMFILES_": "",
-}
-
 
 class FastEPWrapper(zocalo.wrapper.BaseWrapper):
     def go_fast_ep(self, params):
@@ -166,18 +159,8 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
             )
 
         command = self.construct_commandline(params)
-        fast_ep_script = working_directory.join("run_fast_ep.sh")
-        with fast_ep_script.open("w") as fp:
-            fp.writelines(
-                [
-                    ". /etc/profile.d/modules.sh\n",
-                    "module purge\n",
-                    "module load fast_ep\n",
-                    " ".join(command),
-                ]
-            )
         result = procrunner.run(
-            ["sh", fast_ep_script.strpath],
+            command,
             timeout=params.get("timeout"),
             working_directory=working_directory,
         )

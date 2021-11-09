@@ -234,7 +234,6 @@ class DLSXRayCentering(CommonService):
 
             # Save timestamp of last file read in for latency metric
             last_file_read_at = 0.0
-            self.log.info(self._metrics)
             if self._metrics:
                 if message.file_detected_timestamp > last_file_read_at:
                     last_file_read_at = message.file_detected_timestamp

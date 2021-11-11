@@ -90,6 +90,7 @@ tests = {
         ),
         "src_prefix": ("ZincInsulinB4",),
         "use_sample_id": 3275609,
+        "dcg": True,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

@@ -14,7 +14,7 @@ logger = logging.getLogger("dlstbx.wrap.fast_ep")
 
 
 class FastEPWrapper(zocalo.wrapper.BaseWrapper):
-    def go_fast_ep(self, params):
+    def stop_fast_ep(self, params):
         """Decide whether to run fast_ep or not based on the completeness, dI/s(dI) and
         resolution of actual data."""
 
@@ -128,10 +128,9 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
                 params["fast_ep"]["data"] = os.path.abspath(
                     params["ispyb_parameters"]["data"]
                 )
-            if (
+            if int(
                 params["ispyb_parameters"].get("check_go_fast_ep")
-                or "go_fast_ep" in params
-            ) and self.go_fast_ep(params):
+            ) and self.stop_fast_ep(params):
                 logger.info("Skipping fast_ep (go_fast_ep == No)")
                 return False
 

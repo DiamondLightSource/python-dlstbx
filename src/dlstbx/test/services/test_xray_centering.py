@@ -68,7 +68,11 @@ def test_xray_centering(mocker, tmp_path):
     spot_counts = [1, 0, 0, 0, 0, 1, 0, 239, 29, 3, 4, 0, 1, 0, 5, 0, 190, 249, 230, 206, 190, 202, 190, 184, 208, 107, 1, 0, 0, 0, 0, 236, 183, 193, 230]
     # fmt: on
     for i, n_spots in enumerate(spot_counts):
-        message = {"n_spots_total": n_spots, "file-number": i + 1, "file-seen-at":time.time()}
+        message = {
+            "n_spots_total": n_spots,
+            "file-number": i + 1,
+            "file-seen-at": time.time(),
+        }
         xc.add_pia_result(rw, {"some": "header"}, message)
     expected_results = {
         "best_image": 18,
@@ -121,7 +125,7 @@ def test_xray_centering_invalid_parameters(mocker, tmp_path, caplog):
 
     m = generate_recipe_message({**parameters, "dcid": "foo"}, gridinfo)
     rw = RecipeWrapper(message=m, transport=t)
-    message = {"n_spots_total": 10, "file-number": 1}
+    message = {"n_spots_total": 10, "file-number": 1, "file-seen-at": time.time()}
     with caplog.at_level(logging.ERROR):
         xc.add_pia_result(rw, {"some": "header"}, message)
     assert (
@@ -138,7 +142,7 @@ parameters -> dcid
         parameters, {k: v for k, v in gridinfo.items() if k != "steps_x"}
     )
     rw = RecipeWrapper(message=m, transport=t)
-    message = {"n_spots_total": 10, "file-number": 1}
+    message = {"n_spots_total": 10, "file-number": 1, "file-seen-at": time.time()}
     with caplog.at_level(logging.ERROR):
         xc.add_pia_result(rw, {"some": "header"}, message)
     assert (
@@ -154,7 +158,7 @@ gridinfo -> steps_x
 
     m = generate_recipe_message(parameters, gridinfo)
     rw = RecipeWrapper(message=m, transport=t)
-    message = {"n_spots_total": -1, "file_number": 1}
+    message = {"n_spots_total": -1, "file_number": 1, "file-seen-at": time.time()}
     with caplog.at_level(logging.ERROR):
         xc.add_pia_result(rw, {"some": "header"}, message)
     assert (
@@ -207,7 +211,11 @@ def test_xray_centering_3d(mocker, tmp_path, caplog):
     rw = RecipeWrapper(message=m, transport=t)
     send_to = mocker.spy(rw, "send_to")
     for i, n_spots in enumerate(spots_count_m45):
-        message = {"n_spots_total": n_spots, "file-number": i + 1}
+        message = {
+            "n_spots_total": n_spots,
+            "file-number": i + 1,
+            "file-seen-at": time.time(),
+        }
         xc.add_pia_result(rw, {"some": "header"}, message)
     send_to.assert_not_called()
 
@@ -218,7 +226,11 @@ def test_xray_centering_3d(mocker, tmp_path, caplog):
     send_to = mocker.spy(rw, "send_to")
     with caplog.at_level(logging.DEBUG):
         for i, n_spots in enumerate(spot_counts_p45):
-            message = {"n_spots_total": n_spots, "file-number": i + 1}
+            message = {
+                "n_spots_total": n_spots,
+                "file-number": i + 1,
+                "file-seen-at": time.time(),
+            }
             xc.add_pia_result(rw, {"some": "header"}, message)
     assert "Max pixel: (4, 5, 4)" in caplog.text
     assert "Centre of mass:" in caplog.text

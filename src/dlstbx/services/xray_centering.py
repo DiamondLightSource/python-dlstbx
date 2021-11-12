@@ -61,8 +61,8 @@ class CenteringData(pydantic.BaseModel):
     recipewrapper: workflows.recipe.wrapper.RecipeWrapper
     headers: list = pydantic.Field(default_factory=list)
     last_activity: float = pydantic.Field(default_factory=time.time)
+    last_image_seen_at: pydantic.NonNegativeInt
     data: np.ndarray = None
-    last_image_seen_at = pydantic.NonNegativeInt
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -166,6 +166,7 @@ class DLSXRayCentering(CommonService):
                 cd = CenteringData(
                     gridinfo=gridinfo,
                     recipewrapper=rw,
+                    last_image_seen_at=message.file_seen_at,
                 )
                 self._centering_data[dcid] = cd
                 self.log.info(
@@ -280,7 +281,7 @@ class DLSXRayCentering(CommonService):
                     parameters.log.write_text(output)
 
                 # Write latency log message
-                latency = time.time() - cd.last_image_seen_atlast
+                latency = time.time() - cd.last_image_seen_at
                 self.log.info(
                     f"X-ray centering completed for dcid {parameters.dcid} with latency of {latency:.2f} seconds"
                 )

@@ -129,7 +129,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
                     params["ispyb_parameters"]["data"]
                 )
             if int(
-                params["ispyb_parameters"].get("check_go_fast_ep")
+                params["ispyb_parameters"].get("check_go_fast_ep", False)
             ) and self.stop_fast_ep(params):
                 logger.info("Skipping fast_ep (go_fast_ep == No)")
                 return False

@@ -248,11 +248,11 @@ class DLSXRayCentering(CommonService):
                     snaked=gridinfo.snaked,
                     orientation=gridinfo.orientation,
                 )
-                
+
                 latency_message = {
                     "dcid":parameters.dcid,
                     "beam_line":message.file.split("/dls/")[1].split("/data/")[0],
-                    "latency":time.time() - last_file_read_at,
+                    "latency":round(time.time() - last_file_read_at, 3)
                     }
                 self.log.info(latency_message)
                 

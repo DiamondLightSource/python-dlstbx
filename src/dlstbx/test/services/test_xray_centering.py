@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from unittest import mock
 
 import workflows.transport.common_transport
@@ -67,7 +68,7 @@ def test_xray_centering(mocker, tmp_path):
     spot_counts = [1, 0, 0, 0, 0, 1, 0, 239, 29, 3, 4, 0, 1, 0, 5, 0, 190, 249, 230, 206, 190, 202, 190, 184, 208, 107, 1, 0, 0, 0, 0, 236, 183, 193, 230]
     # fmt: on
     for i, n_spots in enumerate(spot_counts):
-        message = {"n_spots_total": n_spots, "file-number": i + 1}
+        message = {"n_spots_total": n_spots, "file-number": i + 1, "file-seen-at":time.time()}
         xc.add_pia_result(rw, {"some": "header"}, message)
     expected_results = {
         "best_image": 18,

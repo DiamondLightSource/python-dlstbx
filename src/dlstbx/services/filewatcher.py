@@ -497,7 +497,7 @@ class DLSFileWatcher(CommonService):
                         "file": filename,
                         "file-number": status["seen-files"],
                         "file-pattern-index": pattern_start + status["seen-files"] - 1,
-                        "file-detected-timestamp": time.time(),
+                        "file-seen-at": time.time(),
                     },
                     transaction=txn,
                 )

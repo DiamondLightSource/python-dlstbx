@@ -248,14 +248,15 @@ class DLSXRayCentering(CommonService):
                     snaked=gridinfo.snaked,
                     orientation=gridinfo.orientation,
                 )
-                self.log.debug(output)
-
+                
                 latency_message = {
                     "dcid":parameters.dcid,
                     "beam_line":message.file.split("/dls/")[1].split("/data/")[0],
                     "latency":time.time() - last_file_read_at,
                     }
                 self.log.info(latency_message)
+                
+                self.log.debug(output)
 
                 # Write result file
                 if parameters.output:

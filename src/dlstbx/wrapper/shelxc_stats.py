@@ -15,7 +15,7 @@ class ShelxcStatsWrapper(zocalo.wrapper.BaseWrapper):
 
         shelxc_stats = deepcopy(self.recwrap.payload)
         try:
-            data_stats = reduce_shelxc_results(shelxc_stats, params)
+            data_stats = reduce_shelxc_results(shelxc_stats, params, logger)
         except Exception:
             logger.debug("Cannot process SHELXC results")
             return False

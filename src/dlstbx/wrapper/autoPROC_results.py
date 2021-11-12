@@ -90,6 +90,7 @@ class autoPROCResultsWrapper(zocalo.wrapper.BaseWrapper):
     ):
         ispyb_command_list = []
 
+        success = True
         if special_program_name:
             # Overwrite ispyb_autoprocprogram_id in the recipe wrapper
             # environment for this step and any eventual downstream ones
@@ -135,6 +136,7 @@ class autoPROCResultsWrapper(zocalo.wrapper.BaseWrapper):
             )
         else:
             logger.info("AutoProc record missing from AutoProc xml file")
+            success = False
 
         # Step 2: Store scaling results, linked to the AutoProcID
         #         Keep the AutoProcScalingID
@@ -172,6 +174,7 @@ class autoPROCResultsWrapper(zocalo.wrapper.BaseWrapper):
             logger.info(
                 "AutoProcScalingStatistics record missing from AutoProc xml file"
             )
+            success = False
 
         # Step 3: Store integration results, linking them to ScalingID
         if "AutoProcIntegrationContainer" in autoproc_xml.get(
@@ -241,6 +244,7 @@ class autoPROCResultsWrapper(zocalo.wrapper.BaseWrapper):
             logger.info(
                 "AutoProcIntegrationContainer record missing from AutoProc xml file"
             )
+            success = False
 
         if attachments:
             for filename, dirname, filetype, importance_rank in attachments:
@@ -256,25 +260,36 @@ class autoPROCResultsWrapper(zocalo.wrapper.BaseWrapper):
                 )
 
         if special_program_name:
-            ispyb_command_list.append(
-                {
-                    "ispyb_command": "update_processing_status",
-                    "program_id": "$ispyb_autoprocprogram_id",
-                    "message": "processing successful",
-                    "status": "success",
-                }
-            )
+            if success:
+                ispyb_command_list.append(
+                    {
+                        "ispyb_command": "update_processing_status",
+                        "program_id": "$ispyb_autoprocprogram_id",
+                        "message": "processing successful",
+                        "status": "success",
+                    }
+                )
+            else:
+                ispyb_command_list.append(
+                    {
+                        "ispyb_command": "update_processing_status",
+                        "program_id": "$ispyb_autoprocprogram_id",
+                        "message": "processing failure",
+                        "status": "failure",
+                    }
+                )
 
         if not ispyb_command_list:
             logger.warning("no results to send to ISPyB")
-            return False
-        logger.info(
-            "Sending %d commands to ISPyB: %s",
-            len(ispyb_command_list),
-            str(ispyb_command_list),
-        )
-        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-        return True
+            success = False
+        else:
+            logger.info(
+                "Sending %d commands to ISPyB: %s",
+                len(ispyb_command_list),
+                str(ispyb_command_list),
+            )
+            self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        return success
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -380,13 +395,17 @@ class autoPROCResultsWrapper(zocalo.wrapper.BaseWrapper):
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
+        success = False
         if autoproc_xml:
-            success = self.send_results_to_ispyb(autoproc_xml, attachments=attachments)
-            if staraniso_xml:
-                success = self.send_results_to_ispyb(
-                    staraniso_xml,
-                    special_program_name="autoPROC+STARANISO",
-                    attachments=anisofiles,
-                )
-            return success
-        return False
+            success_autoproc = self.send_results_to_ispyb(
+                autoproc_xml, attachments=attachments
+            )
+            success = success or success_autoproc
+        if staraniso_xml:
+            success_staraniso = self.send_results_to_ispyb(
+                staraniso_xml,
+                special_program_name="autoPROC+STARANISO",
+                attachments=anisofiles,
+            )
+            success = success or success_staraniso
+        return success

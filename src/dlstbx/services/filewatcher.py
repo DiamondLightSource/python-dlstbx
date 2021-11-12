@@ -246,7 +246,7 @@ class DLSFileWatcher(CommonService):
                     {
                         "file": filelist[status["seen-files"] - 1],
                         "file-list-index": status["seen-files"],
-                        "file-detected-timestamp": time.time(),
+                        "file-seen-at": time.time(),
                     },
                     transaction=txn,
                 )

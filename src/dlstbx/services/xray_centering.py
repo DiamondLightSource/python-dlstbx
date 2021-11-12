@@ -53,6 +53,8 @@ class RecipeStep(pydantic.BaseModel):
 class Message(pydantic.BaseModel):
     file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
     n_spots_total: pydantic.NonNegativeInt
+    file_detected_timestamp: pydantic.NonNegativeFloat = pydantic.Field(alias="file-detected-timestamp")
+    file: str
 
 
 class CenteringData(pydantic.BaseModel):
@@ -181,6 +183,10 @@ class DLSXRayCentering(CommonService):
                 gridinfo.image_count,
             )
             cd.data[message.file_number - 1] = message.n_spots_total
+            
+            last_file_read_at = 0.0
+            if message.file_detected_timestamp > last_file_read_at:
+                last_file_read_at = message.file_detected_timestamp
 
             if dcg_dcids and cd.images_seen == gridinfo.image_count:
                 data = [cd.data]
@@ -243,6 +249,13 @@ class DLSXRayCentering(CommonService):
                     orientation=gridinfo.orientation,
                 )
                 self.log.debug(output)
+
+                latency_message = {
+                    "dcid":parameters.dcid,
+                    "beam_line":message.file.split("/dls/")[1].split("/data/")[0],
+                    "latency":time.time() - last_file_read_at,
+                    }
+                self.log.info(latency_message)
 
                 # Write result file
                 if parameters.output:

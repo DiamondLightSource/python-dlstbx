@@ -54,7 +54,6 @@ class Message(pydantic.BaseModel):
     file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
     n_spots_total: pydantic.NonNegativeInt
     file_seen_at: pydantic.NonNegativeFloat = pydantic.Field(alias="file-seen-at")
-    
 
 
 class CenteringData(pydantic.BaseModel):
@@ -280,11 +279,12 @@ class DLSXRayCentering(CommonService):
                     parameters.log.parent.mkdir(parents=True, exist_ok=True)
                     parameters.log.write_text(output)
 
+                # Write latency log message
                 latency = time.time() - cd.last_image_seen_atlast
                 self.log.info(
                     f"X-ray centering completed for dcid {parameters.dcid} with latency of {latency:.2f} seconds"
                 )
-                
+
                 # Acknowledge all messages
                 txn = rw.transport.transaction_begin()
                 for h in cd.headers:

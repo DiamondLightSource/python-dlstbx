@@ -53,8 +53,8 @@ class RecipeStep(pydantic.BaseModel):
 class Message(pydantic.BaseModel):
     file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
     n_spots_total: pydantic.NonNegativeInt
-    file_detected_timestamp: pydantic.NonNegativeFloat = pydantic.Field(alias="file-detected-timestamp")
-    file: str
+    file_seen_at: pydantic.NonNegativeFloat = pydantic.Field(alias="file-seen-at")
+    
 
 
 class CenteringData(pydantic.BaseModel):
@@ -63,6 +63,7 @@ class CenteringData(pydantic.BaseModel):
     headers: list = pydantic.Field(default_factory=list)
     last_activity: float = pydantic.Field(default_factory=time.time)
     data: np.ndarray = None
+    last_image_seen_at = pydantic.NonNegativeInt
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -183,10 +184,7 @@ class DLSXRayCentering(CommonService):
                 gridinfo.image_count,
             )
             cd.data[message.file_number - 1] = message.n_spots_total
-            
-            last_file_read_at = 0.0
-            if message.file_detected_timestamp > last_file_read_at:
-                last_file_read_at = message.file_detected_timestamp
+            cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
             if dcg_dcids and cd.images_seen == gridinfo.image_count:
                 data = [cd.data]
@@ -248,14 +246,6 @@ class DLSXRayCentering(CommonService):
                     snaked=gridinfo.snaked,
                     orientation=gridinfo.orientation,
                 )
-
-                latency_message = {
-                    "dcid":parameters.dcid,
-                    "beam_line":message.file.split("/dls/")[1].split("/data/")[0],
-                    "latency":round(time.time() - last_file_read_at, 3)
-                    }
-                self.log.info(latency_message)
-                
                 self.log.debug(output)
 
                 # Write result file
@@ -290,6 +280,11 @@ class DLSXRayCentering(CommonService):
                     parameters.log.parent.mkdir(parents=True, exist_ok=True)
                     parameters.log.write_text(output)
 
+                latency = time.time() - cd.last_image_seen_atlast
+                self.log.info(
+                    f"X-ray centering completed for dcid {parameters.dcid} with latency of {latency:.2f} seconds"
+                )
+                
                 # Acknowledge all messages
                 txn = rw.transport.transaction_begin()
                 for h in cd.headers:

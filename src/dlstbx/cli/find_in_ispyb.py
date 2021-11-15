@@ -16,13 +16,23 @@ import re
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
 
+import ispyb.sqlalchemy
 import py
+import sqlalchemy
 import workflows.recipe
+from sqlalchemy.orm import sessionmaker
 
 import dlstbx.ispybtbx
 
 recipe_matcher = re.compile(
     "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
+)
+
+
+Session = sessionmaker(
+    bind=sqlalchemy.create_engine(
+        ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
+    )
 )
 
 
@@ -133,7 +143,8 @@ def run():
             print("Processing ID:", parameters["ispyb_process"])
         else:
             print("Data collection ID:", parameters["ispyb_dcid"])
-        message, parameters = dlstbx.ispybtbx.ispyb_filter({}, parameters)
+        with Session() as session:
+            message, parameters = dlstbx.ispybtbx.ispyb_filter({}, parameters, session)
 
         if options.recipefile:
             with open(options.recipefile, "rb") as f:

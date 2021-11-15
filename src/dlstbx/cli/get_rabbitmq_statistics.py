@@ -25,8 +25,8 @@ setup_logging(logging.INFO)
 
 def run():
     parser = argparse.ArgumentParser(
-        usage="dlstbx.get_activemq_statistics [options]",
-        description="Collects statistics from an ActiveMQ server",
+        usage="dlstbx.get_rabbitmq_statistics [options]",
+        description="Collects statistics from an RabbitMQ server",
     )
 
     parser.add_argument("-?", action="help", help=argparse.SUPPRESS)

@@ -16,7 +16,6 @@ class Xia2ResultsWrapper(zocalo.wrapper.BaseWrapper):
         from xia2.Interfaces.ISPyB import xia2_to_json_object
         from xia2.Schema.XProject import XProject
 
-        assert xia2_json.exists()
         xinfo = XProject.from_json(filename=str(xia2_json))
         crystals = xinfo.get_crystals()
         assert len(crystals) == 1
@@ -141,6 +140,7 @@ class Xia2ResultsWrapper(zocalo.wrapper.BaseWrapper):
                     }
                 )
 
+        success = True
         datafiles_path = results_directory / "DataFiles"
         if datafiles_path.is_dir():
             for result_file in datafiles_path.iterdir():
@@ -159,6 +159,9 @@ class Xia2ResultsWrapper(zocalo.wrapper.BaseWrapper):
                         }
                     )
                     allfiles.append(str(result_file))
+        else:
+            logger.info("xia2 DataFiles directory not found")
+            success = False
 
         logfiles_path = results_directory / "LogFiles"
         if logfiles_path.is_dir():
@@ -178,25 +181,33 @@ class Xia2ResultsWrapper(zocalo.wrapper.BaseWrapper):
                         }
                     )
                     allfiles.append(str(result_file))
+        else:
+            logger.info("xia2 LogFiles directory not found")
+            success = False
 
         # Part of the result parsing requires to be in result directory
         xia2_report = results_directory / "xia2-report.json"
-        xia2_error = results_directory / "xia2-report.json"
-        xia2_error_txt = results_directory / "xia2-report.json"
+        xia2_error = results_directory / "xia2.error"
+        xia2_error_txt = results_directory / "xia2-error.txt"
         xia2_json = results_directory / "xia2.json"
+
         if params.get("store_xtriage_results") and xia2_report.is_file():
             with open(xia2_report) as fh:
                 xtriage_results = json.load(fh).get("xtriage")
         else:
             xtriage_results = None
+
         if (
-            (xia2_error_txt.is_file() or xia2_error.is_file())
+            not (xia2_error_txt.is_file() or xia2_error.is_file())
             and xia2_json.is_file()
-            and not params.get("do_not_write_to_ispyb")
         ):
-            self.send_results_to_ispyb(xia2_json, xtriage_results=xtriage_results)
+            if not params.get("do_not_write_to_ispyb"):
+                self.send_results_to_ispyb(xia2_json, xtriage_results=xtriage_results)
+        else:
+            logger.info("xia2 processing exited with and error")
+            success = False
 
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
-        return True
+        return success

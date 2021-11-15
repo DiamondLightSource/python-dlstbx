@@ -1,4 +1,3 @@
-import logging
 from pprint import pformat
 
 import numpy as np
@@ -6,10 +5,8 @@ import pyparsing as pp
 from pyparsing import Group, Literal, OneOrMore, Regex, SkipTo, Word, nums
 from scipy.stats.stats import ttest_1samp
 
-logger = logging.getLogger("dlstbx.util.shelxc")
 
-
-def parse_shelxc_logs(shelxc_log):
+def parse_shelxc_logs(shelxc_log, logger):
     """Parse log files using pattern specified in the input dictionary"""
 
     pp.ParserElement.setDefaultWhitespaceChars(" \t")
@@ -72,7 +69,7 @@ def parse_shelxc_logs(shelxc_log):
     return msg
 
 
-def reduce_shelxc_results(msg, params):
+def reduce_shelxc_results(msg, params, logger):
 
     RESOL_CUTOFF = params.get("resol_cutoff", -1.0)
     DSIG_CUTOFF = params.get("dsig_cutoff", -1.0)

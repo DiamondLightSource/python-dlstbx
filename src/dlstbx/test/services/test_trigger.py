@@ -12,6 +12,7 @@ from ispyb.sqlalchemy import (
     DataCollectionGroup,
     ProcessingJob,
     ProcessingJobParameter,
+    Proposal,
     Protein,
 )
 from workflows.recipe.wrapper import RecipeWrapper
@@ -680,7 +681,6 @@ def test_alphafold(
     testdb,
     mocker,
     monkeypatch,
-    tmp_path,
 ):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     protein_id = insert_protein_with_sequence
@@ -717,6 +717,58 @@ def test_alphafold(
             },
         },
     )
+
+
+@pytest.fixture
+def insert_protein_with_sequence_linked_to_industry_proposal(db_session):
+    proposal = Proposal(proposalCode="in", personId=46266)
+    protein = Protein(
+        Proposal=proposal,
+        name="Test_Insulin",
+        acronym="Test_Insulin",
+        description="Insulin",
+        sequence="GIVEQCCASVCSLYQLENYCNFVNQHLCGSHLVEALYLVCGERGFFYTPKA",
+    )
+    db_session.add_all([proposal, protein])
+    db_session.commit()
+    return protein.proteinId
+
+
+def test_alphafold_not_triggered_for_industry_proposal(
+    insert_protein_with_sequence_linked_to_industry_proposal,
+    db_session_factory,
+    testconfig,
+    testdb,
+    mocker,
+    monkeypatch,
+    caplog,
+):
+    monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
+    protein_id = insert_protein_with_sequence_linked_to_industry_proposal
+
+    message = {
+        "recipe": {
+            "1": {
+                "service": "DLS Trigger",
+                "queue": "trigger",
+                "parameters": {
+                    "target": "alphafold",
+                    "protein_id": f"{protein_id}",
+                },
+            },
+        },
+        "recipe-pointer": 1,
+    }
+    trigger = DLSTrigger()
+    trigger._ispyb_sessionmaker = db_session_factory
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    rw = RecipeWrapper(message=message, transport=t)
+    trigger.ispyb = testdb
+    send = mocker.spy(rw, "send")
+    with caplog.at_level(logging.DEBUG):
+        trigger.trigger(rw, {"some": "header"}, message)
+    assert "Not triggering AlphaFold for protein_id" in caplog.text
+    send.assert_not_called()
 
 
 def test_invalid_params(db_session_factory, caplog):

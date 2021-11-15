@@ -13,6 +13,7 @@ from ispyb.sqlalchemy import (
     ParticleClassification,
     ParticleClassificationGroup,
     ParticlePicker,
+    RelativeIceThickness,
 )
 from sqlalchemy.orm import Load
 
@@ -114,6 +115,7 @@ def _check_relion_outcome(test, expected_outcome, db_unused, db):
         job_results = {
             "motion_correction": motioncorr_data,
             "ctf": _retrieve_ctf(db, autoprocpid),
+            "relative_ice_thickness": _retrieve_relative_ice_thickness(db, autoprocpid),
             "particle_picker": _retrieve_particle_picker(db, autoprocpid),
             "particle_classification": _retrieve_particle_classification(
                 db, autoprocpid
@@ -122,6 +124,7 @@ def _check_relion_outcome(test, expected_outcome, db_unused, db):
         if (
             len(job_results["motion_correction"]) == 0
             or len(job_results["ctf"]) == 0
+            or len(job_results["relative_ice_thickness"])
             or len(job_results["particle_picker"]) == 0
             or len(job_results["particle_classification"]) != 50
         ):
@@ -292,6 +295,21 @@ def _retrieve_ctf(db_session, autoprocid):
     return [q[0] for q in query_results]
 
 
+def _retrieve_relative_ice_thickness(db_session, autoprocid):
+    query = (
+        db_session.query(RelativeIceThickness, MotionCorrection)
+        .join(
+            MotionCorrection,
+            MotionCorrection.motionCorrectionId
+            == RelativeIceThickness.motionCorrectionId,
+        )
+        .filter(MotionCorrection.autoProcProgramId == autoprocid)
+    )
+    query_results = query.all()
+
+    return [q[0] for q in query_results]
+
+
 def _retrieve_particle_picker(db_session, autoprocid):
     query = (
         db_session.query(ParticlePicker, MotionCorrection)
@@ -335,6 +353,10 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
         ("motion_correction", "motion correction", attrgetter("micrographFullPath")),
         ("ctf", "CTF", attrgetter("MotionCorrection.micrographFullPath")),
         (
+            "relative_ice_thickness",
+            "ice thickness",
+            attrgetter("MotionCorrection.micrographFullPath"),
+        )(
             "particle_picker",
             "Particle Picker",
             attrgetter("MotionCorrection.micrographFullPath"),

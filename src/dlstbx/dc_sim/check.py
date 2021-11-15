@@ -356,7 +356,8 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
             "relative_ice_thickness",
             "ice thickness",
             attrgetter("MotionCorrection.micrographFullPath"),
-        )(
+        ),
+        (
             "particle_picker",
             "Particle Picker",
             attrgetter("MotionCorrection.micrographFullPath"),

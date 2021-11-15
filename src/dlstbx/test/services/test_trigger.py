@@ -481,12 +481,6 @@ def test_big_ep_cloud(
             "recipes": [],
             "parameters": {
                 "ispyb_process": mock.ANY,
-                "pipeline": pipeline,
-                "path_ext": "20210930_115830",
-                "shelxc_path": "/path/to/shelxc",
-                "fast_ep_path": "/path/to/fast_ep",
-                "transfer_input_files": "data.mtz",
-                "transfer_output_files": transfer_output_files,
             },
         },
     )
@@ -508,6 +502,9 @@ def test_big_ep_cloud(
             ("data", "/path/to/data.mtz"),
             ("pipeline", pipeline),
             ("program_id", "56986673"),
+            ("fast_ep_path", "/path/to/fast_ep"),
+            ("path_ext", "20210930_115830"),
+            ("shelxc_path", "/path/to/shelxc"),
         }
 
 

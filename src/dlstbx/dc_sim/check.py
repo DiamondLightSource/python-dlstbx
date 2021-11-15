@@ -121,10 +121,11 @@ def _check_relion_outcome(test, expected_outcome, db_unused, db):
                 db, autoprocpid
             ),
         }
+        # print(job_results)
         if (
             len(job_results["motion_correction"]) == 0
             or len(job_results["ctf"]) == 0
-            or len(job_results["relative_ice_thickness"])
+            or len(job_results["relative_ice_thickness"]) == 0
             or len(job_results["particle_picker"]) == 0
             or len(job_results["particle_classification"]) != 50
         ):

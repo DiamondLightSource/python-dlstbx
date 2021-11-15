@@ -1545,8 +1545,20 @@ class DLSTrigger(CommonService):
         protein_id = parameters.protein_id
         self.log.debug(f"AlphaFold trigger called for protein_id={protein_id}")
 
-        query = session.query(Protein).filter(Protein.proteinId == protein_id)
-        protein = query.first()
+        query = (
+            session.query(Protein, Proposal).join(
+                Proposal, Proposal.proposalId == Protein.proposalId
+            )
+        ).filter(Protein.proteinId == protein_id)
+        protein, proposal = query.first()
+        print(proposal.personId)
+
+        if proposal.proposalCode not in {"mx", "cm", "nt"}:
+            self.log.debug(
+                f"Not triggering AlphaFold for protein_id={protein_id} with proposal_code={proposal.proposalCode}"
+            )
+            return False
+
         if not protein.sequence:
             self.log.warning(
                 f"AlphaFold triggered for Protein without a sequence (protein_id={protein_id})"

@@ -567,7 +567,7 @@ def run(
                 )
                 # Processing on STRC/IRIS cloud
                 if (
-                    scenario.beamline in {"i03", "i04"}
+                    scenario.beamline in {"i03", "i04", "i04-1"}
                     and scenario.visit
                     and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
                 ):
@@ -635,7 +635,7 @@ def run(
                 )
                 # multi-xia2 on STRC/IRIS cloud
                 if (
-                    scenario.beamline in {"i03", "i04"}
+                    scenario.beamline in {"i03", "i04", "i04-1"}
                     and scenario.visit
                     and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
                 ):
@@ -728,7 +728,7 @@ def run(
                     )
                     # Processing on STRC/IRIS cloud
                     if (
-                        scenario.beamline in {"i03", "i04"}
+                        scenario.beamline in {"i03", "i04", "i04-1"}
                         and scenario.visit
                         and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
                     ):
@@ -783,7 +783,7 @@ def run(
                     )
                     # multi-xia2 on STRC/IRIS cloud
                     if (
-                        scenario.beamline in {"i03", "i04"}
+                        scenario.beamline in {"i03", "i04", "i04-1"}
                         and scenario.visit
                         and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
                     ):
@@ -839,7 +839,7 @@ def run(
                     )
                     # autoPROC on STRC/IRIS cloud
                     if (
-                        scenario.beamline in {"i03", "i04"}
+                        scenario.beamline in {"i03", "i04", "i04-1"}
                         and scenario.visit
                         and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
                     ):

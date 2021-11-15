@@ -334,7 +334,11 @@ tests = {
             },
             "relative_ice_thickness": {
                 f"MotionCorr/job002/Movies/Frames/20170629_000{image_number}_frameImage.mrc": {
-                    "median": approx(200e3, 100e3)
+                    "median": approx(250e3, 0.2),
+                    "minimum": approx(250e3, 0.2),
+                    "maximum": approx(250e3, 0.2),
+                    "q1": approx(250e3, 0.2),
+                    "q3": approx(250e3, 0.2),
                 }
                 for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
             },

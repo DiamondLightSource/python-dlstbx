@@ -16,6 +16,16 @@ class MotioncorrectionResult:
 
 
 @dataclass(frozen=True)
+class IceThicknessResult:
+    MotionCorrection: MotioncorrectionResult
+    median: float = 250e3
+    minimum: float = 250e3
+    maximum: float = 250e3
+    q1: float = 250e3
+    q3: float = 250e3
+
+
+@dataclass(frozen=True)
 class CTFResult:
     MotionCorrection: MotioncorrectionResult
     astigmatism: float = 247
@@ -38,6 +48,14 @@ def test_check_relion_outcomes_pass_checks():
         "motion_correction": [
             MotioncorrectionResult(
                 micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+            )
+            for frame in frame_numbers
+        ],
+        "relative_ice_thickness": [
+            IceThicknessResult(
+                MotionCorrection=MotioncorrectionResult(
+                    micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+                ),
             )
             for frame in frame_numbers
         ],
@@ -87,6 +105,14 @@ def test_check_relion_outcomes_fail_checks():
 
     dc_results_f = {
         "motion_correction": [db_motion_corr_f(frame) for frame in frame_numbers],
+        "relative_ice_thickness": [
+            IceThicknessResult(
+                MotionCorrection=MotioncorrectionResult(
+                    micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
+                ),
+            )
+            for frame in frame_numbers
+        ],
         "ctf": [
             CTFResult(
                 MotionCorrection=db_motion_corr_f(frame),
@@ -121,13 +147,20 @@ def test_check_relion_outcomes_fail_checks():
 
 
 @mock.patch("dlstbx.dc_sim.check._retrieve_motioncorr")
+@mock.patch("dlstbx.dc_sim.check._retrieve_relative_ice_thickness")
 @mock.patch("dlstbx.dc_sim.check._retrieve_ctf")
 @mock.patch("dlstbx.dc_sim.check._retrieve_particle_picker")
 @mock.patch("dlstbx.dc_sim.check._retrieve_particle_classification")
 @mock.patch("sqlalchemy.create_engine")
 @mock.patch("sqlalchemy.orm.Session")
 def test_check_test_outcome_success(
-    mock_sess, mock_eng, mock_classification, mock_parpick, mock_ctf, mock_mcorr
+    mock_sess,
+    mock_eng,
+    mock_classification,
+    mock_parpick,
+    mock_ctf,
+    mock_ice_thickness,
+    mock_mcorr,
 ):
     frame_numbers = dlstbx.dc_sim.definitions.tests["relion"]["frames"]
 
@@ -141,6 +174,10 @@ def test_check_test_outcome_success(
         return motion_corr
 
     mock_mcorr.return_value = [db_motion_corr(_) for _ in frame_numbers], 1
+    mock_ice_thickness.return_value = [
+        IceThicknessResult(MotionCorrection=db_motion_corr(frame))
+        for frame in frame_numbers
+    ]
     mock_ctf.return_value = [
         CTFResult(
             MotionCorrection=db_motion_corr(frame),
@@ -173,13 +210,20 @@ def test_check_test_outcome_success(
 
 
 @mock.patch("dlstbx.dc_sim.check._retrieve_motioncorr")
+@mock.patch("dlstbx.dc_sim.check._retrieve_relative_ice_thickness")
 @mock.patch("dlstbx.dc_sim.check._retrieve_ctf")
 @mock.patch("dlstbx.dc_sim.check._retrieve_particle_picker")
 @mock.patch("dlstbx.dc_sim.check._retrieve_particle_classification")
 @mock.patch("sqlalchemy.create_engine")
 @mock.patch("sqlalchemy.orm.Session")
 def test_check_test_outcome_failure(
-    mock_sess, mock_eng, mock_classification, mock_parpick, mock_ctf, mock_mcorr
+    mock_sess,
+    mock_eng,
+    mock_classification,
+    mock_parpick,
+    mock_ctf,
+    mock_ice_thickness,
+    mock_mcorr,
 ):
     frame_numbers = dlstbx.dc_sim.definitions.tests["relion"]["frames"]
 
@@ -196,6 +240,10 @@ def test_check_test_outcome_failure(
         return motion_corr
 
     mock_mcorr.return_value = [db_motion_corr(frame) for frame in frame_numbers], 1
+    mock_ice_thickness.return_value = [
+        IceThicknessResult(MotionCorrection=db_motion_corr(frame))
+        for frame in frame_numbers
+    ]
     mock_ctf.return_value = [
         CTFResult(
             MotionCorrection=db_motion_corr(frame),

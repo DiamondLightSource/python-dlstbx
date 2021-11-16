@@ -53,6 +53,7 @@ class RecipeStep(pydantic.BaseModel):
 class Message(pydantic.BaseModel):
     file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
     n_spots_total: pydantic.NonNegativeInt
+    file_seen_at: pydantic.NonNegativeFloat = pydantic.Field(alias="file-seen-at")
 
 
 class CenteringData(pydantic.BaseModel):
@@ -60,6 +61,7 @@ class CenteringData(pydantic.BaseModel):
     recipewrapper: workflows.recipe.wrapper.RecipeWrapper
     headers: list = pydantic.Field(default_factory=list)
     last_activity: float = pydantic.Field(default_factory=time.time)
+    last_image_seen_at: pydantic.NonNegativeInt
     data: np.ndarray = None
 
     def __init__(self, **data):
@@ -164,6 +166,7 @@ class DLSXRayCentering(CommonService):
                 cd = CenteringData(
                     gridinfo=gridinfo,
                     recipewrapper=rw,
+                    last_image_seen_at=message.file_seen_at,
                 )
                 self._centering_data[dcid] = cd
                 self.log.info(
@@ -181,6 +184,7 @@ class DLSXRayCentering(CommonService):
                 gridinfo.image_count,
             )
             cd.data[message.file_number - 1] = message.n_spots_total
+            cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
             if dcg_dcids and cd.images_seen == gridinfo.image_count:
                 data = [cd.data]
@@ -275,6 +279,12 @@ class DLSXRayCentering(CommonService):
                 if parameters.log:
                     parameters.log.parent.mkdir(parents=True, exist_ok=True)
                     parameters.log.write_text(output)
+
+                # Write latency log message
+                latency = time.time() - cd.last_image_seen_at
+                self.log.info(
+                    f"X-ray centering completed for dcid {parameters.dcid} with latency of {latency:.2f} seconds"
+                )
 
                 # Acknowledge all messages
                 txn = rw.transport.transaction_begin()

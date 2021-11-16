@@ -246,6 +246,7 @@ class DLSFileWatcher(CommonService):
                     {
                         "file": filelist[status["seen-files"] - 1],
                         "file-list-index": status["seen-files"],
+                        "file-seen-at": time.time(),
                     },
                     transaction=txn,
                 )
@@ -496,6 +497,7 @@ class DLSFileWatcher(CommonService):
                         "file": filename,
                         "file-number": status["seen-files"],
                         "file-pattern-index": pattern_start + status["seen-files"] - 1,
+                        "file-seen-at": time.time(),
                     },
                     transaction=txn,
                 )
@@ -777,6 +779,7 @@ class DLSFileWatcher(CommonService):
                             "hdf5-index": status["seen-images"],
                             "file": hdf5,
                             "file-number": status["seen-images"] + 1,
+                            "file-seen-at": time.time(),
                             "parameters": {
                                 "scan_range": "{0},{0}".format(
                                     status["seen-images"] + 1

@@ -110,6 +110,10 @@ class Xia2ResultsWrapper(zocalo.wrapper.BaseWrapper):
                 str(results_directory), params["create_symlink"]
             )
 
+        if not working_directory.is_dir():
+            logger.error(f"xia2 working directory {str(working_directory)} not found.")
+            return False
+
         for subdir in ("DataFiles", "LogFiles"):
             src = working_directory / subdir
             dst = results_directory / subdir

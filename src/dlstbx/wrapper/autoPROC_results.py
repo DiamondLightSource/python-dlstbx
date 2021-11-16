@@ -310,16 +310,22 @@ class autoPROCResultsWrapper(zocalo.wrapper.BaseWrapper):
         working_directory = Path(params["working_directory"])
         results_directory = Path(params["results_directory"])
 
-        # attempt to read autoproc XML droppings
-        autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml")
-        staraniso_xml = read_autoproc_xml(working_directory / "autoPROC_staraniso.xml")
-
         # copy output files to result directory
         results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 str(results_directory), params["create_symlink"]
             )
+
+        if not working_directory.is_dir():
+            logger.error(
+                f"autoPROC working directory {str(working_directory)} not found."
+            )
+            return False
+
+        # attempt to read autoproc XML droppings
+        autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml")
+        staraniso_xml = read_autoproc_xml(working_directory / "autoPROC_staraniso.xml")
 
         copy_extensions = {
             ".dat",

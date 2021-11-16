@@ -55,17 +55,18 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        is_cloud = False
-        try:
-            s3_urls = self.recwrap.payload["s3_urls"]
-            for filename, s3_url in s3_urls.items():
-                file_data = requests.get(s3_url)
-                filepath = working_directory / filename
-                with open(filepath, "wb") as fp:
-                    fp.write(file_data.content)
-                is_cloud = True
-        except (KeyError, TypeError):
-            logger.error("Cannot read input files from S3 store.")
+        is_cloud = "s3_urls" in self.recwrap.payload
+        if is_cloud:
+            try:
+                s3_urls = self.recwrap.payload["s3_urls"]
+                for filename, s3_url in s3_urls.items():
+                    file_data = requests.get(s3_url)
+                    filepath = working_directory / filename
+                    with open(filepath, "wb") as fp:
+                        fp.write(file_data.content)
+            except (KeyError, TypeError):
+                logger.error("Cannot read input files from S3 store.")
+                return False
 
         command = self.construct_commandline(working_directory, params, is_cloud)
         logger.info("command: %s", " ".join(command))

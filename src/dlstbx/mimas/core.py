@@ -567,10 +567,18 @@ def run(
                 )
                 # Processing on STRC/IRIS cloud
                 if (
-                    False
-                    and scenario.beamline in {"i03", "i04", "i04-1"}
+                    scenario.beamline in {"i03", "i04", "i04-1"}
                     and scenario.visit
-                    and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
+                    and scenario.visit.startswith(
+                        (
+                            "cm",
+                            "nt28218",
+                            "mx23694",
+                            "lb22715-15",
+                            "lb27963-43",
+                            "lb28215-11",
+                        )
+                    )
                 ):
                     # xia2-dials
                     tasks.append(
@@ -636,10 +644,18 @@ def run(
                 )
                 # multi-xia2 on STRC/IRIS cloud
                 if (
-                    False
-                    and scenario.beamline in {"i03", "i04", "i04-1"}
+                    scenario.beamline in {"i03", "i04", "i04-1"}
                     and scenario.visit
-                    and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
+                    and scenario.visit.startswith(
+                        (
+                            "cm",
+                            "nt28218",
+                            "mx23694",
+                            "lb22715-15",
+                            "lb27963-43",
+                            "lb28215-11",
+                        )
+                    )
                 ):
                     # xia2-dials
                     tasks.append(
@@ -730,10 +746,18 @@ def run(
                     )
                     # Processing on STRC/IRIS cloud
                     if (
-                        False
-                        and scenario.beamline in {"i03", "i04", "i04-1"}
+                        scenario.beamline in {"i03", "i04", "i04-1"}
                         and scenario.visit
-                        and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
+                        and scenario.visit.startswith(
+                            (
+                                "cm",
+                                "nt28218",
+                                "mx23694",
+                                "lb22715-15",
+                                "lb27963-43",
+                                "lb28215-11",
+                            )
+                        )
                     ):
                         # xia2-dials
                         tasks.append(
@@ -786,10 +810,18 @@ def run(
                     )
                     # multi-xia2 on STRC/IRIS cloud
                     if (
-                        False
-                        and scenario.beamline in {"i03", "i04", "i04-1"}
+                        scenario.beamline in {"i03", "i04", "i04-1"}
                         and scenario.visit
-                        and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
+                        and scenario.visit.startswith(
+                            (
+                                "cm",
+                                "nt28218",
+                                "mx23694",
+                                "lb22715-15",
+                                "lb27963-43",
+                                "lb28215-11",
+                            )
+                        )
                     ):
                         # xia2-dials
                         tasks.append(
@@ -843,10 +875,18 @@ def run(
                     )
                     # autoPROC on STRC/IRIS cloud
                     if (
-                        False
-                        and scenario.beamline in {"i03", "i04", "i04-1"}
+                        scenario.beamline in {"i03", "i04", "i04-1"}
                         and scenario.visit
-                        and scenario.visit.startswith(("cm", "nt28218", "mx23694"))
+                        and scenario.visit.startswith(
+                            (
+                                "cm",
+                                "nt28218",
+                                "mx23694",
+                                "lb22715-15",
+                                "lb27963-43",
+                                "lb28215-11",
+                            )
+                        )
                     ):
                         tasks.append(
                             dlstbx.mimas.MimasISPyBJobInvocation(

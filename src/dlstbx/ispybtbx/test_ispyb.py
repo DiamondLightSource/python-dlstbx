@@ -1,6 +1,11 @@
 import json
 from unittest import mock
 
+import ispyb.sqlalchemy
+import pytest
+import sqlalchemy
+from sqlalchemy.orm import sessionmaker
+
 import dlstbx.ispybtbx
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
 
@@ -18,21 +23,38 @@ ds = {
 }
 
 
-def test_ispyb_recipe_filtering_does_not_affect_messages_without_ispyb_content():
+@pytest.fixture(scope="session")
+def db_session():
+    """Yields a SQLAlchemy connection which is rollbacked after the test"""
+
+    Session = sessionmaker(
+        bind=sqlalchemy.create_engine(
+            ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
+        )
+    )
+    session_ = Session()
+    yield session_
+    session_.rollback()
+    session_.close()
+
+
+def test_ispyb_recipe_filtering_does_not_affect_messages_without_ispyb_content(
+    db_session,
+):
     message = {"dummy_msg": mock.sentinel.dummy_msg}
     parameters = {"dummy_param": mock.sentinel.dummy_param}
 
-    message, parameters = ispyb_filter(message, parameters)
+    message, parameters = ispyb_filter(message, parameters, db_session)
 
     assert message == {"dummy_msg": mock.sentinel.dummy_msg}
     assert parameters == {"dummy_param": mock.sentinel.dummy_param}
 
 
-def test_ispyb_recipe_filtering_does_read_datacollection_information():
+def test_ispyb_recipe_filtering_does_read_datacollection_information(db_session):
     message = {"dummy_msg": mock.sentinel.dummy_msg}
     parameters = {"dummy_param": mock.sentinel.dummy_param, "ispyb_dcid": ds["gphl_C2"]}
 
-    message, parameters = ispyb_filter(message, parameters)
+    message, parameters = ispyb_filter(message, parameters, db_session)
 
     assert message == {"dummy_msg": mock.sentinel.dummy_msg}
     assert parameters["ispyb_beamline"] == "i03"
@@ -64,20 +86,20 @@ def test_ispyb_recipe_filtering_does_read_datacollection_information():
     assert non_ispyb_parameters == {"dummy_param": mock.sentinel.dummy_param}
 
 
-def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples():
+def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples(db_session):
     for example, dcid in ds.items():
         message = {}
         parameters = {"ispyb_dcid": dcid}
         print(f"{example}: {dcid}")
-        message, parameters = ispyb_filter(message, parameters)
+        message, parameters = ispyb_filter(message, parameters, db_session)
         assert message == {}
         assert len(parameters) > 10
 
 
-def test_ispyb_filtering_for_processing_job():
+def test_ispyb_filtering_for_processing_job(db_session):
     message = {}
     parameters = {"ispyb_process": 6406100}
-    message, parameters = ispyb_filter(message, parameters)
+    message, parameters = ispyb_filter(message, parameters, db_session)
     assert (
         parameters["ispyb_images"]
         == "/dls/i04/data/2021/cm28182-1/20210204/TestProteinaseK/protk11/protk11_1_master.h5:1:3600"
@@ -97,20 +119,20 @@ def test_ispyb_filtering_for_processing_job():
     }
 
 
-def test_fetch_datacollect_group_from_ispyb():
+def test_fetch_datacollect_group_from_ispyb(db_session):
     i = ispybtbx()
     dc_id = ds["gphl_C2"]
-    dc_info = i.get_dc_info(dc_id)
+    dc_info = i.get_dc_info(dc_id, db_session)
     assert dc_info
     assert dc_info["dataCollectionGroupId"]
-    whole_group = i.get_related_dcs(dc_info["dataCollectionGroupId"])
+    whole_group = i.get_related_dcs(dc_info["dataCollectionGroupId"], db_session)
     assert len(whole_group) == 1
 
 
-def test_get_datacollection_information():
+def test_get_datacollection_information(db_session):
     i = ispybtbx()
     dc_id = ds["gphl_C2"]
-    dc_info = i.get_dc_info(dc_id)
+    dc_info = i.get_dc_info(dc_id, db_session)
     # for k, v in dc_info.items():
     #   print(k, v)
     assert dc_info["fileTemplate"] == "TRP_M1S6_4_####.cbf"
@@ -130,10 +152,10 @@ def test_get_datacollection_information():
     assert dc_info["resolution"] == 1.5
 
 
-def test_get_datacollection_information_for_em():
+def test_get_datacollection_information_for_em(db_session):
     i = ispybtbx()
     dc_id = ds["cryo_em"]
-    dc_info = i.get_dc_info(dc_id)
+    dc_info = i.get_dc_info(dc_id, db_session)
     # for k, v in dc_info.items():
     #   print(k, v)
     assert (
@@ -156,10 +178,10 @@ def test_get_datacollection_information_for_em():
     assert dc_info["resolution"] is None  # because EM
 
 
-def test_get_datacollection_information_for_em_tiffs():
+def test_get_datacollection_information_for_em_tiffs(db_session):
     i = ispybtbx()
     dc_id = ds["cryo_em_tiff"]
-    dc_info = i.get_dc_info(dc_id)
+    dc_info = i.get_dc_info(dc_id, db_session)
     assert dc_info["fileTemplate"] == "Frames/*.tiff"
     assert dc_info["imageDirectory"] == "/dls/m02/data/2021/bi23047-54/raw/"
     assert dc_info["startTime"] == "2021-05-18T16:31:35"
@@ -179,7 +201,7 @@ def test_get_datacollection_information_for_em_tiffs():
         "dummy_param": mock.sentinel.dummy_param,
         "ispyb_dcid": ds["cryo_em_tiff"],
     }
-    message, parameters = ispyb_filter(message, parameters)
+    message, parameters = ispyb_filter(message, parameters, db_session)
     assert (
         parameters["ispyb_image_pattern"]
         == parameters["ispyb_image_template"]
@@ -235,19 +257,19 @@ def test_get_extent_of_filenames_for_datacollection():
     assert i.dc_info_to_start_end(dc) == (30, 329)
 
 
-def test_obtain_space_group():
+def test_obtain_space_group(db_session):
     i = ispybtbx()
     dc_id = ds["sg_set"]
-    sg, cell = i.get_space_group_and_unit_cell(dc_id)
+    sg, cell = i.get_space_group_and_unit_cell(dc_id, db_session)
     assert sg == "P212121"
     assert cell == (68.0, 84.0, 89.0, 90.0, 90.0, 90.0)
     assert json.dumps(cell) == "[68.0, 84.0, 89.0, 90.0, 90.0, 90.0]"
 
 
-def test_obtain_sequence():
+def test_obtain_sequence(db_session):
     i = ispybtbx()
     dc_id = ds["seq_set"]
-    seq = i.get_protein_from_dcid(dc_id)["sequence"]
+    seq = i.get_protein_from_dcid(dc_id, db_session)["sequence"]
     assert (
         seq
         == "GPDKPVIKMYQIGDKPDNLDELLANANKIIEEKVGAKLDIQYLGWGDYGKKMSVITSSGENYDIAFADNYIVNAQKGAYADLTELYKKEGKDLYKALDPAYIK"
@@ -257,19 +279,19 @@ def test_obtain_sequence():
     )
 
 
-def test_obtain_edge_data():
+def test_obtain_edge_data(db_session):
     i = ispybtbx()
     dc_id = ds["edge_set"]
-    param = i.get_energy_scan_from_dcid(dc_id)
+    param = i.get_energy_scan_from_dcid(dc_id, db_session)
     assert param["energyscanid"] == 52476
     assert param["atom_type"] == "Se"
     assert param["edge_position"] == "peak"
 
 
-def test_filter_function():
+def test_filter_function(db_session):
     msg = {}
     param = {"ispyb_dcid": ds["i19_screening"]}
-    msg, param = ispyb_filter(msg, param)
+    msg, param = ispyb_filter(msg, param, db_session)
 
 
 def test_load_sample_group_config_file(tmpdir):
@@ -294,7 +316,7 @@ def test_load_sample_group_config_file(tmpdir):
     ]
 
 
-def test_get_sample_group_dcids_from_yml(tmpdir):
+def test_get_sample_group_dcids_from_yml(tmpdir, db_session):
     (tmpdir / "processing").mkdir()
     config_file = tmpdir / "processing" / "sample_groups.yml"
     config_file.write(
@@ -314,16 +336,16 @@ def test_get_sample_group_dcids_from_yml(tmpdir):
             "SESSIONID": 27444332,
         },
     }
-    groups = i.get_sample_group_dcids(ispyb_info)
+    groups = i.get_sample_group_dcids(ispyb_info, db_session)
     assert groups == [
         {"dcids": [5661104, 5661122, 5661125, 5661128, 5661131, 5661134, 5661137]},
         {"dcids": [5661122, 5661125, 5661128, 5661131, 5661134, 5661137]},
     ]
 
 
-def test_get_related_dcids_same_directory():
+def test_get_related_dcids_same_directory(db_session):
     i = ispybtbx()
-    assert i.get_related_dcids_same_directory({"ispyb_dcid": 5646632}) == {
+    assert i.get_related_dcids_same_directory({"ispyb_dcid": 5646632}, db_session) == {
         "dcids": [
             5646578,
             5646584,
@@ -338,7 +360,7 @@ def test_get_related_dcids_same_directory():
     }
 
 
-def test_get_sample_group_dcids():
+def test_get_sample_group_dcids(db_session):
     i = ispybtbx()
     related_dcids = i.get_sample_group_dcids(
         {
@@ -346,7 +368,8 @@ def test_get_sample_group_dcids():
             "ispyb_dc_info": {
                 "SESSIONID": 27441067,
             },
-        }
+        },
+        db_session,
     )
     assert related_dcids == [
         {
@@ -377,21 +400,22 @@ def test_get_sample_group_dcids():
     ]
 
 
-def test_get_related_dcs():
-    assert ispybtbx().get_related_dcs(5339105) == [5898098, 5898104]
+def test_get_related_dcs(db_session):
+    assert ispybtbx().get_related_dcs(5339105, db_session) == [5898098, 5898104]
 
 
-def test_get_dcid_for_path():
+def test_get_dcid_for_path(db_session):
     assert (
         ispybtbx().get_dcid_for_path(
-            "/dls/i04/data/2021/cm28182-1/20210305/TestThaumatin/Se-Thaumatin8/Se-Thaumatin8_1_master.h5"
+            "/dls/i04/data/2021/cm28182-1/20210305/TestThaumatin/Se-Thaumatin8/Se-Thaumatin8_1_master.h5",
+            db_session,
         )
         == 6077651
     )
 
 
-def test_get_diffractionplan_from_dcid():
-    diffractionplan = ispybtbx().get_diffractionplan_from_dcid(5898098)
+def test_get_diffractionplan_from_dcid(db_session):
+    diffractionplan = ispybtbx().get_diffractionplan_from_dcid(5898098, db_session)
     assert {
         "diffractionPlanId",
         "experimentKind",
@@ -406,12 +430,13 @@ def test_get_diffractionplan_from_dcid():
     } <= diffractionplan.keys()
 
 
-def test_get_gridscan_info():
+def test_get_gridscan_info(db_session):
     assert ispybtbx().get_gridscan_info(
         {
             "dataCollectionGroupId": 5492072,
             "dataCollectionId": 6077465,
-        }
+        },
+        db_session,
     ) == {
         "dataCollectionId": None,
         "snaked": 1,
@@ -434,9 +459,9 @@ def test_get_gridscan_info():
     }
 
 
-def test_get_sample_dcids():
+def test_get_sample_dcids(db_session):
     assert ispybtbx().get_sample_dcids(
-        {"ispyb_dcid": 6077651, "ispyb_dc_info": {"BLSAMPLEID": 3297161}}
+        {"ispyb_dcid": 6077651, "ispyb_dc_info": {"BLSAMPLEID": 3297161}}, db_session
     ) == {
         "dcids": [
             5990969,
@@ -462,33 +487,35 @@ def test_get_sample_dcids():
     }
 
 
-def test_get_priority_processing_for_dc_info():
+def test_get_priority_processing_for_dc_info(db_session):
     assert (
-        ispybtbx().get_priority_processing_for_dc_info({"BLSAMPLEID": 3297161})
+        ispybtbx().get_priority_processing_for_dc_info(
+            {"BLSAMPLEID": 3297161}, db_session
+        )
         == "xia2/DIALS"
     )
 
 
-def test_ready_for_processing():
+def test_ready_for_processing(db_session):
     message = {}
     parameters = {"ispyb_wait_for_runstatus": True, "ispyb_dcid": 5990969}
-    assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True
+    assert dlstbx.ispybtbx.ready_for_processing(message, parameters, db_session) is True
     parameters = {"ispyb_dcid": 5990969}
-    assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True
+    assert dlstbx.ispybtbx.ready_for_processing(message, parameters, db_session) is True
     parameters = {"ispyb_wait_for_runstatus": False, "ispyb_dcid": 5990969}
-    assert dlstbx.ispybtbx.ready_for_processing(message, parameters) is True
+    assert dlstbx.ispybtbx.ready_for_processing(message, parameters, db_session) is True
 
 
-def test_get_dcg_dcids():
+def test_get_dcg_dcids(db_session):
     assert ispybtbx().get_dcg_dcids(
-        {"dataCollectionId": 6222263, "dataCollectionGroupId": 5617586}
+        {"dataCollectionId": 6222263, "dataCollectionGroupId": 5617586}, db_session
     ) == [6222221, 6222245]
-    msg, param = ispyb_filter({}, {"ispyb_dcid": 6222263})
+    msg, param = ispyb_filter({}, {"ispyb_dcid": 6222263}, db_session)
     assert param["ispyb_dcg_dcids"] == [6222221, 6222245]
 
 
-def test_dcg_experiment_type():
-    _, params = ispyb_filter({}, {"ispyb_dcid": 6903084})
+def test_dcg_experiment_type(db_session):
+    _, params = ispyb_filter({}, {"ispyb_dcid": 6903084}, db_session)
     assert params["ispyb_dcg_experiment_type"] == "Mesh"
-    _, params = ispyb_filter({}, {"ispyb_dcid": 6921153})
+    _, params = ispyb_filter({}, {"ispyb_dcid": 6921153}, db_session)
     assert params["ispyb_dcg_experiment_type"] == "SAD"

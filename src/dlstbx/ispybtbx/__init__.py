@@ -88,7 +88,7 @@ class ispybtbx:
         self.log = logging.getLogger("dlstbx.ispybtbx")
         self.log.debug("ISPyB objects set up")
 
-    def __call__(self, message, parameters):
+    def __call__(self, message, parameters, session: sqlalchemy.orm.session.Session):
         reprocessing_id = parameters.get(
             "ispyb_reprocessing_id", parameters.get("ispyb_process")
         )
@@ -113,21 +113,20 @@ class ispybtbx:
                 return f"{file_template_full}:{start:d}:{end:d}"
 
             parameters["ispyb_process"] = reprocessing_id
-            with Session() as session:
-                query = (
-                    session.query(isa.ProcessingJob)
-                    .options(
-                        selectinload(isa.ProcessingJob.ProcessingJobParameters),
-                        selectinload(isa.ProcessingJob.ProcessingJobImageSweeps)
-                        .selectinload(isa.ProcessingJobImageSweep.DataCollection)
-                        .load_only(
-                            isa.DataCollection.imageDirectory,
-                            isa.DataCollection.fileTemplate,
-                        ),
-                    )
-                    .filter(isa.ProcessingJob.processingJobId == reprocessing_id)
+            query = (
+                session.query(isa.ProcessingJob)
+                .options(
+                    selectinload(isa.ProcessingJob.ProcessingJobParameters),
+                    selectinload(isa.ProcessingJob.ProcessingJobImageSweeps)
+                    .selectinload(isa.ProcessingJobImageSweep.DataCollection)
+                    .load_only(
+                        isa.DataCollection.imageDirectory,
+                        isa.DataCollection.fileTemplate,
+                    ),
                 )
-                rp = query.first()
+                .filter(isa.ProcessingJob.processingJobId == reprocessing_id)
+            )
+            rp = query.first()
             if not rp:
                 self.log.warning(f"Reprocessing ID {reprocessing_id} not found")
             parameters["ispyb_images"] = ",".join(
@@ -153,60 +152,58 @@ class ispybtbx:
 
         return message, parameters
 
-    def get_gridscan_info(self, dc_info):
+    def get_gridscan_info(self, dc_info, session: sqlalchemy.orm.session.Session):
         """Extract GridInfo table contents for a DC group ID."""
         dcid = dc_info.get("dataCollectionId")
         dcgid = dc_info.get("dataCollectionGroupId")
-        with Session() as session:
-            query = session.query(isa.GridInfo).filter(
-                (isa.GridInfo.dataCollectionId == dcid)
-                | (isa.GridInfo.dataCollectionGroupId == dcgid)
-            )
-            gridinfo = query.first()
+        query = session.query(isa.GridInfo).filter(
+            (isa.GridInfo.dataCollectionId == dcid)
+            | (isa.GridInfo.dataCollectionGroupId == dcgid)
+        )
+        gridinfo = query.first()
         if not gridinfo:
             return {}
         schema = isa.GridInfo.__marshmallow__()
         return schema.dump(gridinfo)
 
-    def get_dc_info(self, dc_id):
-        with Session() as session:
-            query = session.query(isa.DataCollection).filter(
-                isa.DataCollection.dataCollectionId == dc_id
-            )
-            dc = query.first()
-            if dc is None:
-                return {}
-            schema = isa.DataCollection.__marshmallow__()
-            return schema.dump(dc)
+    def get_dc_info(self, dc_id, session: sqlalchemy.orm.session.Session):
+        query = session.query(isa.DataCollection).filter(
+            isa.DataCollection.dataCollectionId == dc_id
+        )
+        dc = query.first()
+        if dc is None:
+            return {}
+        schema = isa.DataCollection.__marshmallow__()
+        return schema.dump(dc)
 
-    def get_beamline_from_dcid(self, dc_id):
-        with Session() as session:
-            query = (
-                session.query(isa.BLSession)
-                .join(
-                    isa.DataCollection,
-                    isa.DataCollection.SESSIONID == isa.BLSession.sessionId,
-                )
-                .filter(isa.DataCollection.dataCollectionId == dc_id)
+    def get_beamline_from_dcid(self, dc_id, session: sqlalchemy.orm.session.Session):
+        query = (
+            session.query(isa.BLSession)
+            .join(
+                isa.DataCollection,
+                isa.DataCollection.SESSIONID == isa.BLSession.sessionId,
             )
-            bs = query.first()
+            .filter(isa.DataCollection.dataCollectionId == dc_id)
+        )
+        bs = query.first()
         if bs:
             return bs.beamLineName
 
-    def dc_info_to_detectorclass(self, dc_info):
+    def dc_info_to_detectorclass(
+        self, dc_info, session: sqlalchemy.orm.session.Session
+    ):
         dcid = dc_info.get("dataCollectionId")
         if not dcid:
             return None
-        with Session() as session:
-            query = (
-                session.query(isa.DataCollection)
-                .filter_by(dataCollectionId=dcid)
-                .options(
-                    Load(isa.DataCollection).load_only("fileTemplate"),
-                    joinedload(isa.DataCollection.Detector),
-                )
+        query = (
+            session.query(isa.DataCollection)
+            .filter_by(dataCollectionId=dcid)
+            .options(
+                Load(isa.DataCollection).load_only("fileTemplate"),
+                joinedload(isa.DataCollection.Detector),
             )
-            dc = query.first()
+        )
+        dc = query.first()
         if dc and dc.Detector:
             if dc.Detector.detectorModel.lower().startswith("eiger"):
                 return "eiger"
@@ -222,16 +219,17 @@ class ispybtbx:
         elif template.endswith(".cbf"):
             return "pilatus"
 
-    def get_related_dcs(self, group):
-        with Session() as session:
-            query = (
-                session.query(isa.DataCollection.dataCollectionId)
-                .join(isa.DataCollectionGroup)
-                .filter(isa.DataCollectionGroup.dataCollectionGroupId == group)
-            )
-            return list(itertools.chain.from_iterable(query.all()))
+    def get_related_dcs(self, group, session: sqlalchemy.orm.session.Session):
+        query = (
+            session.query(isa.DataCollection.dataCollectionId)
+            .join(isa.DataCollectionGroup)
+            .filter(isa.DataCollectionGroup.dataCollectionGroupId == group)
+        )
+        return list(itertools.chain.from_iterable(query.all()))
 
-    def get_sample_group_dcids(self, ispyb_info):
+    def get_sample_group_dcids(
+        self, ispyb_info, session: sqlalchemy.orm.session.Session
+    ):
         # Test dcid: 5469646
         #      blsampleid: 3065377
         #      blsamplegroupids: 307, 310, 313
@@ -245,29 +243,28 @@ class ispybtbx:
         blsg_has_bls1 = aliased(isa.BLSampleGroupHasBLSample)
         blsg_has_bls2 = aliased(isa.BLSampleGroupHasBLSample)
         related_dcids = []
-        with Session() as session:
-            query = (
-                session.query(isa.BLSampleGroup, other_dc.dataCollectionId)
-                .join(blsg_has_bls1)
-                .join(this_dc, this_dc.BLSAMPLEID == blsg_has_bls1.blSampleId)
-                .join(
-                    blsg_has_bls2,
-                    blsg_has_bls2.blSampleGroupId == blsg_has_bls1.blSampleGroupId,
-                )
-                .join(other_dc, other_dc.BLSAMPLEID == blsg_has_bls2.blSampleId)
-                .filter(this_dc.dataCollectionId == dcid)
+        query = (
+            session.query(isa.BLSampleGroup, other_dc.dataCollectionId)
+            .join(blsg_has_bls1)
+            .join(this_dc, this_dc.BLSAMPLEID == blsg_has_bls1.blSampleId)
+            .join(
+                blsg_has_bls2,
+                blsg_has_bls2.blSampleGroupId == blsg_has_bls1.blSampleGroupId,
             )
-            # Group results by BLSampleGroup
-            for sample_group, group in itertools.groupby(
-                query.all(), lambda r: r.BLSampleGroup
-            ):
-                related_dcids.append(
-                    {
-                        "dcids": [item.dataCollectionId for item in group],
-                        "sample_group_id": sample_group.blSampleGroupId,
-                        "name": sample_group.name,
-                    }
-                )
+            .join(other_dc, other_dc.BLSAMPLEID == blsg_has_bls2.blSampleId)
+            .filter(this_dc.dataCollectionId == dcid)
+        )
+        # Group results by BLSampleGroup
+        for sample_group, group in itertools.groupby(
+            query.all(), lambda r: r.BLSampleGroup
+        ):
+            related_dcids.append(
+                {
+                    "dcids": [item.dataCollectionId for item in group],
+                    "sample_group_id": sample_group.blSampleGroupId,
+                    "name": sample_group.name,
+                }
+            )
 
         logger.debug(
             f"dcids defined via BLSampleGroup for dcid={dcid}: {related_dcids}"
@@ -289,13 +286,12 @@ class ispybtbx:
             else:
                 logger.debug(sample_groups)
                 if sample_groups:
-                    with Session() as session:
-                        query = session.query(
-                            isa.DataCollection.dataCollectionId,
-                            isa.DataCollection.imageDirectory,
-                            isa.DataCollection.fileTemplate,
-                        ).filter(isa.DataCollection.SESSIONID == sessionid)
-                        matches = query.all()
+                    query = session.query(
+                        isa.DataCollection.dataCollectionId,
+                        isa.DataCollection.imageDirectory,
+                        isa.DataCollection.fileTemplate,
+                    ).filter(isa.DataCollection.SESSIONID == sessionid)
+                    matches = query.all()
                     for sample_group in sample_groups:
                         sample_group_dcids = []
                         visit_dir = ispyb_info["ispyb_visit_directory"]
@@ -313,7 +309,7 @@ class ispybtbx:
                 )
         return related_dcids
 
-    def get_sample_dcids(self, ispyb_info):
+    def get_sample_dcids(self, ispyb_info, session: sqlalchemy.orm.session.Session):
         dcid = ispyb_info.get("ispyb_dcid")
         sample_id = ispyb_info["ispyb_dc_info"].get("BLSAMPLEID")
         if not dcid or not sample_id:
@@ -321,20 +317,19 @@ class ispybtbx:
 
         this_sample = aliased(isa.BLSample, name="this_sample")
         other_sample = aliased(isa.BLSample)
-        with Session() as session:
-            query = (
-                session.query(this_sample, isa.DataCollection.dataCollectionId)
-                .join(
-                    other_sample,
-                    other_sample.blSampleId == this_sample.blSampleId,
-                )
-                .join(
-                    isa.DataCollection,
-                    isa.DataCollection.BLSAMPLEID == other_sample.blSampleId,
-                )
-                .filter(other_sample.blSampleId == sample_id)
+        query = (
+            session.query(this_sample, isa.DataCollection.dataCollectionId)
+            .join(
+                other_sample,
+                other_sample.blSampleId == this_sample.blSampleId,
             )
-            results = query.all()
+            .join(
+                isa.DataCollection,
+                isa.DataCollection.BLSAMPLEID == other_sample.blSampleId,
+            )
+            .filter(other_sample.blSampleId == sample_id)
+        )
+        results = query.all()
         if results:
             sample = results[0].this_sample
             related_dcids = {
@@ -345,59 +340,61 @@ class ispybtbx:
             logger.debug(f"dcids defined via BLSample for dcid={dcid}: {related_dcids}")
             return related_dcids
 
-    def get_related_dcids_same_directory(self, ispyb_info):
+    def get_related_dcids_same_directory(
+        self, ispyb_info, session: sqlalchemy.orm.session.Session
+    ):
         dcid = ispyb_info.get("ispyb_dcid")
         if not dcid:
             return None
 
         dc1 = aliased(isa.DataCollection)
         dc2 = aliased(isa.DataCollection)
-        with Session() as session:
-            query = (
-                session.query(dc2.dataCollectionId)
-                .join(
-                    dc1,
-                    (dc1.imageDirectory == dc2.imageDirectory)
-                    & (dc1.dataCollectionId != dc2.dataCollectionId)
-                    & (dc1.imageDirectory is not None),
-                )
-                .filter(dc1.dataCollectionId == dcid)
+        query = (
+            session.query(dc2.dataCollectionId)
+            .join(
+                dc1,
+                (dc1.imageDirectory == dc2.imageDirectory)
+                & (dc1.dataCollectionId != dc2.dataCollectionId)
+                & (dc1.imageDirectory is not None),
             )
-            return {"dcids": list(itertools.chain.from_iterable(query.all()))}
+            .filter(dc1.dataCollectionId == dcid)
+        )
+        return {"dcids": list(itertools.chain.from_iterable(query.all()))}
 
-    def get_dcg_dcids(self, dc_info):
+    def get_dcg_dcids(self, dc_info, session: sqlalchemy.orm.session.Session):
         dcid = dc_info.get("dataCollectionId")
         dcgid = dc_info.get("dataCollectionGroupId")
         if not dcgid:
             return
-        with Session() as session:
-            query = session.query(isa.DataCollection.dataCollectionId).filter(
-                isa.DataCollection.dataCollectionGroupId == dcgid,
-                isa.DataCollection.dataCollectionId != dcid,
-            )
-            return list(itertools.chain.from_iterable(query.all()))
+        query = session.query(isa.DataCollection.dataCollectionId).filter(
+            isa.DataCollection.dataCollectionGroupId == dcgid,
+            isa.DataCollection.dataCollectionId != dcid,
+        )
+        return list(itertools.chain.from_iterable(query.all()))
 
-    def get_dcg_experiment_type(self, dcgid: int) -> Optional[str]:
+    def get_dcg_experiment_type(
+        self, dcgid: int, session: sqlalchemy.orm.session.Session
+    ) -> Optional[str]:
         if not dcgid:
             return
-        with Session() as session:
-            query = session.query(isa.DataCollectionGroup.experimentType).filter(
-                isa.DataCollectionGroup.dataCollectionGroupId == dcgid
-            )
-            return query.one()[0]
+        query = session.query(isa.DataCollectionGroup.experimentType).filter(
+            isa.DataCollectionGroup.dataCollectionGroupId == dcgid
+        )
+        return query.one()[0]
 
-    def get_space_group_and_unit_cell(self, dcid):
-        with Session() as session:
-            query = (
-                session.query(isa.Crystal)
-                .join(isa.BLSample)
-                .join(
-                    isa.DataCollection,
-                    isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
-                )
-                .filter(isa.DataCollection.dataCollectionId == dcid)
+    def get_space_group_and_unit_cell(
+        self, dcid, session: sqlalchemy.orm.session.Session
+    ):
+        query = (
+            session.query(isa.Crystal)
+            .join(isa.BLSample)
+            .join(
+                isa.DataCollection,
+                isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
             )
-            c = query.first()
+            .filter(isa.DataCollection.dataCollectionId == dcid)
+        )
+        c = query.first()
         if not c or not c.spaceGroup:
             return "", False
         cell = (
@@ -414,7 +411,7 @@ class ispybtbx:
             cell = tuple(float(p) for p in cell)
         return c.spaceGroup, cell
 
-    def get_energy_scan_from_dcid(self, dcid):
+    def get_energy_scan_from_dcid(self, dcid, session: sqlalchemy.orm.session.Session):
         def __energy_offset(row):
             energy = 12398.42 / row.wavelength
             pk_energy = row.EnergyScan.peakEnergy
@@ -436,32 +433,29 @@ class ispybtbx:
         other_sample = aliased(isa.BLSample, name="other_sample")
         this_crystal = aliased(isa.Crystal)
         other_crystal = aliased(isa.Crystal)
-        with Session() as session:
-            query = (
-                session.query(
-                    isa.EnergyScan,
-                    isa.DataCollection.wavelength,
-                    this_sample,
-                    other_sample,
-                )
-                .join(
-                    this_sample, this_sample.blSampleId == isa.DataCollection.BLSAMPLEID
-                )
-                .join(this_crystal)
-                .join(isa.Protein)
-                .join(other_crystal, other_crystal.proteinId == isa.Protein.proteinId)
-                .join(other_sample, other_sample.crystalId == other_crystal.crystalId)
-                .join(
-                    isa.EnergyScan,
-                    (isa.EnergyScan.sessionId == isa.DataCollection.SESSIONID)
-                    & (isa.EnergyScan.blSampleId == other_sample.blSampleId),
-                )
-                .filter(
-                    (isa.DataCollection.dataCollectionId == dcid)
-                    & (isa.EnergyScan.element.isnot(None))
-                )
+        query = (
+            session.query(
+                isa.EnergyScan,
+                isa.DataCollection.wavelength,
+                this_sample,
+                other_sample,
             )
-            all_rows = query.all()
+            .join(this_sample, this_sample.blSampleId == isa.DataCollection.BLSAMPLEID)
+            .join(this_crystal)
+            .join(isa.Protein)
+            .join(other_crystal, other_crystal.proteinId == isa.Protein.proteinId)
+            .join(other_sample, other_sample.crystalId == other_crystal.crystalId)
+            .join(
+                isa.EnergyScan,
+                (isa.EnergyScan.sessionId == isa.DataCollection.SESSIONID)
+                & (isa.EnergyScan.blSampleId == other_sample.blSampleId),
+            )
+            .filter(
+                (isa.DataCollection.dataCollectionId == dcid)
+                & (isa.EnergyScan.element.isnot(None))
+            )
+        )
+        all_rows = query.all()
 
         try:
             rows = [
@@ -505,25 +499,24 @@ class ispybtbx:
             res = {}
         return res
 
-    def get_protein_from_dcid(self, dcid):
-        with Session() as session:
-            query = (
-                session.query(isa.Protein)
-                .join(isa.Crystal)
-                .join(isa.BLSample)
-                .join(
-                    isa.DataCollection,
-                    isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
-                )
-                .filter(isa.DataCollection.dataCollectionId == dcid)
+    def get_protein_from_dcid(self, dcid, session: sqlalchemy.orm.session.Session):
+        query = (
+            session.query(isa.Protein)
+            .join(isa.Crystal)
+            .join(isa.BLSample)
+            .join(
+                isa.DataCollection,
+                isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
             )
-            protein = query.first()
+            .filter(isa.DataCollection.dataCollectionId == dcid)
+        )
+        protein = query.first()
         if protein:
             schema = isa.Protein.__marshmallow__(exclude=("externalId",))
             # XXX case sensitive? proteinid, proteintype
             return schema.dump(protein)
 
-    def get_dcid_for_path(self, path):
+    def get_dcid_for_path(self, path, session: sqlalchemy.orm.session.Session):
         """Take a file path and try to identify a best match DCID"""
         if not path.startswith("/"):
             raise ValueError("Need absolute file path instead of %r" % path)
@@ -534,18 +527,17 @@ class ispybtbx:
             altpath = "__no_alternative__"
         else:
             altpath = path.rstrip("/") + "/"
-        with Session() as session:
-            query = session.query(
-                isa.DataCollection.dataCollectionId,
-                isa.DataCollection.imageDirectory,
-                isa.DataCollection.imagePrefix,
-                isa.DataCollection.imageSuffix,
-                isa.DataCollection.fileTemplate,
-            ).filter(
-                (isa.DataCollection.imageDirectory == basepath)
-                | (isa.DataCollection.imageDirectory == altpath)
-            )
-            results = query.all()
+        query = session.query(
+            isa.DataCollection.dataCollectionId,
+            isa.DataCollection.imageDirectory,
+            isa.DataCollection.imagePrefix,
+            isa.DataCollection.imageSuffix,
+            isa.DataCollection.fileTemplate,
+        ).filter(
+            (isa.DataCollection.imageDirectory == basepath)
+            | (isa.DataCollection.imageDirectory == altpath)
+        )
+        results = query.all()
         if extension:
             results = [r for r in results if r.imageSuffix == extension]
         if not results:
@@ -688,40 +680,42 @@ class ispybtbx:
             collection_path = f"{collection_path}_{dc_number}"
         return os.path.join(visit, "processed", rest, collection_path, dc_info["uuid"])
 
-    def get_diffractionplan_from_dcid(self, dcid):
-        with Session() as session:
-            query = (
-                session.query(isa.DiffractionPlan)
-                .join(isa.BLSample)
-                .join(
-                    isa.DataCollection,
-                    isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
-                )
-                .filter(isa.DataCollection.dataCollectionId == dcid)
+    def get_diffractionplan_from_dcid(
+        self, dcid, session: sqlalchemy.orm.session.Session
+    ):
+        query = (
+            session.query(isa.DiffractionPlan)
+            .join(isa.BLSample)
+            .join(
+                isa.DataCollection,
+                isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
             )
-            dp = query.first()
+            .filter(isa.DataCollection.dataCollectionId == dcid)
+        )
+        dp = query.first()
         if dp:
             # XXX case sensitive?
             schema = isa.DiffractionPlan.__marshmallow__()
             return schema.dump(dp)
 
-    def get_priority_processing_for_dc_info(self, dc_info):
+    def get_priority_processing_for_dc_info(
+        self, dc_info, session: sqlalchemy.orm.session.Session
+    ):
         blsampleid = dc_info.get("BLSAMPLEID")
         if not blsampleid:
             return None
-        with Session() as session:
-            query = (
-                session.query(isa.ProcessingPipeline.name)
-                .join(isa.Container)
-                .join(isa.BLSample)
-                .filter(isa.BLSample.blSampleId == blsampleid)
-            )
-            pipeline = query.first()
+        query = (
+            session.query(isa.ProcessingPipeline.name)
+            .join(isa.Container)
+            .join(isa.BLSample)
+            .filter(isa.BLSample.blSampleId == blsampleid)
+        )
+        pipeline = query.first()
         if pipeline:
             return pipeline.name
 
 
-def ready_for_processing(message, parameters):
+def ready_for_processing(message, parameters, session: sqlalchemy.orm.session.Session):
     """Check whether this message is ready for templatization."""
     if not parameters.get("ispyb_wait_for_runstatus"):
         return True
@@ -730,19 +724,18 @@ def ready_for_processing(message, parameters):
     if not dcid:
         return True
 
-    with Session() as session:
-        query = session.query(isa.DataCollection.runStatus).filter(
-            isa.DataCollection.dataCollectionId == dcid
-        )
-        return query.one().runStatus is not None
+    query = session.query(isa.DataCollection.runStatus).filter(
+        isa.DataCollection.dataCollectionId == dcid
+    )
+    return query.one().runStatus is not None
 
 
-def ispyb_filter(message, parameters):
+def ispyb_filter(message, parameters, session: sqlalchemy.orm.session.Session):
     """Do something to work out what to do with this data..."""
 
     i = ispybtbx()
 
-    message, parameters = i(message, parameters)
+    message, parameters = i(message, parameters, session)
 
     if "ispyb_dcid" not in parameters:
         return message, parameters
@@ -752,29 +745,29 @@ def ispyb_filter(message, parameters):
 
     dc_id = parameters["ispyb_dcid"]
 
-    dc_info = i.get_dc_info(dc_id)
+    dc_info = i.get_dc_info(dc_id, session)
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
-    parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id)
+    parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id, session)
     if str(parameters["ispyb_beamline"]).lower() in _gpfs03_beamlines:
         parameters["ispyb_preferred_datacentre"] = "hamilton"
     else:
         parameters["ispyb_preferred_datacentre"] = "cluster"
-    parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info)
+    parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info, session)
     parameters["ispyb_dc_info"] = dc_info
-    parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(dc_info)
+    parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(dc_info, session)
     parameters["ispyb_dcg_experiment_type"] = i.get_dcg_experiment_type(
-        dc_info.get("dataCollectionGroupId")
+        dc_info.get("dataCollectionGroupId"), session
     )
     dc_class = i.classify_dc(dc_info)
     parameters["ispyb_dc_class"] = dc_class
-    diff_plan_info = i.get_diffractionplan_from_dcid(dc_id)
+    diff_plan_info = i.get_diffractionplan_from_dcid(dc_id, session)
     parameters["ispyb_diffraction_plan"] = diff_plan_info
-    protein_info = i.get_protein_from_dcid(dc_id)
+    protein_info = i.get_protein_from_dcid(dc_id, session)
     parameters["ispyb_protein_info"] = protein_info
-    energy_scan_info = i.get_energy_scan_from_dcid(dc_id)
+    energy_scan_info = i.get_energy_scan_from_dcid(dc_id, session)
     parameters["ispyb_energy_scan_info"] = energy_scan_info
     start, end = i.dc_info_to_start_end(dc_info)
-    priority_processing = i.get_priority_processing_for_dc_info(dc_info)
+    priority_processing = i.get_priority_processing_for_dc_info(dc_info, session)
     if not priority_processing:
         priority_processing = "xia2/DIALS"
     parameters["ispyb_preferred_processing"] = priority_processing
@@ -815,7 +808,7 @@ def ispyb_filter(message, parameters):
     else:
         parameters["ispyb_crystal"] = "DEFAULT"
 
-    space_group, cell = i.get_space_group_and_unit_cell(dc_id)
+    space_group, cell = i.get_space_group_and_unit_cell(dc_id, session)
     if not any((space_group, cell)):
         try:
             params = load_configuration_file(parameters)
@@ -840,17 +833,17 @@ def ispyb_filter(message, parameters):
     parameters["ispyb_unit_cell"] = cell
 
     # related dcids via sample groups
-    parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(parameters)
+    parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(parameters, session)
     if parameters["ispyb_dc_info"].get("BLSAMPLEID"):
         # if a sample is linked to the dc, then get dcids on the same sample
-        related_dcids = i.get_sample_dcids(parameters)
+        related_dcids = i.get_sample_dcids(parameters, session)
     else:
         # else get dcids collected into the same image directory
-        related_dcids = i.get_related_dcids_same_directory(parameters)
+        related_dcids = i.get_related_dcids_same_directory(parameters, session)
     if related_dcids:
         parameters["ispyb_related_dcids"].append(related_dcids)
     logger.debug(f"ispyb_related_dcids: {parameters['ispyb_related_dcids']}")
-    parameters["ispyb_dcg_dcids"] = i.get_dcg_dcids(dc_info)
+    parameters["ispyb_dcg_dcids"] = i.get_dcg_dcids(dc_info, session)
 
     if (
         "ispyb_processing_job" in parameters
@@ -878,13 +871,13 @@ def ispyb_filter(message, parameters):
     # need to be smarter here...
 
     if dc_info["dataCollectionGroupId"]:
-        related_dcs = i.get_related_dcs(dc_info["dataCollectionGroupId"])
+        related_dcs = i.get_related_dcs(dc_info["dataCollectionGroupId"], session)
         if parameters["ispyb_image_directory"].startswith("/dls/mx"):
             related = []
         else:
             related = list(sorted(set(related_dcs)))
         for dc in related_dcs:
-            info = i.get_dc_info(dc)
+            info = i.get_dc_info(dc, session)
             start, end = i.dc_info_to_start_end(info)
             parameters["ispyb_related_sweeps"].append((dc, start, end))
 
@@ -899,7 +892,7 @@ def ispyb_filter(message, parameters):
             if dc == dc_id:
                 continue
 
-            info = i.get_dc_info(dc)
+            info = i.get_dc_info(dc, session)
             other_dc_class = i.classify_dc(info)
             if other_dc_class["rotation"]:
                 start, end = i.dc_info_to_start_end(info)
@@ -976,15 +969,16 @@ def work(dc_ids):
 
     pp = pprint.PrettyPrinter(indent=2)
 
-    for dc_id in dc_ids:
-        message = {}
-        parameters = {"ispyb_dcid": dc_id}
-        message, parameters = ispyb_filter(message, parameters)
+    with Session() as session:
+        for dc_id in dc_ids:
+            message = {}
+            parameters = {"ispyb_dcid": dc_id}
+            message, parameters = ispyb_filter(message, parameters, session)
 
-        pp.pprint("Message:")
-        pp.pprint(message)
-        pp.pprint("Parameters:")
-        pp.pprint(parameters)
+            pp.pprint("Message:")
+            pp.pprint(message)
+            pp.pprint("Parameters:")
+            pp.pprint(parameters)
 
 
 if __name__ == "__main__":

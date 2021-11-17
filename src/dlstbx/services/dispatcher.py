@@ -7,7 +7,10 @@ import time
 import timeit
 import uuid
 
+import ispyb.sqlalchemy
+import sqlalchemy
 import workflows.recipe
+from sqlalchemy.orm import sessionmaker
 from workflows.services.common_service import CommonService
 
 # DCID(4983612).group.experiment_type == "SAD"
@@ -155,53 +158,66 @@ class DLSDispatcher(CommonService):
             # eg. ISPyB database lookups
             import dlstbx.ispybtbx
 
-            # Step 1: Check that parsing the message can proceed
-            if not dlstbx.ispybtbx.ready_for_processing(message, parameters):
-                # Message not yet cleared for processing
-                if "dispatcher_expiration" not in parameters:
-                    parameters["dispatcher_expiration"] = time.time() + int(
-                        parameters.get("dispatcher_timeout", 120)
+            Session = sessionmaker(
+                bind=sqlalchemy.create_engine(
+                    ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
+                )
+            )
+            with Session() as session:
+
+                # Step 1: Check that parsing the message can proceed
+                if not dlstbx.ispybtbx.ready_for_processing(
+                    message, parameters, session
+                ):
+                    # Message not yet cleared for processing
+                    if "dispatcher_expiration" not in parameters:
+                        parameters["dispatcher_expiration"] = time.time() + int(
+                            parameters.get("dispatcher_timeout", 120)
+                        )
+                    if parameters["dispatcher_expiration"] > time.time():
+                        # Wait for 2 seconds
+                        txn = self._transport.transaction_begin()
+                        self._transport.ack(header, transaction=txn)
+                        self._transport.send(
+                            "processing_recipe", message, transaction=txn, delay=2
+                        )
+                        self.log.info("Message not yet ready for processing")
+                        self._transport.transaction_commit(txn)
+                        return
+                    elif parameters.get("dispatcher_error_queue"):
+                        # Drop message into error queue
+                        txn = self._transport.transaction_begin()
+                        self._transport.ack(header, transaction=txn)
+                        self._transport.send(
+                            parameters["dispatcher_error_queue"],
+                            message,
+                            transaction=txn,
+                        )
+                        self.log.info(
+                            "Message rejected to specified error queue as still not ready for processing"
+                        )
+                        self._transport.transaction_commit(txn)
+                        return
+                    else:
+                        # Unhandled error, send message to DLQ
+                        self.log.error(
+                            "Message rejected as still not ready for processing",
+                        )
+                        self._transport.nack(header)
+                        return
+
+                try:
+                    message, parameters = dlstbx.ispybtbx.ispyb_filter(
+                        message, parameters, session
                     )
-                if parameters["dispatcher_expiration"] > time.time():
-                    # Wait for 2 seconds
-                    txn = self._transport.transaction_begin()
-                    self._transport.ack(header, transaction=txn)
-                    self._transport.send(
-                        "processing_recipe", message, transaction=txn, delay=2
-                    )
-                    self.log.info("Message not yet ready for processing")
-                    self._transport.transaction_commit(txn)
-                    return
-                elif parameters.get("dispatcher_error_queue"):
-                    # Drop message into error queue
-                    txn = self._transport.transaction_begin()
-                    self._transport.ack(header, transaction=txn)
-                    self._transport.send(
-                        parameters["dispatcher_error_queue"], message, transaction=txn
-                    )
-                    self.log.info(
-                        "Message rejected to specified error queue as still not ready for processing"
-                    )
-                    self._transport.transaction_commit(txn)
-                    return
-                else:
-                    # Unhandled error, send message to DLQ
+                except Exception as e:
                     self.log.error(
-                        "Message rejected as still not ready for processing",
+                        "Rejected message due to ISPyB filter error: %s",
+                        str(e),
+                        exc_info=True,
                     )
                     self._transport.nack(header)
                     return
-
-            try:
-                message, parameters = dlstbx.ispybtbx.ispyb_filter(message, parameters)
-            except Exception as e:
-                self.log.error(
-                    "Rejected message due to ISPyB filter error: %s",
-                    str(e),
-                    exc_info=True,
-                )
-                self._transport.nack(header)
-                return
             self.log.debug("Mangled processing request:\n" + str(message))
             self.log.debug("Mangled processing parameters:\n" + str(parameters))
 

@@ -6,12 +6,15 @@ from pathlib import Path
 
 import minio
 import requests
+from minio.commonconfig import GOVERNANCE
+from minio.objectlockconfig import DAYS, ObjectLockConfig
+from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 S3_CONFIG = "/dls_sw/apps/zocalo/secrets/credentials-echo-mx.cfg"
 S3_NAME = "echo-mx"
 BUCKET_EXPIRE = 1
-URL_EXPIRE = timedelta(hours=2)
+URL_EXPIRE = timedelta(days=BUCKET_EXPIRE)
 
 
 def get_objects_from_s3(working_directory, s3_urls):
@@ -19,15 +22,17 @@ def get_objects_from_s3(working_directory, s3_urls):
     backoff_factor = 1
     status_forcelist = [429, 500, 502, 503, 504]
 
-    retry = Retry(
+    session = requests.Session()
+    retries = Retry(
         total=retries,
         read=retries,
         connect=retries,
         backoff_factor=backoff_factor,
         status_forcelist=status_forcelist,
     )
+    session.mount("http://", HTTPAdapter(max_retries=retries))
     for filename, s3_url in s3_urls.items():
-        file_data = requests.get(s3_url, retries=retry)
+        file_data = session.get(s3_url)
         filepath = working_directory / filename
         with open(filepath, "wb") as fp:
             fp.write(file_data.content)
@@ -45,21 +50,18 @@ def get_presigned_urls_images(bucket_name, images, logger):
     )
 
     if not minio_client.bucket_exists(bucket_name):
-        minio_client.make_bucket(bucket_name)
-        # retention_config = ObjectLockConfig(GOVERNANCE, BUCKET_EXPIRE, DAYS)
-        # minio_client.set_object_lock_config(bucket_name, retention_config)
+        minio_client.make_bucket(bucket_name, object_lock=True)
+        retention_config = ObjectLockConfig(GOVERNANCE, BUCKET_EXPIRE, DAYS)
+        minio_client.set_object_lock_config(bucket_name, retention_config)
     else:
-        logger.info("Object store bucket {bucket_name} already exists.")
+        logger.info(f"Object store bucket {bucket_name} already exists.")
 
     s3_urls = {}
     store_objects = [obj.object_name for obj in minio_client.list_objects(bucket_name)]
     h5_paths = {Path(s.split(":")[0]) for s in images.split(",")}
-    print(f"File paths: {h5_paths}")
     for h5_file in h5_paths:
         image_pattern = str(h5_file).split("master")[0] + "*"
-        print(f"Image pattern: {image_pattern}")
         for filepath in glob.glob(image_pattern):
-            print(f"Filepath: {filepath}")
             filename = Path(filepath).name
             if filename in store_objects:
                 logger.info(

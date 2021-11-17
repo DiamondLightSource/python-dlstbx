@@ -5,11 +5,32 @@ from datetime import timedelta
 from pathlib import Path
 
 import minio
+import requests
+from urllib3.util.retry import Retry
 
 S3_CONFIG = "/dls_sw/apps/zocalo/secrets/credentials-echo-mx.cfg"
 S3_NAME = "echo-mx"
 BUCKET_EXPIRE = 1
 URL_EXPIRE = timedelta(hours=2)
+
+
+def get_objects_from_s3(working_directory, s3_urls):
+    retries = 5
+    backoff_factor = 1
+    status_forcelist = [429, 500, 502, 503, 504]
+
+    retry = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+    )
+    for filename, s3_url in s3_urls.items():
+        file_data = requests.get(s3_url, retries=retry)
+        filepath = working_directory / filename
+        with open(filepath, "wb") as fp:
+            fp.write(file_data.content)
 
 
 def get_presigned_urls_images(bucket_name, images, logger):

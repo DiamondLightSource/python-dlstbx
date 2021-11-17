@@ -4,8 +4,9 @@ import subprocess
 from pathlib import Path
 
 import procrunner
-import requests
 import zocalo.wrapper
+
+from dlstbx.util.iris import get_objects_from_s3
 
 logger = logging.getLogger("dlstbx.wrap.xia2_run")
 
@@ -57,15 +58,13 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
 
         is_cloud = "s3_urls" in self.recwrap.payload
         if is_cloud:
+            s3_urls = self.recwrap.payload["s3_urls"]
             try:
-                s3_urls = self.recwrap.payload["s3_urls"]
-                for filename, s3_url in s3_urls.items():
-                    file_data = requests.get(s3_url)
-                    filepath = working_directory / filename
-                    with open(filepath, "wb") as fp:
-                        fp.write(file_data.content)
-            except (KeyError, TypeError):
-                logger.error("Cannot read input files from S3 store.")
+                get_objects_from_s3(working_directory, s3_urls)
+            except Exception:
+                logger.exception(
+                    "Exception raised while downloading files from S3 object store"
+                )
                 return False
 
         command = self.construct_commandline(working_directory, params, is_cloud)

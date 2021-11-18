@@ -944,6 +944,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             session.add_all([pdb, protein_has_pdb])
 
         session.commit()
+        return {"success": True}
 
     def do_multipart_message(self, rw, message, **kwargs):
         """The multipart_message command allows the recipe or client to specify a

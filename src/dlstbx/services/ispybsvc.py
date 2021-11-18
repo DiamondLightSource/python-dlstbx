@@ -134,7 +134,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 )
         except Exception as e:
             self.log.error(
-                f"Uncaught exception {e} in ISPyB function {command} , quarantining message.",
+                f"Uncaught exception {e!r} in ISPyB function {command!r}, quarantining message.",
                 exc_info=True,
             )
             rw.transport.transaction_abort(txn)

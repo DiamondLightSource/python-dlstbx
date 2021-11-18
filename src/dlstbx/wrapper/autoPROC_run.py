@@ -10,7 +10,7 @@ from dxtbx.serialize import xds
 from dlstbx.util.iris import get_objects_from_s3
 from dlstbx.util.merging_statistics import get_merging_statistics
 
-logger = logging.getLogger("dlstbx.wrap.autoPROC_run")
+logger = logging.getLogger("zocalo.wrap.autoPROC_run")
 
 clean_environment = {
     "LD_LIBRARY_PATH": "",

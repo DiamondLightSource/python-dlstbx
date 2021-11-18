@@ -7,7 +7,7 @@ import zocalo.wrapper
 
 import dlstbx.util.symlink
 
-logger = logging.getLogger("dlstbx.wrap.autoPROC_results")
+logger = logging.getLogger("zocalo.wrap.autoPROC_results")
 
 clean_environment = {
     "LD_LIBRARY_PATH": "",

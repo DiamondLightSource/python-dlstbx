@@ -6,7 +6,7 @@ import zocalo.wrapper
 import dlstbx.util.symlink
 from dlstbx.util.iris import get_presigned_urls_images, write_singularity_script
 
-logger = logging.getLogger("dlstbx.wrap.autoPROC_setup")
+logger = logging.getLogger("zocalo.wrap.autoPROC_setup")
 
 clean_environment = {
     "LD_LIBRARY_PATH": "",

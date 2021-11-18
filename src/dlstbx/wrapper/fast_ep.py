@@ -10,7 +10,7 @@ import zocalo.wrapper
 
 import dlstbx.util.symlink
 
-logger = logging.getLogger("dlstbx.wrap.fast_ep")
+logger = logging.getLogger("zocalo.wrap.fast_ep")
 
 
 class FastEPWrapper(zocalo.wrapper.BaseWrapper):

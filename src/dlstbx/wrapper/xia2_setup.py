@@ -6,7 +6,7 @@ import zocalo.wrapper
 import dlstbx.util.symlink
 from dlstbx.util.iris import get_presigned_urls_images, write_singularity_script
 
-logger = logging.getLogger("dlstbx.wrap.xia2_setup")
+logger = logging.getLogger("zocalo.wrap.xia2_setup")
 
 
 class Xia2SetupWrapper(zocalo.wrapper.BaseWrapper):

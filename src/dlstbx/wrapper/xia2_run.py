@@ -8,7 +8,7 @@ import zocalo.wrapper
 
 from dlstbx.util.iris import get_objects_from_s3
 
-logger = logging.getLogger("dlstbx.wrap.xia2_run")
+logger = logging.getLogger("zocalo.wrap.xia2_run")
 
 
 class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):

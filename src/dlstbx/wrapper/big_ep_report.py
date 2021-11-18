@@ -20,7 +20,7 @@ from dlstbx.util.big_ep_helpers import (
 )
 from dlstbx.util.symlink import create_parent_symlink
 
-logger = logging.getLogger("dlstbx.wrap.big_ep_report")
+logger = logging.getLogger("zocalo.wrap.big_ep_report")
 
 
 class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):

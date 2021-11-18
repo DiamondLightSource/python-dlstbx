@@ -7,7 +7,7 @@ import zocalo.wrapper
 
 import dlstbx.util.symlink
 
-logger = logging.getLogger("dlstbx.wrap.xia2_results")
+logger = logging.getLogger("zocalo.wrap.xia2_results")
 
 
 class Xia2ResultsWrapper(zocalo.wrapper.BaseWrapper):

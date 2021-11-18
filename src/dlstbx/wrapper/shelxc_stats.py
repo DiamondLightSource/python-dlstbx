@@ -5,7 +5,7 @@ import zocalo.wrapper
 
 from dlstbx.util.shelxc import reduce_shelxc_results
 
-logger = logging.getLogger("dlstbx.wrap.shelxc_stats")
+logger = logging.getLogger("zocalo.wrap.shelxc_stats")
 
 
 class ShelxcStatsWrapper(zocalo.wrapper.BaseWrapper):

@@ -78,14 +78,13 @@ def run() -> None:
                 stdin.append(line.strip())
         print(f"{len(stdin)} filenames read from stdin")
 
-    if not args.files:
-        print("No DLQ message files given.")
-        sys.exit(0)
+    if not stdin and not args.files:
+        sys.exit("No DLQ message files given.")
 
     transport.connect()
 
     first = True
-    for dlqfile in args.files:
+    for dlqfile in args.files + stdin:
         if not os.path.exists(dlqfile):
             print(f"Ignoring missing file {dlqfile}")
             continue

@@ -28,6 +28,7 @@ class DLSBridge(CommonService):
             self._transport.subscribe(
                 queue,
                 partial(self.receive_msg, args=(self.queues[queue])),
+                acknowledgement=True,
             )
 
     def receive_msg(self, header, message, args):

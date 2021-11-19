@@ -134,11 +134,13 @@ class DLSISPyB(EM_Mixin, CommonService):
                 )
         except Exception as e:
             self.log.error(
-                f"Uncaught exception {e!r} in ISPyB function {command!r}, quarantining message.",
+                f"Uncaught exception {e!r} in ISPyB function {command!r}, "
+                "quarantining message and shutting down instance.",
                 exc_info=True,
             )
             rw.transport.transaction_abort(txn)
             rw.transport.nack(header)
+            self._request_termination()
             return
 
         store_result = rw.recipe_step["parameters"].get("store_result")

@@ -20,11 +20,11 @@ class DLSReverseBridge(CommonService):
 
     def initializing(self):
         self.log.debug("Reverse Bridge service starting")
-        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-        StompTransport.load_configuration_file(default_configuration)
+
         self.stomp_transport = StompTransport()
 
         print("initialising DLSReverseBridge service")
+        self.stomp_transport.connect()
         for queue in self.queues:
             self._transport.subscribe(
                 queue,
@@ -34,7 +34,6 @@ class DLSReverseBridge(CommonService):
     def receive_msg(self, header, message, args):
         send_to = args
         if send_to:
-            self.stomp_transport.connect()
             try:
                 self.stomp_transport.send(
                     send_to,

@@ -18,6 +18,7 @@ from functools import partial
 
 import workflows
 import zocalo.configuration
+from zocalo.util.rabbitmq import RabbitMQAPI
 
 
 def run() -> None:
@@ -62,11 +63,9 @@ def run() -> None:
     def receive_dlq_message(header, message, rabbitmq=False):
         idlequeue.put_nowait("start")
         if rabbitmq:
-            msg_time = (
-                int(datetime.timestamp(header["headers"]["x-death"][0]["time"])) * 1000
-            )
-            header["headers"]["x-death"][0]["time"] = datetime.timestamp(
-                header["headers"]["x-death"][0]["time"]
+            msg_time = int(datetime.timestamp(header["x-death"][0]["time"])) * 1000
+            header["x-death"][0]["time"] = datetime.timestamp(
+                header["x-death"][0]["time"]
             )
         else:
             msg_time = int(header["timestamp"])
@@ -119,8 +118,11 @@ def run() -> None:
         idlequeue.put_nowait("done")
 
     transport.connect()
-    if not queues:
+    if not queues and args.transport == "StompTransport":
         queues = [dlqprefix + ".>"]
+    elif not queue and args.transport == "PikaTransport":
+        rmq = RabbitMQAPI.from_zocalo_configuration(zc)
+        queues = [q.name for q in rmq.queues() if q.name.startswith("dlq.")]
     for queue_ in queues:
         print("Looking for DLQ messages in " + queue_)
         transport.subscribe(

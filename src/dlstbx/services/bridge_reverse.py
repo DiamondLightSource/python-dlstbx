@@ -15,7 +15,7 @@ class DLSReverseBridge(CommonService):
     _logger_name = "dlstbx.services.bridge_reverse"
 
     queues = {
-        "reduce.xray_centering": "rabbit.reduce.xray_centering",
+        "reduce.xray_centering": "reduce.xray_centering",
     }
 
     def initializing(self):
@@ -29,6 +29,7 @@ class DLSReverseBridge(CommonService):
             self._transport.subscribe(
                 queue,
                 partial(self.receive_msg, args=(self.queues[queue])),
+                acknowledgement=True,
             )
 
     def receive_msg(self, header, message, args):
@@ -40,6 +41,7 @@ class DLSReverseBridge(CommonService):
                     message,
                     headers=header,
                 )
+
                 self._transport.ack(header)
                 self.log.info(f"message {message} sent to {send_to}")
             except workflows.Disconnected:

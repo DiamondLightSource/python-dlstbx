@@ -136,14 +136,13 @@ class DLSXRayCentering(CommonService):
             log_extender=self.extend_log,
         )
 
-        # if the -m metrics flag was used to start service, initialise metrics
+        # Initialise metrics if service started with '-m'
         if self._environment.get("metrics"):
             self._metrics = self._environment.get("metrics")
             try:
                 self._prom_metrics = prometheus_metrics()
             except:
                 self.log.info("Failed to create metrics instance")
-
             if self._prom_metrics:
                 prometheus_metrics.open_endpoint(8000, "localhost")
                 self._prom_metrics.create_metrics()
@@ -290,13 +289,6 @@ class DLSXRayCentering(CommonService):
                     snaked=gridinfo.snaked,
                     orientation=gridinfo.orientation,
                 )
-
-                # latency calculation, labels & metrics
-                if self._metrics:
-                    m_latency = time.time() - cd.last_image_seen_at
-                    beam_line = message.file.split("/dls/")[1].split("/data/")[0]
-                    self._prom_metrics.set_metrics(beam_line, m_latency)
-
                 self.log.debug(output)
 
                 # Write result file
@@ -336,6 +328,14 @@ class DLSXRayCentering(CommonService):
                 self.log.info(
                     f"X-ray centering completed for dcid {parameters.dcid} with latency of {latency:.2f} seconds"
                 )
+
+                # Prometheus metrics
+                if self._metrics:
+                    beam_line = message.file.split("/dls/")[1].split("/data/")[0]
+                    try:
+                        self._prom_metrics.set_metrics(beam_line, latency)
+                    except:
+                        self.log.info("Failed to set metrics")
 
                 # Acknowledge all messages
                 txn = rw.transport.transaction_begin()

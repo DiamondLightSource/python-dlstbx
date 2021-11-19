@@ -9,6 +9,7 @@ import re
 import time
 
 import pandas as pd
+import workflows.transport
 import zocalo.configuration
 import zocalo.util.jmxstats
 from zocalo.util.rabbitmq import RabbitMQAPI
@@ -230,12 +231,6 @@ def run():
     parser = argparse.ArgumentParser(usage="dlstbx.queue_monitor")
     parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
     parser.add_argument(
-        "--rabbitmq",
-        action="store_true",
-        dest="rabbitmq",
-        help="Show stats for the RabbitMQ server",
-    )
-    parser.add_argument(
         "--interval",
         dest="gather_interval",
         default=5,
@@ -246,22 +241,23 @@ def run():
     zc = zocalo.configuration.from_file()
     zc.activate()
     zc.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser, transport_argument=True)
 
     args = parser.parse_args()
 
     previous_stats = None
 
-    if not args.rabbitmq:
+    if args.transport == "PikaTransport":
+        rmq = RabbitMQAPI.from_zocalo_configuration(zc)
+        transport_prefix = "RabbitMQ"
+    else:
         global jmx
         jmx = zocalo.util.jmxstats.JMXAPI(zc)
         transport_prefix = "ActiveMQ"
-    else:
-        rmq = RabbitMQAPI.from_zocalo_configuration(zc)
-        transport_prefix = "RabbitMQ"
 
     try:
         while True:
-            if args.rabbitmq:
+            if args.transport == "PikaTransport":
                 stats = get_rabbitmq_stats(rmq)
             else:
                 stats = get_activemq_stats()

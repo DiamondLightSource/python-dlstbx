@@ -283,7 +283,7 @@ class DLSXRayCentering(CommonService):
                 # Write latency log message
                 latency = time.time() - cd.last_image_seen_at
                 self.log.info(
-                    f"X-ray centering completed for dcid {parameters.dcid} with latency of {latency:.2f} seconds"
+                    f"X-ray centering completed for DCID {parameters.dcid} with latency of {latency:.2f} seconds"
                 )
 
                 # Acknowledge all messages

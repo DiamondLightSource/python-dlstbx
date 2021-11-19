@@ -120,7 +120,7 @@ def run() -> None:
     transport.connect()
     if not queues and args.transport == "StompTransport":
         queues = [dlqprefix + ".>"]
-    elif not queue and args.transport == "PikaTransport":
+    elif not queues and args.transport == "PikaTransport":
         rmq = RabbitMQAPI.from_zocalo_configuration(zc)
         queues = [q.name for q in rmq.queues() if q.name.startswith("dlq.")]
     for queue_ in queues:

@@ -22,6 +22,7 @@ class DLSBridge(CommonService):
     def initializing(self):
         self.log.debug("Bridge service starting")
         self.pika_transport = PikaTransport()
+        self.pika_transport.connect()
 
         print("initialising DLSBridge service")
         for queue in self.queues:
@@ -33,7 +34,6 @@ class DLSBridge(CommonService):
     def receive_msg(self, header, message, args):
         send_to = args
         if send_to:
-            self.pika_transport.connect()
             try:
                 self.pika_transport.send(
                     send_to,

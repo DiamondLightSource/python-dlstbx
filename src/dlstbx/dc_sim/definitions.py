@@ -90,6 +90,7 @@ tests = {
         ),
         "src_prefix": ("ZincInsulinB4",),
         "use_sample_id": 3275609,
+        "dcg": True,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -328,6 +329,16 @@ tests = {
                     "estimatedResolution": approx(5, 0.75),
                     "estimatedDefocus": approx(10800, 0.75),
                     "ccValue": approx(0.15, 0.75),
+                }
+                for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
+            },
+            "relative_ice_thickness": {
+                f"MotionCorr/job002/Movies/Frames/20170629_000{image_number}_frameImage.mrc": {
+                    "median": approx(250e3, 0.2),
+                    "minimum": approx(250e3, 0.2),
+                    "maximum": approx(250e3, 0.2),
+                    "q1": approx(250e3, 0.2),
+                    "q3": approx(250e3, 0.2),
                 }
                 for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
             },

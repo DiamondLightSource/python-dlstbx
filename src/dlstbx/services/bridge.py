@@ -15,17 +15,13 @@ class DLSBridge(CommonService):
     _logger_name = "dlstbx.services.bridge"
 
     queues = {
-        "bridge.test": "bridge.test",
-        "transient.transaction": "transient.transaction",
+        "rabbit.pia": "per_image_analysis",
     }
 
     def initializing(self):
         self.log.debug("Bridge service starting")
-        default_configuration = (
-            "/dls_sw/apps/zocalo/secrets/rabbitmq/credentials-zocalo.cfg"
-        )
-        PikaTransport.load_configuration_file(default_configuration)
         self.pika_transport = PikaTransport()
+        self.pika_transport.connect()
 
         print("initialising DLSBridge service")
         for queue in self.queues:
@@ -37,7 +33,6 @@ class DLSBridge(CommonService):
     def receive_msg(self, header, message, args):
         send_to = args
         if send_to:
-            self.pika_transport.connect()
             try:
                 self.pika_transport.send(
                     send_to,

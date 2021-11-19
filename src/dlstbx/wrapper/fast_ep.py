@@ -10,11 +10,11 @@ import zocalo.wrapper
 
 import dlstbx.util.symlink
 
-logger = logging.getLogger("dlstbx.wrap.fast_ep")
+logger = logging.getLogger("zocalo.wrap.fast_ep")
 
 
 class FastEPWrapper(zocalo.wrapper.BaseWrapper):
-    def go_fast_ep(self, params):
+    def stop_fast_ep(self, params):
         """Decide whether to run fast_ep or not based on the completeness, dI/s(dI) and
         resolution of actual data."""
 
@@ -128,10 +128,9 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
                 params["fast_ep"]["data"] = os.path.abspath(
                     params["ispyb_parameters"]["data"]
                 )
-            if (
-                params["ispyb_parameters"].get("check_go_fast_ep")
-                or "go_fast_ep" in params
-            ) and self.go_fast_ep(params):
+            if int(
+                params["ispyb_parameters"].get("check_go_fast_ep", False)
+            ) and self.stop_fast_ep(params):
                 logger.info("Skipping fast_ep (go_fast_ep == No)")
                 return False
 
@@ -140,22 +139,6 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 working_directory.strpath, params["create_symlink"]
-            )
-
-        # Create SynchWeb ticks hack file. This will be overwritten with the real log later.
-        # For this we need to create the results directory and symlink immediately.
-        try:
-            if params.get("synchweb_ticks"):
-                logger.debug("Setting SynchWeb status to swirl")
-                if params.get("create_symlink"):
-                    results_directory.ensure(dir=True)
-                    dlstbx.util.symlink.create_parent_symlink(
-                        results_directory.strpath, params["create_symlink"]
-                    )
-                py.path.local(params["synchweb_ticks"]).ensure()
-        except NameError:
-            logger.info(
-                "Setting SynchWeb symlinks ignored. Results directory unavailable."
             )
 
         command = self.construct_commandline(params)

@@ -18,7 +18,7 @@ from dlstbx.util.big_ep_helpers import (
 )
 from dlstbx.util.symlink import create_parent_symlink
 
-logger = logging.getLogger("dlstbx.wrap.big_ep_setup")
+logger = logging.getLogger("zocalo.wrap.big_ep_setup")
 
 
 def get_bigep_parameters(big_ep_params, working_directory, logger):

@@ -13,7 +13,7 @@ from jinja2.loaders import PackageLoader
 
 from dlstbx.util.big_ep_helpers import write_sequence_file, write_settings_file
 
-logger = logging.getLogger("dlstbx.wrap.big_ep_run")
+logger = logging.getLogger("zocalo.wrap.big_ep_run")
 
 
 class BigEPRunWrapper(zocalo.wrapper.BaseWrapper):

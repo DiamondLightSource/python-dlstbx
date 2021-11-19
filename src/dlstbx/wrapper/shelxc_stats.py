@@ -5,7 +5,7 @@ import zocalo.wrapper
 
 from dlstbx.util.shelxc import reduce_shelxc_results
 
-logger = logging.getLogger("dlstbx.wrap.shelxc_stats")
+logger = logging.getLogger("zocalo.wrap.shelxc_stats")
 
 
 class ShelxcStatsWrapper(zocalo.wrapper.BaseWrapper):
@@ -15,7 +15,7 @@ class ShelxcStatsWrapper(zocalo.wrapper.BaseWrapper):
 
         shelxc_stats = deepcopy(self.recwrap.payload)
         try:
-            data_stats = reduce_shelxc_results(shelxc_stats, params)
+            data_stats = reduce_shelxc_results(shelxc_stats, params, logger)
         except Exception:
             logger.debug("Cannot process SHELXC results")
             return False

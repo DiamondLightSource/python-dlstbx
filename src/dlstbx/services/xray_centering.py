@@ -8,13 +8,12 @@ from typing import List
 import numpy as np
 import pydantic
 import workflows.recipe
+from prometheus_client import Counter, Gauge, Histogram, start_http_server
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.symlink
 import dlstbx.util.xray_centering
 import dlstbx.util.xray_centering_3d
-
-from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
 
 class GridInfo(pydantic.BaseModel):
@@ -55,10 +54,8 @@ class RecipeStep(pydantic.BaseModel):
 class Message(pydantic.BaseModel):
     file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
     n_spots_total: pydantic.NonNegativeInt
-
-    file_detected_timestamp: pydantic.NonNegativeFloat = pydantic.Field(alias="file-detected-timestamp")
+    file_seen_at: pydantic.NonNegativeFloat = pydantic.Field(alias="file-seen-at")
     file: str
-    #beam_line: str = pydantic.Field(["file"].split("/dls/")[1].split("/data/"[0]))
 
 
 class CenteringData(pydantic.BaseModel):
@@ -66,6 +63,7 @@ class CenteringData(pydantic.BaseModel):
     recipewrapper: workflows.recipe.wrapper.RecipeWrapper
     headers: list = pydantic.Field(default_factory=list)
     last_activity: float = pydantic.Field(default_factory=time.time)
+    last_image_seen_at: pydantic.NonNegativeInt
     data: np.ndarray = None
 
     def __init__(self, **data):
@@ -80,8 +78,7 @@ class CenteringData(pydantic.BaseModel):
         arbitrary_types_allowed = True
 
 
-class prometheus_metrics():
-
+class prometheus_metrics:
     def __init__(self):
         self._metrics_on = True
 
@@ -93,16 +90,16 @@ class prometheus_metrics():
 
     def create_metrics(self):
         self.complete_centering = Counter(
-        "complete_centerings",
-        "Counts total number of completed x-ray centerings",
-        ["beam_line"]
+            "complete_centerings",
+            "Counts total number of completed x-ray centerings",
+            ["beam_line"],
         )
         self.analysis_latency = Histogram(
-        "analysis_latency",
-        "The time passed (s) from end of data collection to end of x-ray centering",
-        ["beam_line"],
-        buckets = [ 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-        unit= "s"
+            "analysis_latency",
+            "The time passed (s) from end of data collection to end of x-ray centering",
+            ["beam_line"],
+            buckets=[10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+            unit="s",
         )
 
     def set_metrics(self, bl, lat):
@@ -148,9 +145,8 @@ class DLSXRayCentering(CommonService):
                 self.log.info("Failed to create metrics instance")
 
             if self._prom_metrics:
-                prometheus_metrics.open_endpoint(8000,"localhost")
+                prometheus_metrics.open_endpoint(8000, "localhost")
                 self._prom_metrics.create_metrics()
-
 
     def garbage_collect(self):
         """Throw away partial scan results after a while."""
@@ -214,6 +210,7 @@ class DLSXRayCentering(CommonService):
                 cd = CenteringData(
                     gridinfo=gridinfo,
                     recipewrapper=rw,
+                    last_image_seen_at=message.file_seen_at,
                 )
                 self._centering_data[dcid] = cd
                 self.log.info(
@@ -231,13 +228,7 @@ class DLSXRayCentering(CommonService):
                 gridinfo.image_count,
             )
             cd.data[message.file_number - 1] = message.n_spots_total
-
-            # Save timestamp of last file read in for latency metric
-            last_file_read_at = 0.0
-            if self._metrics:
-                if message.file_detected_timestamp > last_file_read_at:
-                    last_file_read_at = message.file_detected_timestamp
-            
+            cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
             if dcg_dcids and cd.images_seen == gridinfo.image_count:
                 data = [cd.data]
@@ -302,11 +293,9 @@ class DLSXRayCentering(CommonService):
 
                 # latency calculation, labels & metrics
                 if self._metrics:
-                    r_latency = time.time() - last_file_read_at
+                    m_latency = time.time() - cd.last_image_seen_at
                     beam_line = message.file.split("/dls/")[1].split("/data/")[0]
-                    
-                    self._prom_metrics.set_metrics(beam_line,r_latency)
-
+                    self._prom_metrics.set_metrics(beam_line, m_latency)
 
                 self.log.debug(output)
 
@@ -341,6 +330,12 @@ class DLSXRayCentering(CommonService):
                 if parameters.log:
                     parameters.log.parent.mkdir(parents=True, exist_ok=True)
                     parameters.log.write_text(output)
+
+                # Write latency log message
+                latency = time.time() - cd.last_image_seen_at
+                self.log.info(
+                    f"X-ray centering completed for dcid {parameters.dcid} with latency of {latency:.2f} seconds"
+                )
 
                 # Acknowledge all messages
                 txn = rw.transport.transaction_begin()

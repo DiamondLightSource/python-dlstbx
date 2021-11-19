@@ -1,4 +1,5 @@
 import os.path
+from unittest import mock
 
 from workflows.recipe import Recipe
 
@@ -183,7 +184,7 @@ class FilewatcherService(CommonSystemTest):
             recipe=recipe,
             recipe_path=[1],
             recipe_pointer=2,
-            payload={"file": names[0], "file-list-index": 1},
+            payload={"file": names[0], "file-list-index": 1, "file-seen-at": mock.ANY},
             timeout=50,
         )
 
@@ -198,6 +199,7 @@ class FilewatcherService(CommonSystemTest):
                 payload={
                     "file": names[file_number],
                     "file-list-index": file_number + 1,
+                    "file-seen-at": mock.ANY,
                 },
                 min_wait=4.5,
                 timeout=150,
@@ -214,6 +216,7 @@ class FilewatcherService(CommonSystemTest):
                 payload={
                     "file": names[file_number],
                     "file-list-index": file_number + 1,
+                    "file-seen-at": mock.ANY,
                 },
                 min_wait=4.5,
                 timeout=150,
@@ -226,7 +229,7 @@ class FilewatcherService(CommonSystemTest):
             recipe=recipe,
             recipe_path=[1],
             recipe_pointer=4,
-            payload={"file": names[9], "file-list-index": 10},
+            payload={"file": names[9], "file-list-index": 10, "file-seen-at": mock.ANY},
             min_wait=63,
             timeout=150,
         )
@@ -242,6 +245,7 @@ class FilewatcherService(CommonSystemTest):
                 payload={
                     "file": names[file_number - 1],
                     "file-list-index": file_number,
+                    "file-seen-at": mock.ANY,
                 },
                 timeout=150,
             )
@@ -253,7 +257,11 @@ class FilewatcherService(CommonSystemTest):
             recipe=recipe,
             recipe_path=[1],
             recipe_pointer=6,
-            payload={"file": names[7 - 1], "file-list-index": 7},
+            payload={
+                "file": names[7 - 1],
+                "file-list-index": 7,
+                "file-seen-at": mock.ANY,
+            },
             timeout=150,
         )
 
@@ -371,6 +379,7 @@ class FilewatcherService(CommonSystemTest):
                 "file": self.filepattern % 1,
                 "file-number": 1,
                 "file-pattern-index": 1,
+                "file-seen-at": mock.ANY,
             },
             timeout=50,
         )
@@ -387,6 +396,7 @@ class FilewatcherService(CommonSystemTest):
                     "file": self.filepattern % (file_number + 1),
                     "file-number": file_number + 1,
                     "file-pattern-index": file_number + 1,
+                    "file-seen-at": mock.ANY,
                 },
                 min_wait=max(0, file_number / 10) - 0.5,
                 timeout=150,
@@ -434,6 +444,7 @@ class FilewatcherService(CommonSystemTest):
                     "file": self.filepattern % file_number,
                     "file-number": file_number,
                     "file-pattern-index": file_number,
+                    "file-seen-at": mock.ANY,
                 },
                 min_wait=max(0, file_number / 10) - 0.5,
                 timeout=150,
@@ -450,6 +461,7 @@ class FilewatcherService(CommonSystemTest):
                 "file": self.filepattern % 200,
                 "file-number": 200,
                 "file-pattern-index": 200,
+                "file-seen-at": mock.ANY,
             },
             min_wait=65,
             timeout=150,
@@ -498,6 +510,7 @@ class FilewatcherService(CommonSystemTest):
                     "file": self.filepattern % file_number,
                     "file-number": file_number,
                     "file-pattern-index": file_number,
+                    "file-seen-at": mock.ANY,
                 },
                 timeout=150,
             )
@@ -513,6 +526,7 @@ class FilewatcherService(CommonSystemTest):
                 "file": self.filepattern % 20,
                 "file-number": 20,
                 "file-pattern-index": 20,
+                "file-seen-at": mock.ANY,
             },
             timeout=60,
         )
@@ -868,7 +882,7 @@ class FilewatcherService(CommonSystemTest):
             recipe=recipe,
             recipe_path=[1],
             recipe_pointer=2,
-            payload={"file": names[0], "file-list-index": 1},
+            payload={"file": names[0], "file-list-index": 1, "file-seen-at": mock.ANY},
             timeout=65,
         )
 
@@ -883,6 +897,7 @@ class FilewatcherService(CommonSystemTest):
                 payload={
                     "file": names[file_number],
                     "file-list-index": file_number + 1,
+                    "file-seen-at": mock.ANY,
                 },
                 min_wait=4,
                 timeout=80,
@@ -899,6 +914,7 @@ class FilewatcherService(CommonSystemTest):
                 payload={
                     "file": names[file_number],
                     "file-list-index": file_number + 1,
+                    "file-seen-at": mock.ANY,
                 },
                 min_wait=4,
                 timeout=80,
@@ -920,7 +936,7 @@ class FilewatcherService(CommonSystemTest):
             recipe=recipe,
             recipe_path=[1],
             recipe_pointer=5,
-            payload={"file": names[0], "file-list-index": 1},
+            payload={"file": names[0], "file-list-index": 1, "file-seen-at": mock.ANY},
             timeout=80,
         )
 
@@ -1048,6 +1064,7 @@ class FilewatcherService(CommonSystemTest):
                 "file": delayed_fail_file,
                 "file-number": 1,
                 "file-pattern-index": 5,
+                "file-seen-at": mock.ANY,
             },
             min_wait=25,
             timeout=50,
@@ -1064,6 +1081,7 @@ class FilewatcherService(CommonSystemTest):
                 "file": delayed_fail_file,
                 "file-number": 1,
                 "file-pattern-index": 5,
+                "file-seen-at": mock.ANY,
             },
             min_wait=25,
             timeout=50,
@@ -1080,6 +1098,7 @@ class FilewatcherService(CommonSystemTest):
                 "file": delayed_fail_file,
                 "file-number": 1,
                 "file-pattern-index": 5,
+                "file-seen-at": mock.ANY,
             },
             min_wait=25,
             timeout=50,
@@ -1104,6 +1123,7 @@ class FilewatcherService(CommonSystemTest):
                 "file": delayed_fail_file,
                 "file-number": 1,
                 "file-pattern-index": 5,
+                "file-seen-at": mock.ANY,
             },
             min_wait=25,
             timeout=50,

@@ -9,7 +9,7 @@ import zocalo.wrapper
 import dlstbx.util.symlink
 from dlstbx.util.shelxc import parse_shelxc_logs
 
-logger = logging.getLogger("dlstbx.wrap.xia2.to_shelxcde")
+logger = logging.getLogger("zocalo.wrap.xia2.to_shelxcde")
 
 
 class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
@@ -92,7 +92,7 @@ class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
         with open(shelxc_log, "w") as fp:
             fp.write(result["stdout"].decode("latin1"))
 
-        stats = parse_shelxc_logs(result["stdout"].decode("latin1"))
+        stats = parse_shelxc_logs(result["stdout"].decode("latin1"), logger)
         if not stats:
             logger.debug("Cannot process SHELXC data. Aborting.")
             return False

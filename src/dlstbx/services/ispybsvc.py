@@ -134,7 +134,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 )
         except Exception as e:
             self.log.error(
-                f"Uncaught exception {e} in ISPyB function {command} , quarantining message.",
+                f"Uncaught exception {e!r} in ISPyB function {command!r}, quarantining message.",
                 exc_info=True,
             )
             rw.transport.transaction_abort(txn)
@@ -944,6 +944,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             session.add_all([pdb, protein_has_pdb])
 
         session.commit()
+        return {"success": True}
 
     def do_multipart_message(self, rw, message, **kwargs):
         """The multipart_message command allows the recipe or client to specify a

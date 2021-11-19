@@ -109,11 +109,11 @@ class Monitor:
         if self._filters:
             if any(not f(message) for f in self._filters):
                 return  # skip
+        timestamp = int(header.get("timestamp") or time.time() * 1000)
         with self._lock:
             if (
                 message["host"] not in self._node_status
-                or int(header["timestamp"])
-                >= self._node_status[message["host"]]["last_seen"]
+                or timestamp >= self._node_status[message["host"]]["last_seen"]
             ):
                 if "dlstbx" in message:
                     match = re.search("dlstbx ([0-9.]*)", message["dlstbx"])
@@ -122,9 +122,7 @@ class Monitor:
                     else:
                         message["dlstbx"] = None
                 self._node_status[message["host"]] = message
-                self._node_status[message["host"]]["last_seen"] = int(
-                    header["timestamp"]
-                )
+                self._node_status[message["host"]]["last_seen"] = timestamp
 
     def run(self):
         """A wrapper for the real _run() function to cleanly enable/disable the

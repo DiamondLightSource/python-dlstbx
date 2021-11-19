@@ -71,6 +71,7 @@ class DLSImages(CommonService):
             rw.transport.nack(header)
             return
 
+        start = time.perf_counter()
         try:
             result = self.image_functions[command](
                 PluginInterface(rw, parameters, message)
@@ -79,8 +80,10 @@ class DLSImages(CommonService):
             self.log.error(f"Command {command!r} raised {e}", exc_info=True)
             rw.transport.nack(header)
             return
+        runtime = time.perf_counter() - start
 
         if result:
+            self.log.info(f"Command {command!r} completed in {runtime:.1f} seconds")
             rw.transport.ack(header)
         elif result is False:
             # The assumption here is that if a function returns explicit
@@ -88,7 +91,9 @@ class DLSImages(CommonService):
             # don't need yet another log record.
             rw.transport.nack(header)
         else:
-            self.log.error(f"Command {command!r} returned {result!r}")
+            self.log.error(
+                f"Command {command!r} returned {result!r} after {runtime:.1f} seconds"
+            )
             rw.transport.nack(header)
 
 

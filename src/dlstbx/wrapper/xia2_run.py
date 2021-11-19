@@ -4,10 +4,11 @@ import subprocess
 from pathlib import Path
 
 import procrunner
-import requests
 import zocalo.wrapper
 
-logger = logging.getLogger("dlstbx.wrap.xia2_run")
+from dlstbx.util.iris import get_objects_from_s3
+
+logger = logging.getLogger("zocalo.wrap.xia2_run")
 
 
 class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
@@ -27,7 +28,12 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
             if not isinstance(values, (list, tuple)):
                 values = [values]
             if param == "image" and is_cloud:
-                values = [str(working_directory / val) for val in values]
+                update_values = []
+                for val in values:
+                    pth, sweep = val.split(":", 1)
+                    cloud_path = str(working_directory / Path(pth).name)
+                    update_values.append(":".join([cloud_path, sweep]))
+                values = update_values
             for v in values:
                 command.append(f"{param}={v}")
 
@@ -50,24 +56,21 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        is_cloud = False
-        try:
+        is_cloud = "s3_urls" in self.recwrap.payload
+        if is_cloud:
             s3_urls = self.recwrap.payload["s3_urls"]
-            for filename, s3_url in s3_urls.items():
-                file_data = requests.get(s3_url)
-                filepath = working_directory / filename
-                with open(filepath, "wb") as fp:
-                    fp.write(file_data.content)
-                is_cloud = True
-        except (KeyError, TypeError):
-            logger.error("Cannot read input files from S3 store.")
+            try:
+                get_objects_from_s3(working_directory, s3_urls)
+            except Exception:
+                logger.exception(
+                    "Exception raised while downloading files from S3 object store"
+                )
+                return False
 
         command = self.construct_commandline(working_directory, params, is_cloud)
         logger.info("command: %s", " ".join(command))
 
-        procrunner_directory = working_directory / "-".join(
-            ["xia2", params["xia2"]["pipeline"]]
-        )
+        procrunner_directory = working_directory / params["create_symlink"]
         procrunner_directory.mkdir(parents=True, exist_ok=True)
         try:
             result = procrunner.run(

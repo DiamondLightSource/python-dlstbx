@@ -1,16 +1,12 @@
-import configparser
-import glob
 import logging
-import urllib
-from datetime import timedelta
 from pathlib import Path
 
-import minio
 import zocalo.wrapper
 
 import dlstbx.util.symlink
+from dlstbx.util.iris import get_presigned_urls_images, write_singularity_script
 
-logger = logging.getLogger("dlstbx.wrap.autoPROC_setup")
+logger = logging.getLogger("zocalo.wrap.autoPROC_setup")
 
 clean_environment = {
     "LD_LIBRARY_PATH": "",
@@ -20,54 +16,6 @@ clean_environment = {
     "FONTCONFIG_PATH": "",
     "FONTCONFIG_FILE": "",
 }
-
-
-def write_singularity_script(working_directory, image_name):
-    singularity_script = working_directory / "run_singularity.sh"
-    commands = [
-        "#!/bin/bash",
-        f"/usr/bin/singularity exec --home ${{PWD}} {image_name} $@",
-    ]
-    with open(singularity_script, "w") as fp:
-        fp.write("\n".join(commands))
-
-
-def s3_get_presigned_urls(params):
-    s3_config = Path(params["s3_config"])
-    s3_name = params["s3_name"]
-
-    config = configparser.ConfigParser()
-    config.read(str(s3_config))
-
-    host = urllib.parse.urlparse(config[s3_name]["endpoint"])
-    minio_client = minio.Minio(
-        host.netloc,
-        access_key=config[s3_name]["access_key_id"],
-        secret_key=config[s3_name]["secret_access_key"],
-        secure=True,
-    )
-
-    bucket_name = params["dcid"]
-    if not minio_client.bucket_exists(bucket_name):
-        minio_client.make_bucket(bucket_name)
-    else:
-        logger.info("Object store bucket {bucket_name} already exists.")
-    s3_urls = {}
-    store_objects = [obj.object_name for obj in minio_client.list_objects(bucket_name)]
-    for filepath in glob.glob(params["image_pattern"]):
-        filename = Path(filepath).name
-        if filename in store_objects:
-            logger.info(
-                f"File {filename} already exists in object store bucket {bucket_name}."
-            )
-        else:
-            logger.info(f"Writing file {filename} into object store.")
-            minio_client.fput_object(bucket_name, filename, filepath)
-        s3_urls[filename] = minio_client.presigned_get_object(
-            bucket_name, filename, expires=timedelta(hours=2)
-        )
-    logger.info(f"Image file URLs: {s3_urls}")
-    return s3_urls
 
 
 class autoPROCSetupWrapper(zocalo.wrapper.BaseWrapper):
@@ -106,8 +54,9 @@ class autoPROCSetupWrapper(zocalo.wrapper.BaseWrapper):
                 logger.exception("Error writing singularity script")
                 return False
 
-        if params.get("s3_config"):
-            s3_urls = s3_get_presigned_urls(params)
+            s3_urls = get_presigned_urls_images(
+                params["rpid"], params["images"], logger
+            )
             self.recwrap.send_to("cloud", {"s3_urls": s3_urls})
 
         return True

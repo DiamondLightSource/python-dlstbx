@@ -20,7 +20,7 @@ from dlstbx.util.big_ep_helpers import (
 )
 from dlstbx.util.symlink import create_parent_symlink
 
-logger = logging.getLogger("dlstbx.wrap.big_ep_report")
+logger = logging.getLogger("zocalo.wrap.big_ep_report")
 
 
 class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
@@ -79,7 +79,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
             mdl_dict = get_crank2_model_files(working_directory, logger)
         if mdl_dict is None:
             logger.warning(f"Cannot process {pipeline} results")
-            return True
+            return False
 
         ispyb_write_model_json(str(working_directory), mdl_dict, logger)
         write_coot_script(str(working_directory), mdl_dict)

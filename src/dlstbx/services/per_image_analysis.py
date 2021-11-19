@@ -137,7 +137,6 @@ class DLSPerImageAnalysis(CommonService):
 
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
-        time.sleep(1)
         rw.transport.ack(header, transaction=txn)
 
         # Send results onwards

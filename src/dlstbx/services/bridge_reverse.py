@@ -15,8 +15,7 @@ class DLSReverseBridge(CommonService):
     _logger_name = "dlstbx.services.bridge_reverse"
 
     queues = {
-        "bridge.test": "bridge.test",
-        "transient.destination": "transient.destination",
+        "reduce.xray_centering": "reduce.xray_centering",
     }
 
     def initializing(self):

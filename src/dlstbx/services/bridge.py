@@ -21,10 +21,6 @@ class DLSBridge(CommonService):
 
     def initializing(self):
         self.log.debug("Bridge service starting")
-        default_configuration = (
-            "/dls_sw/apps/zocalo/secrets/rabbitmq/credentials-zocalo.cfg"
-        )
-        PikaTransport.load_configuration_file(default_configuration)
         self.pika_transport = PikaTransport()
 
         print("initialising DLSBridge service")

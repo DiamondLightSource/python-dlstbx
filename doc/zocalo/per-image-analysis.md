@@ -38,33 +38,6 @@ identify an X-ray centering solution for a data collection. Results are written 
 the file `{ispyb_results_directory}/xray-centering/Dials5AResults.json`, which is then
 picked up by the GDA autocentring routine.
 
-## per-image-analyis-eiger-rotation
-
-![per-image-analyis-eiger-rotation flowchart](PIA-eiger-rotation.svg)
-
-Again, this recipe is similar to `per-image-analyis-rotation`. The `DLSFileWatcher`
-watches for arrival on disk of the required HDF5 files, and sends the recipe to the the
-`hdf5_select` routine of the `DLSPerImageAnalysis` service via the
-`per_image_analysis.hdf5_select` queue. This then forwards each selected image to the
-`DLSPerImageAnalysis` service via the `per_image_analysis` queue, whereupon the recipe
-continues as described for `per-image-analyis-rotation`.
-
-## per-image-analyis-eiger-streamdump
-
-![per-image-analyis-eiger-streamdump flowchart](PIA-eiger-streamdump.svg)
-
-This recipe handles real-time per-image analysis of gridscans from EIGER beamlines. As
-HDF5 files produced by EIGER detectors aren't available for reading until after the end of
-the data collection, we instead read a stream of the images that is temporarily dumped to
-disk in the visit `tmp` directory.
-
-This recipe is similar to the `per-image-analyis-gridscan` recipe, with the addition of
-an extra `DLSFileWatcher` step at the beginning. This first `DLSFileWatcher` step watches
-for the arrival header information on disk, and then forwards the recipe to the second
-`DLSFileWatcher` step that watches for the arrival of each image streamdump. This then
-forwards each selected image to the `DLSPerImageAnalysis`, where the recipe continues as
-described for `per-image-analyis-gridscan`.
-
 ## per-image-analyis-gridscan-swmr
 
 ![per-image-analyis-gridscan-swmr flowchart](PIA-gridscan-swmr.svg)

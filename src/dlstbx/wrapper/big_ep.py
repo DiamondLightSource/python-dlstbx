@@ -15,7 +15,6 @@ from dlstbx.util.big_ep_helpers import (
     get_heavy_atom_job,
     read_data,
     read_mtz_datasets,
-    write_settings_file,
 )
 
 logger = logging.getLogger("dlstbx.wrap.big_ep")
@@ -198,11 +197,6 @@ class BigEPWrapper(zocalo.wrapper.BaseWrapper):
             return False
         try:
             read_mtz_datasets(msg, logger)
-        except Exception:
-            logger.exception("Error reading big_ep parameters")
-            return False
-        try:
-            write_settings_file(msg)
         except Exception:
             logger.exception("Error reading big_ep parameters")
             return False

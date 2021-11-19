@@ -7,7 +7,6 @@ from dials.command_line.find_spots_server import work
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.sanity
-from dlstbx.services.filewatcher import is_file_selected
 
 
 class DLSPerImageAnalysis(CommonService):
@@ -39,18 +38,6 @@ class DLSPerImageAnalysis(CommonService):
             self._transport,
             "per_image_analysis",
             self.per_image_analysis,
-            acknowledgement=True,
-            log_extender=self.extend_log,
-        )
-
-        # A queue for a helper function that can generate valid PIA messages for
-        # EIGER/HDF5 data collections. It needs to know the location of the
-        # master file, the image range and how many images should be picked.
-        # Messages are generated without opening or validating the file.
-        workflows.recipe.wrap_subscribe(
-            self._transport,
-            "per_image_analysis.hdf5_select",
-            self.hdf5_select,
             acknowledgement=True,
             log_extender=self.extend_log,
         )
@@ -153,81 +140,3 @@ class DLSPerImageAnalysis(CommonService):
                 "pia-time": runtime,
             },
         )
-
-    def hdf5_select(self, rw, header, message):
-        """Generate PIA messages for an HDF5/EIGER file.
-
-        Recipe parameters:
-        { "parameters": { "file": location of master file,
-                          "image-start": int(first image number),
-                          "image-end": int(last image number),
-        }               }
-
-        Message payload:
-        is ignored
-
-        Output streams:
-        "every": message is generated for every image number n in
-                 start <= n <= end. This is the default output.
-        "select-n": message is generated for up to n approximately equidistant
-                    images within the range.
-
-        Output message format:
-        { "file": copied over from recipe parameter,
-          "file-number": int(image number n),
-          "parameters": {"scan_range": "n,n" (image number)}
-        }
-        """
-
-        # Validate input
-        parameters = rw.recipe_step.get("parameters", {})
-        filename = parameters.get("file")
-        start = parameters.get("image-start")
-        end = parameters.get("image-end")
-        if (
-            None in (filename, start, end)
-            or not str(start).isdigit()
-            or not str(end).isdigit()
-            or int(start) > int(end)
-        ):
-            self.log.warning(
-                "Can not generate PIA messages for invalid range specification %r:%r:%r",
-                filename,
-                start,
-                end,
-            )
-            rw.transport.nack(header)
-            return
-        start, end = int(start), int(end)
-        count = end - start + 1
-        # Conditionally acknowledge receipt of the message
-        txn = rw.transport.transaction_begin()
-        rw.transport.ack(header, transaction=txn)
-
-        # Identify selections to notify for
-        selections = [
-            k
-            for k in rw.recipe_step["output"]
-            if isinstance(k, str) and k.startswith("select-")
-        ]
-        selections = {int(k[7:]): k for k in selections}
-
-        # Generate messages
-        for n in range(start, end + 1):
-            message = {
-                "file": filename,
-                "file-number": n,
-                "parameters": {"scan_range": "{0},{0}".format(n)},
-            }
-
-            # Notify for every file
-            rw.send_to("every", message, transaction=txn)
-
-            # Notify for selections
-            for m, dest in selections.items():
-                if is_file_selected(n, m, count):
-                    rw.send_to(dest, message, transaction=txn)
-
-        # Finish up
-        rw.transport.transaction_commit(txn)
-        self.log.info("PIA messages generated for %s:%d:%d", filename, start, end)

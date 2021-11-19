@@ -152,12 +152,7 @@ in the `per_image_analysis` queue a single image will be analysed. This calls th
 [`work()`](https://github.com/dials/dials/blob/c28a1d0c868805faffeaf5f20b6fdc6efd2877d1/command_line/find_spots_server.py#L71-L260) function of the
 [`dials.find_spots_server`](https://dials.github.io/documentation/programs/dials_find_spots_server.html).
 
-There is a secondary function that subscribes to the `per_image_analysis.hdf5_select`
-queue that can generate valid PIA messages for EIGER/HDF5 data collections. It needs to
-know the location of the master file, the image range and how many images should be
-picked.
-
-Subscribes to the `per_image_analysis` and `per_image_analysis.hdf5_select` queues.
+Subscribes to the `per_image_analysis` queue.
 
 ## DLSStatistics
 

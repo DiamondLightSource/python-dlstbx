@@ -16,6 +16,8 @@ class DLSReverseBridge(CommonService):
 
     queues = {
         "reduce.xray_centering": "reduce.xray_centering",
+        "ispyb_pia": "ispyb_pia",
+        "notify_gda": "notify_gda",
     }
 
     def initializing(self):

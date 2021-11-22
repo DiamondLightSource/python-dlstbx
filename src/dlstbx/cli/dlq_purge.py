@@ -111,10 +111,7 @@ def run() -> None:
                 filename=os.path.join(filepath, filename),
             )
         )
-        if rabbitmq:
-            transport.ack(header, subscription_id=header["subscription"])
-        else:
-            transport.ack(header)
+        transport.ack(header)
         idlequeue.put_nowait("done")
 
     transport.connect()

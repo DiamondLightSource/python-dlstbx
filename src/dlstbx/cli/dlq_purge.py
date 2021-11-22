@@ -115,11 +115,12 @@ def run() -> None:
         idlequeue.put_nowait("done")
 
     transport.connect()
-    if not queues and args.transport == "StompTransport":
-        queues = [dlqprefix + ".>"]
-    elif not queues and args.transport == "PikaTransport":
-        rmq = RabbitMQAPI.from_zocalo_configuration(zc)
-        queues = [q.name for q in rmq.queues() if q.name.startswith("dlq.")]
+    if not queues:
+        if args.transport == "StompTransport":
+            queues = [f"{dlqprefix}.>"]
+        elif args.transport == "PikaTransport":
+            rmq = RabbitMQAPI.from_zocalo_configuration(zc)
+            queues = [q.name for q in rmq.queues() if q.name.startswith("dlq.")]
     for queue_ in queues:
         print("Looking for DLQ messages in " + queue_)
         transport.subscribe(

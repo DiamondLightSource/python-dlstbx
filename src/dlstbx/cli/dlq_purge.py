@@ -22,6 +22,7 @@ from zocalo.util.rabbitmq import RabbitMQAPI
 
 
 def run() -> None:
+    print("\ndlstbx.dlq_purge is deprecated. Use 'zocalo.dlq_purge' instead\n")
     zc = zocalo.configuration.from_file()
     zc.activate()
     parser = argparse.ArgumentParser(

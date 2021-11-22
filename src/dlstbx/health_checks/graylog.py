@@ -13,8 +13,17 @@ _graylog_dashboard = (
 
 
 def check_graylog_is_alive(cfc: CheckFunctionInterface) -> Status:
-    g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
-    messages = g.get_messages()
+    try:
+        g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
+        messages = g.get_messages()
+    except ConnectionError as e:
+        return Status(
+            Source=cfc.name,
+            Level=REPORT.ERROR,
+            Message=f"Connection to Graylog failed with {type(e).__name__}",
+            MessageBody=repr(e),
+            URL=_graylog_url,
+        )
 
     if messages:
         return Status(
@@ -34,8 +43,18 @@ def check_graylog_is_alive(cfc: CheckFunctionInterface) -> Status:
 
 
 def check_graylog_is_healthy(cfc: CheckFunctionInterface) -> Status:
-    g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
-    nodes = g.cluster_info()
+    try:
+        g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
+        nodes = g.cluster_info()
+    except ConnectionError as e:
+        return Status(
+            Source=cfc.name,
+            Level=REPORT.ERROR,
+            Message=f"Connection to Graylog failed with {type(e).__name__}",
+            MessageBody=repr(e),
+            URL=_graylog_url,
+        )
+
     if not nodes:
         return Status(
             Source=cfc.name,
@@ -114,8 +133,17 @@ def check_graylog_is_healthy(cfc: CheckFunctionInterface) -> Status:
 
 
 def check_graylog_has_history(cfc: CheckFunctionInterface) -> Status:
-    g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
-    stats = g.get_history_statistics()
+    try:
+        g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
+        stats = g.get_history_statistics()
+    except ConnectionError as e:
+        return Status(
+            Source=cfc.name,
+            Level=REPORT.ERROR,
+            Message=f"Connection to Graylog failed with {type(e).__name__}",
+            MessageBody=repr(e),
+            URL=_graylog_url,
+        )
     if not stats or not stats.get("range", {}).get("days"):
         return Status(
             Source=cfc.name,
@@ -154,19 +182,28 @@ def check_graylog_has_history(cfc: CheckFunctionInterface) -> Status:
 
 
 def check_gfps_expulsion(cfc: CheckFunctionInterface) -> Status:
-    g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
-    g.stream = "5d8cd831e7e1f54f98464d3f"  # switch to syslog stream
-    g.filters = ["application_name:mmfs", "message:expelling"]
+    try:
+        g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
+        g.stream = "5d8cd831e7e1f54f98464d3f"  # switch to syslog stream
+        g.filters = ["application_name:mmfs", "message:expelling"]
 
-    errors, hosts, clusters = 0, collections.Counter(), collections.Counter()
-    host_and_cluster = re.compile(r"Expelling: [0-9.:]+ \(([^ ]+) in ([^ ]+)\)$")
-    for m in g.get_all_messages(time=7200):
-        errors += 1
-        match = host_and_cluster.search(m["message"])
-        if match:
-            host, cluster = match.groups()
-            hosts[host] += 1
-            clusters[cluster] += 1
+        errors, hosts, clusters = 0, collections.Counter(), collections.Counter()
+        host_and_cluster = re.compile(r"Expelling: [0-9.:]+ \(([^ ]+) in ([^ ]+)\)$")
+        for m in g.get_all_messages(time=7200):
+            errors += 1
+            match = host_and_cluster.search(m["message"])
+            if match:
+                host, cluster = match.groups()
+                hosts[host] += 1
+                clusters[cluster] += 1
+    except ConnectionError as e:
+        return Status(
+            Source=cfc.name,
+            Level=REPORT.ERROR,
+            Message=f"Connection to Graylog failed with {type(e).__name__}",
+            MessageBody=repr(e),
+            URL=_graylog_url,
+        )
 
     if errors == 0:
         level = REPORT.PASS
@@ -191,10 +228,20 @@ def check_gfps_expulsion(cfc: CheckFunctionInterface) -> Status:
 
 
 def check_filesystem_is_responsive(cfc: CheckFunctionInterface) -> Status:
-    g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
-    g.filters = ["facility:dlstbx.services.filewatcher", "stat-time-max:>5"]
+    try:
+        g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
+        g.filters = ["facility:dlstbx.services.filewatcher", "stat-time-max:>5"]
 
-    messages = list(g.get_all_messages(time=1800))
+        messages = list(g.get_all_messages(time=1800))
+    except ConnectionError as e:
+        return Status(
+            Source=cfc.name,
+            Level=REPORT.ERROR,
+            Message=f"Connection to Graylog failed with {type(e).__name__}",
+            MessageBody=repr(e),
+            URL=_graylog_url,
+        )
+
     if not messages:
         return Status(
             Source=cfc.name,

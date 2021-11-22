@@ -1116,8 +1116,7 @@ class DLSTrigger(CommonService):
         app = query.first()
         if not app:
             self.log.error(
-                "big_ep trigger failed: No input data provided for program %s",
-                app.processingPrograms,
+                f"big_ep trigger failed: appid = {parameters.program_id} not found for dcid = {dcid}"
             )
             return False
         if blsession.beamLineName == "i23" and "multi" not in app.processingPrograms:

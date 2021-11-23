@@ -48,8 +48,11 @@ class Xia2SetupWrapper(zocalo.wrapper.BaseWrapper):
                 return False
 
             s3_urls = get_presigned_urls_images(
-                params["rpid"], params["images"], logger
+                params.get("create_symlink").lower(),
+                params["rpid"],
+                params["images"],
+                logger,
             )
-            self.recwrap.send_to("cloud", {"s3_urls": s3_urls})
+            self.recwrap.environment.update({"s3_urls": s3_urls})
 
         return True

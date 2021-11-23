@@ -6,15 +6,25 @@ from pathlib import Path
 
 import minio
 import requests
-from minio.commonconfig import GOVERNANCE
-from minio.objectlockconfig import DAYS, ObjectLockConfig
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 S3_CONFIG = "/dls_sw/apps/zocalo/secrets/credentials-echo-mx.cfg"
 S3_NAME = "echo-mx"
-BUCKET_EXPIRE = 1
-URL_EXPIRE = timedelta(days=BUCKET_EXPIRE)
+URL_EXPIRE = timedelta(days=7)
+
+
+def get_minio_client():
+    config = configparser.ConfigParser()
+    config.read(S3_CONFIG)
+    host = urllib.parse.urlparse(config[S3_NAME]["endpoint"])
+    minio_client = minio.Minio(
+        host.netloc,
+        access_key=config[S3_NAME]["access_key_id"],
+        secret_key=config[S3_NAME]["secret_access_key"],
+        secure=True,
+    )
+    return minio_client
 
 
 def get_objects_from_s3(working_directory, s3_urls):
@@ -33,26 +43,22 @@ def get_objects_from_s3(working_directory, s3_urls):
     session.mount("http://", HTTPAdapter(max_retries=retries))
     for filename, s3_url in s3_urls.items():
         file_data = session.get(s3_url)
-        filepath = working_directory / filename
+        filepath = working_directory / filename.split("_", 1)[-1]
         with open(filepath, "wb") as fp:
             fp.write(file_data.content)
 
 
-def get_presigned_urls_images(bucket_name, images, logger):
-    config = configparser.ConfigParser()
-    config.read(S3_CONFIG)
-    host = urllib.parse.urlparse(config[S3_NAME]["endpoint"])
-    minio_client = minio.Minio(
-        host.netloc,
-        access_key=config[S3_NAME]["access_key_id"],
-        secret_key=config[S3_NAME]["secret_access_key"],
-        secure=True,
-    )
+def remove_objects_from_s3(bucket_name, s3_urls):
+    minio_clinet = get_minio_client()
+    for filename in s3_urls.keys():
+        minio_clinet.remove_object(bucket_name, filename)
+
+
+def get_presigned_urls_images(bucket_name, pid, images, logger):
+    minio_client = get_minio_client()
 
     if not minio_client.bucket_exists(bucket_name):
-        minio_client.make_bucket(bucket_name, object_lock=True)
-        retention_config = ObjectLockConfig(GOVERNANCE, BUCKET_EXPIRE, DAYS)
-        minio_client.set_object_lock_config(bucket_name, retention_config)
+        minio_client.make_bucket(bucket_name)
     else:
         logger.info(f"Object store bucket {bucket_name} already exists.")
 
@@ -62,7 +68,7 @@ def get_presigned_urls_images(bucket_name, images, logger):
     for h5_file in h5_paths:
         image_pattern = str(h5_file).split("master")[0] + "*"
         for filepath in glob.glob(image_pattern):
-            filename = Path(filepath).name
+            filename = "_".join([pid, Path(filepath).name])
             if filename in store_objects:
                 logger.info(
                     f"File {filename} already exists in object store bucket {bucket_name}."

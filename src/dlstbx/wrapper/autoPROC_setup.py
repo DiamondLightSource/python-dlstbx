@@ -47,16 +47,17 @@ class autoPROCSetupWrapper(zocalo.wrapper.BaseWrapper):
         singularity_image = params.get("singularity_image")
         if singularity_image:
             try:
-                # shutil.copy(singularity_image, str(working_directory))
-                # image_name = Path(singularity_image).name
                 write_singularity_script(working_directory, singularity_image)
             except Exception:
                 logger.exception("Error writing singularity script")
                 return False
 
             s3_urls = get_presigned_urls_images(
-                params["rpid"], params["images"], logger
+                params.get("create_symlink").lower(),
+                params["rpid"],
+                params["images"],
+                logger,
             )
-            self.recwrap.send_to("cloud", {"s3_urls": s3_urls})
+            self.recwrap.environment.update({"s3_urls": s3_urls})
 
         return True

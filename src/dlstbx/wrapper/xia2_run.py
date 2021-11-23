@@ -56,11 +56,12 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        is_cloud = "s3_urls" in self.recwrap.payload
+        is_cloud = "s3_urls" in self.recwrap.environment
         if is_cloud:
-            s3_urls = self.recwrap.payload["s3_urls"]
             try:
-                get_objects_from_s3(working_directory, s3_urls)
+                get_objects_from_s3(
+                    working_directory, self.recwrap.environment["s3_urls"]
+                )
             except Exception:
                 logger.exception(
                     "Exception raised while downloading files from S3 object store"

@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import argparse
 import logging
 import sys
+import threading
+from typing import Any, Dict, Optional
 
-import workflows.transport
+import requests
+import workflows.transport.pika_transport
 import zocalo.configuration
-from zocalo.util.rabbitmq import RabbitMQAPI
+
+JSONDict = Dict[str, Any]
 
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
@@ -20,7 +26,72 @@ def setup_logging(level=logging.INFO):
     logging.getLogger("dlstbx").setLevel(level)
 
 
+def readable_byte_size(value):
+    value = value / (1024 * 1024)
+    if value < 1100:
+        return f"{value:.0f} MB"
+    value = value / 1024
+    return f"{value:.1f} GB"
+
+
+def readable_time(seconds: float) -> str:
+    if seconds > 86400 * 3:
+        return "%d days" % (seconds // 86400)
+    elif seconds > 86400:
+        return "%.1f days" % (seconds / 86400)
+    elif seconds > 36000:
+        return "%d hours" % (seconds // 3600)
+    elif seconds > 3600:
+        return "%.1f hours" % (seconds / 3600)
+    else:
+        return "%d seconds" % seconds
+
+
 setup_logging(logging.INFO)
+
+colour_limits = {
+    "channels": (600, 800),
+    "connections": (400, 600),
+    "consumers": (400, 600),
+    "messages": (10000, 15000),
+    "messages_unacknowledged": (2000, 15000),
+}
+
+
+class _MicroAPI:
+    def __init__(self, zc: zocalo.configuration.Configuration, base_url: str):
+        self._base_url = base_url
+        self._auth = (zc.rabbitmqapi["username"], zc.rabbitmqapi["password"])
+
+    def endpoint(self, endpoint: str) -> JSONDict:
+        try:
+            result = requests.get(f"{self._base_url}/{endpoint}", auth=self._auth)
+        except requests.exceptions.ConnectionError as e:
+            raise ConnectionError(
+                f"{self._base_url} raised connection error {e!r}"
+            ) from None
+        if result.status_code != 200:
+            raise ConnectionError(
+                f"{self._base_url} returned status code {result.status_code}: {result.reason}"
+            )
+        return result.json()
+
+    def test(self, endpoint: str) -> bool:
+        try:
+            result = requests.get(
+                f"{self._base_url}/{endpoint.lstrip('/')}", auth=self._auth
+            )
+        except requests.exceptions.ConnectionError as e:
+            raise ConnectionError(
+                f"{self._base_url} raised connection error {e!r}"
+            ) from None
+        return result.status_code == 200
+
+
+def colourreset():
+    if not sys.stdout.isatty():
+        return ""
+    return ColorStreamHandler.DEFAULT
 
 
 def run():
@@ -38,52 +109,166 @@ def run():
 
     parser.parse_args()
 
-    rmq = RabbitMQAPI.from_zocalo_configuration(zc)
-    _, hc_failures = rmq.health_checks
+    error_encountered = threading.Event()
 
-    def readable_memory(value):
-        return "{:.0f} MB".format(value / 1024 / 1024)
+    def conditional_colour(c: str) -> str:
+        return c if sys.stdout.isatty() else ""
 
-    connections_count = len(rmq.connections())
-    nodes = rmq.nodes()
+    red = conditional_colour(ColorStreamHandler.RED + ColorStreamHandler.BOLD)
+    yellow = conditional_colour(ColorStreamHandler.YELLOW + ColorStreamHandler.BOLD)
+    green = conditional_colour(ColorStreamHandler.GREEN)
+    reset = conditional_colour(ColorStreamHandler.DEFAULT)
 
-    memory = max([node.mem_used / node.mem_limit for node in nodes]) * 100
-    disk_free = min([node.disk_free for node in nodes])
-    disk_free_limit = [
-        node.disk_free_limit for node in nodes if node.disk_free == disk_free
-    ][0]
-    fd_used = max([node.fd_used for node in nodes])
-    fd_total = [node.fd_total for node in nodes if node.fd_used == fd_used][0]
-
-    def colour(value, warnlevel, errlevel):
-        if not sys.stdout.isatty():
-            return ""
+    def colour(
+        value, name: Optional[str] = None, *, warnlevel=None, errorlevel=None, fmt="{}"
+    ):
+        if name:
+            warnlevel, errorlevel = colour_limits[name]
+        if value > errorlevel:
+            error_encountered.set()
         if value < warnlevel:
-            return ColorStreamHandler.GREEN
-        elif value < errlevel:
-            return ColorStreamHandler.YELLOW + ColorStreamHandler.BOLD
+            return f"{green}{fmt}{reset}".format(value)
+        elif value < errorlevel:
+            return f"{yellow}{fmt}{reset}".format(value)
         else:
-            return ColorStreamHandler.RED + ColorStreamHandler.BOLD
+            return f"{red}{fmt}{reset}".format(value)
 
-    def colourreset():
-        if not sys.stdout.isatty():
-            return ""
-        return ColorStreamHandler.DEFAULT
+    rabbit = {
+        host: _MicroAPI(zc, base_url=f"https://{host}")
+        for host in workflows.transport.pika_transport.PikaTransport.defaults[
+            "--rabbit-host"
+        ].split(",")
+    }
 
-    if hc_failures:
-        print("RabbitMQ health check failures:")
-        for check, msg in hc_failures.items():
+    status: Dict[str, JSONDict] = {}
+    nodes: Dict[str, JSONDict] = {}
+    cluster_name: Optional[str] = None
+    print("RabbitMQ hosts:")
+    for host in rabbit:
+        try:
+            status[host] = rabbit[host].endpoint("api/overview")
+            cluster_name = cluster_name or status[host].get("cluster_name")
+        except ConnectionError:
+            error_encountered.set()
+            print(f"  {host:23s}: {red}Unreachable{reset}")
+            continue
+        try:
+            nodes[host] = rabbit[host].endpoint(f"api/nodes/{status[host]['node']}")
+        except ConnectionError:
+            error_encountered.set()
+            print(f"  {host:23s}: {red}Partially unresponsive{reset}")
+
+    if not status:
+        error_encountered.set()
+        print(f"\n{red}RabbitMQ cluster unavailable{reset}")
+        exit(1)
+
+    cluster_links = 0
+    required_node_protocols = {"http", "clustering", "http/prometheus", "amqp"}
+    for host in status:
+        print(
+            f"  {host:23s}: RabbitMQ {status[host]['rabbitmq_version']}, Erlang {status[host]['erlang_version']}",
+            end="",
+        )
+        if host in nodes and nodes[host].get("uptime"):
+            print(f", up {readable_time(nodes[host]['uptime']/1000)}")
+        else:
+            print()
+        ports_open = {
+            listener["protocol"]
+            for listener in status[host]["listeners"]
+            if listener["node"] == status[host]["node"]
+        }
+        missing_protocols = required_node_protocols - ports_open
+        if missing_protocols:
+            error_encountered.set()
             print(
-                f"{ColorStreamHandler.RED + ColorStreamHandler.BOLD}    /api{check}: {msg}{colourreset()}"
+                f"  {'':23s}  {red}Node not listening on port(s) {', '.join(missing_protocols)}{reset}"
+            )
+        if not status[host].get("cluster_name"):
+            error_encountered.set()
+            print(f"  {'':23s}  {yellow}Node not tied into cluster{reset}")
+        elif status[host]["cluster_name"] != cluster_name:
+            error_encountered.set()
+            print(f"  {'':23s}  {red}Node is member of a different cluster{reset}")
+        if not rabbit[host].test("/api/health/checks/local-alarms"):
+            error_encountered.set()
+            print(
+                f"  {'':23s}  {red}Node is running outside of specified limits{reset}"
+            )
+        if host in nodes:
+            if (
+                any(
+                    key not in nodes[host]
+                    for key in {
+                        "running",
+                        "cluster_links",
+                        "disk_free",
+                        "disk_free_limit",
+                        "mem_used",
+                        "mem_limit",
+                        "sockets_used",
+                        "sockets_total",
+                    }
+                )
+                or nodes[host]["running"] is not True
+            ):
+                error_encountered.set()
+                print(f"{'':26s} {red}Node disabled{reset}")
+                continue
+            cluster_links += max(len(nodes[host]["cluster_links"]), len(rabbit))
+            if nodes[host]["disk_free"] <= nodes[host]["disk_free_limit"]:
+                error_encountered.set()
+                disk_colour = red
+            elif nodes[host]["disk_free"] <= nodes[host]["disk_free_limit"] * 10:
+                disk_colour = yellow
+            else:
+                disk_colour = green
+            if nodes[host]["mem_used"] >= nodes[host]["mem_limit"]:
+                error_encountered.set()
+                memory = red
+            elif nodes[host]["mem_used"] >= nodes[host]["mem_limit"] / 10:
+                memory = yellow
+            else:
+                memory = green
+            sockets = nodes[host]["sockets_used"] / nodes[host]["sockets_total"]
+            if sockets >= 0.75:
+                error_encountered.set()
+                socket_colour = red
+            elif sockets > 0.5:
+                socket_colour = yellow
+            else:
+                socket_colour = green
+            print(
+                f"{'':26s} "
+                f"{memory}{readable_byte_size(nodes[host]['mem_used'])}{reset} memory used, "
+                f"{disk_colour}{readable_byte_size(nodes[host]['disk_free'])}{reset} disk space, "
+                f"{socket_colour}{sockets:.0f}%{reset} sockets used"
             )
 
-    print(
-        f"""
-RabbitMQ connections: {colour(connections_count, 400, 600)}{connections_count}{colourreset()}
+    if not cluster_name:
+        exit(1 if error_encountered.is_set() else 0)
 
-Storage statistics:
-   memory    :{colour(memory, 10, 30)}{memory:>7.2f} %{colourreset()}
-   fd_used   :{colour(fd_used, 0.5 * fd_total, 0.9 * fd_total)}{fd_used:>7} {colourreset()}
-   disk_free :{colour(-disk_free, -10 * disk_free_limit, disk_free_limit)}{readable_memory(disk_free):>10} {colourreset()}
-"""
-    )
+    cluster_status = [
+        h for h in status.values() if h.get("cluster_name") == cluster_name
+    ][0]
+
+    if cluster_links < len(rabbit) ** 2:
+        error_encountered.set()
+        print(
+            f"\nCluster {red}degraded{reset} ({cluster_links} out of {len(rabbit) ** 2} links in operation)"
+        )
+    else:
+        print(f"\nCluster {cluster_status['cluster_name']}:")
+    for thing in ("connections", "consumers", "channels"):
+        print(
+            f"  {thing.capitalize():11s}: {colour(cluster_status['object_totals'][thing], name=thing, fmt='{:3d}')}"
+        )
+    for thing, name in (
+        ("messages", "Messages"),
+        ("messages_unacknowledged", "in flight"),
+    ):
+        print(
+            f"  {name:11s}: {colour(cluster_status['queue_totals'][thing], name=thing, fmt='{:3d}')}"
+        )
+    exit(1 if error_encountered.is_set() else 0)

@@ -36,15 +36,17 @@ def readable_byte_size(value):
 
 def readable_time(seconds: float) -> str:
     if seconds > 86400 * 3:
-        return "%d days" % (seconds // 86400)
+        return f"{seconds/86400:.0f} days"
     elif seconds > 86400:
-        return "%.1f days" % (seconds / 86400)
+        return f"{seconds/86400:.1f} days"
     elif seconds > 36000:
-        return "%d hours" % (seconds // 3600)
+        return f"{seconds/3600:.0f} hours"
     elif seconds > 3600:
-        return "%.1f hours" % (seconds / 3600)
+        return f"{seconds/3600:.1f} hours"
+    elif seconds > 120:
+        return f"{seconds/60:.0f} minutes"
     else:
-        return "%d seconds" % seconds
+        return f"{seconds:.0f} seconds"
 
 
 setup_logging(logging.INFO)

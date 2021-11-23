@@ -36,7 +36,9 @@ def problems_with_certificate(hostname: str) -> Optional[str]:
 
         ext = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
         cert_names = ext.value.get_values_for_type(x509.DNSName)
-        if hostname not in cert_names:
+        if hostname not in cert_names and not any(
+            altname.startswith("*.") for altname in cert_names
+        ):
             return f"Certificate does not cover {hostname!r}"
         return None
     except socket.gaierror as e:

@@ -4,8 +4,10 @@ import re
 from operator import itemgetter
 
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
+from dlstbx.util.certificate import problems_with_certificate
 from dlstbx.util.graylog import GraylogAPI
 
+_graylog_host = "graylog2.diamond.ac.uk"
 _graylog_url = "https://graylog2.diamond.ac.uk/"
 _graylog_dashboard = (
     "https://graylog2.diamond.ac.uk/dashboards/5a5c7f4eddab6253b0d28d1c"
@@ -88,6 +90,10 @@ def check_graylog_is_healthy(cfc: CheckFunctionInterface) -> Status:
         )
     if live_nodes < 3:
         issues.append("Fewer than three nodes present in the cluster")
+
+    certificate_problems = problems_with_certificate(_graylog_host)
+    if certificate_problems:
+        issues.append(certificate_problems)
 
     backlog = {node: g.unprocessed_messages(node) for node in sorted(nodes)}
     backlog_sum = 0

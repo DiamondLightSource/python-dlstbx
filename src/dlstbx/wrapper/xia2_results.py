@@ -216,6 +216,7 @@ class Xia2ResultsWrapper(zocalo.wrapper.BaseWrapper):
         if (
             not (xia2_error_txt.is_file() or xia2_error.is_file())
             and xia2_json.is_file()
+            and any(Path(datafiles_path).iterdir())
         ):
             if not params.get("do_not_write_to_ispyb"):
                 self.send_results_to_ispyb(xia2_json, xtriage_results=xtriage_results)

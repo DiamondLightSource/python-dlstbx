@@ -28,8 +28,8 @@ def get_minio_client():
 
 
 def get_objects_from_s3(working_directory, s3_urls):
-    retries = 5
-    backoff_factor = 1
+    retries = 8
+    backoff_factor = 2
     status_forcelist = [429, 500, 502, 503, 504]
 
     session = requests.Session()

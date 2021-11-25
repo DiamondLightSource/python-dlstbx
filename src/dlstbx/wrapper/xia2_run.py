@@ -56,11 +56,17 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        is_cloud = "s3_urls" in self.recwrap.environment
-        if is_cloud:
+        if "s3_urls" in self.recwrap.environment:
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+            logger.setLevel(logging.DEBUG)
             try:
                 get_objects_from_s3(
-                    working_directory, self.recwrap.environment["s3_urls"]
+                    working_directory, self.recwrap.environment["s3_urls"], logger
                 )
             except Exception:
                 logger.exception(
@@ -68,7 +74,9 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
                 )
                 return False
 
-        command = self.construct_commandline(working_directory, params, is_cloud)
+        command = self.construct_commandline(
+            working_directory, params, "singularity_image" in self.recwrap.environment
+        )
         logger.info("command: %s", " ".join(command))
 
         procrunner_directory = working_directory / params["create_symlink"]

@@ -188,9 +188,16 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
         working_directory.mkdir(parents=True, exist_ok=True)
 
         if "s3_urls" in self.recwrap.environment:
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+            logger.setLevel(logging.DEBUG)
             try:
                 get_objects_from_s3(
-                    working_directory, self.recwrap.environment.get("s3_urls")
+                    working_directory, self.recwrap.environment.get("s3_urls"), logger
                 )
             except Exception:
                 logger.exception(

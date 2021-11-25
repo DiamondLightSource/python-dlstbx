@@ -1555,7 +1555,7 @@ class DLSTrigger(CommonService):
             self.log.debug(
                 f"Not triggering AlphaFold for protein_id={protein_id} with proposal_code={proposal.proposalCode}"
             )
-            return False
+            return {"success": True}
 
         if not protein.sequence:
             self.log.warning(

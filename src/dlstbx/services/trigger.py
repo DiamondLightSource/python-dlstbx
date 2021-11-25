@@ -1550,7 +1550,6 @@ class DLSTrigger(CommonService):
             )
         ).filter(Protein.proteinId == protein_id)
         protein, proposal = query.first()
-        print(proposal.personId)
 
         if proposal.proposalCode not in {"mx", "cm", "nt"}:
             self.log.debug(

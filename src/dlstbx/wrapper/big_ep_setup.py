@@ -16,6 +16,7 @@ from dlstbx.util.big_ep_helpers import (
     read_mtz_datasets,
     spacegroup_short,
 )
+from dlstbx.util.iris import write_singularity_script
 from dlstbx.util.symlink import create_parent_symlink
 
 logger = logging.getLogger("zocalo.wrap.big_ep_setup")
@@ -146,16 +147,6 @@ def setup_crank2_jobs(working_directory, msg):
         msg.enableArpWarp = False
 
 
-def write_singularity_script(working_directory, image_name):
-    singularity_script = working_directory / "run_singularity.sh"
-    commands = [
-        "#!/bin/bash",
-        f"/usr/bin/singularity exec --home ${{PWD}} --bind ${{PWD}}/TMP:/opt/xia2/tmp {image_name} $@",
-    ]
-    with open(singularity_script, "w") as fp:
-        fp.write("\n".join(commands))
-
-
 def record_big_ep_settings_in_ispyb(rpid, msg):
     big_ep_settings = {
         "atom": msg.atom,
@@ -184,8 +175,6 @@ class BigEPSetupWrapper(zocalo.wrapper.BaseWrapper):
 
         working_directory = Path(params["working_directory"])
         working_directory.mkdir(parents=True, exist_ok=True)
-        tmp_path = working_directory / "TMP"
-        tmp_path.mkdir(parents=True, exist_ok=True)
 
         # Create working directory with symbolic link
         pipeline = self.recwrap.environment.get("pipeline")
@@ -239,7 +228,14 @@ class BigEPSetupWrapper(zocalo.wrapper.BaseWrapper):
         singularity_image = params.get("singularity_image")
         if singularity_image:
             try:
-                write_singularity_script(working_directory, singularity_image)
+                tmp_path = working_directory / "TMP"
+                tmp_path.mkdir(parents=True, exist_ok=True)
+                shutil.copy(singularity_image, str(working_directory))
+                image_name = Path(singularity_image).name
+                write_singularity_script(working_directory, image_name, tmp_path.name)
+                self.recwrap.environment.update(
+                    {"singularity_image": singularity_image}
+                )
             except Exception:
                 logger.exception("Error writing singularity script")
                 return False

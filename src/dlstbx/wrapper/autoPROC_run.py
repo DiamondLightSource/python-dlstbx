@@ -237,6 +237,10 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
         autoproc_log = procrunner_directory / "autoPROC.log"
         autoproc_log.write_bytes(result["stdout"])
 
+        # HTCondor copies actual .h5 image files in lace of symlinks
+        for h5_file in procrunner_directory.rglob("*.h5"):
+            h5_file.unlink(True)
+
         # cd $jobdir
         # tar -xzvf summary.tar.gz
 

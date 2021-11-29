@@ -12,6 +12,7 @@ import zocalo.configuration
 
 JSONDict = Dict[str, Any]
 
+from dlstbx.util.certificate import problems_with_certificate
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
 workflows.transport.default_transport = "PikaTransport"
@@ -159,6 +160,10 @@ def run():
         except ConnectionError:
             error_encountered.set()
             print(f"  {host:23s}: {red}Partially unresponsive{reset}")
+        certificate_issue = problems_with_certificate(host)
+        if certificate_issue:
+            error_encountered.set()
+            print(f"  {host:23s}: {red}{certificate_issue}{reset}")
 
     if not status:
         error_encountered.set()

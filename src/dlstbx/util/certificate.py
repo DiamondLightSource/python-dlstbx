@@ -36,16 +36,15 @@ def problems_with_certificate(hostname: str) -> Optional[str]:
 
         ext = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
         cert_names = ext.value.get_values_for_type(x509.DNSName)
-        if hostname not in cert_names and not any(
-            altname.startswith("*.") for altname in cert_names
-        ):
-            return f"Certificate does not cover {hostname!r}"
-        return None
+        if hostname in cert_names:
+            # Exact name match - certificate is valid
+            return None
+        # Check for wildcard matches
+        for allowed_name in cert_names:
+            if allowed_name.startswith("*.") and hostname.endswith(allowed_name[1:]):
+                return None
+        return f"Certificate does not cover {hostname!r}"
     except socket.gaierror as e:
         return f"Socket error: {e.strerror}"
     except ConnectionError as e:
         return f"Connection error: {e.strerror}"
-
-
-if __name__ == "__main__":
-    print(problems_with_certificate("rabbitmq1.diamond.ac.uk"))

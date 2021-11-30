@@ -82,9 +82,9 @@ class prometheus_metrics:
     def __init__(self):
         self._metrics_on = True
 
-    def open_endpoint(port):
+    def open_endpoint(port, address):
         try:
-            start_http_server(port)
+            start_http_server(port, address)
         except:
             """log its failure"""
 
@@ -144,7 +144,7 @@ class DLSXRayCentering(CommonService):
             except:
                 self.log.info("Failed to create metrics instance")
             if self._prom_metrics:
-                prometheus_metrics.open_endpoint(8000)
+                prometheus_metrics.open_endpoint(8080, "0.0.0.0")
                 self._prom_metrics.create_metrics()
 
     def garbage_collect(self):

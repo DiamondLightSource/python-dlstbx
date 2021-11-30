@@ -21,3 +21,4 @@ stomp.py
 workflows>=2.15
 xmltodict
 zocalo>=0.11.1
+prometheus_client

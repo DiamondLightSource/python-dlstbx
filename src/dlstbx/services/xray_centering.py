@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import logging
 import pathlib
 import threading
 import time
@@ -43,6 +44,8 @@ class Parameters(pydantic.BaseModel):
     output: pathlib.Path = None
     log: pathlib.Path = None
     results_symlink: str = None
+    latency_log_warning: float = 30
+    latency_log_error: float = 300
 
 
 class RecipeStep(pydantic.BaseModel):
@@ -282,7 +285,18 @@ class DLSXRayCentering(CommonService):
 
                 # Write latency log message
                 latency = time.time() - cd.last_image_seen_at
-                self.log.info(
+                if latency >= parameters.latency_log_error:
+                    message_level = logging.ERROR
+                elif (
+                    parameters.latency_log_warning
+                    <= latency
+                    < parameters.latency_log_error
+                ):
+                    message_level = logging.WARNING
+                else:
+                    message_level = logging.INFO
+                self.log.log(
+                    message_level,
                     f"X-ray centering completed for DCID {parameters.dcid} with latency of {latency:.2f} seconds",
                     extra={"xray-centering-latency": latency},
                 )

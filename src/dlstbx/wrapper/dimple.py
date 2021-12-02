@@ -1,10 +1,15 @@
 import configparser
 import copy
+import enum
 import glob
 import itertools
 import logging
 import os
+import pathlib
+import re
 import shutil
+from dataclasses import dataclass
+from typing import List, Tuple
 
 import procrunner
 import py
@@ -277,3 +282,73 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                 )
 
         return success
+
+
+class MapType(enum.Enum):
+    ANOMALOUS = "anomalous"
+    DIFFERENCE = "difference"
+
+
+@dataclass
+class Atom:
+    name: str
+    chain_id: str
+    res_seq: int
+    res_name: str
+
+
+@dataclass
+class Blob:
+    xyz: Tuple[float, float, float]
+    height: float
+    occupancy: float
+    nearest_atom: Atom
+    nearest_atom_distance: float
+    map_type: MapType
+
+
+ATOM_NAME_RE = re.compile(r"([\w]+)_([A-Z]):([A-Z]+)([0-9]+)")
+
+
+def get_blobs_from_anode_log(log_file: pathlib.Path) -> List[Blob]:
+    blobs = []
+    with log_file.open() as fh:
+        in_strongest_peaks_section = False
+        for line in fh.readlines():
+            line = line.strip()
+            if line == "Strongest unique anomalous peaks":
+                in_strongest_peaks_section = True
+                continue
+            if in_strongest_peaks_section and line.startswith("S"):
+                tokens = line.split()
+                if len(tokens) == 8:
+                    x, y, z, height, occupancy, distance = map(float, tokens[1:7])
+                    atom = tokens[7]
+                    m = ATOM_NAME_RE.match(atom)
+                    if m:
+                        name, chain_id, res_name, res_seq = m.groups()
+                        nearest_atom = Atom(
+                            name=name,
+                            chain_id=chain_id,
+                            res_name=res_name,
+                            res_seq=res_seq,
+                        )
+                        blobs.append(
+                            Blob(
+                                xyz=(x, y, z),
+                                height=height,
+                                occupancy=occupancy,
+                                nearest_atom=nearest_atom,
+                                nearest_atom_distance=distance,
+                                map_type="anomalous",
+                            )
+                        )
+    return blobs
+
+
+if __name__ == "__main__":
+    import sys
+
+    log_file = pathlib.Path(sys.argv[1])
+    blobs = get_blobs_from_anode_log(log_file=log_file)
+    print(blobs)

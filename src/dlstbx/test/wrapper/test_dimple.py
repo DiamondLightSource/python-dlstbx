@@ -1,6 +1,9 @@
 import dataclasses
 
-from dlstbx.wrapper.dimple import get_blobs_from_anode_log
+from dlstbx.wrapper.dimple import (
+    get_blobs_from_anode_log,
+    get_blobs_from_find_blobs_log,
+)
 
 
 def test_get_blobs_from_anode_log(tmp_path):
@@ -49,4 +52,30 @@ def test_get_blobs_from_anode_log(tmp_path):
         },
         "nearest_atom_distance": 1.865,
         "map_type": "anomalous",
+    }
+
+
+def test_get_blobs_from_find_blobs_log(tmp_path):
+    find_blobs_log = tmp_path / "find-blobs.log"
+    find_blobs_log.write_text(
+        """
+Searching for clusters in density map, using grid: Nuvw = ( 180, 180,  80)
+Density std.dev: 0.498, cut-off: 0.399 e/A^3 (0.8 sigma)
+Protein mass center: xyz = (   -0.5181,     20.49,     18.82)
+4 clusters (with given criteria) found
+#0    144 grid points, score 104.9     (   3.62,  22.63,  24.25)
+#1    147 grid points, score 87.42     (  -9.39,  36.17,  11.30)
+#2    132 grid points, score 79.52     (  -2.99,  29.73,   4.09)
+#3    126 grid points, score 75.82     (   6.06,  27.58,   6.56)
+"""
+    )
+    blobs = get_blobs_from_find_blobs_log(find_blobs_log)
+    assert len(blobs) == 4
+    assert dataclasses.asdict(blobs[0]) == {
+        "xyz": (3.62, 22.63, 24.25),
+        "height": 104.9,
+        "map_type": "difference",
+        "occupancy": None,
+        "nearest_atom": None,
+        "nearest_atom_distance": None,
     }

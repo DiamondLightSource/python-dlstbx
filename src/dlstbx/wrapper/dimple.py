@@ -8,7 +8,7 @@ import pathlib
 import re
 import shutil
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import procrunner
 import zocalo.wrapper
@@ -291,10 +291,10 @@ class Atom:
 class Blob:
     xyz: Tuple[float, float, float]
     height: float
-    occupancy: float
-    nearest_atom: Atom
-    nearest_atom_distance: float
     map_type: MapType
+    occupancy: Optional[float] = None
+    nearest_atom: Optional[Atom] = None
+    nearest_atom_distance: Optional[float] = None
 
 
 ATOM_NAME_RE = re.compile(r"([\w]+)_([A-Z]):([A-Z]+)([0-9]+)")
@@ -333,6 +333,24 @@ def get_blobs_from_anode_log(log_file: pathlib.Path) -> List[Blob]:
                                 map_type="anomalous",
                             )
                         )
+    return blobs
+
+
+def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> List[Blob]:
+    blobs = []
+    with log_file.open() as fh:
+        for line in fh.readlines():
+            if line.startswith("#"):
+                tokens = (
+                    line.replace("(", "").replace(")", "").replace(",", " ").split()
+                )
+                blobs.append(
+                    Blob(
+                        xyz=tuple(float(x) for x in tokens[6:9]),
+                        height=float(tokens[5]),
+                        map_type="difference",
+                    )
+                )
     return blobs
 
 

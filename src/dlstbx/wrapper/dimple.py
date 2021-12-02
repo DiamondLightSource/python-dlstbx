@@ -1,7 +1,6 @@
 import configparser
 import copy
 import enum
-import glob
 import itertools
 import logging
 import os
@@ -12,7 +11,6 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 import procrunner
-import py
 import zocalo.wrapper
 
 import dlstbx.util.symlink
@@ -22,32 +20,30 @@ logger = logging.getLogger("dlstbx.wrap.dimple")
 
 class DimpleWrapper(zocalo.wrapper.BaseWrapper):
     def send_results_to_ispyb(self):
-        log_file = self.results_directory.join("dimple.log")
-        if not log_file.check():
+        log_file = self.results_directory / "dimple.log"
+        if not log_file.is_file():
             logger.error(
                 "Can not insert dimple results into ISPyB: dimple.log not found"
             )
             return False
         log = configparser.RawConfigParser()
-        log.read(log_file.strpath)
+        log.read(log_file)
 
         scaling_id = self.params.get("ispyb_parameters", self.params).get(
             "scaling_id", []
         )
-        assert len(scaling_id) == 1, (
-            "Exactly one scaling id must be provided: %s" % scaling_id
-        )
+        assert (
+            len(scaling_id) == 1
+        ), f"Exactly one scaling id must be provided: {scaling_id}"
         scaling_id = scaling_id[0]
         if not str(scaling_id).isdigit():
             logger.error(
-                "Can not write results to ISPyB: no scaling ID set (%r)", scaling_id
+                f"Can not write results to ISPyB: no scaling ID set ({scaling_id})"
             )
             return False
         scaling_id = int(scaling_id)
         logger.debug(
-            "Inserting dimple phasing results from %s into ISPyB for scaling_id %d",
-            self.results_directory.strpath,
-            scaling_id,
+            f"Inserting dimple phasing results from {self.results_directory} into ISPyB for scaling_id {scaling_id}"
         )
 
         ispyb_command_list = []
@@ -65,7 +61,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             "store_result": "ispyb_mxmr_run_id",
             "scaling_id": scaling_id,
             "pipeline": "dimple",
-            "logfile": log_file.strpath,
+            "logfile": log_file,
             "success": 1,
             "starttime": starttime,
             "endtime": endtime,
@@ -74,11 +70,11 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             "rstart": log.getfloat("refmac5 restr", "ini_overall_r"),
             "rend": log.getfloat("refmac5 restr", "overall_r"),
             "message": msg,
-            "rundir": self.results_directory.strpath,
+            "rundir": self.results_directory,
             "inputmtzfile": dimple_args[0],
             "inputcoordfile": dimple_args[1],
-            "outputmtzfile": self.results_directory.join("final.mtz").strpath,
-            "outputcoordfile": self.results_directory.join("final.pdb").strpath,
+            "outputmtzfile": self.results_directory / "final.mtz",
+            "outputcoordfile": self.results_directory / "final.pdb",
             "cmdline": (
                 log.get("workflow", "prog")
                 + " "
@@ -88,7 +84,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         ispyb_command_list.append(insert_mxmr_run)
 
         for n in (1, 2):
-            if self.results_directory.join(f"/blob{n}v1.png").check():
+            if (self.results_directory / f"/blob{n}v1.png").is_file():
                 insert_mxmr_run_blob = {
                     "ispyb_command": "insert_mxmr_run_blob",
                     "mxmr_run_id": "$ispyb_mxmr_run_id",
@@ -105,9 +101,9 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         self.params = self.recwrap.recipe_step["job_parameters"]
-        self.working_directory = py.path.local(self.params["working_directory"])
-        self.results_directory = py.path.local(self.params["results_directory"])
-        self.working_directory.ensure(dir=True)
+        self.working_directory = pathlib.Path(self.params["working_directory"])
+        self.results_directory = pathlib.Path(self.params["results_directory"])
+        self.working_directory.mkdir(parents=True)
 
         mtz = self.params.get("ispyb_parameters", self.params.get("dimple", {})).get(
             "data", []
@@ -133,15 +129,15 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         pdb = copy.deepcopy(pdb)  # otherwise we could modify the array in the recipe
         for i, code_or_file in enumerate(pdb):
             if not os.path.isfile(code_or_file) and len(code_or_file) == 4:
-                local_pdb_copy = py.path.local(
+                local_pdb_copy = pathlib.Path(
                     f"/dls/science/groups/scisoft/PDB/{code_or_file[1:3].lower()}/pdb{code_or_file.lower()}.ent.gz"
                 )
-                if local_pdb_copy.check(file=1):
+                if local_pdb_copy.is_file():
                     code_or_file = local_pdb_copy
                     logger.debug(f"Using local PDB {local_pdb_copy}")
-            if os.path.isfile(code_or_file):
-                shutil.copy(code_or_file, self.working_directory.strpath)
-                pdb[i] = self.working_directory / os.path.basename(code_or_file)
+            if code_or_file.is_file():
+                shutil.copy(code_or_file, self.working_directory)
+                pdb[i] = self.working_directory / code_or_file.name
         command = (
             ["dimple", mtz]
             + pdb
@@ -155,7 +151,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         if self.params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                self.working_directory.strpath, self.params["create_symlink"]
+                os.fspath(self.working_directory), self.params["create_symlink"]
             )
 
         # Create SynchWeb ticks hack file. This will be deleted or replaced later.
@@ -165,24 +161,22 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         ).get("set_synchweb_status"):
             logger.debug("Setting SynchWeb status to swirl")
             if self.params.get("create_symlink"):
-                self.results_directory.ensure(dir=True)
+                self.results_directory.mkdir(parents=True)
                 dlstbx.util.symlink.create_parent_symlink(
-                    self.results_directory.strpath, self.params["create_symlink"]
+                    os.fspath(self.results_directory), self.params["create_symlink"]
                 )
                 mtzsymlink = os.path.join(
                     os.path.dirname(mtz), self.params["create_symlink"]
                 )
                 if not os.path.exists(mtzsymlink):
-                    deltapath = os.path.relpath(
-                        self.results_directory.strpath, os.path.dirname(mtz)
-                    )
+                    deltapath = self.results_directory.relative_to(os.path.dirname(mtz))
                     os.symlink(deltapath, mtzsymlink)
-            py.path.local(self.params["synchweb_ticks"]).ensure()
+            pathlib.Path(self.params["synchweb_ticks"]).mkdir(parents=True)
 
         logger.info("command: %s", " ".join(map(str, command)))
         result = procrunner.run(
             command,
-            working_directory=self.working_directory.strpath,
+            working_directory=self.working_directory,
             timeout=self.params.get("timeout"),
         )
         success = not result["exitcode"] and not result["timeout"]
@@ -200,40 +194,36 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         # Hack to workaround dimple returning successful exitcode despite 'Giving up'
         success &= b"Giving up" not in result.stdout
 
-        logger.info("Copying DIMPLE results to %s", self.results_directory.strpath)
-        self.results_directory.ensure(dir=True)
+        logger.info(f"Copying DIMPLE results to {self.results_directory}")
+        self.results_directory.mkdir(parents=True)
         if self.params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                self.results_directory.strpath, self.params["create_symlink"]
+                os.fspath(self.results_directory), self.params["create_symlink"]
             )
             mtzsymlink = os.path.join(
                 os.path.dirname(mtz), self.params["create_symlink"]
             )
             if not os.path.exists(mtzsymlink):
-                deltapath = os.path.relpath(
-                    self.results_directory.strpath, os.path.dirname(mtz)
-                )
+                deltapath = self.results_directory.relative_to(os.path.dirname(mtz))
                 os.symlink(deltapath, mtzsymlink)
-        for f in self.working_directory.listdir():
-            if f.basename.startswith("."):
+        for f in self.working_directory.iterdir():
+            if f.name.startswith("."):
                 continue
-            if any(f.ext == skipext for skipext in (".pickle", ".r3d")):
+            if any(f.suffix == skipext for skipext in (".pickle", ".r3d")):
                 continue
-            f.copy(self.results_directory)
+            shutil.copy(f, self.results_directory)
 
         # Replace tmp working_directory with results_directory in coot scripts
         filenames = [
-            self.results_directory.join(f) for f in ("coot.sh", "anom-coot.sh")
-        ] + [
-            py.path.local(f)
-            for f in glob.glob(self.results_directory.join("*blob*-coot.py").strpath)
-        ]
+            self.results_directory / f for f in ("coot.sh", "anom-coot.sh")
+        ] + list(self.results_directory.glob("*blob*-coot.py"))
         for path in filenames:
-            if path.check():
+            if path.is_file():
                 logger.debug("Replacing tmp paths in %s", path)
-                path.write(
-                    path.read().replace(
-                        self.working_directory.strpath, self.results_directory.strpath
+                path.write_text(
+                    path.read_text().replace(
+                        os.fspath(self.working_directory),
+                        os.fspath(self.results_directory),
                     )
                 )
         if success:
@@ -242,27 +232,27 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         # Record AutoProcAttachments (SCI-9692)
         attachments = {
-            self.results_directory.join("final.mtz"): ("result", 1),
-            self.results_directory.join("final.pdb"): ("result", 1),
-            self.results_directory.join("dimple.log"): ("log", 2),
-            self.results_directory.join("screen.log"): ("log", 1),
+            self.results_directory / "final.mtz": ("result", 1),
+            self.results_directory / "final.pdb": ("result", 1),
+            self.results_directory / "dimple.log": ("log", 2),
+            self.results_directory / "screen.log": ("log", 1),
         }
         attachments.update(
             {
                 log_file: ("log", 1)
                 for log_file in itertools.chain(
-                    self.results_directory.visit(fil="[0-9]*-find-blobs.log"),
-                    self.results_directory.visit(fil="[0-9]*-refmac5_restr.log"),
+                    self.results_directory.glob("[0-9]*-find-blobs.log"),
+                    self.results_directory.glob("[0-9]*-refmac5_restr.log"),
                 )
             }
         )
         logger.info(attachments)
         for file_name, (file_type, importance_rank) in attachments.items():
-            if file_name.check(file=1):
+            if file_name.is_file():
                 self.record_result_individual_file(
                     {
-                        "file_path": file_name.dirname,
-                        "file_name": file_name.basename,
+                        "file_path": file_name.parent,
+                        "file_name": file_name.name,
                         "file_type": file_type,
                         "importance_rank": importance_rank,
                     }
@@ -274,10 +264,10 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         ).get("set_synchweb_status"):
             if success:
                 logger.debug("Removing SynchWeb hack file")
-                py.path.local(self.params["synchweb_ticks"]).remove()
+                pathlib.Path(self.params["synchweb_ticks"]).unlink()
             else:
                 logger.debug("Updating SynchWeb hack file to failure")
-                py.path.local(self.params["synchweb_ticks"]).write(
+                pathlib.Path(self.params["synchweb_ticks"]).write_text(
                     "This file is used as a flag to synchweb to show the processing has failed"
                 )
 

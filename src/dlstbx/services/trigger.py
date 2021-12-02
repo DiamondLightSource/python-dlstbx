@@ -1005,16 +1005,6 @@ class DLSTrigger(CommonService):
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
-        if (
-            (proposal.proposalCode != "mx" or proposal.proposalNumber != "23694")
-            and (proposal.proposalCode != "nt" or proposal.proposalNumber != "28218")
-            and proposal.proposalCode != "cm"
-        ):
-            self.log.info(
-                f"Skipping big_ep_common trigger for {proposal.proposalCode}{proposal.proposalNumber} visit"
-            )
-            return {"success": True}
-
         params = rw.recipe_step.get("parameters", {})
         target = params.get("target")
 

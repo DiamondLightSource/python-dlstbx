@@ -49,7 +49,8 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
             'StopIfSubdirExists="no"',
             "-d",
             str(working_directory),
-            f"-nthreads={nproc}",
+            "-nthreads",
+            f"{nproc}",
         ]
         if project:
             command.append(f"pname={project}")

@@ -81,6 +81,23 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
 
         procrunner_directory = working_directory / params["create_symlink"]
         procrunner_directory.mkdir(parents=True, exist_ok=True)
+
+        if "dials.integrate.phil_file" in params["xia2"]:
+            dials_integrate_phil_file = procrunner_directory / params["xia2"].get(
+                "dials.integrate.phil_file"
+            )
+            max_memory_usage = params["dials.integrate.phil_file"].get(
+                "max_memory_usage", 0.9
+            )
+            with open(dials_integrate_phil_file, "w") as fp:
+                fp.write(
+                    f"""integration {{
+       block {{
+         max_memory_usage = {max_memory_usage}
+       }}
+    }}"""
+                )
+
         try:
             result = procrunner.run(
                 command,

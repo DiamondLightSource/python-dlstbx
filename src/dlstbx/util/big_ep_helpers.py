@@ -460,7 +460,11 @@ def copy_results(working_directory, results_directory, skip_copy, logger):
         return ignore_list
 
     shutil.copytree(
-        working_directory, results_directory, symlinks=True, ignore=ignore_func
+        working_directory,
+        results_directory,
+        symlinks=False,
+        ignore_dangling_symlinks=True,
+        ignore=ignore_func,
     )
     src_pth_esc = r"\/".join(os.path.dirname(working_directory).split(os.sep))
     dest_pth_esc = r"\/".join(os.path.dirname(results_directory).split(os.sep))

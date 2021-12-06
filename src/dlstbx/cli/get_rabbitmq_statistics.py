@@ -17,7 +17,7 @@ workflows.transport.default_transport = "PikaTransport"
 JSONDict = Dict[str, Any]
 
 
-def setup_logging(level=logging.INFO):
+def _setup_logging(level=logging.INFO):
     console = ColorStreamHandler()
     console.setLevel(level)
     logger = logging.getLogger()
@@ -70,8 +70,6 @@ class StatusText:
     text: str
     level: int = 0
 
-
-setup_logging(logging.INFO)
 
 colour_limits = {
     "connections": (400, 600),
@@ -262,6 +260,7 @@ def run():
     )
 
     parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
+    _setup_logging(logging.INFO)
 
     # Load configuration
     zc = zocalo.configuration.from_file()

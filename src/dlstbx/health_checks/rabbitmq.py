@@ -180,7 +180,7 @@ def check_rabbitmq_health(cfc: CheckFunctionInterface) -> list[Status]:
             status_object = Status(
                 Source=f"{check_prefix}.cluster",
                 Level=REPORT.WARNING,
-                Message=f"RabbitMQ cluster {system_status['cluster']['name'].text} is degraded",
+                Message=f"RabbitMQ cluster {system_status['cluster']['name'].text} is running with warnings",
                 MessageBody=", ".join(status_array),
                 URL=f"https://{hosts[0]}.diamond.ac.uk/",
             )
@@ -188,7 +188,7 @@ def check_rabbitmq_health(cfc: CheckFunctionInterface) -> list[Status]:
             status_object = Status(
                 Source=f"{check_prefix}.cluster",
                 Level=REPORT.ERROR,
-                Message=f"RabbitMQ cluster {system_status['cluster']['name'].text} is failing",
+                Message=f"RabbitMQ cluster {system_status['cluster']['name'].text} is degraded",
                 MessageBody=", ".join(status_array),
                 URL=f"https://{hosts[0]}.diamond.ac.uk/",
             )

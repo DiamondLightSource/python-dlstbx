@@ -15,7 +15,7 @@ class DLSBridge(CommonService):
     _logger_name = "dlstbx.services.bridge"
 
     queues = {
-        "rabbit.pia": "per_image_analysis",
+        "per_image_analysis": "per_image_analysis",
     }
 
     def initializing(self):

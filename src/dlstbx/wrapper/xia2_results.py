@@ -6,6 +6,7 @@ from pathlib import Path
 import zocalo.wrapper
 
 import dlstbx.util.symlink
+from dlstbx.util.iris import remove_objects_from_s3
 
 logger = logging.getLogger("zocalo.wrap.xia2_results")
 
@@ -102,6 +103,17 @@ class Xia2ResultsWrapper(zocalo.wrapper.BaseWrapper):
 
         working_directory = Path(params["working_directory"])
         results_directory = Path(params["results_directory"])
+
+        if "s3_urls" in self.recwrap.environment:
+            try:
+                remove_objects_from_s3(
+                    params.get("create_symlink").lower(),
+                    self.recwrap.environment.get("s3_urls"),
+                )
+            except Exception:
+                logger.exception(
+                    "Exception raised while trying to remove files from S3 object store."
+                )
 
         # copy output files to result directory
         results_directory.mkdir(parents=True, exist_ok=True)
@@ -204,6 +216,7 @@ class Xia2ResultsWrapper(zocalo.wrapper.BaseWrapper):
         if (
             not (xia2_error_txt.is_file() or xia2_error.is_file())
             and xia2_json.is_file()
+            and any(Path(datafiles_path).iterdir())
         ):
             if not params.get("do_not_write_to_ispyb"):
                 self.send_results_to_ispyb(xia2_json, xtriage_results=xtriage_results)

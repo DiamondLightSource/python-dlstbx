@@ -500,10 +500,10 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            logger.debug(result["stdout"].decode("latin1"))
+            logger.debug(result["stderr"].decode("latin1"))
 
-        working_directory.join("autoPROC.log").write(result["stdout"])
+        working_directory.join("autoPROC.log").write(result["stdout"].decode("latin1"))
 
         # cd $jobdir
         # tar -xzvf summary.tar.gz

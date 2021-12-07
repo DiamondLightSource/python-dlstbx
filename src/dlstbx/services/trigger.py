@@ -1005,18 +1005,21 @@ class DLSTrigger(CommonService):
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
-        if (
-            (proposal.proposalCode != "mx" or proposal.proposalNumber != "23694")
-            and (proposal.proposalCode != "nt" or proposal.proposalNumber != "28218")
-            and proposal.proposalCode != "cm"
-        ):
-            self.log.info(
-                f"Skipping big_ep_common trigger for {proposal.proposalCode}{proposal.proposalNumber} visit"
-            )
-            return {"success": True}
-
         params = rw.recipe_step.get("parameters", {})
         target = params.get("target")
+
+        if target == "big_ep_cloud":
+            if (
+                (proposal.proposalCode != "mx" or proposal.proposalNumber != "23694")
+                and (
+                    proposal.proposalCode != "nt" or proposal.proposalNumber != "28218"
+                )
+                and proposal.proposalCode != "cm"
+            ):
+                self.log.info(
+                    f"Skipping big_ep_common trigger for {proposal.proposalCode}{proposal.proposalNumber} visit"
+                )
+                return {"success": True}
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic
@@ -1116,8 +1119,7 @@ class DLSTrigger(CommonService):
         app = query.first()
         if not app:
             self.log.error(
-                "big_ep trigger failed: No input data provided for program %s",
-                app.processingPrograms,
+                f"big_ep trigger failed: appid = {parameters.program_id} not found for dcid = {dcid}"
             )
             return False
         if blsession.beamLineName == "i23" and "multi" not in app.processingPrograms:
@@ -1551,13 +1553,12 @@ class DLSTrigger(CommonService):
             )
         ).filter(Protein.proteinId == protein_id)
         protein, proposal = query.first()
-        print(proposal.personId)
 
         if proposal.proposalCode not in {"mx", "cm", "nt"}:
             self.log.debug(
                 f"Not triggering AlphaFold for protein_id={protein_id} with proposal_code={proposal.proposalCode}"
             )
-            return False
+            return {"success": True}
 
         if not protein.sequence:
             self.log.warning(

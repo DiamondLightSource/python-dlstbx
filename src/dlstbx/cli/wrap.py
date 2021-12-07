@@ -6,7 +6,6 @@
 
 import json
 import logging
-import os
 import sys
 from optparse import SUPPRESS_HELP, OptionParser
 
@@ -17,6 +16,7 @@ import workflows.services.common_service
 import workflows.transport
 import workflows.transport.offline_transport
 import workflows.util
+import zocalo.util
 import zocalo.wrapper
 from workflows.transport.stomp_transport import StompTransport
 
@@ -141,10 +141,9 @@ def run(cmdline_args=sys.argv[1:]):
         transport = workflows.transport.lookup(options.transport)()
     transport.connect()
     st = zocalo.wrapper.StatusNotifications(transport.broadcast_status, options.wrapper)
+    for field, value in zocalo.util.extended_status_dictionary().items():
+        st.set_static_status_field(field, value)
     st.set_static_status_field("dlstbx", dlstbx_version())
-    for env in ("SGE_CELL", "JOB_ID"):
-        if env in os.environ:
-            st.set_static_status_field("cluster_" + env, os.getenv(env))
 
     # Instantiate chosen wrapper
     instance = known_wrappers[options.wrapper]()()

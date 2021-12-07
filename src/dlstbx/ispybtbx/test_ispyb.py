@@ -438,7 +438,7 @@ def test_get_gridscan_info(db_session):
         },
         db_session,
     ) == {
-        "dataCollectionId": None,
+        "dataCollectionId": 6077465,
         "snaked": 1,
         "orientation": "horizontal",
         "recordTimeStamp": "2021-03-05T15:29:20",

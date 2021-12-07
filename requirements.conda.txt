@@ -20,5 +20,5 @@ sqlalchemy>=1.4.0,<1.5
 stomp.py
 workflows>=2.15
 xmltodict
-zocalo>=0.11.1
+zocalo>=0.13.0
 prometheus_client

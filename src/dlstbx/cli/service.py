@@ -4,7 +4,6 @@
 #
 
 import logging
-import os
 import sys
 import time
 
@@ -12,6 +11,7 @@ import workflows
 import workflows.contrib.start_service
 import workflows.logging
 import zocalo.configuration
+import zocalo.util
 
 import dlstbx.util
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
@@ -132,20 +132,12 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         if self.options.service_restart:
             frontend.restart_service = True
 
-        extended_status = {"zocalo": zocalo.__version__, "dlstbx": dlstbx_version()}
+        extended_status = zocalo.util.extended_status_dictionary()
+        extended_status["dlstbx"] = dlstbx_version()
         if self.options.tag:
             extended_status["tag"] = self.options.tag
-
         if self.options.metrics:
             extended_status["metrics"] = self.options.metrics
-
-        for env in ("SGE_CELL", "JOB_ID"):
-            if env in os.environ:
-                extended_status["cluster_" + env] = os.environ[env]
-        if os.getenv("KUBERNETES") == "1":
-            split_name = os.environ["HOSTNAME"].split("-")
-            container_image = ":".join(split_name[:2])
-            extended_status["container_image"] = container_image
 
         original_status_function = frontend.get_status
 

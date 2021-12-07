@@ -289,9 +289,26 @@ class DLSCluster(CommonService):
             self.log.info(commands.split("\n", 1))
             cluster_exec, cluster_args = commands.split("\n", 1)
             htcondor_submit = {"executable": cluster_exec, "arguments": cluster_args}
+
+            def env_parameter(base_value):
+                if not isinstance(base_value, str) or "$" not in base_value:
+                    return base_value
+                for key in sorted(rw.environment, key=len, reverse=True):
+                    if "${" + key + "}" in base_value:
+                        base_value = base_value.replace(
+                            "${" + key + "}", str(rw.environment[key])
+                        )
+                    # Replace longest keys first, as the following replacement is
+                    # not well-defined when one key is a prefix of another:
+                    if "$" + key in base_value:
+                        base_value = base_value.replace(
+                            "$" + key, str(rw.environment[key])
+                        )
+                return base_value
+
             for key, val in parameters["cluster_submission_parameters"].items():
                 if key in ("transfer_input_files", "transfer_output_files"):
-                    htcondor_submit[key] = ",".join(val)
+                    htcondor_submit[key] = ",".join([env_parameter(v) for v in val])
                 else:
                     htcondor_submit[key] = val
             try:

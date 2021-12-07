@@ -6,6 +6,7 @@ from pathlib import Path
 import zocalo.wrapper
 
 import dlstbx.util.symlink
+from dlstbx.util.iris import remove_objects_from_s3
 
 logger = logging.getLogger("zocalo.wrap.autoPROC_results")
 
@@ -309,6 +310,17 @@ class autoPROCResultsWrapper(zocalo.wrapper.BaseWrapper):
 
         working_directory = Path(params["working_directory"])
         results_directory = Path(params["results_directory"])
+
+        if "s3_urls" in self.recwrap.environment:
+            try:
+                remove_objects_from_s3(
+                    params.get("create_symlink").lower(),
+                    self.recwrap.environment.get("s3_urls"),
+                )
+            except Exception:
+                logger.exception(
+                    "Exception raised while trying to remove files from S3 object store."
+                )
 
         # copy output files to result directory
         results_directory.mkdir(parents=True, exist_ok=True)

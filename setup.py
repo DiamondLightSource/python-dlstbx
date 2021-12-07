@@ -110,6 +110,7 @@ known_wrappers = [  # please keep alphabetically sorted
 
 service_list = [
     "DLSArchiver = dlstbx.services.archiver:DLSArchiver",
+    "DLSBridge = dlstbx.services.bridge:DLSBridge",
     "DLSCluster = dlstbx.services.cluster:DLSCluster",
     "DLSClusterMonitor = dlstbx.services.cluster_monitor:DLSClusterMonitor",
     "DLSController = dlstbx.services.controller:DLSController",
@@ -125,22 +126,21 @@ service_list = [
     "DLSNexusParser = dlstbx.services.nexusparser:DLSNexusParser",
     "DLSNotifyGDA = dlstbx.services.notifygda:DLSNotifyGDA",
     "DLSPerImageAnalysis = dlstbx.services.per_image_analysis:DLSPerImageAnalysis",
+    "DLSReverseBridge = dlstbx.services.bridge_reverse:DLSReverseBridge",
     "DLSStatistics = dlstbx.services.statistics:DLSStatistics",
     "DLSTrigger = dlstbx.services.trigger:DLSTrigger",
     "DLSValidation = dlstbx.services.validation:DLSValidation",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
-    "DLSBridge = dlstbx.services.bridge:DLSBridge",
-    "DLSReverseBridge = dlstbx.services.bridge_reverse:DLSReverseBridge",
     "HTCondorWatcher = dlstbx.services.htcondorwatcher:HTCondorWatcher",
     # "LoadProducer = dlstbx.services.load_producer:LoadProducer",  # tentatively disabled
     # "LoadReceiver = dlstbx.services.load_receiver:LoadReceiver",  # tentatively disabled
 ]
 
 health_checks = [
+    "dls.network.internet = dlstbx.health_checks.network:check_internet",
     "it.filesystem.gpfs-expulsion = dlstbx.health_checks.graylog:check_gfps_expulsion",
     "it.filesystem.responsiveness = dlstbx.health_checks.graylog:check_filesystem_is_responsive",
     "services.activemq = dlstbx.health_checks.activemq:check_activemq_health",
-    "services.rabbitmq = dlstbx.health_checks.rabbitmq:check_rabbitmq_health",
     "services.dls.cas = dlstbx.health_checks.network:check_cas",
     "services.dls.epics = dlstbx.health_checks.epics:get_diamond_ring_status",
     "services.dls.gitlab = dlstbx.health_checks.network:check_gitlab",
@@ -152,8 +152,8 @@ health_checks = [
     "services.graylog.history = dlstbx.health_checks.graylog:check_graylog_has_history",
     "services.mx.agamemnon = dlstbx.health_checks.network:check_agamemnon",
     "services.mx.dbserver = dlstbx.health_checks.network:check_dbserver",
+    "services.rabbitmq = dlstbx.health_checks.rabbitmq:check_rabbitmq_health",
     "services.zocalo.stash = dlstbx.health_checks.zocalo:check_zocalo_stash",
-    "dls.network.internet = dlstbx.health_checks.network:check_internet",
     "zocalo.dlq.activemq = dlstbx.health_checks.activemq:check_activemq_dlq",
     "zocalo.dlq.rabbitmq = dlstbx.health_checks.rabbitmq:check_rabbitmq_dlq",
 ]

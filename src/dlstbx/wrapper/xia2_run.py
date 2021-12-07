@@ -56,22 +56,48 @@ class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        is_cloud = "s3_urls" in self.recwrap.payload
-        if is_cloud:
-            s3_urls = self.recwrap.payload["s3_urls"]
+        if "s3_urls" in self.recwrap.environment:
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+            logger.setLevel(logging.DEBUG)
             try:
-                get_objects_from_s3(working_directory, s3_urls)
+                get_objects_from_s3(
+                    working_directory, self.recwrap.environment["s3_urls"], logger
+                )
             except Exception:
                 logger.exception(
                     "Exception raised while downloading files from S3 object store"
                 )
                 return False
 
-        command = self.construct_commandline(working_directory, params, is_cloud)
+        command = self.construct_commandline(
+            working_directory, params, "singularity_image" in self.recwrap.environment
+        )
         logger.info("command: %s", " ".join(command))
 
         procrunner_directory = working_directory / params["create_symlink"]
         procrunner_directory.mkdir(parents=True, exist_ok=True)
+
+        if "dials.integrate.phil_file" in params["xia2"]:
+            dials_integrate_phil_file = procrunner_directory / params["xia2"].get(
+                "dials.integrate.phil_file"
+            )
+            max_memory_usage = params["dials.integrate.phil_file"].get(
+                "max_memory_usage", 0.9
+            )
+            with open(dials_integrate_phil_file, "w") as fp:
+                fp.write(
+                    f"""integration {{
+       block {{
+         max_memory_usage = {max_memory_usage}
+       }}
+    }}"""
+                )
+
         try:
             result = procrunner.run(
                 command,

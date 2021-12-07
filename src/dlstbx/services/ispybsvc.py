@@ -95,6 +95,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             rw.transport.nack(header)
             return
 
+        self.log.debug("Running ISPyB call %s", command)
         txn = rw.transport.transaction_begin()
         rw.set_default_channel("output")
 
@@ -134,11 +135,13 @@ class DLSISPyB(EM_Mixin, CommonService):
                 )
         except Exception as e:
             self.log.error(
-                f"Uncaught exception {e!r} in ISPyB function {command!r}, quarantining message.",
+                f"Uncaught exception {e!r} in ISPyB function {command!r}, "
+                "quarantining message and shutting down instance.",
                 exc_info=True,
             )
             rw.transport.transaction_abort(txn)
             rw.transport.nack(header)
+            self._request_termination()
             return
 
         store_result = rw.recipe_step["parameters"].get("store_result")
@@ -210,7 +213,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.info(f"  JPP={jppid}")
+            self.log.debug(f"  JPP={jppid}")
 
         for sweep in sweeps:
             jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
@@ -222,7 +225,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
                 list(jisp.values())
             )
-            self.log.info(f"  JISP={jispid}")
+            self.log.debug(f"  JISP={jispid}")
 
         self.log.info(f"All done. Processing job {jobid} created")
 
@@ -246,7 +249,12 @@ class DLSISPyB(EM_Mixin, CommonService):
                 time_update=parameters("update_time"),
                 message=message,
             )
-            self.log.info("Updating program %s with status: '%s'", ppid, message)
+            self.log.info(
+                "Updating program %s with status: %r, return value %r",
+                ppid,
+                message,
+                result,
+            )
             # result is just ppid
             return {"success": True, "return_value": result}
         except ispyb.ISPyBException as e:
@@ -629,6 +637,9 @@ class DLSISPyB(EM_Mixin, CommonService):
 
     def do_register_integration(self, **kwargs):
         # deprecated
+        self.log.warning(
+            "Call to deprecated register_integration function (use upsert_integration instead)"
+        )
         return self.do_upsert_integration(**kwargs)
 
     def do_upsert_integration(self, parameters, **kwargs):

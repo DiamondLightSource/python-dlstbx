@@ -72,6 +72,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
         tmpl_data.update({"settings": self.recwrap.environment["msg"]})
 
         if pipeline == "autoSHARP":
+            working_directory = working_directory.join("autoSHARP")
             mdl_dict = get_autosharp_model_files(working_directory, logger)
         elif pipeline == "AutoBuild":
             mdl_dict = get_autobuild_model_files(working_directory, logger)

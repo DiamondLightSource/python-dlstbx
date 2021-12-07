@@ -1,10 +1,15 @@
 import logging
+import shutil
 from pathlib import Path
 
 import zocalo.wrapper
 
 import dlstbx.util.symlink
-from dlstbx.util.iris import get_presigned_urls_images, write_singularity_script
+from dlstbx.util.iris import (
+    get_image_files,
+    get_presigned_urls_images,
+    write_singularity_script,
+)
 
 logger = logging.getLogger("zocalo.wrap.autoPROC_setup")
 
@@ -47,16 +52,30 @@ class autoPROCSetupWrapper(zocalo.wrapper.BaseWrapper):
         singularity_image = params.get("singularity_image")
         if singularity_image:
             try:
-                # shutil.copy(singularity_image, str(working_directory))
-                # image_name = Path(singularity_image).name
-                write_singularity_script(working_directory, singularity_image)
+                shutil.copy(singularity_image, str(working_directory))
+                image_name = Path(singularity_image).name
+                write_singularity_script(working_directory, image_name)
+                self.recwrap.environment.update(
+                    {"singularity_image": singularity_image}
+                )
             except Exception:
                 logger.exception("Error writing singularity script")
                 return False
 
-            s3_urls = get_presigned_urls_images(
-                params["rpid"], params["images"], logger
-            )
-            self.recwrap.send_to("cloud", {"s3_urls": s3_urls})
+            if params.get("s3_urls"):
+                s3_urls = get_presigned_urls_images(
+                    params.get("create_symlink").lower(),
+                    params["rpid"],
+                    params["images"],
+                    logger,
+                )
+                self.recwrap.environment.update({"s3_urls": s3_urls})
+            else:
+                image_files = get_image_files(
+                    working_directory, params["images"], logger
+                )
+                self.recwrap.environment.update(
+                    {"htcondor_upload_images": ",".join(image_files.keys())}
+                )
 
         return True

@@ -567,35 +567,16 @@ def run(
                 )
                 # Processing on STRC/IRIS cloud
                 if (
-                    scenario.beamline in {"i03", "i04", "i04-1"}
+                    scenario.beamline in {"i03"}
                     and scenario.visit
                     and scenario.visit.startswith(
                         (
                             "cm",
                             "nt28218",
                             "mx23694",
-                            "lb22715-15",
-                            "lb27963-43",
-                            "lb28215-11",
                         )
                     )
                 ):
-                    # xia2-dials
-                    tasks.append(
-                        dlstbx.mimas.MimasISPyBJobInvocation(
-                            DCID=scenario.DCID,
-                            autostart=True,
-                            recipe="autoprocessing-xia2-dials-eiger-cloud",
-                            source="automatic",
-                            parameters=(
-                                dlstbx.mimas.MimasISPyBParameter(
-                                    key="resolution.cc_half_significance_level",
-                                    value="0.1",
-                                ),
-                                *xia2_dials_absorption_params,
-                            ),
-                        )
-                    )
                     # xia2-3dii
                     tasks.append(
                         dlstbx.mimas.MimasISPyBJobInvocation(
@@ -609,15 +590,6 @@ def run(
                                     value="0.1",
                                 ),
                             ),
-                        )
-                    )
-                    # autoPROC
-                    tasks.append(
-                        dlstbx.mimas.MimasISPyBJobInvocation(
-                            DCID=scenario.DCID,
-                            autostart=True,
-                            recipe="autoprocessing-autoPROC-eiger-cloud",
-                            source="automatic",
                         )
                     )
             if multi_xia2:
@@ -642,42 +614,6 @@ def run(
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
                     )
                 )
-                # multi-xia2 on STRC/IRIS cloud
-                if (
-                    scenario.beamline in {"i03", "i04", "i04-1"}
-                    and scenario.visit
-                    and scenario.visit.startswith(
-                        (
-                            "cm",
-                            "nt28218",
-                            "mx23694",
-                            "lb22715-15",
-                            "lb27963-43",
-                            "lb28215-11",
-                        )
-                    )
-                ):
-                    # xia2-dials
-                    tasks.append(
-                        dlstbx.mimas.MimasISPyBJobInvocation(
-                            DCID=scenario.DCID,
-                            autostart=False,
-                            recipe="autoprocessing-multi-xia2-dials-eiger-cloud",
-                            source="automatic",
-                            sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                            parameters=xia2_dials_absorption_params,
-                        )
-                    )
-                    # xia2-3dii
-                    tasks.append(
-                        dlstbx.mimas.MimasISPyBJobInvocation(
-                            DCID=scenario.DCID,
-                            autostart=False,
-                            recipe="autoprocessing-multi-xia2-3dii-eiger-cloud",
-                            source="automatic",
-                            sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                        )
-                    )
 
             if scenario.spacegroup:
                 # Space group is set, run xia2 and autoPROC with space group
@@ -746,32 +682,16 @@ def run(
                     )
                     # Processing on STRC/IRIS cloud
                     if (
-                        scenario.beamline in {"i03", "i04", "i04-1"}
+                        scenario.beamline in {"i03"}
                         and scenario.visit
                         and scenario.visit.startswith(
                             (
                                 "cm",
                                 "nt28218",
                                 "mx23694",
-                                "lb22715-15",
-                                "lb27963-43",
-                                "lb28215-11",
                             )
                         )
                     ):
-                        # xia2-dials
-                        tasks.append(
-                            dlstbx.mimas.MimasISPyBJobInvocation(
-                                DCID=scenario.DCID,
-                                autostart=True,
-                                recipe="autoprocessing-xia2-dials-eiger-cloud",
-                                source="automatic",
-                                parameters=(
-                                    *parameters,
-                                    *xia2_dials_absorption_params,
-                                ),
-                            )
-                        )
                         # xia2-3dii
                         tasks.append(
                             dlstbx.mimas.MimasISPyBJobInvocation(
@@ -808,46 +728,6 @@ def run(
                             sweeps=tuple(scenario.getsweepslistfromsamedcg),
                         )
                     )
-                    # multi-xia2 on STRC/IRIS cloud
-                    if (
-                        scenario.beamline in {"i03", "i04", "i04-1"}
-                        and scenario.visit
-                        and scenario.visit.startswith(
-                            (
-                                "cm",
-                                "nt28218",
-                                "mx23694",
-                                "lb22715-15",
-                                "lb27963-43",
-                                "lb28215-11",
-                            )
-                        )
-                    ):
-                        # xia2-dials
-                        tasks.append(
-                            dlstbx.mimas.MimasISPyBJobInvocation(
-                                DCID=scenario.DCID,
-                                autostart=False,
-                                recipe="autoprocessing-multi-xia2-dials-eiger-cloud",
-                                source="automatic",
-                                parameters=(
-                                    *parameters,
-                                    *xia2_dials_absorption_params,
-                                ),
-                                sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                            )
-                        )
-                        # xia2-3dii
-                        tasks.append(
-                            dlstbx.mimas.MimasISPyBJobInvocation(
-                                DCID=scenario.DCID,
-                                autostart=False,
-                                recipe="autoprocessing-multi-xia2-3dii-eiger-cloud",
-                                source="automatic",
-                                parameters=parameters,
-                                sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                            )
-                        )
                 if scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION:
                     if scenario.unitcell:
                         parameters = (
@@ -873,30 +753,6 @@ def run(
                             parameters=parameters,
                         )
                     )
-                    # autoPROC on STRC/IRIS cloud
-                    if (
-                        scenario.beamline in {"i03", "i04", "i04-1"}
-                        and scenario.visit
-                        and scenario.visit.startswith(
-                            (
-                                "cm",
-                                "nt28218",
-                                "mx23694",
-                                "lb22715-15",
-                                "lb27963-43",
-                                "lb28215-11",
-                            )
-                        )
-                    ):
-                        tasks.append(
-                            dlstbx.mimas.MimasISPyBJobInvocation(
-                                DCID=scenario.DCID,
-                                autostart=True,
-                                recipe="autoprocessing-autoPROC-eiger-cloud",
-                                source="automatic",
-                                parameters=parameters,
-                            )
-                        )
             else:
                 # Space group is not set, only run fast_dp
                 if scenario.dcclass is dlstbx.mimas.MimasDCClass.ROTATION:

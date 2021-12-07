@@ -3,12 +3,15 @@ import json
 import pathlib
 import threading
 import time
+from abc import ABC, abstractmethod
+from re import I
 from typing import List
 
 import numpy as np
+import prometheus_client
 import pydantic
 import workflows.recipe
-from prometheus_client import Counter, Gauge, Histogram, start_http_server
+from prometheus_client import Counter, Histogram
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.symlink
@@ -78,33 +81,39 @@ class CenteringData(pydantic.BaseModel):
         arbitrary_types_allowed = True
 
 
-class prometheus_metrics:
-    def __init__(self):
-        self._metrics_on = True
+class BasePrometheusMetrics(ABC):
+    def __init__(self, port: int = 8080, address: str = "0.0.0.0"):
+        self.registry = prometheus_client.CollectorRegistry()
+        prometheus_client.start_http_server(port, address, registry=self.registry)
+        self.create_metrics()
 
-    def open_endpoint(port, address):
-        try:
-            start_http_server(port, address)
-        except:
-            """log its failure"""
+    @abstractmethod
+    def create_metrics(self):
+        raise NotImplementedError
 
+
+class PrometheusMetrics(BasePrometheusMetrics):
     def create_metrics(self):
         self.complete_centering = Counter(
-            "complete_centerings",
-            "Counts total number of completed x-ray centerings",
-            ["beam_line"],
+            name="complete_centerings",
+            documentation="Counts total number of completed x-ray centerings",
+            labelnames=["beam_line"],
+            registry=self.registry,
         )
         self.analysis_latency = Histogram(
-            "analysis_latency",
-            "The time passed (s) from end of data collection to end of x-ray centering",
-            ["beam_line"],
-            buckets=[10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+            name="analysis_latency",
+            documentation="The time passed (s) from end of data collection to end of x-ray centering",
+            labelnames=["beam_line"],
+            registry=self.registry,
+            buckets=[0.5, 1, 2, 10, 30, 60, 300, 600, 3600],
             unit="s",
         )
 
-    def set_metrics(self, bl, lat):
-        self.complete_centering.labels(bl).inc()
-        self.analysis_latency.labels(bl).observe(lat)
+    def set_complete_centering(self, label):
+        self.complete_centering.labels(label).inc()
+
+    def set_analysis_latency(self, label, value):
+        self.analysis_latency.labels(label).observe(value)
 
 
 class DLSXRayCentering(CommonService):
@@ -139,13 +148,8 @@ class DLSXRayCentering(CommonService):
         # Initialise metrics if service started with '-m'
         if self._environment.get("metrics"):
             self._metrics = self._environment.get("metrics")
-            try:
-                self._prom_metrics = prometheus_metrics()
-            except:
-                self.log.info("Failed to create metrics instance")
-            if self._prom_metrics:
-                prometheus_metrics.open_endpoint(8080, "0.0.0.0")
-                self._prom_metrics.create_metrics()
+            self._prom_metrics = PrometheusMetrics()
+            self.log.info("Prometheus metrics on")  # remove once finished testing
 
     def garbage_collect(self):
         """Throw away partial scan results after a while."""
@@ -330,11 +334,12 @@ class DLSXRayCentering(CommonService):
                     extra={"xray-centering-latency": latency},
                 )
 
-                # Prometheus metrics
+                # Set prometheus metrics
                 if self._metrics:
                     beam_line = message.file.split("/dls/")[1].split("/data/")[0]
                     try:
-                        self._prom_metrics.set_metrics(beam_line, latency)
+                        self._prom_metrics.set_complete_centering(beam_line)
+                        self._prom_metrics.set_analysis_latency(beam_line, latency)
                     except:
                         self.log.info("Failed to set metrics")
 

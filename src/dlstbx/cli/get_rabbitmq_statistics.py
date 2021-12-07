@@ -324,14 +324,15 @@ def run():
             node_colour = yellow
         else:
             node_colour = ""
-        print(
-            f"  {node_colour}{host:23s}:{reset} RabbitMQ {fmt(hs['version_rabbitmq'])}, Erlang {fmt(hs['version_erlang'])}",
-            end="",
-        )
+
+        host_line = []
+        if "version_rabbitmq" in hs:
+            host_line.append(f"RabbitMQ {fmt(hs['version_rabbitmq'])}")
+        if "version_erlang" in hs:
+            host_line.append(f"Erlang {fmt(hs['version_erlang'])}")
         if "uptime" in hs:
-            print(f", up {fmt(hs['uptime'], formatter=readable_time)}")
-        else:
-            print()
+            host_line.append(f"up {fmt(hs['uptime'], formatter=readable_time)}")
+        print(f"  {node_colour}{host:23s}:{reset} {', '.join(host_line)}")
         if {"memory", "disk", "sockets"}.issubset(hs):
             print(
                 f"{'':26s} "

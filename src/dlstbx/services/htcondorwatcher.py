@@ -96,8 +96,11 @@ class HTCondorWatcher(CommonService):
                     attr_list=["ClusterId", "ProcId", "JobStatus", "Out"],
                 )
                 self.log.info(f"schedd status: {pformat(res)}")
-                if res and res[0]["JobStatus"] not in (1, 3, 4):
-                    seen_jobs.append(jobid)
+                if res:
+                    if res[0]["JobStatus"] not in (3, 4):
+                        seen_jobs.append(jobid)
+                    if res[0]["JobStatus"] == 1:
+                        first_seen = start_time
 
         # Are we done?
         if not seen_jobs:

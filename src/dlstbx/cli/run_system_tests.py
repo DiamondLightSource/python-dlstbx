@@ -336,3 +336,6 @@ def run():
             "  Received %d unexpected message%s."
             % (unexpected_messages.count, "" if unexpected_messages.count == 1 else "s")
         )
+        exit(1)
+    if successes != len(tests):
+        exit(1)

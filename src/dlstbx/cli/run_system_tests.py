@@ -35,8 +35,12 @@ def run():
         description="Run Zocalo system tests",
     )
     parser.add_argument("tests", nargs="*", help="Only run these tests")
-
     parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--output",
+        action="store_true",
+        help="Write an output.xml junit XML file summary",
+    )
 
     # Load configuration
     zc = zocalo.configuration.from_file()

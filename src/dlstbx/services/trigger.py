@@ -25,12 +25,27 @@ from ispyb.sqlalchemy import (
     Protein,
     ProteinHasPDB,
 )
+from prometheus_client import Counter
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
 
+import dlstbx.util.prometheus_metrics as Metrics
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.pdb import trim_pdb_bfactors
+
+
+class PrometheusMetrics(Metrics.BasePrometheusMetrics):
+    def create_metrics(self):
+        job_triggered = Counter(
+            name="job_triggered",
+            documentation="Counts each different job as they are triggered",
+            labelnames=["job"],
+            registry=self.registry,
+        )
+        self._metrics = {
+            "job_triggered": job_triggered,
+        }
 
 
 @dataclass(frozen=True)
@@ -195,6 +210,12 @@ class DLSTrigger(CommonService):
             log_extender=self.extend_log,
         )
         self.ispyb = ispyb.open()
+
+        # Initialise metrics if requested
+        if self._environment.get("metrics"):
+            self.prom_metrics = PrometheusMetrics()
+        else:
+            self._prom_metrics = Metrics.NoMetrics()
 
     def trigger(self, rw, header, message):
         """Forward the trigger message to a specific trigger function."""
@@ -419,6 +440,8 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"Dimple trigger: Processing job {jobid} triggered")
 
+        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+
         return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -508,6 +531,8 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"ep_predict trigger: Processing job {jobid} triggered")
 
+        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+
         return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -584,6 +609,8 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"mr_predict trigger: Processing job {jobid} triggered")
 
+        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+
         return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -642,6 +669,8 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"screen19_mx trigger: Processing job {jobid} triggered")
 
+        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+
         return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -684,6 +713,8 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info("best trigger: Processing job {} triggered".format(jobid))
+
+        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
 
         return {"success": True, "return_value": jobid}
 
@@ -746,6 +777,8 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"fast_ep trigger: Processing job {jobid} triggered")
+
+        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
 
         return {"success": True, "return_value": jobid}
 
@@ -836,6 +869,8 @@ class DLSTrigger(CommonService):
 
             self.log.info(f"mrbump trigger: Processing job {jobid} triggered")
 
+            self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+
         return {"success": True, "return_value": jobids}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -892,6 +927,8 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"big_ep_launcher trigger: Processing job {jobid} triggered")
+
+        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
 
         return {"success": True, "return_value": jobid}
 
@@ -982,6 +1019,8 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"big_ep_cloud trigger: Processing job {jobid} triggered")
 
+        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+
         return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -1069,6 +1108,8 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"big_ep_common trigger: Processing job {jobid} triggered")
+
+        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
 
         return {"success": True, "return_value": jobid}
 
@@ -1185,6 +1226,8 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info("big_ep triggered")
+
+        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
 
         return {"success": True, "return_value": None}
 
@@ -1533,6 +1576,8 @@ class DLSTrigger(CommonService):
 
             self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
 
+            self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+
         return {"success": True, "return_value": jobids}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -1576,4 +1621,7 @@ class DLSTrigger(CommonService):
         }
         rw.transport.send("processing_recipe", message)
         self.log.info(f"AlphaFold triggered with parameters:\n{message}")
+
+        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+
         return {"success": True}

@@ -4,17 +4,16 @@ import logging
 import pathlib
 import threading
 import time
-from abc import ABC, abstractmethod
 from re import I
 from typing import List
 
 import numpy as np
-import prometheus_client
 import pydantic
 import workflows.recipe
 from prometheus_client import Counter, Histogram
 from workflows.services.common_service import CommonService
 
+import dlstbx.util.prometheus_metrics as Metrics
 import dlstbx.util.symlink
 import dlstbx.util.xray_centering
 import dlstbx.util.xray_centering_3d
@@ -84,26 +83,15 @@ class CenteringData(pydantic.BaseModel):
         arbitrary_types_allowed = True
 
 
-class BasePrometheusMetrics(ABC):
-    def __init__(self, port: int = 8080, address: str = "0.0.0.0"):
-        self.registry = prometheus_client.CollectorRegistry()
-        prometheus_client.start_http_server(port, address, registry=self.registry)
-        self.create_metrics()
-
-    @abstractmethod
+class PrometheusMetrics(Metrics.BasePrometheusMetrics):
     def create_metrics(self):
-        raise NotImplementedError
-
-
-class PrometheusMetrics(BasePrometheusMetrics):
-    def create_metrics(self):
-        self.complete_centering = Counter(
+        complete_centering = Counter(
             name="complete_centerings",
             documentation="Counts total number of completed x-ray centerings",
             labelnames=["beam_line"],
             registry=self.registry,
         )
-        self.analysis_latency = Histogram(
+        analysis_latency = Histogram(
             name="analysis_latency",
             documentation="The time passed (s) from end of data collection to end of x-ray centering",
             labelnames=["beam_line"],
@@ -111,12 +99,10 @@ class PrometheusMetrics(BasePrometheusMetrics):
             buckets=[0.5, 1, 2, 10, 30, 60, 300, 600, 3600],
             unit="s",
         )
-
-    def set_complete_centering(self, label):
-        self.complete_centering.labels(label).inc()
-
-    def set_analysis_latency(self, label, value):
-        self.analysis_latency.labels(label).observe(value)
+        self._metrics = {
+            "complete_centering": complete_centering,
+            "analysis_latency": analysis_latency,
+        }
 
 
 class DLSXRayCentering(CommonService):
@@ -148,11 +134,12 @@ class DLSXRayCentering(CommonService):
             log_extender=self.extend_log,
         )
 
-        # Initialise metrics if service started with '-m'
+        # Initialise metrics if requested
         if self._environment.get("metrics"):
-            self._metrics = self._environment.get("metrics")
             self._prom_metrics = PrometheusMetrics()
             self.log.info("Prometheus metrics on")  # remove once finished testing
+        else:
+            self._prom_metrics = Metrics.NoMetrics()
 
     def garbage_collect(self):
         """Throw away partial scan results after a while."""
@@ -349,13 +336,11 @@ class DLSXRayCentering(CommonService):
                 )
 
                 # Set prometheus metrics
-                if self._metrics:
-                    beam_line = message.file.split("/dls/")[1].split("/data/")[0]
-                    try:
-                        self._prom_metrics.set_complete_centering(beam_line)
-                        self._prom_metrics.set_analysis_latency(beam_line, latency)
-                    except:
-                        self.log.info("Failed to set metrics")
+                beam_line = message.file.split("/dls/")[1].split("/data/")[0]
+                self._prom_metrics.record_metric("complete_centering", [f"{beam_line}"])
+                self._prom_metrics.record_metric(
+                    "analysis_latency", [f"{beam_line}"], latency
+                )
 
                 # Acknowledge all messages
                 txn = rw.transport.transaction_begin()

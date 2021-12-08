@@ -302,12 +302,13 @@ def run():
                 )
                 test[1].early += 1
 
-    # Export results
-    ts = junit_xml.TestSuite(
-        "dlstbx.system_test", [r for _, r in tests.values()] + [unexpected_messages]
-    )
-    with open("output.xml", "w") as f:
-        junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
+    if args.output:
+        # Export results
+        ts = junit_xml.TestSuite(
+            "dlstbx.system_test", [r for _, r in tests.values()] + [unexpected_messages]
+        )
+        with open("output.xml", "w") as f:
+            junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
 
     print("")
 

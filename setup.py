@@ -140,6 +140,7 @@ health_checks = [
     "it.filesystem.gpfs-expulsion = dlstbx.health_checks.graylog:check_gfps_expulsion",
     "it.filesystem.responsiveness = dlstbx.health_checks.graylog:check_filesystem_is_responsive",
     "it.internet = dlstbx.health_checks.network:check_internet",
+    "it.quota = dlstbx.health_checks.quota:check_quota",
     "remote.github = dlstbx.health_checks.network:check_github",
     "services.activemq = dlstbx.health_checks.activemq:check_activemq_health",
     "services.cas = dlstbx.health_checks.network:check_cas",

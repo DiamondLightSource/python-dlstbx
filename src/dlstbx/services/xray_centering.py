@@ -85,13 +85,13 @@ class CenteringData(pydantic.BaseModel):
 
 class PrometheusMetrics(Metrics.BasePrometheusMetrics):
     def create_metrics(self):
-        complete_centering = Counter(
+        self.complete_centering = Counter(
             name="complete_centerings",
             documentation="Counts total number of completed x-ray centerings",
             labelnames=["beam_line"],
             registry=self.registry,
         )
-        analysis_latency = Histogram(
+        self.analysis_latency = Histogram(
             name="analysis_latency",
             documentation="The time passed (s) from end of data collection to end of x-ray centering",
             labelnames=["beam_line"],
@@ -99,10 +99,6 @@ class PrometheusMetrics(Metrics.BasePrometheusMetrics):
             buckets=[0.5, 1, 2, 10, 30, 60, 300, 600, 3600],
             unit="s",
         )
-        self._metrics = {
-            "complete_centering": complete_centering,
-            "analysis_latency": analysis_latency,
-        }
 
 
 class DLSXRayCentering(CommonService):

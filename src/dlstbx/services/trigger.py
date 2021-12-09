@@ -37,15 +37,12 @@ from dlstbx.util.pdb import trim_pdb_bfactors
 
 class PrometheusMetrics(Metrics.BasePrometheusMetrics):
     def create_metrics(self):
-        job_triggered = Counter(
+        self.job_triggered = Counter(
             name="job_triggered",
             documentation="Counts each different job as they are triggered",
             labelnames=["job"],
             registry=self.registry,
         )
-        self._metrics = {
-            "job_triggered": job_triggered,
-        }
 
 
 @dataclass(frozen=True)
@@ -440,7 +437,7 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"Dimple trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+        self._prom_metrics.record_metric("job_triggered", ["DIMPLE"])
 
         return {"success": True, "return_value": jobid}
 
@@ -531,7 +528,7 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"ep_predict trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+        self._prom_metrics.record_metric("job_triggered", ["ep_predict"])
 
         return {"success": True, "return_value": jobid}
 
@@ -609,7 +606,7 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"mr_predict trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+        self._prom_metrics.record_metric("job_triggered", ["mr_predict"])
 
         return {"success": True, "return_value": jobid}
 
@@ -669,7 +666,7 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"screen19_mx trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+        self._prom_metrics.record_metric("job_triggered", ["screen19_mx"])
 
         return {"success": True, "return_value": jobid}
 
@@ -714,7 +711,7 @@ class DLSTrigger(CommonService):
 
         self.log.info("best trigger: Processing job {} triggered".format(jobid))
 
-        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+        self._prom_metrics.record_metric("job_triggered", ["best"])
 
         return {"success": True, "return_value": jobid}
 
@@ -778,7 +775,7 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"fast_ep trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+        self._prom_metrics.record_metric("job_triggered", ["fast_ep"])
 
         return {"success": True, "return_value": jobid}
 
@@ -869,7 +866,7 @@ class DLSTrigger(CommonService):
 
             self.log.info(f"mrbump trigger: Processing job {jobid} triggered")
 
-            self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+            self._prom_metrics.record_metric("job_triggered", ["MrBUMP"])
 
         return {"success": True, "return_value": jobids}
 
@@ -928,7 +925,7 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"big_ep_launcher trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+        self._prom_metrics.record_metric("job_triggered", ["big_ep_launcher"])
 
         return {"success": True, "return_value": jobid}
 
@@ -1019,7 +1016,7 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"big_ep_cloud trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+        self._prom_metrics.record_metric("job_triggered", ["big_ep_cloud"])
 
         return {"success": True, "return_value": jobid}
 
@@ -1109,7 +1106,7 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"big_ep_common trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+        self._prom_metrics.record_metric("job_triggered", ["big_ep_common"])
 
         return {"success": True, "return_value": jobid}
 
@@ -1227,7 +1224,7 @@ class DLSTrigger(CommonService):
 
         self.log.info("big_ep triggered")
 
-        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+        self._prom_metrics.record_metric("job_triggered", ["big_ep"])
 
         return {"success": True, "return_value": None}
 
@@ -1576,7 +1573,7 @@ class DLSTrigger(CommonService):
 
             self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
 
-            self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+            self._prom_metrics.record_metric("job_triggered", ["xia2.multiplex"])
 
         return {"success": True, "return_value": jobids}
 
@@ -1622,6 +1619,6 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
         self.log.info(f"AlphaFold triggered with parameters:\n{message}")
 
-        self._prom_metrics.record_metric("job_triggerd", [f"{parameters.target}"])
+        self._prom_metrics.record_metric("job_triggered", ["AlphaFold"])
 
         return {"success": True}

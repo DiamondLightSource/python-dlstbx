@@ -567,10 +567,17 @@ def run(
                 )
                 # Processing on STRC/IRIS cloud
                 if (
-                    scenario.beamline in {"i03"}
+                    scenario.beamline in {"i03", "i04-1"}
                     and scenario.visit
                     and scenario.visit.startswith(
-                        ("cm", "nt28218", "mx23694", "mx30951", "mx23459-213")
+                        (
+                            "cm",
+                            "nt28218",
+                            "mx23694",
+                            "mx30951",
+                            "lb28215",
+                            "mx23459-213",
+                        )
                     )
                 ):
                     # xia2-3dii
@@ -678,10 +685,17 @@ def run(
                     )
                     # Processing on STRC/IRIS cloud
                     if (
-                        scenario.beamline in {"i03"}
+                        scenario.beamline in {"i03", "i04-1"}
                         and scenario.visit
                         and scenario.visit.startswith(
-                            ("cm", "nt28218", "mx23694", "mx30951", "mx23459-213")
+                            (
+                                "cm",
+                                "nt28218",
+                                "mx23694",
+                                "mx30951",
+                                "lb28215",
+                                "mx23459-213",
+                            )
                         )
                     ):
                         # xia2-3dii

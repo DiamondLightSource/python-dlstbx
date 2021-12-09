@@ -181,6 +181,6 @@ def run() -> None:
     print(df.groupby(args.group_by).mean())
     print(df.groupby(args.group_by).std())
 
-    if args.p:
-        fig = px.bar(df, x=args.x, y=args.p)
+    if args.plot:
+        fig = px.bar(df, x=args.x_axis, y=args.plot, hover_data=args.group_by)
         fig.write_html("em_usage.html")

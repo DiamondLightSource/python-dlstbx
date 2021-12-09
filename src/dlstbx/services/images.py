@@ -59,6 +59,7 @@ class DLSImages(CommonService):
 
     def image_call(self, rw, header, message):
         """Pass incoming message to the relevant plugin function."""
+        print(message, header)
         command = rw.recipe_step.get("parameters", {}).get("image_command")
 
         def parameters(key, default=None):

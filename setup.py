@@ -55,6 +55,7 @@ console_scripts = [
     "em.running=dlstbx.cli.em_running:run",
     "em.collect_usage=dlstbx.cli.em_usage_collect:run",
     "em.usage=dlstbx.cli.em_usage:run",
+    "em.usage_dashboard=dlstbx.cli.em_usage_dashboard:run",
     "i19.tail=dlstbx.cli.i19_tail:run",
     "it.status=dlstbx.cli.it_status:run",
 ]

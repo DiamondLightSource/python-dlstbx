@@ -53,6 +53,8 @@ def _df_to_db(
             if row["cluster_id"] == "N/A":
                 cluster_id = None
             else:
+                # if row["cluster_id"] == 2779685:
+                #    print(row)
                 cluster_id = row["cluster_id"]
             if cluster_id:
                 insert_cmd = insert(ClusterJobInfo).values(
@@ -66,7 +68,9 @@ def _df_to_db(
             insert_cmd = insert(RelionJobInfo).values(
                 cluster_id=cluster_id,
                 relion_start_time=row["start_time"].strftime("%Y-%m-%d %H:%M:%S"),
-                num_micrographs=row["num_mics"],
+                num_micrographs=row["num_mics"]
+                if not pd.isna(row["num_mics"])
+                else None,
                 job_name=row["job"],
                 pipeline_id=pid,
             )
@@ -77,21 +81,22 @@ def _df_to_db(
 def run() -> None:
     parser = argparse.ArgumentParser()
 
-    all_microscopes = [
-        "m02",
-        "m03",
-        "m04",
-        "m05",
-        "m06",
-        "m07",
-        "m08",
-        "m10",
-        "m11",
-        "m12",
-    ]
+    # all_microscopes = [
+    #    "m02",
+    #    "m03",
+    #    "m04",
+    #    "m05",
+    #    "m06",
+    #    "m07",
+    #    "m08",
+    #    "m10",
+    #    "m11",
+    #    "m12",
+    # ]
     parser.add_argument(
-        "-m", action="append", dest="microscopes", default=all_microscopes
+        "-m", action="append", dest="microscopes"  # , default=all_microscopes
     )
+    parser.add_argument("-r", dest="run_subtraction", default=1, type=int)
     args = parser.parse_args()
 
     sessions = []
@@ -112,16 +117,16 @@ def run() -> None:
     run_year = int(current_run.split("-")[0])
     run_number = int(current_run.split("-")[1])
     # there are 5 runs per year
-    if run_number == 1:
+    if run_number <= args.run_subtraction:
         last_year = run_year - 1
-        last_number = "05"
+        last_number = f"{5-(args.run_subtraction-run_number):02d}"
     else:
         last_year = run_year
-        last_number = f"{run_number-1:02d}"
+        last_number = f"{run_number-args.run_subtraction:02d}"
     last_run = f"{last_year}-{last_number}"
 
     sessions = {m: [] for m in args.microscopes}
-    with ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg") as i:
+    with ispyb.open("/dls_sw/dasc/mariadb/credentials/ispyb.cfg") as i:
         try:
             for mic in args.microscopes:
                 sessions[mic].extend(
@@ -144,22 +149,23 @@ def run() -> None:
     }
     df_all = pd.DataFrame(job_info)
 
+    print(sessions)
     for m, sess_list in sessions.items():
-        for sess in sess_list:
+        for sess in set(s["session"] for s in sess_list):
             processed_dir = (
-                pathlib.Path("/dls")
-                / m
-                / "data"
-                / str(last_year)
-                / sess["session"]
-                / "processed"
+                pathlib.Path("/dls") / m / "data" / str(last_year) / sess / "processed"
             )
+            print(processed_dir)
             for autoproc_dir in processed_dir.glob("*/*"):
                 if not autoproc_dir.is_symlink():
-                    df = project_timeline._get_dataframe(
-                        Project(autoproc_dir / "relion", cluster=True)
-                    )
+                    proj = Project(autoproc_dir / "relion", cluster=True)
+                    df = project_timeline._get_dataframe(proj)
                     if not df.empty:
                         print(f"{len(df.index)} jobs found in {autoproc_dir}")
+                        # try:
+                        #    print(proj._job_nodes.nodes[2].environment["cluster_job_mic_counts"])
+                        #    print(df[df["job"]=="Icebreaker_G"]["num_mics"])
+                        # except Exception:
+                        #    pass
                         _df_to_db(df, m, str(autoproc_dir / "relion"))
                         df_all = pd.concat([df_all, df])

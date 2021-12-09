@@ -150,6 +150,7 @@ health_checks = [
     "services.graylog.alive = dlstbx.health_checks.graylog:check_graylog_is_alive",
     "services.graylog.healthy = dlstbx.health_checks.graylog:check_graylog_is_healthy",
     "services.graylog.history = dlstbx.health_checks.graylog:check_graylog_has_history",
+    "services.ispyb = dlstbx.health_checks.ispyb:check_ispyb_servers",
     "services.mx.agamemnon = dlstbx.health_checks.network:check_agamemnon",
     "services.mx.dbserver = dlstbx.health_checks.network:check_dbserver",
     "services.rabbitmq = dlstbx.health_checks.rabbitmq:check_rabbitmq_health",

@@ -164,3 +164,27 @@ def check_internet(cfc: CheckFunctionInterface):
         Level=REPORT.PASS,
         Message=f"Internet connection is up{latency}",
     )
+
+
+def check_github(cfc: CheckFunctionInterface):
+    try:
+        subprocess.run(
+            ("svn", "info", "https://github.com/dials/dials.git"),
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+        )
+        return Status(
+            Source=cfc.name,
+            Level=REPORT.PASS,
+            Message="GitHub is online",
+            URL="https://github.com/",
+        )
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        return Status(
+            Source=cfc.name,
+            Level=REPORT.ERROR,
+            Message="Github is offline",
+            URL="https://github.com/",
+        )

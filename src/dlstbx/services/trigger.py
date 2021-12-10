@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Dict, List, Literal, Mapping, Optional
 
 import ispyb
+import prometheus_client
 import pydantic
 import sqlalchemy.engine
 import sqlalchemy.orm
@@ -25,19 +26,18 @@ from ispyb.sqlalchemy import (
     Protein,
     ProteinHasPDB,
 )
-from prometheus_client import Counter
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
 
-import dlstbx.util.prometheus_metrics as Metrics
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.pdb import trim_pdb_bfactors
+from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 
 
-class PrometheusMetrics(Metrics.BasePrometheusMetrics):
+class PrometheusMetrics(BasePrometheusMetrics):
     def create_metrics(self):
-        self.job_triggered = Counter(
+        self.job_triggered = prometheus_client.Counter(
             name="job_triggered",
             documentation="Counts each different job as they are triggered",
             labelnames=["job"],
@@ -210,9 +210,9 @@ class DLSTrigger(CommonService):
 
         # Initialise metrics if requested
         if self._environment.get("metrics"):
-            self.prom_metrics = PrometheusMetrics()
+            self._prom_metrics = PrometheusMetrics()
         else:
-            self._prom_metrics = Metrics.NoMetrics()
+            self._prom_metrics = NoMetrics()
 
     def trigger(self, rw, header, message):
         """Forward the trigger message to a specific trigger function."""

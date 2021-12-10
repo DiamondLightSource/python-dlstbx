@@ -11,7 +11,7 @@ from prometheus_client import (
     start_http_server,
 )
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class BasePrometheusMetrics(ABC):
@@ -52,7 +52,7 @@ class BasePrometheusMetrics(ABC):
         labels: List[str],
         value: Optional[Union[int, float]] = None,
     ):
-        metric = getattr(self, metric_name, False)
+        metric = getattr(self, metric_name)
         if metric:
             if isinstance(metric, Counter):
                 metric.labels(*labels).inc()
@@ -66,7 +66,7 @@ class BasePrometheusMetrics(ABC):
             elif isinstance(metric, Gauge):
                 metric.labels(*labels).set(value)
         else:
-            logger.debug("Named metric not present as class attribute")
+            logger.error("Named metric not present as class attribute")
 
 
 class NoMetrics(BasePrometheusMetrics):
@@ -83,3 +83,26 @@ class NoMetrics(BasePrometheusMetrics):
         value: Optional[Union[int, float]] = None,
     ):
         pass
+
+
+#    def record_metric(
+#        self,
+#        metric_name: str,
+#        labels: List[str],
+#        value: Optional[Union[int, float]] = None,
+#    ):
+#        metric = getattr(self, metric_name, False)
+#        if metric:
+#            if isinstance(metric, Counter):
+#                metric.labels(*labels).inc()
+#
+#            elif isinstance(metric, Histogram):
+#                metric.labels(*labels).observe(value)
+#
+#            elif isinstance(metric, Summary):
+#                metric.labels(*labels).observe(value)
+#
+#            elif isinstance(metric, Gauge):
+#                metric.labels(*labels).set(value)
+#        else:
+#            logger.error("Named metric not present as class attribute")

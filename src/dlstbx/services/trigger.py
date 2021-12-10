@@ -159,11 +159,10 @@ class MultiplexParameters(pydantic.BaseModel):
     spacegroup: Optional[str]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    backoff_delay: Optional[float] = pydantic.Field(default=8, alias="backoff-delay")
-    backoff_max_try: Optional[int] = pydantic.Field(default=10, alias="backoff-max-try")
-    backoff_multiplier: Optional[float] = pydantic.Field(
-        default=2, alias="backoff-multiplier"
-    )
+    backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
+    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
+    wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
 
 
 class AlphaFoldParameters(pydantic.BaseModel):
@@ -1362,10 +1361,14 @@ class DLSTrigger(CommonService):
             data_files = []
             for dc, app, pj in query.all():
                 # Select only those dcids at the same wavelength as the triggering dcid
-                if parameters.wavelength and dc.wavelength != parameters.wavelength:
+                if (
+                    parameters.wavelength
+                    and abs(dc.wavelength - parameters.wavelength)
+                    > parameters.wavelength_tolerance
+                ):
                     self.log.debug(
                         f"Discarding appid {app.autoProcProgramId} (wavelength does not match input):\n"
-                        f"    {dc.wavelength} != {parameters.wavelength}"
+                        f"    {dc.wavelength} != {parameters.wavelength} (tolerance={parameters.wavelength_tolerance}"
                     )
                     continue
 

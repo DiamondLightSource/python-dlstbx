@@ -27,7 +27,7 @@ def insert_multiplex_input(db_session):
         dcg = DataCollectionGroup(sessionId=55167)
         dc = DataCollection(
             DataCollectionGroup=dcg,
-            wavelength=1.03936,
+            wavelength=1.03936 + i * 1e-5,
             startImageNumber=1,
             numberOfImages=25,
         )

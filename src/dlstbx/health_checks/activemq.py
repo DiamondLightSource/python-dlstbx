@@ -126,23 +126,6 @@ def check_activemq_health(cfc: CheckFunctionInterface):
                 URL="http://activemq.diamond.ac.uk/",
             )
 
-    for report in db_status:
-        for check in checks:
-            if (
-                check in db_status
-                and check not in report_updates
-                and db_status[check].Level != REPORT.PASS
-            ):
-                report_updates[check] = Status(
-                    Source=check,
-                    Level=REPORT.PASS,
-                    Message="ActiveMQ is running normally",
-                    MessageBody=(db_status[report].MessageBody or "")
-                    + "\n"
-                    + f"Error cleared at {now}",
-                    URL="http://activemq.diamond.ac.uk/",
-                )
-
     try:
         subprocess.run(
             ("dlstbx.run_system_tests", "activemq"),
@@ -164,5 +147,18 @@ def check_activemq_health(cfc: CheckFunctionInterface):
             Message="ActiveMQ offline",
             URL="http://activemq.diamond.ac.uk/",
         )
+
+    for report in db_status:
+        if report.startswith(check_prefix):
+            if report not in report_updates and db_status[report].Level != REPORT.PASS:
+                report_updates[report] = Status(
+                    Source=report,
+                    Level=REPORT.PASS,
+                    Message="ActiveMQ is running normally",
+                    MessageBody=(db_status[report].MessageBody or "")
+                    + "\n"
+                    + f"Error cleared at {now}",
+                    URL="http://activemq.diamond.ac.uk/",
+                )
 
     return list(report_updates.values())

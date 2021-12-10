@@ -45,15 +45,16 @@ class ScenarioHandler:
         return tasks
 
 
-vmxi_spec = BeamlineSpecification("i02-2")
-vmxi_event_start_spec = vmxi_spec & (EventSpecification(dlstbx.mimas.MimasEvent.START))
-vmxi_event_end_spec = vmxi_spec & EventSpecification(dlstbx.mimas.MimasEvent.END)
-vmxi_gridscan_spec = vmxi_event_end_spec & (
-    DCClassSpecification(dlstbx.mimas.MimasDCClass.GRIDSCAN)
-)
-vmxi_rotation_spec = vmxi_event_end_spec & (
-    DCClassSpecification(dlstbx.mimas.MimasDCClass.ROTATION)
-)
+is_i19 = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
+is_vmxi = BeamlineSpecification("i02-2")
+i19_or_vmxi = is_i19 | is_vmxi
+is_pilatus = DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.PILATUS)
+is_eiger = DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.EIGER)
+is_start = EventSpecification(dlstbx.mimas.MimasEvent.START)
+is_end = EventSpecification(dlstbx.mimas.MimasEvent.END)
+is_gridscan = DCClassSpecification(dlstbx.mimas.MimasDCClass.GRIDSCAN)
+is_rotation = DCClassSpecification(dlstbx.mimas.MimasDCClass.ROTATION)
+is_screening = DCClassSpecification(dlstbx.mimas.MimasDCClass.SCREENING)
 
 
 def xia2_dials_absorption_params(
@@ -69,242 +70,6 @@ def xia2_dials_absorption_params(
             key="absorption_level", value=absorption_level
         ),
     )
-
-
-@ScenarioHandler.register(vmxi_event_start_spec)
-def handle_vmxi_start_event(
-    scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
-    # Do nothing
-    return []
-
-
-@ScenarioHandler.register(vmxi_event_end_spec)
-def handle_vmxi_end_event(
-    scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
-    return [
-        dlstbx.mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
-        ),
-        dlstbx.mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="generate-diffraction-preview"
-        ),
-        dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-nexus"),
-    ]
-
-
-@ScenarioHandler.register(vmxi_gridscan_spec)
-def handle_vmxi_gridscan(
-    scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
-    return [
-        dlstbx.mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="vmxi-spot-counts-per-image"
-        )
-    ]
-
-
-@ScenarioHandler.register(vmxi_rotation_spec)
-def handle_vmxi_rotation_scan(
-    scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
-    return [
-        # Per-image analysis
-        dlstbx.mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="vmxi-per-image-analysis"
-        ),
-        # fast_dp
-        dlstbx.mimas.MimasISPyBJobInvocation(
-            DCID=scenario.DCID,
-            autostart=True,
-            recipe="autoprocessing-fast-dp-eiger",
-            source="automatic",
-        ),
-        # xia2-dials
-        dlstbx.mimas.MimasISPyBJobInvocation(
-            DCID=scenario.DCID,
-            autostart=scenario.preferred_processing == "xia2/DIALS",
-            recipe="autoprocessing-xia2-dials-eiger",
-            source="automatic",
-            parameters=(
-                dlstbx.mimas.MimasISPyBParameter(
-                    key="resolution.cc_half_significance_level",
-                    value="0.1",
-                ),
-                dlstbx.mimas.MimasISPyBParameter(key="remove_blanks", value="true"),
-                dlstbx.mimas.MimasISPyBParameter(key="failover", value="true"),
-                *xia2_dials_absorption_params(scenario),
-            ),
-        ),
-        # xia2-3dii
-        dlstbx.mimas.MimasISPyBJobInvocation(
-            DCID=scenario.DCID,
-            autostart=scenario.preferred_processing == "xia2/XDS",
-            recipe="autoprocessing-xia2-3dii-eiger",
-            source="automatic",
-            parameters=(
-                dlstbx.mimas.MimasISPyBParameter(
-                    key="resolution.cc_half_significance_level",
-                    value="0.1",
-                ),
-            ),
-        ),
-        # autoPROC
-        dlstbx.mimas.MimasISPyBJobInvocation(
-            DCID=scenario.DCID,
-            autostart=scenario.preferred_processing == "autoPROC",
-            recipe="autoprocessing-autoPROC-eiger",
-            source="automatic",
-        ),
-    ]
-
-
-i19_spec = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
-i19_spec = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
-i19_start_spec = i19_spec & EventSpecification(dlstbx.mimas.MimasEvent.START)
-i19_start_eiger_spec = i19_start_spec & (
-    DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.EIGER)
-)
-i19_start_pilatus_spec = i19_start_spec & (
-    DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.PILATUS)
-)
-i19_end_spec = i19_spec & EventSpecification(dlstbx.mimas.MimasEvent.END)
-i19_end_eiger_spec = i19_end_spec & (
-    DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.EIGER)
-)
-i19_end_pilatus_spec = i19_end_spec & (
-    DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.PILATUS)
-)
-
-
-@ScenarioHandler.register(i19_start_pilatus_spec)
-def handle_i19_start_pilatus(
-    scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
-    return [
-        dlstbx.mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="per-image-analysis-rotation"
-        )
-    ]
-
-
-@ScenarioHandler.register(i19_start_eiger_spec)
-def handle_i19_start_eiger(
-    scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
-    return [
-        dlstbx.mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID,
-            recipe="per-image-analysis-rotation-swmr-i19",
-        )
-    ]
-
-
-@ScenarioHandler.register(i19_end_pilatus_spec)
-def handle_i19_end_pilatus(
-    scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
-    return [
-        dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
-        for recipe in ("archive-cbfs", "processing-rlv", "strategy-screen19")
-    ]
-
-
-@ScenarioHandler.register(i19_end_eiger_spec)
-def handle_i19_end_eiger(
-    scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
-    return [
-        dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
-        for recipe in (
-            "archive-nexus",
-            "processing-rlv-eiger",
-            "generate-diffraction-preview",
-            "strategy-screen19-eiger",
-        )
-    ]
-
-
-@ScenarioHandler.register(i19_end_spec)
-def handle_i19(scenario: dlstbx.mimas.MimasScenario) -> HandleScenarioReturnType:
-    tasks = [
-        dlstbx.mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
-        ),
-        dlstbx.mimas.MimasISPyBJobInvocation(
-            DCID=scenario.DCID,
-            autostart=True,
-            recipe="autoprocessing-multi-xia2-smallmolecule"
-            if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS
-            else "autoprocessing-multi-xia2-smallmolecule-nexus",
-            source="automatic",
-            sweeps=tuple(scenario.getsweepslistfromsamedcg),
-            parameters=xia2_dials_absorption_params(scenario),
-        ),
-        dlstbx.mimas.MimasISPyBJobInvocation(
-            DCID=scenario.DCID,
-            autostart=True,
-            recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml"
-            if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS
-            else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
-            source="automatic",
-            sweeps=tuple(scenario.getsweepslistfromsamedcg),
-        ),
-    ]
-
-    if scenario.spacegroup:
-        # Space group is set, run xia2 with space group
-        spacegroup = scenario.spacegroup.string
-        symmetry_parameters = (
-            dlstbx.mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
-        )
-        if scenario.unitcell:
-            symmetry_parameters += (
-                dlstbx.mimas.MimasISPyBParameter(
-                    key="unit_cell", value=scenario.unitcell.string
-                ),
-            )
-
-        tasks.extend(
-            [
-                dlstbx.mimas.MimasISPyBJobInvocation(
-                    DCID=scenario.DCID,
-                    autostart=True,
-                    recipe="autoprocessing-multi-xia2-smallmolecule"
-                    if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS
-                    else "autoprocessing-multi-xia2-smallmolecule-nexus",
-                    source="automatic",
-                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                    parameters=(
-                        *symmetry_parameters,
-                        *xia2_dials_absorption_params(scenario),
-                    ),
-                ),
-                dlstbx.mimas.MimasISPyBJobInvocation(
-                    DCID=scenario.DCID,
-                    autostart=True,
-                    recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml"
-                    if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS
-                    else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
-                    source="automatic",
-                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                    parameters=symmetry_parameters,
-                ),
-            ]
-        )
-
-    return tasks
-
-
-i19_or_vmxi = i19_spec | vmxi_spec
-is_pilatus = DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.PILATUS)
-is_eiger = DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.EIGER)
-is_start = EventSpecification(dlstbx.mimas.MimasEvent.START)
-is_end = EventSpecification(dlstbx.mimas.MimasEvent.END)
-is_gridscan = DCClassSpecification(dlstbx.mimas.MimasDCClass.GRIDSCAN)
-is_rotation = DCClassSpecification(dlstbx.mimas.MimasDCClass.ROTATION)
-is_screening = DCClassSpecification(dlstbx.mimas.MimasDCClass.SCREENING)
 
 
 @ScenarioHandler.register(is_pilatus & is_gridscan & is_start & ~i19_or_vmxi)
@@ -584,6 +349,214 @@ def handle_rotation_end(
                     ),
                 ]
             )
+
+    return tasks
+
+
+@ScenarioHandler.register(is_vmxi & is_start)
+def handle_vmxi_start_event(
+    scenario: dlstbx.mimas.MimasScenario,
+) -> HandleScenarioReturnType:
+    # Do nothing
+    return []
+
+
+@ScenarioHandler.register(is_vmxi & is_end)
+def handle_vmxi_end_event(
+    scenario: dlstbx.mimas.MimasScenario,
+) -> HandleScenarioReturnType:
+    return [
+        dlstbx.mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
+        ),
+        dlstbx.mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="generate-diffraction-preview"
+        ),
+        dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-nexus"),
+    ]
+
+
+@ScenarioHandler.register(is_vmxi & is_end & is_gridscan)
+def handle_vmxi_gridscan(
+    scenario: dlstbx.mimas.MimasScenario,
+) -> HandleScenarioReturnType:
+    return [
+        dlstbx.mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="vmxi-spot-counts-per-image"
+        )
+    ]
+
+
+@ScenarioHandler.register(is_vmxi & is_end & is_rotation)
+def handle_vmxi_rotation_scan(
+    scenario: dlstbx.mimas.MimasScenario,
+) -> HandleScenarioReturnType:
+    return [
+        # Per-image analysis
+        dlstbx.mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="vmxi-per-image-analysis"
+        ),
+        # fast_dp
+        dlstbx.mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="autoprocessing-fast-dp-eiger",
+            source="automatic",
+        ),
+        # xia2-dials
+        dlstbx.mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=scenario.preferred_processing == "xia2/DIALS",
+            recipe="autoprocessing-xia2-dials-eiger",
+            source="automatic",
+            parameters=(
+                dlstbx.mimas.MimasISPyBParameter(
+                    key="resolution.cc_half_significance_level",
+                    value="0.1",
+                ),
+                dlstbx.mimas.MimasISPyBParameter(key="remove_blanks", value="true"),
+                dlstbx.mimas.MimasISPyBParameter(key="failover", value="true"),
+                *xia2_dials_absorption_params(scenario),
+            ),
+        ),
+        # xia2-3dii
+        dlstbx.mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=scenario.preferred_processing == "xia2/XDS",
+            recipe="autoprocessing-xia2-3dii-eiger",
+            source="automatic",
+            parameters=(
+                dlstbx.mimas.MimasISPyBParameter(
+                    key="resolution.cc_half_significance_level",
+                    value="0.1",
+                ),
+            ),
+        ),
+        # autoPROC
+        dlstbx.mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=scenario.preferred_processing == "autoPROC",
+            recipe="autoprocessing-autoPROC-eiger",
+            source="automatic",
+        ),
+    ]
+
+
+@ScenarioHandler.register(is_i19 & is_start & is_pilatus)
+def handle_i19_start_pilatus(
+    scenario: dlstbx.mimas.MimasScenario,
+) -> HandleScenarioReturnType:
+    return [
+        dlstbx.mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="per-image-analysis-rotation"
+        )
+    ]
+
+
+@ScenarioHandler.register(is_i19 & is_start & is_eiger)
+def handle_i19_start_eiger(
+    scenario: dlstbx.mimas.MimasScenario,
+) -> HandleScenarioReturnType:
+    return [
+        dlstbx.mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID,
+            recipe="per-image-analysis-rotation-swmr-i19",
+        )
+    ]
+
+
+@ScenarioHandler.register(is_i19 & is_end & is_pilatus)
+def handle_i19_end_pilatus(
+    scenario: dlstbx.mimas.MimasScenario,
+) -> HandleScenarioReturnType:
+    return [
+        dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
+        for recipe in ("archive-cbfs", "processing-rlv", "strategy-screen19")
+    ]
+
+
+@ScenarioHandler.register(is_i19 & is_end & is_eiger)
+def handle_i19_end_eiger(
+    scenario: dlstbx.mimas.MimasScenario,
+) -> HandleScenarioReturnType:
+    return [
+        dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
+        for recipe in (
+            "archive-nexus",
+            "processing-rlv-eiger",
+            "generate-diffraction-preview",
+            "strategy-screen19-eiger",
+        )
+    ]
+
+
+@ScenarioHandler.register(is_i19 & is_end)
+def handle_i19(scenario: dlstbx.mimas.MimasScenario) -> HandleScenarioReturnType:
+    tasks = [
+        dlstbx.mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
+        ),
+        dlstbx.mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="autoprocessing-multi-xia2-smallmolecule"
+            if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS
+            else "autoprocessing-multi-xia2-smallmolecule-nexus",
+            source="automatic",
+            sweeps=tuple(scenario.getsweepslistfromsamedcg),
+            parameters=xia2_dials_absorption_params(scenario),
+        ),
+        dlstbx.mimas.MimasISPyBJobInvocation(
+            DCID=scenario.DCID,
+            autostart=True,
+            recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml"
+            if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS
+            else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
+            source="automatic",
+            sweeps=tuple(scenario.getsweepslistfromsamedcg),
+        ),
+    ]
+
+    if scenario.spacegroup:
+        # Space group is set, run xia2 with space group
+        spacegroup = scenario.spacegroup.string
+        symmetry_parameters = (
+            dlstbx.mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
+        )
+        if scenario.unitcell:
+            symmetry_parameters += (
+                dlstbx.mimas.MimasISPyBParameter(
+                    key="unit_cell", value=scenario.unitcell.string
+                ),
+            )
+
+        tasks.extend(
+            [
+                dlstbx.mimas.MimasISPyBJobInvocation(
+                    DCID=scenario.DCID,
+                    autostart=True,
+                    recipe="autoprocessing-multi-xia2-smallmolecule"
+                    if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS
+                    else "autoprocessing-multi-xia2-smallmolecule-nexus",
+                    source="automatic",
+                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    parameters=(
+                        *symmetry_parameters,
+                        *xia2_dials_absorption_params(scenario),
+                    ),
+                ),
+                dlstbx.mimas.MimasISPyBJobInvocation(
+                    DCID=scenario.DCID,
+                    autostart=True,
+                    recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml"
+                    if scenario.detectorclass is dlstbx.mimas.MimasDetectorClass.PILATUS
+                    else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
+                    source="automatic",
+                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    parameters=symmetry_parameters,
+                ),
+            ]
+        )
 
     return tasks
 

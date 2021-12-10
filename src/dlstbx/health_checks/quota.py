@@ -22,7 +22,11 @@ def _parse_quota_string(q: str) -> float:
         factor = pow(1024, 3)
     if "TB" in q:
         factor = pow(1024, 4)
-    number = float(re.match("[0-9.]*", q).group())
+    match = re.match("[0-9.]*", q)
+    if match:
+        number = float(match.group())
+    else:
+        number = 0
     return number * factor
 
 
@@ -107,7 +111,7 @@ def _check_quota_for_user(
         REPORT.WARNING: f"User {username} is getting close to quota limits",
         REPORT.ERROR: f"User {username} is at quota limits",
     }[max_notice_level]
-    message_body = "\n".join(n[1] for n in notices if n[0] == max_notice_level)
+    message_body = "\n".join(n[1] for n in notices if n[0] is max_notice_level)
     return Status(
         Source=f"{check_prefix}.{username}",
         Level=max_notice_level,

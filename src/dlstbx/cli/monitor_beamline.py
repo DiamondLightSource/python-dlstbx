@@ -1,5 +1,5 @@
 # Experimental monitoring of beamline events
-
+from __future__ import annotations
 
 import base64
 import datetime
@@ -11,6 +11,7 @@ import pprint
 import queue
 import threading
 import time
+from typing import Any, Tuple
 
 import stomp
 import StringIO
@@ -36,9 +37,9 @@ beamlines = {
 }
 beamlines = {"i02-1", "i02-2", "i03", "i04", "i04-1", "i19-1", "i19-2", "i23", "i24"}
 
-print_queue = queue.Queue()
+print_queue: queue.Queue = queue.Queue()
 
-last_shown = {}
+last_shown: dict[Tuple[Any, Any], Any] = {}
 
 
 def dumb_to_value(dumb):

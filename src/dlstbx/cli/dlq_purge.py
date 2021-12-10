@@ -3,7 +3,7 @@
 #   Retrieve all dead letter queue messages from ActiveMQ and store them
 #   in a temporary directory.
 #
-
+from __future__ import annotations
 
 import argparse
 import errno
@@ -59,7 +59,7 @@ def run() -> None:
         dlq_dump_path = "./DLQ"
 
     characterfilter = re.compile(r"[^a-zA-Z0-9._-]+", re.UNICODE)
-    idlequeue = queue.Queue()
+    idlequeue: queue.Queue[str] = queue.Queue()
 
     def receive_dlq_message(header, message, rabbitmq=False):
         idlequeue.put_nowait("start")

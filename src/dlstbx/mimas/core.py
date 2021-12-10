@@ -7,7 +7,6 @@ from dlstbx.mimas.specification import (
     DCClassSpecification,
     DetectorClassSpecification,
     EventSpecification,
-    NotSpecification,
     ScenarioSpecification,
     VisitSpecification,
 )
@@ -47,14 +46,12 @@ class ScenarioHandler:
 
 
 vmxi_spec = BeamlineSpecification("i02-2")
-vmxi_event_start_spec = vmxi_spec.and_(
-    EventSpecification(dlstbx.mimas.MimasEvent.START)
-)
-vmxi_event_end_spec = vmxi_spec.and_(EventSpecification(dlstbx.mimas.MimasEvent.END))
-vmxi_gridscan_spec = vmxi_event_end_spec.and_(
+vmxi_event_start_spec = vmxi_spec & (EventSpecification(dlstbx.mimas.MimasEvent.START))
+vmxi_event_end_spec = vmxi_spec & EventSpecification(dlstbx.mimas.MimasEvent.END)
+vmxi_gridscan_spec = vmxi_event_end_spec & (
     DCClassSpecification(dlstbx.mimas.MimasDCClass.GRIDSCAN)
 )
-vmxi_rotation_spec = vmxi_event_end_spec.and_(
+vmxi_rotation_spec = vmxi_event_end_spec & (
     DCClassSpecification(dlstbx.mimas.MimasDCClass.ROTATION)
 )
 
@@ -163,20 +160,20 @@ def handle_vmxi_rotation_scan(
     ]
 
 
-i19_spec = BeamlineSpecification("i19-1").or_(BeamlineSpecification("i19-2"))
-i19_spec = BeamlineSpecification("i19-1").or_(BeamlineSpecification("i19-2"))
-i19_start_spec = i19_spec.and_(EventSpecification(dlstbx.mimas.MimasEvent.START))
-i19_start_eiger_spec = i19_start_spec.and_(
+i19_spec = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
+i19_spec = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
+i19_start_spec = i19_spec & EventSpecification(dlstbx.mimas.MimasEvent.START)
+i19_start_eiger_spec = i19_start_spec & (
     DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.EIGER)
 )
-i19_start_pilatus_spec = i19_start_spec.and_(
+i19_start_pilatus_spec = i19_start_spec & (
     DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.PILATUS)
 )
-i19_end_spec = i19_spec.and_(EventSpecification(dlstbx.mimas.MimasEvent.END))
-i19_end_eiger_spec = i19_end_spec.and_(
+i19_end_spec = i19_spec & EventSpecification(dlstbx.mimas.MimasEvent.END)
+i19_end_eiger_spec = i19_end_spec & (
     DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.EIGER)
 )
-i19_end_pilatus_spec = i19_end_spec.and_(
+i19_end_pilatus_spec = i19_end_spec & (
     DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.PILATUS)
 )
 
@@ -300,7 +297,7 @@ def handle_i19(scenario: dlstbx.mimas.MimasScenario) -> HandleScenarioReturnType
     return tasks
 
 
-not_i19_or_vmxi = NotSpecification(i19_spec.or_(vmxi_spec))
+i19_or_vmxi = i19_spec | vmxi_spec
 is_pilatus = DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.PILATUS)
 is_eiger = DetectorClassSpecification(dlstbx.mimas.MimasDetectorClass.EIGER)
 is_start = EventSpecification(dlstbx.mimas.MimasEvent.START)
@@ -310,9 +307,7 @@ is_rotation = DCClassSpecification(dlstbx.mimas.MimasDCClass.ROTATION)
 is_screening = DCClassSpecification(dlstbx.mimas.MimasDCClass.SCREENING)
 
 
-@ScenarioHandler.register(
-    is_pilatus.and_(is_gridscan).and_(is_start).and_(not_i19_or_vmxi)
-)
+@ScenarioHandler.register(is_pilatus & is_gridscan & is_start & ~i19_or_vmxi)
 def handle_pilatus_gridscan_start(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -324,9 +319,7 @@ def handle_pilatus_gridscan_start(
     ]
 
 
-@ScenarioHandler.register(
-    is_pilatus.and_(is_gridscan.not_()).and_(is_start).and_(not_i19_or_vmxi)
-)
+@ScenarioHandler.register(is_pilatus & ~is_gridscan & is_start & ~i19_or_vmxi)
 def handle_pilatus_not_gridscan_start(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -338,7 +331,7 @@ def handle_pilatus_not_gridscan_start(
     ]
 
 
-@ScenarioHandler.register(is_eiger.and_(is_start).and_(not_i19_or_vmxi))
+@ScenarioHandler.register(is_eiger & is_start & ~i19_or_vmxi)
 def handle_eiger_start(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -356,7 +349,7 @@ def handle_eiger_start(
         ]
 
 
-@ScenarioHandler.register(is_eiger.and_(is_end).and_(not_i19_or_vmxi))
+@ScenarioHandler.register(is_eiger & is_end & ~i19_or_vmxi)
 def handle_eiger_end(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -376,7 +369,7 @@ def handle_eiger_end(
     return tasks
 
 
-@ScenarioHandler.register(is_pilatus.and_(is_end).and_(not_i19_or_vmxi))
+@ScenarioHandler.register(is_pilatus & is_end & ~i19_or_vmxi)
 def handle_pilatus_end(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -387,9 +380,7 @@ def handle_pilatus_end(
     ]
 
 
-@ScenarioHandler.register(
-    is_pilatus.and_(is_end).and_(is_screening).and_(not_i19_or_vmxi)
-)
+@ScenarioHandler.register(is_pilatus & is_end & is_screening & ~i19_or_vmxi)
 def handle_pilatus_screening_end(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -401,9 +392,7 @@ def handle_pilatus_screening_end(
     ]
 
 
-@ScenarioHandler.register(
-    is_eiger.and_(is_screening).and_(is_end).and_(not_i19_or_vmxi)
-)
+@ScenarioHandler.register(is_eiger & is_screening & is_end & ~i19_or_vmxi)
 def handle_eiger_screening(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -417,9 +406,7 @@ def handle_eiger_screening(
     ]
 
 
-@ScenarioHandler.register(
-    is_pilatus.and_(is_screening).and_(is_end).and_(not_i19_or_vmxi)
-)
+@ScenarioHandler.register(is_pilatus & is_screening & is_end & ~i19_or_vmxi)
 def handle_pilatus_screening(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -442,7 +429,7 @@ def has_related_data_collections(scenario: dlstbx.mimas.MimasScenario):
     )
 
 
-@ScenarioHandler.register(is_rotation.and_(is_end).and_(not_i19_or_vmxi))
+@ScenarioHandler.register(is_rotation & is_end & ~i19_or_vmxi)
 def handle_rotation_end(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -610,12 +597,13 @@ CLOUD_VISITS = {
     "mx23459-213",
 }
 
+
 is_cloud = (
     VisitSpecification(CLOUD_VISITS)
-    .and_(BeamlineSpecification("i03"))
-    .and_(BeamlineSpecification("i04-1"))
-    .and_(is_end)
-    .and_(is_rotation)
+    & is_end
+    & is_rotation
+    & BeamlineSpecification("i03")
+    & BeamlineSpecification("i04-1")
 )
 
 

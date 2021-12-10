@@ -100,7 +100,7 @@ def run():
                         == AutoProcProgram.processingJobId,
                     )
                     .filter(ProcessingJob.dataCollectionId == dc.dataCollectionId)
-                    .filter(AutoProcProgram.processingStatus == None)
+                    .filter(AutoProcProgram.processingStatus == None)  # noqa: E711
                 )
                 query_result = query.all()
                 if query_result:

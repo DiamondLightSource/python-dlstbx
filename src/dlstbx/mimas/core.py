@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 from typing import List, Union
 
 import dlstbx.mimas
 
+Invocation = Union[
+    dlstbx.mimas.MimasRecipeInvocation, dlstbx.mimas.MimasISPyBJobInvocation
+]
+
 
 def run(
     scenario: dlstbx.mimas.MimasScenario,
-) -> List[
-    Union[dlstbx.mimas.MimasRecipeInvocation, dlstbx.mimas.MimasISPyBJobInvocation]
-]:
-    tasks = []
+) -> List[Invocation]:
+    tasks: List[Invocation] = []
 
     multi_xia2: bool = False
     if (

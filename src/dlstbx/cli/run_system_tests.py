@@ -226,13 +226,13 @@ def run():
             event["at_time"] = event["at_time"] + start_time
             function = event.get("callback")
             if function:
-                args = event.get("args", ())
-                kwargs = event.get("kwargs", {})
+                fargs = event.get("args", ())
+                fkwargs = event.get("kwargs", {})
                 timer_events.append(
                     TimerEvent(
                         time=event["at_time"],
                         result_object=result,
-                        callback=lambda function=function: function(*args, **kwargs),
+                        callback=lambda function=function: function(*fargs, **fkwargs),
                         expected_result=event.get("expect_return", Ellipsis),
                     )
                 )

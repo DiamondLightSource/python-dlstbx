@@ -21,11 +21,8 @@ HandleScenarioReturnType = List[
 def match_specification(scenario_specification: ScenarioSpecification):
     def outer_wrapper(handler: Callable):
         @functools.wraps(handler)
-        def inner_wrapper(scenario):
+        def inner_wrapper(scenario) -> HandleScenarioReturnType:
             if scenario_specification.is_satisfied_by(scenario):
-                print(
-                    f"Specification {scenario_specification} is satisfied by :\n  {scenario}"
-                )
                 return handler(scenario)
             return []
 

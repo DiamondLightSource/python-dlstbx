@@ -1,17 +1,17 @@
 import dlstbx.mimas
 from dlstbx.mimas.core import (
     HandleScenarioReturnType,
-    handle_scenario,
     is_end,
     is_gridscan,
     is_rotation,
     is_start,
     is_vmxi,
+    match_specification,
     xia2_dials_absorption_params,
 )
 
 
-@handle_scenario(is_vmxi & is_start)
+@match_specification(is_vmxi & is_start)
 def handle_vmxi_start(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -19,7 +19,7 @@ def handle_vmxi_start(
     return []
 
 
-@handle_scenario(is_vmxi & is_end)
+@match_specification(is_vmxi & is_end)
 def handle_vmxi_end(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -34,7 +34,7 @@ def handle_vmxi_end(
     ]
 
 
-@handle_scenario(is_vmxi & is_end & is_gridscan)
+@match_specification(is_vmxi & is_end & is_gridscan)
 def handle_vmxi_gridscan(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -45,7 +45,7 @@ def handle_vmxi_gridscan(
     ]
 
 
-@handle_scenario(is_vmxi & is_end & is_rotation)
+@match_specification(is_vmxi & is_end & is_rotation)
 def handle_vmxi_rotation_scan(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:

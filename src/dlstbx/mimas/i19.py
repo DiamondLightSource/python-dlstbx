@@ -1,17 +1,17 @@
 import dlstbx.mimas
 from dlstbx.mimas.core import (
     HandleScenarioReturnType,
-    handle_scenario,
     is_eiger,
     is_end,
     is_i19,
     is_pilatus,
     is_start,
+    match_specification,
     xia2_dials_absorption_params,
 )
 
 
-@handle_scenario(is_i19 & is_start & is_pilatus)
+@match_specification(is_i19 & is_start & is_pilatus)
 def handle_i19_start_pilatus(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -22,7 +22,7 @@ def handle_i19_start_pilatus(
     ]
 
 
-@handle_scenario(is_i19 & is_start & is_eiger)
+@match_specification(is_i19 & is_start & is_eiger)
 def handle_i19_start_eiger(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -34,7 +34,7 @@ def handle_i19_start_eiger(
     ]
 
 
-@handle_scenario(is_i19 & is_end & is_pilatus)
+@match_specification(is_i19 & is_end & is_pilatus)
 def handle_i19_end_pilatus(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -44,7 +44,7 @@ def handle_i19_end_pilatus(
     ]
 
 
-@handle_scenario(is_i19 & is_end & is_eiger)
+@match_specification(is_i19 & is_end & is_eiger)
 def handle_i19_end_eiger(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -59,7 +59,7 @@ def handle_i19_end_eiger(
     ]
 
 
-@handle_scenario(is_i19 & is_end)
+@match_specification(is_i19 & is_end)
 def handle_i19_end(scenario: dlstbx.mimas.MimasScenario) -> HandleScenarioReturnType:
     tasks = [
         dlstbx.mimas.MimasRecipeInvocation(

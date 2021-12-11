@@ -18,7 +18,7 @@ HandleScenarioReturnType = List[
 ]
 
 
-def handle_scenario(scenario_specification: ScenarioSpecification):
+def match_specification(scenario_specification: ScenarioSpecification):
     def outer_wrapper(handler: Callable):
         @functools.wraps(handler)
         def inner_wrapper(scenario):
@@ -61,7 +61,7 @@ def xia2_dials_absorption_params(
     )
 
 
-@handle_scenario(is_pilatus & is_gridscan & is_start & ~i19_or_vmxi)
+@match_specification(is_pilatus & is_gridscan & is_start & ~i19_or_vmxi)
 def handle_pilatus_gridscan_start(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -73,7 +73,7 @@ def handle_pilatus_gridscan_start(
     ]
 
 
-@handle_scenario(is_pilatus & ~is_gridscan & is_start & ~i19_or_vmxi)
+@match_specification(is_pilatus & ~is_gridscan & is_start & ~i19_or_vmxi)
 def handle_pilatus_not_gridscan_start(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -85,7 +85,7 @@ def handle_pilatus_not_gridscan_start(
     ]
 
 
-@handle_scenario(is_eiger & is_start & ~i19_or_vmxi)
+@match_specification(is_eiger & is_start & ~i19_or_vmxi)
 def handle_eiger_start(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -103,7 +103,7 @@ def handle_eiger_start(
         ]
 
 
-@handle_scenario(is_eiger & is_end & ~i19_or_vmxi)
+@match_specification(is_eiger & is_end & ~i19_or_vmxi)
 def handle_eiger_end(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -123,7 +123,7 @@ def handle_eiger_end(
     return tasks
 
 
-@handle_scenario(is_pilatus & is_end & ~i19_or_vmxi)
+@match_specification(is_pilatus & is_end & ~i19_or_vmxi)
 def handle_pilatus_end(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -134,7 +134,7 @@ def handle_pilatus_end(
     ]
 
 
-@handle_scenario(is_eiger & is_screening & is_end & ~i19_or_vmxi)
+@match_specification(is_eiger & is_screening & is_end & ~i19_or_vmxi)
 def handle_eiger_screening(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -148,7 +148,7 @@ def handle_eiger_screening(
     ]
 
 
-@handle_scenario(is_pilatus & is_screening & is_end & ~i19_or_vmxi)
+@match_specification(is_pilatus & is_screening & is_end & ~i19_or_vmxi)
 def handle_pilatus_screening(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -171,7 +171,7 @@ def has_related_data_collections(scenario: dlstbx.mimas.MimasScenario):
     )
 
 
-@handle_scenario(is_rotation & is_end & ~i19_or_vmxi)
+@match_specification(is_rotation & is_end & ~i19_or_vmxi)
 def handle_rotation_end(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
@@ -349,7 +349,7 @@ is_cloud = (
 )
 
 
-@handle_scenario(is_cloud)
+@match_specification(is_cloud)
 def handle_cloud(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:

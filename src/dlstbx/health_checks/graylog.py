@@ -193,7 +193,9 @@ def check_gfps_expulsion(cfc: CheckFunctionInterface) -> Status:
         g.stream = "5d8cd831e7e1f54f98464d3f"  # switch to syslog stream
         g.filters = ["application_name:mmfs", "message:expelling"]
 
-        errors, hosts, clusters = 0, collections.Counter(), collections.Counter()
+        clusters: collections.Counter = collections.Counter()
+        hosts: collections.Counter = collections.Counter()
+        errors = 0
         host_and_cluster = re.compile(r"Expelling: [0-9.:]+ \(([^ ]+) in ([^ ]+)\)$")
         for m in g.get_all_messages(time=7200):
             errors += 1

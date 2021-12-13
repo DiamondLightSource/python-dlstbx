@@ -32,7 +32,7 @@ def get_rabbitmq_stats(rmq: RabbitMQAPI) -> pd.DataFrame:
     return stats.set_index("name")
 
 
-def get_activemq_queue_and_topic_info() -> pd.DataFrame:
+def _get_activemq_queue_and_topic_info(jmx) -> pd.DataFrame:
     attributes = [
         "ConsumerCount",
         "QueueSize",
@@ -84,7 +84,7 @@ AMQ2RMQ = {
 }
 
 
-def get_activemq_stats() -> pd.DataFrame:
+def _get_activemq_stats(jmx) -> pd.DataFrame:
     stats = pd.DataFrame(
         columns=[
             "name",
@@ -97,7 +97,7 @@ def get_activemq_stats() -> pd.DataFrame:
         ]
     )
     for dtype, destinations in zip(
-        ("queue", "topic"), get_activemq_queue_and_topic_info()
+        ("queue", "topic"), _get_activemq_queue_and_topic_info(jmx)
     ):
         for dname, dinfo in destinations.items():
             row = {AMQ2RMQ.get(k, k): dinfo[k] for k in AMQ2RMQ}
@@ -251,7 +251,6 @@ def run():
         rmq = RabbitMQAPI.from_zocalo_configuration(zc)
         transport_prefix = "RabbitMQ"
     else:
-        global jmx
         jmx = zocalo.util.jmxstats.JMXAPI(zc)
         transport_prefix = "ActiveMQ"
 
@@ -260,7 +259,7 @@ def run():
             if args.transport == "PikaTransport":
                 stats = get_rabbitmq_stats(rmq)
             else:
-                stats = get_activemq_stats()
+                stats = _get_activemq_stats(jmx)
 
             stats["relevance"] = (
                 stats["messages_ready"] + stats["messages_unacknowledged"]

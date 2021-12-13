@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import decimal
 import glob
 import itertools
@@ -5,7 +7,7 @@ import logging
 import os
 import re
 import uuid
-from typing import Optional
+from typing import Optional, Tuple, Union
 
 import ispyb.sqlalchemy as isa
 import marshmallow.fields
@@ -140,7 +142,7 @@ class ispybtbx:
             }
             # ispyb_processing_parameters is the preferred method of
             # accessing the processing parameters
-            processing_parameters = {}
+            processing_parameters: dict[str, list[str]] = {}
             for p in rp.ProcessingJobParameters:
                 processing_parameters.setdefault(p.parameterKey, [])
                 processing_parameters[p.parameterKey].append(p.parameterValue)
@@ -376,7 +378,7 @@ class ispybtbx:
         self, dcgid: int, session: sqlalchemy.orm.session.Session
     ) -> Optional[str]:
         if not dcgid:
-            return
+            return None
         query = session.query(isa.DataCollectionGroup.experimentType).filter(
             isa.DataCollectionGroup.dataCollectionGroupId == dcgid
         )
@@ -397,7 +399,7 @@ class ispybtbx:
         c = query.first()
         if not c or not c.spaceGroup:
             return "", False
-        cell = (
+        proto_cell = (
             c.cell_a,
             c.cell_b,
             c.cell_c,
@@ -405,10 +407,11 @@ class ispybtbx:
             c.cell_beta,
             c.cell_gamma,
         )
-        if not all(cell):
+        cell: Union[bool, Tuple[float, ...]]
+        if not all(proto_cell):
             cell = False
         else:
-            cell = tuple(float(p) for p in cell)
+            cell = tuple(float(p) for p in proto_cell)
         return c.spaceGroup, cell
 
     def get_energy_scan_from_dcid(self, dcid, session: sqlalchemy.orm.session.Session):

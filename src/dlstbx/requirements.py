@@ -2,12 +2,14 @@
 
 # can also be run directly to install missing packages
 # command line options are passed through to the conda install process
+from __future__ import annotations
 
 import json
 import os
 import pathlib
 import subprocess
 import sys
+from typing import Optional
 
 import pkg_resources
 
@@ -35,6 +37,7 @@ def _notice(*lines, **context):
     )
 
 
+conda_required: Optional[list[str]]
 if dlstbx_path:
     conda_required = (
         pathlib.Path(dlstbx.__file__)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import sys
@@ -96,9 +98,8 @@ def run():
     file_count = len(file_info)
     for f in sorted(file_info, key=lambda f: file_info[f]["priority"], reverse=True):
         print(
-            "Sending {f} from host {finfo[originating-host]} with recipes {finfo[recipes]}".format(
-                f=f, finfo=file_info[f]
-            )
+            f"Sending {f} from host {file_info[f]['originating-host']}"
+            f" with recipes {file_info[f]['recipes']}"
         )
         assert os.path.exists(file_info[f]["filename"])
         stomp.send(

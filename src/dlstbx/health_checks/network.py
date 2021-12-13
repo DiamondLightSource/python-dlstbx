@@ -70,9 +70,9 @@ def check_agamemnon(cfc: CheckFunctionInterface):
         )
 
     if status == 200 and b"Status: OK" in data:
-        version = re.search(b"Version: ([0-9.]+)", data)
-        if version:
-            version = " v" + version.group(1).decode("latin-1")
+        re_version = re.search(b"Version: ([0-9.]+)", data)
+        if re_version:
+            version = " v" + re_version.group(1).decode("latin-1")
         else:
             version = ""
         return Status(
@@ -154,9 +154,9 @@ def check_internet(cfc: CheckFunctionInterface):
             Message="Internet connection is down",
             MessageBody=output,
         )
-    latency = re.search(b" time=([0-9.]+) ?ms", result.stdout)
-    if latency:
-        latency = ", " + latency.group(1).decode("latin-1") + " ms latency"
+    re_latency = re.search(b" time=([0-9.]+) ?ms", result.stdout)
+    if re_latency:
+        latency = ", " + re_latency.group(1).decode("latin-1") + " ms latency"
     else:
         latency = ""
     return Status(

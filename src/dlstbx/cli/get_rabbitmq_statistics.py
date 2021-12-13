@@ -118,7 +118,7 @@ def colourreset():
 
 def rabbit_checks(zc, hosts: List[str]):
     rabbit = {host: _MicroAPI(zc, base_url=f"https://{host}") for host in hosts}
-    result = {"hosts": {}, "cluster": {}}
+    result: Dict[str, JSONDict] = {"hosts": {}, "cluster": {}}
 
     status: Dict[str, JSONDict] = {}
     nodes: Dict[str, JSONDict] = {}

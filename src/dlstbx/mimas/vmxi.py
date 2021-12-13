@@ -1,6 +1,8 @@
+from typing import List
+
 import dlstbx.mimas
 from dlstbx.mimas.core import (
-    HandleScenarioReturnType,
+    Invocation,
     is_end,
     is_gridscan,
     is_rotation,
@@ -14,7 +16,7 @@ from dlstbx.mimas.core import (
 @match_specification(is_vmxi & is_start)
 def handle_vmxi_start(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     # Do nothing
     return []
 
@@ -22,7 +24,7 @@ def handle_vmxi_start(
 @match_specification(is_vmxi & is_end)
 def handle_vmxi_end(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         dlstbx.mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
@@ -37,7 +39,7 @@ def handle_vmxi_end(
 @match_specification(is_vmxi & is_end & is_gridscan)
 def handle_vmxi_gridscan(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         dlstbx.mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="vmxi-spot-counts-per-image"
@@ -48,7 +50,7 @@ def handle_vmxi_gridscan(
 @match_specification(is_vmxi & is_end & is_rotation)
 def handle_vmxi_rotation_scan(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         # Per-image analysis
         dlstbx.mimas.MimasRecipeInvocation(

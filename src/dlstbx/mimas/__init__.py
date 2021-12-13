@@ -2,9 +2,12 @@ import dataclasses
 import enum
 import functools
 import numbers
-from typing import Optional, Tuple
+from typing import Callable, List, Tuple, Union
 
 import gemmi
+import pkg_resources
+
+from dlstbx.mimas.specification import ScenarioSpecification
 
 MimasDCClass = enum.Enum("MimasDCClass", "GRIDSCAN ROTATION SCREENING UNDEFINED")
 
@@ -373,3 +376,30 @@ def _(mimasobject: MimasISPyBJobInvocation):
             *triggervars,
         )
     )
+
+
+Invocation = Union[MimasISPyBJobInvocation, MimasRecipeInvocation]
+
+
+def match_specification(scenario_specification: ScenarioSpecification):
+    def outer_wrapper(handler: Callable):
+        @functools.wraps(handler)
+        def inner_wrapper(scenario) -> List[Invocation]:
+            if scenario_specification.is_satisfied_by(scenario):
+                return handler(scenario)
+            return []
+
+        return inner_wrapper
+
+    return outer_wrapper
+
+
+def handle_scenario(scenario: MimasScenario) -> List[Invocation]:
+    handlers: dict[str, Callable] = {
+        e.name: e.load()
+        for e in pkg_resources.iter_entry_points("zocalo.mimas.handlers")
+    }
+    tasks: List[Invocation] = []
+    for handler in handlers.values():
+        tasks.extend(handler(scenario))
+    return tasks

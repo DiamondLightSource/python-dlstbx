@@ -1,7 +1,7 @@
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
-import dlstbx.mimas.core
+import dlstbx.mimas
 
 
 class DLSMimas(CommonService):
@@ -149,7 +149,7 @@ class DLSMimas(CommonService):
         rw.set_default_channel("dispatcher")
 
         self.log.debug("Evaluating %r", scenario)
-        things_to_do = dlstbx.mimas.core.run(scenario)
+        things_to_do = dlstbx.mimas.handle_scenario(scenario)
 
         for ttd in things_to_do:
             try:

@@ -2,7 +2,7 @@ import functools
 
 import pytest
 
-import dlstbx.mimas.core
+import dlstbx.mimas
 from dlstbx.mimas import (
     MimasDCClass,
     MimasDetectorClass,
@@ -16,7 +16,7 @@ from dlstbx.mimas import (
 
 def get_zocalo_commands(scenario):
     commands = set()
-    actions = dlstbx.mimas.core.run(scenario)
+    actions = dlstbx.mimas.handle_scenario(scenario)
     for a in actions:
         dlstbx.mimas.validate(a)
         commands.add(dlstbx.mimas.zocalo_command_line(a).strip())

@@ -1,35 +1,14 @@
-import functools
-from typing import Callable, List, Tuple, Union
-
-import pkg_resources
+from typing import List, Tuple
 
 import dlstbx.mimas
+from dlstbx.mimas import Invocation, match_specification
 from dlstbx.mimas.specification import (
     BeamlineSpecification,
     DCClassSpecification,
     DetectorClassSpecification,
     EventSpecification,
-    ScenarioSpecification,
     VisitSpecification,
 )
-
-HandleScenarioReturnType = List[
-    Union[dlstbx.mimas.MimasISPyBJobInvocation, dlstbx.mimas.MimasRecipeInvocation]
-]
-
-
-def match_specification(scenario_specification: ScenarioSpecification):
-    def outer_wrapper(handler: Callable):
-        @functools.wraps(handler)
-        def inner_wrapper(scenario) -> HandleScenarioReturnType:
-            if scenario_specification.is_satisfied_by(scenario):
-                return handler(scenario)
-            return []
-
-        return inner_wrapper
-
-    return outer_wrapper
-
 
 is_i19 = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
 is_vmxi = BeamlineSpecification("i02-2")
@@ -58,7 +37,7 @@ def xia2_dials_absorption_params(
 @match_specification(is_pilatus & is_gridscan & is_start & ~i19_or_vmxi)
 def handle_pilatus_gridscan_start(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-cbfs"),
         dlstbx.mimas.MimasRecipeInvocation(
@@ -70,7 +49,7 @@ def handle_pilatus_gridscan_start(
 @match_specification(is_pilatus & ~is_gridscan & is_start & ~i19_or_vmxi)
 def handle_pilatus_not_gridscan_start(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-cbfs"),
         dlstbx.mimas.MimasRecipeInvocation(
@@ -82,7 +61,7 @@ def handle_pilatus_not_gridscan_start(
 @match_specification(is_eiger & is_start & ~i19_or_vmxi)
 def handle_eiger_start(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     recipe = (
         "per-image-analysis-gridscan-swmr"
         if scenario.dcclass is dlstbx.mimas.MimasDCClass.GRIDSCAN
@@ -94,7 +73,7 @@ def handle_eiger_start(
 @match_specification(is_eiger & is_end & ~i19_or_vmxi)
 def handle_eiger_end(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     stopped = scenario.runstatus == "DataCollection Stopped"
     tasks = [
         dlstbx.mimas.MimasRecipeInvocation(
@@ -114,7 +93,7 @@ def handle_eiger_end(
 @match_specification(is_pilatus & is_end & ~i19_or_vmxi)
 def handle_pilatus_end(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         dlstbx.mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
@@ -125,7 +104,7 @@ def handle_pilatus_end(
 @match_specification(is_eiger & is_screening & is_end & ~i19_or_vmxi)
 def handle_eiger_screening(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in (
@@ -139,7 +118,7 @@ def handle_eiger_screening(
 @match_specification(is_pilatus & is_screening & is_end & ~i19_or_vmxi)
 def handle_pilatus_screening(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in (
@@ -162,7 +141,7 @@ def has_related_data_collections(scenario: dlstbx.mimas.MimasScenario):
 @match_specification(is_rotation & is_end & ~i19_or_vmxi)
 def handle_rotation_end(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
 
     tasks = [
         # RLV
@@ -340,7 +319,7 @@ is_cloud = (
 @match_specification(is_cloud)
 def handle_cloud(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         # xia2-dials
         dlstbx.mimas.MimasISPyBJobInvocation(
@@ -375,19 +354,3 @@ def handle_cloud(
             source="automatic",
         ),
     ]
-
-
-def run(
-    scenario: dlstbx.mimas.MimasScenario,
-) -> List[
-    Union[dlstbx.mimas.MimasRecipeInvocation, dlstbx.mimas.MimasISPyBJobInvocation]
-]:
-
-    handlers: dict[str, Callable] = {
-        e.name: e.load()
-        for e in pkg_resources.iter_entry_points("zocalo.mimas.handlers")
-    }
-    tasks: HandleScenarioReturnType = []
-    for handler in handlers.values():
-        tasks.extend(handler(scenario))
-    return tasks

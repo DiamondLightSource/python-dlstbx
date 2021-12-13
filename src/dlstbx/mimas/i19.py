@@ -1,6 +1,8 @@
+from typing import List
+
 import dlstbx.mimas
 from dlstbx.mimas.core import (
-    HandleScenarioReturnType,
+    Invocation,
     is_eiger,
     is_end,
     is_i19,
@@ -14,7 +16,7 @@ from dlstbx.mimas.core import (
 @match_specification(is_i19 & is_start & is_pilatus)
 def handle_i19_start_pilatus(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         dlstbx.mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="per-image-analysis-rotation"
@@ -25,7 +27,7 @@ def handle_i19_start_pilatus(
 @match_specification(is_i19 & is_start & is_eiger)
 def handle_i19_start_eiger(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         dlstbx.mimas.MimasRecipeInvocation(
             DCID=scenario.DCID,
@@ -37,7 +39,7 @@ def handle_i19_start_eiger(
 @match_specification(is_i19 & is_end & is_pilatus)
 def handle_i19_end_pilatus(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in ("archive-cbfs", "processing-rlv", "strategy-screen19")
@@ -47,7 +49,7 @@ def handle_i19_end_pilatus(
 @match_specification(is_i19 & is_end & is_eiger)
 def handle_i19_end_eiger(
     scenario: dlstbx.mimas.MimasScenario,
-) -> HandleScenarioReturnType:
+) -> List[Invocation]:
     return [
         dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in (
@@ -60,7 +62,7 @@ def handle_i19_end_eiger(
 
 
 @match_specification(is_i19 & is_end)
-def handle_i19_end(scenario: dlstbx.mimas.MimasScenario) -> HandleScenarioReturnType:
+def handle_i19_end(scenario: dlstbx.mimas.MimasScenario) -> List[Invocation]:
     tasks = [
         dlstbx.mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"

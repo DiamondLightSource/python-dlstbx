@@ -47,10 +47,7 @@ def xia2_dials_absorption_params(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> Tuple[dlstbx.mimas.MimasISPyBParameter]:
     # Decide absorption_level for xia2-dials jobs
-    if scenario.anomalous_scatterer:
-        absorption_level = "high"
-    else:
-        absorption_level = "medium"
+    absorption_level = "high" if scenario.anomalous_scatterer else "medium"
     return (
         dlstbx.mimas.MimasISPyBParameter(
             key="absorption_level", value=absorption_level
@@ -86,18 +83,12 @@ def handle_pilatus_not_gridscan_start(
 def handle_eiger_start(
     scenario: dlstbx.mimas.MimasScenario,
 ) -> HandleScenarioReturnType:
-    if scenario.dcclass is dlstbx.mimas.MimasDCClass.GRIDSCAN:
-        return [
-            dlstbx.mimas.MimasRecipeInvocation(
-                DCID=scenario.DCID, recipe="per-image-analysis-gridscan-swmr"
-            )
-        ]
-    else:
-        return [
-            dlstbx.mimas.MimasRecipeInvocation(
-                DCID=scenario.DCID, recipe="per-image-analysis-rotation-swmr"
-            )
-        ]
+    recipe = (
+        "per-image-analysis-gridscan-swmr"
+        if scenario.dcclass is dlstbx.mimas.MimasDCClass.GRIDSCAN
+        else "per-image-analysis-rotation-swmr"
+    )
+    return [dlstbx.mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)]
 
 
 @match_specification(is_eiger & is_end & ~i19_or_vmxi)

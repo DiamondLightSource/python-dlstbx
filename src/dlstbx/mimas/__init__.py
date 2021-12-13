@@ -2,7 +2,7 @@ import dataclasses
 import enum
 import functools
 import numbers
-from typing import Callable, List, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import gemmi
 import pkg_resources

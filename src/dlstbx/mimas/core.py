@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Union
+from typing import List, Tuple, Union
 
 import dlstbx.mimas
 
@@ -127,7 +127,7 @@ def run(
             if scenario.spacegroup:
                 # Space group is set, run xia2 with space group
                 spacegroup = scenario.spacegroup.string
-                symmetry_parameters = (
+                symmetry_parameters: Tuple[dlstbx.mimas.MimasISPyBParameter, ...] = (
                     dlstbx.mimas.MimasISPyBParameter(
                         key="spacegroup", value=spacegroup
                     ),
@@ -381,6 +381,7 @@ def run(
                 spacegroup = scenario.spacegroup.string
                 if spacegroup == "P1211":
                     spacegroup = "P21"  # I04-1 hothothotfix for 20190508 only
+                parameters: Tuple[dlstbx.mimas.MimasISPyBParameter, ...]
                 if scenario.unitcell:
                     parameters = (
                         dlstbx.mimas.MimasISPyBParameter(

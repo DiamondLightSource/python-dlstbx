@@ -103,8 +103,9 @@ for clustername, cluster in clusters.items():
             if resubmission_id:
                 error_db[j] = resubmission_id
             else:
-                error_db[j] = str(uuid.uuid4())
-                cluster.qalter(j, ["-ac", "resubmission_id=" + error_db[j]])
+                unique_id = str(uuid.uuid4())
+                cluster.qalter(j, ["-ac", f"resubmission_id={unique_id}"])
+                error_db[j] = unique_id
             bar.update(1)
 
     removable_jobs = [j for j in error_db if error_db[j] in resubmission_db]

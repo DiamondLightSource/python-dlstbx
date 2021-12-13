@@ -3,6 +3,8 @@
 #   Starts a status monitor (what do you expect?)
 #
 
+from __future__ import annotations
+
 import argparse
 import curses
 import os
@@ -11,6 +13,7 @@ import sys
 import threading
 import time
 from pprint import pprint
+from typing import Any, Tuple
 
 import workflows
 import workflows.services
@@ -37,7 +40,7 @@ class Monitor:
     shutdown = False
     """Set to true to end the main loop and shut down the service monitor."""
 
-    cards = {}
+    cards: dict[int, Any] = {}
     """Register card shown for seen services"""
 
     border_chars = ()
@@ -45,7 +48,7 @@ class Monitor:
     border_chars_text = ("|", "|", "=", "=", "/", "\\", "\\", "/")
     """Example alternative set of frame border characters."""
 
-    most_recent_version = {}
+    most_recent_version: dict[Any, Tuple[Any, Any]] = {}
     """Dictionary to hold software version information, so old versions can be highlighted."""
 
     def __init__(self, filters=None, transport=None, version=None, test=False):

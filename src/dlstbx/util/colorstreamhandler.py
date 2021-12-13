@@ -50,12 +50,38 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from __future__ import annotations
 
 import logging
 import platform
+from typing import Union
 
 
-class _AnsiColorStreamHandler(logging.StreamHandler):
+class _GenericColorStreamHandler(logging.StreamHandler):
+    DEFAULT: Union[int, str] = ""
+    CRITICAL: Union[int, str] = ""
+    ERROR: Union[int, str] = ""
+    WARNING: Union[int, str] = ""
+    INFO: Union[int, str] = ""
+    DEBUG: Union[int, str] = ""
+
+    @classmethod
+    def _get_color(cls, level: int) -> Union[int, str]:
+        if level >= logging.CRITICAL:
+            return cls.CRITICAL
+        elif level >= logging.ERROR:
+            return cls.ERROR
+        elif level >= logging.WARNING:
+            return cls.WARNING
+        elif level >= logging.INFO:
+            return cls.INFO
+        elif level >= logging.DEBUG:
+            return cls.DEBUG
+        else:
+            return cls.DEFAULT
+
+
+class _AnsiColorStreamHandler(_GenericColorStreamHandler):
     DEFAULT = "\x1b[0m"
     RED = "\x1b[31m"
     GREEN = "\x1b[32m"
@@ -70,31 +96,13 @@ class _AnsiColorStreamHandler(logging.StreamHandler):
     INFO = GREEN
     DEBUG = BLUE
 
-    @classmethod
-    def _get_color(cls, level):
-        if level >= logging.CRITICAL:
-            return cls.CRITICAL
-        elif level >= logging.ERROR:
-            return cls.ERROR
-        elif level >= logging.WARNING:
-            return cls.WARNING
-        elif level >= logging.INFO:
-            return cls.INFO
-        elif level >= logging.DEBUG:
-            return cls.DEBUG
-        else:
-            return cls.DEFAULT
-
-    def __init__(self, stream=None):
-        logging.StreamHandler.__init__(self, stream)
-
     def format(self, record):
         text = logging.StreamHandler.format(self, record)
         color = self._get_color(record.levelno)
         return color + text + self.DEFAULT
 
 
-class _WinColorStreamHandler(logging.StreamHandler):
+class _WinColorStreamHandler(_GenericColorStreamHandler):
     # wincon.h
     FOREGROUND_BLACK = 0x0000
     FOREGROUND_BLUE = 0x0001
@@ -126,28 +134,14 @@ class _WinColorStreamHandler(logging.StreamHandler):
     INFO = FOREGROUND_GREEN
     DEBUG = FOREGROUND_CYAN
 
-    @classmethod
-    def _get_color(cls, level):
-        if level >= logging.CRITICAL:
-            return cls.CRITICAL
-        elif level >= logging.ERROR:
-            return cls.ERROR
-        elif level >= logging.WARNING:
-            return cls.WARNING
-        elif level >= logging.INFO:
-            return cls.INFO
-        elif level >= logging.DEBUG:
-            return cls.DEBUG
-        else:
-            return cls.DEFAULT
-
     def _set_color(self, code):
         import ctypes
 
         ctypes.windll.kernel32.SetConsoleTextAttribute(self._outhdl, code)
 
     def __init__(self, stream=None):
-        logging.StreamHandler.__init__(self, stream)
+        super().__init__(stream)
+
         # get file handle for the stream
         import ctypes
         import ctypes.util
@@ -167,6 +161,7 @@ class _WinColorStreamHandler(logging.StreamHandler):
 
 
 # select ColorStreamHandler based on platform
+ColorStreamHandler: type[_GenericColorStreamHandler]
 if platform.system() == "Windows":
     ColorStreamHandler = _WinColorStreamHandler
 else:

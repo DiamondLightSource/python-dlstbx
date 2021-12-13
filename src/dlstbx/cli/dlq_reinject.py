@@ -12,6 +12,7 @@ import re
 import select
 import sys
 import time
+import urllib.request
 from pprint import pprint
 
 import workflows.transport
@@ -140,8 +141,6 @@ def run() -> None:
             header = dlqmsg["header"]
             exchange = header.get("headers", {}).get("x-death", {})[0].get("exchange")
             if exchange:
-                import urllib
-
                 _api_request = http_api_request(zc, "/queues")
                 with urllib.request.urlopen(_api_request) as response:
                     reply = response.read()

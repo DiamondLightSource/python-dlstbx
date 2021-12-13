@@ -26,7 +26,7 @@ class CheckFunctionInterface(NamedTuple):
     name: str
 
 
-class Status(_Base):
+class Status(_Base):  # type: ignore
     __tablename__ = "infrastructure_status"
     __table_args__ = {"comment": "reports of DLS infrastructure"}
 

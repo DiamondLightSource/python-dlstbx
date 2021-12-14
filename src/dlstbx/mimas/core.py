@@ -11,7 +11,6 @@ from dlstbx.mimas.specification import (
 )
 
 MX_BEAMLINES = {"i02-1", "i02-2", "i03", "i04", "i04-1", "i23", "i24"}
-is_i19 = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
 is_vmxi = BeamlineSpecification("i02-2")
 is_mx_beamline = BeamlineSpecification(beamlines=MX_BEAMLINES)
 is_pilatus = DetectorClassSpecification(mimas.MimasDetectorClass.PILATUS)

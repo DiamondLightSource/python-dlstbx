@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 from typing import List
 
 from dlstbx import mimas
 from dlstbx.mimas.core import (
     is_eiger,
     is_end,
-    is_i19,
     is_pilatus,
     is_start,
     xia2_dials_absorption_params,
 )
+from dlstbx.mimas.specification import BeamlineSpecification
+
+is_i19 = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
 
 
 @mimas.match_specification(is_i19 & is_start & is_pilatus)

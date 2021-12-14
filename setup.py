@@ -162,7 +162,7 @@ health_checks = [
 ]
 
 mimas_scenario_handlers = [
-    "cloud = dlstbx.mimas.core:handle_cloud",
+    "cloud = dlstbx.mimas.cloud:handle_cloud",
     "eiger_screening = dlstbx.mimas.core:handle_eiger_screening",
     "eiger_start = dlstbx.mimas.core:handle_eiger_start",
     "eiger_end = dlstbx.mimas.core:handle_eiger_end",

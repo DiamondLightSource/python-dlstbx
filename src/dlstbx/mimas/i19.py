@@ -65,31 +65,14 @@ def handle_i19_end_eiger(
 
 @mimas.match_specification(is_i19 & is_end)
 def handle_i19_end(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
+
     tasks = [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
         ),
-        mimas.MimasISPyBJobInvocation(
-            DCID=scenario.DCID,
-            autostart=True,
-            recipe="autoprocessing-multi-xia2-smallmolecule"
-            if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-            else "autoprocessing-multi-xia2-smallmolecule-nexus",
-            source="automatic",
-            sweeps=tuple(scenario.getsweepslistfromsamedcg),
-            parameters=xia2_dials_absorption_params(scenario),
-        ),
-        mimas.MimasISPyBJobInvocation(
-            DCID=scenario.DCID,
-            autostart=True,
-            recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml"
-            if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-            else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
-            source="automatic",
-            sweeps=tuple(scenario.getsweepslistfromsamedcg),
-        ),
     ]
 
+    extra_params = [()]
     if scenario.spacegroup:
         # Space group is set, run xia2 with space group
         spacegroup = scenario.spacegroup.string
@@ -102,9 +85,14 @@ def handle_i19_end(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
                     key="unit_cell", value=scenario.unitcell.string
                 ),
             )
+        extra_params.append(symmetry_parameters)
 
+    for params in extra_params:
         tasks.extend(
             [
+                mimas.MimasRecipeInvocation(
+                    DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
+                ),
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=True,
@@ -114,7 +102,7 @@ def handle_i19_end(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
                     parameters=(
-                        *symmetry_parameters,
+                        *params,
                         *xia2_dials_absorption_params(scenario),
                     ),
                 ),
@@ -126,7 +114,7 @@ def handle_i19_end(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
                     else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                    parameters=symmetry_parameters,
+                    parameters=params,
                 ),
             ]
         )

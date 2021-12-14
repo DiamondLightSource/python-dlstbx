@@ -166,19 +166,18 @@ def handle_rotation_end(
         # if spacegroup == "C121":
         #     spacegroup = "C2"  # I03 hothothotfix for 20190510 only
 
-        if scenario.unitcell:
-            spacegroup_params = (
-                mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
-                mimas.MimasISPyBParameter(
-                    key="unit_cell", value=scenario.unitcell.string
-                ),
-            )
-        else:
-            spacegroup_params = (
+        if scenario.spacegroup:
+            spacegroup = scenario.spacegroup.string
+            symmetry_parameters = (
                 mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
             )
-
-        extra_params.append(spacegroup_params)
+            if scenario.unitcell:
+                symmetry_parameters += (
+                    mimas.MimasISPyBParameter(
+                        key="unit_cell", value=scenario.unitcell.string
+                    ),
+                )
+            extra_params.append(symmetry_parameters)
 
         # Only run fast_dp with spacegroup set
         tasks.append(

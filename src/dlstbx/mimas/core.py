@@ -292,10 +292,7 @@ def handle_rotation_end(
 CLOUD_VISITS = {
     "cm",
     "nt28218",
-    "mx23694",
-    "mx30951",
-    "lb28215",
-    "mx23459-213",
+    "mx",
 }
 
 
@@ -304,7 +301,6 @@ is_cloud = (
     & is_end
     & is_rotation
     & BeamlineSpecification("i03")
-    & BeamlineSpecification("i04-1")
 )
 
 

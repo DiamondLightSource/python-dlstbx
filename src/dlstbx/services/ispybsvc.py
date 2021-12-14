@@ -132,6 +132,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                     parameters=parameters,
                     session=session,
                     transaction=txn,
+                    header=header,
                 )
         except Exception as e:
             self.log.error(
@@ -1125,7 +1126,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 else:
                     raise
 
-    def do_buffer(self, rw, message, session, parameters, **kwargs):
+    def do_buffer(self, rw, message, session, parameters, header, **kwargs):
         """The buffer command supports running buffer lookups before running
         a command, and optionally storing the result in a buffer after running
         the command. It also takes care of checkpointing in case a required
@@ -1184,6 +1185,14 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
 
         if "buffer_expiry_time" not in message:
+            message["buffer_expiry_time"] = time.time() + 300
+        if header.get("dlq-reinjected") == "true":
+            self.log.warning(
+                "Encountered reinjected message, resetting expiration time from %d to %d",
+                message["buffer_expiry_time"],
+                time.time() + 300,
+            )
+            # log message can be removed once mechanism has been validated
             message["buffer_expiry_time"] = time.time() + 300
 
         # Prepare command: Resolve all references

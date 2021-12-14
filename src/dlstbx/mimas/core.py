@@ -147,13 +147,14 @@ def handle_rotation_end(
     scenario: mimas.MimasScenario,
 ) -> List[mimas.Invocation]:
 
+    suffix = (
+        "-eiger" if scenario.detectorclass is mimas.MimasDetectorClass.EIGER else ""
+    )
     tasks = [
         # RLV
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID,
-            recipe="processing-rlv"
-            if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-            else "processing-rlv-eiger",
+            recipe=f"processing-rlv{suffix}",
         ),
     ]
 
@@ -186,9 +187,7 @@ def handle_rotation_end(
             mimas.MimasISPyBJobInvocation(
                 DCID=scenario.DCID,
                 autostart=True,
-                recipe="autoprocessing-fast-dp"
-                if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-                else "autoprocessing-fast-dp-eiger",
+                recipe=f"autoprocessing-fast-dp{suffix}",
                 source="automatic",
                 parameters=(
                     mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
@@ -201,13 +200,16 @@ def handle_rotation_end(
             mimas.MimasISPyBJobInvocation(
                 DCID=scenario.DCID,
                 autostart=True,
-                recipe="autoprocessing-fast-dp"
-                if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-                else "autoprocessing-fast-dp-eiger",
+                recipe=f"autoprocessing-fast-dp{suffix}",
                 source="automatic",
             )
         )
 
+    suffix = (
+        "-eiger-cluster"
+        if scenario.detectorclass is mimas.MimasDetectorClass.EIGER
+        else ""
+    )
     for params in extra_params:
         tasks.extend(
             [
@@ -215,9 +217,7 @@ def handle_rotation_end(
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=scenario.preferred_processing == "xia2/DIALS",
-                    recipe="autoprocessing-xia2-dials"
-                    if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-                    else "autoprocessing-xia2-dials-eiger-cluster",
+                    recipe=f"autoprocessing-xia2-dials{suffix}",
                     source="automatic",
                     parameters=(
                         mimas.MimasISPyBParameter(
@@ -231,9 +231,7 @@ def handle_rotation_end(
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=scenario.preferred_processing == "xia2/XDS",
-                    recipe="autoprocessing-xia2-3dii"
-                    if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-                    else "autoprocessing-xia2-3dii-eiger-cluster",
+                    recipe=f"autoprocessing-xia2-3dii{suffix}",
                     source="automatic",
                     parameters=(
                         mimas.MimasISPyBParameter(
@@ -246,9 +244,7 @@ def handle_rotation_end(
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=scenario.preferred_processing == "autoPROC",
-                    recipe="autoprocessing-autoPROC"
-                    if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-                    else "autoprocessing-autoPROC-eiger-cluster",
+                    recipe=f"autoprocessing-autoPROC{suffix}",
                     source="automatic",
                     parameters=params,
                 ),
@@ -262,9 +258,7 @@ def handle_rotation_end(
                     mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=False,
-                        recipe="autoprocessing-multi-xia2-dials"
-                        if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-                        else "autoprocessing-multi-xia2-dials-eiger-cluster",
+                        recipe=f"autoprocessing-multi-xia2-dials{suffix}",
                         source="automatic",
                         parameters=(
                             mimas.MimasISPyBParameter(
@@ -279,9 +273,7 @@ def handle_rotation_end(
                     mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
                         autostart=False,
-                        recipe="autoprocessing-multi-xia2-3dii"
-                        if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-                        else "autoprocessing-multi-xia2-3dii-eiger-cluster",
+                        recipe=f"autoprocessing-multi-xia2-3dii{suffix}",
                         source="automatic",
                         parameters=(
                             mimas.MimasISPyBParameter(

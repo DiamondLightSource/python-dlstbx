@@ -396,12 +396,16 @@ def match_specification(scenario_specification: ScenarioSpecification):
     return outer_wrapper
 
 
-def handle_scenario(scenario: MimasScenario) -> List[Invocation]:
-    handlers: dict[str, Callable] = {
+@functools.lru_cache
+def _get_handlers() -> dict[str, Callable]:
+    return {
         e.name: e.load()
         for e in pkg_resources.iter_entry_points("zocalo.mimas.handlers")
     }
+
+
+def handle_scenario(scenario: MimasScenario) -> List[Invocation]:
     tasks: List[Invocation] = []
-    for handler in handlers.values():
+    for handler in _get_handlers().values():
         tasks.extend(handler(scenario))
     return tasks

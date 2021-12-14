@@ -8,14 +8,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from dlstbx.mimas import (
-    Invocation,
-    MimasDCClass,
-    MimasISPyBJobInvocation,
-    MimasRecipeInvocation,
-    MimasScenario,
-    match_specification,
-)
+from dlstbx import mimas
 from dlstbx.mimas.specification import BeamlineSpecification, DCClassSpecification
 
 
@@ -63,14 +56,14 @@ def db_session(db_session_factory):
 
 
 is_i99 = BeamlineSpecification("i99")
-is_rotation = DCClassSpecification(MimasDCClass.ROTATION)
+is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION)
 
 
-@match_specification(is_i99 & is_rotation)
-def handle_i99_rotation(scenario: MimasScenario) -> List[Invocation]:
+@mimas.match_specification(is_i99 & is_rotation)
+def handle_i99_rotation(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
     return [
-        MimasRecipeInvocation(DCID=scenario.DCID, recipe="foo"),
-        MimasISPyBJobInvocation(
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="foo"),
+        mimas.MimasISPyBJobInvocation(
             DCID=scenario.DCID,
             recipe="bar",
             autostart=True,
@@ -79,10 +72,10 @@ def handle_i99_rotation(scenario: MimasScenario) -> List[Invocation]:
     ]
 
 
-@match_specification(is_i99)
-def handle_i99(scenario: MimasScenario) -> List[Invocation]:
+@mimas.match_specification(is_i99)
+def handle_i99(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
     return [
-        MimasRecipeInvocation(DCID=scenario.DCID, recipe="spam"),
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="spam"),
     ]
 
 
@@ -99,7 +92,9 @@ def with_dummy_plugins():
     entry_map["i99_rotation"] = pkg_resources.EntryPoint.parse(
         f"i99_rotation = {__name__}:handle_i99_rotation", dist=dist
     )
+    mimas._get_handlers.cache_clear()
     yield
     # cleanup
     del entry_map["i99"]
     del entry_map["i99_rotation"]
+    mimas._get_handlers.cache_clear()

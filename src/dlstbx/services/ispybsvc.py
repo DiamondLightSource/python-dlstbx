@@ -5,6 +5,7 @@ import time
 
 import ispyb.sqlalchemy
 import mysql.connector
+import pydantic
 import sqlalchemy.orm
 import workflows.recipe
 from ispyb.sqlalchemy import PDB, AutoProcProgram, MXMRRun, ProteinHasPDB
@@ -19,21 +20,17 @@ def lookup_command(command, refclass):
     return getattr(refclass, "do_" + command, None)
 
 
-import string
-from collections import ChainMap
+from typing import List
+
+from dlstbx.util import ChainMapWithReplacement
+from dlstbx.wrapper import dimple
 
 
-class ChainMapWithReplacement(ChainMap):
-    def __init__(self, *maps, environment=None) -> None:
-        super().__init__(*maps)
-        self._environment = environment
-
-    def __getitem__(self, k):
-        v = super().__getitem__(k)
-        if self._environment and "$" in v:
-            template = string.Template(v)
-            return template.substitute(**self._environment)
-        return v
+class DimpleResult(pydantic.BaseModel):
+    mxmrrun: dimple.MXMRRun
+    blobs: List[dimple.Blob]
+    auto_proc_program: dimple.AutoProcProgram
+    attachments: List[dimple.Attachment]
 
 
 class DLSISPyB(EM_Mixin, CommonService):
@@ -805,6 +802,17 @@ class DLSISPyB(EM_Mixin, CommonService):
             autoProcId,
         )
         return {"success": True, "return_value": scalingId}
+
+    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    def do_insert_dimple_result(
+        self,
+        *,
+        parameters: DimpleResult,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+
+        print(parameters)
 
     def do_insert_mxmr_run(self, *, parameters, session, **kwargs):
         mxmr_data = parameters["MXMRRun"]

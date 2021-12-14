@@ -1,19 +1,19 @@
 import configparser
 import copy
-import dataclasses
 import datetime
 import enum
 import itertools
+import json
 import logging
 import os
 import pathlib
 import re
 import shutil
-from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 import dateutil.parser
 import procrunner
+import pydantic
 import zocalo.wrapper
 
 import dlstbx.util.symlink
@@ -26,16 +26,14 @@ class MapType(enum.Enum):
     DIFFERENCE = "difference"
 
 
-@dataclass
-class Atom:
+class Atom(pydantic.BaseModel):
     name: str
     chain_id: str
     res_seq: int
     res_name: str
 
 
-@dataclass
-class Blob:
+class Blob(pydantic.BaseModel):
     xyz: Tuple[float, float, float]
     height: float
     map_type: MapType
@@ -48,8 +46,7 @@ class Blob:
     view3: Optional[str] = None
 
 
-@dataclass
-class AutoProcProgram:
+class AutoProcProgram(pydantic.BaseModel):
     command_line: str
     programs: str
     status: int
@@ -66,16 +63,14 @@ class AttachmentFileType(enum.Enum):
     INPUT = "input"
 
 
-@dataclass
-class Attachment:
+class Attachment(pydantic.BaseModel):
     file_type: AttachmentFileType
     file_path: pathlib.Path
     file_name: str
     timestamp: datetime.datetime
 
 
-@dataclass
-class MXMRRun:
+class MXMRRun(pydantic.BaseModel):
     auto_proc_scaling_id: int
     rwork_start: float
     rwork_end: float
@@ -193,10 +188,10 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         ispyb_results = {
             "ispyb_command": "insert_dimple_results",
-            "mxmrrun": dataclasses.asdict(mxmrrun),
-            "blobs": [dataclasses.asdict(b) for b in blobs + anom_blobs],
-            "auto_proc_program": dataclasses.asdict(app),
-            "attachments": [dataclasses.asdict(att) for att in attachments],
+            "mxmrrun": json.loads(mxmrrun.json()),
+            "blobs": [json.loads(b.json()) for b in blobs + anom_blobs],
+            "auto_proc_program": json.loads(app.json()),
+            "attachments": [json.loads(att.json()) for att in attachments],
         }
 
         logger.debug("Sending %s", str(ispyb_results))

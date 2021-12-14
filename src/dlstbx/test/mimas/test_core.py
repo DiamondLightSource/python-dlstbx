@@ -2,7 +2,7 @@ import functools
 
 import pytest
 
-import dlstbx.mimas
+from dlstbx import mimas
 from dlstbx.mimas import (
     MimasDCClass,
     MimasDetectorClass,
@@ -16,10 +16,10 @@ from dlstbx.mimas import (
 
 def get_zocalo_commands(scenario):
     commands = set()
-    actions = dlstbx.mimas.handle_scenario(scenario)
+    actions = mimas.handle_scenario(scenario)
     for a in actions:
-        dlstbx.mimas.validate(a)
-        commands.add(dlstbx.mimas.zocalo_command_line(a).strip())
+        mimas.validate(a)
+        commands.add(mimas.zocalo_command_line(a).strip())
     return commands
 
 
@@ -439,8 +439,8 @@ def test_i19_rotation_with_symmetry(
     dcid = 6356546
     other_dcid = 6356585
 
-    spacegroup = dlstbx.mimas.MimasISPyBSpaceGroup("P21")
-    unitcell = dlstbx.mimas.MimasISPyBUnitCell(10.89, 8.69, 7.77, 90.0, 103.0, 90.0)
+    spacegroup = mimas.MimasISPyBSpaceGroup("P21")
+    unitcell = mimas.MimasISPyBUnitCell(10.89, 8.69, 7.77, 90.0, 103.0, 90.0)
 
     scenario = functools.partial(
         MimasScenario,

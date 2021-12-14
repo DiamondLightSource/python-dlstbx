@@ -1,7 +1,7 @@
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
-import dlstbx.mimas
+from dlstbx import mimas
 
 
 class DLSMimas(CommonService):
@@ -38,7 +38,7 @@ class DLSMimas(CommonService):
         if not isinstance(event, str):
             event = repr(event)
         try:
-            event = dlstbx.mimas.MimasEvent[event.upper()]
+            event = mimas.MimasEvent[event.upper()]
         except KeyError:
             return f"Invalid Mimas request rejected (Event = {event})"
 
@@ -48,39 +48,38 @@ class DLSMimas(CommonService):
         if isinstance(dc_class, dict):
             # legacy format
             if dc_class["grid"]:
-                dc_class_mimas = dlstbx.mimas.MimasDCClass.GRIDSCAN
+                dc_class_mimas = mimas.MimasDCClass.GRIDSCAN
             elif dc_class["screen"]:
-                dc_class_mimas = dlstbx.mimas.MimasDCClass.SCREENING
+                dc_class_mimas = mimas.MimasDCClass.SCREENING
             elif dc_class["rotation"]:
-                dc_class_mimas = dlstbx.mimas.MimasDCClass.ROTATION
+                dc_class_mimas = mimas.MimasDCClass.ROTATION
             else:
-                dc_class_mimas = dlstbx.mimas.MimasDCClass.UNDEFINED
+                dc_class_mimas = mimas.MimasDCClass.UNDEFINED
         else:
             try:
-                dc_class_mimas = dlstbx.mimas.MimasDCClass[dc_class.upper()]
+                dc_class_mimas = mimas.MimasDCClass[dc_class.upper()]
             except KeyError:
                 self.log.warning(
                     f"Invalid Mimas request (Data collection class = {dc_class!r})"
                 )
-                dc_class_mimas = dlstbx.mimas.MimasDCClass.UNDEFINED
+                dc_class_mimas = mimas.MimasDCClass.UNDEFINED
 
         sweep_list = tuple(
-            dlstbx.mimas.MimasISPyBSweep(*info)
-            for info in (step.get("sweep_list") or [])
+            mimas.MimasISPyBSweep(*info) for info in (step.get("sweep_list") or [])
         )
 
         cell = step.get("unit_cell")
         if cell:
-            cell = dlstbx.mimas.MimasISPyBUnitCell(*cell)
+            cell = mimas.MimasISPyBUnitCell(*cell)
         else:
             cell = None
 
         spacegroup = step.get("space_group")
         if spacegroup:
-            spacegroup = dlstbx.mimas.MimasISPyBSpaceGroup(spacegroup)
+            spacegroup = mimas.MimasISPyBSpaceGroup(spacegroup)
             self.log.info(spacegroup)
             try:
-                dlstbx.mimas.validate(spacegroup)
+                mimas.validate(spacegroup)
             except ValueError:
                 self.log.warning(
                     f"Invalid spacegroup for dcid {dcid}: {spacegroup}", exc_info=True
@@ -94,12 +93,12 @@ class DLSMimas(CommonService):
         if diffraction_plan_info:
             anomalous_scatterer = diffraction_plan_info.get("anomalousScatterer")
             if anomalous_scatterer:
-                anomalous_scatterer = dlstbx.mimas.MimasISPyBAnomalousScatterer(
+                anomalous_scatterer = mimas.MimasISPyBAnomalousScatterer(
                     anomalous_scatterer
                 )
                 self.log.info(f"anomalous_scatterer: {anomalous_scatterer}")
                 try:
-                    dlstbx.mimas.validate(anomalous_scatterer)
+                    mimas.validate(anomalous_scatterer)
                 except ValueError:
                     self.log.warning(
                         f"Invalid anomalous scatterer for dcid {dcid}: {anomalous_scatterer}",
@@ -108,11 +107,11 @@ class DLSMimas(CommonService):
                     anomalous_scatterer = None
 
         detectorclass = {
-            "eiger": dlstbx.mimas.MimasDetectorClass.EIGER,
-            "pilatus": dlstbx.mimas.MimasDetectorClass.PILATUS,
+            "eiger": mimas.MimasDetectorClass.EIGER,
+            "pilatus": mimas.MimasDetectorClass.PILATUS,
         }.get(step.get("detectorclass", "").lower())
 
-        return dlstbx.mimas.MimasScenario(
+        return mimas.MimasScenario(
             DCID=int(dcid),
             dcclass=dc_class_mimas,
             event=event,
@@ -139,7 +138,7 @@ class DLSMimas(CommonService):
 
         # Validate scenario
         try:
-            dlstbx.mimas.validate(scenario, expectedtype=dlstbx.mimas.MimasScenario)
+            mimas.validate(scenario, expectedtype=mimas.MimasScenario)
         except ValueError:
             self.log.error("Invalid Mimas request rejected", exc_info=True)
             rw.transport.nack(header)
@@ -149,15 +148,15 @@ class DLSMimas(CommonService):
         rw.set_default_channel("dispatcher")
 
         self.log.debug("Evaluating %r", scenario)
-        things_to_do = dlstbx.mimas.handle_scenario(scenario)
+        things_to_do = mimas.handle_scenario(scenario)
 
         for ttd in things_to_do:
             try:
-                dlstbx.mimas.validate(
+                mimas.validate(
                     ttd,
                     expectedtype=(
-                        dlstbx.mimas.MimasRecipeInvocation,
-                        dlstbx.mimas.MimasISPyBJobInvocation,
+                        mimas.MimasRecipeInvocation,
+                        mimas.MimasISPyBJobInvocation,
                     ),
                 )
             except ValueError:
@@ -168,14 +167,14 @@ class DLSMimas(CommonService):
 
             self.log.info("Running: %r", ttd)
             try:
-                ttd_zocalo = dlstbx.mimas.zocalo_message(ttd)
+                ttd_zocalo = mimas.zocalo_message(ttd)
             except ValueError:
                 self.log.error(f"Error zocalizing Mimas object {ttd!r}", exc_info=True)
                 rw.transport.nack(header)
                 rw.transport.transaction_abort(txn)
                 return
 
-            if isinstance(ttd, dlstbx.mimas.MimasRecipeInvocation):
+            if isinstance(ttd, mimas.MimasRecipeInvocation):
                 rw.send(ttd_zocalo, transaction=txn)
             else:
                 rw.send_to("ispyb", ttd_zocalo, transaction=txn)

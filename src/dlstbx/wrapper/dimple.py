@@ -1,5 +1,7 @@
 import configparser
 import copy
+import dataclasses
+import datetime
 import enum
 import itertools
 import logging
@@ -10,12 +12,78 @@ import shutil
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
+import dateutil.parser
 import procrunner
 import zocalo.wrapper
 
 import dlstbx.util.symlink
 
 logger = logging.getLogger("dlstbx.wrap.dimple")
+
+
+class MapType(enum.Enum):
+    ANOMALOUS = "anomalous"
+    DIFFERENCE = "difference"
+
+
+@dataclass
+class Atom:
+    name: str
+    chain_id: str
+    res_seq: int
+    res_name: str
+
+
+@dataclass
+class Blob:
+    xyz: Tuple[float, float, float]
+    height: float
+    map_type: MapType
+    occupancy: Optional[float] = None
+    nearest_atom: Optional[Atom] = None
+    nearest_atom_distance: Optional[float] = None
+    filepath: Optional[pathlib.Path] = None
+    view1: Optional[str] = None
+    view2: Optional[str] = None
+    view3: Optional[str] = None
+
+
+@dataclass
+class AutoProcProgram:
+    command_line: str
+    programs: str
+    status: int
+    message: str
+    start_time: datetime.datetime
+    end_time: datetime.datetime
+
+
+class AttachmentFileType(enum.Enum):
+    LOG = "log"
+    RESULT = "result"
+    GRAPH = "graph"
+    DEBUG = "debug"
+    INPUT = "input"
+
+
+@dataclass
+class Attachment:
+    file_type: AttachmentFileType
+    file_path: pathlib.Path
+    file_name: str
+    timestamp: datetime.datetime
+
+
+@dataclass
+class MXMRRun:
+    auto_proc_scaling_id: int
+    rwork_start: float
+    rwork_end: float
+    rfree_start: float
+    rfree_end: float
+    space_group: Optional[str] = None
+    LLG: Optional[float] = None
+    TFZ: Optional[float] = None
 
 
 class DimpleWrapper(zocalo.wrapper.BaseWrapper):
@@ -46,56 +114,93 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             f"Inserting dimple phasing results from {self.results_directory} into ISPyB for scaling_id {scaling_id}"
         )
 
-        ispyb_command_list = []
-
-        starttime = log.get(log.sections()[1], "start_time")
-        endtime = log.get(log.sections()[-1], "end_time")
+        start_time = log.get(log.sections()[1], "start_time")
+        end_time = log.get(log.sections()[-1], "end_time")
         try:
             msg = " ".join(log.get("find-blobs", "info").split()[:4])
         except configparser.NoSectionError:
             msg = "Unmodelled blobs not found"
         dimple_args = log.get("workflow", "args").split()
 
-        insert_mxmr_run = {
-            "ispyb_command": "insert_mxmr_run",
-            "store_result": "ispyb_mxmr_run_id",
-            "scaling_id": scaling_id,
-            "pipeline": "dimple",
-            "logfile": log_file,
-            "success": 1,
-            "starttime": starttime,
-            "endtime": endtime,
-            "rfreestart": log.getfloat("refmac5 restr", "ini_free_r"),
-            "rfreeend": log.getfloat("refmac5 restr", "free_r"),
-            "rstart": log.getfloat("refmac5 restr", "ini_overall_r"),
-            "rend": log.getfloat("refmac5 restr", "overall_r"),
-            "message": msg,
-            "rundir": self.results_directory,
-            "inputmtzfile": dimple_args[0],
-            "inputcoordfile": dimple_args[1],
-            "outputmtzfile": self.results_directory / "final.mtz",
-            "outputcoordfile": self.results_directory / "final.pdb",
-            "cmdline": (
+        app = AutoProcProgram(
+            command_line=(
                 log.get("workflow", "prog")
                 + " "
                 + log.get("workflow", "args").replace("\n", " ")
             ),
+            programs="dimple",
+            status=1,
+            message=msg,
+            start_time=dateutil.parser.parse(start_time),
+            end_time=dateutil.parser.parse(end_time),
+        )
+
+        mxmrrun = MXMRRun(
+            auto_proc_scaling_id=scaling_id,
+            rfree_start=log.getfloat("refmac5 restr", "ini_free_r"),
+            rfree_end=log.getfloat("refmac5 restr", "free_r"),
+            rwork_start=log.getfloat("refmac5 restr", "ini_overall_r"),
+            rwork_end=log.getfloat("refmac5 restr", "overall_r"),
+        )
+
+        input_mtz = pathlib.Path(dimple_args[0])
+        input_pdb = pathlib.Path(dimple_args[1])
+        result_files = {
+            self.results_directory / "final.mtz": AttachmentFileType.RESULT,
+            self.results_directory / "final.pdb": AttachmentFileType.RESULT,
+            input_mtz: AttachmentFileType.INPUT,
+            input_pdb: AttachmentFileType.INPUT,
+            log_file: AttachmentFileType.LOG,
         }
-        ispyb_command_list.append(insert_mxmr_run)
+        attachments = [
+            Attachment(
+                file_type=ftype,
+                file_path=f.parent,
+                file_name=f.name,
+                timestamp=end_time,
+            )
+            for f, ftype in result_files.items()
+        ]
 
-        for n in (1, 2):
-            if (self.results_directory / f"/blob{n}v1.png").is_file():
-                insert_mxmr_run_blob = {
-                    "ispyb_command": "insert_mxmr_run_blob",
-                    "mxmr_run_id": "$ispyb_mxmr_run_id",
-                    "view1": f"blob{n}v1.png",
-                    "view2": f"blob{n}v2.png",
-                    "view3": f"blob{n}v3.png",
-                }
-                ispyb_command_list.append(insert_mxmr_run_blob)
+        blobs = []
+        find_blobs_log = next(
+            self.results_directory.glob("[0-9]+-find-blobs.log"), None
+        )
+        if find_blobs_log:
+            blobs = get_blobs_from_find_blobs_log(find_blobs_log)
+            for i in range(min(len(blobs), 2)):
+                n = i + 1
+                if (self.results_directory / f"/blob{n}v1.png").is_file():
+                    blob = blobs[n - 1]
+                    blob.filepath = self.results_directory
+                    blob.view1 = f"blob{n}v1.png"
+                    blob.view2 = f"blob{n}v2.png"
+                    blob.view3 = f"blob{n}v3.png"
 
-        logger.debug("Sending %s", str(ispyb_command_list))
-        self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        anom_blobs = []
+        anode_log = next(self.results_directory.glob("[0-9]+-anode.log"), None)
+        if anode_log:
+            anom_blobs = get_blobs_from_anode_log(anode_log)
+            logger.info(anom_blobs)
+            for i in range(min(len(anom_blobs), 2)):
+                n = i + 1
+                if (self.results_directory / f"/anom-blob{n}v1.png").is_file():
+                    blob = anom_blobs[n - 1]
+                    blob.filepath = self.results_directory
+                    blob.view1 = f"anom-blob{n}v1.png"
+                    blob.view2 = f"anom-blob{n}v2.png"
+                    blob.view3 = f"anom-blob{n}v3.png"
+
+        ispyb_results = {
+            "ispyb_command": "insert_dimple_results",
+            "mxmrrun": dataclasses.asdict(mxmrrun),
+            "blobs": [dataclasses.asdict(b) for b in blobs + anom_blobs],
+            "auto_proc_program": dataclasses.asdict(app),
+            "attachments": [dataclasses.asdict(att) for att in attachments],
+        }
+
+        logger.debug("Sending %s", str(ispyb_results))
+        self.recwrap.send_to("ispyb", ispyb_results)
         return True
 
     def run(self):
@@ -272,29 +377,6 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                 )
 
         return success
-
-
-class MapType(enum.Enum):
-    ANOMALOUS = "anomalous"
-    DIFFERENCE = "difference"
-
-
-@dataclass
-class Atom:
-    name: str
-    chain_id: str
-    res_seq: int
-    res_name: str
-
-
-@dataclass
-class Blob:
-    xyz: Tuple[float, float, float]
-    height: float
-    map_type: MapType
-    occupancy: Optional[float] = None
-    nearest_atom: Optional[Atom] = None
-    nearest_atom_distance: Optional[float] = None
 
 
 ATOM_NAME_RE = re.compile(r"([\w]+)_([A-Z]):([A-Z]+)([0-9]+)")

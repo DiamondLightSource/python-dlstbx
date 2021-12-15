@@ -1133,7 +1133,7 @@ class DLSTrigger(CommonService):
         class BigEPParams(pydantic.BaseModel):
             data: pathlib.Path
             scaled_unmerged_mtz: pathlib.Path
-            path_ext: Optional[str] = pydantic.Field(
+            path_ext: str = pydantic.Field(
                 default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S")
             )
 

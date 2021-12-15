@@ -768,17 +768,19 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping mrbump trigger: sequence information not available")
             return {"success": True}
 
-        pdb_files = self.get_linked_pdb_files_for_dcid(
-            session,
-            dcid,
-            parameters.pdb_tmpdir,
-            user_pdb_dir=parameters.user_pdb_directory,
-            ignore_pdb_codes=True,
+        pdb_files = tuple(
+            self.get_linked_pdb_files_for_dcid(
+                session,
+                dcid,
+                parameters.pdb_tmpdir,
+                user_pdb_dir=parameters.user_pdb_directory,
+                ignore_pdb_codes=True,
+            )
         )
 
         jobids = []
 
-        for pdb_files in {(), tuple(pdb_files)}:
+        for pdb_files in {(), pdb_files}:
             jp = self.ispyb.mx_processing.get_job_params()
             jp["automatic"] = parameters.automatic
             jp["comments"] = parameters.comment

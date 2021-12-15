@@ -1184,15 +1184,9 @@ class DLSISPyB(EM_Mixin, CommonService):
             self.log.error("Invalid buffer call: unknown command specified")
             return False
 
-        if "buffer_expiry_time" not in message:
-            message["buffer_expiry_time"] = time.time() + 300
-        if header.get("dlq-reinjected") in {True, "True", "true", 1}:
-            self.log.warning(
-                "Encountered reinjected message, resetting expiration time from %d to %d",
-                message["buffer_expiry_time"],
-                time.time() + 300,
-            )
-            # log message can be removed once mechanism has been validated
+        if ("buffer_expiry_time" not in message) or (
+            header.get("dlq-reinjected") in {True, "True", "true", 1}
+        ):
             message["buffer_expiry_time"] = time.time() + 300
 
         # Prepare command: Resolve all references

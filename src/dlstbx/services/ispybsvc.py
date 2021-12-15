@@ -1186,7 +1186,7 @@ class DLSISPyB(EM_Mixin, CommonService):
 
         if "buffer_expiry_time" not in message:
             message["buffer_expiry_time"] = time.time() + 300
-        if header.get("dlq-reinjected") == "true":
+        if header.get("dlq-reinjected") in {True, "True", "true", 1}:
             self.log.warning(
                 "Encountered reinjected message, resetting expiration time from %d to %d",
                 message["buffer_expiry_time"],

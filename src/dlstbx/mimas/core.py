@@ -156,7 +156,8 @@ def handle_rotation_end(
         ),
     ]
 
-    extra_params = [()]
+    ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
+    extra_params: List[ParamTuple] = [()]
     if scenario.spacegroup:
         spacegroup = scenario.spacegroup.string
         # if spacegroup == "P1211":
@@ -168,7 +169,7 @@ def handle_rotation_end(
 
         if scenario.spacegroup:
             spacegroup = scenario.spacegroup.string
-            symmetry_parameters = (
+            symmetry_parameters: ParamTuple = (
                 mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
             )
             if scenario.unitcell:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Tuple
 
 from dlstbx import mimas
 from dlstbx.mimas.core import (
@@ -72,11 +72,12 @@ def handle_i19_end(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
         ),
     ]
 
-    extra_params = [()]
+    ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
+    extra_params: List[ParamTuple] = [()]
     if scenario.spacegroup:
         # Space group is set, run xia2 with space group
         spacegroup = scenario.spacegroup.string
-        symmetry_parameters = (
+        symmetry_parameters: ParamTuple = (
             mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
         )
         if scenario.unitcell:

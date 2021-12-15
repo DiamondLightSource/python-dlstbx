@@ -132,6 +132,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                     parameters=parameters,
                     session=session,
                     transaction=txn,
+                    header=header,
                 )
         except Exception as e:
             self.log.error(
@@ -1125,7 +1126,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 else:
                     raise
 
-    def do_buffer(self, rw, message, session, parameters, **kwargs):
+    def do_buffer(self, rw, message, session, parameters, header, **kwargs):
         """The buffer command supports running buffer lookups before running
         a command, and optionally storing the result in a buffer after running
         the command. It also takes care of checkpointing in case a required
@@ -1183,7 +1184,9 @@ class DLSISPyB(EM_Mixin, CommonService):
             self.log.error("Invalid buffer call: unknown command specified")
             return False
 
-        if "buffer_expiry_time" not in message:
+        if ("buffer_expiry_time" not in message) or (
+            header.get("dlq-reinjected") in {True, "True", "true", 1}
+        ):
             message["buffer_expiry_time"] = time.time() + 300
 
         # Prepare command: Resolve all references

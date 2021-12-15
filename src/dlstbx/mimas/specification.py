@@ -64,8 +64,10 @@ class BeamlineSpecification(ScenarioSpecification):
     beamlines: Optional[set[str]] = None
 
     def is_satisfied_by(self, candidate: dlstbx.mimas.MimasScenario) -> bool:
-        return (self.beamline and candidate.beamline == self.beamline) or (
-            self.beamlines and candidate.beamline in self.beamlines
+        return (
+            (self.beamline and candidate.beamline == self.beamline)
+            or (self.beamlines and candidate.beamline in self.beamlines)
+            or False
         )
 
 
@@ -101,7 +103,9 @@ class VisitSpecification(ScenarioSpecification):
     visits: Set[str]
 
     def is_satisfied_by(self, candidate: dlstbx.mimas.MimasScenario) -> bool:
-        return candidate.visit and candidate.visit.startswith(tuple(self.visits))
+        return (
+            candidate.visit and candidate.visit.startswith(tuple(self.visits))
+        ) or False
 
 
 # class HasSpaceGroupSpecification(ScenarioSpecification):

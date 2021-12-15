@@ -12,11 +12,11 @@ logger = logging.getLogger("dlstbx.wrap.alphafold")
 
 
 class AlphaFoldParameters(pydantic.BaseModel):
-    sequence: pydantic.constr(regex="[A-Z]+")
-    protein_id: pydantic.conint(gt=0)
+    sequence: str = pydantic.Field(..., regex="[A-Z]+")
+    protein_id: int = pydantic.Field(..., gt=0)
     protein_name: str
     working_directory: pathlib.Path
-    timeout: Optional[pydantic.confloat(gt=0)]
+    timeout: Optional[float] = pydantic.Field(None, gt=0)
 
 
 class AlphaFoldWrapper(zocalo.wrapper.BaseWrapper):

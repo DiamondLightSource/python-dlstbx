@@ -75,7 +75,7 @@ def handle_eiger_end(
     scenario: mimas.MimasScenario,
 ) -> List[mimas.Invocation]:
     stopped = scenario.runstatus == "DataCollection Stopped"
-    tasks = [
+    tasks: List[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
         ),
@@ -148,7 +148,7 @@ def handle_rotation_end(
     suffix = (
         "-eiger" if scenario.detectorclass is mimas.MimasDetectorClass.EIGER else ""
     )
-    tasks = [
+    tasks: List[mimas.Invocation] = [
         # RLV
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID,

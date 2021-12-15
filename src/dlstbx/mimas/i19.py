@@ -66,7 +66,7 @@ def handle_i19_end_eiger(
 @mimas.match_specification(is_i19 & is_end)
 def handle_i19_end(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
 
-    tasks = [
+    tasks: List[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
         ),

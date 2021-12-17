@@ -95,7 +95,7 @@ class PrometheusMetrics(BasePrometheusMetrics):
             documentation="The time passed (s) from end of data collection to end of x-ray centering",
             labelnames=["beamline"],
             registry=self.registry,
-            buckets=[0.5, 1, 2, 10, 30, 60, 300, 600, 3600],
+            buckets=[0.5, 1, 2, 5, 10, 30, 60, 300, 600, 3600],
             unit="s",
         )
 
@@ -131,7 +131,6 @@ class DLSXRayCentering(CommonService):
         # Initialise metrics if requested
         if self._environment.get("metrics"):
             self._prom_metrics = PrometheusMetrics()
-            self.log.info("Prometheus metrics on")  # remove once finished testing
         else:
             self._prom_metrics = NoMetrics()
 
@@ -335,7 +334,6 @@ class DLSXRayCentering(CommonService):
                 self._prom_metrics.record_metric(
                     "analysis_latency", [f"{beamline}"], latency
                 )
-                # self._prom_metrics.record_metric("complete_nonsense", [f"{beamline}"])
 
                 # Acknowledge all messages
                 txn = rw.transport.transaction_begin()

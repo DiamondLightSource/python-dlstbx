@@ -19,7 +19,7 @@ class BasePrometheusMetrics(ABC):
     method to record metrics.
 
     Use case:
-        For services running on Kubernetes, create subclass containing
+        For services running on Kubernetes, create a subclass containing
         the method "create_metrics" which creates prometheus style
         metrics as class attributes.
 
@@ -32,15 +32,17 @@ class BasePrometheusMetrics(ABC):
                 registry=self.registry,
             )
 
-    For services not running on kubernetes the ports and address' used for
-    the Prometheus endpoint may need changing.
+    Do not use on services not running on kubernetes.
     """
 
     def __init__(self, port: int = 8080, address: str = "0.0.0.0"):
         self.registry = CollectorRegistry()
-        start_http_server(port, address, registry=self.registry)
-
         self.create_metrics()
+        logger.info("Prometheus metrics on")
+        try:
+            start_http_server(port, address, registry=self.registry)
+        except Exception:
+            logger.exception("Failed to create metric endpoint")
 
     @abstractmethod
     def create_metrics(self):
@@ -52,7 +54,11 @@ class BasePrometheusMetrics(ABC):
         labels: List[str],
         value: Optional[Union[int, float]] = None,
     ):
-        metric = getattr(self, metric_name)
+        metric = False
+        try:
+            metric = getattr(self, metric_name)
+        except AttributeError:
+            logger.exception("Named metric not present as class attribute")
         if metric:
             if isinstance(metric, Counter):
                 metric.labels(*labels).inc()
@@ -66,7 +72,7 @@ class BasePrometheusMetrics(ABC):
             elif isinstance(metric, Gauge):
                 metric.labels(*labels).set(value)
         else:
-            logger.error("Named metric not present as class attribute")
+            logger.error("Metric not recorded")
 
 
 class NoMetrics(BasePrometheusMetrics):
@@ -83,26 +89,3 @@ class NoMetrics(BasePrometheusMetrics):
         value: Optional[Union[int, float]] = None,
     ):
         pass
-
-
-#    def record_metric(
-#        self,
-#        metric_name: str,
-#        labels: List[str],
-#        value: Optional[Union[int, float]] = None,
-#    ):
-#        metric = getattr(self, metric_name, False)
-#        if metric:
-#            if isinstance(metric, Counter):
-#                metric.labels(*labels).inc()
-#
-#            elif isinstance(metric, Histogram):
-#                metric.labels(*labels).observe(value)
-#
-#            elif isinstance(metric, Summary):
-#                metric.labels(*labels).observe(value)
-#
-#            elif isinstance(metric, Gauge):
-#                metric.labels(*labels).set(value)
-#        else:
-#            logger.error("Named metric not present as class attribute")

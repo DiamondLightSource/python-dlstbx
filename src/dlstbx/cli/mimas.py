@@ -12,7 +12,6 @@
 import argparse
 
 import dlstbx.ispybtbx
-import dlstbx.mimas.core
 
 _readable = {
     dlstbx.mimas.MimasEvent.START: "start of data collection",
@@ -104,7 +103,7 @@ def run(args=None):
 
     for dcid in args.dcids:
         for scenario in get_scenarios(dcid):
-            actions = dlstbx.mimas.core.run(scenario)
+            actions = dlstbx.mimas.handle_scenario(scenario)
             print(f"At the {_readable.get(scenario.event)} {dcid}:")
             for a in sorted(actions, key=lambda a: str(type(a)) + " " + a.recipe):
                 try:

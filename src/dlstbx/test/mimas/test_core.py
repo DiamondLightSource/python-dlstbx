@@ -2,7 +2,7 @@ import functools
 
 import pytest
 
-import dlstbx.mimas.core
+from dlstbx import mimas
 from dlstbx.mimas import (
     MimasDCClass,
     MimasDetectorClass,
@@ -16,10 +16,10 @@ from dlstbx.mimas import (
 
 def get_zocalo_commands(scenario):
     commands = set()
-    actions = dlstbx.mimas.core.run(scenario)
+    actions = mimas.handle_scenario(scenario)
     for a in actions:
-        dlstbx.mimas.validate(a)
-        commands.add(dlstbx.mimas.zocalo_command_line(a).strip())
+        mimas.validate(a)
+        commands.add(mimas.zocalo_command_line(a).strip())
     return commands
 
 
@@ -87,8 +87,8 @@ def test_eiger_rotation_multixia2(anomalous_scatterer, absorption_level):
         f"zocalo.go -r processing-rlv-eiger {dcid}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger-cluster",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger --trigger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-3dii-eiger-cluster --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-dials-eiger-cluster --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=absorption_level:{absorption_level}",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-3dii-eiger-cluster --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-dials-eiger-cluster --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger-cluster --add-param=resolution.cc_half_significance_level:0.1",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger-cluster --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
         f"zocalo.go -r archive-nexus {dcid}",
@@ -439,8 +439,8 @@ def test_i19_rotation_with_symmetry(
     dcid = 6356546
     other_dcid = 6356585
 
-    spacegroup = dlstbx.mimas.MimasISPyBSpaceGroup("P21")
-    unitcell = dlstbx.mimas.MimasISPyBUnitCell(10.89, 8.69, 7.77, 90.0, 103.0, 90.0)
+    spacegroup = mimas.MimasISPyBSpaceGroup("P21")
+    unitcell = mimas.MimasISPyBUnitCell(10.89, 8.69, 7.77, 90.0, 103.0, 90.0)
 
     scenario = functools.partial(
         MimasScenario,

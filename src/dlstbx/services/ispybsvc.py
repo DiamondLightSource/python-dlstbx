@@ -12,6 +12,7 @@ from ispyb.sqlalchemy import PDB, AutoProcProgram, MXMRRun, ProteinHasPDB
 from workflows.services.common_service import CommonService
 
 import dlstbx.services.ispybsvc_buffer as buffer
+from dlstbx import crud
 from dlstbx.ispybtbx import setup_marshmallow_schema
 from dlstbx.services.ispybsvc_em import EM_Mixin
 
@@ -22,15 +23,15 @@ def lookup_command(command, refclass):
 
 from typing import List
 
+from dlstbx import schemas
 from dlstbx.util import ChainMapWithReplacement
-from dlstbx.wrapper import dimple
 
 
 class DimpleResult(pydantic.BaseModel):
-    mxmrrun: dimple.MXMRRun
-    blobs: List[dimple.Blob]
-    auto_proc_program: dimple.AutoProcProgram
-    attachments: List[dimple.Attachment]
+    mxmrrun: schemas.MXMRRun
+    blobs: List[schemas.Blob]
+    auto_proc_program: schemas.AutoProcProgram
+    attachments: List[schemas.Attachment]
 
 
 class DLSISPyB(EM_Mixin, CommonService):
@@ -811,8 +812,14 @@ class DLSISPyB(EM_Mixin, CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-
-        print(parameters)
+        mxmrrun = crud.insert_dimple_result(
+            mxmrrun=parameters.mxmrrun,
+            blobs=parameters.blobs,
+            auto_proc_program=parameters.auto_proc_program,
+            attachments=parameters.attachments,
+            session=session,
+        )
+        return {"success": True, "return_value": mxmrrun.mxMRRunId}
 
     def do_insert_mxmr_run(self, *, parameters, session, **kwargs):
         mxmr_data = parameters["MXMRRun"]

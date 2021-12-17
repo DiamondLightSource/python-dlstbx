@@ -1,7 +1,5 @@
 import configparser
 import copy
-import datetime
-import enum
 import itertools
 import json
 import logging
@@ -9,76 +7,16 @@ import os
 import pathlib
 import re
 import shutil
-from typing import List, Optional, Tuple
+from typing import List
 
 import dateutil.parser
 import procrunner
-import pydantic
 import zocalo.wrapper
 
 import dlstbx.util.symlink
+from dlstbx import schemas
 
 logger = logging.getLogger("dlstbx.wrap.dimple")
-
-
-class MapType(enum.Enum):
-    ANOMALOUS = "anomalous"
-    DIFFERENCE = "difference"
-
-
-class Atom(pydantic.BaseModel):
-    name: str
-    chain_id: str
-    res_seq: int
-    res_name: str
-
-
-class Blob(pydantic.BaseModel):
-    xyz: Tuple[float, float, float]
-    height: float
-    map_type: MapType
-    occupancy: Optional[float] = None
-    nearest_atom: Optional[Atom] = None
-    nearest_atom_distance: Optional[float] = None
-    filepath: Optional[pathlib.Path] = None
-    view1: Optional[str] = None
-    view2: Optional[str] = None
-    view3: Optional[str] = None
-
-
-class AutoProcProgram(pydantic.BaseModel):
-    command_line: str
-    programs: str
-    status: int
-    message: str
-    start_time: datetime.datetime
-    end_time: datetime.datetime
-
-
-class AttachmentFileType(enum.Enum):
-    LOG = "log"
-    RESULT = "result"
-    GRAPH = "graph"
-    DEBUG = "debug"
-    INPUT = "input"
-
-
-class Attachment(pydantic.BaseModel):
-    file_type: AttachmentFileType
-    file_path: pathlib.Path
-    file_name: str
-    timestamp: datetime.datetime
-
-
-class MXMRRun(pydantic.BaseModel):
-    auto_proc_scaling_id: int
-    rwork_start: float
-    rwork_end: float
-    rfree_start: float
-    rfree_end: float
-    space_group: Optional[str] = None
-    LLG: Optional[float] = None
-    TFZ: Optional[float] = None
 
 
 class DimpleWrapper(zocalo.wrapper.BaseWrapper):
@@ -117,7 +55,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             msg = "Unmodelled blobs not found"
         dimple_args = log.get("workflow", "args").split()
 
-        app = AutoProcProgram(
+        app = schemas.AutoProcProgram(
             command_line=(
                 log.get("workflow", "prog")
                 + " "
@@ -130,7 +68,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             end_time=dateutil.parser.parse(end_time),
         )
 
-        mxmrrun = MXMRRun(
+        mxmrrun = schemas.MXMRRun(
             auto_proc_scaling_id=scaling_id,
             rfree_start=log.getfloat("refmac5 restr", "ini_free_r"),
             rfree_end=log.getfloat("refmac5 restr", "free_r"),
@@ -141,14 +79,14 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         input_mtz = pathlib.Path(dimple_args[0])
         input_pdb = pathlib.Path(dimple_args[1])
         result_files = {
-            self.results_directory / "final.mtz": AttachmentFileType.RESULT,
-            self.results_directory / "final.pdb": AttachmentFileType.RESULT,
-            input_mtz: AttachmentFileType.INPUT,
-            input_pdb: AttachmentFileType.INPUT,
-            log_file: AttachmentFileType.LOG,
+            self.results_directory / "final.mtz": schemas.AttachmentFileType.RESULT,
+            self.results_directory / "final.pdb": schemas.AttachmentFileType.RESULT,
+            input_mtz: schemas.AttachmentFileType.INPUT,
+            input_pdb: schemas.AttachmentFileType.INPUT,
+            log_file: schemas.AttachmentFileType.LOG,
         }
         attachments = [
-            Attachment(
+            schemas.Attachment(
                 file_type=ftype,
                 file_path=f.parent,
                 file_name=f.name,
@@ -377,7 +315,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 ATOM_NAME_RE = re.compile(r"([\w]+)_([A-Z]):([A-Z]+)([0-9]+)")
 
 
-def get_blobs_from_anode_log(log_file: pathlib.Path) -> List[Blob]:
+def get_blobs_from_anode_log(log_file: pathlib.Path) -> List[schemas.Blob]:
     blobs = []
     with log_file.open() as fh:
         in_strongest_peaks_section = False
@@ -394,14 +332,14 @@ def get_blobs_from_anode_log(log_file: pathlib.Path) -> List[Blob]:
                     m = ATOM_NAME_RE.match(atom)
                     if m:
                         name, chain_id, res_name, res_seq = m.groups()
-                        nearest_atom = Atom(
+                        nearest_atom = schemas.Atom(
                             name=name,
                             chain_id=chain_id,
                             res_name=res_name,
                             res_seq=res_seq,
                         )
                         blobs.append(
-                            Blob(
+                            schemas.Blob(
                                 xyz=(x, y, z),
                                 height=height,
                                 occupancy=occupancy,
@@ -413,7 +351,7 @@ def get_blobs_from_anode_log(log_file: pathlib.Path) -> List[Blob]:
     return blobs
 
 
-def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> List[Blob]:
+def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> List[schemas.Blob]:
     blobs = []
     with log_file.open() as fh:
         for line in fh.readlines():
@@ -422,7 +360,7 @@ def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> List[Blob]:
                     line.replace("(", "").replace(")", "").replace(",", " ").split()
                 )
                 blobs.append(
-                    Blob(
+                    schemas.Blob(
                         xyz=tuple(float(x) for x in tokens[6:9]),
                         height=float(tokens[5]),
                         map_type="difference",

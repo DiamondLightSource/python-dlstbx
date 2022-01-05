@@ -48,6 +48,7 @@ class Parameters(pydantic.BaseModel):
     results_symlink: str = None
     latency_log_warning: float = 30
     latency_log_error: float = 300
+    beamline: str
 
 
 class RecipeStep(pydantic.BaseModel):
@@ -59,7 +60,6 @@ class Message(pydantic.BaseModel):
     file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
     n_spots_total: pydantic.NonNegativeInt
     file_seen_at: pydantic.NonNegativeFloat = pydantic.Field(alias="file-seen-at")
-    file: str
 
 
 class CenteringData(pydantic.BaseModel):
@@ -329,10 +329,11 @@ class DLSXRayCentering(CommonService):
                 )
 
                 # Set prometheus metrics
-                beamline = message.file.split("/dls/")[1].split("/data/")[0]
-                self._prom_metrics.record_metric("complete_centering", [f"{beamline}"])
                 self._prom_metrics.record_metric(
-                    "analysis_latency", [f"{beamline}"], latency
+                    "complete_centering", [f"{parameters.beamline}"]
+                )
+                self._prom_metrics.record_metric(
+                    "analysis_latency", [f"{parameters.beamline}"], latency
                 )
 
                 # Acknowledge all messages

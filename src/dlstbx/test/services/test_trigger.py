@@ -1,9 +1,7 @@
 import datetime
-import logging
 from unittest import mock
 
 import pytest
-import workflows.transport.common_transport
 from ispyb.sqlalchemy import (
     AutoProcIntegration,
     AutoProcProgram,
@@ -16,6 +14,7 @@ from ispyb.sqlalchemy import (
     Protein,
 )
 from workflows.recipe.wrapper import RecipeWrapper
+from workflows.transport.offline_transport import OfflineTransport
 
 from dlstbx.services.trigger import DLSTrigger
 
@@ -72,7 +71,6 @@ def test_multiplex(
     insert_multiplex_input,
     db_session_factory,
     testconfig,
-    testdb,
     mocker,
     monkeypatch,
     spacegroup,
@@ -111,13 +109,18 @@ def test_multiplex(
         },
         "recipe-pointer": 1,
     }
-    trigger = DLSTrigger()
-    trigger._ispyb_sessionmaker = db_session_factory
-    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
     rw = RecipeWrapper(message=message, transport=t)
-    trigger.ispyb = testdb
+    trigger = DLSTrigger()
+    trigger.transport = t
+    trigger.start()
     send = mocker.spy(rw, "send")
-    trigger.trigger(rw, {"some": "header"}, message)
+    trigger.trigger(rw, header, message)
     send.assert_called_once_with(
         {"result": [mocker.ANY, mocker.ANY]}, transaction=mocker.ANY
     )
@@ -177,7 +180,6 @@ def test_dimple(
     insert_dimple_input,
     db_session_factory,
     testconfig,
-    testdb,
     mocker,
     tmp_path,
     monkeypatch,
@@ -206,13 +208,18 @@ def test_dimple(
         },
         "recipe-pointer": 1,
     }
-    trigger = DLSTrigger()
-    trigger._ispyb_sessionmaker = db_session_factory
-    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
     rw = RecipeWrapper(message=message, transport=t)
-    trigger.ispyb = testdb
+    trigger = DLSTrigger()
+    trigger.transport = t
+    trigger.start()
     send = mocker.spy(rw, "send")
-    trigger.trigger(rw, {"some": "header"}, message)
+    trigger.trigger(rw, header, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
     kall = send.mock_calls[0]
     name, args, kwargs = kall
@@ -238,7 +245,7 @@ def test_dimple(
         }
 
 
-def test_ep_predict(db_session_factory, testconfig, testdb, mocker, monkeypatch):
+def test_ep_predict(db_session_factory, testconfig, mocker, monkeypatch):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 993677
     message = {
@@ -262,13 +269,19 @@ def test_ep_predict(db_session_factory, testconfig, testdb, mocker, monkeypatch)
         },
         "recipe-pointer": 1,
     }
-    trigger = DLSTrigger()
-    trigger._ispyb_sessionmaker = db_session_factory
-    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
     rw = RecipeWrapper(message=message, transport=t)
-    trigger.ispyb = testdb
+    trigger = DLSTrigger()
+    trigger.transport = t
+    trigger.start()
     send = mocker.spy(rw, "send")
-    trigger.trigger(rw, {"some": "header"}, message)
+    trigger.trigger(rw, header, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
     kall = send.mock_calls[0]
     name, args, kwargs = kall
@@ -294,7 +307,7 @@ def test_ep_predict(db_session_factory, testconfig, testdb, mocker, monkeypatch)
         }
 
 
-def test_fast_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
+def test_fast_ep(db_session_factory, testconfig, mocker, monkeypatch):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 993677
     message = {
@@ -319,13 +332,19 @@ def test_fast_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
         },
         "recipe-pointer": 1,
     }
-    trigger = DLSTrigger()
-    trigger._ispyb_sessionmaker = db_session_factory
-    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
     rw = RecipeWrapper(message=message, transport=t)
-    trigger.ispyb = testdb
+    trigger = DLSTrigger()
+    trigger.transport = t
+    trigger.start()
     send = mocker.spy(rw, "send")
-    trigger.trigger(rw, {"some": "header"}, message)
+    trigger.trigger(rw, header, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
     kall = send.mock_calls[0]
     name, args, kwargs = kall
@@ -350,7 +369,7 @@ def test_fast_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
         }
 
 
-def test_big_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
+def test_big_ep(db_session_factory, testconfig, mocker, monkeypatch):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 1002287
     message = {
@@ -379,15 +398,21 @@ def test_big_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
         },
         "recipe-pointer": 1,
     }
-    trigger = DLSTrigger()
-    trigger._ispyb_sessionmaker = db_session_factory
-    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
     rw = RecipeWrapper(message=message, transport=t)
-    trigger.ispyb = testdb
+    trigger = DLSTrigger()
+    trigger.transport = t
+    trigger.start()
     send = mocker.spy(rw, "send")
-    trigger.trigger(rw, {"some": "header"}, message)
+    tsend = mocker.spy(t, "send")
+    trigger.trigger(rw, header, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
-    t.send.assert_called_once_with(
+    tsend.assert_called_once_with(
         "processing_recipe",
         {
             "parameters": {
@@ -401,7 +426,7 @@ def test_big_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
             "recipes": [],
         },
     )
-    pjid = t.send.call_args.args[1]["parameters"]["ispyb_process"]
+    pjid = tsend.call_args.args[1]["parameters"]["ispyb_process"]
     with db_session_factory() as db_session:
         pj = (
             db_session.query(ProcessingJob)
@@ -439,7 +464,6 @@ def test_big_ep(db_session_factory, testconfig, testdb, mocker, monkeypatch):
 def test_big_ep_cloud(
     db_session_factory,
     testconfig,
-    testdb,
     mocker,
     monkeypatch,
     pipeline,
@@ -466,16 +490,21 @@ def test_big_ep_cloud(
         },
         "recipe-pointer": 1,
     }
-    trigger = DLSTrigger()
-    trigger._ispyb_sessionmaker = db_session_factory
-    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
     rw = RecipeWrapper(message=message, transport=t)
-    trigger.ispyb = testdb
+    trigger = DLSTrigger()
+    trigger.transport = t
+    trigger.start()
     send = mocker.spy(rw, "send")
-    trigger.trigger(rw, {"some": "header"}, message)
+    tsend = mocker.spy(t, "send")
+    trigger.trigger(rw, header, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
-    print(t.send.call_args)
-    t.send.assert_called_once_with(
+    tsend.assert_called_once_with(
         "processing_recipe",
         {
             "recipes": [],
@@ -484,7 +513,7 @@ def test_big_ep_cloud(
             },
         },
     )
-    pjid = t.send.call_args.args[1]["parameters"]["ispyb_process"]
+    pjid = tsend.call_args.args[1]["parameters"]["ispyb_process"]
     with db_session_factory() as db_session:
         pj = (
             db_session.query(ProcessingJob)
@@ -508,7 +537,7 @@ def test_big_ep_cloud(
         }
 
 
-def test_mrbump(db_session_factory, testconfig, testdb, mocker, monkeypatch, tmp_path):
+def test_mrbump(db_session_factory, testconfig, mocker, monkeypatch, tmp_path):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 1002287
     message = {
@@ -533,15 +562,21 @@ def test_mrbump(db_session_factory, testconfig, testdb, mocker, monkeypatch, tmp
         },
         "recipe-pointer": 1,
     }
-    trigger = DLSTrigger()
-    trigger._ispyb_sessionmaker = db_session_factory
-    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
     rw = RecipeWrapper(message=message, transport=t)
-    trigger.ispyb = testdb
+    trigger = DLSTrigger()
+    trigger.transport = t
+    trigger.start()
     send = mocker.spy(rw, "send")
-    trigger.trigger(rw, {"some": "header"}, message)
+    tsend = mocker.spy(t, "send")
+    trigger.trigger(rw, header, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
-    t.send.assert_called_once_with(
+    tsend.assert_called_once_with(
         "processing_recipe",
         {
             "parameters": {
@@ -550,7 +585,7 @@ def test_mrbump(db_session_factory, testconfig, testdb, mocker, monkeypatch, tmp
             "recipes": [],
         },
     )
-    pjid = t.send.call_args.args[1]["parameters"]["ispyb_process"]
+    pjid = tsend.call_args.args[1]["parameters"]["ispyb_process"]
     with db_session_factory() as db_session:
         pj = (
             db_session.query(ProcessingJob)
@@ -571,7 +606,7 @@ def test_mrbump(db_session_factory, testconfig, testdb, mocker, monkeypatch, tmp
 
 
 def test_mrbump_with_model(
-    db_session_factory, testconfig, testdb, mocker, monkeypatch, tmp_path
+    db_session_factory, testconfig, mocker, monkeypatch, tmp_path
 ):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 1002287
@@ -600,15 +635,21 @@ def test_mrbump_with_model(
         },
         "recipe-pointer": 1,
     }
-    trigger = DLSTrigger()
-    trigger._ispyb_sessionmaker = db_session_factory
-    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
     rw = RecipeWrapper(message=message, transport=t)
-    trigger.ispyb = testdb
+    trigger = DLSTrigger()
+    trigger.transport = t
+    trigger.start()
     send = mocker.spy(rw, "send")
-    trigger.trigger(rw, {"some": "header"}, message)
+    tsend = mocker.spy(t, "send")
+    trigger.trigger(rw, header, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
-    t.send.assert_has_calls(
+    tsend.assert_has_calls(
         [
             mock.call(
                 "processing_recipe",
@@ -624,7 +665,7 @@ def test_mrbump_with_model(
     )
     all_params = []
     with db_session_factory() as db_session:
-        for args, kwargs in t.send.call_args_list:
+        for args, kwargs in tsend.call_args_list:
             pjid = args[1]["parameters"]["ispyb_process"]
             pj = (
                 db_session.query(ProcessingJob)
@@ -673,9 +714,7 @@ def insert_protein_with_sequence(db_session):
 
 def test_alphafold(
     insert_protein_with_sequence,
-    db_session_factory,
     testconfig,
-    testdb,
     mocker,
     monkeypatch,
 ):
@@ -695,15 +734,21 @@ def test_alphafold(
         },
         "recipe-pointer": 1,
     }
-    trigger = DLSTrigger()
-    trigger._ispyb_sessionmaker = db_session_factory
-    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
     rw = RecipeWrapper(message=message, transport=t)
-    trigger.ispyb = testdb
+    trigger = DLSTrigger()
+    trigger.transport = t
+    trigger.start()
     send = mocker.spy(rw, "send")
-    trigger.trigger(rw, {"some": "header"}, message)
+    tsend = mocker.spy(t, "send")
+    trigger.trigger(rw, header, message)
     send.assert_called_once_with({"result": mocker.ANY}, transaction=mocker.ANY)
-    t.send.assert_called_once_with(
+    tsend.assert_called_once_with(
         "processing_recipe",
         {
             "recipes": ["alphafold"],
@@ -733,12 +778,9 @@ def insert_protein_with_sequence_linked_to_industry_proposal(db_session):
 
 def test_alphafold_not_triggered_for_industry_proposal(
     insert_protein_with_sequence_linked_to_industry_proposal,
-    db_session_factory,
     testconfig,
-    testdb,
     mocker,
     monkeypatch,
-    caplog,
 ):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     protein_id = insert_protein_with_sequence_linked_to_industry_proposal
@@ -756,19 +798,26 @@ def test_alphafold_not_triggered_for_industry_proposal(
         },
         "recipe-pointer": 1,
     }
-    trigger = DLSTrigger()
-    trigger._ispyb_sessionmaker = db_session_factory
-    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
     rw = RecipeWrapper(message=message, transport=t)
-    trigger.ispyb = testdb
-    send = mocker.spy(rw, "send")
-    with caplog.at_level(logging.DEBUG):
-        trigger.trigger(rw, {"some": "header"}, message)
-    assert "Not triggering AlphaFold for protein_id" in caplog.text
-    send.assert_not_called()
+    trigger = DLSTrigger()
+    trigger.transport = t
+    trigger.start()
+    spy_log_debug = mocker.spy(trigger.log, "debug")
+    trigger.trigger(rw, header, message)
+    # Ideally we would use the caplog fixture, but the way services sets up
+    # logging seems to mess with the caplog fixture
+    spy_log_debug.assert_called_with(
+        f"Not triggering AlphaFold for protein_id={protein_id} with proposal_code=in"
+    )
 
 
-def test_invalid_params(db_session_factory, caplog):
+def test_invalid_params(mocker):
     message = {
         "recipe": {
             "1": {
@@ -781,12 +830,23 @@ def test_invalid_params(db_session_factory, caplog):
         },
         "recipe-pointer": 1,
     }
-    trigger = DLSTrigger()
-    trigger._ispyb_sessionmaker = db_session_factory
-    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
     rw = RecipeWrapper(message=message, transport=t)
-    with caplog.at_level(logging.ERROR):
-        trigger.trigger(rw, {"some": "header"}, message)
-    assert "Dimple trigger called with invalid parameters" in caplog.text
-    t.nack.assert_called_once()
-    t.transaction_abort.assert_called_once()
+    trigger = DLSTrigger()
+    trigger.transport = t
+    trigger.start()
+    tnack = mocker.spy(t, "nack")
+    spy_log_error = mocker.spy(trigger.log, "error")
+    trigger.trigger(rw, header, message)
+    # Ideally we would use the caplog fixture, but the way services sets up
+    # logging seems to mess with the caplog fixture
+    assert (
+        "Dimple trigger called with invalid parameters"
+        in spy_log_error.call_args.args[0]
+    )
+    tnack.assert_called_once()

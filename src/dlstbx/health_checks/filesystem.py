@@ -80,7 +80,7 @@ def check_filesystems(cfc: CheckFunctionInterface):
                 outcome = Status(
                     Source=fs_test_name,
                     Level=max(REPORT.PASS, minimum_result_level),
-                    Message=f"Filesystem check succeeded{history_summary}",
+                    Message=f"OK{history_summary}",
                     MessageBody=_store_test_history(fs_test_history, success=True),
                     URL="https://confluence.diamond.ac.uk/display/SCI/Stress-testing+the+filesystem",
                 )

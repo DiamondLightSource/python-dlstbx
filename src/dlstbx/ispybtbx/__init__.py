@@ -65,7 +65,6 @@ def setup_marshmallow_schema(session):
                 sqla_session = session
                 load_instance = True
                 include_fk = True
-                include_relationships = True
 
             TYPE_MAPPING = SQLAlchemyAutoSchema.TYPE_MAPPING.copy()
             TYPE_MAPPING.update({decimal.Decimal: marshmallow.fields.Float})

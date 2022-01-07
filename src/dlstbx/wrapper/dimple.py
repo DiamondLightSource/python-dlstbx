@@ -93,6 +93,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                 timestamp=end_time,
             )
             for f, ftype in result_files.items()
+            if f.is_file()
         ]
 
         blobs = []
@@ -111,7 +112,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                     blob.view3 = f"blob{n}v3.png"
 
         anom_blobs = []
-        anode_log = next(self.results_directory.glob("[0-9]*-anode.log"), None)
+        anode_log = self.results_directory / "anode.lsa"
         if anode_log:
             anom_blobs = get_blobs_from_anode_log(anode_log)
             for i in range(min(len(anom_blobs), 2)):
@@ -122,6 +123,24 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                     blob.view1 = f"anom-blob{n}v1.png"
                     blob.view2 = f"anom-blob{n}v2.png"
                     blob.view3 = f"anom-blob{n}v3.png"
+            anode_result_files = {
+                self.results_directory / "anode.pha": schemas.AttachmentFileType.RESULT,
+                self.results_directory
+                / "anode_fa.res": schemas.AttachmentFileType.RESULT,
+                anode_log: schemas.AttachmentFileType.LOG,
+            }
+            attachments.extend(
+                [
+                    schemas.Attachment(
+                        file_type=ftype,
+                        file_path=f.parent,
+                        file_name=f.name,
+                        timestamp=end_time,
+                    )
+                    for f, ftype in anode_result_files.items()
+                    if f.is_file()
+                ]
+            )
 
         ispyb_results = {
             "ispyb_command": "insert_dimple_results",

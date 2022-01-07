@@ -97,13 +97,13 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         blobs = []
         find_blobs_log = next(
-            self.results_directory.glob("[0-9]+-find-blobs.log"), None
+            self.results_directory.glob("[0-9]*-find-blobs.log"), None
         )
         if find_blobs_log:
             blobs = get_blobs_from_find_blobs_log(find_blobs_log)
             for i in range(min(len(blobs), 2)):
                 n = i + 1
-                if (self.results_directory / f"/blob{n}v1.png").is_file():
+                if (self.results_directory / f"blob{n}v1.png").is_file():
                     blob = blobs[n - 1]
                     blob.filepath = self.results_directory
                     blob.view1 = f"blob{n}v1.png"
@@ -111,13 +111,12 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                     blob.view3 = f"blob{n}v3.png"
 
         anom_blobs = []
-        anode_log = next(self.results_directory.glob("[0-9]+-anode.log"), None)
+        anode_log = next(self.results_directory.glob("[0-9]*-anode.log"), None)
         if anode_log:
             anom_blobs = get_blobs_from_anode_log(anode_log)
-            logger.info(anom_blobs)
             for i in range(min(len(anom_blobs), 2)):
                 n = i + 1
-                if (self.results_directory / f"/anom-blob{n}v1.png").is_file():
+                if (self.results_directory / f"anom-blob{n}v1.png").is_file():
                     blob = anom_blobs[n - 1]
                     blob.filepath = self.results_directory
                     blob.view1 = f"anom-blob{n}v1.png"

@@ -16,6 +16,11 @@ def test_insert_dimple_results(db_session):
         schemas.Blob(
             xyz=(0.1, 0.2, 0.3),
             height=10,
+            map_type="difference",
+        ),
+        schemas.Blob(
+            xyz=(0.1, 0.2, 0.3),
+            height=10,
             map_type="anomalous",
             occupancy=1,
             nearest_atom=schemas.Atom(
@@ -29,7 +34,7 @@ def test_insert_dimple_results(db_session):
             view1="anom-blob1.png",
             view2="anom-blob2.png",
             view3="anom-blob3.png",
-        )
+        ),
     ]
     auto_proc_program = schemas.AutoProcProgram(
         command_line="dimple  /path/to/free.mtz /path/to/pdb2bn3.ent.gz /path/to/dimple --anode -fpng",

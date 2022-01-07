@@ -8,12 +8,11 @@ import mysql.connector
 import pydantic
 import sqlalchemy.orm
 import workflows.recipe
-from ispyb.sqlalchemy import PDB, AutoProcProgram, MXMRRun, ProteinHasPDB
+from ispyb.sqlalchemy import PDB, ProteinHasPDB
 from workflows.services.common_service import CommonService
 
 import dlstbx.services.ispybsvc_buffer as buffer
 from dlstbx import crud
-from dlstbx.ispybtbx import setup_marshmallow_schema
 from dlstbx.services.ispybsvc_em import EM_Mixin
 
 
@@ -53,9 +52,6 @@ class DLSISPyB(EM_Mixin, CommonService):
                 ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
             )
         )
-        with self._ispyb_sessionmaker() as session:
-            setup_marshmallow_schema(session)
-
         self.log.debug("ISPyB connector starting")
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -118,11 +114,36 @@ class DLSISPyB(EM_Mixin, CommonService):
         txn = rw.transport.transaction_begin()
         rw.set_default_channel("output")
 
-        parameters = ChainMapWithReplacement(
+        parameter_map = ChainMapWithReplacement(
             message if isinstance(message, dict) else {},
             rw.recipe_step["parameters"],
             substitutions=rw.environment,
         )
+
+        def parameters(parameter, replace_variables=True):
+            if isinstance(message, dict):
+                base_value = message.get(
+                    parameter, rw.recipe_step["parameters"].get(parameter)
+                )
+            else:
+                base_value = rw.recipe_step["parameters"].get(parameter)
+            if (
+                not replace_variables
+                or not base_value
+                or not isinstance(base_value, str)
+                or "$" not in base_value
+            ):
+                return base_value
+            for key in sorted(rw.environment, key=len, reverse=True):
+                if "${" + key + "}" in base_value:
+                    base_value = base_value.replace(
+                        "${" + key + "}", str(rw.environment[key])
+                    )
+                # Replace longest keys first, as the following replacement is
+                # not well-defined when one key is a prefix of another:
+                if "$" + key in base_value:
+                    base_value = base_value.replace("$" + key, str(rw.environment[key]))
+            return base_value
 
         try:
             with self._ispyb_sessionmaker() as session:
@@ -130,6 +151,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                     rw=rw,
                     message=message,
                     parameters=parameters,
+                    parameter_map=parameter_map,
                     session=session,
                     transaction=txn,
                     header=header,
@@ -808,54 +830,36 @@ class DLSISPyB(EM_Mixin, CommonService):
     def do_insert_dimple_result(
         self,
         *,
-        parameters: DimpleResult,
+        parameter_map: DimpleResult,
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
         mxmrrun = crud.insert_dimple_result(
-            mxmrrun=parameters.mxmrrun,
-            blobs=parameters.blobs,
-            auto_proc_program=parameters.auto_proc_program,
-            attachments=parameters.attachments,
+            mxmrrun=parameter_map.mxmrrun,
+            blobs=parameter_map.blobs,
+            auto_proc_program=parameter_map.auto_proc_program,
+            attachments=parameter_map.attachments,
             session=session,
         )
         return {"success": True, "return_value": mxmrrun.mxMRRunId}
 
-    def do_insert_mxmr_run(self, *, parameters, session, **kwargs):
-        mxmr_data = parameters["MXMRRun"]
-
-        if not mxmr_data:
-            self.log.warning("No MXMRRun data in do_insert_mxmr_run message")
-
-        # marshmallow-sqlalchemy doesn't appear to handle doubly-nested relationships,
-        # so first deserialize the AutoProcProgram/AutoProcProgramAttachements first
-        # and then separately deserialize the MXMRRun/MXMRRunBlobs
-        app_data = mxmr_data.get("AutoProcProgram")
-        if not app_data:
-            self.log.warning("No AutoProcProgram data in do_insert_mxmr_run message")
-            return False
-
-        del mxmr_data["AutoProcProgram"]
-        app_schema = AutoProcProgram.__marshmallow__()
-        app = app_schema.load(app_data, transient=True)
-        session.add(app)
-
-        mxmr_schema = MXMRRun.__marshmallow__()
-        mxmrrun = MXMRRun(AutoProcProgram=app)
-        mxmr_schema.load(mxmr_data, instance=mxmrrun, transient=True)
-        session.add(mxmrrun)
-
-        session.commit()
-
-        self.log.info(f"Written MXMRRun record with ID {mxmrrun.mxMRRunId}")
-        return {"success": True, "return_value": mxmrrun.mxMRRunId}
+    def do_insert_mxmr_run(self, parameters, **kwargs):
+        params = self.ispyb.mx_processing.get_run_params()
+        for k in params.keys():
+            if parameters(k) is not None:
+                params[k] = parameters(k)
+        params["parentid"] = parameters("scaling_id")
+        self.log.debug(params)
+        mxmr_run_id = self.ispyb.mx_processing.upsert_run(list(params.values()))
+        self.log.info("Written MXMRRun record with ID %s" % mxmr_run_id)
+        return {"success": True, "return_value": mxmr_run_id}
 
     def do_insert_mxmr_run_blob(self, parameters, **kwargs):
         params = self.ispyb.mx_processing.get_run_blob_params()
         for k in params.keys():
-            if (v := parameters.get(k)) is not None:
-                params[k] = v
-        params["parentid"] = parameters["mxmr_run_id"]
+            if parameters(k) is not None:
+                params[k] = parameters(k)
+        params["parentid"] = parameters("mxmr_run_id")
         self.log.debug(params)
         mxmr_run_blob_id = self.ispyb.mx_processing.upsert_run_blob(
             list(params.values())
@@ -866,7 +870,7 @@ class DLSISPyB(EM_Mixin, CommonService):
     def do_retrieve_programs_for_job_id(self, parameters, **kwargs):
         """Retrieve the processing instances associated with the given processing job ID"""
 
-        processingJobId = parameters["rpid"]
+        processingJobId = parameters("rpid")
         result = self.ispyb.mx_processing.retrieve_programs_for_job_id(processingJobId)
         serial_result = []
         for row in result:

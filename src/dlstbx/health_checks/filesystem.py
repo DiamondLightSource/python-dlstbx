@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import socket
 import subprocess
 from typing import Optional, Tuple
 
@@ -117,4 +118,77 @@ def check_filesystems(cfc: CheckFunctionInterface):
                 URL=outcome_url,
             )
         )
+    return results
+
+
+def _run_df_in(
+    directory: str, *, test_name: str, source_prefix: Optional[str] = None
+) -> Status:
+    readable_directory = directory.replace("/", ".")
+    if readable_directory == ".":
+        readable_directory = ".root"
+    source = test_name + (source_prefix or "") + readable_directory
+
+    try:
+        result = subprocess.run(
+            ("df", directory),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=10,
+        )
+        output = result.stdout.decode("latin-1")
+        if result.returncode:
+            return Status(
+                Source=source,
+                Level=REPORT.WARNING,
+                Message=f"Could not determine free space on {directory}",
+                MessageBody=output,
+            )
+    except Exception as e:
+        return Status(
+            Source=source,
+            Level=REPORT.WARNING,
+            Message=f"Could not determine free space on {directory}",
+            MessageBody=repr(e),
+        )
+
+    df_output = output.split("\n")
+    df_output.pop(0)
+    parseable_output = " ".join(df_output).split()
+    device, size, used, available, percent_str, mountpoint = parseable_output
+    percent = int(percent_str.rstrip("%"))
+    message = f"{percent}% used on {directory}"
+    if percent > 95:
+        return Status(
+            Source=source, Level=REPORT.ERROR, Message=f"{message} (should be <= 95%)"
+        )
+    if percent > 93:
+        return Status(Source=source, Level=REPORT.WARNING, Message=message)
+    if percent > 90:
+        return Status(Source=source, Level=REPORT.NOTICE, Message=message)
+    return Status(Source=source, Level=REPORT.PASS, Message=message)
+
+
+def check_free_space(cfc: CheckFunctionInterface):
+    locations = {
+        "/dls/science",
+        "/dls/tmp",
+        "/dls_sw/apps",
+    }
+    results: list[Status] = [
+        _run_df_in(directory, test_name=cfc.name) for directory in locations
+    ]
+    hostname = socket.gethostname()
+    if hostname.endswith(".diamond.ac.uk"):
+        hostname = hostname[:-14]
+        source_prefix = f".{hostname}"
+        for candidate in {"/", "/data", "/data1", "/data2", "/scratch", "/scratch2"}:
+            status = _run_df_in(
+                candidate, test_name=cfc.name, source_prefix=source_prefix
+            )
+            if (
+                status.Level != REPORT.WARNING
+                or "No such file" not in status.MessageBody
+            ):
+                results.append(status)
     return results

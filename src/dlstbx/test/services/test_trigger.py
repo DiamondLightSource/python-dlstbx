@@ -765,7 +765,8 @@ def test_alphafold_not_triggered_for_industry_proposal(
     with caplog.at_level(logging.DEBUG):
         trigger.trigger(rw, {"some": "header"}, message)
     assert "Not triggering AlphaFold for protein_id" in caplog.text
-    send.assert_not_called()
+    send.assert_called_once_with({"result": None}, transaction=mocker.ANY)
+    t.send.assert_not_called()
 
 
 def test_invalid_params(db_session_factory, caplog):

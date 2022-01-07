@@ -3,7 +3,7 @@
 #
 # Point to a configuration file to use it, eg:
 #  g = GraylogAPI('/dls_sw/apps/zocalo/secrets/credentials-log.cfg')
-
+from __future__ import annotations
 
 import base64
 import configparser
@@ -13,6 +13,7 @@ import json
 import urllib.request
 
 import dateutil.parser
+import dateutil.tz
 import pytz
 
 local_timezone = dateutil.tz.gettz("Europe/London")

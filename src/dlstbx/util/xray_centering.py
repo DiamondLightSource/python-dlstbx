@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import dataclasses
 import enum
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import scipy.ndimage
@@ -23,15 +25,15 @@ class Result:
     steps: Tuple[int, int]
     box_size_px: Tuple[float, float]
     snapshot_offset: Tuple[float, float]
-    centre_x: int = None
-    centre_y: int = None
-    centre_x_box: int = None
-    centre_y_box: int = None
+    centre_x: Optional[int] = None
+    centre_y: Optional[int] = None
+    centre_x_box: Optional[int] = None
+    centre_y_box: Optional[int] = None
     status: str = "fail"
     message: str = "fail"
-    best_image: int = None
-    reflections_in_best_image: int = None
-    best_region: List[Tuple[int, int]] = None
+    best_image: Optional[int] = None
+    reflections_in_best_image: Optional[int] = None
+    best_region: Optional[List[Tuple[int, int]]] = None
 
 
 def main(

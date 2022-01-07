@@ -36,7 +36,7 @@ def _check_quota_for_user(
     entries = [entry for entry in _quotafile() if username in entry]
     limits = {"notice": 0.925, "warning": 0.95, "error": 0.975}
 
-    def report_level(value: float, limit: float) -> REPORT:
+    def report_level(value: float, limit: float) -> int:
         if value >= limits["error"] * limit:
             return REPORT.ERROR
         if value >= limits["warning"] * limit:
@@ -52,7 +52,7 @@ def _check_quota_for_user(
             Level=REPORT.ERROR,
             Message=f"Only {len(entries)} entries found in quota file for {username}",
         )
-    notices: list[tuple[REPORT, str]] = []
+    notices: list[tuple[int, str]] = []
 
     for entry in entries:
         tokens = entry.split()

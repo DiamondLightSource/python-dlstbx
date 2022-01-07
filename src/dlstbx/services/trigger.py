@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import hashlib
 import logging
 import os
 import pathlib
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Literal, Mapping, Optional
+from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import ispyb
 import pydantic
@@ -351,20 +353,20 @@ class DLSTrigger(CommonService):
 
         dcid = parameters.dcid
 
-        pdb_files = self.get_linked_pdb_files_for_dcid(
+        pdb_files_or_codes = self.get_linked_pdb_files_for_dcid(
             session,
             dcid,
             parameters.pdb_tmpdir,
             user_pdb_dir=parameters.user_pdb_directory,
         )
 
-        if not pdb_files:
+        if not pdb_files_or_codes:
             self.log.info(
                 "Skipping dimple trigger: DCID %s has no associated PDB information"
                 % dcid
             )
             return {"success": True}
-        pdb_files = [str(p) for p in pdb_files]
+        pdb_files = [str(p) for p in pdb_files_or_codes]
         self.log.info("PDB files: %s", ", ".join(pdb_files))
 
         dc = (
@@ -372,7 +374,7 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == dcid)
             .one()
         )
-        dimple_parameters = {
+        dimple_parameters: dict[str, list[Any]] = {
             "data": [os.fspath(parameters.mtz)],
             "scaling_id": [parameters.scaling_id],
             "pdb": pdb_files,
@@ -766,17 +768,19 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping mrbump trigger: sequence information not available")
             return {"success": True}
 
-        pdb_files = self.get_linked_pdb_files_for_dcid(
-            session,
-            dcid,
-            parameters.pdb_tmpdir,
-            user_pdb_dir=parameters.user_pdb_directory,
-            ignore_pdb_codes=True,
+        pdb_files = tuple(
+            self.get_linked_pdb_files_for_dcid(
+                session,
+                dcid,
+                parameters.pdb_tmpdir,
+                user_pdb_dir=parameters.user_pdb_directory,
+                ignore_pdb_codes=True,
+            )
         )
 
         jobids = []
 
-        for pdb_files in {(), tuple(pdb_files)}:
+        for pdb_files in {(), pdb_files}:
             jp = self.ispyb.mx_processing.get_job_params()
             jp["automatic"] = parameters.automatic
             jp["comments"] = parameters.comment
@@ -806,6 +810,7 @@ class DLSTrigger(CommonService):
                 self.log.debug(f"mrbump trigger: generated JobParameterID {jppid}")
 
             for pdb_file in pdb_files:
+                assert pdb_file.filepath is not None
                 filepath = pdb_file.filepath
                 if pdb_file.source == "AlphaFold":
                     trimmed = filepath.with_name(
@@ -1130,7 +1135,7 @@ class DLSTrigger(CommonService):
         class BigEPParams(pydantic.BaseModel):
             data: pathlib.Path
             scaled_unmerged_mtz: pathlib.Path
-            path_ext: Optional[str] = pydantic.Field(
+            path_ext: str = pydantic.Field(
                 default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S")
             )
 
@@ -1294,7 +1299,7 @@ class DLSTrigger(CommonService):
         status["ntry"] += 1
         self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
 
-        multiplex_job_dcids = []
+        multiplex_job_dcids: list[set[int]] = []
         jobids = []
 
         for group in related_dcids:

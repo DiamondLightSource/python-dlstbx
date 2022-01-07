@@ -515,18 +515,15 @@ def call_sim(test_name, beamline):
     now = datetime.now()
     # These proposal numbers need to be updated every year
     if beamline.startswith(("e", "m")):
-        proposal = "cm28212"
+        proposal = "cm31111"
     else:
-        proposal = "nt28218"
+        proposal = "nt31175"
     if beamline.startswith("i02"):
         if beamline == "i02-2":
             dest_visit = f"{proposal}-1"
         elif beamline == "i02-1":
             dest_visit = f"{proposal}-2"
         dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
-    elif beamline == "i04":
-        dest_visit = "nt28218-5"
-        dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
     else:
         for cm_dir in Path("/dls", beamline, "data", str(now.year)).iterdir():
             if cm_dir.name.startswith(proposal):

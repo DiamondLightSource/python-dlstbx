@@ -136,6 +136,7 @@ service_list = [
 ]
 
 health_checks = [
+    "it.filesystem = dlstbx.health_checks.filesystem:check_filesystems",
     "it.filesystem.gpfs-expulsion = dlstbx.health_checks.graylog:check_gfps_expulsion",
     "it.filesystem.responsiveness = dlstbx.health_checks.graylog:check_filesystem_is_responsive",
     "it.internet = dlstbx.health_checks.network:check_internet",
@@ -158,6 +159,27 @@ health_checks = [
     "services.zocalo.stash = dlstbx.health_checks.zocalo:check_zocalo_stash",
     "zocalo.dlq.activemq = dlstbx.health_checks.activemq:check_activemq_dlq",
     "zocalo.dlq.rabbitmq = dlstbx.health_checks.rabbitmq:check_rabbitmq_dlq",
+]
+
+mimas_scenario_handlers = [
+    "cloud = dlstbx.mimas.cloud:handle_cloud",
+    "eiger_screening = dlstbx.mimas.core:handle_eiger_screening",
+    "eiger_start = dlstbx.mimas.core:handle_eiger_start",
+    "eiger_end = dlstbx.mimas.core:handle_eiger_end",
+    "i19_pilatus_start = dlstbx.mimas.i19:handle_i19_start_pilatus",
+    "i19_eiger_start = dlstbx.mimas.i19:handle_i19_start_eiger",
+    "i19_pilatus_end = dlstbx.mimas.i19:handle_i19_end_pilatus",
+    "i19_eiger_end = dlstbx.mimas.i19:handle_i19_end_eiger",
+    "i19_end = dlstbx.mimas.i19:handle_i19_end",
+    "pilatus_end = dlstbx.mimas.core:handle_pilatus_end",
+    "pilatus_gridscan_start = dlstbx.mimas.core:handle_pilatus_gridscan_start",
+    "pilatus_not_gridscan_start = dlstbx.mimas.core:handle_pilatus_not_gridscan_start",
+    "pilatus_screening = dlstbx.mimas.core:handle_pilatus_screening",
+    "rotation_end = dlstbx.mimas.core:handle_rotation_end",
+    "vmxi_end = dlstbx.mimas.vmxi:handle_vmxi_end",
+    "vmxi_gridscan = dlstbx.mimas.vmxi:handle_vmxi_gridscan",
+    "vmxi_rotation = dlstbx.mimas.vmxi:handle_vmxi_rotation_scan",
+    "vmxi_start = dlstbx.mimas.vmxi:handle_vmxi_start",
 ]
 
 
@@ -219,6 +241,7 @@ setup(
             "thumbnail = dlstbx.services.images:thumbnail",
         ],
         "zocalo.wrappers": sorted(known_wrappers),
+        "zocalo.mimas.handlers": sorted(mimas_scenario_handlers),
     },
     packages=find_packages("src"),
     package_dir={"": "src"},

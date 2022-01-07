@@ -121,6 +121,20 @@ def check_filesystems(cfc: CheckFunctionInterface):
     return results
 
 
+def _parse_df_output(source: str, percent_str: str, directory: str) -> Status:
+    percent = int(percent_str.rstrip("%"))
+    message = f"{percent}% used on {directory}"
+    if percent > 95:
+        return Status(
+            Source=source, Level=REPORT.ERROR, Message=f"{message} (should be <= 95%)"
+        )
+    if percent > 93:
+        return Status(Source=source, Level=REPORT.WARNING, Message=message)
+    if percent > 90:
+        return Status(Source=source, Level=REPORT.NOTICE, Message=message)
+    return Status(Source=source, Level=REPORT.PASS, Message=message)
+
+
 def _run_df_in(
     directory: str, *, test_name: str, source_prefix: Optional[str] = None
 ) -> Status:
@@ -156,20 +170,50 @@ def _run_df_in(
     df_output.pop(0)
     parseable_output = " ".join(df_output).split()
     device, size, used, available, percent_str, mountpoint = parseable_output
-    percent = int(percent_str.rstrip("%"))
-    message = f"{percent}% used on {directory}"
-    if percent > 95:
-        return Status(
-            Source=source, Level=REPORT.ERROR, Message=f"{message} (should be <= 95%)"
+    return _parse_df_output(source, percent_str, directory)
+
+
+def _run_df_locally(test_name: str, machine_name: str) -> list[Status]:
+    try:
+        result = subprocess.run(
+            ("df", "-l", "-x", "tmpfs", "-x", "devtmpfs"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=10,
         )
-    if percent > 93:
-        return Status(Source=source, Level=REPORT.WARNING, Message=message)
-    if percent > 90:
-        return Status(Source=source, Level=REPORT.NOTICE, Message=message)
-    return Status(Source=source, Level=REPORT.PASS, Message=message)
+        output = result.stdout.decode("latin-1").strip()
+        if result.returncode:
+            return Status(
+                Source=f"{test_name}.{machine_name}.root",
+                Level=REPORT.WARNING,
+                Message="Could not determine free space on local drives",
+                MessageBody=output,
+            )
+    except Exception as e:
+        return Status(
+            Source=f"{test_name}.{machine_name}.root",
+            Level=REPORT.WARNING,
+            Message="Could not determine free space on local drives",
+            MessageBody=repr(e),
+        )
+
+    df_output = output.split("\n")
+    df_output.pop(0)
+
+    results: list[Status] = []
+    for line in df_output:
+        parseable_output = line.split()
+        device, size, used, available, percent_str, mountpoint = parseable_output
+
+        readable_directory = mountpoint.replace("/", ".")
+        if readable_directory == ".":
+            readable_directory = ".root"
+        source = f"{test_name}.{machine_name}{readable_directory}"
+        results.append(_parse_df_output(source, percent_str, mountpoint))
+    return results
 
 
-def check_free_space(cfc: CheckFunctionInterface):
+def check_free_space(cfc: CheckFunctionInterface) -> list[Status]:
     locations = {
         "/dls/science",
         "/dls/tmp",
@@ -181,14 +225,5 @@ def check_free_space(cfc: CheckFunctionInterface):
     hostname = socket.gethostname()
     if hostname.endswith(".diamond.ac.uk"):
         hostname = hostname[:-14]
-        source_prefix = f".{hostname}"
-        for candidate in {"/", "/data", "/data1", "/data2", "/scratch", "/scratch2"}:
-            status = _run_df_in(
-                candidate, test_name=cfc.name, source_prefix=source_prefix
-            )
-            if (
-                status.Level != REPORT.WARNING
-                or "No such file" not in status.MessageBody
-            ):
-                results.append(status)
+        results.extend(_run_df_locally(test_name=cfc.name, machine_name=hostname))
     return results

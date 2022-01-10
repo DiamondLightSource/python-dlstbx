@@ -5,17 +5,32 @@ import time
 
 import ispyb.sqlalchemy
 import mysql.connector
+import pydantic
 import sqlalchemy.orm
 import workflows.recipe
 from ispyb.sqlalchemy import PDB, ProteinHasPDB
 from workflows.services.common_service import CommonService
 
 import dlstbx.services.ispybsvc_buffer as buffer
+from dlstbx import crud
 from dlstbx.services.ispybsvc_em import EM_Mixin
 
 
 def lookup_command(command, refclass):
     return getattr(refclass, "do_" + command, None)
+
+
+from typing import List
+
+from dlstbx import schemas
+from dlstbx.util import ChainMapWithReplacement
+
+
+class DimpleResult(pydantic.BaseModel):
+    mxmrrun: schemas.MXMRRun
+    blobs: List[schemas.Blob]
+    auto_proc_program: schemas.AutoProcProgram
+    attachments: List[schemas.Attachment]
 
 
 class DLSISPyB(EM_Mixin, CommonService):
@@ -99,6 +114,12 @@ class DLSISPyB(EM_Mixin, CommonService):
         txn = rw.transport.transaction_begin()
         rw.set_default_channel("output")
 
+        parameter_map = ChainMapWithReplacement(
+            message if isinstance(message, dict) else {},
+            rw.recipe_step["parameters"],
+            substitutions=rw.environment,
+        )
+
         def parameters(parameter, replace_variables=True):
             if isinstance(message, dict):
                 base_value = message.get(
@@ -130,6 +151,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                     rw=rw,
                     message=message,
                     parameters=parameters,
+                    parameter_map=parameter_map,
                     session=session,
                     transaction=txn,
                     header=header,
@@ -803,6 +825,23 @@ class DLSISPyB(EM_Mixin, CommonService):
             autoProcId,
         )
         return {"success": True, "return_value": scalingId}
+
+    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    def do_insert_dimple_result(
+        self,
+        *,
+        parameter_map: DimpleResult,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        mxmrrun = crud.insert_dimple_result(
+            mxmrrun=parameter_map.mxmrrun,
+            blobs=parameter_map.blobs,
+            auto_proc_program=parameter_map.auto_proc_program,
+            attachments=parameter_map.attachments,
+            session=session,
+        )
+        return {"success": True, "return_value": mxmrrun.mxMRRunId}
 
     def do_insert_mxmr_run(self, parameters, **kwargs):
         params = self.ispyb.mx_processing.get_run_params()

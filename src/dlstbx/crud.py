@@ -70,7 +70,7 @@ def create_blobs(
             else None,
             nearestAtomResSeq=blob.nearest_atom.res_seq if blob.nearest_atom else None,
             nearestAtomDistance=blob.nearest_atom_distance,
-            mapType=blob.map_type.value,
+            mapType=blob.map_type,
         )
         for blob in blobs
     ]
@@ -87,7 +87,7 @@ def create_attachments(
     db_attachments: List[models.AutoProcProgramAttachment] = [
         models.AutoProcProgramAttachment(
             AutoProcProgram=db_app,
-            fileType=att.file_type.value,
+            fileType=att.file_type,
             fileName=att.file_name,
             filePath=os.fspath(att.file_path),
             recordTimeStamp=att.timestamp,

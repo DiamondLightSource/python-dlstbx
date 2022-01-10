@@ -1,5 +1,3 @@
-import dataclasses
-
 from dlstbx.wrapper.dimple import (
     get_blobs_from_anode_log,
     get_blobs_from_find_blobs_log,
@@ -27,31 +25,39 @@ def test_get_blobs_from_anode_log(tmp_path):
     )
     blobs = get_blobs_from_anode_log(anode_log)
     assert len(blobs) == 9
-    assert dataclasses.asdict(blobs[0]) == {
+    assert blobs[0].dict() == {
+        "filepath": None,
         "xyz": (0.23127, 0.42256, 0.32278),
         "height": 13.5,
         "occupancy": 1.0,
         "nearest_atom": {
             "name": "SG",
             "chain_id": "B",
-            "res_seq": "19",
+            "res_seq": 19,
             "res_name": "CYS",
         },
         "nearest_atom_distance": 0.03,
         "map_type": "anomalous",
+        "view1": None,
+        "view2": None,
+        "view3": None,
     }
-    assert dataclasses.asdict(blobs[8]) == {
+    assert blobs[8].dict() == {
+        "filepath": None,
         "xyz": (0.31861, 0.40817, 0.2759),
         "height": 4.2,
         "occupancy": 1.0,
         "nearest_atom": {
             "name": "CD2",
             "chain_id": "B",
-            "res_seq": "16",
+            "res_seq": 16,
             "res_name": "TYR",
         },
         "nearest_atom_distance": 1.865,
         "map_type": "anomalous",
+        "view1": None,
+        "view2": None,
+        "view3": None,
     }
 
 
@@ -71,11 +77,15 @@ Protein mass center: xyz = (   -0.5181,     20.49,     18.82)
     )
     blobs = get_blobs_from_find_blobs_log(find_blobs_log)
     assert len(blobs) == 4
-    assert dataclasses.asdict(blobs[0]) == {
+    assert blobs[0].dict() == {
+        "filepath": None,
         "xyz": (3.62, 22.63, 24.25),
         "height": 104.9,
         "map_type": "difference",
         "occupancy": None,
         "nearest_atom": None,
         "nearest_atom_distance": None,
+        "view1": None,
+        "view2": None,
+        "view3": None,
     }

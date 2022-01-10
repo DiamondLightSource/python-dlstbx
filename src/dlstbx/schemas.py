@@ -30,6 +30,9 @@ class Blob(pydantic.BaseModel):
     view2: Optional[str]
     view3: Optional[str]
 
+    class Config:
+        use_enum_values = True
+
 
 class AutoProcProgram(pydantic.BaseModel):
     command_line: str = pydantic.Field(..., max_length=255)
@@ -61,6 +64,9 @@ class Attachment(pydantic.BaseModel):
     file_name: str
     timestamp: datetime.datetime
     importance_rank: Optional[int]
+
+    class Config:
+        use_enum_values = True
 
 
 class MXMRRun(pydantic.BaseModel):

@@ -166,6 +166,7 @@ def check_internet(cfc: CheckFunctionInterface):
     )
 
 
+@limit_level(max_increase=3)
 def check_github(cfc: CheckFunctionInterface):
     try:
         subprocess.run(

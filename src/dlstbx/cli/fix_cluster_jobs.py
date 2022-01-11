@@ -132,7 +132,7 @@ for clustername, cluster in clusters.items():
                 resub = cluster.qresub(j, ["-h", "u"])
                 assert (
                     not resub.returncode and not resub["timeout"]
-                ), "Could not requeue job %s: %s" % (j, resub.stderr or resub.stdout)
+                ), f"Could not requeue job {j}: {resub.stderr or resub.stdout}"
                 resubmission_id = re.search(
                     "Your job(?:-array)? ([0-9]+)[ .]", resub.stdout
                 )

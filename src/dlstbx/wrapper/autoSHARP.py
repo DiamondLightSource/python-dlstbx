@@ -63,7 +63,7 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
         parse_value = lambda v: v.split("=")[1][1:-2]
 
         try:
-            with open(os.path.join(self.msg._wd, ".autoSHARP"), "r") as f:
+            with open(os.path.join(self.msg._wd, ".autoSHARP")) as f:
                 lines = f.readlines()
                 for mtz_line, pdb_line in zip(lines[:0:-1], lines[-2::-1]):
                     if (
@@ -102,7 +102,7 @@ class autoSHARPWrapper(zocalo.wrapper.BaseWrapper):
                         return mdl_dict
                 logger.info("Cannot find record with autoSHARP output files")
                 return None
-        except IOError:
+        except OSError:
             logger.info("Cannot find .autoSHARP results file")
             return None
 

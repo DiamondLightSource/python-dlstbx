@@ -235,7 +235,7 @@ setup(
         "libtbx.dispatcher.script": [
             "%s=%s" % (x.split("=")[0], x.split("=")[0]) for x in console_scripts
         ]
-        + ["%s=%s" % (x, x) for x in swirltbx_hacks],
+        + [f"{x}={x}" for x in swirltbx_hacks],
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.health_checks": sorted(health_checks),

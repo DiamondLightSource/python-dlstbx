@@ -4,7 +4,7 @@ import datetime
 import http.client
 import re
 import sys
-import xml.etree.cElementTree as ET
+import xml.etree.ElementTree as ET
 
 DBSERVER_HOST = "sci-serv3"
 DBSERVER_PORT = "2611"

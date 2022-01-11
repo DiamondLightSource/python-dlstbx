@@ -80,7 +80,7 @@ class FastEPWrapper(zocalo.wrapper.BaseWrapper):
         command = ["fast_ep"]
         for param, value in params["fast_ep"].items():
             if value:
-                logging.info("Parameter %s: %s" % (param, str(value)))
+                logging.info(f"Parameter {param}: {value}")
                 if param == "rlims":
                     value = ",".join(str(r) for r in value)
                 command.append(f"{param}={value}")

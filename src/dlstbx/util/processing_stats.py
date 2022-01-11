@@ -35,7 +35,7 @@ def get_pdb_chain_stats(pdb_file, logger):
                 itertools.chain.from_iterable(
                     [
                         [
-                            int("".join(([a for a in rg.resid() if a.isdigit()])))
+                            int("".join([a for a in rg.resid() if a.isdigit()]))
                             for ag in rg.atom_groups()
                             if (ag.resname in aa_keys)
                         ]

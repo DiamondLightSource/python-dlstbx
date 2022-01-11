@@ -661,7 +661,7 @@ class DLSTrigger(CommonService):
         jp["display_name"] = "best"
         jp["recipe"] = "postprocessing-best"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug("best trigger: generated JobID {}".format(jobid))
+        self.log.debug(f"best trigger: generated JobID {jobid}")
 
         best_parameters = {
             "program_id": parameters.program_id,
@@ -674,9 +674,9 @@ class DLSTrigger(CommonService):
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug("best trigger: generated JobParameterID {}".format(jppid))
+            self.log.debug(f"best trigger: generated JobParameterID {jppid}")
 
-        self.log.debug("best trigger: Processing job {} created".format(jobid))
+        self.log.debug(f"best trigger: Processing job {jobid} created")
 
         message = {
             "parameters": {"ispyb_process": jobid, "data": os.fspath(parameters.data)},
@@ -684,7 +684,7 @@ class DLSTrigger(CommonService):
         }
         rw.transport.send("processing_recipe", message)
 
-        self.log.info("best trigger: Processing job {} triggered".format(jobid))
+        self.log.info(f"best trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 

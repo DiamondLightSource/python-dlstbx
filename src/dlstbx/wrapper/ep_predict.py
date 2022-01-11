@@ -107,7 +107,7 @@ class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
         try:
             fp = tempfile.NamedTemporaryFile(dir=working_directory.strpath)
             predict_script = working_directory.join(
-                "run_ep_predict_{}.sh".format(os.path.basename(fp.name))
+                f"run_ep_predict_{os.path.basename(fp.name)}.sh"
             )
             fp.close()
             with predict_script.open("w") as fp:

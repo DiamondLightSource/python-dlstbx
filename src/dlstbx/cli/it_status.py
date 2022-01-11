@@ -2,6 +2,8 @@
 #
 # LIBTBX_SET_DISPATCHER_NAME it.status
 
+from __future__ import annotations
+
 import logging
 import operator
 import sys

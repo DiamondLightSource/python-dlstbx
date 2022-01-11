@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dlstbx.system_test.common import CommonSystemTest
 
 

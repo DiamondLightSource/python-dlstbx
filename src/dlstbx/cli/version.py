@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 
 from dlstbx.util.version import dlstbx_version

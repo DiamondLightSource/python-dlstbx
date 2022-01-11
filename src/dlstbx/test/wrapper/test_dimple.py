@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dlstbx.wrapper.dimple import (
     get_blobs_from_anode_log,
     get_blobs_from_find_blobs_log,

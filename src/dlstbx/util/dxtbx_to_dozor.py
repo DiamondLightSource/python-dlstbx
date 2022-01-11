@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 def detector_to_dozor(detector):
     size = detector.get_image_size()
 

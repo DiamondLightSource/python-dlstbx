@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dlstbx.util import ChainMapWithReplacement
 
 

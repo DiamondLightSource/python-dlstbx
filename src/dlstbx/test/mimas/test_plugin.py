@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 
 from dlstbx.mimas import MimasDCClass, MimasEvent, MimasScenario, handle_scenario

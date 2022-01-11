@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 
 from ispyb.cli import last_data_collections_on

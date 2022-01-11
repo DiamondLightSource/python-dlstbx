@@ -3,6 +3,12 @@
 # based on:
 # http://stackoverflow.com/questions/384076/how-can-i-color-python-logging-output/1336640#1336640
 
+from __future__ import annotations
+
+import logging
+import platform
+from typing import Union
+
 # how to use:
 # i used a dict-based logging configuration, not sure what else would work.
 #
@@ -29,7 +35,6 @@
 # logging.config.dictConfig(_LOGCONFIG)
 # mylogger = logging.getLogger("mylogger")
 # mylogger.warning("foobar")
-
 # Copyright (c) 2014 Markus Pointner
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -49,12 +54,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
-from __future__ import annotations
-
-import logging
-import platform
-from typing import Union
 
 
 class _GenericColorStreamHandler(logging.StreamHandler):

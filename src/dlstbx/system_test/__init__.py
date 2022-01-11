@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 def load_all_tests():
     """Import all python files (except test_*) in directories. This is required
     for registration of system tests.

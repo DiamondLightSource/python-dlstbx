@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pathlib
 
 from dials.util.version import get_git_version

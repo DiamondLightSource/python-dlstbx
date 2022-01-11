@@ -1,6 +1,8 @@
 """
 Example of a basic wrapper script
 """
+from __future__ import annotations
+
 import logging
 import tempfile
 from pathlib import Path

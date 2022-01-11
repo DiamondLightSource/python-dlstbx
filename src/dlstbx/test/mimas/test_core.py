@@ -370,7 +370,7 @@ def test_vmxm_rotation():
         anomalous_scatterer=None,
     )
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
-        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}"
+        f"zocalo.go -r per-image-analysis-rotation-swmr-vmxm {dcid}"
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"ispyb.job --new --dcid={dcid} --source=automatic "
@@ -391,6 +391,28 @@ def test_vmxm_rotation():
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
         f"zocalo.go -r processing-rlv-eiger {dcid}",
+    }
+
+
+def test_vmxm_gridscan():
+    dcid = 7389147
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.GRIDSCAN,
+        beamline="i02-1",
+        visit="nt27314-31",
+        runstatus="DataCollection Successful",
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r per-image-analysis-gridscan-swmr-vmxm {dcid}"
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r archive-nexus {dcid}",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
     }
 
 

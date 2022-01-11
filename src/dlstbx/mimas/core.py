@@ -72,10 +72,11 @@ def handle_pilatus_not_gridscan_start(
 def handle_eiger_start(
     scenario: mimas.MimasScenario,
 ) -> List[mimas.Invocation]:
+    suffix = "-vmxm" if scenario.beamline == "i02-1" else ""
     recipe = (
-        "per-image-analysis-gridscan-swmr"
+        f"per-image-analysis-gridscan-swmr{suffix}"
         if scenario.dcclass is mimas.MimasDCClass.GRIDSCAN
-        else "per-image-analysis-rotation-swmr"
+        else f"per-image-analysis-rotation-swmr{suffix}"
     )
     return [mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)]
 

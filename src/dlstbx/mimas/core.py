@@ -22,6 +22,16 @@ is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION)
 is_screening = DCClassSpecification(mimas.MimasDCClass.SCREENING)
 
 
+XIA2_DIALS_COPPER_RINGS_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
+    mimas.MimasISPyBParameter(
+        key="ice_rings.unit_cell", value="3.615,3.615,3.615,90,90,90"
+    ),
+    mimas.MimasISPyBParameter(key="ice_rings.space_group", value="fm-3m"),
+    mimas.MimasISPyBParameter(key="ice_rings.width", value="0.01"),
+    mimas.MimasISPyBParameter(key="ice_rings.filter", value="true"),
+)
+
+
 def xia2_dials_absorption_params(
     scenario: mimas.MimasScenario,
 ) -> Tuple[mimas.MimasISPyBParameter]:
@@ -203,6 +213,14 @@ def handle_rotation_end(
             )
         )
 
+    xia2_dials_beamline_extra_params: ParamTuple = ()
+    if scenario.beamline == "i02-1":
+        xia2_dials_beamline_extra_params = (
+            *XIA2_DIALS_COPPER_RINGS_PARAMS,
+            mimas.MimasISPyBParameter(key="remove_blanks", value="true"),
+            mimas.MimasISPyBParameter(key="failover", value="true"),
+        )
+
     suffix = (
         "-eiger-cluster"
         if scenario.detectorclass is mimas.MimasDetectorClass.EIGER
@@ -222,6 +240,7 @@ def handle_rotation_end(
                             key="resolution.cc_half_significance_level", value="0.1"
                         ),
                         *params,
+                        *xia2_dials_beamline_extra_params,
                         *xia2_dials_absorption_params(scenario),
                     ),
                 ),

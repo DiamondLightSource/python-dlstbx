@@ -78,21 +78,35 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         input_mtz = pathlib.Path(dimple_args[0])
         input_pdb = pathlib.Path(dimple_args[1])
+        # Record AutoProcAttachments (SCI-9692)
         result_files = {
-            self.results_directory / "final.mtz": schemas.AttachmentFileType.RESULT,
-            self.results_directory / "final.pdb": schemas.AttachmentFileType.RESULT,
-            input_mtz: schemas.AttachmentFileType.INPUT,
-            input_pdb: schemas.AttachmentFileType.INPUT,
-            log_file: schemas.AttachmentFileType.LOG,
+            self.results_directory
+            / "final.mtz": (schemas.AttachmentFileType.RESULT, 1),
+            self.results_directory
+            / "final.pdb": (schemas.AttachmentFileType.RESULT, 1),
+            self.results_directory / "screen.log": (schemas.AttachmentFileType.LOG, 1),
+            input_mtz: (schemas.AttachmentFileType.INPUT, 2),
+            input_pdb: (schemas.AttachmentFileType.INPUT, 2),
+            log_file: (schemas.AttachmentFileType.LOG, 2),
         }
+        result_files.update(
+            {
+                log_file: (schemas.AttachmentFileType.LOG, 2)
+                for log_file in itertools.chain(
+                    self.results_directory.glob("[0-9]*-find-blobs.log"),
+                    self.results_directory.glob("[0-9]*-refmac5_restr.log"),
+                )
+            }
+        )
         attachments = [
             schemas.Attachment(
                 file_type=ftype,
                 file_path=f.parent,
                 file_name=f.name,
                 timestamp=end_time,
+                importance_rank=importance_rank,
             )
-            for f, ftype in result_files.items()
+            for f, (ftype, importance_rank) in result_files.items()
             if f.is_file()
         ]
 
@@ -285,34 +299,6 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         if success:
             logger.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()
-
-        # Record AutoProcAttachments (SCI-9692)
-        attachments = {
-            self.results_directory / "final.mtz": ("result", 1),
-            self.results_directory / "final.pdb": ("result", 1),
-            self.results_directory / "dimple.log": ("log", 2),
-            self.results_directory / "screen.log": ("log", 1),
-        }
-        attachments.update(
-            {
-                log_file: ("log", 1)
-                for log_file in itertools.chain(
-                    self.results_directory.glob("[0-9]*-find-blobs.log"),
-                    self.results_directory.glob("[0-9]*-refmac5_restr.log"),
-                )
-            }
-        )
-        logger.info(attachments)
-        for file_name, (file_type, importance_rank) in attachments.items():
-            if file_name.is_file():
-                self.record_result_individual_file(
-                    {
-                        "file_path": file_name.parent,
-                        "file_name": file_name.name,
-                        "file_type": file_type,
-                        "importance_rank": importance_rank,
-                    }
-                )
 
         # Update SynchWeb tick hack file
         if self.params.get("synchweb_ticks") and self.params.get(

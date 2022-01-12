@@ -173,7 +173,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         self.params = self.recwrap.recipe_step["job_parameters"]
         self.working_directory = pathlib.Path(self.params["working_directory"])
         self.results_directory = pathlib.Path(self.params["results_directory"])
-        self.working_directory.mkdir(parents=True)
+        self.working_directory.mkdir(parents=True, exist_ok=True)
 
         mtz = self.params.get("ispyb_parameters", self.params.get("dimple", {})).get(
             "data", []
@@ -185,8 +185,8 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         assert len(mtz) == 1, "Exactly one data file data file must be provided: %s" % (
             mtz
         )
-        mtz = os.path.abspath(mtz[0])
-        if not os.path.exists(mtz):
+        mtz = pathlib.Path(mtz[0]).resolve()
+        if not mtz.is_file():
             logger.error("Could not find data file %s to process", mtz)
             return False
         pdb = self.params.get("ispyb_parameters", {}).get("pdb") or self.params.get(
@@ -235,11 +235,9 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                 dlstbx.util.symlink.create_parent_symlink(
                     os.fspath(self.results_directory), self.params["create_symlink"]
                 )
-                mtzsymlink = os.path.join(
-                    os.path.dirname(mtz), self.params["create_symlink"]
-                )
-                if not os.path.exists(mtzsymlink):
-                    deltapath = self.results_directory.relative_to(os.path.dirname(mtz))
+                mtzsymlink = mtz.parent / self.params["create_symlink"]
+                if not mtzsymlink.exists():
+                    deltapath = os.path.relpath(self.results_directory, mtz.parent)
                     os.symlink(deltapath, mtzsymlink)
             pathlib.Path(self.params["synchweb_ticks"]).mkdir(parents=True)
 
@@ -270,11 +268,9 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             dlstbx.util.symlink.create_parent_symlink(
                 os.fspath(self.results_directory), self.params["create_symlink"]
             )
-            mtzsymlink = os.path.join(
-                os.path.dirname(mtz), self.params["create_symlink"]
-            )
-            if not os.path.exists(mtzsymlink):
-                deltapath = self.results_directory.relative_to(os.path.dirname(mtz))
+            mtzsymlink = mtz.parent / self.params["create_symlink"]
+            if not mtzsymlink.exists():
+                deltapath = os.path.relpath(self.results_directory, mtz.parent)
                 os.symlink(deltapath, mtzsymlink)
         for f in self.working_directory.iterdir():
             if f.name.startswith("."):

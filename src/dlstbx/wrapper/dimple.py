@@ -326,30 +326,28 @@ def get_blobs_from_anode_log(log_file: pathlib.Path) -> List[schemas.Blob]:
             if line == "Strongest unique anomalous peaks":
                 in_strongest_peaks_section = True
                 continue
-            if in_strongest_peaks_section and line.startswith("S"):
-                tokens = line.split()
-                if len(tokens) == 8:
-                    x, y, z, height, occupancy, distance = map(float, tokens[1:7])
-                    atom = tokens[7]
-                    m = ATOM_NAME_RE.match(atom)
-                    if m:
-                        name, chain_id, res_name, res_seq = m.groups()
-                        nearest_atom = schemas.Atom(
-                            name=name,
-                            chain_id=chain_id,
-                            res_name=res_name,
-                            res_seq=res_seq,
+            if in_strongest_peaks_section and len(tokens := line.split()) == 8:
+                x, y, z, height, occupancy, distance = map(float, tokens[1:7])
+                atom = tokens[7]
+                m = ATOM_NAME_RE.match(atom)
+                if m:
+                    name, chain_id, res_name, res_seq = m.groups()
+                    nearest_atom = schemas.Atom(
+                        name=name,
+                        chain_id=chain_id,
+                        res_name=res_name,
+                        res_seq=res_seq,
+                    )
+                    blobs.append(
+                        schemas.Blob(
+                            xyz=(x, y, z),
+                            height=height,
+                            occupancy=occupancy,
+                            nearest_atom=nearest_atom,
+                            nearest_atom_distance=distance,
+                            map_type="anomalous",
                         )
-                        blobs.append(
-                            schemas.Blob(
-                                xyz=(x, y, z),
-                                height=height,
-                                occupancy=occupancy,
-                                nearest_atom=nearest_atom,
-                                nearest_atom_distance=distance,
-                                map_type="anomalous",
-                            )
-                        )
+                    )
     return blobs
 
 

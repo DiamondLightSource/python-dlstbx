@@ -231,7 +231,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         ).get("set_synchweb_status"):
             logger.debug("Setting SynchWeb status to swirl")
             if self.params.get("create_symlink"):
-                self.results_directory.mkdir(parents=True)
+                self.results_directory.mkdir(parents=True, exist_ok=True)
                 dlstbx.util.symlink.create_parent_symlink(
                     os.fspath(self.results_directory), self.params["create_symlink"]
                 )
@@ -263,7 +263,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         success &= b"Giving up" not in result.stdout
 
         logger.info(f"Copying DIMPLE results to {self.results_directory}")
-        self.results_directory.mkdir(parents=True)
+        self.results_directory.mkdir(parents=True, exist_ok=True)
         if self.params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 os.fspath(self.results_directory), self.params["create_symlink"]

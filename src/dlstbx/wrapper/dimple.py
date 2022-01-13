@@ -239,7 +239,9 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                 if not mtzsymlink.exists():
                     deltapath = os.path.relpath(self.results_directory, mtz.parent)
                     os.symlink(deltapath, mtzsymlink)
-            pathlib.Path(self.params["synchweb_ticks"]).mkdir(parents=True)
+            synchweb_ticks = pathlib.Path(self.params["synchweb_ticks"])
+            synchweb_ticks.parent.mkdir(parents=True, exist_ok=True)
+            synchweb_ticks.touch(exist_ok=True)
 
         logger.info("command: %s", " ".join(map(str, command)))
         result = procrunner.run(

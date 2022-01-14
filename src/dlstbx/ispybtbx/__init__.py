@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import decimal
 import glob
 import itertools
@@ -5,7 +7,7 @@ import logging
 import os
 import re
 import uuid
-from typing import Optional
+from typing import Optional, Tuple, Union
 
 import ispyb.sqlalchemy as isa
 import marshmallow.fields
@@ -53,30 +55,29 @@ Session = sessionmaker(
 )
 
 
-def setup_marshmallow_schema():
-    with Session() as session:
-        # https://marshmallow-sqlalchemy.readthedocs.io/en/latest/recipes.html#automatically-generating-schemas-for-sqlalchemy-models
-        for class_ in isa.Base.registry._class_registry.values():
-            if hasattr(class_, "__tablename__"):
+def setup_marshmallow_schema(session):
+    # https://marshmallow-sqlalchemy.readthedocs.io/en/latest/recipes.html#automatically-generating-schemas-for-sqlalchemy-models
+    for class_ in isa.Base.registry._class_registry.values():
+        if hasattr(class_, "__tablename__"):
 
-                class Meta(object):
-                    model = class_
-                    sqla_session = session
-                    load_instance = True
-                    include_fk = True
+            class Meta(object):
+                model = class_
+                sqla_session = session
+                load_instance = True
+                include_fk = True
 
-                TYPE_MAPPING = SQLAlchemyAutoSchema.TYPE_MAPPING.copy()
-                TYPE_MAPPING.update({decimal.Decimal: marshmallow.fields.Float})
-                schema_class_name = "%sSchema" % class_.__name__
-                schema_class = type(
-                    schema_class_name,
-                    (SQLAlchemyAutoSchema,),
-                    {
-                        "Meta": Meta,
-                        "TYPE_MAPPING": TYPE_MAPPING,
-                    },
-                )
-                setattr(class_, "__marshmallow__", schema_class)
+            TYPE_MAPPING = SQLAlchemyAutoSchema.TYPE_MAPPING.copy()
+            TYPE_MAPPING.update({decimal.Decimal: marshmallow.fields.Float})
+            schema_class_name = "%sSchema" % class_.__name__
+            schema_class = type(
+                schema_class_name,
+                (SQLAlchemyAutoSchema,),
+                {
+                    "Meta": Meta,
+                    "TYPE_MAPPING": TYPE_MAPPING,
+                },
+            )
+            setattr(class_, "__marshmallow__", schema_class)
 
 
 re_visit_base = re.compile(r"^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
@@ -84,7 +85,8 @@ re_visit_base = re.compile(r"^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
 
 class ispybtbx:
     def __init__(self):
-        setup_marshmallow_schema()
+        with Session() as session:
+            setup_marshmallow_schema(session)
         self.log = logging.getLogger("dlstbx.ispybtbx")
         self.log.debug("ISPyB objects set up")
 
@@ -140,7 +142,7 @@ class ispybtbx:
             }
             # ispyb_processing_parameters is the preferred method of
             # accessing the processing parameters
-            processing_parameters = {}
+            processing_parameters: dict[str, list[str]] = {}
             for p in rp.ProcessingJobParameters:
                 processing_parameters.setdefault(p.parameterKey, [])
                 processing_parameters[p.parameterKey].append(p.parameterValue)
@@ -376,7 +378,7 @@ class ispybtbx:
         self, dcgid: int, session: sqlalchemy.orm.session.Session
     ) -> Optional[str]:
         if not dcgid:
-            return
+            return None
         query = session.query(isa.DataCollectionGroup.experimentType).filter(
             isa.DataCollectionGroup.dataCollectionGroupId == dcgid
         )
@@ -397,7 +399,7 @@ class ispybtbx:
         c = query.first()
         if not c or not c.spaceGroup:
             return "", False
-        cell = (
+        proto_cell = (
             c.cell_a,
             c.cell_b,
             c.cell_c,
@@ -405,10 +407,11 @@ class ispybtbx:
             c.cell_beta,
             c.cell_gamma,
         )
-        if not all(cell):
+        cell: Union[bool, Tuple[float, ...]]
+        if not all(proto_cell):
             cell = False
         else:
-            cell = tuple(float(p) for p in cell)
+            cell = tuple(float(p) for p in proto_cell)
         return c.spaceGroup, cell
 
     def get_energy_scan_from_dcid(self, dcid, session: sqlalchemy.orm.session.Session):

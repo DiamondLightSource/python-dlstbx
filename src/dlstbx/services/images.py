@@ -3,7 +3,7 @@ import logging
 import os
 import re
 import time
-from typing import Any, Callable, Dict, NamedTuple
+from typing import Any, Callable, Dict, NamedTuple, Protocol
 
 import PIL.Image
 import pkg_resources
@@ -14,9 +14,14 @@ from workflows.services.common_service import CommonService
 logger = logging.getLogger("dlstbx.services.images")
 
 
+class _CallableParameter(Protocol):
+    def __call__(self, key: str, default: Any = ...) -> Any:
+        ...
+
+
 class PluginInterface(NamedTuple):
     rw: workflows.recipe.wrapper.RecipeWrapper
-    parameters: Callable[[str], Any]
+    parameters: _CallableParameter
     message: Dict[str, Any]
 
 
@@ -61,7 +66,7 @@ class DLSImages(CommonService):
         """Pass incoming message to the relevant plugin function."""
         command = rw.recipe_step.get("parameters", {}).get("image_command")
 
-        def parameters(key, default=None):
+        def parameters(key: str, default=None):
             if isinstance(message, dict) and message.get(key):
                 return message[key]
             return rw.recipe_step.get("parameters", {}).get(key, default)

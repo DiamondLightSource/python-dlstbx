@@ -16,7 +16,7 @@ from sqlalchemy import TIMESTAMP, Column, LargeBinary, String, Text, select, tex
 from sqlalchemy.dialects.mysql import TINYINT
 
 # deliberately not declared as an IntEnum so that it can be passed to the sqlalchemy Status() class
-REPORT = types.SimpleNamespace(PASS=0, WARNING=10, ERROR=20)
+REPORT = types.SimpleNamespace(PASS=0, NOTICE=1, WARNING=10, ERROR=20)
 
 _Base = sqlalchemy.ext.declarative.declarative_base()
 
@@ -26,7 +26,7 @@ class CheckFunctionInterface(NamedTuple):
     name: str
 
 
-class Status(_Base):
+class Status(_Base):  # type: ignore
     __tablename__ = "infrastructure_status"
     __table_args__ = {"comment": "reports of DLS infrastructure"}
 

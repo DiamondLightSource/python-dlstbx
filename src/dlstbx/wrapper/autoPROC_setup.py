@@ -1,5 +1,4 @@
 import logging
-import shutil
 from pathlib import Path
 
 import zocalo.wrapper
@@ -52,9 +51,9 @@ class autoPROCSetupWrapper(zocalo.wrapper.BaseWrapper):
         singularity_image = params.get("singularity_image")
         if singularity_image:
             try:
-                shutil.copy(singularity_image, str(working_directory))
-                image_name = Path(singularity_image).name
-                write_singularity_script(working_directory, image_name)
+                # shutil.copy(singularity_image, str(working_directory))
+                # image_name = Path(singularity_image).name
+                write_singularity_script(working_directory, singularity_image)
                 self.recwrap.environment.update(
                     {"singularity_image": singularity_image}
                 )

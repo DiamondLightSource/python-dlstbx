@@ -96,8 +96,11 @@ class HTCondorWatcher(CommonService):
                     attr_list=["ClusterId", "ProcId", "JobStatus", "Out"],
                 )
                 self.log.info(f"schedd status: {pformat(res)}")
-                if res and res[0]["JobStatus"] not in (3, 4):
-                    seen_jobs.append(jobid)
+                if res:
+                    if res[0]["JobStatus"] not in (3, 4):
+                        seen_jobs.append(jobid)
+                    if res[0]["JobStatus"] == 1:
+                        first_seen = start_time
 
         # Are we done?
         if not seen_jobs:
@@ -136,9 +139,15 @@ class HTCondorWatcher(CommonService):
             # Check timeout conditions.
             timeout = rw.recipe_step["parameters"].get("timeout", 3600)
             timed_out = (first_seen + timeout) < time.time()
+            runtime = time.time() - first_seen
             if timed_out:
-                # HTcondor watch operation has timed out.
-
+                # HTcondor watch operation has timed out. Put timed out job into Hold state.
+                act_result = schedd.act(
+                    htcondor.JobAction.Hold,
+                    " && ".join([f"ClusterId == {jobid}" for jobid in seen_jobs]),
+                    reason=f"Job timed out after {runtime} seconds",
+                )
+                self.log.info(f"schedd act response: {pformat(act_result)}")
                 # Report all timeouts as warnings unless the recipe specifies otherwise
                 timeoutlog = self.log.warning
                 if rw.recipe_step["parameters"].get("log-timeout-as-info"):
@@ -147,10 +156,10 @@ class HTCondorWatcher(CommonService):
                 timeoutlog(
                     "HTCondorwatcher for jobs %s timed out after %.1f seconds (%d of %d jobs found after %.1f seconds)",
                     pformat(seen_jobs),
-                    time.time() - first_seen,
+                    runtime,
                     len(seen_jobs),
                     jobcount,
-                    time.time() - first_seen,
+                    runtime,
                     extra={
                         "stat-time-max": os_stat_profiler.max,
                         "stat-time-mean": os_stat_profiler.mean,

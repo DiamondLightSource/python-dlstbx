@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import hashlib
 import logging
 import os
 import pathlib
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Literal, Mapping, Optional
+from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import ispyb
 import prometheus_client
@@ -171,11 +173,10 @@ class MultiplexParameters(pydantic.BaseModel):
     spacegroup: Optional[str]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    backoff_delay: Optional[float] = pydantic.Field(default=8, alias="backoff-delay")
-    backoff_max_try: Optional[int] = pydantic.Field(default=10, alias="backoff-max-try")
-    backoff_multiplier: Optional[float] = pydantic.Field(
-        default=2, alias="backoff-multiplier"
-    )
+    backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
+    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
+    wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
 
 
 class AlphaFoldParameters(pydantic.BaseModel):
@@ -370,20 +371,20 @@ class DLSTrigger(CommonService):
 
         dcid = parameters.dcid
 
-        pdb_files = self.get_linked_pdb_files_for_dcid(
+        pdb_files_or_codes = self.get_linked_pdb_files_for_dcid(
             session,
             dcid,
             parameters.pdb_tmpdir,
             user_pdb_dir=parameters.user_pdb_directory,
         )
 
-        if not pdb_files:
+        if not pdb_files_or_codes:
             self.log.info(
                 "Skipping dimple trigger: DCID %s has no associated PDB information"
                 % dcid
             )
             return {"success": True}
-        pdb_files = [str(p) for p in pdb_files]
+        pdb_files = [str(p) for p in pdb_files_or_codes]
         self.log.info("PDB files: %s", ", ".join(pdb_files))
 
         dc = (
@@ -391,7 +392,7 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == dcid)
             .one()
         )
-        dimple_parameters = {
+        dimple_parameters: dict[str, list[Any]] = {
             "data": [os.fspath(parameters.mtz)],
             "scaling_id": [parameters.scaling_id],
             "pdb": pdb_files,
@@ -797,17 +798,19 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping mrbump trigger: sequence information not available")
             return {"success": True}
 
-        pdb_files = self.get_linked_pdb_files_for_dcid(
-            session,
-            dcid,
-            parameters.pdb_tmpdir,
-            user_pdb_dir=parameters.user_pdb_directory,
-            ignore_pdb_codes=True,
+        pdb_files = tuple(
+            self.get_linked_pdb_files_for_dcid(
+                session,
+                dcid,
+                parameters.pdb_tmpdir,
+                user_pdb_dir=parameters.user_pdb_directory,
+                ignore_pdb_codes=True,
+            )
         )
 
         jobids = []
 
-        for pdb_files in {(), tuple(pdb_files)}:
+        for pdb_files in {(), pdb_files}:
             jp = self.ispyb.mx_processing.get_job_params()
             jp["automatic"] = parameters.automatic
             jp["comments"] = parameters.comment
@@ -837,6 +840,7 @@ class DLSTrigger(CommonService):
                 self.log.debug(f"mrbump trigger: generated JobParameterID {jppid}")
 
             for pdb_file in pdb_files:
+                assert pdb_file.filepath is not None
                 filepath = pdb_file.filepath
                 if pdb_file.source == "AlphaFold":
                     trimmed = filepath.with_name(
@@ -869,156 +873,6 @@ class DLSTrigger(CommonService):
             self._prom_metrics.record_metric("job_triggered", ["MrBUMP"])
 
         return {"success": True, "return_value": jobids}
-
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
-    def trigger_big_ep_launcher(
-        self,
-        rw: workflows.recipe.RecipeWrapper,
-        *,
-        parameters: BigEPLauncherParameters,
-        **kwargs,
-    ):
-        jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = parameters.automatic
-        jp["comments"] = parameters.comment
-        jp["datacollectionid"] = parameters.dcid
-        jp["display_name"] = parameters.pipeline
-        jp["recipe"] = "postprocessing-big-ep-launcher"
-        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"big_ep_launcher trigger: generated JobID {jobid}")
-
-        msg = rw.payload
-        big_ep_parameters = {
-            "pipeline": parameters.pipeline,
-            "program_id": parameters.program_id,
-            "data": os.fspath(parameters.data),
-            "atom": msg.get("atom"),
-            "dataset": "|".join(ds["name"] for ds in msg.get("datasets", [])),
-            "spacegroup": msg.get("spacegroup"),
-            "nsites": msg.get("nsites"),
-            "compound": "Protein",
-            "sequence": msg.get("sequence"),
-        }
-
-        for key, value in big_ep_parameters.items():
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = key
-            jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(f"big_ep_laucher trigger: generated JobParameterID {jppid}")
-
-        self.log.debug(f"big_ep_launcher trigger: Processing job {jobid} created")
-
-        message = {
-            "recipes": [],
-            "parameters": {
-                "ispyb_process": jobid,
-                "pipeline": parameters.pipeline,
-                "path_ext": parameters.path_ext,
-                "shelxc_path": os.fspath(parameters.shelxc_path),
-                "fast_ep_path": os.fspath(parameters.fast_ep_path),
-                "msg": rw.payload,
-            },
-        }
-        rw.transport.send("processing_recipe", message)
-
-        self.log.info(f"big_ep_launcher trigger: Processing job {jobid} triggered")
-
-        self._prom_metrics.record_metric("job_triggered", ["big_ep_launcher"])
-
-        return {"success": True, "return_value": jobid}
-
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
-    def trigger_big_ep_cloud(
-        self,
-        rw: workflows.recipe.RecipeWrapper,
-        *,
-        parameters: BigEPLauncherParameters,
-        session,
-        **kwargs,
-    ):
-
-        query = (
-            session.query(Proposal)
-            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
-            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
-            .filter(DataCollection.dataCollectionId == parameters.dcid)
-        )
-        proposal = query.first()
-        if proposal.proposalCode in ("lb", "in", "sw"):
-            self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
-            return {"success": True}
-
-        if (
-            (proposal.proposalCode != "mx" or proposal.proposalNumber != "23694")
-            and (proposal.proposalCode != "nt" or proposal.proposalNumber != "28218")
-            and proposal.proposalCode != "cm"
-        ):
-            self.log.info(
-                f"Skipping big_ep_cloud trigger for {proposal.proposalCode}{proposal.proposalNumber} visit"
-            )
-            return {"success": True}
-
-        jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = parameters.automatic
-        jp["comments"] = parameters.comment
-        jp["datacollectionid"] = parameters.dcid
-        jp["display_name"] = parameters.pipeline
-        jp["recipe"] = "postprocessing-big-ep-cloud"
-        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"big_ep_cloud trigger: generated JobID {jobid}")
-
-        try:
-            program_id = parameters.program_id
-        except (TypeError, ValueError):
-            self.log.error("big_ep_cloud trigger failed: Invalid program_id specified")
-            return False
-        transfer_input_files = parameters.data.name
-        if parameters.pipeline == "autoSHARP":
-            transfer_output_files = "autoSHARP"
-        elif parameters.pipeline == "AutoBuild":
-            transfer_output_files = "AutoSol_run_1_, PDS, AutoBuild_run_1_"
-        elif parameters.pipeline == "Crank2":
-            transfer_output_files = (
-                "crank2, run_Crank2.sh, crank2.log, pointless.log, crank2_config.xml"
-            )
-
-        big_ep_parameters = {
-            "pipeline": parameters.pipeline,
-            "program_id": program_id,
-            "data": os.fspath(parameters.data),
-        }
-
-        for key, value in big_ep_parameters.items():
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = key
-            jpp["parameter_value"] = value
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(f"big_ep_cloud trigger: generated JobParameterID {jppid}")
-
-        self.log.debug(f"big_ep_cloud trigger: Processing job {jobid} created")
-
-        message = {
-            "recipes": [],
-            "parameters": {
-                "ispyb_process": jobid,
-                "pipeline": parameters.pipeline,
-                "path_ext": parameters.path_ext,
-                "shelxc_path": os.fspath(parameters.shelxc_path),
-                "fast_ep_path": os.fspath(parameters.fast_ep_path),
-                "transfer_input_files": transfer_input_files,
-                "transfer_output_files": transfer_output_files,
-            },
-        }
-        rw.transport.send("processing_recipe", message)
-
-        self.log.info(f"big_ep_cloud trigger: Processing job {jobid} triggered")
-
-        self._prom_metrics.record_metric("job_triggered", ["big_ep_cloud"])
-
-        return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     def trigger_big_ep_common(
@@ -1169,7 +1023,7 @@ class DLSTrigger(CommonService):
         class BigEPParams(pydantic.BaseModel):
             data: pathlib.Path
             scaled_unmerged_mtz: pathlib.Path
-            path_ext: Optional[str] = pydantic.Field(
+            path_ext: str = pydantic.Field(
                 default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S")
             )
 
@@ -1335,7 +1189,7 @@ class DLSTrigger(CommonService):
         status["ntry"] += 1
         self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
 
-        multiplex_job_dcids = []
+        multiplex_job_dcids: list[set[int]] = []
         jobids = []
 
         for group in related_dcids:
@@ -1402,10 +1256,14 @@ class DLSTrigger(CommonService):
             data_files = []
             for dc, app, pj in query.all():
                 # Select only those dcids at the same wavelength as the triggering dcid
-                if parameters.wavelength and dc.wavelength != parameters.wavelength:
+                if (
+                    parameters.wavelength
+                    and abs(dc.wavelength - parameters.wavelength)
+                    > parameters.wavelength_tolerance
+                ):
                     self.log.debug(
                         f"Discarding appid {app.autoProcProgramId} (wavelength does not match input):\n"
-                        f"    {dc.wavelength} != {parameters.wavelength}"
+                        f"    {dc.wavelength} != {parameters.wavelength} (tolerance={parameters.wavelength_tolerance}"
                     )
                     continue
 

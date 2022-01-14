@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import subprocess
 from datetime import datetime
 
 import zocalo.configuration
@@ -123,15 +126,33 @@ def check_activemq_health(cfc: CheckFunctionInterface):
                 URL="http://activemq.diamond.ac.uk/",
             )
 
+    try:
+        subprocess.run(
+            ("dlstbx.run_system_tests", "activemq"),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=40,
+            check=True,
+        )
+        report_updates[cfc.name] = Status(
+            Source=cfc.name,
+            Level=REPORT.PASS,
+            Message="ActiveMQ online",
+            URL="http://activemq.diamond.ac.uk/",
+        )
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        report_updates[cfc.name] = Status(
+            Source=cfc.name,
+            Level=REPORT.ERROR,
+            Message="ActiveMQ offline",
+            URL="http://activemq.diamond.ac.uk/",
+        )
+
     for report in db_status:
-        for check in checks:
-            if (
-                check in db_status
-                and check not in report_updates
-                and db_status[check].Level != REPORT.PASS
-            ):
-                report_updates[check] = Status(
-                    Source=check,
+        if report.startswith(check_prefix):
+            if report not in report_updates and db_status[report].Level != REPORT.PASS:
+                report_updates[report] = Status(
+                    Source=report,
                     Level=REPORT.PASS,
                     Message="ActiveMQ is running normally",
                     MessageBody=(db_status[report].MessageBody or "")

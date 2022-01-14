@@ -48,7 +48,7 @@ def xyz2cielab(x, y, z):
     return CIE_L, CIE_a, CIE_b
 
 
-_ansitable = """
+_ansitable_src = """
   0 #000000  1 #800000  2 #008000  3 #808000  4 #000080  5 #800080
   6 #008080  7 #c0c0c0  8 #808080  9 #ff0000 10 #00ff00 11 #ffff00
  12 #0000ff 13 #ff00ff 14 #00ffff 15 #ffffff
@@ -94,7 +94,7 @@ _ansitable = """
 250 #bcbcbc 251 #c6c6c6 252 #d0d0d0 253 #dadada 254 #e4e4e4 255 #eeeeee
 """
 
-_ansitable = _ansitable.replace("\n", " ").strip().split()
+_ansitable = _ansitable_src.replace("\n", " ").strip().split()
 _ansirgb, _ansilab = [], []
 for i in range(0, len(_ansitable), 2):
     _ansirgb.append(hex2rgb(_ansitable[i + 1]))

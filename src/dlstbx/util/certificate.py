@@ -15,9 +15,6 @@ def problems_with_certificate(hostname: str) -> Optional[str]:
         with closing(socket.socket()) as sock:
             sock.connect((hostname, 443))
             ctx = SSL.Context(SSL.SSLv23_METHOD)  # most compatible
-            ctx.check_hostname = False
-            ctx.verify_mode = SSL.VERIFY_NONE
-
             with closing(SSL.Connection(ctx, sock)) as sock_ssl:
                 sock_ssl.set_connect_state()
                 sock_ssl.set_tlsext_host_name(idna.encode(hostname))

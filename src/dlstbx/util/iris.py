@@ -168,7 +168,7 @@ def write_singularity_script(working_directory, singularity_image, tmp_mount=Fal
     add_tmp_mount = f"--bind ${{PWD}}/{tmp_mount}:/opt/xia2/tmp" if tmp_mount else ""
     commands = [
         "#!/bin/bash",
-        f"/usr/bin/singularity exec --home ${{PWD}} {add_tmp_mount} ${{PWD}}/{singularity_image} $@",
+        f"/usr/bin/singularity exec --home ${{PWD}} {add_tmp_mount} {singularity_image} $@",
     ]
     with open(singularity_script, "w") as fp:
         fp.write("\n".join(commands))

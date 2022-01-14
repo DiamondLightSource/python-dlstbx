@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import dataclasses
 import enum
 import functools
 import numbers
-from typing import Tuple
+from typing import Callable, List, Optional, Tuple, Union
 
 import gemmi
+import pkg_resources
+
+from dlstbx.mimas.specification import BaseSpecification
 
 MimasDCClass = enum.Enum("MimasDCClass", "GRIDSCAN ROTATION SCREENING UNDEFINED")
 
@@ -60,12 +65,12 @@ class MimasScenario:
     beamline: str
     visit: str
     runstatus: str
-    spacegroup: MimasISPyBSpaceGroup = None
-    unitcell: MimasISPyBUnitCell = None
-    getsweepslistfromsamedcg: Tuple[MimasISPyBSweep] = ()
-    preferred_processing: str = None
-    detectorclass: MimasDetectorClass = None
-    anomalous_scatterer: str = None
+    spacegroup: Optional[MimasISPyBSpaceGroup] = None
+    unitcell: Optional[MimasISPyBUnitCell] = None
+    getsweepslistfromsamedcg: Tuple[MimasISPyBSweep, ...] = ()
+    preferred_processing: Optional[str] = None
+    detectorclass: Optional[MimasDetectorClass] = None
+    anomalous_scatterer: Optional[str] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -88,15 +93,15 @@ class MimasISPyBJobInvocation:
     source: str
     comment: str = ""
     displayname: str = ""
-    parameters: Tuple[MimasISPyBParameter] = ()
-    sweeps: Tuple[MimasISPyBSweep] = ()
-    triggervariables: Tuple[MimasISPyBTriggerVariable] = ()
+    parameters: Tuple[MimasISPyBParameter, ...] = ()
+    sweeps: Tuple[MimasISPyBSweep, ...] = ()
+    triggervariables: Tuple[MimasISPyBTriggerVariable, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True)
 class MimasRecipeInvocation:
     DCID: int
-    recipe: {}
+    recipe: str
 
 
 @functools.singledispatch
@@ -138,25 +143,25 @@ def _(mimasobject: MimasScenario, expectedtype=None):
         )
 
 
-@validate.register(MimasDCClass)
+@validate.register(MimasDCClass)  # type: ignore
 def _(mimasobject: MimasDCClass, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
 
 
-@validate.register(MimasEvent)
+@validate.register(MimasEvent)  # type: ignore
 def _(mimasobject: MimasEvent, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
 
 
-@validate.register(MimasDetectorClass)
+@validate.register(MimasDetectorClass)  # type: ignore
 def _(mimasobject: MimasDetectorClass, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
 
 
-@validate.register(MimasRecipeInvocation)
+@validate.register(MimasRecipeInvocation)  # type: ignore
 def _(mimasobject: MimasRecipeInvocation, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
@@ -168,7 +173,7 @@ def _(mimasobject: MimasRecipeInvocation, expectedtype=None):
         raise ValueError(f"{mimasobject!r} has empty recipe string")
 
 
-@validate.register(MimasISPyBJobInvocation)
+@validate.register(MimasISPyBJobInvocation)  # type: ignore
 def _(mimasobject: MimasISPyBJobInvocation, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
@@ -194,7 +199,7 @@ def _(mimasobject: MimasISPyBJobInvocation, expectedtype=None):
         validate(sweep, expectedtype=MimasISPyBSweep)
 
 
-@validate.register(MimasISPyBParameter)
+@validate.register(MimasISPyBParameter)  # type: ignore
 def _(mimasobject: MimasISPyBParameter, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
@@ -208,7 +213,7 @@ def _(mimasobject: MimasISPyBParameter, expectedtype=None):
         )
 
 
-@validate.register(MimasISPyBSweep)
+@validate.register(MimasISPyBSweep)  # type: ignore
 def _(mimasobject: MimasISPyBSweep, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
@@ -226,7 +231,7 @@ def _(mimasobject: MimasISPyBSweep, expectedtype=None):
         raise ValueError(f"{mimasobject!r} has an invalid end image")
 
 
-@validate.register(MimasISPyBUnitCell)
+@validate.register(MimasISPyBUnitCell)  # type: ignore
 def _(mimasobject: MimasISPyBUnitCell, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
@@ -250,14 +255,14 @@ def _(mimasobject: MimasISPyBUnitCell, expectedtype=None):
         raise ValueError(f"{mimasobject!r} has invalid angle gamma")
 
 
-@validate.register(MimasISPyBSpaceGroup)
+@validate.register(MimasISPyBSpaceGroup)  # type: ignore
 def _(mimasobject: MimasISPyBSpaceGroup, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
     gemmi.SpaceGroup(mimasobject.symbol)
 
 
-@validate.register(MimasISPyBAnomalousScatterer)
+@validate.register(MimasISPyBAnomalousScatterer)  # type: ignore
 def _(mimasobject: MimasISPyBAnomalousScatterer, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
@@ -282,7 +287,7 @@ def zocalo_message(mimasobject):
     raise ValueError(f"{mimasobject!r} is not a known Mimas object")
 
 
-@zocalo_message.register(MimasRecipeInvocation)
+@zocalo_message.register(MimasRecipeInvocation)  # type: ignore
 def _(mimasobject: MimasRecipeInvocation):
     return {
         "recipes": [mimasobject.recipe],
@@ -290,37 +295,37 @@ def _(mimasobject: MimasRecipeInvocation):
     }
 
 
-@zocalo_message.register(MimasISPyBJobInvocation)
+@zocalo_message.register(MimasISPyBJobInvocation)  # type: ignore
 def _(mimasobject: MimasISPyBJobInvocation):
     return dataclasses.asdict(mimasobject)
 
 
-@zocalo_message.register(MimasISPyBSweep)
+@zocalo_message.register(MimasISPyBSweep)  # type: ignore
 def _(mimasobject: MimasISPyBSweep):
     return dataclasses.asdict(mimasobject)
 
 
-@zocalo_message.register(MimasISPyBParameter)
+@zocalo_message.register(MimasISPyBParameter)  # type: ignore
 def _(mimasobject: MimasISPyBParameter):
     return dataclasses.asdict(mimasobject)
 
 
-@zocalo_message.register(MimasISPyBUnitCell)
+@zocalo_message.register(MimasISPyBUnitCell)  # type: ignore
 def _(mimasobject: MimasISPyBUnitCell):
     return dataclasses.astuple(mimasobject)
 
 
-@zocalo_message.register(MimasISPyBSpaceGroup)
+@zocalo_message.register(MimasISPyBSpaceGroup)  # type: ignore
 def _(mimasobject: MimasISPyBSpaceGroup):
     return mimasobject.string
 
 
-@zocalo_message.register(list)
+@zocalo_message.register(list)  # type: ignore
 def _(list_: list):
     return [zocalo_message(element) for element in list_]
 
 
-@zocalo_message.register(tuple)
+@zocalo_message.register(tuple)  # type: ignore
 def _(tuple_: tuple):
     return tuple(zocalo_message(element) for element in tuple_)
 
@@ -333,12 +338,12 @@ def zocalo_command_line(mimasobject):
     raise ValueError(f"{mimasobject!r} is not a known Mimas object")
 
 
-@zocalo_command_line.register(MimasRecipeInvocation)
+@zocalo_command_line.register(MimasRecipeInvocation)  # type: ignore
 def _(mimasobject: MimasRecipeInvocation):
     return f"zocalo.go -r {mimasobject.recipe} {mimasobject.DCID}"
 
 
-@zocalo_command_line.register(MimasISPyBJobInvocation)
+@zocalo_command_line.register(MimasISPyBJobInvocation)  # type: ignore
 def _(mimasobject: MimasISPyBJobInvocation):
     if mimasobject.comment:
         comment = (f"--comment={mimasobject.comment!r}",)
@@ -373,3 +378,34 @@ def _(mimasobject: MimasISPyBJobInvocation):
             *triggervars,
         )
     )
+
+
+Invocation = Union[MimasISPyBJobInvocation, MimasRecipeInvocation]
+
+
+def match_specification(specification: BaseSpecification):
+    def outer_wrapper(handler: Callable):
+        @functools.wraps(handler)
+        def inner_wrapper(scenario: MimasScenario) -> List[Invocation]:
+            if specification.is_satisfied_by(scenario):
+                return handler(scenario)
+            return []
+
+        return inner_wrapper
+
+    return outer_wrapper
+
+
+@functools.lru_cache
+def _get_handlers() -> dict[str, Callable]:
+    return {
+        e.name: e.load()
+        for e in pkg_resources.iter_entry_points("zocalo.mimas.handlers")
+    }
+
+
+def handle_scenario(scenario: MimasScenario) -> List[Invocation]:
+    tasks: List[Invocation] = []
+    for handler in _get_handlers().values():
+        tasks.extend(handler(scenario))
+    return tasks

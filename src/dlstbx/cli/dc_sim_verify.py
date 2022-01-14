@@ -3,6 +3,7 @@
 #   Verify all outstanding simulated data collections against expected
 #   results. Create a report as junit.xml file.
 #
+from __future__ import annotations
 
 import collections
 import datetime
@@ -20,10 +21,10 @@ from workflows.transport.stomp_transport import StompTransport
 import dlstbx.dc_sim.check
 import dlstbx.util.result
 
-processqueue = queue.Queue()
+processqueue: queue.Queue = queue.Queue()
 
 results_queue = "reduce.dc_sim"
-test_results = {}
+test_results: dict[str, list] = {}
 # Fail scenarios that have not succeeded after 2 hours.
 # Accommodate for possibility of 1 hour time zone difference between workstations.
 test_timeout = 2 * 3600

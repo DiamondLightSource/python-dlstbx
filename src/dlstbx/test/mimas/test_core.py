@@ -2,7 +2,7 @@ import functools
 
 import pytest
 
-import dlstbx.mimas.core
+from dlstbx import mimas
 from dlstbx.mimas import (
     MimasDCClass,
     MimasDetectorClass,
@@ -16,10 +16,10 @@ from dlstbx.mimas import (
 
 def get_zocalo_commands(scenario):
     commands = set()
-    actions = dlstbx.mimas.core.run(scenario)
+    actions = mimas.handle_scenario(scenario)
     for a in actions:
-        dlstbx.mimas.validate(a)
-        commands.add(dlstbx.mimas.zocalo_command_line(a).strip())
+        mimas.validate(a)
+        commands.add(mimas.zocalo_command_line(a).strip())
     return commands
 
 
@@ -86,16 +86,11 @@ def test_eiger_rotation_multixia2(anomalous_scatterer, absorption_level):
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r processing-rlv-eiger {dcid}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger-cluster",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger-cloud --trigger",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger --trigger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-3dii-eiger-cluster --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-dials-eiger-cluster --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=absorption_level:{absorption_level}",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-3dii-eiger-cloud --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-dials-eiger-cloud --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=absorption_level:{absorption_level}",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-3dii-eiger-cluster --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-dials-eiger-cluster --add-sweep={other_dcid}:1:3600 --add-sweep={dcid}:1:3600 --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger-cluster --add-param=resolution.cc_half_significance_level:0.1",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger-cluster --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger-cloud --add-param=resolution.cc_half_significance_level:0.1 --trigger",
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-dials-eiger-cloud --add-param=resolution.cc_half_significance_level:0.1 --add-param=absorption_level:{absorption_level} --trigger",
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
@@ -359,6 +354,68 @@ def test_vmxi_rotation(anomalous_scatterer, absorption_level):
     }
 
 
+def test_vmxm_rotation():
+    dcid = 7389381
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.ROTATION,
+        event=MimasEvent.START,
+        beamline="i02-1",
+        visit="nt27314-31",
+        runstatus="DataCollection Successful",
+        getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=600),),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+        anomalous_scatterer=None,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r per-image-analysis-rotation-swmr-vmxm {dcid}"
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"ispyb.job --new --dcid={dcid} --source=automatic "
+        "--recipe=autoprocessing-autoPROC-eiger-cluster",
+        f"ispyb.job --new --dcid={dcid} --source=automatic "
+        f"--recipe=autoprocessing-fast-dp-eiger --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic "
+        "--recipe=autoprocessing-xia2-3dii-eiger-cluster "
+        "--add-param=resolution.cc_half_significance_level:0.1",
+        f"ispyb.job --new --dcid={dcid} --source=automatic "
+        "--recipe=autoprocessing-xia2-dials-eiger-cluster "
+        "--add-param=resolution.cc_half_significance_level:0.1 "
+        "--add-param=ice_rings.unit_cell:3.615,3.615,3.615,90,90,90 "
+        "--add-param=ice_rings.space_group:fm-3m --add-param=ice_rings.width:0.01 "
+        "--add-param=ice_rings.filter:true --add-param=remove_blanks:true "
+        "--add-param=failover:true --add-param=absorption_level:medium --trigger",
+        f"zocalo.go -r archive-nexus {dcid}",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
+        f"zocalo.go -r processing-rlv-eiger {dcid}",
+    }
+
+
+def test_vmxm_gridscan():
+    dcid = 7389147
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.GRIDSCAN,
+        beamline="i02-1",
+        visit="nt27314-31",
+        runstatus="DataCollection Successful",
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.EIGER,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r per-image-analysis-gridscan-swmr-vmxm {dcid}"
+    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r archive-nexus {dcid}",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r generate-diffraction-preview {dcid}",
+    }
+
+
 @pytest.mark.parametrize(
     "detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type",
     [
@@ -444,8 +501,8 @@ def test_i19_rotation_with_symmetry(
     dcid = 6356546
     other_dcid = 6356585
 
-    spacegroup = dlstbx.mimas.MimasISPyBSpaceGroup("P21")
-    unitcell = dlstbx.mimas.MimasISPyBUnitCell(10.89, 8.69, 7.77, 90.0, 103.0, 90.0)
+    spacegroup = mimas.MimasISPyBSpaceGroup("P21")
+    unitcell = mimas.MimasISPyBUnitCell(10.89, 8.69, 7.77, 90.0, 103.0, 90.0)
 
     scenario = functools.partial(
         MimasScenario,

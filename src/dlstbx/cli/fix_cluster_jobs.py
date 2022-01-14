@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import getpass
 import os
 import re
 import sys
 import uuid
 import xml.dom.minidom
+from typing import Any, Optional
 
 from tqdm import tqdm
 
@@ -69,13 +72,13 @@ for clustername, cluster in clusters.items():
                     resubmission_db[resubmission_id] = j["ID"]
                 bar.update(1)
 
-    error_db = {}
+    error_db: dict[int, Optional[str]] = {}
     errored_jobs = [j for j in jobs if j["statecode"] == "Eqw" and j["owner"] == "gda2"]
 
     print("\n* found %d jobs in error state" % len(errored_jobs))
     if not errored_jobs:
         continue
-    names = {}
+    names: dict[Any, list[Any]] = {}
     for j in errored_jobs:
         names.setdefault(j["name"], []).append(j)
     for n in sorted(names):
@@ -100,8 +103,9 @@ for clustername, cluster in clusters.items():
             if resubmission_id:
                 error_db[j] = resubmission_id
             else:
-                error_db[j] = str(uuid.uuid4())
-                cluster.qalter(j, ["-ac", "resubmission_id=" + error_db[j]])
+                unique_id = str(uuid.uuid4())
+                cluster.qalter(j, ["-ac", f"resubmission_id={unique_id}"])
+                error_db[j] = unique_id
             bar.update(1)
 
     removable_jobs = [j for j in error_db if error_db[j] in resubmission_db]

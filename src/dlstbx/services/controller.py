@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import json
 import os.path
 import threading
 import time
+from typing import Any
 
 import procrunner
 from workflows.services.common_service import CommonService
@@ -44,7 +47,7 @@ class DLSController(CommonService):
     timestamp_strategies_loaded = None
 
     # Keep track of all queue statistics
-    queue_status = {}
+    queue_status: dict[Any, Any] = {}
 
     # Regularly discard old queue statistics
     last_queue_status_expiration = 0

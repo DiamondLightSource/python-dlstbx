@@ -30,13 +30,36 @@ def run():
     logger.setLevel(logging.DEBUG)
     logger = logging.getLogger("dlstbx.system_test")
 
+    # Load system tests
+    dlstbx.system_test.load_all_tests()
+    systest_classes = dlstbx.system_test.get_all_tests()
+
     parser = argparse.ArgumentParser(
         usage="dlstbx.run_system_tests [options]",
         description="Run Zocalo system tests",
     )
-    parser.add_argument("tests", nargs="*", help="Only run these tests")
-
+    parser.add_argument(
+        "tests",
+        nargs="*",
+        help="You can specify one or multiple individual tests to run, "
+        "or not specify any and therefore run all. Available tests: "
+        + ", ".join(sorted(systest_classes)),
+    )
     parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="TEST",
+        choices=sorted(systest_classes),
+        type=str,
+        help="Exclude one of the above named tests. Spelling must match exactly",
+    )
+    parser.add_argument(
+        "--output",
+        action="store_true",
+        help="Write an output.xml junit XML file summary",
+    )
 
     # Load configuration
     zc = zocalo.configuration.from_file()
@@ -57,10 +80,6 @@ def run():
         logger.critical("Could not connect to message broker")
         sys.exit(1)
 
-    # Load system tests
-
-    dlstbx.system_test.load_all_tests()
-    systest_classes = dlstbx.system_test.get_all_tests()
     systest_count = len(systest_classes)
     logger.info("Found %d system test classes" % systest_count)
 
@@ -72,6 +91,15 @@ def run():
         }
         logger.info(
             "Filtered %d classes via command line arguments"
+            % (systest_count - len(systest_classes))
+        )
+        systest_count = len(systest_classes)
+    if args.exclude and systest_count:
+        systest_classes = {
+            n: cls for n, cls in systest_classes.items() if n not in args.exclude
+        }
+        logger.info(
+            "Excluded %d classes via command line arguments"
             % (systest_count - len(systest_classes))
         )
         systest_count = len(systest_classes)
@@ -222,13 +250,13 @@ def run():
             event["at_time"] = event["at_time"] + start_time
             function = event.get("callback")
             if function:
-                args = event.get("args", ())
-                kwargs = event.get("kwargs", {})
+                fargs = event.get("args", ())
+                fkwargs = event.get("kwargs", {})
                 timer_events.append(
                     TimerEvent(
                         time=event["at_time"],
                         result_object=result,
-                        callback=lambda function=function: function(*args, **kwargs),
+                        callback=lambda function=function: function(*fargs, **fkwargs),
                         expected_result=event.get("expect_return", Ellipsis),
                     )
                 )
@@ -298,12 +326,13 @@ def run():
                 )
                 test[1].early += 1
 
-    # Export results
-    ts = junit_xml.TestSuite(
-        "dlstbx.system_test", [r for _, r in tests.values()] + [unexpected_messages]
-    )
-    with open("output.xml", "w") as f:
-        junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
+    if args.output:
+        # Export results
+        ts = junit_xml.TestSuite(
+            "dlstbx.system_test", [r for _, r in tests.values()] + [unexpected_messages]
+        )
+        with open("output.xml", "w") as f:
+            junit_xml.TestSuite.to_file(f, [ts], prettyprint=True)
 
     print("")
 
@@ -336,3 +365,6 @@ def run():
             "  Received %d unexpected message%s."
             % (unexpected_messages.count, "" if unexpected_messages.count == 1 else "s")
         )
+        exit(1)
+    if successes != len(tests):
+        exit(1)

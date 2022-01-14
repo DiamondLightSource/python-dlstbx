@@ -10,6 +10,7 @@ import shutil
 from typing import List
 
 import dateutil.parser
+import gemmi
 import procrunner
 import zocalo.wrapper
 
@@ -109,8 +110,9 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         find_blobs_log = next(
             self.results_directory.glob("[0-9]*-find-blobs.log"), None
         )
+        cell = get_cell_from_mtz(input_mtz)
         if find_blobs_log:
-            blobs = get_blobs_from_find_blobs_log(find_blobs_log)
+            blobs = get_blobs_from_find_blobs_log(find_blobs_log, cell)
             for i in range(min(len(blobs), 2)):
                 n = i + 1
                 if (self.results_directory / f"blob{n}v1.png").is_file():
@@ -345,7 +347,9 @@ def get_blobs_from_anode_log(log_file: pathlib.Path) -> List[schemas.Blob]:
     return blobs
 
 
-def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> List[schemas.Blob]:
+def get_blobs_from_find_blobs_log(
+    log_file: pathlib.Path, cell: gemmi.UnitCell
+) -> List[schemas.Blob]:
     blobs = []
     with log_file.open() as fh:
         for line in fh.readlines():
@@ -355,7 +359,11 @@ def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> List[schemas.Blob]:
                 )
                 blobs.append(
                     schemas.Blob(
-                        xyz=tuple(float(x) for x in tokens[6:9]),
+                        xyz=tuple(
+                            cell.fractionalize(
+                                gemmi.Position(*(float(x) for x in tokens[6:9]))
+                            )
+                        ),
                         height=float(tokens[5]),
                         map_type="difference",
                     )
@@ -363,9 +371,14 @@ def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> List[schemas.Blob]:
     return blobs
 
 
+def get_cell_from_mtz(mtz_file: pathlib.Path) -> gemmi.UnitCell:
+    return gemmi.read_mtz_file(os.fspath(mtz_file)).cell
+
+
 if __name__ == "__main__":
     import sys
 
     log_file = pathlib.Path(sys.argv[1])
-    blobs = get_blobs_from_anode_log(log_file=log_file)
+    cell = gemmi.UnitCell(67.89, 67.89, 102.08, 90, 90, 90)
+    blobs = get_blobs_from_find_blobs_log(log_file=log_file, cell=cell)
     print(blobs)

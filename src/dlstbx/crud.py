@@ -7,6 +7,33 @@ import sqlalchemy.orm
 from dlstbx import schemas
 
 
+def get_auto_proc_program(
+    auto_proc_program_id: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.AutoProcProgram:
+    query = session.query(models.AutoProcProgram).filter(
+        models.AutoProcProgram.autoProcProgramId == auto_proc_program_id
+    )
+    return query.one()
+
+
+def update_auto_proc_program(
+    auto_proc_program_id: int,
+    auto_proc_program: schemas.AutoProcProgram,
+    session: sqlalchemy.orm.session.Session,
+) -> models.AutoProcProgram:
+    app = auto_proc_program
+    db_app = get_auto_proc_program(auto_proc_program_id, session)
+    db_app.processingCommandLine = app.command_line
+    db_app.processingPrograms = app.programs
+    db_app.processingStatus = app.status
+    db_app.processingMessage = app.message
+    db_app.processingStartTime = app.start_time
+    db_app.processingEndTime = app.end_time
+    session.add(db_app)
+    return db_app
+
+
 def create_auto_proc_program(
     auto_proc_program: schemas.AutoProcProgram,
     session: sqlalchemy.orm.session.Session,
@@ -106,7 +133,11 @@ def insert_dimple_result(
     attachments: List[schemas.Attachment],
     session: sqlalchemy.orm.session.Session,
 ) -> models.MXMRRun:
-    db_app = create_auto_proc_program(auto_proc_program, session)
+    app_id = mxmrrun.auto_proc_program_id
+    if app_id:
+        db_app = update_auto_proc_program(app_id, auto_proc_program, session)
+    else:
+        db_app = create_auto_proc_program(auto_proc_program, session)
     db_mxmrrun = create_mxmrrun(mxmrrun, db_app, session)
     create_blobs(blobs, db_mxmrrun, session)
     create_attachments(attachments, db_app, session)

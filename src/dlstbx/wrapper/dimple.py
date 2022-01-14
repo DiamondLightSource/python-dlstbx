@@ -15,6 +15,7 @@ import zocalo.wrapper
 
 import dlstbx.util.symlink
 from dlstbx import schemas
+from dlstbx.util import ChainMapWithReplacement
 
 logger = logging.getLogger("dlstbx.wrap.dimple")
 
@@ -30,19 +31,12 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         log = configparser.RawConfigParser()
         log.read(log_file)
 
-        scaling_id = self.params.get("ispyb_parameters", self.params).get(
-            "scaling_id", []
-        )
+        scaling_id = self.params.get("scaling_id", [])
         assert (
             len(scaling_id) == 1
         ), f"Exactly one scaling id must be provided: {scaling_id}"
         scaling_id = scaling_id[0]
-        if not str(scaling_id).isdigit():
-            logger.error(
-                f"Can not write results to ISPyB: no scaling ID set ({scaling_id})"
-            )
-            return False
-        scaling_id = int(scaling_id)
+        program_id = self.params.get("program_id")
         logger.debug(
             f"Inserting dimple phasing results from {self.results_directory} into ISPyB for scaling_id {scaling_id}"
         )
@@ -70,6 +64,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         mxmrrun = schemas.MXMRRun(
             auto_proc_scaling_id=scaling_id,
+            auto_proc_program_id=program_id,
             rfree_start=log.getfloat("refmac5 restr", "ini_free_r"),
             rfree_end=log.getfloat("refmac5 restr", "free_r"),
             rwork_start=log.getfloat("refmac5 restr", "ini_overall_r"),
@@ -170,14 +165,19 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
-        self.params = self.recwrap.recipe_step["job_parameters"]
+
+        self.params = ChainMapWithReplacement(
+            self.recwrap.recipe_step["job_parameters"].get("ispyb_parameters", {}),
+            self.recwrap.recipe_step["job_parameters"].get("dimple", {}),
+            self.recwrap.recipe_step["job_parameters"],
+            substitutions=self.recwrap.environment,
+        )
+
         self.working_directory = pathlib.Path(self.params["working_directory"])
         self.results_directory = pathlib.Path(self.params["results_directory"])
         self.working_directory.mkdir(parents=True, exist_ok=True)
 
-        mtz = self.params.get("ispyb_parameters", self.params.get("dimple", {})).get(
-            "data", []
-        )
+        mtz = self.params.get("data", [])
         if not mtz:
             logger.error("Could not identify on what data to run")
             return False
@@ -189,9 +189,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         if not mtz.is_file():
             logger.error("Could not find data file %s to process", mtz)
             return False
-        pdb = self.params.get("ispyb_parameters", {}).get("pdb") or self.params.get(
-            "dimple", {}
-        ).get("pdb")
+        pdb = self.params.get("pdb")
         if not pdb:
             logger.error("Not running dimple as no PDB file available")
             return False
@@ -226,9 +224,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         # Create SynchWeb ticks hack file. This will be deleted or replaced later.
         # For this we need to create the results directory and its symlink immediately.
-        if self.params.get("synchweb_ticks") and self.params.get(
-            "ispyb_parameters", {}
-        ).get("set_synchweb_status"):
+        if self.params.get("synchweb_ticks") and self.params.get("set_synchweb_status"):
             logger.debug("Setting SynchWeb status to swirl")
             if self.params.get("create_symlink"):
                 self.results_directory.mkdir(parents=True, exist_ok=True)
@@ -299,9 +295,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             success = self.send_results_to_ispyb()
 
         # Update SynchWeb tick hack file
-        if self.params.get("synchweb_ticks") and self.params.get(
-            "ispyb_parameters", {}
-        ).get("set_synchweb_status"):
+        if self.params.get("synchweb_ticks") and self.params.get("set_synchweb_status"):
             if success:
                 logger.debug("Removing SynchWeb hack file")
                 pathlib.Path(self.params["synchweb_ticks"]).unlink()

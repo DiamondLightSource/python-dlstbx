@@ -71,6 +71,7 @@ class Attachment(pydantic.BaseModel):
 
 class MXMRRun(pydantic.BaseModel):
     auto_proc_scaling_id: int
+    auto_proc_program_id: Optional[int]
     rwork_start: float
     rwork_end: float
     rfree_start: float

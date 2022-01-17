@@ -26,8 +26,10 @@ def problems_with_certificate(hostname: str) -> Optional[str]:
         if cert.not_valid_after < datetime.now():
             return "Certificate has expired"
         expiration = cert.not_valid_after - datetime.now()
-        if expiration.days > 0 and expiration.days < 14:
+        if expiration.days > 4 and expiration.days < 14:
             return f"Certificate will expire in {expiration.days} days"
+        elif expiration.days > 0 and expiration.days < 14:
+            return f"Certificate will expire in {expiration.total_seconds() / 3600:.0f} hours"
         elif expiration.days < 14:
             return f"Certificate will expire in {expiration.total_seconds() / 60:.0f} minutes"
 

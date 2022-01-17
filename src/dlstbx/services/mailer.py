@@ -6,6 +6,13 @@ import procrunner
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
+mail_environment = {
+    "LD_LIBRARY_PATH": "",
+    "LOADEDMODULES": "",
+    "PYTHONPATH": "",
+    "_LMFILES_": "",
+}
+
 
 class _SafeDict(dict):
     """A dictionary that returns undefined keys as {keyname}.
@@ -116,9 +123,10 @@ class DLSMailer(CommonService):
         # will not re-deliver the message inifinitely many times.
         self._transport.ack(header)
 
+        mail_environment["from"] = sender
         result = procrunner.run(
             ["/bin/mail", "-s", subject] + recipients,
-            environment_override={"from": sender},
+            environment_override=mail_environment,
             print_stderr=False,
             print_stdout=False,
             stdin=content.encode(),

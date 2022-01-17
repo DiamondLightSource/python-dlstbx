@@ -141,9 +141,14 @@ def rabbit_checks(zc, hosts: List[str]):
             )
         certificate_issue = problems_with_certificate(host)
         if certificate_issue:
-            result["hosts"][host]["certificate"] = StatusText(
-                level=2, text=certificate_issue
-            )
+            if "will expire" in certificate_issue and "days" in certificate_issue:
+                result["hosts"][host]["certificate"] = StatusText(
+                    level=1, text=certificate_issue
+                )
+            else:
+                result["hosts"][host]["certificate"] = StatusText(
+                    level=2, text=certificate_issue
+                )
 
     if not status:
         result["cluster"]["status"] = StatusText(

@@ -32,12 +32,31 @@ def run():
     logger.setLevel(logging.DEBUG)
     logger = logging.getLogger("dlstbx.system_test")
 
+    # Load system tests
+    dlstbx.system_test.load_all_tests()
+    systest_classes = dlstbx.system_test.get_all_tests()
+
     parser = argparse.ArgumentParser(
         usage="dlstbx.run_system_tests [options]",
         description="Run Zocalo system tests",
     )
-    parser.add_argument("tests", nargs="*", help="Only run these tests")
+    parser.add_argument(
+        "tests",
+        nargs="*",
+        help="You can specify one or multiple individual tests to run, "
+        "or not specify any and therefore run all. Available tests: "
+        + ", ".join(sorted(systest_classes)),
+    )
     parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="TEST",
+        choices=sorted(systest_classes),
+        type=str,
+        help="Exclude one of the above named tests. Spelling must match exactly",
+    )
     parser.add_argument(
         "--output",
         action="store_true",
@@ -63,10 +82,6 @@ def run():
         logger.critical("Could not connect to message broker")
         sys.exit(1)
 
-    # Load system tests
-
-    dlstbx.system_test.load_all_tests()
-    systest_classes = dlstbx.system_test.get_all_tests()
     systest_count = len(systest_classes)
     logger.info("Found %d system test classes" % systest_count)
 
@@ -78,6 +93,15 @@ def run():
         }
         logger.info(
             "Filtered %d classes via command line arguments"
+            % (systest_count - len(systest_classes))
+        )
+        systest_count = len(systest_classes)
+    if args.exclude and systest_count:
+        systest_classes = {
+            n: cls for n, cls in systest_classes.items() if n not in args.exclude
+        }
+        logger.info(
+            "Excluded %d classes via command line arguments"
             % (systest_count - len(systest_classes))
         )
         systest_count = len(systest_classes)

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import gemmi
+import pytest
+
 from dlstbx.wrapper.dimple import (
     get_blobs_from_anode_log,
     get_blobs_from_find_blobs_log,
@@ -64,6 +67,7 @@ def test_get_blobs_from_anode_log(tmp_path):
 
 
 def test_get_blobs_from_find_blobs_log(tmp_path):
+    cell = gemmi.UnitCell(67.89, 67.89, 102.08, 90, 90, 90)
     find_blobs_log = tmp_path / "find-blobs.log"
     find_blobs_log.write_text(
         """
@@ -77,11 +81,11 @@ Protein mass center: xyz = (   -0.5181,     20.49,     18.82)
 #3    126 grid points, score 75.82     (   6.06,  27.58,   6.56)
 """
     )
-    blobs = get_blobs_from_find_blobs_log(find_blobs_log)
+    blobs = get_blobs_from_find_blobs_log(find_blobs_log, cell)
     assert len(blobs) == 4
     assert blobs[0].dict() == {
         "filepath": None,
-        "xyz": (3.62, 22.63, 24.25),
+        "xyz": pytest.approx((0.05332155, 0.33333333, 0.23755878)),
         "height": 104.9,
         "map_type": "difference",
         "occupancy": None,

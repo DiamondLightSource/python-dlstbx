@@ -12,11 +12,13 @@ import shutil
 from typing import List
 
 import dateutil.parser
+import gemmi
 import procrunner
 import zocalo.wrapper
 
 import dlstbx.util.symlink
 from dlstbx import schemas
+from dlstbx.util import ChainMapWithReplacement
 
 logger = logging.getLogger("dlstbx.wrap.dimple")
 
@@ -32,19 +34,12 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         log = configparser.RawConfigParser()
         log.read(log_file)
 
-        scaling_id = self.params.get("ispyb_parameters", self.params).get(
-            "scaling_id", []
-        )
+        scaling_id = self.params.get("scaling_id", [])
         assert (
             len(scaling_id) == 1
         ), f"Exactly one scaling id must be provided: {scaling_id}"
         scaling_id = scaling_id[0]
-        if not str(scaling_id).isdigit():
-            logger.error(
-                f"Can not write results to ISPyB: no scaling ID set ({scaling_id})"
-            )
-            return False
-        scaling_id = int(scaling_id)
+        program_id = self.params.get("program_id")
         logger.debug(
             f"Inserting dimple phasing results from {self.results_directory} into ISPyB for scaling_id {scaling_id}"
         )
@@ -72,6 +67,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         mxmrrun = schemas.MXMRRun(
             auto_proc_scaling_id=scaling_id,
+            auto_proc_program_id=program_id,
             rfree_start=log.getfloat("refmac5 restr", "ini_free_r"),
             rfree_end=log.getfloat("refmac5 restr", "free_r"),
             rwork_start=log.getfloat("refmac5 restr", "ini_overall_r"),
@@ -80,21 +76,35 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         input_mtz = pathlib.Path(dimple_args[0])
         input_pdb = pathlib.Path(dimple_args[1])
+        # Record AutoProcAttachments (SCI-9692)
         result_files = {
-            self.results_directory / "final.mtz": schemas.AttachmentFileType.RESULT,
-            self.results_directory / "final.pdb": schemas.AttachmentFileType.RESULT,
-            input_mtz: schemas.AttachmentFileType.INPUT,
-            input_pdb: schemas.AttachmentFileType.INPUT,
-            log_file: schemas.AttachmentFileType.LOG,
+            self.results_directory
+            / "final.mtz": (schemas.AttachmentFileType.RESULT, 1),
+            self.results_directory
+            / "final.pdb": (schemas.AttachmentFileType.RESULT, 1),
+            self.results_directory / "screen.log": (schemas.AttachmentFileType.LOG, 1),
+            input_mtz: (schemas.AttachmentFileType.INPUT, 2),
+            input_pdb: (schemas.AttachmentFileType.INPUT, 2),
+            log_file: (schemas.AttachmentFileType.LOG, 2),
         }
+        result_files.update(
+            {
+                log_file: (schemas.AttachmentFileType.LOG, 2)
+                for log_file in itertools.chain(
+                    self.results_directory.glob("[0-9]*-find-blobs.log"),
+                    self.results_directory.glob("[0-9]*-refmac5_restr.log"),
+                )
+            }
+        )
         attachments = [
             schemas.Attachment(
                 file_type=ftype,
                 file_path=f.parent,
                 file_name=f.name,
                 timestamp=end_time,
+                importance_rank=importance_rank,
             )
-            for f, ftype in result_files.items()
+            for f, (ftype, importance_rank) in result_files.items()
             if f.is_file()
         ]
 
@@ -102,8 +112,9 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         find_blobs_log = next(
             self.results_directory.glob("[0-9]*-find-blobs.log"), None
         )
+        cell = get_cell_from_mtz(input_mtz)
         if find_blobs_log:
-            blobs = get_blobs_from_find_blobs_log(find_blobs_log)
+            blobs = get_blobs_from_find_blobs_log(find_blobs_log, cell)
             for i in range(min(len(blobs), 2)):
                 n = i + 1
                 if (self.results_directory / f"blob{n}v1.png").is_file():
@@ -158,14 +169,19 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
-        self.params = self.recwrap.recipe_step["job_parameters"]
+
+        self.params = ChainMapWithReplacement(
+            self.recwrap.recipe_step["job_parameters"].get("ispyb_parameters", {}),
+            self.recwrap.recipe_step["job_parameters"].get("dimple", {}),
+            self.recwrap.recipe_step["job_parameters"],
+            substitutions=self.recwrap.environment,
+        )
+
         self.working_directory = pathlib.Path(self.params["working_directory"])
         self.results_directory = pathlib.Path(self.params["results_directory"])
-        self.working_directory.mkdir(parents=True)
+        self.working_directory.mkdir(parents=True, exist_ok=True)
 
-        mtz = self.params.get("ispyb_parameters", self.params.get("dimple", {})).get(
-            "data", []
-        )
+        mtz = self.params.get("data", [])
         if not mtz:
             logger.error("Could not identify on what data to run")
             return False
@@ -173,13 +189,11 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         assert len(mtz) == 1, "Exactly one data file data file must be provided: %s" % (
             mtz
         )
-        mtz = os.path.abspath(mtz[0])
-        if not os.path.exists(mtz):
+        mtz = pathlib.Path(mtz[0]).resolve()
+        if not mtz.is_file():
             logger.error("Could not find data file %s to process", mtz)
             return False
-        pdb = self.params.get("ispyb_parameters", {}).get("pdb") or self.params.get(
-            "dimple", {}
-        ).get("pdb")
+        pdb = self.params.get("pdb")
         if not pdb:
             logger.error("Not running dimple as no PDB file available")
             return False
@@ -214,22 +228,20 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
 
         # Create SynchWeb ticks hack file. This will be deleted or replaced later.
         # For this we need to create the results directory and its symlink immediately.
-        if self.params.get("synchweb_ticks") and self.params.get(
-            "ispyb_parameters", {}
-        ).get("set_synchweb_status"):
+        if self.params.get("synchweb_ticks") and self.params.get("set_synchweb_status"):
             logger.debug("Setting SynchWeb status to swirl")
             if self.params.get("create_symlink"):
-                self.results_directory.mkdir(parents=True)
+                self.results_directory.mkdir(parents=True, exist_ok=True)
                 dlstbx.util.symlink.create_parent_symlink(
                     os.fspath(self.results_directory), self.params["create_symlink"]
                 )
-                mtzsymlink = os.path.join(
-                    os.path.dirname(mtz), self.params["create_symlink"]
-                )
-                if not os.path.exists(mtzsymlink):
-                    deltapath = self.results_directory.relative_to(os.path.dirname(mtz))
+                mtzsymlink = mtz.parent / self.params["create_symlink"]
+                if not mtzsymlink.exists():
+                    deltapath = os.path.relpath(self.results_directory, mtz.parent)
                     os.symlink(deltapath, mtzsymlink)
-            pathlib.Path(self.params["synchweb_ticks"]).mkdir(parents=True)
+            synchweb_ticks = pathlib.Path(self.params["synchweb_ticks"])
+            synchweb_ticks.parent.mkdir(parents=True, exist_ok=True)
+            synchweb_ticks.touch(exist_ok=True)
 
         logger.info("command: %s", " ".join(map(str, command)))
         result = procrunner.run(
@@ -253,16 +265,14 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         success &= b"Giving up" not in result.stdout
 
         logger.info(f"Copying DIMPLE results to {self.results_directory}")
-        self.results_directory.mkdir(parents=True)
+        self.results_directory.mkdir(parents=True, exist_ok=True)
         if self.params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 os.fspath(self.results_directory), self.params["create_symlink"]
             )
-            mtzsymlink = os.path.join(
-                os.path.dirname(mtz), self.params["create_symlink"]
-            )
-            if not os.path.exists(mtzsymlink):
-                deltapath = self.results_directory.relative_to(os.path.dirname(mtz))
+            mtzsymlink = mtz.parent / self.params["create_symlink"]
+            if not mtzsymlink.exists():
+                deltapath = os.path.relpath(self.results_directory, mtz.parent)
                 os.symlink(deltapath, mtzsymlink)
         for f in self.working_directory.iterdir():
             if f.name.startswith("."):
@@ -288,38 +298,8 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             logger.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()
 
-        # Record AutoProcAttachments (SCI-9692)
-        attachments = {
-            self.results_directory / "final.mtz": ("result", 1),
-            self.results_directory / "final.pdb": ("result", 1),
-            self.results_directory / "dimple.log": ("log", 2),
-            self.results_directory / "screen.log": ("log", 1),
-        }
-        attachments.update(
-            {
-                log_file: ("log", 1)
-                for log_file in itertools.chain(
-                    self.results_directory.glob("[0-9]*-find-blobs.log"),
-                    self.results_directory.glob("[0-9]*-refmac5_restr.log"),
-                )
-            }
-        )
-        logger.info(attachments)
-        for file_name, (file_type, importance_rank) in attachments.items():
-            if file_name.is_file():
-                self.record_result_individual_file(
-                    {
-                        "file_path": file_name.parent,
-                        "file_name": file_name.name,
-                        "file_type": file_type,
-                        "importance_rank": importance_rank,
-                    }
-                )
-
         # Update SynchWeb tick hack file
-        if self.params.get("synchweb_ticks") and self.params.get(
-            "ispyb_parameters", {}
-        ).get("set_synchweb_status"):
+        if self.params.get("synchweb_ticks") and self.params.get("set_synchweb_status"):
             if success:
                 logger.debug("Removing SynchWeb hack file")
                 pathlib.Path(self.params["synchweb_ticks"]).unlink()
@@ -344,34 +324,34 @@ def get_blobs_from_anode_log(log_file: pathlib.Path) -> List[schemas.Blob]:
             if line == "Strongest unique anomalous peaks":
                 in_strongest_peaks_section = True
                 continue
-            if in_strongest_peaks_section and line.startswith("S"):
-                tokens = line.split()
-                if len(tokens) == 8:
-                    x, y, z, height, occupancy, distance = map(float, tokens[1:7])
-                    atom = tokens[7]
-                    m = ATOM_NAME_RE.match(atom)
-                    if m:
-                        name, chain_id, res_name, res_seq = m.groups()
-                        nearest_atom = schemas.Atom(
-                            name=name,
-                            chain_id=chain_id,
-                            res_name=res_name,
-                            res_seq=res_seq,
+            if in_strongest_peaks_section and len(tokens := line.split()) == 8:
+                x, y, z, height, occupancy, distance = map(float, tokens[1:7])
+                atom = tokens[7]
+                m = ATOM_NAME_RE.match(atom)
+                if m:
+                    name, chain_id, res_name, res_seq = m.groups()
+                    nearest_atom = schemas.Atom(
+                        name=name,
+                        chain_id=chain_id,
+                        res_name=res_name,
+                        res_seq=res_seq,
+                    )
+                    blobs.append(
+                        schemas.Blob(
+                            xyz=(x, y, z),
+                            height=height,
+                            occupancy=occupancy,
+                            nearest_atom=nearest_atom,
+                            nearest_atom_distance=distance,
+                            map_type="anomalous",
                         )
-                        blobs.append(
-                            schemas.Blob(
-                                xyz=(x, y, z),
-                                height=height,
-                                occupancy=occupancy,
-                                nearest_atom=nearest_atom,
-                                nearest_atom_distance=distance,
-                                map_type="anomalous",
-                            )
-                        )
+                    )
     return blobs
 
 
-def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> List[schemas.Blob]:
+def get_blobs_from_find_blobs_log(
+    log_file: pathlib.Path, cell: gemmi.UnitCell
+) -> List[schemas.Blob]:
     blobs = []
     with log_file.open() as fh:
         for line in fh.readlines():
@@ -381,7 +361,11 @@ def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> List[schemas.Blob]:
                 )
                 blobs.append(
                     schemas.Blob(
-                        xyz=tuple(float(x) for x in tokens[6:9]),
+                        xyz=tuple(
+                            cell.fractionalize(
+                                gemmi.Position(*(float(x) for x in tokens[6:9]))
+                            )
+                        ),
                         height=float(tokens[5]),
                         map_type="difference",
                     )
@@ -389,9 +373,14 @@ def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> List[schemas.Blob]:
     return blobs
 
 
+def get_cell_from_mtz(mtz_file: pathlib.Path) -> gemmi.UnitCell:
+    return gemmi.read_mtz_file(os.fspath(mtz_file)).cell
+
+
 if __name__ == "__main__":
     import sys
 
     log_file = pathlib.Path(sys.argv[1])
-    blobs = get_blobs_from_anode_log(log_file=log_file)
+    cell = gemmi.UnitCell(67.89, 67.89, 102.08, 90, 90, 90)
+    blobs = get_blobs_from_find_blobs_log(log_file=log_file, cell=cell)
     print(blobs)

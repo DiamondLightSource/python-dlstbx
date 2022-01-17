@@ -232,9 +232,11 @@ class BigEPSetupWrapper(zocalo.wrapper.BaseWrapper):
             try:
                 tmp_path = working_directory / "TMP"
                 tmp_path.mkdir(parents=True, exist_ok=True)
-                shutil.copy(singularity_image, str(working_directory))
-                image_name = Path(singularity_image).name
-                write_singularity_script(working_directory, image_name, tmp_path.name)
+                # shutil.copy(singularity_image, str(working_directory))
+                # image_name = Path(singularity_image).name
+                write_singularity_script(
+                    working_directory, singularity_image, tmp_path.name
+                )
                 self.recwrap.environment.update(
                     {"singularity_image": singularity_image}
                 )

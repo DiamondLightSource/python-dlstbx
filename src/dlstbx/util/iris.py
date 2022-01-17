@@ -123,7 +123,13 @@ def get_presigned_urls_images(bucket_name, pid, images, logger):
                 )
             else:
                 logger.info(f"Writing file {filename} into object store.")
-                minio_client.fput_object(bucket_name, filename, filepath)
+                minio_client.fput_object(
+                    bucket_name,
+                    filename,
+                    filepath,
+                    part_size=100 * 1024 * 1024,
+                    num_parallel_uploads=5,
+                )
             file_size = Path(filepath).stat().st_size
             s3_urls[filename] = {
                 "url": minio_client.presigned_get_object(

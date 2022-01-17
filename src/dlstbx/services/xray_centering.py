@@ -9,6 +9,7 @@ import time
 from typing import List, Optional
 
 import numpy as np
+import prometheus_client
 import pydantic
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -16,6 +17,7 @@ from workflows.services.common_service import CommonService
 import dlstbx.util.symlink
 import dlstbx.util.xray_centering
 import dlstbx.util.xray_centering_3d
+from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 
 
 class GridInfo(pydantic.BaseModel):
@@ -48,6 +50,7 @@ class Parameters(pydantic.BaseModel):
     results_symlink: Optional[str] = None
     latency_log_warning: float = 30
     latency_log_error: float = 300
+    beamline: str
 
 
 class RecipeStep(pydantic.BaseModel):
@@ -81,6 +84,24 @@ class CenteringData(pydantic.BaseModel):
         arbitrary_types_allowed = True
 
 
+class PrometheusMetrics(BasePrometheusMetrics):
+    def create_metrics(self):
+        self.complete_centering = prometheus_client.Counter(
+            name="complete_centerings",
+            documentation="Counts total number of completed x-ray centerings",
+            labelnames=["beamline"],
+            registry=self.registry,
+        )
+        self.analysis_latency = prometheus_client.Histogram(
+            name="analysis_latency",
+            documentation="The time passed (s) from end of data collection to end of x-ray centering",
+            labelnames=["beamline"],
+            registry=self.registry,
+            buckets=[0.5, 1, 2, 5, 10, 30, 60, 300, 600, 3600],
+            unit="s",
+        )
+
+
 class DLSXRayCentering(CommonService):
     """A service to aggregate per-image-analysis results and identify an X-ray
     centering solution for a data collection."""
@@ -108,6 +129,12 @@ class DLSXRayCentering(CommonService):
             exclusive=True,
             log_extender=self.extend_log,
         )
+
+        # Initialise metrics if requested
+        if self._environment.get("metrics"):
+            self._prom_metrics = PrometheusMetrics()
+        else:
+            self._prom_metrics = NoMetrics()
 
     def garbage_collect(self):
         """Throw away partial scan results after a while."""
@@ -301,6 +328,14 @@ class DLSXRayCentering(CommonService):
                     message_level,
                     f"X-ray centering completed for DCID {parameters.dcid} with latency of {latency:.2f} seconds",
                     extra={"xray-centering-latency": latency},
+                )
+
+                # Set prometheus metrics
+                self._prom_metrics.record_metric(
+                    "complete_centering", [f"{parameters.beamline}"]
+                )
+                self._prom_metrics.record_metric(
+                    "analysis_latency", [f"{parameters.beamline}"], latency
                 )
 
                 # Acknowledge all messages

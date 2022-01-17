@@ -100,6 +100,14 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
             default=False,
             help="Restart service on failure",
         )
+        parser.add_option(
+            "-m",
+            "--metrics",
+            dest="metrics",
+            action="store_true",
+            default=False,
+            help="Use metrics with this service",
+        )
         self._zc.add_command_line_options(parser)
         self.log.debug("Launching %r", sys.argv)
 
@@ -119,6 +127,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         kwargs["environment"] = kwargs.get("environment", {})
         kwargs["environment"]["live"] = self.use_live_infrastructure  # XXX deprecated
         kwargs["environment"]["config"] = self._zc
+        kwargs["environment"]["metrics"] = self.options.metrics
         return kwargs
 
     def on_frontend_preparation(self, frontend):
@@ -129,6 +138,8 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         extended_status["dlstbx"] = dlstbx_version()
         if self.options.tag:
             extended_status["tag"] = self.options.tag
+        if self.options.metrics:
+            extended_status["metrics"] = self.options.metrics
 
         original_status_function = frontend.get_status
 

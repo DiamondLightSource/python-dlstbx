@@ -304,4 +304,38 @@ def handle_rotation_end(
                 ]
             )
 
+    if (
+        (scenario.detectorclass is mimas.MimasDetectorClass.EIGER)
+        and scenario.beamline == "i04-1"
+        and scenario.visit
+        and scenario.visit.startswith(("mx", "lb", "cm", "nt31175"))
+    ):
+        suffix = "-eiger-cloud"
+        for params in extra_params:
+            tasks.extend(
+                [
+                    # xia2-3dii
+                    mimas.MimasISPyBJobInvocation(
+                        DCID=scenario.DCID,
+                        autostart=True,
+                        recipe=f"autoprocessing-xia2-3dii{suffix}",
+                        source="automatic",
+                        parameters=(
+                            mimas.MimasISPyBParameter(
+                                key="resolution.cc_half_significance_level", value="0.1"
+                            ),
+                            *params,
+                        ),
+                    ),
+                    # autoPROC
+                    mimas.MimasISPyBJobInvocation(
+                        DCID=scenario.DCID,
+                        autostart=True,
+                        recipe=f"autoprocessing-autoPROC{suffix}",
+                        source="automatic",
+                        parameters=params,
+                    ),
+                ]
+            )
+
     return tasks

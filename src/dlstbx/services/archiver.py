@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import errno
 import itertools
 import os
 import os.path
-import xml.etree.cElementTree as ET
+import xml.etree.ElementTree as ET
 from datetime import datetime
 
 import workflows.recipe

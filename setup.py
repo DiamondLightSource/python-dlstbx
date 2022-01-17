@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import subprocess
 
@@ -150,6 +152,7 @@ health_checks = [
     "services.jira = dlstbx.health_checks.network:check_jira",
     "services.mx.agamemnon = dlstbx.health_checks.network:check_agamemnon",
     "services.mx.dbserver = dlstbx.health_checks.network:check_dbserver",
+    "services.mx.amqrmqbridge = dlstbx.health_checks.activemq_rabbitmq_migration:check_PIA_bridge_runs",
     "services.rabbitmq = dlstbx.health_checks.rabbitmq:check_rabbitmq_health",
     "services.synchweb = dlstbx.health_checks.network:check_synchweb",
     "services.uas = dlstbx.health_checks.network:check_uas",
@@ -229,7 +232,7 @@ setup(
         "libtbx.dispatcher.script": [
             "%s=%s" % (x.split("=")[0], x.split("=")[0]) for x in console_scripts
         ]
-        + ["%s=%s" % (x, x) for x in swirltbx_hacks],
+        + [f"{x}={x}" for x in swirltbx_hacks],
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.health_checks": sorted(health_checks),

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dlstbx.util.pdb import trim_pdb_bfactors
 
 

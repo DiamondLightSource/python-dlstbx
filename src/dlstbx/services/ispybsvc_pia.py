@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ispyb
 import sqlalchemy
 import workflows.recipe

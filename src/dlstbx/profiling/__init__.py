@@ -1,5 +1,7 @@
 ### Deprecated. Remove after DIALS 3.7 is released and deployed
 
+from __future__ import annotations
+
 import json
 import logging
 import pathlib

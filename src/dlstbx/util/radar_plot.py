@@ -16,6 +16,8 @@ polygon is not aligned with the radial axes.
 .. [1] http://en.wikipedia.org/wiki/Radar_chart
 """
 
+from __future__ import annotations
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.path import Path

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import timeit
 
 from junit_xml import TestCase

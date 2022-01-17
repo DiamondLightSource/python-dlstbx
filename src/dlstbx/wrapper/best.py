@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import xml.etree.ElementTree as ET
@@ -292,7 +294,7 @@ class BESTWrapper(zocalo.wrapper.BaseWrapper):
 
         xml_file = working_directory / params["best"]["dna"]
         if xml_file.is_file():
-            with open(xml_file, "r") as fh:
+            with open(xml_file) as fh:
                 self.xml_string = fh.read()
             if "</edna_tables>" not in self.xml_string:
                 self.xml_string = "\n".join((self.xml_string, "</edna_tables>"))

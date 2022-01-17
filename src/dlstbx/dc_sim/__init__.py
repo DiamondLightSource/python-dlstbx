@@ -6,6 +6,8 @@
 # * runs the scripts RunAtStartOfDataCollection.sh and RunAtEndOfDataCollection.sh
 #   at appropriate times.
 
+from __future__ import annotations
+
 import collections
 import errno
 import glob

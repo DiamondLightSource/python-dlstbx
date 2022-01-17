@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import shutil
@@ -83,5 +85,13 @@ class BigEPRunWrapper(zocalo.wrapper.BaseWrapper):
             )
             logger.debug(result["stdout"])
             logger.debug(result["stderr"])
+
+        # HTCondor resolves symlinks while transferring data and doesn't support symlinks to direcotries
+        if self.msg.singularity_image:
+            for tmp_file in output_directory.rglob("*"):
+                if (
+                    tmp_file.is_symlink() and tmp_file.is_dir()
+                ) or tmp_file.suffix == ".h5":
+                    tmp_file.unlink(True)
 
         return True

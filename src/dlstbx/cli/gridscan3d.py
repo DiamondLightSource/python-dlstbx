@@ -88,10 +88,10 @@ def gridscan3d(
         master_h5 = experiments.imagesets()[0].get_path(0)
         logger.debug(master_h5)
         with h5py.File(master_h5, "r") as handle:
-            x, y, z, omega = [
+            x, y, z, omega = (
                 handle.get(f"/entry/sample/transformations/{item}")[()]
                 for item in ("sam_x", "sam_y", "sam_z", "omega")
-            ]
+            )
 
         unique_x = np.array(sorted(set(x)))
         unique_y = np.array(sorted(set(y)))

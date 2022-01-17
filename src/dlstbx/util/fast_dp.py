@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class Reader:
     def __init__(self, filename):
 

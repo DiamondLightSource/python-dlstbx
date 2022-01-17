@@ -99,7 +99,7 @@ def check():
             for path_item in sys.path:
                 egg_link = os.path.join(path_item, requirement.name + ".egg-link")
                 if os.path.isfile(egg_link):
-                    with open(egg_link, "r") as fh:
+                    with open(egg_link) as fh:
                         location = fh.readline().strip()
                         break
             if location and currentversion in requirement:

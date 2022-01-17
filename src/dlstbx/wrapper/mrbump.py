@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import pathlib
@@ -49,7 +51,7 @@ class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
         try:
             fp = tempfile.NamedTemporaryFile(dir=working_directory)
             mrbump_filename = os.path.join(
-                working_directory, "run_mrbump_{}.sh".format(os.path.basename(fp.name))
+                working_directory, f"run_mrbump_{os.path.basename(fp.name)}.sh"
             )
             fp.close()
             with open(mrbump_filename, "w") as fp:

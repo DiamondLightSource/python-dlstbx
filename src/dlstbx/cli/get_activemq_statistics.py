@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import getpass
 import logging
 import sys
@@ -232,12 +234,12 @@ def run():
             fn = available_keys.get(name.lower())
             if fn:
                 value = getattr(amq, fn)()
-                print("%s:%s" % (name, str(value)))
+                print(f"{name}:{value}")
 
     if not options.rrd and not options.keys:
 
         def readable_memory(value):
-            return "{:.1f} MB".format(value / 1024 / 1024)
+            return f"{value / 1024 / 1024:.1f} MB"
 
         connections = amq.getConnectionsCount()
         memory = amq.getMemoryPercentUsage()

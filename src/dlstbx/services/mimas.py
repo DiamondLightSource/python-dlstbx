@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import workflows.recipe
 from workflows.services.common_service import CommonService
 

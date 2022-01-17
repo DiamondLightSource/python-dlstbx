@@ -3,6 +3,8 @@
 #   Starts a workflow service
 #
 
+from __future__ import annotations
+
 import logging
 import sys
 import time

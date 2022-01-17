@@ -902,7 +902,7 @@ class DLSTrigger(CommonService):
             if (
                 (proposal.proposalCode != "mx" or proposal.proposalNumber != "23694")
                 and (
-                    proposal.proposalCode != "nt" or proposal.proposalNumber != "28218"
+                    proposal.proposalCode != "nt" or proposal.proposalNumber != "31175"
                 )
                 and proposal.proposalCode != "cm"
             ):

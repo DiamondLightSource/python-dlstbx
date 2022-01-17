@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import procrunner
 
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status, limit_level

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import shutil
@@ -55,14 +57,12 @@ def spacegroup_short(spacegroup_name, logger):
         return spacegroup_name
     else:
         table_name = "vol_a_short_mono_hm_dict"
-        with open(symbols_cpp, "r") as f:
+        with open(symbols_cpp) as f:
             for line in f:
                 if line.find(table_name) > 0:
                     break
             else:
-                logger.warning(
-                    "Cannot find %s table in %s file." % (table_name, symbols_cpp)
-                )
+                logger.warning(f"Cannot find {table_name} table in {symbols_cpp} file.")
                 return spacegroup_name
             symbol_pairs = []
             for line in f:
@@ -75,7 +75,7 @@ def spacegroup_short(spacegroup_name, logger):
                 symbol_pairs.append((full_sg, short_sg))
             else:
                 logger.warning(
-                    "Error reading %s table in %s file." % (table_name, symbols_cpp)
+                    f"Error reading {table_name} table in {symbols_cpp} file."
                 )
                 return spacegroup_name
             short_symbol_dict = dict(symbol_pairs)
@@ -317,7 +317,7 @@ def get_autosharp_model_files(working_directory, logger):
                     return mdl_dict
             logger.info("Cannot find record with autoSHARP output files")
             return None
-    except IOError:
+    except OSError:
         logger.info("Cannot find .autoSHARP results file")
         return None
 

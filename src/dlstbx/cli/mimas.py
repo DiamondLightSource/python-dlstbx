@@ -9,6 +9,8 @@
 # dlstbx.mimas 4983807  # I24 gridscan
 # dlstbx.mimas 4966986  # I24 rotation with no known space group
 
+from __future__ import annotations
+
 import argparse
 
 import dlstbx.ispybtbx

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 def hex2col(triplet):
     # print "RGB:", hex2rgb(triplet)
     # print "Ansi:", rgb2ansi(*hex2rgb(triplet))

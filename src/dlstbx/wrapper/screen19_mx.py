@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import tempfile
@@ -78,7 +80,7 @@ class Screen19MXWrapper(zocalo.wrapper.BaseWrapper):
         try:
             fp = tempfile.NamedTemporaryFile(dir=working_directory.strpath)
             screen19_script = working_directory.join(
-                "run_screen19_mx_{}.sh".format(os.path.basename(fp.name))
+                f"run_screen19_mx_{os.path.basename(fp.name)}.sh"
             )
             fp.close()
             with screen19_script.open("w") as fp:

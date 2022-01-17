@@ -60,7 +60,7 @@ def setup_marshmallow_schema(session):
     for class_ in isa.Base.registry._class_registry.values():
         if hasattr(class_, "__tablename__"):
 
-            class Meta(object):
+            class Meta:
                 model = class_
                 sqla_session = session
                 load_instance = True

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pprint import pformat
 
 import numpy as np

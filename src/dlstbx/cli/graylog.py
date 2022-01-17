@@ -4,6 +4,8 @@
 #
 
 
+from __future__ import annotations
+
 import datetime
 import http.client
 import string

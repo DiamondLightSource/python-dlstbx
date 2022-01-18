@@ -13,16 +13,29 @@ from __future__ import annotations
 
 import argparse
 
+import ispyb.sqlalchemy
+import sqlalchemy
+from sqlalchemy.orm import sessionmaker
+
 import dlstbx.ispybtbx
+import dlstbx.mimas
 
 _readable = {
     dlstbx.mimas.MimasEvent.START: "start of data collection",
     dlstbx.mimas.MimasEvent.END: "end of data collection",
 }
 
+Session = sessionmaker(
+    bind=sqlalchemy.create_engine(
+        ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
+    )
+)
 
-def get_scenarios(dcid):
-    ispyb_message, ispyb_info = dlstbx.ispybtbx.ispyb_filter({}, {"ispyb_dcid": dcid})
+
+def get_scenarios(dcid, session: sqlalchemy.orm.session.Session):
+    ispyb_message, ispyb_info = dlstbx.ispybtbx.ispyb_filter(
+        {}, {"ispyb_dcid": dcid}, session
+    )
     cell = ispyb_info.get("ispyb_unit_cell")
     if cell:
         cell = dlstbx.mimas.MimasISPyBUnitCell(*cell)
@@ -103,32 +116,33 @@ def run(args=None):
 
     args = parser.parse_args(args)
 
-    for dcid in args.dcids:
-        for scenario in get_scenarios(dcid):
-            actions = dlstbx.mimas.handle_scenario(scenario)
-            print(f"At the {_readable.get(scenario.event)} {dcid}:")
-            for a in sorted(actions, key=lambda a: str(type(a)) + " " + a.recipe):
-                try:
-                    dlstbx.mimas.validate(a)
-                except ValueError:
-                    print(
-                        f"Mimas scenario for DCID {dcid}, {scenario.event} returned invalid action {a!r}"
-                    )
-                    raise
-                if isinstance(a, dlstbx.mimas.MimasRecipeInvocation):
-                    if args.show_commands:
-                        print(" - " + dlstbx.mimas.zocalo_command_line(a))
-                    else:
-                        print(f" - for DCID {a.DCID} call recipe {a.recipe}")
-                elif isinstance(a, dlstbx.mimas.MimasISPyBJobInvocation):
-                    if args.show_commands:
-                        print(" - " + dlstbx.mimas.zocalo_command_line(a))
-                    else:
+    with Session() as session:
+        for dcid in args.dcids:
+            for scenario in get_scenarios(dcid, session):
+                actions = dlstbx.mimas.handle_scenario(scenario)
+                print(f"At the {_readable.get(scenario.event)} {dcid}:")
+                for a in sorted(actions, key=lambda a: str(type(a)) + " " + a.recipe):
+                    try:
+                        dlstbx.mimas.validate(a)
+                    except ValueError:
                         print(
-                            f" - create ISPyB job for DCID {a.DCID} named {a.displayname!r} with recipe {a.recipe} (autostart={a.autostart})"
+                            f"Mimas scenario for DCID {dcid}, {scenario.event} returned invalid action {a!r}"
                         )
-                else:
-                    raise RuntimeError(f"Encountered unknown action {a!r}")
-            if not actions:
-                print(" - do nothing")
-            print()
+                        raise
+                    if isinstance(a, dlstbx.mimas.MimasRecipeInvocation):
+                        if args.show_commands:
+                            print(" - " + dlstbx.mimas.zocalo_command_line(a))
+                        else:
+                            print(f" - for DCID {a.DCID} call recipe {a.recipe}")
+                    elif isinstance(a, dlstbx.mimas.MimasISPyBJobInvocation):
+                        if args.show_commands:
+                            print(" - " + dlstbx.mimas.zocalo_command_line(a))
+                        else:
+                            print(
+                                f" - create ISPyB job for DCID {a.DCID} named {a.displayname!r} with recipe {a.recipe} (autostart={a.autostart})"
+                            )
+                    else:
+                        raise RuntimeError(f"Encountered unknown action {a!r}")
+                if not actions:
+                    print(" - do nothing")
+                print()

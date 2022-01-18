@@ -8,7 +8,8 @@ from dlstbx.mimas.specification import BeamlineSpecification, VisitSpecification
 
 CLOUD_VISITS = {
     "cm",
-    "lb" "mx",
+    "lb",
+    "mx",
     "nt31175",
 }
 
@@ -43,7 +44,7 @@ def handle_cloud(
         mimas.MimasISPyBJobInvocation(
             DCID=scenario.DCID,
             autostart=True,
-            recipe="autoprocessing-xia2-3dii-eiger-cluster",
+            recipe="autoprocessing-xia2-3dii-eiger-cloud",
             source="automatic",
             parameters=(
                 mimas.MimasISPyBParameter(
@@ -55,7 +56,7 @@ def handle_cloud(
         mimas.MimasISPyBJobInvocation(
             DCID=scenario.DCID,
             autostart=True,
-            recipe="autoprocessing-autoPROC-eiger-cluster",
+            recipe="autoprocessing-autoPROC-eiger-cloud",
             source="automatic",
         ),
     ]

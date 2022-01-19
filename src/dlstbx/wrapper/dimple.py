@@ -207,9 +207,9 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
                 if local_pdb_copy.is_file():
                     code_or_file = local_pdb_copy
                     logger.debug(f"Using local PDB {local_pdb_copy}")
-            if code_or_file.is_file():
+            if os.path.isfile(code_or_file):
                 shutil.copy(code_or_file, self.working_directory)
-                pdb[i] = self.working_directory / code_or_file.name
+                pdb[i] = self.working_directory / os.path.basename(code_or_file)
         command = (
             ["dimple", mtz]
             + pdb

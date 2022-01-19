@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Tuple
 
 import zocalo.configuration
 
@@ -37,45 +37,64 @@ def handle_cloud(
     )
 
     if cloud_spec.is_satisfied_by(scenario):
-        if "autoprocessing-xia2-dials-eiger-cloud" in cloud_recipes:
-            tasks.append(
-                mimas.MimasISPyBJobInvocation(
-                    DCID=scenario.DCID,
-                    autostart=True,
-                    recipe="autoprocessing-xia2-dials-eiger-cloud",
-                    source="automatic",
-                    parameters=(
-                        mimas.MimasISPyBParameter(
-                            key="resolution.cc_half_significance_level", value="0.1"
-                        ),
-                        *xia2_dials_absorption_params(scenario),
+        ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
+        extra_params: List[ParamTuple] = [()]
+        if scenario.spacegroup:
+            spacegroup = scenario.spacegroup.string
+            symmetry_parameters: ParamTuple = (
+                mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
+            )
+            if scenario.unitcell:
+                symmetry_parameters += (
+                    mimas.MimasISPyBParameter(
+                        key="unit_cell", value=scenario.unitcell.string
                     ),
                 )
-            )
+            extra_params.append(symmetry_parameters)
 
-        if "autoprocessing-xia2-3dii-eiger-cloud" in cloud_recipes:
-            tasks.append(
-                mimas.MimasISPyBJobInvocation(
-                    DCID=scenario.DCID,
-                    autostart=True,
-                    recipe="autoprocessing-xia2-3dii-eiger-cloud",
-                    source="automatic",
-                    parameters=(
-                        mimas.MimasISPyBParameter(
-                            key="resolution.cc_half_significance_level", value="0.1"
+        for params in extra_params:
+            if "autoprocessing-xia2-dials-eiger-cloud" in cloud_recipes:
+                tasks.append(
+                    mimas.MimasISPyBJobInvocation(
+                        DCID=scenario.DCID,
+                        autostart=True,
+                        recipe="autoprocessing-xia2-dials-eiger-cloud",
+                        source="automatic",
+                        parameters=(
+                            mimas.MimasISPyBParameter(
+                                key="resolution.cc_half_significance_level", value="0.1"
+                            ),
+                            *params,
+                            *xia2_dials_absorption_params(scenario),
                         ),
-                    ),
+                    )
                 )
-            )
 
-        if "autoprocessing-autoPROC-eiger-cloud" in cloud_recipes:
-            tasks.append(
-                mimas.MimasISPyBJobInvocation(
-                    DCID=scenario.DCID,
-                    autostart=True,
-                    recipe="autoprocessing-autoPROC-eiger-cloud",
-                    source="automatic",
+            if "autoprocessing-xia2-3dii-eiger-cloud" in cloud_recipes:
+                tasks.append(
+                    mimas.MimasISPyBJobInvocation(
+                        DCID=scenario.DCID,
+                        autostart=True,
+                        recipe="autoprocessing-xia2-3dii-eiger-cloud",
+                        source="automatic",
+                        parameters=(
+                            mimas.MimasISPyBParameter(
+                                key="resolution.cc_half_significance_level", value="0.1"
+                            ),
+                            *params,
+                        ),
+                    )
                 )
-            )
+
+            if "autoprocessing-autoPROC-eiger-cloud" in cloud_recipes:
+                tasks.append(
+                    mimas.MimasISPyBJobInvocation(
+                        DCID=scenario.DCID,
+                        autostart=True,
+                        recipe="autoprocessing-autoPROC-eiger-cloud",
+                        source="automatic",
+                        parameters=params,
+                    )
+                )
 
     return tasks

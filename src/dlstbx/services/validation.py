@@ -130,7 +130,11 @@ class DLSValidation(CommonService):
             return fail("wavelength not set in image header")
 
         if output.get("beamline") == "i04-1":
-            if wavelength < 0.9100 or wavelength > 0.9300:
+            if output.get("dc_comments", "").startswith("Simulated datacollection"):
+                self.log.debug(
+                    "Skipping i04-1 wavelength validation for simulated data collection"
+                )
+            elif wavelength < 0.9100 or wavelength > 0.9300:
                 return fail(
                     f"Image wavelength {wavelength} outside of allowed range for I04-1 (0.9100-0.9300)"
                 )

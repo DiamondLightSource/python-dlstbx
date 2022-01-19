@@ -3,6 +3,22 @@ from __future__ import annotations
 from pytest import approx
 
 tests = {
+    "i04-eiger-screening": {
+        "type": "mx",
+        "src_dir": "/dls/i04/data/2021/cm28182-5/20211118/screening/TestInsulin/ins1",
+        "src_run_num": (2,),
+        "src_prefix": ("ins1",),
+        "use_sample_id": 3635367,
+        "results": {
+            "a": approx(77.8, abs=1),
+            "b": approx(77.8, abs=1),
+            "c": approx(77.8, abs=1),
+            "alpha": approx(90, abs=0),
+            "beta": approx(90, abs=0),
+            "gamma": approx(90, abs=0),
+            "spacegroup": "I23",
+        },
+    },
     "i04-eiger-gridscan": {
         "type": "mx",
         "src_dir": "/dls/i04/data/2021/cm28182-2/xraycentring/manual",

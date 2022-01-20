@@ -62,10 +62,10 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
 
         if xtriage_results is not None:
             for d in xtriage_results:
-                if (
-                    d["text"]
-                    == "The merging statistics indicate that the data may be assigned to the wrong space group."
-                ):
+                if d["text"] in {
+                    "The merging statistics indicate that the data may be assigned to the wrong space group.",
+                    "The resolution of the data may be useful to higher resolution than the given resolution.",
+                }:
                     # this is not a useful warning
                     continue
                 ispyb_command_list.append(

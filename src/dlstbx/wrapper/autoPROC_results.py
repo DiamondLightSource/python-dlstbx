@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import datetime
 import logging
 import shutil
 import xml.etree.ElementTree
 from pathlib import Path
 
+import dateutil.parser
 import zocalo.wrapper
 
 import dlstbx.util.symlink
@@ -428,4 +430,14 @@ class autoPROCResultsWrapper(zocalo.wrapper.BaseWrapper):
                 attachments=anisofiles,
             )
             success = success or success_staraniso
+
+        if dc_end_time := params.get("dc_end_time"):
+            dc_end_time = dateutil.parser.parse(dc_end_time)
+            dcid = params.get("dcid")
+            latency_s = (datetime.datetime.now() - dc_end_time).total_seconds()
+            logger.info(
+                f"autoPROC completed for DCID {dcid} with latency of {latency_s:.2f} seconds",
+                extra={"autoproc-latency-seconds": latency_s},
+            )
+
         return success

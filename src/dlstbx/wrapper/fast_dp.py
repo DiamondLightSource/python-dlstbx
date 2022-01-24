@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import subprocess
 
+import dateutil.parser
 import procrunner
 import py
 import zocalo.wrapper
@@ -294,5 +296,14 @@ class FastDPWrapper(zocalo.wrapper.BaseWrapper):
             self.send_results_to_ispyb(json_data, xtriage_results=xtriage_results)
         elif success:
             logger.warning("Expected JSON output file missing")
+
+        if dc_end_time := params.get("dc_end_time"):
+            dc_end_time = dateutil.parser.parse(dc_end_time)
+            dcid = params.get("dcid")
+            latency_s = (datetime.datetime.now() - dc_end_time).total_seconds()
+            logger.info(
+                f"fast_dp completed for DCID {dcid} with latency of {latency_s:.2f} seconds",
+                extra={"fastdp-latency-seconds": latency_s},
+            )
 
         return success

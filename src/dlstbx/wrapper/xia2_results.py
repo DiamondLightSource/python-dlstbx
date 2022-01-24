@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import shutil
 from pathlib import Path
 
+import dateutil.parser
 import zocalo.wrapper
 
 import dlstbx.util.symlink
@@ -228,5 +230,16 @@ class Xia2ResultsWrapper(zocalo.wrapper.BaseWrapper):
 
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
+
+        if dc_end_time := params.get("dc_end_time"):
+            dc_end_time = dateutil.parser.parse(dc_end_time)
+            pipeline = params.get("pipeline", "")
+            dcid = params.get("dcid")
+            latency_s = (datetime.datetime.now() - dc_end_time).total_seconds()
+            program_name = f"xia2-{pipeline}" if pipeline else "xia2"
+            logger.info(
+                f"{program_name} completed for DCID {dcid} with latency of {latency_s:.2f} seconds",
+                extra={f"{program_name}-latency-seconds": latency_s},
+            )
 
         return success

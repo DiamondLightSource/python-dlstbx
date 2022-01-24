@@ -22,3 +22,4 @@ workflows>=2.15
 xmltodict
 zocalo>=0.13.0
 prometheus_client
+seaborn

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import os
 import subprocess
 
+import dateutil.parser
 import procrunner
 import py
 import zocalo.wrapper
@@ -295,5 +297,15 @@ class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
             data processing has failed.
             """
                 )
+        if dc_end_time := params.get("dc_end_time"):
+            dc_end_time = dateutil.parser.parse(dc_end_time)
+            pipeline = params["xia2"].get("pipeline", "")
+            dcid = params.get("dcid")
+            latency_s = (datetime.datetime.now() - dc_end_time).total_seconds()
+            program_name = f"xia2-{pipeline}" if pipeline else "xia2"
+            logger.info(
+                f"{program_name} completed for DCID {dcid} with latency of {latency_s:.2f} seconds",
+                extra={f"{program_name}-latency-seconds": latency_s},
+            )
 
         return success

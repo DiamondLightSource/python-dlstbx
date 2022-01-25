@@ -1261,7 +1261,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 # value can not yet be resolved, put request back in the queue
                 if message["buffer_expiry_time"] < time.time():
                     self.log.warning(
-                        "Buffer call could not be resolved: entry not found"
+                        f"Buffer call could not be resolved: entry {entry} not found for program {program_id}"
                     )
                     return False
 

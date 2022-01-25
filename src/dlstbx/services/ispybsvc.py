@@ -4,6 +4,7 @@ import json
 import os.path
 import pathlib
 import time
+from typing import List
 
 import ispyb.sqlalchemy
 import mysql.connector
@@ -14,18 +15,13 @@ from ispyb.sqlalchemy import PDB, ProteinHasPDB
 from workflows.services.common_service import CommonService
 
 import dlstbx.services.ispybsvc_buffer as buffer
-from dlstbx import crud
+from dlstbx import crud, schemas
 from dlstbx.services.ispybsvc_em import EM_Mixin
+from dlstbx.util import ChainMapWithReplacement
 
 
 def lookup_command(command, refclass):
     return getattr(refclass, "do_" + command, None)
-
-
-from typing import List
-
-from dlstbx import schemas
-from dlstbx.util import ChainMapWithReplacement
 
 
 class DimpleResult(pydantic.BaseModel):
@@ -211,9 +207,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 return False
             end = start + number - 1
             sweeps = [(dcid, start, end)]
-            self.log.info(
-                "Using images %d to %d for data collection sweep" % (start, end)
-            )
+            self.log.info(f"Using images {start} to {end} for data collection sweep")
 
         ispyb_params = [(p["key"], p["value"]) for p in parameters("parameters")]
         triggervariables = {
@@ -1117,7 +1111,11 @@ class DLSISPyB(EM_Mixin, CommonService):
             checkpoint_dictionary["checkpoint"] = step - 1
             checkpoint_dictionary["ispyb_command_list"] = commands
             checkpoint_dictionary["step_message"] = result.get("return_value")
-            return {"checkpoint": True, "return_value": checkpoint_dictionary}
+            return {
+                "checkpoint": True,
+                "return_value": checkpoint_dictionary,
+                "delay": result.get("delay"),
+            }
 
         # If the step did not succeed then propagate failure
         if not result or not result.get("success"):
@@ -1133,7 +1131,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             return result
 
         # If there are more steps then checkpoint the current state
-        # and put it back on the queue
+        # and put it back on the queue (with no delay)
         self.log.debug("Checkpointing remaining %d steps", len(commands))
         if isinstance(message, dict):
             checkpoint_dictionary = message
@@ -1258,14 +1256,14 @@ class DLSISPyB(EM_Mixin, CommonService):
                     )
                     continue
 
-                # value can not yet be resolved, put request back in the queue
                 if message["buffer_expiry_time"] < time.time():
                     self.log.warning(
                         f"Buffer call could not be resolved: entry {entry} not found for program {program_id}"
                     )
                     return False
 
-                return {"checkpoint": True, "return_value": message}
+                # value can not yet be resolved, put request back in the queue
+                return {"checkpoint": True, "return_value": message, "delay": 20}
 
         # Run the actual command
         result = command_function(
@@ -1290,7 +1288,11 @@ class DLSISPyB(EM_Mixin, CommonService):
         if result and result.get("checkpoint"):
             self.log.debug("Checkpointing for buffered function")
             message["buffer_command"] = result["return_value"]
-            return {"checkpoint": True, "return_value": message, "delay": 15}
+            return {
+                "checkpoint": True,
+                "return_value": message,
+                "delay": result.get("delay"),
+            }
 
         # If the command did not succeed then propagate failure
         if not result or not result.get("success"):

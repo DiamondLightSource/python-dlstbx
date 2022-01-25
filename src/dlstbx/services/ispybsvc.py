@@ -1228,7 +1228,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         if ("buffer_expiry_time" not in message) or (
             header.get("dlq-reinjected") in {True, "True", "true", 1}
         ):
-            message["buffer_expiry_time"] = time.time() + 300
+            message["buffer_expiry_time"] = time.time() + 600
 
         # Prepare command: Resolve all references
         program_id = parameters("program_id")

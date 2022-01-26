@@ -70,7 +70,12 @@ def get_objects_from_s3(working_directory, s3_urls, logger):
     session.mount("https://", HTTPAdapter(max_retries=retries))
     for filename, vals in s3_urls.items():
         logger.info(f"Downloading {filename} from object store using {vals['url']}")
+        timestamp = time.perf_counter()
         file_data = session.get(vals["url"])
+        timestamp = time.perf_counter() - timestamp
+        logger.info(
+            f"Download of {filename} from object store completed in {timestamp:.3f} seconds."
+        )
         filepath = working_directory / filename.split("_", 1)[-1]
         # retrieve_file_with_url(filepath, vals["url"], logger)
         with open(filepath, "wb") as fp:
@@ -81,6 +86,9 @@ def get_objects_from_s3(working_directory, s3_urls, logger):
             raise ValueError(
                 f"Invalid size for downloaded {filepath.name} file: Expected {vals['size']}, got {file_size}"
             )
+        logger.info(
+            f"Data transfer rate for {filename} object: {1e-9 * file_size / timestamp:.3f}Gb/s"
+        )
 
 
 def remove_objects_from_s3(bucket_name, s3_urls):
@@ -122,7 +130,8 @@ def get_presigned_urls_images(bucket_name, pid, images, logger):
                     f"File {filename} already exists in object store bucket {bucket_name}."
                 )
             else:
-                logger.info(f"Writing file {filename} into object store.")
+                logger.info(f"Uploading file {filename} into object store.")
+                timestamp = time.perf_counter()
                 minio_client.fput_object(
                     bucket_name,
                     filename,
@@ -130,7 +139,19 @@ def get_presigned_urls_images(bucket_name, pid, images, logger):
                     part_size=100 * 1024 * 1024,
                     num_parallel_uploads=5,
                 )
-            file_size = Path(filepath).stat().st_size
+                timestamp = time.perf_counter() - timestamp
+                logger.info(
+                    f"Upload of {filename} into object store completed in {timestamp:.3f} seconds."
+                )
+                result = minio_client.stat_object(bucket_name, filename)
+                file_size = Path(filepath).stat().st_size
+                if file_size != result.size:
+                    raise ValueError(
+                        f"Invalid size for uploaded {filepath.name} file: Expected {file_size}, got {result.size}"
+                    )
+                logger.info(
+                    f"Data transfer rate for {filename} object: {1e-9 * file_size / timestamp:.3f}Gb/s"
+                )
             s3_urls[filename] = {
                 "url": minio_client.presigned_get_object(
                     bucket_name, filename, expires=URL_EXPIRE

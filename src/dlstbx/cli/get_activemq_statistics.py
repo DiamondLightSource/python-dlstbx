@@ -89,6 +89,17 @@ class ActiveMQAPI:
             attribute="QueueSize",
         )
 
+    def getQueueCount(self):
+        return len(
+            self._query(
+                type="Broker",
+                brokerName="localhost",
+                destinationType="Queue",
+                destinationName="*",
+                attribute="ConsumerCount",
+            )
+        )
+
 
 class ActiveMQRRD:
     def __init__(self, path=".", api=None):
@@ -242,6 +253,7 @@ def run():
             return f"{value / 1024 / 1024:.1f} MB"
 
         connections = amq.getConnectionsCount()
+        queues = amq.getQueueCount()
         memory = amq.getMemoryPercentUsage()
         store = amq.getStorePercentUsage()
         temp = amq.getTempPercentUsage()
@@ -267,7 +279,7 @@ def run():
 
         print(
             """
-ActiveMQ connections: {colourconn}{connections}{reset}
+ActiveMQ connections: {colourconn}{connections}{reset}   queues: {colourqueue}{queues}{reset}
 
 Storage statistics:
    persistent:{colourstore}{store:>3} %{reset}
@@ -281,6 +293,7 @@ Virtual machine memory statistics:
 Mimas held queue size: {colourmimasheld}{mimasheldqueuesize}{reset}
 """.format(
                 connections=connections,
+                queues=queues,
                 store=store,
                 temp=temp,
                 memory=memory,
@@ -290,6 +303,7 @@ Mimas held queue size: {colourmimasheld}{mimasheldqueuesize}{reset}
                 reset=colourreset(),
                 mimasheldqueuesize=mimasheldqueuesize,
                 colourconn=colour(connections, 400, 600),
+                colourqueue=colour(queues, 200, 400),
                 colourstore=colour(store, 10, 30),
                 colourtemp=colour(temp, 10, 30),
                 colourmemory=colour(memory, 10, 30),

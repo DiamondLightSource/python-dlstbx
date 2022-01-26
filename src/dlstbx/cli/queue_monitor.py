@@ -87,17 +87,7 @@ AMQ2RMQ = {
 
 
 def _get_activemq_stats(jmx) -> pd.DataFrame:
-    stats = pd.DataFrame(
-        columns=[
-            "name",
-            "consumers",
-            "messages",
-            "messages_ready",
-            "messages_unacknowledged",
-            "message_stats.publish",
-            "message_stats.deliver_get",
-        ]
-    )
+    rows = []
     for dtype, destinations in zip(
         ("queue", "topic"), _get_activemq_queue_and_topic_info(jmx)
     ):
@@ -112,8 +102,8 @@ def _get_activemq_stats(jmx) -> pd.DataFrame:
             row["name"] = name
             row["name.prefix"] = name.split(".", 1)[0]
             row["dtype"] = dtype
-            stats = stats.append(row, ignore_index=True)
-
+            rows.append(row)
+    stats = pd.DataFrame(rows)
     stats["messages"] = stats["messages_ready"] + stats["messages_unacknowledged"]
     return stats.set_index("name")
 

@@ -345,16 +345,19 @@ def _(mimasobject: MimasRecipeInvocation):
 
 @zocalo_command_line.register(MimasISPyBJobInvocation)  # type: ignore
 def _(mimasobject: MimasISPyBJobInvocation):
+    comment: Tuple[str, ...]
     if mimasobject.comment:
         comment = (f"--comment={mimasobject.comment!r}",)
     else:
         comment = ()
+    displayname: Tuple[str, ...]
     if mimasobject.displayname:
         displayname = (f"--display={mimasobject.displayname!r}",)
     else:
         displayname = ()
     parameters = (f"--add-param={p.key}:{p.value}" for p in mimasobject.parameters)
     sweeps = (f"--add-sweep={s.DCID}:{s.start}:{s.end}" for s in mimasobject.sweeps)
+    trigger: Tuple[str, ...]
     if mimasobject.autostart:
         trigger = ("--trigger",)
     else:

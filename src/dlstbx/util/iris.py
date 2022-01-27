@@ -87,7 +87,7 @@ def get_objects_from_s3(working_directory, s3_urls, logger):
                 f"Invalid size for downloaded {filepath.name} file: Expected {vals['size']}, got {file_size}"
             )
         logger.info(
-            f"Data transfer rate for {filename} object: {1e-9 * file_size / timestamp:.3f}Gb/s"
+            f"Data transfer rate for {filename} object: {8e-9 * file_size / timestamp:.3f}Gb/s"
         )
 
 
@@ -150,7 +150,7 @@ def get_presigned_urls_images(bucket_name, pid, images, logger):
                         f"Invalid size for uploaded {filepath.name} file: Expected {file_size}, got {result.size}"
                     )
                 logger.info(
-                    f"Data transfer rate for {filename} object: {1e-9 * file_size / timestamp:.3f}Gb/s"
+                    f"Data transfer rate for {filename} object: {8e-9 * file_size / timestamp:.3f}Gb/s"
                 )
             s3_urls[filename] = {
                 "url": minio_client.presigned_get_object(

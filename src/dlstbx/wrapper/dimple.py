@@ -9,6 +9,7 @@ import os
 import pathlib
 import re
 import shutil
+import subprocess
 from typing import List
 
 import dateutil.parser
@@ -244,25 +245,28 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
             synchweb_ticks.touch(exist_ok=True)
 
         logger.info("command: %s", " ".join(map(str, command)))
-        result = procrunner.run(
-            command,
-            working_directory=self.working_directory,
-            timeout=self.params.get("timeout"),
-        )
-        success = not result["exitcode"] and not result["timeout"]
-        if success:
-            logger.info("dimple successful, took %.1f seconds", result["runtime"])
-        else:
-            logger.info(
-                "dimple failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
+        try:
+            result = procrunner.run(
+                command,
+                working_directory=self.working_directory,
+                timeout=self.params.get("timeout"),
+                raise_timeout_exception=True,
             )
-            logger.debug(result["stdout"].decode("latin1"))
-            logger.debug(result["stderr"].decode("latin1"))
+            success = not result.returncode
+            if success:
+                logger.info("dimple completed successfully")
+            else:
+                logger.info(f"dimple failed with exitcode {result.returncode}")
+                logger.debug(result.stdout.decode("latin1"))
+                logger.debug(result.stderr.decode("latin1"))
 
-        # Hack to workaround dimple returning successful exitcode despite 'Giving up'
-        success &= b"Giving up" not in result.stdout
+            # Hack to workaround dimple returning successful exitcode despite 'Giving up'
+            success &= b"Giving up" not in result.stdout
+        except subprocess.TimeoutExpired as te:
+            success = False
+            logger.info("dimple failed with timeout")
+            logger.debug(te.stdout.decode("latin1"))
+            logger.debug(te.stderr.decode("latin1"))
 
         logger.info(f"Copying DIMPLE results to {self.results_directory}")
         self.results_directory.mkdir(parents=True, exist_ok=True)

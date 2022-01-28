@@ -116,7 +116,9 @@ class DLSPerImageAnalysis(CommonService):
                 e,
                 exc_info=True,
             )
-            rw.transport.nack(header)
+            txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
+            rw.transport.nack(header, transaction=txn)
+            rw.transport.transaction_commit(txn)
             return
         runtime = time.time() - start
 

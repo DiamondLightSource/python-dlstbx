@@ -64,6 +64,13 @@ class autoPROCSetupWrapper(zocalo.wrapper.BaseWrapper):
                 return False
 
             if params.get("s3_urls"):
+                formatter = logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                )
+                handler = logging.StreamHandler()
+                handler.setFormatter(formatter)
+                logger.addHandler(handler)
+                logger.setLevel(logging.DEBUG)
                 s3_urls = get_presigned_urls_images(
                     params.get("create_symlink").lower(),
                     params["rpid"],

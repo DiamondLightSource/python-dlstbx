@@ -10,6 +10,7 @@ from dlstbx.wrapper.dimple import (
 
 
 def test_get_blobs_from_anode_log(tmp_path):
+    cell = gemmi.UnitCell(67.89, 67.89, 102.08, 90, 90, 90)
     anode_log = tmp_path / "anode.log"
     anode_log.write_text(
         """
@@ -28,11 +29,11 @@ def test_get_blobs_from_anode_log(tmp_path):
  S9    0.31861  0.40817  0.27590    4.20    1.000    1.865  CD2_B:TYR16
 """
     )
-    blobs = get_blobs_from_anode_log(anode_log)
+    blobs = get_blobs_from_anode_log(anode_log, cell)
     assert len(blobs) == 9
     assert blobs[0].dict() == {
         "filepath": None,
-        "xyz": (0.23127, 0.42256, 0.32278),
+        "xyz": pytest.approx((15.7009203, 28.6875984, 32.9493824)),
         "height": 13.5,
         "occupancy": 1.0,
         "nearest_atom": {
@@ -49,7 +50,7 @@ def test_get_blobs_from_anode_log(tmp_path):
     }
     assert blobs[8].dict() == {
         "filepath": None,
-        "xyz": (0.31861, 0.40817, 0.2759),
+        "xyz": pytest.approx((21.6304329, 27.7106613, 28.163872)),
         "height": 4.2,
         "occupancy": 1.0,
         "nearest_atom": {
@@ -67,7 +68,6 @@ def test_get_blobs_from_anode_log(tmp_path):
 
 
 def test_get_blobs_from_find_blobs_log(tmp_path):
-    cell = gemmi.UnitCell(67.89, 67.89, 102.08, 90, 90, 90)
     find_blobs_log = tmp_path / "find-blobs.log"
     find_blobs_log.write_text(
         """
@@ -81,11 +81,11 @@ Protein mass center: xyz = (   -0.5181,     20.49,     18.82)
 #3    126 grid points, score 75.82     (   6.06,  27.58,   6.56)
 """
     )
-    blobs = get_blobs_from_find_blobs_log(find_blobs_log, cell)
+    blobs = get_blobs_from_find_blobs_log(find_blobs_log)
     assert len(blobs) == 4
     assert blobs[0].dict() == {
         "filepath": None,
-        "xyz": pytest.approx((0.05332155, 0.33333333, 0.23755878)),
+        "xyz": (3.62, 22.63, 24.25),
         "height": 104.9,
         "map_type": "difference",
         "occupancy": None,

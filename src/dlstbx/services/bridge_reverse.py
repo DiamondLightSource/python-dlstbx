@@ -23,7 +23,7 @@ class DLSReverseBridge(CommonService):
     }
 
     def initializing(self):
-        self.log.debug("Reverse Bridge service starting")
+        self.log.info("Reverse Bridge service starting")
 
         self.stomp_transport = StompTransport()
 
@@ -47,10 +47,10 @@ class DLSReverseBridge(CommonService):
                 )
 
                 self._transport.ack(header)
-                self.log.info(f"message {message} sent to {send_to}")
             except workflows.Disconnected:
                 self.log.error(
-                    f"Connection to ActiveMQ failed: trying to send to {send_to}"
+                    f"Connection to ActiveMQ failed: trying to send to {send_to}",
+                    exc_info=True,
                 )
                 raise
         else:

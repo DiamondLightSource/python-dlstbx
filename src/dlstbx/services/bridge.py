@@ -21,7 +21,7 @@ class DLSBridge(CommonService):
     }
 
     def initializing(self):
-        self.log.debug("Bridge service starting")
+        self.log.info("Bridge service starting")
         self.pika_transport = PikaTransport()
         self.pika_transport.connect()
 
@@ -43,10 +43,10 @@ class DLSBridge(CommonService):
                     headers=header,
                 )
                 self._transport.ack(header)
-                self.log.info(f"message {message} sent to {send_to}")
             except workflows.Disconnected:
                 self.log.error(
-                    f"Connection to RabbitMQ failed: trying to send to {send_to}"
+                    f"Connection to RabbitMQ failed: trying to send to {send_to}",
+                    exc_info=True,
                 )
                 raise
         else:

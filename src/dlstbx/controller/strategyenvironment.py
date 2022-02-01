@@ -296,7 +296,8 @@ class StrategyEnvironment:
                     for queue in strategy.watch_queues():
                         queues.add(queue)
         queues = sorted(queues)
-        self.log.debug("Watched queues:\n%s", "\n".join(queues))
+        if queues:
+            self.log.debug("Watched queues:\n%s", "\n".join(queues))
         return queues
 
     def update_allocation(self, queue_statistics=None):

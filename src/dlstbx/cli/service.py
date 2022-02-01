@@ -42,7 +42,7 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         logging.getLogger("dxtbx").setLevel(logging.INFO)
         logging.getLogger("ispyb").setLevel(logging.DEBUG)
         logging.getLogger("relion").setLevel(logging.INFO)
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARN)
         logging.getLogger("workflows").setLevel(logging.INFO)
         logging.getLogger("xia2").setLevel(logging.INFO)
         logging.getLogger("zocalo").setLevel(logging.DEBUG)

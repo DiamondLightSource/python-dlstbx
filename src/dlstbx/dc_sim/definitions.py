@@ -55,6 +55,21 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
+    "i04-1-eiger-native": {
+        "type": "mx",
+        "src_dir": "/dls/i04-1/data/2021/cm28181-3/gw/20210712/TestInsulin/Mpro_2",
+        "src_run_num": (1,),
+        "src_prefix": ("Mpro_2",),
+        "use_sample_id": 3481827,
+        "results": {
+            "a": approx(100, abs=100),
+            "b": approx(100, abs=100),
+            "c": approx(100, abs=100),
+            "alpha": approx(180, abs=180),
+            "beta": approx(180, abs=180),
+            "gamma": approx(180, abs=180),
+        },
+    },
     "i23-lysozyme": {
         "type": "mx",
         "src_dir": "/dls/i23/data/2019/nr23017-1/20190117/lys_c_4p5keV",

@@ -337,7 +337,7 @@ class DLSCluster(CommonService):
                 os.chdir(current_wd)
 
         # Conditionally acknowledge receipt of the message
-        txn = self._transport.transaction_begin()
+        txn = self._transport.transaction_begin(subscription_id=header["subscription"])
         self._transport.ack(header, transaction=txn)
 
         # Send results onwards

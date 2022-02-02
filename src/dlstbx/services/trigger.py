@@ -231,7 +231,7 @@ class DLSTrigger(CommonService):
             rw.transport.nack(header)
             return
 
-        txn = rw.transport.transaction_begin()
+        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.set_default_channel("output")
 
         parameter_map = ChainMapWithReplacement(

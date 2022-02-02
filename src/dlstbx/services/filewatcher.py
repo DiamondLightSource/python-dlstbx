@@ -205,7 +205,7 @@ class DLSFileWatcher(CommonService):
         # watch for. Bail out early and only notify on 'finally'.
         if filecount == 1 and filelist[0] is None:
             self.log.debug("Empty list encountered")
-            txn = rw.transport.transaction_begin()
+            txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
             rw.transport.ack(header, transaction=txn)
             rw.send_to(
                 "finally",
@@ -222,7 +222,7 @@ class DLSFileWatcher(CommonService):
         selections = self._parse_selections(rw.recipe_step["output"])
 
         # Conditionally acknowledge receipt of the message
-        txn = rw.transport.transaction_begin()
+        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
         # Keep a record of os.stat timings
@@ -473,7 +473,7 @@ class DLSFileWatcher(CommonService):
         selections = self._parse_selections(rw.recipe_step["output"])
 
         # Conditionally acknowledge receipt of the message
-        txn = rw.transport.transaction_begin()
+        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
         # Keep a record of os.stat timings
@@ -727,7 +727,7 @@ class DLSFileWatcher(CommonService):
         selections = self._parse_selections(rw.recipe_step["output"])
 
         # Conditionally acknowledge receipt of the message
-        txn = rw.transport.transaction_begin()
+        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
         # Cache file handles locally to minimise repeatedly re-opening the same data file(s)

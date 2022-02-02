@@ -109,7 +109,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             return
 
         self.log.debug("Running ISPyB call %s", command)
-        txn = rw.transport.transaction_begin()
+        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.set_default_channel("output")
 
         parameter_map = ChainMapWithReplacement(

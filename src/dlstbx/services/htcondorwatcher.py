@@ -45,7 +45,7 @@ class HTCondorWatcher(CommonService):
             first_seen = message.get("first-seen", start_time)
 
         # Conditionally acknowledge receipt of the message
-        txn = rw.transport.transaction_begin()
+        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
         # Keep a record of os.stat timings

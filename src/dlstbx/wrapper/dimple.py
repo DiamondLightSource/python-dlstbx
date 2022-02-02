@@ -114,7 +114,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         )
         cell = get_cell_from_mtz(input_mtz)
         if find_blobs_log:
-            blobs = get_blobs_from_find_blobs_log(find_blobs_log, cell)
+            blobs = get_blobs_from_find_blobs_log(find_blobs_log)
             for i in range(min(len(blobs), 2)):
                 n = i + 1
                 if (self.results_directory / f"blob{n}v1.png").is_file():
@@ -127,7 +127,7 @@ class DimpleWrapper(zocalo.wrapper.BaseWrapper):
         anom_blobs = []
         anode_log = self.results_directory / "anode.lsa"
         if anode_log:
-            anom_blobs = get_blobs_from_anode_log(anode_log)
+            anom_blobs = get_blobs_from_anode_log(anode_log, cell)
             for i in range(min(len(anom_blobs), 2)):
                 n = i + 1
                 if (self.results_directory / f"anom-blob{n}v1.png").is_file():

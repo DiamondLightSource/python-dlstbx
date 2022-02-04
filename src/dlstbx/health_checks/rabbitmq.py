@@ -50,7 +50,7 @@ def check_rabbitmq_dlq(cfc: CheckFunctionInterface):
             Level=level,
             Message=f"{messages} message{'' if messages == 1 else 's'} in {display_name}",
             MessageBody=new_message,
-            URL=zc.rabbitmqapi["base_url"],
+            URL="https://rabbitmq1.diamond.ac.uk/",
         )
 
     for report in db_status:
@@ -63,7 +63,7 @@ def check_rabbitmq_dlq(cfc: CheckFunctionInterface):
                     MessageBody=db_status[report].MessageBody
                     + "\n"
                     + f"Error cleared at {now}",
-                    URL=zc.rabbitmqapi["base_url"],
+                    URL="https://rabbitmq1.diamond.ac.uk/",
                 )
 
     return list(report_updates.values())

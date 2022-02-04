@@ -448,13 +448,10 @@ def test_i19_rotation(
         preferred_processing="xia2/DIALS",
         detectorclass=detectorclass,
     )
-    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == (
-        {
-            f"zocalo.go -r per-image-analysis-rotation{pia_type} {dcid}",
-        }
-        if detectorclass is MimasDetectorClass.PILATUS
-        else set()
-    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r per-image-analysis-rotation{pia_type} {dcid}"
+    }
+
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         " ".join(
             (
@@ -488,7 +485,6 @@ def test_i19_rotation(
     }.union(
         {
             f"zocalo.go -r generate-diffraction-preview {dcid}",
-            f"zocalo.go -r per-image-analysis-rotation{pia_type} {dcid}",
         }
         if detectorclass is MimasDetectorClass.EIGER
         else set()
@@ -530,13 +526,9 @@ def test_i19_rotation_with_symmetry(
         spacegroup=spacegroup,
         unitcell=unitcell,
     )
-    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == (
-        {
-            f"zocalo.go -r per-image-analysis-rotation{pia_type} {dcid}",
-        }
-        if detectorclass is MimasDetectorClass.PILATUS
-        else set()
-    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        f"zocalo.go -r per-image-analysis-rotation{pia_type} {dcid}"
+    }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         " ".join(
             (
@@ -599,7 +591,6 @@ def test_i19_rotation_with_symmetry(
     }.union(
         {
             f"zocalo.go -r generate-diffraction-preview {dcid}",
-            f"zocalo.go -r per-image-analysis-rotation{pia_type} {dcid}",
         }
         if detectorclass is MimasDetectorClass.EIGER
         else set()

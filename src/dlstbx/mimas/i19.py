@@ -16,9 +16,7 @@ is_i19 = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
 
 
 @mimas.match_specification(is_i19 & is_start & is_pilatus)
-def handle_i19_start_pilatus(
-    scenario: mimas.MimasScenario,
-) -> List[mimas.Invocation]:
+def handle_i19_start_pilatus(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="per-image-analysis-rotation"
@@ -27,37 +25,34 @@ def handle_i19_start_pilatus(
 
 
 @mimas.match_specification(is_i19 & is_end & is_pilatus)
-def handle_i19_end_pilatus(
-    scenario: mimas.MimasScenario,
-) -> List[mimas.Invocation]:
+def handle_i19_end_pilatus(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in ("archive-cbfs", "processing-rlv", "strategy-screen19")
     ]
 
 
-@mimas.match_specification(is_i19 & is_end & is_eiger)
-def handle_i19_end_eiger(
-    scenario: mimas.MimasScenario,
-) -> List[mimas.Invocation]:
-    tasks: List[mimas.Invocation] = [
+@mimas.match_specification(is_i19 & is_start & is_eiger)
+def handle_i19_start_eiger(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
+    return [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID,
             recipe="per-image-analysis-rotation-swmr-i19",
         )
     ]
-    tasks.extend(
-        [
-            mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
-            for recipe in (
-                "archive-nexus",
-                "processing-rlv-eiger",
-                "generate-diffraction-preview",
-                "strategy-screen19-eiger",
-            )
-        ]
-    )
-    return tasks
+
+
+@mimas.match_specification(is_i19 & is_end & is_eiger)
+def handle_i19_end_eiger(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
+    return [
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
+        for recipe in (
+            "archive-nexus",
+            "processing-rlv-eiger",
+            "generate-diffraction-preview",
+            "strategy-screen19-eiger",
+        )
+    ]
 
 
 @mimas.match_specification(is_i19 & is_end)
@@ -66,7 +61,7 @@ def handle_i19_end(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
     tasks: List[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
-        ),
+        )
     ]
 
     ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]

@@ -483,9 +483,7 @@ def test_i19_rotation(
         f"zocalo.go -r processing-rlv{rlv_type} {dcid}",
         f"zocalo.go -r strategy-screen19{rlv_type} {dcid}",
     }.union(
-        {
-            f"zocalo.go -r generate-diffraction-preview {dcid}",
-        }
+        {f"zocalo.go -r generate-diffraction-preview {dcid}"}
         if detectorclass is MimasDetectorClass.EIGER
         else set()
     )
@@ -589,9 +587,7 @@ def test_i19_rotation_with_symmetry(
         f"zocalo.go -r processing-rlv{rlv_type} {dcid}",
         f"zocalo.go -r strategy-screen19{rlv_type} {dcid}",
     }.union(
-        {
-            f"zocalo.go -r generate-diffraction-preview {dcid}",
-        }
+        {f"zocalo.go -r generate-diffraction-preview {dcid}"}
         if detectorclass is MimasDetectorClass.EIGER
         else set()
     )

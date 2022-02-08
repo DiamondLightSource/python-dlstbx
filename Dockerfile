@@ -1,5 +1,7 @@
 FROM dials/dials:latest
 
+RUN yum install libXxf86vm -y
+
 WORKDIR /dials/modules
 
 ADD . ./dlstbx

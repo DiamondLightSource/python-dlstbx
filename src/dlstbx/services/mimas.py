@@ -146,7 +146,7 @@ class DLSMimas(CommonService):
             rw.transport.nack(header)
             return
 
-        txn = rw.transport.transaction_begin()
+        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.set_default_channel("dispatcher")
 
         self.log.debug("Evaluating %r", scenario)

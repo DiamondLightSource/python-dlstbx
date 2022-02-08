@@ -178,7 +178,9 @@ class DLSDispatcher(CommonService):
                         )
                     if parameters["dispatcher_expiration"] > time.time():
                         # Wait for 2 seconds
-                        txn = self._transport.transaction_begin()
+                        txn = self._transport.transaction_begin(
+                            subscription_id=header["subscription"]
+                        )
                         self._transport.ack(header, transaction=txn)
                         self._transport.send(
                             "processing_recipe", message, transaction=txn, delay=2
@@ -188,7 +190,9 @@ class DLSDispatcher(CommonService):
                         return
                     elif parameters.get("dispatcher_error_queue"):
                         # Drop message into error queue
-                        txn = self._transport.transaction_begin()
+                        txn = self._transport.transaction_begin(
+                            subscription_id=header["subscription"]
+                        )
                         self._transport.ack(header, transaction=txn)
                         self._transport.send(
                             parameters["dispatcher_error_queue"],
@@ -297,7 +301,9 @@ class DLSDispatcher(CommonService):
                 full_recipe = full_recipe.merge(recipe)
 
             # Conditionally acknowledge receipt of the message
-            txn = self._transport.transaction_begin()
+            txn = self._transport.transaction_begin(
+                subscription_id=header["subscription"]
+            )
             self._transport.ack(header, transaction=txn)
 
             rw = workflows.recipe.RecipeWrapper(

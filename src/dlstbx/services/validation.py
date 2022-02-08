@@ -34,7 +34,7 @@ class DLSValidation(CommonService):
 
     def fail_validation(self, rw, header, output, reason):
         output["reason"] = reason
-        txn = rw.transport.transaction_begin()
+        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
         rw.send_to("validation_error", output, transaction=txn)
         rw.transport.transaction_commit(txn)

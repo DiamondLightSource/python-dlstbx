@@ -134,7 +134,7 @@ class DLSArchiver(CommonService):
         """Archive collected datafiles connected to a data collection."""
 
         # Conditionally acknowledge receipt of the message
-        txn = self._transport.transaction_begin()
+        txn = self._transport.transaction_begin(subscription_id=header["subscription"])
         self._transport.ack(header, transaction=txn)
 
         # Extract parameters from the recipe
@@ -300,7 +300,7 @@ class DLSArchiver(CommonService):
         beamline = params.get("beamline", beamline)
 
         # Conditionally acknowledge receipt of the message
-        txn = self._transport.transaction_begin()
+        txn = self._transport.transaction_begin(subscription_id=header["subscription"])
         self._transport.ack(header, transaction=txn)
 
         # Archive files

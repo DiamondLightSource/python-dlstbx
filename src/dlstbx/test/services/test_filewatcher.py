@@ -63,11 +63,15 @@ def test_filewatcher_watch_pattern(mocker, tmp_path):
         },
         output={"any": 1, "select-2": 2},
     )
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
     rw = RecipeWrapper(message=m, transport=t)
     # Spy on the rw.send_to method
     send_to = mocker.spy(rw, "send_to")
     checkpoint = mocker.spy(rw, "checkpoint")
-    filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
+    filewatcher.watch_files(rw, header, mock.sentinel.message)
     checkpoint.assert_any_call(
         {"filewatcher-status": {"seen-files": 0, "start-time": mock.ANY}},
         delay=10,
@@ -75,9 +79,7 @@ def test_filewatcher_watch_pattern(mocker, tmp_path):
     )
     for i, (image_id, image) in enumerate(zip(image_ids, images)):
         image.write_text("content")
-        filewatcher.watch_files(
-            rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
-        )
+        filewatcher.watch_files(rw, header, t.send.mock_calls[-1].args[1]["payload"])
         if image_id == image_ids[0]:
             send_to.assert_any_call(
                 "first",
@@ -171,11 +173,15 @@ def test_filewatcher_watch_list(mocker, tmp_path):
         },
         output={"any": 1},
     )
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
     rw = RecipeWrapper(message=m, transport=t)
     # Spy on the rw.send_to method
     send_to = mocker.spy(rw, "send_to")
     checkpoint = mocker.spy(rw, "checkpoint")
-    filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
+    filewatcher.watch_files(rw, header, mock.sentinel.message)
     checkpoint.assert_any_call(
         {"filewatcher-status": {"seen-files": 0, "start-time": mock.ANY}},
         delay=5,
@@ -183,9 +189,7 @@ def test_filewatcher_watch_list(mocker, tmp_path):
     )
     for i, f in enumerate(files):
         f.write_text("content")
-        filewatcher.watch_files(
-            rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
-        )
+        filewatcher.watch_files(rw, header, t.send.mock_calls[-1].args[1]["payload"])
         if i == 0:
             send_to.assert_any_call(
                 "first",
@@ -277,14 +281,16 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmp_path):
         },
         output={"any": 1},
     )
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
     rw = RecipeWrapper(message=m, transport=t)
     # Spy on the rw.send_to method
     send_to = mocker.spy(rw, "send_to")
-    filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
+    filewatcher.watch_files(rw, header, mock.sentinel.message)
     images[0].write_text("content")
-    filewatcher.watch_files(
-        rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
-    )
+    filewatcher.watch_files(rw, header, t.send.mock_calls[-1].args[1]["payload"])
     send_to.assert_has_calls(
         [
             mock.call(
@@ -332,9 +338,7 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmp_path):
     # Sleep in order that we can hit the timeout
     time.sleep(2)
     # Call watch_files and assert that it has called rw.send_to as expected
-    filewatcher.watch_files(
-        rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
-    )
+    filewatcher.watch_files(rw, header, t.send.mock_calls[-1].args[1]["payload"])
     send_to.assert_has_calls(
         [
             mock.call(
@@ -374,13 +378,15 @@ def test_filewatcher_watch_list_timeout(mocker, tmp_path):
         },
         output={"any": 1},
     )
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
     rw = RecipeWrapper(message=m, transport=t)
     send_to = mocker.spy(rw, "send_to")
-    filewatcher.watch_files(rw, {"some": "header"}, mock.sentinel.message)
+    filewatcher.watch_files(rw, header, mock.sentinel.message)
     files[0].write_text("content")
-    filewatcher.watch_files(
-        rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
-    )
+    filewatcher.watch_files(rw, header, t.send.mock_calls[-1].args[1]["payload"])
     send_to.assert_has_calls(
         [
             mock.call(
@@ -423,9 +429,7 @@ def test_filewatcher_watch_list_timeout(mocker, tmp_path):
     )
     # Sleep in order that we can hit the timeout
     time.sleep(2)
-    filewatcher.watch_files(
-        rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
-    )
+    filewatcher.watch_files(rw, header, t.send.mock_calls[-1].args[1]["payload"])
     send_to.assert_has_calls(
         [
             mock.call(
@@ -539,17 +543,19 @@ def test_filewatcher_watch_swmr(mocker, tmp_path):
             "select-10": 3,
         },
     )
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
     rw = RecipeWrapper(message=m, transport=t)
     # Spy on the rw.send_to method
     send_to = mocker.spy(rw, "send_to")
     time.sleep(delay + per_image_delay)
-    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    filewatcher.watch_files(rw, header, mocker.sentinel.message)
     t0 = time.perf_counter()
     while (time.perf_counter() - t0) < 20:
         time.sleep(per_image_delay)
-        filewatcher.watch_files(
-            rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
-        )
+        filewatcher.watch_files(rw, header, t.send.mock_calls[-1].args[1]["payload"])
     x.join()
     send_to.assert_any_call(
         "first",
@@ -666,14 +672,16 @@ def test_filewatcher_watch_swmr_timeout(mocker, tmp_path):
             "any": 2,
         },
     )
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
     rw = RecipeWrapper(message=m, transport=t)
     # Spy on the rw.send_to method
     send_to = mocker.spy(rw, "send_to")
-    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    filewatcher.watch_files(rw, header, mocker.sentinel.message)
     time.sleep(2)
-    filewatcher.watch_files(
-        rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
-    )
+    filewatcher.watch_files(rw, header, t.send.mock_calls[-1].args[1]["payload"])
     send_to.assert_has_calls(
         [
             mocker.call(
@@ -693,11 +701,9 @@ def test_filewatcher_watch_swmr_timeout(mocker, tmp_path):
     h5maker.main(h5_prefix, block_size=2, nblocks=2)
     data_h5 = h5_prefix.with_name(h5_prefix.name + "_000000.h5")
     data_h5.unlink()
-    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    filewatcher.watch_files(rw, header, mocker.sentinel.message)
     time.sleep(2)
-    filewatcher.watch_files(
-        rw, {"some": "header"}, t.send.mock_calls[-1].args[1]["payload"]
-    )
+    filewatcher.watch_files(rw, header, t.send.mock_calls[-1].args[1]["payload"])
     send_to.assert_has_calls(
         [
             mocker.call(
@@ -730,10 +736,14 @@ def test_filewatcher_watch_swmr_h5py_error(mocker, tmp_path, caplog):
         },
         output={},
     )
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
     rw = RecipeWrapper(message=m, transport=t)
     with open(master_h5, "w") as fh:
         fh.write("content")
-    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    filewatcher.watch_files(rw, header, mocker.sentinel.message)
     assert f"Error reading {master_h5}" in caplog.text
     t.nack.assert_called_once()
 
@@ -741,7 +751,7 @@ def test_filewatcher_watch_swmr_h5py_error(mocker, tmp_path, caplog):
     h5maker.main(h5_prefix, block_size=2, nblocks=2)
     data_h5 = h5_prefix.with_name(h5_prefix.name + "_000000.h5")
     data_h5.write_text("content")
-    filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+    filewatcher.watch_files(rw, header, mocker.sentinel.message)
     assert f"Error reading {data_h5}" in caplog.text
     t.nack.assert_called_once()
 
@@ -778,13 +788,17 @@ def test_filewatcher_watch_swmr_h5py_known_errors(exception, mocker, tmp_path, c
         output={},
     )
     rw = RecipeWrapper(message=m, transport=t)
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
 
     # Test exception reading master file
     with open(master_h5, "w") as fh:
         fh.write("content")
     checkpoint = mocker.spy(rw, "checkpoint")
     with mock.patch("h5py.File", side_effect=exception):
-        filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+        filewatcher.watch_files(rw, header, mocker.sentinel.message)
     assert f"Error reading {master_h5}" in caplog.text
     checkpoint.assert_any_call(
         {
@@ -810,7 +824,7 @@ def test_filewatcher_watch_swmr_h5py_known_errors(exception, mocker, tmp_path, c
         return h5py_File(*args, **kwargs)
 
     with mock.patch("h5py.File", side_effect=side_effect_raise):
-        filewatcher.watch_files(rw, {"some": "header"}, mocker.sentinel.message)
+        filewatcher.watch_files(rw, header, mocker.sentinel.message)
     assert f"Error reading {os.fspath(h5_prefix)}_000000.h5" in caplog.text
     checkpoint.assert_any_call(
         {

@@ -107,6 +107,8 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
             untrusted_rectangles = self.get_untrusted_rectangles(
                 os.path.join(image_directory, image_template)
             )
+            if beamline == "i04-1":
+                untrusted_rectangles.append("774 1029 1356 1613")
             if untrusted_rectangles:
                 command.append(
                     'autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="%s"'

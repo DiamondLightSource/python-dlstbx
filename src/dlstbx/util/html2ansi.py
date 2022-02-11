@@ -109,14 +109,14 @@ def nearestansi2rgb(r, g, b):
         return ((l1 - l2) ** 2) + ((a1 - a2) ** 2) + ((b1 - b2) ** 2)
 
     def deltaE94(l1, a1, b1, l2, a2, b2):
-        xC1 = ((a1 ** 2) + (b1 ** 2)) ** 0.5
-        xC2 = ((a2 ** 2) + (b2 ** 2)) ** 0.5
+        xC1 = ((a1**2) + (b1**2)) ** 0.5
+        xC2 = ((a2**2) + (b2**2)) ** 0.5
         xDL = l2 - l1
         xDC = xC2 - xC1
         xDE = (
             ((l1 - l2) * (l1 - l2)) + ((a1 - a2) * (a1 - a2)) + ((b1 - b2) * (b1 - b2))
         ) ** 0.5
-        if (xDE ** 0.5) > (abs(xDL) ** 0.5) + (abs(xDC) ** 0.5):
+        if (xDE**0.5) > (abs(xDL) ** 0.5) + (abs(xDC) ** 0.5):
             xDH = ((xDE * xDE) - (xDL * xDL) - (xDC * xDC)) ** 0.5
         else:
             xDH = 0
@@ -124,7 +124,7 @@ def nearestansi2rgb(r, g, b):
         xSH = 1 + (0.015 * xC1)
         xDC /= xSC
         xDH /= xSH
-        return xDL ** 2 + xDC ** 2 + xDH ** 2
+        return xDL**2 + xDC**2 + xDH**2
 
     l, a, b = xyz2cielab(*rgb2xyz(r, g, b))
     distances = [deltaE76(l, a, b, *col) for col in _ansilab]

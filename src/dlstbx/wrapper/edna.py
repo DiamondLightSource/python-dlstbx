@@ -280,33 +280,29 @@ module load {edna_module}
         output = '<?xml version="1.0" ?><XSDataInputInterfacev2_2>'
 
         # 2) Echo out the diffractionPlan
-        output = output + """
+        output = (
+            output
+            + f"""
 <diffractionPlan>
   <anomalousData>
-    <value>%(anomalous)i</value>
+    <value>{anomalous}</value>
   </anomalousData>
   <complexity>
-    <value>%(complexity)s</value>
+    <value>{complexity}</value>
   </complexity>
   <aimedIOverSigmaAtHighestResolution>
-    <value>%(i_over_sig_i)s</value>
+    <value>{i_over_sig_i}</value>
   </aimedIOverSigmaAtHighestResolution>
   <aimedMultiplicity>
-    <value>%(multiplicity)s</value>
+    <value>{multiplicity}</value>
   </aimedMultiplicity>
   <minExposureTimePerImage>
-    <value>%(min_exposure)s</value>
+    <value>{min_exposure}</value>
   </minExposureTimePerImage>
   <maxExposureTimePerDataCollection>
-    <value>%(lifespan)s</value>
+    <value>{lifespan}</value>
   </maxExposureTimePerDataCollection>
-""" % dict(
-            anomalous=anomalous,
-            complexity=complexity,
-            i_over_sig_i=i_over_sig_i,
-            multiplicity=multiplicity,
-            min_exposure=min_exposure,
-            lifespan=lifespan,
+"""
         )
 
         # logger.info('spacegroup: %s' %params.get('spacegroup'))

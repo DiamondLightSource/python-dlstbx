@@ -102,6 +102,12 @@ class DLSValidation(CommonService):
                         f"HDF5 file {filename} links to HDF5 1.8 format data in %s"
                         % ", ".join(hdf_18)
                     )
+                try:
+                    hdf5_util.validate_pixel_mask(filename)
+                except hdf5_util.ValidationError as e:
+                    return fail(
+                        f"HDF5 file {filename} contains invalid pixel_mask: {e}"
+                    )
             except Exception as e:
                 return fail(
                     f"Unhandled {type(e).__name__} exception reading {filename}"

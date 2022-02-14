@@ -4,9 +4,15 @@ import logging
 import os
 
 import dxtbx  # noqa: F401; dxtbx must be imported before h5py is imported
+import dxtbx.nexus.nxmx
+
 import h5py
 
 log = logging.getLogger("dlstbx.util.hdf5")
+
+
+class ValidationError(Exception):
+    pass
 
 
 def find_all_references(startfile):
@@ -83,3 +89,35 @@ def is_HDF_1_8_compatible(filename: str) -> bool:
             return True
     except OSError:
         return False
+
+
+def validate_pixel_mask(filename: str) -> bool:
+    with h5py.File(filename, "r") as fh:
+        nxmx = dxtbx.nexus.nxmx.NXmx(fh)
+        nxinstrument = nxmx.entries[0].instruments[0]
+        nxdetector = nxinstrument.detectors[0]
+        nxmodule = nxdetector.modules[0]
+
+        pixel_mask = nxdetector.get("pixel_mask")
+        data_size = tuple(nxmodule.data_size)
+        if pixel_mask is None:
+            raise ValidationError("pixel_mask not present")
+        elif pixel_mask.shape == (0, 0):
+            raise ValidationError(f"pixel_mask is empty ({pixel_mask.shape=})")
+        elif pixel_mask.shape != data_size:
+            raise ValidationError(
+                f"pixel_mask inconsistent with data_size "
+                f"({pixel_mask.shape=} {data_size=})"
+            )
+    return True
+
+
+if __name__ == "__main__":
+    import sys
+
+    for f in sys.argv[1:]:
+        try:
+            validate_pixel_mask(f)
+            print(f"Valid pixel mask found for {f}")
+        except ValidationError as e:
+            print(f"Invalid pixel mask found for {f}: {e}")

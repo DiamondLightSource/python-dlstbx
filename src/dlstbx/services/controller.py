@@ -421,7 +421,7 @@ class DLSController(CommonService):
         tag="",
         servicecmd="",
         environment="",
-        **kwargs
+        **kwargs,
     ):
         assert service
         result = procrunner.run(

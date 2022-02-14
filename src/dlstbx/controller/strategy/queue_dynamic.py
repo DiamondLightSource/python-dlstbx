@@ -29,7 +29,7 @@ class QueueDynamicStrategy:
         maximum=None,
         queue=None,
         multiplier=0.04,
-        **kwargs
+        **kwargs,
     ):
         self.minimum = minimum
         self.maximum = maximum

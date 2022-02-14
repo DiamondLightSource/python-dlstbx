@@ -29,7 +29,7 @@ class QueueStaticStrategy:
         maximum=None,
         queue=None,
         multiplier=0.04,
-        **kwargs
+        **kwargs,
     ):
         self._last_assessment = None
         self.minimum = minimum

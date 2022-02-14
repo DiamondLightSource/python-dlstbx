@@ -7,6 +7,7 @@ import dxtbx  # noqa: F401; dxtbx must be imported before h5py is imported
 import dxtbx.nexus.nxmx
 
 import h5py
+import numpy as np
 
 log = logging.getLogger("dlstbx.util.hdf5")
 
@@ -109,6 +110,11 @@ def validate_pixel_mask(filename: str) -> bool:
                 f"pixel_mask inconsistent with data_size "
                 f"({pixel_mask.shape=} {data_size=})"
             )
+        elif pixel_mask.dtype != np.int32:
+            raise ValidationError(
+                f"pixel_mask should be of type int32 ({pixel_mask.dtype=})"
+            )
+
     return True
 
 

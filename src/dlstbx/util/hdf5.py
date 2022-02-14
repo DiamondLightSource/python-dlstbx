@@ -110,9 +110,9 @@ def validate_pixel_mask(filename: str) -> bool:
                 f"pixel_mask inconsistent with data_size "
                 f"({pixel_mask.shape=} {data_size=})"
             )
-        elif pixel_mask.dtype != np.int32:
+        elif pixel_mask.dtype not in (np.int32, np.uint32):
             raise ValidationError(
-                f"pixel_mask should be of type int32 ({pixel_mask.dtype=})"
+                f"pixel_mask should be of type int32 or uint32 ({pixel_mask.dtype=})"
             )
 
     return True

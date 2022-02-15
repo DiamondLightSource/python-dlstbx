@@ -116,14 +116,3 @@ def validate_pixel_mask(filename: str) -> bool:
             )
 
     return True
-
-
-if __name__ == "__main__":
-    import sys
-
-    for f in sys.argv[1:]:
-        try:
-            validate_pixel_mask(f)
-            print(f"Valid pixel mask found for {f}")
-        except ValidationError as e:
-            print(f"Invalid pixel mask found for {f}: {e}")

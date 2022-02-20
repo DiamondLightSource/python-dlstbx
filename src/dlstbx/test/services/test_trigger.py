@@ -143,21 +143,25 @@ def test_multiplex(
             (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
         }
         sg_extra = ("-" + spacegroup) if spacegroup else ""
-        assert params == {
-            (
-                "data",
-                f"/path/to/xia2-dials-2{sg_extra}/integrated.expt;/path/to/xia2-dials-2{sg_extra}/integrated.refl",
-            ),
-            (
-                "data",
-                f"/path/to/xia2-dials-1{sg_extra}/integrated.expt;/path/to/xia2-dials-1{sg_extra}/integrated.refl",
-            ),
-            (
-                "data",
-                f"/path/to/xia2-dials-0{sg_extra}/integrated.expt;/path/to/xia2-dials-0{sg_extra}/integrated.refl",
-            ),
-            ("sample_group_id", "123"),
-        } | ({("spacegroup", spacegroup)} if spacegroup else set())
+        assert (
+            params
+            == {
+                (
+                    "data",
+                    f"/path/to/xia2-dials-2{sg_extra}/integrated.expt;/path/to/xia2-dials-2{sg_extra}/integrated.refl",
+                ),
+                (
+                    "data",
+                    f"/path/to/xia2-dials-1{sg_extra}/integrated.expt;/path/to/xia2-dials-1{sg_extra}/integrated.refl",
+                ),
+                (
+                    "data",
+                    f"/path/to/xia2-dials-0{sg_extra}/integrated.expt;/path/to/xia2-dials-0{sg_extra}/integrated.refl",
+                ),
+                ("sample_group_id", "123"),
+            }
+            | ({("spacegroup", spacegroup)} if spacegroup else set())
+        )
 
 
 @pytest.fixture

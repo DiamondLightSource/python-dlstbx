@@ -117,6 +117,12 @@ def check_jira(cfc: CheckFunctionInterface):
     return _check_service(URL, cfc.name, servicename)
 
 
+def check_jenkins(cfc: CheckFunctionInterface):
+    URL = "https://jenkins.diamond.ac.uk"
+    servicename = "Jenkins"
+    return _check_service(URL, cfc.name, servicename)
+
+
 def check_synchweb(cfc: CheckFunctionInterface):
     URL = "http://ispyb.diamond.ac.uk"
     servicename = "Synchweb"

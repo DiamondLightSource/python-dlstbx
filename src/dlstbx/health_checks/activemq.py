@@ -7,8 +7,8 @@ import zocalo.configuration
 
 import dlstbx
 import dlstbx.cli.dlq_check
-from dlstbx.cli.get_activemq_statistics import ActiveMQAPI
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
+from dlstbx.util.activemqapi import ActiveMQAPI
 
 
 def check_activemq_dlq(cfc: CheckFunctionInterface):

@@ -7,6 +7,7 @@ import xml.etree.ElementTree
 import procrunner
 import py
 import zocalo.wrapper
+from dials.util.mp import available_cores
 from dxtbx.model.experiment_list import ExperimentListFactory
 from dxtbx.serialize import xds
 
@@ -90,6 +91,166 @@ def read_autoproc_xml(xml_file):
         # If AutoPROC reports only a single attachment then it is not presented as a list
         xml_dict["AutoProcProgramContainer"]["AutoProcProgramAttachment"] = [appa]
     return xml_dict
+
+
+def construct_commandline(params, working_directory=None, image_directory=None):
+    """Construct autoPROC command line.
+    Takes job parameter dictionary, returns array."""
+
+    if not working_directory:
+        working_directory = params["working_directory"]
+    images = params["images"]
+    pname = params["autoproc"].get("pname")
+    xname = params["autoproc"].get("xname")
+    beamline = params["beamline"]
+    nproc = params["autoproc"].get("nproc", available_cores())
+
+    command = [
+        "process",
+        "-xml",
+        "autoPROC_XdsKeyword_MAXIMUM_NUMBER_OF_PROCESSORS=12",
+        "-M",
+        "HighResCutOnCChalf",
+        'autoPROC_CreateSummaryImageHrefLink="no"',
+        'autoPROC_Summary2Base64_Run="yes"',
+        'StopIfSubdirExists="no"',
+        "-d",
+        str(working_directory),
+        "-nthreads",
+        f"{nproc}",
+    ]
+    if pname:
+        command.append(f"pname={pname}")
+    if xname:
+        command.append(f"xname={xname}")
+
+    # If any keywords defined in the following macros are also defined after
+    # the macro on the command line, then the value on the command line "wins"
+    if beamline == "i23":
+        macro = "DiamondI23"
+    elif beamline == "i04":
+        macro = "DiamondI04"
+    else:
+        macro = None
+
+    if macro is not None:
+        command.extend(["-M", macro])
+
+    untrusted_rectangles = []
+
+    hdf5_mode = False
+
+    for image in images.split(","):
+        first_image_or_master_h5, image_first, image_last = image.split(":")
+
+        if first_image_or_master_h5.endswith(".h5"):
+            template = first_image_or_master_h5
+            hdf5_mode = True
+        else:
+            from dxtbx.sequence_filenames import template_regex
+
+            template, n_digits = template_regex(first_image_or_master_h5)
+
+        if not image_directory:
+            image_directory, image_template = os.path.split(template)
+        else:
+            _, image_template = os.path.split(template)
+
+        command.extend(
+            [
+                "-Id",
+                ",".join(
+                    (
+                        xname,
+                        image_directory,
+                        image_template,
+                        image_first,
+                        image_last,
+                    )
+                ),
+            ]
+        )
+
+        # This assumes that all datasets have the same untrusted rectangles
+        untrusted_rectangles = get_untrusted_rectangles(
+            os.path.join(image_directory, image_template),
+            macro=macro,
+        )
+        if beamline == "i04-1":
+            untrusted_rectangles.append("774 1029 1356 1613")
+
+        if beamline == "i24" and first_image_or_master_h5.endswith(".cbf"):
+            # i24 can run in tray mode (horizontal gonio) or pin mode
+            # (vertical gonio)
+            with open(first_image_or_master_h5, "rb") as f:
+                for line in f.readlines():
+                    if b"Oscillation_axis" in line and b"+SLOW" in line:
+                        command.append(
+                            'autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"'
+                        )
+                        break
+                    elif b"Oscillation_axis" in line and b"+FAST" in line:
+                        command.append(
+                            'autoPROC_XdsKeyword_ROTATION_AXIS="-1.000000  0.000000  0.000000"'
+                        )
+                        break
+
+    if hdf5_mode:
+        command.append("DistributeBackgroundImagesForHdf5=no")
+        plugin_name = "durin-plugin.so"
+        hdf5_lib = ""
+        for d in os.environ["PATH"].split(os.pathsep):
+            if os.path.exists(os.path.join(d, plugin_name)):
+                hdf5_lib = "autoPROC_XdsKeyword_LIB=%s" % os.path.join(d, plugin_name)
+        if not hdf5_lib:
+            logger.warning("Couldn't find plugin %s in PATH" % plugin_name)
+        if hdf5_lib:
+            command.append(hdf5_lib)
+
+    if untrusted_rectangles:
+        command.append(
+            'autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="%s"'
+            % " | ".join(untrusted_rectangles)
+        )
+
+    if params.get("ispyb_parameters"):
+        if params["ispyb_parameters"].get("d_min"):
+            # Can we set just d_min alone?
+            # -R <reslow> <reshigh>
+            pass
+        if params["ispyb_parameters"].get("spacegroup"):
+            command.append("symm=%s" % params["ispyb_parameters"]["spacegroup"])
+        if params["ispyb_parameters"].get("unit_cell"):
+            command.append(
+                "cell=%s" % params["ispyb_parameters"]["unit_cell"].replace(",", " ")
+            )
+
+    return command
+
+
+def get_untrusted_rectangles(first_image, macro=None):
+    rectangles = []
+
+    if macro:
+        # Parse any existing untrusted rectangles out of the macro
+        with open(
+            os.path.expandvars(f"$autoPROC_home/autoPROC/macros/{macro}.macro")
+        ) as f:
+            for line in f.readlines():
+                line = line.strip()
+                if line.strip().startswith("autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="):
+                    rectangles.append(line.split("=")[-1].strip('"'))
+
+    # Now add any untrusted rectangles defined in the dxtbx model
+    expts = ExperimentListFactory.from_filenames([str(first_image)])
+    to_xds = xds.to_xds(expts[0].imageset)
+    for panel, (x0, _, y0, _) in zip(to_xds.get_detector(), to_xds.panel_limits):
+        for f0, s0, f1, s1 in panel.get_mask():
+            rectangles.append(
+                "%d %d %d %d" % (f0 + x0 - 1, f1 + x0, s0 + y0 - 1, s1 + y0)
+            )
+
+    return rectangles
 
 
 class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
@@ -284,166 +445,6 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
         return True
 
-    def construct_commandline(self, params):
-        """Construct autoPROC command line.
-        Takes job parameter dictionary, returns array."""
-
-        working_directory = params["working_directory"]
-        image_template = params["autoproc"]["image_template"]
-        image_directory = params["autoproc"]["image_directory"]
-        image_first = params["autoproc"]["image_first"]
-        image_last = params["autoproc"]["image_last"]
-        image_pattern = params["image_pattern"]
-        project = params["autoproc"].get("project")
-        crystal = params["autoproc"].get("crystal")
-
-        beamline = params["beamline"]
-
-        prefix = image_template.split("#")[0]
-        crystal = prefix.replace("_", "").replace(" ", "").replace("-", "")
-
-        command = [
-            "process",
-            "-xml",
-            "autoPROC_XdsKeyword_MAXIMUM_NUMBER_OF_PROCESSORS=12",
-            "-M",
-            "HighResCutOnCChalf",
-            'autoPROC_CreateSummaryImageHrefLink="no"',
-            'autoPROC_Summary2Base64_Run="yes"',
-            'StopIfSubdirExists="no"',
-            "-d",
-            working_directory,
-        ]
-        if project:
-            command.append(f"pname={project}")
-        if crystal:
-            command.append(f"xname={crystal}")
-
-        # If any keywords defined in the following macros are also defined after
-        # the macro on the command line, then the value on the command line "wins"
-        if beamline == "i23":
-            self._macro = "DiamondI23"
-        elif beamline == "i04":
-            self._macro = "DiamondI04"
-        else:
-            self._macro = None
-
-        if self._macro is not None:
-            command.extend(["-M", self._macro])
-
-        if image_template.endswith(".h5"):
-            command.extend(
-                [
-                    "-h5",
-                    os.path.join(image_directory, image_template),
-                    "DistributeBackgroundImagesForHdf5=no",
-                ]
-            )
-            plugin_name = "durin-plugin.so"
-            hdf5_lib = ""
-            for d in os.environ["PATH"].split(os.pathsep):
-                if os.path.exists(os.path.join(d, plugin_name)):
-                    hdf5_lib = "autoPROC_XdsKeyword_LIB=%s" % os.path.join(
-                        d, plugin_name
-                    )
-            if not hdf5_lib:
-                logger.warning("Couldn't find plugin %s in PATH" % plugin_name)
-            if hdf5_lib:
-                command.append(hdf5_lib)
-            untrusted_rectangles = self.get_untrusted_rectangles(
-                os.path.join(image_directory, image_template)
-            )
-            if beamline == "i04-1":
-                untrusted_rectangles.append("774 1029 1356 1613")
-            if untrusted_rectangles:
-                command.append(
-                    'autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="%s"'
-                    % " | ".join(untrusted_rectangles)
-                )
-
-        else:
-            command.extend(
-                [
-                    "-Id",
-                    ",".join(
-                        (
-                            crystal,
-                            image_directory,
-                            image_template,
-                            image_first,
-                            image_last,
-                        )
-                    ),
-                ]
-            )
-            first_image_path = os.path.join(
-                image_directory, image_pattern % int(image_first)
-            )
-            untrusted_rectangles = self.get_untrusted_rectangles(first_image_path)
-            if untrusted_rectangles:
-                command.append(
-                    'autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="%s"'
-                    % " | ".join(untrusted_rectangles)
-                )
-            if beamline == "i24":
-                # i24 can run in tray mode (horizontal gonio) or pin mode
-                # (vertical gonio)
-                with open(first_image_path, "rb") as f:
-                    for line in f.readlines():
-                        if b"Oscillation_axis" in line and b"+SLOW" in line:
-                            command.append(
-                                'autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"'
-                            )
-                            break
-                        elif b"Oscillation_axis" in line and b"+FAST" in line:
-                            command.append(
-                                'autoPROC_XdsKeyword_ROTATION_AXIS="-1.000000  0.000000  0.000000"'
-                            )
-                            break
-
-        if params.get("ispyb_parameters"):
-            if params["ispyb_parameters"].get("d_min"):
-                # Can we set just d_min alone?
-                # -R <reslow> <reshigh>
-                pass
-            if params["ispyb_parameters"].get("spacegroup"):
-                command.append("symm=%s" % params["ispyb_parameters"]["spacegroup"])
-            if params["ispyb_parameters"].get("unit_cell"):
-                command.append(
-                    "cell=%s"
-                    % params["ispyb_parameters"]["unit_cell"].replace(",", " ")
-                )
-
-        return command
-
-    def get_untrusted_rectangles(self, first_image):
-        rectangles = []
-
-        if self._macro is not None:
-            # Parse any existing untrusted rectangles out of the macro
-            with open(
-                os.path.expandvars(
-                    "$autoPROC_home/autoPROC/macros/%s.macro" % self._macro
-                )
-            ) as f:
-                for line in f.readlines():
-                    line = line.strip()
-                    if line.strip().startswith(
-                        "autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="
-                    ):
-                        rectangles.append(line.split("=")[-1].strip('"'))
-
-        # Now add any untrusted rectangles defined in the dxtbx model
-        expts = ExperimentListFactory.from_filenames([str(first_image)])
-        to_xds = xds.to_xds(expts[0].imageset)
-        for panel, (x0, _, y0, _) in zip(to_xds.get_detector(), to_xds.panel_limits):
-            for f0, s0, f1, s1 in panel.get_mask():
-                rectangles.append(
-                    "%d %d %d %d" % (f0 + x0 - 1, f1 + x0, s0 + y0 - 1, s1 + y0)
-                )
-
-        return rectangles
-
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -462,7 +463,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 # only runs without space group are shown in SynchWeb overview
                 params["synchweb_ticks"] = None
 
-        command = self.construct_commandline(params)
+        command = construct_commandline(params)
 
         working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])

@@ -28,10 +28,10 @@ clean_environment = {
 
 
 def read_autoproc_xml(xml_file):
-    if not xml_file.check(file=1, exists=1):
-        logger.info("Expected file %s missing", xml_file.strpath)
+    if not xml_file.is_file():
+        logger.info(f"Expected file {xml_file} missing")
         return False
-    logger.debug("Reading autoPROC results from %s", xml_file.strpath)
+    logger.debug(f"Reading autoPROC results from {xml_file}")
 
     def make_dict_from_tree(element_tree):
         """Traverse the given XML element tree to convert it into a dictionary.
@@ -70,20 +70,16 @@ def read_autoproc_xml(xml_file):
         return internal_iter(element_tree, {})
 
     try:
-        xml_dict = make_dict_from_tree(
-            xml.etree.ElementTree.parse(xml_file.strpath).getroot()
-        )
+        xml_dict = make_dict_from_tree(xml.etree.ElementTree.parse(xml_file).getroot())
     except Exception as e:
         logger.error(
-            "Could not read autoPROC file from %s: %s",
-            xml_file.strpath,
-            e,
+            f"Could not read autoPROC file from {xml_file}: {e}",
             exc_info=True,
         )
         return False
 
     if "AutoProcContainer" not in xml_dict:
-        logger.error("No AutoProcContainer in autoPROC log file %s", xml_file.strpath)
+        logger.error(f"No AutoProcContainer in autoPROC log file {xml_file}")
         return False
 
     xml_dict = xml_dict["AutoProcContainer"]
@@ -141,7 +137,7 @@ def construct_commandline(params, working_directory=None, image_directory=None):
 
     hdf5_mode = False
 
-    for image in images.split(","):
+    for i, image in enumerate(images.split(",")):
         first_image_or_master_h5, image_first, image_last = image.split(":")
 
         if first_image_or_master_h5.endswith(".h5"):
@@ -157,6 +153,9 @@ def construct_commandline(params, working_directory=None, image_directory=None):
         else:
             _, image_template = os.path.split(template)
 
+        # ensure unique prefix if multiple sweeps
+        prefix = image_template.split("_master.h5")[0].split("#")[0]
+        xname = f"x{i}" + prefix.replace("_", "").replace(" ", "").replace("-", "")
         command.extend(
             [
                 "-Id",
@@ -216,9 +215,9 @@ def construct_commandline(params, working_directory=None, image_directory=None):
 
     if params.get("ispyb_parameters"):
         if params["ispyb_parameters"].get("d_min"):
-            # Can we set just d_min alone?
-            # -R <reslow> <reshigh>
-            pass
+            reshigh = params["ispyb_parameters"]["d_min"]
+            reslow = 1000
+            command.extend(["-R", reslow, reshigh])
         if params["ispyb_parameters"].get("spacegroup"):
             command.append("symm=%s" % params["ispyb_parameters"]["spacegroup"])
         if params["ispyb_parameters"].get("unit_cell"):
@@ -532,7 +531,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         # move summary_inlined.html to summary.html
         inlined_html = working_directory / "summary_inlined.html"
         if inlined_html.is_file():
-            shutil.move(inlined_html, working_directory.join("summary.html"))
+            shutil.move(inlined_html, working_directory / "summary.html")
 
         # attempt to read autoproc XML droppings
         autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml")

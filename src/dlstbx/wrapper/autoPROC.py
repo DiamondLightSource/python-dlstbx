@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
+import shutil
 import xml.etree.ElementTree
 
 import procrunner
-import py
 import zocalo.wrapper
 from dials.util.mp import available_cores
 from dxtbx.model.experiment_list import ExperimentListFactory
@@ -465,14 +466,14 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
 
         command = construct_commandline(params)
 
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
+        working_directory = pathlib.Path(params["working_directory"])
+        results_directory = pathlib.Path(params["results_directory"])
+        working_directory.mkdir(parents=True, exist_ok=True)
 
         # Create working directory with symbolic link
-        working_directory.ensure(dir=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                working_directory.strpath, params["create_symlink"]
+                os.fspath(working_directory), params["create_symlink"]
             )
 
         # Create SynchWeb ticks hack file.
@@ -480,11 +481,11 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         if params.get("synchweb_ticks"):
             logger.debug("Setting SynchWeb status to swirl")
             if params.get("create_symlink"):
-                results_directory.ensure(dir=True)
+                results_directory.mkdir(parents=True, exist_ok=True)
                 dlstbx.util.symlink.create_parent_symlink(
-                    results_directory.strpath, params["create_symlink"]
+                    os.fspath(results_directory), params["create_symlink"]
                 )
-            py.path.local(params["synchweb_ticks"]).ensure()
+            pathlib.Path(params["synchweb_ticks"]).mkdir(parents=True, exist_ok=True)
 
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
@@ -493,7 +494,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             command,
             timeout=params.get("timeout"),
             environment_override={"autoPROC_HIGHLIGHT": "no", **clean_environment},
-            working_directory=working_directory.strpath,
+            working_directory=working_directory,
         )
 
         success = not result["exitcode"] and not result["timeout"]
@@ -508,7 +509,9 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             logger.debug(result["stdout"].decode("latin1"))
             logger.debug(result["stderr"].decode("latin1"))
 
-        working_directory.join("autoPROC.log").write(result["stdout"].decode("latin1"))
+        (working_directory / "autoPROC.log").write_text(
+            result["stdout"].decode("latin1")
+        )
 
         # cd $jobdir
         # tar -xzvf summary.tar.gz
@@ -519,29 +522,27 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         # find $jobdir -name '*.mtz' -exec /dls_sw/apps/mx-scripts/misc/AddHistoryToMTZ.sh $Beamline $Visit {} $2 autoPROC \;
 
         if success:
-            json_file = working_directory.join("iotbx-merging-stats.json")
-            scaled_unmerged_mtz = working_directory.join("aimless_unmerged.mtz")
-            if scaled_unmerged_mtz.check():
-                json_file.write(
-                    get_merging_statistics(str(scaled_unmerged_mtz.strpath)).as_json()
+            json_file = working_directory / "iotbx-merging-stats.json"
+            scaled_unmerged_mtz = working_directory / "aimless_unmerged.mtz"
+            if scaled_unmerged_mtz.is_file():
+                json_file.write_text(
+                    get_merging_statistics(os.fspath(scaled_unmerged_mtz)).as_json()
                 )
 
         # move summary_inlined.html to summary.html
-        inlined_html = working_directory.join("summary_inlined.html")
-        if inlined_html.check():
-            inlined_html.move(working_directory.join("summary.html"))
+        inlined_html = working_directory / "summary_inlined.html"
+        if inlined_html.is_file():
+            shutil.move(inlined_html, working_directory.join("summary.html"))
 
         # attempt to read autoproc XML droppings
-        autoproc_xml = read_autoproc_xml(working_directory.join("autoPROC.xml"))
-        staraniso_xml = read_autoproc_xml(
-            working_directory.join("autoPROC_staraniso.xml")
-        )
+        autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml")
+        staraniso_xml = read_autoproc_xml(working_directory / "autoPROC_staraniso.xml")
 
         # copy output files to result directory
-        results_directory.ensure(dir=True)
+        results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                results_directory.strpath, params["create_symlink"]
+                os.fspath(results_directory), params["create_symlink"]
             )
 
         copy_extensions = {
@@ -572,25 +573,25 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         allfiles = []  # flat list
         anisofiles = []  # tuples of file name, dir name, file type
         attachments = []  # tuples of file name, dir name, file type
-        for filename in working_directory.listdir():
-            keep_as = keep.get(filename.basename, filename.ext in copy_extensions)
+        for filename in working_directory.iterdir():
+            keep_as = keep.get(filename.name, filename.suffix in copy_extensions)
             if not keep_as:
                 continue
-            destination = results_directory.join(filename.basename)
-            logger.debug("Copying %s to %s", filename.strpath, destination.strpath)
-            filename.copy(destination)
-            if filename.basename not in keep:
+            destination = results_directory / filename.name
+            logger.debug(f"Copying {filename} to {destination}")
+            shutil.copy(filename, destination)
+            if filename.name not in keep:
                 continue  # only copy file, do not register in ISPyB
             importance_rank = {
                 "truncate-unique.mtz": 1,
                 "staraniso_alldata-unique.mtz": 1,
                 "summary.html": 1,
-            }.get(filename.basename, 2)
-            if "staraniso" in filename.basename:
+            }.get(filename.name, 2)
+            if "staraniso" in filename.name:
                 anisofiles.append(
                     (
-                        destination.basename,
-                        destination.dirname,
+                        destination.name,
+                        destination.parent,
                         keep_as,
                         importance_rank,
                     )
@@ -600,21 +601,21 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                     # also record log files for staraniso
                     anisofiles.append(
                         (
-                            destination.basename,
-                            destination.dirname,
+                            destination.name,
+                            destination.parent,
                             keep_as,
                             importance_rank,
                         )
                     )
                 attachments.append(
                     (
-                        destination.basename,
-                        destination.dirname,
+                        destination.name,
+                        destination.parent,
                         keep_as,
                         importance_rank,
                     )
                 )
-                allfiles.append(destination.strpath)
+                allfiles.append(os.fspath(destination))
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
@@ -631,7 +632,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         if params.get("synchweb_ticks"):
             if success:
                 logger.debug("Setting SynchWeb status to success")
-                py.path.local(params["synchweb_ticks"]).write(
+                pathlib.Path(params["synchweb_ticks"]).write_text(
                     """
             The purpose of this file is only
             to signal to SynchWeb that the
@@ -643,7 +644,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 )
             else:
                 logger.debug("Setting SynchWeb status to failure")
-                py.path.local(params["synchweb_ticks"]).write(
+                pathlib.Path(params["synchweb_ticks"]).write_text(
                     """
             The purpose of this file is only
             to signal to SynchWeb that the

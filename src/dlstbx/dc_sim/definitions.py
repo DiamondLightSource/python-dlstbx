@@ -153,10 +153,10 @@ tests = {
     },
     "i03-native": {
         "type": "mx",
-        "src_dir": "/dls/i03/data/2021/cm28170-2/TestProteinaseK/protk_1",
-        "src_run_num": (1,),
-        "src_prefix": ("protk_1",),
-        "use_sample_id": 3351191,
+        "src_dir": "/dls/i03/data/2022/cm31105-1/TestProteinaseK/protk_15",
+        "src_run_num": (2,),
+        "src_prefix": ("protk_15",),
+        "use_sample_id": 3699720,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

@@ -98,9 +98,11 @@ def check_filesystems(cfc: CheckFunctionInterface):
 
         if outcome_success:
             outcome_level = max(REPORT.PASS, minimum_result_level)
-            outcome_url = ""
         else:
             outcome_level = REPORT.ERROR
+        if outcome_level == REPORT.PASS:
+            outcome_url = ""
+        else:
             outcome_url = "https://confluence.diamond.ac.uk/display/SCI/Stress-testing+the+filesystem"
         outcome_body = _print_history(
             fs_test_history, success=outcome_success, message=outcome_body

@@ -22,4 +22,4 @@ sqlalchemy>=1.4.0,<1.5
 stomp.py>=7,<9
 workflows>=2.19
 xmltodict
-zocalo>=0.13.0
+zocalo>=0.16.0

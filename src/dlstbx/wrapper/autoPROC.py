@@ -153,15 +153,15 @@ def construct_commandline(params, working_directory=None, image_directory=None):
         else:
             _, image_template = os.path.split(template)
 
-        # ensure unique prefix if multiple sweeps
+        # ensure unique identifier if multiple sweeps
         prefix = image_template.split("_master.h5")[0].split("#")[0]
-        xname = f"x{i}" + prefix.replace("_", "").replace(" ", "").replace("-", "")
+        idn = f"x{i}" + prefix.replace("_", "").replace(" ", "").replace("-", "")
         command.extend(
             [
                 "-Id",
                 ",".join(
                     (
-                        xname,
+                        idn,
                         image_directory,
                         image_template,
                         image_first,
@@ -418,7 +418,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                         "ispyb_command": "add_program_attachment",
                         "program_id": "$ispyb_autoprocprogram_id",
                         "file_name": filename,
-                        "file_path": dirname,
+                        "file_path": os.fspath(dirname),
                         "file_type": filetype,
                         "importance_rank": importance_rank,
                     }

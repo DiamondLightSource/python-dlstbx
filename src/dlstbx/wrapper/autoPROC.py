@@ -219,7 +219,7 @@ def construct_commandline(params, working_directory=None, image_directory=None):
         if params["ispyb_parameters"].get("d_min"):
             reshigh = params["ispyb_parameters"]["d_min"]
             reslow = 1000
-            command.extend(["-R", reslow, reshigh])
+            command.extend(["-R", f"{reslow}", f"{reshigh}"])
         if params["ispyb_parameters"].get("spacegroup"):
             command.append("symm=%s" % params["ispyb_parameters"]["spacegroup"])
         if params["ispyb_parameters"].get("unit_cell"):

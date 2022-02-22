@@ -96,6 +96,7 @@ def construct_commandline(params, working_directory=None, image_directory=None):
 
     if not working_directory:
         working_directory = params["working_directory"]
+    image_directory_input = image_directory
     images = params["images"]
     pname = params["autoproc"].get("pname")
     xname = params["autoproc"].get("xname")
@@ -148,9 +149,10 @@ def construct_commandline(params, working_directory=None, image_directory=None):
 
             template, n_digits = template_regex(first_image_or_master_h5)
 
-        if not image_directory:
+        if not image_directory_input:
             image_directory, image_template = os.path.split(template)
         else:
+            image_directory = image_directory_input
             _, image_template = os.path.split(template)
 
         # ensure unique identifier if multiple sweeps

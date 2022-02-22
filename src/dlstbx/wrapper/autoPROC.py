@@ -162,7 +162,7 @@ def construct_commandline(params, working_directory=None, image_directory=None):
                 ",".join(
                     (
                         idn,
-                        image_directory,
+                        os.fspath(image_directory),
                         image_template,
                         image_first,
                         image_last,

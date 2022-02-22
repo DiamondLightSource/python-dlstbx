@@ -55,11 +55,11 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
             # We only want to override the image_directory when running in The Cloud,
             # as only then will the images have been copied locally. Otherwise use the
             # original image_directory.
-            image_directory = procrunner_directory
+            image_directory = working_directory
 
         command = construct_commandline(
             params,
-            working_directory=working_directory,
+            working_directory=procrunner_directory,
             image_directory=image_directory,
         )
 

@@ -9,7 +9,7 @@ import zocalo.wrapper
 
 from dlstbx.util.iris import get_objects_from_s3
 from dlstbx.util.merging_statistics import get_merging_statistics
-from dlstbx.wrap.autoPROC import construct_commandline
+from dlstbx.wrapper.autoPROC import construct_commandline
 
 logger = logging.getLogger("zocalo.wrap.autoPROC_run")
 

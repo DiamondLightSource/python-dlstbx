@@ -151,6 +151,15 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
+    "i03-gridscan": {
+        # /dls/i03/data/2022/cm31105-1/xraycentring/TestProteinaseK/protk_16/protk_16_14_master.h5
+        # https://ispyb.diamond.ac.uk/dc/visit/cm31105-1/id/7697211
+        "type": "mx",
+        "src_dir": "/dls/i03/data/2022/cm31105-1/xraycentring/TestProteinaseK/protk_16/",
+        "src_run_num": (14,),
+        "src_prefix": ("protk_16",),
+        "use_sample_id": 3699723,
+    },
     "i03-native": {
         "type": "mx",
         "src_dir": "/dls/i03/data/2022/cm31105-1/TestProteinaseK/protk_15",

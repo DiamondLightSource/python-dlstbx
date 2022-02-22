@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
+import shutil
 import xml.etree.ElementTree
 
 import procrunner
-import py
 import zocalo.wrapper
+from dials.util.mp import available_cores
 from dxtbx.model.experiment_list import ExperimentListFactory
 from dxtbx.serialize import xds
 
@@ -26,10 +28,10 @@ clean_environment = {
 
 
 def read_autoproc_xml(xml_file):
-    if not xml_file.check(file=1, exists=1):
-        logger.info("Expected file %s missing", xml_file.strpath)
+    if not xml_file.is_file():
+        logger.info(f"Expected file {xml_file} missing")
         return False
-    logger.debug("Reading autoPROC results from %s", xml_file.strpath)
+    logger.debug(f"Reading autoPROC results from {xml_file}")
 
     def make_dict_from_tree(element_tree):
         """Traverse the given XML element tree to convert it into a dictionary.
@@ -68,20 +70,16 @@ def read_autoproc_xml(xml_file):
         return internal_iter(element_tree, {})
 
     try:
-        xml_dict = make_dict_from_tree(
-            xml.etree.ElementTree.parse(xml_file.strpath).getroot()
-        )
+        xml_dict = make_dict_from_tree(xml.etree.ElementTree.parse(xml_file).getroot())
     except Exception as e:
         logger.error(
-            "Could not read autoPROC file from %s: %s",
-            xml_file.strpath,
-            e,
+            f"Could not read autoPROC file from {xml_file}: {e}",
             exc_info=True,
         )
         return False
 
     if "AutoProcContainer" not in xml_dict:
-        logger.error("No AutoProcContainer in autoPROC log file %s", xml_file.strpath)
+        logger.error(f"No AutoProcContainer in autoPROC log file {xml_file}")
         return False
 
     xml_dict = xml_dict["AutoProcContainer"]
@@ -90,6 +88,169 @@ def read_autoproc_xml(xml_file):
         # If AutoPROC reports only a single attachment then it is not presented as a list
         xml_dict["AutoProcProgramContainer"]["AutoProcProgramAttachment"] = [appa]
     return xml_dict
+
+
+def construct_commandline(params, working_directory=None, image_directory=None):
+    """Construct autoPROC command line.
+    Takes job parameter dictionary, returns array."""
+
+    if not working_directory:
+        working_directory = params["working_directory"]
+    images = params["images"]
+    pname = params["autoproc"].get("pname")
+    xname = params["autoproc"].get("xname")
+    beamline = params["beamline"]
+    nproc = params["autoproc"].get("nproc", available_cores())
+
+    command = [
+        "process",
+        "-xml",
+        "autoPROC_XdsKeyword_MAXIMUM_NUMBER_OF_PROCESSORS=12",
+        "-M",
+        "HighResCutOnCChalf",
+        'autoPROC_CreateSummaryImageHrefLink="no"',
+        'autoPROC_Summary2Base64_Run="yes"',
+        'StopIfSubdirExists="no"',
+        "-d",
+        str(working_directory),
+        "-nthreads",
+        f"{nproc}",
+    ]
+    if pname:
+        command.append(f"pname={pname}")
+    if xname:
+        command.append(f"xname={xname}")
+
+    # If any keywords defined in the following macros are also defined after
+    # the macro on the command line, then the value on the command line "wins"
+    if beamline == "i23":
+        macro = "DiamondI23"
+    elif beamline == "i04":
+        macro = "DiamondI04"
+    else:
+        macro = None
+
+    if macro is not None:
+        command.extend(["-M", macro])
+
+    untrusted_rectangles = []
+
+    hdf5_mode = False
+
+    for i, image in enumerate(images.split(",")):
+        first_image_or_master_h5, image_first, image_last = image.split(":")
+
+        if first_image_or_master_h5.endswith(".h5"):
+            template = first_image_or_master_h5
+            hdf5_mode = True
+        else:
+            from dxtbx.sequence_filenames import template_regex
+
+            template, n_digits = template_regex(first_image_or_master_h5)
+
+        if not image_directory:
+            image_directory, image_template = os.path.split(template)
+        else:
+            _, image_template = os.path.split(template)
+
+        # ensure unique identifier if multiple sweeps
+        prefix = image_template.split("_master.h5")[0].split("#")[0]
+        idn = f"x{i}" + prefix.replace("_", "").replace(" ", "").replace("-", "")
+        command.extend(
+            [
+                "-Id",
+                ",".join(
+                    (
+                        idn,
+                        image_directory,
+                        image_template,
+                        image_first,
+                        image_last,
+                    )
+                ),
+            ]
+        )
+
+        # This assumes that all datasets have the same untrusted rectangles
+        untrusted_rectangles = get_untrusted_rectangles(
+            os.path.join(image_directory, image_template),
+            macro=macro,
+        )
+        if beamline == "i04-1":
+            untrusted_rectangles.append("774 1029 1356 1613")
+
+        if beamline == "i24" and first_image_or_master_h5.endswith(".cbf"):
+            # i24 can run in tray mode (horizontal gonio) or pin mode
+            # (vertical gonio)
+            with open(first_image_or_master_h5, "rb") as f:
+                for line in f.readlines():
+                    if b"Oscillation_axis" in line and b"+SLOW" in line:
+                        command.append(
+                            'autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"'
+                        )
+                        break
+                    elif b"Oscillation_axis" in line and b"+FAST" in line:
+                        command.append(
+                            'autoPROC_XdsKeyword_ROTATION_AXIS="-1.000000  0.000000  0.000000"'
+                        )
+                        break
+
+    if hdf5_mode:
+        command.append("DistributeBackgroundImagesForHdf5=no")
+        plugin_name = "durin-plugin.so"
+        hdf5_lib = ""
+        for d in os.environ["PATH"].split(os.pathsep):
+            if os.path.exists(os.path.join(d, plugin_name)):
+                hdf5_lib = "autoPROC_XdsKeyword_LIB=%s" % os.path.join(d, plugin_name)
+        if not hdf5_lib:
+            logger.warning("Couldn't find plugin %s in PATH" % plugin_name)
+        if hdf5_lib:
+            command.append(hdf5_lib)
+
+    if untrusted_rectangles:
+        command.append(
+            'autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="%s"'
+            % " | ".join(untrusted_rectangles)
+        )
+
+    if params.get("ispyb_parameters"):
+        if params["ispyb_parameters"].get("d_min"):
+            reshigh = params["ispyb_parameters"]["d_min"]
+            reslow = 1000
+            command.extend(["-R", reslow, reshigh])
+        if params["ispyb_parameters"].get("spacegroup"):
+            command.append("symm=%s" % params["ispyb_parameters"]["spacegroup"])
+        if params["ispyb_parameters"].get("unit_cell"):
+            command.append(
+                "cell=%s" % params["ispyb_parameters"]["unit_cell"].replace(",", " ")
+            )
+
+    return command
+
+
+def get_untrusted_rectangles(first_image, macro=None):
+    rectangles = []
+
+    if macro:
+        # Parse any existing untrusted rectangles out of the macro
+        with open(
+            os.path.expandvars(f"$autoPROC_home/autoPROC/macros/{macro}.macro")
+        ) as f:
+            for line in f.readlines():
+                line = line.strip()
+                if line.strip().startswith("autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="):
+                    rectangles.append(line.split("=")[-1].strip('"'))
+
+    # Now add any untrusted rectangles defined in the dxtbx model
+    expts = ExperimentListFactory.from_filenames([str(first_image)])
+    to_xds = xds.to_xds(expts[0].imageset)
+    for panel, (x0, _, y0, _) in zip(to_xds.get_detector(), to_xds.panel_limits):
+        for f0, s0, f1, s1 in panel.get_mask():
+            rectangles.append(
+                "%d %d %d %d" % (f0 + x0 - 1, f1 + x0, s0 + y0 - 1, s1 + y0)
+            )
+
+    return rectangles
 
 
 class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
@@ -257,7 +418,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                         "ispyb_command": "add_program_attachment",
                         "program_id": "$ispyb_autoprocprogram_id",
                         "file_name": filename,
-                        "file_path": dirname,
+                        "file_path": os.fspath(dirname),
                         "file_type": filetype,
                         "importance_rank": importance_rank,
                     }
@@ -284,166 +445,6 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
         return True
 
-    def construct_commandline(self, params):
-        """Construct autoPROC command line.
-        Takes job parameter dictionary, returns array."""
-
-        working_directory = params["working_directory"]
-        image_template = params["autoproc"]["image_template"]
-        image_directory = params["autoproc"]["image_directory"]
-        image_first = params["autoproc"]["image_first"]
-        image_last = params["autoproc"]["image_last"]
-        image_pattern = params["image_pattern"]
-        project = params["autoproc"].get("project")
-        crystal = params["autoproc"].get("crystal")
-
-        beamline = params["beamline"]
-
-        prefix = image_template.split("#")[0]
-        crystal = prefix.replace("_", "").replace(" ", "").replace("-", "")
-
-        command = [
-            "process",
-            "-xml",
-            "autoPROC_XdsKeyword_MAXIMUM_NUMBER_OF_PROCESSORS=12",
-            "-M",
-            "HighResCutOnCChalf",
-            'autoPROC_CreateSummaryImageHrefLink="no"',
-            'autoPROC_Summary2Base64_Run="yes"',
-            'StopIfSubdirExists="no"',
-            "-d",
-            working_directory,
-        ]
-        if project:
-            command.append(f"pname={project}")
-        if crystal:
-            command.append(f"xname={crystal}")
-
-        # If any keywords defined in the following macros are also defined after
-        # the macro on the command line, then the value on the command line "wins"
-        if beamline == "i23":
-            self._macro = "DiamondI23"
-        elif beamline == "i04":
-            self._macro = "DiamondI04"
-        else:
-            self._macro = None
-
-        if self._macro is not None:
-            command.extend(["-M", self._macro])
-
-        if image_template.endswith(".h5"):
-            command.extend(
-                [
-                    "-h5",
-                    os.path.join(image_directory, image_template),
-                    "DistributeBackgroundImagesForHdf5=no",
-                ]
-            )
-            plugin_name = "durin-plugin.so"
-            hdf5_lib = ""
-            for d in os.environ["PATH"].split(os.pathsep):
-                if os.path.exists(os.path.join(d, plugin_name)):
-                    hdf5_lib = "autoPROC_XdsKeyword_LIB=%s" % os.path.join(
-                        d, plugin_name
-                    )
-            if not hdf5_lib:
-                logger.warning("Couldn't find plugin %s in PATH" % plugin_name)
-            if hdf5_lib:
-                command.append(hdf5_lib)
-            untrusted_rectangles = self.get_untrusted_rectangles(
-                os.path.join(image_directory, image_template)
-            )
-            if beamline == "i04-1":
-                untrusted_rectangles.append("774 1029 1356 1613")
-            if untrusted_rectangles:
-                command.append(
-                    'autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="%s"'
-                    % " | ".join(untrusted_rectangles)
-                )
-
-        else:
-            command.extend(
-                [
-                    "-Id",
-                    ",".join(
-                        (
-                            crystal,
-                            image_directory,
-                            image_template,
-                            image_first,
-                            image_last,
-                        )
-                    ),
-                ]
-            )
-            first_image_path = os.path.join(
-                image_directory, image_pattern % int(image_first)
-            )
-            untrusted_rectangles = self.get_untrusted_rectangles(first_image_path)
-            if untrusted_rectangles:
-                command.append(
-                    'autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="%s"'
-                    % " | ".join(untrusted_rectangles)
-                )
-            if beamline == "i24":
-                # i24 can run in tray mode (horizontal gonio) or pin mode
-                # (vertical gonio)
-                with open(first_image_path, "rb") as f:
-                    for line in f.readlines():
-                        if b"Oscillation_axis" in line and b"+SLOW" in line:
-                            command.append(
-                                'autoPROC_XdsKeyword_ROTATION_AXIS="0.000000 -1.000000  0.000000"'
-                            )
-                            break
-                        elif b"Oscillation_axis" in line and b"+FAST" in line:
-                            command.append(
-                                'autoPROC_XdsKeyword_ROTATION_AXIS="-1.000000  0.000000  0.000000"'
-                            )
-                            break
-
-        if params.get("ispyb_parameters"):
-            if params["ispyb_parameters"].get("d_min"):
-                # Can we set just d_min alone?
-                # -R <reslow> <reshigh>
-                pass
-            if params["ispyb_parameters"].get("spacegroup"):
-                command.append("symm=%s" % params["ispyb_parameters"]["spacegroup"])
-            if params["ispyb_parameters"].get("unit_cell"):
-                command.append(
-                    "cell=%s"
-                    % params["ispyb_parameters"]["unit_cell"].replace(",", " ")
-                )
-
-        return command
-
-    def get_untrusted_rectangles(self, first_image):
-        rectangles = []
-
-        if self._macro is not None:
-            # Parse any existing untrusted rectangles out of the macro
-            with open(
-                os.path.expandvars(
-                    "$autoPROC_home/autoPROC/macros/%s.macro" % self._macro
-                )
-            ) as f:
-                for line in f.readlines():
-                    line = line.strip()
-                    if line.strip().startswith(
-                        "autoPROC_XdsKeyword_UNTRUSTED_RECTANGLE="
-                    ):
-                        rectangles.append(line.split("=")[-1].strip('"'))
-
-        # Now add any untrusted rectangles defined in the dxtbx model
-        expts = ExperimentListFactory.from_filenames([str(first_image)])
-        to_xds = xds.to_xds(expts[0].imageset)
-        for panel, (x0, _, y0, _) in zip(to_xds.get_detector(), to_xds.panel_limits):
-            for f0, s0, f1, s1 in panel.get_mask():
-                rectangles.append(
-                    "%d %d %d %d" % (f0 + x0 - 1, f1 + x0, s0 + y0 - 1, s1 + y0)
-                )
-
-        return rectangles
-
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -462,16 +463,16 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 # only runs without space group are shown in SynchWeb overview
                 params["synchweb_ticks"] = None
 
-        command = self.construct_commandline(params)
+        command = construct_commandline(params)
 
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
+        working_directory = pathlib.Path(params["working_directory"])
+        results_directory = pathlib.Path(params["results_directory"])
+        working_directory.mkdir(parents=True, exist_ok=True)
 
         # Create working directory with symbolic link
-        working_directory.ensure(dir=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                working_directory.strpath, params["create_symlink"]
+                os.fspath(working_directory), params["create_symlink"]
             )
 
         # Create SynchWeb ticks hack file.
@@ -479,11 +480,11 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         if params.get("synchweb_ticks"):
             logger.debug("Setting SynchWeb status to swirl")
             if params.get("create_symlink"):
-                results_directory.ensure(dir=True)
+                results_directory.mkdir(parents=True, exist_ok=True)
                 dlstbx.util.symlink.create_parent_symlink(
-                    results_directory.strpath, params["create_symlink"]
+                    os.fspath(results_directory), params["create_symlink"]
                 )
-            py.path.local(params["synchweb_ticks"]).ensure()
+            pathlib.Path(params["synchweb_ticks"]).mkdir(parents=True, exist_ok=True)
 
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
@@ -492,7 +493,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             command,
             timeout=params.get("timeout"),
             environment_override={"autoPROC_HIGHLIGHT": "no", **clean_environment},
-            working_directory=working_directory.strpath,
+            working_directory=working_directory,
         )
 
         success = not result["exitcode"] and not result["timeout"]
@@ -507,7 +508,9 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
             logger.debug(result["stdout"].decode("latin1"))
             logger.debug(result["stderr"].decode("latin1"))
 
-        working_directory.join("autoPROC.log").write(result["stdout"].decode("latin1"))
+        (working_directory / "autoPROC.log").write_text(
+            result["stdout"].decode("latin1")
+        )
 
         # cd $jobdir
         # tar -xzvf summary.tar.gz
@@ -518,29 +521,27 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         # find $jobdir -name '*.mtz' -exec /dls_sw/apps/mx-scripts/misc/AddHistoryToMTZ.sh $Beamline $Visit {} $2 autoPROC \;
 
         if success:
-            json_file = working_directory.join("iotbx-merging-stats.json")
-            scaled_unmerged_mtz = working_directory.join("aimless_unmerged.mtz")
-            if scaled_unmerged_mtz.check():
-                json_file.write(
-                    get_merging_statistics(str(scaled_unmerged_mtz.strpath)).as_json()
+            json_file = working_directory / "iotbx-merging-stats.json"
+            scaled_unmerged_mtz = working_directory / "aimless_unmerged.mtz"
+            if scaled_unmerged_mtz.is_file():
+                json_file.write_text(
+                    get_merging_statistics(os.fspath(scaled_unmerged_mtz)).as_json()
                 )
 
         # move summary_inlined.html to summary.html
-        inlined_html = working_directory.join("summary_inlined.html")
-        if inlined_html.check():
-            inlined_html.move(working_directory.join("summary.html"))
+        inlined_html = working_directory / "summary_inlined.html"
+        if inlined_html.is_file():
+            shutil.move(inlined_html, working_directory / "summary.html")
 
         # attempt to read autoproc XML droppings
-        autoproc_xml = read_autoproc_xml(working_directory.join("autoPROC.xml"))
-        staraniso_xml = read_autoproc_xml(
-            working_directory.join("autoPROC_staraniso.xml")
-        )
+        autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml")
+        staraniso_xml = read_autoproc_xml(working_directory / "autoPROC_staraniso.xml")
 
         # copy output files to result directory
-        results_directory.ensure(dir=True)
+        results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                results_directory.strpath, params["create_symlink"]
+                os.fspath(results_directory), params["create_symlink"]
             )
 
         copy_extensions = {
@@ -571,25 +572,25 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         allfiles = []  # flat list
         anisofiles = []  # tuples of file name, dir name, file type
         attachments = []  # tuples of file name, dir name, file type
-        for filename in working_directory.listdir():
-            keep_as = keep.get(filename.basename, filename.ext in copy_extensions)
+        for filename in working_directory.iterdir():
+            keep_as = keep.get(filename.name, filename.suffix in copy_extensions)
             if not keep_as:
                 continue
-            destination = results_directory.join(filename.basename)
-            logger.debug("Copying %s to %s", filename.strpath, destination.strpath)
-            filename.copy(destination)
-            if filename.basename not in keep:
+            destination = results_directory / filename.name
+            logger.debug(f"Copying {filename} to {destination}")
+            shutil.copy(filename, destination)
+            if filename.name not in keep:
                 continue  # only copy file, do not register in ISPyB
             importance_rank = {
                 "truncate-unique.mtz": 1,
                 "staraniso_alldata-unique.mtz": 1,
                 "summary.html": 1,
-            }.get(filename.basename, 2)
-            if "staraniso" in filename.basename:
+            }.get(filename.name, 2)
+            if "staraniso" in filename.name:
                 anisofiles.append(
                     (
-                        destination.basename,
-                        destination.dirname,
+                        destination.name,
+                        destination.parent,
                         keep_as,
                         importance_rank,
                     )
@@ -599,21 +600,21 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                     # also record log files for staraniso
                     anisofiles.append(
                         (
-                            destination.basename,
-                            destination.dirname,
+                            destination.name,
+                            destination.parent,
                             keep_as,
                             importance_rank,
                         )
                     )
                 attachments.append(
                     (
-                        destination.basename,
-                        destination.dirname,
+                        destination.name,
+                        destination.parent,
                         keep_as,
                         importance_rank,
                     )
                 )
-                allfiles.append(destination.strpath)
+                allfiles.append(os.fspath(destination))
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
@@ -630,7 +631,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
         if params.get("synchweb_ticks"):
             if success:
                 logger.debug("Setting SynchWeb status to success")
-                py.path.local(params["synchweb_ticks"]).write(
+                pathlib.Path(params["synchweb_ticks"]).write_text(
                     """
             The purpose of this file is only
             to signal to SynchWeb that the
@@ -642,7 +643,7 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 )
             else:
                 logger.debug("Setting SynchWeb status to failure")
-                py.path.local(params["synchweb_ticks"]).write(
+                pathlib.Path(params["synchweb_ticks"]).write_text(
                     """
             The purpose of this file is only
             to signal to SynchWeb that the

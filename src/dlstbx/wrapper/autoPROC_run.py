@@ -31,6 +31,9 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
 
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
+        procrunner_directory = working_directory / params["create_symlink"]
+        procrunner_directory.mkdir(parents=True, exist_ok=True)
+        image_directory = None
 
         if "s3_urls" in self.recwrap.environment:
             formatter = logging.Formatter(
@@ -49,14 +52,15 @@ class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
                     "Exception raised while downloading files from S3 object store"
                 )
                 return False
-
-        procrunner_directory = working_directory / params["create_symlink"]
-        procrunner_directory.mkdir(parents=True, exist_ok=True)
+            # We only want to override the image_directory when running in The Cloud,
+            # as only then will the images have been copied locally. Otherwise use the
+            # original image_directory.
+            image_directory = procrunner_directory
 
         command = construct_commandline(
             params,
             working_directory=working_directory,
-            image_directory=procrunner_directory,
+            image_directory=image_directory,
         )
 
         # disable control sequence parameters from autoPROC output

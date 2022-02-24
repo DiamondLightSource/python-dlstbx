@@ -175,7 +175,7 @@ def construct_commandline(params, working_directory=None, image_directory=None):
 
         # This assumes that all datasets have the same untrusted rectangles
         untrusted_rectangles = get_untrusted_rectangles(
-            os.path.join(image_directory, image_template),
+            first_image_or_master_h5,
             macro=macro,
         )
         if beamline == "i04-1":
@@ -230,7 +230,7 @@ def construct_commandline(params, working_directory=None, image_directory=None):
     return command
 
 
-def get_untrusted_rectangles(first_image, macro=None):
+def get_untrusted_rectangles(first_image_or_master_h5, macro=None):
     rectangles = []
 
     if macro:
@@ -244,7 +244,7 @@ def get_untrusted_rectangles(first_image, macro=None):
                     rectangles.append(line.split("=")[-1].strip('"'))
 
     # Now add any untrusted rectangles defined in the dxtbx model
-    expts = ExperimentListFactory.from_filenames([str(first_image)])
+    expts = ExperimentListFactory.from_filenames([str(first_image_or_master_h5)])
     to_xds = xds.to_xds(expts[0].imageset)
     for panel, (x0, _, y0, _) in zip(to_xds.get_detector(), to_xds.panel_limits):
         for f0, s0, f1, s1 in panel.get_mask():

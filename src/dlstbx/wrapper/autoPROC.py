@@ -232,6 +232,7 @@ def construct_commandline(params, working_directory=None, image_directory=None):
 
 def get_untrusted_rectangles(first_image, macro=None):
     rectangles = []
+    first_image = str(first_image)
 
     if macro:
         # Parse any existing untrusted rectangles out of the macro
@@ -244,7 +245,10 @@ def get_untrusted_rectangles(first_image, macro=None):
                     rectangles.append(line.split("=")[-1].strip('"'))
 
     # Now add any untrusted rectangles defined in the dxtbx model
-    expts = ExperimentListFactory.from_filenames([str(first_image)])
+    if first_image.endswith(".cbf"):
+        expts = ExperimentListFactory.from_templates([first_image])
+    else:
+        expts = ExperimentListFactory.from_filenames([first_image])
     to_xds = xds.to_xds(expts[0].imageset)
     for panel, (x0, _, y0, _) in zip(to_xds.get_detector(), to_xds.panel_limits):
         for f0, s0, f1, s1 in panel.get_mask():

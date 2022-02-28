@@ -45,6 +45,7 @@ def xia2_dials_absorption_params(
 )
 def handle_pilatus_gridscan_start(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-cbfs"),
@@ -59,6 +60,7 @@ def handle_pilatus_gridscan_start(
 )
 def handle_pilatus_not_gridscan_start(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-cbfs"),
@@ -71,6 +73,7 @@ def handle_pilatus_not_gridscan_start(
 @mimas.match_specification(is_eiger & is_start & is_mx_beamline & ~is_vmxi)
 def handle_eiger_start(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
     suffix = "-vmxm" if scenario.beamline == "i02-1" else ""
     recipe = (
@@ -84,6 +87,7 @@ def handle_eiger_start(
 @mimas.match_specification(is_eiger & is_end & is_mx_beamline & ~is_vmxi)
 def handle_eiger_end(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
     stopped = scenario.runstatus == "DataCollection Stopped"
     tasks: List[mimas.Invocation] = [
@@ -104,6 +108,7 @@ def handle_eiger_end(
 @mimas.match_specification(is_pilatus & is_end & is_mx_beamline & ~is_vmxi)
 def handle_pilatus_end(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
@@ -115,6 +120,7 @@ def handle_pilatus_end(
 @mimas.match_specification(is_eiger & is_screening & is_end & is_mx_beamline & ~is_vmxi)
 def handle_eiger_screening(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
@@ -131,6 +137,7 @@ def handle_eiger_screening(
 )
 def handle_pilatus_screening(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
@@ -154,6 +161,7 @@ def has_related_data_collections(scenario: mimas.MimasScenario):
 @mimas.match_specification(is_rotation & is_end & is_mx_beamline & ~is_vmxi)
 def handle_rotation_end(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
 
     suffix = (

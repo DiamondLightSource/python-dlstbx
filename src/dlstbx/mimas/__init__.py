@@ -8,6 +8,7 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import gemmi
 import pkg_resources
+import zocalo.configuration
 
 from dlstbx.mimas.specification import BaseSpecification
 
@@ -389,9 +390,11 @@ Invocation = Union[MimasISPyBJobInvocation, MimasRecipeInvocation]
 def match_specification(specification: BaseSpecification):
     def outer_wrapper(handler: Callable):
         @functools.wraps(handler)
-        def inner_wrapper(scenario: MimasScenario) -> List[Invocation]:
+        def inner_wrapper(
+            scenario: MimasScenario, zc: zocalo.configuration.Configuration
+        ) -> List[Invocation]:
             if specification.is_satisfied_by(scenario):
-                return handler(scenario)
+                return handler(scenario, zc=zc)
             return []
 
         return inner_wrapper
@@ -407,8 +410,10 @@ def _get_handlers() -> dict[str, Callable]:
     }
 
 
-def handle_scenario(scenario: MimasScenario) -> List[Invocation]:
+def handle_scenario(
+    scenario: MimasScenario, zc: zocalo.configuration.Configuration
+) -> List[Invocation]:
     tasks: List[Invocation] = []
     for handler in _get_handlers().values():
-        tasks.extend(handler(scenario))
+        tasks.extend(handler(scenario, zc=zc))
     return tasks

@@ -16,7 +16,9 @@ is_i19 = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
 
 
 @mimas.match_specification(is_i19 & is_start & is_pilatus)
-def handle_i19_start_pilatus(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
+def handle_i19_start_pilatus(
+    scenario: mimas.MimasScenario, **kwargs
+) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="per-image-analysis-rotation"
@@ -25,7 +27,9 @@ def handle_i19_start_pilatus(scenario: mimas.MimasScenario) -> List[mimas.Invoca
 
 
 @mimas.match_specification(is_i19 & is_end & is_pilatus)
-def handle_i19_end_pilatus(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
+def handle_i19_end_pilatus(
+    scenario: mimas.MimasScenario, **kwargs
+) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in ("archive-cbfs", "processing-rlv", "strategy-screen19")
@@ -33,7 +37,9 @@ def handle_i19_end_pilatus(scenario: mimas.MimasScenario) -> List[mimas.Invocati
 
 
 @mimas.match_specification(is_i19 & is_start & is_eiger)
-def handle_i19_start_eiger(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
+def handle_i19_start_eiger(
+    scenario: mimas.MimasScenario, **kwargs
+) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID,
@@ -43,7 +49,9 @@ def handle_i19_start_eiger(scenario: mimas.MimasScenario) -> List[mimas.Invocati
 
 
 @mimas.match_specification(is_i19 & is_end & is_eiger)
-def handle_i19_end_eiger(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
+def handle_i19_end_eiger(
+    scenario: mimas.MimasScenario, **kwargs
+) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in (
@@ -56,7 +64,7 @@ def handle_i19_end_eiger(scenario: mimas.MimasScenario) -> List[mimas.Invocation
 
 
 @mimas.match_specification(is_i19 & is_end)
-def handle_i19_end(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
+def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invocation]:
 
     tasks: List[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(

@@ -16,6 +16,7 @@ from dlstbx.mimas.core import (
 @mimas.match_specification(is_vmxi & is_start)
 def handle_vmxi_start(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
     # Do nothing
     return []
@@ -24,6 +25,7 @@ def handle_vmxi_start(
 @mimas.match_specification(is_vmxi & is_end)
 def handle_vmxi_end(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
@@ -39,6 +41,7 @@ def handle_vmxi_end(
 @mimas.match_specification(is_vmxi & is_end & is_gridscan)
 def handle_vmxi_gridscan(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
@@ -50,6 +53,7 @@ def handle_vmxi_gridscan(
 @mimas.match_specification(is_vmxi & is_end & is_rotation)
 def handle_vmxi_rotation_scan(
     scenario: mimas.MimasScenario,
+    **kwargs,
 ) -> List[mimas.Invocation]:
     return [
         # Per-image analysis

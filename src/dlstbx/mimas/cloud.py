@@ -18,12 +18,11 @@ from dlstbx.mimas.specification import BeamlineSpecification, VisitSpecification
 @mimas.match_specification(is_rotation & is_end & is_mx_beamline & ~is_vmxi)
 def handle_cloud(
     scenario: mimas.MimasScenario,
+    *,
+    zc: zocalo.configuration.Configuration,
 ) -> List[mimas.Invocation]:
 
     tasks: List[mimas.Invocation] = []
-
-    zc = zocalo.configuration.from_file()
-    zc.activate()
 
     if not zc.storage:
         return tasks

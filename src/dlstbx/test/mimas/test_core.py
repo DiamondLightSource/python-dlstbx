@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import functools
+from unittest import mock
 
 import pytest
+import zocalo.configuration
 
 from dlstbx import mimas
 from dlstbx.mimas import (
@@ -17,8 +19,10 @@ from dlstbx.mimas import (
 
 
 def get_zocalo_commands(scenario):
+    mock_zc = mock.MagicMock(zocalo.configuration.Configuration, autospec=True)
+
     commands = set()
-    actions = mimas.handle_scenario(scenario)
+    actions = mimas.handle_scenario(scenario, zc=mock_zc)
     for a in actions:
         mimas.validate(a)
         commands.add(mimas.zocalo_command_line(a).strip())

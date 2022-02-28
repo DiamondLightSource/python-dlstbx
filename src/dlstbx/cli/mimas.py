@@ -15,6 +15,7 @@ import argparse
 
 import ispyb.sqlalchemy
 import sqlalchemy
+import zocalo.configuration
 from sqlalchemy.orm import sessionmaker
 
 import dlstbx.ispybtbx
@@ -114,12 +115,17 @@ def run(args=None):
         help="Show commands that would trigger the individual processing steps",
     )
 
+    # Load configuration
+    zc = zocalo.configuration.from_file()
+    zc.activate()
+    zc.add_command_line_options(parser)
+
     args = parser.parse_args(args)
 
     with Session() as session:
         for dcid in args.dcids:
             for scenario in get_scenarios(dcid, session):
-                actions = dlstbx.mimas.handle_scenario(scenario)
+                actions = dlstbx.mimas.handle_scenario(scenario, zc=zc)
                 print(f"At the {_readable.get(scenario.event)} {dcid}:")
                 for a in sorted(actions, key=lambda a: str(type(a)) + " " + a.recipe):
                     try:

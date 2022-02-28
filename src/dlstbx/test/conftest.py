@@ -62,7 +62,9 @@ is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION)
 
 
 @mimas.match_specification(is_i99 & is_rotation)
-def handle_i99_rotation(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
+def handle_i99_rotation(
+    scenario: mimas.MimasScenario, **kwargs
+) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="foo"),
         mimas.MimasISPyBJobInvocation(
@@ -75,7 +77,7 @@ def handle_i99_rotation(scenario: mimas.MimasScenario) -> List[mimas.Invocation]
 
 
 @mimas.match_specification(is_i99)
-def handle_i99(scenario: mimas.MimasScenario) -> List[mimas.Invocation]:
+def handle_i99(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="spam"),
     ]

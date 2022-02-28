@@ -3,7 +3,6 @@ from __future__ import annotations
 from functools import partial
 
 import workflows
-import zocalo.configuration
 from workflows.services.common_service import CommonService
 from workflows.transport.pika_transport import PikaTransport
 
@@ -22,9 +21,7 @@ class DLSBridge(CommonService):
         self.pika_transport = PikaTransport()
         self.pika_transport.connect()
 
-        zc = zocalo.configuration.from_file()
-        zc.activate()
-        queues = zc.storage.get("zocalo.bridge.queues", {})
+        queues = self.config.storage.get("zocalo.bridge.queues", {})
         self.log.info(f"Subscribing to {queues=}")
         for queue in queues:
             self._transport.subscribe(

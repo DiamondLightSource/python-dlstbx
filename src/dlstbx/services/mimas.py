@@ -150,7 +150,7 @@ class DLSMimas(CommonService):
         rw.set_default_channel("dispatcher")
 
         self.log.debug("Evaluating %r", scenario)
-        things_to_do = mimas.handle_scenario(scenario)
+        things_to_do = mimas.handle_scenario(scenario, self.config)
 
         for ttd in things_to_do:
             try:

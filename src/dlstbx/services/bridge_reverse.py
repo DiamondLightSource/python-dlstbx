@@ -3,7 +3,6 @@ from __future__ import annotations
 from functools import partial
 
 import workflows
-import zocalo.configuration
 from workflows.services.common_service import CommonService
 from workflows.transport.stomp_transport import StompTransport
 
@@ -22,9 +21,7 @@ class DLSReverseBridge(CommonService):
         self.stomp_transport = StompTransport()
         self.stomp_transport.connect()
 
-        zc = zocalo.configuration.from_file()
-        zc.activate()
-        queues = zc.storage.get("zocalo.bridge-reverse.queues", {})
+        queues = self.config.storage.get("zocalo.bridge-reverse.queues", {})
         self.log.info(f"Subscribing to {queues=}")
         for queue in queues:
             self._transport.subscribe(

@@ -73,7 +73,9 @@ def test_construct_commandline_i24_cbf(autoproc_home):
     not os.access("/dls/i03/data/2022/cm31105-1/TestProteinaseK/protk_1", os.R_OK),
     reason="Test images not available",
 )
-def test_construct_commandline_i03_eiger(autoproc_home, durin_plugin_so):
+def test_construct_commandline_i03_eiger(monkeypatch, autoproc_home, durin_plugin_so):
+    nslots = "8"
+    monkeypatch.setenv("NSLOTS", nslots)
     params = {
         "autoproc": {"pname": "cm31105v1", "xname": "xprotk117"},
         "images": "/dls/i03/data/2022/cm31105-1/TestProteinaseK/protk_1/protk_1_17_master.h5:1:3600",
@@ -93,7 +95,7 @@ def test_construct_commandline_i03_eiger(autoproc_home, durin_plugin_so):
         "-d",
         "/dls/i03/data/2022/cm31105-1/tmp/zocalo/TestProteinaseK/protk_1/protk_1_17/5db2c356-19b2-4c16-82a4-3cec4a10d2d7",
         "-nthreads",
-        "4",
+        nslots,
         "pname=cm31105v1",
         "xname=xprotk117",
         "-Id",
@@ -112,7 +114,7 @@ def test_construct_commandline_i03_eiger(autoproc_home, durin_plugin_so):
 )
 def test_construct_commandline_i23_macro(autoproc_home):
     params = {
-        "autoproc": {"pname": "cm31108v1", "xname": "xdata10"},
+        "autoproc": {"pname": "cm31108v1", "xname": "xdata10", "nproc": 5},
         "images": "/dls/i23/data/2022/cm31108-1/TestFerritin/20220210/Ferritin_x2/data_10_00001.cbf:1:3600",
         "beamline": "i23",
         "working_directory": "/dls/i23/data/2022/cm31108-1/tmp/zocalo/TestFerritin/20220210/Ferritin_x2/data_10/1d053370-7634-4812-bfbe-70f8856dea09/autoPROC",
@@ -130,7 +132,7 @@ def test_construct_commandline_i23_macro(autoproc_home):
         "-d",
         "/dls/i23/data/2022/cm31108-1/tmp/zocalo/TestFerritin/20220210/Ferritin_x2/data_10/1d053370-7634-4812-bfbe-70f8856dea09/autoPROC",
         "-nthreads",
-        "4",
+        "5",
         "pname=cm31108v1",
         "xname=xdata10",
         "-M",

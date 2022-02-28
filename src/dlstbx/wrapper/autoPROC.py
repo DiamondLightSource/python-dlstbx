@@ -484,7 +484,9 @@ class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
                 dlstbx.util.symlink.create_parent_symlink(
                     os.fspath(results_directory), params["create_symlink"]
                 )
-            pathlib.Path(params["synchweb_ticks"]).mkdir(parents=True, exist_ok=True)
+            pathlib.Path(params["synchweb_ticks"]).parent.mkdir(
+                parents=True, exist_ok=True
+            )
 
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings

@@ -81,7 +81,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
         elif pipeline == "Crank2":
             mdl_dict = get_crank2_model_files(working_directory, logger)
         if mdl_dict is None:
-            logger.warning(f"Cannot process {pipeline} results")
+            logger.info(f"Cannot process {pipeline} results")
             return False
 
         ispyb_write_model_json(str(working_directory), mdl_dict, logger)

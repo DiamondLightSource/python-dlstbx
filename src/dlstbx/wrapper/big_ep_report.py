@@ -81,7 +81,7 @@ class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
         elif pipeline == "Crank2":
             mdl_dict = get_crank2_model_files(working_directory, logger)
         else:
-            logger.warning(f"Big_EP was run with an unknown {pipeline = }.")
+            logger.error(f"Big_EP was run with an unknown {pipeline = }.")
             return False
         if mdl_dict is None:
             logger.info(f"Cannot process {pipeline} results.")

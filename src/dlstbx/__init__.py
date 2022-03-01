@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import sys
 
-if sys.version_info < (3, 7):
+if sys.version_info < (3, 8):
     import warnings
 
-    warnings.warn("dlstbx requires a Python 3.7+ environment", UserWarning)
+    warnings.warn("dlstbx requires a Python 3.8+ environment", UserWarning)
 
 
 def berkel_me():

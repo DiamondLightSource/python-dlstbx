@@ -256,7 +256,9 @@ class DLSController(CommonService):
             instance["workflows"] = [int(v) for v in message["workflows"].split(".")]
         except Exception:
             self.log.debug(
-                "Could not parse workflows version sent by %s", instance["host"]
+                "Could not parse workflows version (%s) sent by %s",
+                message.get("workflows", ""),
+                instance["host"],
             )
         try:
             if "dlstbx" in message:
@@ -269,7 +271,9 @@ class DLSController(CommonService):
                 ]
         except Exception:
             self.log.warning(
-                "Could not parse dlstbx version sent by %s", instance["host"]
+                "Could not parse dlstbx version (%s) sent by %s",
+                message.get("dlstbx", ""),
+                instance["host"],
             )
 
         if instance[

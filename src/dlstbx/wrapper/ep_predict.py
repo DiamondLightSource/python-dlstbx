@@ -9,9 +9,9 @@ from pprint import pformat
 
 import procrunner
 import py
-import zocalo.wrapper
 
 from dlstbx.util import ep_predict
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.ep_predict")
 
@@ -23,7 +23,7 @@ clean_environment = {
 }
 
 
-class EPPredictWrapper(zocalo.wrapper.BaseWrapper):
+class EPPredictWrapper(Wrapper):
     def get_xia2_meric_keys(self, params):
         return {
             "stats": {

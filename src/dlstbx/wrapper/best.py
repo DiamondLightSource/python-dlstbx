@@ -7,14 +7,14 @@ from pathlib import Path
 from shutil import copyfile
 
 import procrunner
-import zocalo
 
 import dlstbx.util
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.best")
 
 
-class BESTWrapper(zocalo.wrapper.BaseWrapper):
+class BESTWrapper(Wrapper):
     def xml_to_dict(self, all_names):
 
         tree = ET.ElementTree(ET.fromstring(self.xml_string))

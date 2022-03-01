@@ -6,15 +6,15 @@ import os
 
 import procrunner
 import py
-import zocalo.wrapper
 
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.fast_rdp")
 
 
-class FastRDPWrapper(zocalo.wrapper.BaseWrapper):
+class FastRDPWrapper(Wrapper):
     def send_results_to_ispyb(self, z):
         ispyb_command_list = []
 

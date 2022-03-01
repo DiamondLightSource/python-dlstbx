@@ -7,13 +7,13 @@ import shutil
 import xml.etree.ElementTree
 
 import procrunner
-import zocalo.wrapper
 from dials.util.mp import available_cores
 from dxtbx.model.experiment_list import ExperimentListFactory
 from dxtbx.serialize import xds
 
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.autoPROC")
 
@@ -255,7 +255,7 @@ def get_untrusted_rectangles(first_image_or_master_h5, macro=None):
     return rectangles
 
 
-class autoPROCWrapper(zocalo.wrapper.BaseWrapper):
+class autoPROCWrapper(Wrapper):
     def send_results_to_ispyb(
         self, autoproc_xml, special_program_name=None, attachments=None
     ):

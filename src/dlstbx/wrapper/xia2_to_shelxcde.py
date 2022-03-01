@@ -6,15 +6,15 @@ import os
 
 import procrunner
 import py
-import zocalo.wrapper
 
 import dlstbx.util.symlink
 from dlstbx.util.shelxc import parse_shelxc_logs
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("zocalo.wrap.xia2.to_shelxcde")
 
 
-class Xia2toShelxcdeWrapper(zocalo.wrapper.BaseWrapper):
+class Xia2toShelxcdeWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = self.recwrap.recipe_step["job_parameters"]

@@ -6,13 +6,14 @@ import os
 
 import procrunner
 import py
-import zocalo.wrapper
 from dxtbx.serialize import load
+
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.dlstbx.align_crystal")
 
 
-class AlignCrystalWrapper(zocalo.wrapper.BaseWrapper):
+class AlignCrystalWrapper(Wrapper):
     def insert_dials_align_strategies(self, dcid, crystal_symmetry, results):
         solutions = results["solutions"]
         gonio = results["goniometer"]

@@ -9,9 +9,9 @@ from pprint import pformat
 from shutil import copyfile
 
 import procrunner
-import zocalo.wrapper
 
 from dlstbx.util import mr_predict, mr_utils
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.mr_predict")
 
@@ -23,7 +23,7 @@ clean_environment = {
 }
 
 
-class MRPredictWrapper(zocalo.wrapper.BaseWrapper):
+class MRPredictWrapper(Wrapper):
     def run_phaser_ellg(self, working_directory, tag, params, timeout):
         for key in (
             "hklin",

@@ -7,15 +7,15 @@ import shutil
 import tempfile
 
 import procrunner
-import zocalo.wrapper
 from iotbx.bioinformatics import fasta_sequence
 
 import dlstbx.util.symlink
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.mrbump")
 
 
-class MrBUMPWrapper(zocalo.wrapper.BaseWrapper):
+class MrBUMPWrapper(Wrapper):
     def construct_script(self, params, working_directory, sequence):
         """Construct MrBUMP script line.
         Takes job parameter dictionary, returns array."""

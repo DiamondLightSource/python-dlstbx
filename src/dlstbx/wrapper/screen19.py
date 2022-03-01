@@ -4,14 +4,14 @@ import logging
 
 import procrunner
 import py
-import zocalo.wrapper
 
 import dlstbx.util.symlink
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.screen19")
 
 
-class Screen19Wrapper(zocalo.wrapper.BaseWrapper):
+class Screen19Wrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

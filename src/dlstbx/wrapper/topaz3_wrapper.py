@@ -14,7 +14,8 @@ import shutil
 import tempfile
 
 import procrunner
-import zocalo.wrapper
+
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.topaz3")
 
@@ -26,7 +27,7 @@ clean_environment = {
 }
 
 
-class Topaz3Wrapper(zocalo.wrapper.BaseWrapper):
+class Topaz3Wrapper(Wrapper):
     """
     Converts phase files into map files, obtains predictions from map files,
 

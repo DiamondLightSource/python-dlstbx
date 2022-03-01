@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 import logging
 
-import zocalo.wrapper
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.stepped_transmission")
 
 
-class SteppedTransmissionWrapper(zocalo.wrapper.BaseWrapper):
+class SteppedTransmissionWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

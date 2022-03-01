@@ -6,15 +6,15 @@ import logging
 
 import procrunner
 import py
-import zocalo.wrapper
 from cctbx import uctbx
 
 import dlstbx.util.symlink
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.xia2.multiplex")
 
 
-class Xia2MultiplexWrapper(zocalo.wrapper.BaseWrapper):
+class Xia2MultiplexWrapper(Wrapper):
     def send_results_to_ispyb(self, z, xtriage_results=None):
         ispyb_command_list = []
 

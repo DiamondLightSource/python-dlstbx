@@ -24,7 +24,6 @@ from workflows.transport.stomp_transport import StompTransport
 
 from dlstbx import enable_graylog
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
-from dlstbx.util.version import dlstbx_version
 
 
 def run(cmdline_args=sys.argv[1:]):
@@ -145,7 +144,6 @@ def run(cmdline_args=sys.argv[1:]):
     st = zocalo.wrapper.StatusNotifications(transport.broadcast_status, options.wrapper)
     for field, value in zocalo.util.extended_status_dictionary().items():
         st.set_static_status_field(field, value)
-    st.set_static_status_field("dlstbx", dlstbx_version())
 
     # Instantiate chosen wrapper
     instance = known_wrappers[options.wrapper]()()

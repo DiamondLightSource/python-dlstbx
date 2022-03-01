@@ -3,14 +3,13 @@ from __future__ import annotations
 import logging
 import time
 
-import zocalo.wrapper
-
 import dlstbx.em_sim
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.em_sim")
 
 
-class EMSimWrapper(zocalo.wrapper.BaseWrapper):
+class EMSimWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

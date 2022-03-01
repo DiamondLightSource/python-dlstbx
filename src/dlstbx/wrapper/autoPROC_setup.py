@@ -3,14 +3,13 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import zocalo.wrapper
-
 import dlstbx.util.symlink
 from dlstbx.util.iris import (
     get_image_files,
     get_presigned_urls_images,
     write_singularity_script,
 )
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("zocalo.wrap.autoPROC_setup")
 
@@ -24,7 +23,7 @@ clean_environment = {
 }
 
 
-class autoPROCSetupWrapper(zocalo.wrapper.BaseWrapper):
+class autoPROCSetupWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

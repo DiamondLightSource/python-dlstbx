@@ -8,14 +8,14 @@ from pprint import pformat
 import procrunner
 import py
 import xmltodict
-import zocalo.wrapper
 
 import dlstbx.util.symlink
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("zocalo.wrap.fast_ep")
 
 
-class FastEPWrapper(zocalo.wrapper.BaseWrapper):
+class FastEPWrapper(Wrapper):
     def stop_fast_ep(self, params):
         """Decide whether to run fast_ep or not based on the completeness, dI/s(dI) and
         resolution of actual data."""

@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import logging
 
-import zocalo.wrapper
-
 import dlstbx.dc_sim.definitions
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.dc_sim")
 
 
-class DCSimWrapper(zocalo.wrapper.BaseWrapper):
+class DCSimWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

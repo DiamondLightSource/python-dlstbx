@@ -9,14 +9,14 @@ import subprocess
 import dateutil.parser
 import procrunner
 import py
-import zocalo.wrapper
 
 import dlstbx.util.symlink
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.xia2")
 
 
-class Xia2Wrapper(zocalo.wrapper.BaseWrapper):
+class Xia2Wrapper(Wrapper):
     def construct_commandline(self, params):
         """Construct xia2 command line.
         Takes job parameter dictionary, returns array."""

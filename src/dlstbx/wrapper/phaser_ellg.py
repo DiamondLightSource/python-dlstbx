@@ -9,14 +9,15 @@ from pathlib import Path
 from pprint import pformat
 
 import procrunner
-import zocalo
 
 from dlstbx.util import mr_utils
 
 logger = logging.getLogger("dlstbx.wrap.phaser_ellg")
 
+from dlstbx.wrapper import Wrapper
 
-class PhasereLLGWrapper(zocalo.wrapper.BaseWrapper):
+
+class PhasereLLGWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = self.recwrap.recipe_step["job_parameters"]

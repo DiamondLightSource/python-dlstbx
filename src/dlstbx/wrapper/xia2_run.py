@@ -6,14 +6,14 @@ import subprocess
 from pathlib import Path
 
 import procrunner
-import zocalo.wrapper
 
 from dlstbx.util.iris import get_objects_from_s3
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("zocalo.wrap.xia2_run")
 
 
-class Xia2RunWrapper(zocalo.wrapper.BaseWrapper):
+class Xia2RunWrapper(Wrapper):
     def construct_commandline(self, working_directory, params, is_cloud=False):
         """Construct xia2 command line.
         Takes job parameter dictionary, returns array."""

@@ -7,15 +7,15 @@ import shutil
 from pathlib import Path
 
 import dateutil.parser
-import zocalo.wrapper
 
 import dlstbx.util.symlink
 from dlstbx.util.iris import remove_objects_from_s3
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("zocalo.wrap.xia2_results")
 
 
-class Xia2ResultsWrapper(zocalo.wrapper.BaseWrapper):
+class Xia2ResultsWrapper(Wrapper):
     def send_results_to_ispyb(self, xia2_json, xtriage_results=None):
         logger.info("Reading xia2 results")
         from xia2.Interfaces.ISPyB import xia2_to_json_object

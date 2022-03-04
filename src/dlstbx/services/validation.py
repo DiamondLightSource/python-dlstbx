@@ -106,14 +106,7 @@ class DLSValidation(CommonService):
                     hdf5_util.validate_pixel_mask(filename)
                 except hdf5_util.ValidationError as e:
                     msg = f"HDF5 file {filename} contains invalid pixel_mask: {e}"
-                    if output.get("beamline") == "i04":
-                        # I04 currently writes incorrect pixel_mask dimensions in ROI mode
-                        # so only write a warning for now to avoid spamming via email for every
-                        # grid scan data collection
-                        # See also https://jira.diamond.ac.uk/browse/I03-649
-                        self.log.warning(msg)
-                    else:
-                        return fail(msg)
+                    return fail(msg)
             except Exception as e:
                 return fail(
                     f"Unhandled {type(e).__name__} exception reading {filename}"

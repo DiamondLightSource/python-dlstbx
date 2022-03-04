@@ -7,8 +7,9 @@ from typing import List, Optional
 
 import procrunner
 import pydantic
-import zocalo.wrapper
 from iotbx.bioinformatics import fasta_sequence
+
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.alphafold")
 
@@ -21,7 +22,7 @@ class AlphaFoldParameters(pydantic.BaseModel):
     timeout: Optional[float] = pydantic.Field(None, gt=0)
 
 
-class AlphaFoldWrapper(zocalo.wrapper.BaseWrapper):
+class AlphaFoldWrapper(Wrapper):
     def send_results_to_ispyb(self, pdb_files: List[pathlib.Path], protein_id: int):
         ispyb_command = {
             "ispyb_command": "insert_pdb_files",

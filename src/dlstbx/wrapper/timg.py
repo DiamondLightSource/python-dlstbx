@@ -4,12 +4,12 @@ import datetime
 import logging
 import os
 
-import zocalo.wrapper
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.timg")
 
 
-class TopazWrapper(zocalo.wrapper.BaseWrapper):
+class TopazWrapper(Wrapper):
     def run(self):
         # Check that a recipe wrapper has been passed
         assert hasattr(self, "recwrap"), "No recipewrapper object found"

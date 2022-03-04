@@ -6,12 +6,13 @@ import pathlib
 import shutil
 
 import procrunner
-import zocalo.wrapper
+
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.edna")
 
 
-class EdnaWrapper(zocalo.wrapper.BaseWrapper):
+class EdnaWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

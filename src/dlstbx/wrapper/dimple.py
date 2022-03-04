@@ -14,16 +14,16 @@ from typing import List
 import dateutil.parser
 import gemmi
 import procrunner
-import zocalo.wrapper
 
 import dlstbx.util.symlink
 from dlstbx import schemas
 from dlstbx.util import ChainMapWithReplacement
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.dimple")
 
 
-class DimpleWrapper(zocalo.wrapper.BaseWrapper):
+class DimpleWrapper(Wrapper):
     def send_results_to_ispyb(self):
         log_file = self.results_directory / "dimple.log"
         if not log_file.is_file():

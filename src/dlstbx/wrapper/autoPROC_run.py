@@ -5,10 +5,10 @@ import os
 from pathlib import Path
 
 import procrunner
-import zocalo.wrapper
 
 from dlstbx.util.iris import get_objects_from_s3
 from dlstbx.util.merging_statistics import get_merging_statistics
+from dlstbx.wrapper import Wrapper
 from dlstbx.wrapper.autoPROC import construct_commandline
 
 logger = logging.getLogger("zocalo.wrap.autoPROC_run")
@@ -23,7 +23,7 @@ clean_environment = {
 }
 
 
-class autoPROCRunWrapper(zocalo.wrapper.BaseWrapper):
+class autoPROCRunWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

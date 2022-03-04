@@ -3,14 +3,13 @@ from __future__ import annotations
 import logging
 from copy import deepcopy
 
-import zocalo.wrapper
-
 from dlstbx.util.shelxc import reduce_shelxc_results
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("zocalo.wrap.shelxc_stats")
 
 
-class ShelxcStatsWrapper(zocalo.wrapper.BaseWrapper):
+class ShelxcStatsWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = self.recwrap.recipe_step["job_parameters"]

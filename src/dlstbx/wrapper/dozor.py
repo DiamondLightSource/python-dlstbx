@@ -5,7 +5,6 @@ import os
 import re
 
 import procrunner
-import zocalo.wrapper
 from dxtbx.datablock import DataBlockTemplateImporter
 
 from dlstbx.util.dxtbx_to_dozor import (
@@ -13,11 +12,12 @@ from dlstbx.util.dxtbx_to_dozor import (
     parse_dozor_output,
     write_dozor_input,
 )
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.dozor")
 
 
-class DozorWrapper(zocalo.wrapper.BaseWrapper):
+class DozorWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

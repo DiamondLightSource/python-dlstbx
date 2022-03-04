@@ -6,12 +6,13 @@ import os
 
 import procrunner
 import py
-import zocalo.wrapper
+
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.mosflm_strategy")
 
 
-class MosflmStrategyWrapper(zocalo.wrapper.BaseWrapper):
+class MosflmStrategyWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

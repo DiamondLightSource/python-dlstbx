@@ -6,9 +6,9 @@ import tempfile
 
 import procrunner
 import py
-import zocalo.wrapper
 
 import dlstbx.util.symlink
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.screen19_mx")
 
@@ -20,7 +20,7 @@ clean_environment = {
 }
 
 
-class Screen19MXWrapper(zocalo.wrapper.BaseWrapper):
+class Screen19MXWrapper(Wrapper):
     def send_html_email_message(self, msg, email_params, img):
         import getpass
         import platform

@@ -9,7 +9,6 @@ from pathlib import Path
 from pprint import pformat
 
 import ispyb
-import zocalo
 from iotbx import mtz
 
 from dlstbx.util.big_ep_helpers import (
@@ -20,6 +19,7 @@ from dlstbx.util.big_ep_helpers import (
 )
 from dlstbx.util.iris import write_singularity_script
 from dlstbx.util.symlink import create_parent_symlink
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("zocalo.wrap.big_ep_setup")
 
@@ -168,7 +168,7 @@ def record_big_ep_settings_in_ispyb(rpid, msg):
     logger.info(f"big_ep settings jobid {rpid}: {pformat(big_ep_settings)}")
 
 
-class BigEPSetupWrapper(zocalo.wrapper.BaseWrapper):
+class BigEPSetupWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

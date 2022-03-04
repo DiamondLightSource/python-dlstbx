@@ -3,19 +3,18 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import zocalo.wrapper
-
 import dlstbx.util.symlink
 from dlstbx.util.iris import (
     get_image_files,
     get_presigned_urls_images,
     write_singularity_script,
 )
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("zocalo.wrap.xia2_setup")
 
 
-class Xia2SetupWrapper(zocalo.wrapper.BaseWrapper):
+class Xia2SetupWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

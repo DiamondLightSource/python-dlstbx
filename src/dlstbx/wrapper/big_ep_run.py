@@ -8,7 +8,6 @@ from pathlib import Path
 from pprint import pformat
 
 import procrunner
-import zocalo
 from jinja2.environment import Environment
 from jinja2.exceptions import UndefinedError
 from jinja2.loaders import PackageLoader
@@ -17,8 +16,10 @@ from dlstbx.util.big_ep_helpers import write_sequence_file, write_settings_file
 
 logger = logging.getLogger("zocalo.wrap.big_ep_run")
 
+from dlstbx.wrapper import Wrapper
 
-class BigEPRunWrapper(zocalo.wrapper.BaseWrapper):
+
+class BigEPRunWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

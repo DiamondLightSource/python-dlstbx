@@ -4,7 +4,6 @@ import logging
 import os
 
 import py
-import zocalo.wrapper
 from jinja2.environment import Environment
 from jinja2.exceptions import UndefinedError
 from jinja2.loaders import PackageLoader
@@ -21,11 +20,12 @@ from dlstbx.util.big_ep_helpers import (
     write_coot_script,
 )
 from dlstbx.util.symlink import create_parent_symlink
+from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("zocalo.wrap.big_ep_report")
 
 
-class BigEPReportWrapper(zocalo.wrapper.BaseWrapper):
+class BigEPReportWrapper(Wrapper):
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 

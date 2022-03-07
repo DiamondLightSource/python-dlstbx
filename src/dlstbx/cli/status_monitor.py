@@ -271,18 +271,30 @@ class Monitor:
                                     card.addstr("Service: ", curses.color_pair(3))
                                     card.addstr("---", curses.color_pair(2))
                                 card.move(1, 0)
-                                card.addstr("Host: ", curses.color_pair(3))
-                                if host.startswith("uk.ac.diamond."):
-                                    host = host[14:]
-                                host = host.split(".")
-                                if len(host) >= 2:
-                                    card.addstr(".".join(host[:-1]))
+                                if status.get("container_node"):
+                                    card.addstr("K8s: ", curses.color_pair(3))
+                                    display_host = status["container_node"]
+                                    if display_host.endswith(".diamond.ac.uk"):
+                                        display_host = display_host[:-14]
+                                    try:
+                                        k8s_tag = host.split("-")[-1].split(".")[0]
+                                        display_host += f".{k8s_tag}"
+                                    except Exception:
+                                        pass
+                                else:
+                                    card.addstr("Host: ", curses.color_pair(3))
+                                    display_host = host
+                                    if display_host.startswith("uk.ac.diamond."):
+                                        display_host = display_host[14:]
+                                display_host_split = display_host[:27].split(".")
+                                if len(display_host_split) >= 2:
+                                    card.addstr(".".join(display_host_split[:-1]))
                                     card.addstr(
-                                        "." + host[-1],
+                                        "." + display_host_split[-1],
                                         curses.color_pair(2) + curses.A_BOLD,
                                     )
                                 else:
-                                    card.addstr(host[0])
+                                    card.addstr(display_host_split[0])
                                 card.move(2, 0)
                                 card.addstr("State: ", curses.color_pair(3))
                                 if "status" in status:

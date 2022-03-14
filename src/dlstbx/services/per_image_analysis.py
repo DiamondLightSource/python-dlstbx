@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import time
 
-import bitshuffle  # noqa, F401; cf. https://github.com/DiamondLightSource/python-dlstbx/issues/5
 import workflows.recipe
 from dials.command_line.find_spots_server import work
 from workflows.services.common_service import CommonService

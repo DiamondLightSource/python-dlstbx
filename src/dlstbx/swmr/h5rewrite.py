@@ -134,10 +134,7 @@ def rewrite(
         vds_block_size = 100
         vds_nblocks = int(math.ceil(n_images / vds_block_size))
 
-        bitshuffle_compression = hdf5plugin.Bitshuffle(
-            nelems=0,  # block_size, let Bitshuffle choose its value
-            lz4=True,
-        )
+        bitshuffle_compression = hdf5plugin.Bitshuffle()
 
         assert not out_h5.exists(), f"Refusing to overwrite existing file {out_h5}"
         with h5py.File(out_h5, "w", libver="latest") as fd:

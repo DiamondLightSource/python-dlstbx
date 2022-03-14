@@ -6,8 +6,8 @@ import pathlib
 import time
 from typing import Optional, Tuple, Union
 
-import bitshuffle.h5
 import h5py
+import hdf5plugin
 import numpy as np
 
 logger = logging.getLogger("dlstbx.h5rewrite")
@@ -133,18 +133,14 @@ def rewrite(
 
         vds_block_size = 100
         vds_nblocks = int(math.ceil(n_images / vds_block_size))
-        compression = bitshuffle.h5.H5FILTER
-        compression_opts = (
-            0,  # block_size, let Bitshuffle choose its value
-            bitshuffle.h5.H5_COMPRESS_LZ4,
-        )
+
+        bitshuffle_compression = hdf5plugin.Bitshuffle()
 
         assert not out_h5.exists(), f"Refusing to overwrite existing file {out_h5}"
         with h5py.File(out_h5, "w", libver="latest") as fd:
             visit = Visitor(
                 fd,
-                compression=compression,
-                compression_opts=compression_opts,
+                **bitshuffle_compression,
             )
             fs.visititems(visit)
 
@@ -188,9 +184,8 @@ def rewrite(
                 "data",
                 shape=(vds_block_size,) + data.shape[1:],
                 chunks=(1,) + data.shape[1:],
-                compression=compression,
-                compression_opts=compression_opts,
                 dtype=data.dtype,
+                **bitshuffle_compression,
             )
             data_file.swmr_mode = True
             data_files.append(data_file)

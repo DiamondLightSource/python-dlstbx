@@ -1250,9 +1250,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                     message["buffer_command"][entry] = buffer_result.value
                     del message["buffer_lookup"][entry]
                     self.log.debug(
-                        "Successfully resolved buffer reference %d to %d",
-                        entry,
-                        buffer_result.value,
+                        f"Successfully resolved buffer reference {entry!r} to {buffer_result.value!r}"
                     )
                     continue
 

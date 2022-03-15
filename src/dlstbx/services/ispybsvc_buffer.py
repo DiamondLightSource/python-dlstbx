@@ -28,11 +28,11 @@ def load(*, session, program: int, uuid: int) -> BufferResult:
     try:
         result = query.one()
         logger.info(
-            "buffer lookup for %d.%d succeeded (=%d)", program, uuid, result.Reference
+            f"buffer lookup for {program!r}.{uuid!r} succeeded (={result.Reference!r})"
         )
         return BufferResult(success=True, value=result.Reference)
     except sqlalchemy.exc.NoResultFound:
-        logger.info("buffer lookup for %d.%d failed", program, uuid)
+        logger.info(f"buffer lookup for {program!r}.{uuid!r} failed")
         return BufferResult(success=False, value=None)
 
 
@@ -52,5 +52,5 @@ def store(*, session, program: int, uuid: int, reference: int):
         Reference=reference,
     )
     session.merge(entry)
-    logger.info("buffering value %d for %d.%d", reference, program, uuid)
+    logger.info(f"buffering value {reference!r} for {program!r}.{uuid!r}")
     session.commit()

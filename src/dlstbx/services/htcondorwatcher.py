@@ -95,7 +95,7 @@ class HTCondorWatcher(CommonService):
             with os_stat_profiler.record():
                 res = schedd.query(
                     constraint=f"ClusterId=={jobid}",
-                    attr_list=["ClusterId", "ProcId", "JobStatus", "Out"],
+                    projection=["ClusterId", "ProcId", "JobStatus", "Out"],
                 )
                 self.log.info(f"schedd status: {pformat(res)}")
                 if res:

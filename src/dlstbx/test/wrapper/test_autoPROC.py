@@ -81,6 +81,12 @@ def test_construct_commandline_i03_eiger(monkeypatch, autoproc_home, durin_plugi
         "images": "/dls/i03/data/2022/cm31105-1/TestProteinaseK/protk_1/protk_1_17_master.h5:1:3600",
         "beamline": "i03",
         "working_directory": "/dls/i03/data/2022/cm31105-1/tmp/zocalo/TestProteinaseK/protk_1/protk_1_17/5db2c356-19b2-4c16-82a4-3cec4a10d2d7",
+        "ispyb_parameters": {
+            "d_min": 1.5,
+            "spacegroup": "P43212",
+            "unit_cell": "68,68,107,90,90,90",
+            "small_molecule": True,
+        },
     }
     cmdline = autoPROC.construct_commandline(params)
     assert cmdline == [
@@ -102,12 +108,19 @@ def test_construct_commandline_i03_eiger(monkeypatch, autoproc_home, durin_plugi
         "x0protk117,/dls/i03/data/2022/cm31105-1/TestProteinaseK/protk_1,protk_1_17_master.h5,1,3600",
         "DistributeBackgroundImagesForHdf5=no",
         f"autoPROC_XdsKeyword_LIB={durin_plugin_so}",
+        "-R",
+        "1000",
+        "1.5",
+        "symm=P43212",
+        'cell="68 68 107 90 90 90"',
+        "-M",
+        "SmallMolecules",
     ]
 
 
 @pytest.mark.skipif(
     not os.access(
-        "/dls/i23/data/2022/cm31108-1/tmp/zocalo/TestFerritin/20220210/Ferritin_x2/data_10",
+        "/dls/i23/data/2022/cm31108-1/TestFerritin/20220210/Ferritin_x2/data_10_00001.cbf",
         os.R_OK,
     ),
     reason="Test images not available",

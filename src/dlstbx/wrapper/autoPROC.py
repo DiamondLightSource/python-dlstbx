@@ -224,7 +224,14 @@ def construct_commandline(params, working_directory=None, image_directory=None):
             command.append("symm=%s" % params["ispyb_parameters"]["spacegroup"])
         if params["ispyb_parameters"].get("unit_cell"):
             command.append(
-                "cell=%s" % params["ispyb_parameters"]["unit_cell"].replace(",", " ")
+                'cell="%s"' % params["ispyb_parameters"]["unit_cell"].replace(",", " ")
+            )
+        if params["ispyb_parameters"].get("small_molecule"):
+            command.extend(
+                [
+                    "-M",
+                    "SmallMolecules",
+                ]
             )
 
     return command

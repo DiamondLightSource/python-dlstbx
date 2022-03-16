@@ -210,7 +210,7 @@ class database:
         ext=None,
     ) -> None:
         if ext:
-            ext = json.dumps(ext)
+            ext = json.dumps(ext).encode("latin-1")
         self.set_status(
             Status(
                 Source=source,

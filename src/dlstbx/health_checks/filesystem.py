@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import os
 import socket
 import subprocess
 from typing import Optional, Tuple
@@ -230,3 +231,13 @@ def check_free_space(cfc: CheckFunctionInterface) -> list[Status]:
         hostname = hostname[:-14]
         results.extend(_run_df_locally(test_name=cfc.name, machine_name=hostname))
     return results
+
+
+def check_vmxi_holding_area(cfc: CheckFunctionInterface) -> Status:
+    count = len(os.listdir("/dls/science/vmxi/formulatrix/"))
+    message = f"{count} image(s) waiting in VMXi holding area /dls/science/vmxi/formulatrix/ (managed by Karl Levik)"
+    if count <= 3000:
+        return Status(Source=cfc.name, Level=REPORT.PASS, Message=message)
+    if count <= 5000:
+        return Status(Source=cfc.name, Level=REPORT.WARNING, Message=message)
+    return Status(Source=cfc.name, Level=REPORT.ERROR, Message=message)

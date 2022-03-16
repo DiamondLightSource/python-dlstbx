@@ -158,6 +158,7 @@ health_checks = [
     "services.synchweb = dlstbx.health_checks.network:check_synchweb",
     "services.uas = dlstbx.health_checks.network:check_uas",
     "services.zocalo.stash = dlstbx.health_checks.zocalo:check_zocalo_stash",
+    "vmxi.hold = dlstbx.health_checks.filesystem:check_vmxi_holding_area",
     "zocalo.dlq.activemq = dlstbx.health_checks.activemq:check_activemq_dlq",
     "zocalo.dlq.rabbitmq = dlstbx.health_checks.rabbitmq:check_rabbitmq_dlq",
 ]

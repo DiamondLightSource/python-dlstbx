@@ -21,7 +21,7 @@ class NexusParserService(CommonSystemTest):
             },
             2: {
                 "service": "DLS System Test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [(1, {"file": imagepath + "image_27335_master.h5"})],
         }
@@ -63,7 +63,3 @@ class NexusParserService(CommonSystemTest):
             },
             timeout=120,
         )
-
-
-if __name__ == "__main__":
-    NexusParserService().validate()

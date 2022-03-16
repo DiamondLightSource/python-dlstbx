@@ -54,8 +54,8 @@ class FilewatcherService(CommonSystemTest):
                     "any": 3,  # Should not be triggered here
                 },
             },
-            2: {"queue": "transient.system_test." + self.guid + ".pass.2"},
-            3: {"queue": "transient.system_test." + self.guid + ".fail"},
+            2: {"queue": self.target_queue},
+            3: {"queue": self.target_queue},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -139,15 +139,15 @@ class FilewatcherService(CommonSystemTest):
                     "any": 9,  # End-of-job if at least one file was found
                 },
             },
-            2: {"queue": "transient.system_test." + self.guid + ".pass.2"},
-            3: {"queue": "transient.system_test." + self.guid + ".pass.3"},
-            4: {"queue": "transient.system_test." + self.guid + ".pass.4"},
-            5: {"queue": "transient.system_test." + self.guid + ".pass.5"},
-            6: {"queue": "transient.system_test." + self.guid + ".pass.6"},
-            7: {"queue": "transient.system_test." + self.guid + ".pass.7"},
-            8: {"queue": "transient.system_test." + self.guid + ".pass.8"},
-            9: {"queue": "transient.system_test." + self.guid + ".pass.9"},
-            10: {"queue": "transient.system_test." + self.guid + ".pass.10"},
+            2: {"queue": self.target_queue},
+            3: {"queue": self.target_queue},
+            4: {"queue": self.target_queue},
+            5: {"queue": self.target_queue},
+            6: {"queue": self.target_queue},
+            7: {"queue": self.target_queue},
+            8: {"queue": self.target_queue},
+            9: {"queue": self.target_queue},
+            10: {"queue": self.target_queue},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -164,10 +164,12 @@ class FilewatcherService(CommonSystemTest):
         )
 
         def create_first_five_files():
+            print("creating first five files")
             for file_number in range(0, 5):
                 open(names[file_number], "w").close()
 
         def create_next_five_files():
+            print("creating next five files")
             for file_number in range(5, 10):
                 open(names[file_number], "w").close()
 
@@ -334,15 +336,15 @@ class FilewatcherService(CommonSystemTest):
                     "any": 9,  # End-of-job if at least one file was found
                 },
             },
-            2: {"queue": "transient.system_test." + self.guid + ".pass.2"},
-            3: {"queue": "transient.system_test." + self.guid + ".pass.3"},
-            4: {"queue": "transient.system_test." + self.guid + ".pass.4"},
-            5: {"queue": "transient.system_test." + self.guid + ".pass.5"},
-            6: {"queue": "transient.system_test." + self.guid + ".pass.6"},
-            7: {"queue": "transient.system_test." + self.guid + ".pass.7"},
-            8: {"queue": "transient.system_test." + self.guid + ".pass.8"},
-            9: {"queue": "transient.system_test." + self.guid + ".pass.9"},
-            10: {"queue": "transient.system_test." + self.guid + ".pass.10"},
+            2: {"queue": self.target_queue},
+            3: {"queue": self.target_queue},
+            4: {"queue": self.target_queue},
+            5: {"queue": self.target_queue},
+            6: {"queue": self.target_queue},
+            7: {"queue": self.target_queue},
+            8: {"queue": self.target_queue},
+            9: {"queue": self.target_queue},
+            10: {"queue": self.target_queue},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -611,15 +613,15 @@ class FilewatcherService(CommonSystemTest):
                     "any": 9,  # Should not be triggered here
                 },
             },
-            2: {"queue": "transient.system_test." + self.guid + ".fail.2"},
-            3: {"queue": "transient.system_test." + self.guid + ".fail.3"},
-            4: {"queue": "transient.system_test." + self.guid + ".fail.4"},
-            5: {"queue": "transient.system_test." + self.guid + ".fail.5"},
-            6: {"queue": "transient.system_test." + self.guid + ".fail.6"},
-            7: {"queue": "transient.system_test." + self.guid + ".fail.7"},
-            8: {"queue": "transient.system_test." + self.guid + ".fail.8"},
-            9: {"queue": "transient.system_test." + self.guid + ".fail.9"},
-            10: {"queue": "transient.system_test." + self.guid + ".fail.10"},
+            2: {"queue": self.target_queue},
+            3: {"queue": self.target_queue},
+            4: {"queue": self.target_queue},
+            5: {"queue": self.target_queue},
+            6: {"queue": self.target_queue},
+            7: {"queue": self.target_queue},
+            8: {"queue": self.target_queue},
+            9: {"queue": self.target_queue},
+            10: {"queue": self.target_queue},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -717,15 +719,15 @@ class FilewatcherService(CommonSystemTest):
                     "any": 9,  # Should not be triggered here
                 },
             },
-            2: {"queue": "transient.system_test." + self.guid + ".fail.2"},
-            3: {"queue": "transient.system_test." + self.guid + ".fail.3"},
-            4: {"queue": "transient.system_test." + self.guid + ".fail.4"},
-            5: {"queue": "transient.system_test." + self.guid + ".fail.5"},
-            6: {"queue": "transient.system_test." + self.guid + ".fail.6"},
-            7: {"queue": "transient.system_test." + self.guid + ".fail.7"},
-            8: {"queue": "transient.system_test." + self.guid + ".fail.8"},
-            9: {"queue": "transient.system_test." + self.guid + ".fail.9"},
-            10: {"queue": "transient.system_test." + self.guid + ".fail.10"},
+            2: {"queue": self.target_queue},
+            3: {"queue": self.target_queue},
+            4: {"queue": self.target_queue},
+            5: {"queue": self.target_queue},
+            6: {"queue": self.target_queue},
+            7: {"queue": self.target_queue},
+            8: {"queue": self.target_queue},
+            9: {"queue": self.target_queue},
+            10: {"queue": self.target_queue},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -844,15 +846,15 @@ class FilewatcherService(CommonSystemTest):
                     "any": 9,  # End-of-job if at least one file was found
                 },
             },
-            2: {"queue": "transient.system_test." + self.guid + ".semi.2"},
-            3: {"queue": "transient.system_test." + self.guid + ".semi.3"},
-            4: {"queue": "transient.system_test." + self.guid + ".semi.4"},
-            5: {"queue": "transient.system_test." + self.guid + ".semi.5"},
-            6: {"queue": "transient.system_test." + self.guid + ".semi.6"},
-            7: {"queue": "transient.system_test." + self.guid + ".semi.7"},
-            8: {"queue": "transient.system_test." + self.guid + ".semi.8"},
-            9: {"queue": "transient.system_test." + self.guid + ".semi.9"},
-            10: {"queue": "transient.system_test." + self.guid + ".semi.10"},
+            2: {"queue": self.target_queue},
+            3: {"queue": self.target_queue},
+            4: {"queue": self.target_queue},
+            5: {"queue": self.target_queue},
+            6: {"queue": self.target_queue},
+            7: {"queue": self.target_queue},
+            8: {"queue": self.target_queue},
+            9: {"queue": self.target_queue},
+            10: {"queue": self.target_queue},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -1023,15 +1025,15 @@ class FilewatcherService(CommonSystemTest):
                     "any": 9,  # End-of-job if at least one file was found
                 },
             },
-            2: {"queue": "transient.system_test." + self.guid + ".semi.2"},
-            3: {"queue": "transient.system_test." + self.guid + ".semi.3"},
-            4: {"queue": "transient.system_test." + self.guid + ".semi.4"},
-            5: {"queue": "transient.system_test." + self.guid + ".semi.5"},
-            6: {"queue": "transient.system_test." + self.guid + ".semi.6"},
-            7: {"queue": "transient.system_test." + self.guid + ".semi.7"},
-            8: {"queue": "transient.system_test." + self.guid + ".semi.8"},
-            9: {"queue": "transient.system_test." + self.guid + ".semi.9"},
-            10: {"queue": "transient.system_test." + self.guid + ".semi.10"},
+            2: {"queue": self.target_queue},
+            3: {"queue": self.target_queue},
+            4: {"queue": self.target_queue},
+            5: {"queue": self.target_queue},
+            6: {"queue": self.target_queue},
+            7: {"queue": self.target_queue},
+            8: {"queue": self.target_queue},
+            9: {"queue": self.target_queue},
+            10: {"queue": self.target_queue},
             "start": [(1, "")],
         }
         recipe = Recipe(recipe)
@@ -1179,7 +1181,3 @@ class FilewatcherService(CommonSystemTest):
             min_wait=25,
             timeout=55,
         )
-
-
-if __name__ == "__main__":
-    FilewatcherService().validate()

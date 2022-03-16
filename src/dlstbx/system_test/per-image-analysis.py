@@ -100,7 +100,7 @@ class PerImageAnalysisService(CommonSystemTest):
             },
             2: {
                 "service": "DLS System Test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [
                 (
@@ -148,7 +148,7 @@ class PerImageAnalysisService(CommonSystemTest):
             },
             2: {
                 "service": "DLS System Test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [
                 (
@@ -183,7 +183,3 @@ class PerImageAnalysisService(CommonSystemTest):
             payload=_PayloadIsValidPIAResult(self.log, recipe, 4000000, 8000000),
             timeout=120,
         )
-
-
-if __name__ == "__main__":
-    PerImageAnalysisService().validate()

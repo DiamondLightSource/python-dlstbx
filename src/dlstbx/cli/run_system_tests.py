@@ -161,9 +161,7 @@ def run():
         unexpected_messages.count += 1
 
     queue_subscription = transport.subscribe_temporary("system_tests", handle_receipt)
-    topic_subscription = transport.subscribe_temporary("system_tests", handle_receipt)
-    logger.debug(f"{queue_subscription}")
-    logger.debug(f"{topic_subscription}")
+    logger.debug(f"{queue_subscription=}")
 
     tests = {}
     collection_errors = False
@@ -187,7 +185,7 @@ def run():
                 )
                 collection_errors = True
             tests[(classname, testname)] = (testsetting, testresult)
-    logger.info("Found {len(tests)} system tests")
+    logger.info(f"Found {len(tests)} system tests")
     if collection_errors:
         sys.exit("Errors during test collection")
 
@@ -297,7 +295,7 @@ def run():
                     if time.time() > start_time + expectation["timeout"]:
                         expectation["received_timeout"] = True
                         logger.warning(
-                            "Test {testname[0]}.{testname[1]} timed out waiting for message\n{expectation}"
+                            f"Test {testname[0]}.{testname[1]} timed out waiting for message\n{expectation}"
                         )
                         test[1].log_error(
                             message="No answer received within time limit.",

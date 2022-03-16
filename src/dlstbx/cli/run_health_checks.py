@@ -105,6 +105,9 @@ def run():
         exit(1)
     if deferred_failure:
         exit(1)
+    if not options.dry_run and not options.check:
+        db.prune()
+        logger.debug("Pruned historic records")
 
 
 def _process_check_result(name, future, db, options):

@@ -222,13 +222,10 @@ class database:
             )
         )
 
-    def prune(self) -> int:
+    def prune(self):
         one_day_ago = sqlalchemy.sql.expression.text("NOW() - INTERVAL 1 DAY")
         with self._sessionmaker() as session:
-            records_pruned = (
-                session.query(Status)
-                .filter(Status.Timestamp < one_day_ago)
-                .delete(synchronize_session=False)
+            session.query(Status).filter(Status.Timestamp < one_day_ago).delete(
+                synchronize_session=False
             )
             session.commit()
-            return records_pruned

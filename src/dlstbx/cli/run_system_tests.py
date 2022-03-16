@@ -83,7 +83,7 @@ def run():
         sys.exit(1)
 
     systest_count = len(systest_classes)
-    logger.info("Found %d system test classes" % systest_count)
+    logger.info(f"Found {systest_count} system test classes")
 
     if args.tests and systest_count:
         systest_classes = {
@@ -92,8 +92,7 @@ def run():
             if any(n.lower().startswith(v.lower()) for v in args.tests)
         }
         logger.info(
-            "Filtered %d classes via command line arguments"
-            % (systest_count - len(systest_classes))
+            f"Filtered {systest_count - len(systest_classes)} classes via command line arguments"
         )
         systest_count = len(systest_classes)
     if args.exclude and systest_count:
@@ -101,55 +100,11 @@ def run():
             n: cls for n, cls in systest_classes.items() if n not in args.exclude
         }
         logger.info(
-            "Excluded %d classes via command line arguments"
-            % (systest_count - len(systest_classes))
+            f"Excluded {systest_count - len(systest_classes)} classes via command line arguments"
         )
         systest_count = len(systest_classes)
 
-    tests = {}
-    collection_errors = False
-    for classname, cls in systest_classes.items():
-        logger.debug("Collecting tests from %s" % classname)
-        for testname, testsetting in cls(dev_mode=test_mode).collect_tests().items():
-            testresult = Result()
-            testresult.set_name(testname)
-            testresult.set_classname(classname)
-            testresult.early = 0
-            if testsetting.errors:
-                testresult.log_trace("\n".join(testsetting.errors))
-                logger.error(
-                    "Error reading test %s:\n%s",
-                    testname,
-                    "\n".join(testsetting.errors),
-                )
-                collection_errors = True
-            tests[(classname, testname)] = (testsetting, testresult)
-    logger.info("Found %d system tests" % len(tests))
-    if collection_errors:
-        sys.exit("Errors during test collection")
-
-    # Set up subscriptions
-
-    print("")
-
-    start_time = time.time()  # This is updated after sending all messages
-
-    channels = collections.defaultdict(list)
-    for test, _ in tests.values():
-        for expectation in test.expect:
-            channels[(expectation["queue"], expectation["topic"])].append(expectation)
-        for expectation in test.quiet:
-            channels[(expectation["queue"], expectation["topic"])].extend([])
-
-    channel_lookup = {}
-
-    unexpected_messages = Result()
-    unexpected_messages.set_name("received_no_unexpected_messages")
-    unexpected_messages.set_classname(".")
-    unexpected_messages.count = 0
-
     def handle_receipt(header, message):
-        expected_messages = channels[channel_lookup[header["subscription"]]]
         for expected_message in expected_messages:
             if not expected_message.get("received"):
                 if expected_message["message"] == message:
@@ -205,20 +160,52 @@ def run():
         )
         unexpected_messages.count += 1
 
-    for n, (queue, topic) in enumerate(channels.keys()):
-        logger.debug("%2d: Subscribing to %s" % (n + 1, queue))
-        if queue:
-            sub_id = transport.subscribe(queue, handle_receipt)
-        if topic:
-            sub_id = transport.subscribe_broadcast(topic, handle_receipt)
-        channel_lookup[str(sub_id)] = (queue, topic)
-        # subscriptions may be expensive on the server side, so apply some rate limiting
-        # so that the server can catch up and replies on this connection are not unduly
-        # delayed
-        time.sleep(0.3)
-    delay = 0.1 * len(channels) + 0.007 * len(channels) * len(channels)
-    logger.debug(f"Waiting {delay:.1f} seconds...")
-    time.sleep(delay)
+    queue_subscription = transport.subscribe_temporary("system_tests", handle_receipt)
+    topic_subscription = transport.subscribe_temporary("system_tests", handle_receipt)
+    logger.debug(f"{queue_subscription}")
+    logger.debug(f"{topic_subscription}")
+
+    tests = {}
+    collection_errors = False
+    for classname, cls in systest_classes.items():
+        logger.debug(f"Collecting tests from {classname}")
+        for testname, testsetting in (
+            cls(zc=zc, dev_mode=test_mode, target_queue=queue_subscription.queue_name)
+            .collect_tests()
+            .items()
+        ):
+            testresult = Result()
+            testresult.set_name(testname)
+            testresult.set_classname(classname)
+            testresult.early = 0
+            if testsetting.errors:
+                testresult.log_trace("\n".join(testsetting.errors))
+                logger.error(
+                    "Error reading test %s:\n%s",
+                    testname,
+                    "\n".join(testsetting.errors),
+                )
+                collection_errors = True
+            tests[(classname, testname)] = (testsetting, testresult)
+    logger.info("Found {len(tests)} system tests")
+    if collection_errors:
+        sys.exit("Errors during test collection")
+
+    # Set up subscriptions
+
+    print("")
+
+    start_time = time.time()  # This is updated after sending all messages
+
+    expected_messages = [
+        expectation for test, _ in tests.values() for expectation in test.expect
+    ]
+    logger.debug(f"Expected messages: {expected_messages}")
+
+    unexpected_messages = Result()
+    unexpected_messages.set_name("received_no_unexpected_messages")
+    unexpected_messages.set_classname(".")
+    unexpected_messages.count = 0
 
     # Send out messages
 
@@ -227,7 +214,7 @@ def run():
     for test, _ in tests.values():
         for message in test.send:
             if message.get("queue"):
-                logger.debug("Sending message to %s", message["queue"])
+                logger.debug(f"Sending message to {message['queue']}")
                 transport.send(
                     message["queue"],
                     message["message"],
@@ -235,7 +222,7 @@ def run():
                     persistent=False,
                 )
             if message.get("topic"):
-                logger.debug("Broadcasting message to %s", message["topic"])
+                logger.debug(f"Broadcasting message to {message['topic']}")
                 transport.broadcast(
                     message["topic"], message["message"], headers=message["headers"]
                 )
@@ -291,14 +278,14 @@ def run():
                         f"{event.result_object.classname} timer event failed for {event.result_object.name}: return value '{event_result}' does not match '{event.expected_result}'"
                     )
                     event.result_object.log_error(
-                        message="Timer event failed with result '%s' instead of expected '%s'"
-                        % (event_result, event.expected_result)
+                        message=f"Timer event failed with result {event_result} instead of expected {event.expected_result}"
                     )
         if timer_events:
             wait_to = min(wait_to, timer_events[0][0])
             keep_waiting = True
         if time.time() > last_message + 5:
-            logger.info("Waited %5.1fs." % (time.time() - start_time))
+            wait_time = time.time() - start_time
+            logger.info(f"Waited {wait_time:5.1f}s.")
             last_message = time.time()
         time.sleep(max(0.01, wait_to - time.time()))
 
@@ -310,8 +297,7 @@ def run():
                     if time.time() > start_time + expectation["timeout"]:
                         expectation["received_timeout"] = True
                         logger.warning(
-                            "Test %s.%s timed out waiting for message\n%s"
-                            % (testname[0], testname[1], str(expectation))
+                            "Test {testname[0]}.{testname[1]} timed out waiting for message\n{expectation}"
                         )
                         test[1].log_error(
                             message="No answer received within time limit.",
@@ -340,7 +326,7 @@ def run():
 
     successes = sum(r.is_success() for _, r in tests.values())
     logger.info(
-        "System test run completed, %d of %d tests succeeded." % (successes, len(tests))
+        f"System test run completed, {successes} of {len(tests)} tests succeeded."
     )
     for a, b in tests.values():
         if not b.is_success():
@@ -352,20 +338,17 @@ def run():
                     b.failure_output.replace("\n", "\n    "),
                 )
             else:
+                received_count = len([x for x in a.expect if x.get("received")])
+                expected_count = len(a.expect)
                 logger.warning(
-                    "  %s %s received %d out of %d expected replies %s"
-                    % (
-                        b.classname,
-                        b.name,
-                        len([x for x in a.expect if x.get("received")]),
-                        len(a.expect),
-                        "(%d early)" % b.early if b.early else "",
-                    )
+                    f"  {b.classname} {b.name} received {received_count} out of {expected_count} expected replies"
+                    + f" ({b.early} early)"
+                    if b.early
+                    else "",
                 )
     if unexpected_messages.count:
         logger.error(
-            "  Received %d unexpected message%s."
-            % (unexpected_messages.count, "" if unexpected_messages.count == 1 else "s")
+            f"  Received {unexpected_messages.count} unexpected message{'' if unexpected_messages.count == 1 else 's'}."
         )
         exit(1)
     if successes != len(tests):

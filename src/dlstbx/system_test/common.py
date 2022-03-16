@@ -6,6 +6,8 @@ import string
 import uuid
 from unittest import mock
 
+import zocalo.configuration
+
 CollectedTest = collections.namedtuple(
     "CollectedTest", "send, expect, timers, errors, quiet"
 )
@@ -60,9 +62,16 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
     log = logging.getLogger("dlstbx.system_test")
     """Common logger object."""
 
-    def __init__(self, dev_mode=False):
+    def __init__(
+        self,
+        zc: zocalo.configuration.Configuration,
+        dev_mode: bool = False,
+        target_queue: str | None = None,
+    ):
         """Constructor via which the development mode can be set."""
+        self.zc = zc
         self.development_mode = dev_mode
+        self.target_queue = target_queue
         self.rotate_guid()
 
     def rotate_guid(self):
@@ -185,17 +194,17 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
             assert recipe_pointer in recipe, "Given recipe-pointer %s invalid" % str(
                 recipe_pointer
             )
-            queue = recipe[recipe_pointer].get("queue")
+            queue = self.target_queue or recipe[recipe_pointer].get("queue")
             topic = recipe[recipe_pointer].get("topic")
             assert queue or topic, "Message queue or topic destination required"
         assert (
             not queue or not topic
         ), "Can only expect message on queue or topic, not both"
         if headers is None:
-            headers = {"workflows-recipe": "True"}
+            headers = {"workflows-recipe": mock.ANY}
         else:
             headers = headers.copy()
-            headers["workflows-recipe"] = "True"
+            headers["workflows-recipe"] = mock.ANY
         if environment:
 
             class dictionary_contains:

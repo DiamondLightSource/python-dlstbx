@@ -9,7 +9,6 @@ import argparse
 import curses
 import os
 import re
-import sys
 import threading
 import time
 from pprint import pprint
@@ -51,7 +50,7 @@ class Monitor:
     most_recent_version: dict[Any, Tuple[Any, Any]] = {}
     """Dictionary to hold software version information, so old versions can be highlighted."""
 
-    def __init__(self, filters=None, transport=None, version=None, test=False):
+    def __init__(self, filters=None, transport=None, version=None):
         """Set up monitor and connect to the network transport layer"""
         if transport is None or isinstance(transport, str):
             self._transport = workflows.transport.lookup(transport)()
@@ -61,7 +60,7 @@ class Monitor:
         self._filters = filters
         self._lock = threading.RLock()
         self._node_status = {}
-        self.headline = "DLS " + ("ZocDEV" if test else "Zocalo") + " service monitor"
+        self.headline = "DLS Zocalo service monitor"
         if version:
             self.headline += " v%s" % version.split(" ")[1].split("-")[0]
         self.headline += " -- quit with Ctrl+C"
@@ -407,7 +406,7 @@ class Monitor:
 class RawMonitor:
     """A minimalistic monitor that only displays raw status messages."""
 
-    def __init__(self, filters=None, transport=None, version=None, test=False):
+    def __init__(self, filters=None, transport=None, version=None):
         """Set up monitor and connect to the network transport layer"""
         if transport is None or isinstance(transport, str):
             self._transport = workflows.transport.lookup(transport)()
@@ -416,7 +415,7 @@ class RawMonitor:
         assert self._transport.connect(), "Could not connect to transport layer"
         self._lock = threading.RLock()
         self._filters = filters
-        headline = "DLS " + ("ZocDEV" if test else "Zocalo") + " service monitor"
+        headline = "DLS Zocalo service monitor"
         if version:
             headline += " v%s" % version.split(" ")[1].split("-")[0]
         headline += " -- quit with Ctrl+C"
@@ -470,12 +469,6 @@ def run():
         help="Filter to hosts matching this regular expression",
     )
     parser.add_argument(
-        "--test",
-        action="store_true",
-        dest="test",
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
         "--raw", action="store_true", dest="raw", help="Show raw status messages"
     )
 
@@ -489,12 +482,6 @@ def run():
 
     workflows.transport.add_command_line_options(parser, transport_argument=True)
     options = parser.parse_args()
-
-    # Deprecated: Remove after 2021
-    if options.test:
-        sys.exit(
-            "Error: --test is deprecated. Please use '-e test' to specify a test environment"
-        )
 
     monitor = Monitor
     if options.raw:
@@ -517,9 +504,7 @@ def run():
 
         filters.append(is_service_match)
 
-    monitor = monitor(
-        transport=options.transport, version=version, filters=filters, test=options.test
-    )
+    monitor = monitor(transport=options.transport, version=version, filters=filters)
     if options.nofancy:
         monitor.border_chars = monitor.border_chars_text
     monitor.run()

@@ -21,7 +21,7 @@ class DispatcherService(CommonSystemTest):
         recipe = {
             1: {
                 "service": "DLS system test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [(1, {"purpose": "trivial test for the recipe parsing service"})],
         }
@@ -41,7 +41,7 @@ class DispatcherService(CommonSystemTest):
         recipe = {  # noqa: F841
             1: {
                 "service": "DLS system test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [
                 (1, {"purpose": "guid generation test for the recipe parsing service"})
@@ -57,7 +57,7 @@ class DispatcherService(CommonSystemTest):
         The message should then contain the recipe and a correctly set pointer."""
 
         recipe = {
-            1: {"service": "DLS system test", "queue": "transient.system_test.{guid}"},
+            1: {"service": "DLS system test", "queue": self.target_queue},
             "start": [(1, {"purpose": "test the recipe parsing service"})],
         }
         parameters = {"guid": self.guid}
@@ -80,14 +80,13 @@ class DispatcherService(CommonSystemTest):
         """When a file name is passed to the service the file should be loaded and
         parsed correctly, including parameter replacement."""
 
-        parameters = {"guid": self.guid}
+        parameters = {"queue": self.target_queue}
         self.send_message(
             queue="processing_recipe",
             message={"parameters": parameters, "recipes": ["test-dispatcher"]},
         )
 
-        recipe_path = "/dls_sw/apps/zocalo/live/recipes"
-
+        recipe_path = self.zc.storage.get("zocalo.recipe_directory")
         with open(os.path.join(recipe_path, "test-dispatcher.json")) as fh:
             recipe = json.load(fh)
         expected_recipe = Recipe(recipe)
@@ -103,9 +102,9 @@ class DispatcherService(CommonSystemTest):
     def test_combining_recipes(self):
         """Combine a recipe from a file and a custom recipe."""
 
-        parameters = {"guid": self.guid}
+        parameters = {"queue": self.target_queue}
         recipe_passed = {
-            1: {"service": "DLS system test", "queue": "transient.system_test.{guid}"},
+            1: {"service": "DLS system test", "queue": self.target_queue},
             "start": [(1, {"purpose": "test recipe merging"})],
         }
         self.send_message(
@@ -117,7 +116,7 @@ class DispatcherService(CommonSystemTest):
             },
         )
 
-        recipe_path = "/dls_sw/apps/zocalo/live/recipes"
+        recipe_path = self.zc.storage.get("zocalo.recipe_directory")
         with open(os.path.join(recipe_path, "test-dispatcher.json")) as fh:
             recipe_from_file = json.loads(fh.read())
 
@@ -125,14 +124,14 @@ class DispatcherService(CommonSystemTest):
             recipe=mock.ANY,
             recipe_path=[],
             recipe_pointer=1,
-            queue="transient.system_test." + self.guid,
+            queue=self.target_queue,
             payload=recipe_passed["start"][0][1],
         )
         self.expect_recipe_message(
             recipe=mock.ANY,
             recipe_path=[],
             recipe_pointer=2,
-            queue="transient.system_test." + self.guid,
+            queue=self.target_queue,
             payload=recipe_from_file["start"][0][1],
         )
 
@@ -142,7 +141,7 @@ class DispatcherService(CommonSystemTest):
         recipe = {
             1: {
                 "service": "DLS system test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [
                 (
@@ -183,7 +182,7 @@ class DispatcherService(CommonSystemTest):
         recipe = {
             1: {
                 "service": "DLS system test - should not end up here",
-                "queue": "transient.system_test." + self.guid + ".fail",
+                "queue": self.target_queue,
             },
             "start": [
                 [
@@ -201,9 +200,7 @@ class DispatcherService(CommonSystemTest):
                 "ispyb_dcid": 4977408,
                 "ispyb_wait_for_runstatus": True,
                 "dispatcher_timeout": 10,
-                "dispatcher_error_queue": "transient.system_test."
-                + self.guid
-                + ".timeout",
+                "dispatcher_error_queue": self.target_queue,
             },
         }
         self.send_message(queue="processing_recipe", message=message)
@@ -218,12 +215,8 @@ class DispatcherService(CommonSystemTest):
         message["parameters"]["dispatcher_expiration"] = mock.ANY
 
         self.expect_message(
-            queue="transient.system_test." + self.guid + ".timeout",
+            queue=self.target_queue,
             message=message,
             min_wait=9,
             timeout=30,
         )
-
-
-if __name__ == "__main__":
-    DispatcherService().validate()

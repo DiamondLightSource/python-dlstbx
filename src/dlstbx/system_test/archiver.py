@@ -26,7 +26,7 @@ class ArchiverService(CommonSystemTest):
             },
             2: {
                 "service": "DLS System Test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [(1, {"purpose": "Generate an XML dropfile for specified files"})],
         }
@@ -74,7 +74,7 @@ class ArchiverService(CommonSystemTest):
             },
             2: {
                 "service": "DLS System Test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [(1, {"purpose": "Generate an XML dropfile for specified files"})],
         }
@@ -122,7 +122,7 @@ class ArchiverService(CommonSystemTest):
             },
             2: {
                 "service": "DLS System Test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [(1, {"purpose": "Generate an XML dropfile for specified files"})],
         }
@@ -186,7 +186,7 @@ class ArchiverService(CommonSystemTest):
             },
             2: {
                 "service": "DLS System Test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [(1, {"purpose": "Generate an XML dropfile for specified files"})],
         }
@@ -254,7 +254,7 @@ class ArchiverService(CommonSystemTest):
             },
             2: {
                 "service": "DLS System Test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [(1, {"purpose": "Generate an XML dropfile for specified files"})],
         }
@@ -317,7 +317,7 @@ class ArchiverService(CommonSystemTest):
             },
             2: {
                 "service": "DLS System Test",
-                "queue": "transient.system_test." + self.guid,
+                "queue": self.target_queue,
             },
             "start": [(1, {"purpose": "Generate an XML dropfile for specified files"})],
         }
@@ -347,7 +347,3 @@ class ArchiverService(CommonSystemTest):
             payload={"failed": 5, "success": 6, "xml": xmldata},
             timeout=120,
         )
-
-
-if __name__ == "__main__":
-    ArchiverService().validate()

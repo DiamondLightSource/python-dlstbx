@@ -87,7 +87,9 @@ class _MicroAPI:
 
     def endpoint(self, endpoint: str) -> JSONDict:
         try:
-            result = requests.get(f"{self._base_url}/{endpoint}", auth=self._auth)
+            result = requests.get(
+                f"{self._base_url}/{endpoint}", auth=self._auth, timeout=2
+            )
         except requests.exceptions.ConnectionError as e:
             raise ConnectionError(
                 f"{self._base_url} raised connection error {e!r}"
@@ -101,7 +103,7 @@ class _MicroAPI:
     def test(self, endpoint: str) -> bool:
         try:
             result = requests.get(
-                f"{self._base_url}/{endpoint.lstrip('/')}", auth=self._auth
+                f"{self._base_url}/{endpoint.lstrip('/')}", auth=self._auth, timeout=2
             )
         except requests.exceptions.ConnectionError as e:
             raise ConnectionError(

@@ -431,17 +431,6 @@ def ispyb_write_model_json(working_directory, mdl_dict, logger):
         os.path.join(working_directory, "big_ep_model_ispyb.json"), "w"
     ) as json_file:
         json_file.write(json_data)
-    # try:
-    #    if os.path.isfile(msg.synchweb_ticks):
-    #        fp = open(msg.synchweb_ticks, "a")
-    #    else:
-    #        fp = open(msg.synchweb_ticks, "w")
-    #        fp.write("Legacy log file to update ap_status in SynchWeb\n")
-    #    fp.write("Results for Residues")
-    #    fp.write(json_data)
-    #    fp.close()
-    # except IOError:
-    #    logger.exception("Error creating legacy log file for SynchWeb")
 
 
 def copy_results(working_directory, results_directory, skip_copy, logger):

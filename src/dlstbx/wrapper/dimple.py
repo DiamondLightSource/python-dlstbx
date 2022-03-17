@@ -226,23 +226,6 @@ class DimpleWrapper(Wrapper):
                 os.fspath(self.working_directory), self.params["create_symlink"]
             )
 
-        # Create SynchWeb ticks hack file. This will be deleted or replaced later.
-        # For this we need to create the results directory and its symlink immediately.
-        if self.params.get("synchweb_ticks") and self.params.get("set_synchweb_status"):
-            logger.debug("Setting SynchWeb status to swirl")
-            if self.params.get("create_symlink"):
-                self.results_directory.mkdir(parents=True, exist_ok=True)
-                dlstbx.util.symlink.create_parent_symlink(
-                    os.fspath(self.results_directory), self.params["create_symlink"]
-                )
-                mtzsymlink = mtz.parent / self.params["create_symlink"]
-                if not mtzsymlink.exists():
-                    deltapath = os.path.relpath(self.results_directory, mtz.parent)
-                    os.symlink(deltapath, mtzsymlink)
-            synchweb_ticks = pathlib.Path(self.params["synchweb_ticks"])
-            synchweb_ticks.parent.mkdir(parents=True, exist_ok=True)
-            synchweb_ticks.touch(exist_ok=True)
-
         logger.info("command: %s", " ".join(map(str, command)))
         result = procrunner.run(
             command,
@@ -297,17 +280,6 @@ class DimpleWrapper(Wrapper):
         if success:
             logger.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()
-
-        # Update SynchWeb tick hack file
-        if self.params.get("synchweb_ticks") and self.params.get("set_synchweb_status"):
-            if success:
-                logger.debug("Removing SynchWeb hack file")
-                pathlib.Path(self.params["synchweb_ticks"]).unlink()
-            else:
-                logger.debug("Updating SynchWeb hack file to failure")
-                pathlib.Path(self.params["synchweb_ticks"]).write_text(
-                    "This file is used as a flag to synchweb to show the processing has failed"
-                )
 
         return success
 

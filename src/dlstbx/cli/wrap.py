@@ -6,27 +6,25 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import sys
-from optparse import SUPPRESS_HELP, OptionParser
 
 import pkg_resources
 import workflows
 import workflows.recipe.wrapper
 import workflows.services.common_service
 import workflows.transport
-import workflows.transport.offline_transport
 import workflows.util
+import zocalo.configuration.argparse
 import zocalo.util
 import zocalo.wrapper
-from workflows.transport.stomp_transport import StompTransport
 
-from dlstbx import enable_graylog
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
 
-def run(cmdline_args=sys.argv[1:]):
+def run():
     # Enable logging to console
     console = ColorStreamHandler()
     console.setLevel(logging.INFO)
@@ -39,37 +37,27 @@ def run(cmdline_args=sys.argv[1:]):
     logging.getLogger().addHandler(console)
     log = logging.getLogger("dlstbx.wrap")
 
-    # Set up stomp defaults
-    default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-live.cfg"
-    use_live_infrastructure = True
-    if "--test" in cmdline_args:
-        default_configuration = "/dls_sw/apps/zocalo/secrets/credentials-testing.cfg"
-        use_live_infrastructure = False
-    if "--offline" in cmdline_args:
-        default_configuration = ""
-        use_live_infrastructure = False
-    if default_configuration:
-        StompTransport.load_configuration_file(default_configuration)
+    zc = zocalo.configuration.from_file()
+    zc.activate()
 
     known_wrappers = {
         e.name: e.load for e in pkg_resources.iter_entry_points("zocalo.wrappers")
     }
 
     # Set up parser
-    parser = OptionParser(usage="dlstbx.wrap [options]")
-    parser.add_option("-?", action="help", help=SUPPRESS_HELP)
+    parser = argparse.ArgumentParser(usage="dlstbx.wrap [options]")
+    parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
 
-    parser.add_option(
+    parser.add_argument(
         "--wrap",
         action="store",
         dest="wrapper",
-        type="choice",
         metavar="WRAP",
         default=None,
         choices=list(known_wrappers),
         help="Object to be wrapped (valid choices: %s)" % ", ".join(known_wrappers),
     )
-    parser.add_option(
+    parser.add_argument(
         "--recipewrapper",
         action="store",
         dest="recipewrapper",
@@ -77,32 +65,7 @@ def run(cmdline_args=sys.argv[1:]):
         default=None,
         help="A serialized recipe wrapper file " "for downstream communication",
     )
-
-    parser.add_option(
-        "--test", action="store_true", help="Run in ActiveMQ testing namespace (zocdev)"
-    )
-    parser.add_option(
-        "--live",
-        action="store_true",
-        help="Run in ActiveMQ live namespace (zocalo, default)",
-    )
-    parser.add_option(
-        "--offline",
-        action="store_true",
-        help="Run without connecting to message or log servers",
-    )
-
-    parser.add_option(
-        "-t",
-        "--transport",
-        dest="transport",
-        metavar="TRN",
-        default="StompTransport",
-        help="Transport mechanism. Known mechanisms: "
-        + ", ".join(workflows.transport.get_known_transports())
-        + " (default: %default)",
-    )
-    parser.add_option(
+    parser.add_argument(
         "-v",
         "--verbose",
         dest="verbose",
@@ -110,62 +73,55 @@ def run(cmdline_args=sys.argv[1:]):
         default=False,
         help="Show debug level messages",
     )
-    workflows.transport.add_command_line_options(parser)
+
+    zc.add_command_line_options(parser)
+    workflows.transport.add_command_line_options(parser, transport_argument=True)
 
     # Parse command line arguments
-    (options, args) = parser.parse_args(cmdline_args)
+    args = parser.parse_args()
 
     # Instantiate specific wrapper
-    if not options.wrapper:
+    if not args.wrapper:
         print("A wrapper object must be specified.")
         sys.exit(1)
 
-    if options.verbose:
+    if args.verbose:
         console.setLevel(logging.DEBUG)
         logging.getLogger("dlstbx").setLevel(logging.DEBUG)
 
-    # Enable logging to graylog
-    if options.offline:
-        graylog_handler = None
-    else:
-        graylog_handler = enable_graylog(live=use_live_infrastructure)
     log.info(
         "Starting wrapper for %s with recipewrapper file %s",
-        options.wrapper,
-        options.recipewrapper,
+        args.wrapper,
+        args.recipewrapper,
     )
 
     # Connect to transport and start sending notifications
-    if options.offline:
-        transport = workflows.transport.offline_transport.OfflineTransport()
-    else:
-        transport = workflows.transport.lookup(options.transport)()
+    transport = workflows.transport.lookup(args.transport)()
     transport.connect()
-    st = zocalo.wrapper.StatusNotifications(transport.broadcast_status, options.wrapper)
+    st = zocalo.wrapper.StatusNotifications(transport.broadcast_status, args.wrapper)
     for field, value in zocalo.util.extended_status_dictionary().items():
         st.set_static_status_field(field, value)
 
     # Instantiate chosen wrapper
-    instance = known_wrappers[options.wrapper]()()
+    instance = known_wrappers[args.wrapper]()()
     instance.status_thread = st
 
     # If specified, read in a serialized recipewrapper
-    if options.recipewrapper:
-        with open(options.recipewrapper) as fh:
+    if args.recipewrapper:
+        with open(args.recipewrapper) as fh:
             recwrap = workflows.recipe.wrapper.RecipeWrapper(
                 message=json.load(fh), transport=transport
             )
         instance.set_recipe_wrapper(recwrap)
 
-        if recwrap.environment.get("ID"):
+        if zc.graylog and recwrap.environment.get("ID"):
             # If recipe ID available then include that in all future log messages
             class ContextFilter(logging.Filter):
                 def filter(self, record):
                     record.recipe_ID = recwrap.environment["ID"]
                     return True
 
-            if graylog_handler:
-                graylog_handler.addFilter(ContextFilter())
+            zc.graylog.addFilter(ContextFilter())
 
         if recwrap.recipe_step.get("wrapper", {}).get("task_information"):
             # If the recipe contains an extra task_information field then add this to the status display

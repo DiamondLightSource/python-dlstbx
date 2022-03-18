@@ -92,8 +92,6 @@ def test_Xia2Wrapper(make_wrapper, tmpdir):
                         "resolution.cc_half_significance_level": "0.1"
                     },
                     "results_directory": results_directory.strpath,
-                    "synchweb_ticks": "/dls/i04/data/2019/nt18231-18/processed/tmp/2019-05-10/09-36-13-9495b73b/Therm_6_2_/c9c31218-3e76-4d98-bb89-0473496bdd94/../xia2/dials-run/xia2.txt",
-                    "synchweb_ticks_magic": "I/sigma",
                     "timeout": None,
                     "working_directory": working_directory.strpath,
                     "xia2": {

@@ -131,8 +131,6 @@ class Xia2Wrapper(Wrapper):
                     params["create_symlink"] += (
                         "-" + params["ispyb_parameters"]["spacegroup"]
                     )
-                # only runs without space group are shown in SynchWeb overview
-                params["synchweb_ticks"] = None
 
         working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])
@@ -143,12 +141,6 @@ class Xia2Wrapper(Wrapper):
             dlstbx.util.symlink.create_parent_symlink(
                 working_directory.strpath, params["create_symlink"]
             )
-
-        # Create SynchWeb ticks hack file.
-        # For xia2 this is independent of the results directory
-        if params.get("synchweb_ticks"):
-            logger.debug("Setting SynchWeb status to swirl")
-            py.path.local(params["synchweb_ticks"]).ensure()
 
         logger.info("command: %s", " ".join(command))
         try:
@@ -274,29 +266,6 @@ class Xia2Wrapper(Wrapper):
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
-        # Update SynchWeb ticks hack file.
-        if params.get("synchweb_ticks"):
-            if success:
-                logger.debug("Setting SynchWeb status to success")
-                py.path.local(params["synchweb_ticks"]).write(
-                    """
-            The purpose of this file is only
-            to signal to SynchWeb that the
-            data were successfully processed.
-
-            # magic string: %s
-            """
-                    % params.get("synchweb_ticks_magic")
-                )
-            else:
-                logger.debug("Setting SynchWeb status to failure")
-                py.path.local(params["synchweb_ticks"]).write(
-                    """
-            The purpose of this file is only
-            to signal to SynchWeb that the
-            data processing has failed.
-            """
-                )
         if dc_end_time := params.get("dc_end_time"):
             dc_end_time = dateutil.parser.parse(dc_end_time)
             pipeline = params["xia2"].get("pipeline", "")

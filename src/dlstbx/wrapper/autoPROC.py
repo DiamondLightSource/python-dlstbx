@@ -467,8 +467,6 @@ class autoPROCWrapper(Wrapper):
                     params["create_symlink"] += (
                         "-" + params["ispyb_parameters"]["spacegroup"]
                     )
-                # only runs without space group are shown in SynchWeb overview
-                params["synchweb_ticks"] = None
 
         command = construct_commandline(params)
 
@@ -480,19 +478,6 @@ class autoPROCWrapper(Wrapper):
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 os.fspath(working_directory), params["create_symlink"]
-            )
-
-        # Create SynchWeb ticks hack file.
-        # For this we need to create the results directory and symlink immediately.
-        if params.get("synchweb_ticks"):
-            logger.debug("Setting SynchWeb status to swirl")
-            if params.get("create_symlink"):
-                results_directory.mkdir(parents=True, exist_ok=True)
-                dlstbx.util.symlink.create_parent_symlink(
-                    os.fspath(results_directory), params["create_symlink"]
-                )
-            pathlib.Path(params["synchweb_ticks"]).parent.mkdir(
-                parents=True, exist_ok=True
             )
 
         # disable control sequence parameters from autoPROC output
@@ -635,29 +620,5 @@ class autoPROCWrapper(Wrapper):
                 special_program_name="autoPROC+STARANISO",
                 attachments=anisofiles,
             )
-
-        # Update SynchWeb ticks hack file.
-        if params.get("synchweb_ticks"):
-            if success:
-                logger.debug("Setting SynchWeb status to success")
-                pathlib.Path(params["synchweb_ticks"]).write_text(
-                    """
-            The purpose of this file is only
-            to signal to SynchWeb that the
-            data were successfully processed.
-
-            # magic string: %s
-            """
-                    % params.get("synchweb_ticks_magic")
-                )
-            else:
-                logger.debug("Setting SynchWeb status to failure")
-                pathlib.Path(params["synchweb_ticks"]).write_text(
-                    """
-            The purpose of this file is only
-            to signal to SynchWeb that the
-            data processing has failed.
-            """
-                )
 
         return success

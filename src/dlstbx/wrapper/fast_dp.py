@@ -132,17 +132,6 @@ class FastDPWrapper(Wrapper):
                 working_directory.strpath, params["create_symlink"]
             )
 
-        # Create SynchWeb ticks hack file. This will be overwritten with the real log later.
-        # For this we need to create the results directory and symlink immediately.
-        if params.get("synchweb_ticks"):
-            logger.debug("Setting SynchWeb status to swirl")
-            if params.get("create_symlink"):
-                results_directory.ensure(dir=True)
-                dlstbx.util.symlink.create_parent_symlink(
-                    results_directory.strpath, params["create_symlink"]
-                )
-            py.path.local(params["synchweb_ticks"]).ensure()
-
         # Set appropriate environment variables for forkxds
         environment = {}
         if params.get("forkxds_queue"):

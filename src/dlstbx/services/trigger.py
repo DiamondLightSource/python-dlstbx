@@ -65,7 +65,6 @@ class DimpleParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     user_pdb_directory: Optional[pathlib.Path] = None
-    set_synchweb_status: Optional[bool] = False
 
 
 class ProteinInfo(pydantic.BaseModel):
@@ -81,7 +80,6 @@ class MrBumpParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     user_pdb_directory: Optional[pathlib.Path] = None
-    set_synchweb_status: Optional[bool] = False
 
 
 class DiffractionPlanInfo(pydantic.BaseModel):
@@ -397,8 +395,6 @@ class DLSTrigger(CommonService):
             "scaling_id": [parameters.scaling_id],
             "pdb": pdb_files,
         }
-        if parameters.set_synchweb_status:
-            dimple_parameters["set_synchweb_status"] = [1]
 
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = dcid

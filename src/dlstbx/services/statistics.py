@@ -41,6 +41,7 @@ class DLSStatistics(CommonService):
             self.cluster_statistic,
             acknowledgement=True,
             exclusive=True,
+            prefetch_count=0,
         )
 
     def cluster_statistic(self, header, message):

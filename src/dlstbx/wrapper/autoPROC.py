@@ -539,6 +539,7 @@ class autoPROCWrapper(Wrapper):
             )
 
         copy_extensions = {
+            ".cif",
             ".dat",
             ".HKL",
             ".html",

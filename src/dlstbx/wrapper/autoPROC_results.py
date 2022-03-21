@@ -344,6 +344,7 @@ class autoPROCResultsWrapper(Wrapper):
         staraniso_xml = read_autoproc_xml(working_directory / "autoPROC_staraniso.xml")
 
         copy_extensions = {
+            ".cif",
             ".dat",
             ".HKL",
             ".html",

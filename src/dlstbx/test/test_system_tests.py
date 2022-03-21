@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import pytest
+import zocalo.configuration
 
 import dlstbx.system_test
 from dlstbx.system_test.common import CommonSystemTest
 
 
-def test_validation_should_fail_on_syntax_error_in_function():
+def test_validation_should_fail_on_syntax_error_in_function(mocker):
     """Here we test that the validation of system tests actually works.
     This is as meta as it gets."""
     # Instantiate test class. This should be valid
-    t = CommonSystemTest()
+    zc = mocker.MagicMock(zocalo.configuration.Configuration)
+    t = CommonSystemTest(zc)
     t.validate()
 
     def broken_function():
@@ -23,11 +25,12 @@ def test_validation_should_fail_on_syntax_error_in_function():
         t.validate()
 
 
-def test_validation_should_fail_on_broken_function_signatures():
+def test_validation_should_fail_on_broken_function_signatures(mocker):
     """Here we test that the validation of system tests actually works.
     This is as meta as it gets."""
     # Instantiate test class. This should be valid
-    t = CommonSystemTest()
+    zc = mocker.MagicMock(zocalo.configuration.Configuration)
+    t = CommonSystemTest(zc)
     t.validate()
 
     def valid_function():
@@ -53,11 +56,12 @@ def test_validation_should_fail_on_broken_function_signatures():
         t.validate()
 
 
-def test_validation_must_set_validation_boolean_correctly():
+def test_validation_must_set_validation_boolean_correctly(mocker):
     """Here we test that the validation of system tests actually works.
     This is as meta as it gets."""
     # Instantiate test class. This should be valid
-    t = CommonSystemTest()
+    zc = mocker.MagicMock(zocalo.configuration.Configuration)
+    t = CommonSystemTest(zc)
     t.validate()
 
     def only_works_under_validation():
@@ -82,6 +86,10 @@ def test_validate_all_system_tests():
     have syntax errors and properly call messaging functions."""
     dlstbx.system_test.load_all_tests()
 
+    # The dispatcher system tests needs to lookup zocalo.recipe_directory
+    zc = zocalo.configuration.from_file()
+    zc.activate()
+
     for name, cls in dlstbx.system_test.get_all_tests().items():
         print("Validating", name)
-        cls().validate()
+        cls(zc, target_queue="foo").validate()

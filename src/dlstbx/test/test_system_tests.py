@@ -81,14 +81,25 @@ def test_validation_must_set_validation_boolean_correctly(mocker):
     t.test_function()
 
 
-def test_validate_all_system_tests():
+def test_validate_all_system_tests(mocker, tmp_path):
     """Now check that all defined system tests pass validation, ie. do not
     have syntax errors and properly call messaging functions."""
     dlstbx.system_test.load_all_tests()
 
-    # The dispatcher system tests needs to lookup zocalo.recipe_directory
-    zc = zocalo.configuration.from_file()
-    zc.activate()
+    # The dispatcher system tests needs to lookup this recipe in
+    # zocalo.recipe_directory
+    (tmp_path / "test-dispatcher.json").write_text(
+        """\
+{
+  "1": { },
+  "start": [ [1, { }] ]
+}
+"""
+    )
+    zc = mocker.MagicMock(zocalo.configuration.Configuration)
+    zc.storage = {
+        "zocalo.recipe_directory": tmp_path,
+    }
 
     for name, cls in dlstbx.system_test.get_all_tests().items():
         print("Validating", name)

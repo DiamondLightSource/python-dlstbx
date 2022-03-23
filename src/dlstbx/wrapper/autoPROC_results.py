@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import os
 import shutil
 import xml.etree.ElementTree
 from pathlib import Path
@@ -124,19 +125,22 @@ class autoPROCResultsWrapper(Wrapper):
         logger.debug(f"autoPROC version: {autoproc_version}")
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
-        if "AutoProc" in autoproc_xml:
+        if auto_proc := autoproc_xml.get("AutoProc"):
+            if isinstance(auto_proc, list):
+                # For multiple sweeps autoPROC duplicates this container
+                auto_proc = auto_proc[0]
             ispyb_command_list.append(
                 {
                     "ispyb_command": "write_autoproc",
                     "autoproc_id": None,
                     "store_result": "ispyb_autoproc_id",
-                    "spacegroup": autoproc_xml["AutoProc"]["spaceGroup"],
-                    "refinedcell_a": autoproc_xml["AutoProc"]["refinedCell_a"],
-                    "refinedcell_b": autoproc_xml["AutoProc"]["refinedCell_b"],
-                    "refinedcell_c": autoproc_xml["AutoProc"]["refinedCell_c"],
-                    "refinedcell_alpha": autoproc_xml["AutoProc"]["refinedCell_alpha"],
-                    "refinedcell_beta": autoproc_xml["AutoProc"]["refinedCell_beta"],
-                    "refinedcell_gamma": autoproc_xml["AutoProc"]["refinedCell_gamma"],
+                    "spacegroup": auto_proc["spaceGroup"],
+                    "refinedcell_a": auto_proc["refinedCell_a"],
+                    "refinedcell_b": auto_proc["refinedCell_b"],
+                    "refinedcell_c": auto_proc["refinedCell_c"],
+                    "refinedcell_alpha": auto_proc["refinedCell_alpha"],
+                    "refinedcell_beta": auto_proc["refinedCell_beta"],
+                    "refinedcell_gamma": auto_proc["refinedCell_gamma"],
                 }
             )
         else:
@@ -145,17 +149,17 @@ class autoPROCResultsWrapper(Wrapper):
 
         # Step 2: Store scaling results, linked to the AutoProcID
         #         Keep the AutoProcScalingID
-        if "AutoProcScalingStatistics" in autoproc_xml.get(
-            "AutoProcScalingContainer", {}
-        ):
+        APSC = autoproc_xml.get("AutoProcScalingContainer", {})
+        if isinstance(APSC, list):
+            # For multiple sweeps autoPROC duplicates this container
+            APSC = APSC[0]
+        if "AutoProcScalingStatistics" in APSC:
             insert_scaling = {
                 "ispyb_command": "insert_scaling",
                 "autoproc_id": "$ispyb_autoproc_id",
                 "store_result": "ispyb_autoprocscaling_id",
             }
-            for statistics in autoproc_xml["AutoProcScalingContainer"][
-                "AutoProcScalingStatistics"
-            ]:
+            for statistics in APSC["AutoProcScalingStatistics"]:
                 insert_scaling[statistics["scalingStatisticsType"]] = {
                     "anom_completeness": statistics["anomalousCompleteness"],
                     "anom_multiplicity": statistics["anomalousMultiplicity"],
@@ -182,12 +186,7 @@ class autoPROCResultsWrapper(Wrapper):
             success = False
 
         # Step 3: Store integration results, linking them to ScalingID
-        if "AutoProcIntegrationContainer" in autoproc_xml.get(
-            "AutoProcScalingContainer", {}
-        ):
-            APIC = autoproc_xml["AutoProcScalingContainer"][
-                "AutoProcIntegrationContainer"
-            ]
+        if APIC := APSC.get("AutoProcIntegrationContainer"):
             if isinstance(APIC, dict):  # Make it a list regardless
                 APIC = [APIC]
             for n, container in enumerate(APIC):
@@ -258,7 +257,7 @@ class autoPROCResultsWrapper(Wrapper):
                         "ispyb_command": "add_program_attachment",
                         "program_id": "$ispyb_autoprocprogram_id",
                         "file_name": filename,
-                        "file_path": dirname,
+                        "file_path": os.fspath(dirname),
                         "file_type": filetype,
                         "importance_rank": importance_rank,
                     }

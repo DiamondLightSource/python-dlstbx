@@ -328,7 +328,7 @@ class DLSCluster(CommonService):
                 with schedd.transaction() as txn:
                     jobnumber = htcondor_job.queue(txn, count=1)
             except Exception:
-                self.log.error(
+                self.log.exception(
                     f"Could not submit HTCondor job:\n{pformat(htcondor_submit)}",
                 )
                 self._transport.nack(header)

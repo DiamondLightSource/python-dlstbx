@@ -21,6 +21,7 @@ class ArchiverService(CommonSystemTest):
                     "pattern": "/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_%03d.img",
                     "pattern-start": 1,
                     "pattern-end": "10",
+                    "dropfile-queue": self.target_queue,
                 },
                 "output": 2,
             },
@@ -57,6 +58,12 @@ class ArchiverService(CommonSystemTest):
             timeout=120,
         )
 
+        self.expect_message(
+            queue=self.target_queue,
+            message=xmldata.encode("utf-8"),
+            timeout=120,
+        )
+
     def test_list_archive_a_set_of_existing_files(self):
         """Generate a dropfile for a small set of files, and compare against a saved copy."""
 
@@ -69,7 +76,11 @@ class ArchiverService(CommonSystemTest):
             1: {
                 "service": "DLS Archiver",
                 "queue": "archive.filelist",
-                "parameters": {"filelist": files, "visit": "DIALS"},
+                "parameters": {
+                    "filelist": files,
+                    "visit": "DIALS",
+                    "dropfile-queue": self.target_queue,
+                },
                 "output": 2,
             },
             2: {
@@ -102,6 +113,12 @@ class ArchiverService(CommonSystemTest):
             recipe_path=[1],
             recipe_pointer=2,
             payload={"failed": 0, "success": 10, "xml": xmldata},
+            timeout=120,
+        )
+
+        self.expect_message(
+            queue=self.target_queue,
+            message=xmldata.encode("utf-8"),
             timeout=120,
         )
 

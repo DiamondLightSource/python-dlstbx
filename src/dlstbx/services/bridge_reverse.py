@@ -34,11 +34,21 @@ class DLSReverseBridge(CommonService):
         send_to = args
         if send_to:
             try:
-                self.stomp_transport.send(
-                    send_to,
-                    message,
-                    headers=header,
-                )
+                if send_to == "darc.dropzone":
+                    # Archiving queue: expect a bytestring and
+                    # don't send to zocalo namespace
+                    self.stomp_transport.raw_send(
+                        send_to,
+                        message,
+                        headers=header,
+                        ignore_namespace=True,
+                    )
+                else:
+                    self.stomp_transport.send(
+                        send_to,
+                        message,
+                        headers=header,
+                    )
 
                 self._transport.ack(header)
             except workflows.Disconnected:

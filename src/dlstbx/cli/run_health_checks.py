@@ -6,7 +6,7 @@ import logging
 
 import pkg_resources
 
-import dlstbx.cli.dlq_check
+import dlstbx
 import dlstbx.health_checks as hc
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 

@@ -3,10 +3,9 @@ from __future__ import annotations
 import subprocess
 from datetime import datetime
 
+import zocalo.cli.dlq_check
 import zocalo.configuration
 
-import dlstbx
-import dlstbx.cli.dlq_check
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 from dlstbx.util.activemqapi import ActiveMQAPI
 
@@ -15,7 +14,7 @@ def check_activemq_dlq(cfc: CheckFunctionInterface):
     zc = zocalo.configuration.from_file()
     zc.activate_environment("live")
     db_status = cfc.current_status
-    status = dlstbx.cli.dlq_check.check_dlq(zc)
+    status = zocalo.cli.dlq_check.check_dlq(zc)
     check_prefix = cfc.name + "."
     now = f"{datetime.now():%Y-%m-%d %H:%M:%S}"
 

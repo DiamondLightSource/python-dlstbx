@@ -21,6 +21,7 @@ class ArchiverService(CommonSystemTest):
                     "pattern": "/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_%03d.img",
                     "pattern-start": 1,
                     "pattern-end": "10",
+                    "dropfile-queue": self.target_queue,
                 },
                 "output": 2,
             },
@@ -57,96 +58,13 @@ class ArchiverService(CommonSystemTest):
             timeout=120,
         )
 
-    def test_pattern_archive_dropfile_queue(self):
-        """Generate a dropfile for a small set of files, and compare against a saved copy."""
-
-        recipe = {
-            1: {
-                "service": "DLS Archiver",
-                "queue": "archive.pattern",
-                "parameters": {
-                    "pattern": "/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_%03d.img",
-                    "pattern-start": 1,
-                    "pattern-end": "10",
-                    "dropfile-queue": self.target_queue,
-                },
-            },
-            "start": [(1, {"purpose": "Generate an XML dropfile for specified files"})],
-        }
-        recipe = Recipe(recipe)
-        recipe.validate()
-
-        self.send_message(
-            queue="archive.pattern",
-            message={
-                "payload": "",
-                "recipe": recipe.recipe,
-                "recipe-pointer": "1",
-                "environment": {"ID": self.guid},
-            },
-            headers={"workflows-recipe": True},
-        )
-
-        expected_xml = os.path.join(os.path.dirname(__file__), "archiver-success.xml")
-        with open(expected_xml, "rb") as fh:
-            # this should be a byte string
-            xmldata = fh.read()
-
         self.expect_message(
             queue=self.target_queue,
-            message=xmldata,
+            message=xmldata.encode("utf-8"),
             timeout=120,
         )
 
     def test_list_archive_a_set_of_existing_files(self):
-        """Generate a dropfile for a small set of files, and compare against a saved copy."""
-
-        files = [
-            "/dls/science/groups/scisoft/DIALS/regression_data/insulin/insulin_1_%03d.img"
-            % i
-            for i in range(1, 11)
-        ]
-        recipe = {
-            1: {
-                "service": "DLS Archiver",
-                "queue": "archive.filelist",
-                "parameters": {"filelist": files, "visit": "DIALS"},
-                "output": 2,
-            },
-            2: {
-                "service": "DLS System Test",
-                "queue": self.target_queue,
-            },
-            "start": [(1, {"purpose": "Generate an XML dropfile for specified files"})],
-        }
-        recipe = Recipe(recipe)
-        recipe.validate()
-
-        self.send_message(
-            queue="archive.filelist",
-            message={
-                "payload": "",
-                "recipe": recipe.recipe,
-                "recipe-pointer": "1",
-                "environment": {"ID": self.guid},
-            },
-            headers={"workflows-recipe": True},
-        )
-
-        expected_xml = os.path.join(os.path.dirname(__file__), "archiver-success.xml")
-        with open(expected_xml) as fh:
-            xmldata = fh.read()
-
-        self.expect_recipe_message(
-            environment={"ID": self.guid},
-            recipe=recipe,
-            recipe_path=[1],
-            recipe_pointer=2,
-            payload={"failed": 0, "success": 10, "xml": xmldata},
-            timeout=120,
-        )
-
-    def test_list_archive_dropfile_queue(self):
         """Generate a dropfile for a small set of files, and compare against a saved copy."""
 
         files = [
@@ -163,6 +81,11 @@ class ArchiverService(CommonSystemTest):
                     "visit": "DIALS",
                     "dropfile-queue": self.target_queue,
                 },
+                "output": 2,
+            },
+            2: {
+                "service": "DLS System Test",
+                "queue": self.target_queue,
             },
             "start": [(1, {"purpose": "Generate an XML dropfile for specified files"})],
         }
@@ -181,13 +104,21 @@ class ArchiverService(CommonSystemTest):
         )
 
         expected_xml = os.path.join(os.path.dirname(__file__), "archiver-success.xml")
-        with open(expected_xml, "rb") as fh:
-            # this should be a byte string
+        with open(expected_xml) as fh:
             xmldata = fh.read()
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=2,
+            payload={"failed": 0, "success": 10, "xml": xmldata},
+            timeout=120,
+        )
 
         self.expect_message(
             queue=self.target_queue,
-            message=xmldata,
+            message=xmldata.encode("utf-8"),
             timeout=120,
         )
 

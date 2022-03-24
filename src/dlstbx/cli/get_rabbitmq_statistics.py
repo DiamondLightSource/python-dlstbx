@@ -5,6 +5,7 @@ import logging
 import sys
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Union
+from urllib.parse import urlparse
 
 import requests
 import workflows.transport.pika_transport
@@ -82,34 +83,45 @@ colour_limits = {
 
 class _MicroAPI:
     def __init__(self, zc: zocalo.configuration.Configuration, base_url: str):
-        self._base_url = base_url
+        self._url = urlparse(base_url, allow_fragments=False)
         self._auth = (zc.rabbitmqapi["username"], zc.rabbitmqapi["password"])
 
     def endpoint(self, endpoint: str) -> JSONDict:
+        url = self._url._replace(path=endpoint).geturl()
         try:
-            result = requests.get(
-                f"{self._base_url}/{endpoint}", auth=self._auth, timeout=2
-            )
+            result = requests.get(url, auth=self._auth, timeout=2)
         except requests.exceptions.ConnectionError as e:
-            raise ConnectionError(
-                f"{self._base_url} raised connection error {e!r}"
-            ) from None
+            raise ConnectionError(f"{url} raised connection error {e!r}") from None
         if result.status_code != 200:
             raise ConnectionError(
-                f"{self._base_url} returned status code {result.status_code}: {result.reason}"
+                f"{url} returned status code {result.status_code}: {result.reason}"
             )
         return result.json()
 
     def test(self, endpoint: str) -> bool:
+        url = self._url._replace(path=endpoint).geturl()
         try:
-            result = requests.get(
-                f"{self._base_url}/{endpoint.lstrip('/')}", auth=self._auth, timeout=2
-            )
+            result = requests.get(url, auth=self._auth, timeout=2)
         except requests.exceptions.ConnectionError as e:
-            raise ConnectionError(
-                f"{self._base_url} raised connection error {e!r}"
-            ) from None
+            raise ConnectionError(f"{url} raised connection error {e!r}") from None
         return result.status_code == 200
+
+    def check_metrics(self) -> bool:
+        prometheus_port = (self._url.port or 15672) + 20
+        url = self._url._replace(
+            scheme="http",
+            path="/metrics",
+            netloc=f"{self._url.hostname}:{prometheus_port}",
+        ).geturl()
+        try:
+            result = requests.get(url, timeout=2)
+        except requests.exceptions.ConnectionError as e:
+            raise ConnectionError(f"{url} raised connection error {e!r}") from None
+        if result.status_code != 200:
+            raise ConnectionError(
+                f"{url} returned status code {result.status_code}: {result.reason}"
+            )
+        return "rabbitmq_identity_info" in result.text
 
 
 def colourreset():
@@ -151,6 +163,15 @@ def rabbit_checks(zc, hosts: List[str]):
                 result["hosts"][host]["certificate"] = StatusText(
                     level=2, text=certificate_issue
                 )
+        try:
+            if not rabbit[host].check_metrics():
+                result["hosts"][host]["connection"] = StatusText(
+                    level=2, text="Prometheus metrics not available"
+                )
+        except ConnectionError:
+            result["hosts"][host]["connection"] = StatusText(
+                level=2, text="Prometheus metrics not available"
+            )
 
     if not status:
         result["cluster"]["status"] = StatusText(

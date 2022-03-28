@@ -17,7 +17,6 @@ import zocalo.util
 
 import dlstbx.util
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
-from dlstbx.util.logging import DowngradeErrorsFilter
 from dlstbx.util.version import dlstbx_version
 
 
@@ -45,10 +44,10 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         logging.getLogger("relion").setLevel(logging.INFO)
         logging.getLogger("pika").setLevel(logging.WARNING)
         logging.getLogger("pika.adapters.utils.io_services_utils").addFilter(
-            DowngradeErrorsFilter()
+            dlstbx.util.DowngradeErrorsFilter()
         )
         logging.getLogger("pika.adapters.utils.connection_workflow").addFilter(
-            DowngradeErrorsFilter()
+            dlstbx.util.DowngradeErrorsFilter()
         )
         logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
         logging.getLogger("workflows").setLevel(logging.INFO)

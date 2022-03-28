@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from dlstbx.util.logging import DowngradeErrorsFilter
+from dlstbx.util import DowngradeErrorsFilter
 
 
 def test_downgrading_filter_reduces_severity_of_error_messages(caplog):

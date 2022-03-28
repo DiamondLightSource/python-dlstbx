@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import configparser
+import getpass
 import glob
 import shutil
 import time
@@ -198,6 +199,26 @@ def write_singularity_script(working_directory, singularity_image, tmp_mount=Fal
     commands = [
         "#!/bin/bash",
         f"/usr/bin/singularity exec --home ${{PWD}} {add_tmp_mount} {singularity_image} $@",
+    ]
+    with open(singularity_script, "w") as fp:
+        fp.write("\n".join(commands))
+
+
+def write_mrbump_singularity_script(
+    working_directory, singularity_image, tmp_mount, pdbmount, pdblocal
+):
+    singularity_script = working_directory / "run_singularity.sh"
+
+    tmp_pdb_mount = (
+        f"--bind ${{PWD}}/{tmp_mount}:/opt/xia2/tmp --bind {pdbmount}:{pdblocal}"
+        if tmp_mount
+        else ""
+    )
+    commands = [
+        "#!/bin/bash",
+        f"export USER={getpass.getuser()}",
+        "export HOME=${PWD}/auto_mrbump",
+        f"/usr/bin/singularity exec --home ${{PWD}} {tmp_pdb_mount} {singularity_image} $@",
     ]
     with open(singularity_script, "w") as fp:
         fp.write("\n".join(commands))

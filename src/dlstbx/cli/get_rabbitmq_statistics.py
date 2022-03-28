@@ -138,14 +138,20 @@ def rabbit_checks(zc, hosts: List[str]):
     nodes: Dict[str, JSONDict] = {}
     cluster_name: Optional[str] = None
     for host in rabbit:
+        certificate_issue = problems_with_certificate(host)
         result["hosts"][host] = {}
         try:
             status[host] = rabbit[host].endpoint("api/overview")
             cluster_name = cluster_name or status[host].get("cluster_name")
         except ConnectionError:
-            result["hosts"][host]["connection"] = StatusText(
-                level=2, text="Unreachable"
-            )
+            if certificate_issue and "Socket" not in certificate_issue:
+                result["hosts"][host]["connection"] = StatusText(
+                    level=2, text=f"Unreachable, {certificate_issue}"
+                )
+            else:
+                result["hosts"][host]["connection"] = StatusText(
+                    level=2, text="Unreachable"
+                )
             continue
         try:
             nodes[host] = rabbit[host].endpoint(f"api/nodes/{status[host]['node']}")
@@ -153,7 +159,6 @@ def rabbit_checks(zc, hosts: List[str]):
             result["hosts"][host]["connection"] = StatusText(
                 level=2, text="Partially unresponsive"
             )
-        certificate_issue = problems_with_certificate(host)
         if certificate_issue:
             if "will expire" in certificate_issue and "days" in certificate_issue:
                 result["hosts"][host]["certificate"] = StatusText(

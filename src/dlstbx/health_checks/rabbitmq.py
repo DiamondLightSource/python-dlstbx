@@ -175,7 +175,7 @@ def check_rabbitmq_health(cfc: CheckFunctionInterface) -> list[Status]:
                 MessageBody=", ".join(status_array),
                 URL=f"https://{hosts[0]}.diamond.ac.uk/",
             )
-        elif node_status == 1:
+        elif cluster_status == 1:
             status_object = Status(
                 Source=f"{check_prefix}.cluster",
                 Level=REPORT.WARNING,

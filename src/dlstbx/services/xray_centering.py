@@ -128,7 +128,7 @@ class DLSXRayCentering(CommonService):
             acknowledgement=True,
             exclusive=True,
             log_extender=self.extend_log,
-            prefetch_count=0,
+            prefetch_count=20000,
         )
 
         # Initialise metrics if requested
@@ -170,10 +170,6 @@ class DLSXRayCentering(CommonService):
                 "X-ray centering service called with invalid parameters: %s", e
             )
             rw.transport.nack(header)
-            return
-        if gridinfo.image_count > 1000:
-            self.log.info(f"Skipping XRC for DCID {parameters.dcid} with >1000 images")
-            rw.transport.ack(header)
             return
         if not gridinfo:
             if (

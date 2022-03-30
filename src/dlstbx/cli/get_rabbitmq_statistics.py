@@ -73,11 +73,11 @@ class StatusText:
 
 
 colour_limits = {
-    "connections": (400, 600),
+    "connections": (600, 800),
     "consumers": (400, 600),
     "channels": (600, 800),
     "messages": (10000, 15000),
-    "messages_unacknowledged": (2000, 15000),
+    "messages_unacknowledged": (8000, 20000),
 }
 
 

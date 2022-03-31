@@ -22,6 +22,7 @@ import zocalo.util
 import zocalo.wrapper
 
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
+from dlstbx.util.logging import DowngradeErrorsFilter
 
 
 def run():
@@ -30,10 +31,16 @@ def run():
     console.setLevel(logging.INFO)
     logging.getLogger("dials").setLevel(logging.INFO)
     logging.getLogger("dlstbx").setLevel(logging.INFO)
+    logging.getLogger("pika.adapters.utils.io_services_utils").addFilter(
+        DowngradeErrorsFilter()
+    )
+    logging.getLogger("pika.adapters.utils.connection_workflow").addFilter(
+        DowngradeErrorsFilter()
+    )
     logging.getLogger("workflows").setLevel(logging.INFO)
     logging.getLogger("xia2").setLevel(logging.INFO)
     logging.getLogger("zocalo").setLevel(logging.INFO)
-    logging.getLogger().setLevel(logging.WARN)
+    logging.getLogger().setLevel(logging.WARNING)
     logging.getLogger().addHandler(console)
     log = logging.getLogger("dlstbx.wrap")
 

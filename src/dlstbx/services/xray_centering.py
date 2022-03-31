@@ -297,17 +297,10 @@ class DLSXRayCentering(CommonService):
                     )
                     parameters.output.parent.mkdir(parents=True, exist_ok=True)
                     with parameters.output.open("w") as fh:
-
-                        def convert(o):
-                            if isinstance(o, np.integer):
-                                return int(o)
-                            raise TypeError
-
                         json.dump(
                             dataclasses.asdict(result),
                             fh,
                             sort_keys=True,
-                            default=convert,
                         )
                     if parameters.results_symlink:
                         # Create symbolic link above working directory

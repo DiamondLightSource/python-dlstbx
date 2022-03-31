@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 
 import numpy as np
 import pytest
@@ -71,6 +72,9 @@ def test_xray_centering():
         "status": "ok",
         "steps": (14, 11),
     }
+
+    # verify that the results can be serialized to json
+    assert json.dumps(dataclasses.asdict(results))
 
 
 def test_xray_centering_second_example():

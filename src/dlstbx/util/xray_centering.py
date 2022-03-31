@@ -62,7 +62,7 @@ def main(
         data = data.reshape(*reversed(steps))
 
     idx = np.argmax(data)
-    maximum_spots = data[np.unravel_index(idx, data.shape)]
+    maximum_spots = int(data[np.unravel_index(idx, data.shape)])
     best_image = int(idx + 1)
     if maximum_spots == 0:
         result.message = "No good images found"
@@ -89,7 +89,7 @@ def main(
     best = unique[np.argmax(counts)] if unique[0] else unique[np.argmax(counts[1:]) + 1]
     com = scipy.ndimage.center_of_mass(labels == best)
     output.append(f"grid:\n{threshold}".replace(" 0", " ."))
-    result.best_region = list(zip(*np.where(labels == best)))
+    result.best_region = list(zip(*(w.tolist() for w in np.where(labels == best))))
 
     centre_x_box, centre_y_box = reversed([c + 0.5 for c in com])
     centre_x = snapshot_offset[0] + centre_x_box * box_size_px[0]

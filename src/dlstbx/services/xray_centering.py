@@ -128,7 +128,7 @@ class DLSXRayCentering(CommonService):
             acknowledgement=True,
             exclusive=True,
             log_extender=self.extend_log,
-            prefetch_count=500000,
+            prefetch_count=65535,
         )
 
         # Initialise metrics if requested

@@ -1335,11 +1335,8 @@ class DLSISPyB(EM_Mixin, CommonService):
 
     def do_insert_data_collection(self, parameters, message=None, **kwargs):
 
-        datacollectiongroupid = self.do_insert_data_collection_group(parameters)[
-            "return_value"
-        ]
         dc_params = self.ispyb.em_acquisition.get_data_collection_params()
-        dc_params["parentid"] = datacollectiongroupid
+        dc_params["parentid"] = parameters("dcgid")
         dc_params["starttime"] = parameters("start_time")
         dc_params["imgdir"] = parameters("image_directory")
         dc_params["imgsuffix"] = parameters("image_suffix")

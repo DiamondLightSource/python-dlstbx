@@ -1316,10 +1316,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             message = {}
 
         dcgparams = self.ispyb.em_acquisition.get_data_collection_group_params()
-        dcgparams[
-            "parentid"
-        ] = 27464079  # full_parameters("session_id"), will be looked up from Murfey
-        # with SQLAlchemy
+        dcgparams["parentid"] = parameters("session_id")
         dcgparams["experimenttype"] = "EM"
         dcgparams["comments"] = "Created for Murfey"
         datacollectiongroupid = self.ispyb.em_acquisition.upsert_data_collection_group(
@@ -1330,6 +1327,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         dc_params["starttime"] = parameters("start_time")
         dc_params["imgdir"] = parameters("image_directory")
         dc_params["imgsuffix"] = parameters("image_suffix")
+        dc_params["visitid"] = parameters("session_id")
         try:
             data_collection_id = self.ispyb.em_acquisition.upsert_data_collection(
                 list(dc_params.values())

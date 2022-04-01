@@ -1310,3 +1310,48 @@ class DLSISPyB(EM_Mixin, CommonService):
 
         # Finally, propagate result
         return result
+
+    def do_insert_data_collection_group(self, parameters, message=None, **kwargs):
+        dcgparams = self.ispyb.em_acquisition.get_data_collection_group_params()
+        dcgparams["parentid"] = parameters("session_id")
+        dcgparams["experimenttype"] = "EM"
+        dcgparams["comments"] = "Created for Murfey"
+        try:
+            data_collection_group_id = (
+                self.ispyb.em_acquisition.upsert_data_collection_group(
+                    list(dcgparams.values())
+                )
+            )
+            self.log.info(f"Created DataCollectionGroup {data_collection_group_id}")
+            return {"success": True, "return_value": data_collection_group_id}
+
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting Data Collection Group entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+        return False
+
+    def do_insert_data_collection(self, parameters, message=None, **kwargs):
+
+        dc_params = self.ispyb.em_acquisition.get_data_collection_params()
+        dc_params["parentid"] = parameters("dcgid")
+        dc_params["starttime"] = parameters("start_time")
+        dc_params["imgdir"] = parameters("image_directory")
+        dc_params["imgsuffix"] = parameters("image_suffix")
+        dc_params["visitid"] = parameters("session_id")
+        try:
+            data_collection_id = self.ispyb.em_acquisition.upsert_data_collection(
+                list(dc_params.values())
+            )
+            self.log.info(f"Created DataCollection {data_collection_id}")
+            return {"success": True, "return_value": data_collection_id}
+
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting Data Collection entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+            return False

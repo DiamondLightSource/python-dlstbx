@@ -1311,17 +1311,33 @@ class DLSISPyB(EM_Mixin, CommonService):
         # Finally, propagate result
         return result
 
-    def do_insert_data_collection(self, parameters, message=None, **kwargs):
-        if message is None:
-            message = {}
-
+    def do_insert_data_collection_group(self, parameters, message=None, **kwargs):
         dcgparams = self.ispyb.em_acquisition.get_data_collection_group_params()
         dcgparams["parentid"] = parameters("session_id")
         dcgparams["experimenttype"] = "EM"
         dcgparams["comments"] = "Created for Murfey"
-        datacollectiongroupid = self.ispyb.em_acquisition.upsert_data_collection_group(
-            list(dcgparams.values())
-        )
+        try:
+            data_collection_group_id = (
+                self.ispyb.em_acquisition.upsert_data_collection_group(
+                    list(dcgparams.values())
+                )
+            )
+            self.log.info(f"Created DataCollectionGroup {data_collection_group_id}")
+            return {"success": True, "return_value": data_collection_group_id}
+
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting Data Collection Group entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+        return False
+
+    def do_insert_data_collection(self, parameters, message=None, **kwargs):
+
+        datacollectiongroupid = self.do_insert_data_collection_group(parameters)[
+            "return_value"
+        ]
         dc_params = self.ispyb.em_acquisition.get_data_collection_params()
         dc_params["parentid"] = datacollectiongroupid
         dc_params["starttime"] = parameters("start_time")

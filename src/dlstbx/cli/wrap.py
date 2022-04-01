@@ -21,8 +21,8 @@ import zocalo.configuration.argparse
 import zocalo.util
 import zocalo.wrapper
 
+from dlstbx.util import DowngradeErrorsFilter
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
-from dlstbx.util.logging import DowngradeErrorsFilter
 
 
 def run():

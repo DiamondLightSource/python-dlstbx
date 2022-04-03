@@ -115,13 +115,12 @@ def test_eiger_screening():
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.EIGER,
     )
-    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
-        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}"
-    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
+        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
         f"zocalo.go -r strategy-align-crystal {dcid}",
         f"zocalo.go -r strategy-edna-eiger {dcid}",
         f"zocalo.go -r strategy-mosflm {dcid}",

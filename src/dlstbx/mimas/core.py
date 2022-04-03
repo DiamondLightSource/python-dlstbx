@@ -12,6 +12,7 @@ from dlstbx.mimas.specification import (
 
 MX_BEAMLINES = {"i02-1", "i02-2", "i03", "i04", "i04-1", "i23", "i24"}
 is_vmxi = BeamlineSpecification("i02-2")
+is_i03 = BeamlineSpecification("i03")
 is_mx_beamline = BeamlineSpecification(beamlines=MX_BEAMLINES)
 is_pilatus = DetectorClassSpecification(mimas.MimasDetectorClass.PILATUS)
 is_eiger = DetectorClassSpecification(mimas.MimasDetectorClass.EIGER)
@@ -70,7 +71,7 @@ def handle_pilatus_not_gridscan_start(
     ]
 
 
-@mimas.match_specification(is_eiger & is_start & is_mx_beamline & ~is_vmxi)
+@mimas.match_specification(is_eiger & is_start & is_mx_beamline & ~is_vmxi & ~is_i03)
 def handle_eiger_start(
     scenario: mimas.MimasScenario,
     **kwargs,
@@ -80,6 +81,19 @@ def handle_eiger_start(
         f"per-image-analysis-gridscan-swmr{suffix}"
         if scenario.dcclass is mimas.MimasDCClass.GRIDSCAN
         else f"per-image-analysis-rotation-swmr{suffix}"
+    )
+    return [mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)]
+
+
+@mimas.match_specification(is_eiger & is_end & is_i03)
+def handle_eiger_end_i03(
+    scenario: mimas.MimasScenario,
+    **kwargs,
+) -> List[mimas.Invocation]:
+    recipe = (
+        "per-image-analysis-gridscan-swmr"
+        if scenario.dcclass is mimas.MimasDCClass.GRIDSCAN
+        else "per-image-analysis-rotation-swmr"
     )
     return [mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)]
 

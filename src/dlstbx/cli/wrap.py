@@ -31,12 +31,15 @@ def run():
     console.setLevel(logging.INFO)
     logging.getLogger("dials").setLevel(logging.INFO)
     logging.getLogger("dlstbx").setLevel(logging.INFO)
-    logging.getLogger("pika.adapters.utils.io_services_utils").addFilter(
-        DowngradeErrorsFilter()
-    )
-    logging.getLogger("pika.adapters.utils.connection_workflow").addFilter(
-        DowngradeErrorsFilter()
-    )
+    for pika_logger in (
+        "base_connection",
+        "blocking_connection",
+        "utils.connection_workflow",
+        "utils.io_services_utils",
+    ):
+        logging.getLogger(f"pika.adapters.{pika_logger}").addFilter(
+            DowngradeErrorsFilter()
+        )
     logging.getLogger("workflows").setLevel(logging.INFO)
     logging.getLogger("xia2").setLevel(logging.INFO)
     logging.getLogger("zocalo").setLevel(logging.INFO)

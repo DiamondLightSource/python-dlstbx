@@ -43,12 +43,15 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         logging.getLogger("ispyb").setLevel(logging.DEBUG)
         logging.getLogger("relion").setLevel(logging.INFO)
         logging.getLogger("pika").setLevel(logging.WARNING)
-        logging.getLogger("pika.adapters.utils.io_services_utils").addFilter(
-            dlstbx.util.DowngradeErrorsFilter()
-        )
-        logging.getLogger("pika.adapters.utils.connection_workflow").addFilter(
-            dlstbx.util.DowngradeErrorsFilter()
-        )
+        for pika_logger in (
+            "base_connection",
+            "blocking_connection",
+            "utils.connection_workflow",
+            "utils.io_services_utils",
+        ):
+            logging.getLogger(f"pika.adapters.{pika_logger}").addFilter(
+                dlstbx.util.DowngradeErrorsFilter()
+            )
         logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
         logging.getLogger("workflows").setLevel(logging.INFO)
         logging.getLogger("xia2").setLevel(logging.INFO)

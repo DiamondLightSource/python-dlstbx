@@ -91,7 +91,7 @@ def handle_eiger_end_i03(
     **kwargs,
 ) -> List[mimas.Invocation]:
     recipe = (
-        "per-image-analysis-gridscan-swmr"
+        "per-image-analysis-gridscan-i03"
         if scenario.dcclass is mimas.MimasDCClass.GRIDSCAN
         else "per-image-analysis-rotation-swmr"
     )

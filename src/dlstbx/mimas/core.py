@@ -13,6 +13,7 @@ from dlstbx.mimas.specification import (
 MX_BEAMLINES = {"i02-1", "i02-2", "i03", "i04", "i04-1", "i23", "i24"}
 is_vmxi = BeamlineSpecification("i02-2")
 is_i03 = BeamlineSpecification("i03")
+is_i04_1 = BeamlineSpecification("i04-1")
 is_mx_beamline = BeamlineSpecification(beamlines=MX_BEAMLINES)
 is_pilatus = DetectorClassSpecification(mimas.MimasDetectorClass.PILATUS)
 is_eiger = DetectorClassSpecification(mimas.MimasDetectorClass.EIGER)
@@ -71,7 +72,9 @@ def handle_pilatus_not_gridscan_start(
     ]
 
 
-@mimas.match_specification(is_eiger & is_start & is_mx_beamline & ~is_vmxi & ~is_i03)
+@mimas.match_specification(
+    is_eiger & is_start & is_mx_beamline & ~is_vmxi & ~(is_i03 | is_i04_1)
+)
 def handle_eiger_start(
     scenario: mimas.MimasScenario,
     **kwargs,
@@ -85,7 +88,7 @@ def handle_eiger_start(
     return [mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)]
 
 
-@mimas.match_specification(is_eiger & is_end & is_i03)
+@mimas.match_specification(is_eiger & is_end & (is_i03 | is_i04_1))
 def handle_eiger_end_i03(
     scenario: mimas.MimasScenario,
     **kwargs,

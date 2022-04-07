@@ -894,19 +894,6 @@ class DLSTrigger(CommonService):
         params = rw.recipe_step.get("parameters", {})
         target = params.get("target")
 
-        if target == "big_ep_cloud":
-            if (
-                (proposal.proposalCode != "mx" or proposal.proposalNumber != "23694")
-                and (
-                    proposal.proposalCode != "nt" or proposal.proposalNumber != "31175"
-                )
-                and proposal.proposalCode != "cm"
-            ):
-                self.log.info(
-                    f"Skipping big_ep_common trigger for {proposal.proposalCode}{proposal.proposalNumber} visit"
-                )
-                return {"success": True}
-
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic
         jp["comments"] = parameters.comment

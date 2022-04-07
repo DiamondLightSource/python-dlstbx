@@ -526,6 +526,9 @@ def call_sim(test_name, beamline):
         elif beamline == "i02-1":
             dest_visit = f"{proposal}-2"
         dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
+    elif scenario.get("visit_num"):
+        dest_visit = f"{proposal}-{scenario['visit_num']}"
+        dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
     else:
         for cm_dir in Path("/dls", beamline, "data", str(now.year)).iterdir():
             if cm_dir.name.startswith(proposal):

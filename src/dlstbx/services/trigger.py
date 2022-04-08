@@ -42,7 +42,7 @@ class PrometheusMetrics(BasePrometheusMetrics):
         self.zocalo_trigger_jobs_total = prometheus_client.Counter(
             name="zocalo_trigger_jobs_total",
             documentation="The total number of jobs triggered by the Zocalo trigger service",
-            labelnames=["job"],
+            labelnames=["target"],
             registry=self.registry,
         )
 

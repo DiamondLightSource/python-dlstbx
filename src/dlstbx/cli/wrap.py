@@ -19,8 +19,8 @@ import workflows.transport
 import workflows.util
 import zocalo.configuration.argparse
 import zocalo.util
-import zocalo.wrapper
 
+import zocalo.wrapper
 from dlstbx.util import DowngradeErrorsFilter
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 

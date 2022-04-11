@@ -356,17 +356,17 @@ tests = {
                     "totalMotion": approx(15, 0.75),
                     # "early_motion": approx(2.5, 0.5),
                     # "late_motion": approx(15, 2),
-                    "averageMotionPerFrame": approx(0.5, 1),
+                    "averageMotionPerFrame": approx(0.5, 1.25),
                 }
                 for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
             },
             "ctf": {
                 f"MotionCorr/job002/Movies/Frames/20170629_000{image_number}_frameImage.mrc": {
                     "astigmatism": approx(0, abs=0.75)
-                    if image_number == 23
+                    if image_number == 42
                     else approx(247, 0.75),
                     "astigmatismAngle": approx(0, abs=360)
-                    if image_number == 23
+                    if image_number == 42
                     else approx(83, 0.75),
                     "estimatedResolution": approx(5, 0.75),
                     "estimatedDefocus": approx(10800, 0.75),
@@ -386,7 +386,7 @@ tests = {
             },
             "particle_picker": {
                 f"MotionCorr/job002/Movies/Frames/20170629_000{image_number}_frameImage.mrc": {
-                    "numberOfParticles": approx(250, 0.5),
+                    "numberOfParticles": approx(250, 0.75),
                 }
                 for image_number in (set(range(21, 50)) - {32, 33, 34, 38, 41})
             },

@@ -269,10 +269,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 message=message,
             )
             self.log.info(
-                "Updating program %s with status: %r, return value %r",
-                ppid,
-                message,
-                result,
+                f"Updating program {ppid} with status {message!r}",
             )
             # result is just ppid
             return {"success": True, "return_value": result}

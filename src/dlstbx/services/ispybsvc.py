@@ -43,14 +43,23 @@ class DLSISPyB(EM_Mixin, CommonService):
     def initializing(self):
         """Subscribe the ISPyB connector queue. Received messages must be
         acknowledged. Prepare ISPyB database connection."""
-        self.log.info("ISPyB connector using ispyb v%s", ispyb.__version__)
+        self.log.info(f"ISPyB connector using ispyb v{ispyb.__version__}")
         self.ispyb = ispyb.open()
         self._ispyb_sessionmaker = sqlalchemy.orm.sessionmaker(
             bind=sqlalchemy.create_engine(
                 ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
             )
         )
-        self.log.debug("ISPyB connector starting")
+        try:
+            self.log.info("Cleaning up ISPyB buffer table...")
+            with self._ispyb_sessionmaker() as session:
+                buffer.evict(session=session)
+        except Exception as e:
+            self.log.warning(
+                f"Encountered exception {e!r} while cleaning up ISPyB buffer table",
+                exc_info=True,
+            )
+        self.log.info("ISPyB service ready")
         workflows.recipe.wrap_subscribe(
             self._transport,
             "ispyb_connector",  # will become 'ispyb' in far future

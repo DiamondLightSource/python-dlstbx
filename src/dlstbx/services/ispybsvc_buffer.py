@@ -14,6 +14,29 @@ class BufferResult(NamedTuple):
     value: Optional[int]
 
 
+def evict(*, session):
+    """Throw away buffered information after a certain time.
+
+    This needs to be run periodically to ensure the buffer tables don't
+    become unnecessarily large. Information can be deleted when it is very
+    unlikely that it needs to be referred to again. As buffer entries are tied
+    to a single AutoProcProgram run it should be a safe bet that the buffer
+    information is only of limited use after that program has completed. We
+    give 30 days to deal with transient database and service problems and any
+    messages stuck in the DLQ.
+    """
+
+    # Not quite clear yet how we should do this. SQLAlchemy vs stored procedure.
+    # Suggested SQL something along the lines of
+
+    # DELETE zb
+    # FROM zc_ZocaloBuffer zb
+    # JOIN AutoProcProgram app
+    # WHERE app.autoProcProgramId = zb.AutoProcProgramId
+    # AND (DATE(app.processingEndTime) < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+    #      OR DATE(app.recordTimeStamp) < DATE_SUB(CURDATE(), INTERVAL 60 DAY))
+
+
 def load(*, session, program: int, uuid: int) -> BufferResult:
     """Load an entry from the zc_ZocaloBuffer table.
 

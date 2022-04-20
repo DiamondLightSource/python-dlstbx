@@ -43,7 +43,6 @@ class PrometheusMetrics(BasePrometheusMetrics):
             name="zocalo_trigger_jobs_total",
             documentation="The total number of jobs triggered by the Zocalo trigger service",
             labelnames=["target"],
-            registry=self.registry,
         )
 
 

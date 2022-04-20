@@ -90,13 +90,11 @@ class PrometheusMetrics(BasePrometheusMetrics):
             name="complete_centerings",
             documentation="Counts total number of completed x-ray centerings",
             labelnames=["beamline"],
-            registry=self.registry,
         )
         self.analysis_latency = prometheus_client.Histogram(
             name="analysis_latency",
             documentation="The time passed (s) from end of data collection to end of x-ray centering",
             labelnames=["beamline"],
-            registry=self.registry,
             buckets=[0.5, 1, 2, 5, 10, 30, 60, 300, 600, 3600],
             unit="s",
         )

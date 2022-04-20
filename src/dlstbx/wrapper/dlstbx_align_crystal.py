@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import pathlib
 
 import procrunner
 import py
@@ -149,24 +150,30 @@ class AlignCrystalWrapper(Wrapper):
 
     def hdf5_to_cbf(self):
         params = self.recwrap.recipe_step["job_parameters"]
-        working_directory = py.path.local(params["working_directory"])
-        tmpdir = working_directory.join("image-tmp")
-        tmpdir.ensure(dir=True)
+        working_directory = pathlib.Path(params["working_directory"])
+        if params.get("temporary_directory"):
+            tmpdir = pathlib.Path(params["temporary_directory"])
+        else:
+            tmpdir = working_directory / ".image-tmp"
+        tmpdir.mkdir(parents=True, exist_ok=True)
         master_h5 = os.path.join(params["image_directory"], params["image_template"])
         prefix = params["image_template"].split("master.h5")[0]
-        params["image_pattern"] = prefix + "%04d.cbf"
-        params["image_template"] = prefix + "####.cbf"
-        logger.info("Image pattern: %s", params["image_pattern"])
-        logger.info("Image template: %s", params["image_template"])
-        logger.info(
-            "Converting %s to %s" % (master_h5, tmpdir.join(params["image_pattern"]))
-        )
+        image_pattern = prefix + "%04d.cbf"
+        params["image_pattern"] = image_pattern
+        logger.info(f"Image pattern: {image_pattern}")
+        logger.info(f"Converting {master_h5} to {tmpdir / image_pattern}")
         result = procrunner.run(
-            ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],
-            working_directory=tmpdir.strpath,
+            [
+                "dxtbx.dlsnxs2cbf",
+                master_h5,
+                "-t",
+                prefix,
+                "-n",
+                "4",
+            ],
+            working_directory=tmpdir,
             timeout=params.get("timeout", 3600),
         )
-        logger.info("command: %s", " ".join(result["command"]))
         success = not result["exitcode"] and not result["timeout"]
         if success:
             logger.info(
@@ -178,10 +185,10 @@ class AlignCrystalWrapper(Wrapper):
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            logger.debug(result["stdout"].decode("latin1"))
+            logger.debug(result["stderr"].decode("latin1"))
         params["orig_image_directory"] = params["image_directory"]
-        params["image_directory"] = tmpdir.strpath
+        params["image_directory"] = str(tmpdir)
         return success
 
     def run(self):

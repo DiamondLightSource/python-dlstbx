@@ -63,6 +63,8 @@ def get_mrbump_metrics(mrbump_logfile):
                             (model_name, mr_program, solution_type) = tuple(
                                 final_values[:3]
                             )
+                            if solution_type == "PHASER_ERROR":
+                                continue
                             (
                                 phaser_llg,
                                 phaser_tfg,

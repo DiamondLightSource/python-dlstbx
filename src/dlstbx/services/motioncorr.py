@@ -56,10 +56,12 @@ class MotionCorr(CommonService):
             "-OutMrc",
             message["mrc_out"],
             "-Gpu",
+            "0",
             "-Patch",
-            parameters("patch_size", default=5),
+            str(parameters("patch_size", default=5)),
+            str(parameters("patch_size", default=5)),
             "-PixSize",
-            parameters("pix_size"),
+            str(parameters("pix_size")),
         ]
         if parameters("gain_ref"):
             arguments.extend(["-Gain", parameters("gain_ref")])

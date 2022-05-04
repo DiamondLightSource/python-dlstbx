@@ -142,7 +142,7 @@ class MimasService(CommonSystemTest):
                 3,
                 ispyb_job_template
                 | {
-                    "autostart": False,
+                    "autostart": True,
                     "recipe": "autoprocessing-xia2-3dii-eiger-cloud",
                     "parameters": [
                         {"key": "resolution.cc_half_significance_level", "value": "0.1"}

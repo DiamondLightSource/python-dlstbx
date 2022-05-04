@@ -138,6 +138,17 @@ class MimasService(CommonSystemTest):
                     "recipe": "autoprocessing-autoPROC-eiger-cluster",
                 },
             ),
+            (
+                3,
+                ispyb_job_template
+                | {
+                    "autostart": False,
+                    "recipe": "autoprocessing-xia2-3dii-eiger-cloud",
+                    "parameters": [
+                        {"key": "resolution.cc_half_significance_level", "value": "0.1"}
+                    ],
+                },
+            ),
         )
 
         for recipe_pointer, payload in expected_recipe_pointers_and_payloads:

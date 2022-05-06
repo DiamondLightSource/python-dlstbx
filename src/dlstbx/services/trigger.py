@@ -1008,6 +1008,13 @@ class DLSTrigger(CommonService):
             self.log.error("big_ep trigger called with invalid parameters: %s", e)
             return False
 
+        for inp_file in (big_ep_params.data, big_ep_params.scaled_unmerged_mtz):
+            if not inp_file.is_file():
+                self.log.info(
+                    f"Skipping big_ep trigger: input file {inp_file} not found."
+                )
+                return {"success": True}
+
         path_ext = big_ep_params.path_ext
         spacegroup = parameters.spacegroup
         if spacegroup:

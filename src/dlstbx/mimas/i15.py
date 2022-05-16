@@ -31,7 +31,7 @@ def handle_i15_end_pilatus(
 ) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
-        for recipe in ("archive-cbfs", "processing-rlv", "strategy-screen19")
+        for recipe in ("processing-rlv", "strategy-screen19")
     ]
 
 

@@ -5,7 +5,6 @@ from typing import List, Tuple
 from dlstbx import mimas
 from dlstbx.mimas.core import (
     is_end,
-    is_pilatus,
     is_start,
     xia2_dials_absorption_params,
 )
@@ -14,10 +13,8 @@ from dlstbx.mimas.specification import BeamlineSpecification
 is_i15 = BeamlineSpecification("i15")
 
 
-@mimas.match_specification(is_i15 & is_start & is_pilatus)
-def handle_i15_start_pilatus(
-    scenario: mimas.MimasScenario, **kwargs
-) -> List[mimas.Invocation]:
+@mimas.match_specification(is_i15 & is_start)
+def handle_i15_start(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="per-image-analysis-rotation"
@@ -25,22 +22,14 @@ def handle_i15_start_pilatus(
     ]
 
 
-@mimas.match_specification(is_i15 & is_end & is_pilatus)
-def handle_i15_end_pilatus(
-    scenario: mimas.MimasScenario, **kwargs
-) -> List[mimas.Invocation]:
-    return [
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
-        for recipe in ("processing-rlv", "strategy-screen19")
-    ]
-
-
 @mimas.match_specification(is_i15 & is_end)
 def handle_i15_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invocation]:
-
     tasks: List[mimas.Invocation] = [
-        mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
+        for recipe in (
+            "generate-crystal-thumbnails",
+            "processing-rlv",
+            "strategy-screen19",
         )
     ]
 

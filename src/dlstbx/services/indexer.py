@@ -45,7 +45,7 @@ class DLSIndexer(CommonService):
     def index(
         self, rw: workflows.recipe.RecipeWrapper, header: dict, message: IndexingPayload
     ):
-
+        results = {}
         if (n_refl := message.reflections.size()) < 10:
             self.log.debug(
                 f"Skipping indexing for reflection list with {n_refl} reflections"
@@ -63,6 +63,17 @@ class DLSIndexer(CommonService):
                 indexed_refl = idxr.refined_reflections
                 indexed_refl.extend(idxr.unindexed_reflections)
 
+                results = {
+                    "unit_cells": [
+                        expt.crystal.get_unit_cell().parameters()
+                        for expt in indexed_expts
+                    ],
+                    "n_indexed": [
+                        (indexed_refl["id"] == i_expt).count(True)
+                        for i_expt in range(len(indexed_expts))
+                    ],
+                }
+
                 # A context manager would be really useful here
                 logging.getLogger("dials").setLevel(logging.INFO)
                 idxr.show_experiments(indexed_expts, indexed_refl)
@@ -74,7 +85,7 @@ class DLSIndexer(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        # # Send results onwards
-        # rw.set_default_channel("result")
-        # rw.send_to("result", results, transaction=txn)
+        # Send results onwards
+        rw.set_default_channel("result")
+        rw.send_to("result", results, transaction=txn)
         rw.transport.transaction_commit(txn)

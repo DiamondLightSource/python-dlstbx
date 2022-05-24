@@ -91,9 +91,6 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
     for params in extra_params:
         tasks.extend(
             [
-                mimas.MimasRecipeInvocation(
-                    DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
-                ),
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=True,

@@ -257,7 +257,11 @@ class DLSXRayCentering(CommonService):
 
                     # Send results onwards
                     rw.set_default_channel("success")
-                    rw.send_to("success", result, transaction=txn)
+                    rw.send_to(
+                        "success",
+                        [dataclasses.asdict(r) for r in result],
+                        transaction=txn,
+                    )
                     rw.transport.transaction_commit(txn)
 
                     for _dcid in dcg_dcids + [dcid]:

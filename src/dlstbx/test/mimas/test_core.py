@@ -594,3 +594,58 @@ def test_i19_rotation_with_symmetry(
         if detectorclass is MimasDetectorClass.EIGER
         else set()
     )
+
+
+def test_i15_rotation():
+    """Test the I15 rotation scenario."""
+    dcid = 8377481
+    other_dcid = 8377499
+
+    scenario = functools.partial(
+        MimasScenario,
+        DCID=dcid,
+        dcclass=MimasDCClass.ROTATION,
+        event=MimasEvent.START,
+        beamline="i15",
+        visit="cm31136-2",
+        runstatus="DataCollection Successful",
+        getsweepslistfromsamedcg=(
+            MimasISPyBSweep(DCID=dcid, start=1, end=51),
+            MimasISPyBSweep(DCID=other_dcid, start=1, end=51),
+        ),
+        preferred_processing="xia2/DIALS",
+        detectorclass=MimasDetectorClass.PILATUS,
+    )
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
+
+    assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        " ".join(
+            (
+                "ispyb.job",
+                "--new",
+                f"--dcid={dcid}",
+                "--source=automatic",
+                "--recipe=autoprocessing-multi-xia2-smallmolecule",
+                f"--add-sweep={dcid}:1:51",
+                f"--add-sweep={other_dcid}:1:51",
+                "--add-param=absorption_level:medium",
+                "--trigger",
+            )
+        ),
+        " ".join(
+            (
+                "ispyb.job",
+                "--new",
+                f"--dcid={dcid}",
+                "--source=automatic",
+                "--recipe=autoprocessing-multi-xia2-smallmolecule-dials-aiml",
+                f"--add-sweep={dcid}:1:51",
+                f"--add-sweep={other_dcid}:1:51",
+                "--trigger",
+            )
+        ),
+        f"zocalo.go -r per-image-analysis-rotation {dcid}",
+        f"zocalo.go -r generate-crystal-thumbnails {dcid}",
+        f"zocalo.go -r processing-rlv {dcid}",
+        f"zocalo.go -r strategy-screen19 {dcid}",
+    }

@@ -8,8 +8,6 @@ from typing import Tuple
 import numpy as np
 import scipy.ndimage
 
-from dlstbx.util.xray_centering import Orientation
-
 logger = logging.getLogger(__name__)
 
 
@@ -20,10 +18,7 @@ class GridScan3DResult:
 
 
 def gridscan3d(
-    data: np.ndarray,
-    steps: Tuple[int, int],
-    snaked: bool,
-    orientation: Orientation,
+    data: tuple[np.ndarray, np.ndarray],
     plot: bool = False,
 ) -> list[GridScan3DResult]:
     """
@@ -48,21 +43,9 @@ def gridscan3d(
     Returns:
         list[GridScan3DResult]
     """
-    logger.debug(data.shape)
-    assert len(data.shape) == 2
-    assert data.shape[0] == 2
-    if orientation == Orientation.VERTICAL:
-        data = data.reshape([2] + list(steps))
-        data = data.transpose(axes=(0, 2, 1))
-    else:
-        data = data.reshape([2] + list(reversed(steps)))
-
-    if snaked and orientation == Orientation.HORIZONTAL:
-        # Reverse the direction of every second row
-        data[:, 1::2, :] = data[:, 1::2, ::-1]
-    elif snaked and orientation == Orientation.VERTICAL:
-        # Reverse the direction of every second column
-        data[:, :, 1::2] = data[:, ::-1, 1::2]
+    assert len(data) == 2
+    assert data[0].ndim == 2
+    assert data[1].ndim == 2
 
     grid3d = data[0][np.newaxis, :, :] * data[1][:, np.newaxis, :]
     logger.debug(data[0].shape)

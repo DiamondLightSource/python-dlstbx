@@ -48,7 +48,7 @@ def gridscan3d(
     Returns:
         list[GridScan3DResult]
     """
-
+    logger.debug(data.shape)
     assert len(data.shape) == 2
     assert data.shape[0] == 2
     if orientation == Orientation.VERTICAL:
@@ -64,10 +64,15 @@ def gridscan3d(
         # Reverse the direction of every second column
         data[:, :, 1::2] = data[:, ::-1, 1::2]
 
-    grid3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
+    grid3d = data[0][np.newaxis, :, :] * data[1][:, np.newaxis, :]
+    logger.debug(data[0].shape)
+    logger.debug(data[1].shape)
+    logger.debug(grid3d.shape)
     max_idx = tuple(int(r[0]) for r in np.where(grid3d == grid3d.max()))
-    com = tuple(c + 0.5 for c in scipy.ndimage.center_of_mass(grid3d))
-    logger.info(f"Max pixel: {max_idx}\nCentre of mass: {com}")
+    max_count = int(grid3d[max_idx])
+    threshold = (grid3d >= 0.5 * max_count) * grid3d
+    com = tuple(c + 0.5 for c in scipy.ndimage.center_of_mass(threshold))
+    logger.info(f"Max voxel: {max_idx} with count {max_count}\nCentre of mass: {com}")
 
     if plot:
         import matplotlib.pyplot as plt
@@ -80,16 +85,27 @@ def gridscan3d(
             ax.yaxis.set_major_locator(MaxNLocator(integer=True))
         plt.show()
 
-        nx = grid3d.shape[0]
+        fig, axes = plt.subplots(nrows=1, ncols=3)
+        vmax = max(counts.max() for counts in data)
+        for (
+            i,
+            ax,
+        ) in enumerate(axes):
+            ax.imshow(grid3d.sum(axis=i))
+            ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+        plt.show()
+
+        nx = grid3d.shape[2]
         vmax = grid3d[max_idx]
         fig, axes = plt.subplots(nrows=1, ncols=nx)
         for i in range(nx):
-            axes[i].imshow(grid3d[i, :, :], vmin=0, vmax=vmax)
+            logger.debug(grid3d[:, :, i].shape)
+            axes[i].imshow(grid3d[:, :, i], vmin=0, vmax=vmax)
             axes[i].yaxis.set_major_locator(MaxNLocator(integer=True))
-            if i == max_idx[0]:
-                axes[i].scatter(max_idx[2], max_idx[1], marker="x", c="red")
-            if i == math.floor(com[0]):
-                axes[i].scatter(com[2], com[1], marker="x", c="grey")
+            if i == max_idx[2]:
+                axes[i].scatter(max_idx[1], max_idx[0], marker="x", c="red")
+            if i == math.floor(com[2]):
+                axes[i].scatter(com[1], com[0], marker="x", c="grey")
         plt.show()
 
     return [GridScan3DResult(max_voxel=max_idx, centre_of_mass=com)]

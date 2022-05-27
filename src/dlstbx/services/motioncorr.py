@@ -28,6 +28,36 @@ class MotionCorr(CommonService):
         )
 
     def motion_correction(self, rw, header: dict, message: dict):
+
+        if not rw:
+            print(
+                "Incoming message is not a recipe message. Simple messages can be valid"
+            )
+            if (
+                not isinstance(message, dict)
+                or not message.get("parameters")
+                or not message.get("content")
+            ):
+                self.log.error("Rejected invalid simple message")
+                self._transport.nack(header)
+                return
+            self.log.debug("Received a simple message")
+
+            # Create a wrapper-like object that can be passed to functions
+            # as if a recipe wrapper was present.
+            class RW_mock:
+                def dummy(self, *args, **kwargs):
+                    pass
+
+            rw = RW_mock()
+            rw.transport = self._transport
+            rw.recipe_step = {"parameters": message["parameters"]}
+            rw.environment = {"has_recipe_wrapper": False}
+            rw.set_default_channel = rw.dummy
+            rw.send = rw.dummy
+            message = message["content"]
+
+        self.log.info(message)
         command = ["MotionCor2"]
 
         def parameters(key: str, default=None):
@@ -50,6 +80,7 @@ class MotionCorr(CommonService):
                 f"No pixel size found in motion correction parameters: {message}"
             )
             rw.transport.nack(header)
+        print("line 54")
         input_flag = "-InMrc" if message["movie"].endswith(".mrc") else "-InTiff"
         command.extend([input_flag, message["movie"]])
         arguments = [
@@ -63,11 +94,12 @@ class MotionCorr(CommonService):
             "-PixSize",
             str(parameters("pix_size")),
         ]
+        print("line 68", arguments)
         if parameters("gain_ref"):
             arguments.extend(["-Gain", parameters("gain_ref")])
 
         command.extend(arguments)
-
+        print("line 73", command)
         result = procrunner.run(command)
         if result.returncode:
             self.log.error(

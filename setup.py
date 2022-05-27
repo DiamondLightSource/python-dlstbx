@@ -122,6 +122,7 @@ service_list = [
     "DLSValidation = dlstbx.services.validation:DLSValidation",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
     "HTCondorWatcher = dlstbx.services.htcondorwatcher:HTCondorWatcher",
+    "MotionCorr = dlstbx.services.motioncorr:MotionCorr"
     # "LoadProducer = dlstbx.services.load_producer:LoadProducer",  # tentatively disabled
     # "LoadReceiver = dlstbx.services.load_receiver:LoadReceiver",  # tentatively disabled
 ]

@@ -115,6 +115,7 @@ def test_xray_centering_second_example():
         orientation=dlstbx.util.xray_centering.Orientation.HORIZONTAL,
     )
 
+    print(stdout)
     assert "There are 14 reflections in image #351." in stdout
     assert (
         "[ .  .  .  .  .  .  .  .  7  9 12  9  8  . 10  8  9  .  .  .  .  .  .  ."

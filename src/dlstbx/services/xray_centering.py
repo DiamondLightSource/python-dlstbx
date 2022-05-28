@@ -59,6 +59,7 @@ class RecipeStep(pydantic.BaseModel):
 
 
 class Message(pydantic.BaseModel):
+    file: pathlib.Path
     file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
     n_spots_total: pydantic.NonNegativeInt
     file_seen_at: pydantic.NonNegativeFloat = pydantic.Field(alias="file-seen-at")
@@ -70,6 +71,7 @@ class CenteringData(pydantic.BaseModel):
     headers: list = pydantic.Field(default_factory=list)
     last_activity: float = pydantic.Field(default_factory=time.time)
     last_image_seen_at: pydantic.NonNegativeInt
+    file: pathlib.Path
     data: np.ndarray = None
 
     def __init__(self, **data):
@@ -203,6 +205,7 @@ class DLSXRayCentering(CommonService):
                     gridinfo=gridinfo,
                     recipewrapper=rw,
                     last_image_seen_at=message.file_seen_at,
+                    file=message.file,
                 )
                 self._centering_data[dcid] = cd
                 self.log.info(
@@ -223,28 +226,62 @@ class DLSXRayCentering(CommonService):
             cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
             if dcg_dcids and cd.images_seen == gridinfo.image_count:
-                data = [
-                    dlstbx.util.xray_centering.reshape_grid(
-                        cd.data,
-                        (cd.gridinfo.steps_x, cd.gridinfo.steps_y),
-                        cd.gridinfo.snaked,
-                        cd.gridinfo.orientation,
-                    )
-                ]
-                for _dcid in dcg_dcids:
+                self.log.info(f"{dcg_dcids=}")
+                data = []
+                for _dcid in sorted([dcid] + dcg_dcids):
                     _cd = self._centering_data.get(_dcid)
                     if not _cd:
                         break
                     if _cd.images_seen != _cd.gridinfo.image_count:
                         break
+
+                    self.log.info(_cd.file)
+
+                    import dxtbx.nexus.nxmx
+                    import h5py
+
+                    with h5py.File(_cd.file) as fh:
+                        nxmx = dxtbx.nexus.nxmx.NXmx(fh)
+                        sample = nxmx.entries[0].samples[0]
+                        dependency_chain = dxtbx.nexus.nxmx.get_dependency_chain(
+                            sample.depends_on
+                        )
+                        self.log.info(dependency_chain)
+                        A = dxtbx.nexus.nxmx.get_cumulative_transformation(
+                            dependency_chain
+                        )
+                        self.log.info(f"Final A:\n{A[0].round(3)}")
+                        # coords_o90 = np.array([A[0] @ c for c in ])
+
+                        print(sample.transformations[0])
+                        print(sample.transformations[0]["sam_y"])
+
+                        # gon_x =
+
+                        # coords = np.vstack(
+                        #         [
+                        #             gon_x - gon_x.mean(),
+                        #             gon_y - gon_y.mean(),
+                        #             np.zeros(gon_x.size),
+                        #             np.ones(gon_x.size),
+                        #         ]
+                        #     ).T
+
+                    self.log.info(f"{_dcid}, {_cd.gridinfo}")
                     data.append(
                         dlstbx.util.xray_centering.reshape_grid(
                             _cd.data,
                             (_cd.gridinfo.steps_x, _cd.gridinfo.steps_y),
-                            not _cd.gridinfo.snaked,  # XXX
+                            _cd.gridinfo.snaked,
                             _cd.gridinfo.orientation,
                         )
                     )
+                    import matplotlib.pyplot as plt
+
+                    plt.imshow(
+                        _cd.data.reshape(_cd.gridinfo.steps_y, _cd.gridinfo.steps_x).T
+                    )
+                    plt.show()
                 else:
                     # All results present
                     self.log.info(
@@ -263,8 +300,8 @@ class DLSXRayCentering(CommonService):
                     )
                     for _dcid in dcg_dcids + [dcid]:
                         cd = self._centering_data[_dcid]
-                        for h in cd.headers:
-                            rw.transport.ack(h, transaction=txn)
+                        # for h in cd.headers:
+                        # rw.transport.ack(h, transaction=txn)
 
                     # Send results onwards
                     rw.set_default_channel("success")

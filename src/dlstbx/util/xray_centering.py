@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import dataclasses
 import enum
+import logging
 from typing import List, Optional, Tuple
 
 import numpy as np
 import scipy.ndimage
+
+logger = logging.getLogger(__name__)
 
 
 class Orientation(enum.Enum):
@@ -40,16 +43,21 @@ def reshape_grid(
     data: np.ndarray, steps: Tuple[int, int], snaked: bool, orientation: Orientation
 ) -> np.ndarray:
     if orientation == Orientation.VERTICAL:
-        data = data.reshape(steps).T
+        data = data.reshape(steps)
     else:
-        data = data.reshape(*reversed(steps))
+        data = data.reshape(*reversed(steps)).T
+    # import matplotlib.pyplot as plt
 
+    # plt.imshow(data)
+    # plt.show()
     if snaked and orientation == Orientation.HORIZONTAL:
-        # Reverse the direction of every second row
-        data[1::2, :] = data[1::2, ::-1]
-    elif snaked and orientation == Orientation.VERTICAL:
         # Reverse the direction of every second column
         data[:, 1::2] = data[::-1, 1::2]
+    elif snaked and orientation == Orientation.VERTICAL:
+        # Reverse the direction of every second row
+        data[1::2, :] = data[1::2, ::-1]
+    # plt.imshow(data)
+    # plt.show()
     return data
 
 

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import functools
+import os.path
 
 import dxtbx.model.experiment_list
+import h5py
 import pytest
 import workflows.recipe
+from dxtbx.format.FormatNexusEigerDLS import find_meta_filename
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.hdf5 as hdf5_util
@@ -107,6 +110,19 @@ class DLSValidation(CommonService):
                 except hdf5_util.ValidationError as e:
                     msg = f"HDF5 file {filename} contains invalid pixel_mask: {e}"
                     return fail(msg)
+                meta_h5 = find_meta_filename(filename)
+                if not os.path.isfile(meta_h5):
+                    return fail(f"{meta_h5} not found")
+                with h5py.File(meta_h5) as fh:
+                    zeros = [
+                        f"/_dectris/{name}"
+                        for name, d in fh["/_dectris"].items()
+                        if len(d) == 0
+                    ]
+                    if zeros:
+                        return fail(
+                            f"Empty datasets found in {meta_h5}:\n" + "\n".join(zeros)
+                        )
             except Exception as e:
                 return fail(
                     f"Unhandled {type(e).__name__} exception reading {filename}"

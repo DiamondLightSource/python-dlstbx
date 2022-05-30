@@ -25,6 +25,7 @@ class MotionCorr(CommonService):
             self.motion_correction,
             acknowledgement=True,
             log_extender=self.extend_log,
+            allow_non_recipe_messages=True,
         )
 
     def motion_correction(self, rw, header: dict, message: dict):
@@ -65,12 +66,12 @@ class MotionCorr(CommonService):
                 return message[key]
             return rw.recipe_step.get("parameters", {}).get(key, default)
 
-        if not message.get("movie"):
+        if not parameters("movie"):
             self.log.error(
                 f"No movie found in motion correction service message: {message}"
             )
             rw.transport.nack(header)
-        if not message.get("mrc_out"):
+        if not parameters("mrc_out"):
             self.log.error(
                 f"No output mrc path found in motion correction service message: {message}"
             )
@@ -81,11 +82,11 @@ class MotionCorr(CommonService):
             )
             rw.transport.nack(header)
         print("line 54")
-        input_flag = "-InMrc" if message["movie"].endswith(".mrc") else "-InTiff"
-        command.extend([input_flag, message["movie"]])
+        input_flag = "-InMrc" if parameters("movie").endswith(".mrc") else "-InTiff"
+        command.extend([input_flag, parameters("movie")])
         arguments = [
             "-OutMrc",
-            message["mrc_out"],
+            parameters("mrc_out"),
             "-Gpu",
             "0",
             "-Patch",

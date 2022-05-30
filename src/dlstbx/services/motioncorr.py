@@ -81,9 +81,9 @@ class MotionCorr(CommonService):
                 f"No pixel size found in motion correction parameters: {message}"
             )
             rw.transport.nack(header)
-        print("line 54")
-        input_flag = "-InMrc" if parameters("movie").endswith(".mrc") else "-InTiff"
-        command.extend([input_flag, parameters("movie")])
+        movie = parameters("movie")
+        input_flag = "-InMrc" if movie.endswith(".mrc") else "-InTiff"
+        command.extend([input_flag, movie])
         arguments = [
             "-OutMrc",
             parameters("mrc_out"),
@@ -95,16 +95,14 @@ class MotionCorr(CommonService):
             "-PixSize",
             str(parameters("pix_size")),
         ]
-        print("line 68", arguments)
         if parameters("gain_ref"):
             arguments.extend(["-Gain", parameters("gain_ref")])
 
         command.extend(arguments)
-        print("line 73", command)
         result = procrunner.run(command)
         if result.returncode:
             self.log.error(
-                f"Motion correction of {message['movie']} failed with exitcode {result.returncode}:\n"
+                f"Motion correction of {movie} failed with exitcode {result.returncode}:\n"
                 + result.stderr.decode("utf8", "replace")
             )
             rw.transport.nack(header)

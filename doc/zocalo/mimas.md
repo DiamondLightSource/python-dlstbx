@@ -1,6 +1,28 @@
 # Mimas
 
-![mimas flowchart](mimas.svg)
+```mermaid
+sequenceDiagram
+    actor gda as GDA
+    participant dispatcher as DLSDispatcher
+    participant mimas as DLSMimas
+    participant ispybsvc as DLSISPyB
+    participant backlog as DLSMimasBacklog
+    participant cluster as DLSClusterMonitor
+    gda->>dispatcher: processing_recipe
+    dispatcher->>mimas: mimas
+    alt
+        mimas->>dispatcher: processing_recipe
+    else
+        mimas->>ispybsvc: ispyb_connector
+        alt
+            ispybsvc->>dispatcher: processing_recipe
+        else
+            ispybsvc->>backlog: mimas.held
+            cluster-->>backlog: transient.statistics.cluster
+            backlog->>dispatcher: processing_recipe
+        end
+    end
+```
 
 Mimas is responsible for the _business logic_ within Zocalo - i.e. "what processing should
 be done given a data collection ID?" It is triggered indirectly by GDA, via the

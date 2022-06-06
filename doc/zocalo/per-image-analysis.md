@@ -9,7 +9,24 @@ results.
 
 ## per-image-analyis-rotation
 
-![per-image-analyis-rotation flowchart](PIA-rotation.svg)
+```mermaid
+sequenceDiagram
+    participant fw as DLSFileWatcher
+    participant images as DLSImages
+    participant pia as DLSPerImageAnalysis
+    participant ispybsvc as DLSISPyB
+    actor ispyb as ISPyB
+    loop Watch for images
+        fw->>fw: filewatcher
+    end
+    note right of fw: Generate image preview
+    fw->>images: images
+    loop For each image
+        fw->>pia: per_image_analysis
+        pia->>ispybsvc: ispyb_connector
+        ispybsvc-->>ispyb: 
+    end
+```
 
 The `per-image-analysis-rotation` recipe begins with the `DLSFileWatcher` service,
 which subscribes to the `filewatcher` queue. When the first image is detected, this is
@@ -24,7 +41,33 @@ the `ispyb_pia` queue, where the results are stored into ISPyB.
 
 ## per-image-analyis-gridscan
 
-![per-image-analyis-gridscan flowchart](PIA-gridscan.svg)
+```mermaid
+sequenceDiagram
+    participant fw as DLSFileWatcher
+    participant images as DLSImages
+    participant pia as DLSPerImageAnalysis
+    participant ispybsvc as DLSISPyB
+    participant xrc as DLSXrayCentering
+    participant notify as DLSNotifyGDA
+    actor ispyb as ISPyB
+    actor gda as GDA
+    loop Watch for images
+        fw->>fw: filewatcher
+    end
+    note right of fw: Generate image preview
+    fw->>images: images
+    loop For each image
+        fw->>pia: per_image_analysis
+        par
+            pia->>ispybsvc: ispyb_connector
+            ispybsvc-->>ispyb: 
+            pia->>xrc: reduce.xray_centering
+            pia->>notify: notify_gda
+            notify-->>gda: <UDP>
+        end
+    end
+    xrc-->>gda: <xrc.json>
+```
 
 This recipe is very similar to above, with the exception that all images are forwarded by
 the `DLSFileWatcher` service to the `DLSPerImageAnalysis` service. In addition to sending
@@ -39,8 +82,6 @@ the file `{ispyb_results_directory}/xray-centering/Dials5AResults.json`, which i
 picked up by the GDA autocentring routine.
 
 ## per-image-analyis-gridscan-swmr
-
-![per-image-analyis-gridscan-swmr flowchart](PIA-gridscan-swmr.svg)
 
 This recipe is an alternative approach to handling real-time per-image analysis of
 gridscans from EIGER beamlines. This assumes that HDF5 files produced by EIGER detectors

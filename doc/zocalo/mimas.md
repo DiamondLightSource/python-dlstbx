@@ -9,17 +9,25 @@ sequenceDiagram
     participant backlog as DLSMimasBacklog
     participant cluster as DLSClusterMonitor
     gda->>dispatcher: processing_recipe
+    activate dispatcher
     dispatcher->>mimas: mimas
+    deactivate dispatcher
+    activate mimas
     alt
         mimas->>dispatcher: processing_recipe
     else
         mimas->>ispybsvc: ispyb_connector
+        deactivate mimas
+        activate ispybsvc
         alt
             ispybsvc->>dispatcher: processing_recipe
         else
             ispybsvc->>backlog: mimas.held
+            deactivate ispybsvc
+            activate backlog
             cluster-->>backlog: transient.statistics.cluster
             backlog->>dispatcher: processing_recipe
+            deactivate backlog
         end
     end
 ```

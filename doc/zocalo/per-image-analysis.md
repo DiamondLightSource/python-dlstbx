@@ -17,14 +17,20 @@ sequenceDiagram
     participant ispybsvc as DLSISPyB
     actor ispyb as ISPyB
     loop Watch for images
+        activate fw
         fw->>fw: filewatcher
     end
     note right of fw: Generate image preview
     fw->>images: images
     loop For each image
         fw->>pia: per_image_analysis
+        deactivate fw
+        activate pia
         pia->>ispybsvc: ispyb_connector
+        deactivate pia
+        activate ispybsvc
         ispybsvc-->>ispyb: 
+        deactivate ispybsvc
     end
 ```
 
@@ -52,21 +58,31 @@ sequenceDiagram
     actor ispyb as ISPyB
     actor gda as GDA
     loop Watch for images
+        activate fw
         fw->>fw: filewatcher
     end
     note right of fw: Generate image preview
     fw->>images: images
     loop For each image
         fw->>pia: per_image_analysis
+        deactivate fw
+        activate pia
         par
             pia->>ispybsvc: ispyb_connector
+            activate ispybsvc
             ispybsvc-->>ispyb: 
+            deactivate ispybsvc
             pia->>xrc: reduce.xray_centering
+            activate xrc
             pia->>notify: notify_gda
+            deactivate pia
+            activate notify
             notify-->>gda: <UDP>
+            deactivate notify
         end
     end
     xrc-->>gda: <xrc.json>
+    deactivate xrc
 ```
 
 This recipe is very similar to above, with the exception that all images are forwarded by

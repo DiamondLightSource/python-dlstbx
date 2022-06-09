@@ -17,8 +17,9 @@ and sends the resultant recipe to the `mimas` queue, where it will be picked up 
 `DLSMimas` service.
 
 This first constructs a `dlstbx.mimas.MimasScenario` which contains all the information
-that mimas requires to determine what processing to do for the given data collection.
-This scenario is then provided to the function `dlstbx.mimas.core.run()`, which returns
+that mimas requires to determine what processing to do for the given data collection
+(e.g. event, beamline, visit, space group, unit cell, detector type, etc.).
+This scenario is then provided to the function `dlstbx.mimas.handle_scenario()`, which returns
 a list of tasks to run. A task is either an instance of
 `dlstbx.mimas.MimasRecipeInvocation` or `dlstbx.mimas.MimasISPyBJobInvocation`. The former
 are recipes that are to be triggered directly, by sending to the `processing_recipe`
@@ -32,7 +33,7 @@ ProcessingJobParameter and ProcessingJobImageSweep tables, before either forward
 recipe to the `trigger` or `held` output , which correspond to the `processing_recipe`
 queue or the `mimas.held` queue respectively. The decision of whether to trigger a recipe
 immediately or send it to the held queue is determined by the value of the `autostart`
-parameter the mimas task.
+parameter of the mimas task.
 
 If the recipe has been sent to the `processing_recipe` queue it will be picked up by the
 `DLSDispatcher` service and processed immediately.
@@ -72,3 +73,40 @@ sequenceDiagram
     end
 ```
 Figure 1. Mimas recipe
+
+Mimas makes use of an entry points mechanism to allow enable a more flexible and
+extensible approach to handling scenarios.
+
+The simplest mechanism is to register one (or more) functions that take a scenario
+and return a list of MimasRecipeInvocations or MimasISPyBJobInvocations:
+```
+def handle_scenarios(scenario: MimasScenario) -> List[Invocation]:
+    return [
+        MimasRecipeInvocation(...),
+        MimasISPyBJobInvocation(...),
+        ...
+    ]
+```
+This function will handle every scenario passed to the mimas service.
+Alternatively, a more modular approach can be used, using the `@match_specification`
+decorator to filter scenarios that match a given specification before passing them
+to the function:
+```
+from dlstbx.mimas.specification import BeamlineSpecification, DCClassSpecification
+
+is_i99 = BeamlineSpecification("i99")
+is_rotation = DCClassSpecification(MimasDCClass.ROTATION)
+
+@match_specification(is_i99 & is_rotation)
+def handle_i99_rotation(scenario: MimasScenario) -> List[Invocation]:
+    return [
+        MimasRecipeInvocation(...),
+        MimasISPyBJobInvocation(...),
+        ...
+    ]
+```
+Various commonly used specifications are provided, such as `BeamlineSpecification`,
+`DCClassSpecification`, `DetectorClassSpecification`, `EventSpecification` and
+`VisitSpecification`. More complex custom specifications may be built by inheriting
+from `ScenarioSpecification`. Specifications can be combined using bitwise operators
+(`&`, `|`, `~`).

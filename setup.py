@@ -100,6 +100,7 @@ known_wrappers = [  # please keep alphabetically sorted
 ]
 
 service_list = [
+    "CTFFind = dlstbx.services.ctffind:CTFFind",
     "DLSArchiver = dlstbx.services.archiver:DLSArchiver",
     "DLSBridge = dlstbx.services.bridge:DLSBridge",
     "DLSCluster = dlstbx.services.cluster:DLSCluster",

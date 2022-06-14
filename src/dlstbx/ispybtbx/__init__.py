@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 import decimal
 import glob
 import itertools
@@ -24,6 +25,8 @@ _gpfs03_beamlines = {
     "b18",
     "b21",
     "b22",
+    "e03",
+    "ebic",
     "i05",
     "i05-1",
     "i07",
@@ -46,6 +49,21 @@ _gpfs03_beamlines = {
     "i20-1",
     "i21",
     "k11",
+    "m01",
+    "m02",
+    "m03",
+    "m04",
+    "m05",
+    "m06",
+    "m07",
+    "m08",
+    "m10",
+    "m11",
+    "m12",
+    "m13",
+    "m14",
+    "mpl",
+    "p45",
     "p99",
 }
 
@@ -230,7 +248,10 @@ class ispybtbx:
         return list(itertools.chain.from_iterable(query.all()))
 
     def get_sample_group_dcids(
-        self, ispyb_info, session: sqlalchemy.orm.session.Session
+        self,
+        ispyb_info,
+        session: sqlalchemy.orm.session.Session,
+        io_timeout: float = 10,
     ):
         # Test dcid: 5469646
         #      blsampleid: 3065377
@@ -279,7 +300,11 @@ class ispybtbx:
         #     - [well_121, well_122, well_124, well_126, well_146, well_150]
         if not related_dcids:
             try:
-                sample_groups = load_sample_group_config_file(ispyb_info)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(load_sample_group_config_file, ispyb_info)
+                    sample_groups = future.result(timeout=io_timeout)
+            except concurrent.futures.TimeoutError:
+                raise
             except Exception as e:
                 logger.warning(
                     f"Error loading sample group config file for {ispyb_info['ispyb_visit']}: {e}",
@@ -733,7 +758,9 @@ def ready_for_processing(message, parameters, session: sqlalchemy.orm.session.Se
     return query.one().runStatus is not None
 
 
-def ispyb_filter(message, parameters, session: sqlalchemy.orm.session.Session):
+def ispyb_filter(
+    message, parameters, session: sqlalchemy.orm.session.Session, io_timeout: float = 10
+):
     """Do something to work out what to do with this data..."""
 
     i = ispybtbx()
@@ -814,7 +841,11 @@ def ispyb_filter(message, parameters, session: sqlalchemy.orm.session.Session):
     space_group, cell = i.get_space_group_and_unit_cell(dc_id, session)
     if not any((space_group, cell)):
         try:
-            params = load_configuration_file(parameters)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(load_configuration_file, parameters)
+                params = future.result(timeout=io_timeout)
+        except concurrent.futures.TimeoutError:
+            raise
         except Exception as exc:
             logger.warning(
                 f"Error loading configuration file for dcid={dc_id}:\n{exc}",
@@ -836,7 +867,9 @@ def ispyb_filter(message, parameters, session: sqlalchemy.orm.session.Session):
     parameters["ispyb_unit_cell"] = cell
 
     # related dcids via sample groups
-    parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(parameters, session)
+    parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(
+        parameters, session, io_timeout=io_timeout
+    )
     if parameters["ispyb_dc_info"].get("BLSAMPLEID"):
         # if a sample is linked to the dc, then get dcids on the same sample
         related_dcids = i.get_sample_dcids(parameters, session)

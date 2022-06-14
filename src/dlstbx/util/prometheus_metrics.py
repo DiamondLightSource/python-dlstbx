@@ -4,14 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
-from prometheus_client import (
-    CollectorRegistry,
-    Counter,
-    Gauge,
-    Histogram,
-    Summary,
-    start_http_server,
-)
+from prometheus_client import Counter, Gauge, Histogram, Summary
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +31,7 @@ class BasePrometheusMetrics(ABC):
     """
 
     def __init__(self, port: int = 8080, address: str = "0.0.0.0"):
-        self.registry = CollectorRegistry()
         self.create_metrics()
-        logger.info("Prometheus metrics on")
-        try:
-            start_http_server(port, address, registry=self.registry)
-        except Exception:
-            logger.exception("Failed to create metric endpoint")
 
     @abstractmethod
     def create_metrics(self):

@@ -206,4 +206,8 @@ def test_xray_centering_3d(mocker):
             "file-seen-at": time.time(),
         }
         xc.add_pia_result(rw, header, message)
-    send_to.assert_called_with("success", (4, 5, 4), transaction=mock.ANY)
+    send_to.assert_called_with(
+        "success",
+        [{"max_voxel": (4, 5, 4), "centre_of_mass": mock.ANY}],
+        transaction=mock.ANY,
+    )

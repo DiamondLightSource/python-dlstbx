@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import concurrent.futures
 import json
+import time
 from unittest import mock
 
 import ispyb.sqlalchemy
@@ -294,6 +296,24 @@ def test_filter_function(db_session):
     msg = {}
     param = {"ispyb_dcid": ds["i19_screening"]}
     msg, param = ispyb_filter(msg, param, db_session)
+
+
+def test_filter_function_with_load_config_file_timeout(monkeypatch, db_session):
+    def mock_load_config_file(*args, **kwargs):
+        time.sleep(2)
+
+    msg = {}
+    param = {"ispyb_dcid": ds["i19_screening"]}
+
+    with monkeypatch.context() as m, pytest.raises(concurrent.futures.TimeoutError):
+        m.setattr(
+            dlstbx.ispybtbx, "load_sample_group_config_file", mock_load_config_file
+        )
+        msg, param = ispyb_filter(msg, param, db_session, io_timeout=1)
+
+    with monkeypatch.context() as m, pytest.raises(concurrent.futures.TimeoutError):
+        m.setattr(dlstbx.ispybtbx, "load_configuration_file", mock_load_config_file)
+        msg, param = ispyb_filter(msg, param, db_session, io_timeout=1)
 
 
 def test_load_sample_group_config_file(tmpdir):

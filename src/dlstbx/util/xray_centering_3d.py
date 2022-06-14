@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 import math
 from typing import Tuple
@@ -12,13 +13,19 @@ from dlstbx.util.xray_centering import Orientation
 logger = logging.getLogger(__name__)
 
 
+@dataclasses.dataclass
+class GridScan3DResult:
+    max_voxel: Tuple[int, ...]
+    centre_of_mass: Tuple[float, ...]
+
+
 def gridscan3d(
     data: np.ndarray,
     steps: Tuple[int, int],
     snaked: bool,
     orientation: Orientation,
     plot: bool = False,
-):
+) -> list[GridScan3DResult]:
     """
     3D gridscan analysis from 2 x 2D perpendicular gridscans.
 
@@ -39,7 +46,7 @@ def gridscan3d(
         plot: Show interactive debug plots of the grid scan analysis (default=False)
 
     Returns:
-        max_idx: the index of the maximum point of the resulting 3D array
+        list[GridScan3DResult]
     """
 
     assert len(data.shape) == 2
@@ -58,8 +65,8 @@ def gridscan3d(
         data[:, :, 1::2] = data[:, ::-1, 1::2]
 
     grid3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
-    max_idx = tuple(r[0] for r in np.where(grid3d == grid3d.max()))
-    com = [c + 0.5 for c in scipy.ndimage.center_of_mass(grid3d)]
+    max_idx = tuple(int(r[0]) for r in np.where(grid3d == grid3d.max()))
+    com = tuple(c + 0.5 for c in scipy.ndimage.center_of_mass(grid3d))
     logger.info(f"Max pixel: {max_idx}\nCentre of mass: {com}")
 
     if plot:
@@ -85,4 +92,4 @@ def gridscan3d(
                 axes[i].scatter(com[2], com[1], marker="x", c="grey")
         plt.show()
 
-    return max_idx
+    return [GridScan3DResult(max_voxel=max_idx, centre_of_mass=com)]

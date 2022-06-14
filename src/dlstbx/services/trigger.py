@@ -43,7 +43,6 @@ class PrometheusMetrics(BasePrometheusMetrics):
             name="zocalo_trigger_jobs_total",
             documentation="The total number of jobs triggered by the Zocalo trigger service",
             labelnames=["target"],
-            registry=self.registry,
         )
 
 
@@ -1007,6 +1006,13 @@ class DLSTrigger(CommonService):
         except pydantic.ValidationError as e:
             self.log.error("big_ep trigger called with invalid parameters: %s", e)
             return False
+
+        for inp_file in (big_ep_params.data, big_ep_params.scaled_unmerged_mtz):
+            if not inp_file.is_file():
+                self.log.info(
+                    f"Skipping big_ep trigger: input file {inp_file} not found."
+                )
+                return {"success": True}
 
         path_ext = big_ep_params.path_ext
         spacegroup = parameters.spacegroup

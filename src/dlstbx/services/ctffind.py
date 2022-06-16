@@ -7,7 +7,7 @@ from workflows.services.common_service import CommonService
 
 class CTFFind(CommonService):
     """
-    A service for motion correcting cryoEM movies using MotionCor2
+    A service for CTF estimating micrographs with CTFFind
     """
 
     # Human readable service name

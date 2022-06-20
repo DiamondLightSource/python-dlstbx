@@ -24,7 +24,7 @@ class TomoAlign(CommonService):
         self.log.info("TomoAlign service starting")
         workflows.recipe.wrap_subscribe(
             self._transport,
-            "ctffind",
+            "tomo_align",
             self.tomo_align,
             acknowledgement=True,
             log_extender=self.extend_log,
@@ -60,8 +60,6 @@ class TomoAlign(CommonService):
             rw.send = rw.dummy
             message = message["content"]
 
-        self.log.info(message)
-
         def parameters(key: str, default=None):
             if isinstance(message, dict) and message.get(key):
                 return message[key]
@@ -77,9 +75,11 @@ class TomoAlign(CommonService):
             )
             rw.transport.nack(header)
             return
-        aretomo_result = self.aretomo(
-            parameters("stack_file"), str("aretomo_" + parameters("stack_file"))
+        stack_filename_split = parameters("stack_file").split(".")
+        aretomo_output_file = (
+            stack_filename_split[0] + "aretomo." + stack_filename_split[1]
         )
+        aretomo_result = self.aretomo(parameters("stack_file"), aretomo_output_file)
         if aretomo_result.returncode:
             self.log.error(
                 f"AreTomo failed with exitcode {aretomo_result.returncode}:\n"
@@ -107,7 +107,8 @@ class TomoAlign(CommonService):
         filein_list_of_tuples.sort(key=tilt)
         filein_list_of_tuples.sort(key=position)
 
-        with open("/home/slg25752/tomography-pipeline/fileinlist.txt", "w") as f:
+        # Write a file with a list of .mrcs for input to Newstack
+        with open("newstack-fileinlist.txt", "w") as f:
             f.write(f"{len(filein_list_of_tuples)}\n")
             f.write("\n0\n".join(i[0] for i in filein_list_of_tuples))
             f.write("\n0\n")
@@ -115,11 +116,12 @@ class TomoAlign(CommonService):
         newstack_cmd = [
             "newstack",
             "-fileinlist",
-            "fileinlist.txt",
+            "newstack-fileinlist.txt",
             "-output",
             stack_output_file,
             "-quiet",
         ]
+        self.log.info(newstack_cmd)
         self.log.info("Running Newstack")
         result = procrunner.run(newstack_cmd)
         return result
@@ -129,15 +131,18 @@ class TomoAlign(CommonService):
         Run AreTomo on output of Newstack
         """
         aretomo_cmd = [
-            "AreTomo",
+            "AreTomo",  # needed to be AreTomo_1.0.6_Cuda102 for testing, or one of the other available AreTomos
             "-InMrc",
-            stack_file,
+            stack_file,  # "/dls/m07/data/2022/nr29785-36/processing/pipeline_test/stacks/stack001/tomoDLS_001.st",
             "-OutMrc",
             output_file,
             "-VolZ",
-            1200,
+            "1200",
             "-OutBin",
-            4,
+            "4",
+            "-TiltRange",
+            "-60",
+            "60",
         ]
         self.log.info("Running AreTomo")
         result = procrunner.run(aretomo_cmd)

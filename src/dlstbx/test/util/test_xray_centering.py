@@ -203,7 +203,7 @@ def test_vertical_2d():
         snaked=True,
         orientation=dlstbx.util.xray_centering.Orientation.VERTICAL,
     )
-    assert "There are 54 reflections in image #16." in stdout
+    assert "There are 54 reflections in image #4." in stdout
     assert dataclasses.asdict(results) == {
         "steps": (5, 6),
         "box_size_px": (45.45454545454545, 45.45454545454545),
@@ -214,7 +214,7 @@ def test_vertical_2d():
         "centre_y_box": 4.0,
         "status": "ok",
         "message": "ok",
-        "best_image": 16,
+        "best_image": 4,
         "reflections_in_best_image": 54,
         "best_region": [(3, 0), (3, 1), (4, 0), (4, 1)],
     }

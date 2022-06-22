@@ -223,14 +223,28 @@ class DLSXRayCentering(CommonService):
             cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
             if dcg_dcids and cd.images_seen == gridinfo.image_count:
-                data = [cd.data]
+                data = [
+                    dlstbx.util.xray_centering.reshape_grid(
+                        cd.data,
+                        (cd.gridinfo.steps_x, cd.gridinfo.steps_y),
+                        cd.gridinfo.snaked,
+                        cd.gridinfo.orientation,
+                    )
+                ]
                 for _dcid in dcg_dcids:
                     _cd = self._centering_data.get(_dcid)
                     if not _cd:
                         break
                     if _cd.images_seen != _cd.gridinfo.image_count:
                         break
-                    data.append(_cd.data)
+                    data.append(
+                        dlstbx.util.xray_centering.reshape_grid(
+                            _cd.data,
+                            (_cd.gridinfo.steps_x, _cd.gridinfo.steps_y),
+                            not _cd.gridinfo.snaked,  # XXX
+                            _cd.gridinfo.orientation,
+                        )
+                    )
                 else:
                     # All results present
                     self.log.info(
@@ -238,10 +252,7 @@ class DLSXRayCentering(CommonService):
                     )
 
                     result = dlstbx.util.xray_centering_3d.gridscan3d(
-                        data=np.array(data),
-                        steps=(gridinfo.steps_x, gridinfo.steps_y),
-                        snaked=gridinfo.snaked,
-                        orientation=gridinfo.orientation,
+                        data=tuple(data),
                         plot=False,
                     )
                     self.log.info(f"3D X-ray centering result: {result}")

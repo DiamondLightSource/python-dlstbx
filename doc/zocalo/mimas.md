@@ -1,25 +1,25 @@
 # Mimas
 
-![mimas flowchart](mimas.svg)
-
 Mimas is responsible for the _business logic_ within Zocalo - i.e. "what processing should
-be done given a data collection ID?" It is triggered indirectly by GDA, via the
-beamline `RunAtStartOfCollect` or `RunAtEndOfCollect` scripts that live in
+be done given a data collection ID?". It is triggered indirectly by GDA, via the beamline
+`RunAtStartOfCollect` or `RunAtEndOfCollect` scripts that live in
 `/dls_sw/apps/mx-scripts/bin/`.
 
 This script triggers mimas by running the `dlstbx.go` command, specifying `mimas` as the
 recipe (`-r mimas`) and passing the event parameter to indicate whether this mimas job
 was triggered by a start or end of data collection event (`-s event=start` or
 `-s event=end` respectively). This command sends the recipe to the `processing_recipe`
-queue, which is monitored by the `DLSDispatcher` service.
+queue, which is monitored by the `DLSDispatcher` service. Figure 1
+outlines the sequence of events described by the `mimas` recipe.
 
 The `DLSDispatcher` service populates the recipe with relevant information from ISPyB,
 and sends the resultant recipe to the `mimas` queue, where it will be picked up by the
 `DLSMimas` service.
 
 This first constructs a `dlstbx.mimas.MimasScenario` which contains all the information
-that mimas requires to determine what processing to do for the given data collection.
-This scenario is then provided to the function `dlstbx.mimas.core.run()`, which returns
+that mimas requires to determine what processing to do for the given data collection
+(e.g. event, beamline, visit, space group, unit cell, detector type, etc.).
+This scenario is then provided to the function `dlstbx.mimas.handle_scenario()`, which returns
 a list of tasks to run. A task is either an instance of
 `dlstbx.mimas.MimasRecipeInvocation` or `dlstbx.mimas.MimasISPyBJobInvocation`. The former
 are recipes that are to be triggered directly, by sending to the `processing_recipe`
@@ -33,10 +33,80 @@ ProcessingJobParameter and ProcessingJobImageSweep tables, before either forward
 recipe to the `trigger` or `held` output , which correspond to the `processing_recipe`
 queue or the `mimas.held` queue respectively. The decision of whether to trigger a recipe
 immediately or send it to the held queue is determined by the value of the `autostart`
-parameter the mimas task.
+parameter of the mimas task.
 
 If the recipe has been sent to the `processing_recipe` queue it will be picked up by the
 `DLSDispatcher` service and processed immediately.
 
 The `DLSMimasBacklog` service monitors the `mimas.held` queue and forwards held recipes to
 the `processing_recipe` queue whenever there is sufficient free capacity in the cluster.
+
+```mermaid
+sequenceDiagram
+    actor gda as GDA
+    participant dispatcher as DLSDispatcher
+    participant mimas as DLSMimas
+    participant ispybsvc as DLSISPyB
+    participant backlog as DLSMimasBacklog
+    participant cluster as DLSClusterMonitor
+    gda->>dispatcher: processing_recipe
+    activate dispatcher
+    dispatcher->>mimas: mimas
+    deactivate dispatcher
+    activate mimas
+    alt
+        mimas->>dispatcher: processing_recipe
+    else
+        mimas->>ispybsvc: ispyb_connector
+        deactivate mimas
+        activate ispybsvc
+        alt
+            ispybsvc->>dispatcher: processing_recipe
+        else
+            ispybsvc->>backlog: mimas.held
+            deactivate ispybsvc
+            activate backlog
+            cluster-->>backlog: transient.statistics.cluster
+            backlog->>dispatcher: processing_recipe
+            deactivate backlog
+        end
+    end
+```
+Figure 1. Mimas recipe
+
+Mimas makes use of an entry points mechanism to allow enable a more flexible and
+extensible approach to handling scenarios.
+
+The simplest mechanism is to register one (or more) functions that take a scenario
+and return a list of MimasRecipeInvocations or MimasISPyBJobInvocations:
+```
+def handle_scenarios(scenario: MimasScenario) -> List[Invocation]:
+    return [
+        MimasRecipeInvocation(...),
+        MimasISPyBJobInvocation(...),
+        ...
+    ]
+```
+This function will handle every scenario passed to the mimas service.
+Alternatively, a more modular approach can be used, using the `@match_specification`
+decorator to filter scenarios that match a given specification before passing them
+to the function:
+```
+from dlstbx.mimas.specification import BeamlineSpecification, DCClassSpecification
+
+is_i99 = BeamlineSpecification("i99")
+is_rotation = DCClassSpecification(MimasDCClass.ROTATION)
+
+@match_specification(is_i99 & is_rotation)
+def handle_i99_rotation(scenario: MimasScenario) -> List[Invocation]:
+    return [
+        MimasRecipeInvocation(...),
+        MimasISPyBJobInvocation(...),
+        ...
+    ]
+```
+Various commonly used specifications are provided, such as `BeamlineSpecification`,
+`DCClassSpecification`, `DetectorClassSpecification`, `EventSpecification` and
+`VisitSpecification`. More complex custom specifications may be built by inheriting
+from `ScenarioSpecification`. Specifications can be combined using bitwise operators
+(`&`, `|`, `~`).

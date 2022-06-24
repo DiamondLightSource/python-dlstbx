@@ -22,6 +22,16 @@ class IndexingPayload(pydantic.BaseModel):
     reflections: flex.reflection_table
 
 
+class IndexedLatticeResult(pydantic.BaseModel):
+    unit_cell: tuple[float, float, float, float, float, float]
+    n_indexed: pydantic.NonNegativeInt
+
+
+class IndexingResult(pydantic.BaseModel):
+    lattices: list[IndexedLatticeResult]
+    n_unindexed: pydantic.NonNegativeInt
+
+
 class DLSIndexer(CommonService):
     """A service that analyses individual images."""
 
@@ -45,11 +55,12 @@ class DLSIndexer(CommonService):
     def index(
         self, rw: workflows.recipe.RecipeWrapper, header: dict, message: IndexingPayload
     ):
-        results = {}
         if (n_refl := message.reflections.size()) < 10:
             self.log.debug(
                 f"Skipping indexing for reflection list with {n_refl} reflections"
             )
+            rw.transport.ack(header)
+            return
         else:
             try:
                 phil_params = index_phil_scope.fetch(source=phil.parse("")).extract()
@@ -63,23 +74,23 @@ class DLSIndexer(CommonService):
                 indexed_refl = idxr.refined_reflections
                 indexed_refl.extend(idxr.unindexed_reflections)
 
-                results = {
-                    "unit_cells": [
-                        expt.crystal.get_unit_cell().parameters()
-                        for expt in indexed_expts
+                indexing_result = IndexingResult(
+                    lattices=[
+                        IndexedLatticeResult(
+                            unit_cell=expt.crystal.get_unit_cell().parameters(),
+                            n_indexed=(indexed_refl["id"] == i_expt).count(True),
+                        )
+                        for i_expt, expt in enumerate(indexed_expts)
                     ],
-                    "n_indexed": [
-                        (indexed_refl["id"] == i_expt).count(True)
-                        for i_expt in range(len(indexed_expts))
-                    ],
-                }
+                    n_unindexed=idxr.unindexed_reflections.size(),
+                )
 
-                # A context manager would be really useful here
-                logging.getLogger("dials").setLevel(logging.INFO)
-                idxr.show_experiments(indexed_expts, indexed_refl)
-                logging.getLogger("dials").setLevel(logging.WARNING)
+                self.log.info(indexing_result.json(indent=2))
+
             except Exception as e:
                 self.log.debug(f"Indexing failed with message: {e}")
+                rw.transport.ack(header)
+                return
 
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
@@ -87,5 +98,5 @@ class DLSIndexer(CommonService):
 
         # Send results onwards
         rw.set_default_channel("result")
-        rw.send_to("result", results, transaction=txn)
+        rw.send_to("result", indexing_result.dict(), transaction=txn)
         rw.transport.transaction_commit(txn)

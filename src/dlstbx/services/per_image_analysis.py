@@ -43,7 +43,6 @@ def msgpack_serializer(obj):
     if isinstance(obj, flex.reflection_table):
         buf = io.BytesIO()
         obj.as_msgpack_to_file(dials.util.ext.streambuf(python_file_obj=buf))
-        # print(buf.getbuffer().nbytes)
         return msgpack.ExtType(1, buf.getvalue())
     elif isinstance(obj, ExperimentList):
         return obj.to_dict()
@@ -196,10 +195,6 @@ class DLSPerImageAnalysis(CommonService):
                 "reflections": reflections,
                 "experiments": expts,
             }
-
-            # packed = msgpack_mangle_for_sending(payload)
-            # unpacked = msgpack_mangle_for_receiving(packed)
-            # print(unpacked)
 
             self.log.info(f"Sending reflections to {reflections_queue}")
             rw.send_to(

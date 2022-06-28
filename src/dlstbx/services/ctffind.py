@@ -91,6 +91,7 @@ class CTFFind(CommonService):
             parameters("expert_options", default="no"),
         ]
         command.extend("\n".join(parameters_list))
+        self.log.info(command)
         result = procrunner.run(command)
         if result.returncode:
             self.log.error(

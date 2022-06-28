@@ -74,6 +74,7 @@ class CTFFind(CommonService):
 
         parameters_list = [
             parameters("input_image"),
+            parameters("is_movie", default="no"),
             parameters("output_file", default="diagnostic_output.mrc"),
             parameters("pix_size", default="1.0"),
             parameters("voltage", default="300.0"),

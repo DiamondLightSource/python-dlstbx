@@ -90,9 +90,9 @@ class CTFFind(CommonService):
             parameters("additional_phase_shift", default="no"),
             parameters("expert_options", default="no"),
         ]
-        command.extend("\n".join(parameters_list))
         self.log.info(command)
-        result = procrunner.run(command)
+        parameters_string = "\n".join(parameters_list)
+        result = procrunner.run(command, stdin=parameters_string.encode("ascii"))
         if result.returncode:
             self.log.error(
                 f"CTFFind failed with exitcode {result.returncode}:\n"

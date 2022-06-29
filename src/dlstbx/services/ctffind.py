@@ -79,6 +79,7 @@ class CTFFind(CommonService):
             parameters("pix_size", default="1.0"),
             parameters("voltage", default="300.0"),
             parameters("spher_aber", default="2.70"),
+            parameters("ampl_contrast", default="0.8"),
             parameters("ampl_spectrum", default="512"),
             parameters("min_res", default="30.0"),
             parameters("max_res", default="5.0"),

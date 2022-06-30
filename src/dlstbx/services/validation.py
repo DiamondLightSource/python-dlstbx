@@ -5,6 +5,7 @@ import os.path
 
 import dxtbx.model.experiment_list
 import h5py
+import numpy as np
 import pytest
 import workflows.recipe
 from dxtbx.format.FormatNexusEigerDLS import find_meta_filename
@@ -122,6 +123,21 @@ class DLSValidation(CommonService):
                     if zeros:
                         return fail(
                             f"Empty datasets found in {meta_h5}:\n" + "\n".join(zeros)
+                        )
+                with h5py.File(filename) as fh:
+                    pixel_mask = fh["/entry/instrument/detector/pixel_mask"][()]
+                    data = fh["/entry/data/data"][0]
+                    max_value = np.max(data)
+                    if max_value not in (0xFFFF, 0xFFFFFFFF):
+                        return fail(
+                            f"Unxpected max pixel value found in {filename}: {max_value}"
+                        )
+                    unmasked_minus_ones = np.count_nonzero(
+                        (data == max_value) & (pixel_mask == 0)
+                    )
+                    if unmasked_minus_ones:
+                        return fail(
+                            f"{unmasked_minus_ones} unmasked -1 pixel values found in first image for {filename}"
                         )
             except Exception as e:
                 return fail(

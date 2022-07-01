@@ -58,7 +58,6 @@ class CTFFind(CommonService):
             rw.send = rw.dummy
             message = message["content"]
 
-        self.log.info(message)
         command = ["ctffind"]
 
         def parameters(key: str, default=None):
@@ -95,8 +94,9 @@ class CTFFind(CommonService):
             parameters("additional_phase_shift", default="no"),
             parameters("expert_options", default="no"),
         ]
-        self.log.info(command)
+
         parameters_string = "\n".join(parameters_list)
+        self.log.info(command, parameters_string)
         result = procrunner.run(command, stdin=parameters_string.encode("ascii"))
         if result.returncode:
             self.log.error(

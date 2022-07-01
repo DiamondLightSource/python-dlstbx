@@ -52,7 +52,7 @@ class MotionCorr(CommonService):
 
             rw = RW_mock()
             rw.transport = self._transport
-            rw.recipe_step = {"parameters": message["parameters"]}
+            rw.recipe_step = {"parameters": message["parameters"], "output": None}
             rw.environment = {"has_recipe_wrapper": False}
             rw.set_default_channel = rw.dummy
             rw.send = rw.dummy
@@ -108,4 +108,11 @@ class MotionCorr(CommonService):
             rw.transport.nack(header)
             return
 
+        # Forward results to ctffind
+        rw.transport.send(destination='ctffind',
+                          message={"parameters":
+                              {
+                                  "input_image": parameters("movie"),
+                                  "output_dir": parameters("mrc_out_dir")
+                              }, "content": "dummy"})
         rw.transport.ack(header)

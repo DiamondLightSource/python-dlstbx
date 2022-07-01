@@ -3,7 +3,7 @@ from __future__ import annotations
 import procrunner
 import workflows.recipe
 from workflows.services.common_service import CommonService
-
+from pathlib import Path
 
 class CTFFind(CommonService):
     """
@@ -71,11 +71,20 @@ class CTFFind(CommonService):
                 f"No input image found in ctffind service message: {message}"
             )
             rw.transport.nack(header)
+        if not parameters("output_file"):
+            self.log.error(
+                f"No output file found in ctffind service message: {message}"
+            )
+            rw.transport.nack(header)
+
+        input_image_name = Path(parameters("input_image")).name
+        output_dir = Path(parameters("output_file")).parent
+        output_file = str(output_dir / Path("ctf_" + str(input_image_name)))
 
         parameters_list = [
             parameters("input_image"),
             parameters("is_movie", default="no"),
-            parameters("output_file", default="diagnostic_output.mrc"),
+            output_file,
             parameters("pix_size", default="1.0"),
             parameters("voltage", default="300.0"),
             parameters("spher_aber", default="2.70"),

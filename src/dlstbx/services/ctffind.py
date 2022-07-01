@@ -78,7 +78,6 @@ class CTFFind(CommonService):
 
         parameters_list = [
             parameters("input_image"),
-            parameters("is_movie", default="no"),
             output_file,
             parameters("pix_size", default="1.0"),
             parameters("voltage", default="300.0"),

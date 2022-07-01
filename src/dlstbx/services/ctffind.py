@@ -71,14 +71,9 @@ class CTFFind(CommonService):
                 f"No input image found in ctffind service message: {message}"
             )
             rw.transport.nack(header)
-        if not parameters("output_file"):
-            self.log.error(
-                f"No output file found in ctffind service message: {message}"
-            )
-            rw.transport.nack(header)
 
         input_image_name = Path(parameters("input_image")).name
-        output_dir = Path(parameters("output_file")).parent
+        output_dir = Path(parameters("input_image")).parent
         output_file = str(output_dir / Path("ctf_" + str(input_image_name)))
 
         parameters_list = [

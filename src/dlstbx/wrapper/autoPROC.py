@@ -525,7 +525,7 @@ class autoPROCWrapper(Wrapper):
         # move summary_inlined.html to summary.html
         inlined_html = working_directory / "summary_inlined.html"
         if inlined_html.is_file():
-            shutil.move(inlined_html, working_directory / "summary.html")
+            shutil.copy2(inlined_html, working_directory / "summary.html")
 
         # attempt to read autoproc XML droppings
         autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml")

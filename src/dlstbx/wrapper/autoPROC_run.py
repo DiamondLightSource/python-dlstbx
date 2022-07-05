@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 from pathlib import Path
 
 import procrunner
@@ -115,6 +116,6 @@ class autoPROCRunWrapper(Wrapper):
         # move summary_inlined.html to summary.html
         inlined_html = procrunner_directory / "summary_inlined.html"
         if inlined_html.is_file():
-            inlined_html.rename(procrunner_directory / "summary.html")
+            shutil.copy2(inlined_html, procrunner_directory / "summary.html")
 
         return success

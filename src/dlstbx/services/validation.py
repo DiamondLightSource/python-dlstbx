@@ -135,7 +135,7 @@ class DLSValidation(CommonService):
                     unmasked_minus_ones = np.count_nonzero(
                         (data == max_value) & (pixel_mask == 0)
                     )
-                    if unmasked_minus_ones:
+                    if unmasked_minus_ones > 100:
                         return fail(
                             f"{unmasked_minus_ones} unmasked -1 pixel values found in first image for {filename}"
                         )

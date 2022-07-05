@@ -111,6 +111,13 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
             default=False,
             help="Restart service on failure",
         )
+        parser.add_option(
+            "-q",
+            "--queue",
+            dest="queue",
+            default=None,
+            help="Consume messages from this queue",
+        )
         self._zc.add_command_line_options(parser)
         self.log.debug("Launching %r", sys.argv)
 
@@ -131,6 +138,8 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         kwargs["environment"] = kwargs.get("environment", {})
         kwargs["environment"]["live"] = self.use_live_infrastructure  # XXX deprecated
         kwargs["environment"]["config"] = self._zc
+        if self.options.queue:
+            kwargs["environment"]["queue"] = self.options.queue
         return kwargs
 
     def on_frontend_preparation(self, frontend):

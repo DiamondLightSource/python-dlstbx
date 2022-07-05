@@ -88,7 +88,7 @@ class DLSPerImageAnalysis(CommonService):
         # For every received message a single frame will be analysed.
         workflows.recipe.wrap_subscribe(
             self._transport,
-            "per_image_analysis",
+            self._environment.get("queue") or "per_image_analysis",
             self.per_image_analysis,
             acknowledgement=True,
             log_extender=self.extend_log,

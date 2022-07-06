@@ -126,6 +126,8 @@ class DLSValidation(CommonService):
                         )
                 with h5py.File(filename) as fh:
                     pixel_mask = fh["/entry/instrument/detector/pixel_mask"][()]
+                    if "/entry/data/data" not in fh:
+                        return fail("Missing VDS /entry/data/data")
                     data = fh["/entry/data/data"][0]
                     max_value = np.max(data)
                     if max_value not in (0xFFFF, 0xFFFFFFFF):
@@ -140,6 +142,7 @@ class DLSValidation(CommonService):
                             f"{unmasked_minus_ones} unmasked -1 pixel values found in first image for {filename}"
                         )
             except Exception as e:
+                self.log.warning(e, exc_info=True)
                 return fail(
                     f"Unhandled {type(e).__name__} exception reading {filename}"
                 )

@@ -564,6 +564,8 @@ class autoPROCWrapper(Wrapper):
                 keep[entry["fileName"]] = {"log": "log"}.get(
                     entry["fileType"].lower(), "result"
                 )
+        for filename in working_directory.glob("staraniso*ell"):
+            keep[filename.name] = "result"
         allfiles = []  # flat list
         anisofiles = []  # tuples of file name, dir name, file type
         attachments = []  # tuples of file name, dir name, file type
@@ -580,6 +582,7 @@ class autoPROCWrapper(Wrapper):
                 "truncate-unique.mtz": 1,
                 "staraniso_alldata-unique.mtz": 1,
                 "summary.html": 1,
+                "summary_inlined.html": 1,
             }.get(filename.name, 2)
             if "staraniso" in filename.name:
                 anisofiles.append(

@@ -82,6 +82,7 @@ sequenceDiagram
     participant pia as DLSPerImageAnalysis
     participant stream as SSX results stream
     participant agg as Aggregator
+    participant plot as SSXPlotter
     loop Watch for images
         activate fw
         fw->>fw: filewatcher
@@ -96,10 +97,13 @@ sequenceDiagram
         end
     end
     fw->>agg: [For final image] plot_ssx
+    activate agg
     agg->>stream: Subscribe to ssx.stream
-    stream-->>agg: Results for <dcid>
+    stream-->>agg: Result for <dcid>
     agg->>agg: Wait for results
     agg->>stream: Unsubscribe
+    agg->>plot: Plot
+    deactivate agg
 ```
 
 * Good, because no additional dependencies

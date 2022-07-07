@@ -101,6 +101,7 @@ known_wrappers = [  # please keep alphabetically sorted
 ]
 
 service_list = [
+    "Aggregator = dlstbx.services.aggregator:Aggregator",
     "DLSArchiver = dlstbx.services.archiver:DLSArchiver",
     "DLSBridge = dlstbx.services.bridge:DLSBridge",
     "DLSCluster = dlstbx.services.cluster:DLSCluster",

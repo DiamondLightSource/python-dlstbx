@@ -131,7 +131,7 @@ class DLSValidation(CommonService):
                             f"Empty datasets found in {meta_h5}:\n" + "\n".join(zeros)
                         )
 
-                if output.get("beamline") != "i02-2":
+                if output.get("beamline") not in ("i02-2", "i04"):
                     # VMXi currently doesn't write the /entry/data/data VDS so skip this check
                     # https://jira.diamond.ac.uk/browse/VMXI-897
                     with h5py.File(filename) as fh:

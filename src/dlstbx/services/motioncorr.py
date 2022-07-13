@@ -31,9 +31,6 @@ class MotionCorr(CommonService):
     def motion_correction(self, rw, header: dict, message: dict):
 
         if not rw:
-            print(
-                "Incoming message is not a recipe message. Simple messages can be valid"
-            )
             if (
                 not isinstance(message, dict)
                 or not message.get("parameters")
@@ -42,7 +39,6 @@ class MotionCorr(CommonService):
                 self.log.error("Rejected invalid simple message")
                 self._transport.nack(header)
                 return
-            self.log.debug("Received a simple message")
 
             # Create a wrapper-like object that can be passed to functions
             # as if a recipe wrapper was present.
@@ -58,7 +54,6 @@ class MotionCorr(CommonService):
             rw.send = rw.dummy
             message = message["content"]
 
-        self.log.info(message)
         command = ["MotionCor2"]
 
         def parameters(key: str, default=None):
@@ -97,6 +92,8 @@ class MotionCorr(CommonService):
         ]
         if parameters("gain_ref"):
             arguments.extend(["-Gain", parameters("gain_ref")])
+
+        self.log.info("Input: ", movie, "Output: ", parameters("mrc_out"))
 
         command.extend(arguments)
         result = procrunner.run(command)

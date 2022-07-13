@@ -96,7 +96,7 @@ class CTFFind(CommonService):
         ]
 
         parameters_string = "\n".join(parameters_list)
-        self.log.info(command, parameters_string)
+        self.log.info("Input: ", parameters("input_image"), "Output: ", output_file)
         result = procrunner.run(command, stdin=parameters_string.encode("ascii"))
         if result.returncode:
             self.log.error(

@@ -44,7 +44,6 @@ class TomoAlign(CommonService):
                 self.log.error("Rejected invalid simple message")
                 self._transport.nack(header)
                 return
-            self.log.debug("Received a simple message")
 
             # Create a wrapper-like object that can be passed to functions
             # as if a recipe wrapper was present.
@@ -97,15 +96,9 @@ class TomoAlign(CommonService):
         Run newstack
         """
 
-        def position(file_tuple):
-            return file_tuple[1]
-
         def tilt(file_tuple):
-            return file_tuple[2]
-
-        self.log.info("Setting up Newstack")
+            return float(file_tuple[2])
         filein_list_of_tuples.sort(key=tilt)
-        filein_list_of_tuples.sort(key=position)
 
         # Write a file with a list of .mrcs for input to Newstack
         with open("newstack-fileinlist.txt", "w") as f:
@@ -121,7 +114,6 @@ class TomoAlign(CommonService):
             stack_output_file,
             "-quiet",
         ]
-        self.log.info(newstack_cmd)
         self.log.info("Running Newstack")
         result = procrunner.run(newstack_cmd)
         return result
@@ -146,4 +138,5 @@ class TomoAlign(CommonService):
         ]
         self.log.info("Running AreTomo")
         result = procrunner.run(aretomo_cmd)
+        self.log.info("Input stack: ", stack_file, "Output file: ", output_file)
         return result

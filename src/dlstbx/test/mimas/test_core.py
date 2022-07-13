@@ -424,7 +424,7 @@ def test_vmxm_gridscan():
 @pytest.mark.parametrize(
     "detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type",
     [
-        (MimasDetectorClass.PILATUS, "", "dials-aiml", "", "cbfs", ""),
+        (MimasDetectorClass.PILATUS, "-i19", "dials-aiml", "", "cbfs", ""),
         (MimasDetectorClass.EIGER, "-swmr-i19", "d-a", "-nexus", "nexus", "-eiger"),
     ],
     ids=("Pilatus", "Eiger"),
@@ -495,7 +495,7 @@ def test_i19_rotation(
 @pytest.mark.parametrize(
     "detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type",
     [
-        (MimasDetectorClass.PILATUS, "", "dials-aiml", "", "cbfs", ""),
+        (MimasDetectorClass.PILATUS, "-i19", "dials-aiml", "", "cbfs", ""),
         (MimasDetectorClass.EIGER, "-swmr-i19", "d-a", "-nexus", "nexus", "-eiger"),
     ],
     ids=("Pilatus", "Eiger"),

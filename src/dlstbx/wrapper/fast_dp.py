@@ -4,19 +4,34 @@ import datetime
 import json
 import logging
 import subprocess
+import time
 
 import dateutil.parser
 import procrunner
 import py
 
 import dlstbx.util.symlink
+import dlstbx.wrapper
 from dlstbx.util.merging_statistics import get_merging_statistics
-from dlstbx.wrapper import Wrapper
 
 logger = logging.getLogger("dlstbx.wrap.fast_dp")
 
 
-class FastDPWrapper(Wrapper):
+from prometheus_client import Histogram
+
+
+class FastDPWrapper(dlstbx.wrapper.Wrapper):
+    name = "fast_dp"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._latency_hist = Histogram(
+            "zocalo_wrap_latency_seconds",
+            "Time from end of data collection to completion of job (seconds)",
+            registry=self._registry,
+            buckets=dlstbx.wrapper.HISTOGRAM_BUCKETS,
+        )
+
     def send_results_to_ispyb(self, z, xtriage_results=None):
         ispyb_command_list = []
 
@@ -142,6 +157,7 @@ class FastDPWrapper(Wrapper):
         # run fast_dp in working directory
         logger.info("command: %s", " ".join(command))
         try:
+            start_time = time.perf_counter()
             result = procrunner.run(
                 command,
                 timeout=params.get("timeout"),
@@ -156,6 +172,9 @@ class FastDPWrapper(Wrapper):
                 logger.info(f"fast_dp failed with exitcode {result.returncode}")
                 logger.debug(result.stdout)
                 logger.debug(result.stderr)
+            runtime = time.perf_counter() - start_time
+            logger.info(f"fast_dp took {runtime} seconds")
+            self._runtime_hist.observe(runtime)
         except subprocess.TimeoutExpired as te:
             logger.info("fast_dp failed with timeout")
             logger.debug(te.stdout)
@@ -191,6 +210,7 @@ class FastDPWrapper(Wrapper):
                 logger.warning(f"xia2.report timed out: {te.timeout}\n  {te.cmd}")
                 logger.debug(te.stdout)
                 logger.debug(te.stderr)
+                self._timeout_counter.inc()
             else:
                 success = not result.returncode
                 if success:
@@ -294,5 +314,11 @@ class FastDPWrapper(Wrapper):
                 f"fast_dp completed for DCID {dcid} with latency of {latency_s:.2f} seconds",
                 extra={"fastdp-latency-seconds": latency_s},
             )
+            self._latency_hist.observe(latency_s)
+
+        if success:
+            self._success_counter.inc()
+        else:
+            self._failure_counter.inc()
 
         return success

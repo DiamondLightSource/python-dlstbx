@@ -4,6 +4,13 @@ import procrunner
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
+# Possible parameters:
+# "movie" Required
+# "mrc_out" Required
+# "pix_size" Required
+# "patch_size"
+# "gain_ref"
+# "ctf" Required
 
 class MotionCorr(CommonService):
     """
@@ -105,10 +112,8 @@ class MotionCorr(CommonService):
             rw.transport.nack(header)
             return
 
+        parameters("ctffind")["input_image"] = parameters("mrc_out")
         # Forward results to ctffind
         rw.transport.send(destination='ctffind',
-                          message={"parameters":
-                              {
-                                  "input_image": parameters("mrc_out")
-                              }, "content": "dummy"})
+                          message={"parameters": parameters("ctffind") })
         rw.transport.ack(header)

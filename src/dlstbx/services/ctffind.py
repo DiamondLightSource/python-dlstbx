@@ -5,6 +5,25 @@ import workflows.recipe
 from workflows.services.common_service import CommonService
 from pathlib import Path
 
+# Possible parameters:
+# "input_image" Required
+# "output_file" Required
+# "pix_size", default="1.0"
+# "voltage", default="300.0"
+# "spher_aber", default="2.70"
+# "ampl_contrast", default="0.8"
+# "ampl_spectrum", default="512"
+# "min_res", default="30.0"
+# "max_res", default="5.0"
+# "min_defocus", default="5000.0"
+# "max_defocus", default="50000.0"
+# "defocus_step", default="100.0"
+# "astigmatism_known", default="no"
+# "slow_search", default="no"
+# "astigmatism_restrain", default="no"
+# "additional_phase_shift", default="no"
+# "expert_options", default="no"
+
 class CTFFind(CommonService):
     """
     A service for CTF estimating micrographs with CTFFind
@@ -71,13 +90,15 @@ class CTFFind(CommonService):
             )
             rw.transport.nack(header)
 
-        input_image_name = Path(parameters("input_image")).name
-        output_dir = Path(parameters("input_image")).parent
-        output_file = str(output_dir / Path("ctf_" + str(input_image_name)))
+        if not parameters("output_file"):
+            self.log.error(
+                f"No output destination found in ctffind service message: {message}"
+            )
+            rw.transport.nack(header)
 
         parameters_list = [
             parameters("input_image"),
-            output_file,
+            parameters("output_file"),
             parameters("pix_size", default="1.0"),
             parameters("voltage", default="300.0"),
             parameters("spher_aber", default="2.70"),
@@ -96,7 +117,7 @@ class CTFFind(CommonService):
         ]
 
         parameters_string = "\n".join(parameters_list)
-        self.log.info("Input: ", parameters("input_image"), "Output: ", output_file)
+        self.log.info("Input: ", parameters("input_image"), "Output: ", parameters("output_file"))
         result = procrunner.run(command, stdin=parameters_string.encode("ascii"))
         if result.returncode:
             self.log.error(

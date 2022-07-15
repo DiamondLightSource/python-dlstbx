@@ -9,7 +9,7 @@ from workflows.services.common_service import CommonService
 # "stack_file" Required
 # "vol_z" default 1200
 # "out_bin" default 4
-# "tilt_range" "ang_file" Required
+# "tilt_range" (must be a tuple) or "ang_file" Required
 # "tile_axis"
 # "tilt_cor"
 # "flip_int"
@@ -175,39 +175,32 @@ class TomoAlign(CommonService):
             "-VolZ",
             parameters("vol_z", default="1200"),
             "-OutBin",
-            parameters("out_bin", default="4"),
-            "-TiltRange",
-            "-60",
-            "60",
+            parameters("out_bin", default="4")
         ]
+
+        # Required parameters
         if parameters("tilt_range"):
-            aretomo_cmd.extend(("-TiltRange", parameters("tilt_range")))
+            aretomo_cmd.extend(("-TiltRange", *parameters("tilt_range")))
         elif parameters("ang_file"):
             aretomo_cmd.extend(("-AngFile", parameters("ang_file")))
-        if parameters("tile_axis"):
-            aretomo_cmd.extend(("-TiltAlis", parameters("tile_axis")))
-        if parameters("tilt_cor"):
-            aretomo_cmd.extend(("-TiltCor", parameters("tilt_cor")))
-        if parameters("flip_int"):
-            aretomo_cmd.extend(("-FlipInt", parameters("flip_int")))
-        if parameters("flip_vol"):
-            aretomo_cmd.extend(("-FlipVol", parameters("flip_vol")))
-        if parameters("wbp"):
-            aretomo_cmd.extend(("-Wbp", parameters("wbp")))
 
-        if parameters("roi"):
-            aretomo_cmd.extend(("-Roi", parameters("roi")))
-        if parameters("roi_file"):
-            aretomo_cmd.extend(("-RoiFile", parameters("roi_file")))
-        if parameters("patch"):
-            aretomo_cmd.extend(("-Patch", parameters("patch")))
-        if parameters("kv"):
-            aretomo_cmd.extend(("-Kv", parameters("kv")))
-        if parameters("align_file"):
-            aretomo_cmd.extend(("-AlignFile", parameters("align_file")))
-        if parameters("align_z"):
-            aretomo_cmd.extend(("-AlignZ", parameters("align_z")))
+        # Optional parameters
+        optional_aretomo_parameters = {
+                              "tilt_axis": "-TiltAxis",
+                              "tilt_cor": "-TiltCor",
+                              "flip_int": "-FlipInt",
+                              "flip_vol": "-FlipVol",
+                              "wbp": "-Wbp",
+                              "roi": "-Roi",
+                              "roi_file": "-RoiFile",
+                              "patch": "-Patch",
+                              "kv": "-Kv",
+                              "align_file": "-AlignFile",
+                              "align_z": "-AlignZ"}
 
+        for k, v in optional_aretomo_parameters:
+            if parameters(k):
+                aretomo_cmd.extend((v, parameters(k)))
 
         self.log.info("Running AreTomo")
         result = procrunner.run(aretomo_cmd)

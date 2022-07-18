@@ -95,7 +95,7 @@ class TomoAlign(CommonService):
             )
             rw.transport.nack(header)
 
-        if not parameters("tilt_range") or parameters("ang_file"):
+        if not (parameters("tilt_range") or parameters("ang_file")):
             self.log.error(
                 f"No tilt range or angle file found in tomo_align service message: {message}"
             )
@@ -198,11 +198,11 @@ class TomoAlign(CommonService):
                               "align_file": "-AlignFile",
                               "align_z": "-AlignZ"}
 
-        for k, v in optional_aretomo_parameters:
+        for k, v in optional_aretomo_parameters.items():
             if parameters(k):
                 aretomo_cmd.extend((v, parameters(k)))
 
         self.log.info("Running AreTomo")
         result = procrunner.run(aretomo_cmd)
-        self.log.info("Input stack: ", stack_file, "Output file: ", output_file)
+        self.log.info(f"Input stack: {stack_file} \nOutput file: {output_file}")
         return result

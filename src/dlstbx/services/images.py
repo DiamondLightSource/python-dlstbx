@@ -83,7 +83,7 @@ class DLSImages(CommonService):
             result = self.image_functions[command](
                 PluginInterface(rw, parameters, message)
             )
-        except PermissionError as e:
+        except (PermissionError, FileNotFoundError) as e:
             self.log.error(f"Command {command!r} raised {e}", exc_info=True)
             rw.transport.nack(header)
             return

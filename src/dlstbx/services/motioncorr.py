@@ -115,5 +115,5 @@ class MotionCorr(CommonService):
         parameters("ctffind")["input_image"] = parameters("mrc_out")
         # Forward results to ctffind
         rw.transport.send(destination='ctffind',
-                          message={"parameters": parameters("ctffind") })
+                          message={"parameters": parameters("ctffind"), "content": "dummy"})
         rw.transport.ack(header)

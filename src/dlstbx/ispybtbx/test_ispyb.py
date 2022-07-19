@@ -226,17 +226,45 @@ def test_datacollection_classification():
         "overlap": 0,
         "gridinfo": {"steps_x": 1, "steps_y": 80},
     }
-    assert i.classify_dc(dc) == {"grid": True, "rotation": False, "screen": False}
+    assert i.classify_dc(dc, None) == {
+        "grid": True,
+        "rotation": False,
+        "screen": False,
+        "serial_fixed": False,
+    }
 
     i = ispybtbx()
     dc = {"axisRange": 0, "numberOfImages": 1, "overlap": 0, "gridinfo": {}}
-    assert i.classify_dc(dc) == {"grid": False, "rotation": False, "screen": True}
+    assert i.classify_dc(dc, None) == {
+        "grid": False,
+        "rotation": False,
+        "screen": True,
+        "serial_fixed": False,
+    }
 
     dc = {"axisRange": 90, "numberOfImages": 1800, "overlap": 0}
-    assert i.classify_dc(dc) == {"grid": False, "rotation": True, "screen": False}
+    assert i.classify_dc(dc, None) == {
+        "grid": False,
+        "rotation": True,
+        "screen": False,
+        "serial_fixed": False,
+    }
 
     dc = {"axisRange": 90, "numberOfImages": 3, "overlap": -44.5}
-    assert i.classify_dc(dc) == {"grid": False, "rotation": False, "screen": True}
+    assert i.classify_dc(dc, None) == {
+        "grid": False,
+        "rotation": False,
+        "screen": True,
+        "serial_fixed": False,
+    }
+
+    dc = {"axisRange": 0, "numberOfImages": 25600, "overlap": 0}
+    assert i.classify_dc(dc, "Serial Fixed") == {
+        "grid": False,
+        "rotation": False,
+        "screen": False,
+        "serial_fixed": True,
+    }
 
 
 def test_get_first_file_of_datacollection():

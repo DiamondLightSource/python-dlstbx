@@ -49,7 +49,9 @@ class DLSMimas(CommonService):
         dc_class = step.get("dc_class")
         if isinstance(dc_class, dict):
             # legacy format
-            if dc_class["grid"]:
+            if dc_class["serial_fixed"]:
+                dc_class_mimas = mimas.MimasDCClass.SERIAL_FIXED
+            elif dc_class["grid"]:
                 dc_class_mimas = mimas.MimasDCClass.GRIDSCAN
             elif dc_class["screen"]:
                 dc_class_mimas = mimas.MimasDCClass.SCREENING

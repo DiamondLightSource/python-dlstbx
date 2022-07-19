@@ -96,6 +96,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "xia2.multiplex = dlstbx.wrapper.xia2_multiplex:Xia2MultiplexWrapper",
     "xia2.strategy = dlstbx.wrapper.xia2_strategy:Xia2StrategyWrapper",
     "xia2.to_shelxcde = dlstbx.wrapper.xia2_to_shelxcde:Xia2toShelxcdeWrapper",
+    "xia2.ssx = dlstbx.wrapper.xia2_ssx:Xia2SsxWrapper",
     "xoalign = dlstbx.wrapper.xoalign:XOalignWrapper",
 ]
 
@@ -174,6 +175,7 @@ mimas_scenario_handlers = [
     "pilatus_gridscan_start = dlstbx.mimas.core:handle_pilatus_gridscan_start",
     "pilatus_not_gridscan_start = dlstbx.mimas.core:handle_pilatus_not_gridscan_start",
     "pilatus_screening = dlstbx.mimas.core:handle_pilatus_screening",
+    "pilatus_serial_fixed_end = dlstbx.mimas.ssx:handle_pilatus_serial_fixed_end",
     "rotation_end = dlstbx.mimas.core:handle_rotation_end",
     "vmxi_end = dlstbx.mimas.vmxi:handle_vmxi_end",
     "vmxi_gridscan = dlstbx.mimas.vmxi:handle_vmxi_gridscan",

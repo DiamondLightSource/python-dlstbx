@@ -19,6 +19,10 @@ def create_parent_symlink(
     :return: True if successful, False otherwise.
     """
 
+    # Support path-like objects
+    destination_path = os.fspath(destination_path)
+    symlink_name = os.fspath(symlink_name)
+
     # Create symbolic link above working directory
     path_elements = destination_path.split(os.sep)
 

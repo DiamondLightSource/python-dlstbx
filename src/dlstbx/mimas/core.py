@@ -129,7 +129,9 @@ def handle_eiger_end(
     return tasks
 
 
-@mimas.match_specification(is_pilatus & is_end & is_mx_beamline & ~is_vmxi)
+@mimas.match_specification(
+    is_pilatus & is_end & is_mx_beamline & ~is_vmxi & ~is_serial_fixed
+)
 def handle_pilatus_end(
     scenario: mimas.MimasScenario,
     **kwargs,

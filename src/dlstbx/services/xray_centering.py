@@ -223,6 +223,7 @@ class DLSXRayCentering(CommonService):
             cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
             if dcg_dcids and cd.images_seen == gridinfo.image_count:
+                dcids = [dcid]
                 data = [
                     dlstbx.util.xray_centering.reshape_grid(
                         cd.data,
@@ -232,6 +233,7 @@ class DLSXRayCentering(CommonService):
                     )
                 ]
                 for _dcid in dcg_dcids:
+                    dcids.append(_dcid)
                     _cd = self._centering_data.get(_dcid)
                     if not _cd:
                         break
@@ -248,8 +250,12 @@ class DLSXRayCentering(CommonService):
                 else:
                     # All results present
                     self.log.info(
-                        f"All records arrived for X-ray centering on DCIDs {dcg_dcids + [dcid]}"
+                        f"All records arrived for X-ray centering on DCIDs {sorted(dcids)}"
                     )
+                    # Sort the data by dcid
+                    perm = np.argsort(dcids)
+                    self.log.debug(f"{perm=}")
+                    data = [data[p] for p in perm]
 
                     result = dlstbx.util.xray_centering_3d.gridscan3d(
                         data=tuple(data),

@@ -21,7 +21,7 @@ class Wrapper(zocalo.wrapper.BaseWrapper):
         self._registry = CollectorRegistry()
         if self.name:
             self._runtime_hist = Histogram(
-                "zocalo_wrapper_runtime_seconds",
+                "zocalo_wrap_runtime_seconds",
                 "Run time of fast_dp (seconds)",
                 registry=self._registry,
                 buckets=HISTOGRAM_BUCKETS,

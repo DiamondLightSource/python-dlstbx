@@ -654,7 +654,8 @@ class ispybtbx:
     def classify_dc(self, dc_info, experiment_type: str | None):
         return {
             "grid": self.dc_info_is_grid_scan(dc_info),
-            "screen": self.dc_info_is_screening(dc_info),
+            "screen": self.dc_info_is_screening(dc_info)
+            and not experiment_type == "Serial Fixed",
             "rotation": self.dc_info_is_rotation_scan(dc_info),
             "serial_fixed": experiment_type == "Serial Fixed",
         }
@@ -899,7 +900,7 @@ def ispyb_filter(
         parameters["ispyb_images"] = ""
         return message, parameters
 
-    if not dc_class["rotation"]:
+    if not (dc_class["rotation"] or dc_class["serial_fixed"]):
         # possibly EM dataset
         return message, parameters
 

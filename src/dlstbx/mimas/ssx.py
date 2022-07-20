@@ -30,6 +30,7 @@ def handle_pilatus_serial_fixed_end(
             autostart=True,
             recipe="autoprocessing-xia2-ssx-pilatus",
             source="automatic",
+            sweeps=tuple(scenario.getsweepslistfromsamedcg),
             parameters=symmetry_parameters,
         ),
     ]

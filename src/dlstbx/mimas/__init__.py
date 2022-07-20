@@ -226,7 +226,7 @@ def _(mimasobject: MimasISPyBSweep, expectedtype=None):
         raise ValueError(f"{mimasobject!r} has an invalid DCID")
     if type(mimasobject.start) != int:
         raise ValueError(f"{mimasobject!r} has non-integer start image")
-    if mimasobject.start <= 0:
+    if mimasobject.start < 0:
         raise ValueError(f"{mimasobject!r} has an invalid start image")
     if type(mimasobject.end) != int:
         raise ValueError(f"{mimasobject!r} has non-integer end image")

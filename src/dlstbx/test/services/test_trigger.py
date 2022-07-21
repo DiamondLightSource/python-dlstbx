@@ -103,6 +103,9 @@ def test_multiplex(
                             "name": "sample_234",
                         },
                     ],
+                    "diffraction_plan_info": {
+                        "anomalousScatterer": "S",
+                    },
                     "backoff-delay": 8,
                     "backoff-max-try": 10,
                     "backoff-multiplier": 2,
@@ -157,6 +160,8 @@ def test_multiplex(
                 f"/path/to/xia2-dials-0{sg_extra}/integrated.expt;/path/to/xia2-dials-0{sg_extra}/integrated.refl",
             ),
             ("sample_group_id", "123"),
+            ("anomalous", "true"),
+            ("absorption_level", "high"),
         } | ({("spacegroup", spacegroup)} if spacegroup else set())
 
 

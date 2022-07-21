@@ -195,6 +195,9 @@ class DLSPerImageAnalysis(CommonService):
                 "reflections": reflections,
                 "experiments": expts,
             }
+            # Pass through all file* fields
+            for key in (x for x in message if x.startswith("file")):
+                payload_out[key] = message[key]
 
             self.log.info(f"Sending reflections to {reflections_queue}")
             rw.send_to(

@@ -145,7 +145,13 @@ class DLSIndexer(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
+        result = indexing_result.dict()
+        # Pass through all file* fields
+        for key in (x for x in message if x.startswith("file")):
+            result[key] = message[key]
+        self.log.info(f"{message=}")
+        self.log.info(f"{result=}")
         # Send results onwards
         rw.set_default_channel("result")
-        rw.send_to("result", indexing_result.dict(), transaction=txn)
+        rw.send_to("result", result, transaction=txn)
         rw.transport.transaction_commit(txn)

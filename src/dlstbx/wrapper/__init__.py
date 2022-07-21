@@ -22,25 +22,29 @@ class Wrapper(zocalo.wrapper.BaseWrapper):
         if self.name:
             self._runtime_hist = Histogram(
                 "zocalo_wrap_runtime_seconds",
-                "Run time of fast_dp (seconds)",
+                "Run time of zocalo wrapper (seconds)",
+                labelnames=("name",),
                 registry=self._registry,
                 buckets=HISTOGRAM_BUCKETS,
-            )
+            ).labels(name=self.name)
             self._failure_counter = Counter(
                 "zocalo_wrap_failed_total",
                 "Total number of failed jobs",
+                labelnames=("name",),
                 registry=self._registry,
-            )
+            ).labels(name=self.name)
             self._success_counter = Counter(
                 "zocalo_wrap_succeeded_total",
                 "Total number of successful jobs",
+                labelnames=("name",),
                 registry=self._registry,
-            )
+            ).labels(name=self.name)
             self._timeout_counter = Counter(
                 "zocalo_wrap_timed_out_total",
                 "Total number of timed out jobs",
+                labelnames=("name",),
                 registry=self._registry,
-            )
+            ).labels(name=self.name)
 
     def prepare(self, payload):
         super().prepare(payload)
@@ -53,7 +57,7 @@ class Wrapper(zocalo.wrapper.BaseWrapper):
             try:
                 push_to_gateway(
                     pushgateway,
-                    job=self.name or "dlstbx.wrap",
+                    job="dlstbx.wrap",
                     registry=self._registry,
                 )
             except Exception:

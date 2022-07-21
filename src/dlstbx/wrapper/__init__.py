@@ -27,7 +27,7 @@ class Wrapper(zocalo.wrapper.BaseWrapper):
                 buckets=HISTOGRAM_BUCKETS,
             )
             self._failure_counter = Counter(
-                "zocalo_wrap_latency_seconds_failed_total",
+                "zocalo_wrap_failed_total",
                 "Total number of failed jobs",
                 registry=self._registry,
             )

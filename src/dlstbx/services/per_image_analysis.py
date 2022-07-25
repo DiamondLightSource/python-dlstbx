@@ -15,6 +15,7 @@ from dxtbx.model.experiment_list import ExperimentList, ExperimentListFactory
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.sanity
+from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.per_image_analysis import (
     PerImageAnalysisParameters,
     do_per_image_analysis,
@@ -101,7 +102,12 @@ class DLSPerImageAnalysis(CommonService):
         header: dict,
         message: dict,
     ):
-        payload = PerImageAnalysisPayload(**message)
+        parameters = ChainMapWithReplacement(
+            message if isinstance(message, dict) else {},
+            rw.recipe_step["parameters"],
+            substitutions=rw.environment,
+        )
+        payload = PerImageAnalysisPayload(**parameters)
         """Run PIA on one image.
 
         Recipe parameters:

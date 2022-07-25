@@ -140,7 +140,7 @@ class DLSPerImageAnalysis(CommonService):
 
         parameters = ChainMapWithReplacement(
             message.get("parameters", {}) if isinstance(message, dict) else {},
-            rw.recipe_step["parameters"],
+            rw.recipe_step.get("parameters", {}),
             substitutions=rw.environment,
         )
         payload = PerImageAnalysisPayload(**(message | {"parameters": parameters}))

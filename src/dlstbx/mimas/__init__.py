@@ -12,7 +12,9 @@ import zocalo.configuration
 
 from dlstbx.mimas.specification import BaseSpecification
 
-MimasDCClass = enum.Enum("MimasDCClass", "GRIDSCAN ROTATION SCREENING UNDEFINED")
+MimasDCClass = enum.Enum(
+    "MimasDCClass", "GRIDSCAN ROTATION SCREENING SERIAL_FIXED UNDEFINED"
+)
 
 MimasDetectorClass = enum.Enum("MimasDetectorClass", "PILATUS EIGER")
 
@@ -224,7 +226,7 @@ def _(mimasobject: MimasISPyBSweep, expectedtype=None):
         raise ValueError(f"{mimasobject!r} has an invalid DCID")
     if type(mimasobject.start) != int:
         raise ValueError(f"{mimasobject!r} has non-integer start image")
-    if mimasobject.start <= 0:
+    if mimasobject.start < 0:
         raise ValueError(f"{mimasobject!r} has an invalid start image")
     if type(mimasobject.end) != int:
         raise ValueError(f"{mimasobject!r} has non-integer end image")

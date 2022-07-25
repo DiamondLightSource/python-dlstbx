@@ -20,6 +20,7 @@ is_eiger = DetectorClassSpecification(mimas.MimasDetectorClass.EIGER)
 is_start = EventSpecification(mimas.MimasEvent.START)
 is_end = EventSpecification(mimas.MimasEvent.END)
 is_gridscan = DCClassSpecification(mimas.MimasDCClass.GRIDSCAN)
+is_serial_fixed = DCClassSpecification(mimas.MimasDCClass.SERIAL_FIXED)
 is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION)
 is_screening = DCClassSpecification(mimas.MimasDCClass.SCREENING)
 
@@ -58,7 +59,7 @@ def handle_pilatus_gridscan_start(
 
 
 @mimas.match_specification(
-    is_pilatus & ~is_gridscan & is_start & is_mx_beamline & ~is_vmxi
+    is_pilatus & ~is_gridscan & ~is_serial_fixed & is_start & is_mx_beamline & ~is_vmxi
 )
 def handle_pilatus_not_gridscan_start(
     scenario: mimas.MimasScenario,
@@ -128,7 +129,9 @@ def handle_eiger_end(
     return tasks
 
 
-@mimas.match_specification(is_pilatus & is_end & is_mx_beamline & ~is_vmxi)
+@mimas.match_specification(
+    is_pilatus & is_end & is_mx_beamline & ~is_vmxi & ~is_serial_fixed
+)
 def handle_pilatus_end(
     scenario: mimas.MimasScenario,
     **kwargs,

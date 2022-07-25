@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import time
 from pathlib import Path
 
 import procrunner
@@ -14,6 +15,8 @@ logger = logging.getLogger("zocalo.wrap.xia2_run")
 
 
 class Xia2RunWrapper(Wrapper):
+    name = "xia2"
+
     def construct_commandline(self, working_directory, params, is_cloud=False):
         """Construct xia2 command line.
         Takes job parameter dictionary, returns array."""
@@ -101,17 +104,22 @@ class Xia2RunWrapper(Wrapper):
                 )
 
         try:
+            start_time = time.perf_counter()
             result = procrunner.run(
                 command,
                 timeout=params.get("timeout"),
                 raise_timeout_exception=True,
                 working_directory=str(procrunner_directory),
             )
+            runtime = time.perf_counter() - start_time
+            logger.info(f"xia2 took {runtime} seconds")
+            self._runtime_hist.observe(runtime)
         except subprocess.TimeoutExpired as te:
             success = False
             logger.warning(f"xia2 timed out: {te.timeout}\n  {te.cmd}")
             logger.debug(te.stdout)
             logger.debug(te.stderr)
+            self._timeout_counter.inc()
         else:
             success = not result.returncode
             if success:
@@ -120,5 +128,10 @@ class Xia2RunWrapper(Wrapper):
                 logger.info(f"xia2 failed with exitcode {result.returncode}")
                 logger.debug(result.stdout)
                 logger.debug(result.stderr)
+
+        if success:
+            self._success_counter.inc()
+        else:
+            self._failure_counter.inc()
 
         return success

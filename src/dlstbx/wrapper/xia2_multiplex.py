@@ -101,8 +101,7 @@ class Xia2MultiplexWrapper(Wrapper):
                 "spacegroup": "symmetry.space_group",
             }
             for param, value in params["ispyb_parameters"].items():
-                if param in translation:
-                    command.append(translation.get(param, param) + "=" + value[0])
+                command.append(translation.get(param, param) + "=" + value[0])
 
         return command
 

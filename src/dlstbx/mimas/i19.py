@@ -21,7 +21,7 @@ def handle_i19_start_pilatus(
 ) -> List[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID, recipe="per-image-analysis-rotation"
+            DCID=scenario.DCID, recipe="per-image-analysis-rotation-i19"
         )
     ]
 

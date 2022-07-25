@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import subprocess
+import time
 
 import dateutil.parser
 import procrunner
@@ -17,6 +18,8 @@ logger = logging.getLogger("dlstbx.wrap.xia2")
 
 
 class Xia2Wrapper(Wrapper):
+    name = "xia2"
+
     def construct_commandline(self, params):
         """Construct xia2 command line.
         Takes job parameter dictionary, returns array."""
@@ -144,17 +147,22 @@ class Xia2Wrapper(Wrapper):
 
         logger.info("command: %s", " ".join(command))
         try:
+            start_time = time.perf_counter()
             result = procrunner.run(
                 command,
                 timeout=params.get("timeout"),
                 raise_timeout_exception=True,
                 working_directory=working_directory.strpath,
             )
+            runtime = time.perf_counter() - start_time
+            logger.info(f"xia2 took {runtime} seconds")
+            self._runtime_hist.observe(runtime)
         except subprocess.TimeoutExpired as te:
             success = False
             logger.warning(f"xia2 timed out: {te.timeout}\n  {te.cmd}")
             logger.debug(te.stdout)
             logger.debug(te.stderr)
+            self._timeout_counter.inc()
         else:
             success = not result.returncode
             if success:
@@ -276,5 +284,10 @@ class Xia2Wrapper(Wrapper):
                 f"{program_name} completed for DCID {dcid} with latency of {latency_s:.2f} seconds",
                 extra={f"{program_name}-latency-seconds": latency_s},
             )
+
+        if success:
+            self._success_counter.inc()
+        else:
+            self._failure_counter.inc()
 
         return success

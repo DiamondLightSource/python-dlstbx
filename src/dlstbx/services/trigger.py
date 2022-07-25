@@ -174,6 +174,7 @@ class MultiplexParameters(pydantic.BaseModel):
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
+    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
 
 
 class AlphaFoldParameters(pydantic.BaseModel):
@@ -1362,47 +1363,35 @@ class DLSTrigger(CommonService):
                     f"xia2.multiplex trigger: generated JobImageSweepID {jispid}"
                 )
 
-            (k, group_id) = (
-                ("sample_id", group.sample_id)
-                if group.sample_id
-                else ("sample_group_id", group.sample_group_id)
-            )
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = k
-            jpp["parameter_value"] = group_id
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                f"xia2.multiplex trigger: generated JobParameterID {jppid} {k}={group_id}"
-            )
-
-            for files in data_files:
-                jpp = self.ispyb.mx_processing.get_job_parameter_params()
-                jpp["job_id"] = jobid
-                jpp["parameter_key"] = "data"
-                jpp["parameter_value"] = ";".join(files)
-                jppid = self.ispyb.mx_processing.upsert_job_parameter(
-                    list(jpp.values())
-                )
-                self.log.debug(
-                    "xia2.multiplex trigger generated JobParameterID {} with files:\n%s".format(
-                        jppid
-                    ),
-                    "\n".join(files),
-                )
+            job_parameters: list[tuple[str, str]] = [
+                ("data", ";".join(files)) for files in data_files
+            ]
+            if group.sample_id:
+                job_parameters.append(("sample_id", str(group.sample_id)))
+            else:
+                job_parameters.append(("sample_group_id", str(group.sample_group_id)))
             if parameters.spacegroup:
+                job_parameters.append(("spacegroup", parameters.spacegroup))
+            if (
+                parameters.diffraction_plan_info
+                and parameters.diffraction_plan_info.anomalousScatterer
+            ):
+                job_parameters.extend(
+                    [
+                        ("anomalous", "true"),
+                        ("absorption_level", "high"),
+                    ]
+                )
+            for k, v in job_parameters:
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()
                 jpp["job_id"] = jobid
-                jpp["parameter_key"] = "spacegroup"
-                jpp["parameter_value"] = parameters.spacegroup
+                jpp["parameter_key"] = k
+                jpp["parameter_value"] = v
                 jppid = self.ispyb.mx_processing.upsert_job_parameter(
                     list(jpp.values())
                 )
                 self.log.debug(
-                    "xia2.multiplex trigger generated JobParameterID %s with %s=%s",
-                    jppid,
-                    jpp["parameter_key"],
-                    parameters.spacegroup,
+                    f"xia2.multiplex trigger generated JobParameterID {jppid} with {k}={v}",
                 )
 
             message = {"recipes": [], "parameters": {"ispyb_process": jobid}}

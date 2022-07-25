@@ -4,6 +4,7 @@ import logging
 import os
 import pathlib
 import shutil
+import time
 import xml.etree.ElementTree
 
 import procrunner
@@ -263,6 +264,8 @@ def get_untrusted_rectangles(first_image_or_master_h5, macro=None):
 
 
 class autoPROCWrapper(Wrapper):
+    name = "autoPROC"
+
     def send_results_to_ispyb(
         self, autoproc_xml, special_program_name=None, attachments=None
     ):
@@ -483,12 +486,16 @@ class autoPROCWrapper(Wrapper):
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
         logger.info("command: %s", " ".join(command))
+        start_time = time.perf_counter()
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
             environment_override={"autoPROC_HIGHLIGHT": "no", **clean_environment},
             working_directory=working_directory,
         )
+        runtime = time.perf_counter() - start_time
+        logger.info(f"xia2 took {runtime} seconds")
+        self._runtime_hist.observe(runtime)
 
         success = not result["exitcode"] and not result["timeout"]
         if success:
@@ -525,7 +532,7 @@ class autoPROCWrapper(Wrapper):
         # move summary_inlined.html to summary.html
         inlined_html = working_directory / "summary_inlined.html"
         if inlined_html.is_file():
-            shutil.move(inlined_html, working_directory / "summary.html")
+            shutil.copy2(inlined_html, working_directory / "summary.html")
 
         # attempt to read autoproc XML droppings
         autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml")
@@ -564,6 +571,8 @@ class autoPROCWrapper(Wrapper):
                 keep[entry["fileName"]] = {"log": "log"}.get(
                     entry["fileType"].lower(), "result"
                 )
+        for filename in working_directory.glob("staraniso*ell"):
+            keep[filename.name] = "result"
         allfiles = []  # flat list
         anisofiles = []  # tuples of file name, dir name, file type
         attachments = []  # tuples of file name, dir name, file type
@@ -580,6 +589,7 @@ class autoPROCWrapper(Wrapper):
                 "truncate-unique.mtz": 1,
                 "staraniso_alldata-unique.mtz": 1,
                 "summary.html": 1,
+                "summary_inlined.html": 1,
             }.get(filename.name, 2)
             if "staraniso" in filename.name:
                 anisofiles.append(
@@ -621,5 +631,10 @@ class autoPROCWrapper(Wrapper):
                 special_program_name="autoPROC+STARANISO",
                 attachments=anisofiles,
             )
+
+        if success:
+            self._success_counter.inc()
+        else:
+            self._failure_counter.inc()
 
         return success

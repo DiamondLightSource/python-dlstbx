@@ -651,11 +651,13 @@ class ispybtbx:
             return None
         return overlap == 0.0 and axis_range > 0
 
-    def classify_dc(self, dc_info):
+    def classify_dc(self, dc_info, experiment_type: str | None):
         return {
             "grid": self.dc_info_is_grid_scan(dc_info),
-            "screen": self.dc_info_is_screening(dc_info),
+            "screen": self.dc_info_is_screening(dc_info)
+            and not experiment_type == "Serial Fixed",
             "rotation": self.dc_info_is_rotation_scan(dc_info),
+            "serial_fixed": experiment_type == "Serial Fixed",
         }
 
     @staticmethod
@@ -788,7 +790,7 @@ def ispyb_filter(
     parameters["ispyb_dcg_experiment_type"] = i.get_dcg_experiment_type(
         dc_info.get("dataCollectionGroupId"), session
     )
-    dc_class = i.classify_dc(dc_info)
+    dc_class = i.classify_dc(dc_info, parameters["ispyb_dcg_experiment_type"])
     parameters["ispyb_dc_class"] = dc_class
     diff_plan_info = i.get_diffractionplan_from_dcid(dc_id, session)
     parameters["ispyb_diffraction_plan"] = diff_plan_info
@@ -898,7 +900,7 @@ def ispyb_filter(
         parameters["ispyb_images"] = ""
         return message, parameters
 
-    if not dc_class["rotation"]:
+    if not (dc_class["rotation"] or dc_class["serial_fixed"]):
         # possibly EM dataset
         return message, parameters
 
@@ -929,7 +931,10 @@ def ispyb_filter(
                 continue
 
             info = i.get_dc_info(dc, session)
-            other_dc_class = i.classify_dc(info)
+            etype = i.get_dcg_experiment_type(
+                info.get("dataCollectionGroupId"), session
+            )
+            other_dc_class = i.classify_dc(info, etype)
             if other_dc_class["rotation"]:
                 start, end = i.dc_info_to_start_end(info)
 

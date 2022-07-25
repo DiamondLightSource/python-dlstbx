@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
+import time
 from pathlib import Path
 
 import procrunner
@@ -24,6 +26,8 @@ clean_environment = {
 
 
 class autoPROCRunWrapper(Wrapper):
+    name = "autoPROC"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -66,12 +70,16 @@ class autoPROCRunWrapper(Wrapper):
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
         logger.info("command: %s", " ".join(command))
+        start_time = time.perf_counter()
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
             environment_override={"autoPROC_HIGHLIGHT": "no", **clean_environment},
             working_directory=str(procrunner_directory),
         )
+        runtime = time.perf_counter() - start_time
+        logger.info(f"xia2 took {runtime} seconds")
+        self._runtime_hist.observe(runtime)
 
         success = not result["exitcode"] and not result["timeout"]
         if success:
@@ -115,6 +123,11 @@ class autoPROCRunWrapper(Wrapper):
         # move summary_inlined.html to summary.html
         inlined_html = procrunner_directory / "summary_inlined.html"
         if inlined_html.is_file():
-            inlined_html.rename(procrunner_directory / "summary.html")
+            shutil.copy2(inlined_html, procrunner_directory / "summary.html")
+
+        if success:
+            self._success_counter.inc()
+        else:
+            self._failure_counter.inc()
 
         return success

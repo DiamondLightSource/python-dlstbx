@@ -102,12 +102,6 @@ class DLSPerImageAnalysis(CommonService):
         header: dict,
         message: dict,
     ):
-        parameters = ChainMapWithReplacement(
-            message if isinstance(message, dict) else {},
-            rw.recipe_step["parameters"],
-            substitutions=rw.environment,
-        )
-        payload = PerImageAnalysisPayload(**parameters)
         """Run PIA on one image.
 
         Recipe parameters:
@@ -144,6 +138,12 @@ class DLSPerImageAnalysis(CommonService):
           "total_intensity": ... }
         """
 
+        parameters = ChainMapWithReplacement(
+            message.get("parameters", {}) if isinstance(message, dict) else {},
+            rw.recipe_step["parameters"],
+            substitutions=rw.environment,
+        )
+        payload = PerImageAnalysisPayload(**(message | {"parameters": parameters}))
         self.log.debug("Starting PIA on %s", payload.file)
         params = payload.parameters or PerImageAnalysisParameters()
 

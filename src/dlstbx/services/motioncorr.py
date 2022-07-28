@@ -120,8 +120,11 @@ class MotionCorr(CommonService):
 
         mc_params.ctf["input_image"] = mc_params.mrc_out
         # Forward results to ctffind
-        rw.transport.send(
-            destination="ctffind",
-            message={"parameters": mc_params.ctffind, "content": "dummy"},
-        )
+        if isinstance(rw, RW_mock):
+            rw.transport.send(  # type: ignore
+                destination="ctffind",
+                message={"parameters": mc_params.ctffind, "content": "dummy"},
+            )
+        else:
+            rw.send_to("ctf", mc_params.ctffind)
         rw.transport.ack(header)

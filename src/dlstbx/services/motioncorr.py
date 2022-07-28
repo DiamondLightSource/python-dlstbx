@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import procrunner
 import workflows.recipe
+from pydantic import BaseModel, Field
+from pydantic.error_wrappers import ValidationError
 from workflows.services.common_service import CommonService
 
 # Possible parameters:
@@ -11,6 +13,19 @@ from workflows.services.common_service import CommonService
 # "patch_size"
 # "gain_ref"
 # "ctf" Required
+
+
+class MotionCorrParameters(BaseModel):
+    pix_size: float
+    ctf: dict
+    movie: str = Field(..., min_length=1)
+    mrc_out: str = Field(..., min_length=1)
+    patch_size: int = 5
+    gain_ref: str = ""
+
+    class Config:
+        ignore_extra = True
+
 
 class MotionCorr(CommonService):
     """
@@ -63,44 +78,35 @@ class MotionCorr(CommonService):
 
         command = ["MotionCor2"]
 
-        def parameters(key: str, default=None):
-            if isinstance(message, dict) and message.get(key):
-                return message[key]
-            return rw.recipe_step.get("parameters", {}).get(key, default)
+        try:
+            mc_params = MotionCorrParameters(
+                {**rw.recipe_step.get("parameters", {}), **message}
+            )
+        except (ValidationError, TypeError):
+            self.log.warning(
+                f"Motion correction parameter validation failed for message: {message} and recipe parameters: {rw.recipe_step.get('parameters', {})}"
+            )
+            rw.transport.nack(header)
+            return
 
-        if not parameters("movie"):
-            self.log.error(
-                f"No movie found in motion correction service message: {message}"
-            )
-            rw.transport.nack(header)
-        if not parameters("mrc_out"):
-            self.log.error(
-                f"No output mrc path found in motion correction service message: {message}"
-            )
-            rw.transport.nack(header)
-        if not parameters("pix_size"):
-            self.log.error(
-                f"No pixel size found in motion correction parameters: {message}"
-            )
-            rw.transport.nack(header)
-        movie = parameters("movie")
+        movie = mc_params.movie
         input_flag = "-InMrc" if movie.endswith(".mrc") else "-InTiff"
         command.extend([input_flag, movie])
         arguments = [
             "-OutMrc",
-            parameters("mrc_out"),
+            mc_params.mrc_out,
             "-Gpu",
             "0",
             "-Patch",
-            str(parameters("patch_size", default=5)),
-            str(parameters("patch_size", default=5)),
+            str(mc_params.patch_size),
+            str(mc_params.patch_size),
             "-PixSize",
-            str(parameters("pix_size")),
+            str(mc_params.pix_size),
         ]
-        if parameters("gain_ref"):
-            arguments.extend(["-Gain", parameters("gain_ref")])
+        if mc_params.gain_ref:
+            arguments.extend(["-Gain", mc_params.gain_ref])
 
-        self.log.info("Input: ", movie, "Output: ", parameters("mrc_out"))
+        self.log.info("Input: ", movie, "Output: ", mc_params.mrc_out)
 
         command.extend(arguments)
         result = procrunner.run(command)
@@ -112,8 +118,10 @@ class MotionCorr(CommonService):
             rw.transport.nack(header)
             return
 
-        parameters("ctffind")["input_image"] = parameters("mrc_out")
+        mc_params.ctf["input_image"] = mc_params.mrc_out
         # Forward results to ctffind
-        rw.transport.send(destination='ctffind',
-                          message={"parameters": parameters("ctffind"), "content": "dummy"})
+        rw.transport.send(
+            destination="ctffind",
+            message={"parameters": mc_params.ctffind, "content": "dummy"},
+        )
         rw.transport.ack(header)

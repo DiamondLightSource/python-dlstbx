@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import procrunner
 import workflows.recipe
+from pydantic import BaseModel, Field
+from pydantic.error_wrappers import ValidationError
 from workflows.services.common_service import CommonService
-from pathlib import Path
 
 # Possible parameters:
 # "input_image" Required
@@ -23,6 +24,27 @@ from pathlib import Path
 # "astigmatism_restrain", default="no"
 # "additional_phase_shift", default="no"
 # "expert_options", default="no"
+
+
+class CTFParameters(BaseModel):
+    pix_size: float
+    voltage = 300.0
+    spher_aber = 2.7
+    ampl_contrast = 0.8
+    ampl_spectrum = 512
+    min_res = 30.0
+    mas_res = 5.0
+    min_defocus = 5000.0
+    max_defocus = 50000.0
+    defocus_step = 100.0
+    astigmatism_known = "no"
+    slow_search = "no"
+    astigmatism_restrain = "no"
+    additional_phase_shift = "no"
+    expert_options = "no"
+    input_image: str = Field(..., min_length=1)
+    output_image: str = Field(..., min_length=1)
+
 
 class CTFFind(CommonService):
     """
@@ -79,45 +101,41 @@ class CTFFind(CommonService):
 
         command = ["ctffind"]
 
-        def parameters(key: str, default=None):
-            if isinstance(message, dict) and message.get(key):
-                return message[key]
-            return rw.recipe_step.get("parameters", {}).get(key, default)
-
-        if not parameters("input_image"):
-            self.log.error(
-                f"No input image found in ctffind service message: {message}"
+        try:
+            ctf_params = CTFParameters(
+                **{**rw.recipe_step.get("parameters", {}), **message}
+            )
+        except (ValidationError, TypeError):
+            self.log.warning(
+                f"CTF estimation parameter validation failed for message: {message} and recipe parameters: {rw.recipe_step.get('parameters', {})}"
             )
             rw.transport.nack(header)
-
-        if not parameters("output_file"):
-            self.log.error(
-                f"No output destination found in ctffind service message: {message}"
-            )
-            rw.transport.nack(header)
+            return
 
         parameters_list = [
-            parameters("input_image"),
-            parameters("output_file"),
-            parameters("pix_size", default="1.0"),
-            parameters("voltage", default="300.0"),
-            parameters("spher_aber", default="2.70"),
-            parameters("ampl_contrast", default="0.8"),
-            parameters("ampl_spectrum", default="512"),
-            parameters("min_res", default="30.0"),
-            parameters("max_res", default="5.0"),
-            parameters("min_defocus", default="5000.0"),
-            parameters("max_defocus", default="50000.0"),
-            parameters("defocus_step", default="100.0"),
-            parameters("astigmatism_known", default="no"),
-            parameters("slow_search", default="no"),
-            parameters("astigmatism_restrain", default="no"),
-            parameters("additional_phase_shift", default="no"),
-            parameters("expert_options", default="no"),
+            ctf_params.input_image,
+            ctf_params.output_file,
+            ctf_params.pix_size,
+            ctf_params.voltage,
+            ctf_params.spher_aber,
+            ctf_params.ampl_contrast,
+            ctf_params.ampl_spectrum,
+            ctf_params.min_res,
+            ctf_params.max_res,
+            ctf_params.min_defocus,
+            ctf_params.max_defocus,
+            ctf_params.defocus_step,
+            ctf_params.astigmatism_known,
+            ctf_params.slow_search,
+            ctf_params.astigmatism_restrain,
+            ctf_params.additional_phase_shift,
+            ctf_params.expert_options,
         ]
 
         parameters_string = "\n".join(parameters_list)
-        self.log.info("Input: ", parameters("input_image"), "Output: ", parameters("output_file"))
+        self.log.info(
+            f"Input: {ctf_params.input_image} Output: {ctf_params.output_file}"
+        )
         result = procrunner.run(command, stdin=parameters_string.encode("ascii"))
         if result.returncode:
             self.log.error(

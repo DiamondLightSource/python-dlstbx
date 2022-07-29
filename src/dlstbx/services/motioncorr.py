@@ -123,8 +123,55 @@ class MotionCorr(CommonService):
         if isinstance(rw, RW_mock):
             rw.transport.send(  # type: ignore
                 destination="ctffind",
-                message={"parameters": mc_params.ctffind, "content": "dummy"},
+                message={"parameters": mc_params.ctf, "content": "dummy"},
             )
         else:
-            rw.send_to("ctf", mc_params.ctffind)
+            rw.send_to("ctf", mc_params.ctf)
+
+        # add command, add parameters
+        # Forward results to ispyb
+        ispyb_params = {mc_params.patch_size,
+                        mc_params.mrc_out,
+                        mc_params.gain_ref,
+                        mc_params.pix_size,
+                        mc_params.movie}
+
+#    movie_id=full_parameters("movie_id") or movieid,
+#    auto_proc_program_id=full_parameters("program_id"),
+#    image_number=full_parameters("image_number"),
+#    first_frame=full_parameters("first_frame"),
+#    last_frame=full_parameters("last_frame"),
+#    dose_per_frame=full_parameters("dose_per_frame"),
+#    total_motion=full_parameters("total_motion"),
+#    average_motion_per_frame=full_parameters("average_motion_per_frame"),
+#    drift_plot_full_path=full_parameters("drift_plot_full_path"),
+#    micrograph_full_path=full_parameters("micrograph_full_path"),
+#    micrograph_snapshot_full_path=full_parameters(
+#        "micrograph_snapshot_full_path"
+#    ),
+#    fft_full_path=full_parameters("fft_full_path"),
+#    fft_corrected_full_path=full_parameters("fft_corrected_full_path"),
+#    patches_used_x=full_parameters("patches_used_x"),
+#    patches_used_y=full_parameters("patches_used_y"),
+#    comments=full_parameters("comments"),
+
+        if isinstance(rw, RW_mock):
+            rw.transport.send(destination="ispyb_connector",
+                              message={
+                              "parameters": {"ispyb_command": "insert_motion_correction"},
+                              "content": {"dummy": "dummy"},
+                              },)
+        else:
+            rw.send_to("ispyb", ispyb_parameters)
+
+        # Forward results to murfey
+        if isinstance(rw, RW_mock):
+            rw.transport.send(destination="murfey",
+                              message={
+                                  "parameters": {"corrected_movie": mc_params.mrc_out},
+                                  "content": {"dummy": "dummy"},
+                              },)
+        else:
+            rw.send_to("murfey", mc_params.mrc_out)
+
         rw.transport.ack(header)

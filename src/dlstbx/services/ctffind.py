@@ -145,4 +145,35 @@ class CTFFind(CommonService):
             rw.transport.nack(header)
             return
 
+            #ctf_id=full_parameters("ctf_id"),
+            #motion_correction_id=full_parameters("motion_correction_id"),
+            #auto_proc_program_id=full_parameters("program_id"),
+            #box_size_x=full_parameters("box_size_x"),
+            #box_size_y=full_parameters("box_size_y"),
+            #min_resolution=full_parameters("min_resolution"),
+            #max_resolution=full_parameters("max_resolution"),
+            #min_defocus=full_parameters("min_defocus"),
+            #max_defocus=full_parameters("max_defocus"),
+            #astigmatism=full_parameters("astigmatism"),
+            #defocus_step_size=full_parameters("defocus_step_size"),
+            #astigmatism_angle=full_parameters("astigmatism_angle"),
+            #estimated_resolution=full_parameters("estimated_resolution"),
+            #estimated_defocus=full_parameters("estimated_defocus"),
+            #amplitude_contrast=full_parameters("amplitude_contrast"),
+            #cc_value=full_parameters("cc_value"),
+            #fft_theoretical_full_path=full_parameters("fft_theoretical_full_path"),
+            #comments=full_parameters("comments"),
+
+
+        # add command, add parameters
+        # Forward results to ispyb
+        if isinstance(rw, RW_mock):
+            rw.transport.send(destination="ispyb_connector",
+                          message={
+                              "parameters": {"ispyb_command": "insert_ctffind"},
+                              "content": {"dummy": "dummy"},
+                          },)
+        else:
+            rw.send_to("ispyb", ispyb_parameters)
+
         rw.transport.ack(header)

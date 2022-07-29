@@ -204,5 +204,69 @@ class TomoAlign(CommonService):
 
         self.log.info("Running AreTomo")
         result = procrunner.run(aretomo_cmd)
+        if result.returncode:
+            self.log.error(
+            f"CTFFind failed with exitcode {result.returncode}:\n"
+            + result.stderr.decode("utf8", "replace")
+            )
+            rw.transport.nack(header)
+            return
         self.log.info(f"Input stack: {stack_file} \nOutput file: {output_file}")
-        return result
+
+
+        # Forward results to ispyb
+
+        #dataCollectionId=full_parameters("dcid"),
+        #autoProcProgramId=full_parameters("program_id"),
+        #volumeFile=full_parameters("volume_file"),
+        #stackFile=full_parameters("stack_file"),
+        #sizeX=full_parameters("size_x"),
+        #sizeY=full_parameters("size_y"),
+        #sizeZ=full_parameters("size_z"),
+        #pixelSpacing=full_parameters("pixel_spacing"),
+        #residualErrorMean=full_parameters("residual_error_mean"),
+        #residualErrorSD=full_parameters("residual_error_sd"),
+        #xAxisCorrection=full_parameters("x_axis_correction"),
+        #tiltAngleOffset=full_parameters("tilt_angle_offset"),
+        #zShift=full_parameters("z_shift")
+
+
+    #movieId=full_parameters("movie_id"),
+    #tomogramId=full_parameters("tomogram_id"),
+    #defocusU=full_parameters("defocus_u"),
+    #defocusV=full_parameters("defocus_v"),
+    #psdFile=full_parameters("psd_file"),
+    #resolution=full_parameters("resolution"),
+    #fitQuality=full_parameters("fit_quality"),
+    #refinedMagnification=full_parameters("refined_magnification"),
+    #refinedTiltAngle=full_parameters("refined_tilt_angle"),
+    #refinedTiltAxis=full_parameters("refinedTiltAxis"),
+    #residualError=full_parameters("residual_error")
+
+        # multipart message
+        # add command, add parameters
+        if isinstance(rw, RW_mock):
+            rw.transport.send(destination="ispyb_connector",
+                              message={
+                                  "parameters": {"ispyb_command": "insert_tomogram"},
+                                  "content": {"dummy": "dummy"},
+                              },)
+        else:
+            rw.send_to("ispyb", ispyb_parameters)
+        rw.transport.ack(header)
+
+
+
+        dataCollectionId=full_parameters("dcid"),
+        autoProcProgramId=full_parameters("program_id"),
+        volumeFile=full_parameters("volume_file"),
+        stackFile=full_parameters("stack_file"),
+        sizeX=full_parameters("size_x"),
+        sizeY=full_parameters("size_y"),
+        sizeZ=full_parameters("size_z"),
+        pixelSpacing=full_parameters("pixel_spacing"),
+        residualErrorMean=full_parameters("residual_error_mean"),
+        residualErrorSD=full_parameters("residual_error_sd"),
+        xAxisCorrection=full_parameters("x_axis_correction"),
+        tiltAngleOffset=full_parameters("tilt_angle_offset"),
+        zShift=full_parameters("z_shift")

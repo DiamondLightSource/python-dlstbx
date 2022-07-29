@@ -105,6 +105,28 @@ class EM_Mixin:
         else:
             return None
 
+    def do_insert_movie(self, parameters, message=None, **kwargs):
+        if message is None:
+            message = {}
+        self.log.info("Inserting Movie parameters.")
+
+        def full_parameters(param):
+            return message.get(param) or parameters(param)
+
+        movie_params = self.ispyb.em_acquisition.get_movie_params()
+        movie_params["dataCollectionId"] = full_parameters("dcid")
+        movie_params["movieNumber"] = full_parameters("image_number")
+        movie_params["movieFullPath"] = full_parameters("micrograph_full_path")
+        if full_parameters("created_time_stamp"):
+            movie_params["createdTimeStamp"] = datetime.fromtimestamp(
+                full_parameters("created_time_stamp")
+            ).strftime("%Y-%m-%d %H:%M:%S")
+        result = self.ispyb.em_acquisition.insert_movie(
+            list(movie_params.values())
+        )
+        self.log.info(f"Created Movie record {result}")
+
+
     def do_insert_motion_correction(self, parameters, message=None, **kwargs):
         if message is None:
             message = {}
@@ -116,18 +138,7 @@ class EM_Mixin:
         try:
             movieid = None
             if full_parameters("movie_id") is None:
-                movie_params = self.ispyb.em_acquisition.get_movie_params()
-                movie_params["dataCollectionId"] = full_parameters("dcid")
-                movie_params["movieNumber"] = full_parameters("image_number")
-                movie_params["movieFullPath"] = full_parameters("micrograph_full_path")
-                if full_parameters("created_time_stamp"):
-                    movie_params["createdTimeStamp"] = datetime.fromtimestamp(
-                        full_parameters("created_time_stamp")
-                    ).strftime("%Y-%m-%d %H:%M:%S")
-                movieid = self.ispyb.em_acquisition.insert_movie(
-                    list(movie_params.values())
-                )
-                self.log.info(f"Created Movie record {movieid}")
+                movieid = self.do_insert_movie(parameters)
             result = self.ispyb.em_acquisition.insert_motion_correction(
                 movie_id=full_parameters("movie_id") or movieid,
                 auto_proc_program_id=full_parameters("program_id"),

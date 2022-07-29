@@ -404,7 +404,7 @@ class EM_Mixin:
             return message.get(param) or parameters(param)
 
         try:
-            values = Tomogram(
+            values = TiltImageAlignment(
                 movieId=full_parameters("movie_id"),
                 tomogramId=full_parameters("tomogram_id"),
                 defocusU=full_parameters("defocus_u"),

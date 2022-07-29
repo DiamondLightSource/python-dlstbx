@@ -136,23 +136,21 @@ class MotionCorr(CommonService):
                         mc_params.pix_size,
                         mc_params.movie}
 
-#    movie_id=full_parameters("movie_id") or movieid,
-#    auto_proc_program_id=full_parameters("program_id"),
-#    image_number=full_parameters("image_number"),
-#    first_frame=full_parameters("first_frame"),
-#    last_frame=full_parameters("last_frame"),
-#    dose_per_frame=full_parameters("dose_per_frame"),
-#    total_motion=full_parameters("total_motion"),
-#    average_motion_per_frame=full_parameters("average_motion_per_frame"),
-#    drift_plot_full_path=full_parameters("drift_plot_full_path"),
-#    micrograph_full_path=full_parameters("micrograph_full_path"),
-#    micrograph_snapshot_full_path=full_parameters(
-#        "micrograph_snapshot_full_path"
-#    ),
-#    fft_full_path=full_parameters("fft_full_path"),
-#    fft_corrected_full_path=full_parameters("fft_corrected_full_path"),
-#    patches_used_x=full_parameters("patches_used_x"),
-#    patches_used_y=full_parameters("patches_used_y"),
+#    movie_id=full_parameters("movie_id") or movieid, # from recipe
+#    auto_proc_program_id=full_parameters("program_id"), # from Murfey
+#    image_number=full_parameters("image_number"), # from Murfey
+#    first_frame=full_parameters("first_frame"), # from mrc/xml/tiff, use 1 always, from Murfey
+#    last_frame=full_parameters("last_frame"), # from mrc/xml/tiff, number_of_frames from movie, number of images in movie, from Murfey
+#    dose_per_frame=full_parameters("dose_per_frame"), # from Murfey
+#    total_motion=full_parameters("total_motion"), # sum of shifts from MC output
+#    average_motion_per_frame=full_parameters("average_motion_per_frame"), # mean of shifts from MC output
+#    drift_plot_full_path=full_parameters("drift_plot_full_path"), # make plot in service from Full-frame alignment shift section
+#    micrograph_full_path=full_parameters("micrograph_full_path"), # mrc_out
+#    micrograph_snapshot_full_path=full_parameters("micrograph_snapshot_full_path"), # pass
+#    fft_full_path=full_parameters("fft_full_path"), # pass
+#    fft_corrected_full_path=full_parameters("fft_corrected_full_path"), pass
+#    patches_used_x=full_parameters("patches_used_x"), # input from Murfey
+#    patches_used_y=full_parameters("patches_used_y"), # input from Murfey
 #    comments=full_parameters("comments"),
 
         if isinstance(rw, RW_mock):
@@ -166,11 +164,7 @@ class MotionCorr(CommonService):
 
         # Forward results to murfey
         if isinstance(rw, RW_mock):
-            rw.transport.send(destination="murfey",
-                              message={
-                                  "parameters": {"corrected_movie": mc_params.mrc_out},
-                                  "content": {"dummy": "dummy"},
-                              },)
+            rw.transport.send("murfey", {"corrected_movie": mc_params.mrc_out})
         else:
             rw.send_to("murfey", mc_params.mrc_out)
 

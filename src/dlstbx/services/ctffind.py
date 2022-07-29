@@ -145,25 +145,26 @@ class CTFFind(CommonService):
             rw.transport.nack(header)
             return
 
-            #ctf_id=full_parameters("ctf_id"),
-            #motion_correction_id=full_parameters("motion_correction_id"),
-            #auto_proc_program_id=full_parameters("program_id"),
-            #box_size_x=full_parameters("box_size_x"),
-            #box_size_y=full_parameters("box_size_y"),
-            #min_resolution=full_parameters("min_resolution"),
-            #max_resolution=full_parameters("max_resolution"),
-            #min_defocus=full_parameters("min_defocus"),
-            #max_defocus=full_parameters("max_defocus"),
-            #astigmatism=full_parameters("astigmatism"),
-            #defocus_step_size=full_parameters("defocus_step_size"),
-            #astigmatism_angle=full_parameters("astigmatism_angle"),
-            #estimated_resolution=full_parameters("estimated_resolution"),
-            #estimated_defocus=full_parameters("estimated_defocus"),
-            #amplitude_contrast=full_parameters("amplitude_contrast"),
-            #cc_value=full_parameters("cc_value"),
-            #fft_theoretical_full_path=full_parameters("fft_theoretical_full_path"),
+            #ctf_id=full_parameters("ctf_id"), # auto
+            #motion_correction_id=full_parameters("motion_correction_id"), # recipe
+            #auto_proc_program_id=full_parameters("program_id"), # recipe
+            #box_size_x=full_parameters("box_size_x"), # from ctf output file
+            #box_size_y=full_parameters("box_size_y"), # from ctf output file (assume box is square)
+            #min_resolution=full_parameters("min_resolution"), # from inputs
+            #max_resolution=full_parameters("max_resolution"), # from inputs
+            #min_defocus=full_parameters("min_defocus"), # from inputs
+            #max_defocus=full_parameters("max_defocus"), # from inputs
+            #astigmatism=full_parameters("astigmatism"), # from ctf file, difference in output defocuses
+            #defocus_step_size=full_parameters("defocus_step_size"), # from inputs
+            #astigmatism_angle=full_parameters("astigmatism_angle"), # from ctf file, azimuth of astigmatism
+            #estimated_resolution=full_parameters("estimated_resolution"), # from ctf file, spacing
+            #estimated_defocus=full_parameters("estimated_defocus"), # from ctf file, average of output defocuses
+            #amplitude_contrast=full_parameters("amplitude_contrast"), # from inputs
+            #cc_value=full_parameters("cc_value"), # from ctf file, cross correlation
+            #fft_theoretical_full_path=full_parameters("fft_theoretical_full_path"), # path to output mrc (would be jpeg if we could convert in SW)
             #comments=full_parameters("comments"),
 
+#
 
         # add command, add parameters
         # Forward results to ispyb

@@ -216,32 +216,33 @@ class TomoAlign(CommonService):
 
         # Forward results to ispyb
 
-        #dataCollectionId=full_parameters("dcid"),
-        #autoProcProgramId=full_parameters("program_id"),
-        #volumeFile=full_parameters("volume_file"),
-        #stackFile=full_parameters("stack_file"),
-        #sizeX=full_parameters("size_x"),
-        #sizeY=full_parameters("size_y"),
-        #sizeZ=full_parameters("size_z"),
-        #pixelSpacing=full_parameters("pixel_spacing"),
-        #residualErrorMean=full_parameters("residual_error_mean"),
-        #residualErrorSD=full_parameters("residual_error_sd"),
-        #xAxisCorrection=full_parameters("x_axis_correction"),
-        #tiltAngleOffset=full_parameters("tilt_angle_offset"),
-        #zShift=full_parameters("z_shift")
+        #dataCollectionId=full_parameters("dcid"), # from Murfey
+        #autoProcProgramId=full_parameters("program_id"), # from Murfey
+        #volumeFile=full_parameters("volume_file"), # outmrc, from inputs
+        #stackFile=full_parameters("stack_file"), # inmrc, from inputs
+        #sizeX=full_parameters("size_x"), # volume image size, pix
+        #sizeY=full_parameters("size_y"), # volume image size, pix
+        #sizeZ=full_parameters("size_z"), # volume image size, pix or slices
+        #pixelSpacing=full_parameters("pixel_spacing"), # pixel size, from Murfey/inputs
+        #residualErrorMean=full_parameters("residual_error_mean"), # calculate from shifts in AreTomo output file?
+        #residualErrorSD=full_parameters("residual_error_sd"), # calculate from shifts in AreTomo output file?
+        #xAxisCorrection=full_parameters("x_axis_correction"), # TiltCor, from inputs
+        #tiltAngleOffset=full_parameters("tilt_angle_offset"), # from aretomo file, tilt offset
+        #zShift=full_parameters("z_shift") # VolZ, from inputs
 
 
-    #movieId=full_parameters("movie_id"),
-    #tomogramId=full_parameters("tomogram_id"),
-    #defocusU=full_parameters("defocus_u"),
-    #defocusV=full_parameters("defocus_v"),
-    #psdFile=full_parameters("psd_file"),
-    #resolution=full_parameters("resolution"),
-    #fitQuality=full_parameters("fit_quality"),
-    #refinedMagnification=full_parameters("refined_magnification"),
-    #refinedTiltAngle=full_parameters("refined_tilt_angle"),
-    #refinedTiltAxis=full_parameters("refinedTiltAxis"),
-    #residualError=full_parameters("residual_error")
+        #movieId=full_parameters("movie_id"), # from Murfey
+        #tomogramId=full_parameters("tomogram_id"), # from recipe
+        #defocusU=full_parameters("defocus_u"), # don't do - in ctf
+        #defocusV=full_parameters("defocus_v"), # don't do - in ctf
+        #psdFile=full_parameters("psd_file"), # should be in ctf table but useful so we will insert
+        #resolution=full_parameters("resolution"), # don't do - in ctf
+        #fitQuality=full_parameters("fit_quality"), # don't do - in ctf
+        #refinedMagnification=full_parameters("refined_magnification"), # optional, pass
+        #refinedTiltAngle=full_parameters("refined_tilt_angle"), # from aretomo file, tilt angle per image
+        #refinedTiltAxis=full_parameters("refinedTiltAxis"), # seems like it should be per tomogram (one num), but is in the tiltimage table per
+        # image ??
+        #residualError=full_parameters("residual_error") # shift per image?
 
         # multipart message
         # add command, add parameters
@@ -254,19 +255,3 @@ class TomoAlign(CommonService):
         else:
             rw.send_to("ispyb", ispyb_parameters)
         rw.transport.ack(header)
-
-
-
-        dataCollectionId=full_parameters("dcid"),
-        autoProcProgramId=full_parameters("program_id"),
-        volumeFile=full_parameters("volume_file"),
-        stackFile=full_parameters("stack_file"),
-        sizeX=full_parameters("size_x"),
-        sizeY=full_parameters("size_y"),
-        sizeZ=full_parameters("size_z"),
-        pixelSpacing=full_parameters("pixel_spacing"),
-        residualErrorMean=full_parameters("residual_error_mean"),
-        residualErrorSD=full_parameters("residual_error_sd"),
-        xAxisCorrection=full_parameters("x_axis_correction"),
-        tiltAngleOffset=full_parameters("tilt_angle_offset"),
-        zShift=full_parameters("z_shift")

@@ -96,12 +96,14 @@ class Xia2MultiplexWrapper(Wrapper):
             command.append(f)
 
         if params.get("ispyb_parameters"):
+            ignore = {"sample_id", "sample_group_id"}
             translation = {
                 "d_min": "resolution.d_min",
                 "spacegroup": "symmetry.space_group",
             }
             for param, value in params["ispyb_parameters"].items():
-                command.append(translation.get(param, param) + "=" + value[0])
+                if param not in ignore:
+                    command.append(translation.get(param, param) + "=" + value[0])
 
         return command
 
@@ -120,8 +122,8 @@ class Xia2MultiplexWrapper(Wrapper):
                 params["create_symlink"] += (
                     "-" + params["ispyb_parameters"]["spacegroup"][0]
                 )
-            if params["ispyb_parameters"].get("data"):
-                params["data"] = params["ispyb_parameters"]["data"]
+            if data := params["ispyb_parameters"].pop("data"):
+                params["data"] = data
 
         assert len(params.get("data", [])) > 1
 

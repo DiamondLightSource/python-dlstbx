@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 
 import py
@@ -22,10 +21,11 @@ from dlstbx.util.big_ep_helpers import (
 from dlstbx.util.symlink import create_parent_symlink
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("zocalo.wrap.big_ep_report")
-
 
 class BigEPReportWrapper(Wrapper):
+
+    _logger_name = "zocalo.wrap.big_ep_report"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -75,19 +75,19 @@ class BigEPReportWrapper(Wrapper):
 
         if pipeline == "autoSHARP":
             working_directory = working_directory.join("autoSHARP")
-            mdl_dict = get_autosharp_model_files(working_directory, logger)
+            mdl_dict = get_autosharp_model_files(working_directory, self.log)
         elif pipeline == "AutoBuild":
-            mdl_dict = get_autobuild_model_files(working_directory, logger)
+            mdl_dict = get_autobuild_model_files(working_directory, self.log)
         elif pipeline == "Crank2":
-            mdl_dict = get_crank2_model_files(working_directory, logger)
+            mdl_dict = get_crank2_model_files(working_directory, self.log)
         else:
-            logger.error(f"Big_EP was run with an unknown {pipeline = }.")
+            self.log.error(f"Big_EP was run with an unknown {pipeline = }.")
             return False
         if mdl_dict is None:
-            logger.info(f"Cannot process {pipeline} results.")
+            self.log.info(f"Cannot process {pipeline} results.")
             return False
 
-        ispyb_write_model_json(str(working_directory), mdl_dict, logger)
+        ispyb_write_model_json(str(working_directory), mdl_dict, self.log)
         write_coot_script(str(working_directory), mdl_dict)
 
         if "devel" not in params:
@@ -97,7 +97,7 @@ class BigEPReportWrapper(Wrapper):
                     working_directory.strpath,
                     results_directory.strpath,
                     skip_copy,
-                    logger,
+                    self.log,
                 )
                 if params.get("create_symlink"):
                     upstream = params["create_symlink"].replace("/", "-")
@@ -110,27 +110,27 @@ class BigEPReportWrapper(Wrapper):
                     self.record_result_individual_file,
                 )
             else:
-                logger.debug("Result directory not specified")
+                self.log.debug("Result directory not specified")
 
-        logger.debug("Generating model density images")
+        self.log.debug("Generating model density images")
         try:
             bpu.generate_model_snapshots(working_directory.strpath, tmpl_env, tmpl_data)
         except Exception:
-            logger.debug(
+            self.log.debug(
                 "Exception raised while generating model snapshots", exc_info=True
             )
 
-        logger.debug("Generating plots for fast_ep summary")
+        self.log.debug("Generating plots for fast_ep summary")
         try:
             axis, data, best_vals = fpu.parse_fastep_table(fast_ep_path)
             fpu.fastep_radar_plot(tmpl_data, axis, data, best_vals)
             fpu.fastep_sites_plot(tmpl_data, axis, data["No. found"], *best_vals[1:])
         except Exception:
-            logger.debug(
+            self.log.debug(
                 "Exception raised while composing fast_ep report", exc_info=True
             )
 
-        logger.debug("Reading PIA results from ISPyB")
+        self.log.debug("Reading PIA results from ISPyB")
         try:
             import ispyb
             import ispyb.model.__future__
@@ -153,35 +153,37 @@ class BigEPReportWrapper(Wrapper):
                 tmpl_data, image_number, resolution, spot_count, bragg_candidates
             )
         except Exception:
-            logger.debug("Exception raised while composing PIA report", exc_info=True)
+            self.log.debug("Exception raised while composing PIA report", exc_info=True)
 
-        logger.debug("Reading crystal snapshots")
+        self.log.debug("Reading crystal snapshots")
         try:
             bpu.get_image_files(tmpl_data)
         except Exception:
-            logger.debug(
+            self.log.debug(
                 "Exception raised while reading crystal snapshots", exc_info=True
             )
 
-        logger.debug("Reading data metrics from xia2 logs")
+        self.log.debug("Reading data metrics from xia2 logs")
         try:
             bpu.read_xia2_processing(tmpl_data)
         except Exception:
-            logger.debug("Exception raised while composing xia2 summary", exc_info=True)
+            self.log.debug(
+                "Exception raised while composing xia2 summary", exc_info=True
+            )
 
-        logger.debug("Generating HTML summary")
+        self.log.debug("Generating HTML summary")
         html_template = tmpl_env.get_template("bigep_summary.html")
         with open(working_directory.join("bigep_report.html").strpath, "w") as fp:
             try:
                 summary_html = html_template.render(tmpl_data)
             except UndefinedError:
-                logger.exception("Error rendering big_ep summary report")
+                self.log.exception("Error rendering big_ep summary report")
                 return False
             fp.write(summary_html)
             bpu.send_html_email_message(summary_html, pipeline, email_list, tmpl_data)
 
         results_directory.ensure(dir=True)
-        logger.info("Copying big_ep report to %s", results_directory.strpath)
+        self.log.info("Copying big_ep report to %s", results_directory.strpath)
         keep_ext = {".html": "log", ".png": "log"}
         allfiles = []
         for filename in working_directory.listdir():

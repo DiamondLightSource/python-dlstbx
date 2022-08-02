@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import json
-import logging
 
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.stepped_transmission")
-
 
 class SteppedTransmissionWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.stepped_transmission"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -160,10 +160,10 @@ class SteppedTransmissionWrapper(Wrapper):
                 ispyb_command_list.append(d)
 
         if ispyb_command_list:
-            logger.debug("Sending %s", json.dumps(ispyb_command_list))
+            self.log.debug("Sending %s", json.dumps(ispyb_command_list))
             self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-            logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+            self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
         else:
-            logger.warning("No commands to send to ISPyB")
+            self.log.warning("No commands to send to ISPyB")
 
         return True

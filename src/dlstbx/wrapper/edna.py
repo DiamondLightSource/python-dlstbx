@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 import pathlib
 import shutil
@@ -9,10 +8,11 @@ import procrunner
 
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.edna")
-
 
 class EdnaWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.edna"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -21,7 +21,7 @@ class EdnaWrapper(Wrapper):
         results_directory = pathlib.Path(params["results_directory"])
         working_directory.mkdir(parents=True)
         results_directory.mkdir(parents=True, exist_ok=True)
-        logger.info("working_directory: {working_directory}")
+        self.log.info("working_directory: {working_directory}")
         try:  # set Synchweb to swirl
             (results_directory / "summary.html").touch()
         except OSError:
@@ -41,8 +41,8 @@ class EdnaWrapper(Wrapper):
         transmission = float(sparams["transmission"])
         wavelength = float(sparams["wavelength"])
         beamline = sparams["beamline"]
-        logger.debug("transmission: %s" % transmission)
-        logger.debug("wavelength: %s" % wavelength)
+        self.log.debug("transmission: %s" % transmission)
+        self.log.debug("wavelength: %s" % wavelength)
         lifespan = sparams["lifespan"].get(beamline, sparams["lifespan"]["default"])
         if sparams["gentle"]:
             strategy_lifespan = round(
@@ -52,7 +52,7 @@ class EdnaWrapper(Wrapper):
             strategy_lifespan = round(
                 (lifespan * (100 / transmission)) * (wavelength / 0.979) ** -3, 0
             )
-        logger.debug("lifespan: %s" % strategy_lifespan)
+        self.log.debug("lifespan: %s" % strategy_lifespan)
 
         min_exposure = sparams["min_exposure"].get(
             beamline, sparams["min_exposure"]["default"]
@@ -108,7 +108,7 @@ edna-plugin-launcher \
             strategy_xml,
             results_xml,
         ]
-        logger.info("Running command: %s", " ".join(str(c) for c in commands))
+        self.log.info("Running command: %s", " ".join(str(c) for c in commands))
         result = procrunner.run(
             commands,
             working_directory=EDNAStrategy,
@@ -122,15 +122,15 @@ edna-plugin-launcher \
         )
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info("EDNA successful, took %.1f seconds", result["runtime"])
+            self.log.info("EDNA successful, took %.1f seconds", result["runtime"])
         else:
-            logger.info(
+            self.log.info(
                 "EDNA failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"].decode("latin1"))
-            logger.debug(result["stderr"].decode("latin1"))
+            self.log.debug(result["stdout"].decode("latin1"))
+            self.log.debug(result["stderr"].decode("latin1"))
 
         wrap_edna2html_sh = working_directory / "wrap_edna2html.sh"
         edna2html_home = "/dls_sw/apps/edna/edna-20140709"
@@ -148,7 +148,7 @@ module load {edna_module}
 """
         )
         commands = ["sh", wrap_edna2html_sh]
-        logger.info("Running command: %s", " ".join(str(c) for c in commands))
+        self.log.info("Running command: %s", " ".join(str(c) for c in commands))
         result = procrunner.run(
             commands,
             working_directory=working_directory,
@@ -164,18 +164,20 @@ module load {edna_module}
         )
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info("EDNA2html successful, took %.1f seconds", result["runtime"])
+            self.log.info("EDNA2html successful, took %.1f seconds", result["runtime"])
         else:
-            logger.info(
+            self.log.info(
                 "EDNA2html failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"].decode("latin1"))
-            logger.debug(result["stderr"].decode("latin1"))
+            self.log.debug(result["stdout"].decode("latin1"))
+            self.log.debug(result["stderr"].decode("latin1"))
 
         # copy output files to result directory
-        logger.info(f"Copying results from {working_directory} to {results_directory}")
+        self.log.info(
+            f"Copying results from {working_directory} to {results_directory}"
+        )
 
         source_dir = working_directory / "EDNAStrategy"
         dest_dir = results_directory / ("EDNA%s" % sparams["name"])
@@ -201,8 +203,8 @@ module load {edna_module}
         master_h5 = os.path.join(params["image_directory"], params["image_template"])
         prefix = params["image_template"].split("master.h5")[0]
         params["image_pattern"] = prefix + "%04d.cbf"
-        logger.info("Image pattern: %s", params["image_pattern"])
-        logger.info(
+        self.log.info("Image pattern: %s", params["image_pattern"])
+        self.log.info(
             "Converting %s to %s", master_h5, tmpdir / (params["image_pattern"])
         )
         result = procrunner.run(
@@ -212,17 +214,17 @@ module load {edna_module}
         )
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info(
+            self.log.info(
                 "dxtbx.dlsnxs2cbf successful, took %.1f seconds", result["runtime"]
             )
         else:
-            logger.error(
+            self.log.error(
                 "dxtbx.dlsnxs2cbf failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"].decode("latin1"))
-            logger.debug(result["stderr"].decode("latin1"))
+            self.log.debug(result["stdout"].decode("latin1"))
+            self.log.debug(result["stderr"].decode("latin1"))
         params["orig_image_directory"] = params["image_directory"]
         params["image_directory"] = str(tmpdir)
         return success
@@ -233,7 +235,7 @@ module load {edna_module}
         params = self.recwrap.recipe_step["job_parameters"]
 
         def behead(cif_in, cif_out):
-            logger.info(f"Writing modified file {cif_in} to {cif_out}")
+            self.log.info(f"Writing modified file {cif_in} to {cif_out}")
             assert cif_in.exists(), cif_in
             assert not cif_out.exists(), cif_out
 
@@ -306,7 +308,7 @@ module load {edna_module}
 """
         )
 
-        # logger.info('spacegroup: %s' %params.get('spacegroup'))
+        # self.log.info('spacegroup: %s' %params.get('spacegroup'))
         # space_group = params.get('spacegroup')
         # if space_group is not None:
         #  print >> s, """            <forcedSpaceGroup>
@@ -316,7 +318,7 @@ module load {edna_module}
 
         # 3) Echo out the full path for each image.
 
-        logger.info(str(list(params.keys())))
+        self.log.info(str(list(params.keys())))
         image_directory = pathlib.Path(params["image_directory"])
         image_first = int(params["image_first"])
         image_last = int(params["image_last"])
@@ -329,7 +331,7 @@ module load {edna_module}
         # suffix = template.split('#')[-1]
         # image_pattern = prefix + fmt + suffix
 
-        logger.info(f"{image_pattern} {image_first}:{image_last}")
+        self.log.info(f"{image_pattern} {image_first}:{image_last}")
         for i_image in range(image_first, image_last + 1):
             image_file_name = image_directory / (image_pattern % i_image)
             output = (

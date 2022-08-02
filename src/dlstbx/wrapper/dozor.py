@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 import re
 
@@ -14,10 +13,11 @@ from dlstbx.util.dxtbx_to_dozor import (
 )
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.dozor")
-
 
 class DozorWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.dozor"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -35,11 +35,11 @@ class DozorWrapper(Wrapper):
         # Convert ISPyB %d pattern to dxtbx #### pattern
         r = re.search("%([0-9]*)d", template)
         if not r:
-            logger.error("Could not parse template pattern '%s'", template)
+            self.log.error("Could not parse template pattern '%s'", template)
             return
         patternlen = max(int(r.group(1)), 1)
         template = template[: r.start()] + ("#" * patternlen) + template[r.end() :]
-        logger.info("Running dozor for '%s'", template)
+        self.log.info("Running dozor for '%s'", template)
 
         start = int(params.get("start", 0))
         end = int(params.get("end", 0))
@@ -62,14 +62,14 @@ class DozorWrapper(Wrapper):
             ["dozor", "dozor.in"], timeout=params.get("timeout", 3600)
         )
 
-        logger.info("command: %s", " ".join(result["command"]))
-        logger.info("timeout: %s", result["timeout"])
-        logger.info("time_start: %s", result["time_start"])
-        logger.info("time_end: %s", result["time_end"])
-        logger.info("runtime: %s", result["runtime"])
-        logger.info("exitcode: %s", result["exitcode"])
-        logger.debug(result["stdout"])
-        logger.debug(result["stderr"])
+        self.log.info("command: %s", " ".join(result["command"]))
+        self.log.info("timeout: %s", result["timeout"])
+        self.log.info("time_start: %s", result["time_start"])
+        self.log.info("time_end: %s", result["time_end"])
+        self.log.info("runtime: %s", result["runtime"])
+        self.log.info("exitcode: %s", result["exitcode"])
+        self.log.debug(result["stdout"])
+        self.log.debug(result["stderr"])
 
         os.chdir(cwd)
 
@@ -84,6 +84,6 @@ class DozorWrapper(Wrapper):
                 {"file-number": image, "dozor_score": tuple(results[image])[0]},
             )
 
-        logger.info("Dozor done.")
+        self.log.info("Dozor done.")
 
         return result["exitcode"] == 0

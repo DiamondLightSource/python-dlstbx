@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import pathlib
 import subprocess
 from typing import List, Optional
@@ -10,8 +9,6 @@ import pydantic
 from iotbx.bioinformatics import fasta_sequence
 
 from dlstbx.wrapper import Wrapper
-
-logger = logging.getLogger("dlstbx.wrap.alphafold")
 
 
 class AlphaFoldParameters(pydantic.BaseModel):
@@ -23,6 +20,9 @@ class AlphaFoldParameters(pydantic.BaseModel):
 
 
 class AlphaFoldWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.alphafold"
+
     def send_results_to_ispyb(self, pdb_files: List[pathlib.Path], protein_id: int):
         ispyb_command = {
             "ispyb_command": "insert_pdb_files",
@@ -30,7 +30,7 @@ class AlphaFoldWrapper(Wrapper):
             "pdb_files": [str(p) for p in pdb_files],
             "source": "AlphaFold",
         }
-        logger.info("Sending %s to ISPyB", str(ispyb_command))
+        self.log.info("Sending %s to ISPyB", str(ispyb_command))
         self.recwrap.send_to("ispyb", ispyb_command)
         return True
 
@@ -70,22 +70,22 @@ class AlphaFoldWrapper(Wrapper):
             )
         except subprocess.TimeoutExpired as te:
             success = False
-            logger.warning(f"AlphaFold timed out: {te.timeout}\n  {te.cmd}")
-            logger.debug(te.stdout)
-            logger.debug(te.stderr)
+            self.log.warning(f"AlphaFold timed out: {te.timeout}\n  {te.cmd}")
+            self.log.debug(te.stdout)
+            self.log.debug(te.stderr)
         else:
             success = not result.returncode
             if success:
-                logger.info("AlphaFold successful")
+                self.log.info("AlphaFold successful")
             else:
-                logger.info(f"AlphaFold failed with exitcode {result.returncode}")
-                logger.debug(result.stdout)
-                logger.debug(result.stderr)
+                self.log.info(f"AlphaFold failed with exitcode {result.returncode}")
+                self.log.debug(result.stdout)
+                self.log.debug(result.stderr)
 
         subdir = params.working_directory / f"seq_{params.protein_id}"
         ranked_pdbs = sorted(subdir.glob("ranked_*.pdb"))
         if not ranked_pdbs:
-            logger.warning(f"No ranked_*.pdb files found in {subdir}")
+            self.log.warning(f"No ranked_*.pdb files found in {subdir}")
             return False
 
         self.send_results_to_ispyb(ranked_pdbs, params.protein_id)

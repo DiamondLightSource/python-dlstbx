@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import shutil
 
@@ -9,10 +8,11 @@ import procrunner
 
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.spot_counts_per_image")
-
 
 class SCPIWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.spot_counts_per_image"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -51,18 +51,18 @@ class SCPIWrapper(Wrapper):
                 "split_json=True",
             ],
         ):
-            logger.info("Running command: %r", command)
+            self.log.info("Running command: %r", command)
             result = procrunner.run(command, timeout=params.get("timeout"))
 
-            logger.info("runtime: %s", result["runtime"])
+            self.log.info("runtime: %s", result["runtime"])
             if result["exitcode"] or result["timeout"]:
-                logger.info("timeout: %s", result["timeout"])
-                logger.info("time_start: %s", result["time_start"])
-                logger.info("time_end: %s", result["time_end"])
-                logger.info("exitcode: %s", result["exitcode"])
-                logger.info(result["stdout"])
-                logger.info(result["stderr"])
-                logger.error(
+                self.log.info("timeout: %s", result["timeout"])
+                self.log.info("time_start: %s", result["time_start"])
+                self.log.info("time_end: %s", result["time_end"])
+                self.log.info("exitcode: %s", result["exitcode"])
+                self.log.info(result["stdout"])
+                self.log.info(result["stderr"])
+                self.log.error(
                     "Spot counting failed on %s during step %s",
                     params["data"],
                     command[0],
@@ -83,7 +83,7 @@ class SCPIWrapper(Wrapper):
 
             if os.path.exists(filename):
                 dst = os.path.join(results_directory, filename)
-                logger.debug(f"Copying {filename} to {dst}")
+                self.log.debug(f"Copying {filename} to {dst}")
                 shutil.copy(filename, dst)
                 foundfiles.append(dst)
                 self.record_result_individual_file(
@@ -96,13 +96,13 @@ class SCPIWrapper(Wrapper):
             else:
                 filesmissing = True
                 if success:
-                    logger.warning("Expected output file %s missing", filename)
+                    self.log.warning("Expected output file %s missing", filename)
                 else:
-                    logger.info("Expected output file %s missing", filename)
+                    self.log.info("Expected output file %s missing", filename)
         success = success and not filesmissing
 
         if foundfiles:
-            logger.info("Notifying for found files: %s", str(foundfiles))
+            self.log.info("Notifying for found files: %s", str(foundfiles))
             self.record_result_all_files({"filelist": foundfiles})
 
         # Identify selection of PIA results to send on
@@ -113,7 +113,7 @@ class SCPIWrapper(Wrapper):
         ]
         selections = {int(k[7:]): k for k in selections}
 
-        logger.info("Processing grouped per-image-analysis statistics")
+        self.log.info("Processing grouped per-image-analysis statistics")
         json_data = {"total_intensity": []}
         if os.path.exists("%s.json" % prefix):
             with open("%s.json" % prefix) as fp:
@@ -137,6 +137,6 @@ class SCPIWrapper(Wrapper):
                 ):
                     self.recwrap.send_to(dest, pia)
                     print("Select:", pia)
-        logger.info("Done.")
+        self.log.info("Done.")
 
         return success

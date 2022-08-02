@@ -11,8 +11,6 @@ from dlstbx.util.iris import (
 )
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("zocalo.wrap.autoPROC_setup")
-
 clean_environment = {
     "LD_LIBRARY_PATH": "",
     "LOADEDMODULES": "",
@@ -24,6 +22,9 @@ clean_environment = {
 
 
 class autoPROCSetupWrapper(Wrapper):
+
+    _logger_name = "zocalo.wrap.autoPROC_setup"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -59,7 +60,7 @@ class autoPROCSetupWrapper(Wrapper):
                     {"singularity_image": singularity_image}
                 )
             except Exception:
-                logger.exception("Error writing singularity script")
+                self.log.exception("Error writing singularity script")
                 return False
 
             if params.get("s3_urls"):
@@ -68,18 +69,18 @@ class autoPROCSetupWrapper(Wrapper):
                 )
                 handler = logging.StreamHandler()
                 handler.setFormatter(formatter)
-                logger.addHandler(handler)
-                logger.setLevel(logging.DEBUG)
+                self.log.addHandler(handler)
+                self.log.setLevel(logging.DEBUG)
                 s3_urls = get_presigned_urls_images(
                     params.get("create_symlink").lower(),
                     params["rpid"],
                     params["images"],
-                    logger,
+                    self.log,
                 )
                 self.recwrap.environment.update({"s3_urls": s3_urls})
             else:
                 image_files = get_image_files(
-                    working_directory, params["images"], logger
+                    working_directory, params["images"], self.log
                 )
                 self.recwrap.environment.update(
                     {"htcondor_upload_images": ",".join(image_files.keys())}

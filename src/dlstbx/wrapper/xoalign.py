@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import json
-import logging
 
 import procrunner
 import py
 
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.xoalign")
-
 
 class XOalignWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.xoalign"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -46,7 +46,7 @@ class XOalignWrapper(Wrapper):
 
         xoalign_py = "/dls_sw/apps/xdsme/graemewinter-xdsme/bin/Linux_i586/XOalign.py"
         commands = [xoalign_py, datum, mosflm_index_mat.strpath]
-        logger.info("command: %s", " ".join(commands))
+        self.log.info("command: %s", " ".join(commands))
         result = procrunner.run(
             commands,
             environment_override={
@@ -56,22 +56,22 @@ class XOalignWrapper(Wrapper):
         )
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info("XOalign successful, took %.1f seconds", result["runtime"])
+            self.log.info("XOalign successful, took %.1f seconds", result["runtime"])
         else:
-            logger.info(
+            self.log.info(
                 "XOalign failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            self.log.debug(result["stdout"])
+            self.log.debug(result["stderr"])
 
         working_directory.join("XOalign.log").write(result.stdout)
 
         self.insertXOalignStrategies(params["dcid"], result.stdout)
 
         # copy output files to result directory
-        logger.info(
+        self.log.info(
             "Copying results from %s to %s"
             % (working_directory.strpath, results_directory.strpath)
         )
@@ -172,8 +172,8 @@ class XOalignWrapper(Wrapper):
             ispyb_command_list.append(d)
 
         if ispyb_command_list:
-            logger.debug("Sending %s", json.dumps(ispyb_command_list, indent=2))
+            self.log.debug("Sending %s", json.dumps(ispyb_command_list, indent=2))
             self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-            logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+            self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
         else:
-            logger.info("There is no valid XOalign strategy here")
+            self.log.info("There is no valid XOalign strategy here")

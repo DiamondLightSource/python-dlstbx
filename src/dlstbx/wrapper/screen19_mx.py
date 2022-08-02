@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 import tempfile
 
@@ -9,8 +8,6 @@ import py
 
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
-
-logger = logging.getLogger("dlstbx.wrap.screen19_mx")
 
 clean_environment = {
     "LD_LIBRARY_PATH": "",
@@ -21,6 +18,9 @@ clean_environment = {
 
 
 class Screen19MXWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.screen19_mx"
+
     def send_html_email_message(self, msg, email_params, img):
         import getpass
         import platform
@@ -54,13 +54,15 @@ class Screen19MXWrapper(Wrapper):
                         to_addrs=email_params["recipients"],
                         msg=message.as_string(),
                     )
-                    logger.info("Sent email with screen19_mx results")
+                    self.log.info("Sent email with screen19_mx results")
                     return
                 except smtplib.SMTPSenderRefused:
                     sleep(60)
-            logger.error("Cannot sending email with screen19_mx processing results")
+            self.log.error("Cannot sending email with screen19_mx processing results")
         except Exception:
-            logger.exception("Error sending email with screen19_mx processing results")
+            self.log.exception(
+                "Error sending email with screen19_mx processing results"
+            )
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -92,7 +94,7 @@ class Screen19MXWrapper(Wrapper):
                     ]
                 )
         except OSError:
-            logger.exception(
+            self.log.exception(
                 "Could not create screen19 script file in the working directory"
             )
             return False
@@ -106,12 +108,12 @@ class Screen19MXWrapper(Wrapper):
             assert result["exitcode"] == 0
             assert result["timeout"] is False
         except AssertionError:
-            logger.exception(
+            self.log.exception(
                 "Process returned an error code when running screen19.minimum_exposure script"
             )
             return False
         except Exception:
-            logger.exception("Running screen19.minimum_exposure script has failed")
+            self.log.exception("Running screen19.minimum_exposure script has failed")
             return False
         # Create results directory if it doesn't already exist
         results_directory = py.path.local(params["results_directory"])
@@ -120,7 +122,7 @@ class Screen19MXWrapper(Wrapper):
             dlstbx.util.symlink.create_parent_symlink(
                 results_directory.strpath, params["create_symlink"]
             )
-        logger.info("Copying screen19_mx results to %s", results_directory.strpath)
+        self.log.info("Copying screen19_mx results to %s", results_directory.strpath)
         for result_filename, result_type in [
             ("output_file", "result"),
             ("wilson_plot", "graph"),
@@ -138,12 +140,12 @@ class Screen19MXWrapper(Wrapper):
                         }
                     )
                 except Exception:
-                    logger.info(
+                    self.log.info(
                         "Error copying files into the results directory %s",
                         results_directory.strpath,
                     )
             else:
-                logger.error("Results file %s not found", result_file.strpath)
+                self.log.error("Results file %s not found", result_file.strpath)
                 return False
 
         with open(params["output_file"]) as fp:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import shutil
 from argparse import Namespace
@@ -20,8 +19,6 @@ from dlstbx.util.big_ep_helpers import (
 from dlstbx.util.iris import write_singularity_script
 from dlstbx.util.symlink import create_parent_symlink
 from dlstbx.wrapper import Wrapper
-
-logger = logging.getLogger("zocalo.wrap.big_ep_setup")
 
 
 def get_bigep_parameters(big_ep_params, working_directory, logger):
@@ -108,7 +105,7 @@ def bootstrap_pipeline(params, working_directory, logger):
     return msg
 
 
-def setup_autosharp_jobs(msg, working_directory):
+def setup_autosharp_jobs(msg, working_directory, logger):
     """Setup input directory to run autoSHARP."""
     try:
         msg.enableArpWarp = msg.resolution < 2.5
@@ -149,7 +146,7 @@ def setup_crank2_jobs(working_directory, msg):
         msg.enableArpWarp = False
 
 
-def record_big_ep_settings_in_ispyb(rpid, msg):
+def record_big_ep_settings_in_ispyb(rpid, msg, logger):
     big_ep_settings = {
         "atom": msg.atom,
         "dataset": msg.dataset_names,
@@ -169,6 +166,9 @@ def record_big_ep_settings_in_ispyb(rpid, msg):
 
 
 class BigEPSetupWrapper(Wrapper):
+
+    _logger_name = "zocalo.wrap.big_ep_setup"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -189,42 +189,42 @@ class BigEPSetupWrapper(Wrapper):
             os.symlink(params["fast_ep_path"], str(working_directory / "fast_ep"))
 
         try:
-            msg = bootstrap_pipeline(params, str(working_directory), logger)
+            msg = bootstrap_pipeline(params, str(working_directory), self.log)
             msg.cluster_project = self.recwrap.recipe_step["parameters"][
                 "cluster_project"
             ]
         except Exception:
-            logger.exception("Error reading big_ep parameters")
+            self.log.exception("Error reading big_ep parameters")
             return False
         try:
             read_data(msg)
         except Exception:
-            logger.exception("Error reading big_ep input .mtz file")
+            self.log.exception("Error reading big_ep input .mtz file")
             return False
         try:
             get_heavy_atom_job(msg)
         except Exception:
-            logger.exception("Error reading big_ep parameters")
+            self.log.exception("Error reading big_ep parameters")
             return False
         try:
-            read_mtz_datasets(msg, logger)
+            read_mtz_datasets(msg, self.log)
         except Exception:
-            logger.exception("Error reading big_ep parameters")
+            self.log.exception("Error reading big_ep parameters")
             return False
         try:
-            record_big_ep_settings_in_ispyb(params["rpid"], msg)
+            record_big_ep_settings_in_ispyb(params["rpid"], msg, self.log)
         except Exception:
-            logger.exception("Error recording big_ep settings into ISPyB")
+            self.log.exception("Error recording big_ep settings into ISPyB")
 
         try:
             if pipeline == "Crank2":
                 setup_crank2_jobs(working_directory, msg)
             elif pipeline == "autoSHARP":
-                setup_autosharp_jobs(msg, working_directory)
+                setup_autosharp_jobs(msg, working_directory, self.log)
             elif pipeline == "AutoBuild":
                 setup_autosol_jobs(msg, working_directory)
         except Exception:
-            logger.exception(f"Error configuring {pipeline} jobs")
+            self.log.exception(f"Error configuring {pipeline} jobs")
             return False
 
         singularity_image = params.get("singularity_image")
@@ -241,11 +241,11 @@ class BigEPSetupWrapper(Wrapper):
                     {"singularity_image": singularity_image}
                 )
             except Exception:
-                logger.exception("Error writing singularity script")
+                self.log.exception("Error writing singularity script")
                 return False
 
-        logger.info("Sending message to downstream channel")
-        logger.info(f"Message: {msg}")
+        self.log.info("Sending message to downstream channel")
+        self.log.info(f"Message: {msg}")
         self.recwrap.environment["msg"] = vars(msg)
 
         email_message = pformat(

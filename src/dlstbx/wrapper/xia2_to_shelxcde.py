@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import glob
-import logging
 import os
 
 import procrunner
@@ -11,10 +10,11 @@ import dlstbx.util.symlink
 from dlstbx.util.shelxc import parse_shelxc_logs
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("zocalo.wrap.xia2.to_shelxcde")
-
 
 class Xia2toShelxcdeWrapper(Wrapper):
+
+    _logger_name = "zocalo.wrap.xia2.to_shelxcde"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = self.recwrap.recipe_step["job_parameters"]
@@ -25,7 +25,7 @@ class Xia2toShelxcdeWrapper(Wrapper):
                 os.path.realpath(os.path.join(params["results_directory"]))
             )
         except KeyError:
-            logger.debug("Result directory not specified")
+            self.log.debug("Result directory not specified")
 
         # Create working directory with symbolic link
         working_directory.ensure(dir=True)
@@ -42,7 +42,7 @@ class Xia2toShelxcdeWrapper(Wrapper):
 
         data_files = sorted(glob.glob(params["data"]))
         if not data_files:
-            logger.error(
+            self.log.error(
                 "Could not find data files matching %s to process", params["data"]
             )
             return False
@@ -56,23 +56,23 @@ class Xia2toShelxcdeWrapper(Wrapper):
         else:
             file_list = ["--sad"] + data_files
         command = ["xia2.to_shelxcde"] + file_list + ["shelxc"]
-        logger.info("Generating SHELXC .ins file")
-        logger.info("command: %s", " ".join(command))
+        self.log.info("Generating SHELXC .ins file")
+        self.log.info("command: %s", " ".join(command))
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
             working_directory=working_directory.strpath,
         )
         if result["exitcode"] or result["timeout"]:
-            logger.info("timeout: %s", result["timeout"])
-            logger.info("exitcode: %s", result["exitcode"])
-            logger.debug(result["stdout"].decode("latin1"))
-            logger.debug(result["stderr"].decode("latin1"))
-        logger.info("runtime: %s", result["runtime"])
+            self.log.info("timeout: %s", result["timeout"])
+            self.log.info("exitcode: %s", result["exitcode"])
+            self.log.debug(result["stdout"].decode("latin1"))
+            self.log.debug(result["stderr"].decode("latin1"))
+        self.log.info("runtime: %s", result["runtime"])
 
         command = ["sh", "shelxc.sh"]
-        logger.info("Starting SHELXC")
-        logger.info("command: %s", " ".join(command))
+        self.log.info("Starting SHELXC")
+        self.log.info("command: %s", " ".join(command))
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
@@ -80,29 +80,29 @@ class Xia2toShelxcdeWrapper(Wrapper):
         )
 
         if result["exitcode"] or result["timeout"]:
-            logger.info("timeout: %s", result["timeout"])
-            logger.info("exitcode: %s", result["exitcode"])
-            logger.debug(result["stdout"].decode("latin1"))
-            logger.debug(result["stderr"].decode("latin1"))
-        logger.info("runtime: %s", result["runtime"])
+            self.log.info("timeout: %s", result["timeout"])
+            self.log.info("exitcode: %s", result["exitcode"])
+            self.log.debug(result["stdout"].decode("latin1"))
+            self.log.debug(result["stderr"].decode("latin1"))
+        self.log.info("runtime: %s", result["runtime"])
 
         if not result["stdout"]:
-            logger.debug("SHELXC log is empty")
+            self.log.debug("SHELXC log is empty")
             return False
 
         shelxc_log = os.path.join(working_directory.strpath, "results_shelxc.log")
         with open(shelxc_log, "w") as fp:
             fp.write(result["stdout"].decode("latin1"))
 
-        stats = parse_shelxc_logs(result["stdout"].decode("latin1"), logger)
+        stats = parse_shelxc_logs(result["stdout"].decode("latin1"), self.log)
         if not stats:
-            logger.debug("Cannot process SHELXC data. Aborting.")
+            self.log.debug("Cannot process SHELXC data. Aborting.")
             return False
         self.recwrap.send_to("downstream", stats)
 
         # Create results directory and symlink if they don't already exist
         try:
-            logger.info("Copying SHELXC results to %s", results_directory.strpath)
+            self.log.info("Copying SHELXC results to %s", results_directory.strpath)
             results_directory.ensure(dir=True)
             if params.get("create_symlink"):
                 try:
@@ -120,7 +120,7 @@ class Xia2toShelxcdeWrapper(Wrapper):
                 if f.ext in [".log", ".hkl", ".sh", ".ins", ".cif"]:
                     f.copy(results_directory)
         except NameError:
-            logger.debug(
+            self.log.debug(
                 "Ignore copying SHELXC results. Results directory not specified."
             )
         return result["exitcode"] == 0

@@ -51,8 +51,8 @@ def spacegroup_short(spacegroup_name, logger):
     symbols_cpp = libtbx.env.under_dist("cctbx", "sgtbx/symbols.cpp")
     if not os.path.isfile(symbols_cpp):
         logger.warning(
-            "Cannot generate short space group symbol. %s file not available."
-            % symbols_cpp
+            "Cannot generate short space group symbol. %s file not available.",
+            symbols_cpp,
         )
         return spacegroup_name
     else:

@@ -20,7 +20,7 @@ class MosflmStrategyWrapper(Wrapper):
 
         working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])
-        self.log.info("working_directory: %s" % working_directory.strpath)
+        self.log.info("working_directory: %s", working_directory.strpath)
         working_directory.ensure(dir=1)
 
         # Set SynchWeb to swirl
@@ -81,8 +81,9 @@ class MosflmStrategyWrapper(Wrapper):
 
         # copy output files to result directory
         self.log.info(
-            "Copying results from %s to %s"
-            % (working_directory.strpath, results_directory.strpath)
+            "Copying results from %s to %s",
+            working_directory.strpath,
+            results_directory.strpath,
         )
         for f in working_directory.listdir():
             if not f.basename.startswith("."):
@@ -134,7 +135,7 @@ class MosflmStrategyWrapper(Wrapper):
         params["image_pattern"] = prefix + "%04d.cbf"
         self.log.info("Image pattern: %s", params["image_pattern"])
         self.log.info(
-            "Converting %s to %s" % (master_h5, tmpdir.join(params["image_pattern"]))
+            "Converting %s to %s", master_h5, tmpdir.join(params["image_pattern"])
         )
         result = procrunner.run(
             ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],

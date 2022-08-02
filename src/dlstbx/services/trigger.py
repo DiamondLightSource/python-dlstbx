@@ -386,8 +386,8 @@ class DLSTrigger(CommonService):
 
         if not pdb_files_or_codes:
             self.log.info(
-                "Skipping dimple trigger: DCID %s has no associated PDB information"
-                % dcid
+                "Skipping dimple trigger: DCID %s has no associated PDB information",
+                dcid,
             )
             return {"success": True}
         pdb_files = [str(p) for p in pdb_files_or_codes]

@@ -159,7 +159,7 @@ class AlignCrystalWrapper(Wrapper):
         self.log.info("Image pattern: %s", params["image_pattern"])
         self.log.info("Image template: %s", params["image_template"])
         self.log.info(
-            "Converting %s to %s" % (master_h5, tmpdir.join(params["image_pattern"]))
+            "Converting %s to %s", master_h5, tmpdir.join(params["image_pattern"])
         )
         result = procrunner.run(
             ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],

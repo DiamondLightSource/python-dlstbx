@@ -33,19 +33,22 @@ class FastEPSetupWrapper(Wrapper):
             completeness = data.completeness()
             if completeness < thres_completeness:
                 self.log.info(
-                    "Data completeness %.2f below threshold value %.2f. Aborting."
-                    % (completeness, thres_completeness)
+                    "Data completeness %.2f below threshold value %.2f. Aborting.",
+                    completeness,
+                    thres_completeness,
                 )
                 return True
             if dIsigdI < thres_dIsigdI:
                 self.log.info(
-                    "Data dI/s(dI) %.2f below threshold value %.2f. Aborting."
-                    % (dIsigdI, thres_dIsigdI)
+                    "Data dI/s(dI) %.2f below threshold value %.2f. Aborting.",
+                    dIsigdI,
+                    thres_dIsigdI,
                 )
                 return True
             self.log.info(
-                "Data completeness: %.2f  threshold: %.2f"
-                % (completeness, thres_completeness)
+                "Data completeness: %.2f  threshold: %.2f",
+                completeness,
+                thres_completeness,
             )
             self.log.info(
                 f"Data dI/s(dI): {dIsigdI:.2f}  threshold: {thres_dIsigdI:.2f}"
@@ -57,7 +60,7 @@ class FastEPSetupWrapper(Wrapper):
         try:
             all_data = next(m for m in mas if m.anomalous_flag())
         except StopIteration:
-            self.log.exception("No anomalous data found in %s" % params["data"])
+            self.log.exception("No anomalous data found in %s", params["data"])
             return True
         if all_data.d_min() > thres_d_min:
             select_data = all_data

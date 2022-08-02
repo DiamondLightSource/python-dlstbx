@@ -8,7 +8,6 @@ directory, along with a graph file.
 from __future__ import annotations
 
 import json
-import logging
 import os
 import shutil
 import tempfile
@@ -16,8 +15,6 @@ import tempfile
 import procrunner
 
 from dlstbx.wrapper import Wrapper
-
-logger = logging.getLogger("dlstbx.wrap.topaz3")
 
 clean_environment = {
     "LD_LIBRARY_PATH": "",
@@ -28,6 +25,9 @@ clean_environment = {
 
 
 class Topaz3Wrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.topaz3"
+
     """
     Converts phase files into map files, obtains predictions from map files,
 
@@ -217,7 +217,7 @@ class Topaz3Wrapper(Wrapper):
                     ]
                 )
         except OSError:
-            logger.exception(
+            self.log.exception(
                 "Could not create shelxe script file in the working directory"
             )
             return False
@@ -232,13 +232,13 @@ class Topaz3Wrapper(Wrapper):
             assert result["exitcode"] == 0
             assert result["timeout"] is False
         except AssertionError:
-            logger.info("Process returned an error code when running shelxe tracing")
+            self.log.info("Process returned an error code when running shelxe tracing")
             return True
         except Exception:
-            logger.info("Shelxe tracing script has failed")
+            self.log.info("Shelxe tracing script has failed")
             return True
 
-        logger.info(f"Using venv with command: source {topaz_python}")
+        self.log.info(f"Using venv with command: source {topaz_python}")
 
         original_phase_file = os.path.join(
             working_directory, os.path.basename(payload["original_phase_file"])
@@ -285,7 +285,7 @@ class Topaz3Wrapper(Wrapper):
                     ]
                 )
         except OSError:
-            logger.exception("Could not create topaz3 script file %s", topaz3_script)
+            self.log.exception("Could not create topaz3 script file %s", topaz3_script)
             return False
         # Run procrunner with a clean python environment to avoid DIALS/topaz3 module clashes
         result = procrunner.run(
@@ -295,7 +295,7 @@ class Topaz3Wrapper(Wrapper):
             environment_override=clean_environment,
         )
         if result["exitcode"] or result["timeout"]:
-            logger.info(
+            self.log.info(
                 "Running topaz3 script has failed with exitcode %s", result["exitcode"]
             )
             return True
@@ -310,7 +310,7 @@ class Topaz3Wrapper(Wrapper):
             try:
                 os.mkdir(results_directory)
             except Exception:
-                logger.exception(
+                self.log.exception(
                     "Could not create results directory at %s", results_directory
                 )
         assert os.path.exists(
@@ -318,7 +318,7 @@ class Topaz3Wrapper(Wrapper):
         ), f"Results directory at {params['results_directory']} does not exist"
 
         # Copy final results to results directory
-        logger.info(
+        self.log.info(
             f"Copying avg_predictions.json and raw_predictions.json to {results_directory}"
         )
         shutil.copy(

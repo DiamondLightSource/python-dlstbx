@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import tempfile
 from functools import reduce
@@ -13,8 +12,6 @@ import py
 from dlstbx.util import ep_predict
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.ep_predict")
-
 clean_environment = {
     "LD_LIBRARY_PATH": "",
     "LOADEDMODULES": "",
@@ -24,6 +21,9 @@ clean_environment = {
 
 
 class EPPredictWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.ep_predict"
+
     def get_xia2_meric_keys(self, params):
         return {
             "stats": {
@@ -94,7 +94,7 @@ class EPPredictWrapper(Wrapper):
             metrics = self.read_anomalous_metrics(json_file, params)
             fmt_metrix = " ".join(f"{v:.5f}" for v in metrics)
         except Exception:
-            logger.exception("Error reading input parameters. Aborting.")
+            self.log.exception("Error reading input parameters. Aborting.")
             return False
 
         fmt_script_path = ep_predict.__file__
@@ -127,7 +127,7 @@ class EPPredictWrapper(Wrapper):
                     ]
                 )
         except OSError:
-            logger.exception(
+            self.log.exception(
                 "Could not create prediction script file in the working directory"
             )
             return False
@@ -141,12 +141,12 @@ class EPPredictWrapper(Wrapper):
             assert result["exitcode"] == 0
             assert result["timeout"] is False
         except AssertionError:
-            logger.exception(
+            self.log.exception(
                 "Process returned an error code when running prediction script"
             )
             return False
         except Exception:
-            logger.exception("Running prediction script has failed")
+            self.log.exception("Running prediction script has failed")
             return False
         # Create results directory if it doesn't already exist
         json_result = py.path.local(params["output_file"])
@@ -154,7 +154,7 @@ class EPPredictWrapper(Wrapper):
             try:
                 results_directory = py.path.local(params["results_directory"])
                 results_directory.ensure(dir=True)
-                logger.info(
+                self.log.info(
                     "Copying ep_predict results to %s", results_directory.strpath
                 )
                 destination = results_directory.join(json_result.basename)
@@ -168,12 +168,12 @@ class EPPredictWrapper(Wrapper):
                     }
                 )
             except Exception:
-                logger.info(
+                self.log.info(
                     "Error copying files into the results directory %s",
                     results_directory.strpath,
                 )
         else:
-            logger.info("Results file %s not found", json_result.strpath)
+            self.log.info("Results file %s not found", json_result.strpath)
             return False
 
         email_message = pformat(

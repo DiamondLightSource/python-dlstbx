@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 import shutil
 import subprocess
@@ -14,8 +13,6 @@ import dlstbx.util
 import dlstbx.util.symlink
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.wrapper import Wrapper
-
-logger = logging.getLogger("dlstbx.srap.xia2.ssx")
 
 
 class Xia2SsxParams(pydantic.BaseModel):
@@ -48,6 +45,7 @@ class Payload(pydantic.BaseModel):
 
 
 class Xia2SsxWrapper(Wrapper):
+    _logger_name = "dlstbx.srap.xia2.ssx"
     name = "xia2.ssx"
 
     def construct_commandline(self, params: Xia2SsxParams):
@@ -72,7 +70,7 @@ class Xia2SsxWrapper(Wrapper):
             xia2_ssx_params = Xia2SsxParams(**params_d)
             params = Payload(**job_parameters)
         except (Exception, pydantic.ValidationError) as e:
-            logger.error(e, exc_info=True)
+            self.log.error(e, exc_info=True)
             raise
 
         # Create working directory with symbolic link
@@ -91,22 +89,22 @@ class Xia2SsxWrapper(Wrapper):
                 cwd=params.working_directory,
             )
             runtime = time.perf_counter() - start_time
-            logger.info(f"xia2.ssx took {runtime} seconds")
+            self.log.info(f"xia2.ssx took {runtime} seconds")
             self._runtime_hist.observe(runtime)
         except subprocess.TimeoutExpired as te:
             success = False
-            logger.warning(f"xia2.ssx timed out: {te.timeout}\n  {te.cmd}")
-            logger.debug(te.stdout)
-            logger.debug(te.stderr)
+            self.log.warning(f"xia2.ssx timed out: {te.timeout}\n  {te.cmd}")
+            self.log.debug(te.stdout)
+            self.log.debug(te.stderr)
             self._timeout_counter.inc()
         else:
             success = not result.returncode
             if success:
-                logger.info("xia2.ssx successful")
+                self.log.info("xia2.ssx successful")
             else:
-                logger.info(f"xia2.ssx failed with exitcode {result.returncode}")
-                logger.debug(result.stdout)
-                logger.debug(result.stderr)
+                self.log.info(f"xia2.ssx failed with exitcode {result.returncode}")
+                self.log.debug(result.stdout)
+                self.log.debug(result.stderr)
 
         if success:
             # copy output files to result directory

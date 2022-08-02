@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import itertools
 import json
-import logging
 
 import procrunner
 import py
@@ -11,10 +10,10 @@ from cctbx import uctbx
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.xia2.multiplex")
-
 
 class Xia2MultiplexWrapper(Wrapper):
+    _logger_name = "dlstbx.wrap.xia2.multiplex"
+
     def send_results_to_ispyb(self, z, xtriage_results=None):
         ispyb_command_list = []
 
@@ -81,7 +80,7 @@ class Xia2MultiplexWrapper(Wrapper):
                         }
                     )
 
-        logger.debug("Sending %s", str(ispyb_command_list))
+        self.log.debug("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
 
     def construct_commandline(self, params):
@@ -141,7 +140,7 @@ class Xia2MultiplexWrapper(Wrapper):
 
         # run xia2.multiplex in working directory
 
-        logger.info("command: %s", " ".join(command))
+        self.log.info("command: %s", " ".join(command))
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
@@ -149,18 +148,18 @@ class Xia2MultiplexWrapper(Wrapper):
         )
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info(
+            self.log.info(
                 "xia2.multiplex successful, took %.1f seconds", result["runtime"]
             )
         else:
-            logger.info(
+            self.log.info(
                 "xia2.multiplex failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"].decode("latin1"))
-            logger.debug(result["stderr"].decode("latin1"))
-        logger.info("working_directory: %s", working_directory.strpath)
+            self.log.debug(result["stdout"].decode("latin1"))
+            self.log.debug(result["stderr"].decode("latin1"))
+        self.log.info("working_directory: %s", working_directory.strpath)
 
         scaled_unmerged_mtz = working_directory.join("scaled_unmerged.mtz")
         if success and scaled_unmerged_mtz.check():
@@ -270,7 +269,7 @@ class Xia2MultiplexWrapper(Wrapper):
             if destination.strpath in allfiles:
                 # We've already seen this file above
                 continue
-            logger.debug(f"Copying {filename.strpath} to {destination.strpath}")
+            self.log.debug(f"Copying {filename.strpath} to {destination.strpath}")
             allfiles.append(destination.strpath)
             filename.copy(destination)
             if filetype:

@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-import logging
-
 import zocalo.wrapper
 from prometheus_client import CollectorRegistry, Counter, Histogram, push_to_gateway
 
 from dlstbx.util.version import dlstbx_version
-
-logger = logging.getLogger(__name__)
-
 
 HISTOGRAM_BUCKETS = [10, 20, 30, 60, 90, 120, 180, 300, 600, 3600, 14400]
 
@@ -53,7 +48,7 @@ class Wrapper(zocalo.wrapper.BaseWrapper):
 
     def done(self, payload):
         if pushgateway := self.config.storage.get("zocalo.prometheus_pushgateway"):
-            logger.info(f"Sending metrics to {pushgateway}")
+            self.log.info(f"Sending metrics to {pushgateway}")
             try:
                 push_to_gateway(
                     pushgateway,
@@ -61,6 +56,6 @@ class Wrapper(zocalo.wrapper.BaseWrapper):
                     registry=self._registry,
                 )
             except Exception:
-                logger.exception(f"Failed sending metrics to {pushgateway}")
+                self.log.exception(f"Failed sending metrics to {pushgateway}")
 
         super().done(payload=payload)

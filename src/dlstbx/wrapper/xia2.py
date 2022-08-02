@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime
 import json
-import logging
 import os
 import subprocess
 import time
@@ -14,10 +13,9 @@ import py
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.xia2")
-
 
 class Xia2Wrapper(Wrapper):
+    _logger_name = "dlstbx.wrap.xia2"
     name = "xia2"
 
     def construct_commandline(self, params):
@@ -50,7 +48,7 @@ class Xia2Wrapper(Wrapper):
         return command
 
     def send_results_to_ispyb(self, xtriage_results=None):
-        logger.info("Reading xia2 results")
+        self.log.info("Reading xia2 results")
         from xia2.cli.ispyb_json import zocalo_object
 
         z = zocalo_object()
@@ -114,9 +112,9 @@ class Xia2Wrapper(Wrapper):
                     }
                 )
 
-        logger.info("Sending %s", str(ispyb_command_list))
+        self.log.info("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+        self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -145,7 +143,7 @@ class Xia2Wrapper(Wrapper):
                 working_directory.strpath, params["create_symlink"]
             )
 
-        logger.info("command: %s", " ".join(command))
+        self.log.info("command: %s", " ".join(command))
         try:
             start_time = time.perf_counter()
             result = procrunner.run(
@@ -155,22 +153,22 @@ class Xia2Wrapper(Wrapper):
                 working_directory=working_directory.strpath,
             )
             runtime = time.perf_counter() - start_time
-            logger.info(f"xia2 took {runtime} seconds")
+            self.log.info(f"xia2 took {runtime} seconds")
             self._runtime_hist.observe(runtime)
         except subprocess.TimeoutExpired as te:
             success = False
-            logger.warning(f"xia2 timed out: {te.timeout}\n  {te.cmd}")
-            logger.debug(te.stdout)
-            logger.debug(te.stderr)
+            self.log.warning(f"xia2 timed out: {te.timeout}\n  {te.cmd}")
+            self.log.debug(te.stdout)
+            self.log.debug(te.stderr)
             self._timeout_counter.inc()
         else:
             success = not result.returncode
             if success:
-                logger.info("xia2 successful")
+                self.log.info("xia2 successful")
             else:
-                logger.info(f"xia2 failed with exitcode {result.returncode}")
-                logger.debug(result.stdout)
-                logger.debug(result.stderr)
+                self.log.info(f"xia2 failed with exitcode {result.returncode}")
+                self.log.debug(result.stdout)
+                self.log.debug(result.stderr)
 
         # copy output files to result directory
         results_directory.ensure(dir=True)
@@ -183,21 +181,21 @@ class Xia2Wrapper(Wrapper):
             src = working_directory.join(subdir)
             dst = results_directory.join(subdir)
             if src.check():
-                logger.debug(f"Recursively copying {src.strpath} to {dst.strpath}")
+                self.log.debug(f"Recursively copying {src.strpath} to {dst.strpath}")
                 src.copy(dst)
             elif not success:
-                logger.info(
+                self.log.info(
                     f"Expected output directory does not exist (non-zero exitcode): {src.strpath}"
                 )
             else:
-                logger.warning(
+                self.log.warning(
                     f"Expected output directory does not exist: {src.strpath}"
                 )
 
         allfiles = []
         for f in working_directory.listdir("*.*"):
             if f.check(file=1, exists=1) and not f.basename.startswith("."):
-                logger.debug(f"Copying {f.strpath} to results directory")
+                self.log.debug(f"Copying {f.strpath} to results directory")
                 f.copy(results_directory)
                 allfiles.append(results_directory.join(f.basename))
 
@@ -280,7 +278,7 @@ class Xia2Wrapper(Wrapper):
             dcid = params.get("dcid")
             latency_s = (datetime.datetime.now() - dc_end_time).total_seconds()
             program_name = f"xia2-{pipeline}" if pipeline else "xia2"
-            logger.info(
+            self.log.info(
                 f"{program_name} completed for DCID {dcid} with latency of {latency_s:.2f} seconds",
                 extra={f"{program_name}-latency-seconds": latency_s},
             )

@@ -13,8 +13,6 @@ from dlstbx.util.merging_statistics import get_merging_statistics
 from dlstbx.wrapper import Wrapper
 from dlstbx.wrapper.autoPROC import construct_commandline
 
-logger = logging.getLogger("zocalo.wrap.autoPROC_run")
-
 clean_environment = {
     "LD_LIBRARY_PATH": "",
     "LOADEDMODULES": "",
@@ -26,6 +24,9 @@ clean_environment = {
 
 
 class autoPROCRunWrapper(Wrapper):
+
+    _logger_name = "zocalo.wrap.autoPROC_run"
+
     name = "autoPROC"
 
     def run(self):
@@ -45,14 +46,14 @@ class autoPROCRunWrapper(Wrapper):
             )
             handler = logging.StreamHandler()
             handler.setFormatter(formatter)
-            logger.addHandler(handler)
-            logger.setLevel(logging.DEBUG)
+            self.log.addHandler(handler)
+            self.log.setLevel(logging.DEBUG)
             try:
                 get_objects_from_s3(
-                    working_directory, self.recwrap.environment.get("s3_urls"), logger
+                    working_directory, self.recwrap.environment.get("s3_urls"), self.log
                 )
             except Exception:
-                logger.exception(
+                self.log.exception(
                     "Exception raised while downloading files from S3 object store"
                 )
                 return False
@@ -63,13 +64,14 @@ class autoPROCRunWrapper(Wrapper):
 
         command = construct_commandline(
             params,
+            self.log,
             working_directory=procrunner_directory,
             image_directory=image_directory,
         )
 
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
-        logger.info("command: %s", " ".join(command))
+        self.log.info("command: %s", " ".join(command))
         start_time = time.perf_counter()
         result = procrunner.run(
             command,
@@ -78,20 +80,20 @@ class autoPROCRunWrapper(Wrapper):
             working_directory=str(procrunner_directory),
         )
         runtime = time.perf_counter() - start_time
-        logger.info(f"xia2 took {runtime} seconds")
-        self._runtime_hist.observe(runtime)
+        self.log.info(f"xia2 took {runtime} seconds")
+        self._runtime_hist.labels(self.name).observe(runtime)
 
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info("autoPROC successful, took %.1f seconds", result["runtime"])
+            self.log.info("autoPROC successful, took %.1f seconds", result["runtime"])
         else:
-            logger.info(
+            self.log.info(
                 "autoPROC failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            self.log.debug(result["stdout"])
+            self.log.debug(result["stderr"])
 
         autoproc_log = procrunner_directory / "autoPROC.log"
         autoproc_log.write_bytes(result["stdout"])
@@ -126,8 +128,8 @@ class autoPROCRunWrapper(Wrapper):
             shutil.copy2(inlined_html, procrunner_directory / "summary.html")
 
         if success:
-            self._success_counter.inc()
+            self._success_counter.labels(self.name).inc()
         else:
-            self._failure_counter.inc()
+            self._failure_counter.labels(self.name).inc()
 
         return success

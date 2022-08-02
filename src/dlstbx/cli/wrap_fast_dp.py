@@ -48,7 +48,7 @@ def run(args=None):
         os.makedirs(working_directory)
     os.chdir(working_directory)
     logger.info("command: %s", " ".join(command))
-    logger.info("working directory: %s" % working_directory)
+    logger.info("working directory: %s", working_directory)
     result = procrunner.run(
         command, timeout=params.get("timeout"), print_stdout=False, print_stderr=False
     )

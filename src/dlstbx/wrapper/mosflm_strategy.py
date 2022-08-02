@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 
 import procrunner
@@ -9,10 +8,11 @@ import py
 
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.mosflm_strategy")
-
 
 class MosflmStrategyWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.mosflm_strategy"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -20,7 +20,7 @@ class MosflmStrategyWrapper(Wrapper):
 
         working_directory = py.path.local(params["working_directory"])
         results_directory = py.path.local(params["results_directory"])
-        logger.info("working_directory: %s" % working_directory.strpath)
+        self.log.info("working_directory: %s", working_directory.strpath)
         working_directory.ensure(dir=1)
 
         # Set SynchWeb to swirl
@@ -38,7 +38,7 @@ class MosflmStrategyWrapper(Wrapper):
         space_group = params.get("spacegroup")
         if space_group:
             commands.append(space_group)
-        logger.info("command: %s", " ".join(commands))
+        self.log.info("command: %s", " ".join(commands))
         result = procrunner.run(
             commands,
             timeout=params.get("timeout", 3600),
@@ -46,15 +46,17 @@ class MosflmStrategyWrapper(Wrapper):
         )
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info("som.strategy successful, took %.1f seconds", result["runtime"])
+            self.log.info(
+                "som.strategy successful, took %.1f seconds", result["runtime"]
+            )
         else:
-            logger.info(
+            self.log.info(
                 "som.strategy failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            self.log.debug(result["stdout"])
+            self.log.debug(result["stderr"])
 
         if working_directory.join("mosflm_index.mat").check():
             self.recwrap.send_to(
@@ -78,9 +80,10 @@ class MosflmStrategyWrapper(Wrapper):
             self.send_screening_result_to_ispyb(params["dcid"], results)
 
         # copy output files to result directory
-        logger.info(
-            "Copying results from %s to %s"
-            % (working_directory.strpath, results_directory.strpath)
+        self.log.info(
+            "Copying results from %s to %s",
+            working_directory.strpath,
+            results_directory.strpath,
         )
         for f in working_directory.listdir():
             if not f.basename.startswith("."):
@@ -91,7 +94,7 @@ class MosflmStrategyWrapper(Wrapper):
     def parse_strategy_dat(self, strategy_dat):
         lines = strategy_dat.readlines(cr=False)
         tokens = [line.strip().split(",") for line in lines]
-        logger.debug(tokens)
+        self.log.debug(tokens)
 
         return {
             "unit_cell": tokens[0][1:7],
@@ -130,9 +133,9 @@ class MosflmStrategyWrapper(Wrapper):
         master_h5 = os.path.join(params["image_directory"], params["image_pattern"])
         prefix = params["image_pattern"].split("master.h5")[0]
         params["image_pattern"] = prefix + "%04d.cbf"
-        logger.info("Image pattern: %s", params["image_pattern"])
-        logger.info(
-            "Converting %s to %s" % (master_h5, tmpdir.join(params["image_pattern"]))
+        self.log.info("Image pattern: %s", params["image_pattern"])
+        self.log.info(
+            "Converting %s to %s", master_h5, tmpdir.join(params["image_pattern"])
         )
         result = procrunner.run(
             ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],
@@ -141,17 +144,17 @@ class MosflmStrategyWrapper(Wrapper):
         )
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info(
+            self.log.info(
                 "dxtbx.dlsnxs2cbf successful, took %.1f seconds", result["runtime"]
             )
         else:
-            logger.error(
+            self.log.error(
                 "dxtbx.dlsnxs2cbf failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            self.log.debug(result["stdout"])
+            self.log.debug(result["stderr"])
         params["orig_image_directory"] = params["image_directory"]
         params["image_directory"] = tmpdir.strpath
         return success
@@ -257,6 +260,6 @@ class MosflmStrategyWrapper(Wrapper):
                 d[k] = strategy[k]
             ispyb_command_list.append(d)
 
-        logger.info("Sending %s", json.dumps(ispyb_command_list, indent=2))
+        self.log.info("Sending %s", json.dumps(ispyb_command_list, indent=2))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+        self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))

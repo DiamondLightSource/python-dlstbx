@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 from pathlib import Path
 
@@ -8,10 +7,11 @@ import dlstbx.util.symlink
 from dlstbx.util.iris import write_singularity_script
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("zocalo.wrap.fast_ep_setup")
-
 
 class FastEPSetupWrapper(Wrapper):
+
+    _logger_name = "zocalo.wrap.fast_ep_setup"
+
     def stop_fast_ep(self, params):
         """Decide whether to run fast_ep or not based on the completeness, dI/s(dI) and
         resolution of actual data."""
@@ -19,7 +19,7 @@ class FastEPSetupWrapper(Wrapper):
         from iotbx.reflection_file_reader import any_reflection_file
 
         if "go_fast_ep" not in params:
-            logger.info("go_fast_ep settings not available")
+            self.log.info("go_fast_ep settings not available")
             return False
 
         thres_d_min = params["go_fast_ep"].get("d_min", -1)
@@ -32,22 +32,27 @@ class FastEPSetupWrapper(Wrapper):
             dIsigdI = sum(abs(differences.data())) / sum(differences.sigmas())
             completeness = data.completeness()
             if completeness < thres_completeness:
-                logger.info(
-                    "Data completeness %.2f below threshold value %.2f. Aborting."
-                    % (completeness, thres_completeness)
+                self.log.info(
+                    "Data completeness %.2f below threshold value %.2f. Aborting.",
+                    completeness,
+                    thres_completeness,
                 )
                 return True
             if dIsigdI < thres_dIsigdI:
-                logger.info(
-                    "Data dI/s(dI) %.2f below threshold value %.2f. Aborting."
-                    % (dIsigdI, thres_dIsigdI)
+                self.log.info(
+                    "Data dI/s(dI) %.2f below threshold value %.2f. Aborting.",
+                    dIsigdI,
+                    thres_dIsigdI,
                 )
                 return True
-            logger.info(
-                "Data completeness: %.2f  threshold: %.2f"
-                % (completeness, thres_completeness)
+            self.log.info(
+                "Data completeness: %.2f  threshold: %.2f",
+                completeness,
+                thres_completeness,
             )
-            logger.info(f"Data dI/s(dI): {dIsigdI:.2f}  threshold: {thres_dIsigdI:.2f}")
+            self.log.info(
+                f"Data dI/s(dI): {dIsigdI:.2f}  threshold: {thres_dIsigdI:.2f}"
+            )
             return False
 
         hkl_file = any_reflection_file(params["data"])
@@ -55,7 +60,7 @@ class FastEPSetupWrapper(Wrapper):
         try:
             all_data = next(m for m in mas if m.anomalous_flag())
         except StopIteration:
-            logger.exception("No anomalous data found in %s" % params["data"])
+            self.log.exception("No anomalous data found in %s", params["data"])
             return True
         if all_data.d_min() > thres_d_min:
             select_data = all_data
@@ -78,7 +83,7 @@ class FastEPSetupWrapper(Wrapper):
             if int(
                 params["ispyb_parameters"].get("check_go_fast_ep", False)
             ) and self.stop_fast_ep(params):
-                logger.info("Skipping fast_ep (go_fast_ep == No)")
+                self.log.info("Skipping fast_ep (go_fast_ep == No)")
                 return False
 
         working_directory = Path(params["working_directory"])
@@ -100,7 +105,7 @@ class FastEPSetupWrapper(Wrapper):
                     {"singularity_image": singularity_image}
                 )
             except Exception:
-                logger.exception("Error writing singularity script")
+                self.log.exception("Error writing singularity script")
                 return False
 
         return True

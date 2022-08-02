@@ -37,19 +37,22 @@ class FastEPWrapper(Wrapper):
             completeness = data.completeness()
             if completeness < thres_completeness:
                 logger.info(
-                    "Data completeness %.2f below threshold value %.2f. Aborting."
-                    % (completeness, thres_completeness)
+                    "Data completeness %.2f below threshold value %.2f. Aborting.",
+                    completeness,
+                    thres_completeness,
                 )
                 return True
             if dIsigdI < thres_dIsigdI:
                 logger.info(
-                    "Data dI/s(dI) %.2f below threshold value %.2f. Aborting."
-                    % (dIsigdI, thres_dIsigdI)
+                    "Data dI/s(dI) %.2f below threshold value %.2f. Aborting.",
+                    dIsigdI,
+                    thres_dIsigdI,
                 )
                 return True
             logger.info(
-                "Data completeness: %.2f  threshold: %.2f"
-                % (completeness, thres_completeness)
+                "Data completeness: %.2f  threshold: %.2f",
+                completeness,
+                thres_completeness,
             )
             logger.info(f"Data dI/s(dI): {dIsigdI:.2f}  threshold: {thres_dIsigdI:.2f}")
             return False
@@ -59,9 +62,7 @@ class FastEPWrapper(Wrapper):
         try:
             all_data = next(m for m in mas if m.anomalous_flag())
         except StopIteration:
-            logger.exception(
-                "No anomalous data found in %s" % params["fast_ep"]["data"]
-            )
+            logger.exception("No anomalous data found in %s", params["fast_ep"]["data"])
             return True
         if all_data.d_min() > thres_d_min:
             select_data = all_data
@@ -263,7 +264,7 @@ class FastEPWrapper(Wrapper):
                         )
                 elif success:
                     logger.error(
-                        "Expected output file does not exist: %s" % xml_file.strpath
+                        "Expected output file does not exist: %s", xml_file.strpath
                     )
                 else:
                     logger.info(

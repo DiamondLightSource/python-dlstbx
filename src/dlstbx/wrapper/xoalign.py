@@ -72,8 +72,9 @@ class XOalignWrapper(Wrapper):
 
         # copy output files to result directory
         logger.info(
-            "Copying results from %s to %s"
-            % (working_directory.strpath, results_directory.strpath)
+            "Copying results from %s to %s",
+            working_directory.strpath,
+            results_directory.strpath,
         )
         for f in working_directory.listdir():
             if not f.basename.startswith("."):

@@ -41,8 +41,8 @@ class EdnaWrapper(Wrapper):
         transmission = float(sparams["transmission"])
         wavelength = float(sparams["wavelength"])
         beamline = sparams["beamline"]
-        logger.debug("transmission: %s" % transmission)
-        logger.debug("wavelength: %s" % wavelength)
+        logger.debug("transmission: %s", transmission)
+        logger.debug("wavelength: %s", wavelength)
         lifespan = sparams["lifespan"].get(beamline, sparams["lifespan"]["default"])
         if sparams["gentle"]:
             strategy_lifespan = round(
@@ -52,7 +52,7 @@ class EdnaWrapper(Wrapper):
             strategy_lifespan = round(
                 (lifespan * (100 / transmission)) * (wavelength / 0.979) ** -3, 0
             )
-        logger.debug("lifespan: %s" % strategy_lifespan)
+        logger.debug("lifespan: %s", strategy_lifespan)
 
         min_exposure = sparams["min_exposure"].get(
             beamline, sparams["min_exposure"]["default"]

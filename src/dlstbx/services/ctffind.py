@@ -33,7 +33,7 @@ class CTFParameters(BaseModel):
     ampl_contrast = 0.8
     ampl_spectrum = 512
     min_res = 30.0
-    mas_res = 5.0
+    max_res = 5.0
     min_defocus = 5000.0
     max_defocus = 50000.0
     defocus_step = 100.0
@@ -57,6 +57,15 @@ class CTFFind(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.ctffind"
 
+    # Values to extract for ISPyB
+    box_size = None
+    astigmatism_angle = None
+    cc_value = None
+    estimated_resolution = None
+    defocus1 = None
+    defocus2 = None
+
+
     def initializing(self):
         """Subscribe to a queue. Received messages must be acknowledged."""
         self.log.info("CTFFind service starting")
@@ -68,6 +77,25 @@ class CTFFind(CommonService):
             log_extender=self.extend_log,
             allow_non_recipe_messages=True,
         )
+
+
+    def parse_ctf_output(self, line: str):
+        if not line:
+            return
+
+        if line.startswith("# Box size"):
+            line_split = line.split(" ")
+            self.box_size = line_split[3]
+
+        if not line.startswith("#"):
+            line_split = line.split(" ")
+            defocus1 = line_split[1]
+            defocus2 = line_split[2]
+            self.astigmatism_angle = line_split[3] # azimuth
+            # additional_phase_shift = line_split[4]
+            self.cc_value = line_split[5] # cross_correlation
+            self.estimated_resolution = line_split[6] # spacing
+
 
     def ctf_find(self, rw, header: dict, message: dict):
 
@@ -136,7 +164,7 @@ class CTFFind(CommonService):
         self.log.info(
             f"Input: {ctf_params.input_image} Output: {ctf_params.output_file}"
         )
-        result = procrunner.run(command, stdin=parameters_string.encode("ascii"))
+        result = procrunner.run(command=command, stdin=parameters_string.encode("ascii"), callback_stdout=self.parse_ctf_output)
         if result.returncode:
             self.log.error(
                 f"CTFFind failed with exitcode {result.returncode}:\n"
@@ -145,28 +173,30 @@ class CTFFind(CommonService):
             rw.transport.nack(header)
             return
 
-            #ctf_id=full_parameters("ctf_id"), # auto
-            #motion_correction_id=full_parameters("motion_correction_id"), # recipe
-            #auto_proc_program_id=full_parameters("program_id"), # recipe
-            #box_size_x=full_parameters("box_size_x"), # from ctf output file
-            #box_size_y=full_parameters("box_size_y"), # from ctf output file (assume box is square)
-            #min_resolution=full_parameters("min_resolution"), # from inputs
-            #max_resolution=full_parameters("max_resolution"), # from inputs
-            #min_defocus=full_parameters("min_defocus"), # from inputs
-            #max_defocus=full_parameters("max_defocus"), # from inputs
-            #astigmatism=full_parameters("astigmatism"), # from ctf file, difference in output defocuses
-            #defocus_step_size=full_parameters("defocus_step_size"), # from inputs
-            #astigmatism_angle=full_parameters("astigmatism_angle"), # from ctf file, azimuth of astigmatism
-            #estimated_resolution=full_parameters("estimated_resolution"), # from ctf file, spacing
-            #estimated_defocus=full_parameters("estimated_defocus"), # from ctf file, average of output defocuses
-            #amplitude_contrast=full_parameters("amplitude_contrast"), # from inputs
-            #cc_value=full_parameters("cc_value"), # from ctf file, cross correlation
-            #fft_theoretical_full_path=full_parameters("fft_theoretical_full_path"), # path to output mrc (would be jpeg if we could convert in SW)
-            #comments=full_parameters("comments"),
 
-#
+        # Extract results for ispyb
+        astigmatism = self.defocus2 - self.defocus1
+        estimated_defocus = (self.defocus1 + self.defocus2) / 2
 
-        # add command, add parameters
+        ispyb_parameters = {
+            "ispyb_command": "insert_ctffind",
+            "box_size_x": self.box_size,
+            "box_size_y": self.box_size,
+            "min_resolution": ctf_params.min_res,
+            "max_resolution": ctf_params.max_res,
+            "min_defocus": ctf_params.min_defocus,
+            "max_defocus": ctf_params.max_defocus,
+            "astigmatism": astigmatism,
+            "defocus_step_size": ctf_params.defocus_step,
+            "astigmatism_angle": self.astigmatism_angle,
+            "estimated_resolution": self.estimated_resolution,
+            "estimated_defocus": estimated_defocus,
+            "amplitude_contrast": ctf_params.ampl_contrast,
+            "cc_value": self.cc_value,
+            "fft_theoretical_full_path": ctf_params.output_image # path to output mrc (would be jpeg if we could convert in SW)
+        }
+
+
         # Forward results to ispyb
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",

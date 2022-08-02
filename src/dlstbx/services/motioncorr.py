@@ -17,12 +17,6 @@ from pathlib import Path
 # "gain_ref"
 # "ctf" Required
 
-# "auto_proc_program_id"
-# "image_number"
-# "movie_id"
-# "dose_per_frame"
-# "dose_weight"
-
 
 class MotionCorrParameters(BaseModel):
     pix_size: float
@@ -31,11 +25,6 @@ class MotionCorrParameters(BaseModel):
     mrc_out: str = Field(..., min_length=1)
     patch_size: int = 5
     gain_ref: str = ""
-    auto_proc_program_id: int
-    image_number: int
-    movie_id: int
-    dose_per_frame: float
-    dose_weight: float
 
     class Config:
         ignore_extra = True
@@ -172,13 +161,8 @@ class MotionCorr(CommonService):
 
         ispyb_parameters = {
             "ispyb_command": "insert_motion_correction",
-            "movie_id": mc_params.movie_id,
-            "auto_proc_program_id": mc_params.auto_proc_program_id,
-            "image_number": mc_params.image_number,
             "first_frame": 1,
             "last_frame": len(self.shift_list),
-            "dose_per_frame": mc_params.dose_per_frame,
-            "dose_weight": mc_params.dose_weight,
             "total_motion": total_motion,
             "average_motion_per_frame": average_motion_per_frame,
             "drift_plot_full_path": plot_path,

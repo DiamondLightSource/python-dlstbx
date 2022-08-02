@@ -214,6 +214,9 @@ class TomoAlign(CommonService):
         self.log.info(f"Input stack: {stack_file} \nOutput file: {output_file}")
 
 
+        # Extract results for ispyb
+
+
         # Forward results to ispyb
 
         #dataCollectionId=full_parameters("dcid"), # from Murfey

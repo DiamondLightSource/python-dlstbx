@@ -160,7 +160,6 @@ class MotionCorr(CommonService):
         fig.write_json(plot_path)
 
         ispyb_parameters = {
-            "ispyb_command": "insert_motion_correction",
             "first_frame": 1,
             "last_frame": len(self.shift_list),
             "total_motion": total_motion,
@@ -171,12 +170,12 @@ class MotionCorr(CommonService):
             "patches_used_y": mc_params.patch_size
         }
 
-        # Forward results to ISPyB
 
+        # Forward results to ISPyB
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",
                               message={
-                                  "parameters": {"ispyb_command": "insert_motion_correction"},
+                                  "parameters": ispyb_parameters.update({"ispyb_command": "insert_motion_correction"}),
                                   "content": {"dummy": "dummy"},
                               },)
         else:

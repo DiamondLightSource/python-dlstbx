@@ -179,7 +179,6 @@ class CTFFind(CommonService):
         estimated_defocus = (self.defocus1 + self.defocus2) / 2
 
         ispyb_parameters = {
-            "ispyb_command": "insert_ctffind",
             "box_size_x": self.box_size,
             "box_size_y": self.box_size,
             "min_resolution": ctf_params.min_res,
@@ -201,7 +200,7 @@ class CTFFind(CommonService):
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",
                           message={
-                              "parameters": {"ispyb_command": "insert_ctffind"},
+                              "parameters": ispyb_parameters.update({"ispyb_command": "insert_ctffind"}),
                               "content": {"dummy": "dummy"},
                           },)
         else:

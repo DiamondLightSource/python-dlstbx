@@ -80,7 +80,7 @@ class autoPROCRunWrapper(Wrapper):
             working_directory=str(procrunner_directory),
         )
         runtime = time.perf_counter() - start_time
-        self.log.info(f"xia2 took {runtime} seconds")
+        self.log.info(f"autoPROC took {runtime} seconds")
         self._runtime_hist.observe(runtime)
 
         success = not result["exitcode"] and not result["timeout"]

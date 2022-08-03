@@ -81,7 +81,7 @@ class autoPROCRunWrapper(Wrapper):
         )
         runtime = time.perf_counter() - start_time
         self.log.info(f"xia2 took {runtime} seconds")
-        self._runtime_hist.labels(self.name).observe(runtime)
+        self._runtime_hist.observe(runtime)
 
         success = not result["exitcode"] and not result["timeout"]
         if success:
@@ -128,8 +128,8 @@ class autoPROCRunWrapper(Wrapper):
             shutil.copy2(inlined_html, procrunner_directory / "summary.html")
 
         if success:
-            self._success_counter.labels(self.name).inc()
+            self._success_counter.inc()
         else:
-            self._failure_counter.labels(self.name).inc()
+            self._failure_counter.inc()
 
         return success

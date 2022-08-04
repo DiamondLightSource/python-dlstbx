@@ -549,9 +549,7 @@ def test_ready_for_processing(db_session):
 
 
 def test_get_dcg_dcids(db_session):
-    assert ispybtbx().get_dcg_dcids(
-        {"dataCollectionId": 6222263, "dataCollectionGroupId": 5617586}, db_session
-    ) == [6222221, 6222245]
+    assert ispybtbx().get_dcg_dcids(6222263, 5617586, db_session) == [6222221, 6222245]
     msg, param = ispyb_filter({}, {"ispyb_dcid": 6222263}, db_session)
     assert param["ispyb_dcg_dcids"] == [6222221, 6222245]
 

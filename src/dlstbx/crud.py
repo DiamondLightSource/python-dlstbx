@@ -53,6 +53,15 @@ def get_dcids_for_sample_id(
     return [r.dataCollectionId for r in query.all()]
 
 
+def get_dcids_for_data_collection_group(
+    dcgid: int, session: sqlalchemy.orm.session.Session
+) -> list[int]:
+    query = session.query(models.DataCollection.dataCollectionId).filter(
+        models.DataCollection.dataCollectionGroupId == dcgid,
+    )
+    return [r.dataCollectionId for r in query.all()]
+
+
 def get_dcids_for_same_directory(
     dcid: int, session: sqlalchemy.orm.session.Session
 ) -> list[int]:

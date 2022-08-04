@@ -333,16 +333,14 @@ class ispybtbx:
         if dcid:
             return {"dcids": crud.get_dcids_for_same_directory(dcid, session)}
 
-    def get_dcg_dcids(self, dc_info, session: sqlalchemy.orm.session.Session):
-        dcid = dc_info.get("dataCollectionId")
-        dcgid = dc_info.get("dataCollectionGroupId")
-        if not dcgid:
-            return
-        query = session.query(isa.DataCollection.dataCollectionId).filter(
-            isa.DataCollection.dataCollectionGroupId == dcgid,
-            isa.DataCollection.dataCollectionId != dcid,
-        )
-        return list(itertools.chain.from_iterable(query.all()))
+    def get_dcg_dcids(
+        self, dcid: int, dcgid: int, session: sqlalchemy.orm.session.Session
+    ):
+        return [
+            dcid_
+            for dcid_ in crud.get_dcids_for_data_collection_group(dcgid, session)
+            if dcid_ != dcid
+        ]
 
     def get_dcg_experiment_type(
         self, dcgid: int, session: sqlalchemy.orm.session.Session
@@ -830,7 +828,9 @@ def ispyb_filter(
     if related_dcids:
         parameters["ispyb_related_dcids"].append(related_dcids)
     logger.debug(f"ispyb_related_dcids: {parameters['ispyb_related_dcids']}")
-    parameters["ispyb_dcg_dcids"] = i.get_dcg_dcids(dc_info, session)
+    parameters["ispyb_dcg_dcids"] = i.get_dcg_dcids(
+        dc_info.get("dataCollectionId"), dc_info.get("dataCollectionGroupId"), session
+    )
 
     if (
         "ispyb_processing_job" in parameters

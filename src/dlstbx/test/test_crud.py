@@ -73,6 +73,10 @@ def test_get_dcids_for_same_directory(db_session):
     assert crud.get_dcids_for_same_directory(1052494, db_session) == [1052503]
 
 
+def test_get_dcids_for_data_collection_group(db_session):
+    assert crud.get_dcids_for_data_collection_group(5441022, db_session) == [6017688]
+
+
 def test_insert_dimple_results(db_session):
     mxmrrun = schemas.MXMRRun(
         auto_proc_scaling_id=596133,

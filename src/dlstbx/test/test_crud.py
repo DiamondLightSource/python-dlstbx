@@ -28,6 +28,47 @@ def test_get_detector(db_session):
     assert det.detectorModel == "Excalibur"
 
 
+def test_get_blsample(db_session):
+    sample = crud.get_blsample(398827, db_session)
+    assert sample.name == "XPDF-2"
+
+
+def test_get_dcids_for_sample_id(db_session):
+    assert crud.get_dcids_for_sample_id(398827, db_session) == [
+        6017412,
+        6017419,
+        6017420,
+        6017421,
+        6017422,
+        6017423,
+        6017424,
+        6017425,
+        6017432,
+        6017439,
+        6017446,
+        6017453,
+        6017460,
+        6017467,
+        6017474,
+        6017481,
+        6017488,
+        6017495,
+        6017502,
+        6017509,
+        6017516,
+        6017523,
+        6017530,
+        6017537,
+        6017544,
+        6017551,
+        6017558,
+        6017565,
+        6017572,
+        6017579,
+        6017586,
+    ]
+
+
 def test_insert_dimple_results(db_session):
     mxmrrun = schemas.MXMRRun(
         auto_proc_scaling_id=596133,

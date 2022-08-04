@@ -316,28 +316,13 @@ class ispybtbx:
         sample_id = ispyb_info["ispyb_dc_info"].get("BLSAMPLEID")
         if not dcid or not sample_id:
             return None
-
-        this_sample = aliased(isa.BLSample, name="this_sample")
-        other_sample = aliased(isa.BLSample)
-        query = (
-            session.query(this_sample, isa.DataCollection.dataCollectionId)
-            .join(
-                other_sample,
-                other_sample.blSampleId == this_sample.blSampleId,
-            )
-            .join(
-                isa.DataCollection,
-                isa.DataCollection.BLSAMPLEID == other_sample.blSampleId,
-            )
-            .filter(other_sample.blSampleId == sample_id)
-        )
-        results = query.all()
-        if results:
-            sample = results[0].this_sample
+        dcids = crud.get_dcids_for_sample_id(sample_id, session)
+        if dcids:
+            sample = crud.get_blsample(sample_id, session)
             related_dcids = {
-                "dcids": [row.dataCollectionId for row in results],
-                "sample_id": sample.blSampleId,
-                "name": sample.name,
+                "dcids": dcids,
+                "sample_id": sample_id,
+                "name": sample.name if sample else None,
             }
             logger.debug(f"dcids defined via BLSample for dcid={dcid}: {related_dcids}")
             return related_dcids

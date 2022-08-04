@@ -44,12 +44,31 @@ def get_blsession_for_dcid(
     return query.first()
 
 
+def get_dcids_for_sample_id(
+    sample_id: int, session: sqlalchemy.orm.session.Session
+) -> list[int]:
+    query = session.query(models.DataCollection.dataCollectionId).filter(
+        models.DataCollection.BLSAMPLEID == sample_id
+    )
+    return [r.dataCollectionId for r in query.all()]
+
+
 def get_detector(
     detector_id: int,
     session: sqlalchemy.orm.session.Session,
 ) -> models.Detector | None:
     query = session.query(models.Detector).filter(
         models.Detector.detectorId == detector_id
+    )
+    return query.first()
+
+
+def get_blsample(
+    sample_id: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.BLSample | None:
+    query = session.query(models.BLSample).filter(
+        models.BLSample.blSampleId == sample_id
     )
     return query.first()
 

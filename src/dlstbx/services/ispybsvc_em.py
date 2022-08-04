@@ -106,8 +106,7 @@ class EM_Mixin:
             return None
 
     def do_insert_movie(self, parameters, message=None, **kwargs):
-        if message is None:
-            message = {}
+        message = message or {}
         self.log.info("Inserting Movie parameters.")
 
         def full_parameters(param):
@@ -125,6 +124,7 @@ class EM_Mixin:
             list(movie_params.values())
         )
         self.log.info(f"Created Movie record {result}")
+        return {"success": True, "return_value": result}
 
 
     def do_insert_motion_correction(self, parameters, message=None, **kwargs):

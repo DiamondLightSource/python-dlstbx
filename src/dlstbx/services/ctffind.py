@@ -7,7 +7,7 @@ from pydantic.error_wrappers import ValidationError
 from workflows.services.common_service import CommonService
 
 # Possible parameters:
-# "input_image" Required
+# "input_image" Required (gotten from MotionCorr service)
 # "output_file" Required
 # "pix_size", default="1.0"
 # "voltage", default="300.0"

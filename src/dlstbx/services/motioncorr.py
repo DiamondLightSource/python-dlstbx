@@ -95,7 +95,7 @@ class MotionCorr(CommonService):
 
         try:
             mc_params = MotionCorrParameters(
-                {**rw.recipe_step.get("parameters", {}), **message}
+                **{**rw.recipe_step.get("parameters", {}), **message}
             )
         except (ValidationError, TypeError):
             self.log.warning(

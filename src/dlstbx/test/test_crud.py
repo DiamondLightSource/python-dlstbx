@@ -5,6 +5,12 @@ import datetime
 from dlstbx import crud, schemas
 
 
+def test_get_data_collection(db_session):
+    dcid = 993677
+    dc = crud.get_data_collection(dcid, db_session)
+    assert dc.dataCollectionId == dcid
+
+
 def test_insert_dimple_results(db_session):
     mxmrrun = schemas.MXMRRun(
         auto_proc_scaling_id=596133,

@@ -17,6 +17,8 @@ import yaml
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from sqlalchemy.orm import Load, aliased, joinedload, selectinload, sessionmaker
 
+from dlstbx import crud
+
 logger = logging.getLogger("dlstbx.ispybtbx")
 
 _gpfs03_beamlines = {
@@ -186,11 +188,8 @@ class ispybtbx:
         schema = isa.GridInfo.__marshmallow__()
         return schema.dump(gridinfo)
 
-    def get_dc_info(self, dc_id, session: sqlalchemy.orm.session.Session):
-        query = session.query(isa.DataCollection).filter(
-            isa.DataCollection.dataCollectionId == dc_id
-        )
-        dc = query.first()
+    def get_dc_info(self, dcid: int, session: sqlalchemy.orm.session.Session):
+        dc = crud.get_data_collection(dcid, session)
         if dc is None:
             return {}
         schema = isa.DataCollection.__marshmallow__()

@@ -9,6 +9,16 @@ import sqlalchemy.orm
 from dlstbx import schemas
 
 
+def get_data_collection(
+    dcid: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.DataCollection | None:
+    query = session.query(models.DataCollection).filter(
+        models.DataCollection.dataCollectionId == dcid
+    )
+    return query.first()
+
+
 def get_auto_proc_program(
     auto_proc_program_id: int,
     session: sqlalchemy.orm.session.Session,

@@ -3,16 +3,16 @@
 #   Wraps a command so that its status can be tracked in zocalo
 #
 
-
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import json
 import logging
+import signal
 import sys
 
 import pkg_resources
-import workflows
 import workflows.recipe.wrapper
 import workflows.services.common_service
 import workflows.transport
@@ -23,6 +23,19 @@ import zocalo.wrapper
 
 from dlstbx.util import DowngradeErrorsFilter
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
+
+
+def _enable_faulthandler():
+    """Display a traceback on crashing with non-Python errors, such as
+    segmentation faults, and when the process is signalled with SIGUSR2
+    (not available on Windows)"""
+    # Ignore errors during setup; SIGUSR2 not available on Windows, and
+    # the attached STDERR might not support what faulthandler wants
+    try:
+        faulthandler.enable()
+        faulthandler.register(signal.SIGUSR2)
+    except Exception:
+        pass
 
 
 def run():
@@ -45,7 +58,6 @@ def run():
     logging.getLogger("zocalo").setLevel(logging.INFO)
     logging.getLogger().setLevel(logging.WARNING)
     logging.getLogger().addHandler(console)
-    log = logging.getLogger("dlstbx.wrap")
 
     zc = zocalo.configuration.from_file()
     zc.activate()
@@ -73,15 +85,14 @@ def run():
         dest="recipewrapper",
         metavar="RW",
         default=None,
-        help="A serialized recipe wrapper file " "for downstream communication",
+        help="A serialized recipe wrapper file for downstream communication",
     )
     parser.add_argument(
         "-v",
         "--verbose",
-        dest="verbose",
-        action="store_true",
-        default=False,
-        help="Show debug level messages",
+        action="count",
+        default=0,
+        help="Increase output verbosity",
     )
 
     zc.add_command_line_options(parser)
@@ -90,14 +101,23 @@ def run():
     # Parse command line arguments
     args = parser.parse_args()
 
-    # Instantiate specific wrapper
-    if not args.wrapper:
-        print("A wrapper object must be specified.")
-        sys.exit(1)
-
     if args.verbose:
         console.setLevel(logging.DEBUG)
         logging.getLogger("dlstbx").setLevel(logging.DEBUG)
+
+    if zc.logging:
+        zc.logging.verbosity = args.verbose
+    else:
+        logging.getLogger("workflows").setLevel(logging.INFO)
+        logging.getLogger("zocalo").setLevel(logging.INFO)
+        logging.getLogger().setLevel(logging.WARN)
+
+    _enable_faulthandler()
+    log = logging.getLogger("dlstbx.wrap")
+
+    # Instantiate specific wrapper
+    if not args.wrapper:
+        sys.exit("A wrapper object must be specified.")
 
     log.info(
         "Starting wrapper for %s with recipewrapper file %s",
@@ -125,15 +145,6 @@ def run():
                 message=json.load(fh), transport=transport
             )
         instance.set_recipe_wrapper(recwrap)
-
-        if zc.graylog and recwrap.environment.get("ID"):
-            # If recipe ID available then include that in all future log messages
-            class ContextFilter(logging.Filter):
-                def filter(self, record):
-                    record.recipe_ID = recwrap.environment["ID"]
-                    return True
-
-            zc.graylog.addFilter(ContextFilter())
 
         if recwrap.recipe_step.get("wrapper", {}).get("task_information"):
             # If the recipe contains an extra task_information field then add this to the status display
@@ -167,7 +178,4 @@ def run():
     st.shutdown()
     st.join()
     log.debug("Terminating")
-
-
-if __name__ == "__main__":
-    run()
+    transport.disconnect()

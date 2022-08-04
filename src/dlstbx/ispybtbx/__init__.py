@@ -189,17 +189,10 @@ class ispybtbx:
         schema = isa.DataCollection.__marshmallow__()
         return schema.dump(dc)
 
-    def get_beamline_from_dcid(self, dc_id, session: sqlalchemy.orm.session.Session):
-        query = (
-            session.query(isa.BLSession)
-            .join(
-                isa.DataCollection,
-                isa.DataCollection.SESSIONID == isa.BLSession.sessionId,
-            )
-            .filter(isa.DataCollection.dataCollectionId == dc_id)
-        )
-        bs = query.first()
-        if bs:
+    def get_beamline_from_dcid(
+        self, dcid: int, session: sqlalchemy.orm.session.Session
+    ):
+        if bs := crud.get_blsession_for_dcid(dcid, session):
             return bs.beamLineName
 
     def dc_info_to_detectorclass(

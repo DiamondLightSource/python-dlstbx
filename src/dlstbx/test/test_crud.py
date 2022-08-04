@@ -17,6 +17,12 @@ def test_get_gridinfo_for_dcid(db_session):
     assert gi.dataCollectionId == dcid
 
 
+def test_get_blsession_for_dcid(db_session):
+    dcid = 993677
+    bs = crud.get_blsession_for_dcid(dcid, db_session)
+    assert bs.beamLineName == "i03"
+
+
 def test_insert_dimple_results(db_session):
     mxmrrun = schemas.MXMRRun(
         auto_proc_scaling_id=596133,

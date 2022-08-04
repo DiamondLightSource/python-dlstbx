@@ -29,6 +29,21 @@ def get_gridinfo_for_dcid(
     return query.first()
 
 
+def get_blsession_for_dcid(
+    dcid: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.BLSession | None:
+    query = (
+        session.query(models.BLSession)
+        .join(
+            models.DataCollection,
+            models.DataCollection.SESSIONID == models.BLSession.sessionId,
+        )
+        .filter(models.DataCollection.dataCollectionId == dcid)
+    )
+    return query.first()
+
+
 def get_auto_proc_program(
     auto_proc_program_id: int,
     session: sqlalchemy.orm.session.Session,

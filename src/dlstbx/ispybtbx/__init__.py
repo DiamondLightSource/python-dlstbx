@@ -355,16 +355,7 @@ class ispybtbx:
     def get_space_group_and_unit_cell(
         self, dcid, session: sqlalchemy.orm.session.Session
     ):
-        query = (
-            session.query(isa.Crystal)
-            .join(isa.BLSample)
-            .join(
-                isa.DataCollection,
-                isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
-            )
-            .filter(isa.DataCollection.dataCollectionId == dcid)
-        )
-        c = query.first()
+        c = crud.get_crystal_for_dcid(dcid, session)
         if not c or not c.spaceGroup:
             return "", False
         proto_cell = (

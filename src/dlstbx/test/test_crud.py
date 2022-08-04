@@ -77,6 +77,11 @@ def test_get_dcids_for_data_collection_group(db_session):
     assert crud.get_dcids_for_data_collection_group(5441022, db_session) == [6017688]
 
 
+def test_get_crystal_for_dcid(db_session):
+    crystal = crud.get_crystal_for_dcid(6017586, db_session)
+    assert crystal.spaceGroup == "P12121"
+
+
 def test_insert_dimple_results(db_session):
     mxmrrun = schemas.MXMRRun(
         auto_proc_scaling_id=596133,

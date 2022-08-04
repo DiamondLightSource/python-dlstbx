@@ -95,6 +95,22 @@ def get_crystal_for_dcid(
     return query.first()
 
 
+def get_protein_for_dcid(
+    dcid: int, session: sqlalchemy.orm.session.Session
+) -> models.Protein | None:
+    query = (
+        session.query(models.Protein)
+        .join(models.Crystal)
+        .join(models.BLSample)
+        .join(
+            models.DataCollection,
+            models.DataCollection.BLSAMPLEID == models.BLSample.blSampleId,
+        )
+        .filter(models.DataCollection.dataCollectionId == dcid)
+    )
+    return query.first()
+
+
 def get_detector(
     detector_id: int,
     session: sqlalchemy.orm.session.Session,

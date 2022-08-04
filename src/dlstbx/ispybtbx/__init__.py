@@ -353,7 +353,7 @@ class ispybtbx:
         return query.one()[0]
 
     def get_space_group_and_unit_cell(
-        self, dcid, session: sqlalchemy.orm.session.Session
+        self, dcid: int, session: sqlalchemy.orm.session.Session
     ):
         c = crud.get_crystal_for_dcid(dcid, session)
         if not c or not c.spaceGroup:
@@ -461,19 +461,8 @@ class ispybtbx:
             res = {}
         return res
 
-    def get_protein_from_dcid(self, dcid, session: sqlalchemy.orm.session.Session):
-        query = (
-            session.query(isa.Protein)
-            .join(isa.Crystal)
-            .join(isa.BLSample)
-            .join(
-                isa.DataCollection,
-                isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
-            )
-            .filter(isa.DataCollection.dataCollectionId == dcid)
-        )
-        protein = query.first()
-        if protein:
+    def get_protein_from_dcid(self, dcid: int, session: sqlalchemy.orm.session.Session):
+        if protein := crud.get_protein_for_dcid(dcid, session):
             schema = isa.Protein.__marshmallow__(exclude=("externalId",))
             # XXX case sensitive? proteinid, proteintype
             return schema.dump(protein)

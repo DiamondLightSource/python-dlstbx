@@ -481,13 +481,7 @@ def test_get_diffractionplan_from_dcid(db_session):
 
 
 def test_get_gridscan_info(db_session):
-    assert ispybtbx().get_gridscan_info(
-        {
-            "dataCollectionGroupId": 5492072,
-            "dataCollectionId": 6077465,
-        },
-        db_session,
-    ) == {
+    assert ispybtbx().get_gridscan_info(6077465, db_session) == {
         "dataCollectionId": 6077465,
         "snaked": 1,
         "orientation": "horizontal",

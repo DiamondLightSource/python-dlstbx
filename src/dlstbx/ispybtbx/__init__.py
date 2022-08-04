@@ -174,15 +174,9 @@ class ispybtbx:
 
         return message, parameters
 
-    def get_gridscan_info(self, dc_info, session: sqlalchemy.orm.session.Session):
+    def get_gridscan_info(self, dcid: int, session: sqlalchemy.orm.session.Session):
         """Extract GridInfo table contents for a DC group ID."""
-        dcid = dc_info.get("dataCollectionId")
-        dcgid = dc_info.get("dataCollectionGroupId")
-        query = session.query(isa.GridInfo).filter(
-            (isa.GridInfo.dataCollectionId == dcid)
-            | (isa.GridInfo.dataCollectionGroupId == dcgid)
-        )
-        gridinfo = query.first()
+        gridinfo = crud.get_gridinfo_for_dcid(dcid, session)
         if not gridinfo:
             return {}
         schema = isa.GridInfo.__marshmallow__()
@@ -785,7 +779,9 @@ def ispyb_filter(
         parameters["ispyb_preferred_datacentre"] = "cluster"
     parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info, session)
     parameters["ispyb_dc_info"] = dc_info
-    parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(dc_info, session)
+    parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(
+        dc_info.get("dataCollectionId"), session
+    )
     parameters["ispyb_dcg_experiment_type"] = i.get_dcg_experiment_type(
         dc_info.get("dataCollectionGroupId"), session
     )

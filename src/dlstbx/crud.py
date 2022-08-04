@@ -19,6 +19,16 @@ def get_data_collection(
     return query.first()
 
 
+def get_gridinfo_for_dcid(
+    dcid: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.GridInfo | None:
+    query = session.query(models.GridInfo).filter(
+        models.GridInfo.dataCollectionId == dcid
+    )
+    return query.first()
+
+
 def get_auto_proc_program(
     auto_proc_program_id: int,
     session: sqlalchemy.orm.session.Session,

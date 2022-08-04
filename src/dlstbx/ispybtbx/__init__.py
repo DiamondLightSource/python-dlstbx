@@ -652,20 +652,9 @@ class ispybtbx:
             return schema.dump(dp)
 
     def get_priority_processing_for_dc_info(
-        self, dc_info, session: sqlalchemy.orm.session.Session
+        self, sample_id: int, session: sqlalchemy.orm.session.Session
     ):
-        blsampleid = dc_info.get("BLSAMPLEID")
-        if not blsampleid:
-            return None
-        query = (
-            session.query(isa.ProcessingPipeline.name)
-            .join(isa.Container)
-            .join(isa.BLSample)
-            .filter(isa.BLSample.blSampleId == blsampleid)
-        )
-        pipeline = query.first()
-        if pipeline:
-            return pipeline.name
+        return crud.get_priority_processing_for_sample_id(sample_id, session)
 
 
 def ready_for_processing(message, parameters, session: sqlalchemy.orm.session.Session):
@@ -724,7 +713,8 @@ def ispyb_filter(
     energy_scan_info = i.get_energy_scan_from_dcid(dc_id, session)
     parameters["ispyb_energy_scan_info"] = energy_scan_info
     start, end = i.dc_info_to_start_end(dc_info)
-    priority_processing = i.get_priority_processing_for_dc_info(dc_info, session)
+    sample_id = parameters["ispyb_dc_info"].get("BLSAMPLEID")
+    priority_processing = crud.get_priority_processing_for_sample_id(sample_id, session)
     if not priority_processing:
         priority_processing = "xia2/DIALS"
     parameters["ispyb_preferred_processing"] = priority_processing

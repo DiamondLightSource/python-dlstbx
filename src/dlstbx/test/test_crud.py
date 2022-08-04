@@ -87,6 +87,10 @@ def test_get_protein_for_dcid(db_session):
     assert protein.name == "therm"
 
 
+def test_get_priority_processing_for_sample_id(db_session):
+    assert crud.get_priority_processing_for_sample_id(398827, db_session) is None
+
+
 def test_insert_dimple_results(db_session):
     mxmrrun = schemas.MXMRRun(
         auto_proc_scaling_id=596133,

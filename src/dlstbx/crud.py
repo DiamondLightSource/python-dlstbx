@@ -111,6 +111,21 @@ def get_protein_for_dcid(
     return query.first()
 
 
+def get_priority_processing_for_sample_id(
+    sample_id: int, session: sqlalchemy.orm.session.Session
+) -> str | None:
+    query = (
+        session.query(models.ProcessingPipeline.name)
+        .join(models.Container)
+        .join(models.BLSample)
+        .filter(models.BLSample.blSampleId == sample_id)
+    )
+    pipeline = query.first()
+    if pipeline:
+        return pipeline.name
+    return None
+
+
 def get_detector(
     detector_id: int,
     session: sqlalchemy.orm.session.Session,

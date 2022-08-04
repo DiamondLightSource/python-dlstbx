@@ -11,6 +11,7 @@ import sqlalchemy
 from sqlalchemy.orm import sessionmaker
 
 import dlstbx.ispybtbx
+from dlstbx import crud
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
 
 ds = {
@@ -529,12 +530,9 @@ def test_get_sample_dcids(db_session):
     }
 
 
-def test_get_priority_processing_for_dc_info(db_session):
+def test_get_priority_processing_for_sample_id(db_session):
     assert (
-        ispybtbx().get_priority_processing_for_dc_info(
-            {"BLSAMPLEID": 3297161}, db_session
-        )
-        == "xia2/DIALS"
+        crud.get_priority_processing_for_sample_id(3297161, db_session) == "xia2/DIALS"
     )
 
 

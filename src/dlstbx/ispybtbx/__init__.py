@@ -15,7 +15,7 @@ import marshmallow.fields
 import sqlalchemy
 import yaml
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from sqlalchemy.orm import Load, aliased, joinedload, selectinload, sessionmaker
+from sqlalchemy.orm import aliased, selectinload, sessionmaker
 
 from dlstbx import crud
 
@@ -198,26 +198,15 @@ class ispybtbx:
     def dc_info_to_detectorclass(
         self, dc_info, session: sqlalchemy.orm.session.Session
     ):
-        dcid = dc_info.get("dataCollectionId")
-        if not dcid:
-            return None
-        query = (
-            session.query(isa.DataCollection)
-            .filter_by(dataCollectionId=dcid)
-            .options(
-                Load(isa.DataCollection).load_only("fileTemplate"),
-                joinedload(isa.DataCollection.Detector),
-            )
-        )
-        dc = query.first()
-        if dc and dc.Detector:
-            if dc.Detector.detectorModel.lower().startswith("eiger"):
+        det_id = dc_info.get("detectorId")
+        if det_id is not None and (det := crud.get_detector(det_id, session)):
+            if det.detectorModel.lower().startswith("eiger"):
                 return "eiger"
-            elif dc.Detector.detectorModel.lower().startswith("pilatus"):
+            elif det.detectorModel.lower().startswith("pilatus"):
                 return "pilatus"
 
         # Fallback on examining the file extension if nothing recorded in ISPyB
-        template = dc.fileTemplate
+        template = dc_info.get("fileTemplate")
         if not template:
             return None
         if template.endswith("master.h5"):

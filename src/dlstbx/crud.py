@@ -44,6 +44,16 @@ def get_blsession_for_dcid(
     return query.first()
 
 
+def get_detector(
+    detector_id: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.Detector | None:
+    query = session.query(models.Detector).filter(
+        models.Detector.detectorId == detector_id
+    )
+    return query.first()
+
+
 def get_auto_proc_program(
     auto_proc_program_id: int,
     session: sqlalchemy.orm.session.Session,

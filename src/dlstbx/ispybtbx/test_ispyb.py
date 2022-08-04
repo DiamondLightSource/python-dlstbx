@@ -395,7 +395,7 @@ def test_get_sample_group_dcids_from_yml(tmpdir, db_session):
 
 def test_get_related_dcids_same_directory(db_session):
     i = ispybtbx()
-    assert i.get_related_dcids_same_directory({"ispyb_dcid": 5646632}, db_session) == {
+    assert i.get_related_dcids_same_directory(5646632, db_session) == {
         "dcids": [
             5646578,
             5646584,

@@ -328,25 +328,10 @@ class ispybtbx:
             return related_dcids
 
     def get_related_dcids_same_directory(
-        self, ispyb_info, session: sqlalchemy.orm.session.Session
+        self, dcid: int, session: sqlalchemy.orm.session.Session
     ):
-        dcid = ispyb_info.get("ispyb_dcid")
-        if not dcid:
-            return None
-
-        dc1 = aliased(isa.DataCollection)
-        dc2 = aliased(isa.DataCollection)
-        query = (
-            session.query(dc2.dataCollectionId)
-            .join(
-                dc1,
-                (dc1.imageDirectory == dc2.imageDirectory)
-                & (dc1.dataCollectionId != dc2.dataCollectionId)
-                & (dc1.imageDirectory is not None),
-            )
-            .filter(dc1.dataCollectionId == dcid)
-        )
-        return {"dcids": list(itertools.chain.from_iterable(query.all()))}
+        if dcid:
+            return {"dcids": crud.get_dcids_for_same_directory(dcid, session)}
 
     def get_dcg_dcids(self, dc_info, session: sqlalchemy.orm.session.Session):
         dcid = dc_info.get("dataCollectionId")
@@ -834,13 +819,14 @@ def ispyb_filter(
     parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(
         parameters, session, io_timeout=io_timeout
     )
+    related_dcids = None
     if parameters["ispyb_dc_info"].get("BLSAMPLEID"):
         # if a sample is linked to the dc, then get dcids on the same sample
         sample_id = parameters["ispyb_dc_info"].get("BLSAMPLEID")
         related_dcids = i.get_sample_dcids(sample_id, session)
-    else:
+    elif dcid := parameters.get("ispyb_dcid"):
         # else get dcids collected into the same image directory
-        related_dcids = i.get_related_dcids_same_directory(parameters, session)
+        related_dcids = i.get_related_dcids_same_directory(dcid, session)
     if related_dcids:
         parameters["ispyb_related_dcids"].append(related_dcids)
     logger.debug(f"ispyb_related_dcids: {parameters['ispyb_related_dcids']}")

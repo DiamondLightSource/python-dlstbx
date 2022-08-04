@@ -53,6 +53,24 @@ def get_dcids_for_sample_id(
     return [r.dataCollectionId for r in query.all()]
 
 
+def get_dcids_for_same_directory(
+    dcid: int, session: sqlalchemy.orm.session.Session
+) -> list[int]:
+    dc1 = sqlalchemy.orm.aliased(models.DataCollection)
+    dc2 = sqlalchemy.orm.aliased(models.DataCollection)
+    query = (
+        session.query(dc2.dataCollectionId)
+        .join(
+            dc1,
+            (dc1.imageDirectory == dc2.imageDirectory)
+            & (dc1.dataCollectionId != dc2.dataCollectionId)
+            & (dc1.imageDirectory is not None),
+        )
+        .filter(dc1.dataCollectionId == dcid)
+    )
+    return [r.dataCollectionId for r in query.all()]
+
+
 def get_detector(
     detector_id: int,
     session: sqlalchemy.orm.session.Session,

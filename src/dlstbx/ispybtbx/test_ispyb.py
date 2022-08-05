@@ -124,16 +124,6 @@ def test_ispyb_filtering_for_processing_job(db_session):
     }
 
 
-def test_fetch_datacollect_group_from_ispyb(db_session):
-    i = ispybtbx()
-    dc_id = ds["gphl_C2"]
-    dc_info = i.get_dc_info(dc_id, db_session)
-    assert dc_info
-    assert dc_info["dataCollectionGroupId"]
-    whole_group = i.get_related_dcs(dc_info["dataCollectionGroupId"], db_session)
-    assert len(whole_group) == 1
-
-
 def test_get_datacollection_information(db_session):
     i = ispybtbx()
     dc_id = ds["gphl_C2"]
@@ -449,10 +439,6 @@ def test_get_sample_group_dcids(db_session):
             "name": None,
         },
     ]
-
-
-def test_get_related_dcs(db_session):
-    assert ispybtbx().get_related_dcs(5339105, db_session) == [5898098, 5898104]
 
 
 def test_get_dcid_for_path(db_session):

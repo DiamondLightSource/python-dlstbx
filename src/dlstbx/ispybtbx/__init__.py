@@ -214,14 +214,6 @@ class ispybtbx:
         elif template.endswith(".cbf"):
             return "pilatus"
 
-    def get_related_dcs(self, group, session: sqlalchemy.orm.session.Session):
-        query = (
-            session.query(isa.DataCollection.dataCollectionId)
-            .join(isa.DataCollectionGroup)
-            .filter(isa.DataCollectionGroup.dataCollectionGroupId == group)
-        )
-        return list(itertools.chain.from_iterable(query.all()))
-
     def get_sample_group_dcids(
         self,
         ispyb_info,
@@ -827,8 +819,8 @@ def ispyb_filter(
     # beware if other projects start using this directory structure will
     # need to be smarter here...
 
-    if dc_info["dataCollectionGroupId"]:
-        related_dcs = i.get_related_dcs(dc_info["dataCollectionGroupId"], session)
+    if dcgid := dc_info["dataCollectionGroupId"]:
+        related_dcs = crud.get_dcids_for_data_collection_group(dcgid, session)
         if parameters["ispyb_image_directory"].startswith("/dls/mx"):
             related = []
         else:

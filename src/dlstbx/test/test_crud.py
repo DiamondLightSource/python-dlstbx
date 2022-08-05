@@ -77,6 +77,12 @@ def test_get_dcids_for_data_collection_group(db_session):
     assert crud.get_dcids_for_data_collection_group(5441022, db_session) == [6017688]
 
 
+def test_get_diffraction_plan_for_dcid(db_session):
+    plan = crud.get_diffraction_plan_for_dcid(1066786, db_session)
+    assert plan.experimentKind == "OSC"
+    assert plan.exposureTime == 0.2
+
+
 def test_get_crystal_for_dcid(db_session):
     crystal = crud.get_crystal_for_dcid(6017586, db_session)
     assert crystal.spaceGroup == "P12121"

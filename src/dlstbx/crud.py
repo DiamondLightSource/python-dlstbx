@@ -80,6 +80,21 @@ def get_dcids_for_same_directory(
     return [r.dataCollectionId for r in query.all()]
 
 
+def get_diffraction_plan_for_dcid(
+    dcid: int, session: sqlalchemy.orm.session.Session
+) -> models.DiffractionPlan | None:
+    query = (
+        session.query(models.DiffractionPlan)
+        .join(models.BLSample)
+        .join(
+            models.DataCollection,
+            models.DataCollection.BLSAMPLEID == models.BLSample.blSampleId,
+        )
+        .filter(models.DataCollection.dataCollectionId == dcid)
+    )
+    return query.first()
+
+
 def get_crystal_for_dcid(
     dcid: int, session: sqlalchemy.orm.session.Session
 ) -> models.Crystal | None:

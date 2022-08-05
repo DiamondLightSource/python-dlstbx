@@ -626,19 +626,9 @@ class ispybtbx:
         return os.path.join(visit, "processed", rest, collection_path, dc_info["uuid"])
 
     def get_diffractionplan_from_dcid(
-        self, dcid, session: sqlalchemy.orm.session.Session
+        self, dcid: int, session: sqlalchemy.orm.session.Session
     ):
-        query = (
-            session.query(isa.DiffractionPlan)
-            .join(isa.BLSample)
-            .join(
-                isa.DataCollection,
-                isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
-            )
-            .filter(isa.DataCollection.dataCollectionId == dcid)
-        )
-        dp = query.first()
-        if dp:
+        if dp := crud.get_diffraction_plan_for_dcid(dcid, session):
             # XXX case sensitive?
             schema = isa.DiffractionPlan.__marshmallow__()
             return schema.dump(dp)

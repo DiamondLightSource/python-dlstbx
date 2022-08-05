@@ -658,10 +658,7 @@ def ready_for_processing(message, parameters, session: sqlalchemy.orm.session.Se
     if not dcid:
         return True
 
-    query = session.query(isa.DataCollection.runStatus).filter(
-        isa.DataCollection.dataCollectionId == dcid
-    )
-    return query.one().runStatus is not None
+    return crud.get_run_status_for_dcid(dcid, session) is not None
 
 
 def ispyb_filter(

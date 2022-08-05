@@ -91,6 +91,12 @@ def test_get_priority_processing_for_sample_id(db_session):
     assert crud.get_priority_processing_for_sample_id(398827, db_session) is None
 
 
+def test_get_run_status_for_dcid(db_session):
+    assert (
+        crud.get_run_status_for_dcid(6017405, db_session) == "DataCollection Successful"
+    )
+
+
 def test_insert_dimple_results(db_session):
     mxmrrun = schemas.MXMRRun(
         auto_proc_scaling_id=596133,

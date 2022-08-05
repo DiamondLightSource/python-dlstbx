@@ -146,6 +146,16 @@ def get_blsample(
     return query.first()
 
 
+def get_run_status_for_dcid(
+    dcid: int,
+    session: sqlalchemy.orm.session.Session,
+) -> str | None:
+    query = session.query(models.DataCollection.runStatus).filter(
+        models.DataCollection.dataCollectionId == dcid
+    )
+    return query.scalar()
+
+
 def get_auto_proc_program(
     auto_proc_program_id: int,
     session: sqlalchemy.orm.session.Session,

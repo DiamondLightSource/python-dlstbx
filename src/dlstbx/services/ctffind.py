@@ -8,8 +8,8 @@ from workflows.services.common_service import CommonService
 
 # Possible parameters:
 # "input_image" Required (gotten from MotionCorr service)
-# "output_file" Required
-# "pix_size", default="1.0"
+# "output_image" Required
+# "pix_size" Required
 # "voltage", default="300.0"
 # "spher_aber", default="2.70"
 # "ampl_contrast", default="0.8"
@@ -159,7 +159,7 @@ class CTFFind(CommonService):
             ctf_params.expert_options,
         ]
 
-        parameters_string = "\n".join(parameters_list)
+        parameters_string = "\n".join(map(str, parameters_list))
         self.log.info(
             f"Input: {ctf_params.input_image} Output: {ctf_params.output_image}"
         )
@@ -178,20 +178,20 @@ class CTFFind(CommonService):
         estimated_defocus = (self.defocus1 + self.defocus2) / 2
 
         ispyb_parameters = {
-            "box_size_x": self.box_size,
-            "box_size_y": self.box_size,
-            "min_resolution": ctf_params.min_res,
-            "max_resolution": ctf_params.max_res,
-            "min_defocus": ctf_params.min_defocus,
-            "max_defocus": ctf_params.max_defocus,
-            "astigmatism": astigmatism,
-            "defocus_step_size": ctf_params.defocus_step,
-            "astigmatism_angle": self.astigmatism_angle,
-            "estimated_resolution": self.estimated_resolution,
-            "estimated_defocus": estimated_defocus,
-            "amplitude_contrast": ctf_params.ampl_contrast,
-            "cc_value": self.cc_value,
-            "fft_theoretical_full_path": ctf_params.output_image # path to output mrc (would be jpeg if we could convert in SW)
+            "box_size_x": str(self.box_size),
+            "box_size_y": str(self.box_size),
+            "min_resolution": str(ctf_params.min_res),
+            "max_resolution": str(ctf_params.max_res),
+            "min_defocus": str(ctf_params.min_defocus),
+            "max_defocus": str(ctf_params.max_defocus),
+            "astigmatism": str(astigmatism),
+            "defocus_step_size": str(ctf_params.defocus_step),
+            "astigmatism_angle": str(self.astigmatism_angle),
+            "estimated_resolution": str(self.estimated_resolution),
+            "estimated_defocus": str(estimated_defocus),
+            "amplitude_contrast": str(ctf_params.ampl_contrast),
+            "cc_value": str(self.cc_value),
+            "fft_theoretical_full_path": str(ctf_params.output_image) # path to output mrc (would be jpeg if we could convert in SW)
         }
 
         # Forward results to ispyb

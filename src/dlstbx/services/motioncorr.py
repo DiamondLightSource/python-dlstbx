@@ -62,7 +62,7 @@ class MotionCorr(CommonService):
 
         if line.startswith("...... Frame"):
             line_split = line.split(" ")
-            self.shift_list.append((line_split[-2], line_split[-1]))
+            self.shift_list.append((float(line_split[-2]), float(line_split[-1])))
 
 
     def motion_correction(self, rw, header: dict, message: dict):

@@ -58,7 +58,6 @@ class CTFFind(CommonService):
     _logger_name = "dlstbx.services.ctffind"
 
     # Values to extract for ISPyB
-    box_size: float
     astigmatism_angle: float
     cc_value: float
     estimated_resolution: float
@@ -83,18 +82,19 @@ class CTFFind(CommonService):
         if not line:
             return
 
-        if line.startswith("# Box size"):
-            line_split = line.split(" ")
-            self.box_size = float(line_split[3])
-
-        if not line.startswith("#"):
-            line_split = line.split(" ")
-            self.defocus1 = float(line_split[1])
-            self.defocus2 = float(line_split[2])
-            self.astigmatism_angle = float(line_split[3]) # azimuth
-            # additional_phase_shift = line_split[4]
-            self.cc_value = float(line_split[5]) # cross_correlation
-            self.estimated_resolution = float(line_split[6]) # spacing
+        if line.startswith("Estimated defocus values"):
+            line_split = line.split()
+            self.defocus1 = float(line_split[4])
+            self.defocus2 = float(line_split[6])
+        if line.startswith("Estimated azimuth"):
+            line_split = line.split()
+            self.astigmatism_angle = float(line_split[4])
+        if line.startswith("Score"):
+            line_split = line.split()
+            self.cc_value = float(line_split[2])
+        if line.startswith("Thon rings"):
+            line_split = line.split()
+            self.estimated_resolution = float(line_split[8])
 
 
     def ctf_find(self, rw, header: dict, message: dict):
@@ -178,8 +178,8 @@ class CTFFind(CommonService):
         estimated_defocus = (self.defocus1 + self.defocus2) / 2
 
         ispyb_parameters = {
-            "box_size_x": str(self.box_size),
-            "box_size_y": str(self.box_size),
+            "box_size_x": str(ctf_params.ampl_spectrum),
+            "box_size_y": str(ctf_params.ampl_spectrum),
             "min_resolution": str(ctf_params.min_res),
             "max_resolution": str(ctf_params.max_res),
             "min_defocus": str(ctf_params.min_defocus),

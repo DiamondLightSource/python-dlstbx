@@ -61,7 +61,7 @@ class MotionCorr(CommonService):
             return
 
         if line.startswith("...... Frame"):
-            line_split = line.split(" ")
+            line_split = line.split()
             self.shift_list.append((float(line_split[-2]), float(line_split[-1])))
 
 
@@ -120,7 +120,7 @@ class MotionCorr(CommonService):
         if mc_params.gain_ref:
             arguments.extend(["-Gain", mc_params.gain_ref])
 
-        self.log.info("Input: ", movie, "Output: ", mc_params.mrc_out)
+        self.log.info(f"Input: {movie} Output: {mc_params.mrc_out}")
 
         command.extend(arguments)
         result = procrunner.run(command=command, callback_stdout=self.parse_mc_output)

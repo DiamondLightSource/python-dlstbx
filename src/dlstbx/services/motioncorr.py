@@ -66,6 +66,9 @@ class MotionCorr(CommonService):
 
 
     def motion_correction(self, rw, header: dict, message: dict):
+        class RW_mock:
+            def dummy(self, *args, **kwargs):
+                pass
 
         if not rw:
             if (
@@ -79,10 +82,6 @@ class MotionCorr(CommonService):
 
             # Create a wrapper-like object that can be passed to functions
             # as if a recipe wrapper was present.
-            class RW_mock:
-                def dummy(self, *args, **kwargs):
-                    pass
-
             rw = RW_mock()
             rw.transport = self._transport
             rw.recipe_step = {"parameters": message["parameters"], "output": None}
@@ -135,6 +134,7 @@ class MotionCorr(CommonService):
 
 
         # Forward results to ctffind
+        self.log.info("Sending to ctf")
         mc_params.ctf["input_image"] = mc_params.mrc_out
         if isinstance(rw, RW_mock):
             rw.transport.send(  # type: ignore
@@ -149,8 +149,7 @@ class MotionCorr(CommonService):
         total_x_shift = sum([item[0] for item in self.shift_list])
         total_y_shift = sum([item[1] for item in self.shift_list])
         total_motion = sqrt(total_x_shift**2 + total_y_shift**2)
-
-        each_total_motion = sqrt(([item][0])**2 + ([item][1])**2 for item in self.shift_list)
+        each_total_motion = [sqrt(([item][0])**2 + ([item][1])**2) for item in self.shift_list]
         average_motion_per_frame = sum(each_total_motion) / len(self.shift_list)
 
         drift_plot_x = range(0, len(self.shift_list))
@@ -170,8 +169,8 @@ class MotionCorr(CommonService):
             "patches_used_y": mc_params.patch_size
         }
 
-
         # Forward results to ISPyB
+        self.log.info("Sending to ispyb")
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",
                               message={
@@ -181,8 +180,8 @@ class MotionCorr(CommonService):
         else:
             rw.send_to("ispyb", ispyb_parameters)
 
-
         # Forward results to murfey
+        self.log.info("Sending to murfey")
         if isinstance(rw, RW_mock):
             rw.transport.send("murfey", {"corrected_movie": mc_params.mrc_out})
         else:

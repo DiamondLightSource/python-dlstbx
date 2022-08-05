@@ -58,12 +58,12 @@ class CTFFind(CommonService):
     _logger_name = "dlstbx.services.ctffind"
 
     # Values to extract for ISPyB
-    box_size = None
-    astigmatism_angle = None
-    cc_value = None
-    estimated_resolution = None
-    defocus1 = None
-    defocus2 = None
+    box_size: float
+    astigmatism_angle: float
+    cc_value: float
+    estimated_resolution: float
+    defocus1: float
+    defocus2: float
 
 
     def initializing(self):
@@ -85,19 +85,22 @@ class CTFFind(CommonService):
 
         if line.startswith("# Box size"):
             line_split = line.split(" ")
-            self.box_size = line_split[3]
+            self.box_size = float(line_split[3])
 
         if not line.startswith("#"):
             line_split = line.split(" ")
-            defocus1 = line_split[1]
-            defocus2 = line_split[2]
-            self.astigmatism_angle = line_split[3] # azimuth
+            self.defocus1 = float(line_split[1])
+            self.defocus2 = float(line_split[2])
+            self.astigmatism_angle = float(line_split[3]) # azimuth
             # additional_phase_shift = line_split[4]
-            self.cc_value = line_split[5] # cross_correlation
-            self.estimated_resolution = line_split[6] # spacing
+            self.cc_value = float(line_split[5]) # cross_correlation
+            self.estimated_resolution = float(line_split[6]) # spacing
 
 
     def ctf_find(self, rw, header: dict, message: dict):
+        class RW_mock:
+            def dummy(self, *args, **kwargs):
+                pass
 
         if not rw:
             print(
@@ -115,10 +118,6 @@ class CTFFind(CommonService):
 
             # Create a wrapper-like object that can be passed to functions
             # as if a recipe wrapper was present.
-            class RW_mock:
-                def dummy(self, *args, **kwargs):
-                    pass
-
             rw = RW_mock()
             rw.transport = self._transport
             rw.recipe_step = {"parameters": message["parameters"]}
@@ -142,7 +141,7 @@ class CTFFind(CommonService):
 
         parameters_list = [
             ctf_params.input_image,
-            ctf_params.output_file,
+            ctf_params.output_image,
             ctf_params.pix_size,
             ctf_params.voltage,
             ctf_params.spher_aber,
@@ -162,7 +161,7 @@ class CTFFind(CommonService):
 
         parameters_string = "\n".join(parameters_list)
         self.log.info(
-            f"Input: {ctf_params.input_image} Output: {ctf_params.output_file}"
+            f"Input: {ctf_params.input_image} Output: {ctf_params.output_image}"
         )
         result = procrunner.run(command=command, stdin=parameters_string.encode("ascii"), callback_stdout=self.parse_ctf_output)
         if result.returncode:
@@ -195,8 +194,8 @@ class CTFFind(CommonService):
             "fft_theoretical_full_path": ctf_params.output_image # path to output mrc (would be jpeg if we could convert in SW)
         }
 
-
         # Forward results to ispyb
+        self.log.info("Sending to ispyb")
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",
                           message={

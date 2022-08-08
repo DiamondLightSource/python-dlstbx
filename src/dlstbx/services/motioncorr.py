@@ -149,11 +149,11 @@ class MotionCorr(CommonService):
         total_x_shift = sum([item[0] for item in self.shift_list])
         total_y_shift = sum([item[1] for item in self.shift_list])
         total_motion = sqrt(total_x_shift**2 + total_y_shift**2)
-        each_total_motion = [sqrt(([item][0])**2 + ([item][1])**2) for item in self.shift_list]
+        each_total_motion = [sqrt(item[0]**2 + item[1]**2) for item in self.shift_list]
         average_motion_per_frame = sum(each_total_motion) / len(self.shift_list)
 
-        drift_plot_x = range(0, len(self.shift_list))
-        drift_plot_y = self.shift_list
+        drift_plot_x = [range(0, len(self.shift_list))]
+        drift_plot_y = each_total_motion
         fig = px.scatter(x=drift_plot_x, y=drift_plot_y)
         plot_path = Path(mc_params.mrc_out).parent / "drift_plot.json"
         fig.write_json(plot_path)

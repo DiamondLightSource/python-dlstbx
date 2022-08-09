@@ -25,6 +25,7 @@ class MotionCorrParameters(BaseModel):
     mrc_out: str = Field(..., min_length=1)
     patch_size: int = 5
     gain_ref: str = ""
+    mc_uuid: int
 
     class Config:
         ignore_extra = True
@@ -136,6 +137,7 @@ class MotionCorr(CommonService):
         # Forward results to ctffind
         self.log.info("Sending to ctf")
         mc_params.ctf["input_image"] = mc_params.mrc_out
+        mc_params.ctf["mc_uuid"] = mc_params.mc_uuid
         if isinstance(rw, RW_mock):
             rw.transport.send(  # type: ignore
                 destination="ctffind",
@@ -166,7 +168,8 @@ class MotionCorr(CommonService):
             "drift_plot_full_path": str(plot_path),
             "micrograph_full_path": str(mc_params.mrc_out),
             "patches_used_x": mc_params.patch_size,
-            "patches_used_y": mc_params.patch_size
+            "patches_used_y": mc_params.patch_size,
+            "buffer_store": mc_params.mc_uuid
         }
 
 
@@ -176,8 +179,7 @@ class MotionCorr(CommonService):
             "ispyb_command": "buffer",
             "buffer_command": {
                 "ispyb_command": "insert_motion_correction"
-            },
-            "buffer_store": "{mc_uuid}"
+            }
         })
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",

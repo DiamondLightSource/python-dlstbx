@@ -44,6 +44,7 @@ class CTFParameters(BaseModel):
     expert_options = "no"
     input_image: str = Field(..., min_length=1)
     output_image: str = Field(..., min_length=1)
+    mc_uuid: int
 
 
 class CTFFind(CommonService):
@@ -198,7 +199,7 @@ class CTFFind(CommonService):
         self.log.info("Sending to ispyb")
         ispyb_parameters.update({"ispyb_command": "buffer",
                                  "buffer_lookup": {
-                                     "motion_correction_id": "{mc_uuid}"
+                                     "motion_correction_id": ctf_params.mc_uuid
                                  },
                                  "buffer_command": {
                                      "ispyb_command": "insert_ctffind",

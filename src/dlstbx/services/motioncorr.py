@@ -163,19 +163,27 @@ class MotionCorr(CommonService):
             "last_frame": len(self.shift_list),
             "total_motion": total_motion,
             "average_motion_per_frame": average_motion_per_frame,
-            "drift_plot_full_path": plot_path,
-            "micrograph_full_path": mc_params.mrc_out,
+            "drift_plot_full_path": str(plot_path),
+            "micrograph_full_path": str(mc_params.mrc_out),
             "patches_used_x": mc_params.patch_size,
             "patches_used_y": mc_params.patch_size
         }
+
+
 
         # Forward results to ISPyB
         self.log.info("Sending to ispyb")
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",
                               message={
-                                  "parameters": ispyb_parameters.update({"ispyb_command": "insert_motion_correction"}),
-                                  "content": {"dummy": "dummy"},
+                              "parameters": ispyb_parameters.update({
+                                  "ispyb_command": "buffer",
+                                  "buffer_command": {
+                                    "ispyb_command": "insert_motion_correction"
+                                    },
+                                  "buffer_store": "{mc_uuid}"
+                              }),
+                              "content": {"dummy": "dummy"},
                               },)
         else:
             rw.send_to("ispyb", ispyb_parameters)

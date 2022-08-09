@@ -199,7 +199,13 @@ class CTFFind(CommonService):
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",
                           message={
-                              "parameters": ispyb_parameters.update({"ispyb_command": "insert_ctffind"}),
+                              "parameters": ispyb_parameters.update({"ispyb_command": "buffer",
+                                                                     "buffer_lookup": {
+                                                                         "motion_correction_id": "{mc_uuid}"
+                                                                     },
+                                                                     "buffer_command": {
+                                                                         "ispyb_command": "insert_ctffind",
+                                                                         "motion_correction_id": "{motion_correction_id}"}}),
                               "content": {"dummy": "dummy"},
                           },)
         else:

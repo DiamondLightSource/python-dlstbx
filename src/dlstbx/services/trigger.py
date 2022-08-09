@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import os
 import pathlib
 from dataclasses import dataclass
@@ -193,7 +192,6 @@ class DLSTrigger(CommonService):
 
     def initializing(self):
         """Subscribe to the trigger queue. Received messages must be acknowledged."""
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
         self._ispyb_sessionmaker = sqlalchemy.orm.sessionmaker(
             bind=sqlalchemy.create_engine(
                 ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
@@ -1227,17 +1225,17 @@ class DLSTrigger(CommonService):
                     self.log.info(
                         f"max-try exceeded, giving up waiting for related processings for dcids {waiting_dcids}\n"
                     )
-                    break
-                # Send results to myself for next round of processing
-                self.log.debug(
-                    f"Waiting for dcids={waiting_dcids}\nappids={waiting_appids}"
-                )
-                rw.checkpoint(
-                    {"trigger-status": status},
-                    delay=message_delay,
-                    transaction=transaction,
-                )
-                return {"success": True}
+                else:
+                    # Send results to myself for next round of processing
+                    self.log.debug(
+                        f"Waiting for dcids={waiting_dcids}\nappids={waiting_appids}"
+                    )
+                    rw.checkpoint(
+                        {"trigger-status": status},
+                        delay=message_delay,
+                        transaction=transaction,
+                    )
+                    return {"success": True}
 
             query = (
                 (
@@ -1266,7 +1264,7 @@ class DLSTrigger(CommonService):
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .filter(ProcessingJob.automatic == True)  # noqa E712
                 .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                .filter(AutoProcProgram.processingStatus == 0)
+                .filter(AutoProcProgram.processingStatus == 1)
                 .filter(
                     (
                         AutoProcProgramAttachment.fileName.endswith(".expt")

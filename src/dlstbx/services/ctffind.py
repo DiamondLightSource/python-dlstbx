@@ -196,16 +196,17 @@ class CTFFind(CommonService):
 
         # Forward results to ispyb
         self.log.info("Sending to ispyb")
+        ispyb_parameters.update({"ispyb_command": "buffer",
+                                 "buffer_lookup": {
+                                     "motion_correction_id": "{mc_uuid}"
+                                 },
+                                 "buffer_command": {
+                                     "ispyb_command": "insert_ctffind",
+                                     "motion_correction_id": "{motion_correction_id}"}})
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",
                           message={
-                              "parameters": ispyb_parameters.update({"ispyb_command": "buffer",
-                                                                     "buffer_lookup": {
-                                                                         "motion_correction_id": "{mc_uuid}"
-                                                                     },
-                                                                     "buffer_command": {
-                                                                         "ispyb_command": "insert_ctffind",
-                                                                         "motion_correction_id": "{motion_correction_id}"}}),
+                              "parameters": ispyb_parameters,
                               "content": {"dummy": "dummy"},
                           },)
         else:

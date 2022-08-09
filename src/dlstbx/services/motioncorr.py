@@ -170,21 +170,21 @@ class MotionCorr(CommonService):
         }
 
 
-
         # Forward results to ISPyB
         self.log.info("Sending to ispyb")
+        ispyb_parameters.update({
+            "ispyb_command": "buffer",
+            "buffer_command": {
+                "ispyb_command": "insert_motion_correction"
+            },
+            "buffer_store": "{mc_uuid}"
+        })
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",
                               message={
-                              "parameters": ispyb_parameters.update({
-                                  "ispyb_command": "buffer",
-                                  "buffer_command": {
-                                    "ispyb_command": "insert_motion_correction"
-                                    },
-                                  "buffer_store": "{mc_uuid}"
-                              }),
-                              "content": {"dummy": "dummy"},
-                              },)
+                                  "parameters": ispyb_parameters,
+                                  "content": {"dummy": "dummy"},
+                              })
         else:
             rw.send_to("ispyb", ispyb_parameters)
 

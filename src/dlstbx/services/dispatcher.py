@@ -14,7 +14,7 @@ import workflows.recipe
 from workflows.services.common_service import CommonService
 
 
-class DLSDispatcher(CommonService):
+class Dispatcher(CommonService):
     """
     Single point of contact service that takes in job meta-information
     (say, a data collection ID), a processing recipe, a list of recipes,
@@ -23,10 +23,10 @@ class DLSDispatcher(CommonService):
     """
 
     # Human readable service name
-    _service_name = "DLS Dispatcher"
+    _service_name = "Dispatcher"
 
     # Logger name
-    _logger_name = "dlstbx.services.dispatcher"
+    _logger_name = "zocalo.services.dispatcher"
 
     def filter_load_recipes_from_files(self, message, parameters):
         """Load named recipes from central location and merge them into the recipe object"""

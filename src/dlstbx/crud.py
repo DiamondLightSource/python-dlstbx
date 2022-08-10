@@ -35,10 +35,8 @@ def get_blsession_for_dcid(
 ) -> models.BLSession | None:
     query = (
         session.query(models.BLSession)
-        .join(
-            models.DataCollection,
-            models.DataCollection.SESSIONID == models.BLSession.sessionId,
-        )
+        .join(models.DataCollectionGroup)
+        .join(models.DataCollection)
         .filter(models.DataCollection.dataCollectionId == dcid)
     )
     return query.first()
@@ -47,8 +45,11 @@ def get_blsession_for_dcid(
 def get_dcids_for_sample_id(
     sample_id: int, session: sqlalchemy.orm.session.Session
 ) -> list[int]:
-    query = session.query(models.DataCollection.dataCollectionId).filter(
-        models.DataCollection.BLSAMPLEID == sample_id
+    query = (
+        session.query(models.DataCollection.dataCollectionId)
+        .join(models.DataCollectionGroup)
+        .filter(models.DataCollectionGroup.blSampleId == sample_id)
+        .order_by(models.DataCollection.dataCollectionId)
     )
     return [r.dataCollectionId for r in query.all()]
 
@@ -86,10 +87,8 @@ def get_diffraction_plan_for_dcid(
     query = (
         session.query(models.DiffractionPlan)
         .join(models.BLSample)
-        .join(
-            models.DataCollection,
-            models.DataCollection.BLSAMPLEID == models.BLSample.blSampleId,
-        )
+        .join(models.DataCollectionGroup)
+        .join(models.DataCollection)
         .filter(models.DataCollection.dataCollectionId == dcid)
     )
     return query.first()
@@ -101,10 +100,8 @@ def get_crystal_for_dcid(
     query = (
         session.query(models.Crystal)
         .join(models.BLSample)
-        .join(
-            models.DataCollection,
-            models.DataCollection.BLSAMPLEID == models.BLSample.blSampleId,
-        )
+        .join(models.DataCollectionGroup)
+        .join(models.DataCollection)
         .filter(models.DataCollection.dataCollectionId == dcid)
     )
     return query.first()
@@ -117,10 +114,8 @@ def get_protein_for_dcid(
         session.query(models.Protein)
         .join(models.Crystal)
         .join(models.BLSample)
-        .join(
-            models.DataCollection,
-            models.DataCollection.BLSAMPLEID == models.BLSample.blSampleId,
-        )
+        .join(models.DataCollectionGroup)
+        .join(models.DataCollection)
         .filter(models.DataCollection.dataCollectionId == dcid)
     )
     return query.first()

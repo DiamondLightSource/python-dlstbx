@@ -28,20 +28,20 @@ from workflows.services.common_service import CommonService
 
 class CTFParameters(BaseModel):
     pix_size: float
-    voltage = 300.0
-    spher_aber = 2.7
-    ampl_contrast = 0.8
-    ampl_spectrum = 512
-    min_res = 30.0
-    max_res = 5.0
-    min_defocus = 5000.0
-    max_defocus = 50000.0
-    defocus_step = 100.0
-    astigmatism_known = "no"
-    slow_search = "no"
-    astigmatism_restrain = "no"
-    additional_phase_shift = "no"
-    expert_options = "no"
+    voltage: float = 300.0
+    spher_aber: float = 2.7
+    ampl_contrast: float = 0.8
+    ampl_spectrum: int = 512
+    min_res: float = 30.0
+    max_res: float = 5.0
+    min_defocus: float = 5000.0
+    max_defocus: float = 50000.0
+    defocus_step: float = 100.0
+    astigmatism_known: str = "no"
+    slow_search: str = "no"
+    astigmatism_restrain: str = "no"
+    additional_phase_shift: str = "no"
+    expert_options: str = "no"
     input_image: str = Field(..., min_length=1)
     output_image: str = Field(..., min_length=1)
     mc_uuid: int

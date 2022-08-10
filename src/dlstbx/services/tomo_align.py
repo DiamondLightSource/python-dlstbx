@@ -2,27 +2,59 @@ from __future__ import annotations
 
 import procrunner
 import workflows.recipe
+from pydantic import BaseModel, Field
 from workflows.services.common_service import CommonService
+from pydantic.error_wrappers import ValidationError
 
 # Possible parameters:
 # "input_file_list" Required
 # "stack_file" Required
 # "vol_z" default 1200
+# "align"
 # "out_bin" default 4
 # "tilt_range" (must be a tuple) or "ang_file" Required
-# "tile_axis"
+# "tilt_axis"
 # "tilt_cor"
 # "flip_int"
 # "flip_vol"
 # "wbp"
-# "roi"
 # "roi_file"
 # "patch"
 # "kv"
-# "aln_file"
+# "align_file"
+# "angle_file"
 # "align_z"
+# "pix_size"
+# "init_val"
+# "refine_flag"
+# "out_imod"
+# "out_imod_xf"
+# "dark_tol"
 
-
+class TomoParameters(BaseModel):
+    input_file_list: list
+    stack_file: Field(..., min_length=1)
+    vol_z: int = 1200
+    align: int = None
+    out_bin: int = 4
+    tilt_range: tuple = (None, None)
+    tilt_axis: float = None
+    tilt_cor: int = None
+    flip_int: int = None
+    flip_vol: int = None
+    wbp: int = None
+    roi_file: list = None
+    patch: int = None
+    kv: int = None
+    align_file: str = None
+    angle_file: str = None
+    align_z: int = None
+    pix_size: int = None
+    init_val: int = None
+    refine_flag: int = None
+    out_imod: int = None
+    out_imod_xf: int = None
+    dark_tol: int or str = None
 
 class TomoAlign(CommonService):
     """
@@ -51,6 +83,10 @@ class TomoAlign(CommonService):
         )
 
     def tomo_align(self, rw, header: dict, message: dict):
+        class RW_mock:
+            def dummy(self, *args, **kwargs):
+                pass
+
         if not rw:
             print(
                 "Incoming message is not a recipe message. Simple messages can be valid"
@@ -66,9 +102,6 @@ class TomoAlign(CommonService):
 
             # Create a wrapper-like object that can be passed to functions
             # as if a recipe wrapper was present.
-            class RW_mock:
-                def dummy(self, *args, **kwargs):
-                    pass
 
             rw = RW_mock()
             rw.transport = self._transport
@@ -78,38 +111,30 @@ class TomoAlign(CommonService):
             rw.send = rw.dummy
             message = message["content"]
 
-        def parameters(key: str, default=None):
-            if isinstance(message, dict) and message.get(key):
-                return message[key]
-            return rw.recipe_step.get("parameters", {}).get(key, default)
-
-        if not parameters("input_file_list"):
-            self.log.error(
-                f"No input files found in tomo_align service message: {message}"
+        try:
+            tomo_params = TomoParameters(
+                **{**rw.recipe_step.get("parameters", {}), **message}
+            )
+        except (ValidationError, TypeError):
+            self.log.warning(
+                f"TomoAlign parameter validation failed for message: {message} and recipe parameters: {rw.recipe_step.get('parameters', {})}"
             )
             rw.transport.nack(header)
+            return
 
-        if not parameters("stack_file"):
-            self.log.error(
-                f"No output file found in tomo_align service message: {message}"
-            )
-            rw.transport.nack(header)
-
-        if not (parameters("tilt_range") or parameters("ang_file")):
+        if not (tomo_params.tilt_range or tomo_params.angle_file):
             self.log.error(
                 f"No tilt range or angle file found in tomo_align service message: {message}"
             )
             rw.transport.nack(header)
 
-        if parameters("tilt_range") and parameters("ang_file"):
+        if tomo_params.tilt_range and tomo_params.angle_file:
             self.log.error(
                 f"Cannot specify both TiltRange and AngFile - tomo_align service message: {message}"
             )
             rw.transport.nack(header)
 
-        newstack_result = self.newstack(
-            parameters("input_file_list"), parameters("stack_file")
-        )
+        newstack_result = self.newstack(tomo_params)
         if newstack_result.returncode:
             self.log.error(
                 f"Newstack failed with exitcode {newstack_result.returncode}:\n"
@@ -118,22 +143,37 @@ class TomoAlign(CommonService):
             rw.transport.nack(header)
             return
 
-        stack_filename_split = parameters("stack_file").split(".")
+        stack_filename_split = tomo_params.stack_file.split(".")
         aretomo_output_file = (
             stack_filename_split[0] + "aretomo." + stack_filename_split[1]
         )
-        aretomo_result = self.aretomo(parameters("stack_file"), aretomo_output_file, parameters)
+
+        aretomo_result = self.aretomo(aretomo_output_file, tomo_params)
+
         if aretomo_result.returncode:
             self.log.error(
                 f"AreTomo failed with exitcode {aretomo_result.returncode}:\n"
                 + aretomo_result.stderr.decode("utf8", "replace")
             )
-            rw.transport.nack(header)
             return
 
+        # Extract results for ispyb
+
+        # Forward results to ispyb
+
+        ispyb_parameters = {}
+        self.log.info("Sending to ispyb")
+        if isinstance(rw, RW_mock):
+            rw.transport.send(destination="ispyb_connector",
+                              message={
+                                  "parameters": ispyb_parameters,
+                                  "content": {"dummy": "dummy"},
+                              },)
+        else:
+            rw.send_to("ispyb", ispyb_parameters)
         rw.transport.ack(header)
 
-    def newstack(self, filein_list_of_tuples, stack_output_file):
+    def newstack(self, tomo_parameters):
         """
         Sort images by tilt angle
         Construct file containing a list of files
@@ -142,12 +182,12 @@ class TomoAlign(CommonService):
 
         def tilt(file_tuple):
             return float(file_tuple[2])
-        filein_list_of_tuples.sort(key=tilt)
+        tomo_parameters.input_file_list.sort(key=tilt)
 
         # Write a file with a list of .mrcs for input to Newstack
         with open("newstack-fileinlist.txt", "w") as f:
-            f.write(f"{len(filein_list_of_tuples)}\n")
-            f.write("\n0\n".join(i[0] for i in filein_list_of_tuples))
+            f.write(f"{len(tomo_parameters.input_file_list)}\n")
+            f.write("\n0\n".join(i[0] for i in tomo_parameters.input_file_list))
             f.write("\n0\n")
 
         newstack_cmd = [
@@ -155,34 +195,34 @@ class TomoAlign(CommonService):
             "-fileinlist",
             "newstack-fileinlist.txt",
             "-output",
-            stack_output_file,
+            tomo_parameters.stack_file,
             "-quiet",
         ]
         self.log.info("Running Newstack")
         result = procrunner.run(newstack_cmd)
         return result
 
-    def aretomo(self, stack_file, output_file, parameters):
+    def aretomo(self, output_file, tomo_parameters):
         """
         Run AreTomo on output of Newstack
         """
         aretomo_cmd = [
             "AreTomo",
             "-InMrc",
-            stack_file,
+            tomo_parameters.stack_file,
             "-OutMrc",
             output_file,
             "-VolZ",
-            parameters("vol_z", default="1200"),
+            tomo_parameters.vol_z,
             "-OutBin",
-            parameters("out_bin", default="4")
+            tomo_parameters.out_bin
         ]
 
         # Required parameters
-        if parameters("tilt_range"):
-            aretomo_cmd.extend(("-TiltRange", *parameters("tilt_range")))
-        elif parameters("ang_file"):
-            aretomo_cmd.extend(("-AngFile", parameters("ang_file")))
+        if tomo_parameters.tilt_range:
+            aretomo_cmd.extend(("-TiltRange", *tomo_parameters.tilt_range))
+        elif tomo_parameters.angle_file:
+            aretomo_cmd.extend(("-AngFile", tomo_parameters.angle_file))
 
         # Optional parameters
         optional_aretomo_parameters = {
@@ -191,34 +231,29 @@ class TomoAlign(CommonService):
                               "flip_int": "-FlipInt",
                               "flip_vol": "-FlipVol",
                               "wbp": "-Wbp",
-                              "roi": "-Roi",
+                              "align": "-Align",
                               "roi_file": "-RoiFile",
                               "patch": "-Patch",
                               "kv": "-Kv",
-                              "align_file": "-AlignFile",
-                              "align_z": "-AlignZ"}
+                              "align_file": "-AlnFile",
+                              "align_z": "-AlignZ",
+                              "pix_size": "-PixSize",
+                              "init_val": "initVal",
+                              "refine_flag": "refineFlag",
+                              "out_imod": "-OutImod",
+                              "out_imod_xf": "-OutXf",
+                              "dark_tol": "-DarkTol"}
 
         for k, v in optional_aretomo_parameters.items():
-            if parameters(k):
-                aretomo_cmd.extend((v, parameters(k)))
+            if getattr(tomo_parameters, k) is not None:
+                aretomo_cmd.extend((v, getattr(tomo_parameters, k)))
 
         self.log.info("Running AreTomo")
+        self.log.info(f"Input stack: {tomo_parameters.stack_file} \nOutput file: {output_file}")
         result = procrunner.run(aretomo_cmd)
-        if result.returncode:
-            self.log.error(
-            f"CTFFind failed with exitcode {result.returncode}:\n"
-            + result.stderr.decode("utf8", "replace")
-            )
-            rw.transport.nack(header)
-            return
-        self.log.info(f"Input stack: {stack_file} \nOutput file: {output_file}")
+        return result
 
-
-        # Extract results for ispyb
-
-
-        # Forward results to ispyb
-
+        # Tomogram (one per-tilt-series)
         #dataCollectionId=full_parameters("dcid"), # from Murfey
         #autoProcProgramId=full_parameters("program_id"), # from Murfey
         #volumeFile=full_parameters("volume_file"), # outmrc, from inputs
@@ -233,7 +268,7 @@ class TomoAlign(CommonService):
         #tiltAngleOffset=full_parameters("tilt_angle_offset"), # from aretomo file, tilt offset
         #zShift=full_parameters("z_shift") # VolZ, from inputs
 
-
+        # TiltImageAlignment (one per movie)
         #movieId=full_parameters("movie_id"), # from Murfey
         #tomogramId=full_parameters("tomogram_id"), # from recipe
         #defocusU=full_parameters("defocus_u"), # don't do - in ctf
@@ -247,14 +282,3 @@ class TomoAlign(CommonService):
         # image ??
         #residualError=full_parameters("residual_error") # shift per image?
 
-        # multipart message
-        # add command, add parameters
-        if isinstance(rw, RW_mock):
-            rw.transport.send(destination="ispyb_connector",
-                              message={
-                                  "parameters": {"ispyb_command": "insert_tomogram"},
-                                  "content": {"dummy": "dummy"},
-                              },)
-        else:
-            rw.send_to("ispyb", ispyb_parameters)
-        rw.transport.ack(header)

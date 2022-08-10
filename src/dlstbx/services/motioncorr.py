@@ -16,6 +16,32 @@ from pathlib import Path
 # "patch_size"
 # "gain_ref"
 # "ctf" Required
+# "mc_uuid" Required
+# "rot_gain"
+# "flip_gain"
+# "dark"
+# "use_gpus"
+# "sum_range"
+# "iter"
+# "tol"
+# "throw"
+# "trunc"
+# "fm_ref"
+# "kv"
+# "fm_dose"
+# "fm_int_file"
+# "mag"
+# "ft_bin"
+# "serial"
+# "in_suffix"
+# "eer_sampling" (needed for eer)
+# "out_stack"
+# "bft"
+# "group"
+# "detect_file"
+# "arc_dir"
+# "in_fm_motion"
+# "split_sum"
 
 
 class MotionCorrParameters(BaseModel):
@@ -24,8 +50,33 @@ class MotionCorrParameters(BaseModel):
     movie: str = Field(..., min_length=1)
     mrc_out: str = Field(..., min_length=1)
     patch_size: int = 5
-    gain_ref: str = ""
+    gain_ref: str = None
     mc_uuid: int
+    rot_gain: int = None
+    flip_gain: int = None
+    dark: str = None
+    use_gpus: int = None
+    sum_range: tuple = (None, None)
+    iter: int = None
+    tol: float = None
+    throw: int = None
+    trunc: int = None
+    fm_ref: int = None
+    kv: int = None
+    fm_dose: float = None
+    fm_int_file: str = None
+    mag: tuple = (None, None, None)
+    ft_bin: float = None
+    serial: int = None
+    in_suffix: str = None
+    eer_sampling: int = None
+    out_stack: int = None
+    bft: tuple = (None, None)
+    group: int = None
+    detect_file: str = None
+    arc_dir: str = None
+    in_fm_motion: int = None
+    split_sum: int = None
 
     class Config:
         ignore_extra = True
@@ -105,7 +156,15 @@ class MotionCorr(CommonService):
             return
 
         movie = mc_params.movie
-        input_flag = "-InMrc" if movie.endswith(".mrc") else "-InTiff"
+        if movie.endswith(".mrc"):
+            input_flag = "-InMrc"
+        elif movie.endswith(".tif" or ".tiff"):
+            input_flag = "-InTiff"
+        elif movie.endswith(".eer"):
+            input_flag = "-InEer"
+        else:
+            self.log.error(f"No input flag found for movie {movie}")
+            input_flag = None
         command.extend([input_flag, movie])
         arguments = [
             "-OutMrc",
@@ -118,8 +177,39 @@ class MotionCorr(CommonService):
             "-PixSize",
             str(mc_params.pix_size),
         ]
-        if mc_params.gain_ref:
-            arguments.extend(["-Gain", mc_params.gain_ref])
+
+        # Optional parameters
+        optional_mc_parameters = {
+        "gain_ref": "-Gain",
+        "rot_gain": "-RotGain",
+        "flip_gain": "-FlipGain",
+        "dark": "-Dark",
+        "use_gpus": "-UseGpus",
+        "sum_range": "-SumRange",
+        "iter": "-Iter",
+        "tol": "-Tol",
+        "throw": "-Throw",
+        "trunc": "-Trunc",
+        "fm_ref": "-FmRef",
+        "kv": "-Kv",
+        "fm_dose": "-FmDose",
+        "fm_int_file": "-FmIntFile",
+        "mag": "-Mag",
+        "ft_bin": "-FtBin",
+        "serial": "-Serial",
+        "in_suffix": "-InSuffix",
+        "eer_sampling": "-EerSampling",
+        "out_stack": "-OutStack",
+        "bft": "-Bft",
+        "group": "-Group",
+        "detect_file": "-DetectFile",
+        "arc_dir": "-ArcDir",
+        "in_fm_motion": "-InFmMotion",
+        "split_sum": "-SplitSum"}
+
+        for k, v in optional_mc_parameters.items():
+            if getattr(mc_params, k) is not None:
+                arguments.extend((v, getattr(mc_params, k)))
 
         self.log.info(f"Input: {movie} Output: {mc_params.mrc_out}")
 

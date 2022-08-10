@@ -652,9 +652,21 @@ def ready_for_processing(message, parameters, session: sqlalchemy.orm.session.Se
 
 
 def ispyb_filter(
-    message, parameters, session: sqlalchemy.orm.session.Session, io_timeout: float = 10
+    message,
+    parameters,
+    session: sqlalchemy.orm.session.Session | None = None,
+    io_timeout: float = 10,
 ):
     """Do something to work out what to do with this data..."""
+
+    if session is None:
+        import ispyb.sqlalchemy
+
+        session = sessionmaker(
+            bind=sqlalchemy.create_engine(
+                ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
+            )
+        )()
 
     i = ispybtbx()
 

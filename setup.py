@@ -237,6 +237,9 @@ setup(
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.health_checks": sorted(health_checks),
+        "zocalo.services.dispatcher.filters": [
+            "ispyb = dlstbx.ispybtbx:ispyb_filter",
+        ],
         "zocalo.services.images.plugins": [
             "diffraction = dlstbx.services.images:diffraction",
             "thumbnail = dlstbx.services.images:thumbnail",

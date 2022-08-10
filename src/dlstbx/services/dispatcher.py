@@ -10,12 +10,11 @@ import timeit
 import uuid
 
 import ispyb.sqlalchemy
+import pkg_resources
 import sqlalchemy
 import workflows.recipe
 from sqlalchemy.orm import sessionmaker
 from workflows.services.common_service import CommonService
-
-# DCID(4983612).group.experiment_type == "SAD"
 
 
 class DLSDispatcher(CommonService):
@@ -31,6 +30,36 @@ class DLSDispatcher(CommonService):
 
     # Logger name
     _logger_name = "dlstbx.services.dispatcher"
+
+    def filter_load_recipes_from_files(self, message, parameters):
+        """Load named recipes from central location and merge them into the recipe object"""
+        for recipefile in message.get("recipes", []):
+            try:
+                with open(
+                    os.path.join(self.recipe_basepath, recipefile + ".json"), "r"
+                ) as rcp:
+                    named_recipe = workflows.recipe.Recipe(recipe=rcp.read())
+            except ValueError:
+                raise ValueError(f"Error reading recipe {recipefile}")
+            except IOError as e:
+                if e.errno == errno.ENOENT:
+                    raise ValueError(
+                        f"Message references non-existing recipe {recipefile}. Recipe path is {self.recipe_basepath}",
+                    )
+                raise
+            try:
+                named_recipe.validate()
+            except workflows.Error as e:
+                raise ValueError(f"Named recipe {recipefile} failed validation. {e}")
+            named_recipe.apply_parameters(parameters)
+            message["recipe"] = message["recipe"].merge(named_recipe)
+        return message, parameters
+
+    def filter_apply_parameters(self, message, parameters):
+        """Fill in any placeholders in the recipe of the form {name} using the
+        parameters data structure"""
+        message["recipe"].apply_parameters(parameters)
+        return message, parameters
 
     def initializing(self):
         """Subscribe to the processing_recipe queue. Received messages must be acknowledged."""
@@ -57,6 +86,17 @@ class DLSDispatcher(CommonService):
                 "Logbook disabled: zocalo.dispatcher.logbook_location not defined"
             )
             self._logbook = None
+
+        self.message_filters = {
+            **{
+                f.name: f.load()
+                for f in pkg_resources.iter_entry_points(
+                    "zocalo.services.dispatcher.filters"
+                )
+            },
+            "load_recipes_from_files": self.filter_load_recipes_from_files,
+            "apply_parameters": self.filter_apply_parameters,
+        }
 
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -212,33 +252,45 @@ class DLSDispatcher(CommonService):
                         self._transport.nack(header)
                         return
 
-                try:
-                    message, parameters = dlstbx.ispybtbx.ispyb_filter(
-                        message, parameters, session
-                    )
-                except Exception as e:
-                    self.log.error(
-                        "Rejected message due to ISPyB filter error: %s",
-                        str(e),
-                        exc_info=True,
-                    )
-                    self._transport.nack(header)
-                    return
-            self.log.debug("Mangled processing request:\n" + str(message))
-            self.log.debug("Mangled processing parameters:\n" + str(parameters))
+                filtered_message = copy.deepcopy(message)
+                filtered_parameters = copy.deepcopy(parameters)
+
+                # Create empty recipe
+                filtered_message["recipe"] = workflows.recipe.Recipe()
+
+                # Apply all specified filters in order to message and parameters
+                for name, f in self.message_filters.items():
+                    try:
+                        filtered_message, filtered_parameters = f(
+                            filtered_message, filtered_parameters
+                        )
+                    except Exception as e:
+                        self.log.error(
+                            "Rejected message due to filter (%s) error: %s",
+                            name,
+                            str(e),
+                            exc_info=True,
+                        )
+                        self._transport.nack(header)
+                        return
+
+            self.log.debug("Mangled processing request:\n" + str(filtered_message))
+            self.log.debug(
+                "Mangled processing parameters:\n" + str(filtered_parameters)
+            )
 
             # Process message
             recipes = []
-            if message.get("custom_recipe"):
+            if filtered_message.get("custom_recipe"):
                 try:
                     recipes.append(
                         workflows.recipe.Recipe(
-                            recipe=json.dumps(message["custom_recipe"])
+                            recipe=json.dumps(filtered_message["custom_recipe"])
                         )
                     )
                     self.log.info(
                         "Received message containing a custom recipe: %s",
-                        message["custom_recipe"],
+                        filtered_message["custom_recipe"],
                     )
                 except Exception as e:
                     self.log.error(
@@ -248,8 +300,8 @@ class DLSDispatcher(CommonService):
                     )
                     self._transport.nack(header)
                     return
-            if message.get("recipes"):
-                for recipefile in message["recipes"]:
+            if filtered_message.get("recipes"):
+                for recipefile in filtered_message["recipes"]:
                     try:
                         with open(
                             os.path.join(self.recipe_basepath, recipefile + ".json"),
@@ -316,7 +368,9 @@ class DLSDispatcher(CommonService):
 
             # Write information to logbook if applicable
             if self._logbook:
-                self.record_to_logbook(recipe_id, header, original_message, message, rw)
+                self.record_to_logbook(
+                    recipe_id, header, original_message, filtered_message, rw
+                )
 
             # Commit transaction
             self._transport.transaction_commit(txn)

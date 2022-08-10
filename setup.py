@@ -240,6 +240,9 @@ setup(
         "zocalo.services.dispatcher.filters": [
             "ispyb = dlstbx.ispybtbx:ispyb_filter",
         ],
+        "zocalo.services.dispatcher.ready_for_processing": [
+            "ispyb = dlstbx.ispybtbx:ready_for_processing",
+        ],
         "zocalo.services.images.plugins": [
             "diffraction = dlstbx.services.images:diffraction",
             "thumbnail = dlstbx.services.images:thumbnail",

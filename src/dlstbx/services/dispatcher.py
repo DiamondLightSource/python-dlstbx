@@ -9,11 +9,8 @@ import time
 import timeit
 import uuid
 
-import ispyb.sqlalchemy
 import pkg_resources
-import sqlalchemy
 import workflows.recipe
-from sqlalchemy.orm import sessionmaker
 from workflows.services.common_service import CommonService
 
 
@@ -96,6 +93,13 @@ class DLSDispatcher(CommonService):
             },
             "load_recipes_from_files": self.filter_load_recipes_from_files,
             "apply_parameters": self.filter_apply_parameters,
+        }
+
+        self.ready_for_processing = {
+            f.name: f.load()
+            for f in pkg_resources.iter_entry_points(
+                "zocalo.services.dispatcher.ready_for_processing"
+            )
         }
 
         workflows.recipe.wrap_subscribe(
@@ -196,21 +200,9 @@ class DLSDispatcher(CommonService):
             self.log.debug("Received processing request:\n" + str(message))
             self.log.debug("Received processing parameters:\n" + str(parameters))
 
-            # At this point external helper functions should be called,
-            # eg. ISPyB database lookups
-            import dlstbx.ispybtbx
-
-            Session = sessionmaker(
-                bind=sqlalchemy.create_engine(
-                    ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
-                )
-            )
-            with Session() as session:
-
-                # Step 1: Check that parsing the message can proceed
-                if not dlstbx.ispybtbx.ready_for_processing(
-                    message, parameters, session
-                ):
+            # Step 1: Check that parsing the message can proceed
+            for name, ready_for_processing in self.ready_for_processing.items():
+                if not ready_for_processing(message, parameters):
                     # Message not yet cleared for processing
                     if "dispatcher_expiration" not in parameters:
                         parameters["dispatcher_expiration"] = time.time() + int(

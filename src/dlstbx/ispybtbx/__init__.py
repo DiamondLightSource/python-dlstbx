@@ -639,8 +639,14 @@ class ispybtbx:
         return crud.get_priority_processing_for_sample_id(sample_id, session)
 
 
-def ready_for_processing(message, parameters, session: sqlalchemy.orm.session.Session):
+def ready_for_processing(
+    message, parameters, session: sqlalchemy.orm.session.Session | None = None
+):
     """Check whether this message is ready for templatization."""
+
+    if session is None:
+        session = Session()
+
     if not parameters.get("ispyb_wait_for_runstatus"):
         return True
 
@@ -660,13 +666,7 @@ def ispyb_filter(
     """Do something to work out what to do with this data..."""
 
     if session is None:
-        import ispyb.sqlalchemy
-
-        session = sessionmaker(
-            bind=sqlalchemy.create_engine(
-                ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
-            )
-        )()
+        session = Session()
 
     i = ispybtbx()
 

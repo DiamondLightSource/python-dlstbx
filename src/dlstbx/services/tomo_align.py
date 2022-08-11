@@ -55,14 +55,14 @@ class TomoParameters(BaseModel):
     out_imod: int = None
     out_imod_xf: int = None
     dark_tol: int or str = None
+    #movie_uuid: int
 
 class TomoAlign(CommonService):
     """
     A service for grouping and aligning tomography tilt-series with Newstack and AreTomo
     """
 
-    # Required parameters: list of files, stack output file name (output file name will be used for both stages)
-    # Optional parameters:
+    # Required parameters: list of tuples with filename, tilt and uuid, stack output file name (output file name will be used for both stages)
 
     # Human readable service name
     _service_name = "DLS TomoAlign"
@@ -162,6 +162,23 @@ class TomoAlign(CommonService):
         # Forward results to ispyb
 
         ispyb_parameters = {}
+
+        ispyb_command_list = [{ "ispyb_command": "insert_tomogram",
+                                "volume_file": aretomo_output_file,
+                                "stack_file": tomo_params.stack_file}]
+        for item in tomo_params.input_file_list:
+            ispyb_command_list.append({ "ispyb_command": "buffer",
+                                         "buffer_lookup": {
+                                             "movie_id": item[2]  #movie_uuid
+                                         },
+                                         "buffer_command": {
+                                             "ispyb_command": "insert_tilt_image_alignment",
+                                             "tomogram_id": "$tomogram_id"
+                                         }})
+
+        ispyb_parameters.update({"ispyb_command": "multipart_message",
+                                 "ispyb_command_list": ispyb_command_list
+                                 })
         self.log.info("Sending to ispyb")
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",

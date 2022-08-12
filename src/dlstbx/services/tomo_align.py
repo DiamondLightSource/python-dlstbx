@@ -5,6 +5,8 @@ import workflows.recipe
 from pydantic import BaseModel, Field
 from workflows.services.common_service import CommonService
 from pydantic.error_wrappers import ValidationError
+from pathlib import Path
+import plotly.express as px
 
 # Possible parameters:
 # "input_file_list" Required
@@ -159,6 +161,65 @@ class TomoAlign(CommonService):
 
         # Extract results for ispyb
 
+        # Database fields
+
+        # Tomogram (one per-tilt-series)
+        #dataCollectionId=full_parameters("dcid"), # from Murfey
+        #autoProcProgramId=full_parameters("program_id"), # from Murfey
+        #volumeFile=full_parameters("volume_file"), # outmrc, from inputs
+        #stackFile=full_parameters("stack_file"), # inmrc, from inputs
+        #sizeX=full_parameters("size_x"), # volume image size, pix
+        #sizeY=full_parameters("size_y"), # volume image size, pix
+        #sizeZ=full_parameters("size_z"), # volume image size, pix or slices
+        #pixelSpacing=full_parameters("pixel_spacing"), # pixel size, from Murfey/inputs
+        #residualErrorMean=full_parameters("residual_error_mean"), # calculate from shifts in AreTomo output file?
+        #residualErrorSD=full_parameters("residual_error_sd"), # calculate from shifts in AreTomo output file?
+        #xAxisCorrection=full_parameters("x_axis_correction"), # TiltCor, from inputs
+        #tiltAngleOffset=full_parameters("tilt_angle_offset"), # from aretomo file, tilt offset
+        #zShift=full_parameters("z_shift") # VolZ, from inputs
+
+        # TiltImageAlignment (one per movie)
+        #movieId=full_parameters("movie_id"), # from Murfey
+        #tomogramId=full_parameters("tomogram_id"), # from recipe
+        #defocusU=full_parameters("defocus_u"), # don't do - in ctf
+        #defocusV=full_parameters("defocus_v"), # don't do - in ctf
+        #psdFile=full_parameters("psd_file"), # should be in ctf table but useful so we will insert
+        #resolution=full_parameters("resolution"), # don't do - in ctf
+        #fitQuality=full_parameters("fit_quality"), # don't do - in ctf
+        #refinedMagnification=full_parameters("refined_magnification"), # optional, pass
+        #refinedTiltAngle=full_parameters("refined_tilt_angle"), # from aretomo file, tilt angle per image
+        #refinedTiltAxis=full_parameters("refinedTiltAxis"), # seems like it should be per tomogram (one num), but is in the tiltimage table per
+        # image ??
+        #residualError=full_parameters("residual_error") # shift per image?
+
+        # Each movie in the stack
+        movie_list = [movie[0] for movie in tomo_params.input_file_list]
+        #mrc viewer for tomo_params.stack_file (newstack output)
+
+        # XY shift plot
+        tomo_xf_file = None
+        x_shift = []
+        y_shift = []
+        if tomo_params.out_imod_xf:
+            position_val = str(Path(tomo_params.input_file_list[0][0]).name).split('_')[1]
+            tomo_xf_files = list(Path(aretomo_output_file).parent.glob(".xf"))
+            for xffile in tomo_xf_files:
+                if position_val in str(xffile):
+                    tomo_xf_file = xffile
+            with open(tomo_xf_file) as f:
+                lines = f.readlines()
+                for line in lines:
+                    line_split = line.split()
+                    x_shift.append(float(line_split[4]))
+                    y_shift.append(float(line_split[5]))
+        fig = px.scatter(x=x_shift, y=y_shift)
+        plot_path = Path(tomo_params.stack_file).parent / "xy_shift_plot.json"
+        fig.write_json(plot_path)
+
+        # midpoint of aligned_filearetomo.mrc
+        #mrc viewer for aligned_filearetomo.mrc
+
+
         # Forward results to ispyb
 
         ispyb_parameters = {}
@@ -269,33 +330,4 @@ class TomoAlign(CommonService):
         self.log.info(f"Input stack: {tomo_parameters.stack_file} \nOutput file: {output_file}")
         result = procrunner.run(aretomo_cmd)
         return result
-
-        # Tomogram (one per-tilt-series)
-        #dataCollectionId=full_parameters("dcid"), # from Murfey
-        #autoProcProgramId=full_parameters("program_id"), # from Murfey
-        #volumeFile=full_parameters("volume_file"), # outmrc, from inputs
-        #stackFile=full_parameters("stack_file"), # inmrc, from inputs
-        #sizeX=full_parameters("size_x"), # volume image size, pix
-        #sizeY=full_parameters("size_y"), # volume image size, pix
-        #sizeZ=full_parameters("size_z"), # volume image size, pix or slices
-        #pixelSpacing=full_parameters("pixel_spacing"), # pixel size, from Murfey/inputs
-        #residualErrorMean=full_parameters("residual_error_mean"), # calculate from shifts in AreTomo output file?
-        #residualErrorSD=full_parameters("residual_error_sd"), # calculate from shifts in AreTomo output file?
-        #xAxisCorrection=full_parameters("x_axis_correction"), # TiltCor, from inputs
-        #tiltAngleOffset=full_parameters("tilt_angle_offset"), # from aretomo file, tilt offset
-        #zShift=full_parameters("z_shift") # VolZ, from inputs
-
-        # TiltImageAlignment (one per movie)
-        #movieId=full_parameters("movie_id"), # from Murfey
-        #tomogramId=full_parameters("tomogram_id"), # from recipe
-        #defocusU=full_parameters("defocus_u"), # don't do - in ctf
-        #defocusV=full_parameters("defocus_v"), # don't do - in ctf
-        #psdFile=full_parameters("psd_file"), # should be in ctf table but useful so we will insert
-        #resolution=full_parameters("resolution"), # don't do - in ctf
-        #fitQuality=full_parameters("fit_quality"), # don't do - in ctf
-        #refinedMagnification=full_parameters("refined_magnification"), # optional, pass
-        #refinedTiltAngle=full_parameters("refined_tilt_angle"), # from aretomo file, tilt angle per image
-        #refinedTiltAxis=full_parameters("refinedTiltAxis"), # seems like it should be per tomogram (one num), but is in the tiltimage table per
-        # image ??
-        #residualError=full_parameters("residual_error") # shift per image?
 

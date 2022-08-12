@@ -36,6 +36,8 @@ import plotly.express as px
 class TomoParameters(BaseModel):
     input_file_list: list
     stack_file: Field(..., min_length=1)
+    position: str = None
+    aretomo_output_file = None
     vol_z: int = 1200
     align: int = None
     out_bin: int = 4
@@ -72,6 +74,9 @@ class TomoAlign(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.tomo_align"
 
+    # Values to extract for ISPyB
+    plot_path = None
+
     def initializing(self):
         """Subscribe to a queue. Received messages must be acknowledged."""
         self.log.info("TomoAlign service starting")
@@ -83,6 +88,37 @@ class TomoAlign(CommonService):
             log_extender=self.extend_log,
             allow_non_recipe_messages=True,
         )
+
+    def parse_tomo_output(self, tomo_parameters):
+        # find 'tilt offset' -> tilt angle offset
+        # find 'rot centre z' -> Z shift
+        pass
+
+
+    def extract_from_xf(self, tomo_parameters):
+        tomo_xf_file = None
+        x_shift = []
+        y_shift = []
+        xf_files = list(Path(tomo_parameters.aretomo_output_file).parent.glob(".xf"))
+        for xf_file in xf_files:
+            if tomo_parameters.position in str(xf_file):
+                tomo_xf_file = xf_file
+        with open(tomo_xf_file) as f:
+            lines = f.readlines()
+            for line in lines:
+                line_split = line.split()
+                x_shift.append(float(line_split[4]))
+                y_shift.append(float(line_split[5]))
+        fig = px.scatter(x=x_shift, y=y_shift)
+        plot_path = Path(tomo_parameters.stack_file).parent / "xy_shift_plot.json"
+        fig.write_json(plot_path)
+        return plot_path
+
+    def extract_from_aln(self, tomo_parameters):
+        # “GMAG” column in .aln file
+        # “TILT” column in aretomo .aln file
+        # “ROT” column in .aln file
+        pass
 
     def tomo_align(self, rw, header: dict, message: dict):
         class RW_mock:
@@ -145,12 +181,14 @@ class TomoAlign(CommonService):
             rw.transport.nack(header)
             return
 
-        stack_filename_split = tomo_params.stack_file.split(".")
-        aretomo_output_file = (
-            stack_filename_split[0] + "aretomo." + stack_filename_split[1]
+        tomo_params.position = str(Path(tomo_params.input_file_list[0][0]).name).split('_')[1]
+
+        # this could be chanegd to something else
+        tomo_params.aretomo_output_file = (
+                tomo_params.stack_file.split(".")[0] + "aretomo." + tomo_params.stack_file.split(".")[1]
         )
 
-        aretomo_result = self.aretomo(aretomo_output_file, tomo_params)
+        aretomo_result = self.aretomo(tomo_params.aretomo_output_file, tomo_params)
 
         if aretomo_result.returncode:
             self.log.error(
@@ -159,87 +197,47 @@ class TomoAlign(CommonService):
             )
             return
 
+
         # Extract results for ispyb
 
-        # Database fields
-
-        # Tomogram (one per-tilt-series)
-        #dataCollectionId=full_parameters("dcid"), # from Murfey
-        #autoProcProgramId=full_parameters("program_id"), # from Murfey
-        #volumeFile=full_parameters("volume_file"), # outmrc, from inputs
-        #stackFile=full_parameters("stack_file"), # inmrc, from inputs
-        #sizeX=full_parameters("size_x"), # volume image size, pix
-        #sizeY=full_parameters("size_y"), # volume image size, pix
-        #sizeZ=full_parameters("size_z"), # volume image size, pix or slices
-        #pixelSpacing=full_parameters("pixel_spacing"), # pixel size, from Murfey/inputs
-        #residualErrorMean=full_parameters("residual_error_mean"), # calculate from shifts in AreTomo output file?
-        #residualErrorSD=full_parameters("residual_error_sd"), # calculate from shifts in AreTomo output file?
-        #xAxisCorrection=full_parameters("x_axis_correction"), # TiltCor, from inputs
-        #tiltAngleOffset=full_parameters("tilt_angle_offset"), # from aretomo file, tilt offset
-        #zShift=full_parameters("z_shift") # VolZ, from inputs
-
-        # TiltImageAlignment (one per movie)
-        #movieId=full_parameters("movie_id"), # from Murfey
-        #tomogramId=full_parameters("tomogram_id"), # from recipe
-        #defocusU=full_parameters("defocus_u"), # don't do - in ctf
-        #defocusV=full_parameters("defocus_v"), # don't do - in ctf
-        #psdFile=full_parameters("psd_file"), # should be in ctf table but useful so we will insert
-        #resolution=full_parameters("resolution"), # don't do - in ctf
-        #fitQuality=full_parameters("fit_quality"), # don't do - in ctf
-        #refinedMagnification=full_parameters("refined_magnification"), # optional, pass
-        #refinedTiltAngle=full_parameters("refined_tilt_angle"), # from aretomo file, tilt angle per image
-        #refinedTiltAxis=full_parameters("refinedTiltAxis"), # seems like it should be per tomogram (one num), but is in the tiltimage table per
-        # image ??
-        #residualError=full_parameters("residual_error") # shift per image?
-
-        # Each movie in the stack
-        movie_list = [movie[0] for movie in tomo_params.input_file_list]
-        #mrc viewer for tomo_params.stack_file (newstack output)
-
         # XY shift plot
-        tomo_xf_file = None
-        x_shift = []
-        y_shift = []
+        # Autoproc program attachment - plot
         if tomo_params.out_imod_xf:
-            position_val = str(Path(tomo_params.input_file_list[0][0]).name).split('_')[1]
-            tomo_xf_files = list(Path(aretomo_output_file).parent.glob(".xf"))
-            for xffile in tomo_xf_files:
-                if position_val in str(xffile):
-                    tomo_xf_file = xffile
-            with open(tomo_xf_file) as f:
-                lines = f.readlines()
-                for line in lines:
-                    line_split = line.split()
-                    x_shift.append(float(line_split[4]))
-                    y_shift.append(float(line_split[5]))
-        fig = px.scatter(x=x_shift, y=y_shift)
-        plot_path = Path(tomo_params.stack_file).parent / "xy_shift_plot.json"
-        fig.write_json(plot_path)
+            self.extract_from_xf(tomo_params)
 
-        # midpoint of aligned_filearetomo.mrc
-        #mrc viewer for aligned_filearetomo.mrc
+        self.extract_from_aln(tomo_params)
 
 
         # Forward results to ispyb
 
-        ispyb_parameters = {}
+        # Tomogram (one per-tilt-series)
+        ispyb_command_list = [{"ispyb_command": "insert_tomogram",
+                               "volume_file": tomo_params.aretomo_output_file,
+                               "stack_file": tomo_params.stack_file,
+                               "size_x": None, # volume image size, pix
+                               "size_y": None,
+                               "size_z": None,
+                               "pixel_spacing": tomo_params.pix_size,
+                               "tilt_angle_offset": None,
+                               "z_shift": None
+                            }]
+        # TiltImageAlignment (one per movie)
+        for movie in tomo_params.input_file_list:
+            ispyb_command_list.append({"ispyb_command": "buffer",
+                                     "buffer_lookup": {
+                                        "movie_id": movie[2]},  #movie_uuid
+                                     "buffer_command": {
+                                         "ispyb_command": "insert_tilt_image_alignment",
+                                         "psd_file": None, # should be in ctf table but useful, so we will insert
+                                         "refined_magnification": None,
+                                         "refined_tilt_angle": None,
+                                         "refined_tilt_axis": None,
+                                     }
+                                    })
 
-        ispyb_command_list = [{ "ispyb_command": "insert_tomogram",
-                                "volume_file": aretomo_output_file,
-                                "stack_file": tomo_params.stack_file}]
-        for item in tomo_params.input_file_list:
-            ispyb_command_list.append({ "ispyb_command": "buffer",
-                                         "buffer_lookup": {
-                                             "movie_id": item[2]  #movie_uuid
-                                         },
-                                         "buffer_command": {
-                                             "ispyb_command": "insert_tilt_image_alignment",
-                                             "tomogram_id": "$tomogram_id"
-                                         }})
-
-        ispyb_parameters.update({"ispyb_command": "multipart_message",
+        ispyb_parameters = {"ispyb_command": "multipart_message",
                                  "ispyb_command_list": ispyb_command_list
-                                 })
+                                 }
         self.log.info("Sending to ispyb")
         if isinstance(rw, RW_mock):
             rw.transport.send(destination="ispyb_connector",
@@ -328,6 +326,9 @@ class TomoAlign(CommonService):
 
         self.log.info("Running AreTomo")
         self.log.info(f"Input stack: {tomo_parameters.stack_file} \nOutput file: {output_file}")
-        result = procrunner.run(aretomo_cmd)
+        if tomo_parameters.tilt_cor:
+            callback = self.parse_tomo_output
+        else: callback = None
+        result = procrunner.run(command=aretomo_cmd, callback_stdout=callback)
         return result
 

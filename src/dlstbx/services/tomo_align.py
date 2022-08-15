@@ -76,6 +76,12 @@ class TomoAlign(CommonService):
 
     # Values to extract for ISPyB
     plot_path = None
+    refined_tilts = None
+    tilt_offset = None
+    rot_centre_z_list = []
+    rot_centre_z = None
+    rot = None
+    mag = None
 
     def initializing(self):
         """Subscribe to a queue. Received messages must be acknowledged."""
@@ -89,36 +95,38 @@ class TomoAlign(CommonService):
             allow_non_recipe_messages=True,
         )
 
-    def parse_tomo_output(self, tomo_parameters):
-        # find 'tilt offset' -> tilt angle offset
-        # find 'rot centre z' -> Z shift
-        pass
+    def parse_tomo_output(self, line):
+        if line.startswith("Rotation centre"):
+            self.rot_centre_z_list.append(line.split()[7])
+        if line.startswith("Tilt offset"):
+            self.tilt_offset = line.split()[2]
 
 
-    def extract_from_xf(self, tomo_parameters):
-        tomo_xf_file = None
+    def extract_from_aln(self, tomo_parameters):
+        tomo_aln_file = None
         x_shift = []
         y_shift = []
-        xf_files = list(Path(tomo_parameters.aretomo_output_file).parent.glob(".xf"))
-        for xf_file in xf_files:
-            if tomo_parameters.position in str(xf_file):
-                tomo_xf_file = xf_file
-        with open(tomo_xf_file) as f:
+        self.refined_tilts = []
+        aln_files = list(Path(tomo_parameters.aretomo_output_file).parent.glob(".aln"))
+        for aln_file in aln_files:
+            if tomo_parameters.position in str(aln_file):
+                tomo_aln_file = aln_file
+        with open(tomo_aln_file) as f:
             lines = f.readlines()
             for line in lines:
-                line_split = line.split()
-                x_shift.append(float(line_split[4]))
-                y_shift.append(float(line_split[5]))
+                if not line.startswith("#"):
+                    line_split = line.split()
+                    if rot is None:
+                        rot = float(line_split[1])
+                    if mag is None:
+                        mag = float(line_split[2])
+                    x_shift.append(float(line_split[3]))
+                    y_shift.append(float(line_split[4]))
+                    self.refined_tilts.append(float(line_split[9]))
         fig = px.scatter(x=x_shift, y=y_shift)
         plot_path = Path(tomo_parameters.stack_file).parent / "xy_shift_plot.json"
         fig.write_json(plot_path)
         return plot_path
-
-    def extract_from_aln(self, tomo_parameters):
-        # “GMAG” column in .aln file
-        # “TILT” column in aretomo .aln file
-        # “ROT” column in .aln file
-        pass
 
     def tomo_align(self, rw, header: dict, message: dict):
         class RW_mock:
@@ -172,6 +180,9 @@ class TomoAlign(CommonService):
             )
             rw.transport.nack(header)
 
+        def tilt(file_tuple):
+            return float(file_tuple[2])
+        tomo_params.input_file_list.sort(key=tilt)
         newstack_result = self.newstack(tomo_params)
         if newstack_result.returncode:
             self.log.error(
@@ -183,7 +194,7 @@ class TomoAlign(CommonService):
 
         tomo_params.position = str(Path(tomo_params.input_file_list[0][0]).name).split('_')[1]
 
-        # this could be chanegd to something else
+        # this could be changed to something else
         tomo_params.aretomo_output_file = (
                 tomo_params.stack_file.split(".")[0] + "aretomo." + tomo_params.stack_file.split(".")[1]
         )
@@ -202,11 +213,8 @@ class TomoAlign(CommonService):
 
         # XY shift plot
         # Autoproc program attachment - plot
-        if tomo_params.out_imod_xf:
-            self.extract_from_xf(tomo_params)
-
         self.extract_from_aln(tomo_params)
-
+        self.rot_centre_z = self.rot_centre_z_list[-1]
 
         # Forward results to ispyb
 
@@ -218,8 +226,8 @@ class TomoAlign(CommonService):
                                "size_y": None,
                                "size_z": None,
                                "pixel_spacing": tomo_params.pix_size,
-                               "tilt_angle_offset": None,
-                               "z_shift": None
+                               "tilt_angle_offset": self.tilt_offset,
+                               "z_shift": self.rot_centre_z
                             }]
         # TiltImageAlignment (one per movie)
         for movie in tomo_params.input_file_list:
@@ -229,9 +237,9 @@ class TomoAlign(CommonService):
                                      "buffer_command": {
                                          "ispyb_command": "insert_tilt_image_alignment",
                                          "psd_file": None, # should be in ctf table but useful, so we will insert
-                                         "refined_magnification": None,
-                                         "refined_tilt_angle": None,
-                                         "refined_tilt_axis": None,
+                                         "refined_magnification": self.mag,
+                                         "refined_tilt_angle": self.refined_tilts[tomo_params.input_file_list.index(movie)],
+                                         "refined_tilt_axis": self.rot,
                                      }
                                     })
 
@@ -251,14 +259,9 @@ class TomoAlign(CommonService):
 
     def newstack(self, tomo_parameters):
         """
-        Sort images by tilt angle
         Construct file containing a list of files
         Run newstack
         """
-
-        def tilt(file_tuple):
-            return float(file_tuple[2])
-        tomo_parameters.input_file_list.sort(key=tilt)
 
         # Write a file with a list of .mrcs for input to Newstack
         with open("newstack-fileinlist.txt", "w") as f:

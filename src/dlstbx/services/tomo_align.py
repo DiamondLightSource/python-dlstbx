@@ -35,13 +35,13 @@ import plotly.express as px
 
 class TomoParameters(BaseModel):
     input_file_list: list
-    stack_file: Field(..., min_length=1)
+    stack_file: str = Field(..., min_length=1)
     position: str = None
-    aretomo_output_file = None
+    aretomo_output_file: str = None
     vol_z: int = 1200
     align: int = None
     out_bin: int = 4
-    tilt_range: tuple = (None, None)
+    tilt_range: tuple = ()
     tilt_axis: float = None
     tilt_cor: int = None
     flip_int: int = None
@@ -107,19 +107,23 @@ class TomoAlign(CommonService):
         x_shift = []
         y_shift = []
         self.refined_tilts = []
-        aln_files = list(Path(tomo_parameters.aretomo_output_file).parent.glob(".aln"))
-        for aln_file in aln_files:
-            if tomo_parameters.position in str(aln_file):
-                tomo_aln_file = aln_file
+        aln_files = list(Path(tomo_parameters.aretomo_output_file).parent.glob("*.aln"))
+
+        if len(aln_files) != 1:
+            for aln_file in aln_files:
+                if tomo_parameters.position in str(aln_file):
+                    tomo_aln_file = aln_file
+        else:
+            tomo_aln_file = aln_files[0]
         with open(tomo_aln_file) as f:
             lines = f.readlines()
             for line in lines:
                 if not line.startswith("#"):
                     line_split = line.split()
-                    if rot is None:
-                        rot = float(line_split[1])
-                    if mag is None:
-                        mag = float(line_split[2])
+                    if self.rot is None:
+                        self.rot = float(line_split[1])
+                    if self.mag is None:
+                        self.mag = float(line_split[2])
                     x_shift.append(float(line_split[3]))
                     y_shift.append(float(line_split[4]))
                     self.refined_tilts.append(float(line_split[9]))
@@ -158,12 +162,17 @@ class TomoAlign(CommonService):
             message = message["content"]
 
         try:
-            tomo_params = TomoParameters(
-                **{**rw.recipe_step.get("parameters", {}), **message}
-            )
-        except (ValidationError, TypeError):
+            if isinstance(message, dict):
+                tomo_params = TomoParameters(
+                    **{**rw.recipe_step.get("parameters", {}), **message}
+                )
+            else:
+                tomo_params = TomoParameters(
+                    **{**rw.recipe_step.get("parameters", {})}
+                )
+        except (ValidationError, TypeError) as e:
             self.log.warning(
-                f"TomoAlign parameter validation failed for message: {message} and recipe parameters: {rw.recipe_step.get('parameters', {})}"
+                f"{e} TomoAlign parameter validation failed for message: {message} and recipe parameters: {rw.recipe_step.get('parameters', {})}"
             )
             rw.transport.nack(header)
             return
@@ -195,7 +204,7 @@ class TomoAlign(CommonService):
         tomo_params.position = str(Path(tomo_params.input_file_list[0][0]).name).split('_')[1]
 
         # this could be changed to something else
-        tomo_params.aretomo_output_file = (
+        tomo_params.aretomo_output_file = str(
                 tomo_params.stack_file.split(".")[0] + "aretomo." + tomo_params.stack_file.split(".")[1]
         )
 
@@ -214,7 +223,8 @@ class TomoAlign(CommonService):
         # XY shift plot
         # Autoproc program attachment - plot
         self.extract_from_aln(tomo_params)
-        self.rot_centre_z = self.rot_centre_z_list[-1]
+        if tomo_params.tilt_cor:
+            self.rot_centre_z = self.rot_centre_z_list[-1]
 
         # Forward results to ispyb
 
@@ -246,16 +256,16 @@ class TomoAlign(CommonService):
         ispyb_parameters = {"ispyb_command": "multipart_message",
                                  "ispyb_command_list": ispyb_command_list
                                  }
-        self.log.info("Sending to ispyb")
-        if isinstance(rw, RW_mock):
-            rw.transport.send(destination="ispyb_connector",
-                              message={
-                                  "parameters": ispyb_parameters,
-                                  "content": {"dummy": "dummy"},
-                              },)
-        else:
-            rw.send_to("ispyb", ispyb_parameters)
-        rw.transport.ack(header)
+        self.log.info(f"Sending to ispyb {ispyb_parameters}")
+        #if isinstance(rw, RW_mock):
+        #    rw.transport.send(destination="ispyb_connector",
+        #                      message={
+        #                          "parameters": ispyb_parameters,
+        #                          "content": {"dummy": "dummy"},
+        #                      },)
+        #else:
+        #    rw.send_to("ispyb", ispyb_parameters)
+        #rw.transport.ack(header)
 
     def newstack(self, tomo_parameters):
         """
@@ -292,9 +302,9 @@ class TomoAlign(CommonService):
             "-OutMrc",
             output_file,
             "-VolZ",
-            tomo_parameters.vol_z,
+            str(tomo_parameters.vol_z),
             "-OutBin",
-            tomo_parameters.out_bin
+            str(tomo_parameters.out_bin)
         ]
 
         # Required parameters

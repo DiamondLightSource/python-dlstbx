@@ -9,6 +9,163 @@ import sqlalchemy.orm
 from dlstbx import schemas
 
 
+def get_data_collection(
+    dcid: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.DataCollection | None:
+    query = session.query(models.DataCollection).filter(
+        models.DataCollection.dataCollectionId == dcid
+    )
+    return query.first()
+
+
+def get_gridinfo_for_dcid(
+    dcid: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.GridInfo | None:
+    query = session.query(models.GridInfo).filter(
+        models.GridInfo.dataCollectionId == dcid
+    )
+    return query.first()
+
+
+def get_blsession_for_dcid(
+    dcid: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.BLSession | None:
+    query = (
+        session.query(models.BLSession)
+        .join(models.DataCollectionGroup)
+        .join(models.DataCollection)
+        .filter(models.DataCollection.dataCollectionId == dcid)
+    )
+    return query.first()
+
+
+def get_dcids_for_sample_id(
+    sample_id: int, session: sqlalchemy.orm.session.Session
+) -> list[int]:
+    query = (
+        session.query(models.DataCollection.dataCollectionId)
+        .join(models.DataCollectionGroup)
+        .filter(models.DataCollectionGroup.blSampleId == sample_id)
+        .order_by(models.DataCollection.dataCollectionId)
+    )
+    return [r.dataCollectionId for r in query.all()]
+
+
+def get_dcids_for_data_collection_group(
+    dcgid: int, session: sqlalchemy.orm.session.Session
+) -> list[int]:
+    query = session.query(models.DataCollection.dataCollectionId).filter(
+        models.DataCollection.dataCollectionGroupId == dcgid,
+    )
+    return [r.dataCollectionId for r in query.all()]
+
+
+def get_dcids_for_same_directory(
+    dcid: int, session: sqlalchemy.orm.session.Session
+) -> list[int]:
+    dc1 = sqlalchemy.orm.aliased(models.DataCollection)
+    dc2 = sqlalchemy.orm.aliased(models.DataCollection)
+    query = (
+        session.query(dc2.dataCollectionId)
+        .join(
+            dc1,
+            (dc1.imageDirectory == dc2.imageDirectory)
+            & (dc1.dataCollectionId != dc2.dataCollectionId)
+            & (dc1.imageDirectory is not None),
+        )
+        .filter(dc1.dataCollectionId == dcid)
+    )
+    return [r.dataCollectionId for r in query.all()]
+
+
+def get_diffraction_plan_for_dcid(
+    dcid: int, session: sqlalchemy.orm.session.Session
+) -> models.DiffractionPlan | None:
+    query = (
+        session.query(models.DiffractionPlan)
+        .join(models.BLSample)
+        .join(models.DataCollectionGroup)
+        .join(models.DataCollection)
+        .filter(models.DataCollection.dataCollectionId == dcid)
+    )
+    return query.first()
+
+
+def get_crystal_for_dcid(
+    dcid: int, session: sqlalchemy.orm.session.Session
+) -> models.Crystal | None:
+    query = (
+        session.query(models.Crystal)
+        .join(models.BLSample)
+        .join(models.DataCollectionGroup)
+        .join(models.DataCollection)
+        .filter(models.DataCollection.dataCollectionId == dcid)
+    )
+    return query.first()
+
+
+def get_protein_for_dcid(
+    dcid: int, session: sqlalchemy.orm.session.Session
+) -> models.Protein | None:
+    query = (
+        session.query(models.Protein)
+        .join(models.Crystal)
+        .join(models.BLSample)
+        .join(models.DataCollectionGroup)
+        .join(models.DataCollection)
+        .filter(models.DataCollection.dataCollectionId == dcid)
+    )
+    return query.first()
+
+
+def get_priority_processing_for_sample_id(
+    sample_id: int, session: sqlalchemy.orm.session.Session
+) -> str | None:
+    query = (
+        session.query(models.ProcessingPipeline.name)
+        .join(models.Container)
+        .join(models.BLSample)
+        .filter(models.BLSample.blSampleId == sample_id)
+    )
+    pipeline = query.first()
+    if pipeline:
+        return pipeline.name
+    return None
+
+
+def get_detector(
+    detector_id: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.Detector | None:
+    query = session.query(models.Detector).filter(
+        models.Detector.detectorId == detector_id
+    )
+    return query.first()
+
+
+def get_blsample(
+    sample_id: int,
+    session: sqlalchemy.orm.session.Session,
+) -> models.BLSample | None:
+    query = session.query(models.BLSample).filter(
+        models.BLSample.blSampleId == sample_id
+    )
+    return query.first()
+
+
+def get_run_status_for_dcid(
+    dcid: int,
+    session: sqlalchemy.orm.session.Session,
+) -> str | None:
+    query = session.query(models.DataCollection.runStatus).filter(
+        models.DataCollection.dataCollectionId == dcid
+    )
+    return query.scalar()
+
+
 def get_auto_proc_program(
     auto_proc_program_id: int,
     session: sqlalchemy.orm.session.Session,

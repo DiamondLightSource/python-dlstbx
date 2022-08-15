@@ -106,7 +106,7 @@ service_list = [
     "DLSCluster = dlstbx.services.cluster:DLSCluster",
     "DLSClusterMonitor = dlstbx.services.cluster_monitor:DLSClusterMonitor",
     "DLSController = dlstbx.services.controller:DLSController",
-    "DLSDispatcher = dlstbx.services.dispatcher:DLSDispatcher",
+    "DLSDispatcher = dlstbx.services.dispatcher:Dispatcher",
     "DLSDropfilePickup = dlstbx.services.dropfile_pickup:DLSDropfilePickup",
     "DLSFileWatcher = dlstbx.services.filewatcher:DLSFileWatcher",
     "DLSISPyB = dlstbx.services.ispybsvc:DLSISPyB",
@@ -237,6 +237,12 @@ setup(
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.health_checks": sorted(health_checks),
+        "zocalo.services.dispatcher.filters": [
+            "ispyb = dlstbx.ispybtbx:ispyb_filter",
+        ],
+        "zocalo.services.dispatcher.ready_for_processing": [
+            "ispyb = dlstbx.ispybtbx:ready_for_processing",
+        ],
         "zocalo.services.images.plugins": [
             "diffraction = dlstbx.services.images:diffraction",
             "thumbnail = dlstbx.services.images:thumbnail",

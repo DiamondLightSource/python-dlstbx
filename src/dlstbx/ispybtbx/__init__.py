@@ -15,7 +15,9 @@ import marshmallow.fields
 import sqlalchemy
 import yaml
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from sqlalchemy.orm import Load, aliased, joinedload, selectinload, sessionmaker
+from sqlalchemy.orm import aliased, selectinload, sessionmaker
+
+from dlstbx import crud
 
 logger = logging.getLogger("dlstbx.ispybtbx")
 
@@ -172,80 +174,45 @@ class ispybtbx:
 
         return message, parameters
 
-    def get_gridscan_info(self, dc_info, session: sqlalchemy.orm.session.Session):
+    def get_gridscan_info(self, dcid: int, session: sqlalchemy.orm.session.Session):
         """Extract GridInfo table contents for a DC group ID."""
-        dcid = dc_info.get("dataCollectionId")
-        dcgid = dc_info.get("dataCollectionGroupId")
-        query = session.query(isa.GridInfo).filter(
-            (isa.GridInfo.dataCollectionId == dcid)
-            | (isa.GridInfo.dataCollectionGroupId == dcgid)
-        )
-        gridinfo = query.first()
+        gridinfo = crud.get_gridinfo_for_dcid(dcid, session)
         if not gridinfo:
             return {}
         schema = isa.GridInfo.__marshmallow__()
         return schema.dump(gridinfo)
 
-    def get_dc_info(self, dc_id, session: sqlalchemy.orm.session.Session):
-        query = session.query(isa.DataCollection).filter(
-            isa.DataCollection.dataCollectionId == dc_id
-        )
-        dc = query.first()
+    def get_dc_info(self, dcid: int, session: sqlalchemy.orm.session.Session):
+        dc = crud.get_data_collection(dcid, session)
         if dc is None:
             return {}
         schema = isa.DataCollection.__marshmallow__()
         return schema.dump(dc)
 
-    def get_beamline_from_dcid(self, dc_id, session: sqlalchemy.orm.session.Session):
-        query = (
-            session.query(isa.BLSession)
-            .join(
-                isa.DataCollection,
-                isa.DataCollection.SESSIONID == isa.BLSession.sessionId,
-            )
-            .filter(isa.DataCollection.dataCollectionId == dc_id)
-        )
-        bs = query.first()
-        if bs:
+    def get_beamline_from_dcid(
+        self, dcid: int, session: sqlalchemy.orm.session.Session
+    ):
+        if bs := crud.get_blsession_for_dcid(dcid, session):
             return bs.beamLineName
 
     def dc_info_to_detectorclass(
         self, dc_info, session: sqlalchemy.orm.session.Session
     ):
-        dcid = dc_info.get("dataCollectionId")
-        if not dcid:
-            return None
-        query = (
-            session.query(isa.DataCollection)
-            .filter_by(dataCollectionId=dcid)
-            .options(
-                Load(isa.DataCollection).load_only("fileTemplate"),
-                joinedload(isa.DataCollection.Detector),
-            )
-        )
-        dc = query.first()
-        if dc and dc.Detector:
-            if dc.Detector.detectorModel.lower().startswith("eiger"):
+        det_id = dc_info.get("detectorId")
+        if det_id is not None and (det := crud.get_detector(det_id, session)):
+            if det.detectorModel.lower().startswith("eiger"):
                 return "eiger"
-            elif dc.Detector.detectorModel.lower().startswith("pilatus"):
+            elif det.detectorModel.lower().startswith("pilatus"):
                 return "pilatus"
 
         # Fallback on examining the file extension if nothing recorded in ISPyB
-        template = dc.fileTemplate
+        template = dc_info.get("fileTemplate")
         if not template:
             return None
         if template.endswith("master.h5"):
             return "eiger"
         elif template.endswith(".cbf"):
             return "pilatus"
-
-    def get_related_dcs(self, group, session: sqlalchemy.orm.session.Session):
-        query = (
-            session.query(isa.DataCollection.dataCollectionId)
-            .join(isa.DataCollectionGroup)
-            .filter(isa.DataCollectionGroup.dataCollectionGroupId == group)
-        )
-        return list(itertools.chain.from_iterable(query.all()))
 
     def get_sample_group_dcids(
         self,
@@ -336,68 +303,36 @@ class ispybtbx:
                 )
         return related_dcids
 
-    def get_sample_dcids(self, ispyb_info, session: sqlalchemy.orm.session.Session):
-        dcid = ispyb_info.get("ispyb_dcid")
-        sample_id = ispyb_info["ispyb_dc_info"].get("BLSAMPLEID")
-        if not dcid or not sample_id:
+    def get_sample_dcids(self, sample_id, session: sqlalchemy.orm.session.Session):
+        if not sample_id:
             return None
-
-        this_sample = aliased(isa.BLSample, name="this_sample")
-        other_sample = aliased(isa.BLSample)
-        query = (
-            session.query(this_sample, isa.DataCollection.dataCollectionId)
-            .join(
-                other_sample,
-                other_sample.blSampleId == this_sample.blSampleId,
-            )
-            .join(
-                isa.DataCollection,
-                isa.DataCollection.BLSAMPLEID == other_sample.blSampleId,
-            )
-            .filter(other_sample.blSampleId == sample_id)
-        )
-        results = query.all()
-        if results:
-            sample = results[0].this_sample
+        dcids = crud.get_dcids_for_sample_id(sample_id, session)
+        if dcids:
+            sample = crud.get_blsample(sample_id, session)
             related_dcids = {
-                "dcids": [row.dataCollectionId for row in results],
-                "sample_id": sample.blSampleId,
-                "name": sample.name,
+                "dcids": dcids,
+                "sample_id": sample_id,
+                "name": sample.name if sample else None,
             }
-            logger.debug(f"dcids defined via BLSample for dcid={dcid}: {related_dcids}")
+            logger.debug(
+                f"dcids defined via BLSample for {sample_id=}: {related_dcids}"
+            )
             return related_dcids
 
     def get_related_dcids_same_directory(
-        self, ispyb_info, session: sqlalchemy.orm.session.Session
+        self, dcid: int, session: sqlalchemy.orm.session.Session
     ):
-        dcid = ispyb_info.get("ispyb_dcid")
-        if not dcid:
-            return None
+        if dcid:
+            return {"dcids": crud.get_dcids_for_same_directory(dcid, session)}
 
-        dc1 = aliased(isa.DataCollection)
-        dc2 = aliased(isa.DataCollection)
-        query = (
-            session.query(dc2.dataCollectionId)
-            .join(
-                dc1,
-                (dc1.imageDirectory == dc2.imageDirectory)
-                & (dc1.dataCollectionId != dc2.dataCollectionId)
-                & (dc1.imageDirectory is not None),
-            )
-            .filter(dc1.dataCollectionId == dcid)
-        )
-        return {"dcids": list(itertools.chain.from_iterable(query.all()))}
-
-    def get_dcg_dcids(self, dc_info, session: sqlalchemy.orm.session.Session):
-        dcid = dc_info.get("dataCollectionId")
-        dcgid = dc_info.get("dataCollectionGroupId")
-        if not dcgid:
-            return
-        query = session.query(isa.DataCollection.dataCollectionId).filter(
-            isa.DataCollection.dataCollectionGroupId == dcgid,
-            isa.DataCollection.dataCollectionId != dcid,
-        )
-        return list(itertools.chain.from_iterable(query.all()))
+    def get_dcg_dcids(
+        self, dcid: int, dcgid: int, session: sqlalchemy.orm.session.Session
+    ):
+        return [
+            dcid_
+            for dcid_ in crud.get_dcids_for_data_collection_group(dcgid, session)
+            if dcid_ != dcid
+        ]
 
     def get_dcg_experiment_type(
         self, dcgid: int, session: sqlalchemy.orm.session.Session
@@ -410,18 +345,9 @@ class ispybtbx:
         return query.one()[0]
 
     def get_space_group_and_unit_cell(
-        self, dcid, session: sqlalchemy.orm.session.Session
+        self, dcid: int, session: sqlalchemy.orm.session.Session
     ):
-        query = (
-            session.query(isa.Crystal)
-            .join(isa.BLSample)
-            .join(
-                isa.DataCollection,
-                isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
-            )
-            .filter(isa.DataCollection.dataCollectionId == dcid)
-        )
-        c = query.first()
+        c = crud.get_crystal_for_dcid(dcid, session)
         if not c or not c.spaceGroup:
             return "", False
         proto_cell = (
@@ -527,19 +453,8 @@ class ispybtbx:
             res = {}
         return res
 
-    def get_protein_from_dcid(self, dcid, session: sqlalchemy.orm.session.Session):
-        query = (
-            session.query(isa.Protein)
-            .join(isa.Crystal)
-            .join(isa.BLSample)
-            .join(
-                isa.DataCollection,
-                isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
-            )
-            .filter(isa.DataCollection.dataCollectionId == dcid)
-        )
-        protein = query.first()
-        if protein:
+    def get_protein_from_dcid(self, dcid: int, session: sqlalchemy.orm.session.Session):
+        if protein := crud.get_protein_for_dcid(dcid, session):
             schema = isa.Protein.__marshmallow__(exclude=("externalId",))
             # XXX case sensitive? proteinid, proteintype
             return schema.dump(protein)
@@ -711,42 +626,27 @@ class ispybtbx:
         return os.path.join(visit, "processed", rest, collection_path, dc_info["uuid"])
 
     def get_diffractionplan_from_dcid(
-        self, dcid, session: sqlalchemy.orm.session.Session
+        self, dcid: int, session: sqlalchemy.orm.session.Session
     ):
-        query = (
-            session.query(isa.DiffractionPlan)
-            .join(isa.BLSample)
-            .join(
-                isa.DataCollection,
-                isa.DataCollection.BLSAMPLEID == isa.BLSample.blSampleId,
-            )
-            .filter(isa.DataCollection.dataCollectionId == dcid)
-        )
-        dp = query.first()
-        if dp:
+        if dp := crud.get_diffraction_plan_for_dcid(dcid, session):
             # XXX case sensitive?
             schema = isa.DiffractionPlan.__marshmallow__()
             return schema.dump(dp)
 
     def get_priority_processing_for_dc_info(
-        self, dc_info, session: sqlalchemy.orm.session.Session
+        self, sample_id: int, session: sqlalchemy.orm.session.Session
     ):
-        blsampleid = dc_info.get("BLSAMPLEID")
-        if not blsampleid:
-            return None
-        query = (
-            session.query(isa.ProcessingPipeline.name)
-            .join(isa.Container)
-            .join(isa.BLSample)
-            .filter(isa.BLSample.blSampleId == blsampleid)
-        )
-        pipeline = query.first()
-        if pipeline:
-            return pipeline.name
+        return crud.get_priority_processing_for_sample_id(sample_id, session)
 
 
-def ready_for_processing(message, parameters, session: sqlalchemy.orm.session.Session):
+def ready_for_processing(
+    message, parameters, session: sqlalchemy.orm.session.Session | None = None
+):
     """Check whether this message is ready for templatization."""
+
+    if session is None:
+        session = Session()
+
     if not parameters.get("ispyb_wait_for_runstatus"):
         return True
 
@@ -754,16 +654,19 @@ def ready_for_processing(message, parameters, session: sqlalchemy.orm.session.Se
     if not dcid:
         return True
 
-    query = session.query(isa.DataCollection.runStatus).filter(
-        isa.DataCollection.dataCollectionId == dcid
-    )
-    return query.one().runStatus is not None
+    return crud.get_run_status_for_dcid(dcid, session) is not None
 
 
 def ispyb_filter(
-    message, parameters, session: sqlalchemy.orm.session.Session, io_timeout: float = 10
+    message,
+    parameters,
+    session: sqlalchemy.orm.session.Session | None = None,
+    io_timeout: float = 10,
 ):
     """Do something to work out what to do with this data..."""
+
+    if session is None:
+        session = Session()
 
     i = ispybtbx()
 
@@ -786,7 +689,9 @@ def ispyb_filter(
         parameters["ispyb_preferred_datacentre"] = "cluster"
     parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info, session)
     parameters["ispyb_dc_info"] = dc_info
-    parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(dc_info, session)
+    parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(
+        dc_info.get("dataCollectionId"), session
+    )
     parameters["ispyb_dcg_experiment_type"] = i.get_dcg_experiment_type(
         dc_info.get("dataCollectionGroupId"), session
     )
@@ -799,7 +704,8 @@ def ispyb_filter(
     energy_scan_info = i.get_energy_scan_from_dcid(dc_id, session)
     parameters["ispyb_energy_scan_info"] = energy_scan_info
     start, end = i.dc_info_to_start_end(dc_info)
-    priority_processing = i.get_priority_processing_for_dc_info(dc_info, session)
+    sample_id = parameters["ispyb_dc_info"].get("BLSAMPLEID")
+    priority_processing = crud.get_priority_processing_for_sample_id(sample_id, session)
     if not priority_processing:
         priority_processing = "xia2/DIALS"
     parameters["ispyb_preferred_processing"] = priority_processing
@@ -872,16 +778,20 @@ def ispyb_filter(
     parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(
         parameters, session, io_timeout=io_timeout
     )
+    related_dcids = None
     if parameters["ispyb_dc_info"].get("BLSAMPLEID"):
         # if a sample is linked to the dc, then get dcids on the same sample
-        related_dcids = i.get_sample_dcids(parameters, session)
-    else:
+        sample_id = parameters["ispyb_dc_info"].get("BLSAMPLEID")
+        related_dcids = i.get_sample_dcids(sample_id, session)
+    elif dcid := parameters.get("ispyb_dcid"):
         # else get dcids collected into the same image directory
-        related_dcids = i.get_related_dcids_same_directory(parameters, session)
+        related_dcids = i.get_related_dcids_same_directory(dcid, session)
     if related_dcids:
         parameters["ispyb_related_dcids"].append(related_dcids)
     logger.debug(f"ispyb_related_dcids: {parameters['ispyb_related_dcids']}")
-    parameters["ispyb_dcg_dcids"] = i.get_dcg_dcids(dc_info, session)
+    parameters["ispyb_dcg_dcids"] = i.get_dcg_dcids(
+        dc_info.get("dataCollectionId"), dc_info.get("dataCollectionGroupId"), session
+    )
 
     if (
         "ispyb_processing_job" in parameters
@@ -908,8 +818,8 @@ def ispyb_filter(
     # beware if other projects start using this directory structure will
     # need to be smarter here...
 
-    if dc_info["dataCollectionGroupId"]:
-        related_dcs = i.get_related_dcs(dc_info["dataCollectionGroupId"], session)
+    if dcgid := dc_info["dataCollectionGroupId"]:
+        related_dcs = crud.get_dcids_for_data_collection_group(dcgid, session)
         if parameters["ispyb_image_directory"].startswith("/dls/mx"):
             related = []
         else:

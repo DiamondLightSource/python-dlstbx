@@ -5,6 +5,72 @@ import datetime
 from dlstbx import crud, schemas
 
 
+def test_get_data_collection(db_session):
+    dcid = 993677
+    dc = crud.get_data_collection(dcid, db_session)
+    assert dc.dataCollectionId == dcid
+
+
+def test_get_gridinfo_for_dcid(db_session):
+    dcid = 6017405
+    gi = crud.get_gridinfo_for_dcid(dcid, db_session)
+    assert gi.dataCollectionId == dcid
+
+
+def test_get_blsession_for_dcid(db_session):
+    dcid = 993677
+    bs = crud.get_blsession_for_dcid(dcid, db_session)
+    assert bs.beamLineName == "i03"
+
+
+def test_get_detector(db_session):
+    det = crud.get_detector(4, db_session)
+    assert det.detectorModel == "Excalibur"
+
+
+def test_get_blsample(db_session):
+    sample = crud.get_blsample(398827, db_session)
+    assert sample.name == "XPDF-2"
+
+
+def test_get_dcids_for_sample_id(db_session):
+    assert crud.get_dcids_for_sample_id(374695, db_session) == [993677, 6017405]
+
+
+def test_get_dcids_for_same_directory(db_session):
+    assert crud.get_dcids_for_same_directory(1052494, db_session) == [1052503]
+
+
+def test_get_dcids_for_data_collection_group(db_session):
+    assert crud.get_dcids_for_data_collection_group(5441022, db_session) == [6017688]
+
+
+def test_get_diffraction_plan_for_dcid(db_session):
+    plan = crud.get_diffraction_plan_for_dcid(1066786, db_session)
+    assert plan.experimentKind == "OSC"
+    assert plan.exposureTime == 0.2
+
+
+def test_get_crystal_for_dcid(db_session):
+    crystal = crud.get_crystal_for_dcid(1066786, db_session)
+    assert crystal.spaceGroup == "P41212"
+
+
+def test_get_protein_for_dcid(db_session):
+    protein = crud.get_protein_for_dcid(6017405, db_session)
+    assert protein.name == "therm"
+
+
+def test_get_priority_processing_for_sample_id(db_session):
+    assert crud.get_priority_processing_for_sample_id(398827, db_session) is None
+
+
+def test_get_run_status_for_dcid(db_session):
+    assert (
+        crud.get_run_status_for_dcid(6017405, db_session) == "DataCollection Successful"
+    )
+
+
 def test_insert_dimple_results(db_session):
     mxmrrun = schemas.MXMRRun(
         auto_proc_scaling_id=596133,

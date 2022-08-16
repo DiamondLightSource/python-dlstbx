@@ -56,7 +56,7 @@ class MotionCorrParameters(BaseModel):
     flip_gain: int = None
     dark: str = None
     use_gpus: int = None
-    sum_range: tuple = (None, None)
+    sum_range: tuple = ()
     iter: int = None
     tol: float = None
     throw: int = None
@@ -65,13 +65,13 @@ class MotionCorrParameters(BaseModel):
     kv: int = None
     fm_dose: float = None
     fm_int_file: str = None
-    mag: tuple = (None, None, None)
+    mag: tuple = ()
     ft_bin: float = None
     serial: int = None
     in_suffix: str = None
     eer_sampling: int = None
     out_stack: int = None
-    bft: tuple = (None, None)
+    bft: tuple = ()
     group: int = None
     detect_file: str = None
     arc_dir: str = None
@@ -145,9 +145,14 @@ class MotionCorr(CommonService):
         command = ["MotionCor2"]
 
         try:
-            mc_params = MotionCorrParameters(
-                **{**rw.recipe_step.get("parameters", {}), **message}
-            )
+            if isinstance(message, dict):
+                mc_params = MotionCorrParameters(
+                    **{**rw.recipe_step.get("parameters", {}), **message}
+                )
+            else:
+                mc_params = MotionCorrParameters(
+                    **{**rw.recipe_step.get("parameters", {})}
+                )
         except (ValidationError, TypeError):
             self.log.warning(
                 f"Motion correction parameter validation failed for message: {message} and recipe parameters: {rw.recipe_step.get('parameters', {})}"

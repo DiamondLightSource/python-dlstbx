@@ -190,7 +190,7 @@ class TomoAlign(CommonService):
             rw.transport.nack(header)
 
         def tilt(file_tuple):
-            return float(file_tuple[2])
+            return float(file_tuple[1])
         tomo_params.input_file_list.sort(key=tilt)
         newstack_result = self.newstack(tomo_params)
         if newstack_result.returncode:

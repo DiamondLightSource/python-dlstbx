@@ -422,10 +422,6 @@ class FileWatcher(CommonService):
             # watch for. Bail out early and only notify on 'finally'.
             if filecount == 1:
                 self.log.debug("Empty list encountered")
-                txn = rw.transport.transaction_begin(
-                    subscription_id=header["subscription"]
-                )
-                rw.transport.ack(header, transaction=txn)
                 rw.send_to(
                     "finally",
                     {"files-expected": 0, "files-seen": 0, "success": True},

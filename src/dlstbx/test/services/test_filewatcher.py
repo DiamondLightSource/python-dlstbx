@@ -86,7 +86,7 @@ def test_filewatcher_watch_pattern(mocker, tmp_path):
                 {
                     "file": str(image),
                     "file-number": i + 1,
-                    "file-pattern-index": image_ids[i],
+                    "file-index": image_ids[i],
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -98,7 +98,7 @@ def test_filewatcher_watch_pattern(mocker, tmp_path):
                     {
                         "file": str(image),
                         "file-number": i + 1,
-                        "file-pattern-index": image_ids[i],
+                        "file-index": image_ids[i],
                         "file-seen-at": mock.ANY,
                     },
                     transaction=mock.ANY,
@@ -108,7 +108,7 @@ def test_filewatcher_watch_pattern(mocker, tmp_path):
                     {
                         "file": str(image),
                         "file-number": i + 1,
-                        "file-pattern-index": image_ids[i],
+                        "file-index": image_ids[i],
                         "file-seen-at": mock.ANY,
                     },
                     transaction=mock.ANY,
@@ -118,7 +118,7 @@ def test_filewatcher_watch_pattern(mocker, tmp_path):
                     {
                         "file": str(image),
                         "file-number": i + 1,
-                        "file-pattern-index": image_ids[i],
+                        "file-index": image_ids[i],
                         "file-seen-at": mock.ANY,
                     },
                     transaction=mock.ANY,
@@ -133,7 +133,7 @@ def test_filewatcher_watch_pattern(mocker, tmp_path):
                 {
                     "file": str(images[-1]),
                     "file-number": len(images),
-                    "file-pattern-index": image_ids[-1],
+                    "file-index": image_ids[-1],
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -195,7 +195,7 @@ def test_filewatcher_watch_list(mocker, tmp_path):
                 "first",
                 {
                     "file": str(f),
-                    "file-list-index": i + 1,
+                    "file-index": i + 1,
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -206,7 +206,7 @@ def test_filewatcher_watch_list(mocker, tmp_path):
                     "every",
                     {
                         "file": str(f),
-                        "file-list-index": i + 1,
+                        "file-index": i + 1,
                         "file-seen-at": mock.ANY,
                     },
                     transaction=mock.ANY,
@@ -215,7 +215,7 @@ def test_filewatcher_watch_list(mocker, tmp_path):
                     i + 1,
                     {
                         "file": str(f),
-                        "file-list-index": i + 1,
+                        "file-index": i + 1,
                         "file-seen-at": mock.ANY,
                     },
                     transaction=mock.ANY,
@@ -224,7 +224,7 @@ def test_filewatcher_watch_list(mocker, tmp_path):
                     f"{i + 1}",
                     {
                         "file": str(f),
-                        "file-list-index": i + 1,
+                        "file-index": i + 1,
                         "file-seen-at": mock.ANY,
                     },
                     transaction=mock.ANY,
@@ -238,7 +238,7 @@ def test_filewatcher_watch_list(mocker, tmp_path):
                 "last",
                 {
                     "file": str(files[-1]),
-                    "file-list-index": len(files),
+                    "file-index": len(files),
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -298,7 +298,7 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmp_path):
                 {
                     "file": str(images[0]),
                     "file-number": 1,
-                    "file-pattern-index": 1,
+                    "file-index": 1,
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -308,7 +308,7 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmp_path):
                 {
                     "file": str(images[0]),
                     "file-number": 1,
-                    "file-pattern-index": 1,
+                    "file-index": 1,
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -318,7 +318,7 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmp_path):
                 {
                     "file": str(images[0]),
                     "file-number": 1,
-                    "file-pattern-index": 1,
+                    "file-index": 1,
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -328,7 +328,7 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmp_path):
                 {
                     "file": str(images[0]),
                     "file-number": 1,
-                    "file-pattern-index": 1,
+                    "file-index": 1,
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -345,8 +345,8 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmp_path):
                 "timeout",
                 {
                     "file": str(images[1]),
-                    "file-number": 2,
-                    "file-pattern-index": 2,
+                    # "file-number": 2,
+                    "file-index": 2,
                     "success": False,
                 },
                 transaction=mock.ANY,
@@ -393,7 +393,7 @@ def test_filewatcher_watch_list_timeout(mocker, tmp_path):
                 "first",
                 {
                     "file": str(files[0]),
-                    "file-list-index": 1,
+                    "file-index": 1,
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -402,7 +402,7 @@ def test_filewatcher_watch_list_timeout(mocker, tmp_path):
                 "every",
                 {
                     "file": str(files[0]),
-                    "file-list-index": 1,
+                    "file-index": 1,
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -411,7 +411,7 @@ def test_filewatcher_watch_list_timeout(mocker, tmp_path):
                 1,
                 {
                     "file": str(files[0]),
-                    "file-list-index": 1,
+                    "file-index": 1,
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -420,7 +420,7 @@ def test_filewatcher_watch_list_timeout(mocker, tmp_path):
                 "1",
                 {
                     "file": str(files[0]),
-                    "file-list-index": 1,
+                    "file-index": 1,
                     "file-seen-at": mock.ANY,
                 },
                 transaction=mock.ANY,
@@ -434,7 +434,7 @@ def test_filewatcher_watch_list_timeout(mocker, tmp_path):
         [
             mock.call(
                 "timeout",
-                {"file": str(files[1]), "file-list-index": 2, "success": False},
+                {"file": str(files[1]), "file-index": 2, "success": False},
                 transaction=mock.ANY,
             ),
             mock.call(
@@ -560,12 +560,12 @@ def test_filewatcher_watch_swmr(mocker, tmp_path):
     send_to.assert_any_call(
         "first",
         {
-            "hdf5": master_h5,
-            "hdf5-index": 0,
+            # "hdf5": master_h5,
+            "file-index": 0,
             "file": master_h5,
             "file-number": 1,
             "file-seen-at": mock.ANY,
-            "parameters": {"scan_range": "1,1"},
+            # "parameters": {"scan_range": "1,1"},
         },
         transaction=mocker.ANY,
     )
@@ -575,36 +575,36 @@ def test_filewatcher_watch_swmr(mocker, tmp_path):
                 mocker.call(
                     i + 1,
                     {
-                        "hdf5": master_h5,
-                        "hdf5-index": i,
+                        # "hdf5": master_h5,
+                        "file-index": i,
                         "file": master_h5,
                         "file-number": i + 1,
                         "file-seen-at": mock.ANY,
-                        "parameters": {"scan_range": f"{i+1},{i+1}"},
+                        # "parameters": {"scan_range": f"{i+1},{i+1}"},
                     },
                     transaction=mocker.ANY,
                 ),
                 mocker.call(
                     f"{i+1}",
                     {
-                        "hdf5": master_h5,
-                        "hdf5-index": i,
+                        # "hdf5": master_h5,
+                        "file-index": i,
                         "file": master_h5,
                         "file-number": i + 1,
                         "file-seen-at": mock.ANY,
-                        "parameters": {"scan_range": f"{i+1},{i+1}"},
+                        # "parameters": {"scan_range": f"{i+1},{i+1}"},
                     },
                     transaction=mocker.ANY,
                 ),
                 mocker.call(
                     "every",
                     {
-                        "hdf5": master_h5,
-                        "hdf5-index": i,
+                        # "hdf5": master_h5,
+                        "file-index": i,
                         "file": master_h5,
                         "file-number": i + 1,
                         "file-seen-at": mock.ANY,
-                        "parameters": {"scan_range": f"{i+1},{i+1}"},
+                        # "parameters": {"scan_range": f"{i+1},{i+1}"},
                     },
                     transaction=mocker.ANY,
                 ),
@@ -616,23 +616,23 @@ def test_filewatcher_watch_swmr(mocker, tmp_path):
             mocker.call(
                 "last",
                 {
-                    "hdf5": master_h5,
-                    "hdf5-index": 99,
+                    # "hdf5": master_h5,
+                    "file-index": 99,
                     "file": master_h5,
                     "file-number": i + 1,
                     "file-seen-at": mock.ANY,
-                    "parameters": {"scan_range": "100,100"},
+                    # "parameters": {"scan_range": "100,100"},
                 },
                 transaction=mocker.ANY,
             ),
             mocker.call(
                 "any",
-                {"images-expected": 100, "images-seen": 100},
+                {"files-expected": 100, "files-seen": 100},
                 transaction=mocker.ANY,
             ),
             mocker.call(
                 "finally",
-                {"images-expected": 100, "images-seen": 100, "success": True},
+                {"files-expected": 100, "files-seen": 100, "success": True},
                 transaction=mocker.ANY,
             ),
         ],
@@ -642,12 +642,12 @@ def test_filewatcher_watch_swmr(mocker, tmp_path):
         send_to.assert_any_call(
             "select-10",
             {
-                "hdf5": master_h5,
-                "hdf5-index": i,
+                # "hdf5": master_h5,
+                "file-index": i,
                 "file": master_h5,
                 "file-number": i + 1,
                 "file-seen-at": mock.ANY,
-                "parameters": {"scan_range": f"{i+1},{i+1}"},
+                # "parameters": {"scan_range": f"{i+1},{i+1}"},
             },
             transaction=mocker.ANY,
         )
@@ -686,12 +686,12 @@ def test_filewatcher_watch_swmr_timeout(mocker, tmp_path):
         [
             mocker.call(
                 "timeout",
-                {"file": master_h5, "hdf5-index": 0, "success": False},
+                {"file": master_h5, "file-index": 0, "success": False},
                 transaction=mocker.ANY,
             ),
             mocker.call(
                 "finally",
-                {"images-expected": None, "images-seen": 0, "success": False},
+                {"files-expected": None, "files-seen": 0, "success": False},
                 transaction=mocker.ANY,
             ),
         ],
@@ -708,12 +708,12 @@ def test_filewatcher_watch_swmr_timeout(mocker, tmp_path):
         [
             mocker.call(
                 "timeout",
-                {"file": master_h5, "hdf5-index": 0, "success": False},
+                {"file": master_h5, "file-index": 0, "success": False},
                 transaction=mocker.ANY,
             ),
             mocker.call(
                 "finally",
-                {"images-expected": 4, "images-seen": 0, "success": False},
+                {"files-expected": 4, "files-seen": 0, "success": False},
                 transaction=mocker.ANY,
             ),
         ]
@@ -723,7 +723,7 @@ def test_filewatcher_watch_swmr_timeout(mocker, tmp_path):
 def test_filewatcher_watch_swmr_h5py_error(mocker, tmp_path, caplog):
     # Test that the filewatcher gracefully handles errors reading h5py files
     h5_prefix = tmp_path / "foo"
-    master_h5 = os.fspath(h5_prefix) + "_master.h5"
+    master_h5 = h5_prefix.with_name(h5_prefix.name + "_master.h5")
 
     mock_transport = mocker.Mock()
     filewatcher = DLSFileWatcher()
@@ -732,7 +732,7 @@ def test_filewatcher_watch_swmr_h5py_error(mocker, tmp_path, caplog):
     t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)
     m = generate_recipe_message(
         parameters={
-            "hdf5": master_h5,
+            "hdf5": os.fspath(master_h5),
         },
         output={},
     )
@@ -741,8 +741,7 @@ def test_filewatcher_watch_swmr_h5py_error(mocker, tmp_path, caplog):
         "subscription": mock.sentinel,
     }
     rw = RecipeWrapper(message=m, transport=t)
-    with open(master_h5, "w") as fh:
-        fh.write("content")
+    master_h5.write_text("content")
     filewatcher.watch_files(rw, header, mocker.sentinel.message)
     assert f"Error reading {master_h5}" in caplog.text
     t.nack.assert_called_once()
@@ -803,9 +802,8 @@ def test_filewatcher_watch_swmr_h5py_known_errors(exception, mocker, tmp_path, c
     checkpoint.assert_any_call(
         {
             "filewatcher-status": {
-                "seen-images": 0,
+                "seen-files": 0,
                 "start-time": mock.ANY,
-                "image-count": None,
             }
         },
         delay=1,
@@ -829,9 +827,8 @@ def test_filewatcher_watch_swmr_h5py_known_errors(exception, mocker, tmp_path, c
     checkpoint.assert_any_call(
         {
             "filewatcher-status": {
-                "seen-images": 0,
+                "seen-files": 0,
                 "start-time": mock.ANY,
-                "image-count": None,
             }
         },
         delay=1,

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import abc
 import contextlib
+import logging
 import os
 import time
+from collections.abc import Iterable
+from typing import Any
 
 import h5py
 import workflows.recipe
@@ -77,6 +81,172 @@ class _Profiler:
             return None
 
 
+class Watcher(abc.ABC):
+    @abc.abstractmethod
+    def __init__(self, parameters: dict, logger: logging.Logger):
+        pass
+
+    @abc.abstractmethod
+    def watch(self, start: int) -> Iterable[dict[str, Any]]:
+        pass
+
+
+class FileListWatcher(Watcher):
+    """
+    Watch for a given list of files.
+    """
+
+    def __init__(self, parameters: dict, **kwargs):
+        self.filelist = parameters["list"]
+        self.filecount = len(self.filelist)
+        self.burst_limit = int(parameters.get("burst-limit", 100))
+
+    def watch(self, start: int) -> Iterable[dict[str, Any]]:
+        for i in range(start, min(start + self.burst_limit, self.filecount)):
+            filename = self.filelist[i]
+            file_seen_at = (
+                time.time() if filename and os.path.isfile(filename) else None
+            )
+
+            yield {
+                "file": filename,
+                # "file-number": i + 1,
+                "file-index": i + 1,
+                "file-seen-at": file_seen_at,
+            }
+            if not file_seen_at:
+                # exit generator early
+                return
+
+
+class FilePatternWatcher(Watcher):
+    """
+    Watch for files where the names follow a linear numeric pattern.
+
+    E.g. "template%05d.cbf" with indices 0 to 1800.
+    """
+
+    def __init__(self, parameters: dict, **kwargs):
+
+        # List files to wait for
+        self.pattern = parameters["pattern"]
+        self.pattern_start = int(parameters["pattern-start"])
+        self.filecount = int(parameters["pattern-end"]) - self.pattern_start + 1
+        self.burst_limit = int(parameters.get("burst-limit", 100))
+
+        # Sanity check received message
+        try:
+            self.pattern % 0
+        except TypeError as e:
+            raise RuntimeError(
+                f"Rejecting message with non-conforming pattern string: {self.pattern}"
+            ) from e
+
+    def watch(self, start: int) -> Iterable[dict[str, Any]]:
+        for i in range(start, min(start + self.burst_limit, self.filecount)):
+            filename = self.pattern % (self.pattern_start + i)
+            file_seen_at = (
+                time.time() if filename and os.path.isfile(filename) else None
+            )
+
+            yield {
+                "file": filename,
+                "file-number": i + 1,
+                "file-index": self.pattern_start + i,
+                "file-seen-at": file_seen_at,
+            }
+            if not file_seen_at:
+                # exit generator early
+                return
+
+
+class SwmrWatcher(Watcher):
+    """
+    Watch for hdf5 files written in SWMR mode.
+
+    This will examine the hdf5 master file to determine the number of images
+    to watch for, and then look to see whether each image has been written
+    to file.
+    """
+
+    def __init__(self, parameters: dict, *, log: logging.Logger, **kwargs):
+        self.file_handles: dict[str, h5py.File] = {}
+        self.log = log
+
+        # List files to wait for
+        self.hdf5 = parameters["hdf5"]
+
+        self.filecount = None
+        if os.path.isfile(self.hdf5):
+            try:
+                with h5py.File(self.hdf5, mode="r", swmr=True) as f:
+                    d = f["/entry/data/data"]
+                    self.dataset_files, self.file_map = h5check.get_real_frames(f, d)
+                    self.filecount = len(self.file_map)
+            except Exception as e:
+                if not is_known_hdf5_exception(e):
+                    raise RuntimeError(f"Error reading {self.hdf5}") from e
+                # For some reason this means that the .nxs file is probably
+                # still being written to, so quietly log the message and
+                # continue, leading to the message being resubmitted for
+                # another round of processing
+                self.log.info(f"Error reading {self.hdf5}", exc_info=True)
+
+        self.burst_limit = int(parameters.get("burst-limit", 100))
+
+    def watch(self, start: int) -> Iterable[dict[str, Any]]:
+        if self.filecount is None:
+            yield {
+                "file": self.hdf5,
+                "file-number": 1,
+                "file-index": 0,
+                "file-seen-at": None,
+            }
+            # exit generator early
+            return
+
+        for i in range(start, min(start + self.burst_limit, self.filecount)):
+            m, frame = self.file_map[start]
+            h5_data_file, dsetname = self.dataset_files[m]
+
+            file_seen_at = None
+            if os.path.isfile(h5_data_file):
+                try:
+                    if h5_data_file not in self.file_handles:
+                        self.file_handles[h5_data_file] = h5py.File(
+                            h5_data_file, mode="r", swmr=True
+                        )
+                    h5_file = self.file_handles[h5_data_file]
+                    dataset = h5_file[dsetname]
+                    dataset.id.refresh()
+                    s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
+                    if s.size > 0:
+                        file_seen_at = time.time()
+                except Exception as e:
+                    if not is_known_hdf5_exception(e):
+                        raise RuntimeError(f"Error reading {h5_data_file}") from e
+                    # For some reason this means that the .nxs file is probably
+                    # still being written to, so quietly log the message and
+                    # break, leading to the message being resubmitted for
+                    # another round of processing
+                    self.log.info(f"Error reading {h5_data_file}", exc_info=True)
+
+            yield {
+                "file": self.hdf5,
+                "file-number": i + 1,
+                "file-index": i,
+                "file-seen-at": file_seen_at,
+            }
+            if not file_seen_at:
+                # exit generator early
+                return
+
+    def __del__(self):
+        # Clean up file handles
+        for f in self.file_handles.values():
+            f.close()
+
+
 class DLSFileWatcher(CommonService):
     """
     A service that waits for files to arrive on disk and notifies interested
@@ -102,18 +272,6 @@ class DLSFileWatcher(CommonService):
             acknowledgement=True,
             log_extender=self.extend_log,
         )
-
-    def watch_files(self, rw, header, message):
-        """Check for presence of files."""
-        if rw.recipe_step["parameters"].get("pattern"):
-            self.watch_files_pattern(rw, header, message)
-        elif rw.recipe_step["parameters"].get("list") is not None:
-            self.watch_files_list(rw, header, message)
-        elif rw.recipe_step["parameters"].get("hdf5") is not None:
-            self.watch_files_swmr(rw, header, message)
-        else:
-            self.log.error("Rejecting message with unknown watch target")
-            rw.transport.nack(header)
 
     @staticmethod
     def _parse_everys(outputs):
@@ -188,32 +346,37 @@ class DLSFileWatcher(CommonService):
             if (nth_file - 1) % m == 0:
                 notify_function(dest)
 
-    def watch_files_list(self, rw, header, message):
-        """
-        Watch for a given list of files.
-        """
+    def watch_files(self, rw, header, message):
+        """Check for presence of files."""
+
+        watchers = {
+            "pattern": FilePatternWatcher,
+            "list": FileListWatcher,
+            "hdf5": SwmrWatcher,
+        }
+
+        for name in watchers:
+            if rw.recipe_step["parameters"].get(name):
+                watcher_class = watchers[name]
+                break
+        else:
+            self.log.error("Rejecting message with unknown watch target")
+            rw.transport.nack(header)
+
         # Check if message body contains partial results from a previous run
         status = {"seen-files": 0, "start-time": time.time()}
         if isinstance(message, dict):
             status.update(message.get("filewatcher-status", {}))
 
-        # List files to wait for
-        filelist = rw.recipe_step["parameters"]["list"]
-        filecount = len(filelist)
-
-        # If the only entry in the list is 'None' then there are no files to
-        # watch for. Bail out early and only notify on 'finally'.
-        if filecount == 1 and filelist[0] is None:
-            self.log.debug("Empty list encountered")
-            txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
-            rw.transport.ack(header, transaction=txn)
-            rw.send_to(
-                "finally",
-                {"files-expected": 0, "files-seen": 0, "success": True},
-                transaction=txn,
-            )
-            rw.transport.transaction_commit(txn)
+        try:
+            watcher = watcher_class(rw.recipe_step["parameters"], log=self.log)
+        except Exception as e:
+            self.log.error(e, exc_info=True)
+            rw.transport.nack(header)
             return
+        if watcher.filecount is None:
+            pass
+        filecount = watcher.filecount
 
         # Identify everys ('every-N' targets) to notify for
         everys = self._parse_everys(rw.recipe_step["output"])
@@ -230,71 +393,50 @@ class DLSFileWatcher(CommonService):
 
         # Look for files
         files_found = 0
-        while (
-            status["seen-files"] < filecount
-            and files_found < rw.recipe_step["parameters"].get("burst-limit", 100)
-            and filelist[status["seen-files"]]
-        ):
-            with os_stat_profiler.record():
-                if not os.path.isfile(filelist[status["seen-files"]]):
+        try:
+            for file_watcher_info in watcher.watch(status["seen-files"]):
+
+                if file_watcher_info["file-seen-at"] is None:
                     break
 
-            files_found += 1
-            status["seen-files"] += 1
+                files_found += 1
+                status["seen-files"] += 1
 
-            def notify_function(output):
-                rw.send_to(
-                    output,
-                    {
-                        "file": filelist[status["seen-files"] - 1],
-                        "file-list-index": status["seen-files"],
-                        "file-seen-at": time.time(),
-                    },
-                    transaction=txn,
+                def notify_function(output):
+                    rw.send_to(
+                        output,
+                        file_watcher_info,
+                        transaction=txn,
+                    )
+
+                self._notify_for_found_file(
+                    status["seen-files"], filecount, selections, everys, notify_function
                 )
-
-            self._notify_for_found_file(
-                status["seen-files"], filecount, selections, everys, notify_function
-            )
-
-        # Are we done?
-        if status["seen-files"] == filecount:
-            # Happy days
-
-            self.log.info(
-                "All %d files in list found after %.1f seconds.",
-                filecount,
-                time.time() - status["start-time"],
-                extra={
-                    "stat-time-max": os_stat_profiler.max,
-                    "stat-time-mean": os_stat_profiler.mean,
-                },
-            )
-
-            rw.send_to(
-                "any",
-                {"files-expected": filecount, "files-seen": status["seen-files"]},
-                transaction=txn,
-            )
-            rw.send_to(
-                "finally",
-                {
-                    "files-expected": filecount,
-                    "files-seen": status["seen-files"],
-                    "success": True,
-                },
-                transaction=txn,
-            )
-
-            rw.transport.transaction_commit(txn)
+        except Exception as e:
+            self.log.error(e, exc_info=True)
+            rw.transport.nack(header)
             return
 
-        if not filelist[status["seen-files"]]:
-            # 'None' value or empty string encountered. Stop watching here.
+        if not file_watcher_info["file"]:
+            # If the only entry in the list is 'None' then there are no files to
+            # watch for. Bail out early and only notify on 'finally'.
+            if filecount == 1:
+                self.log.debug("Empty list encountered")
+                txn = rw.transport.transaction_begin(
+                    subscription_id=header["subscription"]
+                )
+                rw.transport.ack(header, transaction=txn)
+                rw.send_to(
+                    "finally",
+                    {"files-expected": 0, "files-seen": 0, "success": True},
+                    transaction=txn,
+                )
+                rw.transport.transaction_commit(txn)
+                return
 
             self.log.info(
                 "Filewatcher stopped after encountering empty value at position %d after %.1f seconds",
-                status["seen-files"] + 1,
+                file_watcher_info["file-index"],
                 time.time() - status["start-time"],
             )
 
@@ -302,8 +444,8 @@ class DLSFileWatcher(CommonService):
             rw.send_to(
                 "error",
                 {
-                    "file": filelist[status["seen-files"]],
-                    "file-list-index": status["seen-files"] + 1,
+                    "file": file_watcher_info["file"],
+                    "file-index": status["seen-files"] + 1,
                     "success": False,
                 },
                 transaction=txn,
@@ -331,225 +473,18 @@ class DLSFileWatcher(CommonService):
             rw.transport.transaction_commit(txn)
             return
 
-        message_delay = rw.recipe_step["parameters"].get("burst-wait")
-        if files_found == 0:
-            # If no files were found, check timeout conditions.
-            if status["seen-files"] == 0:
-                # For first file: relevant timeout is 'timeout-first', with fallback 'timeout', with fallback 1 hour
-                timeout = rw.recipe_step["parameters"].get(
-                    "timeout-first", rw.recipe_step["parameters"].get("timeout", 3600)
-                )
-                timed_out = (status["start-time"] + timeout) < time.time()
-            else:
-                # For subsequent files: relevant timeout is 'timeout', with fallback 1 hour
-                timeout = rw.recipe_step["parameters"].get("timeout", 3600)
-                timed_out = (status["last-seen"] + timeout) < time.time()
-            if timed_out:
-                # File watch operation has timed out.
-
-                # Report all timeouts as warnings unless the recipe specifies otherwise
-                timeoutlog = self.log.warning
-                if rw.recipe_step["parameters"].get("log-timeout-as-info"):
-                    timeoutlog = self.log.info
-
-                timeoutlog(
-                    "Filewatcher for file %s timed out after %.1f seconds (%d of %d files found, nothing seen for %.1f seconds)",
-                    filelist[status["seen-files"]],
-                    time.time() - status["start-time"],
-                    status["seen-files"],
-                    filecount,
-                    time.time() - status.get("last-seen", status["start-time"]),
-                    extra={
-                        "stat-time-max": os_stat_profiler.max,
-                        "stat-time-mean": os_stat_profiler.mean,
-                    },
-                )
-
-                # Notify for timeout
-                rw.send_to(
-                    "timeout",
-                    {
-                        "file": filelist[status["seen-files"]],
-                        "file-list-index": status["seen-files"] + 1,
-                        "success": False,
-                    },
-                    transaction=txn,
-                )
-                # Notify for 'any' target if any file was seen
-                if status["seen-files"]:
-                    rw.send_to(
-                        "any",
-                        {
-                            "files-expected": filecount,
-                            "files-seen": status["seen-files"],
-                        },
-                        transaction=txn,
-                    )
-
-                # Notify for 'finally' outcome
-                rw.send_to(
-                    "finally",
-                    {
-                        "files-expected": filecount,
-                        "files-seen": status["seen-files"],
-                        "success": False,
-                    },
-                    transaction=txn,
-                )
-                # Stop processing message
-                rw.transport.transaction_commit(txn)
-                return
-
-            # If no timeouts are triggered, set a minimum waiting time.
-            if message_delay:
-                message_delay = max(1, message_delay)
-            else:
-                message_delay = 1
-            self.log.debug(
-                (
-                    "No further files in list found after a total time of {time:.1f} seconds\n"
-                    "{files_seen} of {files_total} files seen so far"
-                ).format(
-                    time=time.time() - status["start-time"],
-                    files_seen=status["seen-files"],
-                    files_total=filecount,
-                ),
-                extra={
-                    "stat-time-max": os_stat_profiler.max,
-                    "stat-time-mean": os_stat_profiler.mean,
-                },
-            )
-        else:
-            # Otherwise note last time progress was made
-            status["last-seen"] = time.time()
-            self.log.info(
-                "%d files with list indices %d-%d (out of %d) found within %.1f seconds",
-                files_found,
-                status["seen-files"] - files_found + 1,
-                status["seen-files"],
-                filecount,
-                time.time() - status["start-time"],
-                extra={
-                    "stat-time-max": os_stat_profiler.max,
-                    "stat-time-mean": os_stat_profiler.mean,
-                },
-            )
-
-        # Send results to myself for next round of processing
-        rw.checkpoint(
-            {"filewatcher-status": status}, delay=message_delay, transaction=txn
-        )
-        rw.transport.transaction_commit(txn)
-
-    def watch_files_pattern(self, rw, header, message):
-        """
-        Watch for files where the names follow a linear numeric pattern,
-        eg. "template%05d.cbf" with indices 0 to 1800.
-        """
-        # Check if message body contains partial results from a previous run
-        status = {"seen-files": 0, "start-time": time.time()}
-        if isinstance(message, dict):
-            status.update(message.get("filewatcher-status", {}))
-
-        # List files to wait for
-        pattern = rw.recipe_step["parameters"]["pattern"]
-        pattern_start = int(rw.recipe_step["parameters"]["pattern-start"])
-        filecount = int(rw.recipe_step["parameters"]["pattern-end"]) - pattern_start + 1
-
-        # Sanity check received message
-        try:
-            pattern % 0
-        except TypeError:
-            self.log.error(
-                "Rejecting message with non-conforming pattern string: %s", pattern
-            )
-            rw.transport.nack(header)
-            return
-
-        # Identify everys ('every-N' targets) to notify for
-        everys = self._parse_everys(rw.recipe_step["output"])
-
-        # Identify selections ('select-N' targets) to notify for
-        selections = self._parse_selections(rw.recipe_step["output"])
-
-        # Conditionally acknowledge receipt of the message
-        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
-        rw.transport.ack(header, transaction=txn)
-
-        # Keep a record of os.stat timings
-        os_stat_profiler = _Profiler()
-
-        # Look for files
-        files_found = 0
-        while status["seen-files"] < filecount and files_found < rw.recipe_step[
-            "parameters"
-        ].get("burst-limit", 100):
-            filename = pattern % (pattern_start + status["seen-files"])
-            with os_stat_profiler.record():
-                if not os.path.isfile(filename):
-                    break
-
-            files_found += 1
-            status["seen-files"] += 1
-
-            def notify_function(output):
-                rw.send_to(
-                    output,
-                    {
-                        "file": filename,
-                        "file-number": status["seen-files"],
-                        "file-pattern-index": pattern_start + status["seen-files"] - 1,
-                        "file-seen-at": time.time(),
-                    },
-                    transaction=txn,
-                )
-
-            self._notify_for_found_file(
-                status["seen-files"], filecount, selections, everys, notify_function
-            )
-
         # Are we done?
         if status["seen-files"] == filecount:
             # Happy days
 
-            self.log.debug(
-                "%d files found for %s with indices %d-%d (all %d files found)",
-                files_found,
-                pattern,
-                pattern_start + status["seen-files"] - files_found,
-                pattern_start + status["seen-files"] - 1,
-                filecount,
-            )
-
-            extra_log = {
-                "delay": time.time() - status["start-time"],
-                "stat-time-max": os_stat_profiler.max,
-                "stat-time-mean": os_stat_profiler.mean,
-            }
-            if rw.recipe_step["parameters"].get("expected-per-image-delay"):
-                # Estimate unexpected delay
-                try:
-                    expected_delay = (
-                        float(rw.recipe_step["parameters"]["expected-per-image-delay"])
-                        * filecount
-                    )
-                except ValueError:
-                    # in case the field contains "None" or equivalent un-floatable nonsense
-                    self.log.warning(
-                        "Ignored invalid expected-per-image-delay value (%r)",
-                        rw.recipe_step["parameters"]["expected-per-image-delay"],
-                    )
-                else:
-                    extra_log["unexpected_delay"] = max(
-                        0, extra_log["delay"] - expected_delay
-                    )
-
             self.log.info(
-                "All %d files found for %s after %.1f seconds.",
+                "All %d files found after %.1f seconds.",
                 filecount,
-                rw.recipe_step["parameters"]["pattern"],
                 time.time() - status["start-time"],
-                extra=extra_log,
+                extra={
+                    "stat-time-max": os_stat_profiler.max,
+                    "stat-time-mean": os_stat_profiler.mean,
+                },
             )
 
             rw.send_to(
@@ -592,10 +527,12 @@ class DLSFileWatcher(CommonService):
                     timeoutlog = self.log.info
 
                 timeoutlog(
-                    "Filewatcher for %s timed out after %.1f seconds (%d files found, nothing seen for %.1f seconds)",
-                    rw.recipe_step["parameters"]["pattern"],
+                    "Filewatcher for file %s (index=%i) timed out after %.1f seconds (%d of %d files found, nothing seen for %.1f seconds)",
+                    file_watcher_info["file"],
+                    file_watcher_info["file-index"],
                     time.time() - status["start-time"],
                     status["seen-files"],
+                    filecount or 0,
                     time.time() - status.get("last-seen", status["start-time"]),
                     extra={
                         "stat-time-max": os_stat_profiler.max,
@@ -607,9 +544,8 @@ class DLSFileWatcher(CommonService):
                 rw.send_to(
                     "timeout",
                     {
-                        "file": pattern % (pattern_start + status["seen-files"]),
-                        "file-number": status["seen-files"] + 1,
-                        "file-pattern-index": pattern_start + status["seen-files"],
+                        "file": file_watcher_info["file"],
+                        "file-index": file_watcher_info["file-index"],
                         "success": False,
                     },
                     transaction=txn,
@@ -646,11 +582,10 @@ class DLSFileWatcher(CommonService):
                 message_delay = 1
             self.log.debug(
                 (
-                    "No further files found for {pattern} after a total time of {time:.1f} seconds\n"
+                    "No further files found after a total time of {time:.1f} seconds\n"
                     "{files_seen} of {files_total} files seen so far"
                 ).format(
                     time=time.time() - status["start-time"],
-                    pattern=rw.recipe_step["parameters"]["pattern"],
                     files_seen=status["seen-files"],
                     files_total=filecount,
                 ),
@@ -663,299 +598,11 @@ class DLSFileWatcher(CommonService):
             # Otherwise note last time progress was made
             status["last-seen"] = time.time()
             self.log.info(
-                "%d files found for %s with indices %d-%d (total: %d out of %d) within %.1f seconds",
+                "%d files with indices %d-%d (out of %d) found within %.1f seconds",
                 files_found,
-                rw.recipe_step["parameters"]["pattern"],
-                pattern_start + status["seen-files"] - files_found,
-                pattern_start + status["seen-files"] - 1,
+                status["seen-files"] - files_found + 1,
                 status["seen-files"],
                 filecount,
-                time.time() - status["start-time"],
-                extra={
-                    "stat-time-max": os_stat_profiler.max,
-                    "stat-time-mean": os_stat_profiler.mean,
-                },
-            )
-
-        # Send results to myself for next round of processing
-        rw.checkpoint(
-            {"filewatcher-status": status}, delay=message_delay, transaction=txn
-        )
-        rw.transport.transaction_commit(txn)
-
-    def watch_files_swmr(self, rw, header, message):
-        """
-        Watch for hdf5 files written in SWMR mode.
-
-        This will examine the hdf5 master file to determine the number of images
-        to watch for, and then look to see whether each image has been written
-        to file.
-        """
-        # Check if message body contains partial results from a previous run
-        status = {"seen-images": 0, "start-time": time.time(), "image-count": None}
-        if isinstance(message, dict):
-            status.update(message.get("filewatcher-status", {}))
-
-        # Keep a record of os.stat timings
-        os_stat_profiler = _Profiler()
-
-        hdf5 = rw.recipe_step["parameters"]["hdf5"]
-        image_count = None
-        with os_stat_profiler.record():
-            if os.path.isfile(hdf5):
-                self.log.debug(f"Opening {hdf5}")
-                try:
-                    with h5py.File(hdf5, mode="r", swmr=True) as f:
-                        d = f["/entry/data/data"]
-                        dataset_files, file_map = h5check.get_real_frames(f, d)
-                        image_count = len(file_map)
-                except Exception as e:
-                    if not is_known_hdf5_exception(e):
-                        self.log.error(f"Error reading {hdf5}", exc_info=True)
-                        rw.transport.nack(header)
-                        return
-                    # For some reason this means that the .nxs file is probably
-                    # still being written to, so quietly log the message and
-                    # continue, leading to the message being resubmitted for
-                    # another round of processing
-                    self.log.info(f"Error reading {hdf5}", exc_info=True)
-
-        # Identify everys ('every-N' targets) to notify for
-        everys = self._parse_everys(rw.recipe_step["output"])
-
-        # Identify selections ('select-N' targets) to notify for
-        selections = self._parse_selections(rw.recipe_step["output"])
-
-        # Conditionally acknowledge receipt of the message
-        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
-        rw.transport.ack(header, transaction=txn)
-
-        # Cache file handles locally to minimise repeatedly re-opening the same data file(s)
-        file_handles = {}
-
-        try:
-            # Look for images
-            images_found = 0
-            while (
-                image_count is not None
-                and status["seen-images"] < image_count
-                and images_found < rw.recipe_step["parameters"].get("burst-limit", 100)
-            ):
-                m, frame = file_map[status["seen-images"]]
-                h5_data_file, dsetname = dataset_files[m]
-                with os_stat_profiler.record():
-                    if not os.path.isfile(h5_data_file):
-                        break
-
-                try:
-                    if h5_data_file not in file_handles:
-                        file_handles[h5_data_file] = h5py.File(
-                            h5_data_file, mode="r", swmr=True
-                        )
-                        self.log.debug(f"Opening file {h5_data_file}")
-                    h5_file = file_handles[h5_data_file]
-                    dataset = h5_file[dsetname]
-                    dataset.id.refresh()
-                    s = dataset.id.get_chunk_info_by_coord((frame, 0, 0))
-                    if s.size == 0:
-                        break
-                except Exception as e:
-                    if not is_known_hdf5_exception(e):
-                        self.log.error(f"Error reading {h5_data_file}", exc_info=True)
-                        rw.transport.nack(header)
-                        return
-                    # For some reason this means that the .nxs file is probably
-                    # still being written to, so quietly log the message and
-                    # break, leading to the message being resubmitted for
-                    # another round of processing
-                    self.log.info(f"Error reading {h5_data_file}", exc_info=True)
-                    break
-
-                images_found += 1
-
-                def notify_function(output):
-                    rw.send_to(
-                        output,
-                        {
-                            "hdf5": hdf5,
-                            "hdf5-index": status["seen-images"],
-                            "file": hdf5,
-                            "file-number": status["seen-images"] + 1,
-                            "file-seen-at": time.time(),
-                            "parameters": {
-                                "scan_range": "{0},{0}".format(
-                                    status["seen-images"] + 1
-                                )
-                            },
-                        },
-                        transaction=txn,
-                    )
-
-                self._notify_for_found_file(
-                    status["seen-images"] + 1,
-                    image_count,
-                    selections,
-                    everys,
-                    notify_function,
-                )
-                status["seen-images"] += 1
-        finally:
-            # Clean up file handles
-            for f in file_handles.values():
-                f.close()
-
-        # Are we done?
-        if status["seen-images"] == image_count:
-            # Happy days
-
-            self.log.debug(f"All {image_count} images found for {hdf5}")
-
-            extra_log = {
-                "delay": time.time() - status["start-time"],
-                "stat-time-max": os_stat_profiler.max,
-                "stat-time-mean": os_stat_profiler.mean,
-            }
-            if rw.recipe_step["parameters"].get("expected-per-image-delay"):
-                # Estimate unexpected delay
-                try:
-                    expected_delay = (
-                        float(rw.recipe_step["parameters"]["expected-per-image-delay"])
-                        * image_count
-                    )
-                except ValueError:
-                    # in case the field contains "None" or equivalent un-floatable nonsense
-                    self.log.warning(
-                        "Ignored invalid expected-per-image-delay value (%r)",
-                        rw.recipe_step["parameters"]["expected-per-image-delay"],
-                    )
-                else:
-                    extra_log["unexpected_delay"] = max(
-                        0, extra_log["delay"] - expected_delay
-                    )
-
-            self.log.info(
-                "All %d images found for %s after %.2f seconds.",
-                image_count,
-                rw.recipe_step["parameters"]["hdf5"],
-                time.time() - status["start-time"],
-                extra=extra_log,
-            )
-
-            rw.send_to(
-                "any",
-                {"images-expected": image_count, "images-seen": status["seen-images"]},
-                transaction=txn,
-            )
-            rw.send_to(
-                "finally",
-                {
-                    "images-expected": image_count,
-                    "images-seen": status["seen-images"],
-                    "success": True,
-                },
-                transaction=txn,
-            )
-
-            rw.transport.transaction_commit(txn)
-            return
-
-        message_delay = rw.recipe_step["parameters"].get("burst-wait")
-        if images_found == 0:
-            # If no images were found, check timeout conditions.
-            if status["seen-images"] == 0:
-                # For first file: relevant timeout is 'timeout-first', with fallback 'timeout', with fallback 1 hour
-                timeout = rw.recipe_step["parameters"].get(
-                    "timeout-first", rw.recipe_step["parameters"].get("timeout", 3600)
-                )
-                timed_out = (status["start-time"] + timeout) < time.time()
-            else:
-                # For subsequent images: relevant timeout is 'timeout', with fallback 1 hour
-                timeout = rw.recipe_step["parameters"].get("timeout", 3600)
-                timed_out = (status["last-seen"] + timeout) < time.time()
-            if timed_out:
-                # File watch operation has timed out.
-
-                # Report all timeouts as warnings unless the recipe specifies otherwise
-                timeoutlog = self.log.warning
-                if rw.recipe_step["parameters"].get("log-timeout-as-info"):
-                    timeoutlog = self.log.info
-
-                timeoutlog(
-                    "Filewatcher for %s timed out after %.2f seconds (%d images found, nothing seen for %.2f seconds)",
-                    rw.recipe_step["parameters"]["hdf5"],
-                    time.time() - status["start-time"],
-                    status["seen-images"],
-                    time.time() - status.get("last-seen", status["start-time"]),
-                    extra={
-                        "stat-time-max": os_stat_profiler.max,
-                        "stat-time-mean": os_stat_profiler.mean,
-                    },
-                )
-
-                # Notify for timeout
-                rw.send_to(
-                    "timeout",
-                    {
-                        "file": hdf5,
-                        "hdf5-index": status["seen-images"],
-                        "success": False,
-                    },
-                    transaction=txn,
-                )
-                # Notify for 'any' target if any file was seen
-                if status["seen-images"]:
-                    rw.send_to(
-                        "any",
-                        {
-                            "images-expected": image_count,
-                            "images-seen": status["seen-images"],
-                        },
-                        transaction=txn,
-                    )
-
-                # Notify for 'finally' outcome
-                rw.send_to(
-                    "finally",
-                    {
-                        "images-expected": image_count,
-                        "images-seen": status["seen-images"],
-                        "success": False,
-                    },
-                    transaction=txn,
-                )
-                # Stop processing message
-                rw.transport.transaction_commit(txn)
-                return
-
-            # If no timeouts are triggered, set a minimum waiting time.
-            if message_delay:
-                message_delay = max(1, message_delay)
-            else:
-                message_delay = 1
-            self.log.debug(
-                (
-                    "No further images found for {hdf5} after a total time of {time:.2f} seconds\n"
-                    "{images_seen} of {image_count} images seen so far"
-                ).format(
-                    time=time.time() - status["start-time"],
-                    hdf5=rw.recipe_step["parameters"]["hdf5"],
-                    images_seen=status["seen-images"],
-                    image_count=image_count,
-                ),
-                extra={
-                    "stat-time-max": os_stat_profiler.max,
-                    "stat-time-mean": os_stat_profiler.mean,
-                },
-            )
-        else:
-            # Otherwise note last time progress was made
-            status["last-seen"] = time.time()
-            self.log.info(
-                "%d images found for %s (total: %d out of %d) within %.2f seconds",
-                images_found,
-                rw.recipe_step["parameters"]["hdf5"],
-                status["seen-images"],
-                image_count,
                 time.time() - status["start-time"],
                 extra={
                     "stat-time-max": os_stat_profiler.max,

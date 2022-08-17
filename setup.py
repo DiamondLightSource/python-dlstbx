@@ -250,6 +250,11 @@ setup(
         "zocalo.services.dispatcher.ready_for_processing": [
             "ispyb = dlstbx.ispybtbx:ready_for_processing",
         ],
+        "zocalo.services.filewatcher.watchers": [
+            "list = dlstbx.services.filewatcher:FileListWatcher",
+            "pattern = dlstbx.services.filewatcher:FilePatternWatcher",
+            "hdf5 = dlstbx.services.filewatcher:SwmrWatcher",
+        ],
         "zocalo.services.images.plugins": [
             "diffraction = dlstbx.services.images:diffraction",
             "thumbnail = dlstbx.services.images:thumbnail",

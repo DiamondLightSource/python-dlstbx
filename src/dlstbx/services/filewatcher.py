@@ -9,6 +9,7 @@ from collections.abc import Iterable
 from typing import Any
 
 import h5py
+import pkg_resources
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -259,6 +260,11 @@ class DLSFileWatcher(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.filewatcher"
 
+    watchers = {
+        f.name: f.load()
+        for f in pkg_resources.iter_entry_points("zocalo.services.filewatcher.watchers")
+    }
+
     def initializing(self):
         """
         Subscribe to the filewatcher queue. Received messages must be
@@ -349,15 +355,9 @@ class DLSFileWatcher(CommonService):
     def watch_files(self, rw, header, message):
         """Check for presence of files."""
 
-        watchers = {
-            "pattern": FilePatternWatcher,
-            "list": FileListWatcher,
-            "hdf5": SwmrWatcher,
-        }
-
-        for name in watchers:
+        for name in self.watchers:
             if rw.recipe_step["parameters"].get(name):
-                watcher_class = watchers[name]
+                watcher_class = self.watchers[name]
                 break
         else:
             self.log.error("Rejecting message with unknown watch target")

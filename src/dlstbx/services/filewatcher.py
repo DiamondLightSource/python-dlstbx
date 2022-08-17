@@ -540,8 +540,11 @@ class FileWatcher(CommonService):
                 rw.send_to(
                     "timeout",
                     {
-                        "file": file_watcher_info["file"],
-                        "file-index": file_watcher_info["file-index"],
+                        **{
+                            k: v
+                            for k, v in file_watcher_info.items()
+                            if k != "file-seen-at"
+                        },
                         "success": False,
                     },
                     transaction=txn,

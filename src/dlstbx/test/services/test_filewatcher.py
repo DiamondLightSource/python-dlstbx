@@ -345,7 +345,7 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmp_path):
                 "timeout",
                 {
                     "file": str(images[1]),
-                    # "file-number": 2,
+                    "file-number": 2,
                     "file-index": 2,
                     "success": False,
                 },

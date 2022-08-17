@@ -14,7 +14,7 @@ import plotly.express as px
 # "vol_z" default 1200
 # "align"
 # "out_bin" default 4
-# "tilt_range" (must be a tuple) or "ang_file" Required
+# "tilt_range" (must be a tuple) or "ang_file" calculatable
 # "tilt_axis"
 # "tilt_cor"
 # "flip_int"
@@ -41,7 +41,6 @@ class TomoParameters(BaseModel):
     vol_z: int = 1200
     align: int = None
     out_bin: int = 4
-    tilt_range: tuple = ()
     tilt_axis: float = None
     tilt_cor: int = None
     flip_int: int = None
@@ -110,6 +109,7 @@ class TomoAlign(CommonService):
         aln_files = list(Path(tomo_parameters.aretomo_output_file).parent.glob("*.aln"))
 
         if len(aln_files) != 1:
+            self.log.warn("Multiple .aln files found")
             for aln_file in aln_files:
                 if tomo_parameters.position in str(aln_file):
                     tomo_aln_file = aln_file
@@ -176,18 +176,6 @@ class TomoAlign(CommonService):
             )
             rw.transport.nack(header)
             return
-
-        if not (tomo_params.tilt_range or tomo_params.angle_file):
-            self.log.error(
-                f"No tilt range or angle file found in tomo_align service message: {message}"
-            )
-            rw.transport.nack(header)
-
-        if tomo_params.tilt_range and tomo_params.angle_file:
-            self.log.error(
-                f"Cannot specify both TiltRange and AngFile - tomo_align service message: {message}"
-            )
-            rw.transport.nack(header)
 
         def tilt(file_tuple):
             return float(file_tuple[1])
@@ -308,10 +296,12 @@ class TomoAlign(CommonService):
         ]
 
         # Required parameters
-        if tomo_parameters.tilt_range:
-            aretomo_cmd.extend(("-TiltRange", *tomo_parameters.tilt_range))
-        elif tomo_parameters.angle_file:
+        if tomo_parameters.angle_file:
             aretomo_cmd.extend(("-AngFile", tomo_parameters.angle_file))
+        else:
+            aretomo_cmd.extend(("-TiltRange",
+                                tomo_parameters.input_file_list[0][1], # lowest tilt
+                                tomo_parameters.input_file_list[-1][1])) # highest tilt
 
         # Optional parameters
         optional_aretomo_parameters = {

@@ -248,7 +248,7 @@ class SwmrWatcher(Watcher):
             f.close()
 
 
-class DLSFileWatcher(CommonService):
+class FileWatcher(CommonService):
     """
     A service that waits for files to arrive on disk and notifies interested
     parties when they do, or don't.

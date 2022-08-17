@@ -13,7 +13,7 @@ import workflows.transport.common_transport
 from workflows.recipe.wrapper import RecipeWrapper
 
 import dlstbx.services.filewatcher
-from dlstbx.services.filewatcher import DLSFileWatcher
+from dlstbx.services.filewatcher import FileWatcher
 from dlstbx.swmr import h5maker
 
 
@@ -45,7 +45,7 @@ def generate_recipe_message(parameters, output):
 
 def test_filewatcher_watch_pattern(mocker, tmp_path):
     mock_transport = mock.Mock()
-    filewatcher = DLSFileWatcher()
+    filewatcher = FileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
     filewatcher.initializing()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -159,7 +159,7 @@ def test_filewatcher_watch_pattern(mocker, tmp_path):
 
 def test_filewatcher_watch_list(mocker, tmp_path):
     mock_transport = mock.Mock()
-    filewatcher = DLSFileWatcher()
+    filewatcher = FileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
     filewatcher.initializing()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -264,7 +264,7 @@ def test_filewatcher_watch_list(mocker, tmp_path):
 
 def test_filewatcher_watch_pattern_timeout(mocker, tmp_path):
     mock_transport = mock.Mock()
-    filewatcher = DLSFileWatcher()
+    filewatcher = FileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
     filewatcher.initializing()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -365,7 +365,7 @@ def test_filewatcher_watch_pattern_timeout(mocker, tmp_path):
 
 def test_filewatcher_watch_list_timeout(mocker, tmp_path):
     mock_transport = mock.Mock()
-    filewatcher = DLSFileWatcher()
+    filewatcher = FileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
     filewatcher.initializing()
     t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -450,15 +450,15 @@ def test_filewatcher_watch_list_timeout(mocker, tmp_path):
 
 
 def test_parse_everys():
-    assert DLSFileWatcher._parse_everys({"every": 2}) == {}
-    assert DLSFileWatcher._parse_everys({"every-1": 3}) == {1: "every-1"}
-    assert DLSFileWatcher._parse_everys({"every-2": 4}) == {2: "every-2"}
+    assert FileWatcher._parse_everys({"every": 2}) == {}
+    assert FileWatcher._parse_everys({"every-1": 3}) == {1: "every-1"}
+    assert FileWatcher._parse_everys({"every-2": 4}) == {2: "every-2"}
 
 
 def test_parse_selections():
-    assert DLSFileWatcher._parse_selections({"select": 2}) == {}
-    assert DLSFileWatcher._parse_selections({"select-1": 3}) == {1: "select-1"}
-    assert DLSFileWatcher._parse_selections({"select-2": 4}) == {2: "select-2"}
+    assert FileWatcher._parse_selections({"select": 2}) == {}
+    assert FileWatcher._parse_selections({"select-1": 3}) == {1: "select-1"}
+    assert FileWatcher._parse_selections({"select-2": 4}) == {2: "select-2"}
 
 
 @pytest.mark.parametrize(
@@ -472,7 +472,7 @@ def test_parse_selections():
 )
 def test_notify_for_found_file(nth_file, expected):
     notify_function = mock.Mock()
-    DLSFileWatcher._notify_for_found_file(
+    FileWatcher._notify_for_found_file(
         nth_file=nth_file,
         filecount=9,
         selections={2: "select-2"},
@@ -527,7 +527,7 @@ def test_filewatcher_watch_swmr(mocker, tmp_path):
     x.start()
 
     mock_transport = mocker.Mock()
-    filewatcher = DLSFileWatcher()
+    filewatcher = FileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
     filewatcher.initializing()
     t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -658,7 +658,7 @@ def test_filewatcher_watch_swmr_timeout(mocker, tmp_path):
     master_h5 = os.fspath(h5_prefix) + "_master.h5"
 
     mock_transport = mocker.Mock()
-    filewatcher = DLSFileWatcher()
+    filewatcher = FileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
     filewatcher.initializing()
     t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -726,7 +726,7 @@ def test_filewatcher_watch_swmr_h5py_error(mocker, tmp_path, caplog):
     master_h5 = h5_prefix.with_name(h5_prefix.name + "_master.h5")
 
     mock_transport = mocker.Mock()
-    filewatcher = DLSFileWatcher()
+    filewatcher = FileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
     filewatcher.initializing()
     t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)
@@ -776,7 +776,7 @@ def test_filewatcher_watch_swmr_h5py_known_errors(exception, mocker, tmp_path, c
     h5_prefix = tmp_path / "foo"
     master_h5 = os.fspath(h5_prefix) + "_master.h5"
     mock_transport = mocker.Mock()
-    filewatcher = DLSFileWatcher()
+    filewatcher = FileWatcher()
     setattr(filewatcher, "_transport", mock_transport)
     filewatcher.initializing()
     t = mocker.create_autospec(workflows.transport.common_transport.CommonTransport)

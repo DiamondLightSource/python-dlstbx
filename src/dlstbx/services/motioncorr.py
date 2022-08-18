@@ -233,6 +233,7 @@ class MotionCorr(CommonService):
         self.log.info("Sending to ctf")
         mc_params.ctf["input_image"] = mc_params.mrc_out
         mc_params.ctf["mc_uuid"] = mc_params.mc_uuid
+        mc_params.ctf["pix_size"] = mc_params.pix_size
         if isinstance(rw, RW_mock):
             rw.transport.send(  # type: ignore
                 destination="ctffind",

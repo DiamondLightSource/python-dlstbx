@@ -108,13 +108,12 @@ class TomoAlign(CommonService):
         self.refined_tilts = []
         aln_files = list(Path(tomo_parameters.aretomo_output_file).parent.glob("*.aln"))
 
-        if len(aln_files) != 1:
-            self.log.warn("Multiple .aln files found")
-            for aln_file in aln_files:
-                if tomo_parameters.position in str(aln_file):
-                    tomo_aln_file = aln_file
-        else:
-            tomo_aln_file = aln_files[0]
+        file_name = Path(tomo_parameters.stack_file).stem
+        self.log.warn("Multiple .aln files found")
+        for aln_file in aln_files:
+            if file_name in str(aln_file):
+                tomo_aln_file = aln_file
+
         with open(tomo_aln_file) as f:
             lines = f.readlines()
             for line in lines:

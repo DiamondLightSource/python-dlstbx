@@ -130,9 +130,14 @@ class CTFFind(CommonService):
         command = ["ctffind"]
 
         try:
-            ctf_params = CTFParameters(
-                **{**rw.recipe_step.get("parameters", {}), **message}
-            )
+            if isinstance(message, dict):
+                ctf_params = CTFParameters(
+                    **{**rw.recipe_step.get("parameters", {}), **message}
+                )
+            else:
+                ctf_params = CTFParameters(
+                    **{**rw.recipe_step.get("parameters", {})}
+                )
         except (ValidationError, TypeError):
             self.log.warning(
                 f"CTF estimation parameter validation failed for message: {message} and recipe parameters: {rw.recipe_step.get('parameters', {})}"

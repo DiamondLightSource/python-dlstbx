@@ -201,20 +201,20 @@ class CTFFind(CommonService):
         }
 
         # Forward results to ispyb
-        self.log.info("Sending to ispyb")
         ispyb_parameters.update({"ispyb_command": "buffer",
                                  "buffer_lookup": {
                                      "motion_correction_id": ctf_params.mc_uuid
                                  },
                                  "buffer_command": {
                                      "ispyb_command": "insert_ctf"}})
-        if isinstance(rw, RW_mock):
-            rw.transport.send(destination="ispyb_connector",
-                          message={
-                              "parameters": ispyb_parameters,
-                              "content": {"dummy": "dummy"},
-                          },)
-        else:
-            rw.send_to("ispyb", ispyb_parameters)
+        self.log.info(f"Sending to ispyb {ispyb_parameters}")
+        #if isinstance(rw, RW_mock):
+        #    rw.transport.send(destination="ispyb_connector",
+        #                  message={
+        #                      "parameters": ispyb_parameters,
+        #                      "content": {"dummy": "dummy"},
+        #                  },)
+        #else:
+        #    rw.send_to("ispyb", ispyb_parameters)
 
         rw.transport.ack(header)

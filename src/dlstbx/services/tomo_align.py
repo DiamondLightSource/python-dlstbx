@@ -58,7 +58,7 @@ class TomoParameters(BaseModel):
     out_imod: int = None
     out_imod_xf: int = None
     dark_tol: int or str = None
-    #movie_uuid: int
+
 
 class TomoAlign(CommonService):
     """
@@ -109,7 +109,6 @@ class TomoAlign(CommonService):
         aln_files = list(Path(tomo_parameters.aretomo_output_file).parent.glob("*.aln"))
 
         file_name = Path(tomo_parameters.stack_file).stem
-        self.log.warn("Multiple .aln files found")
         for aln_file in aln_files:
             if file_name in str(aln_file):
                 tomo_aln_file = aln_file
@@ -282,28 +281,23 @@ class TomoAlign(CommonService):
         """
         Run AreTomo on output of Newstack
         """
-        aretomo_cmd = [
+        command = [
             "AreTomo",
-            "-InMrc",
-            tomo_parameters.stack_file,
             "-OutMrc",
-            output_file,
-            "-VolZ",
-            str(tomo_parameters.vol_z),
-            "-OutBin",
-            str(tomo_parameters.out_bin)
+            output_file
         ]
 
-        # Required parameters
         if tomo_parameters.angle_file:
-            aretomo_cmd.extend(("-AngFile", tomo_parameters.angle_file))
+            command.extend(("-AngFile", tomo_parameters.angle_file))
         else:
-            aretomo_cmd.extend(("-TiltRange",
+            command.extend(("-TiltRange",
                                 tomo_parameters.input_file_list[0][1], # lowest tilt
                                 tomo_parameters.input_file_list[-1][1])) # highest tilt
 
-        # Optional parameters
-        optional_aretomo_parameters = {
+        aretomo_flags = {
+                              "in_mrc": "-InMrc",
+                              "vol_z": "-VolZ",
+                              "out_bin": "-OutBin",
                               "tilt_axis": "-TiltAxis",
                               "tilt_cor": "-TiltCor",
                               "flip_int": "-FlipInt",
@@ -322,15 +316,16 @@ class TomoAlign(CommonService):
                               "out_imod_xf": "-OutXf",
                               "dark_tol": "-DarkTol"}
 
-        for k, v in optional_aretomo_parameters.items():
-            if getattr(tomo_parameters, k) is not None:
-                aretomo_cmd.extend((v, getattr(tomo_parameters, k)))
+
+        for k, v in tomo_parameters.dict().items():
+            if v and (k in aretomo_flags):
+                command.extend((aretomo_flags[k], str(v)))
 
         self.log.info("Running AreTomo")
         self.log.info(f"Input stack: {tomo_parameters.stack_file} \nOutput file: {output_file}")
         if tomo_parameters.tilt_cor:
             callback = self.parse_tomo_output
         else: callback = None
-        result = procrunner.run(command=aretomo_cmd, callback_stdout=callback)
+        result = procrunner.run(command=command, callback_stdout=callback)
         return result
 

@@ -8,6 +8,7 @@ from workflows.services.common_service import CommonService
 from math import sqrt
 import plotly.express as px
 from pathlib import Path
+from typing import Optional
 
 # Possible parameters:
 # "movie" Required
@@ -50,13 +51,14 @@ class MotionCorrParameters(BaseModel):
     movie: str = Field(..., min_length=1)
     mrc_out: str = Field(..., min_length=1)
     patch_size: int = 5
+    gpu: int = 0
     gain_ref: str = None
     mc_uuid: int
     rot_gain: int = None
     flip_gain: int = None
     dark: str = None
     use_gpus: int = None
-    sum_range: tuple = ()
+    sum_range: Optional[tuple] = None
     iter: int = None
     tol: float = None
     throw: int = None
@@ -65,13 +67,13 @@ class MotionCorrParameters(BaseModel):
     kv: int = None
     fm_dose: float = None
     fm_int_file: str = None
-    mag: tuple = ()
+    mag: Optional[tuple] = None
     ft_bin: float = None
     serial: int = None
     in_suffix: str = None
     eer_sampling: int = None
     out_stack: int = None
-    bft: tuple = ()
+    bft: Optional[tuple] = None
     group: int = None
     detect_file: str = None
     arc_dir: str = None
@@ -171,24 +173,16 @@ class MotionCorr(CommonService):
             self.log.error(f"No input flag found for movie {movie}")
             input_flag = None
         command.extend([input_flag, movie])
-        arguments = [
-            "-OutMrc",
-            mc_params.mrc_out,
-            "-Gpu",
-            "0",
-            "-Patch",
-            str(mc_params.patch_size),
-            str(mc_params.patch_size),
-            "-PixSize",
-            str(mc_params.pix_size),
-        ]
 
-        # Optional parameters
-        optional_mc_parameters = {
+        mc_flags = {
+        "mrc_out": "-OutMrc",
+        "patch": "-Patch",
+        "pix_size": "-PixSize",
         "gain_ref": "-Gain",
         "rot_gain": "-RotGain",
         "flip_gain": "-FlipGain",
         "dark": "-Dark",
+        "gpu": "-Gpu",
         "use_gpus": "-UseGpus",
         "sum_range": "-SumRange",
         "iter": "-Iter",
@@ -212,13 +206,16 @@ class MotionCorr(CommonService):
         "in_fm_motion": "-InFmMotion",
         "split_sum": "-SplitSum"}
 
-        for k, v in optional_mc_parameters.items():
-            if getattr(mc_params, k) is not None:
-                arguments.extend((v, getattr(mc_params, k)))
+
+        for k, v in mc_params.dict().items():
+            if v and (k in mc_flags):
+                if type(v) is tuple:
+                    command.extend((mc_flags[k], " ".join(str(_) for _ in v)))
+                else:
+                    command.extend((mc_flags[k], str(v)))
 
         self.log.info(f"Input: {movie} Output: {mc_params.mrc_out}")
 
-        command.extend(arguments)
         result = procrunner.run(command=command, callback_stdout=self.parse_mc_output)
         if result.returncode:
             self.log.error(
@@ -270,21 +267,21 @@ class MotionCorr(CommonService):
 
 
         # Forward results to ISPyB
-        self.log.info("Sending to ispyb")
         ispyb_parameters.update({
             "ispyb_command": "buffer",
             "buffer_command": {
                 "ispyb_command": "insert_motion_correction"
             }
         })
-        if isinstance(rw, RW_mock):
-            rw.transport.send(destination="ispyb_connector",
-                              message={
-                                  "parameters": ispyb_parameters,
-                                  "content": {"dummy": "dummy"},
-                              })
-        else:
-            rw.send_to("ispyb", ispyb_parameters)
+        self.log.info(f"Sending to ispyb {ispyb_parameters}")
+        #if isinstance(rw, RW_mock):
+        #    rw.transport.send(destination="ispyb_connector",
+        #                      message={
+        #                          "parameters": ispyb_parameters,
+        #                          "content": {"dummy": "dummy"},
+        #                      })
+        #else:
+        #    rw.send_to("ispyb", ispyb_parameters)
 
         # Forward results to murfey
         self.log.info("Sending to murfey")

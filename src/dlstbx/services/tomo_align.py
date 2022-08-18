@@ -201,6 +201,7 @@ class TomoAlign(CommonService):
                 f"AreTomo failed with exitcode {aretomo_result.returncode}:\n"
                 + aretomo_result.stderr.decode("utf8", "replace")
             )
+            rw.transport.nack(header)
             return
 
 

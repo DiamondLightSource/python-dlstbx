@@ -285,12 +285,12 @@ class MotionCorr(CommonService):
 
         # Forward results to murfey
         self.log.info("Sending to murfey")
-        if isinstance(rw, RW_mock):
-            rw.transport.send("murfey", {"register": "motion_corrected",
-                                         "movie": mc_params.movie})
-        else:
-            rw.send_to("murfey", {"register": "motion_corrected",
-                                  "movie": mc_params.movie})
+        #if isinstance(rw, RW_mock):
+        #    rw.transport.send("murfey", {"register": "motion_corrected",
+        #                                 "movie": mc_params.movie})
+        #else:
+        #    rw.send_to("murfey", {"register": "motion_corrected",
+        #                          "movie": mc_params.movie})
 
         rw.transport.ack(header)
         self.shift_list = []

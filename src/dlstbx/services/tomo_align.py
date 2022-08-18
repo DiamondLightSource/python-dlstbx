@@ -296,7 +296,7 @@ class TomoAlign(CommonService):
                                 tomo_parameters.input_file_list[-1][1])) # highest tilt
 
         aretomo_flags = {
-                              "in_mrc": "-InMrc",
+                              "stack_file": "-InMrc",
                               "vol_z": "-VolZ",
                               "out_bin": "-OutBin",
                               "tilt_axis": "-TiltAxis",

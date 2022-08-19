@@ -252,7 +252,7 @@ class TomoAlign(CommonService):
         #                      },)
         #else:
         #    rw.send_to("ispyb", ispyb_parameters)
-        #rw.transport.ack(header)
+        rw.transport.ack(header)
 
     def newstack(self, tomo_parameters):
         """

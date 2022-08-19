@@ -105,21 +105,18 @@ class EM_Mixin:
         else:
             return None
 
-    def do_insert_movie(self, parameters, message=None, **kwargs):
+    def do_insert_movie(self, *, parameter_map, message=None, **kwargs):
         if message is None:
             message = {}
         self.log.info("Inserting Movie parameters.")
 
-        def full_parameters(param):
-            return message.get(param) or parameters(param)
-
         movie_params = self.ispyb.em_acquisition.get_movie_params()
-        movie_params["dataCollectionId"] = full_parameters("dcid")
-        movie_params["movieNumber"] = full_parameters("image_number")
-        movie_params["movieFullPath"] = full_parameters("micrograph_full_path")
-        if full_parameters("created_time_stamp"):
+        movie_params["dataCollectionId"] = parameter_map("dcid")
+        movie_params["movieNumber"] = parameter_map("image_number")
+        movie_params["movieFullPath"] = parameter_map("micrograph_full_path")
+        if parameter_map("created_time_stamp"):
             movie_params["createdTimeStamp"] = datetime.fromtimestamp(
-                full_parameters("created_time_stamp")
+                parameter_map("created_time_stamp")
             ).strftime("%Y-%m-%d %H:%M:%S")
         result = self.ispyb.em_acquisition.insert_movie(
             list(movie_params.values())
@@ -357,30 +354,27 @@ class EM_Mixin:
             )
             return False
 
-    def do_insert_tomogram(self, parameters, session, message=None, **kwargs):
+    def do_insert_tomogram(self, *, parameter_map, session, message=None, **kwargs):
         if message is None:
             message = {}
-        dcid = parameters("dcid")
+        dcid = parameter_map("dcid")
         self.log.info(f"Inserting Tomogram parameters. DCID: {dcid}")
-
-        def full_parameters(param):
-            return message.get(param) or parameters(param)
 
         try:
             values = Tomogram(
-                dataCollectionId=full_parameters("dcid"),
-                autoProcProgramId=full_parameters("program_id"),
-                volumeFile=full_parameters("volume_file"),
-                stackFile=full_parameters("stack_file"),
-                sizeX=full_parameters("size_x"),
-                sizeY=full_parameters("size_y"),
-                sizeZ=full_parameters("size_z"),
-                pixelSpacing=full_parameters("pixel_spacing"),
-                residualErrorMean=full_parameters("residual_error_mean"),
-                residualErrorSD=full_parameters("residual_error_sd"),
-                xAxisCorrection=full_parameters("x_axis_correction"),
-                tiltAngleOffset=full_parameters("tilt_angle_offset"),
-                zShift=full_parameters("z_shift")
+                dataCollectionId=parameter_map("dcid"),
+                autoProcProgramId=parameter_map("program_id"),
+                volumeFile=parameter_map("volume_file"),
+                stackFile=parameter_map("stack_file"),
+                sizeX=parameter_map("size_x"),
+                sizeY=parameter_map("size_y"),
+                sizeZ=parameter_map("size_z"),
+                pixelSpacing=parameter_map("pixel_spacing"),
+                residualErrorMean=parameter_map("residual_error_mean"),
+                residualErrorSD=parameter_map("residual_error_sd"),
+                xAxisCorrection=parameter_map("x_axis_correction"),
+                tiltAngleOffset=parameter_map("tilt_angle_offset"),
+                zShift=parameter_map("z_shift")
             )
             session.add(values)
             session.commit()
@@ -394,28 +388,25 @@ class EM_Mixin:
         return False
 
 
-    def do_insert_tilt_image_alignment(self, parameters, session, message=None, **kwargs):
+    def do_insert_tilt_image_alignment(self, *, parameter_map, session, message=None, **kwargs):
         if message is None:
             message = {}
-        dcid = parameters("dcid")
+        dcid = parameter_map("dcid")
         self.log.info(f"Inserting Tilt Image Alignment parameters. DCID: {dcid}")
-
-        def full_parameters(param):
-            return message.get(param) or parameters(param)
 
         try:
             values = TiltImageAlignment(
-                movieId=full_parameters("movie_id"),
-                tomogramId=full_parameters("tomogram_id"),
-                defocusU=full_parameters("defocus_u"),
-                defocusV=full_parameters("defocus_v"),
-                psdFile=full_parameters("psd_file"),
-                resolution=full_parameters("resolution"),
-                fitQuality=full_parameters("fit_quality"),
-                refinedMagnification=full_parameters("refined_magnification"),
-                refinedTiltAngle=full_parameters("refined_tilt_angle"),
-                refinedTiltAxis=full_parameters("refinedTiltAxis"),
-                residualError=full_parameters("residual_error")
+                movieId=parameter_map("movie_id"),
+                tomogramId=parameter_map("tomogram_id"),
+                defocusU=parameter_map("defocus_u"),
+                defocusV=parameter_map("defocus_v"),
+                psdFile=parameter_map("psd_file"),
+                resolution=parameter_map("resolution"),
+                fitQuality=parameter_map("fit_quality"),
+                refinedMagnification=parameter_map("refined_magnification"),
+                refinedTiltAngle=parameter_map("refined_tilt_angle"),
+                refinedTiltAxis=parameter_map("refinedTiltAxis"),
+                residualError=parameter_map("residual_error")
             )
             session.add(values)
             session.commit()

@@ -15,7 +15,7 @@ import ast
 # "vol_z" default 1200
 # "align"
 # "out_bin" default 4
-# "tilt_range" (must be a tuple) or "ang_file" calculatable
+# "tilt_range" calculatable or "ang_file"
 # "tilt_axis"
 # "tilt_cor"
 # "flip_int"
@@ -61,19 +61,19 @@ class TomoParameters(BaseModel):
     dark_tol: int or str = None
 
     @validator('input_file_list')
-    def convert_to_tuple(cls, v):
-        tuple_list = ast.literal_eval(v)
-        if isinstance(tuple_list, list) and isinstance(tuple_list[0], tuple):
-            return tuple_list
+    def convert_to_list_of_lists(cls, v):
+        file_list = ast.literal_eval(v)
+        if isinstance(file_list, list) and isinstance(file_list[0], list):
+            return file_list
         else:
-            raise ValueError("input_file_list is not a list of tuples")
+            raise ValueError("input_file_list is not a list of lists")
 
 class TomoAlign(CommonService):
     """
     A service for grouping and aligning tomography tilt-series with Newstack and AreTomo
     """
 
-    # Required parameters: list of tuples with filename, tilt and uuid, stack output file name (output file name will be used for both stages)
+    # Required parameters: list of lists with filename, tilt and uuid, stack output file name (output file name will be used for both stages)
 
     # Human readable service name
     _service_name = "DLS TomoAlign"
@@ -183,8 +183,8 @@ class TomoAlign(CommonService):
             rw.transport.nack(header)
             return
 
-        def tilt(file_tuple):
-            return float(file_tuple[1])
+        def tilt(file_list):
+            return float(file_list[1])
         tomo_params.input_file_list.sort(key=tilt)
         newstack_result = self.newstack(tomo_params)
         if newstack_result.returncode:

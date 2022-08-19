@@ -35,7 +35,7 @@ import ast
 # "dark_tol"
 
 class TomoParameters(BaseModel):
-    input_file_list: list
+    input_file_list: str
     stack_file: str = Field(..., min_length=1)
     position: str = None
     aretomo_output_file: str = None
@@ -63,7 +63,7 @@ class TomoParameters(BaseModel):
     @validator('input_file_list')
     def convert_to_tuple(cls, v):
         tuple_list = ast.literal_eval(v)
-        if isinstance(tuple_list, tuple):
+        if isinstance(tuple_list, list) and isinstance(tuple_list[0], tuple):
             return tuple_list
         else:
             raise ValueError("input_file_list is not a list of tuples")

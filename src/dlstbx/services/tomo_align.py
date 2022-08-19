@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import procrunner
 import workflows.recipe
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from workflows.services.common_service import CommonService
 from pydantic.error_wrappers import ValidationError
 from pathlib import Path
 import plotly.express as px
+import ast
 
 # Possible parameters:
 # "input_file_list" Required
@@ -59,6 +60,13 @@ class TomoParameters(BaseModel):
     out_imod_xf: int = None
     dark_tol: int or str = None
 
+    @validator('input_file_list')
+    def convert_to_tuple(cls, v):
+        tuple_list = ast.literal_eval(v)
+        if isinstance(tuple_list, tuple):
+            return tuple_list
+        else:
+            raise ValueError("input_file_list is not a list of tuples")
 
 class TomoAlign(CommonService):
     """

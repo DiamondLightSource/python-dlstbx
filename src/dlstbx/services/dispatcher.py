@@ -48,7 +48,6 @@ class Dispatcher(CommonService):
                 named_recipe.validate()
             except workflows.Error as e:
                 raise ValueError(f"Named recipe {recipefile} failed validation. {e}")
-            named_recipe.apply_parameters(parameters)
             message["recipe"] = message["recipe"].merge(named_recipe)
         return message, parameters
 
@@ -73,7 +72,6 @@ class Dispatcher(CommonService):
                 raise ValueError(
                     f"Custom recipe {custom_recipe} failed validation. {e}"
                 )
-            custom_recipe.apply_parameters(parameters)
             message["recipe"] = message["recipe"].merge(custom_recipe)
         return message, parameters
 

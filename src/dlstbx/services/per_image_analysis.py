@@ -24,6 +24,7 @@ from dlstbx.util.per_image_analysis import (
 
 class PerImageAnalysisPayload(pydantic.BaseModel):
     file: pathlib.Path
+    file_number: pydantic.NonNegativeInt = pydantic.Field(..., alias="file-number")
     parameters: Optional[PerImageAnalysisParameters] = None
 
 
@@ -146,6 +147,8 @@ class DLSPerImageAnalysis(CommonService):
         payload = PerImageAnalysisPayload(**(message | {"parameters": parameters}))
         self.log.debug("Starting PIA on %s", payload.file)
         params = payload.parameters or PerImageAnalysisParameters()
+        if params.scan_range is None:
+            params.scan_range = (payload.file_number, payload.file_number)
 
         # Do the per-image-analysis
         start = time.time()

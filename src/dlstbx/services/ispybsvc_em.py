@@ -6,7 +6,7 @@ import ispyb
 import sqlalchemy.exc
 import sqlalchemy.orm
 from ispyb.sqlalchemy import MotionCorrection, RelativeIceThickness, Tomogram, TiltImageAlignment
-
+from pydantic import BaseModel
 
 class EM_Mixin:
     def do_insert_ctf(self, parameters, message=None, **kwargs):
@@ -105,18 +105,23 @@ class EM_Mixin:
         else:
             return None
 
-    def do_insert_movie(self, *, parameter_map, message=None, **kwargs):
-        if message is None:
-            message = {}
+    class Movie(BaseModel):
+        dcid: int
+        movie_number: int #image number
+        movie_path: str # micrograph full path
+        timestamp: float
+
+    def do_insert_movie(self, *, parameter_map: Movie, **kwargs):
+
         self.log.info("Inserting Movie parameters.")
 
         movie_params = self.ispyb.em_acquisition.get_movie_params()
-        movie_params["dataCollectionId"] = parameter_map("dcid")
-        movie_params["movieNumber"] = parameter_map("image_number")
-        movie_params["movieFullPath"] = parameter_map("micrograph_full_path")
-        if parameter_map("created_time_stamp"):
+        movie_params["dataCollectionId"] = parameter_map.dcid
+        movie_params["movieNumber"] = parameter_map.movie_number
+        movie_params["movieFullPath"] = parameter_map.movie_path
+        if parameter_map.timestamp:
             movie_params["createdTimeStamp"] = datetime.fromtimestamp(
-                parameter_map("created_time_stamp")
+                parameter_map.timestamp
             ).strftime("%Y-%m-%d %H:%M:%S")
         result = self.ispyb.em_acquisition.insert_movie(
             list(movie_params.values())

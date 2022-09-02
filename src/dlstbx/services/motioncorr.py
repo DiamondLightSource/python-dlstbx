@@ -284,12 +284,12 @@ class MotionCorr(CommonService):
             rw.send_to("ispyb", ispyb_parameters)
 
         # Forward results to murfey
-        self.log.info("Sending to murfey_feedback")
+        self.log.info("Sending to Murfey")
         if isinstance(rw, RW_mock):
             rw.transport.send("murfey_feedback", {"register": "motion_corrected",
                                          "movie": mc_params.movie})
         else:
-            rw.send_to("murfey_feedback", {"register": "motion_corrected",
+            rw.send_to("murfey", {"register": "motion_corrected",
                                   "movie": mc_params.movie})
 
         rw.transport.ack(header)

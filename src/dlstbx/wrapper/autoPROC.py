@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 import pathlib
 import shutil
@@ -16,8 +15,6 @@ import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.autoPROC")
-
 clean_environment = {
     "LD_LIBRARY_PATH": "",
     "LOADEDMODULES": "",
@@ -28,7 +25,7 @@ clean_environment = {
 }
 
 
-def read_autoproc_xml(xml_file):
+def read_autoproc_xml(xml_file, logger):
     if not xml_file.is_file():
         logger.info(f"Expected file {xml_file} missing")
         return False
@@ -91,7 +88,7 @@ def read_autoproc_xml(xml_file):
     return xml_dict
 
 
-def construct_commandline(params, working_directory=None, image_directory=None):
+def construct_commandline(params, logger, working_directory=None, image_directory=None):
     """Construct autoPROC command line.
     Takes job parameter dictionary, returns array."""
 
@@ -206,7 +203,7 @@ def construct_commandline(params, working_directory=None, image_directory=None):
             if os.path.exists(os.path.join(d, plugin_name)):
                 hdf5_lib = "autoPROC_XdsKeyword_LIB=%s" % os.path.join(d, plugin_name)
         if not hdf5_lib:
-            logger.warning("Couldn't find plugin %s in PATH" % plugin_name)
+            logger.warning("Couldn't find plugin %s in PATH", plugin_name)
         if hdf5_lib:
             command.append(hdf5_lib)
 
@@ -264,6 +261,7 @@ def get_untrusted_rectangles(first_image_or_master_h5, macro=None):
 
 
 class autoPROCWrapper(Wrapper):
+    _logger_name = "dlstbx.wrap.autoPROC"
     name = "autoPROC"
 
     def send_results_to_ispyb(
@@ -296,7 +294,7 @@ class autoPROCWrapper(Wrapper):
             .split("(")[1]
             .split()[0]
         )
-        logger.debug(f"autoPROC version: {autoproc_version}")
+        self.log.debug(f"autoPROC version: {autoproc_version}")
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
         if auto_proc := autoproc_xml.get("AutoProc"):
@@ -318,7 +316,7 @@ class autoPROCWrapper(Wrapper):
                 }
             )
         else:
-            logger.info("AutoProc record missing from AutoProc xml file")
+            self.log.info("AutoProc record missing from AutoProc xml file")
 
         # Step 2: Store scaling results, linked to the AutoProcID
         #         Keep the AutoProcScalingID
@@ -353,7 +351,7 @@ class autoPROCWrapper(Wrapper):
                 }
             ispyb_command_list.append(insert_scaling)
         else:
-            logger.info(
+            self.log.info(
                 "AutoProcScalingStatistics record missing from AutoProc xml file"
             )
 
@@ -407,7 +405,9 @@ class autoPROCWrapper(Wrapper):
                             integration[beam_direction] = (
                                 float(integration[beam_direction]) * px_to_mm
                             )
-                        logger.debug(f"{beam_direction}: {integration[beam_direction]}")
+                        self.log.debug(
+                            f"{beam_direction}: {integration[beam_direction]}"
+                        )
 
                 if n > 0 or special_program_name:
                     # make sure only the first integration of the original program
@@ -417,7 +417,7 @@ class autoPROCWrapper(Wrapper):
                     integration["integration_id"] = None
             ispyb_command_list.append(integration)
         else:
-            logger.info(
+            self.log.info(
                 "AutoProcIntegrationContainer record missing from AutoProc xml file"
             )
 
@@ -445,9 +445,9 @@ class autoPROCWrapper(Wrapper):
             )
 
         if not ispyb_command_list:
-            logger.warning("no results to send to ISPyB")
+            self.log.warning("no results to send to ISPyB")
             return False
-        logger.info(
+        self.log.info(
             "Sending %d commands to ISPyB: %s",
             len(ispyb_command_list),
             str(ispyb_command_list),
@@ -471,7 +471,7 @@ class autoPROCWrapper(Wrapper):
                         "-" + params["ispyb_parameters"]["spacegroup"]
                     )
 
-        command = construct_commandline(params)
+        command = construct_commandline(params, self.log)
 
         working_directory = pathlib.Path(params["working_directory"])
         results_directory = pathlib.Path(params["results_directory"])
@@ -485,7 +485,7 @@ class autoPROCWrapper(Wrapper):
 
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
-        logger.info("command: %s", " ".join(command))
+        self.log.info("command: %s", " ".join(command))
         start_time = time.perf_counter()
         result = procrunner.run(
             command,
@@ -494,20 +494,20 @@ class autoPROCWrapper(Wrapper):
             working_directory=working_directory,
         )
         runtime = time.perf_counter() - start_time
-        logger.info(f"xia2 took {runtime} seconds")
+        self.log.info(f"autoPROC took {runtime} seconds")
         self._runtime_hist.observe(runtime)
 
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info("autoPROC successful, took %.1f seconds", result["runtime"])
+            self.log.info("autoPROC successful, took %.1f seconds", result["runtime"])
         else:
-            logger.info(
+            self.log.info(
                 "autoPROC failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"].decode("latin1"))
-            logger.debug(result["stderr"].decode("latin1"))
+            self.log.debug(result["stdout"].decode("latin1"))
+            self.log.debug(result["stderr"].decode("latin1"))
 
         (working_directory / "autoPROC.log").write_text(
             result["stdout"].decode("latin1")
@@ -535,8 +535,10 @@ class autoPROCWrapper(Wrapper):
             shutil.copy2(inlined_html, working_directory / "summary.html")
 
         # attempt to read autoproc XML droppings
-        autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml")
-        staraniso_xml = read_autoproc_xml(working_directory / "autoPROC_staraniso.xml")
+        autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml", self.log)
+        staraniso_xml = read_autoproc_xml(
+            working_directory / "autoPROC_staraniso.xml", self.log
+        )
 
         # copy output files to result directory
         results_directory.mkdir(parents=True, exist_ok=True)
@@ -581,7 +583,7 @@ class autoPROCWrapper(Wrapper):
             if not keep_as:
                 continue
             destination = results_directory / filename.name
-            logger.debug(f"Copying {filename} to {destination}")
+            self.log.debug(f"Copying {filename} to {destination}")
             shutil.copy(filename, destination)
             if filename.name not in keep:
                 continue  # only copy file, do not register in ISPyB

@@ -2,25 +2,23 @@ from __future__ import annotations
 
 import datetime
 import json
-import logging
 import subprocess
 import time
 
 import dateutil.parser
 import procrunner
 import py
+from prometheus_client import Histogram
 
 import dlstbx.util.symlink
 import dlstbx.wrapper
 from dlstbx.util.merging_statistics import get_merging_statistics
 
-logger = logging.getLogger("dlstbx.wrap.fast_dp")
-
-
-from prometheus_client import Histogram
-
 
 class FastDPWrapper(dlstbx.wrapper.Wrapper):
+
+    _logger_name = "dlstbx.wrap.fast_dp"
+
     name = "fast_dp"
 
     def __init__(self, *args, **kwargs):
@@ -97,9 +95,9 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
                     }
                 )
 
-        logger.info("Sending %s", str(ispyb_command_list))
+        self.log.info("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+        self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
     def construct_commandline(self, params):
         """Construct fast_dp command line.
@@ -155,7 +153,7 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
             environment["FORKXDS_PROJECT"] = params["forkxds_project"]
 
         # run fast_dp in working directory
-        logger.info("command: %s", " ".join(command))
+        self.log.info("command: %s", " ".join(command))
         try:
             start_time = time.perf_counter()
             result = procrunner.run(
@@ -167,26 +165,26 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
             )
             success = not result.returncode
             if success:
-                logger.info("fast_dp successful")
+                self.log.info("fast_dp successful")
             else:
-                logger.info(f"fast_dp failed with exitcode {result.returncode}")
-                logger.debug(result.stdout)
-                logger.debug(result.stderr)
+                self.log.info(f"fast_dp failed with exitcode {result.returncode}")
+                self.log.debug(result.stdout)
+                self.log.debug(result.stderr)
             runtime = time.perf_counter() - start_time
-            logger.info(f"fast_dp took {runtime} seconds")
+            self.log.info(f"fast_dp took {runtime} seconds")
             self._runtime_hist.observe(runtime)
         except subprocess.TimeoutExpired as te:
-            logger.info("fast_dp failed with timeout")
-            logger.debug(te.stdout)
-            logger.debug(te.stderr)
+            self.log.info("fast_dp failed with timeout")
+            self.log.debug(te.stdout)
+            self.log.debug(te.stderr)
             success = False
 
         if success and working_directory.join("fast_dp.error").check():
             # fast_dp anomaly: exit code 0 and no stderr output still means failure if error file exists
             success = False
-            logger.warning("fast_dp exited with error, but with returncode 0")
-            logger.debug(result.stdout)
-            logger.debug(result.stderr)
+            self.log.warning("fast_dp exited with error, but with returncode 0")
+            self.log.debug(result.stdout)
+            self.log.debug(result.stderr)
 
         if success:
             command = [
@@ -197,7 +195,7 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
                 "fast_dp_unmerged.mtz",
             ]
             # run xia2.report in working directory
-            logger.info("Running command: %s", " ".join(command))
+            self.log.info("Running command: %s", " ".join(command))
             try:
                 result = procrunner.run(
                     command,
@@ -207,18 +205,20 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
                 )
             except subprocess.TimeoutExpired as te:
                 success = False
-                logger.warning(f"xia2.report timed out: {te.timeout}\n  {te.cmd}")
-                logger.debug(te.stdout)
-                logger.debug(te.stderr)
+                self.log.warning(f"xia2.report timed out: {te.timeout}\n  {te.cmd}")
+                self.log.debug(te.stdout)
+                self.log.debug(te.stderr)
                 self._timeout_counter.inc()
             else:
                 success = not result.returncode
                 if success:
-                    logger.info("xia2.report successful")
+                    self.log.info("xia2.report successful")
                 else:
-                    logger.info(f"xia2.report failed with exitcode {result.returncode}")
-                    logger.debug(result.stdout)
-                    logger.debug(result.stderr)
+                    self.log.info(
+                        f"xia2.report failed with exitcode {result.returncode}"
+                    )
+                    self.log.debug(result.stdout)
+                    self.log.debug(result.stderr)
 
             json_file = working_directory.join("iotbx-merging-stats.json")
             with json_file.open("w") as fh:
@@ -272,7 +272,7 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
             if destination.strpath in allfiles:
                 # We've already seen this file above
                 continue
-            logger.debug(f"Copying {filename.strpath} to {destination.strpath}")
+            self.log.debug(f"Copying {filename.strpath} to {destination.strpath}")
             allfiles.append(destination.strpath)
             filename.copy(destination)
             if filetype:
@@ -304,13 +304,13 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
                 xtriage_results = None
             self.send_results_to_ispyb(json_data, xtriage_results=xtriage_results)
         elif success:
-            logger.warning("Expected JSON output file missing")
+            self.log.warning("Expected JSON output file missing")
 
         if dc_end_time := params.get("dc_end_time"):
             dc_end_time = dateutil.parser.parse(dc_end_time)
             dcid = params.get("dcid")
             latency_s = (datetime.datetime.now() - dc_end_time).total_seconds()
-            logger.info(
+            self.log.info(
                 f"fast_dp completed for DCID {dcid} with latency of {latency_s:.2f} seconds",
                 extra={"fastdp-latency-seconds": latency_s},
             )

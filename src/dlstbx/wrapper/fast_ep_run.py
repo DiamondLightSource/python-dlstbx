@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 from pathlib import Path
 
@@ -8,10 +7,11 @@ import procrunner
 
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("zocalo.wrap.fast_ep_run")
-
 
 class FastEPRunWrapper(Wrapper):
+
+    _logger_name = "zocalo.wrap.fast_ep_run"
+
     def construct_commandline(self, params):
         """Construct fast_ep command line.
         Takes job parameter dictionary, returns array."""
@@ -19,7 +19,7 @@ class FastEPRunWrapper(Wrapper):
         command = ["fast_ep"]
         for param, value in params["fast_ep"].items():
             if value:
-                logging.info(f"Parameter {param}: {value}")
+                self.log.info(f"Parameter {param}: {value}")
                 if param == "rlims":
                     value = ",".join(str(r) for r in value)
                 command.append(f"{param}={value}")
@@ -54,22 +54,22 @@ class FastEPRunWrapper(Wrapper):
             timeout=params.get("timeout"),
             working_directory=procrunner_directory,
         )
-        logger.info("command: %s", " ".join(result["command"]))
-        logger.info("runtime: %s", result["runtime"])
+        self.log.info("command: %s", " ".join(result["command"]))
+        self.log.info("runtime: %s", result["runtime"])
         success = (
             not result["exitcode"]
             and not result["timeout"]
             and not Path(procrunner_directory / "fast_ep.error").exists()
         )
         if success:
-            logger.info("fast_ep successful, took %.1f seconds", result["runtime"])
+            self.log.info("fast_ep successful, took %.1f seconds", result["runtime"])
         else:
-            logger.info(
+            self.log.info(
                 "fast_ep failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            self.log.debug(result["stdout"])
+            self.log.debug(result["stderr"])
 
         return success

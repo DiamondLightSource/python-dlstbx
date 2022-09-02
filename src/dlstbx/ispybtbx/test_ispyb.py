@@ -11,6 +11,7 @@ import sqlalchemy
 from sqlalchemy.orm import sessionmaker
 
 import dlstbx.ispybtbx
+from dlstbx import crud
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
 
 ds = {
@@ -121,16 +122,6 @@ def test_ispyb_filtering_for_processing_job(db_session):
     assert parameters["ispyb_processing_parameters"] == {
         "resolution.cc_half_significance_level": ["0.1"]
     }
-
-
-def test_fetch_datacollect_group_from_ispyb(db_session):
-    i = ispybtbx()
-    dc_id = ds["gphl_C2"]
-    dc_info = i.get_dc_info(dc_id, db_session)
-    assert dc_info
-    assert dc_info["dataCollectionGroupId"]
-    whole_group = i.get_related_dcs(dc_info["dataCollectionGroupId"], db_session)
-    assert len(whole_group) == 1
 
 
 def test_get_datacollection_information(db_session):
@@ -395,7 +386,7 @@ def test_get_sample_group_dcids_from_yml(tmpdir, db_session):
 
 def test_get_related_dcids_same_directory(db_session):
     i = ispybtbx()
-    assert i.get_related_dcids_same_directory({"ispyb_dcid": 5646632}, db_session) == {
+    assert i.get_related_dcids_same_directory(5646632, db_session) == {
         "dcids": [
             5646578,
             5646584,
@@ -450,10 +441,6 @@ def test_get_sample_group_dcids(db_session):
     ]
 
 
-def test_get_related_dcs(db_session):
-    assert ispybtbx().get_related_dcs(5339105, db_session) == [5898098, 5898104]
-
-
 def test_get_dcid_for_path(db_session):
     assert (
         ispybtbx().get_dcid_for_path(
@@ -481,13 +468,7 @@ def test_get_diffractionplan_from_dcid(db_session):
 
 
 def test_get_gridscan_info(db_session):
-    assert ispybtbx().get_gridscan_info(
-        {
-            "dataCollectionGroupId": 5492072,
-            "dataCollectionId": 6077465,
-        },
-        db_session,
-    ) == {
+    assert ispybtbx().get_gridscan_info(6077465, db_session) == {
         "dataCollectionId": 6077465,
         "snaked": 1,
         "orientation": "horizontal",
@@ -510,9 +491,7 @@ def test_get_gridscan_info(db_session):
 
 
 def test_get_sample_dcids(db_session):
-    assert ispybtbx().get_sample_dcids(
-        {"ispyb_dcid": 6077651, "ispyb_dc_info": {"BLSAMPLEID": 3297161}}, db_session
-    ) == {
+    assert ispybtbx().get_sample_dcids(3297161, db_session) == {
         "dcids": [
             5990969,
             5990975,
@@ -537,12 +516,9 @@ def test_get_sample_dcids(db_session):
     }
 
 
-def test_get_priority_processing_for_dc_info(db_session):
+def test_get_priority_processing_for_sample_id(db_session):
     assert (
-        ispybtbx().get_priority_processing_for_dc_info(
-            {"BLSAMPLEID": 3297161}, db_session
-        )
-        == "xia2/DIALS"
+        crud.get_priority_processing_for_sample_id(3297161, db_session) == "xia2/DIALS"
     )
 
 
@@ -557,9 +533,7 @@ def test_ready_for_processing(db_session):
 
 
 def test_get_dcg_dcids(db_session):
-    assert ispybtbx().get_dcg_dcids(
-        {"dataCollectionId": 6222263, "dataCollectionGroupId": 5617586}, db_session
-    ) == [6222221, 6222245]
+    assert ispybtbx().get_dcg_dcids(6222263, 5617586, db_session) == [6222221, 6222245]
     msg, param = ispyb_filter({}, {"ispyb_dcid": 6222263}, db_session)
     assert param["ispyb_dcg_dcids"] == [6222221, 6222245]
 

@@ -220,3 +220,38 @@ class DispatcherService(CommonSystemTest):
             min_wait=9,
             timeout=30,
         )
+
+    def test_apply_parameters(self):
+        """Passing in a recipe to the service without external dependencies.
+        The recipe should be interpreted and a simple message passed back to a
+        fixed destination."""
+
+        recipe = {
+            1: {
+                "service": "DLS system test",
+                "queue": self.target_queue,
+                "parameters": {
+                    "list": [
+                        "{ispyb_dc_info[imageDirectory]}{ispyb_dc_info[imagePrefix]}_{ispyb_dc_info[dataCollectionNumber]}.nxs"
+                    ],
+                    "timeout-first": 600,
+                },
+            },
+            "start": [
+                (1, {"purpose": "apply parameters test for the recipe parsing service"})
+            ],
+        }
+        message = {"custom_recipe": recipe, "parameters": {"ispyb_dcid": 8652035}}
+
+        self.send_message(queue="processing_recipe", message=message)
+
+        expected_recipe = copy.deepcopy(recipe)
+        expected_recipe[1]["parameters"]["list"] = [
+            "/dls/i03/data/2022/cm31105-3/xraycentring/manual/xrc_306.nxs"
+        ]
+        self.expect_recipe_message(
+            recipe=Recipe(expected_recipe),
+            recipe_path=[],
+            recipe_pointer=1,
+            payload=recipe["start"][0][1],
+        )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+from unittest import mock
 
 import pytest
 
@@ -32,6 +33,7 @@ def durin_plugin_so(monkeypatch):
     reason="Test images not available",
 )
 def test_construct_commandline_i24_cbf(autoproc_home):
+    logger = mock.Mock()
     params = {
         "autoproc": {
             "pname": "cm31109v1",
@@ -42,7 +44,7 @@ def test_construct_commandline_i24_cbf(autoproc_home):
         "beamline": "i24",
         "working_directory": "/dls/i24/data/2022/cm31109-1/tmp/zocalo/cut/TestThaumatin/thaumatin_11/thaumatin_11_1/3477adb0-00a2-4014-b2a7-a7fa68706c9c/autoPROC",
     }
-    cmdline = autoPROC.construct_commandline(params)
+    cmdline = autoPROC.construct_commandline(params, logger)
     assert cmdline == [
         "process",
         "-xml",
@@ -74,6 +76,7 @@ def test_construct_commandline_i24_cbf(autoproc_home):
     reason="Test images not available",
 )
 def test_construct_commandline_i03_eiger(monkeypatch, autoproc_home, durin_plugin_so):
+    logger = mock.Mock()
     nslots = "8"
     monkeypatch.setenv("NSLOTS", nslots)
     params = {
@@ -88,7 +91,7 @@ def test_construct_commandline_i03_eiger(monkeypatch, autoproc_home, durin_plugi
             "small_molecule": True,
         },
     }
-    cmdline = autoPROC.construct_commandline(params)
+    cmdline = autoPROC.construct_commandline(params, logger)
     assert cmdline == [
         "process",
         "-xml",
@@ -126,13 +129,14 @@ def test_construct_commandline_i03_eiger(monkeypatch, autoproc_home, durin_plugi
     reason="Test images not available",
 )
 def test_construct_commandline_i23_macro(autoproc_home):
+    logger = mock.Mock()
     params = {
         "autoproc": {"pname": "cm31108v1", "xname": "xdata10", "nproc": 5},
         "images": "/dls/i23/data/2022/cm31108-1/TestFerritin/20220210/Ferritin_x2/data_10_00001.cbf:1:3600",
         "beamline": "i23",
         "working_directory": "/dls/i23/data/2022/cm31108-1/tmp/zocalo/TestFerritin/20220210/Ferritin_x2/data_10/1d053370-7634-4812-bfbe-70f8856dea09/autoPROC",
     }
-    cmdline = autoPROC.construct_commandline(params)
+    cmdline = autoPROC.construct_commandline(params, logger)
     assert cmdline == [
         "process",
         "-xml",

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import os
 import pathlib
 from dataclasses import dataclass
@@ -28,6 +27,7 @@ from ispyb.sqlalchemy import (
     Protein,
     ProteinHasPDB,
 )
+from sqlalchemy import or_
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
@@ -192,7 +192,6 @@ class DLSTrigger(CommonService):
 
     def initializing(self):
         """Subscribe to the trigger queue. Received messages must be acknowledged."""
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
         self._ispyb_sessionmaker = sqlalchemy.orm.sessionmaker(
             bind=sqlalchemy.create_engine(
                 ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
@@ -233,7 +232,7 @@ class DLSTrigger(CommonService):
         rw.set_default_channel("output")
 
         parameter_map = ChainMapWithReplacement(
-            rw.recipe_step["parameters"].get("ispyb_parameters", {}),
+            rw.recipe_step["parameters"].get("ispyb_parameters") or {},
             message if isinstance(message, dict) else {},
             rw.recipe_step["parameters"],
             substitutions=rw.environment,
@@ -386,8 +385,8 @@ class DLSTrigger(CommonService):
 
         if not pdb_files_or_codes:
             self.log.info(
-                "Skipping dimple trigger: DCID %s has no associated PDB information"
-                % dcid
+                "Skipping dimple trigger: DCID %s has no associated PDB information",
+                dcid,
             )
             return {"success": True}
         pdb_files = [str(p) for p in pdb_files_or_codes]
@@ -1187,6 +1186,57 @@ class DLSTrigger(CommonService):
                 continue
             self.log.info(f"xia2.multiplex trigger: found dcids: {dcids}")
 
+            # Check for any processing jobs that are yet to finish (or fail)
+            query = (
+                (
+                    session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                        ProcessingJob,
+                        ProcessingJob.processingJobId
+                        == AutoProcProgram.processingJobId,
+                    )
+                )
+                .filter(ProcessingJob.dataCollectionId.in_(dcids))
+                .filter(ProcessingJob.automatic == True)  # noqa E712
+                .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+                .filter(
+                    or_(
+                        AutoProcProgram.processingStatus == None,  # noqa E711
+                        AutoProcProgram.processingStartTime == None,  # noqa E711
+                    )
+                )
+            )
+
+            # If there are any running (or yet to start) jobs, then checkpoint with delay
+            waiting_processing_jobs = query.all()
+            if n_waiting_processing_jobs := len(waiting_processing_jobs):
+                self.log.info(
+                    f"Waiting on {n_waiting_processing_jobs} processing jobs for {dcid=}"
+                )
+                waiting_dcids = [
+                    row.dataCollectionId for row in waiting_processing_jobs
+                ]
+                waiting_appids = [
+                    row.AutoProcProgram.autoProcProgramId
+                    for row in waiting_processing_jobs
+                ]
+                if status["ntry"] >= parameters.backoff_max_try:
+                    # Give up waiting for this program to finish and trigger
+                    # multiplex with remaining related results are available
+                    self.log.info(
+                        f"max-try exceeded, giving up waiting for related processings for dcids {waiting_dcids}\n"
+                    )
+                else:
+                    # Send results to myself for next round of processing
+                    self.log.debug(
+                        f"Waiting for dcids={waiting_dcids}\nappids={waiting_appids}"
+                    )
+                    rw.checkpoint(
+                        {"trigger-status": status},
+                        delay=message_delay,
+                        transaction=transaction,
+                    )
+                    return {"success": True}
+
             query = (
                 (
                     session.query(
@@ -1214,7 +1264,7 @@ class DLSTrigger(CommonService):
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .filter(ProcessingJob.automatic == True)  # noqa E712
                 .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                .filter(AutoProcProgram.processingStatus != 0)
+                .filter(AutoProcProgram.processingStatus == 1)
                 .filter(
                     (
                         AutoProcProgramAttachment.fileName.endswith(".expt")
@@ -1266,27 +1316,6 @@ class DLSTrigger(CommonService):
                 elif job_spacegroup_param and not parameters.spacegroup:
                     self.log.debug(f"Discarding appid {app.autoProcProgramId}")
                     continue
-
-                # Check for any programs that are yet to finish (or fail)
-                if app.processingStatus != 1 or not app.processingStartTime:
-                    if status["ntry"] >= parameters.backoff_max_try:
-                        # Give up waiting for this program to finish and trigger
-                        # multiplex with remaining related results are available
-                        self.log.info(
-                            f"max-try exceeded, giving up waiting for dcid={dcid}\n"
-                            f"{app.autoProcProgramId}"
-                        )
-                        break
-                    # Send results to myself for next round of processing
-                    self.log.debug(
-                        f"Waiting for dcid={dc.dataCollectionId}\nappid={app.autoProcProgramId}"
-                    )
-                    rw.checkpoint(
-                        {"trigger-status": status},
-                        delay=message_delay,
-                        transaction=transaction,
-                    )
-                    return {"success": True}
 
                 self.log.debug(f"Using appid {app.autoProcProgramId}")
                 attachments = [

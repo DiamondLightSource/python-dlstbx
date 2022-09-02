@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import subprocess
 import tempfile
 from pathlib import Path
@@ -13,8 +12,6 @@ import procrunner
 from dlstbx.util import mr_predict, mr_utils
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.mr_predict")
-
 clean_environment = {
     "LD_LIBRARY_PATH": "",
     "LOADEDMODULES": "",
@@ -24,6 +21,9 @@ clean_environment = {
 
 
 class MRPredictWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.mr_predict"
+
     def run_phaser_ellg(self, working_directory, tag, params, timeout):
         for key in (
             "hklin",
@@ -37,7 +37,7 @@ class MRPredictWrapper(Wrapper):
             try:
                 assert params[key]
             except AssertionError:
-                logger.info(f"Cannot read {key} from MrBUMP logfile")
+                self.log.info(f"Cannot read {key} from MrBUMP logfile")
                 return None
         phaser_script = [
             "phaser << eof\n",
@@ -69,7 +69,7 @@ class MRPredictWrapper(Wrapper):
                     + phaser_script,
                 )
         except OSError:
-            logger.exception(
+            self.log.exception(
                 "Could not create phaser script file in the working directory"
             )
             return False
@@ -83,19 +83,19 @@ class MRPredictWrapper(Wrapper):
             assert result.returncode == 0
             phaser_ellg_log = result.stdout.decode("latin1")
         except subprocess.TimeoutExpired:
-            logger.warning(f"Phaser eLLG script runtime exceeded timeout {timeout}")
+            self.log.warning(f"Phaser eLLG script runtime exceeded timeout {timeout}")
             phaser_ellg_log = None
         except AssertionError:
-            logger.warning(
+            self.log.warning(
                 "Process returned an error code when running Phaser eLLG script"
             )
             phaser_ellg_log = None
         except Exception:
-            logger.warning("Running Phaser eLLG script has failed")
+            self.log.warning("Running Phaser eLLG script has failed")
             phaser_ellg_log = None
         finally:
-            logger.debug(result.stdout.decode("latin1"))
-            logger.debug(result.stderr.decode("latin1"))
+            self.log.debug(result.stdout.decode("latin1"))
+            self.log.debug(result.stderr.decode("latin1"))
         return phaser_ellg_log
 
     def run(self):
@@ -137,7 +137,7 @@ class MRPredictWrapper(Wrapper):
                     ]
                 )
             except Exception:
-                logger.info(
+                self.log.info(
                     f"Error reading mr_predict input parameters for model {key}"
                 )
                 continue
@@ -150,7 +150,7 @@ class MRPredictWrapper(Wrapper):
                 f"{mr_logfile} {params['threshold']} {fmt_metrix}\n"
             )
         if not log_files:
-            logger.info("No MR log files found for running MR prediction script")
+            self.log.info("No MR log files found for running MR prediction script")
             return False
         try:
             fp = tempfile.NamedTemporaryFile(dir=working_directory)
@@ -168,7 +168,7 @@ class MRPredictWrapper(Wrapper):
                     + commands,
                 )
         except OSError:
-            logger.exception(
+            self.log.exception(
                 "Could not create mr_predict script file in the working directory"
             )
             return False
@@ -182,17 +182,17 @@ class MRPredictWrapper(Wrapper):
             )
             assert result.returncode == 0
         except subprocess.TimeoutExpired:
-            logger.exception(
+            self.log.exception(
                 f"mr_predict script runtime exceeded timeout {params['timeout']}"
             )
             return False
         except AssertionError:
-            logger.exception(
+            self.log.exception(
                 "Process returned an error code when running MR prediction script"
             )
             return False
         except Exception:
-            logger.exception("Running mr_predict script has failed")
+            self.log.exception("Running mr_predict script has failed")
             return False
 
         if params.get("results_directory"):
@@ -203,7 +203,7 @@ class MRPredictWrapper(Wrapper):
                 mr_result = Path(mr_logfile)
                 if mr_result.is_file():
                     try:
-                        logger.info(
+                        self.log.info(
                             f"Copying mr_predict results to {results_directory}"
                         )
                         destination = results_directory / mr_result.name
@@ -217,11 +217,11 @@ class MRPredictWrapper(Wrapper):
                             }
                         )
                     except Exception:
-                        logger.info(
+                        self.log.info(
                             f"Error copying files into the results directory {results_directory}"
                         )
                 else:
-                    logger.info(f"Results file {mr_logfile} not found")
+                    self.log.info(f"Results file {mr_logfile} not found")
                     return False
 
         email_message = {

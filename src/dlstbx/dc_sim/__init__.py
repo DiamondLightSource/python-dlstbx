@@ -212,7 +212,7 @@ def _simulate(
         proc_job_values["datacollectionid"] = datacollectionid
         proc_job_values["display_name"] = "RELION"
         proc_job_values["comments"] = "Submitted as part of simulated data collection"
-        proc_job_values["recipe"] = "relion"
+        proc_job_values["recipe"] = "relion4"
         proc_job_values["automatic"] = 0
         procjobid = i.mx_processing.upsert_job(list(proc_job_values.values()))
 

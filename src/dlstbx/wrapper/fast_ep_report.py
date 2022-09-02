@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 from pprint import pformat
 
 import py
@@ -10,28 +9,29 @@ import xmltodict
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("zocalo.wrap.fast_ep_report")
-
 
 class FastEPReportWrapper(Wrapper):
+
+    _logger_name = "zocalo.wrap.fast_ep_report"
+
     def send_results_to_ispyb(self, xml_file):
         params = self.recwrap.recipe_step["job_parameters"]
 
         scaling_id = params.get("ispyb_parameters", params).get("scaling_id", None)
         if not str(scaling_id).isdigit():
-            logger.error(
+            self.log.error(
                 f"Can not write results to ISPyB: no scaling ID set ({scaling_id})"
             )
             return False
         scaling_id = int(scaling_id)
-        logger.info(
+        self.log.info(
             f"Inserting fast_ep phasing results from {xml_file} into ISPyB for scaling_id {scaling_id}"
         )
 
         with open(xml_file) as fh:
             phasing_results = xmltodict.parse(fh.read())
 
-        logger.info(
+        self.log.info(
             f"Sending {phasing_results} phasing results commands to ISPyB for scaling_id {scaling_id}"
         )
         self.recwrap.send_to(
@@ -50,7 +50,7 @@ class FastEPReportWrapper(Wrapper):
         try:
             results_directory = py.path.local(params["results_directory"])
         except KeyError:
-            logger.info("Results directory not specified")
+            self.log.info("Results directory not specified")
 
         # Create working directory with symbolic link
         working_directory.ensure(dir=True)
@@ -86,10 +86,10 @@ class FastEPReportWrapper(Wrapper):
                 "cell_info": cell_info,
                 "best_solvent": best_solv,
             }
-            logger.info("Topaz data: %s", pformat(topaz_data))
+            self.log.info("Topaz data: %s", pformat(topaz_data))
             self.recwrap.send_to("topaz", topaz_data)
         else:
-            logger.warning(
+            self.log.warning(
                 "fast_ep failed. Results file %s unavailable", fast_ep_data_json.strpath
             )
             return False
@@ -102,7 +102,7 @@ class FastEPReportWrapper(Wrapper):
                     results_directory.strpath, params["create_symlink"]
                 )
 
-            logger.info("Copying fast_ep results to %s", results_directory.strpath)
+            self.log.info("Copying fast_ep results to %s", results_directory.strpath)
             keep_ext = {
                 ".cif": "result",
                 ".error": "log",
@@ -142,7 +142,7 @@ class FastEPReportWrapper(Wrapper):
                 xml_file = working_directory.join(params["fast_ep"]["xml"])
                 if xml_file.check():
                     xml_data = working_directory.join(params["fast_ep"]["xml"]).read()
-                    logger.info("Sending fast_ep phasing results to ISPyB")
+                    self.log.info("Sending fast_ep phasing results to ISPyB")
                     xml_file.write(
                         xml_data.replace(
                             working_directory.strpath, results_directory.strpath
@@ -150,16 +150,16 @@ class FastEPReportWrapper(Wrapper):
                     )
                     result_ispyb = self.send_results_to_ispyb(xml_file.strpath)
                     if not result_ispyb:
-                        logger.error(
+                        self.log.error(
                             "Running phasing2ispyb.py script returned non-zero exit code"
                         )
                 else:
-                    logger.info(
+                    self.log.info(
                         "fast_ep failed, no .xml output, thus not reporting to ISPyB"
                     )
                     return False
         except NameError:
-            logger.info(
+            self.log.info(
                 "Copying fast_ep results ignored. Results directory unavailable."
             )
 

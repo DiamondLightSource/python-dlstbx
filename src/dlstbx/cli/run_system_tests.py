@@ -70,11 +70,7 @@ def run():
     workflows.transport.add_command_line_options(parser, transport_argument=True)
 
     args = parser.parse_args()
-    test_mode = "test" in zc.active_environments
-
-    # Only log to graylog for live tests
-    if not test_mode:
-        dlstbx.enable_graylog()
+    test_mode = {"devrmq", "devamq"} & set(zc.active_environments)
 
     transport = workflows.transport.lookup(args.transport)()
     transport.connect()

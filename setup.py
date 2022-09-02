@@ -107,7 +107,7 @@ service_list = [
     "DLSCluster = dlstbx.services.cluster:DLSCluster",
     "DLSClusterMonitor = dlstbx.services.cluster_monitor:DLSClusterMonitor",
     "DLSController = dlstbx.services.controller:DLSController",
-    "DLSDispatcher = dlstbx.services.dispatcher:DLSDispatcher",
+    "DLSDispatcher = dlstbx.services.dispatcher:Dispatcher",
     "DLSDropfilePickup = dlstbx.services.dropfile_pickup:DLSDropfilePickup",
     "DLSFileWatcher = dlstbx.services.filewatcher:DLSFileWatcher",
     "DLSISPyB = dlstbx.services.ispybsvc:DLSISPyB",
@@ -187,7 +187,7 @@ mimas_scenario_handlers = [
 ]
 
 
-def get_git_revision():
+def get_git_revision() -> str | None:
     """Try to obtain the current git revision number"""
     xia2_root_path = os.path.split(os.path.realpath(__file__))[0]
 
@@ -203,11 +203,17 @@ def get_git_revision():
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
         )
-        version = result.stdout.rstrip()
+        version, commits, sha = result.stdout.rstrip().rsplit("-", maxsplit=2)
+
+        # Strip off leading v and trailing .0
+        if version.startswith("v"):
+            version = version[1:]
+        if version.endswith(".0"):
+            version = version[:-2]
+        # Combine the commit height and short SHA
+        version = f"{version}.{commits}+{sha}"
     except Exception:
         return None
-    if version.startswith("v"):
-        version = version[1:].replace(".0-", ".")
 
     try:
         result = subprocess.run(
@@ -219,8 +225,9 @@ def get_git_revision():
             stderr=subprocess.DEVNULL,
         )
         branch = result.stdout.rstrip()
-        if branch != "" and branch != "master" and not branch.endswith("/master"):
-            version = version + "-" + branch
+        # If not main, then append the branch name
+        if branch and branch != "main" and not branch.endswith("/main"):
+            version = f"{version}.{branch.split('/')[-1]}"
     except Exception:
         pass
 
@@ -240,6 +247,12 @@ setup(
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.health_checks": sorted(health_checks),
+        "zocalo.services.dispatcher.filters": [
+            "ispyb = dlstbx.ispybtbx:ispyb_filter",
+        ],
+        "zocalo.services.dispatcher.ready_for_processing": [
+            "ispyb = dlstbx.ispybtbx:ready_for_processing",
+        ],
         "zocalo.services.images.plugins": [
             "diffraction = dlstbx.services.images:diffraction",
             "thumbnail = dlstbx.services.images:thumbnail",

@@ -5,8 +5,8 @@ import concurrent.futures
 import logging
 
 import pkg_resources
+import zocalo.configuration
 
-import dlstbx
 import dlstbx.health_checks as hc
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
@@ -22,13 +22,6 @@ def run():
         description="Run infrastructure checks and report results to a database."
     )
     parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
-    parser.add_argument(
-        "--graylog",
-        dest="graylog",
-        action="store_true",
-        default=False,
-        help="enable logging to graylog",
-    )
     parser.add_argument(
         "--check",
         dest="check",
@@ -54,10 +47,13 @@ def run():
         default=False,
         help="show more detail",
     )
-    options = parser.parse_args()
 
-    if options.graylog:
-        dlstbx.enable_graylog(live=True)
+    # Load configuration
+    zc = zocalo.configuration.from_file()
+    zc.activate()
+    zc.add_command_line_options(parser)
+
+    options = parser.parse_args()
 
     if options.check:
         check_functions = {

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 import pathlib
 import shutil
@@ -12,10 +11,11 @@ from iotbx.bioinformatics import fasta_sequence
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.mrbump")
-
 
 class MrBUMPWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.mrbump"
+
     def construct_script(self, params, working_directory, sequence):
         """Construct MrBUMP script line.
         Takes job parameter dictionary, returns array."""
@@ -57,7 +57,7 @@ class MrBUMPWrapper(Wrapper):
             with open(mrbump_filename, "w") as fp:
                 fp.write("\n".join(mrbump_script))
         except OSError:
-            logger.exception(
+            self.log.exception(
                 "Could not create MrBUMP script file in the working directory"
             )
             return False
@@ -75,10 +75,12 @@ class MrBUMPWrapper(Wrapper):
         try:
             sequence = params["protein_info"]["sequence"]
             if not sequence:
-                logger.error("Aborting MrBUMP processing. Sequence data not available.")
+                self.log.error(
+                    "Aborting MrBUMP processing. Sequence data not available."
+                )
                 return False
         except Exception:
-            logger.exception(
+            self.log.exception(
                 "MrBUMP processing failed: Cannot read sequence information"
             )
             return False
@@ -99,7 +101,7 @@ class MrBUMPWrapper(Wrapper):
         command, mrbump_script = self.construct_script(
             params, working_directory, sequence
         )
-        logger.info("command: %s", command)
+        self.log.info("command: %s", command)
         stdin_params = params["mrbump"]["stdin"]
 
         # Extend stdin with those provided in ispyb_parameters
@@ -117,7 +119,7 @@ class MrBUMPWrapper(Wrapper):
 
         stdin = localfiles + [f"{k} {v}" for k, v in stdin_params.items()]
         stdin = "\n".join(stdin) + "\nEND"
-        logger.info("mrbump stdin: %s", stdin)
+        self.log.info("mrbump stdin: %s", stdin)
 
         with (working_directory / "MRBUMP.log").open("w") as fp:
             result = procrunner.run(
@@ -133,18 +135,18 @@ class MrBUMPWrapper(Wrapper):
             success = success and hklout.is_file() and xyzout.is_file()
             if success:
                 fp.write("Looks like MrBUMP succeeded")
-                logger.info("mrbump successful, took %.1f seconds", result["runtime"])
+                self.log.info("mrbump successful, took %.1f seconds", result["runtime"])
             else:
                 fp.write("Looks like MrBUMP failed")
-                logger.info(
+                self.log.info(
                     "mrbump failed with exitcode %s and timeout %s",
                     result["exitcode"],
                     result["timeout"],
                 )
-                logger.debug(result["stdout"].decode("latin1"))
-                logger.debug(result["stderr"].decode("latin1"))
+                self.log.debug(result["stdout"].decode("latin1"))
+                self.log.debug(result["stderr"].decode("latin1"))
 
-        logger.info(f"Copying MrBUMP results to {results_directory}")
+        self.log.info(f"Copying MrBUMP results to {results_directory}")
         keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}
         allfiles = []
         for filename in working_directory.iterdir():

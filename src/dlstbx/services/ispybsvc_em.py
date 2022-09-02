@@ -6,7 +6,38 @@ import ispyb
 import sqlalchemy.exc
 import sqlalchemy.orm
 from ispyb.sqlalchemy import MotionCorrection, RelativeIceThickness, Tomogram, TiltImageAlignment
-from pydantic import BaseModel
+from pydantic import BaseModel, validate_arguments
+
+class Movie(BaseModel):
+    dcid: int
+    movie_number: int = None #image number
+    movie_path: str = None # micrograph full path
+    timestamp: float = None
+
+class TomogramFile(BaseModel):
+    dcid: int
+    program_id: int
+    volume_file: str
+    stack_file: str
+    size_x: int = None
+    size_y: int = None
+    size_z: int = None
+    pixel_spacing: float = None
+    tilt_angle_offset: float = None
+    z_shift: float = None
+
+class TiltImageAlign(BaseModel):
+    movie_id: int
+    tomogram_id: int
+    defocus_u: float = None
+    defocus_v: float = None
+    psd_file: str = None
+    resolution: float = None
+    fit_quality: float = None
+    refined_magnification: float = None
+    refined_tilt_angle: float = None
+    refined_tilt_axis: float = None
+    residual_error: float = None
 
 class EM_Mixin:
     def do_insert_ctf(self, parameters, message=None, **kwargs):
@@ -105,12 +136,7 @@ class EM_Mixin:
         else:
             return None
 
-    class Movie(BaseModel):
-        dcid: int
-        movie_number: int #image number
-        movie_path: str # micrograph full path
-        timestamp: float
-
+    @validate_arguments(config=dict(arbitrary_types_allowed=True))
     def do_insert_movie(self, *, parameter_map: Movie, **kwargs):
 
         self.log.info("Inserting Movie parameters.")
@@ -127,7 +153,7 @@ class EM_Mixin:
             list(movie_params.values())
         )
         self.log.info(f"Created Movie record {result}")
-
+        return {"success": True, "return_value": result}
 
     def do_insert_motion_correction(self, parameters, message=None, **kwargs):
         if message is None:
@@ -359,27 +385,23 @@ class EM_Mixin:
             )
             return False
 
-    def do_insert_tomogram(self, *, parameter_map, session, message=None, **kwargs):
-        if message is None:
-            message = {}
-        dcid = parameter_map("dcid")
+    @validate_arguments(config=dict(arbitrary_types_allowed=True))
+    def do_insert_tomogram(self, *, parameter_map: TomogramFile, session, **kwargs):
+        dcid = parameter_map.dcid
         self.log.info(f"Inserting Tomogram parameters. DCID: {dcid}")
 
         try:
             values = Tomogram(
-                dataCollectionId=parameter_map("dcid"),
-                autoProcProgramId=parameter_map("program_id"),
-                volumeFile=parameter_map("volume_file"),
-                stackFile=parameter_map("stack_file"),
-                sizeX=parameter_map("size_x"),
-                sizeY=parameter_map("size_y"),
-                sizeZ=parameter_map("size_z"),
-                pixelSpacing=parameter_map("pixel_spacing"),
-                residualErrorMean=parameter_map("residual_error_mean"),
-                residualErrorSD=parameter_map("residual_error_sd"),
-                xAxisCorrection=parameter_map("x_axis_correction"),
-                tiltAngleOffset=parameter_map("tilt_angle_offset"),
-                zShift=parameter_map("z_shift")
+                dataCollectionId=parameter_map.dcid,
+                autoProcProgramId=parameter_map.program_id,
+                volumeFile=parameter_map.volume_file,
+                stackFile=parameter_map.stack_file,
+                sizeX=parameter_map.size_x,
+                sizeY=parameter_map.size_y,
+                sizeZ=parameter_map.size_z,
+                pixelSpacing=parameter_map.pixel_spacing,
+                tiltAngleOffset=parameter_map.tilt_angle_offset,
+                zShift=parameter_map.z_shift
             )
             session.add(values)
             session.commit()
@@ -392,26 +414,23 @@ class EM_Mixin:
             )
         return False
 
-
-    def do_insert_tilt_image_alignment(self, *, parameter_map, session, message=None, **kwargs):
-        if message is None:
-            message = {}
-        dcid = parameter_map("dcid")
-        self.log.info(f"Inserting Tilt Image Alignment parameters. DCID: {dcid}")
+    @validate_arguments(config=dict(arbitrary_types_allowed=True))
+    def do_insert_tilt_image_alignment(self, *, parameter_map: TiltImageAlign, session, **kwargs):
+        self.log.info(f"Inserting Tilt Image Alignment parameters.")
 
         try:
             values = TiltImageAlignment(
-                movieId=parameter_map("movie_id"),
-                tomogramId=parameter_map("tomogram_id"),
-                defocusU=parameter_map("defocus_u"),
-                defocusV=parameter_map("defocus_v"),
-                psdFile=parameter_map("psd_file"),
-                resolution=parameter_map("resolution"),
-                fitQuality=parameter_map("fit_quality"),
-                refinedMagnification=parameter_map("refined_magnification"),
-                refinedTiltAngle=parameter_map("refined_tilt_angle"),
-                refinedTiltAxis=parameter_map("refinedTiltAxis"),
-                residualError=parameter_map("residual_error")
+                movieId=parameter_map.movie_id,
+                tomogramId=parameter_map.tomogram_id,
+                defocusU=parameter_map.defocus_u,
+                defocusV=parameter_map.defocus_v,
+                psdFile=parameter_map.psd_file,
+                resolution=parameter_map.resolution,
+                fitQuality=parameter_map.fit_quality,
+                refinedMagnification=parameter_map.refined_magnification,
+                refinedTiltAngle=parameter_map.refined_tilt_angle,
+                refinedTiltAxis=parameter_map.refined_tilt_axis,
+                residualError=parameter_map.residual_error
             )
             session.add(values)
             session.commit()

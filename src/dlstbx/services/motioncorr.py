@@ -274,23 +274,23 @@ class MotionCorr(CommonService):
             }
         })
         self.log.info(f"Sending to ispyb {ispyb_parameters}")
-        #if isinstance(rw, RW_mock):
-        #    rw.transport.send(destination="ispyb_connector",
-        #                      message={
-        #                          "parameters": ispyb_parameters,
-        #                          "content": {"dummy": "dummy"},
-        #                      })
-        #else:
-        #    rw.send_to("ispyb", ispyb_parameters)
+        if isinstance(rw, RW_mock):
+            rw.transport.send(destination="ispyb_connector",
+                              message={
+                                  "parameters": ispyb_parameters,
+                                  "content": {"dummy": "dummy"},
+                              })
+        else:
+            rw.send_to("ispyb", ispyb_parameters)
 
         # Forward results to murfey
-        self.log.info("Sending to murfey")
-        #if isinstance(rw, RW_mock):
-        #    rw.transport.send("murfey", {"register": "motion_corrected",
-        #                                 "movie": mc_params.movie})
-        #else:
-        #    rw.send_to("murfey", {"register": "motion_corrected",
-        #                          "movie": mc_params.movie})
+        self.log.info("Sending to murfey-feedback")
+        if isinstance(rw, RW_mock):
+            rw.transport.send("murfey-feedback", {"register": "motion_corrected",
+                                         "movie": mc_params.movie})
+        else:
+            rw.send_to("murfey-feedback", {"register": "motion_corrected",
+                                  "movie": mc_params.movie})
 
         rw.transport.ack(header)
         self.shift_list = []

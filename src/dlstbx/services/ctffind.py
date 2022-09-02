@@ -208,13 +208,13 @@ class CTFFind(CommonService):
                                  "buffer_command": {
                                      "ispyb_command": "insert_ctf"}})
         self.log.info(f"Sending to ispyb {ispyb_parameters}")
-        #if isinstance(rw, RW_mock):
-        #    rw.transport.send(destination="ispyb_connector",
-        #                  message={
-        #                      "parameters": ispyb_parameters,
-        #                      "content": {"dummy": "dummy"},
-        #                  },)
-        #else:
-        #    rw.send_to("ispyb", ispyb_parameters)
+        if isinstance(rw, RW_mock):
+            rw.transport.send(destination="ispyb_connector",
+                          message={
+                              "parameters": ispyb_parameters,
+                              "content": {"dummy": "dummy"},
+                          },)
+        else:
+            rw.send_to("ispyb", ispyb_parameters)
 
         rw.transport.ack(header)

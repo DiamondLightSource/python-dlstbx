@@ -252,14 +252,14 @@ class TomoAlign(CommonService):
                                  "ispyb_command_list": ispyb_command_list
                                  }
         self.log.info(f"Sending to ispyb {ispyb_parameters}")
-        #if isinstance(rw, RW_mock):
-        #    rw.transport.send(destination="ispyb_connector",
-        #                      message={
-        #                          "parameters": ispyb_parameters,
-        #                          "content": {"dummy": "dummy"},
-        #                      },)
-        #else:
-        #    rw.send_to("ispyb", ispyb_parameters)
+        if isinstance(rw, RW_mock):
+            rw.transport.send(destination="ispyb_connector",
+                              message={
+                                  "parameters": ispyb_parameters,
+                                  "content": {"dummy": "dummy"},
+                              },)
+        else:
+            rw.send_to("ispyb", ispyb_parameters)
         rw.transport.ack(header)
 
     def newstack(self, tomo_parameters):

@@ -287,10 +287,12 @@ class MotionCorr(CommonService):
         self.log.info("Sending to Murfey")
         if isinstance(rw, RW_mock):
             rw.transport.send("murfey_feedback", {"register": "motion_corrected",
-                                         "movie": mc_params.movie})
+                                         "movie": mc_params.movie,
+                                         "mrc_out": mc_params.mrc_out})
         else:
             rw.send_to("murfey", {"register": "motion_corrected",
-                                  "movie": mc_params.movie})
+                                  "movie": mc_params.movie,
+                                  "mrc_out": mc_params.mrc_out})
 
         rw.transport.ack(header)
         self.shift_list = []

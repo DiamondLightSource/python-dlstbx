@@ -13,7 +13,7 @@ def test_get_data_collection(db_session):
 
 def test_get_gridinfo_for_dcid(db_session):
     dcid = 6017405
-    gi = crud.get_gridinfo_for_dcid(dcid, db_session)
+    gi = crud.get_gridinfo_for_dcid(dcid, 0, db_session)
     assert gi.dataCollectionId == dcid
 
 

@@ -21,10 +21,19 @@ def get_data_collection(
 
 def get_gridinfo_for_dcid(
     dcid: int,
+    dcgid: int,
     session: sqlalchemy.orm.session.Session,
 ) -> models.GridInfo | None:
     query = session.query(models.GridInfo).filter(
         models.GridInfo.dataCollectionId == dcid
+    )
+    result = query.first()
+    if result:
+        return result
+
+    # legacy: search on dcgid
+    query = session.query(models.GridInfo).filter(
+        models.GridInfo.dataCollectionGroupId == dcgid
     )
     return query.first()
 

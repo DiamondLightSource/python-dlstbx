@@ -174,9 +174,11 @@ class ispybtbx:
 
         return message, parameters
 
-    def get_gridscan_info(self, dcid: int, session: sqlalchemy.orm.session.Session):
+    def get_gridscan_info(
+        self, dcid: int, dcgid: int, session: sqlalchemy.orm.session.Session
+    ):
         """Extract GridInfo table contents for a DC group ID."""
-        gridinfo = crud.get_gridinfo_for_dcid(dcid, session)
+        gridinfo = crud.get_gridinfo_for_dcid(dcid, dcgid, session)
         if not gridinfo:
             return {}
         schema = isa.GridInfo.__marshmallow__()
@@ -690,7 +692,7 @@ def ispyb_filter(
     parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info, session)
     parameters["ispyb_dc_info"] = dc_info
     parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(
-        dc_info.get("dataCollectionId"), session
+        dc_info.get("dataCollectionId"), dc_info.get("dataCollectionGroupId"), session
     )
     parameters["ispyb_dcg_experiment_type"] = i.get_dcg_experiment_type(
         dc_info.get("dataCollectionGroupId"), session

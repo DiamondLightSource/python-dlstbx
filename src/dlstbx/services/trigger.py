@@ -745,7 +745,6 @@ class DLSTrigger(CommonService):
         self.log.debug(f"fast_ep trigger: generated JobID {jobid}")
 
         fast_ep_parameters = {
-            "check_go_fast_ep": parameters.automatic,
             "data": os.fspath(parameters.mtz),
             "scaling_id": parameters.scaling_id,
         }

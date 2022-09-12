@@ -137,6 +137,7 @@ class FastEPWrapper(Wrapper):
                 )
             if int(
                 params["ispyb_parameters"].get("check_go_fast_ep", False)
+                or params.get("check_go_fast_ep", False)
             ) and self.stop_fast_ep(params):
                 self.log.info("Skipping fast_ep (go_fast_ep == No)")
                 return False

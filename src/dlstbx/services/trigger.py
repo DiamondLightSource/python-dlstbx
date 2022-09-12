@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import ispyb
+import pkg_resources
 import prometheus_client
 import pydantic
 import sqlalchemy.engine
@@ -44,26 +45,6 @@ class PrometheusMetrics(BasePrometheusMetrics):
             documentation="The total number of jobs triggered by the Zocalo trigger service",
             labelnames=["target"],
         )
-
-
-@dataclass(frozen=True)
-class PDBFileOrCode:
-    filepath: Optional[pathlib.Path] = None
-    code: Optional[str] = None
-    source: Optional[str] = None
-
-    def __str__(self):
-        return str(self.filepath) if self.filepath else str(self.code)
-
-
-class DimpleParameters(pydantic.BaseModel):
-    dcid: int = pydantic.Field(gt=0)
-    scaling_id: int = pydantic.Field(gt=0)
-    mtz: pathlib.Path
-    pdb_tmpdir: pathlib.Path
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
-    user_pdb_directory: Optional[pathlib.Path] = None
 
 
 class ProteinInfo(pydantic.BaseModel):
@@ -190,6 +171,11 @@ class DLSTrigger(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.trigger"
 
+    trigger_targets = {
+        f.name: f.load()
+        for f in pkg_resources.iter_entry_points("zocalo.services.trigger.targets")
+    }
+
     def initializing(self):
         """Subscribe to the trigger queue. Received messages must be acknowledged."""
         self._ispyb_sessionmaker = sqlalchemy.orm.sessionmaker(
@@ -223,7 +209,8 @@ class DLSTrigger(CommonService):
             return
         if target in {"big_ep_cluster", "big_ep_cloud"}:
             target = "big_ep_common"
-        if not hasattr(self, "trigger_" + target):
+        trigger_func = self.trigger_targets.get(target)
+        if not trigger_func:
             self.log.error("Unknown target %s defined in recipe", target)
             rw.transport.nack(header)
             return
@@ -240,7 +227,7 @@ class DLSTrigger(CommonService):
 
         with self._ispyb_sessionmaker() as session:
             try:
-                result = getattr(self, "trigger_" + target)(
+                result = trigger_func(
                     rw=rw,
                     header=header,
                     message=message,
@@ -271,177 +258,6 @@ class DLSTrigger(CommonService):
             rw.transport.nack(header)
             return
         rw.transport.transaction_commit(txn)
-
-    def get_linked_pdb_files_for_dcid(
-        self,
-        session: sqlalchemy.orm.session.Session,
-        dcid: int,
-        pdb_tmpdir: pathlib.Path,
-        user_pdb_dir: Optional[pathlib.Path] = None,
-        ignore_pdb_codes: bool = False,
-    ) -> List[PDBFileOrCode]:
-        """Get linked PDB files for a given data collection ID.
-
-        Valid PDB codes will be returned as the code, PDB files will be copied into a
-        unique subdirectory within the `pdb_tmpdir` directory. Optionally search for
-        PDB files in the `user_pdb_dir` directory.
-        """
-        pdb_files = []
-        query = (
-            session.query(DataCollection, PDB)
-            .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
-            .join(Crystal, Crystal.crystalId == BLSample.crystalId)
-            .join(Protein, Protein.proteinId == Crystal.proteinId)
-            .join(ProteinHasPDB, ProteinHasPDB.proteinid == Protein.proteinId)
-            .join(PDB, PDB.pdbId == ProteinHasPDB.pdbid)
-            .filter(DataCollection.dataCollectionId == dcid)
-        )
-        for dc, pdb in query.all():
-            if not ignore_pdb_codes and pdb.code is not None:
-                pdb_code = pdb.code.strip()
-                if pdb_code.isalnum() and len(pdb_code) == 4:
-                    pdb_files.append(PDBFileOrCode(code=pdb_code, source=pdb.source))
-                    continue
-                elif pdb_code != "":
-                    self.log.warning(
-                        f"Invalid input PDB code '{pdb.code}' for pdbId {pdb.pdbId}"
-                    )
-            if pdb.contents not in ("", None):
-                sha1 = hashlib.sha1(pdb.contents.encode()).hexdigest()
-                assert pdb.name and "/" not in pdb.name, "Invalid PDB file name"
-                pdb_dir = pdb_tmpdir / sha1
-                pdb_dir.mkdir(parents=True, exist_ok=True)
-                pdb_filepath = pdb_dir / pdb.name
-                if not pdb_filepath.exists():
-                    pdb_filepath.write_text(pdb.contents)
-                pdb_files.append(
-                    PDBFileOrCode(filepath=pdb_filepath, source=pdb.source)
-                )
-
-        if user_pdb_dir and user_pdb_dir.is_dir():
-            # Look for matching .pdb files in user directory
-            for f in user_pdb_dir.iterdir():
-                if not f.stem or f.suffix != ".pdb" or not f.is_file():
-                    continue
-                self.log.info(f)
-                pdb_files.append(PDBFileOrCode(filepath=f))
-        return pdb_files
-
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
-    def trigger_dimple(
-        self,
-        rw: workflows.recipe.RecipeWrapper,
-        *,
-        parameters: DimpleParameters,
-        session: sqlalchemy.orm.session.Session,
-        **kwargs,
-    ):
-        """Trigger a dimple job for a given data collection.
-
-        Identify any PDB files or PDB codes associated with the given data collection.
-        - PDB codes or file contents stored in the ISPyB PDB table and linked with
-          the given data collection. Any files defined in the database will be copied
-          into a subdirectory inside `pdb_tmpdir`, where the subdirectory name will be
-          a hash of the file contents.
-        - PDB files (with `.pdb` extension) stored in the directory optionally provided
-          by the `user_pdb_directory` recipe parameter.
-
-        If any PDB files or codes are identified, then new ProcessingJob,
-        ProcessingJobImageSweep and ProcessingJobParameter will be created, and the
-        resulting processingJobId will be sent to the `processing_recipe` queue.
-
-        Recipe parameters:
-        - target: set this to "dimple"
-        - dcid: the dataCollectionId for the given data collection
-        - comment: a comment to be stored in the ProcessingJob.comment field
-        - automatic: boolean value passed to ProcessingJob.automatic field
-        - scaling_id: autoProcScalingId that the dimple results should be linked to
-        - mtz: the input mtz reflection file for dimple
-        - user_pdb_directory: optionally look for PDB files in this directory
-        - pdb_tmpdir: temporary location to write the contents of PDB files stored
-            in the database
-
-        Minimal recipe parameters:
-        {
-            "target": "dimple",
-            "dcid": 123456,
-            "comment": "DIMPLE triggered by automatic xia2-dials",
-            "automatic": True,
-            "scaling_id": 654321,
-            "user_pdb_directory": "/path/to/user_pdb",
-            "mtz": "/path/to/scaled.mtz",
-            "pdb_tmpdir": "/path/to/pdb_tmpdir",
-        }
-        """
-
-        dcid = parameters.dcid
-
-        pdb_files_or_codes = self.get_linked_pdb_files_for_dcid(
-            session,
-            dcid,
-            parameters.pdb_tmpdir,
-            user_pdb_dir=parameters.user_pdb_directory,
-        )
-
-        if not pdb_files_or_codes:
-            self.log.info(
-                "Skipping dimple trigger: DCID %s has no associated PDB information",
-                dcid,
-            )
-            return {"success": True}
-        pdb_files = [str(p) for p in pdb_files_or_codes]
-        self.log.info("PDB files: %s", ", ".join(pdb_files))
-
-        dc = (
-            session.query(DataCollection)
-            .filter(DataCollection.dataCollectionId == dcid)
-            .one()
-        )
-        dimple_parameters: dict[str, list[Any]] = {
-            "data": [os.fspath(parameters.mtz)],
-            "scaling_id": [parameters.scaling_id],
-            "pdb": pdb_files,
-        }
-
-        jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
-        jisp["datacollectionid"] = dcid
-        jisp["start_image"] = dc.startImageNumber
-        jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
-
-        self.log.debug("Dimple trigger: Starting")
-
-        jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = parameters.automatic
-        jp["comments"] = parameters.comment
-        jp["datacollectionid"] = dcid
-        jp["display_name"] = "DIMPLE"
-        jp["recipe"] = "postprocessing-dimple"
-        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"Dimple trigger: generated JobID {jobid}")
-
-        for key, values in dimple_parameters.items():
-            for value in values:
-                jpp = self.ispyb.mx_processing.get_job_parameter_params()
-                jpp["job_id"] = jobid
-                jpp["parameter_key"] = key
-                jpp["parameter_value"] = value
-                jppid = self.ispyb.mx_processing.upsert_job_parameter(
-                    list(jpp.values())
-                )
-                self.log.debug(f"Dimple trigger: generated JobParameterID {jppid}")
-
-        jisp["job_id"] = jobid
-        jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
-        self.log.debug(f"Dimple trigger: generated JobImageSweepID {jispid}")
-
-        self.log.debug(f"Dimple trigger: Processing job {jobid} created")
-
-        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-        rw.transport.send("processing_recipe", message)
-
-        self.log.info(f"Dimple trigger: Processing job {jobid} triggered")
-
-        return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     def trigger_ep_predict(

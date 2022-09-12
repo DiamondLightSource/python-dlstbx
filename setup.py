@@ -254,6 +254,9 @@ setup(
             "diffraction = dlstbx.services.images:diffraction",
             "thumbnail = dlstbx.services.images:thumbnail",
         ],
+        "zocalo.services.trigger.targets": [
+            "dimple = dlstbx.trigger.dimple:trigger_dimple",
+        ],
         "zocalo.wrappers": sorted(known_wrappers),
         "zocalo.mimas.handlers": sorted(mimas_scenario_handlers),
     },

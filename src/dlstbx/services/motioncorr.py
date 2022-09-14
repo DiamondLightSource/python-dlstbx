@@ -9,6 +9,8 @@ from math import sqrt
 import plotly.express as px
 from pathlib import Path
 from typing import Optional
+from collections import ChainMap
+import string
 
 # Possible parameters:
 # "movie" Required
@@ -84,6 +86,18 @@ class MotionCorrParameters(BaseModel):
     class Config:
         ignore_extra = True
 
+class ChainMapWithReplacement(ChainMap):
+    def __init__(self, *maps, substitutions=None) -> None:
+        super().__init__(*maps)
+        self._substitutions = substitutions
+
+    def __getitem__(self, k):
+        v = super().__getitem__(k)
+        if self._substitutions and isinstance(v, str) and "$" in v:
+            template = string.Template(v)
+            return template.substitute(**self._substitutions)
+        return v
+
 
 class MotionCorr(CommonService):
     """
@@ -146,6 +160,12 @@ class MotionCorr(CommonService):
             message = message["content"]
 
         command = ["MotionCor2"]
+
+        parameter_map = ChainMapWithReplacement(
+            message if isinstance(message, dict) else {},
+            rw.recipe_step["parameters"],
+            substitutions=rw.environment,
+        )
 
         try:
             if isinstance(message, dict):

@@ -170,11 +170,11 @@ class MotionCorr(CommonService):
         try:
             if isinstance(message, dict):
                 mc_params = MotionCorrParameters(
-                    **{**rw.recipe_step.get("parameters", {}), **message}
+                    **{**dict(parameter_map), **message}
                 )
             else:
                 mc_params = MotionCorrParameters(
-                    **{**rw.recipe_step.get("parameters", {})}
+                    **{**dict(parameter_map)}
                 )
         except (ValidationError, TypeError):
             self.log.warning(

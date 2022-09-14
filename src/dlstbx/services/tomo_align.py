@@ -236,17 +236,12 @@ class TomoAlign(CommonService):
                             }]
         # TiltImageAlignment (one per movie)
         for movie in tomo_params.input_file_list:
-            ispyb_command_list.append({"ispyb_command": "buffer",
-                                     "buffer_lookup": {
-                                        "movie_id": movie[2]},  #movie_uuid
-                                     "buffer_command": {
-                                         "ispyb_command": "insert_tilt_image_alignment",
-                                         "psd_file": None, # should be in ctf table but useful, so we will insert
-                                         "refined_magnification": self.mag,
-                                         "refined_tilt_angle": self.refined_tilts[tomo_params.input_file_list.index(movie)],
-                                         "refined_tilt_axis": self.rot,
-                                     }
-                                    })
+            ispyb_command_list.append({"ispyb_command": "insert_tilt_image_alignment",
+                                       "psd_file": None, # should be in ctf table but useful, so we will insert
+                                       "refined_magnification": self.mag,
+                                       "refined_tilt_angle": self.refined_tilts[tomo_params.input_file_list.index(movie)],
+                                       "refined_tilt_axis": self.rot,
+                                     })
 
         ispyb_parameters = {"ispyb_command": "multipart_message",
                                  "ispyb_command_list": ispyb_command_list

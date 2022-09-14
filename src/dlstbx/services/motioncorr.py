@@ -79,6 +79,7 @@ class MotionCorrParameters(BaseModel):
     arc_dir: str = None
     in_fm_motion: int = None
     split_sum: int = None
+    movie_id: int
 
     class Config:
         ignore_extra = True
@@ -288,11 +289,13 @@ class MotionCorr(CommonService):
         if isinstance(rw, RW_mock):
             rw.transport.send("murfey_feedback", {"register": "motion_corrected",
                                          "movie": mc_params.movie,
-                                         "mrc_out": mc_params.mrc_out})
+                                         "mrc_out": mc_params.mrc_out,
+                                         "movie_id": mc_params.movie_id})
         else:
             rw.send_to("murfey", {"register": "motion_corrected",
                                   "movie": mc_params.movie,
-                                  "mrc_out": mc_params.mrc_out})
+                                  "mrc_out": mc_params.mrc_out,
+                                  "movie_id": mc_params.movie_id})
 
         rw.transport.ack(header)
         self.shift_list = []

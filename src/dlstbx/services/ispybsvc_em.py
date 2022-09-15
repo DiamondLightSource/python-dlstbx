@@ -414,7 +414,7 @@ class EM_Mixin:
                 fitQuality=full_parameters("fit_quality"),
                 refinedMagnification=full_parameters("refined_magnification"),
                 refinedTiltAngle=full_parameters("refined_tilt_angle"),
-                refinedTiltAxis=full_parameters("refinedTiltAxis"),
+                refinedTiltAxis=full_parameters("refined_tilt_axis"),
                 residualError=full_parameters("residual_error")
             )
             session.add(values)

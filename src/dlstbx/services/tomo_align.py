@@ -232,7 +232,8 @@ class TomoAlign(CommonService):
                                "size_z": None,
                                "pixel_spacing": tomo_params.pix_size,
                                "tilt_angle_offset": self.tilt_offset,
-                               "z_shift": self.rot_centre_z
+                               "z_shift": self.rot_centre_z,
+                               "store_result": "ispyb_tomogram_id"
                             }]
         # TiltImageAlignment (one per movie)
         for movie in tomo_params.input_file_list:
@@ -241,6 +242,7 @@ class TomoAlign(CommonService):
                                        "refined_magnification": self.mag,
                                        "refined_tilt_angle": self.refined_tilts[tomo_params.input_file_list.index(movie)],
                                        "refined_tilt_axis": self.rot,
+                                       "tomogram_id": "$ispyb_tomogram_id"
                                      })
 
         ispyb_parameters = {"ispyb_command": "multipart_message",

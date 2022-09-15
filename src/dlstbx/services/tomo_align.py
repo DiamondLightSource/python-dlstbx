@@ -241,7 +241,8 @@ class TomoAlign(CommonService):
                                        "psd_file": None, # should be in ctf table but useful, so we will insert
                                        "refined_magnification": self.mag,
                                        "refined_tilt_angle": self.refined_tilts[tomo_params.input_file_list.index(movie)],
-                                       "refined_tilt_axis": self.rot
+                                       "refined_tilt_axis": self.rot,
+                                       "movie_id": movie[2]
                                      })
 
         ispyb_parameters = {"ispyb_command": "multipart_message",

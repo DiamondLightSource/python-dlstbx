@@ -987,7 +987,7 @@ class DLSTrigger(CommonService):
                 f"big_ep trigger failed: appid = {parameters.program_id} not found for dcid = {dcid}"
             )
             return False
-        if blsession.beamLineName == "i23" and "multi" in app.processingPrograms:
+        if blsession.beamLineName == "i23" and "multi" not in app.processingPrograms:
             self.log.info(
                 f"Skipping big_ep trigger for {app.processingPrograms} data on i23"
             )

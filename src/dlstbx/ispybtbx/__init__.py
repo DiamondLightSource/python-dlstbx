@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import concurrent.futures
+import dataclasses
 import decimal
 import glob
+import hashlib
 import itertools
 import logging
 import os
+import pathlib
 import re
 import uuid
 from typing import Optional, Tuple, Union
@@ -73,6 +76,16 @@ _gpfs03_beamlines = {
 Session = sessionmaker(
     bind=sqlalchemy.create_engine(isa.url(), connect_args={"use_pure": True})
 )
+
+
+@dataclasses.dataclass(frozen=True)
+class PDBFileOrCode:
+    filepath: Optional[pathlib.Path] = None
+    code: Optional[str] = None
+    source: Optional[str] = None
+
+    def __str__(self):
+        return str(self.filepath) if self.filepath else str(self.code)
 
 
 def setup_marshmallow_schema(session):
@@ -461,6 +474,52 @@ class ispybtbx:
             # XXX case sensitive? proteinid, proteintype
             return schema.dump(protein)
 
+    def get_linked_pdb_files_for_dcid(
+        self,
+        session: sqlalchemy.orm.session.Session,
+        dcid: int,
+        pdb_tmpdir: pathlib.Path,
+        user_pdb_dir: Optional[pathlib.Path] = None,
+        ignore_pdb_codes: bool = False,
+    ) -> list[PDBFileOrCode]:
+        """Get linked PDB files for a given data collection ID.
+
+        Valid PDB codes will be returned as the code, PDB files will be copied into a
+        unique subdirectory within the `pdb_tmpdir` directory. Optionally search for
+        PDB files in the `user_pdb_dir` directory.
+        """
+        pdb_files = []
+        for pdb in crud.get_pdb_for_dcid(dcid, session):
+            if not ignore_pdb_codes and pdb.code is not None:
+                pdb_code = pdb.code.strip()
+                if pdb_code.isalnum() and len(pdb_code) == 4:
+                    pdb_files.append(PDBFileOrCode(code=pdb_code, source=pdb.source))
+                    continue
+                elif pdb_code != "":
+                    self.log.warning(
+                        f"Invalid input PDB code '{pdb.code}' for pdbId {pdb.pdbId}"
+                    )
+            if pdb.contents not in ("", None):
+                sha1 = hashlib.sha1(pdb.contents.encode()).hexdigest()
+                assert pdb.name and "/" not in pdb.name, "Invalid PDB file name"
+                pdb_dir = pdb_tmpdir / sha1
+                pdb_dir.mkdir(parents=True, exist_ok=True)
+                pdb_filepath = pdb_dir / pdb.name
+                if not pdb_filepath.exists():
+                    pdb_filepath.write_text(pdb.contents)
+                pdb_files.append(
+                    PDBFileOrCode(filepath=pdb_filepath, source=pdb.source)
+                )
+
+        if user_pdb_dir and user_pdb_dir.is_dir():
+            # Look for matching .pdb files in user directory
+            for f in user_pdb_dir.iterdir():
+                if not f.stem or f.suffix != ".pdb" or not f.is_file():
+                    continue
+                self.log.info(f)
+                pdb_files.append(PDBFileOrCode(filepath=f))
+        return pdb_files
+
     def get_dcid_for_path(self, path, session: sqlalchemy.orm.session.Session):
         """Take a file path and try to identify a best match DCID"""
         if not path.startswith("/"):
@@ -725,13 +784,21 @@ def ispyb_filter(
     parameters["ispyb_visit"] = i.get_visit_from_image_directory(
         dc_info.get("imageDirectory")
     )
-    parameters["ispyb_visit_directory"] = i.get_visit_directory_from_image_directory(
-        dc_info.get("imageDirectory")
+    visit_directory = pathlib.Path(
+        i.get_visit_directory_from_image_directory(dc_info.get("imageDirectory"))
     )
+    parameters["ispyb_visit_directory"] = os.fspath(visit_directory)
     parameters["ispyb_working_directory"] = i.dc_info_to_working_directory(dc_info)
     parameters["ispyb_results_directory"] = i.dc_info_to_results_directory(dc_info)
     parameters["ispyb_space_group"] = ""
     parameters["ispyb_related_sweeps"] = []
+    pdb_files_or_codes = i.get_linked_pdb_files_for_dcid(
+        session,
+        dc_id,
+        pdb_tmpdir=visit_directory / "tmp" / "pdb",
+        user_pdb_dir=visit_directory / "processing" / "pdb",
+    )
+    parameters["ispyb_pdb"] = [dataclasses.asdict(pdb) for pdb in pdb_files_or_codes]
 
     parameters["ispyb_project"] = (
         parameters.get("ispyb_visit") or "AUTOMATIC"

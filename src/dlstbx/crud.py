@@ -311,3 +311,27 @@ def insert_dimple_result(
     create_attachments(attachments, db_app, session)
     session.commit()
     return db_mxmrrun
+
+
+def get_pdb_for_dcid(
+    dcid: int,
+    session: sqlalchemy.orm.session.Session,
+) -> list[models.PDB]:
+    query = (
+        session.query(models.PDB)
+        .join(
+            models.ProteinHasPDB,
+            models.ProteinHasPDB.pdbid == models.PDB.pdbId,
+        )
+        .join(
+            models.Protein, models.Protein.proteinId == models.ProteinHasPDB.proteinid
+        )
+        .join(models.Crystal, models.Crystal.proteinId == models.Protein.proteinId)
+        .join(models.BLSample, models.BLSample.crystalId == models.Crystal.crystalId)
+        .join(
+            models.DataCollection,
+            models.DataCollection.BLSAMPLEID == models.BLSample.blSampleId,
+        )
+        .filter(models.DataCollection.dataCollectionId == dcid)
+    )
+    return query.all()

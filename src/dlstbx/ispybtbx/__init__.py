@@ -21,6 +21,7 @@ from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from sqlalchemy.orm import aliased, selectinload, sessionmaker
 
 from dlstbx import crud
+from dlstbx.util.pdb import PDBFileOrCode
 
 logger = logging.getLogger("dlstbx.ispybtbx")
 
@@ -76,16 +77,6 @@ _gpfs03_beamlines = {
 Session = sessionmaker(
     bind=sqlalchemy.create_engine(isa.url(), connect_args={"use_pure": True})
 )
-
-
-@dataclasses.dataclass(frozen=True)
-class PDBFileOrCode:
-    filepath: Optional[pathlib.Path] = None
-    code: Optional[str] = None
-    source: Optional[str] = None
-
-    def __str__(self):
-        return str(self.filepath) if self.filepath else str(self.code)
 
 
 def setup_marshmallow_schema(session):

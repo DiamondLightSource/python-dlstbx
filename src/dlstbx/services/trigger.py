@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import os
 import pathlib
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
@@ -33,7 +32,7 @@ from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
 
 from dlstbx.util import ChainMapWithReplacement
-from dlstbx.util.pdb import trim_pdb_bfactors
+from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 
 
@@ -44,16 +43,6 @@ class PrometheusMetrics(BasePrometheusMetrics):
             documentation="The total number of jobs triggered by the Zocalo trigger service",
             labelnames=["target"],
         )
-
-
-@dataclass(frozen=True)
-class PDBFileOrCode:
-    filepath: Optional[pathlib.Path] = None
-    code: Optional[str] = None
-    source: Optional[str] = None
-
-    def __str__(self):
-        return str(self.filepath) if self.filepath else str(self.code)
 
 
 class DimpleParameters(pydantic.BaseModel):

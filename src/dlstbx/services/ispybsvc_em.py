@@ -14,30 +14,6 @@ class Movie(BaseModel):
     movie_path: str = None # micrograph full path
     timestamp: float = None
 
-class TomogramFile(BaseModel):
-    dcid: int
-    program_id: int
-    volume_file: str
-    stack_file: str
-    size_x: int = None
-    size_y: int = None
-    size_z: int = None
-    pixel_spacing: float = None
-    tilt_angle_offset: float = None
-    z_shift: float = None
-
-class TiltImageAlign(BaseModel):
-    movie_id: int
-    tomogram_id: int
-    defocus_u: float = None
-    defocus_v: float = None
-    psd_file: str = None
-    resolution: float = None
-    fit_quality: float = None
-    refined_magnification: float = None
-    refined_tilt_angle: float = None
-    refined_tilt_axis: float = None
-    residual_error: float = None
 
 class EM_Mixin:
     def do_insert_ctf(self, parameters, message=None, **kwargs):
@@ -396,23 +372,30 @@ class EM_Mixin:
             )
             return False
 
-    @validate_arguments(config=dict(arbitrary_types_allowed=True))
-    def do_insert_tomogram(self, *, parameter_map: TomogramFile, session, **kwargs):
-        dcid = parameter_map.dcid
+    def do_insert_tomogram(self, parameters, session, message=None, **kwargs):
+        if message is None:
+            message = {}
+        dcid = parameters("dcid")
         self.log.info(f"Inserting Tomogram parameters. DCID: {dcid}")
+
+        def full_parameters(param):
+            return message.get(param) or parameters(param)
 
         try:
             values = Tomogram(
-                dataCollectionId=parameter_map.dcid,
-                autoProcProgramId=parameter_map.program_id,
-                volumeFile=parameter_map.volume_file,
-                stackFile=parameter_map.stack_file,
-                sizeX=parameter_map.size_x,
-                sizeY=parameter_map.size_y,
-                sizeZ=parameter_map.size_z,
-                pixelSpacing=parameter_map.pixel_spacing,
-                tiltAngleOffset=parameter_map.tilt_angle_offset,
-                zShift=parameter_map.z_shift
+                dataCollectionId=full_parameters("dcid"),
+                autoProcProgramId=full_parameters("program_id"),
+                volumeFile=full_parameters("volume_file"),
+                stackFile=full_parameters("stack_file"),
+                sizeX=full_parameters("size_x"),
+                sizeY=full_parameters("size_y"),
+                sizeZ=full_parameters("size_z"),
+                pixelSpacing=full_parameters("pixel_spacing"),
+                residualErrorMean=full_parameters("residual_error_mean"),
+                residualErrorSD=full_parameters("residual_error_sd"),
+                xAxisCorrection=full_parameters("x_axis_correction"),
+                tiltAngleOffset=full_parameters("tilt_angle_offset"),
+                zShift=full_parameters("z_shift")
             )
             session.add(values)
             session.commit()
@@ -425,23 +408,29 @@ class EM_Mixin:
             )
         return False
 
-    @validate_arguments(config=dict(arbitrary_types_allowed=True))
-    def do_insert_tilt_image_alignment(self, *, parameter_map: TiltImageAlign, session, **kwargs):
-        self.log.info(f"Inserting Tilt Image Alignment parameters.")
+
+    def do_insert_tilt_image_alignment(self, parameters, session, message=None, **kwargs):
+        if message is None:
+            message = {}
+        dcid = parameters("dcid")
+        self.log.info(f"Inserting Tilt Image Alignment parameters. DCID: {dcid}")
+
+        def full_parameters(param):
+            return message.get(param) or parameters(param)
 
         try:
             values = TiltImageAlignment(
-                movieId=parameter_map.movie_id,
-                tomogramId=parameter_map.tomogram_id,
-                defocusU=parameter_map.defocus_u,
-                defocusV=parameter_map.defocus_v,
-                psdFile=parameter_map.psd_file,
-                resolution=parameter_map.resolution,
-                fitQuality=parameter_map.fit_quality,
-                refinedMagnification=parameter_map.refined_magnification,
-                refinedTiltAngle=parameter_map.refined_tilt_angle,
-                refinedTiltAxis=parameter_map.refined_tilt_axis,
-                residualError=parameter_map.residual_error
+                movieId=full_parameters("movie_id"),
+                tomogramId=full_parameters("tomogram_id"),
+                defocusU=full_parameters("defocus_u"),
+                defocusV=full_parameters("defocus_v"),
+                psdFile=full_parameters("psd_file"),
+                resolution=full_parameters("resolution"),
+                fitQuality=full_parameters("fit_quality"),
+                refinedMagnification=full_parameters("refined_magnification"),
+                refinedTiltAngle=full_parameters("refined_tilt_angle"),
+                refinedTiltAxis=full_parameters("refined_tilt_axis"),
+                residualError=full_parameters("residual_error")
             )
             session.add(values)
             session.commit()

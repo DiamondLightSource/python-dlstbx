@@ -183,7 +183,6 @@ class DLSISPyB(EM_Mixin, CommonService):
                 store_result,
             )
         if result and result.get("success"):
-            print({"result": result.get("return_value")})
             rw.send({"result": result.get("return_value")}, transaction=txn)
             rw.transport.ack(header, transaction=txn)
         elif result and result.get("checkpoint"):

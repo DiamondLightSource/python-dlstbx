@@ -1320,7 +1320,8 @@ class DLSISPyB(EM_Mixin, CommonService):
     def do_insert_data_collection_group(self, parameters, message=None, **kwargs):
         dcgparams = self.ispyb.em_acquisition.get_data_collection_group_params()
         dcgparams["parentid"] = parameters("session_id")
-        dcgparams["experimenttype"] = "EM"
+        dcgparams["experimenttype"] = parameters("experiment_type")
+        dcgparams["starttime"] = parameters("start_time")
         dcgparams["comments"] = "Created for Murfey"
         try:
             data_collection_group_id = (
@@ -1347,6 +1348,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         dc_params["imgdir"] = parameters("image_directory")
         dc_params["imgsuffix"] = parameters("image_suffix")
         dc_params["visitid"] = parameters("session_id")
+        dc_params["voltage"] = parameters("voltage")
         try:
             data_collection_id = self.ispyb.em_acquisition.upsert_data_collection(
                 list(dc_params.values())

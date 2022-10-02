@@ -5,13 +5,19 @@ from datetime import datetime
 import ispyb
 import sqlalchemy.exc
 import sqlalchemy.orm
-from ispyb.sqlalchemy import MotionCorrection, RelativeIceThickness, Tomogram, TiltImageAlignment
+from ispyb.sqlalchemy import (
+    MotionCorrection,
+    RelativeIceThickness,
+    TiltImageAlignment,
+    Tomogram,
+)
 from pydantic import BaseModel, validate_arguments
+
 
 class Movie(BaseModel):
     dcid: int
-    movie_number: int = None #image number
-    movie_path: str = None # micrograph full path
+    movie_number: int = None  # image number
+    movie_path: str = None  # micrograph full path
     timestamp: float = None
 
 
@@ -125,9 +131,7 @@ class EM_Mixin:
             movie_params["createdTimeStamp"] = datetime.fromtimestamp(
                 parameter_map.timestamp
             ).strftime("%Y-%m-%d %H:%M:%S")
-        result = self.ispyb.em_acquisition.insert_movie(
-            list(movie_params.values())
-        )
+        result = self.ispyb.em_acquisition.insert_movie(list(movie_params.values()))
         self.log.info(f"Created Movie record {result}")
         return {"success": True, "return_value": result}
 
@@ -395,7 +399,7 @@ class EM_Mixin:
                 residualErrorSD=full_parameters("residual_error_sd"),
                 xAxisCorrection=full_parameters("x_axis_correction"),
                 tiltAngleOffset=full_parameters("tilt_angle_offset"),
-                zShift=full_parameters("z_shift")
+                zShift=full_parameters("z_shift"),
             )
             session.add(values)
             session.commit()
@@ -408,8 +412,9 @@ class EM_Mixin:
             )
         return False
 
-
-    def do_insert_tilt_image_alignment(self, parameters, session, message=None, **kwargs):
+    def do_insert_tilt_image_alignment(
+        self, parameters, session, message=None, **kwargs
+    ):
         if message is None:
             message = {}
         dcid = parameters("dcid")
@@ -430,7 +435,7 @@ class EM_Mixin:
                 refinedMagnification=full_parameters("refined_magnification"),
                 refinedTiltAngle=full_parameters("refined_tilt_angle"),
                 refinedTiltAxis=full_parameters("refined_tilt_axis"),
-                residualError=full_parameters("residual_error")
+                residualError=full_parameters("residual_error"),
             )
             session.add(values)
             session.commit()

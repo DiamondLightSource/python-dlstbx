@@ -546,8 +546,12 @@ def test_dcg_experiment_type(db_session):
 
 
 def test_get_linked_pdb_files_for_dcid(db_session, tmp_path):
+    user_pdb_dir = tmp_path / "user_pdb"
+    user_pdb_dir.mkdir()
+    user_pdb = user_pdb_dir / "test.pdb"
+    user_pdb.touch()
     assert ispybtbx().get_linked_pdb_files_for_dcid(
-        8851520, db_session, pdb_tmpdir=tmp_path
+        8851520, db_session, pdb_tmpdir=tmp_path, user_pdb_dir=user_pdb_dir
     ) == [
         {"code": "2ID8", "filepath": None, "source": None},
         {
@@ -574,5 +578,10 @@ def test_get_linked_pdb_files_for_dcid(db_session, tmp_path):
             "code": None,
             "filepath": f"{tmp_path}/66b97026780931547f3e26892d229f3a3b4cc25c/ranked_4.pdb",
             "source": "AlphaFold",
+        },
+        {
+            "code": None,
+            "filepath": f"{user_pdb}",
+            "source": None,
         },
     ]

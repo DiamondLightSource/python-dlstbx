@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import os
 import pathlib
 from datetime import datetime
@@ -13,18 +12,14 @@ import sqlalchemy.engine
 import sqlalchemy.orm
 import workflows.recipe
 from ispyb.sqlalchemy import (
-    PDB,
     AutoProcIntegration,
     AutoProcProgram,
     AutoProcProgramAttachment,
-    BLSample,
     BLSession,
-    Crystal,
     DataCollection,
     ProcessingJob,
     Proposal,
     Protein,
-    ProteinHasPDB,
 )
 from sqlalchemy import or_
 from sqlalchemy.orm import Load, contains_eager, joinedload
@@ -258,61 +253,6 @@ class DLSTrigger(CommonService):
             rw.transport.nack(header)
             return
         rw.transport.transaction_commit(txn)
-
-    def get_linked_pdb_files_for_dcid(
-        self,
-        session: sqlalchemy.orm.session.Session,
-        dcid: int,
-        pdb_tmpdir: pathlib.Path,
-        user_pdb_dir: Optional[pathlib.Path] = None,
-        ignore_pdb_codes: bool = False,
-    ) -> List[PDBFileOrCode]:
-        """Get linked PDB files for a given data collection ID.
-
-        Valid PDB codes will be returned as the code, PDB files will be copied into a
-        unique subdirectory within the `pdb_tmpdir` directory. Optionally search for
-        PDB files in the `user_pdb_dir` directory.
-        """
-        pdb_files = []
-        query = (
-            session.query(DataCollection, PDB)
-            .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
-            .join(Crystal, Crystal.crystalId == BLSample.crystalId)
-            .join(Protein, Protein.proteinId == Crystal.proteinId)
-            .join(ProteinHasPDB, ProteinHasPDB.proteinid == Protein.proteinId)
-            .join(PDB, PDB.pdbId == ProteinHasPDB.pdbid)
-            .filter(DataCollection.dataCollectionId == dcid)
-        )
-        for dc, pdb in query.all():
-            if not ignore_pdb_codes and pdb.code is not None:
-                pdb_code = pdb.code.strip()
-                if pdb_code.isalnum() and len(pdb_code) == 4:
-                    pdb_files.append(PDBFileOrCode(code=pdb_code, source=pdb.source))
-                    continue
-                elif pdb_code != "":
-                    self.log.warning(
-                        f"Invalid input PDB code '{pdb.code}' for pdbId {pdb.pdbId}"
-                    )
-            if pdb.contents not in ("", None):
-                sha1 = hashlib.sha1(pdb.contents.encode()).hexdigest()
-                assert pdb.name and "/" not in pdb.name, "Invalid PDB file name"
-                pdb_dir = pdb_tmpdir / sha1
-                pdb_dir.mkdir(parents=True, exist_ok=True)
-                pdb_filepath = pdb_dir / pdb.name
-                if not pdb_filepath.exists():
-                    pdb_filepath.write_text(pdb.contents)
-                pdb_files.append(
-                    PDBFileOrCode(filepath=pdb_filepath, source=pdb.source)
-                )
-
-        if user_pdb_dir and user_pdb_dir.is_dir():
-            # Look for matching .pdb files in user directory
-            for f in user_pdb_dir.iterdir():
-                if not f.stem or f.suffix != ".pdb" or not f.is_file():
-                    continue
-                self.log.info(f)
-                pdb_files.append(PDBFileOrCode(filepath=f))
-        return pdb_files
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     def trigger_dimple(
@@ -803,7 +743,7 @@ class DLSTrigger(CommonService):
 
             for pdb_file in pdb_files:
                 assert pdb_file.filepath is not None
-                filepath = pdb_file.filepath
+                filepath = pathlib.Path(pdb_file.filepath)
                 if pdb_file.source == "AlphaFold":
                     trimmed = filepath.with_name(
                         filepath.stem + "_trimmed" + filepath.suffix

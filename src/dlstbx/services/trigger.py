@@ -49,10 +49,9 @@ class DimpleParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     scaling_id: int = pydantic.Field(gt=0)
     mtz: pathlib.Path
-    pdb_tmpdir: pathlib.Path
+    pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    user_pdb_directory: Optional[pathlib.Path] = None
 
 
 class ProteinInfo(pydantic.BaseModel):
@@ -64,10 +63,9 @@ class MrBumpParameters(pydantic.BaseModel):
     scaling_id: int = pydantic.Field(gt=0)
     protein_info: Optional[ProteinInfo] = None
     hklin: pathlib.Path
-    pdb_tmpdir: pathlib.Path
+    pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    user_pdb_directory: Optional[pathlib.Path] = None
 
 
 class DiffractionPlanInfo(pydantic.BaseModel):
@@ -365,12 +363,7 @@ class DLSTrigger(CommonService):
 
         dcid = parameters.dcid
 
-        pdb_files_or_codes = self.get_linked_pdb_files_for_dcid(
-            session,
-            dcid,
-            parameters.pdb_tmpdir,
-            user_pdb_dir=parameters.user_pdb_directory,
-        )
+        pdb_files_or_codes = parameters.pdb
 
         if not pdb_files_or_codes:
             self.log.info(
@@ -777,19 +770,9 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping mrbump trigger: sequence information not available")
             return {"success": True}
 
-        pdb_files = tuple(
-            self.get_linked_pdb_files_for_dcid(
-                session,
-                dcid,
-                parameters.pdb_tmpdir,
-                user_pdb_dir=parameters.user_pdb_directory,
-                ignore_pdb_codes=True,
-            )
-        )
-
         jobids = []
 
-        for pdb_files in {(), pdb_files}:
+        for pdb_files in {(), tuple(parameters.pdb)}:
             jp = self.ispyb.mx_processing.get_job_params()
             jp["automatic"] = parameters.automatic
             jp["comments"] = parameters.comment

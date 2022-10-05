@@ -191,7 +191,8 @@ def test_dimple(
     dcid = insert_dimple_input
     user_pdb_directory = tmp_path / "user_pdb"
     user_pdb_directory.mkdir()
-    (user_pdb_directory / "test.pdb").touch()
+    pdb_file = user_pdb_directory / "test.pdb"
+    pdb_file.touch()
     message = {
         "recipe": {
             "1": {
@@ -203,9 +204,8 @@ def test_dimple(
                     "comment": "DIMPLE triggered by automatic xia2-dials",
                     "automatic": True,
                     "scaling_id": 123456,
-                    "user_pdb_directory": user_pdb_directory,
+                    "pdb": [{"filepath": str(pdb_file)}],
                     "mtz": "/path/to/xia2-dials/DataFiles/nt28218v3_xProtk11_free.mtz",
-                    "pdb_tmpdir": tmp_path,
                 },
             },
         },
@@ -243,8 +243,7 @@ def test_dimple(
         assert params == {
             ("data", "/path/to/xia2-dials/DataFiles/nt28218v3_xProtk11_free.mtz"),
             ("scaling_id", "123456"),
-            ("pdb", f"{tmp_path}/fe8c759005fb57ce14d3e66c07b21fec62252b4a/ceo2"),
-            ("pdb", f"{user_pdb_directory}/test.pdb"),
+            ("pdb", f"{pdb_file}"),
         }
 
 
@@ -553,8 +552,7 @@ def test_mrbump(db_session_factory, testconfig, mocker, monkeypatch, tmp_path):
                     "dcid": f"{dcid}",
                     "comment": "MrBUMP triggered by automatic xia2-3dii",
                     "automatic": True,
-                    "user_pdb_directory": None,
-                    "pdb_tmpdir": tmp_path,
+                    "pdb": [],
                     "scaling_id": 123456,
                     "protein_info": {
                         "sequence": "ABCDEFG",
@@ -615,7 +613,8 @@ def test_mrbump_with_model(
     dcid = 1002287
     user_pdb_directory = tmp_path / "user_pdb"
     user_pdb_directory.mkdir()
-    (user_pdb_directory / "test.pdb").touch()
+    pdb_file = user_pdb_directory / "test.pdb"
+    pdb_file.touch()
     message = {
         "recipe": {
             "1": {
@@ -627,8 +626,7 @@ def test_mrbump_with_model(
                     "comment": "MrBUMP triggered by automatic xia2-3dii",
                     "automatic": True,
                     "scaling_id": 123456,
-                    "user_pdb_directory": user_pdb_directory,
-                    "pdb_tmpdir": tmp_path,
+                    "pdb": [{"filepath": str(pdb_file)}],
                     "protein_info": {
                         "sequence": "ABCDEFG",
                     },
@@ -691,7 +689,7 @@ def test_mrbump_with_model(
                 ("dophmmer", "False"),
                 ("hklin", "/path/to/xia2-3dii/DataFiles/foo_free.mtz"),
                 ("scaling_id", "123456"),
-                ("localfile", str(user_pdb_directory / "test.pdb")),
+                ("localfile", str(pdb_file)),
             },
             {
                 ("hklin", "/path/to/xia2-3dii/DataFiles/foo_free.mtz"),

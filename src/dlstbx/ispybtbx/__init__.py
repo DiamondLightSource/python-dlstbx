@@ -467,12 +467,12 @@ class ispybtbx:
 
     def get_linked_pdb_files_for_dcid(
         self,
-        session: sqlalchemy.orm.session.Session,
         dcid: int,
+        session: sqlalchemy.orm.session.Session,
         pdb_tmpdir: pathlib.Path,
         user_pdb_dir: Optional[pathlib.Path] = None,
         ignore_pdb_codes: bool = False,
-    ) -> list[PDBFileOrCode]:
+    ) -> list[dict]:
         """Get linked PDB files for a given data collection ID.
 
         Valid PDB codes will be returned as the code, PDB files will be copied into a
@@ -499,7 +499,7 @@ class ispybtbx:
                 if not pdb_filepath.exists():
                     pdb_filepath.write_text(pdb.contents)
                 pdb_files.append(
-                    PDBFileOrCode(filepath=pdb_filepath, source=pdb.source)
+                    PDBFileOrCode(filepath=os.fspath(pdb_filepath), source=pdb.source)
                 )
 
         if user_pdb_dir and user_pdb_dir.is_dir():
@@ -508,8 +508,8 @@ class ispybtbx:
                 if not f.stem or f.suffix != ".pdb" or not f.is_file():
                     continue
                 self.log.info(f)
-                pdb_files.append(PDBFileOrCode(filepath=f))
-        return pdb_files
+                pdb_files.append(PDBFileOrCode(filepath=os.fspath(f)))
+        return [dataclasses.asdict(pdb) for pdb in pdb_files]
 
     def get_dcid_for_path(self, path, session: sqlalchemy.orm.session.Session):
         """Take a file path and try to identify a best match DCID"""
@@ -783,13 +783,12 @@ def ispyb_filter(
     parameters["ispyb_results_directory"] = i.dc_info_to_results_directory(dc_info)
     parameters["ispyb_space_group"] = ""
     parameters["ispyb_related_sweeps"] = []
-    pdb_files_or_codes = i.get_linked_pdb_files_for_dcid(
-        session,
+    parameters["ispyb_pdb"] = i.get_linked_pdb_files_for_dcid(
         dc_id,
+        session,
         pdb_tmpdir=visit_directory / "tmp" / "pdb",
         user_pdb_dir=visit_directory / "processing" / "pdb",
     )
-    parameters["ispyb_pdb"] = [dataclasses.asdict(pdb) for pdb in pdb_files_or_codes]
 
     parameters["ispyb_project"] = (
         parameters.get("ispyb_visit") or "AUTOMATIC"

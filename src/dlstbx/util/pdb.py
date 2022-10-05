@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import pathlib
 from dataclasses import dataclass
 from typing import Optional
 
@@ -13,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class PDBFileOrCode:
-    filepath: Optional[pathlib.Path] = None
+    filepath: Optional[str] = None
     code: Optional[str] = None
     source: Optional[str] = None
 

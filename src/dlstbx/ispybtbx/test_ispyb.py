@@ -543,3 +543,45 @@ def test_dcg_experiment_type(db_session):
     assert params["ispyb_dcg_experiment_type"] == "Mesh"
     _, params = ispyb_filter({}, {"ispyb_dcid": 6921153}, db_session)
     assert params["ispyb_dcg_experiment_type"] == "SAD"
+
+
+def test_get_linked_pdb_files_for_dcid(db_session, tmp_path):
+    user_pdb_dir = tmp_path / "user_pdb"
+    user_pdb_dir.mkdir()
+    user_pdb = user_pdb_dir / "test.pdb"
+    user_pdb.touch()
+    assert ispybtbx().get_linked_pdb_files_for_dcid(
+        8851520, db_session, pdb_tmpdir=tmp_path, user_pdb_dir=user_pdb_dir
+    ) == [
+        {"code": "2ID8", "filepath": None, "source": None},
+        {
+            "code": None,
+            "filepath": f"{tmp_path}/2fa172273d5b4388f6f51bb1669041cfed030b66/ranked_0.pdb",
+            "source": "AlphaFold",
+        },
+        {
+            "code": None,
+            "filepath": f"{tmp_path}/178e1c05a56543387145960fa2806b4b0f944316/ranked_1.pdb",
+            "source": "AlphaFold",
+        },
+        {
+            "code": None,
+            "filepath": f"{tmp_path}/54f6410bf455badcb04c79f988c8306d59838f98/ranked_2.pdb",
+            "source": "AlphaFold",
+        },
+        {
+            "code": None,
+            "filepath": f"{tmp_path}/82705eb12695ac1d767856efd3fea03660b0613e/ranked_3.pdb",
+            "source": "AlphaFold",
+        },
+        {
+            "code": None,
+            "filepath": f"{tmp_path}/66b97026780931547f3e26892d229f3a3b4cc25c/ranked_4.pdb",
+            "source": "AlphaFold",
+        },
+        {
+            "code": None,
+            "filepath": f"{user_pdb}",
+            "source": None,
+        },
+    ]

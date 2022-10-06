@@ -775,20 +775,21 @@ def ispyb_filter(
     parameters["ispyb_visit"] = i.get_visit_from_image_directory(
         dc_info.get("imageDirectory")
     )
-    visit_directory = pathlib.Path(
-        i.get_visit_directory_from_image_directory(dc_info.get("imageDirectory"))
+    visit_directory = i.get_visit_directory_from_image_directory(
+        dc_info.get("imageDirectory")
     )
-    parameters["ispyb_visit_directory"] = os.fspath(visit_directory)
+    parameters["ispyb_visit_directory"] = visit_directory
     parameters["ispyb_working_directory"] = i.dc_info_to_working_directory(dc_info)
     parameters["ispyb_results_directory"] = i.dc_info_to_results_directory(dc_info)
     parameters["ispyb_space_group"] = ""
     parameters["ispyb_related_sweeps"] = []
-    parameters["ispyb_pdb"] = i.get_linked_pdb_files_for_dcid(
-        dc_id,
-        session,
-        pdb_tmpdir=visit_directory / "tmp" / "pdb",
-        user_pdb_dir=visit_directory / "processing" / "pdb",
-    )
+    if visit_directory:
+        parameters["ispyb_pdb"] = i.get_linked_pdb_files_for_dcid(
+            dc_id,
+            session,
+            pdb_tmpdir=pathlib.Path(visit_directory) / "tmp" / "pdb",
+            user_pdb_dir=pathlib.Path(visit_directory) / "processing" / "pdb",
+        )
 
     parameters["ispyb_project"] = (
         parameters.get("ispyb_visit") or "AUTOMATIC"

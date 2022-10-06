@@ -29,6 +29,7 @@ class MimasService(CommonSystemTest):
                         "screen": False,
                         "rotation": False,
                         "serial_fixed": False,
+                        "serial_jet": False,
                     },
                     "run_status": "DataCollection Successful",
                 },

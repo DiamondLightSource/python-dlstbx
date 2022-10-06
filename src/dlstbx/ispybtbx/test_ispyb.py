@@ -222,6 +222,7 @@ def test_datacollection_classification():
         "rotation": False,
         "screen": False,
         "serial_fixed": False,
+        "serial_jet": False,
     }
 
     i = ispybtbx()
@@ -231,6 +232,7 @@ def test_datacollection_classification():
         "rotation": False,
         "screen": True,
         "serial_fixed": False,
+        "serial_jet": False,
     }
 
     dc = {"axisRange": 90, "numberOfImages": 1800, "overlap": 0}
@@ -239,6 +241,7 @@ def test_datacollection_classification():
         "rotation": True,
         "screen": False,
         "serial_fixed": False,
+        "serial_jet": False,
     }
 
     dc = {"axisRange": 90, "numberOfImages": 3, "overlap": -44.5}
@@ -247,6 +250,7 @@ def test_datacollection_classification():
         "rotation": False,
         "screen": True,
         "serial_fixed": False,
+        "serial_jet": False,
     }
 
     dc = {"axisRange": 0, "numberOfImages": 25600, "overlap": 0}
@@ -255,6 +259,16 @@ def test_datacollection_classification():
         "rotation": False,
         "screen": False,
         "serial_fixed": True,
+        "serial_jet": False,
+    }
+
+    dc = {"axisRange": 0, "numberOfImages": 10000, "overlap": 0}
+    assert i.classify_dc(dc, "Serial Jet") == {
+        "grid": False,
+        "rotation": False,
+        "screen": False,
+        "serial_fixed": False,
+        "serial_jet": True,
     }
 
 

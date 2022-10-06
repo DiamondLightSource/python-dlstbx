@@ -51,6 +51,8 @@ class DLSMimas(CommonService):
             # legacy format
             if dc_class["serial_fixed"]:
                 dc_class_mimas = mimas.MimasDCClass.SERIAL_FIXED
+            elif dc_class["serial_jet"]:
+                dc_class_mimas = mimas.MimasDCClass.SERIAL_JET
             elif dc_class["grid"]:
                 dc_class_mimas = mimas.MimasDCClass.GRIDSCAN
             elif dc_class["screen"]:

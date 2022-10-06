@@ -622,9 +622,12 @@ class ispybtbx:
         return {
             "grid": self.dc_info_is_grid_scan(dc_info),
             "screen": self.dc_info_is_screening(dc_info)
-            and not experiment_type == "Serial Fixed",
+            and not (
+                experiment_type == "Serial Fixed" or experiment_type == "Serial Jet"
+            ),
             "rotation": self.dc_info_is_rotation_scan(dc_info),
             "serial_fixed": experiment_type == "Serial Fixed",
+            "serial_jet": experiment_type == "Serial Jet",
         }
 
     @staticmethod
@@ -870,7 +873,7 @@ def ispyb_filter(
         parameters["ispyb_images"] = ""
         return message, parameters
 
-    if not (dc_class["rotation"] or dc_class["serial_fixed"]):
+    if not (dc_class["rotation"] or dc_class["serial_fixed"] or dc_class["serial_jet"]):
         # possibly EM dataset
         return message, parameters
 

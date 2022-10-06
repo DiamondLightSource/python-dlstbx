@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import List, Tuple
 
 from dlstbx import mimas
-from dlstbx.mimas.core import is_end, is_pilatus, is_serial_fixed
+from dlstbx.mimas.core import is_end, is_pilatus, is_serial
 
 
-@mimas.match_specification(is_pilatus & is_end & is_serial_fixed)
-def handle_pilatus_serial_fixed_end(
+@mimas.match_specification(is_pilatus & is_end & is_serial)
+def handle_pilatus_serial_end(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:

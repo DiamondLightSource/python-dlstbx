@@ -9,12 +9,14 @@ from pathlib import Path
 from typing import Any, Optional
 
 import iotbx.mtz
+import iotbx.pdb
 import pydantic
-from cctbx import uctbx
+from cctbx import crystal, uctbx
 
 import dlstbx.util
 import dlstbx.util.symlink
 from dlstbx.util import ChainMapWithReplacement
+from dlstbx.util.pdb import PDBFileOrCode
 from dlstbx.wrapper import Wrapper
 
 
@@ -31,6 +33,7 @@ class Xia2SsxParams(pydantic.BaseModel):
         ]
     ] = None
     spacegroup: Optional[str] = None
+    reference_pdb: list[PDBFileOrCode] = []
 
     @pydantic.validator("unit_cell", pre=True)
     def check_unit_cell(cls, v):
@@ -60,7 +63,31 @@ class Xia2SsxWrapper(Wrapper):
             command.append("unit_cell=%s,%s,%s,%s,%s,%s" % params.unit_cell)
         if params.spacegroup:
             command.append(f"space_group={params.spacegroup}")
+        reference_pdb = self.find_matching_reference_pdb(params)
+        if reference_pdb:
+            command.append(f"reference={reference_pdb}")
         return command
+
+    def find_matching_reference_pdb(self, params: Xia2SsxParams) -> str | None:
+        if not params.unit_cell and not params.spacegroup:
+            return None
+        input_symmetry = crystal.symmetry(
+            unit_cell=params.unit_cell,
+            space_group=params.spacegroup,
+        )
+        for pdb in params.reference_pdb:
+            if not pdb.filepath or pdb.source == "AlphaFold":
+                continue
+            pdb_inp = iotbx.pdb.input(pdb.filepath)
+            crystal_symmetry = pdb_inp.crystal_symmetry()
+            if crystal_symmetry is None:
+                continue
+            if not crystal_symmetry.is_similar_symmetry(input_symmetry):
+                continue
+            # Just use the first pdb that matches - we should probably be
+            # more clever and choose the closest match
+            return pdb.filepath
+        return None
 
     def send_results_to_ispyb(self, z: dict, xtriage_results: dict):
         ispyb_command_list = results_to_ispyb_command_list(
@@ -72,8 +99,8 @@ class Xia2SsxWrapper(Wrapper):
     def run(self):
         job_parameters = self.recwrap.recipe_step["job_parameters"]
         params_d = ChainMapWithReplacement(
-            job_parameters.get("xia2.ssx", {}),
-            job_parameters.get("ispyb_parameters", {}),
+            job_parameters.get("xia2.ssx") or {},
+            job_parameters.get("ispyb_parameters") or {},
         )
 
         try:
@@ -94,6 +121,7 @@ class Xia2SsxWrapper(Wrapper):
             )
 
         command = self.construct_commandline(xia2_ssx_params)
+        self.log.info(" ".join(command))
         try:
             start_time = time.perf_counter()
             result = subprocess.run(

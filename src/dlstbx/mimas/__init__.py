@@ -13,7 +13,7 @@ import zocalo.configuration
 from dlstbx.mimas.specification import BaseSpecification
 
 MimasDCClass = enum.Enum(
-    "MimasDCClass", "GRIDSCAN ROTATION SCREENING SERIAL_FIXED UNDEFINED"
+    "MimasDCClass", "GRIDSCAN ROTATION SCREENING SERIAL_FIXED SERIAL_JET UNDEFINED"
 )
 
 MimasDetectorClass = enum.Enum("MimasDetectorClass", "PILATUS EIGER")

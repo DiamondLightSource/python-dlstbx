@@ -136,7 +136,7 @@ class TomoAlign(CommonService):
         fig = px.scatter(x=x_shift, y=y_shift)
         plot_path = Path(tomo_parameters.stack_file).parent / "xy_shift_plot.json"
         fig.write_json(plot_path)
-        return plot_path
+        return tomo_aln_file
 
     def tomo_align(self, rw, header: dict, message: dict):
         class RW_mock:
@@ -217,7 +217,7 @@ class TomoAlign(CommonService):
 
         # XY shift plot
         # Autoproc program attachment - plot
-        self.extract_from_aln(tomo_params)
+        tomo_aln_file = self.extract_from_aln(tomo_params)
         if tomo_params.tilt_cor:
             self.rot_centre_z = self.rot_centre_z_list[-1]
 
@@ -237,8 +237,8 @@ class TomoAlign(CommonService):
                             }]
 
         missing_indices = []
-        dark_images_file = Path(tomo_params.aretomo_output_file).parent.glob("*DarkImgs.txt")
-        with open(str(dark_images_file)) as f:
+        dark_images_file = tomo_aln_file.with_suffix("_DarkImg.txt")
+        with open(dark_images_file) as f:
             missing_indices = [int(i) for i in f.readlines()[2:]]
 
         im_diff = 0

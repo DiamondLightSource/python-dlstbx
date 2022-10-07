@@ -199,7 +199,7 @@ class TomoAlign(CommonService):
 
         # this could be changed to something else
         tomo_params.aretomo_output_file = str(
-                tomo_params.stack_file.split(".")[0] + "aretomo." + tomo_params.stack_file.split(".")[1]
+                tomo_params.stack_file.split(".")[0] + "_aretomo." + tomo_params.stack_file.split(".")[1]
         )
 
         aretomo_result = self.aretomo(tomo_params.aretomo_output_file, tomo_params)
@@ -237,7 +237,8 @@ class TomoAlign(CommonService):
                             }]
 
         missing_indices = []
-        dark_images_file = tomo_aln_file.with_suffix("_DarkImg.txt")
+        dark_images_file = str(tomo_aln_file.with_suffix(""))+"_DarkImg.txt"
+        #dark_images_file = tomo_aln_file.with_suffix("_DarkImg.txt")
         with open(dark_images_file) as f:
             missing_indices = [int(i) for i in f.readlines()[2:]]
 

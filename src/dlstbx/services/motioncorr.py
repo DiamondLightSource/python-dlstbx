@@ -271,7 +271,7 @@ class MotionCorr(CommonService):
         drift_plot_x = [range(0, len(self.shift_list))]
         drift_plot_y = each_total_motion
         fig = px.scatter(x=drift_plot_x, y=drift_plot_y)
-        drift_plot_name = str(Path(mc_params.movie).stem) + "drift_plot.json"
+        drift_plot_name = str(Path(mc_params.movie).stem) + "_drift_plot.json"
         plot_path = Path(mc_params.mrc_out).parent / drift_plot_name
         fig.write_json(plot_path)
 

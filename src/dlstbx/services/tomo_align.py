@@ -235,15 +235,26 @@ class TomoAlign(CommonService):
                                "z_shift": self.rot_centre_z,
                                "store_result": "ispyb_tomogram_id"
                             }]
+
+        #aligned_file_lamella-tomo-again1_DarkImgs.txt
+        dark_images_file = Path(tomo_params.aretomo_output_file).parent.glob("*DarkImgs.txt")
+        with open(str(dark_images_file)) as f:
+            lines = f.readlines()[2:]
+
+        missing_indices = lines
+        im_diff = 0
         # TiltImageAlignment (one per movie)
-        for movie in tomo_params.input_file_list:
-            ispyb_command_list.append({"ispyb_command": "insert_tilt_image_alignment",
-                                       "psd_file": None, # should be in ctf table but useful, so we will insert
-                                       "refined_magnification": self.mag,
-                                       "refined_tilt_angle": self.refined_tilts[tomo_params.input_file_list.index(movie)],
-                                       "refined_tilt_axis": self.rot,
-                                       "movie_id": movie[2]
-                                     })
+        for im, movie in enumerate(tomo_params.input_file_list):
+            if im in missing_indices:
+                im_diff += 1
+            else:
+                ispyb_command_list.append({"ispyb_command": "insert_tilt_image_alignment",
+                                           "psd_file": None, # should be in ctf table but useful, so we will insert
+                                           "refined_magnification": self.mag,
+                                           "refined_tilt_angle": self.refined_tilts[im-im_diff],
+                                           "refined_tilt_axis": self.rot,
+                                           "movie_id": movie[2]
+                                         })
 
         ispyb_parameters = {"ispyb_command": "multipart_message",
                                  "ispyb_command_list": ispyb_command_list

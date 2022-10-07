@@ -82,7 +82,9 @@ class Xia2SsxWrapper(Wrapper):
             crystal_symmetry = pdb_inp.crystal_symmetry()
             if crystal_symmetry is None:
                 continue
-            if not crystal_symmetry.is_similar_symmetry(input_symmetry):
+            if not crystal_symmetry.is_similar_symmetry(
+                input_symmetry, relative_length_tolerance=0.05
+            ):
                 continue
             # Just use the first pdb that matches - we should probably be
             # more clever and choose the closest match

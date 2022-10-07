@@ -236,12 +236,11 @@ class TomoAlign(CommonService):
                                "store_result": "ispyb_tomogram_id"
                             }]
 
-        #aligned_file_lamella-tomo-again1_DarkImgs.txt
+        missing_indices = []
         dark_images_file = Path(tomo_params.aretomo_output_file).parent.glob("*DarkImgs.txt")
         with open(str(dark_images_file)) as f:
-            lines = f.readlines()[2:]
+            missing_indices = [int(i) for i in f.readlines()[2:]]
 
-        missing_indices = lines
         im_diff = 0
         # TiltImageAlignment (one per movie)
         for im, movie in enumerate(tomo_params.input_file_list):

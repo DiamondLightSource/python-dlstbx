@@ -237,7 +237,7 @@ class TomoAlign(CommonService):
                             }]
 
         missing_indices = []
-        dark_images_file = str(tomo_aln_file.with_suffix(""))+"_DarkImg.txt"
+        dark_images_file = str(tomo_aln_file.with_suffix("")) + "_DarkImgs.txt"
         #dark_images_file = tomo_aln_file.with_suffix("_DarkImg.txt")
         with open(dark_images_file) as f:
             missing_indices = [int(i) for i in f.readlines()[2:]]

@@ -111,6 +111,7 @@ class DLSIndexer(CommonService):
                 phil_params.indexing.multiple_lattice_search.max_lattices = (
                     payload.max_lattices
                 )
+                phil_params.indexing.method = "fft1d"
                 idxr = indexer.Indexer.from_parameters(
                     payload.reflections,
                     payload.experiments,

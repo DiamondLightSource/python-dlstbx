@@ -87,12 +87,12 @@ class JSON(CommonService):
                     parameters,
                 )
             )
-            if len(self._data) == 100:
-                self.process_messages()
 
     def process_messages(self):
         with self._lock:
             for command, command_data in self._data.items():
+                if not command_data:
+                    continue
                 self.log.debug("Running json call %s", command)
                 command_function = lookup_command(command, self)
                 for output_filename, grouped_data in command_data.items():
@@ -115,6 +115,8 @@ class JSON(CommonService):
 
                     # delete this data now we've processed it
                     self._data[command][output_filename] = []
+
+                del self._data[command][output_filename]
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     def do_store_per_image_analysis_result(

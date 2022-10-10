@@ -134,7 +134,7 @@ class TomoAlign(CommonService):
                     y_shift.append(float(line_split[4]))
                     self.refined_tilts.append(float(line_split[9]))
         fig = px.scatter(x=x_shift, y=y_shift)
-        plot_path = Path(tomo_parameters.stack_file).parent / "xy_shift_plot.json"
+        plot_path = str(Path(tomo_parameters.stack_file).with_suffix("")) + "xy_shift_plot.json"
         fig.write_json(plot_path)
         return tomo_aln_file
 

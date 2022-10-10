@@ -20,6 +20,8 @@ class PerImageAnalysisPayload(pydantic.BaseModel):
     output_filename: Path
     file_number: pydantic.PositiveInt = pydantic.Field(alias="file-number")
     n_spots_total: pydantic.NonNegativeInt
+    n_spots_4A: pydantic.NonNegativeInt
+    total_intensity: float
 
     class Config:
         allow_population_by_field_name = True
@@ -126,10 +128,7 @@ class JSON(CommonService):
         output_filename.parent.mkdir(exist_ok=True, parents=True)
         with output_filename.open(mode="a") as fh:
             for result in results:
-                fh.write(
-                    json.dumps(result.dict(include={"file_number", "n_spots_total"}))
-                    + "\n"
-                )
+                fh.write(json.dumps(result.dict(exclude={"output_filename"})) + "\n")
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     def do_store_indexing_result(
@@ -143,9 +142,4 @@ class JSON(CommonService):
         output_filename.parent.mkdir(exist_ok=True, parents=True)
         with output_filename.open(mode="a") as fh:
             for result in results:
-                fh.write(
-                    json.dumps(
-                        result.dict(include={"file_number", "lattices", "n_unindexed"})
-                    )
-                    + "\n"
-                )
+                fh.write(json.dumps(result.dict(exclude={"output_filename"})) + "\n")

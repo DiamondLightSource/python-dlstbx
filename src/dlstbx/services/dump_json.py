@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import itertools
 import json
+import threading
 from pathlib import Path
 
 import pydantic
@@ -24,7 +26,7 @@ class PerImageAnalysisPayload(pydantic.BaseModel):
         allow_population_by_field_name = True
 
 
-class IndexingResult(pydantic.BaseModel):
+class IndexingPayload(pydantic.BaseModel):
     output_filename: Path
     file_number: pydantic.NonNegativeInt = pydantic.Field(alias="file-number")
     lattices: list[IndexedLatticeResult]
@@ -42,13 +44,18 @@ class JSON(CommonService):
 
     def initializing(self):
 
+        self._register_idle(1, self.process_messages)
         workflows.recipe.wrap_subscribe(
             self._transport,
             "json",
             self.receive_msg,
             acknowledgement=True,
+            exclusive=True,
             log_extender=self.extend_log,
+            prefetch_count=100,
         )
+        self._lock = threading.Lock()
+        self._data = {}
 
     def receive_msg(
         self, rw: workflows.recipe.RecipeWrapper, header: dict, message: dict
@@ -64,76 +71,82 @@ class JSON(CommonService):
             rw.transport.nack(header)
             return
 
-        self.log.debug("Running json call %s", command)
-        txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
-        rw.set_default_channel("output")
-
-        parameters = ChainMapWithReplacement(
-            message if isinstance(message, dict) else {},
-            rw.recipe_step["parameters"],
-            substitutions=rw.environment,
-        )
-        self.log.info(f"{parameters=}")
-
-        try:
-            result = command_function(
-                rw=rw,
-                message=message,
-                parameters=parameters,
-                transaction=txn,
-                header=header,
+        with self._lock:
+            self._data.setdefault(command, [])
+            parameters = ChainMapWithReplacement(
+                message if isinstance(message, dict) else {},
+                rw.recipe_step["parameters"],
+                substitutions=rw.environment,
             )
-        except Exception as e:
-            self.log.error(
-                f"Uncaught exception {e!r} in json function {command!r}, "
-                "quarantining message and shutting down instance.",
-                exc_info=True,
-            )
-            self.log.debug(f"{parameters=}")
-            rw.transport.transaction_abort(txn)
-            rw.transport.nack(header)
-            self._request_termination()
-            return
+            self._data[command].append((header, parameters))
+            if len(self._data) == 100:
+                self.process_messages()
 
-        if result and result.get("success"):
-            rw.send({"result": result.get("return_value")}, transaction=txn)
-            rw.transport.ack(header, transaction=txn)
-        else:
-            rw.transport.transaction_abort(txn)
-            rw.transport.nack(header)
-            return
-        rw.transport.transaction_commit(txn)
+    def process_messages(self):
+        with self._lock:
+            for command, data in self._data.items():
+                self.log.debug("Running json call %s", command)
+                command_function = lookup_command(command, self)
+                for output_filename, grouped_data in itertools.groupby(
+                    data, key=lambda d: d[1]["output_filename"]
+                ):
+                    grouped_data = list(grouped_data)
+                    header, _ = grouped_data[0]
+                    txn = self.transport.transaction_begin(
+                        subscription_id=header["subscription"]
+                    )
+                    try:
+                        command_function(
+                            output_filename=output_filename,
+                            results=[params for _, params in grouped_data],
+                        )
+                    except Exception as e:
+                        self.log.error(
+                            f"Uncaught exception {e!r} in json function {command!r}",
+                            exc_info=True,
+                        )
+                        for header, _ in grouped_data:
+                            self.transport.nack(header)
+                        return
+                    else:
+                        for header, _ in grouped_data:
+                            self.transport.ack(header, transaction=txn)
+                    self.transport.transaction_commit(txn)
+
+            self._data = {}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     def do_store_per_image_analysis_result(
         self,
         *,
-        parameters: PerImageAnalysisPayload,
+        output_filename: Path,
+        results: list[PerImageAnalysisPayload],
         **kwargs,
     ):
-        self.log.debug(f"{parameters=}")
-        parameters.output_filename.parent.mkdir(exist_ok=True, parents=True)
-        with parameters.output_filename.open(mode="a") as fh:
-            fh.write(
-                json.dumps(parameters.dict(include={"file_number", "n_spots_total"}))
-                + "\n"
-            )
-        return {"success": True}
+        self.log.debug(f"{results=}")
+        output_filename.parent.mkdir(exist_ok=True, parents=True)
+        with output_filename.open(mode="a") as fh:
+            for result in results:
+                fh.write(
+                    json.dumps(result.dict(include={"file_number", "n_spots_total"}))
+                    + "\n"
+                )
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     def do_store_indexing_result(
         self,
         *,
-        parameters: IndexingResult,
+        output_filename: Path,
+        results: list[IndexingPayload],
         **kwargs,
     ):
-        self.log.debug(f"{parameters=}")
-        parameters.output_filename.parent.mkdir(exist_ok=True, parents=True)
-        with parameters.output_filename.open(mode="a") as fh:
-            fh.write(
-                json.dumps(
-                    parameters.dict(include={"file_number", "lattices", "n_unindexed"})
+        self.log.debug(f"{results=}")
+        output_filename.parent.mkdir(exist_ok=True, parents=True)
+        with output_filename.open(mode="a") as fh:
+            for result in results:
+                fh.write(
+                    json.dumps(
+                        result.dict(include={"file_number", "lattices", "n_unindexed"})
+                    )
+                    + "\n"
                 )
-                + "\n"
-            )
-        return {"success": True}

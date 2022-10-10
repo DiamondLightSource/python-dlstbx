@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import itertools
 import json
 import threading
 from pathlib import Path
@@ -72,29 +71,29 @@ class JSON(CommonService):
             return
 
         with self._lock:
-            self._data.setdefault(command, [])
+            self._data.setdefault(command, {})
             parameters = ChainMapWithReplacement(
                 message if isinstance(message, dict) else {},
                 rw.recipe_step["parameters"],
                 substitutions=rw.environment,
             )
-            self._data[command].append((header, parameters))
+            output_filename = parameters["output_filename"]
+            self._data[command].setdefault(output_filename, [])
+            self._data[command][output_filename].append(
+                (
+                    header,
+                    parameters,
+                )
+            )
             if len(self._data) == 100:
                 self.process_messages()
 
     def process_messages(self):
         with self._lock:
-            for command, data in self._data.items():
+            for command, command_data in self._data.items():
                 self.log.debug("Running json call %s", command)
                 command_function = lookup_command(command, self)
-                for output_filename, grouped_data in itertools.groupby(
-                    data, key=lambda d: d[1]["output_filename"]
-                ):
-                    grouped_data = list(grouped_data)
-                    header, _ = grouped_data[0]
-                    txn = self.transport.transaction_begin(
-                        subscription_id=header["subscription"]
-                    )
+                for output_filename, grouped_data in command_data.items():
                     try:
                         command_function(
                             output_filename=output_filename,
@@ -110,10 +109,10 @@ class JSON(CommonService):
                         return
                     else:
                         for header, _ in grouped_data:
-                            self.transport.ack(header, transaction=txn)
-                    self.transport.transaction_commit(txn)
+                            self.transport.ack(header)
 
-            self._data = {}
+                    # delete this data now we've processed it
+                    self._data[command][output_filename] = []
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     def do_store_per_image_analysis_result(

@@ -8,21 +8,21 @@ import workflows.recipe
 from workflows.services.common_service import CommonService
 
 
-class JSON(CommonService):
+class JSONLines(CommonService):
     """A service that takes RabbitMQ messages and moves them to ActiveMQ."""
 
     # Human readable service name
-    _service_name = "JSON"
+    _service_name = "JSON Lines"
 
     # Logger name
-    _logger_name = "dlstbx.services.json"
+    _logger_name = "dlstbx.services.jsonlines"
 
     def initializing(self):
 
         self._register_idle(1, self.process_messages)
         workflows.recipe.wrap_subscribe(
             self._transport,
-            "json",
+            "jsonlines",
             self.receive_msg,
             acknowledgement=True,
             exclusive=True,

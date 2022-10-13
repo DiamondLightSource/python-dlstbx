@@ -134,7 +134,7 @@ class TomoAlign(CommonService):
                     y_shift.append(float(line_split[4]))
                     self.refined_tilts.append(float(line_split[9]))
         fig = px.scatter(x=x_shift, y=y_shift)
-        plot_path = str(Path(tomo_parameters.stack_file).with_suffix("")) + "xy_shift_plot.json"
+        plot_path = str(Path(tomo_parameters.stack_file).with_suffix("")) + "_xy_shift_plot.json"
         fig.write_json(plot_path)
         return tomo_aln_file
 
@@ -198,9 +198,7 @@ class TomoAlign(CommonService):
         tomo_params.position = str(Path(tomo_params.input_file_list[0][0]).name).split('_')[1]
 
         # this could be changed to something else
-        tomo_params.aretomo_output_file = str(
-                tomo_params.stack_file.split(".")[0] + "_aretomo." + tomo_params.stack_file.split(".")[1]
-        )
+        tomo_params.aretomo_output_file = str(Path(tomo_params.stack_file).with_suffix("")) + "_aretomo.mrc"
 
         aretomo_result = self.aretomo(tomo_params.aretomo_output_file, tomo_params)
 

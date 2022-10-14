@@ -151,6 +151,11 @@ class DLSValidation(CommonService):
                             return fail(
                                 f"{unmasked_minus_ones} unmasked -1 pixel values found in first image for {filename}"
                             )
+                        n_masked_pixels = np.count_nonzero(pixel_mask)
+                        if n_masked_pixels == pixel_mask.size:
+                            return fail(
+                                "All pixels are masked (is the detector set to full header mode?)"
+                            )
             except Exception as e:
                 self.log.warning(e, exc_info=True)
                 return fail(

@@ -176,6 +176,7 @@ mimas_scenario_handlers = [
     "pilatus_not_gridscan_start = dlstbx.mimas.core:handle_pilatus_not_gridscan_start",
     "pilatus_screening = dlstbx.mimas.core:handle_pilatus_screening",
     "pilatus_serial_end = dlstbx.mimas.ssx:handle_pilatus_serial_end",
+    "pilatus_serial_start = dlstbx.mimas.ssx:handle_pilatus_serial_start",
     "rotation_end = dlstbx.mimas.core:handle_rotation_end",
     "vmxi_end = dlstbx.mimas.vmxi:handle_vmxi_end",
     "vmxi_gridscan = dlstbx.mimas.vmxi:handle_vmxi_gridscan",

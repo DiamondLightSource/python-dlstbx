@@ -22,7 +22,9 @@ def test_pilatus_ssx(dcclass):
         runstatus="DataCollection Successful",
         detectorclass=MimasDetectorClass.PILATUS,
     )
-    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
+        "zocalo.go -r pia-index-ssx-pilatus 8374193"
+    }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-ssx-pilatus --trigger",
     }

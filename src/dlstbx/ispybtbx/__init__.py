@@ -355,7 +355,7 @@ class ispybtbx:
     ):
         c = crud.get_crystal_for_dcid(dcid, session)
         if not c or not c.spaceGroup:
-            return "", False
+            return None, None
         proto_cell = (
             c.cell_a,
             c.cell_b,

@@ -31,6 +31,8 @@ class IndexingPayload(pydantic.BaseModel):
 
     @pydantic.validator("unit_cell", pre=True)
     def check_unit_cell(cls, v):
+        if not v:
+            return None
         orig_v = v
         if isinstance(v, str):
             v = v.replace(",", " ").split()
@@ -43,6 +45,8 @@ class IndexingPayload(pydantic.BaseModel):
 
     @pydantic.validator("space_group", pre=True)
     def check_space_group(cls, v):
+        if not v:
+            return None
         try:
             v = sgtbx.space_group_info(v)
         except Exception:

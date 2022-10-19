@@ -3,7 +3,6 @@ from __future__ import annotations
 import concurrent.futures
 import dataclasses
 import decimal
-import glob
 import hashlib
 import itertools
 import logging
@@ -370,6 +369,38 @@ class ispybtbx:
         else:
             cell = tuple(float(p) for p in proto_cell)
         return c.spaceGroup, cell
+
+    def get_space_group_and_unit_cell_from_yaml(
+        self,
+        ispyb_info: dict,
+        io_timeout: float = 10,
+    ):
+        dcid = ispyb_info["ispyb_dcid"]
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(load_configuration_file, ispyb_info)
+                params = future.result(timeout=io_timeout)
+        except concurrent.futures.TimeoutError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                f"Error loading configuration file for dcid={dcid}:\n{exc}",
+                exc_info=True,
+            )
+            return None, None
+        else:
+            if params:
+                space_group = params.get("ispyb_space_group")
+                cell = params.get("ispyb_unit_cell")
+                if isinstance(cell, str):
+                    try:
+                        cell = [float(p) for p in cell.replace(",", " ").split()]
+                    except ValueError:
+                        logger.warning(
+                            f"Can't interpret unit cell: {cell} (dcid: {dcid})"
+                        )
+                        cell = None
+            return space_group, cell
 
     def get_energy_scan_from_dcid(self, dcid, session: sqlalchemy.orm.session.Session):
         def __energy_offset(row):
@@ -811,29 +842,7 @@ def ispyb_filter(
 
     space_group, cell = i.get_space_group_and_unit_cell(dc_id, session)
     if not any((space_group, cell)):
-        try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(load_configuration_file, parameters)
-                params = future.result(timeout=io_timeout)
-        except concurrent.futures.TimeoutError:
-            raise
-        except Exception as exc:
-            logger.warning(
-                f"Error loading configuration file for dcid={dc_id}:\n{exc}",
-                exc_info=True,
-            )
-        else:
-            if params:
-                space_group = params.get("ispyb_space_group")
-                cell = params.get("ispyb_unit_cell")
-                if isinstance(cell, str):
-                    try:
-                        cell = [float(p) for p in cell.replace(",", " ").split()]
-                    except ValueError:
-                        logger.warning(
-                            "Can't interpret unit cell: %s (dcid: %s)", str(cell), dc_id
-                        )
-                        cell = None
+        space_group, cell = i.get_space_group_and_unit_cell_from_yaml(parameters)
     parameters["ispyb_space_group"] = space_group
     parameters["ispyb_unit_cell"] = cell
 
@@ -921,10 +930,11 @@ def ispyb_filter(
 
 
 def load_configuration_file(ispyb_info):
-    visit_dir = ispyb_info["ispyb_visit_directory"]
-    processing_dir = os.path.join(visit_dir, "processing")
-    for f in glob.glob(os.path.join(processing_dir, "*.yml")):
-        prefix = os.path.splitext(os.path.basename(f))[0]
+    visit_dir = pathlib.Path(ispyb_info["ispyb_visit_directory"])
+    processing_dir = visit_dir / "processing"
+
+    for f in list(processing_dir.glob("*.yml")) + list(processing_dir.glob("*.yaml")):
+        prefix = f.stem
         image_path = os.path.join(
             ispyb_info["ispyb_image_directory"], ispyb_info["ispyb_image_template"]
         )

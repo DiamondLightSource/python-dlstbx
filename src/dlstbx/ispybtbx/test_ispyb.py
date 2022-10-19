@@ -398,6 +398,49 @@ def test_get_sample_group_dcids_from_yml(tmpdir, db_session):
     ]
 
 
+@pytest.mark.parametrize("ext", ["yml", "yaml"])
+def test_load_configuration_file(tmp_path, ext):
+    foo_yml = tmp_path / "processing" / f"foo.{ext}"
+    foo_yml.parent.mkdir()
+    foo_yml.write_text(
+        """\
+ispyb_unit_cell: [10, 11, 12, 90, 90, 90]
+ispyb_space_group: P212121
+"""
+    )
+    ispyb_info = {
+        "ispyb_visit_directory": tmp_path,
+        "ispyb_image_directory": tmp_path / "foo" / "bar",
+        "ispyb_image_template": "foo_bar_#####.cbf",
+    }
+    config = dlstbx.ispybtbx.load_configuration_file(ispyb_info)
+    assert config == {
+        "ispyb_unit_cell": [10, 11, 12, 90, 90, 90],
+        "ispyb_space_group": "P212121",
+    }
+
+
+def test_get_space_group_and_unit_cell_from_yaml(tmp_path):
+    foo_yml = tmp_path / "processing" / "foo.yml"
+    foo_yml.parent.mkdir()
+    foo_yml.write_text(
+        """\
+ispyb_unit_cell: [10, 11, 12, 90, 90, 90]
+ispyb_space_group: P212121
+"""
+    )
+    ispyb_info = {
+        "ispyb_visit_directory": tmp_path,
+        "ispyb_image_directory": tmp_path / "foo" / "bar",
+        "ispyb_image_template": "foo_bar_#####.cbf",
+        "ispyb_dcid": 123456,
+    }
+    i = ispybtbx()
+    sg, uc = i.get_space_group_and_unit_cell_from_yaml(ispyb_info)
+    assert sg == "P212121"
+    assert uc == [10, 11, 12, 90, 90, 90]
+
+
 def test_get_related_dcids_same_directory(db_session):
     i = ispybtbx()
     assert i.get_related_dcids_same_directory(5646632, db_session) == {

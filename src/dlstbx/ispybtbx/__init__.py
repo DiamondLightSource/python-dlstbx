@@ -376,6 +376,8 @@ class ispybtbx:
         io_timeout: float = 10,
     ):
         dcid = ispyb_info["ispyb_dcid"]
+        space_group = None
+        unit_cell = None
         try:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(load_configuration_file, ispyb_info)
@@ -387,20 +389,20 @@ class ispybtbx:
                 f"Error loading configuration file for dcid={dcid}:\n{exc}",
                 exc_info=True,
             )
-            return None, None
         else:
             if params:
                 space_group = params.get("ispyb_space_group")
-                cell = params.get("ispyb_unit_cell")
-                if isinstance(cell, str):
+                unit_cell = params.get("ispyb_unit_cell")
+                if isinstance(unit_cell, str):
                     try:
-                        cell = [float(p) for p in cell.replace(",", " ").split()]
+                        unit_cell = [
+                            float(p) for p in unit_cell.replace(",", " ").split()
+                        ]
                     except ValueError:
                         logger.warning(
-                            f"Can't interpret unit cell: {cell} (dcid: {dcid})"
+                            f"Can't interpret unit cell: {unit_cell} (dcid: {dcid})"
                         )
-                        cell = None
-            return space_group, cell
+        return space_group, unit_cell
 
     def get_energy_scan_from_dcid(self, dcid, session: sqlalchemy.orm.session.Session):
         def __energy_offset(row):
@@ -842,7 +844,9 @@ def ispyb_filter(
 
     space_group, cell = i.get_space_group_and_unit_cell(dc_id, session)
     if not any((space_group, cell)):
-        space_group, cell = i.get_space_group_and_unit_cell_from_yaml(parameters)
+        space_group, cell = i.get_space_group_and_unit_cell_from_yaml(
+            parameters, io_timeout=io_timeout
+        )
     parameters["ispyb_space_group"] = space_group
     parameters["ispyb_unit_cell"] = cell
 

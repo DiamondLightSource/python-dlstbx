@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import shutil
@@ -53,6 +54,7 @@ class Payload(pydantic.BaseModel):
 class Xia2SsxWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.xia2.ssx"
     name = "xia2.ssx"
+    params_t = Xia2SsxParams
 
     def construct_commandline(self, params: Xia2SsxParams):
         command = [
@@ -106,7 +108,7 @@ class Xia2SsxWrapper(Wrapper):
         )
 
         try:
-            xia2_ssx_params = Xia2SsxParams(**params_d)
+            xia2_ssx_params = self.params_t(**params_d)
             params = Payload(**job_parameters)
         except (Exception, pydantic.ValidationError) as e:
             self.log.error(e, exc_info=True)
@@ -123,6 +125,7 @@ class Xia2SsxWrapper(Wrapper):
             )
 
         command = self.construct_commandline(xia2_ssx_params)
+        print(" ".join(command))
         self.log.info(" ".join(command))
         try:
             start_time = time.perf_counter()
@@ -377,3 +380,56 @@ def results_to_ispyb_command_list(
                     }
                 )
     return ispyb_command_list
+
+
+class Xia2SsxReduceParams(pydantic.BaseModel):
+    data: list[str]
+    unit_cell: Optional[
+        tuple[
+            pydantic.NonNegativeFloat,
+            pydantic.NonNegativeFloat,
+            pydantic.NonNegativeFloat,
+            pydantic.NonNegativeFloat,
+            pydantic.NonNegativeFloat,
+            pydantic.NonNegativeFloat,
+        ]
+    ] = None
+    spacegroup: Optional[str] = None
+    reference_pdb: list[PDBFileOrCode] = []
+
+    @pydantic.validator("unit_cell", pre=True)
+    def check_unit_cell(cls, v):
+        if isinstance(v, str):
+            v = v.replace(",", " ").split()
+        v = tuple(float(v) for v in v)
+        return v
+
+    @pydantic.validator("spacegroup", pre=True)
+    def check_spacegroup(cls, v):
+        if isinstance(v, list):
+            v = v[0]
+        return v
+
+
+class Xia2SsxReduceWrapper(Xia2SsxWrapper):
+    _logger_name = "dlstbx.wrap.xia2.ssx_reduce"
+    name = "xia2.ssx_reduce"
+    params_t = Xia2SsxReduceParams
+
+    def construct_commandline(self, params: Xia2SsxParams):
+        command = [
+            "dev.xia2.ssx_reduce",
+        ]
+        data_files = itertools.chain.from_iterable(
+            files.split(";") for files in params.data
+        )
+        for f in data_files:
+            command.append(f)
+        if params.unit_cell:
+            command.append("unit_cell=%s,%s,%s,%s,%s,%s" % params.unit_cell)
+        if params.spacegroup:
+            command.append(f"space_group={params.spacegroup}")
+        reference_pdb = self.find_matching_reference_pdb(params)
+        if reference_pdb:
+            command.append(f"reference={reference_pdb}")
+        return command

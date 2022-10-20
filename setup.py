@@ -97,6 +97,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "xia2.strategy = dlstbx.wrapper.xia2_strategy:Xia2StrategyWrapper",
     "xia2.to_shelxcde = dlstbx.wrapper.xia2_to_shelxcde:Xia2toShelxcdeWrapper",
     "xia2.ssx = dlstbx.wrapper.xia2_ssx:Xia2SsxWrapper",
+    "xia2.ssx_reduce = dlstbx.wrapper.xia2_ssx:Xia2SsxReduceWrapper",
     "xoalign = dlstbx.wrapper.xoalign:XOalignWrapper",
 ]
 

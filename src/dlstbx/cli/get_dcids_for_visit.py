@@ -54,7 +54,7 @@ def get_dcids_for_bl_sessionid(
     return [dc.dataCollectionId for dc in query]
 
 
-if __name__ == "__main__":
+def run():
     parser = argparse.ArgumentParser(
         description="Reprocess all data collections for a given visit with autoPROC"
     )

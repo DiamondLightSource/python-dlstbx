@@ -19,6 +19,7 @@ console_scripts = [
     "dlstbx.find_in_ispyb=dlstbx.cli.find_in_ispyb:run",
     "dlstbx.fix_cluster_jobs=dlstbx.cli.fix_cluster_jobs:run",
     "dlstbx.get_activemq_statistics=dlstbx.cli.get_activemq_statistics:run",
+    "dlstbx.get_dcids_for_visit=dlstbx.cli.get_dcids_for_visit:run",
     "dlstbx.get_graylog_statistics=dlstbx.cli.get_graylog_statistics:run",
     "dlstbx.get_rabbitmq_statistics=dlstbx.cli.get_rabbitmq_statistics:run",
     "dlstbx.graylog=dlstbx.cli.graylog:run",

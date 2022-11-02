@@ -277,7 +277,24 @@ class TomoAlign(CommonService):
                               },)
         else:
             rw.send_to("ispyb", ispyb_parameters)
+
+        # Forward results to images service
+        self.log.info(f"Sending to images service {tomo_params.aretomo_output_file}")
+        if isinstance(rw, RW_mock):
+            rw.transport.send(destination="images",
+                              message={
+                                  "parameters": {"images_command": "mrc_central_slice"},
+                                  "file": tomo_params.aretomo_output_file,
+                              })
+        else:
+            rw.send_to("images", {
+                "parameters": {"images_command": "mrc_central_slice"},
+                "file": tomo_params.aretomo_output_file,
+            })
+
         rw.transport.ack(header)
+
+
 
     def newstack(self, tomo_parameters):
         """

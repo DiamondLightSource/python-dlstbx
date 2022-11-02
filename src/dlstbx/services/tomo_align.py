@@ -82,13 +82,15 @@ class TomoAlign(CommonService):
     _logger_name = "dlstbx.services.tomo_align"
 
     # Values to extract for ISPyB
-    plot_path = None
     refined_tilts = None
     tilt_offset = None
     rot_centre_z_list = []
     rot_centre_z = None
     rot = None
     mag = None
+    plot_path = None
+    central_slice_location = None
+    dark_images_file = None
 
     def initializing(self):
         """Subscribe to a queue. Received messages must be acknowledged."""
@@ -134,9 +136,8 @@ class TomoAlign(CommonService):
                     y_shift.append(float(line_split[4]))
                     self.refined_tilts.append(float(line_split[9]))
         fig = px.scatter(x=x_shift, y=y_shift)
-        plot_path = str(Path(tomo_parameters.stack_file).with_suffix("")) + "_xy_shift_plot.json"
-        fig.write_json(plot_path)
-        return tomo_aln_file
+        fig.write_json(self.plot_path)
+        return tomo_aln_file # not needed anywhere atm
 
     def tomo_align(self, rw, header: dict, message: dict):
         class RW_mock:
@@ -197,8 +198,11 @@ class TomoAlign(CommonService):
 
         tomo_params.position = str(Path(tomo_params.input_file_list[0][0]).name).split('_')[1]
 
-        # this could be changed to something else
-        tomo_params.aretomo_output_file = str(Path(tomo_params.stack_file).with_suffix("")) + "_aretomo.mrc"
+        stack_file_root = str(Path(tomo_params.stack_file).with_suffix(""))
+        tomo_params.aretomo_output_file = stack_file_root + "_aretomo.mrc"
+        self.central_slice_location = stack_file_root + "_central_slice.jpeg"
+        self.plot_path = stack_file_root + "_xy_shift_plot.json"
+        self.dark_images_file = stack_file_root + "_DarkImgs.txt"
 
         aretomo_result = self.aretomo(tomo_params.aretomo_output_file, tomo_params)
 
@@ -215,7 +219,7 @@ class TomoAlign(CommonService):
 
         # XY shift plot
         # Autoproc program attachment - plot
-        tomo_aln_file = self.extract_from_aln(tomo_params)
+        self.extract_from_aln(tomo_params)
         if tomo_params.tilt_cor:
             self.rot_centre_z = self.rot_centre_z_list[-1]
 
@@ -233,11 +237,18 @@ class TomoAlign(CommonService):
                                "z_shift": self.rot_centre_z,
                                "store_result": "ispyb_tomogram_id"
                             }]
+        if self.plot_path:
+            ispyb_command_list.append({"ispyb_command": "add_program_attachment",
+                                       "file_name": Path(self.plot_path).name,
+                                       "file_path": Path(self.plot_path).parent,
+                                       "file_type": 'Graph'})
+        ispyb_command_list.append({"ispyb_command": "add_program_attachment",
+                                   "file_name": Path(self.central_slice_location).name,
+                                   "file_path": Path(self.central_slice_location).parent,
+                                   "file_type": 'Graph'})
 
         missing_indices = []
-        dark_images_file = str(tomo_aln_file.with_suffix("")) + "_DarkImgs.txt"
-        #dark_images_file = tomo_aln_file.with_suffix("_DarkImg.txt")
-        with open(dark_images_file) as f:
+        with open(self.dark_images_file) as f:
             missing_indices = [int(i) for i in f.readlines()[2:]]
 
         im_diff = 0

@@ -186,13 +186,14 @@ class MotionCorr(CommonService):
         movie = mc_params.movie
         if movie.endswith(".mrc"):
             input_flag = "-InMrc"
-        elif movie.endswith(".tif" or ".tiff"):
+        elif movie.endswith((".tif", ".tiff")):
             input_flag = "-InTiff"
         elif movie.endswith(".eer"):
             input_flag = "-InEer"
         else:
             self.log.error(f"No input flag found for movie {movie}")
             input_flag = None
+            rw.transport.nack(header)
         command.extend([input_flag, movie])
 
         mc_flags = {

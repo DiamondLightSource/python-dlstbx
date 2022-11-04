@@ -239,13 +239,14 @@ class TomoAlign(CommonService):
                             }]
         if self.plot_path:
             ispyb_command_list.append({"ispyb_command": "add_program_attachment",
-                                       "file_name": Path(self.plot_path).name,
-                                       "file_path": Path(self.plot_path).parent,
+                                       "file_name": str(Path(self.plot_path).name),
+                                       "file_path": str(Path(self.plot_path).parent),
                                        "file_type": 'Graph'})
-        ispyb_command_list.append({"ispyb_command": "add_program_attachment",
-                                   "file_name": Path(self.central_slice_location).name,
-                                   "file_path": Path(self.central_slice_location).parent,
-                                   "file_type": 'Graph'})
+        if self.central_slice_location:
+            ispyb_command_list.append({"ispyb_command": "add_program_attachment",
+                                       "file_name": str(Path(self.central_slice_location).name),
+                                       "file_path": str(Path(self.central_slice_location).parent),
+                                       "file_type": 'Graph'})
 
         missing_indices = []
         with open(self.dark_images_file) as f:

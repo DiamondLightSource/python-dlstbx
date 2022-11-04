@@ -525,26 +525,29 @@ def test_get_diffractionplan_from_dcid(db_session):
 
 
 def test_get_gridscan_info(db_session):
-    assert ispybtbx().get_gridscan_info(6077465, 0, db_session) == {
-        "dataCollectionId": 6077465,
-        "snaked": 1,
-        "orientation": "horizontal",
-        "recordTimeStamp": "2021-03-05T15:29:20",
-        "pixelsPerMicronX": 0.566,
-        "pixelsPerMicronY": 0.566,
-        "steps_x": 27.0,
-        "dx_mm": 0.02,
-        "xOffset": None,
-        "snapshot_offsetXPixel": 77.0,
-        "snapshot_offsetYPixel": 50.8881,
-        "steps_y": 10.0,
-        "yOffset": None,
-        "dy_mm": 0.02,
-        "dataCollectionGroupId": 5492072,
-        "meshAngle": None,
-        "gridInfoId": 1307711,
-        "workflowMeshId": None,
-    }
+    assert (
+        ispybtbx().get_gridscan_info(6077465, 0, db_session).items()
+        >= {
+            "dataCollectionId": 6077465,
+            "snaked": 1,
+            "orientation": "horizontal",
+            "recordTimeStamp": "2021-03-05T15:29:20",
+            "pixelsPerMicronX": 0.566,
+            "pixelsPerMicronY": 0.566,
+            "steps_x": 27.0,
+            "dx_mm": 0.02,
+            "xOffset": None,
+            "snapshot_offsetXPixel": 77.0,
+            "snapshot_offsetYPixel": 50.8881,
+            "steps_y": 10.0,
+            "yOffset": None,
+            "dy_mm": 0.02,
+            "dataCollectionGroupId": 5492072,
+            "meshAngle": None,
+            "gridInfoId": 1307711,
+            "workflowMeshId": None,
+        }.items()
+    )
 
 
 def test_get_sample_dcids(db_session):

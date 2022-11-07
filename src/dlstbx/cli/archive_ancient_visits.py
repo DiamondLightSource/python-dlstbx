@@ -192,7 +192,6 @@ def run():
                     }  # legacy files that aren't removed when a visit is archived
                 ]
                 if len(files):
-                    print(f"Found {files[0]} for {session_id=}")
                     break
             else:
                 archivables.append(Archivable(**row))

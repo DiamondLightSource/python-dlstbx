@@ -57,7 +57,7 @@ def mark_as_archived(archivables: list[Archivable]):
     conn = ispyb.open()
     for visit in archivables:
         print(
-            f"Marking visit {visit.proposal_code}{visit.proposal_number}-{visit.visit_number} as archived"
+            f"Archiving visit {visit.proposal_code}{visit.proposal_number}-{visit.visit_number}"
         )
         conn.call_sp_write(
             "update_session_archived",
@@ -87,7 +87,6 @@ def run():
                 models.Proposal.proposalCode,
                 models.Proposal.proposalNumber,
                 models.BLSession.visit_number,
-                models.BLSession.endDate,
             )
             .join(models.BLSession)
             .filter(models.BLSession.archived != 1)
@@ -104,7 +103,6 @@ def run():
                 models.Proposal.proposalCode,
                 models.Proposal.proposalNumber,
                 models.BLSession.visit_number,
-                models.BLSession.endDate,
             )
             .join(models.BLSession)
             .filter(models.BLSession.archived != 1)
@@ -125,7 +123,6 @@ def run():
                 models.Proposal.proposalCode,
                 models.Proposal.proposalNumber,
                 models.BLSession.visit_number,
-                models.BLSession.endDate,
             )
             .join(models.BLSession)
             .outerjoin(
@@ -150,7 +147,6 @@ def run():
                 models.Proposal.proposalCode,
                 models.Proposal.proposalNumber,
                 models.BLSession.visit_number,
-                models.BLSession.endDate,
             )
             .join(models.BLSession)
             .filter(models.BLSession.archived != 1)
@@ -162,11 +158,9 @@ def run():
         )
         query = (
             db_session.query(
-                subquery.c.sessionId,
                 subquery.c.proposalCode,
                 subquery.c.proposalNumber,
                 subquery.c.visit_number,
-                subquery.c.endDate,
                 models.DataCollection.imageDirectory,
             )
             .outerjoin(

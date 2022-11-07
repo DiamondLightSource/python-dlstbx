@@ -144,27 +144,38 @@ def run():
 
         # Find all data collections associated with visits that ended more than 40 days ago
         # where the proposal is still open
-        query = (
+        subquery = (
             db_session.query(
                 models.BLSession.sessionId,
                 models.Proposal.proposalCode,
                 models.Proposal.proposalNumber,
                 models.BLSession.visit_number,
                 models.BLSession.endDate,
-                models.DataCollection.imageDirectory,
             )
             .join(models.BLSession)
-            .outerjoin(
-                models.DataCollection,
-                models.DataCollection.SESSIONID == models.BLSession.sessionId,
-            )
             .filter(models.BLSession.archived != 1)
             .filter(models.BLSession.endDate < forty_days_ago)
             .filter(models.Proposal.state == "Open")
-            .order_by(models.BLSession.sessionId)
+            .order_by(func.rand())
+            .limit(100)
+            .subquery()
+        )
+        query = (
+            db_session.query(
+                subquery.c.sessionId,
+                subquery.c.proposalCode,
+                subquery.c.proposalNumber,
+                subquery.c.visit_number,
+                subquery.c.endDate,
+                models.DataCollection.imageDirectory,
+            )
+            .outerjoin(
+                models.DataCollection,
+                models.DataCollection.SESSIONID == subquery.c.sessionId,
+            )
+            .order_by(subquery.c.sessionId)
             .order_by(models.DataCollection.imageDirectory)
             .distinct()
-            # .limit(100)
         )
 
         # For all data collections in the visit check if the imageDirectory exists
@@ -174,6 +185,8 @@ def run():
         archivables = []
         for session_id, group in grouped:
             for row in group:
+                if not row.imageDirectory:
+                    continue
                 image_directory = Path(row.imageDirectory)
                 files = [
                     f

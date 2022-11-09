@@ -108,7 +108,6 @@ service_list = [
     "DLSCluster = dlstbx.services.cluster:DLSCluster",
     "DLSClusterMonitor = dlstbx.services.cluster_monitor:DLSClusterMonitor",
     "DLSController = dlstbx.services.controller:DLSController",
-    "DLSDispatcher = dlstbx.services.dispatcher:Dispatcher",
     "DLSDropfilePickup = dlstbx.services.dropfile_pickup:DLSDropfilePickup",
     "DLSFileWatcher = dlstbx.services.filewatcher:DLSFileWatcher",
     "DLSISPyB = dlstbx.services.ispybsvc:DLSISPyB",

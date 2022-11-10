@@ -9,9 +9,15 @@ from dlstbx.test.mimas.test_core import get_zocalo_commands
 
 
 @pytest.mark.parametrize(
-    "dcclass", [MimasDCClass.SERIAL_FIXED, MimasDCClass.SERIAL_JET]
+    "dcclass,detectorclass",
+    [
+        (MimasDCClass.SERIAL_FIXED, MimasDetectorClass.PILATUS),
+        (MimasDCClass.SERIAL_JET, MimasDetectorClass.PILATUS),
+        (MimasDCClass.SERIAL_FIXED, MimasDetectorClass.EIGER),
+        (MimasDCClass.SERIAL_JET, MimasDetectorClass.EIGER),
+    ],
 )
-def test_pilatus_ssx(dcclass):
+def test_ssx(dcclass, detectorclass):
     dcid = 8374193
     scenario = functools.partial(
         MimasScenario,

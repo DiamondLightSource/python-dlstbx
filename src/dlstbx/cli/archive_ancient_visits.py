@@ -182,6 +182,14 @@ def run():
             for row in group:
                 if not row.imageDirectory:
                     continue
+                elif not row.imageDirectory.startswith("/dls/"):
+                    # File path does not start with /dls/ so does not point to
+                    # a valid image location
+                    continue
+                elif row.imageDirectory.startswith("/dls/tmp"):
+                    # Ignore data collected in /dls/tmp/
+                    continue
+
                 image_directory = Path(row.imageDirectory)
                 files = [
                     f

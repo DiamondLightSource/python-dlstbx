@@ -54,20 +54,20 @@ def get_session_archived_counts(
 
 
 def mark_as_archived(archivables: list[Archivable]):
-    conn = ispyb.open()
-    for visit in archivables:
-        print(
-            f"Archiving visit {visit.proposal_code}{visit.proposal_number}-{visit.visit_number}"
-        )
-        conn.call_sp_write(
-            "update_session_archived",
-            (
-                visit.proposal_code,
-                visit.proposal_number,
-                visit.visit_number,
-                1,
-            ),
-        )
+    with ispyb.open() as conn:
+        for visit in archivables:
+            print(
+                f"Archiving visit {visit.proposal_code}{visit.proposal_number}-{visit.visit_number}"
+            )
+            conn.call_sp_write(
+                "update_session_archived",
+                (
+                    visit.proposal_code,
+                    visit.proposal_number,
+                    visit.visit_number,
+                    1,
+                ),
+            )
 
 
 def run():

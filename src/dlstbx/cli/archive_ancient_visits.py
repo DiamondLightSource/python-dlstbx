@@ -132,6 +132,7 @@ def run():
             .filter(models.BLSession.archived != 1)
             .filter(models.BLSession.endDate < forty_days_ago)
             .filter(models.DataCollection.dataCollectionId.is_(None))
+            .limit(100)
         )
         archivables = [Archivable(**row) for row in query.all()]
         print(

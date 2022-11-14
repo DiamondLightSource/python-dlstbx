@@ -216,7 +216,7 @@ class TomoAlign(CommonService):
             return
 
         if tomo_params.out_imod and tomo_params.out_imod != 0:
-            self.imod_directory = str(Path(tomo_params.aretomo_output_file).with_suffix("") + "_Imod"
+            self.imod_directory = str(Path(tomo_params.aretomo_output_file).with_suffix("")) + "_Imod"
             f = Path(self.imod_directory)
             f.chmod(444)
             for file in f.iterdir():

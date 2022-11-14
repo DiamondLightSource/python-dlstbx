@@ -45,7 +45,7 @@ class TomoParameters(BaseModel):
     tilt_axis: float = None
     tilt_cor: int = None
     flip_int: int = None
-    flip_vol: int = None
+    flip_vol: int = 1
     wbp: int = None
     roi_file: list = None
     patch: int = None
@@ -56,7 +56,7 @@ class TomoParameters(BaseModel):
     pix_size: int = None
     init_val: int = None
     refine_flag: int = None
-    out_imod: int = None
+    out_imod: int = 1
     out_imod_xf: int = None
     dark_tol: int or str = None
 

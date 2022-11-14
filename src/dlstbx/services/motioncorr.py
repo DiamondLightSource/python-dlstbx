@@ -182,7 +182,12 @@ class MotionCorr(CommonService):
             )
             rw.transport.nack(header)
             return
-
+        if Path(mc_params.mrc_out).is_file():
+            self.log.info(
+                f"File exists {mc_params.mrc_out}"
+            )
+            rw.transport.ack(header)
+            return
         movie = mc_params.movie
         if movie.endswith(".mrc"):
             input_flag = "-InMrc"

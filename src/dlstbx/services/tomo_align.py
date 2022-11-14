@@ -200,7 +200,7 @@ class TomoAlign(CommonService):
 
         stack_file_root = str(Path(tomo_params.stack_file).with_suffix(""))
         tomo_params.aretomo_output_file = stack_file_root + "_aretomo.mrc"
-        self.central_slice_location = stack_file_root + "_central_slice.jpeg"
+        self.central_slice_location = stack_file_root + ".jpeg"
         self.plot_path = stack_file_root + "_xy_shift_plot.json"
         self.dark_images_file = stack_file_root + "_DarkImgs.txt"
 

@@ -129,6 +129,7 @@ def run():
                 models.DataCollection,
                 models.DataCollection.SESSIONID == models.BLSession.sessionId,
             )
+            .filter(models.BLSession.visit_number.is_not(None))
             .filter(models.BLSession.archived != 1)
             .filter(models.BLSession.endDate < forty_days_ago)
             .filter(models.DataCollection.dataCollectionId.is_(None))

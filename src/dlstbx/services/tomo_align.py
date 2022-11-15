@@ -206,13 +206,13 @@ class TomoAlign(CommonService):
         self.dark_images_file = stack_file_root + "_DarkImgs.txt"
 
         p = Path(self.plot_path)
-        p.chmod(0o774)
+        p.chmod(0o740)
 
         d = Path(self.dark_images_file)
-        d.chmod(0o774)
+        d.chmod(0o740)
 
         c = Path(self.central_slice_location)
-        c.chmod(0o774)
+        c.chmod(0o740)
 
         aretomo_result = self.aretomo(tomo_params.aretomo_output_file, tomo_params)
 
@@ -227,9 +227,9 @@ class TomoAlign(CommonService):
         if tomo_params.out_imod and tomo_params.out_imod != 0:
             self.imod_directory = str(Path(tomo_params.aretomo_output_file).with_suffix("")) + "_Imod"
             f = Path(self.imod_directory)
-            f.chmod(0o744)
+            f.chmod(0o740)
             for file in f.iterdir():
-                file.chmod(0o774)
+                file.chmod(0o740)
 
         # Extract results for ispyb
 

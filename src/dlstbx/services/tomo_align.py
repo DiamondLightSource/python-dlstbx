@@ -256,8 +256,9 @@ class TomoAlign(CommonService):
                                        "file_type": 'Graph'})
 
         missing_indices = []
-        with open(self.dark_images_file) as f:
-            missing_indices = [int(i) for i in f.readlines()[2:]]
+        if Path(self.dark_images_file).is_file():
+            with open(self.dark_images_file) as f:
+                missing_indices = [int(i) for i in f.readlines()[2:]]
 
         im_diff = 0
         # TiltImageAlignment (one per movie)

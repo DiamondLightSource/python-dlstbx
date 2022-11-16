@@ -769,6 +769,8 @@ def ispyb_filter(
     dc_id = parameters["ispyb_dcid"]
 
     dc_info = i.get_dc_info(dc_id, session)
+    if not dc_info:
+        raise ValueError(f"No database entry found for dcid={dc_id}: {dc_id}")
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
     parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id, session)
     if str(parameters["ispyb_beamline"]).lower() in _gpfs03_beamlines:
@@ -843,7 +845,7 @@ def ispyb_filter(
         parameters["ispyb_crystal"] = "DEFAULT"
 
     space_group, cell = i.get_space_group_and_unit_cell(dc_id, session)
-    if not any((space_group, cell)):
+    if not any((space_group, cell)) and visit_directory:
         space_group, cell = i.get_space_group_and_unit_cell_from_yaml(
             parameters, io_timeout=io_timeout
         )

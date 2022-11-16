@@ -755,7 +755,9 @@ class DLSTrigger(CommonService):
                 self.log.debug(f"mrbump trigger: generated JobParameterID {jppid}")
 
             for pdb_file in pdb_files:
-                assert pdb_file.filepath is not None
+                if not pdb_file.filepath:
+                    # presumably just a pdb code provided
+                    continue
                 filepath = pathlib.Path(pdb_file.filepath)
                 if pdb_file.source == "AlphaFold":
                     trimmed = filepath.with_name(

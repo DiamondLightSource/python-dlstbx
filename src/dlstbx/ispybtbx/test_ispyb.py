@@ -24,8 +24,9 @@ ds = {
     "i19_screening": 1396413,
     "cryo_em": 2097825,
     "cryo_em_tiff": 6351623,
-    "borken_dcid": 2091234,
 }
+
+borken_dcid = 2091234
 
 
 @pytest.fixture(scope="session")
@@ -99,6 +100,11 @@ def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples(db_session
         message, parameters = ispyb_filter(message, parameters, db_session)
         assert message == {}
         assert len(parameters) > 10
+
+
+def test_ispyb_recipe_filtering_raises_error_for_borken_dcid(db_session):
+    with pytest.raises(ValueError):
+        ispyb_filter({}, {"ispyb_dcid": borken_dcid}, db_session)
 
 
 def test_ispyb_filtering_for_processing_job(db_session):

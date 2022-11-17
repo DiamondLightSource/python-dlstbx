@@ -206,13 +206,16 @@ class TomoAlign(CommonService):
         self.dark_images_file = stack_file_root + "_DarkImgs.txt"
 
         p = Path(self.plot_path)
-        p.chmod(0o740)
+        if p.is_file():
+            p.chmod(0o740)
 
         d = Path(self.dark_images_file)
-        d.chmod(0o740)
+        if d.is_file():
+            d.chmod(0o740)
 
         c = Path(self.central_slice_location)
-        c.chmod(0o740)
+        if c.is_file():
+            c.chmod(0o740)
 
         aretomo_result = self.aretomo(tomo_params.aretomo_output_file, tomo_params)
 
@@ -227,7 +230,7 @@ class TomoAlign(CommonService):
         if tomo_params.out_imod and tomo_params.out_imod != 0:
             self.imod_directory = str(Path(tomo_params.aretomo_output_file).with_suffix("")) + "_Imod"
             f = Path(self.imod_directory)
-            f.chmod(0o740)
+            f.chmod(0o750)
             for file in f.iterdir():
                 file.chmod(0o740)
 
@@ -268,6 +271,14 @@ class TomoAlign(CommonService):
         if Path(self.dark_images_file).is_file():
             with open(self.dark_images_file) as f:
                 missing_indices = [int(i) for i in f.readlines()[2:]]
+        elif Path(self.imod_directory).is_dir():
+            self.dark_images_file = Path(self.imod_directory) / "tilt.com"
+            with open(self.dark_images_file) as f:
+                lines = f.readlines()
+                for line in lines:
+                    if line.startswith('EXCLUDELIST'):
+                        numbers = line.split(' ')
+                        missing_indices = [item.replace(',', '').strip() for item in numbers[1:]]
 
         im_diff = 0
         # TiltImageAlignment (one per movie)
@@ -382,7 +393,7 @@ class TomoAlign(CommonService):
             if v and (k in aretomo_flags):
                 command.extend((aretomo_flags[k], str(v)))
 
-        self.log.info("Running AreTomo")
+        self.log.info(f"Running AreTomo {command}")
         self.log.info(f"Input stack: {tomo_parameters.stack_file} \nOutput file: {output_file}")
         if tomo_parameters.tilt_cor:
             callback = self.parse_tomo_output

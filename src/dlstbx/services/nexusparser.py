@@ -69,8 +69,11 @@ class DLSNexusParser(CommonService):
         self.log.debug("Finding files related to %s", root_file)
         try:
             related = dlstbx.util.hdf5.find_all_references(root_file)
-        except ValueError:
-            self.log.error("Could not find files related to %s", root_file)
+        except (ValueError, KeyError):
+            self.log.error(
+                f"Could not find files related to {root_file}", exc_info=True
+            )
+            rw.transport.transaction_abort(txn)
             rw.transport.nack(header)
             return
         self.log.info("Found %d files related to %s", len(related), root_file)
@@ -84,6 +87,7 @@ class DLSNexusParser(CommonService):
                 self.log.error(
                     "Invalid number of expected images (%r)", expected_images
                 )
+                rw.transport.transaction_abort(txn)
                 rw.transport.nack(header)
                 return
             seen_images = sum(v for v in related.values() if v is not None)

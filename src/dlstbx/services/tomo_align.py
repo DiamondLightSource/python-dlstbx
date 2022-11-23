@@ -43,7 +43,7 @@ class TomoParameters(BaseModel):
     align: int = None
     out_bin: int = 4
     tilt_axis: float = None
-    tilt_cor: int = None
+    tilt_cor: int = 1
     flip_int: int = None
     flip_vol: int = 1
     wbp: int = None

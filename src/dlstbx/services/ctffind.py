@@ -5,6 +5,7 @@ import workflows.recipe
 from pydantic import BaseModel, Field
 from pydantic.error_wrappers import ValidationError
 from workflows.services.common_service import CommonService
+from pathlib import Path
 
 # Possible parameters:
 # "input_image" Required (gotten from MotionCorr service)
@@ -197,7 +198,7 @@ class CTFFind(CommonService):
             "estimated_defocus": str(estimated_defocus),
             "amplitude_contrast": str(ctf_params.ampl_contrast),
             "cc_value": str(self.cc_value),
-            "fft_theoretical_full_path": str(ctf_params.output_image) # path to output mrc (would be jpeg if we could convert in SW)
+            "fft_theoretical_full_path": str(Path(ctf_params.output_image).with_suffix(".jpeg")) # path to output mrc (would be jpeg if we could convert in SW)
         }
 
         # Forward results to ispyb
@@ -216,5 +217,19 @@ class CTFFind(CommonService):
                           },)
         else:
             rw.send_to("ispyb", ispyb_parameters)
+
+        # Forward results to images service
+        self.log.info(f"Sending to images service {ctf_params.output_image}")
+        if isinstance(rw, RW_mock):
+            rw.transport.send(destination="images",
+                              message={
+                                  "parameters": {"images_command": "mrc_to_jpeg"},
+                                  "file": ctf_params.output_image,
+                              })
+        else:
+            rw.send_to("images", {
+                "parameters": {"images_command": "mrc_to_jpeg"},
+                "file": ctf_params.output_image,
+            })
 
         rw.transport.ack(header)

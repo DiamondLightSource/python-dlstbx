@@ -279,6 +279,7 @@ class MotionCorr(CommonService):
         fig = px.scatter(x=drift_plot_x, y=drift_plot_y)
         drift_plot_name = str(Path(mc_params.movie).stem) + "_drift_plot.json"
         plot_path = Path(mc_params.mrc_out).parent / drift_plot_name
+        snapshot_path = Path(mc_params.mrc_out).with_suffix('.jpeg')
         fig.write_json(plot_path)
 
         ispyb_parameters = {
@@ -287,6 +288,7 @@ class MotionCorr(CommonService):
             "total_motion": total_motion,
             "average_motion_per_frame": average_motion_per_frame,
             "drift_plot_full_path": str(plot_path),
+            "micrograph_snapshot_full_path": str(snapshot_path),
             "micrograph_full_path": str(mc_params.mrc_out),
             "patches_used_x": mc_params.patch_size,
             "patches_used_y": mc_params.patch_size,

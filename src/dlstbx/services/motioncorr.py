@@ -324,5 +324,19 @@ class MotionCorr(CommonService):
                                   "mrc_out": mc_params.mrc_out,
                                   "movie_id": mc_params.movie_id})
 
+        # Forward results to images service
+        self.log.info(f"Sending to images service {mc_params.mrc_out}")
+        if isinstance(rw, RW_mock):
+            rw.transport.send(destination="images",
+                              message={
+                                  "parameters": {"images_command": "mrc_to_jpeg"},
+                                  "file": mc_params.mrc_out,
+                              })
+        else:
+            rw.send_to("images", {
+                "parameters": {"images_command": "mrc_to_jpeg"},
+                "file": mc_params.mrc_out,
+            })
+
         rw.transport.ack(header)
         self.shift_list = []

@@ -216,6 +216,8 @@ class TomoAlign(CommonService):
         c = Path(self.central_slice_location)
         if c.is_file():
             c.chmod(0o740)
+        else:
+            self.log.warning(f"{self.central_slice_location} hasn't been written yet")
 
         aretomo_result = self.aretomo(tomo_params.aretomo_output_file, tomo_params)
 
@@ -227,7 +229,7 @@ class TomoAlign(CommonService):
             rw.transport.nack(header)
             return
 
-        if tomo_params.out_imod and tomo_params.out_imod != 0:
+        if tomo_params.out_imod:
             self.imod_directory = str(Path(tomo_params.aretomo_output_file).with_suffix("")) + "_Imod"
             f = Path(self.imod_directory)
             f.chmod(0o750)
@@ -261,11 +263,14 @@ class TomoAlign(CommonService):
                                        "file_name": str(Path(self.plot_path).name),
                                        "file_path": str(Path(self.plot_path).parent),
                                        "file_type": 'Graph'})
-        if self.central_slice_location:
-            ispyb_command_list.append({"ispyb_command": "add_program_attachment",
-                                       "file_name": str(Path(self.central_slice_location).name),
-                                       "file_path": str(Path(self.central_slice_location).parent),
-                                       "file_type": 'Result'})
+
+# Remove this because it needs to wait for the images service to complete the file before sending to ISPyB
+# Images service output goes to ispyb_connector
+    #    if self.central_slice_location:
+    #        ispyb_command_list.append({"ispyb_command": "add_program_attachment",
+    #                                   "file_name": str(Path(self.central_slice_location).name),
+    #                                   "file_path": str(Path(self.central_slice_location).parent),
+    #                                   "file_type": 'Result'})
 
         missing_indices = []
         if Path(self.dark_images_file).is_file():
@@ -278,7 +283,7 @@ class TomoAlign(CommonService):
                 for line in lines:
                     if line.startswith('EXCLUDELIST'):
                         numbers = line.split(' ')
-                        missing_indices = [item.replace(',', '').strip() for item in numbers[1:]]
+                        missing_indices = [int(item.replace(',', '').strip()) for item in numbers[1:]]
 
         im_diff = 0
         # TiltImageAlignment (one per movie)
@@ -286,13 +291,16 @@ class TomoAlign(CommonService):
             if im in missing_indices:
                 im_diff += 1
             else:
-                ispyb_command_list.append({"ispyb_command": "insert_tilt_image_alignment",
-                                           "psd_file": None, # should be in ctf table but useful, so we will insert
-                                           "refined_magnification": self.mag,
-                                           "refined_tilt_angle": self.refined_tilts[im-im_diff],
-                                           "refined_tilt_axis": self.rot,
-                                           "movie_id": movie[2]
-                                         })
+                try:
+                    ispyb_command_list.append({"ispyb_command": "insert_tilt_image_alignment",
+                                               "psd_file": None, # should be in ctf table but useful, so we will insert
+                                               "refined_magnification": self.mag,
+                                               "refined_tilt_angle": self.refined_tilts[im-im_diff],
+                                               "refined_tilt_axis": self.rot,
+                                               "movie_id": movie[2]
+                                             })
+                except IndexError as e:
+                    self.log.error(f"{e} - Dark images haven't been accounted for properly")
 
         ispyb_parameters = {"ispyb_command": "multipart_message",
                                  "ispyb_command_list": ispyb_command_list

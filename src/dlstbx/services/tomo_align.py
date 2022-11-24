@@ -108,8 +108,10 @@ class TomoAlign(CommonService):
         )
 
     def parse_tomo_output(self, line):
+        self.log.warning("PARSING")
         if line.startswith("Rotation centre"):
             self.rot_centre_z_list.append(line.split()[7])
+            self.log.info(f"Appending to Z list {line.split()[7]}")
         if line.startswith("Tilt offset"):
             self.tilt_offset = line.split()[2]
 
@@ -193,21 +195,22 @@ class TomoAlign(CommonService):
 
         tilt_dict = {}
         for tilt in tomo_params.input_file_list:
-            tilt_dict.update({tilt[1]: tilt_dict[0]})
+            if tilt[1] not in tilt_dict:
+                tilt_dict[tilt[1]] = []
+            tilt_dict[tilt[1]].append(tilt[0])
 
-        self.log.info(f"{tilt_dict}")
         values_to_remove = []
         for item in tilt_dict:
             values = tilt_dict[item]
             if len(values) > 1:
                 # sort by age and remove oldest ones
                 values.sort(key=os.path.getctime)
-                values_to_remove = values[:-1]
+                values_to_remove = values[1:]
         self.log.warning(f"Values to remove: {values_to_remove}")
         for tilt in tomo_params.input_file_list:
             if tilt[0] in values_to_remove:
                 index = tomo_params.input_file_list.index(tilt)
-                tomo_params.input_file_list.remove(index)
+                tomo_params.input_file_list.remove(tomo_params.input_file_list[index])
 
         newstack_result = self.newstack(tomo_params)
         if newstack_result.returncode:
@@ -263,7 +266,10 @@ class TomoAlign(CommonService):
         # Autoproc program attachment - plot
         self.extract_from_aln(tomo_params)
         if tomo_params.tilt_cor:
-            self.rot_centre_z = self.rot_centre_z_list[-1]
+            try:
+                self.rot_centre_z = self.rot_centre_z_list[-1]
+            except IndexError:
+                self.log.warning(f"No rot Z {rot_centre_z_list}")
 
         # Forward results to ispyb
 

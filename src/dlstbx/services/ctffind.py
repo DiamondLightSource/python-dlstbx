@@ -96,7 +96,6 @@ class CTFFind(CommonService):
                 self.cc_value = float(line_split[2])
             if line.startswith("Thon rings"):
                 line_split = line.split()
-                self.log.warning("Reading estimated res")
                 self.estimated_resolution = float(line_split[8])
         except Exception as e:
             self.log.warning(f"{e}")

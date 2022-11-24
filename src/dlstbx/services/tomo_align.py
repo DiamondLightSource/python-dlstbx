@@ -108,7 +108,7 @@ class TomoAlign(CommonService):
         )
 
     def parse_tomo_output(self, line):
-        if line.startswith("Rotation centre"):
+        if line.startswith("Rot center Z"):
             self.rot_centre_z_list.append(line.split()[7])
             self.log.info(f"Appending to Z list {line.split()[7]}")
         if line.startswith("Tilt offset"):

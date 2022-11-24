@@ -66,7 +66,6 @@ class CTFFind(CommonService):
     defocus1: float
     defocus2: float
 
-
     def initializing(self):
         """Subscribe to a queue. Received messages must be acknowledged."""
         self.log.info("CTFFind service starting")
@@ -97,9 +96,8 @@ class CTFFind(CommonService):
                 self.cc_value = float(line_split[2])
             if line.startswith("Thon rings"):
                 line_split = line.split()
+                self.log.warning("Reading estimated res")
                 self.estimated_resolution = float(line_split[8])
-            else:
-                self.log.warning("No resolution was extracted")
         except Exception as e:
             self.log.warning(f"{e}")
 
@@ -183,7 +181,6 @@ class CTFFind(CommonService):
             )
             rw.transport.nack(header)
             return
-
 
         # Extract results for ispyb
         astigmatism = self.defocus2 - self.defocus1

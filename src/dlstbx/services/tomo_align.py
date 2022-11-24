@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os.path
+
 import procrunner
 import workflows.recipe
 from pydantic import BaseModel, Field, validator
@@ -189,8 +191,23 @@ class TomoAlign(CommonService):
             return float(file_list[1])
         tomo_params.input_file_list.sort(key=tilt)
 
-        #for tilt in tomo_params.input_file_list:
+        tilt_dict = {}
+        for tilt in tomo_params.input_file_list:
+            tilt_dict.update({tilt[1]: tilt_dict[0]})
 
+        self.log.info(f"{tilt_dict}")
+        values_to_remove = []
+        for item in tilt_dict:
+            values = tilt_dict[item]
+            if len(values) > 1:
+                # sort by age and remove oldest ones
+                values.sort(key=os.path.getctime)
+                values_to_remove = values[:-1]
+        self.log.warning(f"Values to remove: {values_to_remove}")
+        for tilt in tomo_params.input_file_list:
+            if tilt[0] in values_to_remove:
+                index = tomo_params.input_file_list.index(tilt)
+                tomo_params.input_file_list.remove(index)
 
         newstack_result = self.newstack(tomo_params)
         if newstack_result.returncode:

@@ -188,6 +188,10 @@ class TomoAlign(CommonService):
         def tilt(file_list):
             return float(file_list[1])
         tomo_params.input_file_list.sort(key=tilt)
+
+        #for tilt in tomo_params.input_file_list:
+
+
         newstack_result = self.newstack(tomo_params)
         if newstack_result.returncode:
             self.log.error(

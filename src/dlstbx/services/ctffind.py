@@ -84,19 +84,24 @@ class CTFFind(CommonService):
         if not line:
             return
 
-        if line.startswith("Estimated defocus values"):
-            line_split = line.split()
-            self.defocus1 = float(line_split[4])
-            self.defocus2 = float(line_split[6])
-        if line.startswith("Estimated azimuth"):
-            line_split = line.split()
-            self.astigmatism_angle = float(line_split[4])
-        if line.startswith("Score"):
-            line_split = line.split()
-            self.cc_value = float(line_split[2])
-        if line.startswith("Thon rings"):
-            line_split = line.split()
-            self.estimated_resolution = float(line_split[8])
+        try:
+            if line.startswith("Estimated defocus values"):
+                line_split = line.split()
+                self.defocus1 = float(line_split[4])
+                self.defocus2 = float(line_split[6])
+            if line.startswith("Estimated azimuth"):
+                line_split = line.split()
+                self.astigmatism_angle = float(line_split[4])
+            if line.startswith("Score"):
+                line_split = line.split()
+                self.cc_value = float(line_split[2])
+            if line.startswith("Thon rings"):
+                line_split = line.split()
+                self.estimated_resolution = float(line_split[8])
+            else:
+                self.log.warning("No resolution was extracted")
+        except Exception as e:
+            self.log.warning(f"{e}")
 
 
     def ctf_find(self, rw, header: dict, message: dict):

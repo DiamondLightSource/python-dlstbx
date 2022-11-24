@@ -108,7 +108,6 @@ class TomoAlign(CommonService):
         )
 
     def parse_tomo_output(self, line):
-        self.log.warning("PARSING")
         if line.startswith("Rotation centre"):
             self.rot_centre_z_list.append(line.split()[7])
             self.log.info(f"Appending to Z list {line.split()[7]}")
@@ -269,7 +268,7 @@ class TomoAlign(CommonService):
             try:
                 self.rot_centre_z = self.rot_centre_z_list[-1]
             except IndexError:
-                self.log.warning(f"No rot Z {rot_centre_z_list}")
+                self.log.warning(f"No rot Z {self.rot_centre_z_list}")
 
         # Forward results to ispyb
 

@@ -76,7 +76,14 @@ class DLSMimas(CommonService):
 
         cell = step.get("unit_cell")
         if cell:
-            cell = mimas.MimasISPyBUnitCell(*cell)
+            try:
+                cell = mimas.MimasISPyBUnitCell(*cell)
+                mimas.validate(cell)
+            except Exception:
+                self.log.warning(
+                    f"Invalid unit cell for dcid {dcid}: {cell}", exc_info=True
+                )
+                cell = None
         else:
             cell = None
 

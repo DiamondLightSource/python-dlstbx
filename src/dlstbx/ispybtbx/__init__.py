@@ -12,6 +12,7 @@ import re
 import uuid
 from typing import Optional, Tuple, Union
 
+import gemmi
 import ispyb.sqlalchemy as isa
 import marshmallow.fields
 import sqlalchemy
@@ -392,6 +393,15 @@ class ispybtbx:
         else:
             if params:
                 space_group = params.get("ispyb_space_group")
+                try:
+                    # Check we have a valid space group, else ignore
+                    gemmi.SpaceGroup(space_group)
+                except Exception:
+                    logger.warning(
+                        f"Can't interpret space group: {space_group} (dcid: {dcid})",
+                        exc_info=True,
+                    )
+                    space_group = None
                 unit_cell = params.get("ispyb_unit_cell")
                 if isinstance(unit_cell, str):
                     try:
@@ -402,6 +412,17 @@ class ispybtbx:
                         logger.warning(
                             f"Can't interpret unit cell: {unit_cell} (dcid: {dcid})"
                         )
+                        unit_cell = None
+                try:
+                    # Check we have a valid unit cell, else ignore
+                    gemmi.UnitCell(*unit_cell)
+                except Exception:
+                    logger.warning(
+                        f"Can't interpret unit cell: {unit_cell} (dcid: {dcid})",
+                        exc_info=True,
+                    )
+                    unit_cell = None
+
         return space_group, unit_cell
 
     def get_energy_scan_from_dcid(self, dcid, session: sqlalchemy.orm.session.Session):

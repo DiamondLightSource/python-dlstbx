@@ -424,8 +424,6 @@ class ispybtbx:
                             exc_info=True,
                         )
                         unit_cell = None
-                unit_cell = "P 6 2 2"
-                space_group = "foo"
 
         return space_group, unit_cell
 

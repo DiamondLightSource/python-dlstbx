@@ -82,12 +82,6 @@ def handle_eiger_start(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
-    if scenario.visit == "mx26695-1":
-        # Disable PIA for this visit on 11/5/22 at the request of I03/NP/MW
-        # They will be collecting large (~5k) gridscans that would likely block
-        # PIA for ~30s if analysis is performed in non-SWMR mode (i.e. all
-        # images become visible to analysis simultaneously).
-        return []
     suffix = "-vmxm" if scenario.beamline == "i02-1" else ""
     recipe = (
         f"per-image-analysis-gridscan-swmr{suffix}"

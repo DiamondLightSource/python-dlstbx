@@ -69,8 +69,8 @@ class autoPROCSetupWrapper(Wrapper):
                 )
                 handler = logging.StreamHandler()
                 handler.setFormatter(formatter)
-                self.log.addHandler(handler)
-                self.log.setLevel(logging.DEBUG)
+                self.log.logger.addHandler(handler)
+                self.log.logger.setLevel(logging.DEBUG)
                 s3_urls = get_presigned_urls_images(
                     params.get("create_symlink").lower(),
                     params["rpid"],

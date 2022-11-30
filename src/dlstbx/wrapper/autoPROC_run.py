@@ -46,8 +46,8 @@ class autoPROCRunWrapper(Wrapper):
             )
             handler = logging.StreamHandler()
             handler.setFormatter(formatter)
-            self.log.addHandler(handler)
-            self.log.setLevel(logging.DEBUG)
+            self.log.logger.addHandler(handler)
+            self.log.logger.setLevel(logging.DEBUG)
             try:
                 get_objects_from_s3(
                     working_directory, self.recwrap.environment.get("s3_urls"), self.log

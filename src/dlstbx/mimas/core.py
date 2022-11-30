@@ -76,7 +76,7 @@ def handle_pilatus_not_gridscan_start(
 
 
 @mimas.match_specification(
-    is_eiger & is_start & is_mx_beamline & ~is_vmxi & ~(is_i03 | is_i04_1)
+    is_eiger & is_start & ~is_serial & is_mx_beamline & ~is_vmxi & ~(is_i03 | is_i04_1)
 )
 def handle_eiger_start(
     scenario: mimas.MimasScenario,

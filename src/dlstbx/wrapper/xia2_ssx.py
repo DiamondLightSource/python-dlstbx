@@ -58,7 +58,7 @@ class Xia2SsxWrapper(Wrapper):
 
     def construct_commandline(self, params: Xia2SsxParams):
         command = [
-            "dev.xia2.ssx",
+            "xia2.ssx",
             f"template={params.template}",
         ]
         if params.unit_cell:
@@ -418,7 +418,7 @@ class Xia2SsxReduceWrapper(Xia2SsxWrapper):
 
     def construct_commandline(self, params: Xia2SsxParams):
         command = [
-            "dev.xia2.ssx_reduce",
+            "xia2.ssx_reduce",
         ]
         data_files = itertools.chain.from_iterable(
             files.split(";") for files in params.data

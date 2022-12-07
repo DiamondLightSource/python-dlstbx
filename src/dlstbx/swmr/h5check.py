@@ -51,10 +51,12 @@ def get_real_frames(master, dataset):
         file_dataset.append((filename, dsetname))
 
         vspace = plist.get_virtual_vspace(j)
-        if vspace.get_select_type() != h5py.h5s.SEL_HYPERSLABS:
-            continue
-
         srcspace = plist.get_virtual_srcspace(j)
+        if any(
+            tmpspace.get_select_type() != h5py.h5s.SEL_HYPERSLABS
+            for tmpspace in (vspace, srcspace)
+        ):
+            continue
 
         voffset, vstride, vcount, vframes = [
             v[0] for v in vspace.get_regular_hyperslab()

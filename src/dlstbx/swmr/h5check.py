@@ -61,12 +61,17 @@ def get_real_frames(master, dataset):
         logger.debug(f"Virtual dataset: {vspace.get_regular_hyperslab()}")
         logger.debug(f"Source dataset: {srcspace.get_regular_hyperslab()}")
 
-        vframes = vspace.get_regular_hyperslab()[3][0]
-        vstart = vspace.get_regular_hyperslab()[0][0]
-        start = srcspace.get_regular_hyperslab()[0][0]
+        voffset, vstride, vcount, vframes = [
+            v[0] for v in vspace.get_regular_hyperslab()
+        ]
+        offset, stride, count, frames = [v[0] for v in srcspace.get_regular_hyperslab()]
+
+        # Assert that data is collected in continuous blocks
+        assert (vstride, vcount, stride, count) == (1, 1, 1, 1)
+        assert vframes == frames
 
         for k in range(vframes):
-            file_map[vstart + k] = (j, start + k)
+            file_map[voffset + k] = (j, offset + k)
     return file_dataset, file_map
 
 

@@ -48,16 +48,25 @@ def get_real_frames(master, dataset):
             dsetname = link.path
         else:
             filename = os.path.join(root, filename)
+        logger.debug(f"Dataset {j}: filename {filename}, dsetname {dsetname}")
+
+        vspace = plist.get_virtual_vspace(j)
+        if vspace.get_select_type() != h5py.h5s.SEL_HYPERSLABS:
+            logger.debug(f"Skipping dataset {j}. Not a hyperslab selection.")
+            continue
 
         file_dataset.append((filename, dsetname))
 
-        vspace = plist.get_virtual_vspace(j)
-        frames = vspace.get_regular_hyperslab()[3][0]
-        offset = vspace.get_regular_hyperslab()[0][0]
+        srcspace = plist.get_virtual_srcspace(j)
+        logger.debug(f"Virtual dataset: {vspace.get_regular_hyperslab()}")
+        logger.debug(f"Source dataset: {srcspace.get_regular_hyperslab()}")
 
-        for k in range(frames):
-            file_map[k + offset] = (j, k)
+        vframes = vspace.get_regular_hyperslab()[3][0]
+        vstart = vspace.get_regular_hyperslab()[0][0]
+        start = srcspace.get_regular_hyperslab()[0][0]
 
+        for k in range(vframes):
+            file_map[vstart + k] = (j, start + k)
     return file_dataset, file_map
 
 

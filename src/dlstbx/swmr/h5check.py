@@ -86,7 +86,11 @@ if __name__ == "__main__":
         t1 = time.time()
         logger.info(f"Setup took {t1-t0:.3f}s")
         shape = d.shape
+        assert len(file_map) == shape[0]
         for j in map(int, sys.argv[2:]):
+            assert (
+                j > 0 and j <= shape[0]
+            ), f"Frame index {j} out of range (1, {shape[0]})"
             m, k = file_map[j - 1]
             _f, _d = file_dataset[m]
             size = wait_for_frame(_f, _d, k)

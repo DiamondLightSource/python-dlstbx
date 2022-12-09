@@ -132,6 +132,7 @@ def run():
             .filter(models.BLSession.visit_number.is_not(None))
             .filter(models.BLSession.archived != 1)
             .filter(models.BLSession.endDate < forty_days_ago)
+            .filter(models.BLSession.beamLineName != "i02-2")
             .filter(models.DataCollection.dataCollectionId.is_(None))
             .limit(100)
         )

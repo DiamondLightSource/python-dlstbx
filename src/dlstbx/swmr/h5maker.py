@@ -32,7 +32,7 @@ def main(
         filename = os.path.split(f"{prefix}_{j:06d}.h5")[-1]
         vds[j * block_size : (j + 1) * block_size] = h5py.VirtualSource(
             filename, "data", shape=(block_size,) + shape
-        )
+        )[:,:,:]
 
     # make the top level file with the VDS
 

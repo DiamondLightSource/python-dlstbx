@@ -186,9 +186,9 @@ class Xia2SsxWrapper(Wrapper):
                 allfiles.append(os.fspath(results_directory / f.name))
 
         # Send results to various listeners
-        logfiles = ("xia2.ssx.log",)
+        logfiles = {"xia2.ssx.log", "xia2.ssx_reduce.log"}
         for result_file in map(results_directory.joinpath, logfiles):
-            if result_file.is_file:
+            if result_file.is_file():
                 self.record_result_individual_file(
                     {
                         "file_path": os.fspath(result_file.parent),

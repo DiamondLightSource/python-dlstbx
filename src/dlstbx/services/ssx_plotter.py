@@ -26,6 +26,17 @@ class PerImageAnalysisResult(pydantic.BaseModel):
     n_spots_total: pydantic.NonNegativeInt
 
 
+class IndexedLatticeResult(pydantic.BaseModel):
+    unit_cell: tuple[float, float, float, float, float, float]
+    space_group: str
+    n_indexed: pydantic.NonNegativeInt
+
+
+class IndexingResult(pydantic.BaseModel):
+    lattices: list[IndexedLatticeResult]
+    n_unindexed: pydantic.NonNegativeInt
+
+
 class Payload(pydantic.BaseModel):
     command: str
     dcid: pydantic.NonNegativeInt
@@ -118,6 +129,8 @@ class SSXPlotter(CommonService):
         expected_result_count = expected_total // every
         message_delay = 1  # second
 
+        self.log.debug(f"{payload.results_file=}")
+
         lines = None
         if payload.results_file.exists():
             lines = payload.results_file.read_text().splitlines()
@@ -174,7 +187,61 @@ class SSXPlotter(CommonService):
         self.log.info(f"Saved thumbnail plot to {thumbnail}")
 
     def plot_index(self, payload: Payload, lines: list[str]):
-        raise NotImplementedError
+        indexing_results = [IndexingResult(**json.loads(line)) for line in lines]
+        indexed_lattices = [
+            lattice for result in indexing_results for lattice in result.lattices
+        ]
+
+        fig, axes = plt.subplots(nrows=3, ncols=3)
+        for i, (x, y) in enumerate([("a", "b"), ("a", "c"), ("b", "c")]):
+            axes[0, i].set_xlabel(x + " (Å)")
+            axes[0, i].set_ylabel(y + " (Å)")
+        for i, x in enumerate("abc"):
+            axes[1, i].set_xlabel(x + " (Å)")
+            axes[1, i].set_ylabel("Frequency")
+        for i, x in enumerate(("α", "β", "γ")):
+            axes[2, i].set_xlabel(x + " (•)")
+            axes[2, i].set_ylabel("Frequency")
+
+        # self.fig.subplots_adjust(left=0.1, bottom=0.05, right=0.95, top=0.95)
+        plt.tight_layout(h_pad=0.25, w_pad=0.25)
+
+        a = np.fromiter(
+            (lattice.unit_cell[0] for lattice in indexed_lattices), dtype=float
+        )
+        b = np.fromiter(
+            (lattice.unit_cell[1] for lattice in indexed_lattices), dtype=float
+        )
+        c = np.fromiter(
+            (lattice.unit_cell[2] for lattice in indexed_lattices), dtype=float
+        )
+        alpha = np.fromiter(
+            (lattice.unit_cell[3] for lattice in indexed_lattices), dtype=float
+        )
+        beta = np.fromiter(
+            (lattice.unit_cell[4] for lattice in indexed_lattices), dtype=float
+        )
+        gamma = np.fromiter(
+            (lattice.unit_cell[5] for lattice in indexed_lattices), dtype=float
+        )
+
+        axes[0, 0].scatter(a, b)
+        axes[0, 1].scatter(b, c)
+        axes[0, 2].scatter(c, a)
+        axes[1, 0].hist(a)
+        axes[1, 1].hist(b)
+        axes[1, 2].hist(c)
+        axes[2, 0].hist(alpha)
+        axes[2, 1].hist(beta)
+        axes[2, 2].hist(gamma)
+
+        filename = payload.plot_file
+        filename.parent.mkdir(parents=True, exist_ok=True)
+        thumbnail = filename.parent / f"{filename.stem}t{filename.suffix}"
+        plt.savefig(filename)
+        self.log.info(f"Saved plot to {filename}")
+        plt.savefig(thumbnail)
+        self.log.info(f"Saved thumbnail plot to {thumbnail}")
 
 
 def plot_pia(n_spots_total: dict[int, int], spot_count_cutoff: int = 16, ax=plt.Axes):

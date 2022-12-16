@@ -27,6 +27,7 @@ class PerImageAnalysisResult(pydantic.BaseModel):
 
 
 class Payload(pydantic.BaseModel):
+    command: str
     dcid: pydantic.NonNegativeInt
     results_file: Path
     plot_file: Path
@@ -62,32 +63,52 @@ class SSXPlotter(CommonService):
     def initializing(self):
         workflows.recipe.wrap_subscribe(
             self._transport,
-            "ssx.plot_pia",
-            self.plot_pia,
+            "ssx.plot",
+            self.receive_msg,
             acknowledgement=True,
             log_extender=self.extend_log,
         )
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
-    def plot_pia(
+    def receive_msg(
         self,
         rw: workflows.recipe.RecipeWrapper,
         header: dict,
         message: dict,
     ):
+        commands = {
+            "pia": self.plot_pia,
+            "index": self.plot_index,
+        }
         parameters = ChainMapWithReplacement(
             message if isinstance(message, dict) else {},
             rw.recipe_step["parameters"],
             substitutions=rw.environment,
         )
-        payload = Payload(**parameters)
-
-        if payload.status is None:
-            payload.status = Status(start_time=time.time())
 
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
+
+        try:
+            payload = Payload(**parameters)
+        except pydantic.ValidationError as e:
+            self.log.error(e, exc_info=True)
+            rw.transport.transaction_abort(header, transaction=txn)
+            rw.transport.nack(header)
+            return
+
+        plotter = commands.get(payload.command)
+        if not plotter:
+            self.log.error(
+                f"Unknown command {payload.command} (available commands: {list(commands.keys())}"
+            )
+            rw.transport.transaction_abort(header, transaction=txn)
+            rw.transport.nack(header)
+            return
+
+        if payload.status is None:
+            payload.status = Status(start_time=time.time())
 
         expected_total = payload.files_expected or payload.images_expected
         # The pydantic validator should ensure this is the case but assert
@@ -105,14 +126,14 @@ class SSXPlotter(CommonService):
         if timeout and not lines:
             # Give up waiting for results file to appear
             self.log.info(
-                f"Timed out waiting for PIA results in {payload.results_file} (dcid={payload.dcid})"
+                f"Timed out waiting for results in {payload.results_file} (dcid={payload.dcid})"
             )
             rw.transport.transaction_commit(txn)
             return
         elif not lines or len(lines) < expected_result_count:
             # Not found all messages, so checkpoint message with a delay
             self.log.debug(
-                f"Waiting for PIA results in {payload.results_file} (dcid={payload.dcid})"
+                f"Waiting for results in {payload.results_file} (dcid={payload.dcid})"
             )
             rw.checkpoint(
                 json.loads(payload.json(by_alias=True)),
@@ -122,6 +143,18 @@ class SSXPlotter(CommonService):
             rw.transport.transaction_commit(txn)
             return
 
+        try:
+            plotter(payload, lines)
+        except pydantic.ValidationError as e:
+            self.log.error(e, exc_info=True)
+            rw.transport.transaction_abort(header, transaction=txn)
+            rw.transport.nack(header)
+            return
+
+        rw.transport.transaction_commit(txn)
+        return
+
+    def plot_pia(self, payload: Payload, lines: list[str]):
         pia_results = [PerImageAnalysisResult(**json.loads(line)) for line in lines]
         n_spots_total = {
             result.file_number: result.n_spots_total for result in pia_results
@@ -130,7 +163,7 @@ class SSXPlotter(CommonService):
         plt.figure()
         ax = plt.subplot()
 
-        plot_hits(n_spots_total, spot_count_cutoff=payload.spot_count_cutoff, ax=ax)
+        plot_pia(n_spots_total, spot_count_cutoff=payload.spot_count_cutoff, ax=ax)
 
         filename = payload.plot_file
         filename.parent.mkdir(parents=True, exist_ok=True)
@@ -140,11 +173,11 @@ class SSXPlotter(CommonService):
         plt.savefig(thumbnail)
         self.log.info(f"Saved thumbnail plot to {thumbnail}")
 
-        rw.transport.transaction_commit(txn)
-        return
+    def plot_index(self, payload: Payload, lines: list[str]):
+        raise NotImplementedError
 
 
-def plot_hits(n_spots_total: dict[int, int], spot_count_cutoff: int = 16, ax=plt.Axes):
+def plot_pia(n_spots_total: dict[int, int], spot_count_cutoff: int = 16, ax=plt.Axes):
     if ax is None:
         ax = plt.gca()
 

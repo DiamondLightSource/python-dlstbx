@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 from pathlib import Path
 from typing import Optional
@@ -181,10 +182,13 @@ class SSXPlotter(CommonService):
         filename = payload.plot_file
         filename.parent.mkdir(parents=True, exist_ok=True)
         thumbnail = filename.parent / f"{filename.stem}t{filename.suffix}"
-        plt.savefig(filename)
-        self.log.info(f"Saved plot to {filename}")
+        plt.tight_layout()
         plt.savefig(thumbnail)
         self.log.info(f"Saved thumbnail plot to {thumbnail}")
+        plt.gcf().set_size_inches(2 * plt.gcf().get_size_inches())
+        plt.tight_layout()
+        plt.savefig(filename)
+        self.log.info(f"Saved plot to {filename}")
 
     def plot_index(self, payload: Payload, lines: list[str]):
         indexing_results = [IndexingResult(**json.loads(line)) for line in lines]
@@ -192,19 +196,18 @@ class SSXPlotter(CommonService):
             lattice for result in indexing_results for lattice in result.lattices
         ]
 
-        fig, axes = plt.subplots(nrows=3, ncols=3)
-        for i, (x, y) in enumerate([("a", "b"), ("a", "c"), ("b", "c")]):
+        fig, axes = plt.subplots(nrows=3, ncols=3, layout="constrained")
+        for i, (x, y) in enumerate([("a", "b"), ("b", "c"), ("c", "a")]):
             axes[0, i].set_xlabel(x + " (Å)")
             axes[0, i].set_ylabel(y + " (Å)")
         for i, x in enumerate("abc"):
             axes[1, i].set_xlabel(x + " (Å)")
             axes[1, i].set_ylabel("Frequency")
         for i, x in enumerate(("α", "β", "γ")):
-            axes[2, i].set_xlabel(x + " (•)")
+            axes[2, i].set_xlabel(x + " (°)")
             axes[2, i].set_ylabel("Frequency")
 
         # self.fig.subplots_adjust(left=0.1, bottom=0.05, right=0.95, top=0.95)
-        plt.tight_layout(h_pad=0.25, w_pad=0.25)
 
         a = np.fromiter(
             (lattice.unit_cell[0] for lattice in indexed_lattices), dtype=float
@@ -225,23 +228,34 @@ class SSXPlotter(CommonService):
             (lattice.unit_cell[5] for lattice in indexed_lattices), dtype=float
         )
 
-        axes[0, 0].scatter(a, b)
-        axes[0, 1].scatter(b, c)
-        axes[0, 2].scatter(c, a)
-        axes[1, 0].hist(a)
-        axes[1, 1].hist(b)
-        axes[1, 2].hist(c)
-        axes[2, 0].hist(alpha)
-        axes[2, 1].hist(beta)
-        axes[2, 2].hist(gamma)
+        axes[0, 0].scatter(a, b, alpha=0.3)
+        axes[0, 1].scatter(b, c, alpha=0.3)
+        axes[0, 2].scatter(c, a, alpha=0.3)
+
+        for i, (data, ax) in enumerate(
+            zip((a, b, c, alpha, beta, gamma), axes.flat[3:])
+        ):
+            bin_low, bin_high = _calculate_axis_range(data)
+            ax.hist(data, bins=100, range=(bin_low, bin_high))
+            if i > 0:
+                ax.sharey(axes[1, 0])
+            ax.set_title(
+                f"{data.mean():.2f} ± {data.std():.2f}{' Å' if i < 3 else '°'}"
+            )
+
+        hit_rate = len(indexed_lattices) / len(lines)
+        fig.suptitle(
+            f"Indexing hit rate: {len(indexed_lattices)} / {len(lines)} ({hit_rate:.2%})"
+        )
 
         filename = payload.plot_file
         filename.parent.mkdir(parents=True, exist_ok=True)
         thumbnail = filename.parent / f"{filename.stem}t{filename.suffix}"
-        plt.savefig(filename)
-        self.log.info(f"Saved plot to {filename}")
         plt.savefig(thumbnail)
         self.log.info(f"Saved thumbnail plot to {thumbnail}")
+        plt.gcf().set_size_inches(2 * plt.gcf().get_size_inches())
+        plt.savefig(filename)
+        self.log.info(f"Saved plot to {filename}")
 
 
 def plot_pia(n_spots_total: dict[int, int], spot_count_cutoff: int = 16, ax=plt.Axes):
@@ -256,16 +270,41 @@ def plot_pia(n_spots_total: dict[int, int], spot_count_cutoff: int = 16, ax=plt.
     image_numbers = image_numbers[ind]
     strong = strong[ind]
 
-    ax.scatter(image_numbers, strong)
+    ax.scatter(image_numbers, strong, alpha=0.3)
     if spot_count_cutoff:
-        hit_rate = 100 * np.count_nonzero(strong > spot_count_cutoff) / len(strong)
+        hit_rate = np.count_nonzero(strong > spot_count_cutoff) / len(strong)
         ax.text(
             0.05,
             0.95,
-            f"Estimate hits rate: {hit_rate:.1f} %",
+            f"Estimated hit rate: {hit_rate:.1%}",
             transform=ax.transAxes,
             va="top",
         )
     ax.set_xlabel("Image Number")
     ax.set_ylabel("Spot Counts")
     return ax
+
+
+def _calculate_axis_range(data):
+    MIN_WIDTH = 5
+    AXIS_STEP = 2
+
+    if not len(data):
+        return (0, 100)
+
+    upper, lower = np.max(data), np.min(data)
+    # If these are inside the existing axis range: Don't resize
+
+    # Handle minimum range
+    if upper - lower < MIN_WIDTH:
+        center = (lower + upper) / 2.0
+        upper, lower = center + MIN_WIDTH / 2, center - MIN_WIDTH / 2
+
+    width = upper - lower
+    upper += width * 0.5
+    lower -= width * 0.5
+
+    # Now, make sure that we split on even multiples
+    lower = AXIS_STEP * int(lower // AXIS_STEP)
+    upper = AXIS_STEP * math.ceil(upper / AXIS_STEP)
+    return lower, upper

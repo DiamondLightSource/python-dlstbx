@@ -519,7 +519,7 @@ def call_sim(test_name, beamline):
     if beamline.startswith(("e", "m")):
         proposal = "cm31111"
     else:
-        proposal = "nt31175"
+        proposal = "nt33918"
     if beamline.startswith("i02"):
         if beamline == "i02-2":
             dest_visit = f"{proposal}-1"

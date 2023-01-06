@@ -71,6 +71,10 @@ def get_scenarios(dcid, session: sqlalchemy.orm.session.Session):
     else:
         dc_class_mimas = dlstbx.mimas.MimasDCClass.UNDEFINED
 
+    dcflags = []
+    if dc_class and dc_class["diamond_anvil_cell"]:
+        dcflags.append(dlstbx.mimas.MimasDCFlags.DAC)
+
     detectorclass = (
         dlstbx.mimas.MimasDetectorClass.EIGER
         if ispyb_info["ispyb_detectorclass"] == "eiger"
@@ -94,6 +98,7 @@ def get_scenarios(dcid, session: sqlalchemy.orm.session.Session):
             preferred_processing=ispyb_info.get("ispyb_preferred_processing"),
             detectorclass=detectorclass,
             anomalous_scatterer=anomalous_scatterer,
+            dcflags=dcflags,
         )
         try:
             dlstbx.mimas.validate(scenario)

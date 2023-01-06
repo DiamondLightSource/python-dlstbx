@@ -16,6 +16,8 @@ MimasDCClass = enum.Enum(
     "MimasDCClass", "GRIDSCAN ROTATION SCREENING SERIAL_FIXED SERIAL_JET UNDEFINED"
 )
 
+MimasDCFlags = enum.Enum("MimasDCFlags", "DAC")
+
 MimasDetectorClass = enum.Enum("MimasDetectorClass", "PILATUS EIGER")
 
 MimasEvent = enum.Enum("MimasEvent", "START END")
@@ -74,6 +76,7 @@ class MimasScenario:
     preferred_processing: Optional[str] = None
     detectorclass: Optional[MimasDetectorClass] = None
     anomalous_scatterer: Optional[str] = None
+    dcflags: Optional[List[MimasDCFlags]] = None
 
 
 @dataclasses.dataclass(frozen=True)

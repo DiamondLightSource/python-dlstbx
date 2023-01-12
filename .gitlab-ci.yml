@@ -1,0 +1,20 @@
+stages:
+- build
+
+build-dlstbx:
+  stage: build
+
+  image:
+    name: dials/dials:main
+
+  build:
+    script:
+    - source /dials/dials
+    - libtbx.pip install -e ./dlstbx --no-deps
+    - libtbx.python /dials/modules/dlstbx/src/dlstbx/requirements.py -y
+    - libtbx.refresh
+
+  test:
+    script:
+    - source /dials/dials
+    - pytest --regression -vs -n auto

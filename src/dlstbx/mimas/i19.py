@@ -104,9 +104,9 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
         extra_params.append(symmetry_parameters)
 
     # if the scenario is flagged as high pressure, add the dials high pressure flags
-    xia2_dials_beamline_extra_params: ParamTuple = ()
+    xia2_dials_extra_params: ParamTuple = ()
     if scenario.dcclass == mimas.MimasDCClass.DIAMOND_ANVIL_CELL:
-        xia2_dials_beamline_extra_params = (*XIA2_DIALS_DAC_PARAMS,)
+        xia2_dials_extra_params = (*XIA2_DIALS_DAC_PARAMS,)
 
     for params in extra_params:
         tasks.extend(

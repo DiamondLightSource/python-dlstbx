@@ -14,6 +14,21 @@ from dlstbx.mimas.specification import BeamlineSpecification
 
 is_i19 = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
 
+XIA2_DIALS_DAC_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
+    mimas.MimasISPyBParameter(key="dynamic_shadowing", value="true"),
+    mimas.MimasISPyBParameter(key="ice_rings.filter", value="true"),
+    mimas.MimasISPyBParameter(
+        key="ice_rings.unit_cell", value="3.1652,3.1652,3.1652,90,90,90"
+    ),
+    mimas.MimasISPyBParameter(key="ice_rings.space_group", value="Im-3m"),
+    mimas.MimasISPyBParameter(key="ice_rings.width", value="0.01"),
+    mimas.MimasISPyBParameter(key="scan_varying", value="true"),
+    mimas.MimasISPyBParameter(key="resolution_range", value="999,15"),
+    mimas.MimasISPyBParameter(key="keep_all_reflections", value="false"),
+    mimas.MimasISPyBParameter(key="cc_half", value="none"),
+    mimas.MimasISPyBParameter(key="isigma", value="2"),
+)
+
 
 @mimas.match_specification(is_i19 & is_start & is_pilatus)
 def handle_i19_start_pilatus(
@@ -88,6 +103,11 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
             )
         extra_params.append(symmetry_parameters)
 
+    # if the scenario is flagged as high pressure, add the dials high pressure flags
+    xia2_dials_beamline_extra_params: ParamTuple = ()
+    if scenario.dcclass == mimas.MimasDCClass.DIAMOND_ANVIL_CELL:
+        xia2_dials_beamline_extra_params = (*XIA2_DIALS_DAC_PARAMS,)
+
     for params in extra_params:
         tasks.extend(
             [
@@ -102,6 +122,7 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                     parameters=(
                         *params,
                         *xia2_dials_absorption_params(scenario),
+                        *xia2_dials_beamline_extra_params,
                     ),
                 ),
                 mimas.MimasISPyBJobInvocation(
@@ -112,7 +133,10 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                     else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                    parameters=params,
+                    parameters=(
+                        *params,
+                        *xia2_dials_beamline_extra_params,
+                    ),
                 ),
             ]
         )

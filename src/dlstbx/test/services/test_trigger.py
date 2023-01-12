@@ -365,7 +365,6 @@ def test_fast_ep(db_session_factory, testconfig, mocker, monkeypatch):
             (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
         }
         assert params == {
-            ("check_go_fast_ep", "1"),
             ("data", "/path/to/fast_dp/fast_dp.mtz"),
             ("scaling_id", "123456"),
         }

@@ -53,7 +53,7 @@ def test_per_image_analysis(dials_data, mocker):
     rw = RecipeWrapper(message=m, transport=t)
     # Spy on the rw.send_to method
     send_to = mocker.spy(rw, "send_to")
-    pia.per_image_analysis(rw, {"some": "header"}, payload)
+    pia.per_image_analysis(rw, {"subscription": mock.sentinel}, payload)
     send_to.assert_called_with(
         "result",
         {

@@ -229,6 +229,7 @@ def test_datacollection_classification():
         "screen": False,
         "serial_fixed": False,
         "serial_jet": False,
+        "diamond_anvil_cell": False,
     }
 
     i = ispybtbx()
@@ -239,6 +240,7 @@ def test_datacollection_classification():
         "screen": True,
         "serial_fixed": False,
         "serial_jet": False,
+        "diamond_anvil_cell": False,
     }
 
     dc = {"axisRange": 90, "numberOfImages": 1800, "overlap": 0}
@@ -248,6 +250,7 @@ def test_datacollection_classification():
         "screen": False,
         "serial_fixed": False,
         "serial_jet": False,
+        "diamond_anvil_cell": False,
     }
 
     dc = {"axisRange": 90, "numberOfImages": 3, "overlap": -44.5}
@@ -257,6 +260,7 @@ def test_datacollection_classification():
         "screen": True,
         "serial_fixed": False,
         "serial_jet": False,
+        "diamond_anvil_cell": False,
     }
 
     dc = {"axisRange": 0, "numberOfImages": 25600, "overlap": 0}
@@ -266,6 +270,7 @@ def test_datacollection_classification():
         "screen": False,
         "serial_fixed": True,
         "serial_jet": False,
+        "diamond_anvil_cell": False,
     }
 
     dc = {"axisRange": 0, "numberOfImages": 10000, "overlap": 0}
@@ -275,6 +280,17 @@ def test_datacollection_classification():
         "screen": False,
         "serial_fixed": False,
         "serial_jet": True,
+        "diamond_anvil_cell": False,
+    }
+
+    dc = {"axisRange": 90, "numberOfImages": 1800, "overlap": 0}
+    assert i.classify_dc(dc, "Diamond Anvil High Pressure") == {
+        "grid": False,
+        "rotation": True,
+        "screen": False,
+        "serial_fixed": False,
+        "serial_jet": False,
+        "diamond_anvil_cell": True,
     }
 
 

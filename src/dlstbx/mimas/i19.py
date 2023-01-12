@@ -122,7 +122,7 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                     parameters=(
                         *params,
                         *xia2_dials_absorption_params(scenario),
-                        *xia2_dials_beamline_extra_params,
+                        *xia2_dials_extra_params,
                     ),
                 ),
                 mimas.MimasISPyBJobInvocation(
@@ -135,7 +135,7 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
                     parameters=(
                         *params,
-                        *xia2_dials_beamline_extra_params,
+                        *xia2_dials_extra_params,
                     ),
                 ),
             ]

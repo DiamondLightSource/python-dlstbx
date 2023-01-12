@@ -684,6 +684,7 @@ class ispybtbx:
             "rotation": self.dc_info_is_rotation_scan(dc_info),
             "serial_fixed": experiment_type == "Serial Fixed",
             "serial_jet": experiment_type == "Serial Jet",
+            "diamond_anvil_cell": experiment_type == "Diamond Anvil High Pressure",
         }
 
     @staticmethod

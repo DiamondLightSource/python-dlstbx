@@ -155,6 +155,7 @@ def run():
             .filter(models.BLSession.archived != 1)
             .filter(models.BLSession.endDate < forty_days_ago)
             .filter(models.Proposal.state == "Open")
+            .filter(models.BLSession.visit_number.is_not(None))
             .order_by(func.rand())
             .limit(100)
             .subquery()

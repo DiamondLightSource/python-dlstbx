@@ -4,10 +4,10 @@ import logging
 import os
 
 import dxtbx  # noqa: F401; dxtbx must be imported before h5py is imported
-import dxtbx.nexus.nxmx
 
 import h5py
 import numpy as np
+import nxmx
 
 log = logging.getLogger("dlstbx.util.hdf5")
 
@@ -94,8 +94,8 @@ def is_HDF_1_8_compatible(filename: str) -> bool:
 
 def validate_pixel_mask(filename: str) -> bool:
     with h5py.File(filename, "r") as fh:
-        nxmx = dxtbx.nexus.nxmx.NXmx(fh)
-        nxinstrument = nxmx.entries[0].instruments[0]
+        nxmx_obj = nxmx.NXmx(fh)
+        nxinstrument = nxmx_obj.entries[0].instruments[0]
         nxdetector = nxinstrument.detectors[0]
         nxmodule = nxdetector.modules[0]
 

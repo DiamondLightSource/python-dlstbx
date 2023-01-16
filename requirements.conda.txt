@@ -7,6 +7,7 @@ marshmallow-sqlalchemy
 minio>=7.1.0
 msgpack-python
 networkx
+nxmx
 pandas
 pika
 pint

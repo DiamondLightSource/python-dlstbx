@@ -365,15 +365,18 @@ def test_fast_ep(db_session_factory, testconfig, mocker, monkeypatch):
             (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
         }
         assert params == {
-            ("check_go_fast_ep", "1"),
             ("data", "/path/to/fast_dp/fast_dp.mtz"),
             ("scaling_id", "123456"),
         }
 
 
-def test_big_ep(db_session_factory, testconfig, mocker, monkeypatch):
+def test_big_ep(db_session_factory, testconfig, mocker, monkeypatch, tmp_path):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 1002287
+    free_mtz = tmp_path / "free.mtz"
+    free_mtz.touch()
+    scaled_unmerged_mtz = tmp_path / "scaled_unmerged.mtz"
+    scaled_unmerged_mtz.touch()
     message = {
         "recipe": {
             "1": {
@@ -391,8 +394,8 @@ def test_big_ep(db_session_factory, testconfig, mocker, monkeypatch):
                         "anomalousScatterer": "S",
                     },
                     "xia2 dials": {
-                        "data": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz",
-                        "scaled_unmerged_mtz": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
+                        "data": free_mtz,
+                        "scaled_unmerged_mtz": scaled_unmerged_mtz,
                         "path_ext": "xia2/dials-run",
                     },
                 },
@@ -420,8 +423,8 @@ def test_big_ep(db_session_factory, testconfig, mocker, monkeypatch):
             "parameters": {
                 "ispyb_process": mock.ANY,
                 "program_id": 56986673,
-                "data": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz",
-                "scaled_unmerged_mtz": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
+                "data": str(free_mtz),
+                "scaled_unmerged_mtz": str(scaled_unmerged_mtz),
                 "path_ext": "xia2/dials-run",
                 "force": False,
             },
@@ -445,9 +448,9 @@ def test_big_ep(db_session_factory, testconfig, mocker, monkeypatch):
         assert params == {
             (
                 "scaled_unmerged_mtz",
-                "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
+                str(scaled_unmerged_mtz),
             ),
-            ("data", "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz"),
+            ("data", str(free_mtz)),
             ("program_id", "56986673"),
         }
 

@@ -58,15 +58,15 @@ def _print_history(history: list[bool], success: bool, message: str) -> str:
 
 def check_filesystems(cfc: CheckFunctionInterface):
     systems = (
-        ("/dls/i03", "/dls/i03/data/2017/cm16791-3/tmp"),
-        ("/dls/i04", "/dls/i04/data/2017/cm16781-3/tmp"),
-        ("/dls/i04-1", "/dls/i04-1/data/2017/cm16749-3/tmp"),
-        ("/dls/i18", "/dls/i18/data/2016/cm14473-1/tmp"),
-        ("/dls/i19-1", "/dls/i19-1/data/2016/cm14476-1/tmp"),
-        ("/dls/i23", "/dls/i23/data/2017/cm16790-3/tmp"),
+        ("/dls/i03", "/dls/i03/data/2023/cm33866-1/tmp/"),
+        ("/dls/i04", "/dls/i04/data/2023/cm33903-1/tmp/"),
+        ("/dls/i04-1", "/dls/i04-1/data/2023/cm33904-1/tmp"),
+        ("/dls/i18", "/dls/i18/data/2023/cm33872-1/tmp"),
+        ("/dls/i19-1", "/dls/i19-1/data/2023/cm33867-1/tmp"),
+        ("/dls/i23", "/dls/i23/data/2023/cm33851-1/tmp"),
         ("/dls/i24", "/dls/i24/data/test"),
         ("/dls/m12", "/dls/m12/data/2022/cm31111-1/tmp"),
-        ("/dls/mx/data", "/dls/mx/data/nt18231/nt18231-23/tmp"),
+        ("/dls/mx/data", "/dls/mx/data/nt33918/nt33918-9/tmp/"),
         ("/dls/science", "/dls/science/users/wra62962/jenkins"),
         ("/dls/tmp", "/dls/tmp"),
         ("/dls_sw", "/dls_sw/apps/dials"),

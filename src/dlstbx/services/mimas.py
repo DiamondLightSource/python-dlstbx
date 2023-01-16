@@ -57,6 +57,8 @@ class DLSMimas(CommonService):
                 dc_class_mimas = mimas.MimasDCClass.GRIDSCAN
             elif dc_class["screen"]:
                 dc_class_mimas = mimas.MimasDCClass.SCREENING
+            elif dc_class["diamond_anvil_cell"]:
+                dc_class_mimas = mimas.MimasDCClass.DIAMOND_ANVIL_CELL
             elif dc_class["rotation"]:
                 dc_class_mimas = mimas.MimasDCClass.ROTATION
             else:

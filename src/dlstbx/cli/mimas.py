@@ -66,6 +66,8 @@ def get_scenarios(dcid, session: sqlalchemy.orm.session.Session):
         dc_class_mimas = dlstbx.mimas.MimasDCClass.GRIDSCAN
     elif dc_class and dc_class["screen"]:
         dc_class_mimas = dlstbx.mimas.MimasDCClass.SCREENING
+    elif dc_class and dc_class["diamond_anvil_cell"]:
+        dc_class_mimas = dlstbx.mimas.MimasDCClass.DIAMOND_ANVIL_CELL
     elif dc_class and dc_class["rotation"]:
         dc_class_mimas = dlstbx.mimas.MimasDCClass.ROTATION
     else:

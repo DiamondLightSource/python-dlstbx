@@ -17,6 +17,19 @@ from dlstbx.mimas import (
     MimasScenario,
 )
 
+dac_dials_params = (
+    "--add-param=dynamic_shadowing:true",
+    "--add-param=ice_rings.filter:true",
+    "--add-param=ice_rings.unit_cell:3.1652,3.1652,3.1652,90,90,90",
+    "--add-param=ice_rings.space_group:Im-3m",
+    "--add-param=ice_rings.width:0.01",
+    "--add-param=scan_varying:true",
+    "--add-param=resolution_range:999,15",
+    "--add-param=keep_all_reflections:false",
+    "--add-param=cc_half:none",
+    "--add-param=isigma:2",
+)
+
 
 def get_zocalo_commands(scenario):
     mock_zc = mock.MagicMock(zocalo.configuration.Configuration, autospec=True)
@@ -429,8 +442,11 @@ def test_vmxm_gridscan():
     ],
     ids=("Pilatus", "Eiger"),
 )
+@pytest.mark.parametrize(
+    "dcclass", [MimasDCClass.ROTATION, MimasDCClass.DIAMOND_ANVIL_CELL]
+)
 def test_i19_rotation(
-    detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type
+    detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type, dcclass
 ):
     """Test the I19 rotation scenario."""
     dcid = 6356546
@@ -439,7 +455,7 @@ def test_i19_rotation(
     scenario = functools.partial(
         MimasScenario,
         DCID=dcid,
-        dcclass=MimasDCClass.ROTATION,
+        dcclass=dcclass,
         event=MimasEvent.START,
         beamline="i19-1",
         visit="nt28218-7",
@@ -451,6 +467,7 @@ def test_i19_rotation(
         preferred_processing="xia2/DIALS",
         detectorclass=detectorclass,
     )
+
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
         f"zocalo.go -r per-image-analysis-rotation{pia_type} {dcid}"
     }
@@ -466,8 +483,13 @@ def test_i19_rotation(
                 f"--add-sweep={dcid}:1:850",
                 f"--add-sweep={other_dcid}:1:850",
                 "--add-param=absorption_level:medium",
-                "--trigger",
             )
+            + (
+                dac_dials_params
+                if dcclass == mimas.MimasDCClass.DIAMOND_ANVIL_CELL
+                else ()
+            )
+            + ("--trigger",)
         ),
         " ".join(
             (
@@ -478,8 +500,13 @@ def test_i19_rotation(
                 f"--recipe=autoprocessing-multi-xia2-smallmolecule-{aimless_string}{xia2_type}",
                 f"--add-sweep={dcid}:1:850",
                 f"--add-sweep={other_dcid}:1:850",
-                "--trigger",
             )
+            + (
+                dac_dials_params
+                if dcclass == mimas.MimasDCClass.DIAMOND_ANVIL_CELL
+                else ()
+            )
+            + ("--trigger",)
         ),
         f"zocalo.go -r archive-{data_format} {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
@@ -500,8 +527,17 @@ def test_i19_rotation(
     ],
     ids=("Pilatus", "Eiger"),
 )
+@pytest.mark.parametrize(
+    "dcclass", [MimasDCClass.ROTATION, MimasDCClass.DIAMOND_ANVIL_CELL]
+)
 def test_i19_rotation_with_symmetry(
-    detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type
+    detectorclass,
+    pia_type,
+    aimless_string,
+    xia2_type,
+    data_format,
+    rlv_type,
+    dcclass,
 ):
     """Test the I19 rotation scenario with specified crystal symmetry."""
     dcid = 6356546
@@ -513,7 +549,7 @@ def test_i19_rotation_with_symmetry(
     scenario = functools.partial(
         MimasScenario,
         DCID=dcid,
-        dcclass=MimasDCClass.ROTATION,
+        dcclass=dcclass,
         event=MimasEvent.START,
         beamline="i19-1",
         visit="nt28218-7",
@@ -543,8 +579,13 @@ def test_i19_rotation_with_symmetry(
                 "--add-param=spacegroup:P1211",
                 "--add-param=unit_cell:10.89,8.69,7.77,90.0,103.0,90.0",
                 "--add-param=absorption_level:medium",
-                "--trigger",
             )
+            + (
+                dac_dials_params
+                if dcclass == mimas.MimasDCClass.DIAMOND_ANVIL_CELL
+                else ()
+            )
+            + ("--trigger",)
         ),
         " ".join(
             (
@@ -556,8 +597,13 @@ def test_i19_rotation_with_symmetry(
                 f"--add-sweep={dcid}:1:850",
                 f"--add-sweep={other_dcid}:1:850",
                 "--add-param=absorption_level:medium",
-                "--trigger",
             )
+            + (
+                dac_dials_params
+                if dcclass == mimas.MimasDCClass.DIAMOND_ANVIL_CELL
+                else ()
+            )
+            + ("--trigger",)
         ),
         " ".join(
             (
@@ -570,8 +616,13 @@ def test_i19_rotation_with_symmetry(
                 f"--add-sweep={other_dcid}:1:850",
                 "--add-param=spacegroup:P1211",
                 "--add-param=unit_cell:10.89,8.69,7.77,90.0,103.0,90.0",
-                "--trigger",
             )
+            + (
+                dac_dials_params
+                if dcclass == mimas.MimasDCClass.DIAMOND_ANVIL_CELL
+                else ()
+            )
+            + ("--trigger",)
         ),
         " ".join(
             (
@@ -582,8 +633,13 @@ def test_i19_rotation_with_symmetry(
                 f"--recipe=autoprocessing-multi-xia2-smallmolecule-{aimless_string}{xia2_type}",
                 f"--add-sweep={dcid}:1:850",
                 f"--add-sweep={other_dcid}:1:850",
-                "--trigger",
             )
+            + (
+                dac_dials_params
+                if dcclass == mimas.MimasDCClass.DIAMOND_ANVIL_CELL
+                else ()
+            )
+            + ("--trigger",)
         ),
         f"zocalo.go -r archive-{data_format} {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",

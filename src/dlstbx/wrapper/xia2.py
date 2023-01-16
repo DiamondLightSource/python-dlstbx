@@ -3,12 +3,12 @@ from __future__ import annotations
 import datetime
 import json
 import os
+import shutil
 import subprocess
 import time
+from pathlib import Path
 
 import dateutil.parser
-import procrunner
-import py
 
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
@@ -133,24 +133,23 @@ class Xia2Wrapper(Wrapper):
                         "-" + params["ispyb_parameters"]["spacegroup"]
                     )
 
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
+        working_directory = Path(params["working_directory"])
+        results_directory = Path(params["results_directory"])
 
         # Create working directory with symbolic link
-        working_directory.ensure(dir=True)
+        working_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                working_directory.strpath, params["create_symlink"]
+                working_directory, params["create_symlink"]
             )
 
         self.log.info("command: %s", " ".join(command))
         try:
             start_time = time.perf_counter()
-            result = procrunner.run(
+            result = subprocess.run(
                 command,
                 timeout=params.get("timeout"),
-                raise_timeout_exception=True,
-                working_directory=working_directory.strpath,
+                cwd=working_directory,
             )
             runtime = time.perf_counter() - start_time
             self.log.info(f"xia2 took {runtime} seconds")
@@ -171,103 +170,100 @@ class Xia2Wrapper(Wrapper):
                 self.log.debug(result.stderr)
 
         # copy output files to result directory
-        results_directory.ensure(dir=True)
+        results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                results_directory.strpath, params["create_symlink"]
+                results_directory, params["create_symlink"]
             )
 
         for subdir in ("DataFiles", "LogFiles"):
-            src = working_directory.join(subdir)
-            dst = results_directory.join(subdir)
-            if src.check():
-                self.log.debug(f"Recursively copying {src.strpath} to {dst.strpath}")
-                src.copy(dst)
+            src = working_directory / subdir
+            dst = results_directory / subdir
+            if src.exists():
+                self.log.debug(f"Recursively copying {src} to {dst}")
+                shutil.copytree(src, dst)
             elif not success:
                 self.log.info(
-                    f"Expected output directory does not exist (non-zero exitcode): {src.strpath}"
+                    f"Expected output directory does not exist (non-zero exitcode): {src}"
                 )
             else:
-                self.log.warning(
-                    f"Expected output directory does not exist: {src.strpath}"
-                )
+                self.log.warning(f"Expected output directory does not exist: {src}")
 
         allfiles = []
-        for f in working_directory.listdir("*.*"):
-            if f.check(file=1, exists=1) and not f.basename.startswith("."):
-                self.log.debug(f"Copying {f.strpath} to results directory")
-                f.copy(results_directory)
-                allfiles.append(results_directory.join(f.basename))
+        for f in working_directory.glob("*.*"):
+            if f.is_file() and not f.name.startswith("."):
+                self.log.debug(f"Copying {f} to results directory")
+                shutil.copy(f, results_directory)
+                allfiles.append(os.fspath(results_directory / f.name))
 
         # Send results to various listeners
         logfiles = ("xia2.html", "xia2.txt", "xia2.error", "xia2-error.txt")
-        for result_file in map(results_directory.join, logfiles):
-            if result_file.check(file=1):
+        for result_file in map(results_directory.joinpath, logfiles):
+            if result_file.is_file():
                 self.record_result_individual_file(
                     {
-                        "file_path": result_file.dirname,
-                        "file_name": result_file.basename,
+                        "file_path": result_file.parent.name,
+                        "file_name": result_file.name,
                         "file_type": "log",
-                        "importance_rank": 1
-                        if result_file.basename == "xia2.html"
-                        else 2,
+                        "importance_rank": 1 if result_file.name == "xia2.html" else 2,
                     }
                 )
 
-        datafiles_path = results_directory.join("DataFiles")
-        if datafiles_path.check():
-            for result_file in datafiles_path.listdir(fil=os.path.isfile):
+        datafiles_path = results_directory / "DataFiles"
+        if datafiles_path.exists():
+            for result_file in datafiles_path.iterdir():
+                if not result_file.is_file():
+                    continue
                 file_type = "result"
-                if result_file.ext in (".log", ".txt"):
+                if result_file.suffix in (".log", ".txt"):
                     file_type = "log"
                 self.record_result_individual_file(
                     {
-                        "file_path": result_file.dirname,
-                        "file_name": result_file.basename,
+                        "file_path": result_file.parent.name,
+                        "file_name": result_file.name,
                         "file_type": file_type,
                         "importance_rank": 1
-                        if result_file.basename.endswith("_free.mtz")
+                        if result_file.name.endswith("_free.mtz")
                         else 2,
                     }
                 )
-                allfiles.append(result_file.strpath)
+                allfiles.append(os.fspath(result_file))
 
-        logfiles_path = results_directory.join("LogFiles")
-        if logfiles_path.check():
-            for result_file in logfiles_path.listdir(fil=os.path.isfile):
+        logfiles_path = results_directory / "LogFiles"
+        if logfiles_path.exists():
+            for result_file in logfiles_path.iterdir():
+                if not result_file.is_file():
+                    continue
                 file_type = "log"
-                if result_file.ext == ".json":
+                if result_file.suffix == ".json":
                     file_type = "graph"
-                elif result_file.ext == ".png":
+                elif result_file.suffix == ".png":
                     file_type = "log"
                 self.record_result_individual_file(
                     {
-                        "file_path": result_file.dirname,
-                        "file_name": result_file.basename,
+                        "file_path": result_file.parent.name,
+                        "file_name": result_file.name,
                         "file_type": file_type,
                         "importance_rank": 2,
                     }
                 )
-                allfiles.append(result_file.strpath)
+                allfiles.append(os.fspath(result_file))
 
         # Part of the result parsing requires to be in result directory
-        with results_directory.as_cwd():
-            if params.get("store_xtriage_results") and os.path.isfile(
-                "xia2-report.json"
-            ):
-                with open("xia2-report.json") as fh:
-                    xtriage_results = json.load(fh).get("xtriage")
-            else:
-                xtriage_results = None
-            if (
-                success
-                and not (
-                    os.path.isfile("xia2-error.txt") or os.path.isfile("xia2.error")
-                )
-                and os.path.exists("xia2.json")
-                and not params.get("do_not_write_to_ispyb")
-            ):
-                self.send_results_to_ispyb(xtriage_results=xtriage_results)
+        os.chdir(results_directory)
+        if params.get("store_xtriage_results") and os.path.isfile("xia2-report.json"):
+            with open("xia2-report.json") as fh:
+                xtriage_results = json.load(fh).get("xtriage")
+        else:
+            xtriage_results = None
+        if (
+            success
+            and not (os.path.isfile("xia2-error.txt") or os.path.isfile("xia2.error"))
+            and os.path.exists("xia2.json")
+            and not params.get("do_not_write_to_ispyb")
+        ):
+            self.send_results_to_ispyb(xtriage_results=xtriage_results)
+        os.chdir(working_directory)
 
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})

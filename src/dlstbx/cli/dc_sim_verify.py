@@ -64,7 +64,6 @@ def run():
     txn = stomp.transaction_begin()
 
     ispyb_conn = ispyb.open()
-    ispyb.model.__future__.enable("/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg")
 
     sid = workflows.recipe.wrap_subscribe(
         stomp,

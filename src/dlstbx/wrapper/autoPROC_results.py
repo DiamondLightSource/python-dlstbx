@@ -4,12 +4,14 @@ import datetime
 import shutil
 import xml.etree.ElementTree
 from pathlib import Path
+from typing import Any
 
 import dateutil.parser
 
 import dlstbx.util.symlink
 from dlstbx.util.iris import remove_objects_from_s3
 from dlstbx.wrapper import Wrapper
+from dlstbx.wrapper.helpers import run_dials_estimate_resolution
 
 clean_environment = {
     "LD_LIBRARY_PATH": "",
@@ -91,7 +93,11 @@ class autoPROCResultsWrapper(Wrapper):
     _logger_name = "zocalo.wrap.autoPROC_results"
 
     def send_results_to_ispyb(
-        self, autoproc_xml, special_program_name=None, attachments=None
+        self,
+        autoproc_xml,
+        special_program_name=None,
+        attachments=None,
+        res_i_sig_i_2: float | None = None,
     ):
         ispyb_command_list = []
 
@@ -148,7 +154,7 @@ class autoPROCResultsWrapper(Wrapper):
         if "AutoProcScalingStatistics" in autoproc_xml.get(
             "AutoProcScalingContainer", {}
         ):
-            insert_scaling = {
+            insert_scaling: dict[str, Any] = {
                 "ispyb_command": "insert_scaling",
                 "autoproc_id": "$ispyb_autoproc_id",
                 "store_result": "ispyb_autoprocscaling_id",
@@ -171,6 +177,7 @@ class autoPROCResultsWrapper(Wrapper):
                     "r_merge": statistics["rMerge"],
                     "r_pim_all_iplusi_minus": statistics["rPimAllIPlusIMinus"],
                     "r_pim_within_iplusi_minus": statistics["rPimWithinIPlusIMinus"],
+                    "res_i_sig_i_2": res_i_sig_i_2,
                     "res_lim_high": statistics["resolutionLimitHigh"],
                     "res_lim_low": statistics["resolutionLimitLow"],
                 }
@@ -328,6 +335,22 @@ class autoPROCResultsWrapper(Wrapper):
                     "Exception raised while trying to remove files from S3 object store."
                 )
 
+        res_i_sig_i_2 = None
+        alldata_unmerged_mtz = working_directory / "aimless_alldata_unmerged.mtz"
+        if alldata_unmerged_mtz.is_file():
+            try:
+                extra_args = ["misigma=2"]
+                resolution_limits = run_dials_estimate_resolution(
+                    [alldata_unmerged_mtz],
+                    working_directory,
+                    extra_args=extra_args,
+                )
+                res_i_sig_i_2 = resolution_limits.get("Mn(I/sig)")
+            except Exception as e:
+                self.log.warning(
+                    f"dials.estimate_resolution failure: {e}", exc_info=True
+                )
+
         # copy output files to result directory
         results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
@@ -428,7 +451,7 @@ class autoPROCResultsWrapper(Wrapper):
         success = False
         if autoproc_xml:
             success_autoproc = self.send_results_to_ispyb(
-                autoproc_xml, attachments=attachments
+                autoproc_xml, attachments=attachments, res_i_sig_i_2=res_i_sig_i_2
             )
             success = success or success_autoproc
         if staraniso_xml:

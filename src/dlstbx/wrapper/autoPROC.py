@@ -5,6 +5,7 @@ import pathlib
 import shutil
 import time
 import xml.etree.ElementTree
+from typing import Any
 
 import procrunner
 from dials.util.mp import available_cores
@@ -14,6 +15,7 @@ from dxtbx.serialize import xds
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
 from dlstbx.wrapper import Wrapper
+from dlstbx.wrapper.helpers import run_dials_estimate_resolution
 
 clean_environment = {
     "LD_LIBRARY_PATH": "",
@@ -265,7 +267,11 @@ class autoPROCWrapper(Wrapper):
     name = "autoPROC"
 
     def send_results_to_ispyb(
-        self, autoproc_xml, special_program_name=None, attachments=None
+        self,
+        autoproc_xml,
+        special_program_name=None,
+        attachments=None,
+        res_i_sig_i_2: float | None = None,
     ):
         ispyb_command_list = []
 
@@ -325,7 +331,7 @@ class autoPROCWrapper(Wrapper):
             # For multiple sweeps autoPROC duplicates this container
             APSC = APSC[0]
         if "AutoProcScalingStatistics" in APSC:
-            insert_scaling = {
+            insert_scaling: dict[str, Any] = {
                 "ispyb_command": "insert_scaling",
                 "autoproc_id": "$ispyb_autoproc_id",
                 "store_result": "ispyb_autoprocscaling_id",
@@ -346,6 +352,7 @@ class autoPROCWrapper(Wrapper):
                     "r_merge": statistics["rMerge"],
                     "r_pim_all_iplusi_minus": statistics["rPimAllIPlusIMinus"],
                     "r_pim_within_iplusi_minus": statistics["rPimWithinIPlusIMinus"],
+                    "res_i_sig_i_2": res_i_sig_i_2,
                     "res_lim_high": statistics["resolutionLimitHigh"],
                     "res_lim_low": statistics["resolutionLimitLow"],
                 }
@@ -529,6 +536,22 @@ class autoPROCWrapper(Wrapper):
                     get_merging_statistics(os.fspath(scaled_unmerged_mtz)).as_json()
                 )
 
+        res_i_sig_i_2 = None
+        alldata_unmerged_mtz = working_directory / "aimless_alldata_unmerged.mtz"
+        if success and alldata_unmerged_mtz.is_file():
+            try:
+                extra_args = ["misigma=2"]
+                resolution_limits = run_dials_estimate_resolution(
+                    [alldata_unmerged_mtz],
+                    working_directory,
+                    extra_args=extra_args,
+                )
+                res_i_sig_i_2 = resolution_limits.get("Mn(I/sig)")
+            except Exception as e:
+                self.log.warning(
+                    f"dials.estimate_resolution failure: {e}", exc_info=True
+                )
+
         # move summary_inlined.html to summary.html
         inlined_html = working_directory / "summary_inlined.html"
         if inlined_html.is_file():
@@ -626,7 +649,9 @@ class autoPROCWrapper(Wrapper):
             self.record_result_all_files({"filelist": allfiles})
 
         if success and autoproc_xml:
-            success = self.send_results_to_ispyb(autoproc_xml, attachments=attachments)
+            success = self.send_results_to_ispyb(
+                autoproc_xml, attachments=attachments, res_i_sig_i_2=res_i_sig_i_2
+            )
         if success and staraniso_xml:
             success = self.send_results_to_ispyb(
                 staraniso_xml,

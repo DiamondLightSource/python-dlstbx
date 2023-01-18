@@ -536,6 +536,8 @@ class autoPROCWrapper(Wrapper):
                     get_merging_statistics(os.fspath(scaled_unmerged_mtz)).as_json()
                 )
 
+        # Calculate the resolution at which the mean merged I/sig(I) = 2
+        # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
         res_i_sig_i_2 = None
         alldata_unmerged_mtz = working_directory / "aimless_alldata_unmerged.mtz"
         if success and alldata_unmerged_mtz.is_file():

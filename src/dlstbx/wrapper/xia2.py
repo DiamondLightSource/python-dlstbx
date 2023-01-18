@@ -254,6 +254,8 @@ class Xia2Wrapper(Wrapper):
                 )
                 allfiles.append(os.fspath(result_file))
 
+        # Calculate the resolution at which the mean merged I/sig(I) = 2
+        # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
         res_i_sig_i_2 = None
         if success:
             try:

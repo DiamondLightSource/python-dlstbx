@@ -214,6 +214,8 @@ class Xia2ResultsWrapper(Wrapper):
             self.log.info("xia2 LogFiles directory not found")
             success = False
 
+        # Calculate the resolution at which the mean merged I/sig(I) = 2
+        # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
         res_i_sig_i_2 = None
         if success:
             try:

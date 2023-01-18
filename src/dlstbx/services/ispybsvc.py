@@ -799,6 +799,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 "r_merge",
                 "r_pim_all_iplusi_minus",
                 "r_pim_within_iplusi_minus",
+                "res_i_sig_i_2",
                 "res_lim_high",
                 "res_lim_low",
             ):

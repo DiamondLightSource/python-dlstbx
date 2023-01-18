@@ -10,13 +10,16 @@ import dateutil.parser
 import dlstbx.util.symlink
 from dlstbx.util.iris import remove_objects_from_s3
 from dlstbx.wrapper import Wrapper
+from dlstbx.wrapper.helpers import run_dials_estimate_resolution
 
 
 class Xia2ResultsWrapper(Wrapper):
 
     _logger_name = "zocalo.wrap.xia2_results"
 
-    def send_results_to_ispyb(self, xia2_json, xtriage_results=None):
+    def send_results_to_ispyb(
+        self, xia2_json, xtriage_results=None, res_i_sig_i_2: float | None = None
+    ):
         self.log.info("Reading xia2 results")
         from xia2.Interfaces.ISPyB import xia2_to_json_object
         from xia2.Schema.XProject import XProject
@@ -49,6 +52,8 @@ class Xia2ResultsWrapper(Wrapper):
                 "store_result": "ispyb_autoprocscaling_id",
             }
         )
+        if res_i_sig_i_2 is not None:
+            insert_scaling["overall"]["res_i_sig_i_2"] = res_i_sig_i_2
         ispyb_command_list.append(insert_scaling)
 
         # Step 3: Store integration results, linking them to ScalingID
@@ -209,6 +214,34 @@ class Xia2ResultsWrapper(Wrapper):
             self.log.info("xia2 LogFiles directory not found")
             success = False
 
+        # Calculate the resolution at which the mean merged I/sig(I) = 2
+        # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
+        res_i_sig_i_2 = None
+        if success:
+            try:
+                estimate_resolution_input_files = [
+                    next((working_directory / "DataFiles").glob("*_scaled.expt")),
+                    next((working_directory / "DataFiles").glob("*_scaled.refl")),
+                ]
+            except StopIteration:
+                estimate_resolution_input_files = [
+                    next(
+                        (working_directory / "DataFiles").glob("*_scaled_unmerged.mtz")
+                    ),
+                ]
+            try:
+                extra_args = ["misigma=2"]
+                resolution_limits = run_dials_estimate_resolution(
+                    estimate_resolution_input_files,
+                    working_directory,
+                    extra_args=extra_args,
+                )
+                res_i_sig_i_2 = resolution_limits.get("Mn(I/sig)")
+            except Exception as e:
+                self.log.warning(
+                    f"dials.estimate_resolution failure: {e}", exc_info=True
+                )
+
         # Part of the result parsing requires to be in result directory
         xia2_report = results_directory / "xia2-report.json"
         xia2_error = results_directory / "xia2.error"
@@ -227,7 +260,11 @@ class Xia2ResultsWrapper(Wrapper):
             and any(Path(datafiles_path).iterdir())
         ):
             if not params.get("do_not_write_to_ispyb"):
-                self.send_results_to_ispyb(xia2_json, xtriage_results=xtriage_results)
+                self.send_results_to_ispyb(
+                    xia2_json,
+                    xtriage_results=xtriage_results,
+                    res_i_sig_i_2=res_i_sig_i_2,
+                )
         else:
             self.log.info("xia2 processing exited with and error")
             success = False

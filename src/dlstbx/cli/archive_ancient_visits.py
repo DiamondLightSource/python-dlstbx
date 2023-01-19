@@ -71,7 +71,6 @@ def mark_as_archived(archivables: list[Archivable]):
 
 
 def run():
-
     with Session() as db_session:
         session_archived_counts = get_session_archived_counts(db_session)
         print(
@@ -202,6 +201,7 @@ def run():
                     not in {
                         ".run",
                         ".gridscan",
+                        ".xml",
                     }  # legacy files that aren't removed when a visit is archived
                 ]
                 if len(files):

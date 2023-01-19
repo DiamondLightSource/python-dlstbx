@@ -162,6 +162,7 @@ def run():
         )
         query = (
             db_session.query(
+                subquery.c.sessionId,
                 subquery.c.proposalCode,
                 subquery.c.proposalNumber,
                 subquery.c.visit_number,

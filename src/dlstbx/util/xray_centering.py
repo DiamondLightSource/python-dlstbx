@@ -40,16 +40,16 @@ def reshape_grid(
     data: np.ndarray, steps: Tuple[int, int], snaked: bool, orientation: Orientation
 ) -> np.ndarray:
     if orientation == Orientation.VERTICAL:
-        data = data.reshape(steps).T
+        data = data.reshape(steps)
     else:
-        data = data.reshape(*reversed(steps))
+        data = data.reshape(*reversed(steps)).T
 
     if snaked and orientation == Orientation.HORIZONTAL:
-        # Reverse the direction of every second row
-        data[1::2, :] = data[1::2, ::-1]
-    elif snaked and orientation == Orientation.VERTICAL:
         # Reverse the direction of every second column
         data[:, 1::2] = data[::-1, 1::2]
+    elif snaked and orientation == Orientation.VERTICAL:
+        # Reverse the direction of every second row
+        data[1::2, :] = data[1::2, ::-1]
     return data
 
 
@@ -79,7 +79,7 @@ def main(
         result.message = "No good images found"
         return result, "\n".join(output)
 
-    data = reshape_grid(data, steps, snaked, orientation)
+    data = reshape_grid(data, steps, snaked, orientation).T
 
     result.best_image = best_image
     result.reflections_in_best_image = maximum_spots

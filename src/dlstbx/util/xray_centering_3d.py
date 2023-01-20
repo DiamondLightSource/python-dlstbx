@@ -55,7 +55,7 @@ def gridscan3d(
     assert data[0].ndim == 2
     assert data[1].ndim == 2
 
-    reconstructed_3d = data[0][np.newaxis, :, :] * data[1][:, np.newaxis, :]
+    reconstructed_3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
     logger.debug(data[0].shape)
     logger.debug(data[1].shape)
     logger.debug(reconstructed_3d.shape)
@@ -88,8 +88,8 @@ def gridscan3d(
         max_count = thresholded[max_voxel]
         n_voxels = np.count_nonzero(labels == index)
         total_count = scipy.ndimage.sum_labels(thresholded, labels=labels, index=index)
-        z, y, x = object_slices[index - 1]
-        bounding_box = ((z.start, y.start, x.start), (z.stop, y.stop, x.stop))
+        x, y, z = object_slices[index - 1]
+        bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))
         result = GridScan3DResult(
             centre_of_mass=com,
             max_voxel=max_voxel,
@@ -119,33 +119,33 @@ def plot_gridscan3d_results(
     vmax = max(counts.max() for counts in data)
     labels = ("xy", "xz", "yz")
     for i, (ax, d) in enumerate(zip(axes, data)):
-        ax.imshow(d, vmin=0, vmax=vmax)
+        ax.imshow(d.T, vmin=0, vmax=vmax)
         ax.yaxis.set_major_locator(MaxNLocator(integer=True))
         ax.set_xlabel(labels[i][0])
         ax.set_ylabel(labels[i][1])
     for result in results:
-        (z1, y1, x1), (z2, y2, x2) = result.bounding_box
+        (x1, y1, z1), (x2, y2, z2) = result.bounding_box
         axes[0].scatter(
-            result.max_voxel[2],
+            result.max_voxel[0],
             result.max_voxel[1],
             marker="x",
             c="red",
         )
         axes[1].scatter(
-            result.max_voxel[2],
             result.max_voxel[0],
+            result.max_voxel[2],
             marker="x",
             c="red",
         )
         axes[0].scatter(
-            result.centre_of_mass[2] - 0.5,
+            result.centre_of_mass[0] - 0.5,
             result.centre_of_mass[1] - 0.5,
             marker="x",
             c="orange",
         )
         axes[1].scatter(
-            result.centre_of_mass[2] - 0.5,
             result.centre_of_mass[0] - 0.5,
+            result.centre_of_mass[2] - 0.5,
             marker="x",
             c="orange",
         )
@@ -180,45 +180,45 @@ def plot_gridscan3d_results(
         i,
         ax,
     ) in enumerate(axes):
-        ax.imshow(reconstructed_data.sum(axis=i))
+        ax.imshow(reconstructed_data.T.sum(axis=i))
         ax.yaxis.set_major_locator(MaxNLocator(integer=True))
         ax.set_xlabel(labels[i][0])
         ax.set_ylabel(labels[i][1])
     for result in results:
-        (z1, y1, x1), (z2, y2, x2) = result.bounding_box
+        (x1, y1, z1), (x2, y2, z2) = result.bounding_box
         axes[0].scatter(
-            result.max_voxel[2],
+            result.max_voxel[0],
             result.max_voxel[1],
             marker="x",
             c="red",
         )
         axes[1].scatter(
-            result.max_voxel[2],
             result.max_voxel[0],
+            result.max_voxel[2],
             marker="x",
             c="red",
         )
         axes[2].scatter(
             result.max_voxel[1],
-            result.max_voxel[0],
+            result.max_voxel[2],
             marker="x",
             c="red",
         )
         axes[0].scatter(
-            result.centre_of_mass[2] - 0.5,
+            result.centre_of_mass[0] - 0.5,
             result.centre_of_mass[1] - 0.5,
             marker="x",
             c="orange",
         )
         axes[1].scatter(
-            result.centre_of_mass[2] - 0.5,
             result.centre_of_mass[0] - 0.5,
+            result.centre_of_mass[2] - 0.5,
             marker="x",
             c="orange",
         )
         axes[2].scatter(
             result.centre_of_mass[1] - 0.5,
-            result.centre_of_mass[0] - 0.5,
+            result.centre_of_mass[2] - 0.5,
             marker="x",
             c="orange",
         )
@@ -258,23 +258,22 @@ def plot_gridscan3d_results(
     plt.tight_layout()
     plt.show()
 
-    nx = reconstructed_data.shape[2]
+    nx = reconstructed_data.shape[0]
     vmax = reconstructed_data.max()
     fig, axes = plt.subplots(nrows=1, ncols=nx)
     for i in range(nx):
-        logger.debug(reconstructed_data[:, :, i].shape)
-        axes[i].imshow(reconstructed_data[:, :, i], vmin=0, vmax=vmax)
+        axes[i].imshow(reconstructed_data[i, :, :].T, vmin=0, vmax=vmax)
         axes[i].yaxis.set_major_locator(MaxNLocator(integer=True))
         for result in results:
-            (z1, y1, x1), (z2, y2, x2) = result.bounding_box
-            if i == result.max_voxel[2]:
+            (x1, y1, z1), (x2, y2, z2) = result.bounding_box
+            if i == result.max_voxel[0]:
                 axes[i].scatter(
-                    result.max_voxel[1], result.max_voxel[0], marker="x", c="red"
+                    result.max_voxel[1], result.max_voxel[2], marker="x", c="red"
                 )
-            if i == math.floor(result.centre_of_mass[2]):
+            if i == math.floor(result.centre_of_mass[0]):
                 axes[i].scatter(
                     result.centre_of_mass[1] - 0.5,
-                    result.centre_of_mass[0] - 0.5,
+                    result.centre_of_mass[2] - 0.5,
                     marker="x",
                     c="orange",
                 )

@@ -210,12 +210,12 @@ def test_xray_centering_3d(mocker):
         "success",
         [
             {
-                "max_voxel": (3, 4, 4),
+                "max_voxel": (4, 4, 3),
                 "max_count": 464,
                 "n_voxels": 9,
                 "total_count": 2540,
                 "centre_of_mass": mock.ANY,
-                "bounding_box": ((2, 4, 3), (5, 5, 7)),
+                "bounding_box": ((3, 4, 2), (7, 5, 5)),
             },
         ],
         transaction=mock.ANY,

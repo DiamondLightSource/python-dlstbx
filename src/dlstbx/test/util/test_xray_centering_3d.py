@@ -40,6 +40,12 @@ def test_gridscan3d():
     results = dlstbx.util.xray_centering_3d.gridscan3d(data, plot=False)
     assert len(results) == 1
     assert dataclasses.asdict(results[0]) == {
+        "centre_of_mass": pytest.approx(
+            (4.197689808687282, 4.500240644928408, 4.858891830104681)
+        ),
         "max_voxel": (4, 4, 5),
-        "centre_of_mass": pytest.approx((4.253486304794711, 4.5, 4.905466970387244)),
+        "max_count": 7298,
+        "n_voxels": 9,
+        "total_count": 33244,
+        "bounding_box": [(3, 3, 3), (5, 6, 7)],
     }

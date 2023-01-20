@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import math
+import operator
 from typing import Tuple
 
 import numpy as np
@@ -103,7 +104,7 @@ def gridscan3d(
     if plot:
         plot_gridscan3d_results(data, reconstructed_3d, results)
 
-    return results
+    return sorted(results, key=operator.attrgetter("total_count"), reverse=True)
 
 
 def plot_gridscan3d_results(

@@ -208,6 +208,15 @@ def test_xray_centering_3d(mocker):
         xc.add_pia_result(rw, header, message)
     send_to.assert_called_with(
         "success",
-        [{"max_voxel": (3, 4, 4), "centre_of_mass": mock.ANY}],
+        [
+            {
+                "max_voxel": (3, 4, 4),
+                "max_count": 464,
+                "n_voxels": 9,
+                "total_count": 2540,
+                "centre_of_mass": mock.ANY,
+                "bounding_box": ((2, 4, 3), (5, 5, 7)),
+            },
+        ],
         transaction=mock.ANY,
     )

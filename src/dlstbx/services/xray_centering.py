@@ -51,6 +51,7 @@ class Parameters(pydantic.BaseModel):
     latency_log_warning: float = 30
     latency_log_error: float = 300
     beamline: str
+    threshold: pydantic.NonNegativeFloat = 0.25
 
 
 class RecipeStep(pydantic.BaseModel):
@@ -259,6 +260,7 @@ class DLSXRayCentering(CommonService):
 
                     result = dlstbx.util.xray_centering_3d.gridscan3d(
                         data=tuple(data),
+                        threshold=parameters.threshold,
                         plot=False,
                     )
                     self.log.info(f"3D X-ray centering result: {result}")

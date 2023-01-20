@@ -47,5 +47,5 @@ def test_gridscan3d():
         "max_count": 7298,
         "n_voxels": 9,
         "total_count": 33244,
-        "bounding_box": [(3, 3, 3), (5, 6, 7)],
+        "bounding_box": ((3, 3, 3), (5, 6, 7)),
     }

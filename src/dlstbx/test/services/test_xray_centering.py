@@ -215,18 +215,8 @@ def test_xray_centering_3d(mocker):
                 "n_voxels": 9,
                 "total_count": 2540,
                 "centre_of_mass": mock.ANY,
-                "bounding_box": [(2, 4, 3), (5, 5, 7)],
+                "bounding_box": ((2, 4, 3), (5, 5, 7)),
             },
         ],
         transaction=mock.ANY,
     )
-
-
-{
-    "centre_of_mass": (4.197689808687282, 4.500240644928408, 4.858891830104681),
-    "max_voxel": (4, 4, 5),
-    "max_count": 7298,
-    "n_voxels": 9,
-    "total_count": 33244,
-    "bounding_box": [(3, 3, 3), (5, 6, 7)],
-}

@@ -35,6 +35,8 @@ phil_scope = libtbx.phil.parse(
       .type = bool
     metric = *n_spots_total n_spots_no_ice n_spots_4A total_intensity estimated_d_min
       .type = choice
+    threshold = 0.25
+      .type = float(value_min=0)
     """
 )
 
@@ -53,6 +55,7 @@ def gridscan3d(
     experiment_lists: List[ExperimentList],
     reflection_tables: List[flex.reflection_table],
     metric: str | metrics = "n_spots_total",
+    threshold: float = 0.25,
     plot: bool = False,
 ):
     """
@@ -131,6 +134,7 @@ def gridscan3d(
 
     return xray_centering_3d.gridscan3d(
         data=tuple(data),
+        threshold=threshold,
         plot=plot,
     )
 
@@ -186,6 +190,7 @@ def run(args: List[str] = None, phil: libtbx.phil.scope = phil_scope) -> None:
         experiment_lists,
         reflection_tables,
         metric=params.metric,
+        threshold=params.threshold,
         plot=params.plot,
     )
     logger.info("\n".join(str(r) for r in results))

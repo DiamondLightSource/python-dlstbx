@@ -198,7 +198,9 @@ class DLSISPyB(EM_Mixin, CommonService):
             return
         rw.transport.transaction_commit(txn)
 
-    def do_create_ispyb_job(self, parameters, rw=None, **kwargs):
+    def do_create_ispyb_job(
+        self, parameters, *, session: sqlalchemy.orm.session.Session, rw=None, **kwargs
+    ):
         dcid = int(parameters("DCID"))
         sweeps = [(s["DCID"], s["start"], s["end"]) for s in parameters("sweeps")]
         if not dcid and not sweeps:
@@ -206,9 +208,12 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
 
         if not sweeps:
-            dc_info = self.ispyb.get_data_collection(dcid)
-            start = dc_info.image_start_number
-            number = dc_info.image_count
+            dc = crud.get_data_collection(dcid, session)
+            if not dc:
+                self.log.error(f"DCID {dcid} not found")
+                return False
+            start = dc.startImageNumber
+            number = dc.numberOfImages
             if not start or not number:
                 self.log.error(
                     "Can not automatically infer data collection sweep for this DCID"
@@ -1342,7 +1347,6 @@ class DLSISPyB(EM_Mixin, CommonService):
         return False
 
     def do_insert_data_collection(self, parameters, message=None, **kwargs):
-
         dc_params = self.ispyb.em_acquisition.get_data_collection_params()
         dc_params["parentid"] = parameters("dcgid")
         dc_params["starttime"] = parameters("start_time")

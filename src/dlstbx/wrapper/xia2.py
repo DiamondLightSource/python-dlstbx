@@ -207,7 +207,7 @@ class Xia2Wrapper(Wrapper):
             if result_file.is_file():
                 self.record_result_individual_file(
                     {
-                        "file_path": result_file.parent.name,
+                        "file_path": str(result_file.parent),
                         "file_name": result_file.name,
                         "file_type": "log",
                         "importance_rank": 1 if result_file.name == "xia2.html" else 2,

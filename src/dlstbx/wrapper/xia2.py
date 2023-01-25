@@ -224,7 +224,7 @@ class Xia2Wrapper(Wrapper):
                     file_type = "log"
                 self.record_result_individual_file(
                     {
-                        "file_path": result_file.parent.name,
+                        "file_path": str(result_file.parent),
                         "file_name": result_file.name,
                         "file_type": file_type,
                         "importance_rank": 1
@@ -246,7 +246,7 @@ class Xia2Wrapper(Wrapper):
                     file_type = "log"
                 self.record_result_individual_file(
                     {
-                        "file_path": result_file.parent.name,
+                        "file_path": str(result_file.parent),
                         "file_name": result_file.name,
                         "file_type": file_type,
                         "importance_rank": 2,

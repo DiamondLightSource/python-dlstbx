@@ -133,8 +133,10 @@ class SSXPlotter(CommonService):
         self.log.debug(f"{payload.results_file=}")
 
         lines = None
+        self.log.debug(f"{payload.results_file.exists()=}")
         if payload.results_file.exists():
             lines = payload.results_file.read_text().splitlines()
+        self.log.debug(f"{lines is None or len(lines)=}")
 
         timeout = (payload.status.start_time + payload.timeout) < time.time()
         if timeout and not lines:

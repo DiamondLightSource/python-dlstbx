@@ -197,6 +197,14 @@ class SSXPlotter(CommonService):
         indexed_lattices = [
             lattice for result in indexing_results for lattice in result.lattices
         ]
+        n_indexed_lattices = len(indexed_lattices)
+        if n_indexed_lattices == 0:
+            self.log.info(f"No indexed lattices found in {payload.results_file}")
+            return
+
+        self.log.info(
+            f"Found {n_indexed_lattices} indexed lattices in {payload.results_file}"
+        )
 
         fig, axes = plt.subplots(nrows=3, ncols=3, layout="constrained")
         for i, (x, y) in enumerate([("a", "b"), ("b", "c"), ("c", "a")]):
@@ -208,8 +216,6 @@ class SSXPlotter(CommonService):
         for i, x in enumerate(("α", "β", "γ")):
             axes[2, i].set_xlabel(x + " (°)")
             axes[2, i].set_ylabel("Frequency")
-
-        # self.fig.subplots_adjust(left=0.1, bottom=0.05, right=0.95, top=0.95)
 
         a = np.fromiter(
             (lattice.unit_cell[0] for lattice in indexed_lattices), dtype=float

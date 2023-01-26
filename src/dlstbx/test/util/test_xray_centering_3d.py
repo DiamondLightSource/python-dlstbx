@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 
 import numpy as np
 import pytest
@@ -39,7 +40,10 @@ def test_gridscan3d():
 
     results = dlstbx.util.xray_centering_3d.gridscan3d(data, plot=False)
     assert len(results) == 1
-    assert dataclasses.asdict(results[0]) == {
+    result_d = dataclasses.asdict(results[0])
+    # check that the results are JSON-serializable
+    json.dumps(result_d)
+    assert result_d == {
         "centre_of_mass": pytest.approx(
             (4.858891830104681, 4.500240644928408, 4.197689808687282)
         ),

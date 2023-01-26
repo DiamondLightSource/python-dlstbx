@@ -86,9 +86,11 @@ def gridscan3d(
                 thresholded, labels=labels, index=index
             )
         )
-        max_count = thresholded[max_voxel]
+        max_count = int(thresholded[max_voxel])
         n_voxels = np.count_nonzero(labels == index)
-        total_count = scipy.ndimage.sum_labels(thresholded, labels=labels, index=index)
+        total_count = int(
+            scipy.ndimage.sum_labels(thresholded, labels=labels, index=index)
+        )
         x, y, z = object_slices[index - 1]
         bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))
         result = GridScan3DResult(

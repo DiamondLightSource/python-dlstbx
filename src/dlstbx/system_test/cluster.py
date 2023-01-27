@@ -33,7 +33,3 @@ class Cluster(CommonSystemTest):
         - qstat will fail
         - run qacct instead
         - look for failed != 0, deleted_by != NONE"""
-
-
-if __name__ == "__main__":
-    Cluster().validate()

@@ -14,6 +14,7 @@ import workflows.contrib.start_service
 import workflows.logging
 import zocalo.configuration
 import zocalo.util
+from workflows.transport import middleware
 
 import dlstbx.util
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
@@ -43,12 +44,15 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         logging.getLogger("ispyb").setLevel(logging.DEBUG)
         logging.getLogger("relion").setLevel(logging.INFO)
         logging.getLogger("pika").setLevel(logging.WARNING)
-        logging.getLogger("pika.adapters.utils.io_services_utils").addFilter(
-            dlstbx.util.DowngradeErrorsFilter()
-        )
-        logging.getLogger("pika.adapters.utils.connection_workflow").addFilter(
-            dlstbx.util.DowngradeErrorsFilter()
-        )
+        for pika_logger in (
+            "base_connection",
+            "blocking_connection",
+            "utils.connection_workflow",
+            "utils.io_services_utils",
+        ):
+            logging.getLogger(f"pika.adapters.{pika_logger}").addFilter(
+                dlstbx.util.DowngradeErrorsFilter()
+            )
         logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
         logging.getLogger("workflows").setLevel(logging.INFO)
         logging.getLogger("xia2").setLevel(logging.INFO)
@@ -108,12 +112,11 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
             help="Restart service on failure",
         )
         parser.add_option(
-            "-m",
-            "--metrics",
-            dest="metrics",
-            action="store_true",
-            default=False,
-            help="Use metrics with this service",
+            "-q",
+            "--queue",
+            dest="queue",
+            default=None,
+            help="Consume messages from this queue",
         )
         self._zc.add_command_line_options(parser)
         self.log.debug("Launching %r", sys.argv)
@@ -135,7 +138,8 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
         kwargs["environment"] = kwargs.get("environment", {})
         kwargs["environment"]["live"] = self.use_live_infrastructure  # XXX deprecated
         kwargs["environment"]["config"] = self._zc
-        kwargs["environment"]["metrics"] = self.options.metrics
+        if self.options.queue:
+            kwargs["environment"]["queue"] = self.options.queue
         return kwargs
 
     def on_frontend_preparation(self, frontend):
@@ -165,10 +169,15 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
 
         frontend.get_status = extend_status_wrapper
 
+    @staticmethod
+    def on_transport_preparation(transport):
+        transport.add_middleware(middleware.TimerMiddleware())
+
 
 def run():
     DLSTBXServiceStarter().run(
         program_name="dlstbx.service",
         version=dlstbx_version(),
         transport_command_channel="command",
+        add_metrics_option=True,
     )

@@ -46,3 +46,42 @@ def test_mimas(with_dummy_plugins, monkeypatch, mocker):
     mimas.process(rw, header, message)
     assert spy_send.call_count == 2
     assert spy_send_to.call_count == 1
+
+
+def test_mimas_with_invalid_space_group_and_unit_cell(
+    with_dummy_plugins, monkeypatch, mocker, caplog
+):
+    monkeypatch.setattr(workflows.transport, "default_transport", "OfflineTransport")
+    message = {
+        "recipe": {
+            "1": {
+                "parameters": {
+                    "dcid": "123456",
+                    "beamline": "i99",
+                    "event": "end",
+                    "dc_class": "rotation",
+                    "unit_cell": "foo",
+                    "space_group": "P5",
+                    "detectorclass": "eiger",
+                },
+            },
+        },
+        "recipe-pointer": 1,
+    }
+
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+
+    t = OfflineTransport()
+    rw = RecipeWrapper(message, transport=t)
+    spy_send = mocker.spy(rw, "send")
+    spy_send_to = mocker.spy(rw, "send_to")
+
+    mimas = DLSMimas()
+    mimas.process(rw, header, message)
+    assert spy_send.call_count == 2
+    assert spy_send_to.call_count == 1
+    assert "Invalid spacegroup for dcid" in caplog.text
+    assert "Invalid unit cell for dcid" in caplog.text

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 
 import procrunner
@@ -10,10 +9,11 @@ from dxtbx.serialize import load
 
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.dlstbx.align_crystal")
-
 
 class AlignCrystalWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.dlstbx.align_crystal"
+
     def insert_dials_align_strategies(self, dcid, crystal_symmetry, results):
         solutions = results["solutions"]
         gonio = results["goniometer"]
@@ -125,11 +125,11 @@ class AlignCrystalWrapper(Wrapper):
             ispyb_command_list.append(d)
 
         if ispyb_command_list:
-            logger.debug("Sending %s", json.dumps(ispyb_command_list, indent=2))
+            self.log.debug("Sending %s", json.dumps(ispyb_command_list, indent=2))
             self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-            logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+            self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
         else:
-            logger.info("There is no valid dials.align_crystal strategy here")
+            self.log.info("There is no valid dials.align_crystal strategy here")
 
     def construct_commandline(self, params):
         """Construct dlstbx.align_crystal command line.
@@ -156,30 +156,30 @@ class AlignCrystalWrapper(Wrapper):
         prefix = params["image_template"].split("master.h5")[0]
         params["image_pattern"] = prefix + "%04d.cbf"
         params["image_template"] = prefix + "####.cbf"
-        logger.info("Image pattern: %s", params["image_pattern"])
-        logger.info("Image template: %s", params["image_template"])
-        logger.info(
-            "Converting %s to %s" % (master_h5, tmpdir.join(params["image_pattern"]))
+        self.log.info("Image pattern: %s", params["image_pattern"])
+        self.log.info("Image template: %s", params["image_template"])
+        self.log.info(
+            "Converting %s to %s", master_h5, tmpdir.join(params["image_pattern"])
         )
         result = procrunner.run(
             ["dxtbx.dlsnxs2cbf", master_h5, params["image_pattern"]],
             working_directory=tmpdir.strpath,
             timeout=params.get("timeout", 3600),
         )
-        logger.info("command: %s", " ".join(result["command"]))
+        self.log.info("command: %s", " ".join(result["command"]))
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info(
+            self.log.info(
                 "dxtbx.dlsnxs2cbf successful, took %.1f seconds", result["runtime"]
             )
         else:
-            logger.error(
+            self.log.error(
                 "dxtbx.dlsnxs2cbf failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            self.log.debug(result["stdout"])
+            self.log.debug(result["stderr"])
         params["orig_image_directory"] = params["image_directory"]
         params["image_directory"] = tmpdir.strpath
         return success
@@ -202,7 +202,7 @@ class AlignCrystalWrapper(Wrapper):
         working_directory.ensure(dir=True)
 
         # run dlstbx.align_crystal in working directory
-        logger.info("command: %s", " ".join(command))
+        self.log.info("command: %s", " ".join(command))
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
@@ -210,19 +210,19 @@ class AlignCrystalWrapper(Wrapper):
         )
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info(
+            self.log.info(
                 "dlstbx.align_crystal successful, took %.1f seconds", result["runtime"]
             )
         else:
-            logger.info(
+            self.log.info(
                 "dlstbx.align_crystal failed with exitcode %s and timeout %s:\n{result[stderr]}".format(
                     result=result
                 ),
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            self.log.debug(result["stdout"])
+            self.log.debug(result["stderr"])
             return
 
         # Create results directory and symlink if they don't already exist
@@ -242,7 +242,7 @@ class AlignCrystalWrapper(Wrapper):
             if filetype is None:
                 continue
             destination = results_directory.join(filename.basename)
-            logger.debug(f"Copying {filename.strpath} to {destination.strpath}")
+            self.log.debug(f"Copying {filename.strpath} to {destination.strpath}")
             allfiles.append(destination.strpath)
             filename.copy(destination)
             if filetype:
@@ -269,6 +269,6 @@ class AlignCrystalWrapper(Wrapper):
                 params["dcid"], crystal_symmetry, json_data
             )
         else:
-            logger.warning("Expected JSON output file missing")
+            self.log.warning("Expected JSON output file missing")
 
         return success

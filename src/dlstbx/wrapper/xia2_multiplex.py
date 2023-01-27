@@ -2,19 +2,22 @@ from __future__ import annotations
 
 import itertools
 import json
-import logging
+import os
+import pathlib
+import shutil
+import subprocess
+import time
 
-import procrunner
-import py
 from cctbx import uctbx
 
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.xia2.multiplex")
-
 
 class Xia2MultiplexWrapper(Wrapper):
+    _logger_name = "dlstbx.wrap.xia2.multiplex"
+    name = "xia2.multiplex"
+
     def send_results_to_ispyb(self, z, xtriage_results=None):
         ispyb_command_list = []
 
@@ -81,7 +84,7 @@ class Xia2MultiplexWrapper(Wrapper):
                         }
                     )
 
-        logger.debug("Sending %s", str(ispyb_command_list))
+        self.log.debug("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
 
     def construct_commandline(self, params):
@@ -96,12 +99,13 @@ class Xia2MultiplexWrapper(Wrapper):
             command.append(f)
 
         if params.get("ispyb_parameters"):
+            ignore = {"sample_id", "sample_group_id"}
             translation = {
                 "d_min": "resolution.d_min",
                 "spacegroup": "symmetry.space_group",
             }
             for param, value in params["ispyb_parameters"].items():
-                if param in translation:
+                if param not in ignore:
                     command.append(translation.get(param, param) + "=" + value[0])
 
         return command
@@ -121,63 +125,71 @@ class Xia2MultiplexWrapper(Wrapper):
                 params["create_symlink"] += (
                     "-" + params["ispyb_parameters"]["spacegroup"][0]
                 )
-            if params["ispyb_parameters"].get("data"):
-                params["data"] = params["ispyb_parameters"]["data"]
+            if data := params["ispyb_parameters"].pop("data"):
+                params["data"] = data
 
         assert len(params.get("data", [])) > 1
 
         command = self.construct_commandline(params)
 
-        working_directory = py.path.local(params["working_directory"])
-        results_directory = py.path.local(params["results_directory"])
+        working_directory = pathlib.Path(params["working_directory"])
+        results_directory = pathlib.Path(params["results_directory"])
 
         # Create working directory with symbolic link
-        working_directory.ensure(dir=True)
+        working_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                working_directory.strpath, params["create_symlink"]
+                working_directory, params["create_symlink"]
             )
 
         # run xia2.multiplex in working directory
-
-        logger.info("command: %s", " ".join(command))
-        result = procrunner.run(
-            command,
-            timeout=params.get("timeout"),
-            working_directory=working_directory.strpath,
-        )
-        success = not result["exitcode"] and not result["timeout"]
-        if success:
-            logger.info(
-                "xia2.multiplex successful, took %.1f seconds", result["runtime"]
+        self.log.info("command: %s", " ".join(command))
+        try:
+            start_time = time.perf_counter()
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                timeout=params.get("timeout"),
+                cwd=working_directory,
             )
+            runtime = time.perf_counter() - start_time
+            self.log.info(f"xia2.multiplex took {runtime} seconds")
+            self._runtime_hist.observe(runtime)
+        except subprocess.TimeoutExpired as te:
+            success = False
+            self.log.warning(f"xia2 timed out: {te.timeout}\n  {te.cmd}")
+            self.log.debug(te.stdout)
+            self.log.debug(te.stderr)
+            self._timeout_counter.inc()
         else:
-            logger.info(
-                "xia2.multiplex failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
-            )
-            logger.debug(result["stdout"].decode("latin1"))
-            logger.debug(result["stderr"].decode("latin1"))
-        logger.info("working_directory: %s", working_directory.strpath)
+            if success := not result.returncode:
+                self.log.info("xia2.multiplex successful")
+            else:
+                self.log.info(
+                    f"xia2.multiplex failed with exitcode {result.returncode}"
+                )
+                self.log.debug(result.stdout)
+                self.log.debug(result.stderr)
+        self.log.info(f"working_directory: {working_directory}")
 
-        scaled_unmerged_mtz = working_directory.join("scaled_unmerged.mtz")
-        if success and scaled_unmerged_mtz.check():
+        scaled_unmerged_mtz = working_directory / "scaled_unmerged.mtz"
+        if success and scaled_unmerged_mtz.is_file():
             import iotbx.merging_statistics
 
             i_obs = iotbx.merging_statistics.select_data(
-                str(scaled_unmerged_mtz.strpath), data_labels=None
+                os.fspath(scaled_unmerged_mtz), data_labels=None
             )
         else:
             success = False
 
-        if success and working_directory.join("xia2.multiplex.json").check():
-            with working_directory.join("xia2.multiplex.json").open("r") as fh:
+        multiplex_json = working_directory / "xia2.multiplex.json"
+        if success and multiplex_json.is_file():
+            with multiplex_json.open("r") as fh:
                 d = json.load(fh)
 
             merging_stats = d["datasets"]["All data"]["merging_stats"]
             merging_stats_anom = d["datasets"]["All data"]["merging_stats_anom"]
-            with working_directory.join("merging-stats.json").open("w") as fh:
+            with (working_directory / "merging-stats.json").open("w") as fh:
                 json.dump(merging_stats, fh)
 
             def lookup(merging_stats, item, shell):
@@ -187,7 +199,7 @@ class Xia2MultiplexWrapper(Wrapper):
                 return merging_stats["overall"][item]
 
             ispyb_d = {
-                "commandline": " ".join(result["command"]),
+                "commandline": " ".join(command),
                 "spacegroup": i_obs.space_group().type().lookup_symbol(),
                 "unit_cell": list(i_obs.unit_cell().parameters()),
                 "scaling_statistics": {},
@@ -225,10 +237,10 @@ class Xia2MultiplexWrapper(Wrapper):
             success = False
 
         # copy output files to result directory
-        results_directory.ensure(dir=True)
+        results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                results_directory.strpath, params["create_symlink"]
+                results_directory, params["create_symlink"]
             )
         keep_ext = {
             ".png": None,
@@ -252,34 +264,34 @@ class Xia2MultiplexWrapper(Wrapper):
         # Record these log files first so they appear at the top of the list
         # of attachments in SynchWeb
         primary_log_files = [
-            working_directory.join("xia2.multiplex.html"),
-            working_directory.join("xia2.multiplex.log"),
+            working_directory / "xia2.multiplex.html",
+            working_directory / "xia2.multiplex.log",
         ]
 
         allfiles = []
-        for filename in primary_log_files + working_directory.listdir():
-            if not filename.check():
+        for filename in primary_log_files + list(working_directory.iterdir()):
+            if not filename.is_file():
                 continue  # primary_log_files may not actually exist
-            filetype = keep_ext.get(filename.ext)
-            if filename.basename in keep:
-                filetype = keep[filename.basename]
+            filetype = keep_ext.get(filename.suffix)
+            if filename.name in keep:
+                filetype = keep[filename.name]
             if filetype is None:
                 continue
-            destination = results_directory.join(filename.basename)
-            if destination.strpath in allfiles:
+            destination = results_directory / filename.name
+            if os.fspath(destination) in allfiles:
                 # We've already seen this file above
                 continue
-            logger.debug(f"Copying {filename.strpath} to {destination.strpath}")
-            allfiles.append(destination.strpath)
-            filename.copy(destination)
+            self.log.debug(f"Copying {filename} to {destination}")
+            allfiles.append(os.fspath(destination))
+            shutil.copy(filename, destination)
             if filetype:
                 self.record_result_individual_file(
                     {
-                        "file_path": destination.dirname,
-                        "file_name": destination.basename,
+                        "file_path": os.fspath(destination.parent),
+                        "file_name": destination.name,
                         "file_type": filetype,
                         "importance_rank": 1
-                        if destination.basename in ("scaled.mtz", "xia2.multiplex.html")
+                        if destination.name in ("scaled.mtz", "xia2.multiplex.html")
                         else 2,
                     }
                 )
@@ -288,5 +300,8 @@ class Xia2MultiplexWrapper(Wrapper):
 
         if success:
             self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
+            self._success_counter.inc()
+        else:
+            self._failure_counter.inc()
 
         return success

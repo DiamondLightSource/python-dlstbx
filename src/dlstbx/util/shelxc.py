@@ -60,9 +60,8 @@ def parse_shelxc_logs(shelxc_log, logger):
             }
             if len(parse_dict[metric_key]) != nshells:
                 logger.debug(
-                    "Missing or invalid values for {} found in some resolution shells.".format(
-                        metric_key
-                    )
+                    "Missing or invalid values for %s found in some resolution shells.",
+                    metric_key,
                 )
             msg.update(parse_dict)
         except Exception:

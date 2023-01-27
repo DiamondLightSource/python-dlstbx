@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import dataclasses
+
 import numpy as np
+import pytest
 
 import dlstbx.util.xray_centering
 import dlstbx.util.xray_centering_3d
@@ -23,10 +26,26 @@ def test_gridscan3d():
     )
     # fmt: on
 
-    max_idx = dlstbx.util.xray_centering_3d.gridscan3d(
-        data,
-        steps=(14, 9),
-        snaked=True,
-        orientation=dlstbx.util.xray_centering.Orientation.HORIZONTAL,
+    steps = (14, 9)
+    data = tuple(
+        dlstbx.util.xray_centering.reshape_grid(
+            d,
+            steps,
+            snaked=True,
+            orientation=dlstbx.util.xray_centering.Orientation.HORIZONTAL,
+        )
+        for d in data
     )
-    assert max_idx == (4, 5, 5)
+
+    results = dlstbx.util.xray_centering_3d.gridscan3d(data, plot=False)
+    assert len(results) == 1
+    assert dataclasses.asdict(results[0]) == {
+        "centre_of_mass": pytest.approx(
+            (4.858891830104681, 4.500240644928408, 4.197689808687282)
+        ),
+        "max_voxel": (5, 4, 4),
+        "max_count": 7298,
+        "n_voxels": 9,
+        "total_count": 33244,
+        "bounding_box": ((3, 3, 3), (7, 6, 5)),
+    }

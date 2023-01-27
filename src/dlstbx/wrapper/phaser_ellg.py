@@ -3,7 +3,6 @@ Example of a basic wrapper script
 """
 from __future__ import annotations
 
-import logging
 import tempfile
 from pathlib import Path
 from pprint import pformat
@@ -11,13 +10,13 @@ from pprint import pformat
 import procrunner
 
 from dlstbx.util import mr_utils
-
-logger = logging.getLogger("dlstbx.wrap.phaser_ellg")
-
 from dlstbx.wrapper import Wrapper
 
 
 class PhasereLLGWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.phaser_ellg"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = self.recwrap.recipe_step["job_parameters"]
@@ -27,7 +26,7 @@ class PhasereLLGWrapper(Wrapper):
 
         mrbump_logfile = Path(params["data"])
         metrics = mr_utils.get_mrbump_metrics(mrbump_logfile)
-        logger.info(pformat(metrics))
+        self.log.info(pformat(metrics))
 
         for tag, model_params in metrics.items():
             phaser_script = [
@@ -62,7 +61,7 @@ class PhasereLLGWrapper(Wrapper):
                         + phaser_script,
                     )
             except OSError:
-                logger.exception(
+                self.log.exception(
                     "Could not create phaser script file in the working directory"
                 )
                 return False
@@ -75,11 +74,11 @@ class PhasereLLGWrapper(Wrapper):
                 assert result["exitcode"] == 0
                 assert result["timeout"] is False
             except AssertionError:
-                logger.exception(
+                self.log.exception(
                     "Process returned an error code when running Phaser eLLG script"
                 )
                 return False
             except Exception:
-                logger.exception("Running Phaser eLLG script has failed")
+                self.log.exception("Running Phaser eLLG script has failed")
                 return False
         return True

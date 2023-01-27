@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from shutil import copyfile
@@ -11,10 +10,11 @@ import procrunner
 import dlstbx.util
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.best")
-
 
 class BESTWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.best"
+
     def xml_to_dict(self, all_names):
 
         tree = ET.ElementTree(ET.fromstring(self.xml_string))
@@ -195,11 +195,11 @@ class BESTWrapper(Wrapper):
             ispyb_command_list.append(d)
 
         if ispyb_command_list:
-            logger.debug(f"Sending {json.dumps(ispyb_command_list)}")
+            self.log.debug(f"Sending {json.dumps(ispyb_command_list)}")
             self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-            logger.info(f"Sent {len(ispyb_command_list)} commands to ISPyB")
+            self.log.info(f"Sent {len(ispyb_command_list)} commands to ISPyB")
         else:
-            logger.warning("No commands to send to ISPyB")
+            self.log.warning("No commands to send to ISPyB")
 
         return True
 
@@ -266,11 +266,11 @@ class BESTWrapper(Wrapper):
                 xds_files = ["-xds", str(corr_path), str(bkg_path), str(hkl_path)]
                 break
         if xds_files is None:
-            logger.exception("Cannot find XDS output files")
+            self.log.exception("Cannot find XDS output files")
             return False
         command.extend(xds_files)
 
-        logger.info(f"Running BEST command: {' '.join(command)}")
+        self.log.info(f"Running BEST command: {' '.join(command)}")
         try:
             result = procrunner.run(
                 command,
@@ -280,17 +280,17 @@ class BESTWrapper(Wrapper):
             assert result["exitcode"] == 0
             assert result["timeout"] is False
         except AssertionError:
-            logger.exception("Process returned an error code when running BEST")
+            self.log.exception("Process returned an error code when running BEST")
             return False
         except Exception:
-            logger.exception("Running BEST has failed")
+            self.log.exception("Running BEST has failed")
             return False
 
         try:
             best_logfile = working_directory / params["best_logfile"]
             best_logfile.write_text(result["stdout"].decode("latin1"))
         except Exception:
-            logger.warning(f"Failed to write BEST output to {str(best_logfile)}")
+            self.log.warning(f"Failed to write BEST output to {str(best_logfile)}")
 
         xml_file = working_directory / params["best"]["dna"]
         if xml_file.is_file():
@@ -298,16 +298,16 @@ class BESTWrapper(Wrapper):
                 self.xml_string = fh.read()
             if "</edna_tables>" not in self.xml_string:
                 self.xml_string = "\n".join((self.xml_string, "</edna_tables>"))
-            logger.info("sending results to ispyb")
+            self.log.info("sending results to ispyb")
             self.send_results_to_ispyb(params)
         else:
-            logger.exception(f"Expected output file does not exist: {xml_file}")
+            self.log.exception(f"Expected output file does not exist: {xml_file}")
             return False
 
         if params.get("results_directory"):
             results_directory = Path(params["results_directory"])
             results_directory.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Copying BEST results to {str(results_directory)}")
+            self.log.info(f"Copying BEST results to {str(results_directory)}")
             keep_ext = {
                 "*.log": "log",
                 "*.xml": "result",
@@ -328,9 +328,9 @@ class BESTWrapper(Wrapper):
                             }
                         )
                     except Exception:
-                        logger.exception(
+                        self.log.exception(
                             f"Error copying {filename} into the results directory {results_directory}"
                         )
         else:
-            logger.debug("Result directory not specified")
+            self.log.debug("Result directory not specified")
         return True

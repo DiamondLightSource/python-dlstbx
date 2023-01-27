@@ -105,6 +105,7 @@ def check_dbserver(cfc: CheckFunctionInterface):
     return _check_service(URL, cfc.name, servicename)
 
 
+@limit_level(max_increase=3)
 def check_gitlab(cfc: CheckFunctionInterface):
     URL = "https://gitlab.diamond.ac.uk"
     servicename = "Gitlab"

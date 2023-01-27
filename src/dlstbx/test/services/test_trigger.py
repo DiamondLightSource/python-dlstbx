@@ -103,6 +103,9 @@ def test_multiplex(
                             "name": "sample_234",
                         },
                     ],
+                    "diffraction_plan_info": {
+                        "anomalousScatterer": "S",
+                    },
                     "backoff-delay": 8,
                     "backoff-max-try": 10,
                     "backoff-multiplier": 2,
@@ -157,6 +160,8 @@ def test_multiplex(
                 f"/path/to/xia2-dials-0{sg_extra}/integrated.expt;/path/to/xia2-dials-0{sg_extra}/integrated.refl",
             ),
             ("sample_group_id", "123"),
+            ("anomalous", "true"),
+            ("absorption_level", "high"),
         } | ({("spacegroup", spacegroup)} if spacegroup else set())
 
 
@@ -186,7 +191,8 @@ def test_dimple(
     dcid = insert_dimple_input
     user_pdb_directory = tmp_path / "user_pdb"
     user_pdb_directory.mkdir()
-    (user_pdb_directory / "test.pdb").touch()
+    pdb_file = user_pdb_directory / "test.pdb"
+    pdb_file.touch()
     message = {
         "recipe": {
             "1": {
@@ -198,9 +204,8 @@ def test_dimple(
                     "comment": "DIMPLE triggered by automatic xia2-dials",
                     "automatic": True,
                     "scaling_id": 123456,
-                    "user_pdb_directory": user_pdb_directory,
+                    "pdb": [{"filepath": str(pdb_file)}],
                     "mtz": "/path/to/xia2-dials/DataFiles/nt28218v3_xProtk11_free.mtz",
-                    "pdb_tmpdir": tmp_path,
                 },
             },
         },
@@ -238,8 +243,7 @@ def test_dimple(
         assert params == {
             ("data", "/path/to/xia2-dials/DataFiles/nt28218v3_xProtk11_free.mtz"),
             ("scaling_id", "123456"),
-            ("pdb", f"{tmp_path}/fe8c759005fb57ce14d3e66c07b21fec62252b4a/ceo2"),
-            ("pdb", f"{user_pdb_directory}/test.pdb"),
+            ("pdb", f"{pdb_file}"),
         }
 
 
@@ -361,15 +365,18 @@ def test_fast_ep(db_session_factory, testconfig, mocker, monkeypatch):
             (pjp.parameterKey, pjp.parameterValue) for pjp in pj.ProcessingJobParameters
         }
         assert params == {
-            ("check_go_fast_ep", "1"),
             ("data", "/path/to/fast_dp/fast_dp.mtz"),
             ("scaling_id", "123456"),
         }
 
 
-def test_big_ep(db_session_factory, testconfig, mocker, monkeypatch):
+def test_big_ep(db_session_factory, testconfig, mocker, monkeypatch, tmp_path):
     monkeypatch.setenv("ISPYB_CREDENTIALS", testconfig)
     dcid = 1002287
+    free_mtz = tmp_path / "free.mtz"
+    free_mtz.touch()
+    scaled_unmerged_mtz = tmp_path / "scaled_unmerged.mtz"
+    scaled_unmerged_mtz.touch()
     message = {
         "recipe": {
             "1": {
@@ -387,8 +394,8 @@ def test_big_ep(db_session_factory, testconfig, mocker, monkeypatch):
                         "anomalousScatterer": "S",
                     },
                     "xia2 dials": {
-                        "data": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz",
-                        "scaled_unmerged_mtz": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
+                        "data": free_mtz,
+                        "scaled_unmerged_mtz": scaled_unmerged_mtz,
                         "path_ext": "xia2/dials-run",
                     },
                 },
@@ -416,8 +423,8 @@ def test_big_ep(db_session_factory, testconfig, mocker, monkeypatch):
             "parameters": {
                 "ispyb_process": mock.ANY,
                 "program_id": 56986673,
-                "data": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz",
-                "scaled_unmerged_mtz": "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
+                "data": str(free_mtz),
+                "scaled_unmerged_mtz": str(scaled_unmerged_mtz),
                 "path_ext": "xia2/dials-run",
                 "force": False,
             },
@@ -441,9 +448,9 @@ def test_big_ep(db_session_factory, testconfig, mocker, monkeypatch):
         assert params == {
             (
                 "scaled_unmerged_mtz",
-                "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_scaled_unmerged.mtz",
+                str(scaled_unmerged_mtz),
             ),
-            ("data", "/path/to/xia2-dials/DataFiles/nt28218v3_xins24_free.mtz"),
+            ("data", str(free_mtz)),
             ("program_id", "56986673"),
         }
 
@@ -548,8 +555,7 @@ def test_mrbump(db_session_factory, testconfig, mocker, monkeypatch, tmp_path):
                     "dcid": f"{dcid}",
                     "comment": "MrBUMP triggered by automatic xia2-3dii",
                     "automatic": True,
-                    "user_pdb_directory": None,
-                    "pdb_tmpdir": tmp_path,
+                    "pdb": [],
                     "scaling_id": 123456,
                     "protein_info": {
                         "sequence": "ABCDEFG",
@@ -610,7 +616,8 @@ def test_mrbump_with_model(
     dcid = 1002287
     user_pdb_directory = tmp_path / "user_pdb"
     user_pdb_directory.mkdir()
-    (user_pdb_directory / "test.pdb").touch()
+    pdb_file = user_pdb_directory / "test.pdb"
+    pdb_file.touch()
     message = {
         "recipe": {
             "1": {
@@ -622,8 +629,7 @@ def test_mrbump_with_model(
                     "comment": "MrBUMP triggered by automatic xia2-3dii",
                     "automatic": True,
                     "scaling_id": 123456,
-                    "user_pdb_directory": user_pdb_directory,
-                    "pdb_tmpdir": tmp_path,
+                    "pdb": [{"filepath": str(pdb_file)}],
                     "protein_info": {
                         "sequence": "ABCDEFG",
                     },
@@ -686,7 +692,7 @@ def test_mrbump_with_model(
                 ("dophmmer", "False"),
                 ("hklin", "/path/to/xia2-3dii/DataFiles/foo_free.mtz"),
                 ("scaling_id", "123456"),
-                ("localfile", str(user_pdb_directory / "test.pdb")),
+                ("localfile", str(pdb_file)),
             },
             {
                 ("hklin", "/path/to/xia2-3dii/DataFiles/foo_free.mtz"),

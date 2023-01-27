@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import logging
 import os
 import pathlib
 import shutil
+import time
 import xml.etree.ElementTree
+from typing import Any
 
 import procrunner
 from dials.util.mp import available_cores
@@ -14,8 +15,7 @@ from dxtbx.serialize import xds
 import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
 from dlstbx.wrapper import Wrapper
-
-logger = logging.getLogger("dlstbx.wrap.autoPROC")
+from dlstbx.wrapper.helpers import run_dials_estimate_resolution
 
 clean_environment = {
     "LD_LIBRARY_PATH": "",
@@ -27,7 +27,7 @@ clean_environment = {
 }
 
 
-def read_autoproc_xml(xml_file):
+def read_autoproc_xml(xml_file, logger):
     if not xml_file.is_file():
         logger.info(f"Expected file {xml_file} missing")
         return False
@@ -90,7 +90,7 @@ def read_autoproc_xml(xml_file):
     return xml_dict
 
 
-def construct_commandline(params, working_directory=None, image_directory=None):
+def construct_commandline(params, logger, working_directory=None, image_directory=None):
     """Construct autoPROC command line.
     Takes job parameter dictionary, returns array."""
 
@@ -205,7 +205,7 @@ def construct_commandline(params, working_directory=None, image_directory=None):
             if os.path.exists(os.path.join(d, plugin_name)):
                 hdf5_lib = "autoPROC_XdsKeyword_LIB=%s" % os.path.join(d, plugin_name)
         if not hdf5_lib:
-            logger.warning("Couldn't find plugin %s in PATH" % plugin_name)
+            logger.warning("Couldn't find plugin %s in PATH", plugin_name)
         if hdf5_lib:
             command.append(hdf5_lib)
 
@@ -263,8 +263,15 @@ def get_untrusted_rectangles(first_image_or_master_h5, macro=None):
 
 
 class autoPROCWrapper(Wrapper):
+    _logger_name = "dlstbx.wrap.autoPROC"
+    name = "autoPROC"
+
     def send_results_to_ispyb(
-        self, autoproc_xml, special_program_name=None, attachments=None
+        self,
+        autoproc_xml,
+        special_program_name=None,
+        attachments=None,
+        res_i_sig_i_2: float | None = None,
     ):
         ispyb_command_list = []
 
@@ -293,7 +300,7 @@ class autoPROCWrapper(Wrapper):
             .split("(")[1]
             .split()[0]
         )
-        logger.debug(f"autoPROC version: {autoproc_version}")
+        self.log.debug(f"autoPROC version: {autoproc_version}")
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
         if auto_proc := autoproc_xml.get("AutoProc"):
@@ -315,7 +322,7 @@ class autoPROCWrapper(Wrapper):
                 }
             )
         else:
-            logger.info("AutoProc record missing from AutoProc xml file")
+            self.log.info("AutoProc record missing from AutoProc xml file")
 
         # Step 2: Store scaling results, linked to the AutoProcID
         #         Keep the AutoProcScalingID
@@ -324,7 +331,7 @@ class autoPROCWrapper(Wrapper):
             # For multiple sweeps autoPROC duplicates this container
             APSC = APSC[0]
         if "AutoProcScalingStatistics" in APSC:
-            insert_scaling = {
+            insert_scaling: dict[str, Any] = {
                 "ispyb_command": "insert_scaling",
                 "autoproc_id": "$ispyb_autoproc_id",
                 "store_result": "ispyb_autoprocscaling_id",
@@ -345,12 +352,13 @@ class autoPROCWrapper(Wrapper):
                     "r_merge": statistics["rMerge"],
                     "r_pim_all_iplusi_minus": statistics["rPimAllIPlusIMinus"],
                     "r_pim_within_iplusi_minus": statistics["rPimWithinIPlusIMinus"],
+                    "res_i_sig_i_2": res_i_sig_i_2,
                     "res_lim_high": statistics["resolutionLimitHigh"],
                     "res_lim_low": statistics["resolutionLimitLow"],
                 }
             ispyb_command_list.append(insert_scaling)
         else:
-            logger.info(
+            self.log.info(
                 "AutoProcScalingStatistics record missing from AutoProc xml file"
             )
 
@@ -404,7 +412,9 @@ class autoPROCWrapper(Wrapper):
                             integration[beam_direction] = (
                                 float(integration[beam_direction]) * px_to_mm
                             )
-                        logger.debug(f"{beam_direction}: {integration[beam_direction]}")
+                        self.log.debug(
+                            f"{beam_direction}: {integration[beam_direction]}"
+                        )
 
                 if n > 0 or special_program_name:
                     # make sure only the first integration of the original program
@@ -414,7 +424,7 @@ class autoPROCWrapper(Wrapper):
                     integration["integration_id"] = None
             ispyb_command_list.append(integration)
         else:
-            logger.info(
+            self.log.info(
                 "AutoProcIntegrationContainer record missing from AutoProc xml file"
             )
 
@@ -442,9 +452,9 @@ class autoPROCWrapper(Wrapper):
             )
 
         if not ispyb_command_list:
-            logger.warning("no results to send to ISPyB")
+            self.log.warning("no results to send to ISPyB")
             return False
-        logger.info(
+        self.log.info(
             "Sending %d commands to ISPyB: %s",
             len(ispyb_command_list),
             str(ispyb_command_list),
@@ -468,7 +478,7 @@ class autoPROCWrapper(Wrapper):
                         "-" + params["ispyb_parameters"]["spacegroup"]
                     )
 
-        command = construct_commandline(params)
+        command = construct_commandline(params, self.log)
 
         working_directory = pathlib.Path(params["working_directory"])
         results_directory = pathlib.Path(params["results_directory"])
@@ -482,25 +492,29 @@ class autoPROCWrapper(Wrapper):
 
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
-        logger.info("command: %s", " ".join(command))
+        self.log.info("command: %s", " ".join(command))
+        start_time = time.perf_counter()
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
             environment_override={"autoPROC_HIGHLIGHT": "no", **clean_environment},
             working_directory=working_directory,
         )
+        runtime = time.perf_counter() - start_time
+        self.log.info(f"autoPROC took {runtime} seconds")
+        self._runtime_hist.observe(runtime)
 
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info("autoPROC successful, took %.1f seconds", result["runtime"])
+            self.log.info("autoPROC successful, took %.1f seconds", result["runtime"])
         else:
-            logger.info(
+            self.log.info(
                 "autoPROC failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"].decode("latin1"))
-            logger.debug(result["stderr"].decode("latin1"))
+            self.log.debug(result["stdout"].decode("latin1"))
+            self.log.debug(result["stderr"].decode("latin1"))
 
         (working_directory / "autoPROC.log").write_text(
             result["stdout"].decode("latin1")
@@ -522,14 +536,34 @@ class autoPROCWrapper(Wrapper):
                     get_merging_statistics(os.fspath(scaled_unmerged_mtz)).as_json()
                 )
 
+        # Calculate the resolution at which the mean merged I/sig(I) = 2
+        # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
+        res_i_sig_i_2 = None
+        alldata_unmerged_mtz = working_directory / "aimless_alldata_unmerged.mtz"
+        if success and alldata_unmerged_mtz.is_file():
+            try:
+                extra_args = ["misigma=2"]
+                resolution_limits = run_dials_estimate_resolution(
+                    [alldata_unmerged_mtz],
+                    working_directory,
+                    extra_args=extra_args,
+                )
+                res_i_sig_i_2 = resolution_limits.get("Mn(I/sig)")
+            except Exception as e:
+                self.log.warning(
+                    f"dials.estimate_resolution failure: {e}", exc_info=True
+                )
+
         # move summary_inlined.html to summary.html
         inlined_html = working_directory / "summary_inlined.html"
         if inlined_html.is_file():
-            shutil.move(inlined_html, working_directory / "summary.html")
+            shutil.copy2(inlined_html, working_directory / "summary.html")
 
         # attempt to read autoproc XML droppings
-        autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml")
-        staraniso_xml = read_autoproc_xml(working_directory / "autoPROC_staraniso.xml")
+        autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml", self.log)
+        staraniso_xml = read_autoproc_xml(
+            working_directory / "autoPROC_staraniso.xml", self.log
+        )
 
         # copy output files to result directory
         results_directory.mkdir(parents=True, exist_ok=True)
@@ -564,6 +598,8 @@ class autoPROCWrapper(Wrapper):
                 keep[entry["fileName"]] = {"log": "log"}.get(
                     entry["fileType"].lower(), "result"
                 )
+        for filename in working_directory.glob("staraniso*ell"):
+            keep[filename.name] = "result"
         allfiles = []  # flat list
         anisofiles = []  # tuples of file name, dir name, file type
         attachments = []  # tuples of file name, dir name, file type
@@ -572,7 +608,7 @@ class autoPROCWrapper(Wrapper):
             if not keep_as:
                 continue
             destination = results_directory / filename.name
-            logger.debug(f"Copying {filename} to {destination}")
+            self.log.debug(f"Copying {filename} to {destination}")
             shutil.copy(filename, destination)
             if filename.name not in keep:
                 continue  # only copy file, do not register in ISPyB
@@ -580,6 +616,7 @@ class autoPROCWrapper(Wrapper):
                 "truncate-unique.mtz": 1,
                 "staraniso_alldata-unique.mtz": 1,
                 "summary.html": 1,
+                "summary_inlined.html": 1,
             }.get(filename.name, 2)
             if "staraniso" in filename.name:
                 anisofiles.append(
@@ -614,12 +651,19 @@ class autoPROCWrapper(Wrapper):
             self.record_result_all_files({"filelist": allfiles})
 
         if success and autoproc_xml:
-            success = self.send_results_to_ispyb(autoproc_xml, attachments=attachments)
+            success = self.send_results_to_ispyb(
+                autoproc_xml, attachments=attachments, res_i_sig_i_2=res_i_sig_i_2
+            )
         if success and staraniso_xml:
             success = self.send_results_to_ispyb(
                 staraniso_xml,
                 special_program_name="autoPROC+STARANISO",
                 attachments=anisofiles,
             )
+
+        if success:
+            self._success_counter.inc()
+        else:
+            self._failure_counter.inc()
 
         return success

@@ -265,7 +265,7 @@ def generate_model_snapshots(root_wd, tmpl_env, tmpl_data):
             "#!/bin/bash",
             ". /etc/profile.d/modules.sh",
             "module purge",
-            "module load ccp4",
+            "module load ccp4/7.1",
             "module load python/3",
             f"coot --python {model_py} --no-graphics --no-guano",
         ]

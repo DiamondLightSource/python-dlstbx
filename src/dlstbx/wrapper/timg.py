@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import datetime
-import logging
 import os
 
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.timg")
-
 
 class TopazWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.timg"
+
     def run(self):
         # Check that a recipe wrapper has been passed
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -24,7 +24,7 @@ class TopazWrapper(Wrapper):
         os.chdir(working_directory)
 
         # Logs to {name}.e{job_id} in the working directory of the recipe
-        logger.info("Running wrapper commands")
+        self.log.info("Running wrapper commands")
 
         # Write out the parameters to {results_directory}/wrapper_output
         with open("{}/wrapper_output".format(params["results_directory"]), "a+") as f:
@@ -33,6 +33,6 @@ class TopazWrapper(Wrapper):
             for key, value in params.items():
                 f.write(f"{key}: {value}\n")
 
-        logging.info("Wrapper complete")
+        self.log.info("Wrapper complete")
 
         return True

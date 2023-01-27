@@ -762,6 +762,7 @@ class DLSFileWatcher(CommonService):
                 except Exception as e:
                     if not is_known_hdf5_exception(e):
                         self.log.error(f"Error reading {h5_data_file}", exc_info=True)
+                        rw.transport.transaction_abort(txn)
                         rw.transport.nack(header)
                         return
                     # For some reason this means that the .nxs file is probably

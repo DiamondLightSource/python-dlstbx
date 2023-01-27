@@ -81,14 +81,13 @@ def check():
     conda_environment = {
         package["name"]: package["version"] for package in json.loads(conda_list)
     }
-
     requirements = [
-        pkg_resources.Requirement.parse(spec) for spec in sorted(conda_required)
+        (spec, pkg_resources.Requirement.parse(spec)) for spec in sorted(conda_required)
     ]
 
     # Now we should have an unduplicated set of requirements
     action_list = []
-    for requirement in requirements:
+    for original_spec, requirement in requirements:
         # Check if package is installed in development mode
         try:
             currentversion = pkg_resources.require(requirement.name)[0].version
@@ -142,7 +141,7 @@ def check():
             "conda requirement %s is not currently met, package not installed"
             % (requirement)
         )
-        action_list.append(str(requirement))
+        action_list.append(str(original_spec))
 
     if not action_list:
         print("All conda requirements satisfied")

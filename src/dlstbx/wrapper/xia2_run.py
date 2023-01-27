@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import time
 from pathlib import Path
 
 import procrunner
@@ -10,10 +11,11 @@ import procrunner
 from dlstbx.util.iris import get_objects_from_s3
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("zocalo.wrap.xia2_run")
-
 
 class Xia2RunWrapper(Wrapper):
+    _logger_name = "zocalo.wrap.xia2_run"
+    name = "xia2"
+
     def construct_commandline(self, working_directory, params, is_cloud=False):
         """Construct xia2 command line.
         Takes job parameter dictionary, returns array."""
@@ -64,14 +66,14 @@ class Xia2RunWrapper(Wrapper):
             )
             handler = logging.StreamHandler()
             handler.setFormatter(formatter)
-            logger.addHandler(handler)
-            logger.setLevel(logging.DEBUG)
+            self.log.logger.addHandler(handler)
+            self.log.logger.setLevel(logging.DEBUG)
             try:
                 get_objects_from_s3(
-                    working_directory, self.recwrap.environment["s3_urls"], logger
+                    working_directory, self.recwrap.environment["s3_urls"], self.log
                 )
             except Exception:
-                logger.exception(
+                self.log.exception(
                     "Exception raised while downloading files from S3 object store"
                 )
                 return False
@@ -79,7 +81,7 @@ class Xia2RunWrapper(Wrapper):
         command = self.construct_commandline(
             working_directory, params, "singularity_image" in self.recwrap.environment
         )
-        logger.info("command: %s", " ".join(command))
+        self.log.info("command: %s", " ".join(command))
 
         procrunner_directory = working_directory / params["create_symlink"]
         procrunner_directory.mkdir(parents=True, exist_ok=True)
@@ -101,24 +103,34 @@ class Xia2RunWrapper(Wrapper):
                 )
 
         try:
+            start_time = time.perf_counter()
             result = procrunner.run(
                 command,
                 timeout=params.get("timeout"),
                 raise_timeout_exception=True,
                 working_directory=str(procrunner_directory),
             )
+            runtime = time.perf_counter() - start_time
+            self.log.info(f"xia2 took {runtime} seconds")
+            self._runtime_hist.observe(runtime)
         except subprocess.TimeoutExpired as te:
             success = False
-            logger.warning(f"xia2 timed out: {te.timeout}\n  {te.cmd}")
-            logger.debug(te.stdout)
-            logger.debug(te.stderr)
+            self.log.warning(f"xia2 timed out: {te.timeout}\n  {te.cmd}")
+            self.log.debug(te.stdout)
+            self.log.debug(te.stderr)
+            self._timeout_counter.inc()
         else:
             success = not result.returncode
             if success:
-                logger.info("xia2 successful")
+                self.log.info("xia2 successful")
             else:
-                logger.info(f"xia2 failed with exitcode {result.returncode}")
-                logger.debug(result.stdout)
-                logger.debug(result.stderr)
+                self.log.info(f"xia2 failed with exitcode {result.returncode}")
+                self.log.debug(result.stdout)
+                self.log.debug(result.stderr)
+
+        if success:
+            self._success_counter.inc()
+        else:
+            self._failure_counter.inc()
 
         return success

@@ -66,8 +66,8 @@ def test_check_relion_outcomes_pass_checks():
                 MotionCorrection=MotioncorrectionResult(
                     micrographFullPath=f"MotionCorr/job002/Movies/Frames/20170629_000{frame}_frameImage.mrc"
                 ),
-                astigmatism=(0 if frame == 23 else 247),
-                astigmatismAngle=(-35 if frame == 23 else 83),
+                astigmatism=(0 if frame == 42 else 247),
+                astigmatismAngle=(-35 if frame == 42 else 83),
             )
             for frame in frame_numbers
         ],
@@ -118,8 +118,8 @@ def test_check_relion_outcomes_fail_checks():
         "ctf": [
             CTFResult(
                 MotionCorrection=db_motion_corr_f(frame),
-                astigmatism=(0 if frame == 23 else 247),
-                astigmatismAngle=(-35 if frame == 23 else 83),
+                astigmatism=(0 if frame == 42 else 247),
+                astigmatismAngle=(-35 if frame == 42 else 83),
             )
             for frame in frame_numbers
         ],
@@ -144,7 +144,7 @@ def test_check_relion_outcomes_fail_checks():
     )
     assert not check_result["relion"]["success"]
     assert check_result["relion"]["reason"] == [
-        f"motion correction for MotionCorr/job002/Movies/Frames/20170629_00030_frameImage.mrc averageMotionPerFrame: -16 outside range {pytest.approx(0.5, 1)} in JobID:1"
+        f"motion correction for MotionCorr/job002/Movies/Frames/20170629_00030_frameImage.mrc averageMotionPerFrame: -16 outside range {pytest.approx(0.5, 1.25)} in JobID:1"
     ]
 
 
@@ -183,8 +183,8 @@ def test_check_test_outcome_success(
     mock_ctf.return_value = [
         CTFResult(
             MotionCorrection=db_motion_corr(frame),
-            astigmatism=(0 if frame == 23 else 247),
-            astigmatismAngle=(-35 if frame == 23 else 83),
+            astigmatism=(0 if frame == 42 else 247),
+            astigmatismAngle=(-35 if frame == 42 else 83),
         )
         for frame in frame_numbers
     ]
@@ -236,7 +236,7 @@ def test_check_test_outcome_failure(
         )
         motion_corr.totalMotion = 15
         if i == 30:
-            motion_corr.averageMotionPerFrame = -0.1
+            motion_corr.averageMotionPerFrame = -0.2
         else:
             motion_corr.averageMotionPerFrame = 0.5
         return motion_corr
@@ -249,8 +249,8 @@ def test_check_test_outcome_failure(
     mock_ctf.return_value = [
         CTFResult(
             MotionCorrection=db_motion_corr(frame),
-            astigmatism=(0 if frame == 23 else 247),
-            astigmatismAngle=(-35 if frame == 23 else 83),
+            astigmatism=(0 if frame == 42 else 247),
+            astigmatismAngle=(-35 if frame == 42 else 83),
         )
         for frame in frame_numbers
     ]
@@ -276,5 +276,5 @@ def test_check_test_outcome_failure(
     test_checked = dlstbx.dc_sim.check.check_test_outcome(test, mock.Mock())
     assert not test_checked["success"]
     assert test_checked["reason"].endswith(
-        f"averageMotionPerFrame: -0.1 outside range {pytest.approx(0.5, 1)} in JobID:1"
+        f"averageMotionPerFrame: -0.2 outside range {pytest.approx(0.5, 1.25)} in JobID:1"
     )

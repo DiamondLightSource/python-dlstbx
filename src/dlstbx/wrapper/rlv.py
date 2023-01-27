@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import gzip
-import logging
 import os
 import shutil
 
@@ -10,10 +9,11 @@ import procrunner
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.rlv")
-
 
 class RLVWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.rlv"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -34,17 +34,17 @@ class RLVWrapper(Wrapper):
             command.append(template)
         else:
             command.append(f"template={template}")
-        logger.info("command: %s", " ".join(command))
+        self.log.info("command: %s", " ".join(command))
         result = procrunner.run(command, timeout=params.get("timeout"))
         if result["exitcode"] or result["timeout"]:
-            logger.warning(
+            self.log.warning(
                 "Failed to import files %s with exitcode %s and timeout %s",
                 params["template"],
                 result["exitcode"],
                 result["timeout"],
             )
             return False
-        logger.info("Import successful, took %.1f seconds", result["runtime"])
+        self.log.info("Import successful, took %.1f seconds", result["runtime"])
 
         # then find spots
         command = [
@@ -52,17 +52,17 @@ class RLVWrapper(Wrapper):
             "imported.expt",
             "nproc=" + str(os.getenv("NSLOTS", "20")),
         ]
-        logger.info("command: %s", " ".join(command))
+        self.log.info("command: %s", " ".join(command))
         result = procrunner.run(command, timeout=params.get("timeout"))
         if result["exitcode"] or result["timeout"]:
-            logger.warning(
+            self.log.warning(
                 "Spotfinding failed on %s with exitcode %s and timeout %s",
                 params["template"],
                 result["exitcode"],
                 result["timeout"],
             )
             return False
-        logger.info("Spotfinding successful, took %.1f seconds", result["runtime"])
+        self.log.info("Spotfinding successful, took %.1f seconds", result["runtime"])
 
         # then map to json file
         command = [
@@ -74,17 +74,19 @@ class RLVWrapper(Wrapper):
             "imported.expt",
             "strong.refl",
         ]
-        logger.info("command: %s", " ".join(command))
+        self.log.info("command: %s", " ".join(command))
         result = procrunner.run(command, timeout=params.get("timeout"))
         if result["exitcode"] or result["timeout"]:
-            logger.warning(
+            self.log.warning(
                 "dials.export format=json failed on %s with exitcode %s and timeout %s",
                 params["template"],
                 result["exitcode"],
                 result["timeout"],
             )
             return False
-        logger.info("JSON generation successful, took %.1f seconds", result["runtime"])
+        self.log.info(
+            "JSON generation successful, took %.1f seconds", result["runtime"]
+        )
 
         with open("rlp.json", "rb") as fin:
             with gzip.open("rlp.json.gz", "wb") as fout:
@@ -101,7 +103,7 @@ class RLVWrapper(Wrapper):
         for filename in params.get("keep_files", defaultfiles):
             if os.path.exists(filename):
                 dst = os.path.join(results_directory, filename)
-                logger.debug(f"Copying {filename} to {dst}")
+                self.log.debug(f"Copying {filename} to {dst}")
                 shutil.copy(filename, dst)
                 foundfiles.append(dst)
                 self.record_result_individual_file(
@@ -112,11 +114,11 @@ class RLVWrapper(Wrapper):
                     }
                 )
             else:
-                logger.warning("Expected output file %s missing", filename)
+                self.log.warning("Expected output file %s missing", filename)
                 success = False
 
         if foundfiles:
-            logger.info("Notifying for found files: %s", str(foundfiles))
+            self.log.info("Notifying for found files: %s", str(foundfiles))
             self.record_result_all_files({"filelist": foundfiles})
 
         if params.get("results_symlink"):
@@ -125,6 +127,6 @@ class RLVWrapper(Wrapper):
                 results_directory, params["results_symlink"]
             )
 
-        logger.info("Done.")
+        self.log.info("Done.")
 
         return success

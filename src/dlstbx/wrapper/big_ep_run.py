@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 import shutil
 from argparse import Namespace
@@ -13,13 +12,13 @@ from jinja2.exceptions import UndefinedError
 from jinja2.loaders import PackageLoader
 
 from dlstbx.util.big_ep_helpers import write_sequence_file, write_settings_file
-
-logger = logging.getLogger("zocalo.wrap.big_ep_run")
-
 from dlstbx.wrapper import Wrapper
 
 
 class BigEPRunWrapper(Wrapper):
+
+    _logger_name = "zocalo.wrap.big_ep_run"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
@@ -49,19 +48,19 @@ class BigEPRunWrapper(Wrapper):
         try:
             write_sequence_file(output_directory, self.msg)
         except Exception:
-            logger.exception("Error writing sequence file")
+            self.log.exception("Error writing sequence file")
         try:
             write_settings_file(output_directory, self.msg)
         except Exception:
-            logger.exception("Error reading big_ep parameters")
+            self.log.exception("Error reading big_ep parameters")
 
-        logger.info(f"Message object: {pformat(self.msg)}")
-        logger.info(f"Parameters: {params}")
+        self.log.info(f"Message object: {pformat(self.msg)}")
+        self.log.info(f"Parameters: {params}")
         with open(pipeline_script, "w") as fp:
             try:
                 pipeline_input = pipeline_template.render(self.msg.__dict__)
             except UndefinedError:
-                logger.exception(f"Error rendering {pipeline} script template")
+                self.log.exception(f"Error rendering {pipeline} script template")
                 return False
             fp.write(pipeline_input)
 
@@ -70,22 +69,24 @@ class BigEPRunWrapper(Wrapper):
             timeout=params.get("timeout"),
             working_directory=output_directory,
         )
-        logger.info("command: %s", " ".join(result["command"]))
-        logger.info("runtime: %s", result["runtime"])
+        self.log.info("command: %s", " ".join(result["command"]))
+        self.log.info("runtime: %s", result["runtime"])
 
         # Just log exit state of the program and try to read any
         # intermediate models in case of failure/timeout
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info(f"{pipeline} successful, took %.1f seconds", result["runtime"])
+            self.log.info(
+                f"{pipeline} successful, took %.1f seconds", result["runtime"]
+            )
         else:
-            logger.info(
+            self.log.info(
                 f"{pipeline} failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"])
-            logger.debug(result["stderr"])
+            self.log.debug(result["stdout"])
+            self.log.debug(result["stderr"])
 
         # HTCondor resolves symlinks while transferring data and doesn't support symlinks to direcotries
         if self.msg.singularity_image:

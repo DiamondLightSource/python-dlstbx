@@ -51,6 +51,7 @@ class Parameters(pydantic.BaseModel):
     latency_log_warning: float = 30
     latency_log_error: float = 300
     beamline: str
+    threshold: pydantic.NonNegativeFloat = 0.25
 
 
 class RecipeStep(pydantic.BaseModel):
@@ -90,13 +91,11 @@ class PrometheusMetrics(BasePrometheusMetrics):
             name="complete_centerings",
             documentation="Counts total number of completed x-ray centerings",
             labelnames=["beamline"],
-            registry=self.registry,
         )
         self.analysis_latency = prometheus_client.Histogram(
             name="analysis_latency",
             documentation="The time passed (s) from end of data collection to end of x-ray centering",
             labelnames=["beamline"],
-            registry=self.registry,
             buckets=[0.5, 1, 2, 5, 10, 30, 60, 300, 600, 3600],
             unit="s",
         )
@@ -128,7 +127,7 @@ class DLSXRayCentering(CommonService):
             acknowledgement=True,
             exclusive=True,
             log_extender=self.extend_log,
-            prefetch_count=0,
+            prefetch_count=65535,
         )
 
         # Initialise metrics if requested
@@ -225,25 +224,43 @@ class DLSXRayCentering(CommonService):
             cd.last_image_seen_at = max(cd.last_image_seen_at, message.file_seen_at)
 
             if dcg_dcids and cd.images_seen == gridinfo.image_count:
-                data = [cd.data]
+                dcids = [dcid]
+                data = [
+                    dlstbx.util.xray_centering.reshape_grid(
+                        cd.data,
+                        (cd.gridinfo.steps_x, cd.gridinfo.steps_y),
+                        cd.gridinfo.snaked,
+                        cd.gridinfo.orientation,
+                    )
+                ]
                 for _dcid in dcg_dcids:
+                    dcids.append(_dcid)
                     _cd = self._centering_data.get(_dcid)
                     if not _cd:
                         break
                     if _cd.images_seen != _cd.gridinfo.image_count:
                         break
-                    data.append(_cd.data)
+                    data.append(
+                        dlstbx.util.xray_centering.reshape_grid(
+                            _cd.data,
+                            (_cd.gridinfo.steps_x, _cd.gridinfo.steps_y),
+                            not _cd.gridinfo.snaked,  # XXX
+                            _cd.gridinfo.orientation,
+                        )
+                    )
                 else:
                     # All results present
                     self.log.info(
-                        f"All records arrived for X-ray centering on DCIDs {dcg_dcids + [dcid]}"
+                        f"All records arrived for X-ray centering on DCIDs {sorted(dcids)}"
                     )
+                    # Sort the data by dcid
+                    perm = np.argsort(dcids)
+                    self.log.debug(f"{perm=}")
+                    data = [data[p] for p in perm]
 
                     result = dlstbx.util.xray_centering_3d.gridscan3d(
-                        data=np.array(data),
-                        steps=(gridinfo.steps_x, gridinfo.steps_y),
-                        snaked=gridinfo.snaked,
-                        orientation=gridinfo.orientation,
+                        data=tuple(data),
+                        threshold=parameters.threshold,
                         plot=False,
                     )
                     self.log.info(f"3D X-ray centering result: {result}")
@@ -259,7 +276,11 @@ class DLSXRayCentering(CommonService):
 
                     # Send results onwards
                     rw.set_default_channel("success")
-                    rw.send_to("success", result, transaction=txn)
+                    rw.send_to(
+                        "success",
+                        [dataclasses.asdict(r) for r in result],
+                        transaction=txn,
+                    )
                     rw.transport.transaction_commit(txn)
 
                     for _dcid in dcg_dcids + [dcid]:
@@ -297,17 +318,10 @@ class DLSXRayCentering(CommonService):
                     )
                     parameters.output.parent.mkdir(parents=True, exist_ok=True)
                     with parameters.output.open("w") as fh:
-
-                        def convert(o):
-                            if isinstance(o, np.integer):
-                                return int(o)
-                            raise TypeError
-
                         json.dump(
                             dataclasses.asdict(result),
                             fh,
                             sort_keys=True,
-                            default=convert,
                         )
                     if parameters.results_symlink:
                         # Create symbolic link above working directory

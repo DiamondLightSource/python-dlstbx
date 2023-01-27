@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 
 import procrunner
@@ -11,10 +10,11 @@ import dlstbx.util.symlink
 from dlstbx.util.merging_statistics import get_merging_statistics
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.fast_rdp")
-
 
 class FastRDPWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.fast_rdp"
+
     def send_results_to_ispyb(self, z):
         ispyb_command_list = []
 
@@ -60,9 +60,9 @@ class FastRDPWrapper(Wrapper):
         }
         ispyb_command_list.append(integration)
 
-        logger.info("Sending %s", str(ispyb_command_list))
+        self.log.info("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+        self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
     def construct_commandline(self, params):
         """Construct fast_rdp command line.
@@ -108,10 +108,10 @@ class FastRDPWrapper(Wrapper):
                 "fast_dp_directory"
             )
         if not params["fast_rdp"].get("fast_dp_directory"):
-            logger.error("No fast_dp_directory provided for fast_rdp")
+            self.log.error("No fast_dp_directory provided for fast_rdp")
             return False
         if not os.path.isdir(params["fast_rdp"].get("fast_dp_directory")):
-            logger.error(
+            self.log.error(
                 "%s is not a directory", params["fast_rdp"].get("fast_dp_directory")
             )
             return False
@@ -129,7 +129,7 @@ class FastRDPWrapper(Wrapper):
             )
 
         # run fast_rdp in working directory
-        logger.info("Running command: %s", " ".join(command))
+        self.log.info("Running command: %s", " ".join(command))
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
@@ -141,9 +141,9 @@ class FastRDPWrapper(Wrapper):
             result["exitcode"] = 1
 
         if result["timeout"]:
-            logger.info("timeout: %s", result["timeout"])
+            self.log.info("timeout: %s", result["timeout"])
 
-        logger.info(
+        self.log.info(
             "fast_rdp ran for %.1f seconds and returned exitcode %s",
             result["runtime"],
             result["exitcode"],
@@ -158,13 +158,13 @@ class FastRDPWrapper(Wrapper):
                 "fast_rdp_unmerged.mtz",
             ]
             # run xia2.report in working directory
-            logger.info("Running command: %s", " ".join(command))
+            self.log.info("Running command: %s", " ".join(command))
             result = procrunner.run(
                 command,
                 timeout=params.get("timeout"),
                 working_directory=working_directory.strpath,
             )
-            logger.info(
+            self.log.info(
                 "xia2.report ran for %.1f seconds and returned exitcode %s",
                 result["runtime"],
                 result["exitcode"],
@@ -215,7 +215,7 @@ class FastRDPWrapper(Wrapper):
             if filetype is None:
                 continue
             destination = results_directory.join(filename.basename)
-            logger.debug(f"Copying {filename.strpath} to {destination.strpath}")
+            self.log.debug(f"Copying {filename.strpath} to {destination.strpath}")
             allfiles.append(destination.strpath)
             filename.copy(destination)
             if filetype:
@@ -235,8 +235,8 @@ class FastRDPWrapper(Wrapper):
                 json_data = json.load(fh)
             self.send_results_to_ispyb(json_data)
         elif result["exitcode"]:
-            logger.info("fast_rdp failed to process the dataset")
+            self.log.info("fast_rdp failed to process the dataset")
         else:
-            logger.warning("Expected JSON output file missing")
+            self.log.warning("Expected JSON output file missing")
 
         return result["exitcode"] == 0

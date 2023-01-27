@@ -48,16 +48,27 @@ def get_real_frames(master, dataset):
             dsetname = link.path
         else:
             filename = os.path.join(root, filename)
-
         file_dataset.append((filename, dsetname))
 
         vspace = plist.get_virtual_vspace(j)
-        frames = vspace.get_regular_hyperslab()[3][0]
-        offset = vspace.get_regular_hyperslab()[0][0]
+        if vspace.get_select_type() != h5py.h5s.SEL_HYPERSLABS:
+            continue
 
-        for k in range(frames):
-            file_map[k + offset] = (j, k)
+        srcspace = plist.get_virtual_srcspace(j)
+        if srcspace.get_select_type() != h5py.h5s.SEL_HYPERSLABS:
+            continue
 
+        voffset, vstride, vcount, vframes = [
+            v[0] for v in vspace.get_regular_hyperslab()
+        ]
+        offset, stride, count, frames = [v[0] for v in srcspace.get_regular_hyperslab()]
+
+        # Assert that data is collected in continuous blocks
+        assert (vstride, vcount, stride, count) == (1, 1, 1, 1)
+        assert vframes == frames
+
+        for k in range(vframes):
+            file_map[voffset + k] = (j, offset + k)
     return file_dataset, file_map
 
 
@@ -73,7 +84,11 @@ if __name__ == "__main__":
         t1 = time.time()
         logger.info(f"Setup took {t1-t0:.3f}s")
         shape = d.shape
+        assert len(file_map) == shape[0]
         for j in map(int, sys.argv[2:]):
+            assert (
+                j > 0 and j <= shape[0]
+            ), f"Frame index {j} out of range (1, {shape[0]})"
             m, k = file_map[j - 1]
             _f, _d = file_dataset[m]
             size = wait_for_frame(_f, _d, k)

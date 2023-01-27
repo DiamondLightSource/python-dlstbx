@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime
 import json
-import logging
 import shutil
 from pathlib import Path
 
@@ -11,13 +10,17 @@ import dateutil.parser
 import dlstbx.util.symlink
 from dlstbx.util.iris import remove_objects_from_s3
 from dlstbx.wrapper import Wrapper
-
-logger = logging.getLogger("zocalo.wrap.xia2_results")
+from dlstbx.wrapper.helpers import run_dials_estimate_resolution
 
 
 class Xia2ResultsWrapper(Wrapper):
-    def send_results_to_ispyb(self, xia2_json, xtriage_results=None):
-        logger.info("Reading xia2 results")
+
+    _logger_name = "zocalo.wrap.xia2_results"
+
+    def send_results_to_ispyb(
+        self, xia2_json, xtriage_results=None, res_i_sig_i_2: float | None = None
+    ):
+        self.log.info("Reading xia2 results")
         from xia2.Interfaces.ISPyB import xia2_to_json_object
         from xia2.Schema.XProject import XProject
 
@@ -49,6 +52,8 @@ class Xia2ResultsWrapper(Wrapper):
                 "store_result": "ispyb_autoprocscaling_id",
             }
         )
+        if res_i_sig_i_2 is not None:
+            insert_scaling["overall"]["res_i_sig_i_2"] = res_i_sig_i_2
         ispyb_command_list.append(insert_scaling)
 
         # Step 3: Store integration results, linking them to ScalingID
@@ -85,9 +90,9 @@ class Xia2ResultsWrapper(Wrapper):
                     }
                 )
 
-        logger.info("Sending %s", str(ispyb_command_list))
+        self.log.info("Sending %s", str(ispyb_command_list))
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-        logger.info("Sent %d commands to ISPyB", len(ispyb_command_list))
+        self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -115,7 +120,7 @@ class Xia2ResultsWrapper(Wrapper):
                     self.recwrap.environment.get("s3_urls"),
                 )
             except Exception:
-                logger.exception(
+                self.log.exception(
                     "Exception raised while trying to remove files from S3 object store."
                 )
 
@@ -127,22 +132,26 @@ class Xia2ResultsWrapper(Wrapper):
             )
 
         if not working_directory.is_dir():
-            logger.error(f"xia2 working directory {str(working_directory)} not found.")
+            self.log.error(
+                f"xia2 working directory {str(working_directory)} not found."
+            )
             return False
 
         for subdir in ("DataFiles", "LogFiles"):
             src = working_directory / subdir
             dst = results_directory / subdir
             if src.exists():
-                logger.debug(f"Recursively copying {str(src)} to {str(dst)}")
+                self.log.debug(f"Recursively copying {str(src)} to {str(dst)}")
                 shutil.copytree(src, dst)
             else:
-                logger.warning(f"Expected output directory does not exist: {str(src)}")
+                self.log.warning(
+                    f"Expected output directory does not exist: {str(src)}"
+                )
 
         allfiles = []
         for f in working_directory.iterdir():
             if f.is_file() and not f.name.startswith(".") and f.suffix != ".sif":
-                logger.debug(f"Copying {str(f)} to results directory")
+                self.log.debug(f"Copying {str(f)} to results directory")
                 shutil.copy(f, results_directory)
                 allfiles.append(str(results_directory / f.name))
 
@@ -180,7 +189,7 @@ class Xia2ResultsWrapper(Wrapper):
                     )
                     allfiles.append(str(result_file))
         else:
-            logger.info("xia2 DataFiles directory not found")
+            self.log.info("xia2 DataFiles directory not found")
             success = False
 
         logfiles_path = results_directory / "LogFiles"
@@ -202,8 +211,36 @@ class Xia2ResultsWrapper(Wrapper):
                     )
                     allfiles.append(str(result_file))
         else:
-            logger.info("xia2 LogFiles directory not found")
+            self.log.info("xia2 LogFiles directory not found")
             success = False
+
+        # Calculate the resolution at which the mean merged I/sig(I) = 2
+        # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
+        res_i_sig_i_2 = None
+        if success:
+            try:
+                estimate_resolution_input_files = [
+                    next((working_directory / "DataFiles").glob("*_scaled.expt")),
+                    next((working_directory / "DataFiles").glob("*_scaled.refl")),
+                ]
+            except StopIteration:
+                estimate_resolution_input_files = [
+                    next(
+                        (working_directory / "DataFiles").glob("*_scaled_unmerged.mtz")
+                    ),
+                ]
+            try:
+                extra_args = ["misigma=2"]
+                resolution_limits = run_dials_estimate_resolution(
+                    estimate_resolution_input_files,
+                    working_directory,
+                    extra_args=extra_args,
+                )
+                res_i_sig_i_2 = resolution_limits.get("Mn(I/sig)")
+            except Exception as e:
+                self.log.warning(
+                    f"dials.estimate_resolution failure: {e}", exc_info=True
+                )
 
         # Part of the result parsing requires to be in result directory
         xia2_report = results_directory / "xia2-report.json"
@@ -223,9 +260,13 @@ class Xia2ResultsWrapper(Wrapper):
             and any(Path(datafiles_path).iterdir())
         ):
             if not params.get("do_not_write_to_ispyb"):
-                self.send_results_to_ispyb(xia2_json, xtriage_results=xtriage_results)
+                self.send_results_to_ispyb(
+                    xia2_json,
+                    xtriage_results=xtriage_results,
+                    res_i_sig_i_2=res_i_sig_i_2,
+                )
         else:
-            logger.info("xia2 processing exited with and error")
+            self.log.info("xia2 processing exited with and error")
             success = False
 
         if allfiles:
@@ -237,7 +278,7 @@ class Xia2ResultsWrapper(Wrapper):
             dcid = params.get("dcid")
             latency_s = (datetime.datetime.now() - dc_end_time).total_seconds()
             program_name = f"xia2-{pipeline}" if pipeline else "xia2"
-            logger.info(
+            self.log.info(
                 f"{program_name} completed for DCID {dcid} with latency of {latency_s:.2f} seconds",
                 extra={f"{program_name}-latency-seconds": latency_s},
             )

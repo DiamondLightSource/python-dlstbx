@@ -212,7 +212,7 @@ def _simulate(
         proc_job_values["datacollectionid"] = datacollectionid
         proc_job_values["display_name"] = "RELION"
         proc_job_values["comments"] = "Submitted as part of simulated data collection"
-        proc_job_values["recipe"] = "relion"
+        proc_job_values["recipe"] = "relion4"
         proc_job_values["automatic"] = 0
         procjobid = i.mx_processing.upsert_job(list(proc_job_values.values()))
 
@@ -517,15 +517,18 @@ def call_sim(test_name, beamline):
     now = datetime.now()
     # These proposal numbers need to be updated every year
     if beamline.startswith(("e", "m")):
-        proposal = "cm31111"
+        proposal = "cm33870"
     else:
-        proposal = "nt31175"
+        proposal = "nt33918"
     if beamline.startswith("i02"):
         if beamline == "i02-2":
             dest_visit = f"{proposal}-1"
         elif beamline == "i02-1":
             dest_visit = f"{proposal}-2"
         dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
+    elif scenario.get("visit_num"):
+        dest_visit = f"{proposal}-{scenario['visit_num']}"
+        dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
     else:
         for cm_dir in Path("/dls", beamline, "data", str(now.year)).iterdir():
             if cm_dir.name.startswith(proposal):

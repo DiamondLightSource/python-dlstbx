@@ -102,7 +102,7 @@ class CommonSystemTest(metaclass=_CommonSystemTestMeta):
         self.validation = True
         try:
             for name, function in self.enumerate_test_functions():
-                self.log.info("validating %s" % name)
+                self.log.info("validating %s", name)
                 function()
                 self.rotate_guid()  # rotate guid for next function
                 self.log.info("OK")

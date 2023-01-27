@@ -58,10 +58,16 @@ def get_scenarios(dcid, session: sqlalchemy.orm.session.Session):
                 anomalous_scatterer
             )
     dc_class = ispyb_info.get("ispyb_dc_class")
-    if dc_class and dc_class["grid"]:
+    if dc_class and dc_class["serial_fixed"]:
+        dc_class_mimas = dlstbx.mimas.MimasDCClass.SERIAL_FIXED
+    elif dc_class and dc_class["serial_jet"]:
+        dc_class_mimas = dlstbx.mimas.MimasDCClass.SERIAL_JET
+    elif dc_class and dc_class["grid"]:
         dc_class_mimas = dlstbx.mimas.MimasDCClass.GRIDSCAN
     elif dc_class and dc_class["screen"]:
         dc_class_mimas = dlstbx.mimas.MimasDCClass.SCREENING
+    elif dc_class and dc_class["diamond_anvil_cell"]:
+        dc_class_mimas = dlstbx.mimas.MimasDCClass.DIAMOND_ANVIL_CELL
     elif dc_class and dc_class["rotation"]:
         dc_class_mimas = dlstbx.mimas.MimasDCClass.ROTATION
     else:

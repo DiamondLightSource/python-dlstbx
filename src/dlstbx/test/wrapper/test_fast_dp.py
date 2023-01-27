@@ -97,6 +97,9 @@ def test_FastDPWrapper(make_wrapper, tmpdir, mocker):
                 }
             },
         },
+        "environment": {
+            "ID": "fake-uuid",
+        },
         "recipe-path": [1],
         "recipe-pointer": 2,
     }

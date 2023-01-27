@@ -36,6 +36,23 @@ class Result:
     best_region: Optional[List[Tuple[int, int]]] = None
 
 
+def reshape_grid(
+    data: np.ndarray, steps: Tuple[int, int], snaked: bool, orientation: Orientation
+) -> np.ndarray:
+    if orientation == Orientation.VERTICAL:
+        data = data.reshape(steps)
+    else:
+        data = data.reshape(*reversed(steps)).T
+
+    if snaked and orientation == Orientation.HORIZONTAL:
+        # Reverse the direction of every second column
+        data[:, 1::2] = data[::-1, 1::2]
+    elif snaked and orientation == Orientation.VERTICAL:
+        # Reverse the direction of every second row
+        data[1::2, :] = data[1::2, ::-1]
+    return data
+
+
 def main(
     data: np.ndarray,
     steps: Tuple[int, int],
@@ -55,25 +72,14 @@ def main(
         f"box_size_px: {box_size_px}",
         f"snapshot_offset: {snapshot_offset}",
     ]
-
-    if orientation == Orientation.VERTICAL:
-        data = data.reshape(steps).T
-    else:
-        data = data.reshape(*reversed(steps))
-
     idx = np.argmax(data)
-    maximum_spots = data[np.unravel_index(idx, data.shape)]
+    maximum_spots = int(data[np.unravel_index(idx, data.shape)])
     best_image = int(idx + 1)
     if maximum_spots == 0:
         result.message = "No good images found"
         return result, "\n".join(output)
 
-    if snaked and orientation == Orientation.HORIZONTAL:
-        # Reverse the direction of every second row
-        data[1::2, :] = data[1::2, ::-1]
-    elif snaked and orientation == Orientation.VERTICAL:
-        # Reverse the direction of every second column
-        data[:, 1::2] = data[::-1, 1::2]
+    data = reshape_grid(data, steps, snaked, orientation).T
 
     result.best_image = best_image
     result.reflections_in_best_image = maximum_spots
@@ -89,7 +95,7 @@ def main(
     best = unique[np.argmax(counts)] if unique[0] else unique[np.argmax(counts[1:]) + 1]
     com = scipy.ndimage.center_of_mass(labels == best)
     output.append(f"grid:\n{threshold}".replace(" 0", " ."))
-    result.best_region = list(zip(*np.where(labels == best)))
+    result.best_region = list(zip(*(w.tolist() for w in np.where(labels == best))))
 
     centre_x_box, centre_y_box = reversed([c + 0.5 for c in com])
     centre_x = snapshot_offset[0] + centre_x_box * box_size_px[0]

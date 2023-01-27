@@ -1,12 +1,23 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Optional
 
 import iotbx.pdb
 from scitbx.array_family import flex
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class PDBFileOrCode:
+    filepath: Optional[str] = None
+    code: Optional[str] = None
+    source: Optional[str] = None
+
+    def __str__(self):
+        return str(self.filepath) if self.filepath else str(self.code)
 
 
 def trim_pdb_bfactors(

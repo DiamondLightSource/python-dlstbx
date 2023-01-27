@@ -1,10 +1,20 @@
 from __future__ import annotations
 
 import functools
+import os.path
 
 import dxtbx.model.experiment_list
+import h5py
+import numpy as np
 import pytest
 import workflows.recipe
+
+try:
+    from dxtbx.format.FormatNXmxDLS import find_meta_filename
+except ImportError:
+    # backwards compatibility for dials 3.10.X
+    from dxtbx.format.FormatNexusEigerDLS import find_meta_filename
+
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.hdf5 as hdf5_util
@@ -107,7 +117,47 @@ class DLSValidation(CommonService):
                 except hdf5_util.ValidationError as e:
                     msg = f"HDF5 file {filename} contains invalid pixel_mask: {e}"
                     return fail(msg)
+                meta_h5 = find_meta_filename(filename)
+                if not os.path.isfile(meta_h5):
+                    return fail(f"{meta_h5} not found")
+                with h5py.File(meta_h5) as fh:
+                    zeros = [
+                        f"/_dectris/{name}"
+                        for name, d in fh["/_dectris"].items()
+                        if len(d) == 0
+                    ]
+                    if zeros:
+                        return fail(
+                            f"Empty datasets found in {meta_h5}:\n" + "\n".join(zeros)
+                        )
+
+                if output.get("beamline") not in ("i02-2", "i04"):
+                    # VMXi currently doesn't write the /entry/data/data VDS so skip this check
+                    # https://jira.diamond.ac.uk/browse/VMXI-897
+                    with h5py.File(filename) as fh:
+                        pixel_mask = fh["/entry/instrument/detector/pixel_mask"][()]
+                        if "/entry/data/data" not in fh:
+                            return fail("Missing VDS /entry/data/data")
+                        data = fh["/entry/data/data"][0]
+                        max_value = np.max(data)
+                        if max_value not in (0xFFFF, 0x7FFFFFFF, 0xFFFFFFFF):
+                            return fail(
+                                f"Unxpected max pixel value found in {filename}: {max_value}"
+                            )
+                        unmasked_minus_ones = np.count_nonzero(
+                            (data == max_value) & (pixel_mask == 0)
+                        )
+                        if unmasked_minus_ones > 100:
+                            return fail(
+                                f"{unmasked_minus_ones} unmasked -1 pixel values found in first image for {filename}"
+                            )
+                        n_masked_pixels = np.count_nonzero(pixel_mask)
+                        if n_masked_pixels == pixel_mask.size:
+                            return fail(
+                                "All pixels are masked (is the detector set to full header mode?)"
+                            )
             except Exception as e:
+                self.log.warning(e, exc_info=True)
                 return fail(
                     f"Unhandled {type(e).__name__} exception reading {filename}"
                 )

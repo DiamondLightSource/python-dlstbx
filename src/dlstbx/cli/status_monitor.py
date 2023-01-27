@@ -443,7 +443,7 @@ def run():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", action="version", version=version)
     parser.add_argument("-?", action="help", help=argparse.SUPPRESS)
-    known_services = workflows.services.get_known_services()
+    known_services = sorted(workflows.services.get_known_services())
     parser.add_argument(
         "-s",
         "--service",

@@ -139,14 +139,17 @@ def run():
                 else:
                     if not _ispybtbx_instance:
                         _ispybtbx_instance = dlstbx.ispybtbx.ispybtbx()
-                    parameters["ispyb_dcid"] = _ispybtbx_instance.get_dcid_for_path(arg)
+                    with Session() as session:
+                        parameters["ispyb_dcid"] = _ispybtbx_instance.get_dcid_for_path(
+                            arg, session
+                        )
 
         if parameters.get("ispyb_process"):
             print("Processing ID:", parameters["ispyb_process"])
         else:
             print("Data collection ID:", parameters["ispyb_dcid"])
         with Session() as session:
-            message, parameters = dlstbx.ispybtbx.ispyb_filter({}, parameters, session)
+            _, parameters = dlstbx.ispybtbx.ispyb_filter({}, parameters, session)
 
         if options.recipefile:
             with open(options.recipefile, "rb") as f:

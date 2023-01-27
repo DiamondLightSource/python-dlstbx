@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import concurrent.futures
 import json
+import time
 from unittest import mock
 
 import ispyb.sqlalchemy
@@ -9,6 +11,7 @@ import sqlalchemy
 from sqlalchemy.orm import sessionmaker
 
 import dlstbx.ispybtbx
+from dlstbx import crud
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
 
 ds = {
@@ -21,8 +24,9 @@ ds = {
     "i19_screening": 1396413,
     "cryo_em": 2097825,
     "cryo_em_tiff": 6351623,
-    "borken_dcid": 2091234,
 }
+
+borken_dcid = 2091234
 
 
 @pytest.fixture(scope="session")
@@ -98,6 +102,11 @@ def test_ispyb_recipe_filtering_is_successful_for_all_listed_examples(db_session
         assert len(parameters) > 10
 
 
+def test_ispyb_recipe_filtering_raises_error_for_borken_dcid(db_session):
+    with pytest.raises(ValueError):
+        ispyb_filter({}, {"ispyb_dcid": borken_dcid}, db_session)
+
+
 def test_ispyb_filtering_for_processing_job(db_session):
     message = {}
     parameters = {"ispyb_process": 6406100}
@@ -119,16 +128,6 @@ def test_ispyb_filtering_for_processing_job(db_session):
     assert parameters["ispyb_processing_parameters"] == {
         "resolution.cc_half_significance_level": ["0.1"]
     }
-
-
-def test_fetch_datacollect_group_from_ispyb(db_session):
-    i = ispybtbx()
-    dc_id = ds["gphl_C2"]
-    dc_info = i.get_dc_info(dc_id, db_session)
-    assert dc_info
-    assert dc_info["dataCollectionGroupId"]
-    whole_group = i.get_related_dcs(dc_info["dataCollectionGroupId"], db_session)
-    assert len(whole_group) == 1
 
 
 def test_get_datacollection_information(db_session):
@@ -224,17 +223,75 @@ def test_datacollection_classification():
         "overlap": 0,
         "gridinfo": {"steps_x": 1, "steps_y": 80},
     }
-    assert i.classify_dc(dc) == {"grid": True, "rotation": False, "screen": False}
+    assert i.classify_dc(dc, None) == {
+        "grid": True,
+        "rotation": False,
+        "screen": False,
+        "serial_fixed": False,
+        "serial_jet": False,
+        "diamond_anvil_cell": False,
+    }
 
     i = ispybtbx()
     dc = {"axisRange": 0, "numberOfImages": 1, "overlap": 0, "gridinfo": {}}
-    assert i.classify_dc(dc) == {"grid": False, "rotation": False, "screen": True}
+    assert i.classify_dc(dc, None) == {
+        "grid": False,
+        "rotation": False,
+        "screen": True,
+        "serial_fixed": False,
+        "serial_jet": False,
+        "diamond_anvil_cell": False,
+    }
 
     dc = {"axisRange": 90, "numberOfImages": 1800, "overlap": 0}
-    assert i.classify_dc(dc) == {"grid": False, "rotation": True, "screen": False}
+    assert i.classify_dc(dc, None) == {
+        "grid": False,
+        "rotation": True,
+        "screen": False,
+        "serial_fixed": False,
+        "serial_jet": False,
+        "diamond_anvil_cell": False,
+    }
 
     dc = {"axisRange": 90, "numberOfImages": 3, "overlap": -44.5}
-    assert i.classify_dc(dc) == {"grid": False, "rotation": False, "screen": True}
+    assert i.classify_dc(dc, None) == {
+        "grid": False,
+        "rotation": False,
+        "screen": True,
+        "serial_fixed": False,
+        "serial_jet": False,
+        "diamond_anvil_cell": False,
+    }
+
+    dc = {"axisRange": 0, "numberOfImages": 25600, "overlap": 0}
+    assert i.classify_dc(dc, "Serial Fixed") == {
+        "grid": False,
+        "rotation": False,
+        "screen": False,
+        "serial_fixed": True,
+        "serial_jet": False,
+        "diamond_anvil_cell": False,
+    }
+
+    dc = {"axisRange": 0, "numberOfImages": 10000, "overlap": 0}
+    assert i.classify_dc(dc, "Serial Jet") == {
+        "grid": False,
+        "rotation": False,
+        "screen": False,
+        "serial_fixed": False,
+        "serial_jet": True,
+        "diamond_anvil_cell": False,
+    }
+
+    dc = {"axisRange": 90, "numberOfImages": 1800, "overlap": 0}
+    assert i.classify_dc(dc, "Diamond Anvil High Pressure") == {
+        "grid": False,
+        "rotation": True,
+        "screen": False,
+        "serial_fixed": False,
+        "serial_jet": False,
+        "diamond_anvil_cell": True,
+    }
 
 
 def test_get_first_file_of_datacollection():
@@ -296,6 +353,24 @@ def test_filter_function(db_session):
     msg, param = ispyb_filter(msg, param, db_session)
 
 
+def test_filter_function_with_load_config_file_timeout(monkeypatch, db_session):
+    def mock_load_config_file(*args, **kwargs):
+        time.sleep(2)
+
+    msg = {}
+    param = {"ispyb_dcid": ds["i19_screening"]}
+
+    with monkeypatch.context() as m, pytest.raises(concurrent.futures.TimeoutError):
+        m.setattr(
+            dlstbx.ispybtbx, "load_sample_group_config_file", mock_load_config_file
+        )
+        msg, param = ispyb_filter(msg, param, db_session, io_timeout=1)
+
+    with monkeypatch.context() as m, pytest.raises(concurrent.futures.TimeoutError):
+        m.setattr(dlstbx.ispybtbx, "load_configuration_file", mock_load_config_file)
+        msg, param = ispyb_filter(msg, param, db_session, io_timeout=1)
+
+
 def test_load_sample_group_config_file(tmpdir):
     (tmpdir / "processing").mkdir()
     config_file = tmpdir / "processing" / "sample_groups.yml"
@@ -345,9 +420,87 @@ def test_get_sample_group_dcids_from_yml(tmpdir, db_session):
     ]
 
 
+@pytest.mark.parametrize("ext", ["yml", "yaml"])
+def test_load_configuration_file(tmp_path, ext):
+    foo_yml = tmp_path / "processing" / f"foo.{ext}"
+    foo_yml.parent.mkdir()
+    foo_yml.write_text(
+        """\
+ispyb_unit_cell: [10, 11, 12, 90, 90, 90]
+ispyb_space_group: P212121
+"""
+    )
+    ispyb_info = {
+        "ispyb_visit_directory": tmp_path,
+        "ispyb_image_directory": tmp_path / "foo" / "bar",
+        "ispyb_image_template": "foo_bar_#####.cbf",
+    }
+    config = dlstbx.ispybtbx.load_configuration_file(ispyb_info)
+    assert config == {
+        "ispyb_unit_cell": [10, 11, 12, 90, 90, 90],
+        "ispyb_space_group": "P212121",
+    }
+
+
+def test_get_space_group_and_unit_cell_from_yaml(tmp_path):
+    foo_yml = tmp_path / "processing" / "foo.yml"
+    foo_yml.parent.mkdir()
+    foo_yml.write_text(
+        """\
+ispyb_unit_cell: [10, 11, 12, 90, 90, 90]
+ispyb_space_group: P212121
+"""
+    )
+    ispyb_info = {
+        "ispyb_visit_directory": tmp_path,
+        "ispyb_image_directory": tmp_path / "foo" / "bar",
+        "ispyb_image_template": "foo_bar_#####.cbf",
+        "ispyb_dcid": 123456,
+    }
+    i = ispybtbx()
+    sg, uc = i.get_space_group_and_unit_cell_from_yaml(ispyb_info)
+    assert sg == "P212121"
+    assert uc == [10, 11, 12, 90, 90, 90]
+
+
+def test_get_space_group_and_unit_cell_from_borken_yaml(tmp_path, caplog):
+    ispyb_info = {
+        "ispyb_visit_directory": tmp_path,
+        "ispyb_image_directory": tmp_path / "foo" / "bar",
+        "ispyb_image_template": "foo_bar_#####.cbf",
+        "ispyb_dcid": 123456,
+    }
+    i = ispybtbx()
+    foo_yml = tmp_path / "processing" / "foo.yml"
+    foo_yml.parent.mkdir()
+    foo_yml.write_text(
+        """\
+ispyb_unit_cell: P 6 2 2
+ispyb_space_group: foo
+"""
+    )
+    sg, uc = i.get_space_group_and_unit_cell_from_yaml(ispyb_info)
+    assert "Can't interpret unit cell" in caplog.text
+    assert "Can't interpret space group" in caplog.text
+    assert sg is None
+    assert uc is None
+    caplog.clear()
+
+    foo_yml.write_text(
+        """\
+ispyb_unit_cell: [10, 11, 12, 90, 90]
+ispyb_space_group: P4
+"""
+    )
+    sg, uc = i.get_space_group_and_unit_cell_from_yaml(ispyb_info)
+    assert sg == "P4"
+    assert uc is None
+    assert "Can't interpret unit cell" in caplog.text
+
+
 def test_get_related_dcids_same_directory(db_session):
     i = ispybtbx()
-    assert i.get_related_dcids_same_directory({"ispyb_dcid": 5646632}, db_session) == {
+    assert i.get_related_dcids_same_directory(5646632, db_session) == {
         "dcids": [
             5646578,
             5646584,
@@ -402,10 +555,6 @@ def test_get_sample_group_dcids(db_session):
     ]
 
 
-def test_get_related_dcs(db_session):
-    assert ispybtbx().get_related_dcs(5339105, db_session) == [5898098, 5898104]
-
-
 def test_get_dcid_for_path(db_session):
     assert (
         ispybtbx().get_dcid_for_path(
@@ -433,38 +582,33 @@ def test_get_diffractionplan_from_dcid(db_session):
 
 
 def test_get_gridscan_info(db_session):
-    assert ispybtbx().get_gridscan_info(
-        {
-            "dataCollectionGroupId": 5492072,
+    assert (
+        ispybtbx().get_gridscan_info(6077465, 0, db_session).items()
+        >= {
             "dataCollectionId": 6077465,
-        },
-        db_session,
-    ) == {
-        "dataCollectionId": 6077465,
-        "snaked": 1,
-        "orientation": "horizontal",
-        "recordTimeStamp": "2021-03-05T15:29:20",
-        "pixelsPerMicronX": 0.566,
-        "pixelsPerMicronY": 0.566,
-        "steps_x": 27.0,
-        "dx_mm": 0.02,
-        "xOffset": None,
-        "snapshot_offsetXPixel": 77.0,
-        "snapshot_offsetYPixel": 50.8881,
-        "steps_y": 10.0,
-        "yOffset": None,
-        "dy_mm": 0.02,
-        "dataCollectionGroupId": 5492072,
-        "meshAngle": None,
-        "gridInfoId": 1307711,
-        "workflowMeshId": None,
-    }
+            "snaked": 1,
+            "orientation": "horizontal",
+            "recordTimeStamp": "2021-03-05T15:29:20",
+            "pixelsPerMicronX": 0.566,
+            "pixelsPerMicronY": 0.566,
+            "steps_x": 27.0,
+            "dx_mm": 0.02,
+            "xOffset": None,
+            "snapshot_offsetXPixel": 77.0,
+            "snapshot_offsetYPixel": 50.8881,
+            "steps_y": 10.0,
+            "yOffset": None,
+            "dy_mm": 0.02,
+            "dataCollectionGroupId": 5492072,
+            "meshAngle": None,
+            "gridInfoId": 1307711,
+            "workflowMeshId": None,
+        }.items()
+    )
 
 
 def test_get_sample_dcids(db_session):
-    assert ispybtbx().get_sample_dcids(
-        {"ispyb_dcid": 6077651, "ispyb_dc_info": {"BLSAMPLEID": 3297161}}, db_session
-    ) == {
+    assert ispybtbx().get_sample_dcids(3297161, db_session) == {
         "dcids": [
             5990969,
             5990975,
@@ -489,12 +633,9 @@ def test_get_sample_dcids(db_session):
     }
 
 
-def test_get_priority_processing_for_dc_info(db_session):
+def test_get_priority_processing_for_sample_id(db_session):
     assert (
-        ispybtbx().get_priority_processing_for_dc_info(
-            {"BLSAMPLEID": 3297161}, db_session
-        )
-        == "xia2/DIALS"
+        crud.get_priority_processing_for_sample_id(3297161, db_session) == "xia2/DIALS"
     )
 
 
@@ -509,9 +650,7 @@ def test_ready_for_processing(db_session):
 
 
 def test_get_dcg_dcids(db_session):
-    assert ispybtbx().get_dcg_dcids(
-        {"dataCollectionId": 6222263, "dataCollectionGroupId": 5617586}, db_session
-    ) == [6222221, 6222245]
+    assert ispybtbx().get_dcg_dcids(6222263, 5617586, db_session) == [6222221, 6222245]
     msg, param = ispyb_filter({}, {"ispyb_dcid": 6222263}, db_session)
     assert param["ispyb_dcg_dcids"] == [6222221, 6222245]
 
@@ -521,3 +660,45 @@ def test_dcg_experiment_type(db_session):
     assert params["ispyb_dcg_experiment_type"] == "Mesh"
     _, params = ispyb_filter({}, {"ispyb_dcid": 6921153}, db_session)
     assert params["ispyb_dcg_experiment_type"] == "SAD"
+
+
+def test_get_linked_pdb_files_for_dcid(db_session, tmp_path):
+    user_pdb_dir = tmp_path / "user_pdb"
+    user_pdb_dir.mkdir()
+    user_pdb = user_pdb_dir / "test.pdb"
+    user_pdb.touch()
+    assert ispybtbx().get_linked_pdb_files_for_dcid(
+        8851520, db_session, pdb_tmpdir=tmp_path, user_pdb_dir=user_pdb_dir
+    ) == [
+        {"code": "2ID8", "filepath": None, "source": None},
+        {
+            "code": None,
+            "filepath": f"{tmp_path}/2fa172273d5b4388f6f51bb1669041cfed030b66/ranked_0.pdb",
+            "source": "AlphaFold",
+        },
+        {
+            "code": None,
+            "filepath": f"{tmp_path}/178e1c05a56543387145960fa2806b4b0f944316/ranked_1.pdb",
+            "source": "AlphaFold",
+        },
+        {
+            "code": None,
+            "filepath": f"{tmp_path}/54f6410bf455badcb04c79f988c8306d59838f98/ranked_2.pdb",
+            "source": "AlphaFold",
+        },
+        {
+            "code": None,
+            "filepath": f"{tmp_path}/82705eb12695ac1d767856efd3fea03660b0613e/ranked_3.pdb",
+            "source": "AlphaFold",
+        },
+        {
+            "code": None,
+            "filepath": f"{tmp_path}/66b97026780931547f3e26892d229f3a3b4cc25c/ranked_4.pdb",
+            "source": "AlphaFold",
+        },
+        {
+            "code": None,
+            "filepath": f"{user_pdb}",
+            "source": None,
+        },
+    ]

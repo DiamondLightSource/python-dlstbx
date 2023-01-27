@@ -12,6 +12,7 @@ __version_tag__ = "1.0.dev"
 console_scripts = [
     "dials.swirly_eyes=dlstbx.cli.swirly_eyes:run",
     "dlstbx.align_crystal=dlstbx.cli.align_crystal:run",
+    "dlstbx.archive_ancient_visits=dlstbx.cli.archive_ancient_visits:run",
     "dlstbx.dc_sim_verify=dlstbx.cli.dc_sim_verify:run",
     "dlstbx.ep_predict_phase=dlstbx.cli.ep_predict_phase:run",
     "dlstbx.ep_predict_results=dlstbx.cli.ep_predict_results:runmain",
@@ -19,6 +20,7 @@ console_scripts = [
     "dlstbx.find_in_ispyb=dlstbx.cli.find_in_ispyb:run",
     "dlstbx.fix_cluster_jobs=dlstbx.cli.fix_cluster_jobs:run",
     "dlstbx.get_activemq_statistics=dlstbx.cli.get_activemq_statistics:run",
+    "dlstbx.get_dcids_for_visit=dlstbx.cli.get_dcids_for_visit:run",
     "dlstbx.get_graylog_statistics=dlstbx.cli.get_graylog_statistics:run",
     "dlstbx.get_rabbitmq_statistics=dlstbx.cli.get_rabbitmq_statistics:run",
     "dlstbx.graylog=dlstbx.cli.graylog:run",
@@ -96,6 +98,8 @@ known_wrappers = [  # please keep alphabetically sorted
     "xia2.multiplex = dlstbx.wrapper.xia2_multiplex:Xia2MultiplexWrapper",
     "xia2.strategy = dlstbx.wrapper.xia2_strategy:Xia2StrategyWrapper",
     "xia2.to_shelxcde = dlstbx.wrapper.xia2_to_shelxcde:Xia2toShelxcdeWrapper",
+    "xia2.ssx = dlstbx.wrapper.xia2_ssx:Xia2SsxWrapper",
+    "xia2.ssx_reduce = dlstbx.wrapper.xia2_ssx:Xia2SsxReduceWrapper",
     "xoalign = dlstbx.wrapper.xoalign:XOalignWrapper",
 ]
 
@@ -105,12 +109,12 @@ service_list = [
     "DLSCluster = dlstbx.services.cluster:DLSCluster",
     "DLSClusterMonitor = dlstbx.services.cluster_monitor:DLSClusterMonitor",
     "DLSController = dlstbx.services.controller:DLSController",
-    "DLSDispatcher = dlstbx.services.dispatcher:DLSDispatcher",
     "DLSDropfilePickup = dlstbx.services.dropfile_pickup:DLSDropfilePickup",
     "DLSFileWatcher = dlstbx.services.filewatcher:DLSFileWatcher",
     "DLSISPyB = dlstbx.services.ispybsvc:DLSISPyB",
     "DLSISPyBPIA = dlstbx.services.ispybsvc_pia:DLSISPyBPIA",
     "DLSImages = dlstbx.services.images:DLSImages",
+    "DLSIndexer = dlstbx.services.indexer:DLSIndexer",
     "DLSMimas = dlstbx.services.mimas:DLSMimas",
     "DLSMimasBacklog = dlstbx.services.mimas_backlog:DLSMimasBacklog",
     "DLSNexusParser = dlstbx.services.nexusparser:DLSNexusParser",
@@ -122,6 +126,7 @@ service_list = [
     "DLSValidation = dlstbx.services.validation:DLSValidation",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
     "HTCondorWatcher = dlstbx.services.htcondorwatcher:HTCondorWatcher",
+    "SSXPlotter = dlstbx.services.ssx_plotter:SSXPlotter",
     # "LoadProducer = dlstbx.services.load_producer:LoadProducer",  # tentatively disabled
     # "LoadReceiver = dlstbx.services.load_receiver:LoadReceiver",  # tentatively disabled
 ]
@@ -160,8 +165,12 @@ health_checks = [
 mimas_scenario_handlers = [
     "cloud = dlstbx.mimas.cloud:handle_cloud",
     "eiger_screening = dlstbx.mimas.core:handle_eiger_screening",
+    "eiger_serial_end = dlstbx.mimas.ssx:handle_eiger_serial_end",
+    "eiger_serial_start = dlstbx.mimas.ssx:handle_eiger_serial_start",
     "eiger_start = dlstbx.mimas.core:handle_eiger_start",
     "eiger_end = dlstbx.mimas.core:handle_eiger_end",
+    "i03_eiger_end = dlstbx.mimas.core:handle_eiger_end_i03",
+    "i15_end = dlstbx.mimas.i15:handle_i15_end",
     "i19_pilatus_start = dlstbx.mimas.i19:handle_i19_start_pilatus",
     "i19_pilatus_end = dlstbx.mimas.i19:handle_i19_end_pilatus",
     "i19_eiger_start = dlstbx.mimas.i19:handle_i19_start_eiger",
@@ -171,6 +180,8 @@ mimas_scenario_handlers = [
     "pilatus_gridscan_start = dlstbx.mimas.core:handle_pilatus_gridscan_start",
     "pilatus_not_gridscan_start = dlstbx.mimas.core:handle_pilatus_not_gridscan_start",
     "pilatus_screening = dlstbx.mimas.core:handle_pilatus_screening",
+    "pilatus_serial_end = dlstbx.mimas.ssx:handle_pilatus_serial_end",
+    "pilatus_serial_start = dlstbx.mimas.ssx:handle_pilatus_serial_start",
     "rotation_end = dlstbx.mimas.core:handle_rotation_end",
     "vmxi_end = dlstbx.mimas.vmxi:handle_vmxi_end",
     "vmxi_gridscan = dlstbx.mimas.vmxi:handle_vmxi_gridscan",
@@ -179,7 +190,7 @@ mimas_scenario_handlers = [
 ]
 
 
-def get_git_revision():
+def get_git_revision() -> str | None:
     """Try to obtain the current git revision number"""
     xia2_root_path = os.path.split(os.path.realpath(__file__))[0]
 
@@ -195,11 +206,17 @@ def get_git_revision():
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
         )
-        version = result.stdout.rstrip()
+        version, commits, sha = result.stdout.rstrip().rsplit("-", maxsplit=2)
+
+        # Strip off leading v and trailing .0
+        if version.startswith("v"):
+            version = version[1:]
+        if version.endswith(".0"):
+            version = version[:-2]
+        # Combine the commit height and short SHA
+        version = f"{version}.{commits}+{sha}"
     except Exception:
         return None
-    if version.startswith("v"):
-        version = version[1:].replace(".0-", ".")
 
     try:
         result = subprocess.run(
@@ -211,8 +228,9 @@ def get_git_revision():
             stderr=subprocess.DEVNULL,
         )
         branch = result.stdout.rstrip()
-        if branch != "" and branch != "master" and not branch.endswith("/master"):
-            version = version + "-" + branch
+        # If not main, then append the branch name
+        if branch and branch != "main" and not branch.endswith("/main"):
+            version = f"{version}.{branch.split('/')[-1]}"
     except Exception:
         pass
 
@@ -232,6 +250,12 @@ setup(
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.health_checks": sorted(health_checks),
+        "zocalo.services.dispatcher.filters": [
+            "ispyb = dlstbx.ispybtbx:ispyb_filter",
+        ],
+        "zocalo.services.dispatcher.ready_for_processing": [
+            "ispyb = dlstbx.ispybtbx:ready_for_processing",
+        ],
         "zocalo.services.images.plugins": [
             "diffraction = dlstbx.services.images:diffraction",
             "thumbnail = dlstbx.services.images:thumbnail",

@@ -49,10 +49,16 @@ class DLSMimas(CommonService):
         dc_class = step.get("dc_class")
         if isinstance(dc_class, dict):
             # legacy format
-            if dc_class["grid"]:
+            if dc_class["serial_fixed"]:
+                dc_class_mimas = mimas.MimasDCClass.SERIAL_FIXED
+            elif dc_class["serial_jet"]:
+                dc_class_mimas = mimas.MimasDCClass.SERIAL_JET
+            elif dc_class["grid"]:
                 dc_class_mimas = mimas.MimasDCClass.GRIDSCAN
             elif dc_class["screen"]:
                 dc_class_mimas = mimas.MimasDCClass.SCREENING
+            elif dc_class["diamond_anvil_cell"]:
+                dc_class_mimas = mimas.MimasDCClass.DIAMOND_ANVIL_CELL
             elif dc_class["rotation"]:
                 dc_class_mimas = mimas.MimasDCClass.ROTATION
             else:
@@ -72,7 +78,14 @@ class DLSMimas(CommonService):
 
         cell = step.get("unit_cell")
         if cell:
-            cell = mimas.MimasISPyBUnitCell(*cell)
+            try:
+                cell = mimas.MimasISPyBUnitCell(*cell)
+                mimas.validate(cell)
+            except Exception:
+                self.log.warning(
+                    f"Invalid unit cell for dcid {dcid}: {cell}", exc_info=True
+                )
+                cell = None
         else:
             cell = None
 

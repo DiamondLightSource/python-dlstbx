@@ -5,7 +5,20 @@ from datetime import datetime
 import ispyb
 import sqlalchemy.exc
 import sqlalchemy.orm
-from ispyb.sqlalchemy import MotionCorrection, RelativeIceThickness
+from ispyb.sqlalchemy import (
+    MotionCorrection,
+    RelativeIceThickness,
+    TiltImageAlignment,
+    Tomogram,
+)
+from pydantic import BaseModel, validate_arguments
+
+
+class Movie(BaseModel):
+    dcid: int
+    movie_number: int = None  # image number
+    movie_path: str = None  # micrograph full path
+    timestamp: float = None
 
 
 class EM_Mixin:
@@ -104,6 +117,23 @@ class EM_Mixin:
             return mcid
         else:
             return None
+
+    @validate_arguments(config=dict(arbitrary_types_allowed=True))
+    def do_insert_movie(self, *, parameter_map: Movie, **kwargs):
+
+        self.log.info("Inserting Movie parameters.")
+
+        movie_params = self.ispyb.em_acquisition.get_movie_params()
+        movie_params["dataCollectionId"] = parameter_map.dcid
+        movie_params["movieNumber"] = parameter_map.movie_number
+        movie_params["movieFullPath"] = parameter_map.movie_path
+        if parameter_map.timestamp:
+            movie_params["createdTimeStamp"] = datetime.fromtimestamp(
+                parameter_map.timestamp
+            ).strftime("%Y-%m-%d %H:%M:%S")
+        result = self.ispyb.em_acquisition.insert_movie(list(movie_params.values()))
+        self.log.info(f"Created Movie record {result}")
+        return {"success": True, "return_value": result}
 
     def do_insert_motion_correction(self, parameters, message=None, **kwargs):
         if message is None:
@@ -345,3 +375,75 @@ class EM_Mixin:
                 exc_info=True,
             )
             return False
+
+    def do_insert_tomogram(self, parameters, session, message=None, **kwargs):
+        if message is None:
+            message = {}
+        dcid = parameters("dcid")
+        self.log.info(f"Inserting Tomogram parameters. DCID: {dcid}")
+
+        def full_parameters(param):
+            return message.get(param) or parameters(param)
+
+        try:
+            values = Tomogram(
+                dataCollectionId=full_parameters("dcid"),
+                autoProcProgramId=full_parameters("program_id"),
+                volumeFile=full_parameters("volume_file"),
+                stackFile=full_parameters("stack_file"),
+                sizeX=full_parameters("size_x"),
+                sizeY=full_parameters("size_y"),
+                sizeZ=full_parameters("size_z"),
+                pixelSpacing=full_parameters("pixel_spacing"),
+                residualErrorMean=full_parameters("residual_error_mean"),
+                residualErrorSD=full_parameters("residual_error_sd"),
+                xAxisCorrection=full_parameters("x_axis_correction"),
+                tiltAngleOffset=full_parameters("tilt_angle_offset"),
+                zShift=full_parameters("z_shift"),
+            )
+            session.add(values)
+            session.commit()
+            return {"success": True, "return_value": values.tomogramId}
+        except sqlalchemy.exc.SQLAlchemyError as e:
+            self.log.error(
+                "Inserting Tomogram entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+        return False
+
+    def do_insert_tilt_image_alignment(
+        self, parameters, session, message=None, **kwargs
+    ):
+        if message is None:
+            message = {}
+        dcid = parameters("dcid")
+        self.log.info(f"Inserting Tilt Image Alignment parameters. DCID: {dcid}")
+
+        def full_parameters(param):
+            return message.get(param) or parameters(param)
+
+        try:
+            values = TiltImageAlignment(
+                movieId=full_parameters("movie_id"),
+                tomogramId=full_parameters("tomogram_id"),
+                defocusU=full_parameters("defocus_u"),
+                defocusV=full_parameters("defocus_v"),
+                psdFile=full_parameters("psd_file"),
+                resolution=full_parameters("resolution"),
+                fitQuality=full_parameters("fit_quality"),
+                refinedMagnification=full_parameters("refined_magnification"),
+                refinedTiltAngle=full_parameters("refined_tilt_angle"),
+                refinedTiltAxis=full_parameters("refined_tilt_axis"),
+                residualError=full_parameters("residual_error"),
+            )
+            session.add(values)
+            session.commit()
+            return {"success": True, "return_value": values.tomogramId}
+        except sqlalchemy.exc.SQLAlchemyError as e:
+            self.log.error(
+                "Inserting Tilt Image Alignment entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+        return False

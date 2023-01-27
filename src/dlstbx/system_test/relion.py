@@ -46,7 +46,3 @@ class RelionStopService(CommonSystemTest):
         self.timer_event(
             at_time=15 + nfs_delay, callback=tmp_file.exists, expect_return=True
         )
-
-
-if __name__ == "__main__":
-    RelionStopService().validate()

@@ -43,14 +43,23 @@ class DLSISPyB(EM_Mixin, CommonService):
     def initializing(self):
         """Subscribe the ISPyB connector queue. Received messages must be
         acknowledged. Prepare ISPyB database connection."""
-        self.log.info("ISPyB connector using ispyb v%s", ispyb.__version__)
+        self.log.info(f"ISPyB connector using ispyb v{ispyb.__version__}")
         self.ispyb = ispyb.open()
         self._ispyb_sessionmaker = sqlalchemy.orm.sessionmaker(
             bind=sqlalchemy.create_engine(
                 ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
             )
         )
-        self.log.debug("ISPyB connector starting")
+        try:
+            self.log.info("Cleaning up ISPyB buffer table...")
+            with self._ispyb_sessionmaker() as session:
+                buffer.evict(session=session)
+        except Exception as e:
+            self.log.warning(
+                f"Encountered exception {e!r} while cleaning up ISPyB buffer table",
+                exc_info=True,
+            )
+        self.log.info("ISPyB service ready")
         workflows.recipe.wrap_subscribe(
             self._transport,
             "ispyb_connector",  # will become 'ispyb' in far future
@@ -189,7 +198,9 @@ class DLSISPyB(EM_Mixin, CommonService):
             return
         rw.transport.transaction_commit(txn)
 
-    def do_create_ispyb_job(self, parameters, rw=None, **kwargs):
+    def do_create_ispyb_job(
+        self, parameters, *, session: sqlalchemy.orm.session.Session, rw=None, **kwargs
+    ):
         dcid = int(parameters("DCID"))
         sweeps = [(s["DCID"], s["start"], s["end"]) for s in parameters("sweeps")]
         if not dcid and not sweeps:
@@ -197,9 +208,12 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
 
         if not sweeps:
-            dc_info = self.ispyb.get_data_collection(dcid)
-            start = dc_info.image_start_number
-            number = dc_info.image_count
+            dc = crud.get_data_collection(dcid, session)
+            if not dc:
+                self.log.error(f"DCID {dcid} not found")
+                return False
+            start = dc.startImageNumber
+            number = dc.numberOfImages
             if not start or not number:
                 self.log.error(
                     "Can not automatically infer data collection sweep for this DCID"
@@ -269,10 +283,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 message=message,
             )
             self.log.info(
-                "Updating program %s with status: %r, return value %r",
-                ppid,
-                message,
-                result,
+                f"Updating program {ppid} with status {message!r}",
             )
             # result is just ppid
             return {"success": True, "return_value": result}
@@ -316,7 +327,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         environment = environment[: min(255, len(environment))]
         rpid = parameters("rpid")
         if rpid and not rpid.isdigit():
-            self.log.error("Invalid processing id '%s'" % rpid)
+            self.log.error("Invalid processing id '%s'", rpid)
             return False
         try:
             result = self.ispyb.mx_processing.upsert_program_ex(
@@ -793,6 +804,7 @@ class DLSISPyB(EM_Mixin, CommonService):
                 "r_merge",
                 "r_pim_all_iplusi_minus",
                 "r_pim_within_iplusi_minus",
+                "res_i_sig_i_2",
                 "res_lim_high",
                 "res_lim_low",
             ):
@@ -847,7 +859,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         params["parentid"] = parameters("scaling_id")
         self.log.debug(params)
         mxmr_run_id = self.ispyb.mx_processing.upsert_run(list(params.values()))
-        self.log.info("Written MXMRRun record with ID %s" % mxmr_run_id)
+        self.log.info("Written MXMRRun record with ID %s", mxmr_run_id)
         return {"success": True, "return_value": mxmr_run_id}
 
     def do_insert_mxmr_run_blob(self, parameters, **kwargs):
@@ -860,7 +872,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         mxmr_run_blob_id = self.ispyb.mx_processing.upsert_run_blob(
             list(params.values())
         )
-        self.log.info("Written MXMRRunBlob record with ID %s" % mxmr_run_blob_id)
+        self.log.info("Written MXMRRunBlob record with ID %s", mxmr_run_blob_id)
         return {"success": True, "return_value": mxmr_run_blob_id}
 
     def do_retrieve_programs_for_job_id(self, parameters, **kwargs):
@@ -1310,3 +1322,49 @@ class DLSISPyB(EM_Mixin, CommonService):
 
         # Finally, propagate result
         return result
+
+    def do_insert_data_collection_group(self, parameters, message=None, **kwargs):
+        dcgparams = self.ispyb.em_acquisition.get_data_collection_group_params()
+        dcgparams["parentid"] = parameters("session_id")
+        dcgparams["experimenttype"] = parameters("experiment_type")
+        dcgparams["starttime"] = parameters("start_time")
+        dcgparams["comments"] = "Created for Murfey"
+        try:
+            data_collection_group_id = (
+                self.ispyb.em_acquisition.upsert_data_collection_group(
+                    list(dcgparams.values())
+                )
+            )
+            self.log.info(f"Created DataCollectionGroup {data_collection_group_id}")
+            return {"success": True, "return_value": data_collection_group_id}
+
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting Data Collection Group entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+        return False
+
+    def do_insert_data_collection(self, parameters, message=None, **kwargs):
+        dc_params = self.ispyb.em_acquisition.get_data_collection_params()
+        dc_params["parentid"] = parameters("dcgid")
+        dc_params["starttime"] = parameters("start_time")
+        dc_params["imgdir"] = parameters("image_directory")
+        dc_params["imgsuffix"] = parameters("image_suffix")
+        dc_params["visitid"] = parameters("session_id")
+        dc_params["voltage"] = parameters("voltage")
+        try:
+            data_collection_id = self.ispyb.em_acquisition.upsert_data_collection(
+                list(dc_params.values())
+            )
+            self.log.info(f"Created DataCollection {data_collection_id}")
+            return {"success": True, "return_value": data_collection_id}
+
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                "Inserting Data Collection entry caused exception '%s'.",
+                e,
+                exc_info=True,
+            )
+            return False

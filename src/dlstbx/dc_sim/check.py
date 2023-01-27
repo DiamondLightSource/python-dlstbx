@@ -5,7 +5,6 @@ from collections import defaultdict
 from operator import attrgetter
 
 import ispyb
-import ispyb.model.__future__
 import ispyb.sqlalchemy
 import sqlalchemy
 from ispyb.sqlalchemy import (
@@ -410,7 +409,6 @@ def check_relion_outcomes(job_results, expected_outcome, jobid):
 
 
 if __name__ == "__main__":
-    ispyb.model.__future__.enable("/dls_sw/apps/zocalo/secrets/credentials-ispyb.cfg")
     db = ispyb.open("/dls_sw/apps/zocalo/secrets/credentials-ispyb-sp.cfg")
 
     check_test_outcome(

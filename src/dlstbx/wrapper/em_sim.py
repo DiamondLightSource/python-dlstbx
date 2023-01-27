@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-import logging
 import time
 
 import dlstbx.em_sim
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.em_sim")
-
 
 class EMSimWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.em_sim"
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
         beamline = params["beamline"]
         scenario = params["scenario"]
-        logger.info(
+        self.log.info(
             "Running simulated data collection '%s' on beamline '%s'",
             scenario,
             beamline,
@@ -37,11 +37,11 @@ class EMSimWrapper(Wrapper):
         }
 
         if dcids:
-            logger.info(
+            self.log.info(
                 "Simulated data collection completed with result:\n%s", repr(result)
             )
         else:
-            logger.error("Simulated data collection failed")
+            self.log.error("Simulated data collection failed")
 
         self.recwrap.send_to("dc_sim", result)
         return bool(dcids)

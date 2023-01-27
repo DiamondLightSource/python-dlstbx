@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import hashlib
-import logging
 import os
 import pathlib
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
@@ -15,56 +12,41 @@ import sqlalchemy.engine
 import sqlalchemy.orm
 import workflows.recipe
 from ispyb.sqlalchemy import (
-    PDB,
     AutoProcIntegration,
     AutoProcProgram,
     AutoProcProgramAttachment,
-    BLSample,
     BLSession,
-    Crystal,
     DataCollection,
     ProcessingJob,
     Proposal,
     Protein,
-    ProteinHasPDB,
 )
+from sqlalchemy import or_
 from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
 
 from dlstbx.util import ChainMapWithReplacement
-from dlstbx.util.pdb import trim_pdb_bfactors
+from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
 
 
 class PrometheusMetrics(BasePrometheusMetrics):
     def create_metrics(self):
-        self.job_triggered = prometheus_client.Counter(
-            name="job_triggered",
-            documentation="Counts each different job as they are triggered",
-            labelnames=["job"],
-            registry=self.registry,
+        self.zocalo_trigger_jobs_total = prometheus_client.Counter(
+            name="zocalo_trigger_jobs_total",
+            documentation="The total number of jobs triggered by the Zocalo trigger service",
+            labelnames=["target"],
         )
-
-
-@dataclass(frozen=True)
-class PDBFileOrCode:
-    filepath: Optional[pathlib.Path] = None
-    code: Optional[str] = None
-    source: Optional[str] = None
-
-    def __str__(self):
-        return str(self.filepath) if self.filepath else str(self.code)
 
 
 class DimpleParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     scaling_id: int = pydantic.Field(gt=0)
     mtz: pathlib.Path
-    pdb_tmpdir: pathlib.Path
+    pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    user_pdb_directory: Optional[pathlib.Path] = None
 
 
 class ProteinInfo(pydantic.BaseModel):
@@ -76,10 +58,9 @@ class MrBumpParameters(pydantic.BaseModel):
     scaling_id: int = pydantic.Field(gt=0)
     protein_info: Optional[ProteinInfo] = None
     hklin: pathlib.Path
-    pdb_tmpdir: pathlib.Path
+    pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    user_pdb_directory: Optional[pathlib.Path] = None
 
 
 class DiffractionPlanInfo(pydantic.BaseModel):
@@ -175,6 +156,20 @@ class MultiplexParameters(pydantic.BaseModel):
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
+    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+
+
+class Xia2SsxReduceParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    related_dcids: List[RelatedDCIDs]
+    wavelength: Optional[float] = pydantic.Field(gt=0)
+    spacegroup: Optional[str]
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
+    backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
+    wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
 
 
 class AlphaFoldParameters(pydantic.BaseModel):
@@ -192,7 +187,6 @@ class DLSTrigger(CommonService):
 
     def initializing(self):
         """Subscribe to the trigger queue. Received messages must be acknowledged."""
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
         self._ispyb_sessionmaker = sqlalchemy.orm.sessionmaker(
             bind=sqlalchemy.create_engine(
                 ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
@@ -209,9 +203,9 @@ class DLSTrigger(CommonService):
 
         # Initialise metrics if requested
         if self._environment.get("metrics"):
-            self._prom_metrics = PrometheusMetrics()
+            self._metrics = PrometheusMetrics()
         else:
-            self._prom_metrics = NoMetrics()
+            self._metrics = NoMetrics()
 
     def trigger(self, rw, header, message):
         """Forward the trigger message to a specific trigger function."""
@@ -233,7 +227,7 @@ class DLSTrigger(CommonService):
         rw.set_default_channel("output")
 
         parameter_map = ChainMapWithReplacement(
-            rw.recipe_step["parameters"].get("ispyb_parameters", {}),
+            rw.recipe_step["parameters"].get("ispyb_parameters") or {},
             message if isinstance(message, dict) else {},
             rw.recipe_step["parameters"],
             substitutions=rw.environment,
@@ -259,66 +253,19 @@ class DLSTrigger(CommonService):
         if result and result.get("success"):
             rw.send({"result": result.get("return_value")}, transaction=txn)
             rw.transport.ack(header, transaction=txn)
+            if retval := result.get("return_value"):
+                if isinstance(retval, (tuple, list)):
+                    for i in range(len(retval)):
+                        self._metrics.record_metric(
+                            "zocalo_trigger_jobs_total", [target]
+                        )
+                else:
+                    self._metrics.record_metric("zocalo_trigger_jobs_total", [target])
         else:
             rw.transport.transaction_abort(txn)
             rw.transport.nack(header)
             return
         rw.transport.transaction_commit(txn)
-
-    def get_linked_pdb_files_for_dcid(
-        self,
-        session: sqlalchemy.orm.session.Session,
-        dcid: int,
-        pdb_tmpdir: pathlib.Path,
-        user_pdb_dir: Optional[pathlib.Path] = None,
-        ignore_pdb_codes: bool = False,
-    ) -> List[PDBFileOrCode]:
-        """Get linked PDB files for a given data collection ID.
-
-        Valid PDB codes will be returned as the code, PDB files will be copied into a
-        unique subdirectory within the `pdb_tmpdir` directory. Optionally search for
-        PDB files in the `user_pdb_dir` directory.
-        """
-        pdb_files = []
-        query = (
-            session.query(DataCollection, PDB)
-            .join(BLSample, BLSample.blSampleId == DataCollection.BLSAMPLEID)
-            .join(Crystal, Crystal.crystalId == BLSample.crystalId)
-            .join(Protein, Protein.proteinId == Crystal.proteinId)
-            .join(ProteinHasPDB, ProteinHasPDB.proteinid == Protein.proteinId)
-            .join(PDB, PDB.pdbId == ProteinHasPDB.pdbid)
-            .filter(DataCollection.dataCollectionId == dcid)
-        )
-        for dc, pdb in query.all():
-            if not ignore_pdb_codes and pdb.code is not None:
-                pdb_code = pdb.code.strip()
-                if pdb_code.isalnum() and len(pdb_code) == 4:
-                    pdb_files.append(PDBFileOrCode(code=pdb_code, source=pdb.source))
-                    continue
-                elif pdb_code != "":
-                    self.log.warning(
-                        f"Invalid input PDB code '{pdb.code}' for pdbId {pdb.pdbId}"
-                    )
-            if pdb.contents not in ("", None):
-                sha1 = hashlib.sha1(pdb.contents.encode()).hexdigest()
-                assert pdb.name and "/" not in pdb.name, "Invalid PDB file name"
-                pdb_dir = pdb_tmpdir / sha1
-                pdb_dir.mkdir(parents=True, exist_ok=True)
-                pdb_filepath = pdb_dir / pdb.name
-                if not pdb_filepath.exists():
-                    pdb_filepath.write_text(pdb.contents)
-                pdb_files.append(
-                    PDBFileOrCode(filepath=pdb_filepath, source=pdb.source)
-                )
-
-        if user_pdb_dir and user_pdb_dir.is_dir():
-            # Look for matching .pdb files in user directory
-            for f in user_pdb_dir.iterdir():
-                if not f.stem or f.suffix != ".pdb" or not f.is_file():
-                    continue
-                self.log.info(f)
-                pdb_files.append(PDBFileOrCode(filepath=f))
-        return pdb_files
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     def trigger_dimple(
@@ -369,17 +316,12 @@ class DLSTrigger(CommonService):
 
         dcid = parameters.dcid
 
-        pdb_files_or_codes = self.get_linked_pdb_files_for_dcid(
-            session,
-            dcid,
-            parameters.pdb_tmpdir,
-            user_pdb_dir=parameters.user_pdb_directory,
-        )
+        pdb_files_or_codes = parameters.pdb
 
         if not pdb_files_or_codes:
             self.log.info(
-                "Skipping dimple trigger: DCID %s has no associated PDB information"
-                % dcid
+                "Skipping dimple trigger: DCID %s has no associated PDB information",
+                dcid,
             )
             return {"success": True}
         pdb_files = [str(p) for p in pdb_files_or_codes]
@@ -433,8 +375,6 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Dimple trigger: Processing job {jobid} triggered")
-
-        self._prom_metrics.record_metric("job_triggered", ["DIMPLE"])
 
         return {"success": True, "return_value": jobid}
 
@@ -525,8 +465,6 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"ep_predict trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggered", ["ep_predict"])
-
         return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -603,8 +541,6 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"mr_predict trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggered", ["mr_predict"])
-
         return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -663,8 +599,6 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"screen19_mx trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggered", ["screen19_mx"])
-
         return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -708,8 +642,6 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"best trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggered", ["best"])
-
         return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -748,7 +680,6 @@ class DLSTrigger(CommonService):
         self.log.debug(f"fast_ep trigger: generated JobID {jobid}")
 
         fast_ep_parameters = {
-            "check_go_fast_ep": parameters.automatic,
             "data": os.fspath(parameters.mtz),
             "scaling_id": parameters.scaling_id,
         }
@@ -772,8 +703,6 @@ class DLSTrigger(CommonService):
 
         self.log.info(f"fast_ep trigger: Processing job {jobid} triggered")
 
-        self._prom_metrics.record_metric("job_triggered", ["fast_ep"])
-
         return {"success": True, "return_value": jobid}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -794,19 +723,9 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping mrbump trigger: sequence information not available")
             return {"success": True}
 
-        pdb_files = tuple(
-            self.get_linked_pdb_files_for_dcid(
-                session,
-                dcid,
-                parameters.pdb_tmpdir,
-                user_pdb_dir=parameters.user_pdb_directory,
-                ignore_pdb_codes=True,
-            )
-        )
-
         jobids = []
 
-        for pdb_files in {(), pdb_files}:
+        for pdb_files in {(), tuple(parameters.pdb)}:
             jp = self.ispyb.mx_processing.get_job_params()
             jp["automatic"] = parameters.automatic
             jp["comments"] = parameters.comment
@@ -836,8 +755,10 @@ class DLSTrigger(CommonService):
                 self.log.debug(f"mrbump trigger: generated JobParameterID {jppid}")
 
             for pdb_file in pdb_files:
-                assert pdb_file.filepath is not None
-                filepath = pdb_file.filepath
+                if not pdb_file.filepath:
+                    # presumably just a pdb code provided
+                    continue
+                filepath = pathlib.Path(pdb_file.filepath)
                 if pdb_file.source == "AlphaFold":
                     trimmed = filepath.with_name(
                         filepath.stem + "_trimmed" + filepath.suffix
@@ -866,8 +787,6 @@ class DLSTrigger(CommonService):
 
             self.log.info(f"mrbump trigger: Processing job {jobid} triggered")
 
-            self._prom_metrics.record_metric("job_triggered", ["MrBUMP"])
-
         return {"success": True, "return_value": jobids}
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
@@ -893,19 +812,6 @@ class DLSTrigger(CommonService):
 
         params = rw.recipe_step.get("parameters", {})
         target = params.get("target")
-
-        if target == "big_ep_cloud":
-            if (
-                (proposal.proposalCode != "mx" or proposal.proposalNumber != "23694")
-                and (
-                    proposal.proposalCode != "nt" or proposal.proposalNumber != "31175"
-                )
-                and proposal.proposalCode != "cm"
-            ):
-                self.log.info(
-                    f"Skipping big_ep_common trigger for {proposal.proposalCode}{proposal.proposalNumber} visit"
-                )
-                return {"success": True}
 
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic
@@ -955,8 +861,6 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"big_ep_common trigger: Processing job {jobid} triggered")
-
-        self._prom_metrics.record_metric("job_triggered", ["big_ep_common"])
 
         return {"success": True, "return_value": jobid}
 
@@ -1010,7 +914,11 @@ class DLSTrigger(CommonService):
                 f"big_ep trigger failed: appid = {parameters.program_id} not found for dcid = {dcid}"
             )
             return False
-        if blsession.beamLineName == "i23" and "multi" not in app.processingPrograms:
+        if (
+            parameters.automatic
+            and blsession.beamLineName == "i23"
+            and "multi" not in app.processingPrograms
+        ):
             self.log.info(
                 f"Skipping big_ep trigger for {app.processingPrograms} data on i23"
             )
@@ -1028,6 +936,13 @@ class DLSTrigger(CommonService):
         except pydantic.ValidationError as e:
             self.log.error("big_ep trigger called with invalid parameters: %s", e)
             return False
+
+        for inp_file in (big_ep_params.data, big_ep_params.scaled_unmerged_mtz):
+            if not inp_file.is_file():
+                self.log.info(
+                    f"Skipping big_ep trigger: input file {inp_file} not found."
+                )
+                return {"success": True}
 
         path_ext = big_ep_params.path_ext
         spacegroup = parameters.spacegroup
@@ -1073,8 +988,6 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info("big_ep triggered")
-
-        self._prom_metrics.record_metric("job_triggered", ["big_ep"])
 
         return {"success": True, "return_value": None}
 
@@ -1203,6 +1116,57 @@ class DLSTrigger(CommonService):
                 continue
             self.log.info(f"xia2.multiplex trigger: found dcids: {dcids}")
 
+            # Check for any processing jobs that are yet to finish (or fail)
+            query = (
+                (
+                    session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                        ProcessingJob,
+                        ProcessingJob.processingJobId
+                        == AutoProcProgram.processingJobId,
+                    )
+                )
+                .filter(ProcessingJob.dataCollectionId.in_(dcids))
+                .filter(ProcessingJob.automatic == True)  # noqa E712
+                .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+                .filter(
+                    or_(
+                        AutoProcProgram.processingStatus == None,  # noqa E711
+                        AutoProcProgram.processingStartTime == None,  # noqa E711
+                    )
+                )
+            )
+
+            # If there are any running (or yet to start) jobs, then checkpoint with delay
+            waiting_processing_jobs = query.all()
+            if n_waiting_processing_jobs := len(waiting_processing_jobs):
+                self.log.info(
+                    f"Waiting on {n_waiting_processing_jobs} processing jobs for {dcid=}"
+                )
+                waiting_dcids = [
+                    row.dataCollectionId for row in waiting_processing_jobs
+                ]
+                waiting_appids = [
+                    row.AutoProcProgram.autoProcProgramId
+                    for row in waiting_processing_jobs
+                ]
+                if status["ntry"] >= parameters.backoff_max_try:
+                    # Give up waiting for this program to finish and trigger
+                    # multiplex with remaining related results are available
+                    self.log.info(
+                        f"max-try exceeded, giving up waiting for related processings for dcids {waiting_dcids}\n"
+                    )
+                else:
+                    # Send results to myself for next round of processing
+                    self.log.debug(
+                        f"Waiting for dcids={waiting_dcids}\nappids={waiting_appids}"
+                    )
+                    rw.checkpoint(
+                        {"trigger-status": status},
+                        delay=message_delay,
+                        transaction=transaction,
+                    )
+                    return {"success": True}
+
             query = (
                 (
                     session.query(
@@ -1230,7 +1194,7 @@ class DLSTrigger(CommonService):
                 .filter(DataCollection.dataCollectionId.in_(dcids))
                 .filter(ProcessingJob.automatic == True)  # noqa E712
                 .filter(AutoProcProgram.processingPrograms == "xia2 dials")
-                .filter(AutoProcProgram.processingStatus != 0)
+                .filter(AutoProcProgram.processingStatus == 1)
                 .filter(
                     (
                         AutoProcProgramAttachment.fileName.endswith(".expt")
@@ -1282,27 +1246,6 @@ class DLSTrigger(CommonService):
                 elif job_spacegroup_param and not parameters.spacegroup:
                     self.log.debug(f"Discarding appid {app.autoProcProgramId}")
                     continue
-
-                # Check for any programs that are yet to finish (or fail)
-                if app.processingStatus != 1 or not app.processingStartTime:
-                    if status["ntry"] >= parameters.backoff_max_try:
-                        # Give up waiting for this program to finish and trigger
-                        # multiplex with remaining related results are available
-                        self.log.info(
-                            f"max-try exceeded, giving up waiting for dcid={dcid}\n"
-                            f"{app.autoProcProgramId}"
-                        )
-                        break
-                    # Send results to myself for next round of processing
-                    self.log.debug(
-                        f"Waiting for dcid={dc.dataCollectionId}\nappid={app.autoProcProgramId}"
-                    )
-                    rw.checkpoint(
-                        {"trigger-status": status},
-                        delay=message_delay,
-                        transaction=transaction,
-                    )
-                    return {"success": True}
 
                 self.log.debug(f"Using appid {app.autoProcProgramId}")
                 attachments = [
@@ -1379,47 +1322,35 @@ class DLSTrigger(CommonService):
                     f"xia2.multiplex trigger: generated JobImageSweepID {jispid}"
                 )
 
-            (k, group_id) = (
-                ("sample_id", group.sample_id)
-                if group.sample_id
-                else ("sample_group_id", group.sample_group_id)
-            )
-            jpp = self.ispyb.mx_processing.get_job_parameter_params()
-            jpp["job_id"] = jobid
-            jpp["parameter_key"] = k
-            jpp["parameter_value"] = group_id
-            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(
-                f"xia2.multiplex trigger: generated JobParameterID {jppid} {k}={group_id}"
-            )
-
-            for files in data_files:
-                jpp = self.ispyb.mx_processing.get_job_parameter_params()
-                jpp["job_id"] = jobid
-                jpp["parameter_key"] = "data"
-                jpp["parameter_value"] = ";".join(files)
-                jppid = self.ispyb.mx_processing.upsert_job_parameter(
-                    list(jpp.values())
-                )
-                self.log.debug(
-                    "xia2.multiplex trigger generated JobParameterID {} with files:\n%s".format(
-                        jppid
-                    ),
-                    "\n".join(files),
-                )
+            job_parameters: list[tuple[str, str]] = [
+                ("data", ";".join(files)) for files in data_files
+            ]
+            if group.sample_id:
+                job_parameters.append(("sample_id", str(group.sample_id)))
+            else:
+                job_parameters.append(("sample_group_id", str(group.sample_group_id)))
             if parameters.spacegroup:
+                job_parameters.append(("spacegroup", parameters.spacegroup))
+            if (
+                parameters.diffraction_plan_info
+                and parameters.diffraction_plan_info.anomalousScatterer
+            ):
+                job_parameters.extend(
+                    [
+                        ("anomalous", "true"),
+                        ("absorption_level", "high"),
+                    ]
+                )
+            for k, v in job_parameters:
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()
                 jpp["job_id"] = jobid
-                jpp["parameter_key"] = "spacegroup"
-                jpp["parameter_value"] = parameters.spacegroup
+                jpp["parameter_key"] = k
+                jpp["parameter_value"] = v
                 jppid = self.ispyb.mx_processing.upsert_job_parameter(
                     list(jpp.values())
                 )
                 self.log.debug(
-                    "xia2.multiplex trigger generated JobParameterID %s with %s=%s",
-                    jppid,
-                    jpp["parameter_key"],
-                    parameters.spacegroup,
+                    f"xia2.multiplex trigger generated JobParameterID {jppid} with {k}={v}",
                 )
 
             message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
@@ -1427,7 +1358,328 @@ class DLSTrigger(CommonService):
 
             self.log.info(f"xia2.multiplex trigger: Processing job {jobid} triggered")
 
-            self._prom_metrics.record_metric("job_triggered", ["xia2.multiplex"])
+        return {"success": True, "return_value": jobids}
+
+    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    def trigger_xia2_ssx_reduce(
+        self,
+        rw: RecipeWrapper,
+        message: Dict,
+        parameters: Xia2SsxReduceParameters,
+        session: sqlalchemy.orm.session.Session,
+        transaction: int,
+        **kwargs,
+    ):
+        """Trigger a xia2.ssx_reduce job for a given data collection.
+
+        Identify all successful autoprocessing xia2.ssx results for a group of related
+        data collections. A xia2.ssx_reduce job will be triggered using as input the
+        integrated.expt and integrated.refl files generated by the xia2.ssx jobs for
+        each related data collection.
+
+        If any of the xia2.ssx jobs are still running (or yet to start), we
+        checkpoint the current message with a delay, where the delay is given by
+
+            delay = backoff-delay * backoff-multiplier ** ntry
+
+        If any xia2.ssx jobs are still running after backoff-max-try iterations,
+        then a multiplex will be triggered with whatever remaining related results
+        are available.
+
+        New ProcessingJob, ProcessingJobImageSweep and ProcessingJobParameter entries
+        will be created, and the resulting list of processingJobIds will be sent to
+        the `processing_recipe` queue.
+        """
+        dcid = parameters.dcid
+
+        # Take related dcids from recipe in preference
+        related_dcids = parameters.related_dcids
+        self.log.info(f"related_dcids={related_dcids}")
+
+        if not related_dcids:
+            self.log.debug(f"No related_dcids for dcid={dcid}")
+            return {"success": True}
+
+        self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
+
+        # Calculate message delay for exponential backoff in case a processing
+        # program for a related data collection is still running, in which case
+        # we checkpoint with the calculated message delay
+        status = {
+            "ntry": 0,
+        }
+        if isinstance(message, dict):
+            status.update(message.get("trigger-status", {}))
+        message_delay = (
+            parameters.backoff_delay * parameters.backoff_multiplier ** status["ntry"]
+        )
+        status["ntry"] += 1
+        self.log.debug(f"dcid={dcid}\nmessage_delay={message_delay}\n{status}")
+
+        ssx_reduce_job_dcids: list[set[int]] = []
+        jobids = []
+
+        for group in related_dcids:
+            self.log.debug(f"group: {group}")
+            # Select only those dcids that were collected before the triggering dcid
+            dcids = [d for d in group.dcids if d < dcid]
+
+            # Add the current dcid at the beginning of the list
+            dcids.insert(0, dcid)
+
+            if len(dcids) == 1:
+                self.log.info(
+                    f"Skipping xia2.ssx_reduce trigger: no related dcids for dcid={dcid} group={group}"
+                )
+                continue
+            self.log.info(f"xia2.ssx_reduce trigger: found dcids: {dcids}")
+
+            # Check for any processing jobs that are yet to finish (or fail)
+            query = (
+                (
+                    session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                        ProcessingJob,
+                        ProcessingJob.processingJobId
+                        == AutoProcProgram.processingJobId,
+                    )
+                )
+                .filter(ProcessingJob.dataCollectionId.in_(dcids))
+                .filter(ProcessingJob.automatic == True)  # noqa E712
+                .filter(AutoProcProgram.processingPrograms == "xia2.ssx")
+                .filter(
+                    or_(
+                        AutoProcProgram.processingStatus == None,  # noqa E711
+                        AutoProcProgram.processingStartTime == None,  # noqa E711
+                    )
+                )
+            )
+
+            # If there are any running (or yet to start) jobs, then checkpoint with delay
+            waiting_processing_jobs = query.all()
+            if n_waiting_processing_jobs := len(waiting_processing_jobs):
+                self.log.info(
+                    f"Waiting on {n_waiting_processing_jobs} processing jobs for {dcid=}"
+                )
+                waiting_dcids = [
+                    row.dataCollectionId for row in waiting_processing_jobs
+                ]
+                waiting_appids = [
+                    row.AutoProcProgram.autoProcProgramId
+                    for row in waiting_processing_jobs
+                ]
+                if status["ntry"] >= parameters.backoff_max_try:
+                    # Give up waiting for this program to finish and trigger
+                    # multiplex with remaining related results are available
+                    self.log.info(
+                        f"max-try exceeded, giving up waiting for related processings for dcids {waiting_dcids}\n"
+                    )
+                else:
+                    # Send results to myself for next round of processing
+                    self.log.debug(
+                        f"Waiting for dcids={waiting_dcids}\nappids={waiting_appids}"
+                    )
+                    rw.checkpoint(
+                        {"trigger-status": status},
+                        delay=message_delay,
+                        transaction=transaction,
+                    )
+                    return {"success": True}
+
+            query = (
+                (
+                    session.query(
+                        DataCollection,
+                        AutoProcProgram,
+                        ProcessingJob,
+                    )
+                    .join(
+                        AutoProcIntegration,
+                        AutoProcIntegration.dataCollectionId
+                        == DataCollection.dataCollectionId,
+                    )
+                    .join(
+                        AutoProcProgram,
+                        AutoProcProgram.autoProcProgramId
+                        == AutoProcIntegration.autoProcProgramId,
+                    )
+                    .join(
+                        ProcessingJob,
+                        ProcessingJob.processingJobId
+                        == AutoProcProgram.processingJobId,
+                    )
+                    .join(AutoProcProgram.AutoProcProgramAttachments)
+                )
+                .filter(DataCollection.dataCollectionId.in_(dcids))
+                .filter(ProcessingJob.automatic == True)  # noqa E712
+                .filter(AutoProcProgram.processingPrograms == "xia2.ssx")
+                .filter(AutoProcProgram.processingStatus == 1)
+                .filter(
+                    (
+                        AutoProcProgramAttachment.fileName.endswith(".expt")
+                        | AutoProcProgramAttachment.fileName.endswith(".refl")
+                    )
+                    & AutoProcProgramAttachment.fileName.startswith("integrated")
+                )
+                .options(
+                    contains_eager(AutoProcProgram.AutoProcProgramAttachments),
+                    joinedload(ProcessingJob.ProcessingJobParameters),
+                    Load(DataCollection)
+                    .load_only("dataCollectionId", "wavelength")
+                    .raiseload("*"),
+                )
+                .populate_existing()
+            )
+
+            dcids = []
+            data_files = []
+            for dc, app, pj in query.all():
+                # Select only those dcids at the same wavelength as the triggering dcid
+                if (
+                    parameters.wavelength
+                    and abs(dc.wavelength - parameters.wavelength)
+                    > parameters.wavelength_tolerance
+                ):
+                    self.log.debug(
+                        f"Discarding appid {app.autoProcProgramId} (wavelength does not match input):\n"
+                        f"    {dc.wavelength} != {parameters.wavelength} (tolerance={parameters.wavelength_tolerance}"
+                    )
+                    continue
+
+                # If this multiplex job was triggered with a spacegroup parameter
+                # then only use xia2-dials autoprocessing results that were
+                # themselves run with a spacegroup parameter. Else only use those
+                # results that weren't run with a space group parameter
+                job_spacegroup_param = None
+                for param in pj.ProcessingJobParameters:
+                    self.log.debug(f"{param.parameterKey}: {param.parameterValue}")
+                    if param.parameterKey == "spacegroup":
+                        job_spacegroup_param = param.parameterValue
+                        break
+                if parameters.spacegroup and (
+                    not job_spacegroup_param
+                    or job_spacegroup_param != parameters.spacegroup
+                ):
+                    self.log.debug(f"Discarding appid {app.autoProcProgramId}")
+                    continue
+                elif job_spacegroup_param and not parameters.spacegroup:
+                    self.log.debug(f"Discarding appid {app.autoProcProgramId}")
+                    continue
+
+                self.log.debug(f"Using appid {app.autoProcProgramId}")
+                attachments = [
+                    str(pathlib.Path(att.filePath) / att.fileName)
+                    for att in app.AutoProcProgramAttachments
+                ]
+                self.log.debug(
+                    f"Found the following files for appid {app.autoProcProgramId}:\n{', '.join(attachments)}"
+                )
+                if len(attachments) % 2:
+                    self.log.warning(
+                        f"Expected to find an even number of data files for appid {app.autoProcProgramId} (found {len(attachments)})"
+                    )
+                    continue
+                if len(attachments) >= 2:
+                    dcids.append(dc.dataCollectionId)
+                    data_files.extend(attachments)
+
+            if not any(data_files):
+                self.log.info(
+                    f"Skipping xia2.ssx_reduce trigger: no related data files found for dcid={dcid} group={group}"
+                )
+                continue
+
+            self.log.info(data_files)
+            if len(data_files) <= 2:
+                self.log.info(
+                    f"Skipping xia2.ssx_reduce trigger: not enough related data files found for dcid={dcid} group={group}"
+                )
+                continue
+
+            self.log.debug(set(dcids))
+            self.log.debug(ssx_reduce_job_dcids)
+            if set(dcids) in ssx_reduce_job_dcids:
+                continue
+            ssx_reduce_job_dcids.append(set(dcids))
+
+            jp = self.ispyb.mx_processing.get_job_params()
+            jp["automatic"] = parameters.automatic
+            jp["comments"] = parameters.comment
+            jp["datacollectionid"] = dcid
+            jp["display_name"] = "xia2.ssx_reduce"
+            jp["recipe"] = "postprocessing-xia2-ssx-reduce"
+            self.log.info(jp)
+            jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+            jobids.append(jobid)
+            self.log.debug(f"xia2.ssx_reduce trigger: generated JobID {jobid}")
+
+            query = (
+                session.query(DataCollection)
+                .filter(DataCollection.dataCollectionId.in_(dcids))
+                .options(
+                    Load(DataCollection)
+                    .load_only(
+                        "dataCollectionId",
+                        "wavelength",
+                        "startImageNumber",
+                        "numberOfImages",
+                    )
+                    .raiseload("*")
+                )
+            )
+            for dc in query.all():
+                jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+                jisp["datacollectionid"] = dc.dataCollectionId
+                jisp["start_image"] = dc.startImageNumber
+                jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
+
+                jisp["job_id"] = jobid
+                jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
+                    list(jisp.values())
+                )
+                self.log.debug(
+                    f"xia2.ssx_reduce trigger: generated JobImageSweepID {jispid}"
+                )
+
+            data_files = sorted(data_files)
+            # group into pairs
+            data_file_pairs = [
+                data_files[i : i + 2] for i in range(0, len(data_files) // 2, 2)
+            ]
+            job_parameters: list[tuple[str, str]] = [
+                ("data", ";".join(files)) for files in data_file_pairs
+            ]
+            if group.sample_id:
+                job_parameters.append(("sample_id", str(group.sample_id)))
+            else:
+                job_parameters.append(("sample_group_id", str(group.sample_group_id)))
+            if parameters.spacegroup:
+                job_parameters.append(("spacegroup", parameters.spacegroup))
+            # if (
+            #     parameters.diffraction_plan_info
+            #     and parameters.diffraction_plan_info.anomalousScatterer
+            # ):
+            #     job_parameters.extend(
+            #         [
+            #             ("anomalous", "true"),
+            #             ("absorption_level", "high"),
+            #         ]
+            #     )
+            for k, v in job_parameters:
+                jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                jpp["job_id"] = jobid
+                jpp["parameter_key"] = k
+                jpp["parameter_value"] = v
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                    list(jpp.values())
+                )
+                self.log.debug(
+                    f"xia2.ssx_reduce trigger generated JobParameterID {jppid} with {k}={v}",
+                )
+
+            message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+            rw.transport.send("processing_recipe", message)
+
+            self.log.info(f"xia2.ssx_reduce trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobids}
 
@@ -1472,7 +1724,7 @@ class DLSTrigger(CommonService):
         }
         rw.transport.send("processing_recipe", message)
         self.log.info(f"AlphaFold triggered with parameters:\n{message}")
-
-        self._prom_metrics.record_metric("job_triggered", ["AlphaFold"])
+        # Because we don't return a jobid we have to manually record this metric
+        self._metrics.record_metric("zocalo_trigger_jobs_total", ["alphafold"])
 
         return {"success": True}

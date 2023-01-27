@@ -1,31 +1,30 @@
 """
 3D gridscan analysis from 2 x 2D perpendicular gridscans.
 """
-# isort: skip_file
 
+from __future__ import annotations
+
+import dataclasses
 import enum
+import json
 import logging
-import numpy as np
 import sys
 from typing import List
-from typing import Union
+
+import dials.util
+import dials.util.log
+import h5py  # This must be after the first dxtbx import
 
 # We need to parse command-line arguments to PHIL scopes.
 import libtbx.phil
-
-from dxtbx.model import ExperimentList
-import dials.util
-import dials.util.log
+import numpy as np
 from dials.algorithms.spot_finding import per_image_analysis
 from dials.array_family import flex
-from dials.util.options import OptionParser
+from dials.util.options import ArgumentParser
 from dials.util.version import dials_version
+from dxtbx.model import ExperimentList
 
-import h5py  # This must be after the first dxtbx import
-
-from dlstbx.util import xray_centering
-from dlstbx.util import xray_centering_3d
-
+from dlstbx.util import xray_centering, xray_centering_3d
 
 logger = logging.getLogger("dials.gridscan3d")
 
@@ -36,6 +35,8 @@ phil_scope = libtbx.phil.parse(
       .type = bool
     metric = *n_spots_total n_spots_no_ice n_spots_4A total_intensity estimated_d_min
       .type = choice
+    threshold = 0.25
+      .type = float(value_min=0)
     """
 )
 
@@ -53,7 +54,8 @@ class metrics(enum.Enum):
 def gridscan3d(
     experiment_lists: List[ExperimentList],
     reflection_tables: List[flex.reflection_table],
-    metric: Union[str, metrics] = "n_spots_total",
+    metric: str | metrics = "n_spots_total",
+    threshold: float = 0.25,
     plot: bool = False,
 ):
     """
@@ -95,6 +97,7 @@ def gridscan3d(
 
         unique_x = np.array(sorted(set(x)))
         unique_y = np.array(sorted(set(y)))
+        unique_z = np.array(sorted(set(z)))
 
         logger.debug(f"x: {sorted(unique_x)}")
         logger.debug(f"y: {sorted(unique_x)}")
@@ -102,23 +105,38 @@ def gridscan3d(
         logger.debug(f"omega: {sorted(set(omega))}")
 
         n = len(experiments)
-        nx = len(unique_x)
-        ny = len(unique_y)
-        data.append(np.zeros(n))
+        # Hack subtract 1 from all varying dimensions (see python-artemis#115)
+        nx = len(unique_x) - 1
+        ny = len(unique_y) - 1 or 1
+        nz = len(unique_z) - 1 or 1
+        assert n == (nx * ny * nz), (n, nx, ny, nz)
+        data_ = np.zeros(n)
         for i in range(n):
             refl = reflections.select(reflections["id"] == i)
             stats = per_image_analysis.stats_for_reflection_table(refl)._asdict()
             logger.debug(stats)
-            data[-1][i] = stats[metric]
+            data_[i] = stats[metric]
+        if ny == 1:
+            data_ = xray_centering.reshape_grid(
+                data_,
+                (nx, nz),
+                snaked=True,
+                orientation=xray_centering.Orientation.HORIZONTAL,
+            )
+        else:
+            data_ = xray_centering.reshape_grid(
+                data_,
+                (nx, ny),
+                snaked=True,
+                orientation=xray_centering.Orientation.HORIZONTAL,
+            )
+        data.append(data_)
 
-    max_idx = xray_centering_3d.gridscan3d(
-        data=np.array(data),
-        steps=(nx, ny),
-        snaked=True,
-        orientation=xray_centering.Orientation.HORIZONTAL,
+    return xray_centering_3d.gridscan3d(
+        data=tuple(data),
+        threshold=threshold,
         plot=plot,
     )
-    return max_idx
 
 
 @dials.util.show_mail_on_error()
@@ -133,7 +151,7 @@ def run(args: List[str] = None, phil: libtbx.phil.scope = phil_scope) -> None:
     """
     usage = "dlstbx.gridscan3d [options] m45_imported.expt m45_strong.refl p45_imported.expt p45_strong.refl"
 
-    parser = OptionParser(
+    parser = ArgumentParser(
         usage=usage,
         phil=phil,
         read_reflections=True,
@@ -168,10 +186,21 @@ def run(args: List[str] = None, phil: libtbx.phil.scope = phil_scope) -> None:
     reflection_tables = [refl.data for refl in params.input.reflections]
     experiment_lists = [expt.data for expt in params.input.experiments]
 
-    max_idx = gridscan3d(
-        experiment_lists, reflection_tables, metric=params.metric, plot=params.plot
+    results = gridscan3d(
+        experiment_lists,
+        reflection_tables,
+        metric=params.metric,
+        threshold=params.threshold,
+        plot=params.plot,
     )
-    logger.info(f"max_idx: {max_idx}")
+    logger.info("\n".join(str(r) for r in results))
+    logger.debug(
+        json.dumps(
+            [dataclasses.asdict(r) for r in results],
+            sort_keys=True,
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

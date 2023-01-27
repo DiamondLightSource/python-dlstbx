@@ -33,20 +33,6 @@ def berkel_me():
     builtins.isinstance, builtins.isklassinstance = _, builtins.isinstance
 
 
-def enable_graylog(live=True):
-    """
-    Set up graylog logging using the zocalo.
-    In live mode direct logs to the Data Analysis stream in graylog.
-    Otherwise send logs to the general bucket.
-    """
-    import zocalo
-
-    if live:
-        return zocalo.enable_graylog(host="graylog2.diamond.ac.uk", port=12208)
-    else:
-        return zocalo.enable_graylog()
-
-
 class Buck:
     """A buck, which can be passed."""
 

@@ -126,11 +126,20 @@ def get_presigned_urls_images(bucket_name, pid, images, logger):
         image_pattern = str(h5_file).split("master")[0] + "*"
         for filepath in glob.glob(image_pattern):
             filename = "_".join([pid, Path(filepath).name])
+            file_size = Path(filepath).stat().st_size
+            upload_file = True
             if filename in store_objects:
+                upload_file = False
                 logger.info(
                     f"File {filename} already exists in object store bucket {bucket_name}."
                 )
-            else:
+                result = minio_client.stat_object(bucket_name, filename)
+                if file_size != result.size:
+                    logger.info(
+                        f"Reuploading {filepath.name} because of mismatch in file size: Expected {file_size}, got {result.size}"
+                    )
+                    upload_file = True
+            if upload_file:
                 logger.info(f"Uploading file {filename} into object store.")
                 timestamp = time.perf_counter()
                 minio_client.fput_object(
@@ -145,7 +154,6 @@ def get_presigned_urls_images(bucket_name, pid, images, logger):
                     f"Upload of {filename} into object store completed in {timestamp:.3f} seconds."
                 )
                 result = minio_client.stat_object(bucket_name, filename)
-                file_size = Path(filepath).stat().st_size
                 if file_size != result.size:
                     raise ValueError(
                         f"Invalid size for uploaded {filepath.name} file: Expected {file_size}, got {result.size}"

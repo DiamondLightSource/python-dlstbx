@@ -4,7 +4,6 @@ import configparser
 import copy
 import itertools
 import json
-import logging
 import os
 import pathlib
 import re
@@ -20,14 +19,15 @@ from dlstbx import schemas
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.wrapper import Wrapper
 
-logger = logging.getLogger("dlstbx.wrap.dimple")
-
 
 class DimpleWrapper(Wrapper):
+
+    _logger_name = "dlstbx.wrap.dimple"
+
     def send_results_to_ispyb(self):
         log_file = self.results_directory / "dimple.log"
         if not log_file.is_file():
-            logger.error(
+            self.log.error(
                 "Can not insert dimple results into ISPyB: dimple.log not found"
             )
             return False
@@ -40,7 +40,7 @@ class DimpleWrapper(Wrapper):
         ), f"Exactly one scaling id must be provided: {scaling_id}"
         scaling_id = scaling_id[0]
         program_id = self.params.get("program_id")
-        logger.debug(
+        self.log.debug(
             f"Inserting dimple phasing results from {self.results_directory} into ISPyB for scaling_id {scaling_id}"
         )
 
@@ -163,7 +163,7 @@ class DimpleWrapper(Wrapper):
             "attachments": [json.loads(att.json()) for att in attachments],
         }
 
-        logger.debug("Sending %s", str(ispyb_results))
+        self.log.debug("Sending %s", str(ispyb_results))
         self.recwrap.send_to("ispyb", ispyb_results)
         return True
 
@@ -183,7 +183,7 @@ class DimpleWrapper(Wrapper):
 
         mtz = self.params.get("data", [])
         if not mtz:
-            logger.error("Could not identify on what data to run")
+            self.log.error("Could not identify on what data to run")
             return False
 
         assert len(mtz) == 1, "Exactly one data file data file must be provided: %s" % (
@@ -191,11 +191,11 @@ class DimpleWrapper(Wrapper):
         )
         mtz = pathlib.Path(mtz[0]).resolve()
         if not mtz.is_file():
-            logger.error("Could not find data file %s to process", mtz)
+            self.log.error("Could not find data file %s to process", mtz)
             return False
         pdb = self.params.get("pdb")
         if not pdb:
-            logger.error("Not running dimple as no PDB file available")
+            self.log.error("Not running dimple as no PDB file available")
             return False
 
         pdb = copy.deepcopy(pdb)  # otherwise we could modify the array in the recipe
@@ -206,7 +206,7 @@ class DimpleWrapper(Wrapper):
                 )
                 if local_pdb_copy.is_file():
                     code_or_file = local_pdb_copy
-                    logger.debug(f"Using local PDB {local_pdb_copy}")
+                    self.log.debug(f"Using local PDB {local_pdb_copy}")
             if os.path.isfile(code_or_file):
                 shutil.copy(code_or_file, self.working_directory)
                 pdb[i] = self.working_directory / os.path.basename(code_or_file)
@@ -226,7 +226,7 @@ class DimpleWrapper(Wrapper):
                 os.fspath(self.working_directory), self.params["create_symlink"]
             )
 
-        logger.info("command: %s", " ".join(map(str, command)))
+        self.log.info("command: %s", " ".join(map(str, command)))
         result = procrunner.run(
             command,
             working_directory=self.working_directory,
@@ -234,20 +234,20 @@ class DimpleWrapper(Wrapper):
         )
         success = not result["exitcode"] and not result["timeout"]
         if success:
-            logger.info("dimple successful, took %.1f seconds", result["runtime"])
+            self.log.info("dimple successful, took %.1f seconds", result["runtime"])
         else:
-            logger.info(
+            self.log.info(
                 "dimple failed with exitcode %s and timeout %s",
                 result["exitcode"],
                 result["timeout"],
             )
-            logger.debug(result["stdout"].decode("latin1"))
-            logger.debug(result["stderr"].decode("latin1"))
+            self.log.debug(result["stdout"].decode("latin1"))
+            self.log.debug(result["stderr"].decode("latin1"))
 
         # Hack to workaround dimple returning successful exitcode despite 'Giving up'
         success &= b"Giving up" not in result.stdout
 
-        logger.info(f"Copying DIMPLE results to {self.results_directory}")
+        self.log.info(f"Copying DIMPLE results to {self.results_directory}")
         self.results_directory.mkdir(parents=True, exist_ok=True)
         if self.params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
@@ -270,7 +270,7 @@ class DimpleWrapper(Wrapper):
         ] + list(self.results_directory.glob("*blob*-coot.py"))
         for path in filenames:
             if path.is_file():
-                logger.debug("Replacing tmp paths in %s", path)
+                self.log.debug("Replacing tmp paths in %s", path)
                 path.write_text(
                     path.read_text().replace(
                         os.fspath(self.working_directory),
@@ -278,7 +278,7 @@ class DimpleWrapper(Wrapper):
                     )
                 )
         if success:
-            logger.info("Sending dimple results to ISPyB")
+            self.log.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()
 
         return success

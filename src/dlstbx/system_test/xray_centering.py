@@ -102,3 +102,89 @@ class XrayCentering(CommonSystemTest):
             },
             timeout=10,
         )
+
+    def test_xray_centering_3d(self):
+        # fmt: off
+        spot_counts = [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 8, 9, 9, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 8, 9, 11, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 5, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 8, 7, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 9, 14, 8, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 12, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+        # fmt: on
+
+        dcids = [9754358, 9754361]
+        steps = [(25, 13), (25, 14)]
+
+        for dcid, spot_counts_dc, (steps_x, steps_y) in zip(dcids, spot_counts, steps):
+            recipe = {
+                "start": [[1, []]],
+                "1": {
+                    "service": "DLS X-Ray Centering",
+                    "queue": "reduce.xray_centering",
+                    "parameters": {
+                        "dcid": dcid,
+                        "dcg_dcids": list(set(dcids) - {dcid}),
+                        "experiment_type": "Mesh3D",
+                        "beamline": "i03",
+                        "threshold": 0.5,
+                    },
+                    "output": 2,
+                    "gridinfo": {
+                        "dx_mm": 0.02,
+                        "dy_mm": 0.02,
+                        "orientation": "horizontal",
+                        "pixelsPerMicronX": 0.806,
+                        "pixelsPerMicronY": 0.806,
+                        "snaked": 1,
+                        "snapshot_offsetXPixel": 422.0,
+                        "snapshot_offsetYPixel": 132.33,
+                        "steps_x": steps_x,
+                        "steps_y": steps_y,
+                    },
+                },
+                2: {
+                    "service": "DLS System Test",
+                    "queue": self.target_queue,
+                },
+            }
+
+            recipe = Recipe(recipe)
+            recipe.validate()
+
+            for i, count in enumerate(spot_counts_dc):
+                message = {
+                    "n_spots_total": count,
+                    "file-number": i + 1,
+                    "file-seen-at": time.time(),
+                }
+                self.send_message(
+                    queue=recipe[1]["queue"],
+                    message={
+                        "payload": message,
+                        "recipe": recipe.recipe,
+                        "recipe-pointer": "1",
+                        "environment": {"ID": self.guid},
+                    },
+                    headers={"workflows-recipe": True},
+                )
+
+        self.expect_recipe_message(
+            environment={"ID": self.guid},
+            recipe=recipe,
+            recipe_path=[1],
+            recipe_pointer=2,
+            payload=[
+                {
+                    "centre_of_mass": [
+                        6.624165554072096,
+                        6.019359145527369,
+                        8.663551401869158,
+                    ],
+                    "max_voxel": [6, 5, 8],
+                    "max_count": 126,
+                    "n_voxels": 18,
+                    "total_count": 1498,
+                    "bounding_box": [[5, 4, 7], [8, 8, 10]],
+                }
+            ],
+            timeout=10,
+        )

@@ -60,16 +60,16 @@ class MrBUMPWrapper(Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
 
         # Create working directory with symbolic link
-        working_directory = Path(params["working_directory"])
+        working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
-        if params.get("create_symlink"):
-            dlstbx.util.symlink.create_parent_symlink(
-                str(working_directory), params["create_symlink"], levels=1
-            )
 
         run_all = "stage" not in params
 
-        if params["stage"] == "setup" or run_all:
+        if run_all or params.get("stage") == "setup":
+            if params.get("create_symlink"):
+                dlstbx.util.symlink.create_parent_symlink(
+                    str(working_directory), params["create_symlink"], levels=1
+                )
             singularity_image = params.get("singularity_image")
             if singularity_image:
                 # Copy files into mrbump_data directory for HTCondor transfer
@@ -102,7 +102,6 @@ class MrBUMPWrapper(Wrapper):
                 try:
                     tmp_path = working_directory / "TMP"
                     tmp_path.mkdir(parents=True, exist_ok=True)
-                    pdbmount = Path(params["mrbump"]["pdbmount"])
                     pdblocal = Path(params["mrbump"]["pdblocal"])
                     # shutil.copy(singularity_image, str(working_directory))
                     # image_name = Path(singularity_image).name
@@ -110,7 +109,6 @@ class MrBUMPWrapper(Wrapper):
                         working_directory,
                         singularity_image,
                         tmp_path.name,
-                        str(pdbmount),
                         str(pdblocal),
                     )
                     self.recwrap.environment.update(
@@ -121,7 +119,7 @@ class MrBUMPWrapper(Wrapper):
                     return False
             success = True
 
-        if params["stage"] == "run" or run_all:
+        if run_all or params.get("stage") == "run":
             try:
                 sequence = params["protein_info"]["sequence"]
                 if not sequence:
@@ -223,13 +221,13 @@ class MrBUMPWrapper(Wrapper):
                 self.log.debug(result["stdout"].decode("latin1"))
                 self.log.debug(result["stderr"].decode("latin1"))
 
-        if params["stage"] == "report" or run_all:
+        if run_all or params.get("stage") == "report":
             if params.get("results_directory"):
                 results_directory = pathlib.Path(params["results_directory"])
                 self.log.info(f"Copying MrBUMP results to {results_directory}")
                 skip_copy = [".launch", ".recipewrap"]
                 copy_results(
-                    str(working_directory),
+                    str(working_directory / params["create_symlink"]),
                     str(results_directory),
                     skip_copy,
                     self.log,
@@ -242,8 +240,8 @@ class MrBUMPWrapper(Wrapper):
                     str(results_directory), params["create_symlink"]
                 )
 
-            hklout = pathlib.Path(params["mrbump"]["hklout"])
-            xyzout = pathlib.Path(params["mrbump"]["xyzout"])
+            hklout = pathlib.Path(params["mrbump"]["command"]["hklout"])
+            xyzout = pathlib.Path(params["mrbump"]["command"]["xyzout"])
             success = hklout.is_file() and xyzout.is_file()
             keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}
             for filename in results_directory.iterdir():

@@ -213,12 +213,12 @@ def write_singularity_script(working_directory, singularity_image, tmp_mount=Fal
 
 
 def write_mrbump_singularity_script(
-    working_directory, singularity_image, tmp_mount, pdbmount, pdblocal
+    working_directory, singularity_image, tmp_mount, pdblocal
 ):
     singularity_script = working_directory / "run_singularity.sh"
 
     tmp_pdb_mount = (
-        f"--bind ${{PWD}}/{tmp_mount}:/opt/xia2/tmp --bind {pdbmount}:{pdblocal}"
+        f"--bind ${{PWD}}/{tmp_mount}:/opt/xia2/tmp --bind {pdblocal}:{pdblocal}"
         if tmp_mount
         else ""
     )

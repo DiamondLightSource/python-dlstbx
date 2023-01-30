@@ -66,6 +66,7 @@ def handle_vmxi_rotation_scan(
             autostart=True,
             recipe="autoprocessing-fast-dp-eiger",
             source="automatic",
+            displayname="fast_dp",
         ),
         # xia2-dials
         mimas.MimasISPyBJobInvocation(
@@ -73,6 +74,7 @@ def handle_vmxi_rotation_scan(
             autostart=scenario.preferred_processing == "xia2/DIALS",
             recipe="autoprocessing-xia2-dials-eiger",
             source="automatic",
+            displayname="xia2 dials",
             parameters=(
                 mimas.MimasISPyBParameter(
                     key="resolution.cc_half_significance_level",
@@ -89,6 +91,7 @@ def handle_vmxi_rotation_scan(
             autostart=scenario.preferred_processing == "xia2/XDS",
             recipe="autoprocessing-xia2-3dii-eiger",
             source="automatic",
+            displayname="xia2 3dii",
             parameters=(
                 mimas.MimasISPyBParameter(
                     key="resolution.cc_half_significance_level",
@@ -102,5 +105,6 @@ def handle_vmxi_rotation_scan(
             autostart=scenario.preferred_processing == "autoPROC",
             recipe="autoprocessing-autoPROC-eiger",
             source="automatic",
+            displayname="autoPROC",
         ),
     ]

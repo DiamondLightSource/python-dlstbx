@@ -226,6 +226,7 @@ def handle_rotation_end(
                 autostart=True,
                 recipe=f"autoprocessing-fast-dp{suffix}",
                 source="automatic",
+                displayname="fast_dp",
                 parameters=(
                     mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
                 ),
@@ -239,6 +240,7 @@ def handle_rotation_end(
                 autostart=True,
                 recipe=f"autoprocessing-fast-dp{suffix}",
                 source="automatic",
+                displayname="fast_dp",
             )
         )
 
@@ -264,6 +266,7 @@ def handle_rotation_end(
                     autostart=scenario.preferred_processing == "xia2/DIALS",
                     recipe=f"autoprocessing-xia2-dials{suffix}",
                     source="automatic",
+                    displayname="xia2 dials",
                     parameters=(
                         mimas.MimasISPyBParameter(
                             key="resolution.cc_half_significance_level", value="0.1"
@@ -279,6 +282,7 @@ def handle_rotation_end(
                     autostart=scenario.preferred_processing == "xia2/XDS",
                     recipe=f"autoprocessing-xia2-3dii{suffix}",
                     source="automatic",
+                    displayname="xia2 3dii",
                     parameters=(
                         mimas.MimasISPyBParameter(
                             key="resolution.cc_half_significance_level", value="0.1"
@@ -292,6 +296,7 @@ def handle_rotation_end(
                     autostart=scenario.preferred_processing == "autoPROC",
                     recipe=f"autoprocessing-autoPROC{suffix}",
                     source="automatic",
+                    displayname="autoPROC",
                     parameters=params,
                 ),
             ]
@@ -306,6 +311,7 @@ def handle_rotation_end(
                         autostart=False,
                         recipe=f"autoprocessing-multi-xia2-dials{suffix}",
                         source="automatic",
+                        displayname="xia2 dials (multi)",
                         parameters=(
                             mimas.MimasISPyBParameter(
                                 key="resolution.cc_half_significance_level", value="0.1"
@@ -321,6 +327,7 @@ def handle_rotation_end(
                         autostart=False,
                         recipe=f"autoprocessing-multi-xia2-3dii{suffix}",
                         source="automatic",
+                        displayname="xia2 3dii (multi)",
                         parameters=(
                             mimas.MimasISPyBParameter(
                                 key="resolution.cc_half_significance_level", value="0.1"

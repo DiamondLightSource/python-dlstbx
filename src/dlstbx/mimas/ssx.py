@@ -31,6 +31,7 @@ def handle_pilatus_serial_end(
             recipe="autoprocessing-xia2-ssx-pilatus",
             source="automatic",
             sweeps=tuple(scenario.getsweepslistfromsamedcg),
+            displayname="xia2.ssx",
             parameters=symmetry_parameters,
         ),
     ]
@@ -61,6 +62,7 @@ def handle_eiger_serial_end(
             recipe="autoprocessing-xia2-ssx-eiger",
             source="automatic",
             sweeps=tuple(scenario.getsweepslistfromsamedcg),
+            displayname="xia2.ssx",
             parameters=symmetry_parameters,
         ),
     ]

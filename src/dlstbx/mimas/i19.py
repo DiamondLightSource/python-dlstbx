@@ -119,6 +119,7 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                     else "autoprocessing-multi-xia2-smallmolecule-nexus",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    displayname="xia2 dials",
                     parameters=(
                         *params,
                         *xia2_dials_absorption_params(scenario),
@@ -133,6 +134,7 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                     else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    displayname="xia2 dials-aimless",
                     parameters=(
                         *params,
                         *xia2_dials_extra_params,

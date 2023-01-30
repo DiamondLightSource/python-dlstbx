@@ -56,6 +56,7 @@ def handle_cloud(
                             autostart=True,
                             recipe="autoprocessing-xia2-dials-eiger-cloud",
                             source="automatic",
+                            displayname="xia2 dials",
                             parameters=(
                                 mimas.MimasISPyBParameter(
                                     key="resolution.cc_half_significance_level",
@@ -74,6 +75,7 @@ def handle_cloud(
                             autostart=True,
                             recipe="autoprocessing-xia2-3dii-eiger-cloud",
                             source="automatic",
+                            displayname="xia2 3dii",
                             parameters=(
                                 mimas.MimasISPyBParameter(
                                     key="resolution.cc_half_significance_level",
@@ -91,6 +93,7 @@ def handle_cloud(
                             autostart=True,
                             recipe="autoprocessing-autoPROC-eiger-cloud",
                             source="automatic",
+                            displayname="autoPROC",
                             parameters=params,
                         )
                     )

@@ -32,5 +32,5 @@ def test_ssx(dcclass, detectorclass):
         "zocalo.go -r pia-index-ssx-pilatus 8374193"
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
-        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-ssx-pilatus --trigger",
+        f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-ssx-pilatus --display='xia2.ssx' --trigger",
     }

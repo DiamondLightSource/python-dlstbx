@@ -46,6 +46,7 @@ def handle_i15_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                     recipe="autoprocessing-multi-xia2-smallmolecule",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    displayname="xia2 dials",
                     parameters=(
                         *params,
                         *xia2_dials_absorption_params(scenario),
@@ -57,6 +58,7 @@ def handle_i15_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                     recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml",
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    displayname="xia2 dials-aimless",
                     parameters=params,
                 ),
             ]

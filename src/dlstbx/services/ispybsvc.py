@@ -1368,3 +1368,25 @@ class DLSISPyB(EM_Mixin, CommonService):
                 exc_info=True,
             )
             return False
+
+    def do_upsert_data_collection_mx(self, parameters, message=None, **kwargs):
+        dc_params = self.ispyb.mx_acquisition.get_data_collection_params()
+        dc_params["id"] = parameters("dcid")
+        dc_params["parentid"] = parameters("dcgid")
+        dc_params["xtal_snapshot1"] = parameters("xtal_snapshot1")
+        dc_params["xtal_snapshot2"] = parameters("xtal_snapshot2")
+        dc_params["xtal_snapshot3"] = parameters("xtal_snapshot3")
+        dc_params["xtal_snapshot4"] = parameters("xtal_snapshot4")
+        try:
+            data_collection_id = self.ispyb.mx_acquisition.upsert_data_collection(
+                list(dc_params.values())
+            )
+            self.log.info(f"Upserted DataCollection {data_collection_id}")
+            return {"success": True, "return_value": data_collection_id}
+
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                f"Upserting DataCollection entry caused exception '{e}'.",
+                exc_info=True,
+            )
+            return False

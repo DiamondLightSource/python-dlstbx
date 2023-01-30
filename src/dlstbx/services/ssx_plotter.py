@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -161,6 +162,7 @@ class SSXPlotter(CommonService):
 
         try:
             plotter(payload, lines)
+            rw.send({"plot_file": os.fspath(payload.plot_file)})
         except pydantic.ValidationError as e:
             self.log.error(e, exc_info=True)
             rw.transport.transaction_abort(header, transaction=txn)

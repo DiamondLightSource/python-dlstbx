@@ -22,7 +22,8 @@ from dlstbx.wrapper import Wrapper
 
 
 class Xia2SsxParams(pydantic.BaseModel):
-    template: Path
+    template: Optional[Path]
+    image: Optional[Path]
     unit_cell: Optional[
         tuple[
             pydantic.NonNegativeFloat,
@@ -43,6 +44,12 @@ class Xia2SsxParams(pydantic.BaseModel):
         v = tuple(float(v) for v in v)
         return v
 
+    @pydantic.root_validator
+    def check_template_or_image(cls, values):
+        if values.get("template") is None and values.get("image") is None:
+            raise ValueError("Either template or image must be defined")
+        return values
+
 
 class Payload(pydantic.BaseModel):
     working_directory: Path
@@ -59,7 +66,9 @@ class Xia2SsxWrapper(Wrapper):
     def construct_commandline(self, params: Xia2SsxParams):
         command = [
             "xia2.ssx",
-            f"template={params.template}",
+            f"template={params.template}"
+            if params.template
+            else f"image={params.image}",
         ]
         if params.unit_cell:
             command.append("unit_cell=%s,%s,%s,%s,%s,%s" % params.unit_cell)

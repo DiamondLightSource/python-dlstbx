@@ -96,6 +96,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "xia2_setup = dlstbx.wrapper.xia2_setup:Xia2SetupWrapper",
     "xia2_results = dlstbx.wrapper.xia2_results:Xia2ResultsWrapper",
     "xia2.multiplex = dlstbx.wrapper.xia2_multiplex:Xia2MultiplexWrapper",
+    "xia2.multiplex_test = dlstbx.wrapper.xia2_multiplex_test:Xia2MultiplexWrapper",
     "xia2.strategy = dlstbx.wrapper.xia2_strategy:Xia2StrategyWrapper",
     "xia2.to_shelxcde = dlstbx.wrapper.xia2_to_shelxcde:Xia2toShelxcdeWrapper",
     "xia2.ssx = dlstbx.wrapper.xia2_ssx:Xia2SsxWrapper",

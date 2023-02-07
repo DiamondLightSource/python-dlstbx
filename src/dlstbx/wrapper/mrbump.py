@@ -8,9 +8,9 @@ import procrunner
 from iotbx.bioinformatics import fasta_sequence
 
 import dlstbx.util.symlink
-from dlstbx.util.big_ep_helpers import copy_results
 from dlstbx.util.iris import write_mrbump_singularity_script
 from dlstbx.wrapper import Wrapper
+from dlstbx.wrapper.helpers import copy_results
 
 
 class MrBUMPWrapper(Wrapper):

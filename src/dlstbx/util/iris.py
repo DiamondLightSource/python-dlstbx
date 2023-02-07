@@ -213,7 +213,7 @@ def write_singularity_script(working_directory, singularity_image, tmp_mount=Fal
 
 
 def write_mrbump_singularity_script(
-    working_directory, singularity_image, tmp_mount, pdblocal
+    working_directory: Path, singularity_image: Path, tmp_mount: Path, pdblocal: Path
 ):
     singularity_script = working_directory / "run_singularity.sh"
 

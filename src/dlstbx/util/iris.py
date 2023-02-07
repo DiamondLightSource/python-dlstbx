@@ -228,5 +228,4 @@ def write_mrbump_singularity_script(
         "export HOME=${PWD}/auto_mrbump",
         f"/usr/bin/singularity exec --home ${{PWD}} {tmp_pdb_mount} {singularity_image} $@",
     ]
-    with open(singularity_script, "w") as fp:
-        fp.write("\n".join(commands))
+    singularity_script.write_text("\n".join(commands))

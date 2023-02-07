@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import os
-import pathlib
 import shutil
 import time
 import xml.etree.ElementTree
+from pathlib import Path
 from typing import Any
 
 import procrunner
@@ -172,6 +172,12 @@ def construct_commandline(params, logger, working_directory=None, image_director
                 ),
             ]
         )
+
+        if image_directory:
+            first_image_or_master_h5_name = Path(first_image_or_master_h5).name
+            first_image_or_master_h5 = str(
+                Path(image_directory) / first_image_or_master_h5_name
+            )
 
         # This assumes that all datasets have the same untrusted rectangles
         untrusted_rectangles = get_untrusted_rectangles(
@@ -480,8 +486,8 @@ class autoPROCWrapper(Wrapper):
 
         command = construct_commandline(params, self.log)
 
-        working_directory = pathlib.Path(params["working_directory"])
-        results_directory = pathlib.Path(params["results_directory"])
+        working_directory = Path(params["working_directory"])
+        results_directory = Path(params["results_directory"])
         working_directory.mkdir(parents=True, exist_ok=True)
 
         # Create working directory with symbolic link

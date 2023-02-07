@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-import threading
+import queue
 import time
 
 import workflows.recipe
@@ -24,8 +24,7 @@ class DLSMimasBacklog(CommonService):
         self._max_jobs_waiting = 60
         self._jobs_waiting = self._max_jobs_waiting
         self._last_cluster_update = time.time()
-        self._held_data = None
-        self._lock = threading.Lock()
+        self._held_data = queue.Queue()
 
         # Subscribe to the mimas.held queue, which contains the held mimas
         # recipes we would like to drip-feed to the dispatcher
@@ -36,6 +35,7 @@ class DLSMimasBacklog(CommonService):
             acknowledgement=True,
             exclusive=True,
             log_extender=self.extend_log,
+            prefetch_count=65535,
         )
 
         # Subscribe to the transient.statistics.cluster topic, which we will
@@ -59,16 +59,19 @@ class DLSMimasBacklog(CommonService):
             message["statistic-cluster"] == "live"
             and message["statistic"] == "waiting-jobs-per-queue"
         ):
-            with self._lock:
-                self._last_cluster_update = time.time()
-                self._jobs_waiting = message["high.q"] + message["medium.q"]
-                self.log.log(
-                    logging.INFO if self._jobs_waiting else logging.DEBUG,
-                    f"Jobs waiting: {self._jobs_waiting}",
-                )
-                if self._jobs_waiting < self._max_jobs_waiting and self._held_data:
-                    self.forward_message(*self._held_data)
-                    self._held_data = None
+            self._last_cluster_update = time.time()
+            self._jobs_waiting = message["high.q"] + message["medium.q"]
+            self.log.log(
+                logging.INFO if self._jobs_waiting else logging.DEBUG,
+                f"Jobs waiting on cluster: {self._jobs_waiting}\n"
+                f"Jobs queued locally: {self._held_data.qsize()}",
+            )
+            while (
+                self._jobs_waiting < self._max_jobs_waiting
+                and not self._held_data.empty()
+            ):
+                self.forward_message(*self._held_data.get())
+                self._jobs_waiting += 1
 
     def on_mimas_held(self, rw, header, message):
         """
@@ -76,19 +79,20 @@ class DLSMimasBacklog(CommonService):
 
         Otherwise, store this message until there are fewer waiting jobs.
         """
-        self.log.debug(f"Jobs waiting: {self._jobs_waiting}")
-        with self._lock:
-            assert not self._held_data, "unexpectedly received multiple messages"
-            if self._jobs_waiting < self._max_jobs_waiting:
-                if self._last_cluster_update > time.time() - 300:
-                    self.forward_message(rw, header, message)
-                else:
-                    self.log.warning(
-                        "Not heard from the cluster for over 5 minutes. Holding jobs."
-                    )
-                    self._held_data = (rw, header, message)
+        self.log.debug(
+            f"Jobs waiting on cluster: {self._jobs_waiting}\n"
+            f"Jobs queued locally: {self._held_data.qsize()}"
+        )
+        if self._jobs_waiting < self._max_jobs_waiting:
+            if self._last_cluster_update > time.time() - 300:
+                self.forward_message(rw, header, message)
             else:
-                self._held_data = (rw, header, message)
+                self.log.warning(
+                    "Not heard from the cluster for over 5 minutes. Holding jobs."
+                )
+                self._held_data.put((rw, header, message))
+        else:
+            self._held_data.put((rw, header, message))
 
     def forward_message(self, rw, header, message):
         """

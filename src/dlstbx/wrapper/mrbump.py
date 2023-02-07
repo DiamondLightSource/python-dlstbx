@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import pathlib
 import shutil
 from pathlib import Path
 
@@ -63,9 +62,10 @@ class MrBUMPWrapper(Wrapper):
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        run_all = "stage" not in params
+        stage = params.get("stage")
+        assert stage in {None, "setup", "run", "report"}
 
-        if run_all or params.get("stage") == "setup":
+        if stage in {None, "setup"}:
             if params.get("create_symlink"):
                 dlstbx.util.symlink.create_parent_symlink(
                     str(working_directory), params["create_symlink"], levels=1
@@ -119,7 +119,7 @@ class MrBUMPWrapper(Wrapper):
                     return False
             success = True
 
-        if run_all or params.get("stage") == "run":
+        if stage in {None, "run"}:
             try:
                 sequence = params["protein_info"]["sequence"]
                 if not sequence:
@@ -203,12 +203,8 @@ class MrBUMPWrapper(Wrapper):
                     timeout=params.get("timeout"),
                 )
             success = not result["exitcode"] and not result["timeout"]
-            hklout = procrunner_directory / pathlib.Path(
-                params["mrbump"]["command"]["hklout"]
-            )
-            xyzout = procrunner_directory / pathlib.Path(
-                params["mrbump"]["command"]["xyzout"]
-            )
+            hklout = procrunner_directory / Path(params["mrbump"]["command"]["hklout"])
+            xyzout = procrunner_directory / Path(params["mrbump"]["command"]["xyzout"])
             success = success and hklout.is_file() and xyzout.is_file()
             if success:
                 self.log.info("mrbump successful, took %.1f seconds", result["runtime"])
@@ -221,9 +217,9 @@ class MrBUMPWrapper(Wrapper):
                 self.log.debug(result["stdout"].decode("latin1"))
                 self.log.debug(result["stderr"].decode("latin1"))
 
-        if run_all or params.get("stage") == "report":
+        if stage in {None, "report"}:
             if params.get("results_directory"):
-                results_directory = pathlib.Path(params["results_directory"])
+                results_directory = Path(params["results_directory"])
                 self.log.info(f"Copying MrBUMP results to {results_directory}")
                 skip_copy = [".launch", ".recipewrap"]
                 copy_results(
@@ -240,8 +236,8 @@ class MrBUMPWrapper(Wrapper):
                     str(results_directory), params["create_symlink"]
                 )
 
-            hklout = pathlib.Path(params["mrbump"]["command"]["hklout"])
-            xyzout = pathlib.Path(params["mrbump"]["command"]["xyzout"])
+            hklout = Path(params["mrbump"]["command"]["hklout"])
+            xyzout = Path(params["mrbump"]["command"]["xyzout"])
             success = hklout.is_file() and xyzout.is_file()
             keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}
             for filename in results_directory.iterdir():

@@ -10,7 +10,6 @@ from jinja2.loaders import PackageLoader
 import dlstbx.util.big_ep as bpu
 import dlstbx.util.fast_ep as fpu
 from dlstbx.util.big_ep_helpers import (
-    copy_results,
     get_autobuild_model_files,
     get_autosharp_model_files,
     get_crank2_model_files,
@@ -20,6 +19,7 @@ from dlstbx.util.big_ep_helpers import (
 )
 from dlstbx.util.symlink import create_parent_symlink
 from dlstbx.wrapper import Wrapper
+from dlstbx.wrapper.helpers import copy_results
 
 
 class BigEPReportWrapper(Wrapper):

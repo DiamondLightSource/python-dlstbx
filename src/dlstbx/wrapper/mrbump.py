@@ -56,7 +56,7 @@ class MrBUMPWrapper(Wrapper):
     def setup(self, working_directory, params):
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                str(working_directory), params["create_symlink"], levels=1
+                working_directory, params["create_symlink"], levels=1
             )
         singularity_image = params.get("singularity_image")
         if singularity_image:
@@ -71,7 +71,7 @@ class MrBUMPWrapper(Wrapper):
                     for pth in val:
                         shutil.copy(pth, data_directory)
                         hkl_paths.append(
-                            os.sep.join([data_directory.name, os.path.basename(pth)])
+                            str(Path(data_directory.name) / Path(pth).name)
                         )
                     self.recwrap.environment.update({"hklin": hkl_paths})
                 elif key == "localfile":
@@ -79,22 +79,20 @@ class MrBUMPWrapper(Wrapper):
                     for localfile in val:
                         shutil.copy(localfile, data_directory)
                         localfile_paths.append(
-                            os.sep.join(
-                                [data_directory.name, os.path.basename(localfile)]
-                            )
+                            str(Path(data_directory.name) / Path(localfile).name)
                         )
                     self.recwrap.environment.update({"localfile": localfile_paths})
             try:
                 tmp_path = working_directory / "TMP"
                 tmp_path.mkdir(parents=True, exist_ok=True)
-                pdblocal = Path(params["mrbump"]["pdblocal"])
+                pdblocal = params["mrbump"]["pdblocal"]
                 # shutil.copy(singularity_image, str(working_directory))
                 # image_name = Path(singularity_image).name
                 write_mrbump_singularity_script(
                     working_directory,
                     singularity_image,
                     tmp_path.name,
-                    str(pdblocal),
+                    pdblocal,
                 )
                 self.recwrap.environment.update(
                     {"singularity_image": singularity_image}
@@ -119,11 +117,10 @@ class MrBUMPWrapper(Wrapper):
             return False
         procrunner_directory = working_directory / params["create_symlink"]
         procrunner_directory.mkdir(parents=True, exist_ok=True)
-        seq_filename = os.path.join(
-            procrunner_directory, "seq_{}.fasta".format(params["dcid"])
-        )
-        with open(seq_filename, "w") as fp:
-            fp.write(fasta_sequence(sequence).format(80))
+
+        seq_filename = procrunner_directory / f"seq_{params['dcid']}.fasta"
+        seq_filename.write_text(fasta_sequence(sequence).format(80))
+
         if self.recwrap.environment.get("singularity_image"):
             hklin = self.recwrap.environment.get("hklin")
             # Alternatively hklin could be provided in cdl_params
@@ -211,7 +208,7 @@ class MrBUMPWrapper(Wrapper):
         results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                str(results_directory), params["create_symlink"]
+                results_directory, params["create_symlink"]
             )
         hklout = Path(params["mrbump"]["command"]["hklout"])
         xyzout = Path(params["mrbump"]["command"]["xyzout"])

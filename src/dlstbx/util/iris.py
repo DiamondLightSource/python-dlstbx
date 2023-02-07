@@ -120,11 +120,7 @@ def get_presigned_urls_images(bucket_name, pid, images, logger):
 
     s3_urls = {}
     store_objects = [obj.object_name for obj in minio_client.list_objects(bucket_name)]
-    try:
-        h5_paths = {Path(s.split(":")[0]) for s in images.split(",")}
-    except AttributeError:
-        h5_paths = {Path(s) for s in images}
-
+    h5_paths = {Path(s.split(":")[0]) for s in images.split(",")}
     for h5_file in h5_paths:
         image_pattern = str(h5_file).split("master")[0] + "*"
         for filepath in glob.glob(image_pattern):

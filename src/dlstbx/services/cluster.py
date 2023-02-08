@@ -208,9 +208,7 @@ def submit_to_slurm(
     try:
         response = api.submit_job(job_submission)
     except requests.HTTPError as e:
-        logger.error(f"Failed Slurm job submission: {e}")
-        logger.warning(e.response.text)
-        raise
+        logger.error(f"Failed Slurm job submission: {e}\n" f"{e.response.text}")
         return None
     if response.errors:
         error_message = "\n".join(f"{e.errno}: {e.error}" for e in response.errors)

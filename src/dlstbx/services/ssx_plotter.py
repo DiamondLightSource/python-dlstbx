@@ -147,7 +147,7 @@ class SSXPlotter(CommonService):
             )
             rw.transport.transaction_commit(txn)
             return
-        elif not lines or len(lines) < expected_result_count:
+        elif not timeout and (not lines or len(lines) < expected_result_count):
             # Not found all messages, so checkpoint message with a delay
             self.log.debug(
                 f"Waiting for results in {payload.results_file} (dcid={payload.dcid})"
@@ -160,6 +160,7 @@ class SSXPlotter(CommonService):
             rw.transport.transaction_commit(txn)
             return
 
+        assert lines is not None
         try:
             plotter(payload, lines)
             rw.send({"plot_file": os.fspath(payload.plot_file)})

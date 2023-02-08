@@ -223,7 +223,7 @@ def submit_to_htcondor(
     params: JobSubmissionParameters,
     working_directory: pathlib.Path,
     logger: logging.Logger,
-    zc: zocalo.configuration,
+    **kwargs,
 ) -> int | None:
     current_wd = os.getcwd()
 

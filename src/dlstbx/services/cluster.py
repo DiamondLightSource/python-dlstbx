@@ -53,9 +53,10 @@ class JobSubmissionParameters(pydantic.BaseModel):
     time_limit: Optional[str] = None
     gpus: Optional[int] = None
     exclusive: bool = False
-    project: Optional[str]  # account in slurm terminology
+    account: Optional[str]  # account in slurm terminology
     commands: list[str] | str
-    queue: str
+    qos: Optional[str]
+    queue: Optional[str]  # legacy for grid engine
     qsub_submission_parameters: Optional[str]  # temporary support for legacy recipes
 
 
@@ -70,14 +71,14 @@ def submit_to_grid_engine(
     **kwargs,
 ) -> int | None:
     # validate
-    if params.project and 1 < len(params.project.strip()) and "{" not in params.project:
-        if params.cluster == "hamilton" and params.project == "dls":
+    if params.account and 1 < len(params.account.strip()) and "{" not in params.account:
+        if params.cluster == "hamilton" and params.account == "dls":
             raise JobSubmissionValidationError(
                 "Project 'dls' is not allowed on Hamilton"
             )
     elif params.cluster == "hamilton":
         raise JobSubmissionValidationError(
-            f"No cluster project set for job ({params.project}) on Hamilton. "
+            f"No cluster project set for job ({params.account}) on Hamilton. "
             "Cluster project is mandatory for submission."
         )
 
@@ -96,8 +97,8 @@ def submit_to_grid_engine(
             submission_params.extend(["-l", "exclusive"])
         if params.gpus:
             submission_params.extend(["-l", f"gpus={params.gpus}"])
-        if params.project:
-            submission_params.extend(["-P", params.project])
+        if params.account:
+            submission_params.extend(["-P", params.account])
 
         cluster_queue = params.queue
         if cluster_queue is not None:
@@ -199,8 +200,9 @@ def submit_to_slurm(
             time_limit=time_limit_minutes,
             gpus=params.gpus,
             # exclusive=params.exclusive,
-            account=params.project,
+            account=params.account,
             current_working_directory=os.fspath(working_directory),
+            qos=params.qos,
         ),
     )
     try:
@@ -351,13 +353,13 @@ class DLSCluster(CommonService):
             cluster_submission_parameters = parameters.get(
                 "cluster_submission_parameters"
             )
-            project = parameters.get("cluster_project")
+            account = parameters.get("cluster_project")
             queue = parameters.get("cluster_queue")
             commands = parameters.get("cluster_commands")
             params = JobSubmissionParameters(
                 scheduler="grid_engine",
                 cluster=cluster,
-                project=project,
+                account=account,
                 commands=commands,
                 qsub_submission_parameters=cluster_submission_parameters,
                 queue=queue,

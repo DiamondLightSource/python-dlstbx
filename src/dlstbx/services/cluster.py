@@ -199,7 +199,7 @@ def submit_to_slurm(
             memory_per_cpu=params.memory_per_cpu,
             time_limit=time_limit_minutes,
             gpus=params.gpus,
-            # exclusive=params.exclusive,
+            exclusive=str(params.exclusive).lower(),
             account=params.account,
             current_working_directory=os.fspath(working_directory),
             qos=params.qos,

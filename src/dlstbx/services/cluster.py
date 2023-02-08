@@ -1,16 +1,25 @@
 from __future__ import annotations
 
+import datetime
 import errno
 import json
+import logging
+import math
 import os
 import pathlib
+import subprocess
 from pprint import pformat
+from typing import Optional
 
-import procrunner
+import pkg_resources
+import pydantic
+import requests
 import workflows.recipe
+import zocalo.configuration
 from workflows.services.common_service import CommonService
+from zocalo.util import slurm
 
-cluster_queue_mapping = {
+cluster_queue_mapping: dict[str, dict[str, str]] = {
     "cluster": {
         "default": "medium.q",
         "bottom": "bottom.q",
@@ -32,6 +41,240 @@ cluster_queue_mapping = {
 }
 
 
+class JobSubmissionParameters(pydantic.BaseModel):
+    scheduler: str
+    cluster: str
+    partition: Optional[str]
+    job_name: Optional[str]  #
+    cpus_per_task: Optional[int] = None
+    memory_per_cpu: Optional[int] = pydantic.Field(
+        None, description="Minimum real memory per cpu (MB)"
+    )
+    time_limit: Optional[str] = None
+    gpus: Optional[int] = None
+    exclusive: bool = False
+    project: Optional[str]  # account in slurm terminology
+    commands: list[str] | str
+    queue: str
+    qsub_submission_parameters: Optional[str]  # temporary support for legacy recipes
+
+
+class JobSubmissionValidationError(ValueError):
+    pass
+
+
+def submit_to_grid_engine(
+    params: JobSubmissionParameters,
+    working_directory: pathlib.Path,
+    logger: logging.Logger,
+    **kwargs,
+) -> int | None:
+    # validate
+    if params.project and 1 < len(params.project.strip()) and "{" not in params.project:
+        if params.cluster == "hamilton" and params.project == "dls":
+            raise JobSubmissionValidationError(
+                "Project 'dls' is not allowed on Hamilton"
+            )
+    elif params.cluster == "hamilton":
+        raise JobSubmissionValidationError(
+            f"No cluster project set for job ({params.project}) on Hamilton. "
+            "Cluster project is mandatory for submission."
+        )
+
+    submission_params: list
+    if params.qsub_submission_parameters:
+        submission_params = params.qsub_submission_parameters.split()
+    else:
+        submission_params = ["-N", params.job_name]
+        if params.cpus_per_task:
+            submission_params.extend(["-pe", "smp", str(params.cpus_per_task)])
+        if params.memory_per_cpu:
+            submission_params.extend(["-l", f"mfree={params.memory_per_cpu}M"])
+        if params.time_limit:
+            submission_params.extend(["-l", f"h_rt={params.time_limit}"])
+        if params.exclusive:
+            submission_params.extend(["-l", "exclusive"])
+        if params.gpus:
+            submission_params.extend(["-l", f"gpus={params.gpus}"])
+        if params.project:
+            submission_params.extend(["-P", params.project])
+
+        cluster_queue = params.queue
+        if cluster_queue is not None:
+            mapped_queue = cluster_queue_mapping[params.cluster].get(cluster_queue)
+            if mapped_queue:
+                logger.debug(
+                    f"Mapping requested cluster queue {cluster_queue} on cluster {params.cluster} to {mapped_queue}"
+                )
+            else:
+                mapped_queue = cluster_queue_mapping[params.cluster].get("default")
+                if mapped_queue:
+                    logger.info(
+                        f"Requested cluster queue {cluster_queue} not available on cluster {params.cluster}, mapping to {mapped_queue} instead"
+                    )
+            if mapped_queue:
+                submission_params = ["-q", mapped_queue] + submission_params
+            else:
+                logger.warning(
+                    f"Requested cluster queue {cluster_queue} not available on cluster {params.cluster}, no default queue set"
+                )
+
+    commands = params.commands
+    if not isinstance(commands, str):
+        commands = " ".join(commands)
+
+    submission = [
+        ". /etc/profile.d/modules.sh",
+        "module load global/" + params.cluster,
+        # thanks to Modules 3.2 weirdness qsub may now be a function
+        # calling the real qsub command, but eating up its parameters.
+        "unset -f qsub",
+        f"qsub {' '.join(submission_params)} << EOF",
+        "#!/bin/bash",
+        ". /etc/profile.d/modules.sh",
+        "cd " + os.fspath(working_directory),
+        commands,
+        "EOF",
+    ]
+    logger.debug(
+        f"Cluster ({params.cluster}) submission parameters: {submission_params}"
+    )
+    logger.debug(f"Commands: {commands}")
+    logger.debug(f"Working directory: {working_directory}")
+    result = subprocess.run(
+        ["/bin/bash"],
+        input="\n".join(submission).encode("latin1"),
+        cwd=working_directory,
+        capture_output=True,
+    )
+    if result.returncode:
+        logger.error(
+            "Could not submit cluster job:\n%s\n%s",
+            result.stdout.decode("latin1"),
+            result.stderr.decode("latin1"),
+        )
+        return None
+    assert b"has been submitted" in result.stdout
+    jobnumber = result.stdout.split()[2].decode("latin1")
+    return int(jobnumber)
+
+
+def submit_to_slurm(
+    params: JobSubmissionParameters,
+    working_directory: pathlib.Path,
+    logger: logging.Logger,
+    zc: zocalo.configuration,
+) -> int | None:
+    api = slurm.SlurmRestApi.from_zocalo_configuration(zc)
+
+    script = params.commands
+    if not isinstance(script, str):
+        script = "\n".join(script)
+    script = f"#!/bin/bash\n. /etc/profile.d/modules.sh\n{script}"
+
+    logger.debug(f"Submitting script to Slurm:\n{script}")
+    if params.time_limit:
+        parsed_time = datetime.datetime.strptime(params.time_limit, "%H:%M:%S")
+        time_delta = datetime.timedelta(
+            hours=parsed_time.hour,
+            minutes=parsed_time.minute,
+            seconds=parsed_time.second,
+        )
+        time_limit_minutes = math.ceil(time_delta.total_seconds() / 60)
+    else:
+        time_limit_minutes = None
+
+    job_submission = slurm.models.JobSubmission(
+        script=script,
+        job=slurm.models.JobProperties(
+            partition=params.partition,
+            name=params.job_name,
+            cpus_per_task=params.cpus_per_task,
+            environment={
+                "PATH": "/bin:/usr/bin/:/usr/local/bin/",
+                "LD_LIBRARY_PATH": "/lib/:/lib64/:/usr/local/lib",
+                "USER": os.getlogin(),
+            },
+            memory_per_cpu=params.memory_per_cpu,
+            time_limit=time_limit_minutes,
+            gpus=params.gpus,
+            # exclusive=params.exclusive,
+            account=params.project,
+            current_working_directory=os.fspath(working_directory),
+        ),
+    )
+    try:
+        response = api.submit_job(job_submission)
+    except requests.HTTPError as e:
+        logger.error(f"Failed Slurm job submission: {e}")
+        logger.warning(e.response.text)
+        raise
+        return None
+    if response.errors:
+        error_message = "\n".join(f"{e.errno}: {e.error}" for e in response.errors)
+        logger.error(f"Failed Slurm job submission: {error_message}")
+        return None
+    return response.job_id
+
+
+def submit_to_htcondor(
+    params: JobSubmissionParameters,
+    working_directory: pathlib.Path,
+    logger: logging.Logger,
+    zc: zocalo.configuration,
+) -> int | None:
+    current_wd = os.getcwd()
+
+    commands = params.commands
+    if not isinstance(commands, str):
+        commands = "\n".join(commands)
+    cluster_exec, cluster_args = commands.split("\n", 1)
+    logger.info(f"{cluster_exec} {cluster_args}")
+    htcondor_submit = {"executable": cluster_exec, "arguments": cluster_args}
+
+    # def env_parameter(base_value):
+    #     if not isinstance(base_value, str) or "$" not in base_value:
+    #         return base_value
+    #     for key in sorted(rw.environment, key=len, reverse=True):
+    #         if "${" + key + "}" in base_value:
+    #             base_value = base_value.replace(
+    #                 "${" + key + "}", str(rw.environment[key])
+    #             )
+    #         # Replace longest keys first, as the following replacement is
+    #         # not well-defined when one key is a prefix of another:
+    #         if "$" + key in base_value:
+    #             base_value = base_value.replace(
+    #                 "$" + key, str(rw.environment[key])
+    #             )
+    #     return base_value
+
+    # for key, val in parameters["cluster_submission_parameters"].items():
+    #     if key in ("transfer_input_files", "transfer_output_files"):
+    #         htcondor_submit[key] = ",".join([env_parameter(v) for v in val])
+    #     else:
+    #         htcondor_submit[key] = val
+    try:
+        import htcondor
+
+        coll = htcondor.Collector(htcondor.param["COLLECTOR_HOST"])
+        schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
+        schedd = htcondor.Schedd(schedd_ad)
+        logger.debug(f"Address of the Schedd is: {str(schedd_ad['MyAddress'])}")
+        os.chdir(working_directory)
+        htcondor_job = htcondor.Submit(htcondor_submit)
+
+        with schedd.transaction() as txn:
+            jobnumber = htcondor_job.queue(txn, count=1)
+    except Exception:
+        logger.exception(
+            f"Could not submit HTCondor job:\n{pformat(htcondor_submit)}",
+        )
+        return None
+    finally:
+        os.chdir(current_wd)
+    return jobnumber
+
+
 class DLSCluster(CommonService):
     """A service to interface zocalo with functions to start new
     jobs on the clusters."""
@@ -51,6 +294,13 @@ class DLSCluster(CommonService):
             self._request_termination()
             return
 
+        self.schedulers = {
+            f.name: f.load()
+            for f in pkg_resources.iter_entry_points(
+                "zocalo.services.cluster.schedulers"
+            )
+        }
+        self.log.debug(f"Supported schedulers: {', '.join(self.schedulers.keys())}")
         workflows.recipe.wrap_subscribe(
             self._transport,
             "cluster.submission",
@@ -93,80 +343,30 @@ class DLSCluster(CommonService):
         """Submit cluster job according to message."""
 
         parameters = rw.recipe_step["parameters"]
-        commands = parameters["cluster_commands"]
-        if not isinstance(commands, str):
-            commands = "\n".join(commands)
-
-        cluster = parameters.get("cluster")
-        if cluster not in cluster_queue_mapping:
-            if cluster:
-                self.log.warning(
-                    "Unknown cluster %s specified, defaulting to science cluster",
-                    cluster,
-                )
-            cluster = "cluster"
-        submission_params = parameters.get("cluster_submission_parameters", "")
-        if (
-            parameters.get("cluster_project")
-            and 1 < len(parameters["cluster_project"].strip())
-            and "{" not in parameters["cluster_project"]
-        ):
-            if cluster == "hamilton" and parameters["cluster_project"] == "dls":
-                self.log.error("Project 'dls' is not allowed on Hamilton")
-                self._transport.nack(header)
-                return
-            submission_params = "-P %s %s" % (
-                parameters["cluster_project"],
-                submission_params,
-            )
-            self.log.debug(
-                "Using cluster project %s for submission", parameters["cluster_project"]
-            )
-        elif cluster == "hamilton":
-            self.log.error(
-                "No cluster project set for job (%s) on Hamilton. "
-                "Cluster project is mandatory for submission.",
-                repr(parameters.get("cluster_project")),
-            )
-            self._transport.nack(header)
-            return
-        elif cluster == "htcondor":
-            # TODO: What are the restrictions for submitting jobs to HTCondor?
-            pass
-        else:
+        if isinstance(parameters.get("cluster"), str):
             self.log.warning(
-                "No cluster project set for job (%s)",
-                repr(parameters.get("cluster_project")),
+                f"Legacy cluster parameters encountered in recipe_ID: {rw.environment['ID']}"
             )
-        commands = commands.replace("$RECIPEPOINTER", str(rw.recipe_pointer))
+            cluster = parameters["cluster"]
+            cluster_submission_parameters = parameters.get(
+                "cluster_submission_parameters"
+            )
+            project = parameters.get("cluster_project")
+            queue = parameters.get("cluster_queue")
+            commands = parameters.get("cluster_commands")
+            params = JobSubmissionParameters(
+                scheduler="grid_engine",
+                cluster=cluster,
+                project=project,
+                commands=commands,
+                qsub_submission_parameters=cluster_submission_parameters,
+                queue=queue,
+            )
+        else:
+            params = JobSubmissionParameters(**parameters.get("cluster", {}))
 
-        cluster_queue = parameters.get("cluster_queue")
-        if cluster_queue is not None:
-            mapped_queue = cluster_queue_mapping[cluster].get(cluster_queue)
-            if mapped_queue:
-                self.log.debug(
-                    "Mapping requested cluster queue %s on cluster %s to %s",
-                    cluster_queue,
-                    cluster,
-                    mapped_queue,
-                )
-            else:
-                mapped_queue = cluster_queue_mapping[cluster].get("default")
-                if mapped_queue:
-                    self.log.info(
-                        "Requested cluster queue %s not available on cluster %s, mapping to %s instead",
-                        cluster_queue,
-                        cluster,
-                        mapped_queue,
-                    )
-            if mapped_queue:
-                submission_params = f"-q {mapped_queue} {submission_params}"
-            else:
-                self.log.warning(
-                    "Requested cluster queue %s not available on cluster %s, no default queue set",
-                    cluster_queue,
-                    cluster,
-                )
+        if not isinstance(params.commands, str):
+            params.commands = "\n".join(params.commands)
 
         if "recipefile" in parameters:
             recipefile = parameters["recipefile"]
@@ -181,7 +381,7 @@ class DLSCluster(CommonService):
                     return
                 raise
             self.log.debug("Writing recipe to %s", recipefile)
-            commands = commands.replace("$RECIPEFILE", recipefile)
+            params.commands = params.commands.replace("$RECIPEFILE", recipefile)
             with open(recipefile, "w") as fh:
                 fh.write(rw.recipe.pretty())
         if "recipeenvironment" in parameters:
@@ -197,7 +397,7 @@ class DLSCluster(CommonService):
                     return
                 raise
             self.log.debug("Writing recipe environment to %s", recipeenvironment)
-            commands = commands.replace("$RECIPEENV", recipeenvironment)
+            params.commands = params.commands.replace("$RECIPEENV", recipeenvironment)
             with open(recipeenvironment, "w") as fh:
                 json.dump(
                     rw.environment, fh, sort_keys=True, indent=2, separators=(",", ": ")
@@ -218,7 +418,7 @@ class DLSCluster(CommonService):
                 self._transport.nack(header)
                 return
             self.log.debug("Storing serialized recipe wrapper in %s", recipewrapper)
-            commands = commands.replace("$RECIPEWRAP", recipewrapper)
+            params.commands = params.commands.replace("$RECIPEWRAP", recipewrapper)
             with open(recipewrapper, "w") as fh:
                 json.dump(
                     {
@@ -241,9 +441,9 @@ class DLSCluster(CommonService):
             )
             self._transport.nack(header)
             return
-        workingdir = parameters["workingdir"]
+        working_directory = pathlib.Path(parameters["workingdir"])
         try:
-            self._recursive_mkdir(workingdir)
+            working_directory.mkdir(parents=True, exist_ok=True)
         except OSError as e:
             self.log.error(
                 "Could not create working directory: %s", str(e), exc_info=True
@@ -251,90 +451,14 @@ class DLSCluster(CommonService):
             self._transport.nack(header)
             return
 
-        if cluster in ("cluster", "testcluster", "hamilton"):
-            submission = [
-                ". /etc/profile.d/modules.sh",
-                "module load global/" + cluster,
-                # thanks to Modules 3.2 weirdness qsub may now be a function
-                # calling the real qsub command, but eating up its parameters.
-                "unset -f qsub",
-                "qsub %s << EOF" % submission_params,
-                "#!/bin/bash",
-                ". /etc/profile.d/modules.sh",
-                "cd " + workingdir,
-                commands,
-                "EOF",
-            ]
-            self.log.debug(
-                "Cluster (%s) submission parameters: %s", cluster, submission_params
-            )
-            self.log.debug("Commands: %s", commands)
-            self.log.debug("Working directory: %s", workingdir)
-            self.log.debug(str(rw.recipe_step))
-            result = procrunner.run(
-                ["/bin/bash"],
-                stdin="\n".join(submission).encode("latin1"),
-                working_directory=workingdir,
-            )
-            if result.returncode:
-                self.log.error(
-                    "Could not submit cluster job:\n%s\n%s",
-                    result.stdout.decode("latin1"),
-                    result.stderr.decode("latin1"),
-                )
-                self._transport.nack(header)
-                return
-            assert b"has been submitted" in result.stdout
-            jobnumber = result.stdout.split()[2].decode("latin1")
-        elif cluster == "htcondor":
-            current_wd = os.getcwd()
-            self.log.info(commands.split("\n", 1))
-            cluster_exec, cluster_args = commands.split("\n", 1)
-            htcondor_submit = {"executable": cluster_exec, "arguments": cluster_args}
+        submit_to_scheduler = self.schedulers.get(params.scheduler)
 
-            def env_parameter(base_value):
-                if not isinstance(base_value, str) or "$" not in base_value:
-                    return base_value
-                for key in sorted(rw.environment, key=len, reverse=True):
-                    if "${" + key + "}" in base_value:
-                        base_value = base_value.replace(
-                            "${" + key + "}", str(rw.environment[key])
-                        )
-                    # Replace longest keys first, as the following replacement is
-                    # not well-defined when one key is a prefix of another:
-                    if "$" + key in base_value:
-                        base_value = base_value.replace(
-                            "$" + key, str(rw.environment[key])
-                        )
-                return base_value
-
-            for key, val in parameters["cluster_submission_parameters"].items():
-                if key in ("transfer_input_files", "transfer_output_files"):
-                    htcondor_submit[key] = ",".join([env_parameter(v) for v in val])
-                else:
-                    htcondor_submit[key] = val
-            try:
-                import htcondor
-
-                coll = htcondor.Collector(htcondor.param["COLLECTOR_HOST"])
-                schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
-                schedd = htcondor.Schedd(schedd_ad)
-                self.log.debug(
-                    f"Address of the Schedd is: {str(schedd_ad['MyAddress'])}"
-                )
-                os.chdir(workingdir)
-                htcondor_job = htcondor.Submit(htcondor_submit)
-
-                with schedd.transaction() as txn:
-                    jobnumber = htcondor_job.queue(txn, count=1)
-            except Exception:
-                self.log.exception(
-                    f"Could not submit HTCondor job:\n{pformat(htcondor_submit)}",
-                )
-                self._transport.nack(header)
-                return
-            finally:
-                os.chdir(current_wd)
+        jobnumber = submit_to_scheduler(
+            params, working_directory, self.log, zc=self.config
+        )
+        if not jobnumber:
+            self._transport.nack(header)
+            return
 
         # Conditionally acknowledge receipt of the message
         txn = self._transport.transaction_begin(subscription_id=header["subscription"])
@@ -346,4 +470,4 @@ class DLSCluster(CommonService):
 
         # Commit transaction
         self._transport.transaction_commit(txn)
-        self.log.info("Submitted job %s to %s", str(jobnumber), cluster)
+        self.log.info(f"Submitted job {jobnumber} to {params.cluster}")

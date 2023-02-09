@@ -5,7 +5,6 @@ import functools
 import pytest
 
 from dlstbx.mimas import MimasDCClass, MimasDetectorClass, MimasEvent, MimasScenario
-from dlstbx.test.mimas.test_core import get_zocalo_commands
 
 
 @pytest.mark.parametrize(
@@ -17,7 +16,7 @@ from dlstbx.test.mimas.test_core import get_zocalo_commands
         (MimasDCClass.SERIAL_JET, MimasDetectorClass.EIGER),
     ],
 )
-def test_ssx(dcclass, detectorclass):
+def test_ssx(dcclass, detectorclass, get_zocalo_commands):
     dcid = 8374193
     scenario = functools.partial(
         MimasScenario,

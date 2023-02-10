@@ -47,9 +47,15 @@ class JobSubmissionParameters(pydantic.BaseModel):
     partition: Optional[str]
     job_name: Optional[str]  #
     cpus_per_task: Optional[int] = None
-    memory_per_cpu: Optional[int] = pydantic.Field(
+    min_memory_per_cpu: Optional[int] = pydantic.Field(
         None, description="Minimum real memory per cpu (MB)"
     )
+    max_memory_per_cpu: Optional[int] = pydantic.Field(
+        None, description="Maximum real memory per cpu (MB)"
+    )  # HTCondor: maximum memory allocated for job
+    max_disk_per_cpu: Optional[int] = pydantic.Field(
+        None, description="Maximum disk space per cpu (MB)"
+    )  # HTCondor: maximum disk space allocated for job
     time_limit: Optional[str] = None
     gpus: Optional[int] = None
     exclusive: bool = False
@@ -58,6 +64,12 @@ class JobSubmissionParameters(pydantic.BaseModel):
     qos: Optional[str]
     queue: Optional[str]  # legacy for grid engine
     qsub_submission_parameters: Optional[str]  # temporary support for legacy recipes
+    transfer_input_files: Optional[list[str]]  # HTCondor: list of input objects to
+    #           transfer from submitter node
+    transfer_output_files: Optional[
+        list[str]
+    ]  # HTCondor: list of output objects to transfer
+    #           transfer to submitter node
 
 
 class JobSubmissionValidationError(ValueError):
@@ -89,8 +101,8 @@ def submit_to_grid_engine(
         submission_params = ["-N", params.job_name]
         if params.cpus_per_task:
             submission_params.extend(["-pe", "smp", str(params.cpus_per_task)])
-        if params.memory_per_cpu:
-            submission_params.extend(["-l", f"mfree={params.memory_per_cpu}M"])
+        if params.min_memory_per_cpu:
+            submission_params.extend(["-l", f"mfree={params.min_memory_per_cpu}M"])
         if params.time_limit:
             submission_params.extend(["-l", f"h_rt={params.time_limit}"])
         if params.exclusive:
@@ -196,7 +208,7 @@ def submit_to_slurm(
                 "LD_LIBRARY_PATH": "/lib/:/lib64/:/usr/local/lib",
                 "USER": os.getlogin(),
             },
-            memory_per_cpu=params.memory_per_cpu,
+            memory_per_cpu=params.min_memory_per_cpu,
             time_limit=time_limit_minutes,
             gpus=params.gpus,
             exclusive=str(params.exclusive).lower(),
@@ -230,29 +242,42 @@ def submit_to_htcondor(
         commands = "\n".join(commands)
     cluster_exec, cluster_args = commands.split("\n", 1)
     logger.info(f"{cluster_exec} {cluster_args}")
-    htcondor_submit = {"executable": cluster_exec, "arguments": cluster_args}
+    htcondor_submit = {
+        "executable": cluster_exec,
+        "arguments": cluster_args,
+        "universe": "vanilla",
+        "environment": "SINGULARITY_CACHEDIR=/tmp/singularity SINGULARITY_LOCALCACHEDIR=/tmp/singularity SINGULARITY_TMPDIR=/tmp/singularity",
+        "should_transfer_files": "YES",
+        "when_to_transfer_output": "ON_EXIT_OR_EVICT",
+        "output": f"{params.job_name}.condor.out",
+        "error": f"{params.job_name}.condor.err",
+        "log": f"{params.job_name}.condor.log",
+        "on_exit_hold": False,
+        "on_exit_remove": True,
+    }
+    if params.cpus_per_task:
+        htcondor_submit.update({"request_cpus": str(params.cpus_per_task)})
+        if params.max_memory_per_cpu:
+            htcondor_submit.update(
+                {
+                    "request_memory": f"{str(params.max_memory_per_cpu * params.cpus_per_task)}MB"
+                }
+            )
+        if params.max_disk_per_cpu:
+            htcondor_submit.update(
+                {
+                    "request_disk": f"{str(params.max_disk_per_cpu * params.cpus_per_task)}MB"
+                }
+            )
+    if params.transfer_input_files:
+        htcondor_submit.update(
+            {"transfer_input_files": ",".join(params.transfer_input_files)}
+        )
+    if params.transfer_output_files:
+        htcondor_submit.update(
+            {"transfer_output_files": ",".join(params.transfer_output_files)}
+        )
 
-    # def env_parameter(base_value):
-    #     if not isinstance(base_value, str) or "$" not in base_value:
-    #         return base_value
-    #     for key in sorted(rw.environment, key=len, reverse=True):
-    #         if "${" + key + "}" in base_value:
-    #             base_value = base_value.replace(
-    #                 "${" + key + "}", str(rw.environment[key])
-    #             )
-    #         # Replace longest keys first, as the following replacement is
-    #         # not well-defined when one key is a prefix of another:
-    #         if "$" + key in base_value:
-    #             base_value = base_value.replace(
-    #                 "$" + key, str(rw.environment[key])
-    #             )
-    #     return base_value
-
-    # for key, val in parameters["cluster_submission_parameters"].items():
-    #     if key in ("transfer_input_files", "transfer_output_files"):
-    #         htcondor_submit[key] = ",".join([env_parameter(v) for v in val])
-    #     else:
-    #         htcondor_submit[key] = val
     try:
         import htcondor
 

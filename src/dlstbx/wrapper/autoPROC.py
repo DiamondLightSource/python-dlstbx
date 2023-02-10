@@ -358,7 +358,9 @@ class autoPROCWrapper(Wrapper):
                     "r_merge": statistics["rMerge"],
                     "r_pim_all_iplusi_minus": statistics["rPimAllIPlusIMinus"],
                     "r_pim_within_iplusi_minus": statistics["rPimWithinIPlusIMinus"],
-                    "res_i_sig_i_2": res_i_sig_i_2,
+                    "res_i_sig_i_2": res_i_sig_i_2
+                    if statistics["scalingStatisticsType"] == "overall"
+                    else None,
                     "res_lim_high": statistics["resolutionLimitHigh"],
                     "res_lim_low": statistics["resolutionLimitLow"],
                 }

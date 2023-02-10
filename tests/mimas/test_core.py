@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import functools
-from unittest import mock
 
 import pytest
-import zocalo.configuration
 
 from dlstbx import mimas
 from dlstbx.mimas import (
@@ -31,21 +29,10 @@ dac_dials_params = (
 )
 
 
-def get_zocalo_commands(scenario):
-    mock_zc = mock.MagicMock(zocalo.configuration.Configuration, autospec=True)
-
-    commands = set()
-    actions = mimas.handle_scenario(scenario, zc=mock_zc)
-    for a in actions:
-        mimas.validate(a)
-        commands.add(mimas.zocalo_command_line(a).strip())
-    return commands
-
-
 @pytest.mark.parametrize(
     "anomalous_scatterer,absorption_level", [("S", "high"), (None, "medium")]
 )
-def test_eiger_rotation(anomalous_scatterer, absorption_level):
+def test_eiger_rotation(anomalous_scatterer, absorption_level, get_zocalo_commands):
     dcid = 5918093
     scenario = functools.partial(
         MimasScenario,
@@ -79,7 +66,9 @@ def test_eiger_rotation(anomalous_scatterer, absorption_level):
 @pytest.mark.parametrize(
     "anomalous_scatterer,absorption_level", [("Se", "high"), (None, "medium")]
 )
-def test_eiger_rotation_multixia2(anomalous_scatterer, absorption_level):
+def test_eiger_rotation_multixia2(
+    anomalous_scatterer, absorption_level, get_zocalo_commands
+):
     dcid = 6123722
     other_dcid = 6123719
     scenario = functools.partial(
@@ -116,7 +105,7 @@ def test_eiger_rotation_multixia2(anomalous_scatterer, absorption_level):
     }
 
 
-def test_eiger_screening():
+def test_eiger_screening(get_zocalo_commands):
     dcid = 6017522
     scenario = functools.partial(
         MimasScenario,
@@ -141,7 +130,7 @@ def test_eiger_screening():
     return
 
 
-def test_eiger_gridscan():
+def test_eiger_gridscan(get_zocalo_commands):
     dcid = 6138194
     scenario = functools.partial(
         MimasScenario,
@@ -163,7 +152,7 @@ def test_eiger_gridscan():
     }
 
 
-def test_cbf_screening():
+def test_cbf_screening(get_zocalo_commands):
     dcid = 5944880
     scenario = functools.partial(
         MimasScenario,
@@ -189,7 +178,7 @@ def test_cbf_screening():
 @pytest.mark.parametrize(
     "anomalous_scatterer,absorption_level", [("Se", "high"), (None, "medium")]
 )
-def test_cbf_rotation(anomalous_scatterer, absorption_level):
+def test_cbf_rotation(anomalous_scatterer, absorption_level, get_zocalo_commands):
     dcid = 5881028
     scenario = functools.partial(
         MimasScenario,
@@ -222,7 +211,9 @@ def test_cbf_rotation(anomalous_scatterer, absorption_level):
 @pytest.mark.parametrize(
     "anomalous_scatterer,absorption_level", [("Se", "high"), (None, "medium")]
 )
-def test_cbf_rotation_multixia2(anomalous_scatterer, absorption_level):
+def test_cbf_rotation_multixia2(
+    anomalous_scatterer, absorption_level, get_zocalo_commands
+):
     dcid = 1234567
     other_dcid = 1234566
     scenario = functools.partial(
@@ -261,7 +252,9 @@ def test_cbf_rotation_multixia2(anomalous_scatterer, absorption_level):
 @pytest.mark.parametrize(
     "anomalous_scatterer,absorption_level", [("Se", "high"), (None, "medium")]
 )
-def test_cbf_rotation_with_spacegroup(anomalous_scatterer, absorption_level):
+def test_cbf_rotation_with_spacegroup(
+    anomalous_scatterer, absorption_level, get_zocalo_commands
+):
     dcid = 6061343
     scenario = functools.partial(
         MimasScenario,
@@ -295,7 +288,7 @@ def test_cbf_rotation_with_spacegroup(anomalous_scatterer, absorption_level):
     }
 
 
-def test_cbf_gridscan():
+def test_cbf_gridscan(get_zocalo_commands):
     dcid = 5899304
     scenario = functools.partial(
         MimasScenario,
@@ -317,7 +310,7 @@ def test_cbf_gridscan():
     }
 
 
-def test_vmxi_gridscan():
+def test_vmxi_gridscan(get_zocalo_commands):
     dcid = 5790074
     scenario = functools.partial(
         MimasScenario,
@@ -342,7 +335,7 @@ def test_vmxi_gridscan():
 @pytest.mark.parametrize(
     "anomalous_scatterer,absorption_level", [("Se", "high"), (None, "medium")]
 )
-def test_vmxi_rotation(anomalous_scatterer, absorption_level):
+def test_vmxi_rotation(anomalous_scatterer, absorption_level, get_zocalo_commands):
     dcid = 5590481
     scenario = functools.partial(
         MimasScenario,
@@ -372,7 +365,7 @@ def test_vmxi_rotation(anomalous_scatterer, absorption_level):
     }
 
 
-def test_vmxm_rotation():
+def test_vmxm_rotation(get_zocalo_commands):
     dcid = 7389381
     scenario = functools.partial(
         MimasScenario,
@@ -412,7 +405,7 @@ def test_vmxm_rotation():
     }
 
 
-def test_vmxm_gridscan():
+def test_vmxm_gridscan(get_zocalo_commands):
     dcid = 7389147
     scenario = functools.partial(
         MimasScenario,
@@ -446,7 +439,14 @@ def test_vmxm_gridscan():
     "dcclass", [MimasDCClass.ROTATION, MimasDCClass.DIAMOND_ANVIL_CELL]
 )
 def test_i19_rotation(
-    detectorclass, pia_type, aimless_string, xia2_type, data_format, rlv_type, dcclass
+    detectorclass,
+    pia_type,
+    aimless_string,
+    xia2_type,
+    data_format,
+    rlv_type,
+    dcclass,
+    get_zocalo_commands,
 ):
     """Test the I19 rotation scenario."""
     dcid = 6356546
@@ -544,6 +544,7 @@ def test_i19_rotation_with_symmetry(
     data_format,
     rlv_type,
     dcclass,
+    get_zocalo_commands,
 ):
     """Test the I19 rotation scenario with specified crystal symmetry."""
     dcid = 6356546
@@ -670,7 +671,7 @@ def test_i19_rotation_with_symmetry(
     )
 
 
-def test_i15_rotation():
+def test_i15_rotation(get_zocalo_commands):
     """Test the I15 rotation scenario."""
     dcid = 8377481
     other_dcid = 8377499

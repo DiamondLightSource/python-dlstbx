@@ -964,11 +964,11 @@ def load_configuration_file(ispyb_info):
     processing_dir = visit_dir / "processing"
 
     for f in list(processing_dir.glob("*.yml")) + list(processing_dir.glob("*.yaml")):
-        prefix = f.stem
+        prefix = f.stem.lower()
         image_path = os.path.join(
             ispyb_info["ispyb_image_directory"], ispyb_info["ispyb_image_template"]
         )
-        if prefix in os.path.relpath(image_path, visit_dir):
+        if prefix in os.path.relpath(image_path, visit_dir).lower().split(os.sep):
             with open(f) as fh:
                 try:
                     return yaml.safe_load(fh)

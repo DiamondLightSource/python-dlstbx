@@ -420,9 +420,9 @@ def test_get_sample_group_dcids_from_yml(tmpdir, db_session):
     ]
 
 
-@pytest.mark.parametrize("ext", ["yml", "yaml"])
-def test_load_configuration_file(tmp_path, ext):
-    foo_yml = tmp_path / "processing" / f"foo.{ext}"
+@pytest.mark.parametrize("filename", ["Foo.yml", "FoO.yaml"])
+def test_load_configuration_file(tmp_path, filename):
+    foo_yml = tmp_path / "processing" / filename
     foo_yml.parent.mkdir()
     foo_yml.write_text(
         """\
@@ -431,8 +431,8 @@ ispyb_space_group: P212121
 """
     )
     ispyb_info = {
-        "ispyb_visit_directory": tmp_path,
-        "ispyb_image_directory": tmp_path / "foo" / "bar",
+        "ispyb_visit_directory": str(tmp_path),
+        "ispyb_image_directory": str(tmp_path / "Foo" / "bar"),
         "ispyb_image_template": "foo_bar_#####.cbf",
     }
     config = dlstbx.ispybtbx.load_configuration_file(ispyb_info)

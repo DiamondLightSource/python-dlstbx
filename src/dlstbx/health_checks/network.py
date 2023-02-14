@@ -183,7 +183,7 @@ def check_github(cfc: CheckFunctionInterface):
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=10,
+            timeout=30,
         )
         return Status(
             Source=cfc.name,

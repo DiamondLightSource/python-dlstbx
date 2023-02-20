@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Optional
 
 import pydantic
@@ -10,7 +11,11 @@ from dials.algorithms.indexing import indexer
 from dials.array_family import flex
 from dials.command_line.index import phil_scope as index_phil_scope
 from dials.util import phil
-from dxtbx.model import ExperimentList
+from dxtbx.model.experiment_list import (
+    Experiment,
+    ExperimentList,
+    ExperimentListFactory,
+)
 from workflows.services.common_service import CommonService
 
 from dlstbx.services.per_image_analysis import msgpack_mangle_for_receiving
@@ -28,6 +33,7 @@ class IndexingPayload(pydantic.BaseModel):
     unit_cell: Optional[uctbx.unit_cell] = None
     space_group: Optional[sgtbx.space_group_info] = None
     max_lattices: pydantic.PositiveInt = 1
+    reference_geometry: Optional[Path] = None
 
     @pydantic.validator("unit_cell", pre=True)
     def check_unit_cell(cls, v):
@@ -74,7 +80,7 @@ class DLSIndexer(CommonService):
     _logger_name = "dlstbx.services.indexer"
 
     def initializing(self):
-        logging.getLogger("dials").setLevel(logging.WARNING)
+        logging.getLogger("dials").setLevel(logging.DEBUG)
         workflows.recipe.wrap_subscribe(
             self._transport,
             "index",
@@ -109,6 +115,41 @@ class DLSIndexer(CommonService):
             )
         else:
             try:
+                if payload.reference_geometry:
+                    self.log.debug(
+                        f"Loading reference geometry from {payload.reference_geometry}"
+                    )
+                    reference_expts = ExperimentListFactory.from_serialized_format(
+                        payload.reference_geometry,
+                        check_format=False,
+                    )
+                    reference_beam = reference_expts.beams()[0]
+                    reference_detector = reference_expts.detectors()[0]
+                    reference_goniometer = (
+                        reference_expts.goniometers()[0]
+                        if len(reference_expts.goniometers())
+                        else None
+                    )
+
+                    # copy across geometry to input experiment
+                    imageset = payload.experiments[0].imageset
+                    imageset.set_beam(reference_beam)
+                    imageset.set_detector(reference_detector)
+                    if reference_goniometer and imageset.get_goniometer():
+                        imageset.set_goniometer()
+                    payload.experiments = ExperimentList(
+                        [
+                            Experiment(
+                                imageset=imageset,
+                                beam=imageset.get_beam(),
+                                detector=imageset.get_detector(),
+                                goniometer=imageset.get_goniometer(),
+                                scan=imageset.get_scan(),
+                                crystal=None,
+                            )
+                        ]
+                    )
+
                 phil_params = index_phil_scope.fetch(source=phil.parse("")).extract()
                 phil_params.indexing.known_symmetry.space_group = payload.space_group
                 phil_params.indexing.known_symmetry.unit_cell = payload.unit_cell

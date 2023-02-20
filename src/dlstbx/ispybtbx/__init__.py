@@ -845,6 +845,7 @@ def ispyb_filter(
     parameters["ispyb_results_directory"] = i.dc_info_to_results_directory(dc_info)
     parameters["ispyb_space_group"] = ""
     parameters["ispyb_related_sweeps"] = []
+    parameters["ispyb_reference_geometry"] = None
     if visit_directory:
         parameters["ispyb_pdb"] = i.get_linked_pdb_files_for_dcid(
             dc_id,
@@ -852,6 +853,11 @@ def ispyb_filter(
             pdb_tmpdir=pathlib.Path(visit_directory) / "tmp" / "pdb",
             user_pdb_dir=pathlib.Path(visit_directory) / "processing" / "pdb",
         )
+        reference_geometry = (
+            pathlib.Path(visit_directory) / "processing" / "reference_geometry.expt"
+        )
+        if reference_geometry.exists():
+            parameters["ispyb_reference_geometry"] = os.fspath(reference_geometry)
 
     parameters["ispyb_project"] = (
         parameters.get("ispyb_visit") or "AUTOMATIC"

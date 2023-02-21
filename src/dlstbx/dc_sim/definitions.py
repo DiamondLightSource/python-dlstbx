@@ -177,10 +177,10 @@ tests = {
     },
     "vmxi-rotation": {
         "type": "mx",
-        "src_dir": "/dls/mx/data/mx21314/mx21314-41/VMXi-AB0831/well_39/images",
-        "src_run_num": (15722,),
+        "src_dir": "/dls/mx/data/nt30330/nt30330-89/VMXi-AB2090/well_110/images",
+        "src_run_num": (107993,),
         "src_prefix": ("image",),
-        "use_sample_id": 1982985,
+        "use_sample_id": 4315478,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

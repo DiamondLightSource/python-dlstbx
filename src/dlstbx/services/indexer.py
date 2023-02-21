@@ -123,7 +123,6 @@ class DLSIndexer(CommonService):
                         payload.reference_geometry,
                         check_format=False,
                     )
-                    reference_beam = reference_expts.beams()[0]
                     reference_detector = reference_expts.detectors()[0]
                     reference_goniometer = (
                         reference_expts.goniometers()[0]
@@ -133,7 +132,6 @@ class DLSIndexer(CommonService):
 
                     # copy across geometry to input experiment
                     imageset = payload.experiments[0].imageset
-                    imageset.set_beam(reference_beam)
                     imageset.set_detector(reference_detector)
                     if reference_goniometer and imageset.get_goniometer():
                         imageset.set_goniometer()

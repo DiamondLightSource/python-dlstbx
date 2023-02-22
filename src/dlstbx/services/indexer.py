@@ -80,7 +80,7 @@ class DLSIndexer(CommonService):
     _logger_name = "dlstbx.services.indexer"
 
     def initializing(self):
-        logging.getLogger("dials").setLevel(logging.DEBUG)
+        logging.getLogger("dials").setLevel(logging.WARNING)
         workflows.recipe.wrap_subscribe(
             self._transport,
             "index",

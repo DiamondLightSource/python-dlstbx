@@ -37,6 +37,7 @@ class Xia2SsxParams(pydantic.BaseModel):
     spacegroup: Optional[str] = None
     reference_pdb: list[PDBFileOrCode] = []
     reference_geometry: Optional[Path] = None
+    njobs: Optional[pydantic.PositiveInt] = None
 
     @pydantic.validator("unit_cell", pre=True)
     def check_unit_cell(cls, v):
@@ -80,6 +81,8 @@ class Xia2SsxWrapper(Wrapper):
             command.append(f"reference={reference_pdb}")
         if params.reference_geometry:
             command.append(f"reference_geometry={params.reference_geometry}")
+        if params.njobs:
+            command.append(f"njobs={params.njobs}")
         return command
 
     def find_matching_reference_pdb(self, params: Xia2SsxParams) -> str | None:

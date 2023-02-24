@@ -155,6 +155,7 @@ class DLSIndexer(CommonService):
                     payload.max_lattices
                 )
                 phil_params.indexing.method = "fft1d"
+                phil_params.refinement.parameterisation.detector.fix = "all"
                 idxr = indexer.Indexer.from_parameters(
                     payload.reflections,
                     payload.experiments,

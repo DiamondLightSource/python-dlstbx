@@ -14,7 +14,6 @@ import workflows.contrib.start_service
 import workflows.logging
 import zocalo.configuration
 import zocalo.util
-from workflows.transport import middleware
 
 import dlstbx.util
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
@@ -168,10 +167,6 @@ class DLSTBXServiceStarter(workflows.contrib.start_service.ServiceStarter):
             return status
 
         frontend.get_status = extend_status_wrapper
-
-    @staticmethod
-    def on_transport_preparation(transport):
-        transport.add_middleware(middleware.TimerMiddleware())
 
 
 def run():

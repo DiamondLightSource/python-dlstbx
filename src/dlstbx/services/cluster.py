@@ -46,6 +46,7 @@ class JobSubmissionParameters(pydantic.BaseModel):
     cluster: str
     partition: Optional[str]
     job_name: Optional[str]  #
+    environment: Optional[dict[str, str]] = None
     cpus_per_task: Optional[int] = None
     min_memory_per_cpu: Optional[int] = pydantic.Field(
         None, description="Minimum real memory per cpu (MB)"
@@ -203,11 +204,9 @@ def submit_to_slurm(
             partition=params.partition,
             name=params.job_name,
             cpus_per_task=params.cpus_per_task,
-            environment={
-                "PATH": "/bin:/usr/bin/:/usr/local/bin/",
-                "LD_LIBRARY_PATH": "/lib/:/lib64/:/usr/local/lib",
-                "USER": os.getlogin(),
-            },
+            environment=os.environ
+            if params.environment is None
+            else params.environment,
             memory_per_cpu=params.min_memory_per_cpu,
             time_limit=time_limit_minutes,
             gpus=params.gpus,
@@ -237,6 +236,8 @@ def submit_to_htcondor(
 ) -> int | None:
     current_wd = os.getcwd()
 
+    singularity_environment = "SINGULARITY_CACHEDIR=/tmp/singularity SINGULARITY_LOCALCACHEDIR=/tmp/singularity SINGULARITY_TMPDIR=/tmp/singularity"
+
     commands = params.commands
     if not isinstance(commands, str):
         commands = "\n".join(commands)
@@ -246,7 +247,9 @@ def submit_to_htcondor(
         "executable": cluster_exec,
         "arguments": cluster_args,
         "universe": "vanilla",
-        "environment": "SINGULARITY_CACHEDIR=/tmp/singularity SINGULARITY_LOCALCACHEDIR=/tmp/singularity SINGULARITY_TMPDIR=/tmp/singularity",
+        "environment": singularity_environment
+        if params.environment is None
+        else params.environment,
         "should_transfer_files": "YES",
         "when_to_transfer_output": "ON_EXIT_OR_EVICT",
         "output": f"{params.job_name}.condor.out",

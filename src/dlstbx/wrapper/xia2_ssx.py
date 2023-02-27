@@ -209,9 +209,7 @@ class Xia2SsxWrapper(Wrapper):
                         "file_path": os.fspath(result_file.parent),
                         "file_name": result_file.name,
                         "file_type": "log",
-                        "importance_rank": 1
-                        if result_file.name == "xia2.ssx.html"
-                        else 2,
+                        "importance_rank": 1,
                     }
                 )
 
@@ -223,14 +221,18 @@ class Xia2SsxWrapper(Wrapper):
                 file_type = "result"
                 if result_file.suffix in {".log", ".txt"}:
                     file_type = "log"
+                if result_file.name == "merged.mtz":
+                    importance_rank = 1
+                elif result_file.name.startswith("integrated_"):
+                    importance_rank = 3
+                else:
+                    importance_rank = 2
                 self.record_result_individual_file(
                     {
                         "file_path": os.fspath(result_file.parent),
                         "file_name": result_file.name,
                         "file_type": file_type,
-                        "importance_rank": 1
-                        if result_file.name.endswith("_free.mtz")
-                        else 2,
+                        "importance_rank": importance_rank,
                     }
                 )
                 allfiles.append(os.fspath(result_file))

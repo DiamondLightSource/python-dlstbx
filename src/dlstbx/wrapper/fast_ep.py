@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+from pathlib import Path
 from pprint import pformat
 
 import procrunner
-import py
 import xmltodict
 
 import dlstbx.util.symlink
+from dlstbx.util.iris import write_singularity_script
 from dlstbx.wrapper import Wrapper
 
 
@@ -59,14 +61,12 @@ class FastEPWrapper(Wrapper):
             )
             return False
 
-        hkl_file = any_reflection_file(params["fast_ep"]["data"])
+        hkl_file = any_reflection_file(params["data"])
         mas = hkl_file.as_miller_arrays()
         try:
             all_data = next(m for m in mas if m.anomalous_flag())
         except StopIteration:
-            self.log.exception(
-                "No anomalous data found in %s", params["fast_ep"]["data"]
-            )
+            self.log.exception(f"No anomalous data found in {str(params['data'])}")
             return True
         if all_data.d_min() > thres_d_min:
             select_data = all_data
@@ -106,8 +106,7 @@ class FastEPWrapper(Wrapper):
             f"Inserting fast_ep phasing results from {xml_file} into ISPyB for scaling_id {scaling_id}"
         )
 
-        with open(xml_file) as fh:
-            phasing_results = xmltodict.parse(fh.read())
+        phasing_results = xmltodict.parse(xml_file.read_text())
 
         self.log.info(
             f"Sending {phasing_results} phasing results commands to ISPyB for scaling_id {scaling_id}"
@@ -121,46 +120,63 @@ class FastEPWrapper(Wrapper):
         )
         return True
 
-    def run(self):
-        assert hasattr(self, "recwrap"), "No recipewrapper object found"
-        params = self.recwrap.recipe_step["job_parameters"]
-        working_directory = py.path.local(params["working_directory"])
-        try:
-            results_directory = py.path.local(params["results_directory"])
-        except KeyError:
-            self.log.info("Results directory not specified")
-
-        if "ispyb_parameters" in params:
+    def setup(self, working_directory, params):
+        if params.get("ispyb_parameters"):
             if params["ispyb_parameters"].get("data"):
-                params["fast_ep"]["data"] = os.path.abspath(
-                    params["ispyb_parameters"]["data"]
-                )
+                params["data"] = params["ispyb_parameters"]["data"]
             if int(
                 params["ispyb_parameters"].get("check_go_fast_ep", False)
-                or params.get("check_go_fast_ep", False)
             ) and self.stop_fast_ep(params):
                 self.log.info("Skipping fast_ep (go_fast_ep == No)")
                 return False
 
         # Create working directory with symbolic link
-        working_directory.ensure(dir=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                working_directory.strpath, params["create_symlink"]
+                working_directory, params["create_symlink"], levels=1
             )
 
+        singularity_image = params.get("singularity_image")
+        if singularity_image:
+            try:
+                # shutil.copy(singularity_image, str(working_directory))
+                # image_name = Path(singularity_image).name
+                write_singularity_script(working_directory, singularity_image)
+                self.recwrap.environment.update(
+                    {"singularity_image": singularity_image}
+                )
+            except Exception:
+                self.log.exception("Error writing singularity script")
+                return False
+
+        return True
+
+    def run_fast_ep(self, working_directory, params):
+        if params.get("ispyb_parameters"):
+            if params["ispyb_parameters"].get("data"):
+                if "singularity_image" in self.recwrap.environment:
+                    params["fast_ep"]["data"] = str(
+                        working_directory
+                        / Path(params["ispyb_parameters"]["data"]).name
+                    )
+                else:
+                    params["fast_ep"]["data"] = params["ispyb_parameters"]["data"]
+
         command = self.construct_commandline(params)
+        procrunner_directory = working_directory / params["create_symlink"]
+        procrunner_directory.mkdir(parents=True, exist_ok=True)
+
         result = procrunner.run(
             command,
             timeout=params.get("timeout"),
-            working_directory=working_directory,
+            working_directory=procrunner_directory,
         )
         self.log.info("command: %s", " ".join(result["command"]))
         self.log.info("runtime: %s", result["runtime"])
         success = (
             not result["exitcode"]
             and not result["timeout"]
-            and not working_directory.join("fast_ep.error").check()
+            and not Path(procrunner_directory / "fast_ep.error").exists()
         )
         if success:
             self.log.info("fast_ep successful, took %.1f seconds", result["runtime"])
@@ -173,50 +189,57 @@ class FastEPWrapper(Wrapper):
             self.log.debug(result["stdout"])
             self.log.debug(result["stderr"])
 
+        return success
+
+    def run_report(self, working_directory, params):
         # Send results to topaz for hand determination
-        fast_ep_data_json = working_directory.join("fast_ep_data.json")
-        if fast_ep_data_json.check():
+        working_directory = working_directory / params["create_symlink"]
+        fast_ep_data_json = working_directory / "fast_ep_data.json"
+        if fast_ep_data_json.is_file():
             with fast_ep_data_json.open("r") as fp:
                 fast_ep_data = json.load(fp)
-            with working_directory.join("fast_ep.log").open("r") as fp:
+            with open(Path(working_directory / "fast_ep.log")) as fp:
                 for line in fp:
                     if "Unit cell:" in line:
                         cell_info = tuple(float(v) for v in line.split()[2:])
                         break
             best_sg = fast_ep_data["_spacegroup"][0]
-            best_solv = "{0:.2f}".format(fast_ep_data["solv"])
-            original_hand = working_directory.join(best_solv, "sad.phs")
-            inverted_hand = working_directory.join(best_solv, "sad_i.phs")
-            hkl_data = working_directory.join(best_solv, "sad.hkl")
-            fa_data = working_directory.join(best_solv, "sad_fa.hkl")
-            res_data = working_directory.join(best_solv, "sad_fa.res")
+            best_solv = f"{fast_ep_data['solv']:.2f}"
+            original_hand = str(working_directory / best_solv / "sad.phs")
+            inverted_hand = str(working_directory / best_solv / "sad_i.phs")
+            hkl_data = str(working_directory / best_solv / "sad.hkl")
+            fa_data = str(working_directory / best_solv / "sad_fa.hkl")
+            res_data = str(working_directory / best_solv / "sad_fa.res")
             topaz_data = {
-                "original_phase_file": original_hand.strpath,
-                "inverse_phase_file": inverted_hand.strpath,
-                "hkl_file": hkl_data.strpath,
-                "fa_file": fa_data.strpath,
-                "res_file": res_data.strpath,
+                "original_phase_file": original_hand,
+                "inverse_phase_file": inverted_hand,
+                "hkl_file": hkl_data,
+                "fa_file": fa_data,
+                "res_file": res_data,
                 "space_group": best_sg,
                 "cell_info": cell_info,
                 "best_solvent": best_solv,
             }
-            self.log.info("Topaz data: %s", pformat(topaz_data))
+            self.log.info(f"Topaz data: {pformat(topaz_data)}")
             self.recwrap.send_to("topaz", topaz_data)
         else:
             self.log.warning(
-                "fast_ep failed. Results file %s unavailable", fast_ep_data_json.strpath
+                f"fast_ep failed. Results file {str(fast_ep_data_json)} unavailable"
             )
             return False
 
         # Create results directory and symlink if they don't already exist
         try:
-            results_directory.ensure(dir=True)
+            results_directory = Path(params["results_directory"])
+            results_directory.mkdir(parents=True, exist_ok=True)
             if params.get("create_symlink"):
                 dlstbx.util.symlink.create_parent_symlink(
-                    results_directory.strpath, params["create_symlink"]
+                    results_directory, params["create_symlink"]
                 )
 
-            self.log.info("Copying fast_ep results to %s", results_directory.strpath)
+            self.log.info(
+                f"Copying fast_ep results to {str(results_directory)}",
+            )
             keep_ext = {
                 ".cif": "result",
                 ".error": "log",
@@ -234,51 +257,71 @@ class FastEPWrapper(Wrapper):
             }
             keep = {"fast_ep.log": "log", "shelxc.log": "log"}
             allfiles = []
-            for filename in working_directory.listdir():
-                filetype = keep_ext.get(filename.ext)
-                if filename.basename in keep:
-                    filetype = keep[filename.basename]
+            for filename in working_directory.iterdir():
+                filetype = keep_ext.get(filename.suffix)
+                if filename.name in keep:
+                    filetype = keep[filename.name]
                 if filetype is None:
                     continue
-                destination = results_directory.join(filename.basename)
-                filename.copy(destination)
-                allfiles.append(destination.strpath)
+                destination = results_directory / filename.name
+                shutil.copy(filename, destination)
+                allfiles.append(str(destination))
                 if filetype:
                     self.record_result_individual_file(
                         {
-                            "file_path": destination.dirname,
-                            "file_name": destination.basename,
+                            "file_path": str(destination.parent),
+                            "file_name": destination.name,
                             "file_type": filetype,
                         }
                     )
 
             if "xml" in params["fast_ep"]:
-                xml_file = working_directory.join(params["fast_ep"]["xml"])
-                if xml_file.check():
-                    xml_data = working_directory.join(params["fast_ep"]["xml"]).read()
+                xml_file = working_directory / params["fast_ep"]["xml"]
+                if xml_file.is_file():
+                    xml_data = Path(
+                        working_directory / params["fast_ep"]["xml"]
+                    ).read_text()
                     self.log.info("Sending fast_ep phasing results to ISPyB")
-                    xml_file.write(
-                        xml_data.replace(
-                            working_directory.strpath, results_directory.strpath
-                        )
+                    xml_file.write_text(
+                        xml_data.replace(str(working_directory), str(results_directory))
                     )
-                    result_ispyb = self.send_results_to_ispyb(xml_file.strpath)
+                    result_ispyb = self.send_results_to_ispyb(xml_file)
                     if not result_ispyb:
                         self.log.error(
                             "Running phasing2ispyb.py script returned non-zero exit code"
                         )
-                elif success:
-                    self.log.error(
-                        "Expected output file does not exist: %s", xml_file.strpath
-                    )
                 else:
                     self.log.info(
                         "fast_ep failed, no .xml output, thus not reporting to ISPyB"
                     )
                     return False
-        except NameError:
+        except KeyError:
             self.log.info(
                 "Copying fast_ep results ignored. Results directory unavailable."
             )
+
+        return True
+
+    def run(self):
+
+        assert hasattr(self, "recwrap"), "No recipewrapper object found"
+        params = self.recwrap.recipe_step["job_parameters"]
+
+        # Create working directory with symbolic link
+        working_directory = Path(params.get("working_directory", os.getcwd()))
+        working_directory.mkdir(parents=True, exist_ok=True)
+
+        stage = params.get("stage")
+        assert stage in {None, "setup", "run", "report"}
+        success = True
+
+        if stage in {None, "setup"}:
+            success = self.setup(working_directory, params)
+
+        if stage in {None, "run"} and success:
+            success = self.run_fast_ep(working_directory, params)
+
+        if stage in {None, "report"} and success:
+            success = self.run_report(working_directory, params)
 
         return success

@@ -317,6 +317,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
 
     def do_register_processing(self, parameters, **kwargs):
+        program_id = parameters("program_id")
         program = parameters("program")
         cmdline = parameters("cmdline")
         environment = parameters("environment") or ""
@@ -331,7 +332,11 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
         try:
             result = self.ispyb.mx_processing.upsert_program_ex(
-                job_id=rpid, name=program, command=cmdline, environment=environment
+                program_id=program_id,
+                job_id=rpid,
+                name=program,
+                command=cmdline,
+                environment=environment,
             )
             self.log.info(
                 "Registered new program '%s' for processing id '%s' with command line '%s' and environment '%s' with result '%s'.",

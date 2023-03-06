@@ -194,6 +194,9 @@ def run():
                     continue
 
                 image_directory = Path(row.imageDirectory)
+                if not image_directory.exists():
+                    continue
+
                 files = [
                     f
                     for f in image_directory.iterdir()

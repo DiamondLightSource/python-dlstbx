@@ -37,7 +37,7 @@ class Xia2SsxParams(pydantic.BaseModel):
     spacegroup: Optional[str] = None
     reference_pdb: list[PDBFileOrCode] = []
     reference_geometry: Optional[Path] = None
-    njobs: Optional[pydantic.PositiveInt] = None
+    dose_series_repeat: Optional[int] = None
 
     @pydantic.validator("unit_cell", pre=True)
     def check_unit_cell(cls, v):
@@ -81,8 +81,8 @@ class Xia2SsxWrapper(Wrapper):
             command.append(f"reference={reference_pdb}")
         if params.reference_geometry:
             command.append(f"reference_geometry={params.reference_geometry}")
-        if params.njobs:
-            command.append(f"njobs={params.njobs}")
+        if params.dose_series_repeat:
+            command.append(f"dose_series_repeat={params.dose_series_repeat}")
         return command
 
     def find_matching_reference_pdb(self, params: Xia2SsxParams) -> str | None:
@@ -108,12 +108,104 @@ class Xia2SsxWrapper(Wrapper):
             return pdb.filepath
         return None
 
-    def send_results_to_ispyb(self, z: dict, xtriage_results: dict):
-        ispyb_command_list = results_to_ispyb_command_list(
-            z, xtriage_results=xtriage_results
+    def send_results_to_ispyb(
+        self, z: dict, xtriage_results: dict, special_program_name: str | None = None
+    ):
+        ispyb_command_list: list[dict[str, Any]] = []
+
+        if special_program_name:
+            # Step 0: overwrite ispyb_autoprocprogram_id in the recipe wrapper
+            # environment for this step and any eventual downstream ones
+            params = self.recwrap.recipe_step["job_parameters"]
+            rpid = params.get("ispyb_process", "")
+            if not rpid.isdigit():
+                rpid = ""
+            if special_program_name.endswith(("dose_1", "dose_01")):
+                # update the existing autoprocprogram entry
+                program_id = params.get("ispyb_autoprocprogram_id")
+                if not program_id.isdigit():
+                    program_id = None
+            else:
+                # make a new autoprocprogram entry
+                program_id = None
+            ispyb_command_list.append(
+                {
+                    "ispyb_command": "register_processing",
+                    "program_id": program_id,
+                    "program": special_program_name,
+                    "cmdline": special_program_name,
+                    "environment": "",
+                    "rpid": rpid,
+                    "store_result": "ispyb_autoprocprogram_id",
+                }
+            )
+
+        # Step 1: Add new record to AutoProc, keep the AutoProcID
+        register_autoproc = {
+            "ispyb_command": "write_autoproc",
+            "autoproc_id": None,
+            "store_result": "ispyb_autoproc_id",
+            "spacegroup": z["spacegroup"],
+            "refinedcell_a": z["unit_cell"][0],
+            "refinedcell_b": z["unit_cell"][1],
+            "refinedcell_c": z["unit_cell"][2],
+            "refinedcell_alpha": z["unit_cell"][3],
+            "refinedcell_beta": z["unit_cell"][4],
+            "refinedcell_gamma": z["unit_cell"][5],
+        }
+        ispyb_command_list.append(register_autoproc)
+
+        # Step 2: Store scaling results, linked to the AutoProcID
+        #         Keep the AutoProcScalingID
+        insert_scaling = z["scaling_statistics"]
+        insert_scaling.update(
+            {
+                "ispyb_command": "insert_scaling",
+                "autoproc_id": "$ispyb_autoproc_id",
+                "store_result": "ispyb_autoprocscaling_id",
+            }
         )
+        ispyb_command_list.append(insert_scaling)
+
+        # Step 3: Store integration result, linked to the ScalingID
+        integration = {
+            "ispyb_command": "upsert_integration",
+            "scaling_id": "$ispyb_autoprocscaling_id",
+            "cell_a": z["unit_cell"][0],
+            "cell_b": z["unit_cell"][1],
+            "cell_c": z["unit_cell"][2],
+            "cell_alpha": z["unit_cell"][3],
+            "cell_beta": z["unit_cell"][4],
+            "cell_gamma": z["unit_cell"][5],
+            #'refined_xbeam': z['refined_beam'][0],
+            #'refined_ybeam': z['refined_beam'][1],
+        }
+        ispyb_command_list.append(integration)
+
+        if xtriage_results is not None:
+            for level, messages in xtriage_results.items():
+                for message in messages:
+                    if (
+                        message["text"]
+                        == "The merging statistics indicate that the data may be assigned to the wrong space group."
+                    ):
+                        # this is not a useful warning
+                        continue
+                    ispyb_command_list.append(
+                        {
+                            "ispyb_command": "add_program_message",
+                            "program_id": "$ispyb_autoprocprogram_id",
+                            "message": message["text"],
+                            "description": message["summary"],
+                            "severity": {0: "INFO", 1: "WARNING", 2: "ERROR"}.get(
+                                message["level"]
+                            ),
+                        }
+                    )
+
         self.log.debug("Sending %s", ispyb_command_list)
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
+        return True
 
     def run(self):
         job_parameters = self.recwrap.recipe_step["job_parameters"]
@@ -221,7 +313,9 @@ class Xia2SsxWrapper(Wrapper):
                 file_type = "result"
                 if result_file.suffix in {".log", ".txt"}:
                     file_type = "log"
-                if result_file.name == "merged.mtz":
+                if result_file.suffix == ".mtz" and result.stem.startswith(
+                    "merged", "dose_"
+                ):
                     importance_rank = 1
                 elif result_file.name.startswith("integrated_"):
                     importance_rank = 3
@@ -257,34 +351,58 @@ class Xia2SsxWrapper(Wrapper):
                 )
                 allfiles.append(os.fspath(result_file))
 
-        merged_mtz = working_directory / "DataFiles" / "merged.mtz"
-        mtz = iotbx.mtz.object(os.fspath(merged_mtz))
-        space_group = mtz.space_group().type().lookup_symbol()
-        unit_cell = mtz.crystals()[0].unit_cell_parameters()
+        if params.dose_series_repeat:
+            merged_mtz_files = sorted(
+                (working_directory / "DataFiles").glob("dose_*.mtz")
+            )
+            merging_json_files = sorted(
+                (working_directory / "LogFiles").glob("dials.merge.dose_*.json")
+            )
+            if len(merged_mtz_files) != params.dose_series_repeat:
+                raise RuntimeError(
+                    f"Expected {params.dose_series_repeat} mtz files (found {len(merged_mtz_files)})"
+                )
+            if len(merging_json_files) != params.dose_series_repeat:
+                raise RuntimeError(
+                    f"Expected {params.dose_series_repeat} mtz files (found {len(merging_json_files)})"
+                )
+        else:
+            merged_mtz_files = [working_directory / "DataFiles" / "merged.mtz"]
+            merging_json_files = [working_directory / "LogFiles" / "dials.merge.json"]
 
-        dials_merge_json = working_directory / "LogFiles" / "dials.merge.json"
-        self.log.info(f"{dials_merge_json=}")
-        self.log.info(f"{dials_merge_json.is_file()=}")
-        if dials_merge_json.is_file():
-            with dials_merge_json.open() as fh:
-                d = json.load(fh)
-            wl = list(d.keys())[0]
+        for merged_mtz, dials_merge_json in zip(merged_mtz_files, merging_json_files):
+            mtz = iotbx.mtz.object(os.fspath(merged_mtz))
+            space_group = mtz.space_group().type().lookup_symbol()
+            unit_cell = mtz.crystals()[0].unit_cell_parameters()
 
-            merging_stats = d[wl]["merging_stats"]
-            merging_stats_anom = d[wl]["merging_stats_anom"]
+            if dials_merge_json.is_file():
+                with dials_merge_json.open() as fh:
+                    d = json.load(fh)
+                wl = list(d.keys())[0]
 
-            ispyb_d = {
-                "commandline": " ".join(command),
-                "spacegroup": space_group,
-                "unit_cell": unit_cell,
-                "scaling_statistics": ispyb_scaling_statistics_from_merging_stats_d(
-                    merging_stats, merging_stats_anom
-                ),
-            }
+                merging_stats = d[wl]["merging_stats"]
+                merging_stats_anom = d[wl]["merging_stats_anom"]
 
-            xtriage_results = d[wl]["xtriage_output"]
+                ispyb_d = {
+                    "commandline": " ".join(command),
+                    "spacegroup": space_group,
+                    "unit_cell": unit_cell,
+                    "scaling_statistics": ispyb_scaling_statistics_from_merging_stats_d(
+                        merging_stats, merging_stats_anom
+                    ),
+                }
 
-            self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
+                xtriage_results = d[wl]["xtriage_output"]
+                special_program_name = (
+                    "xia2.ssx {merged_mtz.stem}"
+                    if merged_mtz.stem != "merged"
+                    else None
+                )
+                self.send_results_to_ispyb(
+                    ispyb_d,
+                    xtriage_results=xtriage_results,
+                    special_program_name=special_program_name,
+                )
 
         if success:
             self._success_counter.inc()
@@ -329,76 +447,6 @@ def ispyb_scaling_statistics_from_merging_stats_d(
     return scaling_statistics
 
 
-def results_to_ispyb_command_list(
-    z: dict, xtriage_results: dict | None = None
-) -> list[dict[str, Any]]:
-    ispyb_command_list = []
-
-    # Step 1: Add new record to AutoProc, keep the AutoProcID
-    register_autoproc = {
-        "ispyb_command": "write_autoproc",
-        "autoproc_id": None,
-        "store_result": "ispyb_autoproc_id",
-        "spacegroup": z["spacegroup"],
-        "refinedcell_a": z["unit_cell"][0],
-        "refinedcell_b": z["unit_cell"][1],
-        "refinedcell_c": z["unit_cell"][2],
-        "refinedcell_alpha": z["unit_cell"][3],
-        "refinedcell_beta": z["unit_cell"][4],
-        "refinedcell_gamma": z["unit_cell"][5],
-    }
-    ispyb_command_list.append(register_autoproc)
-
-    # Step 2: Store scaling results, linked to the AutoProcID
-    #         Keep the AutoProcScalingID
-    insert_scaling = z["scaling_statistics"]
-    insert_scaling.update(
-        {
-            "ispyb_command": "insert_scaling",
-            "autoproc_id": "$ispyb_autoproc_id",
-            "store_result": "ispyb_autoprocscaling_id",
-        }
-    )
-    ispyb_command_list.append(insert_scaling)
-
-    # Step 3: Store integration result, linked to the ScalingID
-    integration = {
-        "ispyb_command": "upsert_integration",
-        "scaling_id": "$ispyb_autoprocscaling_id",
-        "cell_a": z["unit_cell"][0],
-        "cell_b": z["unit_cell"][1],
-        "cell_c": z["unit_cell"][2],
-        "cell_alpha": z["unit_cell"][3],
-        "cell_beta": z["unit_cell"][4],
-        "cell_gamma": z["unit_cell"][5],
-        #'refined_xbeam': z['refined_beam'][0],
-        #'refined_ybeam': z['refined_beam'][1],
-    }
-    ispyb_command_list.append(integration)
-
-    if xtriage_results is not None:
-        for level, messages in xtriage_results.items():
-            for message in messages:
-                if (
-                    message["text"]
-                    == "The merging statistics indicate that the data may be assigned to the wrong space group."
-                ):
-                    # this is not a useful warning
-                    continue
-                ispyb_command_list.append(
-                    {
-                        "ispyb_command": "add_program_message",
-                        "program_id": "$ispyb_autoprocprogram_id",
-                        "message": message["text"],
-                        "description": message["summary"],
-                        "severity": {0: "INFO", 1: "WARNING", 2: "ERROR"}.get(
-                            message["level"]
-                        ),
-                    }
-                )
-    return ispyb_command_list
-
-
 class Xia2SsxReduceParams(pydantic.BaseModel):
     data: list[str]
     unit_cell: Optional[
@@ -413,6 +461,7 @@ class Xia2SsxReduceParams(pydantic.BaseModel):
     ] = None
     spacegroup: Optional[str] = None
     reference_pdb: list[PDBFileOrCode] = []
+    dose_series_repeat: Optional[int] = None
 
     @pydantic.validator("unit_cell", pre=True)
     def check_unit_cell(cls, v):
@@ -449,4 +498,6 @@ class Xia2SsxReduceWrapper(Xia2SsxWrapper):
         reference_pdb = self.find_matching_reference_pdb(params)
         if reference_pdb:
             command.append(f"reference={reference_pdb}")
+        if params.dose_series_repeat:
+            command.append(f"dose_series_repeat={params.dose_series_repeat}")
         return command

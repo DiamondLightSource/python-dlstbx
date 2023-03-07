@@ -923,7 +923,7 @@ def ispyb_filter(
         return message, parameters
 
     schema = isa.Event.__marshmallow__()
-    ispyb_events = crud.get_ssx_events_for_dcid(dcid, session)
+    ispyb_events = crud.get_ssx_events_for_dcid(dc_id, session)
     events = [{"eventType": e.EventType.name, **schema.dump(e)} for e in ispyb_events]
     shots_per_image = int(
         sum(e["repetition"] for e in events if e["eventType"] == "XrayDetection")

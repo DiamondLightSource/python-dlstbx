@@ -312,7 +312,7 @@ class Xia2SsxWrapper(Wrapper):
                 file_type = "result"
                 if result_file.suffix in {".log", ".txt"}:
                     file_type = "log"
-                if result_file.suffix == ".mtz" and result.stem.startswith(
+                if result_file.suffix == ".mtz" and result_file.startswith(
                     "merged", "dose_"
                 ):
                     importance_rank = 1

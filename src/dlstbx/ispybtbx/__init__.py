@@ -922,6 +922,15 @@ def ispyb_filter(
         # possibly EM dataset
         return message, parameters
 
+    schema = isa.Event.__marshmallow__()
+    ispyb_events = crud.get_ssx_events_for_dcid(dcid, session)
+    events = [{"eventType": e.EventType.name, **schema.dump(e)} for e in ispyb_events]
+    shots_per_image = int(
+        sum(e["repetition"] for e in events if e["eventType"] == "XrayDetection")
+    )
+    parameters["ispyb_ssx_events"] = events or None
+    parameters["ispyb_ssx_shots_per_image"] = shots_per_image or None
+
     # for the moment we do not want multi-xia2 for /dls/mx i.e. VMXi
     # beware if other projects start using this directory structure will
     # need to be smarter here...

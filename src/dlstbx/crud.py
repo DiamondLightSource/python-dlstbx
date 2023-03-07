@@ -335,3 +335,16 @@ def get_pdb_for_dcid(
         .filter(models.DataCollection.dataCollectionId == dcid)
     )
     return query.all()
+
+
+def get_ssx_events_for_dcid(
+    dcid: int,
+    session: sqlalchemy.orm.session.Session,
+) -> list[models.Event]:
+    query = (
+        session.query(models.Event)
+        .join(models.EventChain)
+        .options(sqlalchemy.orm.joinedload(models.Event.EventType))
+        .filter(models.EventChain.dataCollectionId == dcid)
+    )
+    return query.all()

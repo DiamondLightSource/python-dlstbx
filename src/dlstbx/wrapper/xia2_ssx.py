@@ -232,7 +232,6 @@ class Xia2SsxWrapper(Wrapper):
             )
 
         command = self.construct_commandline(xia2_ssx_params)
-        print(" ".join(command))
         self.log.info(" ".join(command))
         try:
             start_time = time.perf_counter()
@@ -351,20 +350,20 @@ class Xia2SsxWrapper(Wrapper):
                 )
                 allfiles.append(os.fspath(result_file))
 
-        if params.dose_series_repeat:
+        if xia2_ssx_params.dose_series_repeat:
             merged_mtz_files = sorted(
                 (working_directory / "DataFiles").glob("dose_*.mtz")
             )
             merging_json_files = sorted(
                 (working_directory / "LogFiles").glob("dials.merge.dose_*.json")
             )
-            if len(merged_mtz_files) != params.dose_series_repeat:
+            if len(merged_mtz_files) != xia2_ssx_params.dose_series_repeat:
                 raise RuntimeError(
-                    f"Expected {params.dose_series_repeat} mtz files (found {len(merged_mtz_files)})"
+                    f"Expected {xia2_ssx_params.dose_series_repeat} mtz files (found {len(merged_mtz_files)})"
                 )
-            if len(merging_json_files) != params.dose_series_repeat:
+            if len(merging_json_files) != xia2_ssx_params.dose_series_repeat:
                 raise RuntimeError(
-                    f"Expected {params.dose_series_repeat} mtz files (found {len(merging_json_files)})"
+                    f"Expected {xia2_ssx_params.dose_series_repeat} mtz files (found {len(merging_json_files)})"
                 )
         else:
             merged_mtz_files = [working_directory / "DataFiles" / "merged.mtz"]

@@ -214,7 +214,7 @@ class Xia2SsxWrapper(Wrapper):
     def run(self):
         job_parameters = self.recwrap.recipe_step["job_parameters"]
         params_d = ChainMapWithReplacement(
-            job_parameters.get("xia2.ssx") or {},
+            job_parameters.get(self.name) or {},
             job_parameters.get("ispyb_parameters") or {},
         )
 

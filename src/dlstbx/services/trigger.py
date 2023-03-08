@@ -1643,7 +1643,7 @@ class DLSTrigger(CommonService):
             data_files = sorted(data_files)
             # group into pairs
             data_file_pairs = [
-                data_files[i : i + 2] for i in range(0, len(data_files) // 2, 2)
+                data_files[i : i + 2] for i in range(0, len(data_files), 2)
             ]
             job_parameters: list[tuple[str, str]] = [
                 ("data", ";".join(files)) for files in data_file_pairs

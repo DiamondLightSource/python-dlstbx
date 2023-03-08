@@ -95,7 +95,11 @@ class Xia2SsxWrapper(Wrapper):
         for pdb in params.reference_pdb:
             if not pdb.filepath or pdb.source == "AlphaFold":
                 continue
-            pdb_inp = iotbx.pdb.input(pdb.filepath)
+            try:
+                pdb_inp = iotbx.pdb.input(pdb.filepath)
+            except OSError as e:
+                self.log.warning(e, exc_info=True)
+                continue
             crystal_symmetry = pdb_inp.crystal_symmetry()
             if crystal_symmetry is None:
                 continue

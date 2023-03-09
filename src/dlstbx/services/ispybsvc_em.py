@@ -118,6 +118,27 @@ class EM_Mixin:
         else:
             return None
 
+    def _get_movie_id(
+        self,
+        movie_full_path,
+        data_collection_id,
+        db_session,
+    ):
+        self.log.info(
+            f"Looking for Movie ID. Movie name: {movie_full_path} DCID: {data_collection_id}"
+        )
+        mv_query = db_session.query(Movie).filter(
+            Movie.movieFullPath == movie_full_path,
+            Movie.dataCollectionId == data_collection_id,
+        )
+        results = mv_query.all()
+        if results:
+            mvid = results[0].movieId
+            self.log.info(f"Found Movie ID: {mvid}")
+            return mvid
+        else:
+            return None
+
     @validate_arguments(config=dict(arbitrary_types_allowed=True))
     def do_insert_movie(self, *, parameter_map: Movie, **kwargs):
 
@@ -423,9 +444,14 @@ class EM_Mixin:
         def full_parameters(param):
             return message.get(param) or parameters(param)
 
+        if full_parameters("movie_id"):
+            mvid = full_parameters("movie_id")
+        else:
+            mvid = self._get_movie_id(full_parameters("path"), dcid)
+
         try:
             values = TiltImageAlignment(
-                movieId=full_parameters("movie_id"),
+                movieId=mvid,
                 tomogramId=full_parameters("tomogram_id"),
                 defocusU=full_parameters("defocus_u"),
                 defocusV=full_parameters("defocus_v"),

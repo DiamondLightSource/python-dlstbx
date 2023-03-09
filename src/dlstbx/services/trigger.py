@@ -1702,7 +1702,7 @@ class DLSTrigger(CommonService):
         ).filter(Protein.proteinId == protein_id)
         protein, proposal = query.first()
 
-        if proposal.proposalCode not in {"mx", "cm", "nt"}:
+        if proposal.proposalCode not in {"mx", "cm", "nt", "au"}:
             self.log.debug(
                 f"Not triggering AlphaFold for protein_id={protein_id} with proposal_code={proposal.proposalCode}"
             )

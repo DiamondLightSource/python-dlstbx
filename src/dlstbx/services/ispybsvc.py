@@ -317,7 +317,6 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
 
     def do_register_processing(self, parameters, **kwargs):
-        program_id = parameters("program_id")
         program = parameters("program")
         cmdline = parameters("cmdline")
         environment = parameters("environment") or ""
@@ -332,7 +331,6 @@ class DLSISPyB(EM_Mixin, CommonService):
             return False
         try:
             result = self.ispyb.mx_processing.upsert_program_ex(
-                program_id=program_id,
                 job_id=rpid,
                 name=program,
                 command=cmdline,
@@ -355,6 +353,23 @@ class DLSISPyB(EM_Mixin, CommonService):
                 cmdline,
                 environment,
                 e,
+                exc_info=True,
+            )
+            return False
+
+    def do_update_program_name(self, parameters, **kwargs):
+        program_id = parameters("program_id")
+        name = parameters("program")
+        try:
+            result = self.ispyb.mx_processing.upsert_program_ex(
+                program_id=program_id,
+                name=name,
+            )
+            self.log.info(f"Updated program name={name} for program_id={program_id}")
+            return {"success": True, "return_value": result}
+        except ispyb.ISPyBException as e:
+            self.log.error(
+                f"Updating program name={name} for program_id={program_id} caused exception {e}",
                 exc_info=True,
             )
             return False

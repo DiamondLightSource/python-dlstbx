@@ -49,6 +49,9 @@ class JobSubmissionParameters(pydantic.BaseModel):
     environment: Optional[dict[str, str]] = None
     cpus_per_task: Optional[int] = None
     tasks: Optional[int] = None  # slurm only
+    nodes: Optional[int]  # slurm only
+    memory_per_node: Optional[int] = None  # slurm only
+    gpus_per_node: Optional[str] = None  # slurm only
     min_memory_per_cpu: Optional[int] = pydantic.Field(
         None, description="Minimum real memory per cpu (MB)"
     )
@@ -198,7 +201,7 @@ def submit_to_slurm(
         time_limit_minutes = math.ceil(time_delta.total_seconds() / 60)
     else:
         time_limit_minutes = None
-
+    print(params.nodes)
     job_submission = slurm.models.JobSubmission(
         script=script,
         job=slurm.models.JobProperties(
@@ -206,6 +209,9 @@ def submit_to_slurm(
             name=params.job_name,
             cpus_per_task=params.cpus_per_task,
             tasks=params.tasks,
+            nodes=[params.nodes, params.nodes] if params.nodes else params.nodes,
+            gpus_per_node=params.gpus_per_node,
+            memory_per_node=params.memory_per_node,
             environment=os.environ
             if params.environment is None
             else params.environment,
@@ -218,6 +224,7 @@ def submit_to_slurm(
             qos=params.qos,
         ),
     )
+    print(job_submission)
     try:
         response = api.submit_job(job_submission)
     except requests.HTTPError as e:

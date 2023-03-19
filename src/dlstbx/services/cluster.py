@@ -48,6 +48,7 @@ class JobSubmissionParameters(pydantic.BaseModel):
     job_name: Optional[str]  #
     environment: Optional[dict[str, str]] = None
     cpus_per_task: Optional[int] = None
+    tasks: Optional[int] = None  # slurm only
     min_memory_per_cpu: Optional[int] = pydantic.Field(
         None, description="Minimum real memory per cpu (MB)"
     )
@@ -204,6 +205,7 @@ def submit_to_slurm(
             partition=params.partition,
             name=params.job_name,
             cpus_per_task=params.cpus_per_task,
+            tasks=params.tasks,
             environment=os.environ
             if params.environment is None
             else params.environment,

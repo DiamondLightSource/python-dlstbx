@@ -6,6 +6,7 @@ import ispyb
 import sqlalchemy.exc
 import sqlalchemy.orm
 from ispyb.sqlalchemy import (
+    Movie,
     MotionCorrection,
     RelativeIceThickness,
     TiltImageAlignment,
@@ -14,7 +15,7 @@ from ispyb.sqlalchemy import (
 from pydantic import BaseModel, validate_arguments
 
 
-class Movie(BaseModel):
+class MovieParams(BaseModel):
     dcid: int
     movie_number: int = None  # image number
     movie_path: str = None  # micrograph full path
@@ -127,10 +128,15 @@ class EM_Mixin:
         self.log.info(
             f"Looking for Movie ID. Movie name: {movie_full_path} DCID: {data_collection_id}"
         )
-        mv_query = db_session.query(Movie).filter(
-            Movie.movieFullPath == movie_full_path,
-            Movie.dataCollectionId == data_collection_id,
-        )
+        try:
+            mv_query = db_session.query(Movie).filter(
+                Movie.movieFullPath == movie_full_path,
+                Movie.dataCollectionId == data_collection_id,
+            )
+        except sqlalchemy.exc.ArgumentError as e:
+            self.log.warning(f"Movie query could not be completed {e}")
+            return None
+
         results = mv_query.all()
         if results:
             mvid = results[0].movieId
@@ -140,7 +146,7 @@ class EM_Mixin:
             return None
 
     @validate_arguments(config=dict(arbitrary_types_allowed=True))
-    def do_insert_movie(self, *, parameter_map: Movie, **kwargs):
+    def do_insert_movie(self, *, parameter_map: MovieParams, **kwargs):
 
         self.log.info("Inserting Movie parameters.")
 

@@ -127,15 +127,17 @@ class Xia2SsxWrapper(Wrapper):
             if special_program_name.endswith(("dose_1", "dose_01")):
                 # update the existing autoprocprogram entry
                 program_id = params.get("ispyb_autoprocprogram_id")
-                if not program_id.isdigit():
-                    program_id = None
-            else:
-                # make a new autoprocprogram entry
-                program_id = None
+                if program_id and program_id.isdigit():
+                    ispyb_command_list.append(
+                        {
+                            "ispyb_command": "update_program_name",
+                            "program_id": program_id,
+                            "program": special_program_name,
+                        }
+                    )
             ispyb_command_list.append(
                 {
                     "ispyb_command": "register_processing",
-                    "program_id": program_id,
                     "program": special_program_name,
                     "cmdline": special_program_name,
                     "environment": "",

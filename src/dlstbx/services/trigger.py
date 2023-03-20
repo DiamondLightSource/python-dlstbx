@@ -725,7 +725,11 @@ class DLSTrigger(CommonService):
 
         jobids = []
 
-        for pdb_files in {(), tuple(parameters.pdb)}:
+        all_pdb_files = set()
+        for pdb_param in parameters.pdb:
+            if (fp := pdb_param.filepath) is not None and pathlib.Path(fp).is_file():
+                all_pdb_files.add(pdb_param)
+        for pdb_files in {(), tuple(all_pdb_files)}:
             jp = self.ispyb.mx_processing.get_job_params()
             jp["automatic"] = parameters.automatic
             jp["comments"] = parameters.comment
@@ -1702,7 +1706,7 @@ class DLSTrigger(CommonService):
         ).filter(Protein.proteinId == protein_id)
         protein, proposal = query.first()
 
-        if proposal.proposalCode not in {"mx", "cm", "nt"}:
+        if proposal.proposalCode not in {"mx", "cm", "nt", "au"}:
             self.log.debug(
                 f"Not triggering AlphaFold for protein_id={protein_id} with proposal_code={proposal.proposalCode}"
             )

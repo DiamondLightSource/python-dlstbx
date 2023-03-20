@@ -447,7 +447,7 @@ class EM_Mixin:
         if full_parameters("movie_id"):
             mvid = full_parameters("movie_id")
         else:
-            mvid = self._get_movie_id(full_parameters("path"), dcid)
+            mvid = self._get_movie_id(full_parameters("path"), dcid, session)
 
         try:
             values = TiltImageAlignment(

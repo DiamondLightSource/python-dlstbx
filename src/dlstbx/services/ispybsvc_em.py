@@ -400,6 +400,12 @@ class EM_Mixin:
                 xAxisCorrection=full_parameters("x_axis_correction"),
                 tiltAngleOffset=full_parameters("tilt_angle_offset"),
                 zShift=full_parameters("z_shift"),
+                fileDirectory=full_parameters("file_directory"),
+                centralSliceImage=full_parameters("central_slice_image"),
+                tomogramMovie=full_parameters("tomogram_movie"),
+                xyShiftPlot=full_parameters("xy_shift_plot"),
+                projXY=full_parameters("proj_xy"),
+                projXZ=full_parameters("proj_xz")
             )
             session.add(values)
             session.commit()

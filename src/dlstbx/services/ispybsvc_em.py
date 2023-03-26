@@ -405,7 +405,7 @@ class EM_Mixin:
                 tomogramMovie=full_parameters("tomogram_movie"),
                 xyShiftPlot=full_parameters("xy_shift_plot"),
                 projXY=full_parameters("proj_xy"),
-                projXZ=full_parameters("proj_xz")
+                projXZ=full_parameters("proj_xz"),
             )
             session.add(values)
             session.commit()

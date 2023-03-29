@@ -61,7 +61,7 @@ class JobSubmissionParameters(pydantic.BaseModel):
     max_disk_per_cpu: Optional[int] = pydantic.Field(
         None, description="Maximum disk space per cpu (MB)"
     )  # HTCondor: maximum disk space allocated for job
-    time_limit: Optional[str] = None
+    time_limit: Optional[datetime.timedelta] = None
     gpus: Optional[int] = None
     exclusive: bool = False
     account: Optional[str]  # account in slurm terminology
@@ -79,6 +79,13 @@ class JobSubmissionParameters(pydantic.BaseModel):
 
 class JobSubmissionValidationError(ValueError):
     pass
+
+
+def format_timedelta_to_HHMMSS(td: datetime.timedelta) -> str:
+    td_in_seconds = td.total_seconds()
+    hours, remainder = divmod(td_in_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}"
 
 
 def submit_to_grid_engine(
@@ -109,7 +116,8 @@ def submit_to_grid_engine(
         if params.min_memory_per_cpu:
             submission_params.extend(["-l", f"mfree={params.min_memory_per_cpu}M"])
         if params.time_limit:
-            submission_params.extend(["-l", f"h_rt={params.time_limit}"])
+            HHMMSS = format_timedelta_to_HHMMSS(params.time_limit)
+            submission_params.extend(["-l", f"h_rt={HHMMSS}"])
         if params.exclusive:
             submission_params.extend(["-l", "exclusive"])
         if params.gpus:
@@ -192,16 +200,9 @@ def submit_to_slurm(
 
     logger.debug(f"Submitting script to Slurm:\n{script}")
     if params.time_limit:
-        parsed_time = datetime.datetime.strptime(params.time_limit, "%H:%M:%S")
-        time_delta = datetime.timedelta(
-            hours=parsed_time.hour,
-            minutes=parsed_time.minute,
-            seconds=parsed_time.second,
-        )
-        time_limit_minutes = math.ceil(time_delta.total_seconds() / 60)
+        time_limit_minutes = math.ceil(params.time_limit.total_seconds() / 60)
     else:
         time_limit_minutes = None
-    print(params.nodes)
     job_submission = slurm.models.JobSubmission(
         script=script,
         job=slurm.models.JobProperties(
@@ -224,7 +225,6 @@ def submit_to_slurm(
             qos=params.qos,
         ),
     )
-    print(job_submission)
     try:
         response = api.submit_job(job_submission)
     except requests.HTTPError as e:

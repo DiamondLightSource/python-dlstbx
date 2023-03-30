@@ -247,6 +247,11 @@ setup(
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.health_checks": sorted(health_checks),
+        "zocalo.services.cluster.schedulers": [
+            "grid_engine = dlstbx.services.cluster:submit_to_grid_engine",
+            "htcondor = dlstbx.services.cluster:submit_to_htcondor",
+            "slurm = dlstbx.services.cluster:submit_to_slurm",
+        ],
         "zocalo.services.dispatcher.filters": [
             "ispyb = dlstbx.ispybtbx:ispyb_filter",
         ],

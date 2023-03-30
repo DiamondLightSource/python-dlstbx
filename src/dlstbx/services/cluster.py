@@ -42,7 +42,7 @@ cluster_queue_mapping: dict[str, dict[str, str]] = {
 
 
 class JobSubmissionParameters(pydantic.BaseModel):
-    scheduler: str
+    scheduler: str = "grid_engine"
     cluster: str
     partition: Optional[str]
     job_name: Optional[str]  #

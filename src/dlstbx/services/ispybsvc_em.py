@@ -119,12 +119,12 @@ class EM_Mixin:
         else:
             return None
 
-def _get_movie_id(
+    def _get_movie_id(
         micrograph_full_path,
         autoproc_program_id,
         db_session,
     ):
-        print(
+        self.log.info(
             f"Looking for Movie ID MC. Movie name: {micrograph_full_path} DCID: {autoproc_program_id}"
         )
         mv_query = db_session.query(MotionCorrection).filter(
@@ -134,7 +134,7 @@ def _get_movie_id(
         results = mv_query.all()
         if results:
             mvid = results[0].movieId
-            print(f"Found Movie ID: {mvid}")
+            self.log.info(f"Found Movie ID: {mvid}")
             return mvid
         else:
             return None

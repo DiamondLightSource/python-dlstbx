@@ -27,8 +27,8 @@ class GridInfo(pydantic.BaseModel):
     steps_y: int
     dx_mm: float
     dy_mm: float
-    pixelsPerMicronX: float
-    pixelsPerMicronY: float
+    pixelsPerMicronX: pydantic.PositiveFloat
+    pixelsPerMicronY: pydantic.PositiveFloat
     snapshot_offsetXPixel: float
     snapshot_offsetYPixel: float
     snaked: bool

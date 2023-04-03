@@ -119,28 +119,22 @@ class EM_Mixin:
         else:
             return None
 
-    def _get_movie_id(
-        self,
-        movie_full_path,
-        data_collection_id,
+def _get_movie_id(
+        micrograph_full_path,
+        autoproc_program_id,
         db_session,
     ):
-        self.log.info(
-            f"Looking for Movie ID. Movie name: {movie_full_path} DCID: {data_collection_id}"
+        print(
+            f"Looking for Movie ID MC. Movie name: {micrograph_full_path} DCID: {autoproc_program_id}"
         )
-        try:
-            mv_query = db_session.query(Movie).filter(
-                Movie.movieFullPath == movie_full_path,
-                Movie.dataCollectionId == data_collection_id,
-            )
-        except sqlalchemy.exc.ArgumentError as e:
-            self.log.warning(f"Movie query could not be completed {e}")
-            return None
-
+        mv_query = db_session.query(MotionCorrection).filter(
+            MotionCorrection.micrographFullPath == micrograph_full_path,
+            MotionCorrection.autoProcProgramId == autoproc_program_id,
+        )
         results = mv_query.all()
         if results:
             mvid = results[0].movieId
-            self.log.info(f"Found Movie ID: {mvid}")
+            print(f"Found Movie ID: {mvid}")
             return mvid
         else:
             return None
@@ -451,7 +445,8 @@ class EM_Mixin:
         if message is None:
             message = {}
         dcid = parameters("dcid")
-        self.log.info(f"Inserting Tilt Image Alignment parameters. DCID: {dcid}")
+        appid = parameters("program_id")
+        self.log.info(f"Inserting Tilt Image Alignment parameters. DCID: {dcid}, APPID {appid}.")
 
         def full_parameters(param):
             return message.get(param) or parameters(param)
@@ -459,7 +454,7 @@ class EM_Mixin:
         if full_parameters("movie_id"):
             mvid = full_parameters("movie_id")
         else:
-            mvid = self._get_movie_id(full_parameters("path"), dcid, session)
+            mvid = self._get_movie_id(full_parameters("path"), appid, session)
 
         try:
             values = TiltImageAlignment(

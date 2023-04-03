@@ -271,7 +271,7 @@ def submit_to_htcondor(
         "universe": "vanilla",
         "environment": singularity_environment
         if params.environment is None
-        else params.environment,
+        else " ".join(f"{k}={v}" for k, v in params.environment.items()),
         "should_transfer_files": "YES",
         "when_to_transfer_output": "ON_EXIT_OR_EVICT",
         "output": f"{params.job_name}.condor.out",

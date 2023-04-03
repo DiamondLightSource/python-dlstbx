@@ -7,6 +7,7 @@ import logging
 import math
 import os
 import pathlib
+import re
 import subprocess
 from pprint import pformat
 from typing import Optional
@@ -43,7 +44,7 @@ cluster_queue_mapping: dict[str, dict[str, str]] = {
 
 class JobSubmissionParameters(pydantic.BaseModel):
     scheduler: str = "grid_engine"
-    cluster: str
+    cluster: Optional[str]
     partition: Optional[str]
     job_name: Optional[str]  #
     environment: Optional[dict[str, str]] = None
@@ -88,6 +89,17 @@ def format_timedelta_to_HHMMSS(td: datetime.timedelta) -> str:
     return f"{hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}"
 
 
+units = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
+
+# based on https://stackoverflow.com/a/60708339
+def parse_size(size):
+    size = size.upper()
+    if not re.match(r" ", size):
+        size = re.sub(r"([KMGT]?B)", r" \1", size)
+    number, unit = [string.strip() for string in size.split()]
+    return int(float(number) * units[unit])
+
+
 def submit_to_grid_engine(
     params: JobSubmissionParameters,
     working_directory: pathlib.Path,
@@ -95,6 +107,7 @@ def submit_to_grid_engine(
     **kwargs,
 ) -> int | None:
     # validate
+    assert params.cluster is not None
     if params.account and 1 < len(params.account.strip()) and "{" not in params.account:
         if params.cluster == "hamilton" and params.account == "dls":
             raise JobSubmissionValidationError(
@@ -380,7 +393,11 @@ class DLSCluster(CommonService):
         """Submit cluster job according to message."""
 
         parameters = rw.recipe_step["parameters"]
-        if isinstance(parameters.get("cluster"), str):
+        legacy_cluster_submission_parameters = parameters.get(
+            "cluster_submission_parameters"
+        )
+        if isinstance(legacy_cluster_submission_parameters, str):
+            # String containing Grid Engine submission parameters
             self.log.warning(
                 f"Legacy cluster parameters encountered in recipe_ID: {rw.environment['ID']}"
             )
@@ -398,6 +415,39 @@ class DLSCluster(CommonService):
                 commands=commands,
                 qsub_submission_parameters=cluster_submission_parameters,
                 queue=queue,
+            )
+        elif isinstance(legacy_cluster_submission_parameters, dict):
+            # Dictionary of values for htcondor submission
+            self.log.warning(
+                f"Legacy htcondor parameters encountered in recipe_ID: {rw.environment['ID']}"
+            )
+            max_memory_per_cpu = None
+            max_disk_per_cpu = None
+            if cpus_per_task := legacy_cluster_submission_parameters.get(
+                "request_cpus"
+            ):
+                cpus_per_task = int(cpus_per_task)
+
+                if request_memory := legacy_cluster_submission_parameters.get(
+                    "request_memory"
+                ):
+                    max_memory_per_cpu = parse_size(request_memory) / cpus_per_task
+                if request_disk := legacy_cluster_submission_parameters.get(
+                    "request_disk"
+                ):
+                    max_disk_per_cpu = parse_size(request_disk) / cpus_per_task
+            if environment := legacy_cluster_submission_parameters.get("environment"):
+                legacy_cluster_submission_parameters["environment"] = dict(
+                    item.split("=") for item in environment.split()
+                )
+            params = JobSubmissionParameters(
+                **legacy_cluster_submission_parameters,
+                scheduler="htcondor",
+                cpus_per_task=cpus_per_task,
+                max_memory_per_cpu=max_memory_per_cpu,
+                max_disk_per_cpu=max_disk_per_cpu,
+                job_name=legacy_cluster_submission_parameters["output"].split(".")[0],
+                commands=parameters["cluster_commands"],
             )
         else:
             params = JobSubmissionParameters(**parameters.get("cluster", {}))

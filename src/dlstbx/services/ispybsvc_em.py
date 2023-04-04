@@ -120,6 +120,7 @@ class EM_Mixin:
             return None
 
     def _get_movie_id(
+        self,
         micrograph_full_path,
         autoproc_program_id,
         db_session,

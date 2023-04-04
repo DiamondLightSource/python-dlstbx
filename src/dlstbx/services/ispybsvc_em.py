@@ -126,7 +126,7 @@ class EM_Mixin:
         db_session,
     ):
         self.log.info(
-            f"Looking for Movie ID MC. Movie name: {micrograph_full_path} DCID: {autoproc_program_id}"
+            f"Looking for Movie ID in MotionCorrection table. Movie name: {micrograph_full_path} APPID: {autoproc_program_id}"
         )
         mv_query = db_session.query(MotionCorrection).filter(
             MotionCorrection.micrographFullPath == micrograph_full_path,

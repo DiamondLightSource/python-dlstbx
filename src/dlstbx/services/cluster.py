@@ -123,40 +123,43 @@ def submit_to_grid_engine(
     if params.qsub_submission_parameters:
         submission_params = params.qsub_submission_parameters.split()
     else:
-        submission_params = ["-N", params.job_name]
-        if params.cpus_per_task:
-            submission_params.extend(["-pe", "smp", str(params.cpus_per_task)])
-        if params.min_memory_per_cpu:
-            submission_params.extend(["-l", f"mfree={params.min_memory_per_cpu}M"])
-        if params.time_limit:
-            HHMMSS = format_timedelta_to_HHMMSS(params.time_limit)
-            submission_params.extend(["-l", f"h_rt={HHMMSS}"])
-        if params.exclusive:
-            submission_params.extend(["-l", "exclusive"])
-        if params.gpus:
-            submission_params.extend(["-l", f"gpus={params.gpus}"])
-        if params.account:
-            submission_params.extend(["-P", params.account])
+        submission_params = []
 
-        cluster_queue = params.queue
-        if cluster_queue is not None:
-            mapped_queue = cluster_queue_mapping[params.cluster].get(cluster_queue)
+    if params.job_name:
+        submission_params.extend(["-N", params.job_name])
+    if params.cpus_per_task:
+        submission_params.extend(["-pe", "smp", str(params.cpus_per_task)])
+    if params.min_memory_per_cpu:
+        submission_params.extend(["-l", f"mfree={params.min_memory_per_cpu}M"])
+    if params.time_limit:
+        HHMMSS = format_timedelta_to_HHMMSS(params.time_limit)
+        submission_params.extend(["-l", f"h_rt={HHMMSS}"])
+    if params.exclusive:
+        submission_params.extend(["-l", "exclusive"])
+    if params.gpus:
+        submission_params.extend(["-l", f"gpus={params.gpus}"])
+    if params.account:
+        submission_params.extend(["-P", params.account])
+
+    cluster_queue = params.queue
+    if cluster_queue is not None:
+        mapped_queue = cluster_queue_mapping[params.cluster].get(cluster_queue)
+        if mapped_queue:
+            logger.debug(
+                f"Mapping requested cluster queue {cluster_queue} on cluster {params.cluster} to {mapped_queue}"
+            )
+        else:
+            mapped_queue = cluster_queue_mapping[params.cluster].get("default")
             if mapped_queue:
-                logger.debug(
-                    f"Mapping requested cluster queue {cluster_queue} on cluster {params.cluster} to {mapped_queue}"
+                logger.info(
+                    f"Requested cluster queue {cluster_queue} not available on cluster {params.cluster}, mapping to {mapped_queue} instead"
                 )
-            else:
-                mapped_queue = cluster_queue_mapping[params.cluster].get("default")
-                if mapped_queue:
-                    logger.info(
-                        f"Requested cluster queue {cluster_queue} not available on cluster {params.cluster}, mapping to {mapped_queue} instead"
-                    )
-            if mapped_queue:
-                submission_params = ["-q", mapped_queue] + submission_params
-            else:
-                logger.warning(
-                    f"Requested cluster queue {cluster_queue} not available on cluster {params.cluster}, no default queue set"
-                )
+        if mapped_queue:
+            submission_params = ["-q", mapped_queue] + submission_params
+        else:
+            logger.warning(
+                f"Requested cluster queue {cluster_queue} not available on cluster {params.cluster}, no default queue set"
+            )
 
     commands = params.commands
     if not isinstance(commands, str):

@@ -193,7 +193,7 @@ class FastEPWrapper(Wrapper):
 
     def run_report(self, working_directory, params):
         # Send results to topaz for hand determination
-        working_directory = working_directory / params["create_symlink"]
+        working_directory = working_directory / params.get("create_symlink", "fast_ep")
         fast_ep_data_json = working_directory / "fast_ep_data.json"
         if fast_ep_data_json.is_file():
             with fast_ep_data_json.open("r") as fp:
@@ -230,7 +230,9 @@ class FastEPWrapper(Wrapper):
 
         # Create results directory and symlink if they don't already exist
         try:
-            results_directory = Path(params["results_directory"])
+            results_directory = Path(params["results_directory"]) / params.get(
+                "create_symlink", "fast_ep"
+            )
             results_directory.mkdir(parents=True, exist_ok=True)
             if params.get("create_symlink"):
                 dlstbx.util.symlink.create_parent_symlink(

@@ -65,6 +65,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "autoproc_run = dlstbx.wrapper.autoPROC_run:autoPROCRunWrapper",
     "autoproc_results = dlstbx.wrapper.autoPROC_results:autoPROCResultsWrapper",
     "best = dlstbx.wrapper.best:BESTWrapper",
+    "big_ep = dlstbx.wrapper.big_ep:BigEPWrapper",
     "big_ep_run = dlstbx.wrapper.big_ep_run:BigEPRunWrapper",
     "big_ep_setup = dlstbx.wrapper.big_ep_setup:BigEPSetupWrapper",
     "big_ep_report = dlstbx.wrapper.big_ep_report:BigEPReportWrapper",

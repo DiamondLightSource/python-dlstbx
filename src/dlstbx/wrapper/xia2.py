@@ -184,7 +184,7 @@ class Xia2Wrapper(Wrapper):
         return True
 
     def run_xia2(self, working_directory, params):
-        if "s3_urls" in self.recwrap.environment:
+        if s3_urls := self.recwrap.environment.get("s3_urls"):
             formatter = logging.Formatter(
                 "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
             )
@@ -193,9 +193,7 @@ class Xia2Wrapper(Wrapper):
             self.log.logger.addHandler(handler)
             self.log.logger.setLevel(logging.DEBUG)
             try:
-                get_objects_from_s3(
-                    working_directory, self.recwrap.environment["s3_urls"], self.log
-                )
+                get_objects_from_s3(working_directory, s3_urls, self.log)
             except Exception:
                 self.log.exception(
                     "Exception raised while downloading files from S3 object store"

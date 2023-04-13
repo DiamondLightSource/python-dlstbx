@@ -142,7 +142,7 @@ class Xia2Wrapper(Wrapper):
             try:
                 tmp_path = working_directory / "TMP"
                 tmp_path.mkdir(parents=True, exist_ok=True)
-                write_singularity_script(
+                iris.write_singularity_script(
                     working_directory, singularity_image, tmp_path.name
                 )
                 self.recwrap.environment.update(
@@ -160,7 +160,7 @@ class Xia2Wrapper(Wrapper):
                 handler.setFormatter(formatter)
                 self.log.logger.addHandler(handler)
                 self.log.logger.setLevel(logging.DEBUG)
-                s3_urls = get_presigned_urls_images(
+                s3_urls = iris.get_presigned_urls_images(
                     params.get("create_symlink").lower(),
                     params["rpid"],
                     params["images"],
@@ -168,7 +168,7 @@ class Xia2Wrapper(Wrapper):
                 )
                 self.recwrap.environment.update({"s3_urls": s3_urls})
             else:
-                image_files = get_image_files(
+                image_files = iris.get_image_files(
                     working_directory, params["images"], self.log
                 )
                 self.recwrap.environment.update(
@@ -187,7 +187,7 @@ class Xia2Wrapper(Wrapper):
             self.log.logger.addHandler(handler)
             self.log.logger.setLevel(logging.DEBUG)
             try:
-                get_objects_from_s3(working_directory, s3_urls, self.log)
+                iris.get_objects_from_s3(working_directory, s3_urls, self.log)
             except Exception:
                 self.log.exception(
                     "Exception raised while downloading files from S3 object store"
@@ -249,7 +249,7 @@ class Xia2Wrapper(Wrapper):
         # copy output files to result directory
         if "s3_urls" in self.recwrap.environment:
             try:
-                remove_objects_from_s3(
+                iris.remove_objects_from_s3(
                     params.get("create_symlink").lower(),
                     self.recwrap.environment.get("s3_urls"),
                 )

@@ -172,13 +172,6 @@ class Xia2Wrapper(Wrapper):
                     self.log,
                 )
                 self.recwrap.environment.update({"s3_urls": s3_urls})
-            else:
-                image_files = iris.get_image_files(
-                    working_directory, params["images"], self.log
-                )
-                self.recwrap.environment.update(
-                    {"htcondor_upload_images": ",".join(image_files.keys())}
-                )
 
         return True
 

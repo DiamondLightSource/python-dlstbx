@@ -157,6 +157,7 @@ class Xia2Wrapper(Wrapper):
                 return False
 
             if params.get("s3_urls"):
+                # Logger for recording data transfer rates to S3 Echo object store
                 formatter = logging.Formatter(
                     "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
                 )
@@ -183,6 +184,7 @@ class Xia2Wrapper(Wrapper):
 
     def run_xia2(self, working_directory: Path, params: dict):
         if s3_urls := self.recwrap.environment.get("s3_urls"):
+            # Logger for recording data transfer rates from S3 Echo object store
             formatter = logging.Formatter(
                 "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
             )
@@ -203,11 +205,11 @@ class Xia2Wrapper(Wrapper):
         )
         self.log.info("command: %s", " ".join(command))
 
-        procrunner_directory = working_directory / params["program_name"]
-        procrunner_directory.mkdir(parents=True, exist_ok=True)
+        subprocess_directory = working_directory / params["program_name"]
+        subprocess_directory.mkdir(parents=True, exist_ok=True)
 
         if "dials.integrate.phil_file" in params["xia2"]:
-            dials_integrate_phil_file = procrunner_directory / params["xia2"].get(
+            dials_integrate_phil_file = subprocess_directory / params["xia2"].get(
                 "dials.integrate.phil_file"
             )
             max_memory_usage = params["dials.integrate.phil_file"].get(
@@ -227,7 +229,7 @@ class Xia2Wrapper(Wrapper):
             result = subprocess.run(
                 command,
                 timeout=params.get("timeout"),
-                cwd=procrunner_directory,
+                cwd=subprocess_directory,
             )
             runtime = time.perf_counter() - start_time
             self.log.info(f"xia2 took {runtime} seconds")
@@ -251,11 +253,11 @@ class Xia2Wrapper(Wrapper):
 
     def report(self, working_directory: Path, params: dict, success: bool):
         # copy output files to result directory
-        if "s3_urls" in self.recwrap.environment:
+        if s3_urls := self.recwrap.environment.get("s3_urls"):
             try:
                 iris.remove_objects_from_s3(
                     params["create_symlink"].lower(),
-                    self.recwrap.environment.get("s3_urls"),
+                    s3_urls,
                 )
             except Exception:
                 self.log.exception(
@@ -264,9 +266,7 @@ class Xia2Wrapper(Wrapper):
 
         working_directory = working_directory / params["program_name"]
         if not working_directory.is_dir():
-            self.log.error(
-                f"xia2 working directory {str(working_directory)} not found."
-            )
+            self.log.error(f"xia2 working directory {working_directory} not found.")
             return False
 
         results_directory = Path(params["results_directory"]) / params["program_name"]
@@ -292,7 +292,7 @@ class Xia2Wrapper(Wrapper):
         allfiles = []
         for f in working_directory.iterdir():
             if f.is_file() and not f.name.startswith(".") and f.suffix != ".sif":
-                self.log.debug(f"Copying {str(f)} to results directory")
+                self.log.debug(f"Copying {f} to results directory")
                 shutil.copy(f, results_directory)
                 allfiles.append(str(results_directory / f.name))
 

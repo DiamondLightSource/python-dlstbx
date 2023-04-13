@@ -144,8 +144,7 @@ class Xia2Wrapper(Wrapper):
                 working_directory, params["create_symlink"], levels=1
             )
 
-        singularity_image = params.get("singularity_image")
-        if singularity_image:
+        if singularity_image := params.get("singularity_image"):
             try:
                 tmp_path = working_directory / "TMP"
                 tmp_path.mkdir(parents=True, exist_ok=True)

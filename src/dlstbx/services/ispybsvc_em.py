@@ -451,7 +451,7 @@ class EM_Mixin:
         if message is None:
             message = {}
         dcid = parameters("dcid")
-        self.log.info(f"Inserting Tilt Image Alignment parameters. DCID: {dcid}, APPID {appid}.")
+        self.log.info(f"Inserting Tilt Image Alignment parameters. DCID: {dcid}")
 
         def full_parameters(param):
             return message.get(param) or parameters(param)

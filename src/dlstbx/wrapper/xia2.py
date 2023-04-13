@@ -21,7 +21,9 @@ class Xia2Wrapper(Wrapper):
     _logger_name = "dlstbx.wrap.xia2"
     name = "xia2"
 
-    def construct_commandline(self, working_directory, params, is_cloud=False):
+    def construct_commandline(
+        self, working_directory: Path, params: dict, is_cloud: bool = False
+    ):
         """Construct xia2 command line.
         Takes job parameter dictionary, returns array."""
 
@@ -58,7 +60,9 @@ class Xia2Wrapper(Wrapper):
         return command
 
     def send_results_to_ispyb(
-        self, xtriage_results=None, res_i_sig_i_2: float | None = None
+        self,
+        xtriage_results: list[dict] | None = None,
+        res_i_sig_i_2: float | None = None,
     ):
         self.log.info("Reading xia2 results")
         from xia2.cli.ispyb_json import zocalo_object
@@ -130,7 +134,7 @@ class Xia2Wrapper(Wrapper):
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
         self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
-    def setup(self, working_directory, params):
+    def setup(self, working_directory: Path, params: dict):
 
         # Create symbolic link
         if params.get("create_symlink"):
@@ -161,7 +165,7 @@ class Xia2Wrapper(Wrapper):
                 self.log.logger.addHandler(handler)
                 self.log.logger.setLevel(logging.DEBUG)
                 s3_urls = iris.get_presigned_urls_images(
-                    params.get("create_symlink").lower(),
+                    params["create_symlink"].lower(),
                     params["rpid"],
                     params["images"],
                     self.log,
@@ -177,7 +181,7 @@ class Xia2Wrapper(Wrapper):
 
         return True
 
-    def run_xia2(self, working_directory, params):
+    def run_xia2(self, working_directory: Path, params: dict):
         if s3_urls := self.recwrap.environment.get("s3_urls"):
             formatter = logging.Formatter(
                 "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -245,12 +249,12 @@ class Xia2Wrapper(Wrapper):
 
         return success
 
-    def report(self, working_directory, params, success):
+    def report(self, working_directory: Path, params: dict, success: bool):
         # copy output files to result directory
         if "s3_urls" in self.recwrap.environment:
             try:
                 iris.remove_objects_from_s3(
-                    params.get("create_symlink").lower(),
+                    params["create_symlink"].lower(),
                     self.recwrap.environment.get("s3_urls"),
                 )
             except Exception:

@@ -121,20 +121,25 @@ class EM_Mixin:
 
     def _get_movie_id(
         self,
-        micrograph_full_path,
-        autoproc_program_id,
+        full_path,
+        data_collection_id,
         db_session,
     ):
         self.log.info(
-            f"Looking for Movie ID in MotionCorrection table. Movie name: {micrograph_full_path} APPID: {autoproc_program_id}"
+            f"Looking for Movie ID. Movie name: {full_path} DCID: {data_collection_id}"
         )
-        mv_query = db_session.query(MotionCorrection).filter(
-            MotionCorrection.micrographFullPath == micrograph_full_path,
-            MotionCorrection.autoProcProgramId == autoproc_program_id,
+        movie_name = movie_full_path.split('/')[-1].replace("_motion_corrected", '')
+        mv_query = db_session.query(Movie).filter(
+            Movie.dataCollectionId == data_collection_id,
         )
         results = mv_query.all()
+        correct_result = None
         if results:
-            mvid = results[0].movieId
+            for result in results:
+                if movie_name in result.movieFullPath:
+                    correct_result = result
+        if correct_result:
+            mvid = correct_result.movieId
             self.log.info(f"Found Movie ID: {mvid}")
             return mvid
         else:
@@ -446,7 +451,6 @@ class EM_Mixin:
         if message is None:
             message = {}
         dcid = parameters("dcid")
-        appid = parameters("program_id")
         self.log.info(f"Inserting Tilt Image Alignment parameters. DCID: {dcid}, APPID {appid}.")
 
         def full_parameters(param):
@@ -455,7 +459,7 @@ class EM_Mixin:
         if full_parameters("movie_id"):
             mvid = full_parameters("movie_id")
         else:
-            mvid = self._get_movie_id(full_parameters("path"), appid, session)
+            mvid = self._get_movie_id(full_parameters("path"), dcid, session)
 
         try:
             values = TiltImageAlignment(

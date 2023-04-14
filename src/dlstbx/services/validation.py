@@ -140,7 +140,7 @@ class DLSValidation(CommonService):
                             return fail("Missing VDS /entry/data/data")
                         data = fh["/entry/data/data"][0]
                         max_value = np.max(data)
-                        if max_value not in (0xFFFF, 0x7FFFFFFF, 0xFFFFFFFF):
+                        if max_value not in (0xFF, 0xFFFF, 0x7FFFFFFF, 0xFFFFFFFF):
                             return fail(
                                 f"Unxpected max pixel value found in {filename}: {max_value}"
                             )

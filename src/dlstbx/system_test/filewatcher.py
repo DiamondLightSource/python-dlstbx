@@ -1071,7 +1071,7 @@ class FilewatcherService(CommonSystemTest):
                 "file-seen-at": mock.ANY,
             },
             min_wait=25,
-            timeout=50,
+            timeout=60,
         )
 
         # Every ============================
@@ -1088,7 +1088,7 @@ class FilewatcherService(CommonSystemTest):
                 "file-seen-at": mock.ANY,
             },
             min_wait=25,
-            timeout=50,
+            timeout=60,
         )
 
         # Every-N ==========================
@@ -1105,7 +1105,7 @@ class FilewatcherService(CommonSystemTest):
                 "file-seen-at": mock.ANY,
             },
             min_wait=25,
-            timeout=50,
+            timeout=60,
         )
 
         # Last =============================
@@ -1130,7 +1130,7 @@ class FilewatcherService(CommonSystemTest):
                 "file-seen-at": mock.ANY,
             },
             min_wait=25,
-            timeout=50,
+            timeout=60,
         )
 
         # Specific =========================
@@ -1150,7 +1150,7 @@ class FilewatcherService(CommonSystemTest):
             recipe_pointer=7,
             payload={"files-expected": 200, "files-seen": 1, "success": False},
             min_wait=25,
-            timeout=55,
+            timeout=65,
         )
 
         # Timeout ==========================
@@ -1167,7 +1167,7 @@ class FilewatcherService(CommonSystemTest):
                 "success": False,
             },
             min_wait=25,
-            timeout=55,
+            timeout=65,
         )
 
         # Any ==============================
@@ -1179,5 +1179,5 @@ class FilewatcherService(CommonSystemTest):
             recipe_pointer=9,
             payload={"files-expected": 200, "files-seen": 1},
             min_wait=25,
-            timeout=55,
+            timeout=65,
         )

@@ -636,7 +636,7 @@ class autoPROCWrapper(Wrapper):
         working_directory = working_directory / "autoPROC"
         if not working_directory.is_dir():
             self.log.error(
-                f"autoPROC working directory {str(working_directory)} not found."
+                f"autoPROC working directory {working_directory} not found."
             )
             return False
 

@@ -738,11 +738,10 @@ class autoPROCWrapper(Wrapper):
         alldata_unmerged_mtz = working_directory / "aimless_alldata_unmerged.mtz"
         if alldata_unmerged_mtz.is_file():
             try:
-                extra_args = ["misigma=2"]
                 resolution_limits = run_dials_estimate_resolution(
                     [alldata_unmerged_mtz],
                     working_directory,
-                    extra_args=extra_args,
+                    extra_args=["misigma=2"],
                 )
                 res_i_sig_i_2 = resolution_limits.get("Mn(I/sig)")
             except Exception as e:

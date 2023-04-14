@@ -480,12 +480,9 @@ class autoPROCWrapper(Wrapper):
                 working_directory, params["create_symlink"], levels=1
             )
 
-        singularity_image = params.get("singularity_image")
-        if singularity_image:
+        if singularity_image := params.get("singularity_image"):
             try:
-                # shutil.copy(singularity_image, str(working_directory))
-                # image_name = Path(singularity_image).name
-                write_singularity_script(working_directory, singularity_image)
+                iris.write_singularity_script(working_directory, singularity_image)
                 self.recwrap.environment.update(
                     {"singularity_image": singularity_image}
                 )
@@ -494,6 +491,7 @@ class autoPROCWrapper(Wrapper):
                 return False
 
             if params.get("s3_urls"):
+                # Logger for recording data transfer rates to S3 Echo object store
                 formatter = logging.Formatter(
                     "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
                 )
@@ -501,20 +499,13 @@ class autoPROCWrapper(Wrapper):
                 handler.setFormatter(formatter)
                 self.log.logger.addHandler(handler)
                 self.log.logger.setLevel(logging.DEBUG)
-                s3_urls = get_presigned_urls_images(
+                s3_urls = iris.get_presigned_urls_images(
                     params.get("create_symlink").lower(),
                     params["rpid"],
                     params["images"],
                     self.log,
                 )
                 self.recwrap.environment.update({"s3_urls": s3_urls})
-            else:
-                image_files = get_image_files(
-                    working_directory, params["images"], self.log
-                )
-                self.recwrap.environment.update(
-                    {"htcondor_upload_images": ",".join(image_files.keys())}
-                )
 
         return True
 
@@ -524,7 +515,8 @@ class autoPROCWrapper(Wrapper):
         procrunner_directory.mkdir(parents=True, exist_ok=True)
         image_directory = None
 
-        if "s3_urls" in self.recwrap.environment:
+        if s3_urls := self.recwrap.environment.get("s3_urls"):
+            # Logger for recording data transfer rates from S3 Echo object store
             formatter = logging.Formatter(
                 "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
             )
@@ -533,9 +525,7 @@ class autoPROCWrapper(Wrapper):
             self.log.logger.addHandler(handler)
             self.log.logger.setLevel(logging.DEBUG)
             try:
-                get_objects_from_s3(
-                    working_directory, self.recwrap.environment.get("s3_urls"), self.log
-                )
+                iris.get_objects_from_s3(working_directory, s3_urls, self.log)
             except Exception:
                 self.log.exception(
                     "Exception raised while downloading files from S3 object store"
@@ -616,11 +606,11 @@ class autoPROCWrapper(Wrapper):
 
     def report(self, working_directory, params):
 
-        if "s3_urls" in self.recwrap.environment:
+        if s3_urls := self.recwrap.environment.get("s3_urls"):
             try:
-                remove_objects_from_s3(
+                iris.remove_objects_from_s3(
                     params.get("create_symlink").lower(),
-                    self.recwrap.environment.get("s3_urls"),
+                    s3_urls,
                 )
             except Exception:
                 self.log.exception(
@@ -629,9 +619,7 @@ class autoPROCWrapper(Wrapper):
 
         working_directory = working_directory / "autoPROC"
         if not working_directory.is_dir():
-            self.log.error(
-                f"autoPROC working directory {working_directory} not found."
-            )
+            self.log.error(f"autoPROC working directory {working_directory} not found.")
             return False
 
         # attempt to read autoproc XML droppings

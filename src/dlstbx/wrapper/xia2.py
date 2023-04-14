@@ -444,5 +444,10 @@ class Xia2Wrapper(Wrapper):
 
         if stage in {None, "report"} and success:
             success = self.report(working_directory, params, success)
+            if success:
+                self._success_counter.inc()
+
+        if not success:
+            self._failure_counter.inc()
 
         return success

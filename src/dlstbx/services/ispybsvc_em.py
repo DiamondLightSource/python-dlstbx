@@ -13,7 +13,7 @@ from ispyb.sqlalchemy import (
     Tomogram,
 )
 from pydantic import BaseModel, validate_arguments
-
+from pathlib import Path
 
 class MovieParams(BaseModel):
     dcid: int

@@ -128,11 +128,7 @@ class EM_Mixin:
         self.log.info(
             f"Looking for Movie ID. Movie name: {full_path} DCID: {data_collection_id}"
         )
-        movie_name = (
-            "".join(full_path.split(".")[:-1])
-            .split("/")[-1]
-            .replace("_motion_corrected", "")
-        )
+        movie_name = str(Path(full_path).stem).replace("_motion_corrected", '')
         mv_query = db_session.query(Movie).filter(
             Movie.dataCollectionId == data_collection_id,
         )

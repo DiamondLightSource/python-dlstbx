@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import time
@@ -13,6 +14,7 @@ from dxtbx.model.experiment_list import ExperimentListFactory
 from dxtbx.serialize import xds
 
 import dlstbx.util.symlink
+from dlstbx.util import iris
 from dlstbx.util.merging_statistics import get_merging_statistics
 from dlstbx.wrapper import Wrapper
 from dlstbx.wrapper.helpers import run_dials_estimate_resolution
@@ -470,33 +472,76 @@ class autoPROCWrapper(Wrapper):
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
         return True
 
-    def run(self):
-        assert hasattr(self, "recwrap"), "No recipewrapper object found"
-
-        params = self.recwrap.recipe_step["job_parameters"]
-
-        # Adjust all paths if a spacegroup is set in ISPyB
-        if params.get("ispyb_parameters"):
-            if (
-                params["ispyb_parameters"].get("spacegroup")
-                and "/" not in params["ispyb_parameters"]["spacegroup"]
-            ):
-                if "create_symlink" in params:
-                    params["create_symlink"] += (
-                        "-" + params["ispyb_parameters"]["spacegroup"]
-                    )
-
-        command = construct_commandline(params, self.log)
-
-        working_directory = Path(params["working_directory"])
-        results_directory = Path(params["results_directory"])
-        working_directory.mkdir(parents=True, exist_ok=True)
+    def setup(self, working_directory, params):
 
         # Create working directory with symbolic link
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                os.fspath(working_directory), params["create_symlink"]
+                working_directory, params["create_symlink"], levels=1
             )
+
+        if singularity_image := params.get("singularity_image"):
+            try:
+                iris.write_singularity_script(working_directory, singularity_image)
+                self.recwrap.environment.update(
+                    {"singularity_image": singularity_image}
+                )
+            except Exception:
+                self.log.exception("Error writing singularity script")
+                return False
+
+            if params.get("s3_urls"):
+                # Logger for recording data transfer rates to S3 Echo object store
+                formatter = logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                )
+                handler = logging.StreamHandler()
+                handler.setFormatter(formatter)
+                self.log.logger.addHandler(handler)
+                self.log.logger.setLevel(logging.DEBUG)
+                s3_urls = iris.get_presigned_urls_images(
+                    params.get("create_symlink").lower(),
+                    params["rpid"],
+                    params["images"],
+                    self.log,
+                )
+                self.recwrap.environment.update({"s3_urls": s3_urls})
+
+        return True
+
+    def run_autoPROC(self, working_directory, params):
+
+        procrunner_directory = working_directory / "autoPROC"
+        procrunner_directory.mkdir(parents=True, exist_ok=True)
+        image_directory = None
+
+        if s3_urls := self.recwrap.environment.get("s3_urls"):
+            # Logger for recording data transfer rates from S3 Echo object store
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            self.log.logger.addHandler(handler)
+            self.log.logger.setLevel(logging.DEBUG)
+            try:
+                iris.get_objects_from_s3(working_directory, s3_urls, self.log)
+            except Exception:
+                self.log.exception(
+                    "Exception raised while downloading files from S3 object store"
+                )
+                return False
+            # We only want to override the image_directory when running in The Cloud,
+            # as only then will the images have been copied locally. Otherwise use the
+            # original image_directory.
+            image_directory = working_directory
+
+        command = construct_commandline(
+            params,
+            self.log,
+            working_directory=procrunner_directory,
+            image_directory=image_directory,
+        )
 
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
@@ -506,7 +551,7 @@ class autoPROCWrapper(Wrapper):
             command,
             timeout=params.get("timeout"),
             environment_override={"autoPROC_HIGHLIGHT": "no", **clean_environment},
-            working_directory=working_directory,
+            working_directory=procrunner_directory,
         )
         runtime = time.perf_counter() - start_time
         self.log.info(f"autoPROC took {runtime} seconds")
@@ -524,9 +569,17 @@ class autoPROCWrapper(Wrapper):
             self.log.debug(result["stdout"].decode("latin1"))
             self.log.debug(result["stderr"].decode("latin1"))
 
-        (working_directory / "autoPROC.log").write_text(
+        (procrunner_directory / "autoPROC.log").write_text(
             result["stdout"].decode("latin1")
         )
+
+        # HTCondor resolves symlinks while transferring data and doesn't support symlinks to directories
+        if "s3_urls" in self.recwrap.environment:
+            for tmp_file in procrunner_directory.rglob("*"):
+                if (
+                    tmp_file.is_symlink() and tmp_file.is_dir()
+                ) or tmp_file.suffix == ".h5":
+                    tmp_file.unlink(True)
 
         # cd $jobdir
         # tar -xzvf summary.tar.gz
@@ -537,35 +590,37 @@ class autoPROCWrapper(Wrapper):
         # find $jobdir -name '*.mtz' -exec /dls_sw/apps/mx-scripts/misc/AddHistoryToMTZ.sh $Beamline $Visit {} $2 autoPROC \;
 
         if success:
-            json_file = working_directory / "iotbx-merging-stats.json"
-            scaled_unmerged_mtz = working_directory / "aimless_unmerged.mtz"
+            json_file = procrunner_directory / "iotbx-merging-stats.json"
+            scaled_unmerged_mtz = procrunner_directory / "aimless_unmerged.mtz"
             if scaled_unmerged_mtz.is_file():
                 json_file.write_text(
                     get_merging_statistics(os.fspath(scaled_unmerged_mtz)).as_json()
                 )
 
-        # Calculate the resolution at which the mean merged I/sig(I) = 2
-        # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
-        res_i_sig_i_2 = None
-        alldata_unmerged_mtz = working_directory / "aimless_alldata_unmerged.mtz"
-        if success and alldata_unmerged_mtz.is_file():
+        # move summary_inlined.html to summary.html
+        inlined_html = procrunner_directory / "summary_inlined.html"
+        if inlined_html.is_file():
+            shutil.copy2(inlined_html, procrunner_directory / "summary.html")
+
+        return success
+
+    def report(self, working_directory, params):
+
+        if s3_urls := self.recwrap.environment.get("s3_urls"):
             try:
-                extra_args = ["misigma=2"]
-                resolution_limits = run_dials_estimate_resolution(
-                    [alldata_unmerged_mtz],
-                    working_directory,
-                    extra_args=extra_args,
+                iris.remove_objects_from_s3(
+                    params.get("create_symlink").lower(),
+                    s3_urls,
                 )
-                res_i_sig_i_2 = resolution_limits.get("Mn(I/sig)")
-            except Exception as e:
-                self.log.warning(
-                    f"dials.estimate_resolution failure: {e}", exc_info=True
+            except Exception:
+                self.log.exception(
+                    "Exception raised while trying to remove files from S3 object store."
                 )
 
-        # move summary_inlined.html to summary.html
-        inlined_html = working_directory / "summary_inlined.html"
-        if inlined_html.is_file():
-            shutil.copy2(inlined_html, working_directory / "summary.html")
+        working_directory = working_directory / "autoPROC"
+        if not working_directory.is_dir():
+            self.log.error(f"autoPROC working directory {working_directory} not found.")
+            return False
 
         # attempt to read autoproc XML droppings
         autoproc_xml = read_autoproc_xml(working_directory / "autoPROC.xml", self.log)
@@ -574,6 +629,7 @@ class autoPROCWrapper(Wrapper):
         )
 
         # copy output files to result directory
+        results_directory = Path(params.get("results_directory")) / "autoPROC"
         results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
@@ -658,7 +714,25 @@ class autoPROCWrapper(Wrapper):
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
-        if success and autoproc_xml:
+        # Calculate the resolution at which the mean merged I/sig(I) = 2
+        # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
+        res_i_sig_i_2 = None
+        alldata_unmerged_mtz = working_directory / "aimless_alldata_unmerged.mtz"
+        if alldata_unmerged_mtz.is_file():
+            try:
+                resolution_limits = run_dials_estimate_resolution(
+                    [alldata_unmerged_mtz],
+                    working_directory,
+                    extra_args=["misigma=2"],
+                )
+                res_i_sig_i_2 = resolution_limits.get("Mn(I/sig)")
+            except Exception as e:
+                self.log.warning(
+                    f"dials.estimate_resolution failure: {e}", exc_info=True
+                )
+
+        success = True
+        if autoproc_xml:
             success = self.send_results_to_ispyb(
                 autoproc_xml, attachments=attachments, res_i_sig_i_2=res_i_sig_i_2
             )
@@ -669,9 +743,44 @@ class autoPROCWrapper(Wrapper):
                 attachments=anisofiles,
             )
 
-        if success:
-            self._success_counter.inc()
-        else:
+        return success
+
+    def run(self):
+
+        assert hasattr(self, "recwrap"), "No recipewrapper object found"
+        params = self.recwrap.recipe_step["job_parameters"]
+
+        # Create working directory with symbolic link
+        working_directory = Path(params.get("working_directory", os.getcwd()))
+        working_directory.mkdir(parents=True, exist_ok=True)
+
+        # Adjust all paths if a spacegroup is set in ISPyB
+        if params.get("ispyb_parameters"):
+            if (
+                params["ispyb_parameters"].get("spacegroup")
+                and "/" not in params["ispyb_parameters"]["spacegroup"]
+            ):
+                if "create_symlink" in params:
+                    params["create_symlink"] += (
+                        "-" + params["ispyb_parameters"]["spacegroup"]
+                    )
+
+        stage = params.get("stage")
+        assert stage in {None, "setup", "run", "report"}
+        success = True
+
+        if stage in {None, "setup"}:
+            success = self.setup(working_directory, params)
+
+        if stage in {None, "run"} and success:
+            success = self.run_autoPROC(working_directory, params)
+
+        if stage in {None, "report"} and success:
+            success = self.report(working_directory, params)
+            if success:
+                self._success_counter.inc()
+
+        if not success:
             self._failure_counter.inc()
 
         return success

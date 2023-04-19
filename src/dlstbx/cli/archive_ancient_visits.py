@@ -107,6 +107,7 @@ def run():
             .filter(models.BLSession.archived != 1)
             .filter(models.BLSession.endDate < forty_days_ago)
             .filter(models.Proposal.state == "Closed")
+            .filter(models.BLSession.visit_number.is_not(None))
             .limit(100)
         )
 

@@ -61,10 +61,8 @@ known_wrappers = [  # please keep alphabetically sorted
     "align_crystal = dlstbx.wrapper.dlstbx_align_crystal:AlignCrystalWrapper",
     "AlphaFold = dlstbx.wrapper.alphafold:AlphaFoldWrapper",
     "autoproc = dlstbx.wrapper.autoPROC:autoPROCWrapper",
-    "autoproc_setup = dlstbx.wrapper.autoPROC_setup:autoPROCSetupWrapper",
-    "autoproc_run = dlstbx.wrapper.autoPROC_run:autoPROCRunWrapper",
-    "autoproc_results = dlstbx.wrapper.autoPROC_results:autoPROCResultsWrapper",
     "best = dlstbx.wrapper.best:BESTWrapper",
+    "big_ep = dlstbx.wrapper.big_ep:BigEPWrapper",
     "big_ep_run = dlstbx.wrapper.big_ep_run:BigEPRunWrapper",
     "big_ep_setup = dlstbx.wrapper.big_ep_setup:BigEPSetupWrapper",
     "big_ep_report = dlstbx.wrapper.big_ep_report:BigEPReportWrapper",
@@ -89,9 +87,6 @@ known_wrappers = [  # please keep alphabetically sorted
     # "timg = dlstbx.wrapper.timg:TopazWrapper",  # tentatively disabled
     "topaz3 = dlstbx.wrapper.topaz3_wrapper:Topaz3Wrapper",
     "xia2 = dlstbx.wrapper.xia2:Xia2Wrapper",
-    "xia2_run = dlstbx.wrapper.xia2_run:Xia2RunWrapper",
-    "xia2_setup = dlstbx.wrapper.xia2_setup:Xia2SetupWrapper",
-    "xia2_results = dlstbx.wrapper.xia2_results:Xia2ResultsWrapper",
     "xia2.multiplex = dlstbx.wrapper.xia2_multiplex:Xia2MultiplexWrapper",
     "xia2.strategy = dlstbx.wrapper.xia2_strategy:Xia2StrategyWrapper",
     "xia2.to_shelxcde = dlstbx.wrapper.xia2_to_shelxcde:Xia2toShelxcdeWrapper",
@@ -247,6 +242,11 @@ setup(
         "libtbx.precommit": ["dlstbx=dlstbx"],
         "workflows.services": sorted(service_list),
         "zocalo.health_checks": sorted(health_checks),
+        "zocalo.services.cluster.schedulers": [
+            "grid_engine = dlstbx.services.cluster:submit_to_grid_engine",
+            "htcondor = dlstbx.services.cluster:submit_to_htcondor",
+            "slurm = dlstbx.services.cluster:submit_to_slurm",
+        ],
         "zocalo.services.dispatcher.filters": [
             "ispyb = dlstbx.ispybtbx:ispyb_filter",
         ],

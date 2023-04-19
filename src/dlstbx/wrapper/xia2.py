@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -11,6 +12,7 @@ from pathlib import Path
 import dateutil.parser
 
 import dlstbx.util.symlink
+from dlstbx.util import iris
 from dlstbx.wrapper import Wrapper
 from dlstbx.wrapper.helpers import run_dials_estimate_resolution
 
@@ -19,7 +21,9 @@ class Xia2Wrapper(Wrapper):
     _logger_name = "dlstbx.wrap.xia2"
     name = "xia2"
 
-    def construct_commandline(self, params):
+    def construct_commandline(
+        self, working_directory: Path, params: dict, is_cloud: bool = False
+    ):
         """Construct xia2 command line.
         Takes job parameter dictionary, returns array."""
 
@@ -34,6 +38,13 @@ class Xia2Wrapper(Wrapper):
                 values = values.split(",")
             if not isinstance(values, (list, tuple)):
                 values = [values]
+            if param == "image" and is_cloud:
+                update_values = []
+                for val in values:
+                    pth, sweep = val.split(":", 1)
+                    cloud_path = str(working_directory / Path(pth).name)
+                    update_values.append(":".join([cloud_path, sweep]))
+                values = update_values
             for v in values:
                 command.append(f"{param}={v}")
 
@@ -49,7 +60,9 @@ class Xia2Wrapper(Wrapper):
         return command
 
     def send_results_to_ispyb(
-        self, xtriage_results=None, res_i_sig_i_2: float | None = None
+        self,
+        xtriage_results: list[dict] | None = None,
+        res_i_sig_i_2: float | None = None,
     ):
         self.log.info("Reading xia2 results")
         from xia2.cli.ispyb_json import zocalo_object
@@ -121,40 +134,95 @@ class Xia2Wrapper(Wrapper):
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
         self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
-    def run(self):
-        assert hasattr(self, "recwrap"), "No recipewrapper object found"
+    def setup(self, working_directory: Path, params: dict):
 
-        params = self.recwrap.recipe_step["job_parameters"]
-        command = self.construct_commandline(params)
-
-        # Adjust all paths if a spacegroup is set in ISPyB
-        if params.get("ispyb_parameters"):
-            if (
-                params["ispyb_parameters"].get("spacegroup")
-                and "/" not in params["ispyb_parameters"]["spacegroup"]
-            ):
-                if "create_symlink" in params:
-                    params["create_symlink"] += (
-                        "-" + params["ispyb_parameters"]["spacegroup"]
-                    )
-
-        working_directory = Path(params["working_directory"])
-        results_directory = Path(params["results_directory"])
-
-        # Create working directory with symbolic link
-        working_directory.mkdir(parents=True, exist_ok=True)
+        # Create symbolic link
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                working_directory, params["create_symlink"]
+                working_directory, params["create_symlink"], levels=1
             )
 
+        if singularity_image := params.get("singularity_image"):
+            try:
+                tmp_path = working_directory / "TMP"
+                tmp_path.mkdir(parents=True, exist_ok=True)
+                iris.write_singularity_script(
+                    working_directory, singularity_image, tmp_path.name
+                )
+                self.recwrap.environment.update(
+                    {"singularity_image": singularity_image}
+                )
+            except Exception:
+                self.log.exception("Error writing singularity script")
+                return False
+
+            if params.get("s3_urls"):
+                # Logger for recording data transfer rates to S3 Echo object store
+                formatter = logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                )
+                handler = logging.StreamHandler()
+                handler.setFormatter(formatter)
+                self.log.logger.addHandler(handler)
+                self.log.logger.setLevel(logging.DEBUG)
+                s3_urls = iris.get_presigned_urls_images(
+                    params["create_symlink"].lower(),
+                    params["rpid"],
+                    params["images"],
+                    self.log,
+                )
+                self.recwrap.environment.update({"s3_urls": s3_urls})
+
+        return True
+
+    def run_xia2(self, working_directory: Path, params: dict):
+        if s3_urls := self.recwrap.environment.get("s3_urls"):
+            # Logger for recording data transfer rates from S3 Echo object store
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            self.log.logger.addHandler(handler)
+            self.log.logger.setLevel(logging.DEBUG)
+            try:
+                iris.get_objects_from_s3(working_directory, s3_urls, self.log)
+            except Exception:
+                self.log.exception(
+                    "Exception raised while downloading files from S3 object store"
+                )
+                return False
+
+        command = self.construct_commandline(
+            working_directory, params, "singularity_image" in self.recwrap.environment
+        )
         self.log.info("command: %s", " ".join(command))
+
+        subprocess_directory = working_directory / params["program_name"]
+        subprocess_directory.mkdir(parents=True, exist_ok=True)
+
+        if "dials.integrate.phil_file" in params["xia2"]:
+            dials_integrate_phil_file = subprocess_directory / params["xia2"].get(
+                "dials.integrate.phil_file"
+            )
+            max_memory_usage = params["dials.integrate.phil_file"].get(
+                "max_memory_usage", 0.9
+            )
+            with open(dials_integrate_phil_file, "w") as fp:
+                fp.write(
+                    f"""integration {{
+       block {{
+         max_memory_usage = {max_memory_usage}
+       }}
+    }}"""
+                )
+
         try:
             start_time = time.perf_counter()
             result = subprocess.run(
                 command,
                 timeout=params.get("timeout"),
-                cwd=working_directory,
+                cwd=subprocess_directory,
             )
             runtime = time.perf_counter() - start_time
             self.log.info(f"xia2 took {runtime} seconds")
@@ -174,7 +242,27 @@ class Xia2Wrapper(Wrapper):
                 self.log.debug(result.stdout)
                 self.log.debug(result.stderr)
 
+        return success
+
+    def report(self, working_directory: Path, params: dict, success: bool):
         # copy output files to result directory
+        if s3_urls := self.recwrap.environment.get("s3_urls"):
+            try:
+                iris.remove_objects_from_s3(
+                    params["create_symlink"].lower(),
+                    s3_urls,
+                )
+            except Exception:
+                self.log.exception(
+                    "Exception raised while trying to remove files from S3 object store."
+                )
+
+        working_directory = working_directory / params["program_name"]
+        if not working_directory.is_dir():
+            self.log.error(f"xia2 working directory {working_directory} not found.")
+            return False
+
+        results_directory = Path(params["results_directory"]) / params["program_name"]
         results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
@@ -195,11 +283,11 @@ class Xia2Wrapper(Wrapper):
                 self.log.warning(f"Expected output directory does not exist: {src}")
 
         allfiles = []
-        for f in working_directory.glob("*.*"):
-            if f.is_file() and not f.name.startswith("."):
+        for f in working_directory.iterdir():
+            if f.is_file() and not f.name.startswith(".") and f.suffix != ".sif":
                 self.log.debug(f"Copying {f} to results directory")
                 shutil.copy(f, results_directory)
-                allfiles.append(os.fspath(results_directory / f.name))
+                allfiles.append(str(results_directory / f.name))
 
         # Send results to various listeners
         logfiles = ("xia2.html", "xia2.txt", "xia2.error", "xia2-error.txt")
@@ -215,7 +303,7 @@ class Xia2Wrapper(Wrapper):
                 )
 
         datafiles_path = results_directory / "DataFiles"
-        if datafiles_path.exists():
+        if datafiles_path.is_dir():
             for result_file in datafiles_path.iterdir():
                 if not result_file.is_file():
                     continue
@@ -233,6 +321,9 @@ class Xia2Wrapper(Wrapper):
                     }
                 )
                 allfiles.append(os.fspath(result_file))
+        else:
+            self.log.info("xia2 DataFiles directory not found")
+            success = False
 
         logfiles_path = results_directory / "LogFiles"
         if logfiles_path.exists():
@@ -253,6 +344,9 @@ class Xia2Wrapper(Wrapper):
                     }
                 )
                 allfiles.append(os.fspath(result_file))
+        else:
+            self.log.info("xia2 LogFiles directory not found")
+            success = False
 
         # Calculate the resolution at which the mean merged I/sig(I) = 2
         # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
@@ -305,18 +399,55 @@ class Xia2Wrapper(Wrapper):
 
         if dc_end_time := params.get("dc_end_time"):
             dc_end_time = dateutil.parser.parse(dc_end_time)
-            pipeline = params["xia2"].get("pipeline", "")
             dcid = params.get("dcid")
             latency_s = (datetime.datetime.now() - dc_end_time).total_seconds()
-            program_name = f"xia2-{pipeline}" if pipeline else "xia2"
             self.log.info(
-                f"{program_name} completed for DCID {dcid} with latency of {latency_s:.2f} seconds",
-                extra={f"{program_name}-latency-seconds": latency_s},
+                f"{params['program_name']} completed for DCID {dcid} with latency of {latency_s:.2f} seconds",
+                extra={f"{params['program_name']}-latency-seconds": latency_s},
             )
 
-        if success:
-            self._success_counter.inc()
-        else:
+        return success
+
+    def run(self):
+
+        assert hasattr(self, "recwrap"), "No recipewrapper object found"
+        params = self.recwrap.recipe_step["job_parameters"]
+
+        # Create working directory with symbolic link
+        working_directory = Path(params.get("working_directory", os.getcwd()))
+        working_directory.mkdir(parents=True, exist_ok=True)
+
+        # Adjust all paths if a spacegroup is set in ISPyB
+        if params.get("ispyb_parameters"):
+            if (
+                params["ispyb_parameters"].get("spacegroup")
+                and "/" not in params["ispyb_parameters"]["spacegroup"]
+            ):
+                if "create_symlink" in params:
+                    params["create_symlink"] += (
+                        "-" + params["ispyb_parameters"]["spacegroup"]
+                    )
+
+        stage = params.get("stage")
+        assert stage in {None, "setup", "run", "report"}
+        if stage in {None, "run", "report"}:
+            pipeline = params["xia2"].get("pipeline")
+            params["program_name"] = f"xia2-{pipeline}" if pipeline else "xia2"
+
+        success = True
+
+        if stage in {None, "setup"}:
+            success = self.setup(working_directory, params)
+
+        if stage in {None, "run"} and success:
+            success = self.run_xia2(working_directory, params)
+
+        if stage in {None, "report"} and success:
+            success = self.report(working_directory, params, success)
+            if success:
+                self._success_counter.inc()
+
+        if not success:
             self._failure_counter.inc()
 
         return success

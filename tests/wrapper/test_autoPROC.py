@@ -15,13 +15,13 @@ def autoproc_home(monkeypatch):
 
     Used for looking up beamline-specific macros.
     """
-    monkeypatch.setenv("autoPROC_home", "/dls_sw/apps/GPhL/autoPROC/20211020")
+    monkeypatch.setenv("autoPROC_home", "/dls_sw/apps/GPhL/autoPROC/20230222")
 
 
 @pytest.fixture
 def durin_plugin_so(monkeypatch):
     """Add directory containing durin-plugin.so to the PATH"""
-    path = pathlib.Path("/dls_sw/apps/XDS/20220110")
+    path = pathlib.Path("/dls_sw/apps/XDS/20220820")
     monkeypatch.setenv("PATH", os.fspath(path), prepend=os.pathsep)
     return path / "durin-plugin.so"
 

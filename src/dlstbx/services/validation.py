@@ -141,8 +141,11 @@ class DLSValidation(CommonService):
                         data = fh["/entry/data/data"][0]
                         max_value = np.max(data)
                         if max_value not in (0xFFFF, 0x7FFFFFFF, 0xFFFFFFFF):
+                            msg_extra = ""
+                            if max_value == 0xFF:
+                                msg_extra = " (is the detector in 8-bit mode?)"
                             return fail(
-                                f"Unxpected max pixel value found in {filename}: {max_value}"
+                                f"Unxpected max pixel value found in {filename}: {max_value}{msg_extra}"
                             )
                         unmasked_minus_ones = np.count_nonzero(
                             (data == max_value) & (pixel_mask == 0)

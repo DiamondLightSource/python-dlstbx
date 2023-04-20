@@ -86,7 +86,7 @@ class Xia2MultiplexWrapper(Wrapper):
                         }
                     )
 
-        self.log.debug("Sending %s", str(ispyb_command_list))
+        self.log.debug(f"Sending {ispyb_command_list}")
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
 
     def construct_commandline(self, params):
@@ -108,10 +108,259 @@ class Xia2MultiplexWrapper(Wrapper):
 
         return command
 
+    def setup(self, working_directory, params):
+        # Adjust all paths if a spacegroup is set in ISPyB
+        if params.get("ispyb_parameters"):
+            if data := params["ispyb_parameters"].pop("data"):
+                params["data"] = list(
+                    itertools.chain.from_iterable(files.split(";") for files in data)
+                )
+
+        assert len(params.get("data", [])) > 1
+
+        if params.get("create_symlink"):
+            dlstbx.util.symlink.create_parent_symlink(
+                working_directory, params["create_symlink"], levels=1
+            )
+        if singularity_image := params.get("singularity_image"):
+            try:
+                dlstbx.util.iris.write_singularity_script(
+                    working_directory, singularity_image
+                )
+                self.recwrap.environment.update(
+                    {"singularity_image": singularity_image}
+                )
+            except Exception:
+                self.log.exception("Error writing singularity script")
+                return False
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            self.log.logger.addHandler(handler)
+            self.log.logger.setLevel(logging.DEBUG)
+            s3_urls = dlstbx.util.iris.get_presigned_urls_images(
+                params.get("create_symlink").lower(),
+                params["rpid"],
+                params["data"],
+                self.log,
+            )
+            self.recwrap.environment.update({"s3_urls": s3_urls})
+        return True
+
+    def run_multiplex(self, working_directory, params):
+        # run xia2.multiplex in working directory
+        if s3_urls := self.recwrap.environment.get("s3_urls"):
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            self.log.logger.addHandler(handler)
+            self.log.logger.setLevel(logging.DEBUG)
+            try:
+                dlstbx.util.iris.get_objects_from_s3(
+                    working_directory, s3_urls, self.log
+                )
+            except Exception:
+                self.log.exception(
+                    "Exception raised while downloading files from S3 object store"
+                )
+                return False
+            params["data"] = [
+                str(working_directory / Path(f).name) for f in params["data"]
+            ]
+        subprocess_directory = (
+            working_directory / params["create_symlink"]
+            if params.get("create_symlink")
+            else working_directory
+        )
+        subprocess_directory.mkdir(parents=True, exist_ok=True)
+
+        success = True
+        command = self.construct_commandline(params)
+        self.log.info(f"command: {' '.join(command)}")
+        try:
+            start_time = time.perf_counter()
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                timeout=params.get("timeout"),
+                cwd=subprocess_directory,
+            )
+            runtime = time.perf_counter() - start_time
+            self.log.info(f"xia2.multiplex took {runtime} seconds")
+            self._runtime_hist.observe(runtime)
+        except subprocess.TimeoutExpired as te:
+            success = False
+            self.log.warning(f"xia2 timed out: {te.timeout}\n  {te.cmd}")
+            self.log.debug(te.stdout)
+            self.log.debug(te.stderr)
+            self._timeout_counter.inc()
+        else:
+            if success := not result.returncode:
+                self.log.info("xia2.multiplex successful")
+            else:
+                self.log.info(
+                    f"xia2.multiplex failed with exitcode {result.returncode}"
+                )
+                self.log.debug(result.stdout)
+                self.log.debug(result.stderr)
+        self.log.info(f"working_directory: {working_directory}")
+
+        return success
+
+    def report(self, working_directory, params, success):
+        if s3_urls := self.recwrap.environment.get("s3_urls"):
+            try:
+                dlstbx.util.iris.remove_objects_from_s3(
+                    params.get("create_symlink").lower(),
+                    s3_urls,
+                )
+            except Exception:
+                self.log.exception(
+                    "Exception raised while trying to remove files from S3 object store."
+                )
+        if params.get("create_symlink"):
+            working_directory = working_directory / params["create_symlink"]
+        scaled_unmerged_mtz = working_directory / "scaled_unmerged.mtz"
+        if success and scaled_unmerged_mtz.is_file():
+            import iotbx.merging_statistics
+            i_obs = iotbx.merging_statistics.select_data(
+                os.fspath(scaled_unmerged_mtz), data_labels=None
+            )
+        else:
+            success = False
+        multiplex_json = working_directory / "xia2.multiplex.json"
+        if success and multiplex_json.is_file():
+            with multiplex_json.open("r") as fh:
+                d = json.load(fh)
+            merging_stats = d["datasets"]["All data"]["merging_stats"]
+            merging_stats_anom = d["datasets"]["All data"]["merging_stats_anom"]
+            with (working_directory / "merging-stats.json").open("w") as fh:
+                json.dump(merging_stats, fh)
+            def lookup(merging_stats, item, shell):
+                i_bin = {"innerShell": 0, "outerShell": -1}.get(shell)
+                if i_bin is not None:
+                    return merging_stats[item][i_bin]
+                return merging_stats["overall"][item]
+            if not command:
+                command = self.construct_commandline(params)
+            ispyb_d = {
+                "commandline": " ".join(command),
+                "spacegroup": i_obs.space_group().type().lookup_symbol(),
+                "unit_cell": list(i_obs.unit_cell().parameters()),
+                "scaling_statistics": {},
+            }
+            for shell in ("overall", "innerShell", "outerShell"):
+                ispyb_d["scaling_statistics"][shell] = {
+                    "cc_half": lookup(merging_stats, "cc_one_half", shell),
+                    "completeness": lookup(merging_stats, "completeness", shell),
+                    "mean_i_sig_i": lookup(
+                        merging_stats, "i_over_sigma_mean", shell
+                    ),
+                    "multiplicity": lookup(merging_stats, "multiplicity", shell),
+                    "n_tot_obs": lookup(merging_stats, "n_obs", shell),
+                    "n_tot_unique_obs": lookup(merging_stats, "n_uniq", shell),
+                    "r_merge": lookup(merging_stats, "r_merge", shell),
+                    "res_lim_high": uctbx.d_star_sq_as_d(
+                        lookup(merging_stats, "d_star_sq_min", shell)
+                    ),
+                    "res_lim_low": uctbx.d_star_sq_as_d(
+                        lookup(merging_stats, "d_star_sq_max", shell)
+                    ),
+                    "anom_completeness": lookup(
+                        merging_stats_anom, "anom_completeness", shell
+                    ),
+                    "anom_multiplicity": lookup(
+                        merging_stats_anom, "multiplicity", shell
+                    ),
+                    "cc_anom": lookup(merging_stats_anom, "cc_anom", shell),
+                    "r_meas_all_iplusi_minus": lookup(
+                        merging_stats_anom, "r_meas", shell
+                    ),
+                }
+            xtriage_results = d["datasets"]["All data"].get("xtriage")
+        else:
+            success = False
+
+        # copy output files to result directory
+        results_directory = Path(params["results_directory"])
+        results_directory.mkdir(parents=True, exist_ok=True)
+        if params.get("create_symlink"):
+            dlstbx.util.symlink.create_parent_symlink(
+                results_directory, params["create_symlink"], levels=1
+            )
+            results_directory = (
+                Path(params["results_directory"]) / params["create_symlink"]
+            )
+            results_directory.mkdir(parents=True, exist_ok=True)
+        keep_ext = {
+            ".png": None,
+            ".log": "log",
+            ".json": None,
+            ".pickle": None,
+            ".expt": None,
+            ".refl": None,
+            ".mtz": None,
+            ".html": "log",
+        }
+        keep = {
+            "scaled.mtz": "result",
+            "scaled_unmerged.mtz": "result",
+            "scaled.expt": "result",
+            "scaled.refl": "result",
+            "merging-stats.json": "graph",
+            "xia2.multiplex.json": "result",
+        }
+        # Record these log files first so they appear at the top of the list
+        # of attachments in SynchWeb
+        primary_log_files = [
+            working_directory / "xia2.multiplex.html",
+            working_directory / "xia2.multiplex.log",
+        ]
+        allfiles = []
+        for filename in primary_log_files + list(working_directory.iterdir()):
+            if not filename.is_file():
+                continue  # primary_log_files may not actually exist
+            filetype = keep_ext.get(filename.suffix)
+            if filename.name in keep:
+                filetype = keep[filename.name]
+            if filetype is None:
+                continue
+            destination = results_directory / filename.name
+            if os.fspath(destination) in allfiles:
+                # We've already seen this file above
+                continue
+            self.log.debug(f"Copying {filename} to {destination}")
+            allfiles.append(os.fspath(destination))
+            shutil.copy(filename, destination)
+            if filetype:
+                self.record_result_individual_file(
+                    {
+                        "file_path": os.fspath(destination.parent),
+                        "file_name": destination.name,
+                        "file_type": filetype,
+                        "importance_rank": 1
+                        if destination.name in ("scaled.mtz", "xia2.multiplex.html")
+                        else 2,
+                    }
+                )
+        if allfiles:
+            self.record_result_all_files({"filelist": allfiles})
+        if success:
+            self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
+
+        return success
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
-
         params = self.recwrap.recipe_step["job_parameters"]
+
+        # Create working directory with symbolic link
+        working_directory = Path(params.get("working_directory", os.getcwd()))
+        working_directory.mkdir(parents=True, exist_ok=True)
 
         # Adjust all paths if a spacegroup is set in ISPyB
         if params.get("ispyb_parameters"):
@@ -123,272 +372,23 @@ class Xia2MultiplexWrapper(Wrapper):
                 params["create_symlink"] += (
                     "-" + params["ispyb_parameters"]["spacegroup"][0]
                 )
-            if data := params["ispyb_parameters"].pop("data"):
-                params["data"] = list(
-                    itertools.chain.from_iterable(files.split(";") for files in data)
-                )
 
-        assert len(params.get("data", [])) > 1
-
-        # Create working directory with symbolic link
-        working_directory = Path(params.get("working_directory", os.getcwd()))
-        working_directory.mkdir(parents=True, exist_ok=True)
-
-        run_all = "stage" not in params
-        command = None
+        stage = params.get("stage")
+        assert stage in {None, "setup", "run", "report"}
         success = True
 
-        if run_all or params["stage"] == "setup":
-            if params.get("create_symlink"):
-                dlstbx.util.symlink.create_parent_symlink(
-                    working_directory, params["create_symlink"], levels=1
-                )
+        if stage in {None, "setup"}:
+            success = self.setup(working_directory, params)
 
-            singularity_image = params.get("singularity_image")
-            if singularity_image:
-                try:
-                    dlstbx.util.iris.write_singularity_script(
-                        working_directory, singularity_image
-                    )
-                    self.recwrap.environment.update(
-                        {"singularity_image": singularity_image}
-                    )
-                except Exception:
-                    self.log.exception("Error writing singularity script")
-                    return False
+        if stage in {None, "run"} and success:
+            success = self.run_multiplex(working_directory, params)
 
-                formatter = logging.Formatter(
-                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-                )
-                handler = logging.StreamHandler()
-                handler.setFormatter(formatter)
-                self.log.logger.addHandler(handler)
-                self.log.logger.setLevel(logging.DEBUG)
-
-                s3_urls = dlstbx.util.iris.get_presigned_urls_images(
-                    params.get("create_symlink").lower(),
-                    params["rpid"],
-                    params["data"],
-                    self.log,
-                )
-                self.recwrap.environment.update({"s3_urls": s3_urls})
-
-        if run_all or params["stage"] == "run":
-            # run xia2.multiplex in working directory
-            if "s3_urls" in self.recwrap.environment:
-                formatter = logging.Formatter(
-                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-                )
-                handler = logging.StreamHandler()
-                handler.setFormatter(formatter)
-                self.log.logger.addHandler(handler)
-                self.log.logger.setLevel(logging.DEBUG)
-                try:
-                    dlstbx.util.iris.get_objects_from_s3(
-                        working_directory, self.recwrap.environment["s3_urls"], self.log
-                    )
-                except Exception:
-                    self.log.exception(
-                        "Exception raised while downloading files from S3 object store"
-                    )
-                    return False
-
-                params["data"] = [
-                    str(working_directory / Path(f).name) for f in params["data"]
-                ]
-
-            procrunner_directory = (
-                working_directory / params["create_symlink"]
-                if params.get("create_symlink")
-                else working_directory
-            )
-            procrunner_directory.mkdir(parents=True, exist_ok=True)
-
-            command = self.construct_commandline(params)
-            self.log.info("command: %s", " ".join(command))
-
-            try:
-                start_time = time.perf_counter()
-                result = subprocess.run(
-                    command,
-                    capture_output=True,
-                    timeout=params.get("timeout"),
-                    cwd=procrunner_directory,
-                )
-                runtime = time.perf_counter() - start_time
-                self.log.info(f"xia2.multiplex took {runtime} seconds")
-                self._runtime_hist.observe(runtime)
-            except subprocess.TimeoutExpired as te:
-                success = False
-                self.log.warning(f"xia2 timed out: {te.timeout}\n  {te.cmd}")
-                self.log.debug(te.stdout)
-                self.log.debug(te.stderr)
-                self._timeout_counter.inc()
-            else:
-                if success := not result.returncode:
-                    self.log.info("xia2.multiplex successful")
-                else:
-                    self.log.info(
-                        f"xia2.multiplex failed with exitcode {result.returncode}"
-                    )
-                    self.log.debug(result.stdout)
-                    self.log.debug(result.stderr)
-            self.log.info(f"working_directory: {working_directory}")
-
-        if run_all or params["stage"] == "report":
-            if "s3_urls" in self.recwrap.environment:
-                try:
-                    dlstbx.util.iris.remove_objects_from_s3(
-                        params.get("create_symlink").lower(),
-                        self.recwrap.environment.get("s3_urls"),
-                    )
-                except Exception:
-                    self.log.exception(
-                        "Exception raised while trying to remove files from S3 object store."
-                    )
-
-            if params.get("create_symlink"):
-                working_directory = working_directory / params["create_symlink"]
-
-            scaled_unmerged_mtz = working_directory / "scaled_unmerged.mtz"
-            if success and scaled_unmerged_mtz.is_file():
-                import iotbx.merging_statistics
-
-                i_obs = iotbx.merging_statistics.select_data(
-                    os.fspath(scaled_unmerged_mtz), data_labels=None
-                )
-            else:
-                success = False
-
-            multiplex_json = working_directory / "xia2.multiplex.json"
-            if success and multiplex_json.is_file():
-                with multiplex_json.open("r") as fh:
-                    d = json.load(fh)
-
-                merging_stats = d["datasets"]["All data"]["merging_stats"]
-                merging_stats_anom = d["datasets"]["All data"]["merging_stats_anom"]
-                with (working_directory / "merging-stats.json").open("w") as fh:
-                    json.dump(merging_stats, fh)
-
-                def lookup(merging_stats, item, shell):
-                    i_bin = {"innerShell": 0, "outerShell": -1}.get(shell)
-                    if i_bin is not None:
-                        return merging_stats[item][i_bin]
-                    return merging_stats["overall"][item]
-
-                if not command:
-                    command = self.construct_commandline(params)
-                ispyb_d = {
-                    "commandline": " ".join(command),
-                    "spacegroup": i_obs.space_group().type().lookup_symbol(),
-                    "unit_cell": list(i_obs.unit_cell().parameters()),
-                    "scaling_statistics": {},
-                }
-
-                for shell in ("overall", "innerShell", "outerShell"):
-                    ispyb_d["scaling_statistics"][shell] = {
-                        "cc_half": lookup(merging_stats, "cc_one_half", shell),
-                        "completeness": lookup(merging_stats, "completeness", shell),
-                        "mean_i_sig_i": lookup(
-                            merging_stats, "i_over_sigma_mean", shell
-                        ),
-                        "multiplicity": lookup(merging_stats, "multiplicity", shell),
-                        "n_tot_obs": lookup(merging_stats, "n_obs", shell),
-                        "n_tot_unique_obs": lookup(merging_stats, "n_uniq", shell),
-                        "r_merge": lookup(merging_stats, "r_merge", shell),
-                        "res_lim_high": uctbx.d_star_sq_as_d(
-                            lookup(merging_stats, "d_star_sq_min", shell)
-                        ),
-                        "res_lim_low": uctbx.d_star_sq_as_d(
-                            lookup(merging_stats, "d_star_sq_max", shell)
-                        ),
-                        "anom_completeness": lookup(
-                            merging_stats_anom, "anom_completeness", shell
-                        ),
-                        "anom_multiplicity": lookup(
-                            merging_stats_anom, "multiplicity", shell
-                        ),
-                        "cc_anom": lookup(merging_stats_anom, "cc_anom", shell),
-                        "r_meas_all_iplusi_minus": lookup(
-                            merging_stats_anom, "r_meas", shell
-                        ),
-                    }
-
-                xtriage_results = d["datasets"]["All data"].get("xtriage")
-            else:
-                success = False
-
-            # copy output files to result directory
-            results_directory = Path(params["results_directory"])
-            results_directory.mkdir(parents=True, exist_ok=True)
-            if params.get("create_symlink"):
-                dlstbx.util.symlink.create_parent_symlink(
-                    results_directory, params["create_symlink"], levels=1
-                )
-                results_directory = (
-                    Path(params["results_directory"]) / params["create_symlink"]
-                )
-                results_directory.mkdir(parents=True, exist_ok=True)
-            keep_ext = {
-                ".png": None,
-                ".log": "log",
-                ".json": None,
-                ".pickle": None,
-                ".expt": None,
-                ".refl": None,
-                ".mtz": None,
-                ".html": "log",
-            }
-            keep = {
-                "scaled.mtz": "result",
-                "scaled_unmerged.mtz": "result",
-                "scaled.expt": "result",
-                "scaled.refl": "result",
-                "merging-stats.json": "graph",
-                "xia2.multiplex.json": "result",
-            }
-
-            # Record these log files first so they appear at the top of the list
-            # of attachments in SynchWeb
-            primary_log_files = [
-                working_directory / "xia2.multiplex.html",
-                working_directory / "xia2.multiplex.log",
-            ]
-
-            allfiles = []
-            for filename in primary_log_files + list(working_directory.iterdir()):
-                if not filename.is_file():
-                    continue  # primary_log_files may not actually exist
-                filetype = keep_ext.get(filename.suffix)
-                if filename.name in keep:
-                    filetype = keep[filename.name]
-                if filetype is None:
-                    continue
-                destination = results_directory / filename.name
-                if os.fspath(destination) in allfiles:
-                    # We've already seen this file above
-                    continue
-                self.log.debug(f"Copying {filename} to {destination}")
-                allfiles.append(os.fspath(destination))
-                shutil.copy(filename, destination)
-                if filetype:
-                    self.record_result_individual_file(
-                        {
-                            "file_path": os.fspath(destination.parent),
-                            "file_name": destination.name,
-                            "file_type": filetype,
-                            "importance_rank": 1
-                            if destination.name in ("scaled.mtz", "xia2.multiplex.html")
-                            else 2,
-                        }
-                    )
-            if allfiles:
-                self.record_result_all_files({"filelist": allfiles})
-
+        if stage in {None, "report"} and success:
+            success = self.report(working_directory, params, success)
             if success:
-                self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
                 self._success_counter.inc()
-            else:
-                self._failure_counter.inc()
+
+        if not success:
+            self._failure_counter.inc()
 
         return success

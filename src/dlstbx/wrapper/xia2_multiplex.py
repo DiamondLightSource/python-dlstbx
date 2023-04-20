@@ -227,6 +227,7 @@ class Xia2MultiplexWrapper(Wrapper):
         scaled_unmerged_mtz = working_directory / "scaled_unmerged.mtz"
         if success and scaled_unmerged_mtz.is_file():
             import iotbx.merging_statistics
+
             i_obs = iotbx.merging_statistics.select_data(
                 os.fspath(scaled_unmerged_mtz), data_labels=None
             )
@@ -240,13 +241,14 @@ class Xia2MultiplexWrapper(Wrapper):
             merging_stats_anom = d["datasets"]["All data"]["merging_stats_anom"]
             with (working_directory / "merging-stats.json").open("w") as fh:
                 json.dump(merging_stats, fh)
+
             def lookup(merging_stats, item, shell):
                 i_bin = {"innerShell": 0, "outerShell": -1}.get(shell)
                 if i_bin is not None:
                     return merging_stats[item][i_bin]
                 return merging_stats["overall"][item]
-            if not command:
-                command = self.construct_commandline(params)
+
+            command = self.construct_commandline(params)
             ispyb_d = {
                 "commandline": " ".join(command),
                 "spacegroup": i_obs.space_group().type().lookup_symbol(),
@@ -257,9 +259,7 @@ class Xia2MultiplexWrapper(Wrapper):
                 ispyb_d["scaling_statistics"][shell] = {
                     "cc_half": lookup(merging_stats, "cc_one_half", shell),
                     "completeness": lookup(merging_stats, "completeness", shell),
-                    "mean_i_sig_i": lookup(
-                        merging_stats, "i_over_sigma_mean", shell
-                    ),
+                    "mean_i_sig_i": lookup(merging_stats, "i_over_sigma_mean", shell),
                     "multiplicity": lookup(merging_stats, "multiplicity", shell),
                     "n_tot_obs": lookup(merging_stats, "n_obs", shell),
                     "n_tot_unique_obs": lookup(merging_stats, "n_uniq", shell),

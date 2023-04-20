@@ -253,9 +253,7 @@ def handle_rotation_end(
         )
 
     suffix = (
-        "-eiger-cluster"
-        if scenario.detectorclass is mimas.MimasDetectorClass.EIGER
-        else ""
+        "-eiger" if scenario.detectorclass is mimas.MimasDetectorClass.EIGER else ""
     )
     for params in extra_params:
         tasks.extend(

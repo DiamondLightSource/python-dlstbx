@@ -158,7 +158,10 @@ class DLSValidation(CommonService):
                         return fail(
                             "All pixels are masked (is the detector set to full header mode?)"
                         )
-                    if data.dtype.itemsize > 4:
+                    if not (
+                        np.issubdtype(data.dtype, np.integer)
+                        and data.dtype.itemsize in {2, 4}
+                    ):
                         return fail(
                             f"Unexpected dtype={data.dtype} for {filename}{data.name} (expected 16-bit or 32-bit int)"
                         )

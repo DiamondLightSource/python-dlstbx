@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import os.path
+import pathlib
 
 import dxtbx.model.experiment_list
 import h5py
@@ -131,34 +132,61 @@ class DLSValidation(CommonService):
                             f"Empty datasets found in {meta_h5}:\n" + "\n".join(zeros)
                         )
 
-                if output.get("beamline") not in ("i02-2", "i04"):
-                    # VMXi currently doesn't write the /entry/data/data VDS so skip this check
-                    # https://jira.diamond.ac.uk/browse/VMXI-897
-                    with h5py.File(filename) as fh:
-                        pixel_mask = fh["/entry/instrument/detector/pixel_mask"][()]
-                        if "/entry/data/data" not in fh:
-                            return fail("Missing VDS /entry/data/data")
-                        data = fh["/entry/data/data"][0]
-                        max_value = np.max(data)
-                        if max_value not in (0xFFFF, 0x7FFFFFFF, 0xFFFFFFFF):
-                            msg_extra = ""
-                            if max_value == 0xFF:
-                                msg_extra = " (is the detector in 8-bit mode?)"
-                            return fail(
-                                f"Unxpected max pixel value found in {filename}: {max_value}{msg_extra}"
-                            )
-                        unmasked_minus_ones = np.count_nonzero(
-                            (data == max_value) & (pixel_mask == 0)
+                with h5py.File(filename) as fh:
+                    pixel_mask = fh["/entry/instrument/detector/pixel_mask"][()]
+                    if "/entry/data/data" not in fh:
+                        return fail("Missing VDS /entry/data/data")
+                    data = fh["/entry/data/data"]
+                    first_image = data[0]
+                    max_value = np.max(first_image)
+                    if max_value not in (0xFFFF, 0x7FFFFFFF, 0xFFFFFFFF):
+                        msg_extra = ""
+                        if max_value == 0xFF:
+                            msg_extra = " (is the detector in 8-bit mode?)"
+                        return fail(
+                            f"Unxpected max pixel value found in {filename}: {max_value}{msg_extra}"
                         )
-                        if unmasked_minus_ones > 100:
-                            return fail(
-                                f"{unmasked_minus_ones} unmasked -1 pixel values found in first image for {filename}"
-                            )
-                        n_masked_pixels = np.count_nonzero(pixel_mask)
-                        if n_masked_pixels == pixel_mask.size:
-                            return fail(
-                                "All pixels are masked (is the detector set to full header mode?)"
-                            )
+                    unmasked_minus_ones = np.count_nonzero(
+                        (first_image == max_value) & (pixel_mask == 0)
+                    )
+                    if unmasked_minus_ones > 100:
+                        return fail(
+                            f"{unmasked_minus_ones} unmasked -1 pixel values found in first image for {filename}"
+                        )
+                    n_masked_pixels = np.count_nonzero(pixel_mask)
+                    if n_masked_pixels == pixel_mask.size:
+                        return fail(
+                            "All pixels are masked (is the detector set to full header mode?)"
+                        )
+                    if data.dtype.itemsize > 4:
+                        return fail(
+                            f"Unexpected dtype={data.dtype} for {filename}{data.name} (expected 16-bit or 32-bit int)"
+                        )
+                    bit_depth_readout = fh[
+                        "/entry/instrument/detector/bit_depth_readout"
+                    ][()].item()
+                    permitted_bit_depth_readout_values = {16, 32}
+                    if bit_depth_readout not in permitted_bit_depth_readout_values:
+                        return fail(
+                            f"Unexpected {bit_depth_readout=} for {filename} (expected values: {permitted_bit_depth_readout_values})"
+                        )
+
+                    plist = data.id.get_create_plist()
+                    if plist.get_layout() != h5py.h5d.VIRTUAL:
+                        return fail(f"Not a VDS: {filename}{data.name}")
+                    virtual_count = plist.get_virtual_count()
+                    for j in range(virtual_count):
+                        dsetname = plist.get_virtual_dsetname(j)
+                        link = fh.get(dsetname, getlink=True)
+                        dsetname = link.path
+                        dset_filename = pathlib.Path(filename).parent / link.filename
+                        with h5py.File(dset_filename) as dset_fh:
+                            dset = dset_fh[link.path]
+                            if (dset.dtype.itemsize * 8) != bit_depth_readout:
+                                return fail(
+                                    f"{dset_filename}{link.path} dtype ({dset.dtype}) inconsistent with {filename}/entry/instrument/detector/bit_depth_readout {bit_depth_readout}"
+                                )
+
             except Exception as e:
                 self.log.warning(e, exc_info=True)
                 return fail(

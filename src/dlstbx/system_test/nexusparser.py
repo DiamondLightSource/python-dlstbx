@@ -4,11 +4,11 @@ from workflows.recipe import Recipe
 
 from dlstbx.system_test.common import CommonSystemTest
 
-imagepath = "/dls/mx/data/nt24686/nt24686-7/VMXi-AB5081/well_113/images/"
+imagepath = "/dls/i03/data/2023/cm33866-2/TestInsulin/ins_16/"
 
 
 class NexusParserService(CommonSystemTest):
-    """Tests for the per-image-analysis service."""
+    """Tests for the NexusParser service."""
 
     def test_find_all_referenced_files(self):
         """Find all files referenced in an example nexus dataset."""
@@ -23,7 +23,7 @@ class NexusParserService(CommonSystemTest):
                 "service": "DLS System Test",
                 "queue": self.target_queue,
             },
-            "start": [(1, {"file": imagepath + "image_27335_master.h5"})],
+            "start": [(1, {"file": imagepath + "ins_16_4_master.h5"})],
         }
         recipe = Recipe(recipe)
         recipe.validate()
@@ -48,16 +48,11 @@ class NexusParserService(CommonSystemTest):
                 "filelist": sorted(
                     imagepath + filename
                     for filename in (
-                        "image_27335_data_000001.h5",
-                        "image_27335_data_000002.h5",
-                        "image_27335_data_000003.h5",
-                        "image_27335_data_000004.h5",
-                        "image_27335_data_000005.h5",
-                        "image_27335_data_000006.h5",
-                        "image_27335_data_000007.h5",
-                        "image_27335_data_000008.h5",
-                        "image_27335_data_000009.h5",
-                        "image_27335_master.h5",
+                        "ins_16_4_000001.h5",
+                        "ins_16_4_000002.h5",
+                        "ins_16_4_000003.h5",
+                        "ins_16_4_000004.h5",
+                        "ins_16_4_master.h5",
                     )
                 )
             },

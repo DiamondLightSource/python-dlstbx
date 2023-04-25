@@ -140,7 +140,7 @@ def _simulate(
     log.debug(f"Source SessionID is {src_sessionid}")
 
     row = db.retrieve_datacollection(
-        db_session, src_sessionid, _src_dir, _src_prefix, _src_run_number
+        db_session, src_sessionid, _src_dir, _src_prefix, int(_src_run_number)
     )
     src_dcid = row.dataCollectionId
     src_dcgid = row.dataCollectionGroupId
@@ -281,7 +281,7 @@ def _simulate(
         )
         if filetemplate.endswith(".h5"):
             # Can't change the run number otherwise the link from the master.h5 to data_*.h5 will be incorrect
-            run_number = _src_run_number
+            run_number = int(_src_run_number)
         else:
             run_number = retrieve_max_dcnumber(_db, sessionid, _dest_dir, _dest_prefix)
             if run_number is None:
@@ -413,14 +413,16 @@ def _simulate(
         if filetemplate.endswith(".cbf"):
             # Also copy images one by one from source to destination directory.
             for x in range(start_img_number, start_img_number + no_images):
+                num_digits = len(filetemplate.split(".")[0].split("_")[-1])
+                _src_img_number = f"%0{num_digits}d" % x
                 img_number = "%04d" % x
                 src_prefix = ""
                 if _src_prefix is not None:
                     src_prefix = _src_prefix
-                src_fname = "%s_%d_%s.cbf" % (
+                src_fname = "%s_%s_%s.cbf" % (
                     src_prefix,
-                    _src_run_number,
-                    str(img_number),
+                    str(_src_run_number),
+                    str(_src_img_number),
                 )
                 dest_fname = "%s_%d_%s.cbf" % (
                     _dest_prefix,
@@ -446,7 +448,7 @@ def _simulate(
                 )
             for src in files:
                 dest_fname = os.path.basename(src).replace(
-                    "%s_%d" % (src_prefix, _src_run_number),
+                    "%s_%s" % (src_prefix, str(_src_run_number)),
                     "%s_%d" % (_dest_prefix, run_number),
                 )
                 target = os.path.join(_dest_dir, dest_fname)

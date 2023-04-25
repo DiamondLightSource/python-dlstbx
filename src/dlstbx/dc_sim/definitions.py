@@ -331,6 +331,21 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
+    "i19-1-smallmolecule": {
+        "type": "mx",
+        "src_dir": "/dls/i19-1/data/2023/cm33867-2/TBB_2_1-col",
+        "src_run_num": ("01",),
+        "src_prefix": ("TBB2",),
+        "use_sample_id": 4290218,
+        "results": {
+            "a": approx(100, abs=100),
+            "b": approx(100, abs=100),
+            "c": approx(100, abs=100),
+            "alpha": approx(180, abs=180),
+            "beta": approx(180, abs=180),
+            "gamma": approx(180, abs=180),
+        },
+    },
     "relion": {
         "type": "em-spa",
         "frames": list(set(range(21, 50)) - {32, 33, 34, 38, 41}),

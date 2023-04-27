@@ -139,8 +139,13 @@ def _simulate(
     src_sessionid = db.retrieve_sessionid(db_session, _src_visit)
     log.debug(f"Source SessionID is {src_sessionid}")
 
+    try:
+        run_number = int(_src_run_number)
+    except (TypeError, ValueError):
+        run_number = None
+
     row = db.retrieve_datacollection(
-        db_session, src_sessionid, _src_dir, _src_prefix, int(_src_run_number)
+        db_session, src_sessionid, _src_dir, _src_prefix, run_number
     )
     src_dcid = row.dataCollectionId
     src_dcgid = row.dataCollectionGroupId
@@ -279,15 +284,13 @@ def _simulate(
         log.debug(
             "(SQL) Getting the currently highest run number for this img. directory + prefix"
         )
-        if filetemplate.endswith(".h5"):
-            # Can't change the run number otherwise the link from the master.h5 to data_*.h5 will be incorrect
-            run_number = int(_src_run_number)
-        else:
+        # Can't change the run number for .h5 files otherwise the link from the master.h5 to data_*.h5 will be incorrect
+        if not filetemplate.endswith(".h5"):
             run_number = retrieve_max_dcnumber(_db, sessionid, _dest_dir, _dest_prefix)
-            if run_number is None:
-                run_number = 1
-            else:
+            try:
                 run_number = int(run_number) + 1
+            except (TypeError, ValueError):
+                run_number = 1
 
         log.debug("(SQL) Getting values from the source datacollectiongroup record")
         src_blsampleid = row.DataCollectionGroup.blSampleId

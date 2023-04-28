@@ -439,10 +439,10 @@ class Xia2Wrapper(Wrapper):
         if stage in {None, "setup"}:
             success = self.setup(working_directory, params)
 
-        if stage in {None, "run"} and success:
+        if stage in {None, "run"}:
             success = self.run_xia2(working_directory, params)
 
-        if stage in {None, "report"} and success:
+        if stage in {None, "report"}:
             success = self.report(working_directory, params, success)
             if success:
                 self._success_counter.inc()

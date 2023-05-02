@@ -78,9 +78,11 @@ def retrieve_datacollection(db_session, sessionid, path, prefix, run_number):
         .options(Load(DataCollection).load_only(*records_to_collect))
         .filter(DataCollection.SESSIONID == sessionid)
         .filter(DataCollection.imageDirectory == path + "/")
-        .filter(DataCollection.dataCollectionNumber == run_number)
-        .filter(DataCollection.imagePrefix == prefix)
     )
+    if run_number is not None:
+        query = query.filter(DataCollection.dataCollectionNumber == run_number)
+    if prefix is not None:
+        query = query.filter(DataCollection.imagePrefix == prefix)
     result = query.first()
     if not result:
         raise ValueError("No matching data collection found")

@@ -190,6 +190,13 @@ class DLSValidation(CommonService):
                                     f"{dset_filename}{link.path} dtype ({dset.dtype}) inconsistent with {filename}/entry/instrument/detector/bit_depth_readout {bit_depth_readout}"
                                 )
 
+                    if expected_images := output.get("ispyb_expected_images"):
+                        n_images = len(data)
+                        if len(expected_images) != n_images:
+                            return fail(
+                                f"Number of images in /entry/data/data ({n_images}) inconsistent with that reported in ISPyB ({expected_images})"
+                            )
+
             except Exception as e:
                 self.log.warning(e, exc_info=True)
                 return fail(

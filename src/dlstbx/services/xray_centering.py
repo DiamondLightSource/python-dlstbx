@@ -143,8 +143,11 @@ class DLSXRayCentering(CommonService):
             for dcid in list(self._centering_data):
                 age = time.time() - self._centering_data[dcid].last_activity
                 if age > 15 * 60:
-                    self.log.info("Expiring X-Ray Centering session for DCID %r", dcid)
                     rw = self._centering_data[dcid].recipewrapper
+                    with self.extend_log("recipe_ID", rw.environment["ID"]):
+                        self.log.warning(
+                            f"Expiring X-Ray Centering session for DCID {dcid}"
+                        )
                     subscription_id = self._centering_data[dcid].headers[0][
                         "subscription"
                     ]

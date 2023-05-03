@@ -349,14 +349,14 @@ tests = {
     "relion": {
         "type": "em-spa",
         "frames": list(set(range(21, 50)) - {32, 33, 34, 38, 41}),
-        "src_dir": "/dls/m12/data/2023/cm33870-1/raw",
+        "src_dir": "/dls/m12/data/2022/cm31111-2/raw",
         "src_run_num": (None,),
         "src_prefix": (None,),
         "visit_num": 2,
         "proc_params": {
             "acquisition_software": "SerialEM",
-            "import_images": "/dls/m12/data/2023/cm33870-1/raw/Frames/*.tiff",
-            "motioncor_gainreference": "/dls/m12/data/2023/cm33870-1/processing/gain.mrc",
+            "import_images": "/dls/m12/data/2022/cm31111-2/raw/Frames/*.tiff",
+            "motioncor_gainreference": "/dls/m12/data/2022/cm31111-2/processing/gain.mrc",
             "voltage": "200",
             "Cs": "2.7",
             "ctffind_do_phaseshift": "false",

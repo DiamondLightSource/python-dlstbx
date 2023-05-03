@@ -179,8 +179,12 @@ def _simulate(
         i = ispyb.open()
 
         if data_collection_group_id is None:
+            # Get the sessionid for the dest_visit
+            log.debug("(SQL) Getting the destination sessionid")
+            sessionid = db.retrieve_sessionid(db_session, _dest_visit)
+
             dcgparams = i.mx_acquisition.get_data_collection_group_params()
-            dcgparams["parentid"] = src_sessionid
+            dcgparams["parentid"] = sessionid
             dcgparams["experimenttype"] = "EM"
             dcgparams["comments"] = "Created for simulated data collection"
             datacollectiongroupid = i.mx_acquisition.upsert_data_collection_group(
@@ -197,7 +201,7 @@ def _simulate(
                 dcparams[key] = getattr(row, attr)
             dcparams["parentid"] = datacollectiongroupid
             dcparams["imgdir"] = str(pathlib.Path(_dest_dir) / "raw")
-            dcparams["visitid"] = src_sessionid
+            dcparams["visitid"] = sessionid
             datacollectionid = i.mx_acquisition.upsert_data_collection(
                 list(dcparams.values())
             )

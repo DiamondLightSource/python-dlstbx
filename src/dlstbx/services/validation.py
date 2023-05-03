@@ -191,8 +191,9 @@ class DLSValidation(CommonService):
                                 )
 
                     if expected_images := output.get("ispyb_expected_images"):
+                        expected_images = int(expected_images)
                         n_images = len(data)
-                        if len(expected_images) != n_images:
+                        if expected_images != n_images:
                             return fail(
                                 f"Number of images in /entry/data/data ({n_images}) inconsistent with that reported in ISPyB ({expected_images})"
                             )

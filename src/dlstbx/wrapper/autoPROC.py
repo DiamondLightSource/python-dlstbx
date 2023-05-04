@@ -310,6 +310,8 @@ class autoPROCWrapper(Wrapper):
         )
         self.log.debug(f"autoPROC version: {autoproc_version}")
 
+        success = True
+
         # Step 1: Add new record to AutoProc, keep the AutoProcID
         if auto_proc := autoproc_xml.get("AutoProc"):
             if isinstance(auto_proc, list):
@@ -330,6 +332,7 @@ class autoPROCWrapper(Wrapper):
                 }
             )
         else:
+            success = False
             self.log.info("AutoProc record missing from AutoProc xml file")
 
         # Step 2: Store scaling results, linked to the AutoProcID
@@ -368,6 +371,7 @@ class autoPROCWrapper(Wrapper):
                 }
             ispyb_command_list.append(insert_scaling)
         else:
+            success = False
             self.log.info(
                 "AutoProcScalingStatistics record missing from AutoProc xml file"
             )
@@ -434,6 +438,7 @@ class autoPROCWrapper(Wrapper):
                     integration["integration_id"] = None
             ispyb_command_list.append(integration)
         else:
+            success = False
             self.log.info(
                 "AutoProcIntegrationContainer record missing from AutoProc xml file"
             )
@@ -470,7 +475,7 @@ class autoPROCWrapper(Wrapper):
             str(ispyb_command_list),
         )
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
-        return True
+        return success
 
     def setup(self, working_directory, params):
 
@@ -736,8 +741,8 @@ class autoPROCWrapper(Wrapper):
             success = self.send_results_to_ispyb(
                 autoproc_xml, attachments=attachments, res_i_sig_i_2=res_i_sig_i_2
             )
-        if success and staraniso_xml:
-            success = self.send_results_to_ispyb(
+        if staraniso_xml:
+            self.send_results_to_ispyb(
                 staraniso_xml,
                 special_program_name="autoPROC+STARANISO",
                 attachments=anisofiles,

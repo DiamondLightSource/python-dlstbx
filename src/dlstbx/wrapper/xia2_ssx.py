@@ -376,9 +376,12 @@ class Xia2SsxWrapper(Wrapper):
             merging_json_files = [working_directory / "LogFiles" / "dials.merge.json"]
 
         for merged_mtz, dials_merge_json in zip(merged_mtz_files, merging_json_files):
-            mtz = iotbx.mtz.object(os.fspath(merged_mtz))
-            space_group = mtz.space_group().type().lookup_symbol()
-            unit_cell = mtz.crystals()[0].unit_cell_parameters()
+            if merged_mtz.is_file():
+                mtz = iotbx.mtz.object(os.fspath(merged_mtz))
+                space_group = mtz.space_group().type().lookup_symbol()
+                unit_cell = mtz.crystals()[0].unit_cell_parameters()
+            else:
+                continue
 
             if dials_merge_json.is_file():
                 with dials_merge_json.open() as fh:

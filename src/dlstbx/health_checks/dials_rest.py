@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import pathlib
+from datetime import date
 from io import BytesIO
 
 import PIL.Image
 import requests
+from dateutil.relativedelta import relativedelta
 
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 
@@ -34,12 +36,29 @@ def check_dials_rest(cfc: CheckFunctionInterface) -> Status:
             timeout=10,
         )
         response.raise_for_status()
-    except requests.HTTPError as e:
+    except requests.ConnectionError as e:
         return Status(
             Source=cfc.name,
             Level=REPORT.ERROR,
-            Message=f"HTTPError connecting to {_dials_rest_url}",
+            Message=f"Error connecting to {_dials_rest_url}",
             MessageBody=repr(e),
+            URL=_dials_rest_url,
+        )
+    except requests.HTTPError as e:
+        message_body = repr(e)
+        if response.status_code == 403:
+            today = date.today()
+            today_plus_one_month = today + relativedelta(months=1)
+            message_body = (
+                "Please update the access token with (e.g.):\n"
+                "    kubectl exec -n dials-rest --stdin -it `kubectl get pods -n dials-rest | grep dials-rest -m 1 | cut -d ' '"
+                f" -f1` -- /env/bin/create-access-token --expiry {today_plus_one_month} > /dls_sw/apps/zocalo/secrets/dials-rest.tkn"
+            )
+        return Status(
+            Source=cfc.name,
+            Level=REPORT.ERROR,
+            Message=f"HTTPError {e}",
+            MessageBody=message_body,
             URL=_dials_rest_url,
         )
     except requests.Timeout as e:

@@ -443,7 +443,7 @@ class EM_Mixin:
                 e,
                 exc_info=True,
             )
-        return False
+            return False
 
     def do_insert_tilt_image_alignment(
         self, parameters, session, message=None, **kwargs
@@ -484,4 +484,4 @@ class EM_Mixin:
                 e,
                 exc_info=True,
             )
-        return False
+            return False

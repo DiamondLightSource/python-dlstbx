@@ -133,6 +133,7 @@ health_checks = [
     "remote.github = dlstbx.health_checks.network:check_github",
     "services.activemq = dlstbx.health_checks.activemq:check_activemq_health",
     "services.cas = dlstbx.health_checks.network:check_cas",
+    "services.dials-rest = dlstbx.health_checks.dials_rest:check_dials_rest",
     "services.epics = dlstbx.health_checks.epics:get_diamond_ring_status",
     "services.gitlab = dlstbx.health_checks.network:check_gitlab",
     "services.graylog.alive = dlstbx.health_checks.graylog:check_graylog_is_alive",

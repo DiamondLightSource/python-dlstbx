@@ -678,12 +678,12 @@ class autoPROCWrapper(Wrapper):
         anisofiles = []  # tuples of file name, dir name, file type
         attachments = []  # tuples of file name, dir name, file type
         for filename in working_directory.iterdir():
-            if not (
-                keep_as := keep.get(filename.name, filename.suffix in copy_extensions)
-            ):
+            keep_as = keep.get(
+                filename.name,
+                "result" if filename.suffix in copy_extensions else None,
+            )
+            if not keep_as:
                 continue
-            elif keep_as is True:
-                keep_as = "result"
             destination = results_directory / filename.name
             self.log.debug(f"Copying {filename} to {destination}")
             shutil.copy(filename, destination)

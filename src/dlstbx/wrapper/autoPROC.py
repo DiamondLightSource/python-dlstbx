@@ -29,7 +29,7 @@ clean_environment = {
 }
 
 
-def read_autoproc_xml(xml_file, logger):
+def read_autoproc_xml(xml_file: Path, logger: logging.Logger):
     if not xml_file.is_file():
         logger.info(f"Expected file {xml_file} missing")
         return False
@@ -92,13 +92,17 @@ def read_autoproc_xml(xml_file, logger):
     return xml_dict
 
 
-def construct_commandline(params, logger, working_directory=None, image_directory=None):
+def construct_commandline(
+    params: dict,
+    logger: logging.Logger,
+    working_directory: Path | None = None,
+    image_directory: os.PathLike[str] | None = None,
+):
     """Construct autoPROC command line.
     Takes job parameter dictionary, returns array."""
 
     if not working_directory:
         working_directory = params["working_directory"]
-    image_directory_input = image_directory
     images = params["images"]
     pname = params["autoproc"].get("pname")
     xname = params["autoproc"].get("xname")
@@ -151,10 +155,9 @@ def construct_commandline(params, logger, working_directory=None, image_director
 
             template, n_digits = template_regex(first_image_or_master_h5)
 
-        if not image_directory_input:
+        if image_directory is None:
             image_directory, image_template = os.path.split(template)
         else:
-            image_directory = image_directory_input
             _, image_template = os.path.split(template)
 
         # ensure unique identifier if multiple sweeps
@@ -245,7 +248,7 @@ def construct_commandline(params, logger, working_directory=None, image_director
     return command
 
 
-def get_untrusted_rectangles(first_image_or_master_h5, macro=None):
+def get_untrusted_rectangles(first_image_or_master_h5: str, macro: str | None = None):
     rectangles = []
 
     if macro:
@@ -276,9 +279,9 @@ class autoPROCWrapper(Wrapper):
 
     def send_results_to_ispyb(
         self,
-        autoproc_xml,
-        special_program_name=None,
-        attachments=None,
+        autoproc_xml: dict,
+        special_program_name: str | None = None,
+        attachments: list[tuple[str, Path, str, int]] | None = None,
         res_i_sig_i_2: float | None = None,
     ):
         ispyb_command_list = []
@@ -477,7 +480,7 @@ class autoPROCWrapper(Wrapper):
         self.recwrap.send_to("ispyb", {"ispyb_command_list": ispyb_command_list})
         return success
 
-    def setup(self, working_directory, params):
+    def setup(self, working_directory: Path, params: dict):
 
         # Create working directory with symbolic link
         if params.get("create_symlink"):
@@ -505,7 +508,7 @@ class autoPROCWrapper(Wrapper):
                 self.log.logger.addHandler(handler)
                 self.log.logger.setLevel(logging.DEBUG)
                 s3_urls = iris.get_presigned_urls_images(
-                    params.get("create_symlink").lower(),
+                    params["create_symlink"].lower(),
                     params["rpid"],
                     params["images"],
                     self.log,
@@ -514,7 +517,7 @@ class autoPROCWrapper(Wrapper):
 
         return True
 
-    def run_autoPROC(self, working_directory, params):
+    def run_autoPROC(self, working_directory: Path, params: dict):
 
         procrunner_directory = working_directory / "autoPROC"
         procrunner_directory.mkdir(parents=True, exist_ok=True)
@@ -609,12 +612,12 @@ class autoPROCWrapper(Wrapper):
 
         return success
 
-    def report(self, working_directory, params):
+    def report(self, working_directory: Path, params: dict, success: bool):
 
         if s3_urls := self.recwrap.environment.get("s3_urls"):
             try:
                 iris.remove_objects_from_s3(
-                    params.get("create_symlink").lower(),
+                    params["create_symlink"].lower(),
                     s3_urls,
                 )
             except Exception:
@@ -634,7 +637,7 @@ class autoPROCWrapper(Wrapper):
         )
 
         # copy output files to result directory
-        results_directory = Path(params.get("results_directory")) / "autoPROC"
+        results_directory = Path(params["results_directory"]) / "autoPROC"
         results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
@@ -660,6 +663,8 @@ class autoPROCWrapper(Wrapper):
                 keep[entry["fileName"]] = {"log": "log"}.get(
                     entry["fileType"].lower(), "result"
                 )
+        else:
+            success = False
         if staraniso_xml:
             for entry in staraniso_xml.get("AutoProcProgramContainer", {}).get(
                 "AutoProcProgramAttachment", []
@@ -673,9 +678,12 @@ class autoPROCWrapper(Wrapper):
         anisofiles = []  # tuples of file name, dir name, file type
         attachments = []  # tuples of file name, dir name, file type
         for filename in working_directory.iterdir():
-            keep_as = keep.get(filename.name, filename.suffix in copy_extensions)
-            if not keep_as:
+            if not (
+                keep_as := keep.get(filename.name, filename.suffix in copy_extensions)
+            ):
                 continue
+            elif keep_as is True:
+                keep_as = "result"
             destination = results_directory / filename.name
             self.log.debug(f"Copying {filename} to {destination}")
             shutil.copy(filename, destination)
@@ -718,6 +726,8 @@ class autoPROCWrapper(Wrapper):
                 allfiles.append(os.fspath(destination))
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
+        else:
+            success = False
 
         # Calculate the resolution at which the mean merged I/sig(I) = 2
         # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
@@ -736,7 +746,6 @@ class autoPROCWrapper(Wrapper):
                     f"dials.estimate_resolution failure: {e}", exc_info=True
                 )
 
-        success = True
         if autoproc_xml:
             success = self.send_results_to_ispyb(
                 autoproc_xml, attachments=attachments, res_i_sig_i_2=res_i_sig_i_2
@@ -780,8 +789,8 @@ class autoPROCWrapper(Wrapper):
         if stage in {None, "run"} and success:
             success = self.run_autoPROC(working_directory, params)
 
-        if stage in {None, "report"} and success:
-            success = self.report(working_directory, params)
+        if stage in {None, "report"}:
+            success = self.report(working_directory, params, success)
             if success:
                 self._success_counter.inc()
 

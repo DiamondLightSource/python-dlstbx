@@ -798,9 +798,11 @@ def ispyb_filter(
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
     parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id, session)
     if str(parameters["ispyb_beamline"]).lower() in _gpfs03_beamlines:
-        parameters["ispyb_preferred_datacentre"] = "hamilton"
+        parameters["ispyb_preferred_datacentre"] = "cs05r"
+        parameters["ispyb_preferred_scheduler"] = "slurm"
     else:
         parameters["ispyb_preferred_datacentre"] = "cluster"
+        parameters["ispyb_preferred_scheduler"] = "grid_engine"
     parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info, session)
     parameters["ispyb_dc_info"] = dc_info
     parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(

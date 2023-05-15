@@ -1416,3 +1416,57 @@ class DLSISPyB(EM_Mixin, CommonService):
                 exc_info=True,
             )
             return False
+
+    def do_retrieve_container_for_inspection_id(self, *, parameter_map, **kwargs):
+        inspection_id = parameter_map["inspection_id"]
+        try:
+            container = self.ispyb.xtal_imaging.retrieve_container_for_inspection_id(
+                inspection_id=inspection_id
+            )
+        except ispyb.NoResult as e:
+            self.log.error(f"Couldnt find container for inspectionid {inspection_id}")
+            return False
+        return {"success": True, "return_value": container[0]}
+
+    def do_retrieve_sample_for_container_id_and_location(
+        self, *, parameter_map, **kwargs
+    ):
+        position = parameter_map["position"]
+        container_id = parameter_map["container_id"]
+
+        try:
+            sample = (
+                self.ispyb.xtal_imaging.retrieve_sample_for_container_id_and_location(
+                    location=position, container_id=container_id
+                )
+            )
+        except ispyb.NoResult as e:
+            sample = []
+
+        if not len(sample):
+            self.log.error(
+                f"Couldnt find a blsample for containerid: {container_id}, position: {position}"
+            )
+            return False
+        return {"success": True, "return_value": sample[0]["sampleId"]}
+
+    def do_upsert_sample_image(self, *, parameter_map, **kwargs):
+        # required
+        sample_id = parameter_map["sample_id"]
+        inspection_id = parameter_map["inspection_id"]
+        microns_per_pixel_x = parameter_map["microns_per_pixel_x"]
+        microns_per_pixel_y = parameter_map["microns_per_pixel_y"]
+
+        # optional
+        blsampleimage_id = parameter_map.get("blsampleimage_id")
+        image_full_path = parameter_map.get("image_full_path")
+
+        iid = self.ispyb.xtal_imaging.upsert_sample_image(
+            id=blsampleimage_id,
+            sample_id=str(sample_id),
+            microns_per_pixel_x=str(microns_per_pixel_x),
+            microns_per_pixel_y=str(microns_per_pixel_y),
+            inspection_id=str(inspection_id),
+            image_full_path=image_full_path,
+        )
+        return {"success": True, "return_value": iid}

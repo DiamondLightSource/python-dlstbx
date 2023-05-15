@@ -86,5 +86,6 @@ def check_dials_rest(cfc: CheckFunctionInterface) -> Status:
         Source=cfc.name,
         Level=REPORT.PASS,
         Message="DIALS REST service alive",
+        MessageBody=f"Valid response received from {_dials_rest_url}",
         URL=_dials_rest_url,
     )

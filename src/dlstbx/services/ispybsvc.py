@@ -1112,6 +1112,12 @@ class DLSISPyB(EM_Mixin, CommonService):
             return base_value
 
         kwargs["parameters"] = step_parameters
+        kwargs["parameter_map"] = ChainMapWithReplacement(
+            current_command,
+            message if isinstance(message, dict) else {},
+            rw.recipe_step["parameters"],
+            substitutions=rw.environment,
+        )
 
         # If this step previously checkpointed then override the message passed
         # to the step.

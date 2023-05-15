@@ -103,6 +103,7 @@ service_list = [
     "DLSController = dlstbx.services.controller:DLSController",
     "DLSDropfilePickup = dlstbx.services.dropfile_pickup:DLSDropfilePickup",
     "DLSFileWatcher = dlstbx.services.filewatcher:DLSFileWatcher",
+    "DLSFormulatrixUploader = dlstbx.services.formulatrix_uploader:DLSFormulatrixUploader",
     "DLSISPyB = dlstbx.services.ispybsvc:DLSISPyB",
     "DLSISPyBPIA = dlstbx.services.ispybsvc_pia:DLSISPyBPIA",
     "DLSImages = dlstbx.services.images:DLSImages",

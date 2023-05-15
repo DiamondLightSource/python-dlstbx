@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 import json
 
 import numpy as np
@@ -40,7 +39,7 @@ def test_gridscan3d():
 
     results = dlstbx.util.xray_centering_3d.gridscan3d(data, plot=False)
     assert len(results) == 1
-    result_d = dataclasses.asdict(results[0])
+    result_d = results[0].dict()
     # check that the results are JSON-serializable
     json.dumps(result_d)
     assert result_d == {

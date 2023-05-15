@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
-import json
 import logging
 import pathlib
 import threading
@@ -281,7 +279,7 @@ class DLSXRayCentering(CommonService):
                     rw.set_default_channel("success")
                     rw.send_to(
                         "success",
-                        [dataclasses.asdict(r) for r in result],
+                        [r.dict() for r in result],
                         transaction=txn,
                     )
                     rw.transport.transaction_commit(txn)
@@ -320,12 +318,7 @@ class DLSXRayCentering(CommonService):
                         parameters.output,
                     )
                     parameters.output.parent.mkdir(parents=True, exist_ok=True)
-                    with parameters.output.open("w") as fh:
-                        json.dump(
-                            dataclasses.asdict(result),
-                            fh,
-                            sort_keys=True,
-                        )
+                    parameters.output.write_text(result.json(sort_keys=True))
                     if parameters.results_symlink:
                         # Create symbolic link above working directory
                         dlstbx.util.symlink.create_parent_symlink(
@@ -372,7 +365,7 @@ class DLSXRayCentering(CommonService):
 
                 # Send results onwards
                 rw.set_default_channel("success")
-                rw.send_to("success", dataclasses.asdict(result), transaction=txn)
+                rw.send_to("success", result.dict(), transaction=txn)
                 rw.transport.transaction_commit(txn)
 
                 del self._centering_data[dcid]

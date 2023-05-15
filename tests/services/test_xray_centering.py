@@ -82,19 +82,25 @@ def test_xray_centering(mocker, tmp_path):
         "best_image": 18,
         "best_region": mock.ANY,
         "box_size_px": mock.ANY,
+        "centre_of_mass": mock.ANY,
         "centre_x": 530.0841473581213,
         "centre_x_box": 4.928571428571429,
         "centre_y": 357.1474315720809,
         "centre_y_box": 3.2857142857142856,
+        "max_count": 249.0,
+        "max_voxel": mock.ANY,
         "message": "ok",
+        "n_voxels": 14,
         "reflections_in_best_image": 249,
         "snapshot_offset": mock.ANY,
         "status": "ok",
         "steps": mock.ANY,
+        "total_count": 2930.0,
     }
     results_json = tmp_path / "Dials5AResults.json"
     assert results_json.exists()
     results = json.loads(results_json.read_bytes())
+    print(results)
     assert expected_results == results
     send_to.assert_called_with("success", expected_results, transaction=mock.ANY)
 

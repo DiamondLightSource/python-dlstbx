@@ -3,7 +3,6 @@ from __future__ import annotations
 import datetime
 import enum
 import pathlib
-from typing import Optional, Tuple
 
 import pydantic
 
@@ -21,16 +20,16 @@ class Atom(pydantic.BaseModel):
 
 
 class Blob(pydantic.BaseModel):
-    xyz: Tuple[float, float, float]
+    xyz: tuple[float, float, float]
     height: float
     map_type: MapType
-    occupancy: Optional[float]
-    nearest_atom: Optional[Atom]
-    nearest_atom_distance: Optional[float]
-    filepath: Optional[pathlib.Path]
-    view1: Optional[str]
-    view2: Optional[str]
-    view3: Optional[str]
+    occupancy: float | None
+    nearest_atom: Atom | None
+    nearest_atom_distance: float | None
+    filepath: pathlib.Path | None
+    view1: str | None
+    view2: str | None
+    view3: str | None
 
     class Config:
         use_enum_values = True
@@ -65,7 +64,7 @@ class Attachment(pydantic.BaseModel):
     file_path: pathlib.Path
     file_name: str
     timestamp: datetime.datetime
-    importance_rank: Optional[int]
+    importance_rank: int | None
 
     class Config:
         use_enum_values = True
@@ -73,14 +72,14 @@ class Attachment(pydantic.BaseModel):
 
 class MXMRRun(pydantic.BaseModel):
     auto_proc_scaling_id: int
-    auto_proc_program_id: Optional[int]
+    auto_proc_program_id: int | None
     rwork_start: float
     rwork_end: float
     rfree_start: float
     rfree_end: float
-    space_group: Optional[str]
-    LLG: Optional[float]
-    TFZ: Optional[float]
+    space_group: str | None
+    LLG: float | None
+    TFZ: float | None
 
 
 class XrayCentringStatus(enum.Enum):
@@ -103,7 +102,7 @@ class XrayCentringResult(pydantic.BaseModel):
     max_count: float
     n_voxels: int
     total_count: float
-    bounding_box: Tuple[Coordinate, Coordinate]
+    bounding_box: tuple[Coordinate, Coordinate]
 
 
 class XrayCentring(pydantic.BaseModel):

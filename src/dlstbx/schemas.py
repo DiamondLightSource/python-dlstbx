@@ -93,7 +93,8 @@ class XrayCentringType(enum.Enum):
     _3D = "3d"
 
 
-Coordinate = tuple[int, int] | tuple[int, int, int]
+Coordinate2D = tuple[int, int]
+Coordinate3D = tuple[int, int, int]
 
 
 class XrayCentringResult(pydantic.BaseModel):
@@ -102,7 +103,9 @@ class XrayCentringResult(pydantic.BaseModel):
     max_count: float
     n_voxels: int
     total_count: float
-    bounding_box: tuple[Coordinate, Coordinate]
+    bounding_box: tuple[Coordinate2D, Coordinate2D] | tuple[
+        Coordinate3D, Coordinate3D
+    ] | None
 
 
 class XrayCentring(pydantic.BaseModel):

@@ -98,7 +98,9 @@ def main(
     # (label == 0), if there are any (i.e. if unique[0] == 0).
     best = unique[np.argmax(counts)] if unique[0] else unique[np.argmax(counts[1:]) + 1]
     com = scipy.ndimage.center_of_mass(labels == best)
-    max_pixel = scipy.ndimage.maximum_position(threshold, labels == best)
+    max_voxel = tuple(
+        reversed(scipy.ndimage.maximum_position(threshold, labels == best))
+    )
     n_voxels = np.count_nonzero(labels == best)
     total_count = int(scipy.ndimage.sum_labels(threshold, labels=labels, index=best))
     output.append(f"grid:\n{threshold}".replace(" 0", " ."))
@@ -112,7 +114,7 @@ def main(
     return GridScan2DResult(
         centre_of_mass=(centre_x_box, centre_y_box),
         max_count=maximum_spots,
-        max_voxel=max_pixel,
+        max_voxel=max_voxel,
         n_voxels=n_voxels,
         total_count=total_count,
         # legacy GDA json file fields

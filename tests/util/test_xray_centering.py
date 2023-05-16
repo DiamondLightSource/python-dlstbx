@@ -34,7 +34,7 @@ def test_xray_centering():
     assert "[  .   . 402 592 538 394   .   .   .   .   .   .   .   .]" in stdout
     assert results.dict() == {
         "centre_of_mass": (5.45, 3.8),
-        "max_voxel": (2, 3),
+        "max_voxel": (3, 2),
         "max_count": 592.0,
         "n_voxels": 20,
         "total_count": 8837.0,
@@ -159,7 +159,7 @@ def test_vertical_1d():
     assert "There are 114 reflections in image #52." in stdout
     assert results.dict() == {
         "centre_of_mass": (0.5, 48.0),
-        "max_voxel": (51, 0),
+        "max_voxel": (0, 51),
         "max_count": 114.0,
         "n_voxels": 22,
         "total_count": 1845.0,
@@ -216,7 +216,7 @@ def test_vertical_2d():
     assert "There are 54 reflections in image #4." in stdout
     assert results.dict() == {
         "centre_of_mass": (1.0, 4.0),
-        "max_voxel": (3, 0),
+        "max_voxel": (0, 3),
         "max_count": 54.0,
         "n_voxels": 4,
         "total_count": 177.0,

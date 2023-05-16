@@ -33,7 +33,7 @@ def test_xray_centering():
     assert "There are 592 reflections in image #32." in stdout
     assert "[  .   . 402 592 538 394   .   .   .   .   .   .   .   .]" in stdout
     assert results.dict() == {
-        "centre_of_mass": (403.0125, 245.95),
+        "centre_of_mass": (5.45, 3.8),
         "max_voxel": (2, 3),
         "max_count": 592.0,
         "n_voxels": 20,
@@ -124,7 +124,7 @@ def test_xray_centering_second_example():
     best_region = sorted([(4, 11), (4, 13), (4, 14), (4, 15), (5, 10), (5, 11), (5, 12), (5, 14), (5, 16), (6, 11), (6, 12), (6, 13), (6, 14), (6, 15), (7, 8), (7, 9), (7, 10), (7, 11), (7, 12), (7, 13), (7, 14), (7, 15), (8, 9), (8, 10), (8, 11), (8, 12), (8, 13), (8, 14), (8, 15), (8, 16), (9, 8), (9, 9), (9, 10), (9, 11), (9, 12), (9, 13), (9, 14), (9, 15), (10, 8), (10, 9), (10, 10), (10, 11), (10, 12), (10, 14), (10, 15), (10, 16), (11, 9), (11, 11), (11, 12), (11, 15), (12, 11), (12, 12), (12, 13), (12, 14), (12, 16), (13, 14), (14, 15), (14, 16)])
     # fmt: on
     assert results.dict() == {
-        "centre_of_mass": (567.4686527354697, 340.0775106616303),
+        "centre_of_mass": (12.879310344827585, 8.913793103448276),
         "max_voxel": (9, 9),
         "max_count": 14.0,
         "n_voxels": 58,
@@ -158,7 +158,7 @@ def test_vertical_1d():
     )
     assert "There are 114 reflections in image #52." in stdout
     assert results.dict() == {
-        "centre_of_mass": (459.00019277108436, 412.1926265060241),
+        "centre_of_mass": (0.5, 48.0),
         "max_voxel": (51, 0),
         "max_count": 114.0,
         "n_voxels": 22,
@@ -215,7 +215,7 @@ def test_vertical_2d():
     )
     assert "There are 54 reflections in image #4." in stdout
     assert results.dict() == {
-        "centre_of_mass": (384.72754545454546, 418.54518181818185),
+        "centre_of_mass": (1.0, 4.0),
         "max_voxel": (3, 0),
         "max_count": 54.0,
         "n_voxels": 4,

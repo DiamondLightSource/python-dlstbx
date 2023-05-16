@@ -110,7 +110,7 @@ def main(
     output.append(f"centre_x,centre_y={centre_x},{centre_y}")
 
     return GridScan2DResult(
-        centre_of_mass=(centre_x, centre_y),
+        centre_of_mass=(centre_x_box, centre_y_box),
         max_count=maximum_spots,
         max_voxel=max_pixel,
         n_voxels=n_voxels,

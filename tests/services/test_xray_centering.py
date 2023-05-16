@@ -102,7 +102,15 @@ def test_xray_centering(mocker, tmp_path):
     results = json.loads(results_json.read_bytes())
     print(results)
     assert expected_results == results
-    send_to.assert_called_with("success", expected_results, transaction=mock.ANY)
+    send_to.assert_called_with(
+        "success",
+        {
+            "results": [expected_results],
+            "status": "success",
+            "type": "2d",
+        },
+        transaction=mock.ANY,
+    )
 
 
 def test_xray_centering_invalid_parameters(mocker, tmp_path):
@@ -214,15 +222,19 @@ def test_xray_centering_3d(mocker):
         xc.add_pia_result(rw, header, message)
     send_to.assert_called_with(
         "success",
-        [
-            {
-                "max_voxel": (4, 4, 3),
-                "max_count": 464,
-                "n_voxels": 9,
-                "total_count": 2540,
-                "centre_of_mass": mock.ANY,
-                "bounding_box": ((3, 4, 2), (7, 5, 5)),
-            },
-        ],
+        {
+            "results": [
+                {
+                    "max_voxel": (4, 4, 3),
+                    "max_count": 464,
+                    "n_voxels": 9,
+                    "total_count": 2540,
+                    "centre_of_mass": mock.ANY,
+                    "bounding_box": ((3, 4, 2), (7, 5, 5)),
+                },
+            ],
+            "status": "success",
+            "type": "3d",
+        },
         transaction=mock.ANY,
     )

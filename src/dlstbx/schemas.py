@@ -81,3 +81,33 @@ class MXMRRun(pydantic.BaseModel):
     space_group: Optional[str]
     LLG: Optional[float]
     TFZ: Optional[float]
+
+
+class XrayCentringStatus(enum.Enum):
+    SUCCESS = "success"
+    FAILED = "failed"
+    PENDING = "pending"
+
+
+class XrayCentringType(enum.Enum):
+    _2D = "2d"
+    _3D = "3d"
+
+
+Coordinate = tuple[int, int] | tuple[int, int, int]
+
+
+class XrayCentringResult(pydantic.BaseModel):
+    centre_of_mass: tuple[float, ...]
+    max_voxel: tuple[int, ...]
+    max_count: float
+    n_voxels: int
+    total_count: float
+    bounding_box: Tuple[Coordinate, Coordinate]
+
+
+class XrayCentring(pydantic.BaseModel):
+    dcgid: pydantic.NonNegativeInt
+    status: XrayCentringStatus
+    type: XrayCentringType
+    results: list[XrayCentringResult]

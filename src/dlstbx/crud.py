@@ -348,3 +348,38 @@ def get_ssx_events_for_dcid(
         .filter(models.EventChain.dataCollectionId == dcid)
     )
     return query.all()
+
+
+def insert_xray_centring(
+    xrc: schemas.XrayCentring,
+    session: sqlalchemy.orm.session.Session,
+) -> int:
+    db_xrc = models.XrayCentring(
+        dataCollectionGroupId=xrc.dcgid,
+        status=xrc.status.value,
+        xrayCentringType=xrc.type.value,
+    )
+    session.add(db_xrc)
+    is_3d = xrc.type == schemas.XrayCentringType._3D
+    for result in xrc.results:
+        bb = result.bounding_box
+        db_result = models.XrayCentringResult(
+            XrayCentring=db_xrc,
+            centreOfMassX=result.centre_of_mass[0],
+            centreOfMassY=result.centre_of_mass[1],
+            centreOfMassZ=result.centre_of_mass[2] if is_3d else None,
+            maxVoxelX=result.max_voxel[0],
+            maxVoxelY=result.max_voxel[1],
+            maxVoxelZ=result.max_voxel[2] if is_3d else None,
+            numberOfVoxels=result.n_voxels,
+            totalCount=result.total_count,
+            boundingBoxMinX=bb[0][0] if bb else None,
+            boundingBoxMinY=bb[0][1] if bb else None,
+            boundingBoxMinZ=bb[0][2] if bb and is_3d else None,  # type: ignore
+            boundingBoxMaxX=bb[1][0] if bb else None,
+            boundingBoxMaxY=bb[1][1] if bb else None,
+            boundingBoxMaxZ=bb[1][2] if bb and is_3d else None,  # type: ignore
+        )
+        session.add(db_result)
+    session.commit()
+    return db_xrc.xrayCentringId

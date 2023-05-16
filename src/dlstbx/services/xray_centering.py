@@ -279,7 +279,11 @@ class DLSXRayCentering(CommonService):
                     rw.set_default_channel("success")
                     rw.send_to(
                         "success",
-                        [r.dict() for r in result],
+                        {
+                            "results": [r.dict() for r in result],
+                            "status": "success",
+                            "type": "3d",
+                        },
                         transaction=txn,
                     )
                     rw.transport.transaction_commit(txn)
@@ -365,7 +369,11 @@ class DLSXRayCentering(CommonService):
 
                 # Send results onwards
                 rw.set_default_channel("success")
-                rw.send_to("success", result.dict(), transaction=txn)
+                rw.send_to(
+                    "success",
+                    {"results": [result.dict()], "status": "success", "type": "2d"},
+                    transaction=txn,
+                )
                 rw.transport.transaction_commit(txn)
 
                 del self._centering_data[dcid]

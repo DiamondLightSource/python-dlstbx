@@ -201,9 +201,9 @@ class database:
 
     def set_status_components(
         self,
-        source: str = None,
-        level: int = None,
-        message: str = None,
+        source: str | None = None,
+        level: int | None = None,
+        message: str | None = None,
         *,
         fullmessage=None,
         url=None,

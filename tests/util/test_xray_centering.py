@@ -22,7 +22,7 @@ def test_xray_centering():
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 28, 48],
         ]
     ).flatten()
-    results, stdout = dlstbx.util.xray_centering.main(
+    results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
         steps=(14, 11),
         box_size_px=(1.25, 1.25),
@@ -106,7 +106,7 @@ def test_xray_centering_second_example():
     ]).flatten()
     # fmt: on
 
-    results, stdout = dlstbx.util.xray_centering.main(
+    results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
         steps=(36, 23),
         box_size_px=(17.6678445229682, 17.6678445229682),
@@ -148,7 +148,7 @@ def test_vertical_1d():
     # fmt: off
     data = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 9, 20, 21, 21, 11, 3, 13, 35, 40, 45, 49, 53, 59, 75, 76, 78, 80, 75, 78, 75, 79, 83, 86, 90, 94, 107, 114, 107, 99, 91, 86, 77, 73, 63, 52, 37, 22, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     # fmt: on
-    results, stdout = dlstbx.util.xray_centering.main(
+    results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
         steps=(1, 80),
         box_size_px=(24.096385542168676, 6.024096385542169),
@@ -205,7 +205,7 @@ def test_vertical_2d():
     # fmt: off
     data = np.array([0, 0, 6, 54, 38, 0, 5, 41, 44, 5, 0, 0, 0, 0, 0, 3, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     # fmt: on
-    results, stdout = dlstbx.util.xray_centering.main(
+    results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
         steps=(5, 6),
         box_size_px=(45.45454545454545, 45.45454545454545),
@@ -237,7 +237,7 @@ def test_vertical_2d():
 
 def test_blank_scan():
     data = np.zeros((5, 6))
-    results, stdout = dlstbx.util.xray_centering.main(
+    results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
         steps=(5, 6),
         box_size_px=(45.45, 45.45),
@@ -298,7 +298,7 @@ def test_single_connected_region(data, reflections_in_best_image):
     contains a number of reflections equal to or greater than half the number of
     reflections in the strongest-diffracting image.
     """
-    result, _ = dlstbx.util.xray_centering.main(
+    result, _ = dlstbx.util.xray_centering.gridscan2d(
         data=data,
         steps=(10, 10),
         box_size_px=(1, 1),

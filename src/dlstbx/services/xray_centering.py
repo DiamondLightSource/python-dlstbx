@@ -298,7 +298,7 @@ class DLSXRayCentering(CommonService):
                 self.log.info(
                     "All records arrived for X-ray centering on DCID %d", dcid
                 )
-                result, output = dlstbx.util.xray_centering.main(
+                result, output = dlstbx.util.xray_centering.gridscan2d(
                     cd.data,
                     steps=(gridinfo.steps_x, gridinfo.steps_y),
                     box_size_px=(

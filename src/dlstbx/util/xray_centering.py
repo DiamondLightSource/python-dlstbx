@@ -59,7 +59,7 @@ def reshape_grid(
     return data
 
 
-def main(
+def gridscan2d(
     data: np.ndarray,
     steps: tuple[int, int],
     box_size_px: tuple[float, float],

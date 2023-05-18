@@ -27,7 +27,6 @@ class GridScanResultBase(pydantic.BaseModel):
 #   centre_x_box
 #   centre_y_box
 #   status
-# @dataclasses.dataclass
 class GridScan2DResult(GridScanResultBase):
     steps: tuple[int, int]
     box_size_px: tuple[float, float]

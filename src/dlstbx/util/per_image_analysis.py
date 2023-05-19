@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import copy
 import enum
 import logging
-import os
+import pathlib
 import time
 from typing import Optional
 
@@ -51,14 +52,21 @@ class PerImageAnalysisResults(pydantic.BaseModel):
 
 
 def do_per_image_analysis(
-    filename: os.PathLike | str | bytes, params: PerImageAnalysisParameters
+    filename: pathlib.Path, params: PerImageAnalysisParameters
 ) -> tuple[ExperimentList, flex.reflection_table, PerImageAnalysisResults]:
-    experiments = ExperimentListFactory.from_filenames([filename])
-    if params.scan_range and len(experiments) > 1:
-        # This means we've imported a sequence of still image: select
-        # only the experiment, i.e. image, we're interested in
-        start, end = params.scan_range
-        experiments = experiments[start - 1 : end]
+    if filename.suffix in {".h5", ".nxs"} and params.scan_range:
+        experiments = ExperimentListFactory.from_filenames(
+            [filename], load_models=False
+        )
+        if params.scan_range:
+            start, end = params.scan_range
+        if end > start:
+            for _ in range(end - start):
+                experiments.append(copy.deepcopy(experiments[0]))
+        for i, expt in enumerate(experiments):
+            expt.load_models(index=start - 1 + i)
+    else:
+        experiments = ExperimentListFactory.from_filenames([filename])
 
     phil_params = find_spots_phil_scope.fetch(source=phil.parse("")).extract()
     phil_params.spotfinder.scan_range = (params.scan_range,)

@@ -113,7 +113,10 @@ class Xia2SsxWrapper(Wrapper):
         return None
 
     def send_results_to_ispyb(
-        self, z: dict, xtriage_results: dict, special_program_name: str | None = None
+        self,
+        z: dict,
+        xtriage_results: dict | None,
+        special_program_name: str | None = None,
     ):
         ispyb_command_list: list[dict[str, Any]] = []
 
@@ -388,19 +391,30 @@ class Xia2SsxWrapper(Wrapper):
                     d = json.load(fh)
                 wl = list(d.keys())[0]
 
-                merging_stats = d[wl]["merging_stats"]
-                merging_stats_anom = d[wl]["merging_stats_anom"]
+                if not (merging_stats := d[wl].get("merging_stats")):
+                    self.log.warn(
+                        "Dataset contains no equivalent reflections, "
+                        "merging statistics cannot be calculated."
+                    )
+                if not (merging_stats_anom := d[wl].get("merging_stats_anom")):
+                    self.log.warn(
+                        "Anomalous dataset contains no equivalent reflections, "
+                        "anomalous merging statistics cannot be calculated."
+                    )
 
                 ispyb_d = {
                     "commandline": " ".join(command),
                     "spacegroup": space_group,
                     "unit_cell": unit_cell,
-                    "scaling_statistics": ispyb_scaling_statistics_from_merging_stats_d(
-                        merging_stats, merging_stats_anom
-                    ),
                 }
+                if merging_stats:
+                    ispyb_d[
+                        "scaling_statistics"
+                    ] = ispyb_scaling_statistics_from_merging_stats_d(
+                        merging_stats, merging_stats_anom
+                    )
 
-                xtriage_results = d[wl]["xtriage_output"]
+                xtriage_results = d[wl].get("xtriage_output")
                 special_program_name = (
                     "xia2.ssx {merged_mtz.stem}"
                     if merged_mtz.stem != "merged"
@@ -421,7 +435,7 @@ class Xia2SsxWrapper(Wrapper):
 
 
 def ispyb_scaling_statistics_from_merging_stats_d(
-    merging_stats: dict, merging_stats_anom: dict
+    merging_stats: dict, merging_stats_anom: dict | None
 ):
     def lookup(merging_stats, item, shell):
         i_bin = {"innerShell": 0, "outerShell": -1}.get(shell)
@@ -446,12 +460,22 @@ def ispyb_scaling_statistics_from_merging_stats_d(
             "res_lim_low": uctbx.d_star_sq_as_d(
                 lookup(merging_stats, "d_star_sq_max", shell)
             ),
-            "anom_completeness": lookup(merging_stats_anom, "anom_completeness", shell),
-            "anom_multiplicity": lookup(merging_stats_anom, "multiplicity", shell),
-            "cc_anom": lookup(merging_stats_anom, "cc_anom", shell),
-            "r_meas_all_iplusi_minus": lookup(merging_stats_anom, "r_meas", shell),
         }
-
+        if merging_stats_anom:
+            scaling_statistics[shell].update(
+                {
+                    "anom_completeness": lookup(
+                        merging_stats_anom, "anom_completeness", shell
+                    ),
+                    "anom_multiplicity": lookup(
+                        merging_stats_anom, "multiplicity", shell
+                    ),
+                    "cc_anom": lookup(merging_stats_anom, "cc_anom", shell),
+                    "r_meas_all_iplusi_minus": lookup(
+                        merging_stats_anom, "r_meas", shell
+                    ),
+                }
+            )
     return scaling_statistics
 
 

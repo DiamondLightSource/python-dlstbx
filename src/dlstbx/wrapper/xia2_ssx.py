@@ -391,12 +391,12 @@ class Xia2SsxWrapper(Wrapper):
                     d = json.load(fh)
                 wl = list(d.keys())[0]
 
-                if (merging_stats := d[wl].get("merging_stats")) is None:
+                if not (merging_stats := d[wl].get("merging_stats")):
                     self.log.warn(
                         "Dataset contains no equivalent reflections, "
                         "merging statistics cannot be calculated."
                     )
-                if (merging_stats_anom := d[wl].get("merging_stats_anom")) is None:
+                if not (merging_stats_anom := d[wl].get("merging_stats_anom")):
                     self.log.warn(
                         "Anomalous dataset contains no equivalent reflections, "
                         "anomalous merging statistics cannot be calculated."

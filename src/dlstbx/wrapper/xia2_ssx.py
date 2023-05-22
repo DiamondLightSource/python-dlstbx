@@ -407,7 +407,7 @@ class Xia2SsxWrapper(Wrapper):
                     "spacegroup": space_group,
                     "unit_cell": unit_cell,
                 }
-                if merging_stats is not None:
+                if merging_stats:
                     ispyb_d[
                         "scaling_statistics"
                     ] = ispyb_scaling_statistics_from_merging_stats_d(

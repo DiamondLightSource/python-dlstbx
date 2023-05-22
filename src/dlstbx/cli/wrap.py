@@ -113,17 +113,10 @@ def run():
         logging.getLogger().setLevel(logging.WARN)
 
     _enable_faulthandler()
-    log = logging.getLogger("dlstbx.wrap")
 
     # Instantiate specific wrapper
     if not args.wrapper:
         sys.exit("A wrapper object must be specified.")
-
-    log.info(
-        "Starting wrapper for %s with recipewrapper file %s",
-        args.wrapper,
-        args.recipewrapper,
-    )
 
     # Connect to transport and start sending notifications
     transport = workflows.transport.lookup(args.transport)()
@@ -137,6 +130,13 @@ def run():
     # Instantiate chosen wrapper
     instance = known_wrappers[args.wrapper]()(environment=environment)
     instance.status_thread = st
+
+    log = getattr(instance, "log", logging.getLogger("dlstbx.wrap"))
+    log.info(
+        "Starting wrapper for %s with recipewrapper file %s",
+        args.wrapper,
+        args.recipewrapper,
+    )
 
     # If specified, read in a serialized recipewrapper
     if args.recipewrapper:

@@ -206,9 +206,11 @@ class DLSValidation(CommonService):
 
         # Create experiment list
         try:
-            el = dxtbx.model.experiment_list.ExperimentListFactory.from_filenames(
-                [filename]
-            )
+            expt = dxtbx.model.experiment_list.ExperimentListFactory.from_filenames(
+                [filename],
+                load_models=False,
+            )[0]
+            expt.load_models(index=0)
         except Exception as e:
             if "unable to open external file" in str(e):
                 failname = str(e)
@@ -221,7 +223,7 @@ class DLSValidation(CommonService):
             )
             return fail(f"Unhandled {type(e).__name__} exception reading {filename}")
 
-        wavelength = el.beams()[0].get_wavelength()
+        wavelength = expt.beam.get_wavelength()
 
         if wavelength <= 0:
             return fail("wavelength not set in image header")

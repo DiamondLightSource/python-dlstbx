@@ -461,7 +461,7 @@ def ispyb_scaling_statistics_from_merging_stats_d(
                 lookup(merging_stats, "d_star_sq_max", shell)
             ),
         }
-        if merging_stats_anom is not None:
+        if merging_stats_anom:
             scaling_statistics[shell].update(
                 {
                     "anom_completeness": lookup(

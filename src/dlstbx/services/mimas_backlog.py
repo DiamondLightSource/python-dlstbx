@@ -34,7 +34,6 @@ class DLSMimasBacklog(CommonService):
             acknowledgement=True,
             exclusive=True,
             log_extender=self.extend_log,
-            prefetch_count=65535,
         )
 
         # Subscribe to the transient.statistics.cluster topic, which we will

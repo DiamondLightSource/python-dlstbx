@@ -91,15 +91,20 @@ class DLSValidation(CommonService):
             if not hdf5_util.is_readable(filename):
                 return fail(f"{filename} is an invalid HDF5 file")
             try:
+                linked_files = hdf5_util.find_all_references(filename)
+                non_existent_files = [
+                    link for link in linked_files if not os.path.exists(link)
+                ]
+                if non_existent_files:
+                    return fail(
+                        f"HDF5 file {filename} links to non-existent file(s) {', '.join(non_existent_files)}"
+                    )
                 errors = [
-                    link
-                    for link in hdf5_util.find_all_references(filename)
-                    if not hdf5_util.is_readable(link)
+                    link for link in linked_files if not hdf5_util.is_readable(link)
                 ]
                 if errors:
                     return fail(
-                        f"HDF5 file {filename} links to invalid file(s) %s"
-                        % ", ".join(errors)
+                        f"HDF5 file {filename} links to invalid file(s) {', '.join(errors)}"
                     )
                 hdf_18 = [
                     link

@@ -1410,3 +1410,17 @@ class DLSISPyB(EM_Mixin, CommonService):
                 exc_info=True,
             )
             return False
+
+    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    def do_insert_xray_centring(
+        self,
+        *,
+        parameter_map: schemas.XrayCentring,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        xrc_id = crud.insert_xray_centring(
+            xrc=parameter_map,
+            session=session,
+        )
+        return {"success": True, "return_value": xrc_id}

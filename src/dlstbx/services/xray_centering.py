@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
-import json
 import logging
 import pathlib
 import threading
@@ -281,7 +279,11 @@ class DLSXRayCentering(CommonService):
                     rw.set_default_channel("success")
                     rw.send_to(
                         "success",
-                        [dataclasses.asdict(r) for r in result],
+                        {
+                            "results": [r.dict() for r in result],
+                            "status": "success",
+                            "type": "3d",
+                        },
                         transaction=txn,
                     )
                     rw.transport.transaction_commit(txn)
@@ -296,7 +298,7 @@ class DLSXRayCentering(CommonService):
                 self.log.info(
                     "All records arrived for X-ray centering on DCID %d", dcid
                 )
-                result, output = dlstbx.util.xray_centering.main(
+                result, output = dlstbx.util.xray_centering.gridscan2d(
                     cd.data,
                     steps=(gridinfo.steps_x, gridinfo.steps_y),
                     box_size_px=(
@@ -320,12 +322,7 @@ class DLSXRayCentering(CommonService):
                         parameters.output,
                     )
                     parameters.output.parent.mkdir(parents=True, exist_ok=True)
-                    with parameters.output.open("w") as fh:
-                        json.dump(
-                            dataclasses.asdict(result),
-                            fh,
-                            sort_keys=True,
-                        )
+                    parameters.output.write_text(result.json(sort_keys=True))
                     if parameters.results_symlink:
                         # Create symbolic link above working directory
                         dlstbx.util.symlink.create_parent_symlink(
@@ -372,7 +369,11 @@ class DLSXRayCentering(CommonService):
 
                 # Send results onwards
                 rw.set_default_channel("success")
-                rw.send_to("success", dataclasses.asdict(result), transaction=txn)
+                rw.send_to(
+                    "success",
+                    {"results": [result.dict()], "status": "success", "type": "2d"},
+                    transaction=txn,
+                )
                 rw.transport.transaction_commit(txn)
 
                 del self._centering_data[dcid]

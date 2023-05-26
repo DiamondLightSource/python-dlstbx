@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 import logging
 import math
 import operator
@@ -9,14 +8,15 @@ from typing import Tuple
 import numpy as np
 import scipy.ndimage
 
+from dlstbx.util.xray_centering import GridScanResultBase
+
 logger = logging.getLogger(__name__)
 
 
 Coordinate = tuple[int, int, int]
 
 
-@dataclasses.dataclass
-class GridScan3DResult:
+class GridScan3DResult(GridScanResultBase):
     centre_of_mass: Tuple[float, ...]
     max_voxel: Tuple[int, ...]
     max_count: float

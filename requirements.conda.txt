@@ -15,6 +15,7 @@ pydantic
 pytest
 pytest-mock
 python-htcondor>=9.2.0
+python-jose
 python-relion
 pyyaml
 pyzmq

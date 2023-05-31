@@ -12,6 +12,8 @@ import subprocess
 from pprint import pformat
 from typing import Optional
 
+import jose.exceptions
+import jose.jwt
 import pkg_resources
 import pydantic
 import requests
@@ -208,6 +210,17 @@ def submit_to_slurm(
     zc: zocalo.configuration,
 ) -> int | None:
     api = slurm.SlurmRestApi.from_zocalo_configuration(zc)
+    if api.user_token:
+        try:
+            jose.jwt.decode(
+                api.user_token, key=None, options={"verify_signature": False}
+            )
+        except jose.exceptions.ExpiredSignatureError:
+            logger.exception("Slurm user token has expired")
+            return None
+        except jose.exceptions.JWTError:
+            logger.exception("Error verifying slurm user token")
+            return None
 
     script = params.commands
     if not isinstance(script, str):

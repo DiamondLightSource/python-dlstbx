@@ -56,8 +56,8 @@ def check_dials_rest(cfc: CheckFunctionInterface) -> Status:
                 today_plus_one_month = today + relativedelta(months=1)
                 message_body = (
                     "Please update the access token with (e.g.):\n"
-                    "    kubectl exec -n dials-rest --stdin -it `kubectl get pods -n dials-rest | grep dials-rest -m 1 | cut -d ' '"
-                    f" -f1` -- /env/bin/create-access-token --expiry {today_plus_one_month} > /dls_sw/apps/zocalo/secrets/dials-rest.tkn"
+                    "    kubectl exec -n dials-rest --stdin -it deployment/dials-rest -- /env/bin/create-access-token "
+                    f"--expiry {today_plus_one_month} > /dls_sw/apps/zocalo/secrets/dials-rest.tkn"
                 )
             return Status(
                 Source=cfc.name,

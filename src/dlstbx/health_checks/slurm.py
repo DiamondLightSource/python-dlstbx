@@ -44,14 +44,14 @@ def check_slurm_gda2_jwt(cfc: CheckFunctionInterface) -> Status:
             Message="Invalid timestamp for 'exp' in slurm user token",
             MessageBody=repr(e),
         )
-    delta = expiry - datetime.now()
+    time_to_expiry = expiry - datetime.now()
     days_to_level = {
         1: REPORT.ERROR,
         3: REPORT.WARNING,
         5: REPORT.NOTICE,
     }
     for days, level in sorted(days_to_level.items()):
-        if delta.days < days:
+        if time_to_expiry.days < days:
             return Status(
                 Source=cfc.name,
                 Level=level,

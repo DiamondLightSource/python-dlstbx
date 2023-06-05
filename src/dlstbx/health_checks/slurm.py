@@ -55,7 +55,7 @@ def check_slurm_gda2_jwt(cfc: CheckFunctionInterface) -> Status:
             return Status(
                 Source=cfc.name,
                 Level=level,
-                Message=f"Slurm user token {token_file} expires in less than {days} day{'s' if days > 1 else ''}",
+                Message=f"Slurm user token {token_file} expires in less than {time_to_expiry.days + 1} day{'s' if days > 1 else ''}",
             )
     try:
         sun = data["sun"]

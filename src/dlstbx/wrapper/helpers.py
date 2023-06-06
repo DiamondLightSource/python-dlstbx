@@ -10,7 +10,7 @@ import py
 
 
 def run_dials_estimate_resolution(
-    filepaths: list[Path], working_directory: Path, extra_args: list[str] = None
+    filepaths: list[Path], working_directory: Path, extra_args: list[str] | None = None
 ) -> dict[str, float]:
 
     command = ["dials.estimate_resolution"] + [os.fspath(p) for p in filepaths]

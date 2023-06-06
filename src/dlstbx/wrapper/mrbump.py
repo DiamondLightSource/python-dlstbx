@@ -194,7 +194,7 @@ class MrBUMPWrapper(Wrapper):
     def run_report(self, working_directory, params):
         if params.get("results_directory"):
             results_directory = Path(params["results_directory"]) / params.get(
-                ["create_symlink"], ""
+                "create_symlink", ""
             )
             self.log.info(f"Copying MrBUMP results to {results_directory}")
             skip_copy = [".launch", ".recipewrap"]

@@ -86,8 +86,6 @@ class MrBUMPWrapper(Wrapper):
                 tmp_path = working_directory / "TMP"
                 tmp_path.mkdir(parents=True, exist_ok=True)
                 pdblocal = params["mrbump"]["pdblocal"]
-                # shutil.copy(singularity_image, str(working_directory))
-                # image_name = Path(singularity_image).name
                 write_mrbump_singularity_script(
                     working_directory,
                     singularity_image,
@@ -195,38 +193,41 @@ class MrBUMPWrapper(Wrapper):
 
     def run_report(self, working_directory, params):
         if params.get("results_directory"):
-            results_directory = Path(params["results_directory"])
+            results_directory = Path(params["results_directory"]) / params.get(
+                ["create_symlink"], ""
+            )
             self.log.info(f"Copying MrBUMP results to {results_directory}")
             skip_copy = [".launch", ".recipewrap"]
             copy_results(
-                str(working_directory / params["create_symlink"]),
+                str(working_directory),
                 str(results_directory),
                 skip_copy,
                 self.log,
             )
-        # Create results directory and symlink if they don't already exist
-        results_directory.mkdir(parents=True, exist_ok=True)
-        if params.get("create_symlink"):
-            dlstbx.util.symlink.create_parent_symlink(
-                results_directory, params["create_symlink"]
-            )
-        hklout = Path(params["mrbump"]["command"]["hklout"])
-        xyzout = Path(params["mrbump"]["command"]["xyzout"])
-        success = hklout.is_file() and xyzout.is_file()
-        keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}
-        for filename in results_directory.iterdir():
-            filetype = keep_ext.get(filename.suffix)
-            if filetype is None:
-                continue
-            if filetype:
-                self.record_result_individual_file(
-                    {
-                        "file_path": str(filename.parent),
-                        "file_name": filename.name,
-                        "file_type": filetype,
-                        "importance_rank": 1,
-                    }
+            # Create symlink to results directory
+            if params.get(["create_symlink"]):
+                dlstbx.util.symlink.create_parent_symlink(
+                    results_directory, params["create_symlink"]
                 )
+
+            hklout = Path(params["mrbump"]["command"]["hklout"])
+            xyzout = Path(params["mrbump"]["command"]["xyzout"])
+            success = hklout.is_file() and xyzout.is_file()
+
+            keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}
+            for filename in results_directory.iterdir():
+                filetype = keep_ext.get(filename.suffix)
+                if filetype is None:
+                    continue
+                if filetype:
+                    self.record_result_individual_file(
+                        {
+                            "file_path": str(filename.parent),
+                            "file_name": filename.name,
+                            "file_type": filetype,
+                            "importance_rank": 1,
+                        }
+                    )
         return success
 
     def run(self):
@@ -248,7 +249,11 @@ class MrBUMPWrapper(Wrapper):
         if stage in {None, "run"} and success:
             success = self.run_mrbump(working_directory, params)
 
-        if stage in {None, "report"} and success:
+        if stage in {None, "report"}:
+            working_directory = working_directory / params.get("create_symlink", "")
+            if not working_directory.is_dir():
+                self.log.error(f"Output directory {working_directory} doesn't exist")
+                return False
             success = self.run_report(working_directory, params)
 
         return success

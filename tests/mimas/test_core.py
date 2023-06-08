@@ -44,7 +44,7 @@ def test_eiger_rotation(anomalous_scatterer, absorption_level, get_zocalo_comman
         getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=1000),),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.EIGER,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer
+        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
         if anomalous_scatterer
         else None,
     )
@@ -84,7 +84,7 @@ def test_eiger_rotation_multixia2(
         ),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.EIGER,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer
+        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
         if anomalous_scatterer
         else None,
     )
@@ -190,7 +190,7 @@ def test_cbf_rotation(anomalous_scatterer, absorption_level, get_zocalo_commands
         getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=375),),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.PILATUS,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer
+        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
         if anomalous_scatterer
         else None,
     )
@@ -229,7 +229,7 @@ def test_cbf_rotation_multixia2(
         ),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.PILATUS,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer
+        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
         if anomalous_scatterer
         else None,
     )
@@ -267,7 +267,7 @@ def test_cbf_rotation_with_spacegroup(
         getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=3600),),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.PILATUS,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer
+        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
         if anomalous_scatterer
         else None,
     )
@@ -348,7 +348,7 @@ def test_vmxi_rotation(anomalous_scatterer, absorption_level, get_zocalo_command
         getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=600),),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.EIGER,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer
+        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
         if anomalous_scatterer
         else None,
     )

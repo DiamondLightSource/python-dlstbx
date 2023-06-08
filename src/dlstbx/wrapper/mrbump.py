@@ -191,7 +191,7 @@ class MrBUMPWrapper(Wrapper):
             self.log.debug(result["stderr"].decode("latin1"))
         return success
 
-    def run_report(self, working_directory, params):
+    def run_report(self, working_directory, params, success):
         if params.get("results_directory"):
             results_directory = Path(params["results_directory"]) / params.get(
                 "create_symlink", ""
@@ -212,7 +212,7 @@ class MrBUMPWrapper(Wrapper):
 
             hklout = Path(params["mrbump"]["command"]["hklout"])
             xyzout = Path(params["mrbump"]["command"]["xyzout"])
-            success = hklout.is_file() and xyzout.is_file()
+            success = hklout.is_file() and xyzout.is_file() and success
 
             keep_ext = {".log": "log", ".mtz": "result", ".pdb": "result"}
             for filename in results_directory.iterdir():
@@ -254,6 +254,6 @@ class MrBUMPWrapper(Wrapper):
             if not working_directory.is_dir():
                 self.log.error(f"Output directory {working_directory} doesn't exist")
                 return False
-            success = self.run_report(working_directory, params)
+            success = self.run_report(working_directory, params, success)
 
         return success

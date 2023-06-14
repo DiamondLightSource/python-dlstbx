@@ -25,8 +25,8 @@ class GridInfo(pydantic.BaseModel):
     steps_y: int
     dx_mm: float
     dy_mm: float
-    pixelsPerMicronX: pydantic.PositiveFloat
-    pixelsPerMicronY: pydantic.PositiveFloat
+    micronsPerPixelX: pydantic.PositiveFloat
+    micronsPerPixelY: pydantic.PositiveFloat
     snapshot_offsetXPixel: float
     snapshot_offsetYPixel: float
     snaked: bool
@@ -35,6 +35,20 @@ class GridInfo(pydantic.BaseModel):
     @property
     def image_count(self) -> int:
         return self.steps_x * self.steps_y
+
+    @pydantic.root_validator(pre=True)
+    def handle_legacy_pixels_per_micron(cls, values):
+        # The field pixelsPerMicron{X,Y} was renamed to micronsPerPixel{X,Y}
+        # to correctly match the units of the value stored therein.
+        # For an overlapping period we may have to handle both columns until
+        # GDA has been updated on all beamlines to insert the correct column
+        # into the database.
+        # See also https://jira.diamond.ac.uk/browse/LIMS-464
+        for axis in "XY":
+            values.setdefault(
+                f"micronsPerPixel{axis}", values.get(f"pixelsPerMicron{axis}")
+            )
+        return values
 
 
 class Parameters(pydantic.BaseModel):
@@ -302,8 +316,8 @@ class DLSXRayCentering(CommonService):
                     cd.data,
                     steps=(gridinfo.steps_x, gridinfo.steps_y),
                     box_size_px=(
-                        1000 * gridinfo.dx_mm / gridinfo.pixelsPerMicronX,
-                        1000 * gridinfo.dy_mm / gridinfo.pixelsPerMicronY,
+                        1000 * gridinfo.dx_mm / gridinfo.micronsPerPixelX,
+                        1000 * gridinfo.dy_mm / gridinfo.micronsPerPixelY,
                     ),
                     snapshot_offset=(
                         gridinfo.snapshot_offsetXPixel,

@@ -10,6 +10,24 @@ from workflows.transport.offline_transport import OfflineTransport
 import dlstbx.services.xray_centering
 
 
+def test_grid_info_params_from_legacy_pixels_per_micron():
+    gridinfo = {
+        "orientation": "horizontal",
+        "snapshot_offsetYPixel": 57.0822,
+        "gridInfoId": 1337162,
+        "dx_mm": 0.04,
+        "steps_y": 5.0,
+        "pixelsPerMicronX": 0.438,
+        "steps_x": 7.0,
+        "pixelsPerMicronY": 0.438,
+        "snaked": 1,
+        "snapshot_offsetXPixel": 79.9863,
+        "dy_mm": 0.04,
+    }
+    params = dlstbx.services.xray_centering.GridInfo(**gridinfo)
+    assert params.micronsPerPixelX == params.micronsPerPixelY == 0.438
+
+
 def generate_recipe_message(parameters, gridinfo):
     """Helper function for tests."""
     message = {
@@ -49,9 +67,9 @@ def test_xray_centering(mocker, tmp_path):
         "gridInfoId": 1337162,
         "dx_mm": 0.04,
         "steps_y": 5.0,
-        "pixelsPerMicronX": 0.438,
+        "micronsPerPixelX": 0.438,
         "steps_x": 7.0,
-        "pixelsPerMicronY": 0.438,
+        "micronsPerPixelY": 0.438,
         "snaked": 1,
         "snapshot_offsetXPixel": 79.9863,
         "dy_mm": 0.04,
@@ -128,9 +146,9 @@ def test_xray_centering_invalid_parameters(mocker, tmp_path):
         "gridInfoId": 1337162,
         "dx_mm": 0.04,
         "steps_y": 5.0,
-        "pixelsPerMicronX": 0.438,
+        "micronsPerPixelX": 0.438,
         "steps_x": 7.0,
-        "pixelsPerMicronY": 0.438,
+        "micronsPerPixelY": 0.438,
         "snaked": 1,
         "snapshot_offsetXPixel": 79.9863,
         "dy_mm": 0.04,
@@ -174,8 +192,8 @@ def test_xray_centering_3d(mocker):
         "dy_mm": 0.02,
         "gridInfoId": 1061461,
         "orientation": "horizontal",
-        "pixelsPerMicronX": 0.438,
-        "pixelsPerMicronY": 0.438,
+        "micronsPerPixelX": 0.438,
+        "micronsPerPixelY": 0.438,
         "snaked": 1,
         "snapshot_offsetXPixel": 363.352,
         "snapshot_offsetYPixel": 274.936,

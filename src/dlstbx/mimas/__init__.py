@@ -394,10 +394,12 @@ def match_specification(specification: BaseSpecification):
     def outer_wrapper(handler: Callable):
         @functools.wraps(handler)
         def inner_wrapper(
-            scenario: MimasScenario, zc: zocalo.configuration.Configuration
+            scenario: MimasScenario,
+            zc: zocalo.configuration.Configuration,
+            cluster_stats: dict,
         ) -> List[Invocation]:
             if specification.is_satisfied_by(scenario):
-                return handler(scenario, zc=zc)
+                return handler(scenario, zc=zc, cluster_stats=cluster_stats)
             return []
 
         return inner_wrapper
@@ -414,9 +416,9 @@ def _get_handlers() -> dict[str, Callable]:
 
 
 def handle_scenario(
-    scenario: MimasScenario, zc: zocalo.configuration.Configuration
+    scenario: MimasScenario, zc: zocalo.configuration.Configuration, cluster_stats: dict
 ) -> List[Invocation]:
     tasks: List[Invocation] = []
     for handler in _get_handlers().values():
-        tasks.extend(handler(scenario, zc=zc))
+        tasks.extend(handler(scenario, zc=zc, cluster_stats=cluster_stats))
     return tasks

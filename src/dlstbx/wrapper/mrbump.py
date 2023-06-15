@@ -205,7 +205,7 @@ class MrBUMPWrapper(Wrapper):
                 self.log,
             )
             # Create symlink to results directory
-            if params.get(["create_symlink"]):
+            if params.get("create_symlink"):
                 dlstbx.util.symlink.create_parent_symlink(
                     results_directory, params["create_symlink"]
                 )

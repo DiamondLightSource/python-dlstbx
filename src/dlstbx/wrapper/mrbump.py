@@ -17,7 +17,9 @@ class MrBUMPWrapper(Wrapper):
 
     _logger_name = "dlstbx.wrap.mrbump"
 
-    def construct_script(self, params, working_directory, hklin, seq_filename):
+    def construct_script(
+        self, params: dict, working_directory: Path, hklin: str, seq_filename: str
+    ):
         """Construct MrBUMP script line.
         Takes job parameter dictionary, returns array."""
         module_params = params["mrbump"].get("modules")
@@ -53,7 +55,7 @@ class MrBUMPWrapper(Wrapper):
 
         return command_line, mrbump_filename
 
-    def setup(self, working_directory, params):
+    def setup(self, working_directory: Path, params: dict) -> bool:
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 working_directory, params["create_symlink"], levels=1
@@ -100,7 +102,7 @@ class MrBUMPWrapper(Wrapper):
                 return False
         return True
 
-    def run_mrbump(self, working_directory, params):
+    def run_mrbump(self, working_directory: Path, params: dict) -> bool:
         try:
             sequence = params["protein_info"]["sequence"]
             if not sequence:
@@ -164,8 +166,8 @@ class MrBUMPWrapper(Wrapper):
                 # Everything in ispyb_parameters is a list, but we're only interested
                 # in the first item (there should only be one item)
                 stdin_params[k] = v[0]
-        stdin = localfile + [f"{k} {v}" for k, v in stdin_params.items()]
-        stdin = "\n".join(stdin) + "\nEND"
+        stdin_list = localfile + [f"{k} {v}" for k, v in stdin_params.items()]
+        stdin = "\n".join(stdin_list) + "\nEND"
         self.log.info("mrbump stdin: %s", stdin)
         with (procrunner_directory / "MRBUMP.log").open("w") as fp:
             result = procrunner.run(
@@ -191,7 +193,7 @@ class MrBUMPWrapper(Wrapper):
             self.log.debug(result["stderr"].decode("latin1"))
         return success
 
-    def run_report(self, working_directory, params, success):
+    def run_report(self, working_directory: Path, params: dict, success: bool) -> bool:
         if params.get("results_directory"):
             results_directory = Path(params["results_directory"]) / params.get(
                 "create_symlink", ""
@@ -230,7 +232,7 @@ class MrBUMPWrapper(Wrapper):
                     )
         return success
 
-    def run(self):
+    def run(self) -> bool:
 
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = self.recwrap.recipe_step["job_parameters"]

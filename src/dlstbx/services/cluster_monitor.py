@@ -36,16 +36,16 @@ class DLSClusterMonitor(CommonService):
                 "__drmaa_testcluster",
                 dlstbx.util.cluster.Cluster("dlstestcluster"),
             )
-        if not hasattr(DLSClusterMonitor, "__drmaa_hamilton"):
-            setattr(
-                DLSClusterMonitor,
-                "__drmaa_hamilton",
-                dlstbx.util.cluster.Cluster("hamilton"),
-            )
+        # if not hasattr(DLSClusterMonitor, "__drmaa_hamilton"):
+        #    setattr(
+        #        DLSClusterMonitor,
+        #        "__drmaa_hamilton",
+        #        dlstbx.util.cluster.Cluster("hamilton"),
+        #    )
         instance = super().__new__(DLSClusterMonitor)
         instance.__drmaa_cluster = getattr(DLSClusterMonitor, "__drmaa_cluster")
         instance.__drmaa_testcluster = getattr(DLSClusterMonitor, "__drmaa_testcluster")
-        instance.__drmaa_hamilton = getattr(DLSClusterMonitor, "__drmaa_hamilton")
+        # instance.__drmaa_hamilton = getattr(DLSClusterMonitor, "__drmaa_hamilton")
         return instance
 
     def initializing(self):
@@ -66,7 +66,7 @@ class DLSClusterMonitor(CommonService):
         for cluster_name, cluster_reference, downstream_name in [
             ("science cluster", self.__drmaa_cluster, "live"),
             ("test cluster", self.__drmaa_testcluster, "test"),
-            ("hamilton", self.__drmaa_hamilton, "hamilton"),
+            # ("hamilton", self.__drmaa_hamilton, "hamilton"),
         ]:
             if not cluster_reference.is_accessible:
                 self.log.warning(

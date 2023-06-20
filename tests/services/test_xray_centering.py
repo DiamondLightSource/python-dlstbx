@@ -15,6 +15,8 @@ def test_grid_info_params_from_legacy_pixels_per_micron():
         "orientation": "horizontal",
         "snapshot_offsetYPixel": 57.0822,
         "gridInfoId": 1337162,
+        "micronsPerPixelX": None,
+        "micronsPerPixelY": None,
         "dx_mm": 0.04,
         "steps_y": 5.0,
         "pixelsPerMicronX": 0.438,

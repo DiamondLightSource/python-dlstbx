@@ -45,9 +45,11 @@ class GridInfo(pydantic.BaseModel):
         # into the database.
         # See also https://jira.diamond.ac.uk/browse/LIMS-464
         for axis in "XY":
-            values.setdefault(
-                f"micronsPerPixel{axis}", values.get(f"pixelsPerMicron{axis}")
-            )
+            if not values.get(f"micronsPerPixel{axis}"):
+                values[f"micronsPerPixel{axis}"] = values.get(f"pixelsPerMicron{axis}")
+            assert values[
+                f"micronsPerPixel{axis}"
+            ], f"micronsPerPixel{axis} value is {values[f'micronsPerPixel{axis}']}"
         return values
 
 

@@ -72,7 +72,10 @@ def test_construct_commandline_i24_cbf(autoproc_home):
 
 
 @pytest.mark.skipif(
-    not os.access("/dls/i03/data/2022/cm31105-1/TestProteinaseK/protk_1", os.R_OK),
+    not os.access(
+        "/dls/i03/data/2022/cm31105-1/TestProteinaseK/protk_1/protk_1_17_master.h5",
+        os.R_OK,
+    ),
     reason="Test images not available",
 )
 def test_construct_commandline_i03_eiger(monkeypatch, autoproc_home, durin_plugin_so):

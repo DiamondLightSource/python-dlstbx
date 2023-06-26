@@ -146,7 +146,17 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
     ]
 
     ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
-    extra_params: List[ParamTuple] = [()]
+
+    extra_params: List[ParamTuple] = []
+    if scenario.sequence:
+        sequence = scenario.sequence
+        sequence = sequence.replace(" ", "")
+        sequence_parameters: ParamTuple = (
+            mimas.MimasISPyBParameter(key="chemical_formula", value=sequence),
+        )
+        extra_params.append(sequence_parameters)
+    else:
+        extra_params.append(())
     if scenario.spacegroup:
         # Space group is set, run xia2 with space group
         spacegroup = scenario.spacegroup.string
@@ -165,7 +175,6 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
     xia2_dials_extra_params: ParamTuple = ()
     if scenario.dcclass == mimas.MimasDCClass.DIAMOND_ANVIL_CELL:
         xia2_dials_extra_params = (*XIA2_DIALS_DAC_PARAMS,)
-
     for params in extra_params:
         tasks.extend(
             [

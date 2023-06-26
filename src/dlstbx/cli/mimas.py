@@ -78,6 +78,7 @@ def get_scenarios(dcid, session: sqlalchemy.orm.session.Session):
         if ispyb_info["ispyb_detectorclass"] == "eiger"
         else dlstbx.mimas.MimasDetectorClass.PILATUS
     )
+    sequence = ispyb_info.get("ispyb_sequence")
     scenarios = []
     for event in (dlstbx.mimas.MimasEvent.START, dlstbx.mimas.MimasEvent.END):
         scenario = dlstbx.mimas.MimasScenario(
@@ -96,6 +97,7 @@ def get_scenarios(dcid, session: sqlalchemy.orm.session.Session):
             preferred_processing=ispyb_info.get("ispyb_preferred_processing"),
             detectorclass=detectorclass,
             anomalous_scatterer=anomalous_scatterer,
+            sequence=sequence,
         )
         try:
             dlstbx.mimas.validate(scenario)

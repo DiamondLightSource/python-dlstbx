@@ -320,8 +320,10 @@ class ispybtbx:
         self, dcid: int, session: sqlalchemy.orm.session.Session
     ):
         c = crud.get_crystal_for_dcid(dcid, session)
-        if not c or not c.spaceGroup:
-            return None, None
+        if c is None:
+            return None, None, None
+        elif c.spacegroup is None:
+            return None, None, c.Protein.sequence
         proto_cell = (
             c.cell_a,
             c.cell_b,
@@ -335,7 +337,7 @@ class ispybtbx:
             cell = False
         else:
             cell = tuple(float(p) for p in proto_cell)
-        return c.spaceGroup, cell
+        return c.spaceGroup, cell, c.Protein.sequence
 
     def get_space_group_and_unit_cell_from_yaml(
         self,
@@ -838,13 +840,14 @@ def ispyb_filter(
     else:
         parameters["ispyb_crystal"] = "DEFAULT"
 
-    space_group, cell = i.get_space_group_and_unit_cell(dc_id, session)
+    space_group, cell, sequence = i.get_space_group_and_unit_cell(dc_id, session)
     if not any((space_group, cell)) and visit_directory:
         space_group, cell = i.get_space_group_and_unit_cell_from_yaml(
             parameters, io_timeout=io_timeout
         )
     parameters["ispyb_space_group"] = space_group
     parameters["ispyb_unit_cell"] = cell
+    parameters["ispyb_sequence"] = sequence
 
     # related dcids via sample groups
     parameters["ispyb_related_dcids"] = i.get_sample_group_dcids(

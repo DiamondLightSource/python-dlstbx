@@ -28,7 +28,8 @@ def durin_plugin_so(monkeypatch):
 
 @pytest.mark.skipif(
     not os.access(
-        "/dls/i24/data/2022/cm31109-1/cut/TestThaumatin/thaumatin_11/", os.R_OK
+        "/dls/i24/data/2022/cm31109-1/cut/TestThaumatin/thaumatin_11/thaumatin_11_1_00001.cbf",
+        os.R_OK,
     ),
     reason="Test images not available",
 )

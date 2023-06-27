@@ -147,6 +147,7 @@ health_checks = [
     "services.mx.dbserver = dlstbx.health_checks.network:check_dbserver",
     "services.mx.amqrmqbridge = dlstbx.health_checks.activemq_rabbitmq_migration:check_PIA_bridge_runs",
     "services.rabbitmq = dlstbx.health_checks.rabbitmq:check_rabbitmq_health",
+    "services.slurm.jwt = dlstbx.health_checks.slurm:check_slurm_gda2_jwt",
     "services.synchweb = dlstbx.health_checks.network:check_synchweb",
     "services.uas = dlstbx.health_checks.network:check_uas",
     "services.zocalo.stash = dlstbx.health_checks.zocalo:check_zocalo_stash",

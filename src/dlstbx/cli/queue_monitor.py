@@ -29,7 +29,7 @@ def get_rabbitmq_stats(rmq: RabbitMQAPI) -> pd.DataFrame:
     if "message_stats.deliver_get" not in stats:
         stats["message_stats.deliver_get"] = 0
 
-    stats["name.prefix"] = stats["name"].str.split(".", 1).str[0]
+    stats["name.prefix"] = stats["name"].str.split(".", n=1).str[0]
     stats["dtype"] = "queue"  # RabbitMQ doesn't have the same queue/topic distinction
     return stats.set_index("name")
 

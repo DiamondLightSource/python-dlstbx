@@ -5,7 +5,7 @@ import getpass
 import glob
 import shutil
 import time
-import urllib
+import urllib.parse
 from datetime import timedelta
 from pathlib import Path
 
@@ -136,7 +136,7 @@ def get_presigned_urls_images(bucket_name, pid, images, logger):
                 result = minio_client.stat_object(bucket_name, filename)
                 if file_size != result.size:
                     logger.info(
-                        f"Reuploading {filepath.name} because of mismatch in file size: Expected {file_size}, got {result.size}"
+                        f"Reuploading {filename} because of mismatch in file size: Expected {file_size}, got {result.size}"
                     )
                     upload_file = True
             if upload_file:
@@ -156,7 +156,7 @@ def get_presigned_urls_images(bucket_name, pid, images, logger):
                 result = minio_client.stat_object(bucket_name, filename)
                 if file_size != result.size:
                     raise ValueError(
-                        f"Invalid size for uploaded {filepath.name} file: Expected {file_size}, got {result.size}"
+                        f"Invalid size for uploaded {filename} file: Expected {file_size}, got {result.size}"
                     )
                 logger.info(
                     f"Data transfer rate for {filename} object: {8e-9 * file_size / timestamp:.3f}Gb/s"
@@ -201,7 +201,9 @@ def retrieve_file_with_url(filename, url, logger):
     c.close()
 
 
-def write_singularity_script(working_directory, singularity_image, tmp_mount=False):
+def write_singularity_script(
+    working_directory: Path, singularity_image: str, tmp_mount: str | None = None
+):
     singularity_script = working_directory / "run_singularity.sh"
     add_tmp_mount = f"--bind ${{PWD}}/{tmp_mount}:/opt/xia2/tmp" if tmp_mount else ""
     commands = [
@@ -213,7 +215,7 @@ def write_singularity_script(working_directory, singularity_image, tmp_mount=Fal
 
 
 def write_mrbump_singularity_script(
-    working_directory: Path, singularity_image: Path, tmp_mount: Path, pdblocal: Path
+    working_directory: Path, singularity_image: str, tmp_mount: str, pdblocal: str
 ):
     singularity_script = working_directory / "run_singularity.sh"
 

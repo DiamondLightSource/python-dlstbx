@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
-import json
-
 import numpy as np
 import pytest
 
@@ -25,7 +22,7 @@ def test_xray_centering():
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 28, 48],
         ]
     ).flatten()
-    results, stdout = dlstbx.util.xray_centering.main(
+    results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
         steps=(14, 11),
         box_size_px=(1.25, 1.25),
@@ -35,46 +32,49 @@ def test_xray_centering():
     )
     assert "There are 592 reflections in image #32." in stdout
     assert "[  .   . 402 592 538 394   .   .   .   .   .   .   .   .]" in stdout
-    assert dataclasses.asdict(results) == {
-        "best_image": 32,
-        "best_region": sorted(
-            [
-                (1, 2),
-                (1, 3),
-                (1, 4),
-                (2, 2),
-                (2, 3),
-                (2, 4),
-                (2, 5),
-                (3, 3),
-                (3, 4),
-                (3, 5),
-                (3, 6),
-                (4, 4),
-                (4, 5),
-                (4, 6),
-                (4, 7),
-                (5, 6),
-                (5, 7),
-                (5, 8),
-                (6, 7),
-                (6, 8),
-            ]
-        ),
-        "box_size_px": (1.25, 1.25),
-        "centre_x": 403.0125,
-        "centre_x_box": 5.45,
-        "centre_y": 245.95,
-        "centre_y_box": 3.8,
-        "message": "ok",
-        "reflections_in_best_image": 592,
-        "snapshot_offset": (396.2, 241.2),
-        "status": "ok",
+    assert results.dict() == {
+        "centre_of_mass": (5.45, 3.8),
+        "max_voxel": (3, 2),
+        "max_count": 592.0,
+        "n_voxels": 20,
+        "total_count": 8837.0,
         "steps": (14, 11),
+        "box_size_px": (1.25, 1.25),
+        "snapshot_offset": (396.2, 241.2),
+        "centre_x": 403.0125,
+        "centre_y": 245.95,
+        "centre_x_box": 5.45,
+        "centre_y_box": 3.8,
+        "status": "ok",
+        "message": "ok",
+        "best_image": 32,
+        "reflections_in_best_image": 592,
+        "best_region": [
+            (1, 2),
+            (1, 3),
+            (1, 4),
+            (2, 2),
+            (2, 3),
+            (2, 4),
+            (2, 5),
+            (3, 3),
+            (3, 4),
+            (3, 5),
+            (3, 6),
+            (4, 4),
+            (4, 5),
+            (4, 6),
+            (4, 7),
+            (5, 6),
+            (5, 7),
+            (5, 8),
+            (6, 7),
+            (6, 8),
+        ],
     }
 
     # verify that the results can be serialized to json
-    assert json.dumps(dataclasses.asdict(results))
+    assert results.json()
 
 
 def test_xray_centering_second_example():
@@ -106,7 +106,7 @@ def test_xray_centering_second_example():
     ]).flatten()
     # fmt: on
 
-    results, stdout = dlstbx.util.xray_centering.main(
+    results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
         steps=(36, 23),
         box_size_px=(17.6678445229682, 17.6678445229682),
@@ -123,19 +123,24 @@ def test_xray_centering_second_example():
     # fmt: off
     best_region = sorted([(4, 11), (4, 13), (4, 14), (4, 15), (5, 10), (5, 11), (5, 12), (5, 14), (5, 16), (6, 11), (6, 12), (6, 13), (6, 14), (6, 15), (7, 8), (7, 9), (7, 10), (7, 11), (7, 12), (7, 13), (7, 14), (7, 15), (8, 9), (8, 10), (8, 11), (8, 12), (8, 13), (8, 14), (8, 15), (8, 16), (9, 8), (9, 9), (9, 10), (9, 11), (9, 12), (9, 13), (9, 14), (9, 15), (10, 8), (10, 9), (10, 10), (10, 11), (10, 12), (10, 14), (10, 15), (10, 16), (11, 9), (11, 11), (11, 12), (11, 15), (12, 11), (12, 12), (12, 13), (12, 14), (12, 16), (13, 14), (14, 15), (14, 16)])
     # fmt: on
-    assert dataclasses.asdict(results) == {
-        "best_image": 351,
-        "best_region": best_region,
-        "box_size_px": (17.6678445229682, 17.6678445229682),
-        "centre_x": 567.4686527354697,
-        "centre_x_box": 12.879310344827585,
-        "centre_y": 340.0775106616303,
-        "centre_y_box": 8.913793103448276,
-        "message": "ok",
-        "reflections_in_best_image": 14,
-        "snapshot_offset": (339.919, 182.59),
-        "status": "ok",
+    assert results.dict() == {
+        "centre_of_mass": (12.879310344827585, 8.913793103448276),
+        "max_voxel": (9, 9),
+        "max_count": 14.0,
+        "n_voxels": 58,
+        "total_count": 507.0,
         "steps": (36, 23),
+        "box_size_px": (17.6678445229682, 17.6678445229682),
+        "snapshot_offset": (339.919, 182.59),
+        "centre_x": 567.4686527354697,
+        "centre_y": 340.0775106616303,
+        "centre_x_box": 12.879310344827585,
+        "centre_y_box": 8.913793103448276,
+        "status": "ok",
+        "message": "ok",
+        "best_image": 351,
+        "reflections_in_best_image": 14,
+        "best_region": best_region,
     }
 
 
@@ -143,7 +148,7 @@ def test_vertical_1d():
     # fmt: off
     data = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 9, 20, 21, 21, 11, 3, 13, 35, 40, 45, 49, 53, 59, 75, 76, 78, 80, 75, 78, 75, 79, 83, 86, 90, 94, 107, 114, 107, 99, 91, 86, 77, 73, 63, 52, 37, 22, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     # fmt: on
-    results, stdout = dlstbx.util.xray_centering.main(
+    results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
         steps=(1, 80),
         box_size_px=(24.096385542168676, 6.024096385542169),
@@ -152,7 +157,12 @@ def test_vertical_1d():
         orientation=dlstbx.util.xray_centering.Orientation.VERTICAL,
     )
     assert "There are 114 reflections in image #52." in stdout
-    assert dataclasses.asdict(results) == {
+    assert results.dict() == {
+        "centre_of_mass": (0.5, 48.0),
+        "max_voxel": (0, 51),
+        "max_count": 114.0,
+        "n_voxels": 22,
+        "total_count": 1845.0,
         "steps": (1, 80),
         "box_size_px": (24.096385542168676, 6.024096385542169),
         "snapshot_offset": (446.952, 123.036),
@@ -195,7 +205,7 @@ def test_vertical_2d():
     # fmt: off
     data = np.array([0, 0, 6, 54, 38, 0, 5, 41, 44, 5, 0, 0, 0, 0, 0, 3, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     # fmt: on
-    results, stdout = dlstbx.util.xray_centering.main(
+    results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
         steps=(5, 6),
         box_size_px=(45.45454545454545, 45.45454545454545),
@@ -204,7 +214,12 @@ def test_vertical_2d():
         orientation=dlstbx.util.xray_centering.Orientation.VERTICAL,
     )
     assert "There are 54 reflections in image #4." in stdout
-    assert dataclasses.asdict(results) == {
+    assert results.dict() == {
+        "centre_of_mass": (1.0, 4.0),
+        "max_voxel": (0, 3),
+        "max_count": 54.0,
+        "n_voxels": 4,
+        "total_count": 177.0,
         "steps": (5, 6),
         "box_size_px": (45.45454545454545, 45.45454545454545),
         "snapshot_offset": (339.273, 236.727),
@@ -222,7 +237,7 @@ def test_vertical_2d():
 
 def test_blank_scan():
     data = np.zeros((5, 6))
-    results, stdout = dlstbx.util.xray_centering.main(
+    results, stdout = dlstbx.util.xray_centering.gridscan2d(
         data,
         steps=(5, 6),
         box_size_px=(45.45, 45.45),
@@ -231,7 +246,12 @@ def test_blank_scan():
         orientation=dlstbx.util.xray_centering.Orientation.VERTICAL,
     )
     assert isinstance(stdout, str)
-    assert dataclasses.asdict(results) == {
+    assert results.dict() == {
+        "centre_of_mass": None,
+        "max_voxel": None,
+        "max_count": None,
+        "n_voxels": None,
+        "total_count": None,
         "steps": (5, 6),
         "box_size_px": (45.45, 45.45),
         "snapshot_offset": (339.273, 236.727),
@@ -278,7 +298,7 @@ def test_single_connected_region(data, reflections_in_best_image):
     contains a number of reflections equal to or greater than half the number of
     reflections in the strongest-diffracting image.
     """
-    result, _ = dlstbx.util.xray_centering.main(
+    result, _ = dlstbx.util.xray_centering.gridscan2d(
         data=data,
         steps=(10, 10),
         box_size_px=(1, 1),

@@ -101,7 +101,7 @@ class DimpleWrapper(Wrapper):
                 file_type=ftype,
                 file_path=f.parent,
                 file_name=f.name,
-                timestamp=end_time,
+                timestamp=dateutil.parser.parse(end_time),
                 importance_rank=importance_rank,
             )
             for f, (ftype, importance_rank) in result_files.items()
@@ -148,7 +148,7 @@ class DimpleWrapper(Wrapper):
                         file_type=ftype,
                         file_path=f.parent,
                         file_name=f.name,
-                        timestamp=end_time,
+                        timestamp=dateutil.parser.parse(end_time),
                     )
                     for f, ftype in anode_result_files.items()
                     if f.is_file()

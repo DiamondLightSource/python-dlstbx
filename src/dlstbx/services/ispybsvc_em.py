@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
 import ispyb
 import sqlalchemy.exc
 import sqlalchemy.orm
 from ispyb.sqlalchemy import (
     MotionCorrection,
+    Movie,
     RelativeIceThickness,
     TiltImageAlignment,
     Tomogram,
@@ -14,7 +16,7 @@ from ispyb.sqlalchemy import (
 from pydantic import BaseModel, validate_arguments
 
 
-class Movie(BaseModel):
+class MovieParams(BaseModel):
     dcid: int
     movie_number: int = None  # image number
     movie_path: str = None  # micrograph full path
@@ -118,8 +120,34 @@ class EM_Mixin:
         else:
             return None
 
+    def _get_movie_id(
+        self,
+        full_path,
+        data_collection_id,
+        db_session,
+    ):
+        self.log.info(
+            f"Looking for Movie ID. Movie name: {full_path} DCID: {data_collection_id}"
+        )
+        movie_name = str(Path(full_path).stem).replace("_motion_corrected", "")
+        mv_query = db_session.query(Movie).filter(
+            Movie.dataCollectionId == data_collection_id,
+        )
+        results = mv_query.all()
+        correct_result = None
+        if results:
+            for result in results:
+                if movie_name in result.movieFullPath:
+                    correct_result = result
+        if correct_result:
+            mvid = correct_result.movieId
+            self.log.info(f"Found Movie ID: {mvid}")
+            return mvid
+        else:
+            return None
+
     @validate_arguments(config=dict(arbitrary_types_allowed=True))
-    def do_insert_movie(self, *, parameter_map: Movie, **kwargs):
+    def do_insert_movie(self, *, parameter_map: MovieParams, **kwargs):
 
         self.log.info("Inserting Movie parameters.")
 
@@ -416,7 +444,7 @@ class EM_Mixin:
                 e,
                 exc_info=True,
             )
-        return False
+            return False
 
     def do_insert_tilt_image_alignment(
         self, parameters, session, message=None, **kwargs
@@ -429,9 +457,14 @@ class EM_Mixin:
         def full_parameters(param):
             return message.get(param) or parameters(param)
 
+        if full_parameters("movie_id"):
+            mvid = full_parameters("movie_id")
+        else:
+            mvid = self._get_movie_id(full_parameters("path"), dcid, session)
+
         try:
             values = TiltImageAlignment(
-                movieId=full_parameters("movie_id"),
+                movieId=mvid,
                 tomogramId=full_parameters("tomogram_id"),
                 defocusU=full_parameters("defocus_u"),
                 defocusV=full_parameters("defocus_v"),
@@ -452,4 +485,4 @@ class EM_Mixin:
                 e,
                 exc_info=True,
             )
-        return False
+            return False

@@ -1,5 +1,5 @@
 drmaa
-ispyb>=7.2.0
+ispyb>=8.0.0
 junit-xml>=1.9
 marshmallow-sqlalchemy
 minio>=7.1.0
@@ -15,6 +15,7 @@ pydantic
 pytest
 pytest-mock
 python-htcondor>=9.2.0
+python-jose
 python-relion
 pyyaml
 pyzmq

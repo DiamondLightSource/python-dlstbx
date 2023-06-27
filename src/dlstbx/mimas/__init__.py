@@ -74,7 +74,7 @@ class MimasScenario:
     getsweepslistfromsamedcg: Tuple[MimasISPyBSweep, ...] = ()
     preferred_processing: Optional[str] = None
     detectorclass: Optional[MimasDetectorClass] = None
-    anomalous_scatterer: Optional[str] = None
+    anomalous_scatterer: Optional[MimasISPyBAnomalousScatterer] = None
 
 
 @dataclasses.dataclass(frozen=True)

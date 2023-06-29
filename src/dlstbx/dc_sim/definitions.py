@@ -116,13 +116,13 @@ tests = {
     },
     "i04-sad-multi-dcg": {
         "type": "mx",
-        "src_dir": "/dls/i04/data/2021/cm28182-1/20210311/TestInsulin/ZincInsulinB4/",
+        "src_dir": "/dls/i04/data/2023/mx23694-97/auto/TestProteinaseK/Protk6",
         "src_run_num": (
             1,
             2,
         ),
-        "src_prefix": ("ZincInsulinB4",),
-        "use_sample_id": 3275609,
+        "src_prefix": ("Protk6",),
+        "use_sample_id": 4687410,
         "dcg": True,
         "results": {
             "a": approx(100, abs=100),

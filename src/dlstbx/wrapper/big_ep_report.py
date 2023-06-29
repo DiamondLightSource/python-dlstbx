@@ -73,6 +73,7 @@ class BigEPReportWrapper(Wrapper):
 
         tmpl_data.update({"settings": self.recwrap.environment["msg"]})
 
+        success = True
         if pipeline == "autoSHARP":
             working_directory = working_directory.join("autoSHARP")
             mdl_dict = get_autosharp_model_files(working_directory, self.log)
@@ -83,12 +84,12 @@ class BigEPReportWrapper(Wrapper):
         else:
             self.log.error(f"Big_EP was run with an unknown {pipeline = }.")
             return False
-        if mdl_dict is None:
-            self.log.info(f"Cannot process {pipeline} results.")
-            return False
-
-        ispyb_write_model_json(str(working_directory), mdl_dict, self.log)
-        write_coot_script(str(working_directory), mdl_dict)
+        if mdl_dict:
+            ispyb_write_model_json(str(working_directory), mdl_dict, self.log)
+            write_coot_script(str(working_directory), mdl_dict)
+        else:
+            self.log.error(f"Cannot process {pipeline} results.")
+            success = False
 
         if "devel" not in params:
             skip_copy = [".launch", ".recipewrap"]
@@ -104,11 +105,12 @@ class BigEPReportWrapper(Wrapper):
                     create_parent_symlink(
                         results_directory.strpath, f"{pipeline}-{upstream}"
                     )
-                send_results_to_ispyb(
-                    params.get("results_directory"),
-                    params.get("log_files"),
-                    self.record_result_individual_file,
-                )
+                if success:
+                    send_results_to_ispyb(
+                        params.get("results_directory"),
+                        params.get("log_files"),
+                        self.record_result_individual_file,
+                    )
             else:
                 self.log.debug("Result directory not specified")
 
@@ -171,35 +173,38 @@ class BigEPReportWrapper(Wrapper):
                 "Exception raised while composing xia2 summary", exc_info=True
             )
 
-        self.log.debug("Generating HTML summary")
-        html_template = tmpl_env.get_template("bigep_summary.html")
-        with open(working_directory.join("bigep_report.html").strpath, "w") as fp:
-            try:
-                summary_html = html_template.render(tmpl_data)
-            except UndefinedError:
-                self.log.exception("Error rendering big_ep summary report")
-                return False
-            fp.write(summary_html)
-            bpu.send_html_email_message(summary_html, pipeline, email_list, tmpl_data)
-
-        results_directory.ensure(dir=True)
-        self.log.info("Copying big_ep report to %s", results_directory.strpath)
-        keep_ext = {".html": "log", ".png": "log"}
-        allfiles = []
-        for filename in working_directory.listdir():
-            filetype = keep_ext.get(filename.ext)
-            if filetype is None:
-                continue
-            destination = results_directory.join(filename.basename)
-            filename.copy(destination)
-            allfiles.append(destination.strpath)
-            if filename.ext == ".png":
-                self.record_result_individual_file(
-                    {
-                        "file_path": destination.dirname,
-                        "file_name": destination.basename,
-                        "file_type": filetype,
-                        "importance_rank": 2,
-                    }
+        if success:
+            self.log.debug("Generating HTML summary")
+            html_template = tmpl_env.get_template("bigep_summary.html")
+            with open(working_directory.join("bigep_report.html").strpath, "w") as fp:
+                try:
+                    summary_html = html_template.render(tmpl_data)
+                except UndefinedError:
+                    self.log.exception("Error rendering big_ep summary report")
+                    return False
+                fp.write(summary_html)
+                bpu.send_html_email_message(
+                    summary_html, pipeline, email_list, tmpl_data
                 )
-        return True
+
+            results_directory.ensure(dir=True)
+            self.log.info("Copying big_ep report to %s", results_directory.strpath)
+            keep_ext = {".html": "log", ".png": "log"}
+            allfiles = []
+            for filename in working_directory.listdir():
+                filetype = keep_ext.get(filename.ext)
+                if filetype is None:
+                    continue
+                destination = results_directory.join(filename.basename)
+                filename.copy(destination)
+                allfiles.append(destination.strpath)
+                if filename.ext == ".png":
+                    self.record_result_individual_file(
+                        {
+                            "file_path": destination.dirname,
+                            "file_name": destination.basename,
+                            "file_type": filetype,
+                            "importance_rank": 2,
+                        }
+                    )
+        return success

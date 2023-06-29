@@ -410,11 +410,12 @@ class BigEPWrapper(Wrapper):
                 if params.get("create_symlink"):
                     upstream = params["create_symlink"].replace("/", "-")
                     create_parent_symlink(results_directory, f"{pipeline}-{upstream}")
-                send_results_to_ispyb(
-                    params.get("results_directory"),
-                    params.get("log_files"),
-                    self.record_result_individual_file,
-                )
+                if success:
+                    send_results_to_ispyb(
+                        params.get("results_directory"),
+                        params.get("log_files"),
+                        self.record_result_individual_file,
+                    )
             else:
                 self.log.debug("Result directory not specified")
 

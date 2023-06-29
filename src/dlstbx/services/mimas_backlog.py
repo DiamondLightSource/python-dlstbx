@@ -69,7 +69,11 @@ class DLSMimasBacklog(CommonService):
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
-
+        try:
+            self._max_jobs_waiting = self.config.storage.get("max_jobs_waiting", 60)
+            self._message_delay = self.config.storage.get("message_delay", 30)
+        except AttributeError:
+            self.log.debug("DLSMimasBacklog service setting are unavailable")
         self.log.debug(f"Jobs waiting on cluster: {self._jobs_waiting}\n")
         if self._jobs_waiting < self._max_jobs_waiting:
             if self._last_cluster_update > time.time() - 300:

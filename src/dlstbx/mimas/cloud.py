@@ -29,16 +29,19 @@ def handle_cloud(
         the predefined threshold.
         """
         if group.get("cloudbursting", False):
-            if (cluster_stats["jobs_waiting"] < cluster_stats["max_jobs_waiting"]) and (
-                cluster_stats["last_cluster_update"] > (time.time() - 300)
+            if (cluster_stats["jobs_waiting"] > max_jobs_waiting) or (
+                cluster_stats["last_cluster_update"] < (time.time() - timeout)
             ):
-                return False
-        return True
+                return True
+        return False
 
     tasks: List[mimas.Invocation] = []
 
     if not zc.storage:
         return tasks
+
+    max_jobs_waiting: int = zc.storage.get("max_jobs_waiting", 60)
+    timeout: int = zc.storage.get("timeout", 300)
 
     for group in zc.storage.get("zocalo.mimas.cloud", []):
         cloud_spec = VisitSpecification(

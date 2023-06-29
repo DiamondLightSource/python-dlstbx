@@ -184,7 +184,7 @@ class BigEPWrapper(Wrapper):
 
     _logger_name = "zocalo.wrap.big_ep"
 
-    def setup(self, working_directory, params):
+    def setup(self, working_directory: Path, params: dict):
 
         # Create working directory with symbolic link
         pipeline = self.recwrap.environment.get("pipeline")
@@ -267,7 +267,7 @@ class BigEPWrapper(Wrapper):
 
         return True
 
-    def run_big_ep(self, working_directory, params):
+    def run_big_ep(self, working_directory: Path, params: dict):
 
         # Collect parameters from payload and check them
         self.msg = Namespace(**self.recwrap.environment["msg"])
@@ -340,9 +340,8 @@ class BigEPWrapper(Wrapper):
 
         return True
 
-    def report(self, working_directory, params):
+    def report(self, working_directory: Path, params: dict, success: bool):
         results_directory = Path(params["results_directory"])
-        results_directory.mkdir(parents=True, exist_ok=True)
 
         tmpl_env = Environment(loader=PackageLoader("dlstbx.util", "big_ep_templates"))
 
@@ -381,22 +380,23 @@ class BigEPWrapper(Wrapper):
 
         tmpl_data.update({"settings": self.recwrap.environment["msg"]})
 
-        if pipeline == "autoSHARP":
-            working_directory = working_directory / "autoSHARP"
-            mdl_dict = get_autosharp_model_files(working_directory, self.log)
-        elif pipeline == "AutoBuild":
-            mdl_dict = get_autobuild_model_files(working_directory, self.log)
-        elif pipeline == "Crank2":
-            mdl_dict = get_crank2_model_files(working_directory, self.log)
-        else:
-            self.log.error(f"Big_EP was run with an unknown {pipeline = }.")
-            return False
-        if mdl_dict is None:
-            self.log.info(f"Cannot process {pipeline} results.")
-            return False
-
-        ispyb_write_model_json(str(working_directory), mdl_dict, self.log)
-        write_coot_script(str(working_directory), mdl_dict)
+        if success:
+            if pipeline == "autoSHARP":
+                working_directory = working_directory / "autoSHARP" / "autoSHARP"
+                mdl_dict = get_autosharp_model_files(working_directory, self.log)
+            elif pipeline == "AutoBuild":
+                mdl_dict = get_autobuild_model_files(working_directory, self.log)
+            elif pipeline == "Crank2":
+                mdl_dict = get_crank2_model_files(working_directory, self.log)
+            else:
+                self.log.error(f"Big_EP was run with an unknown {pipeline = }.")
+                return False
+            if mdl_dict:
+                ispyb_write_model_json(str(working_directory), mdl_dict, self.log)
+                write_coot_script(str(working_directory), mdl_dict)
+            else:
+                self.log.error(f"Cannot process {pipeline} results.")
+                success = False
 
         if "devel" not in params:
             skip_copy = [".launch", ".recipewrap"]
@@ -477,36 +477,38 @@ class BigEPWrapper(Wrapper):
                 "Exception raised while composing xia2 summary", exc_info=True
             )
 
-        self.log.debug("Generating HTML summary")
-        html_template = tmpl_env.get_template("bigep_summary.html")
-        with open(working_directory / "bigep_report.html", "w") as fp:
-            try:
-                summary_html = html_template.render(tmpl_data)
-            except UndefinedError:
-                self.log.exception("Error rendering big_ep summary report")
-                return False
-            fp.write(summary_html)
-            bpu.send_html_email_message(summary_html, pipeline, email_list, tmpl_data)
-
-        # Create results directory and symlink if they don't already exist
-        self.log.info(f"Copying big_ep report to {str(results_directory)}")
-        keep_ext = {".html": "log", ".png": "log"}
-        for filename in working_directory.iterdir():
-            filetype = keep_ext.get(filename.suffix)
-            if filetype is None:
-                continue
-            destination = results_directory / filename.basename
-            shutil.copy(filename, destination)
-            if filename.suffix == ".png":
-                self.record_result_individual_file(
-                    {
-                        "file_path": str(destination.parent),
-                        "file_name": destination.name,
-                        "file_type": filetype,
-                        "importance_rank": 2,
-                    }
+        if success:
+            self.log.debug("Generating HTML summary")
+            html_template = tmpl_env.get_template("bigep_summary.html")
+            with open(working_directory / "bigep_report.html", "w") as fp:
+                try:
+                    summary_html = html_template.render(tmpl_data)
+                except UndefinedError:
+                    self.log.exception("Error rendering big_ep summary report")
+                    return False
+                fp.write(summary_html)
+                bpu.send_html_email_message(
+                    summary_html, pipeline, email_list, tmpl_data
                 )
-        return True
+
+            self.log.info(f"Copying big_ep report to {str(results_directory)}")
+            keep_ext = {".html": "log", ".png": "log"}
+            for filename in working_directory.iterdir():
+                filetype = keep_ext.get(filename.suffix)
+                if filetype is None:
+                    continue
+                destination = results_directory / filename.name
+                shutil.copy(filename, destination)
+                if filename.suffix == ".png":
+                    self.record_result_individual_file(
+                        {
+                            "file_path": str(destination.parent),
+                            "file_name": destination.name,
+                            "file_type": filetype,
+                            "importance_rank": 2,
+                        }
+                    )
+        return success
 
     def run(self):
 
@@ -528,7 +530,7 @@ class BigEPWrapper(Wrapper):
         if stage in {None, "run"} and success:
             success = self.run_big_ep(working_directory, params)
 
-        if stage in {None, "report"} and success:
-            success = self.report(working_directory, params)
+        if stage in {None, "report"}:
+            success = self.report(working_directory, params, success)
 
         return success

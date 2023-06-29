@@ -248,10 +248,10 @@ tests = {
     },
     "i04-eiger-sad-single": {
         "type": "mx",
-        "src_dir": "/dls/i04/data/2021/cm28182-1/20210311/TestInsulin/ZincInsulinB4",
+        "src_dir": "/dls/i04/data/2023/cm33903-3/20230622/TestLysozyme/lysBr5",
         "src_run_num": (1,),
-        "src_prefix": ("ZincInsulinB4",),
-        "use_sample_id": 3275609,
+        "src_prefix": ("lysBr5",),
+        "use_sample_id": 4687158,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

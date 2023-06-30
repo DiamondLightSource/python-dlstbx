@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import queue
 import time
 
 import workflows.recipe
@@ -22,9 +21,9 @@ class DLSMimasBacklog(CommonService):
         self.log.info("MimasBacklog service starting up")
 
         self._max_jobs_waiting = 60
+        self._message_delay = 30
         self._jobs_waiting = self._max_jobs_waiting
         self._last_cluster_update = time.time()
-        self._held_data = queue.Queue()
 
         # Subscribe to the mimas.held queue, which contains the held mimas
         # recipes we would like to drip-feed to the dispatcher
@@ -35,7 +34,6 @@ class DLSMimasBacklog(CommonService):
             acknowledgement=True,
             exclusive=True,
             log_extender=self.extend_log,
-            prefetch_count=65535,
         )
 
         # Subscribe to the transient.statistics.cluster topic, which we will
@@ -49,9 +47,6 @@ class DLSMimasBacklog(CommonService):
         """
         Examine the message to determine number of waiting jobs.
 
-        If there are fewer than 10 waiting jobs, and we have a stored held
-        message, then forward this held message to the trigger step.
-
         We are only interested in the "live" cluster for now. We are only
         concerned about the number of waiting jobs in high.q or medium.q.
         """
@@ -63,50 +58,42 @@ class DLSMimasBacklog(CommonService):
             self._jobs_waiting = message["high.q"] + message["medium.q"]
             self.log.log(
                 logging.INFO if self._jobs_waiting else logging.DEBUG,
-                f"Jobs waiting on cluster: {self._jobs_waiting}\n"
-                f"Jobs queued locally: {self._held_data.qsize()}",
+                f"Jobs waiting on cluster: {self._jobs_waiting}\n",
             )
-            while (
-                self._jobs_waiting < self._max_jobs_waiting
-                and not self._held_data.empty()
-            ):
-                self.forward_message(*self._held_data.get())
-                self._jobs_waiting += 1
 
     def on_mimas_held(self, rw, header, message):
         """
-        Forward message to trigger if there are fewer than 10 waiting jobs.
-
-        Otherwise, store this message until there are fewer waiting jobs.
-        """
-        self.log.debug(
-            f"Jobs waiting on cluster: {self._jobs_waiting}\n"
-            f"Jobs queued locally: {self._held_data.qsize()}"
-        )
-        if self._jobs_waiting < self._max_jobs_waiting:
-            if self._last_cluster_update > time.time() - 300:
-                self.forward_message(rw, header, message)
-            else:
-                self.log.warning(
-                    "Not heard from the cluster for over 5 minutes. Holding jobs."
-                )
-                self._held_data.put((rw, header, message))
-        else:
-            self._held_data.put((rw, header, message))
-
-    def forward_message(self, rw, header, message):
-        """
-        Forward the held message to the trigger step.
-
-        Acknowledge receipt of the message, and increment the jobs_waiting
-        counter.
+        Forward message to trigger if number of waiting jobs doesn't exceed
+        the predefined threshold.
         """
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
+        try:
+            self._max_jobs_waiting = self.config.storage.get("max_jobs_waiting", 60)
+            self._message_delay = self.config.storage.get("message_delay", 30)
+        except AttributeError:
+            self.log.debug("DLSMimasBacklog service setting are unavailable")
+        self.log.debug(f"Jobs waiting on cluster: {self._jobs_waiting}\n")
+        if self._jobs_waiting < self._max_jobs_waiting:
+            if self._last_cluster_update > time.time() - 300:
+                rw.send(message, transaction=txn)
+                self.log.info(f"Sent message to trigger: {message}")
+            else:
+                self.log.warning(
+                    "Not heard from the cluster for over 5 minutes. Holding jobs."
+                )
+                rw.checkpoint(
+                    message,
+                    delay=self._message_delay,
+                    transaction=txn,
+                )
+        else:
+            rw.checkpoint(
+                message,
+                delay=self._message_delay,
+                transaction=txn,
+            )
 
-        rw.send(message, transaction=txn)
         # Commit transaction
         rw.transport.transaction_commit(txn)
-        self._jobs_waiting += 1
-        self.log.info(f"Sent message to trigger: {message}")

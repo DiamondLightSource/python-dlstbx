@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+import time
+
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
@@ -23,12 +26,25 @@ class DLSMimas(CommonService):
         """Subscribe to the mimas queue. Received messages must be acknowledged."""
         self.log.info("Mimas starting")
 
+        self.cluster_stats = {
+            "max_jobs_waiting": 60,
+            "jobs_waiting": 60,
+            "last_cluster_update": time.time(),
+        }
+
         workflows.recipe.wrap_subscribe(
             self._transport,
             "mimas",
             self.process,
             acknowledgement=True,
             log_extender=self.extend_log,
+        )
+
+        # Subscribe to the transient.statistics.cluster topic, which we will
+        # examine to determine the number of waiting jobs
+        self._transport.subscribe_broadcast(
+            "transient.statistics.cluster",
+            self.on_statistics_cluster,
         )
 
     def _extract_scenario(self, step):
@@ -141,6 +157,24 @@ class DLSMimas(CommonService):
             anomalous_scatterer=anomalous_scatterer,
         )
 
+    def on_statistics_cluster(self, header, message):
+        """
+        Examine the message to determine number of waiting jobs.
+
+        We are only interested in the "live" cluster for now. We are only
+        concerned about the number of waiting jobs in high.q or medium.q.
+        """
+        if (
+            message["statistic-cluster"] == "live"
+            and message["statistic"] == "waiting-jobs-per-queue"
+        ):
+            self.cluster_stats["last_cluster_update"] = time.time()
+            self.cluster_stats["jobs_waiting"] = message["high.q"] + message["medium.q"]
+            self.log.log(
+                logging.INFO if self.cluster_stats["jobs_waiting"] else logging.DEBUG,
+                f"Jobs waiting on cluster: {self.cluster_stats['jobs_waiting']}\n",
+            )
+
     def process(self, rw, header, message):
         """Process an incoming event."""
 
@@ -163,7 +197,7 @@ class DLSMimas(CommonService):
         rw.set_default_channel("dispatcher")
 
         self.log.debug("Evaluating %r", scenario)
-        things_to_do = mimas.handle_scenario(scenario, self.config)
+        things_to_do = mimas.handle_scenario(scenario, self.config, self.cluster_stats)
 
         for ttd in things_to_do:
             try:

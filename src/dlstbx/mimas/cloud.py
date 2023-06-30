@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import List, Tuple
 
 import zocalo.configuration
@@ -20,19 +21,34 @@ def handle_cloud(
     scenario: mimas.MimasScenario,
     *,
     zc: zocalo.configuration.Configuration,
+    cluster_stats: dict,
 ) -> List[mimas.Invocation]:
+    def on_cloudbursting(group: dict):
+        """
+        Forward message to trigger if number of waiting jobs doesn't exceed
+        the predefined threshold.
+        """
+        if group.get("cloudbursting", False):
+            if (cluster_stats["jobs_waiting"] > max_jobs_waiting) or (
+                cluster_stats["last_cluster_update"] < (time.time() - timeout)
+            ):
+                return True
+        return False
 
     tasks: List[mimas.Invocation] = []
 
     if not zc.storage:
         return tasks
 
+    max_jobs_waiting: int = zc.storage.get("max_jobs_waiting", 60)
+    timeout: int = zc.storage.get("timeout", 300)
+
     for group in zc.storage.get("zocalo.mimas.cloud", []):
         cloud_spec = VisitSpecification(
             set(group.get("visit_pattern", []))
         ) & BeamlineSpecification(beamlines=set(group.get("beamlines", [])))
         cloud_recipes = set(group.get("recipes", []))
-        if cloud_spec.is_satisfied_by(scenario):
+        if on_cloudbursting(group) and cloud_spec.is_satisfied_by(scenario):
             ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
             extra_params: List[ParamTuple] = [()]
             if scenario.spacegroup:

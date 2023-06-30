@@ -197,7 +197,9 @@ class DLSMimas(CommonService):
         rw.set_default_channel("dispatcher")
 
         self.log.debug("Evaluating %r", scenario)
-        things_to_do = mimas.handle_scenario(scenario, self.config, self.cluster_stats)
+        things_to_do = mimas.handle_scenario(
+            scenario, self.config, getattr(self, "cluster_stats", None)
+        )
 
         for ttd in things_to_do:
             try:

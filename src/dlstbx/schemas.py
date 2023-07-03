@@ -98,11 +98,11 @@ Coordinate3D = tuple[int, int, int]
 
 
 class XrayCentringResult(pydantic.BaseModel):
-    centre_of_mass: tuple[float, ...]
-    max_voxel: tuple[int, ...]
-    max_count: float
-    n_voxels: int
-    total_count: float
+    centre_of_mass: tuple[float, ...] | None
+    max_voxel: tuple[int, ...] | None
+    max_count: float | None
+    n_voxels: int | None
+    total_count: float | None
     bounding_box: tuple[Coordinate2D, Coordinate2D] | tuple[
         Coordinate3D, Coordinate3D
     ] | None

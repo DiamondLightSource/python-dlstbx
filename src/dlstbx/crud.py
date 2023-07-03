@@ -365,12 +365,14 @@ def insert_xray_centring(
         bb = result.bounding_box
         db_result = models.XrayCentringResult(
             XrayCentring=db_xrc,
-            centreOfMassX=result.centre_of_mass[0],
-            centreOfMassY=result.centre_of_mass[1],
-            centreOfMassZ=result.centre_of_mass[2] if is_3d else None,
-            maxVoxelX=result.max_voxel[0],
-            maxVoxelY=result.max_voxel[1],
-            maxVoxelZ=result.max_voxel[2] if is_3d else None,
+            centreOfMassX=result.centre_of_mass[0] if result.centre_of_mass else None,
+            centreOfMassY=result.centre_of_mass[1] if result.centre_of_mass else None,
+            centreOfMassZ=result.centre_of_mass[2]
+            if result.centre_of_mass and is_3d
+            else None,
+            maxVoxelX=result.max_voxel[0] if result.max_voxel else None,
+            maxVoxelY=result.max_voxel[1] if result.max_voxel else None,
+            maxVoxelZ=result.max_voxel[2] if result.max_voxel and is_3d else None,
             numberOfVoxels=result.n_voxels,
             totalCount=result.total_count,
             boundingBoxMinX=bb[0][0] if bb else None,

@@ -11,7 +11,7 @@ pika
 pint
 procrunner>=1.0.2
 prometheus_client
-pydantic
+pydantic<2.0
 pytest
 pytest-mock
 python-htcondor>=9.2.0

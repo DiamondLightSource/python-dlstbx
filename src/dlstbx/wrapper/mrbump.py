@@ -157,11 +157,11 @@ class MrBUMPWrapper(Wrapper):
             if k == "localfile":
                 if self.recwrap.environment.get("singularity_image"):
                     localfile = [
-                        f"{k} {str(working_directory / vi)}"
+                        f"{k} {str(working_directory / vi)} CHAIN ALL"
                         for vi in self.recwrap.environment.get("localfile")
                     ]
                 else:
-                    localfile = [f"{k} {vi}" for vi in v]
+                    localfile = [f"{k} {vi} CHAIN ALL" for vi in v]
             else:
                 # Everything in ispyb_parameters is a list, but we're only interested
                 # in the first item (there should only be one item)

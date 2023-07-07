@@ -78,6 +78,7 @@ class DLSMimasBacklog(CommonService):
         if self._jobs_waiting < self._max_jobs_waiting:
             if self._last_cluster_update > time.time() - 300:
                 rw.send(message, transaction=txn)
+                self._jobs_waiting += 1
                 self.log.info(f"Sent message to trigger: {message}")
             else:
                 self.log.warning(

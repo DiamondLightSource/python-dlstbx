@@ -850,7 +850,6 @@ def test_filewatcher_bad_pattern(mocker):
         parameters={
             "pattern": "image%06d",
             "pattern-start": "None",
-            # "pattern-end": "None",
         },
         output={"any": 1},
     )

@@ -452,9 +452,25 @@ class DLSFileWatcher(CommonService):
             status.update(message.get("filewatcher-status", {}))
 
         # List files to wait for
-        pattern = rw.recipe_step["parameters"]["pattern"]
-        pattern_start = int(rw.recipe_step["parameters"]["pattern-start"])
-        filecount = int(rw.recipe_step["parameters"]["pattern-end"]) - pattern_start + 1
+        try:
+            pattern = rw.recipe_step["parameters"]["pattern"]
+            pattern_start = int(rw.recipe_step["parameters"]["pattern-start"])
+            filecount = (
+                int(rw.recipe_step["parameters"]["pattern-end"]) - pattern_start + 1
+            )
+        except (ValueError, TypeError) as e:
+            self.log.error(
+                "Rejecting message with bad pattern start: %s, end: %s as %s",
+                rw.recipe_step["parameters"].get("pattern-start"),
+                rw.recipe_step["parameters"].get("pattern-end"),
+                e,
+            )
+            rw.transport.nack(header)
+            return
+        except KeyError as e:
+            self.log.error("Rejecting message with missing pattern data: %s", e)
+            rw.transport.nack(header)
+            return
 
         # Sanity check received message
         try:

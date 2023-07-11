@@ -837,3 +837,47 @@ def test_filewatcher_watch_swmr_h5py_known_errors(exception, mocker, tmp_path, c
         delay=1,
         transaction=mock.ANY,
     )
+
+
+def test_filewatcher_bad_pattern(mocker):
+    mock_transport = mock.Mock()
+    filewatcher = DLSFileWatcher()
+    setattr(filewatcher, "_transport", mock_transport)
+    filewatcher.initializing()
+    t = mock.create_autospec(workflows.transport.common_transport.CommonTransport)
+
+    m = generate_recipe_message(
+        parameters={
+            "pattern": "image%06d",
+            "pattern-start": "None",
+        },
+        output={"any": 1},
+    )
+    header = {
+        "message-id": mock.sentinel,
+        "subscription": mock.sentinel,
+    }
+    rw = RecipeWrapper(message=m, transport=t)
+
+    # Pattern-start="None", missing -end
+    filewatcher.watch_files(rw, header, mock.sentinel.message)
+    t.nack.assert_called_once_with(header)
+
+    # -start="1", missing -end
+    t.reset_mock()
+    rw.recipe_step["parameters"]["pattern-start"] = "1"
+    filewatcher.watch_files(rw, header, mock.sentinel.message)
+    t.nack.assert_called_once_with(header)
+
+    # -start=2, -end=2
+    t.reset_mock()
+    rw.recipe_step["parameters"]["pattern-end"] = "2"
+    filewatcher.watch_files(rw, header, mock.sentinel.message)
+    # At time of writing, this is the minimal setup to ack
+    t.ack.assert_called_once_with(header, transaction=mock.ANY)
+
+    # -start=None, -end=2
+    t.reset_mock()
+    rw.recipe_step["parameters"]["pattern-start"] = None
+    filewatcher.watch_files(rw, header, mock.sentinel.message)
+    t.nack.assert_called_once_with(header)

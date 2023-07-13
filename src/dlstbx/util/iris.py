@@ -15,8 +15,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-S3_CONFIG = "/dls_sw/apps/zocalo/secrets/credentials-echo-mx.cfg"
-S3_NAME = "echo-mx"
 URL_EXPIRE = timedelta(days=7)
 
 # http.client.HTTPConnection.debuglevel = 1
@@ -42,14 +40,14 @@ class TimeoutHTTPAdapter(HTTPAdapter):
     #                                   ssl_version=ssl.PROTOCOL_TLSv1)
 
 
-def get_minio_client():
+def get_minio_client(configuration, user):
     config = configparser.ConfigParser()
-    config.read(S3_CONFIG)
-    host = urllib.parse.urlparse(config[S3_NAME]["endpoint"])
+    config.read(configuration)
+    host = urllib.parse.urlparse(config[user]["endpoint"])
     minio_client = minio.Minio(
         host.netloc,
-        access_key=config[S3_NAME]["access_key_id"],
-        secret_key=config[S3_NAME]["secret_access_key"],
+        access_key=config[user]["access_key_id"],
+        secret_key=config[user]["secret_access_key"],
         secure=True,
     )
     return minio_client
@@ -92,8 +90,7 @@ def get_objects_from_s3(working_directory, s3_urls, logger):
         )
 
 
-def remove_objects_from_s3(bucket_name, s3_urls):
-    minio_clinet = get_minio_client()
+def remove_objects_from_s3(minio_clinet, bucket_name, s3_urls):
     for filename in s3_urls.keys():
         minio_clinet.remove_object(bucket_name, filename)
 
@@ -111,8 +108,7 @@ def get_image_files(working_directory, images, logger):
     return file_list
 
 
-def get_presigned_urls_images(bucket_name, pid, images, logger):
-    minio_client = get_minio_client()
+def get_presigned_urls_images(minio_client, bucket_name, pid, images, logger):
 
     if not minio_client.bucket_exists(bucket_name):
         minio_client.make_bucket(bucket_name)

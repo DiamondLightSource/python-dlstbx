@@ -166,6 +166,7 @@ class Xia2Wrapper(Wrapper):
                 self.log.logger.addHandler(handler)
                 self.log.logger.setLevel(logging.DEBUG)
                 s3_urls = iris.get_presigned_urls_images(
+                    params["minio_client"],
                     params["create_symlink"].lower(),
                     params["rpid"],
                     params["images"],
@@ -249,6 +250,7 @@ class Xia2Wrapper(Wrapper):
         if s3_urls := self.recwrap.environment.get("s3_urls"):
             try:
                 iris.remove_objects_from_s3(
+                    params["minio_client"],
                     params["create_symlink"].lower(),
                     s3_urls,
                 )
@@ -427,6 +429,11 @@ class Xia2Wrapper(Wrapper):
                     params["create_symlink"] += (
                         "-" + params["ispyb_parameters"]["spacegroup"]
                     )
+
+        if params.get("s3_urls") or self.recwrap.environment.get("s3_urls"):
+            s3echo_config = "/dls_sw/apps/zocalo/secrets/credentials-echo-mx.cfg"
+            s3echo_user = "echo-mx"
+            params["minio_client"] = iris.get_minio_client(s3echo_config, s3echo_user)
 
         stage = params.get("stage")
         assert stage in {None, "setup", "run", "report"}

@@ -4,6 +4,7 @@ import configparser
 import getpass
 import glob
 import shutil
+import subprocess
 import time
 import urllib.parse
 from datetime import timedelta
@@ -104,11 +105,51 @@ def get_image_files(working_directory, images, logger):
             filename = Path(filepath).name
             logger.info(f"Found image file {filepath}")
             file_list[filename] = filepath
-            shutil.copy(filepath, working_directory / filename)
+            if working_directory:
+                shutil.copy(filepath, working_directory / filename)
     return file_list
 
 
-def get_presigned_urls_images(minio_client, bucket_name, pid, images, logger):
+def compress_results_directories(working_directory, dirs, logger):
+    filelist = []
+    for tmp_dir in dirs:
+        start_time = time.perf_counter()
+        filename = f"{tmp_dir}.tar.gz"
+        result = subprocess.run(
+            ["tar", "-zcvf", filename, f"{tmp_dir}"],
+            cwd=working_directory,
+        )
+        runtime = time.perf_counter() - start_time
+        if not result.returncode:
+            filelist.append(filename)
+            logger.info(f"Compressing {tmp_dir} took {runtime} seconds")
+        else:
+            logger.info(
+                f"Compressing {tmp_dir} failed with exitcode {result.returncode}"
+            )
+            logger.debug(result.stdout)
+            logger.debug(result.stderr)
+    return filelist
+
+
+def decompress_results_file(working_directory, filename, logger):
+    start_time = time.perf_counter()
+    result = subprocess.run(
+        ["tar", "-xvzf", filename],
+        cwd=working_directory,
+    )
+    runtime = time.perf_counter() - start_time
+    if not result.returncode:
+        logger.info(f"Uncompressing {filename} took {runtime} seconds")
+    else:
+        logger.info(
+            f"Uncompressing {filename} failed with exitcode {result.returncode}"
+        )
+        logger.debug(result.stdout)
+        logger.debug(result.stderr)
+
+
+def get_presigned_urls(minio_client, bucket_name, pid, files, logger):
 
     if not minio_client.bucket_exists(bucket_name):
         minio_client.make_bucket(bucket_name)
@@ -117,53 +158,58 @@ def get_presigned_urls_images(minio_client, bucket_name, pid, images, logger):
 
     s3_urls = {}
     store_objects = [obj.object_name for obj in minio_client.list_objects(bucket_name)]
-    h5_paths = {Path(s.split(":")[0]) for s in images.split(",")}
-    for h5_file in h5_paths:
-        image_pattern = str(h5_file).split("master")[0] + "*"
-        for filepath in glob.glob(image_pattern):
-            filename = "_".join([pid, Path(filepath).name])
-            file_size = Path(filepath).stat().st_size
-            upload_file = True
-            if filename in store_objects:
-                upload_file = False
+    for filepath in files:
+        filename = "_".join([pid, Path(filepath).name])
+        file_size = Path(filepath).stat().st_size
+        upload_file = True
+        if filename in store_objects:
+            upload_file = False
+            logger.info(
+                f"File {filename} already exists in object store bucket {bucket_name}."
+            )
+            result = minio_client.stat_object(bucket_name, filename)
+            if file_size != result.size:
                 logger.info(
-                    f"File {filename} already exists in object store bucket {bucket_name}."
+                    f"Reuploading {filename} because of mismatch in file size: Expected {file_size}, got {result.size}"
                 )
-                result = minio_client.stat_object(bucket_name, filename)
-                if file_size != result.size:
-                    logger.info(
-                        f"Reuploading {filename} because of mismatch in file size: Expected {file_size}, got {result.size}"
-                    )
-                    upload_file = True
-            if upload_file:
-                logger.info(f"Uploading file {filename} into object store.")
-                timestamp = time.perf_counter()
-                minio_client.fput_object(
-                    bucket_name,
-                    filename,
-                    filepath,
-                    part_size=100 * 1024 * 1024,
-                    num_parallel_uploads=5,
+                upload_file = True
+        if upload_file:
+            logger.info(f"Uploading file {filename} into object store.")
+            timestamp = time.perf_counter()
+            minio_client.fput_object(
+                bucket_name,
+                filename,
+                filepath,
+                part_size=100 * 1024 * 1024,
+                num_parallel_uploads=5,
+            )
+            timestamp = time.perf_counter() - timestamp
+            logger.info(
+                f"Upload of {filename} into object store completed in {timestamp:.3f} seconds."
+            )
+            result = minio_client.stat_object(bucket_name, filename)
+            if file_size != result.size:
+                raise ValueError(
+                    f"Invalid size for uploaded {filename} file: Expected {file_size}, got {result.size}"
                 )
-                timestamp = time.perf_counter() - timestamp
-                logger.info(
-                    f"Upload of {filename} into object store completed in {timestamp:.3f} seconds."
-                )
-                result = minio_client.stat_object(bucket_name, filename)
-                if file_size != result.size:
-                    raise ValueError(
-                        f"Invalid size for uploaded {filename} file: Expected {file_size}, got {result.size}"
-                    )
-                logger.info(
-                    f"Data transfer rate for {filename} object: {8e-9 * file_size / timestamp:.3f}Gb/s"
-                )
-            s3_urls[filename] = {
-                "url": minio_client.presigned_get_object(
-                    bucket_name, filename, expires=URL_EXPIRE
-                ),
-                "size": file_size,
-            }
-    logger.info(f"Image file URLs: {s3_urls}")
+            logger.info(
+                f"Data transfer rate for {filename} object: {8e-9 * file_size / timestamp:.3f}Gb/s"
+            )
+        s3_urls[filename] = {
+            "url": minio_client.presigned_get_object(
+                bucket_name, filename, expires=URL_EXPIRE
+            ),
+            "size": file_size,
+        }
+    logger.info(f"File URLs: {s3_urls}")
+    return s3_urls
+
+
+def get_presigned_urls_images(minio_client, bucket_name, pid, images, logger):
+    image_files = get_image_files(None, images, logger)
+    s3_urls = get_presigned_urls(
+        minio_client, bucket_name, pid, image_files.values(), logger
+    )
     return s3_urls
 
 

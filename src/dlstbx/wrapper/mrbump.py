@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
+import time
 from pathlib import Path
 
-import procrunner
 from iotbx.bioinformatics import fasta_sequence
 
 import dlstbx.util.symlink
-from dlstbx.util.iris import write_mrbump_singularity_script
+from dlstbx.util import iris
 from dlstbx.wrapper import Wrapper
 from dlstbx.wrapper.helpers import copy_results
 
@@ -88,7 +89,7 @@ class MrBUMPWrapper(Wrapper):
                 tmp_path = working_directory / "TMP"
                 tmp_path.mkdir(parents=True, exist_ok=True)
                 pdblocal = params["mrbump"]["pdblocal"]
-                write_mrbump_singularity_script(
+                iris.write_mrbump_singularity_script(
                     working_directory,
                     singularity_image,
                     tmp_path.name,
@@ -115,10 +116,10 @@ class MrBUMPWrapper(Wrapper):
                 "MrBUMP processing failed: Cannot read sequence information."
             )
             return False
-        procrunner_directory = working_directory / params["create_symlink"]
-        procrunner_directory.mkdir(parents=True, exist_ok=True)
+        subprocess_directory = working_directory / params["create_symlink"]
+        subprocess_directory.mkdir(parents=True, exist_ok=True)
 
-        seq_filename = procrunner_directory / f"seq_{params['dcid']}.fasta"
+        seq_filename = subprocess_directory / f"seq_{params['dcid']}.fasta"
         seq_filename.write_text(fasta_sequence(sequence).format(80))
 
         if self.recwrap.environment.get("singularity_image"):
@@ -144,7 +145,7 @@ class MrBUMPWrapper(Wrapper):
                 )
                 return False
         command, mrbump_script = self.construct_script(
-            params, procrunner_directory, hklin, seq_filename
+            params, subprocess_directory, hklin, seq_filename
         )
         self.log.info("command: %s", command)
         stdin_params = params["mrbump"]["stdin"]
@@ -167,33 +168,86 @@ class MrBUMPWrapper(Wrapper):
                 # in the first item (there should only be one item)
                 stdin_params[k] = v[0]
         stdin_list = localfile + [f"{k} {v}" for k, v in stdin_params.items()]
-        stdin = "\n".join(stdin_list) + "\nEND"
-        self.log.info("mrbump stdin: %s", stdin)
-        with (procrunner_directory / "MRBUMP.log").open("w") as fp:
-            result = procrunner.run(
-                ["sh", mrbump_script],
-                stdin=stdin.encode("utf-8"),
-                callback_stdout=lambda x: print(x, file=fp),
-                working_directory=procrunner_directory,
-                timeout=params.get("timeout"),
-            )
-        success = not result["exitcode"] and not result["timeout"]
-        hklout = procrunner_directory / Path(params["mrbump"]["command"]["hklout"])
-        xyzout = procrunner_directory / Path(params["mrbump"]["command"]["xyzout"])
-        success = success and hklout.is_file() and xyzout.is_file()
+        stdin_str = "\n".join(stdin_list) + "\nEND"
+        self.log.info("mrbump stdin: %s", stdin_str)
+        success = True
+        with (subprocess_directory / "MRBUMP.log").open("w") as fp:
+            try:
+                start_time = time.perf_counter()
+                result = subprocess.run(
+                    ["sh", mrbump_script],
+                    cwd=subprocess_directory,
+                    text=True,
+                    input=stdin_str,
+                    stdout=fp,
+                    timeout=params.get("timeout"),
+                )
+                runtime = time.perf_counter() - start_time
+                self.log.info(f"MrBUMP took {runtime:.1f} seconds")
+                success = not result.returncode
+                hklout = subprocess_directory / Path(
+                    params["mrbump"]["command"]["hklout"]
+                )
+                xyzout = subprocess_directory / Path(
+                    params["mrbump"]["command"]["xyzout"]
+                )
+                success = (
+                    hklout.is_file() and xyzout.is_file() and not result.returncode
+                )
+            except subprocess.TimeoutExpired as te:
+                success = False
+                self.log.warning(f"MrBUMP timed out: {te.timeout}\n  {te.cmd}")
+                self.log.debug(te.stdout)
+                self.log.debug(te.stderr)
+                return success
         if success:
-            self.log.info("mrbump successful, took %.1f seconds", result["runtime"])
-        else:
-            self.log.info(
-                "mrbump failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
+            compressed_results_files = iris.compress_results_directories(
+                working_directory,
+                [
+                    subprocess_directory.name,
+                ],
+                self.log,
             )
-            self.log.debug(result["stdout"].decode("latin1"))
-            self.log.debug(result["stderr"].decode("latin1"))
+            if params.get("s3echo"):
+                s3echo_config = params["s3echo"].get("configuration")
+                s3echo_user = params["s3echo"].get("username")
+                s3echo_bucket = params["s3echo"].get("bucket")
+                minio_client = iris.get_minio_client(s3echo_config, s3echo_user)
+                iris.get_presigned_urls(
+                    minio_client,
+                    s3echo_bucket,
+                    params["rpid"],
+                    compressed_results_files,
+                    self.log,
+                )
+                for filename in compressed_results_files:
+                    os.remove(filename)
+        else:
+            self.log.info(f"MrBUMP failed with exitcode {result.returncode}")
+            self.log.debug(result.stdout)
+            self.log.debug(result.stderr)
         return success
 
     def run_report(self, working_directory: Path, params: dict, success: bool) -> bool:
+        if params.get("s3echo"):
+            s3echo_config = params["s3echo"].get("configuration")
+            s3echo_user = params["s3echo"].get("username")
+            s3echo_bucket = params["s3echo"].get("bucket")
+            minio_client = iris.get_minio_client(s3echo_config, s3echo_user)
+
+            s3echo_filename = f"{params['rpid']}_{params['create_symlink']}.tar.gz"
+            minio_client.fget_object(
+                s3echo_bucket, s3echo_filename, working_directory / s3echo_filename
+            )
+            iris.decompress_results_file(working_directory, s3echo_filename, self.log)
+            minio_client.remove_object(s3echo_bucket, s3echo_filename)
+            os.remove(working_directory / s3echo_filename)
+
+        working_directory = working_directory / params.get("create_symlink", "")
+        if not working_directory.is_dir():
+            self.log.error(f"Output directory {working_directory} doesn't exist")
+            return False
+
         if params.get("results_directory"):
             results_directory = Path(params["results_directory"]) / params.get(
                 "create_symlink", ""
@@ -252,10 +306,6 @@ class MrBUMPWrapper(Wrapper):
             success = self.run_mrbump(working_directory, params)
 
         if stage in {None, "report"}:
-            working_directory = working_directory / params.get("create_symlink", "")
-            if not working_directory.is_dir():
-                self.log.error(f"Output directory {working_directory} doesn't exist")
-                return False
             success = self.run_report(working_directory, params, success)
 
         return success

@@ -3,13 +3,15 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
+import time
 from pathlib import Path
 from pprint import pformat
 
-import procrunner
 import xmltodict
 
 import dlstbx.util.symlink
+from dlstbx.util import iris
 from dlstbx.util.iris import write_singularity_script
 from dlstbx.wrapper import Wrapper
 
@@ -163,35 +165,49 @@ class FastEPWrapper(Wrapper):
                     params["fast_ep"]["data"] = params["ispyb_parameters"]["data"]
 
         command = self.construct_commandline(params)
-        procrunner_directory = working_directory / params["create_symlink"]
-        procrunner_directory.mkdir(parents=True, exist_ok=True)
+        subprocess_directory = working_directory / params["create_symlink"]
+        subprocess_directory.mkdir(parents=True, exist_ok=True)
 
-        result = procrunner.run(
-            command,
-            timeout=params.get("timeout"),
-            working_directory=procrunner_directory,
-        )
-        self.log.info("command: %s", " ".join(result["command"]))
-        self.log.info("runtime: %s", result["runtime"])
-        success = (
-            not result["exitcode"]
-            and not result["timeout"]
-            and not Path(procrunner_directory / "fast_ep.error").exists()
-        )
-        if success:
-            self.log.info("fast_ep successful, took %.1f seconds", result["runtime"])
-        else:
-            self.log.info(
-                "fast_ep failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
+        try:
+            start_time = time.perf_counter()
+            result = subprocess.run(
+                command,
+                timeout=params.get("timeout"),
+                cwd=subprocess_directory,
             )
-            self.log.debug(result["stdout"])
-            self.log.debug(result["stderr"])
-
+            runtime = time.perf_counter() - start_time
+            success = (
+                not result.returncode
+                and not Path(subprocess_directory / "fast_ep.error").exists()
+            )
+            self.log.info("command: %s", " ".join(command))
+            self.log.info(f"runtime: {runtime}")
+        except subprocess.TimeoutExpired as te:
+            success = False
+            self.log.warning(f"fast_ep timed out: {te.timeout}\n  {te.cmd}")
+            self.log.debug(te.stdout)
+            self.log.debug(te.stderr)
+            return success
+        if success:
+            if s3echo_params := params.get("s3echo"):
+                iris.store_results_in_s3(
+                    s3echo_params, params["rpid"], subprocess_directory, self.log
+                )
+        else:
+            self.log.info(f"fast_ep failed with exitcode {result.returncode}")
+            self.log.debug(result.stdout)
+            self.log.debug(result.stderr)
         return success
 
     def run_report(self, working_directory, params):
+        if s3echo_params := params.get("s3echo"):
+            iris.retrieve_results_from_s3(
+                s3echo_params,
+                working_directory,
+                params["rpid"],
+                params["create_symlink"],
+                self.log,
+            )
         # Send results to topaz for hand determination
         working_directory = working_directory / params.get("create_symlink", "fast_ep")
         fast_ep_data_json = working_directory / "fast_ep_data.json"

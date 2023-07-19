@@ -3,6 +3,7 @@ from __future__ import annotations
 import configparser
 import getpass
 import glob
+import os
 import shutil
 import subprocess
 import time
@@ -211,6 +212,46 @@ def get_presigned_urls_images(minio_client, bucket_name, pid, images, logger):
         minio_client, bucket_name, pid, image_files.values(), logger
     )
     return s3_urls
+
+
+def store_results_in_s3(s3echo_params, pfx, output_directory, logger):
+    s3echo_config = s3echo_params.get("configuration")
+    s3echo_user = s3echo_params.get("username")
+    s3echo_bucket = s3echo_params.get("bucket")
+    minio_client = get_minio_client(s3echo_config, s3echo_user)
+    compressed_results_files = compress_results_directories(
+        output_directory.parent,
+        [
+            output_directory.name,
+        ],
+        logger,
+    )
+    get_presigned_urls(
+        minio_client,
+        s3echo_bucket,
+        pfx,
+        compressed_results_files,
+        logger,
+    )
+    for filename in compressed_results_files:
+        os.remove(filename)
+
+
+def retrieve_results_from_s3(
+    s3echo_params, working_directory, pfx, results_filename, logger
+):
+    s3echo_config = s3echo_params.get("configuration")
+    s3echo_user = s3echo_params.get("username")
+    s3echo_bucket = s3echo_params.get("bucket")
+    minio_client = get_minio_client(s3echo_config, s3echo_user)
+
+    s3echo_filename = f"{pfx}_{results_filename}.tar.gz"
+    minio_client.fget_object(
+        s3echo_bucket, s3echo_filename, working_directory / s3echo_filename
+    )
+    decompress_results_file(working_directory, s3echo_filename, logger)
+    minio_client.remove_object(s3echo_bucket, s3echo_filename)
+    os.remove(working_directory / s3echo_filename)
 
 
 def retrieve_file_with_url(filename, url, logger):

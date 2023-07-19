@@ -201,27 +201,10 @@ class MrBUMPWrapper(Wrapper):
                 self.log.debug(te.stderr)
                 return success
         if success:
-            compressed_results_files = iris.compress_results_directories(
-                working_directory,
-                [
-                    subprocess_directory.name,
-                ],
-                self.log,
-            )
-            if params.get("s3echo"):
-                s3echo_config = params["s3echo"].get("configuration")
-                s3echo_user = params["s3echo"].get("username")
-                s3echo_bucket = params["s3echo"].get("bucket")
-                minio_client = iris.get_minio_client(s3echo_config, s3echo_user)
-                iris.get_presigned_urls(
-                    minio_client,
-                    s3echo_bucket,
-                    params["rpid"],
-                    compressed_results_files,
-                    self.log,
+            if s3echo_params := params.get("s3echo"):
+                iris.store_results_in_s3(
+                    s3echo_params, params["rpid"], subprocess_directory, self.log
                 )
-                for filename in compressed_results_files:
-                    os.remove(filename)
         else:
             self.log.info(f"MrBUMP failed with exitcode {result.returncode}")
             self.log.debug(result.stdout)
@@ -229,20 +212,14 @@ class MrBUMPWrapper(Wrapper):
         return success
 
     def run_report(self, working_directory: Path, params: dict, success: bool) -> bool:
-        if params.get("s3echo"):
-            s3echo_config = params["s3echo"].get("configuration")
-            s3echo_user = params["s3echo"].get("username")
-            s3echo_bucket = params["s3echo"].get("bucket")
-            minio_client = iris.get_minio_client(s3echo_config, s3echo_user)
-
-            s3echo_filename = f"{params['rpid']}_{params['create_symlink']}.tar.gz"
-            minio_client.fget_object(
-                s3echo_bucket, s3echo_filename, working_directory / s3echo_filename
+        if s3echo_params := params.get("s3echo"):
+            iris.retrieve_results_from_s3(
+                s3echo_params,
+                working_directory,
+                params["rpid"],
+                params["create_symlink"],
+                self.log,
             )
-            iris.decompress_results_file(working_directory, s3echo_filename, self.log)
-            minio_client.remove_object(s3echo_bucket, s3echo_filename)
-            os.remove(working_directory / s3echo_filename)
-
         working_directory = working_directory / params.get("create_symlink", "")
         if not working_directory.is_dir():
             self.log.error(f"Output directory {working_directory} doesn't exist")

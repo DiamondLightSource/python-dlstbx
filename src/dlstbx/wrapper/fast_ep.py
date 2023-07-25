@@ -189,9 +189,13 @@ class FastEPWrapper(Wrapper):
             self.log.debug(te.stderr)
             return success
         if success:
-            if s3echo_params := params.get("s3echo"):
+            if minio_client := params.get("minio_client"):
                 iris.store_results_in_s3(
-                    s3echo_params, params["rpid"], subprocess_directory, self.log
+                    minio_client,
+                    params["bucket_name"],
+                    params["rpid"],
+                    subprocess_directory,
+                    self.log,
                 )
         else:
             self.log.info(f"fast_ep failed with exitcode {result.returncode}")
@@ -200,12 +204,13 @@ class FastEPWrapper(Wrapper):
         return success
 
     def run_report(self, working_directory, params):
-        if s3echo_params := params.get("s3echo"):
+        if minio_client := params.get("minio_client"):
             iris.retrieve_results_from_s3(
-                s3echo_params,
+                minio_client,
+                params["bucket_name"],
                 working_directory,
                 params["rpid"],
-                params["create_symlink"],
+                params.get("create_symlink", "fast_ep"),
                 self.log,
             )
         # Send results to topaz for hand determination
@@ -323,11 +328,17 @@ class FastEPWrapper(Wrapper):
     def run(self):
 
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
-        params = self.recwrap.recipe_step["job_parameters"]
+        params = dict(self.recwrap.recipe_step["job_parameters"])
 
         # Create working directory with symbolic link
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
+
+        if params.get("s3echo"):
+            params["minio_client"] = iris.get_minio_client(
+                params["s3echo"]["configuration"], params["s3echo"]["username"]
+            )
+            params["bucket_name"] = params["s3echo"].get("bucket", "fast-ep")
 
         stage = params.get("stage")
         assert stage in {None, "setup", "run", "report"}

@@ -3,12 +3,12 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import subprocess
 import time
 import xml.etree.ElementTree
 from pathlib import Path
 from typing import Any
 
-import procrunner
 from dials.util.mp import available_cores
 from dxtbx.model.experiment_list import ExperimentListFactory
 from dxtbx.serialize import xds
@@ -29,7 +29,7 @@ clean_environment = {
 }
 
 
-def read_autoproc_xml(xml_file: Path, logger: logging.Logger):
+def read_autoproc_xml(xml_file: Path, logger: logging.LoggerAdapter):
     if not xml_file.is_file():
         logger.info(f"Expected file {xml_file} missing")
         return False
@@ -94,7 +94,7 @@ def read_autoproc_xml(xml_file: Path, logger: logging.Logger):
 
 def construct_commandline(
     params: dict,
-    logger: logging.Logger,
+    logger: logging.LoggerAdapter,
     working_directory: Path | None = None,
     image_directory: os.PathLike[str] | None = None,
 ):
@@ -498,7 +498,7 @@ class autoPROCWrapper(Wrapper):
                 self.log.exception("Error writing singularity script")
                 return False
 
-            if params.get("s3_urls"):
+            if minio_client := params.get("minio_client"):
                 # Logger for recording data transfer rates to S3 Echo object store
                 formatter = logging.Formatter(
                     "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -508,8 +508,8 @@ class autoPROCWrapper(Wrapper):
                 self.log.logger.addHandler(handler)
                 self.log.logger.setLevel(logging.DEBUG)
                 s3_urls = iris.get_presigned_urls_images(
-                    params["minio_client"],
-                    params["create_symlink"].lower(),
+                    minio_client,
+                    params["bucket_name"],
                     params["rpid"],
                     params["images"],
                     self.log,
@@ -520,8 +520,8 @@ class autoPROCWrapper(Wrapper):
 
     def run_autoPROC(self, working_directory: Path, params: dict):
 
-        procrunner_directory = working_directory / "autoPROC"
-        procrunner_directory.mkdir(parents=True, exist_ok=True)
+        subprocess_directory = working_directory / "autoPROC"
+        subprocess_directory.mkdir(parents=True, exist_ok=True)
         image_directory = None
 
         if s3_urls := self.recwrap.environment.get("s3_urls"):
@@ -548,47 +548,49 @@ class autoPROCWrapper(Wrapper):
         command = construct_commandline(
             params,
             self.log,
-            working_directory=procrunner_directory,
+            working_directory=subprocess_directory,
             image_directory=image_directory,
         )
 
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
         self.log.info("command: %s", " ".join(command))
-        start_time = time.perf_counter()
-        result = procrunner.run(
-            command,
-            timeout=params.get("timeout"),
-            environment_override={"autoPROC_HIGHLIGHT": "no", **clean_environment},
-            working_directory=procrunner_directory,
-        )
-        runtime = time.perf_counter() - start_time
-        self.log.info(f"autoPROC took {runtime} seconds")
-        self._runtime_hist.observe(runtime)
+        with (subprocess_directory / "autoPROC.log").open("w") as fp:
+            try:
+                start_time = time.perf_counter()
+                result = subprocess.run(
+                    command,
+                    timeout=params.get("timeout"),
+                    env=dict(os.environ, autoPROC_HIGHLIGHT="no"),
+                    cwd=subprocess_directory,
+                    text=True,
+                    stdout=fp,
+                )
+                runtime = time.perf_counter() - start_time
+                self.log.info(f"autoPROC took {runtime} seconds")
+                self._runtime_hist.observe(runtime)
+            except subprocess.TimeoutExpired as te:
+                success = False
+                self.log.warning(f"autoPROC timed out: {te.timeout}\n  {te.cmd}")
+                self.log.debug(te.stdout)
+                self.log.debug(te.stderr)
+                self._timeout_counter.inc()
+            else:
+                success = not result.returncode
+                if success:
+                    self.log.info("autoPROC successful")
+                else:
+                    self.log.info(f"autoPROC failed with exitcode {result.returncode}")
+                    self.log.debug(result.stdout)
+                    self.log.debug(result.stderr)
 
-        success = not result["exitcode"] and not result["timeout"]
-        if success:
-            self.log.info("autoPROC successful, took %.1f seconds", result["runtime"])
-        else:
-            self.log.info(
-                "autoPROC failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
-            )
-            self.log.debug(result["stdout"].decode("latin1"))
-            self.log.debug(result["stderr"].decode("latin1"))
-
-        (procrunner_directory / "autoPROC.log").write_text(
-            result["stdout"].decode("latin1")
-        )
-
-        # HTCondor resolves symlinks while transferring data and doesn't support symlinks to directories
-        if "s3_urls" in self.recwrap.environment:
-            for tmp_file in procrunner_directory.rglob("*"):
-                if (
-                    tmp_file.is_symlink() and tmp_file.is_dir()
-                ) or tmp_file.suffix == ".h5":
-                    tmp_file.unlink(True)
+        ## HTCondor resolves symlinks while transferring data and doesn't support symlinks to directories
+        # if "s3_urls" in self.recwrap.environment:
+        #    for tmp_file in subprocess_directory.rglob("*"):
+        #        if (
+        #            tmp_file.is_symlink() and tmp_file.is_dir()
+        #        ) or tmp_file.suffix == ".h5":
+        #            tmp_file.unlink(True)
 
         # cd $jobdir
         # tar -xzvf summary.tar.gz
@@ -599,33 +601,57 @@ class autoPROCWrapper(Wrapper):
         # find $jobdir -name '*.mtz' -exec /dls_sw/apps/mx-scripts/misc/AddHistoryToMTZ.sh $Beamline $Visit {} $2 autoPROC \;
 
         if success:
-            json_file = procrunner_directory / "iotbx-merging-stats.json"
-            scaled_unmerged_mtz = procrunner_directory / "aimless_unmerged.mtz"
+            json_file = subprocess_directory / "iotbx-merging-stats.json"
+            scaled_unmerged_mtz = subprocess_directory / "aimless_unmerged.mtz"
             if scaled_unmerged_mtz.is_file():
                 json_file.write_text(
                     get_merging_statistics(os.fspath(scaled_unmerged_mtz)).as_json()
                 )
 
         # move summary_inlined.html to summary.html
-        inlined_html = procrunner_directory / "summary_inlined.html"
+        inlined_html = subprocess_directory / "summary_inlined.html"
         if inlined_html.is_file():
-            shutil.copy2(inlined_html, procrunner_directory / "summary.html")
+            shutil.copy2(inlined_html, subprocess_directory / "summary.html")
+
+        if minio_client := params.get("minio_client"):
+            try:
+                iris.store_results_in_s3(
+                    minio_client,
+                    params["bucket_name"],
+                    params["rpid"],
+                    subprocess_directory,
+                    self.log,
+                )
+            except Exception:
+                self.log.info(
+                    "Error while trying to save autoPROC processing results to S3 Echo",
+                    exc_info=True,
+                )
 
         return success
 
     def report(self, working_directory: Path, params: dict, success: bool):
 
-        if s3_urls := self.recwrap.environment.get("s3_urls"):
-            try:
-                iris.remove_objects_from_s3(
-                    params["minio_client"],
-                    params["create_symlink"].lower(),
-                    s3_urls,
-                )
-            except Exception:
-                self.log.exception(
-                    "Exception raised while trying to remove files from S3 object store."
-                )
+        if minio_client := params.get("minio_client"):
+            iris.retrieve_results_from_s3(
+                minio_client,
+                params["bucket_name"],
+                working_directory,
+                params["rpid"],
+                "autoPROC",
+                self.log,
+            )
+            if s3_urls := self.recwrap.environment.get("s3_urls"):
+                try:
+                    iris.remove_objects_from_s3(
+                        minio_client,
+                        params["bucket_name"],
+                        s3_urls,
+                    )
+                except Exception:
+                    self.log.exception(
+                        "Exception raised while trying to remove files from S3 object store."
+                    )
 
         working_directory = working_directory / "autoPROC"
         if not working_directory.is_dir():
@@ -764,7 +790,7 @@ class autoPROCWrapper(Wrapper):
     def run(self):
 
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
-        params = self.recwrap.recipe_step["job_parameters"]
+        params = dict(self.recwrap.recipe_step["job_parameters"])
 
         # Create working directory with symbolic link
         working_directory = Path(params.get("working_directory", os.getcwd()))
@@ -781,10 +807,11 @@ class autoPROCWrapper(Wrapper):
                         "-" + params["ispyb_parameters"]["spacegroup"]
                     )
 
-        if params.get("s3_urls") or self.recwrap.environment.get("s3_urls"):
-            s3echo_config = "/dls_sw/apps/zocalo/secrets/credentials-echo-mx.cfg"
-            s3echo_user = "echo-mx"
-            params["minio_client"] = iris.get_minio_client(s3echo_config, s3echo_user)
+        if params.get("s3echo"):
+            params["minio_client"] = iris.get_minio_client(
+                params["s3echo"]["configuration"], params["s3echo"]["username"]
+            )
+            params["bucket_name"] = params["s3echo"].get("bucket", "autoproc")
 
         stage = params.get("stage")
         assert stage in {None, "setup", "run", "report"}

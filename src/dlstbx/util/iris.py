@@ -117,7 +117,14 @@ def compress_results_directories(working_directory, dirs, logger):
         start_time = time.perf_counter()
         filename = f"{tmp_dir}.tar.gz"
         result = subprocess.run(
-            ["tar", "-zcvf", filename, f"{tmp_dir}"],
+            [
+                "tar",
+                "-zcvf",
+                filename,
+                f"{tmp_dir}",
+                "--owner=nobody",
+                "--group=nobody",
+            ],
             cwd=working_directory,
         )
         runtime = time.perf_counter() - start_time
@@ -136,7 +143,7 @@ def compress_results_directories(working_directory, dirs, logger):
 def decompress_results_file(working_directory, filename, logger):
     start_time = time.perf_counter()
     result = subprocess.run(
-        ["tar", "-xvzf", filename],
+        ["tar", "-xvzf", filename, "--no-same-owner", "--no-same-permissions"],
         cwd=working_directory,
     )
     runtime = time.perf_counter() - start_time
@@ -214,11 +221,7 @@ def get_presigned_urls_images(minio_client, bucket_name, pid, images, logger):
     return s3_urls
 
 
-def store_results_in_s3(s3echo_params, pfx, output_directory, logger):
-    s3echo_config = s3echo_params.get("configuration")
-    s3echo_user = s3echo_params.get("username")
-    s3echo_bucket = s3echo_params.get("bucket")
-    minio_client = get_minio_client(s3echo_config, s3echo_user)
+def store_results_in_s3(minio_client, bucket_name, pfx, output_directory, logger):
     compressed_results_files = compress_results_directories(
         output_directory.parent,
         [
@@ -228,7 +231,7 @@ def store_results_in_s3(s3echo_params, pfx, output_directory, logger):
     )
     get_presigned_urls(
         minio_client,
-        s3echo_bucket,
+        bucket_name,
         pfx,
         compressed_results_files,
         logger,
@@ -238,19 +241,14 @@ def store_results_in_s3(s3echo_params, pfx, output_directory, logger):
 
 
 def retrieve_results_from_s3(
-    s3echo_params, working_directory, pfx, results_filename, logger
+    minio_client, bucket_name, working_directory, pfx, results_filename, logger
 ):
-    s3echo_config = s3echo_params.get("configuration")
-    s3echo_user = s3echo_params.get("username")
-    s3echo_bucket = s3echo_params.get("bucket")
-    minio_client = get_minio_client(s3echo_config, s3echo_user)
-
     s3echo_filename = f"{pfx}_{results_filename}.tar.gz"
     minio_client.fget_object(
-        s3echo_bucket, s3echo_filename, working_directory / s3echo_filename
+        bucket_name, s3echo_filename, working_directory / s3echo_filename
     )
     decompress_results_file(working_directory, s3echo_filename, logger)
-    minio_client.remove_object(s3echo_bucket, s3echo_filename)
+    minio_client.remove_object(bucket_name, s3echo_filename)
     os.remove(working_directory / s3echo_filename)
 
 

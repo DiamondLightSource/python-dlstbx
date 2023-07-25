@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
+import time
 from argparse import Namespace
 from pathlib import Path
 from pprint import pformat
 
 import ispyb
-import procrunner
 from iotbx import mtz
 from jinja2.environment import Environment
 from jinja2.exceptions import UndefinedError
@@ -16,6 +17,7 @@ from jinja2.loaders import PackageLoader
 
 import dlstbx.util.big_ep as bpu
 import dlstbx.util.fast_ep as fpu
+from dlstbx.util import iris
 from dlstbx.util.big_ep_helpers import (
     get_autobuild_model_files,
     get_autosharp_model_files,
@@ -306,39 +308,55 @@ class BigEPWrapper(Wrapper):
                 return False
             fp.write(pipeline_input)
 
-        result = procrunner.run(
-            ["sh", pipeline_script],
-            timeout=params.get("timeout"),
-            working_directory=output_directory,
-        )
-        self.log.info("command: %s", " ".join(result["command"]))
-        self.log.info("runtime: %s", result["runtime"])
+        success = True
+        try:
+            start_time = time.perf_counter()
+            result = subprocess.run(
+                ["sh", pipeline_script],
+                timeout=params.get("timeout"),
+                cwd=output_directory,
+            )
+            runtime = time.perf_counter() - start_time
+            self.log.info(f"{pipeline} took {runtime:.1f} seconds")
+            success = not result.returncode
+        except subprocess.TimeoutExpired as te:
+            self.log.warning(f"{pipeline} timed out: {te.timeout}\n  {te.cmd}")
+            self.log.debug(te.stdout)
+            self.log.debug(te.stderr)
+            return False
 
-        # Just log exit state of the program and try to read any
-        # intermediate models in case of failure/timeout
-        success = not result["exitcode"] and not result["timeout"]
+        self.log.info(f"command: {pipeline_script}")
+        self.log.info(f"runtime: {runtime}")
+
+        try:
+            if minio_client := params.get("minio_client"):
+                iris.store_results_in_s3(
+                    minio_client,
+                    params["bucket_name"],
+                    params["rpid"],
+                    output_directory,
+                    self.log,
+                )
+        except Exception:
+            self.log.info(
+                f"Error compressing {pipeline} output directory", exc_info=True
+            )
+
         if success:
-            self.log.info(
-                f"{pipeline} successful, took %.1f seconds", result["runtime"]
-            )
+            self.log.info(f"{pipeline} successful, took {runtime} seconds")
+            # HTCondor resolves symlinks while transferring data and doesn't support symlinks to directories
+            if self.msg.singularity_image:
+                for tmp_file in output_directory.rglob("*"):
+                    if (
+                        tmp_file.is_symlink() and tmp_file.is_dir()
+                    ) or tmp_file.suffix == ".h5":
+                        tmp_file.unlink(True)
         else:
-            self.log.info(
-                f"{pipeline} failed with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
-            )
-            self.log.debug(result["stdout"])
-            self.log.debug(result["stderr"])
+            self.log.info(f"{pipeline} failed with exitcode {result.returncode}")
+            self.log.debug(result.stdout)
+            self.log.debug(result.stderr)
 
-        # HTCondor resolves symlinks while transferring data and doesn't support symlinks to directories
-        if self.msg.singularity_image:
-            for tmp_file in output_directory.rglob("*"):
-                if (
-                    tmp_file.is_symlink() and tmp_file.is_dir()
-                ) or tmp_file.suffix == ".h5":
-                    tmp_file.unlink(True)
-
-        return True
+        return success
 
     def report(self, working_directory: Path, params: dict, success: bool):
         results_directory = Path(params["results_directory"])
@@ -379,6 +397,21 @@ class BigEPWrapper(Wrapper):
         }
 
         tmpl_data.update({"settings": self.recwrap.environment["msg"]})
+
+        try:
+            if minio_client := params.get("minio_client"):
+                iris.retrieve_results_from_s3(
+                    minio_client,
+                    params["bucket_name"],
+                    working_directory,
+                    params["rpid"],
+                    pipeline,
+                    self.log,
+                )
+        except Exception:
+            self.log.info(
+                f"Error uncompressing {pipeline} output directory", exc_info=True
+            )
 
         if success:
             if pipeline == "autoSHARP":
@@ -514,12 +547,18 @@ class BigEPWrapper(Wrapper):
     def run(self):
 
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
-        params = self.recwrap.recipe_step["job_parameters"]
+        params = dict(self.recwrap.recipe_step["job_parameters"])
         self.recwrap.environment.update(params["ispyb_parameters"])
 
         # Create working directory with symbolic link
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
+
+        if params.get("s3echo"):
+            params["minio_client"] = iris.get_minio_client(
+                params["s3echo"]["configuration"], params["s3echo"]["username"]
+            )
+            params["bucket_name"] = self.recwrap.environment.get("pipeline").lower()
 
         stage = params.get("stage")
         assert stage in {None, "setup", "run", "report"}

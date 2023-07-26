@@ -59,7 +59,7 @@ def copy_results(working_directory, results_directory, skip_copy, logger):
     src_pth_esc = r"\/".join(os.path.dirname(working_directory).split(os.sep))
     dest_pth_esc = r"\/".join(os.path.dirname(results_directory).split(os.sep))
     sed_command = (
-        r"find %s -type f -exec grep -Iq . {} \; -and -exec sed -i 's/%s/%s/g' {} +"
+        r"find %s -type f -exec grep -Iq . {} \; -and -exec sed -ci 's/%s/%s/g' {} +"
         % (results_directory, src_pth_esc, dest_pth_esc)
     )
     logger.info(f"Running sed command: {sed_command}")

@@ -184,24 +184,33 @@ class MrBUMPWrapper(Wrapper):
                 )
                 runtime = time.perf_counter() - start_time
                 self.log.info(f"MrBUMP took {runtime:.1f} seconds")
-                success = not result.returncode
-                hklout = subprocess_directory / Path(
-                    params["mrbump"]["command"]["hklout"]
-                )
-                xyzout = subprocess_directory / Path(
-                    params["mrbump"]["command"]["xyzout"]
-                )
-                success = (
-                    hklout.is_file() and xyzout.is_file() and not result.returncode
-                )
             except subprocess.TimeoutExpired as te:
                 success = False
                 self.log.warning(f"MrBUMP timed out: {te.timeout}\n  {te.cmd}")
                 self.log.debug(te.stdout)
                 self.log.debug(te.stderr)
-                return success
-        if success:
-            if minio_client := params.get("minio_client"):
+            else:
+                if result.returncode:
+                    self.log.info(f"MrBUMP failed with exitcode {result.returncode}")
+                    self.log.debug(result.stdout)
+                    self.log.debug(result.stderr)
+                    success = False
+                else:
+                    hklout = subprocess_directory / Path(
+                        params["mrbump"]["command"]["hklout"]
+                    )
+                    xyzout = subprocess_directory / Path(
+                        params["mrbump"]["command"]["xyzout"]
+                    )
+                    success = hklout.is_file() and xyzout.is_file()
+                    if success:
+                        self.log.info("MrBUMP successful")
+                    else:
+                        self.log.info(
+                            f"MrBUMP output files {hklout} or {xyzout} not found"
+                        )
+        if minio_client := params.get("minio_client"):
+            try:
                 iris.store_results_in_s3(
                     minio_client,
                     params["bucket_name"],
@@ -209,10 +218,11 @@ class MrBUMPWrapper(Wrapper):
                     subprocess_directory,
                     self.log,
                 )
-        else:
-            self.log.info(f"MrBUMP failed with exitcode {result.returncode}")
-            self.log.debug(result.stdout)
-            self.log.debug(result.stderr)
+            except Exception:
+                self.log.info(
+                    "Error while trying to save MrBUMP processing results to S3 Echo",
+                    exc_info=True,
+                )
         return success
 
     def run_report(self, working_directory: Path, params: dict, success: bool) -> bool:

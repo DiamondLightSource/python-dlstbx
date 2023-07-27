@@ -1281,11 +1281,17 @@ class DLSTrigger(CommonService):
                 )
                 continue
 
-            self.log.debug(set(dcids))
+            set_dcids = set(dcids)
+            self.log.debug(set_dcids)
             self.log.debug(multiplex_job_dcids)
-            if set(dcids) in multiplex_job_dcids:
+            if set_dcids in multiplex_job_dcids:
                 continue
-            multiplex_job_dcids.append(set(dcids))
+            if dcid in set_dcids and len(set_dcids) == 1:
+                self.log.info(
+                    f"Skipping xia2.multiplex trigger: no related processing results found for dcid={dcid} group={group}"
+                )
+                continue
+            multiplex_job_dcids.append(set_dcids)
 
             jp = self.ispyb.mx_processing.get_job_params()
             jp["automatic"] = parameters.automatic

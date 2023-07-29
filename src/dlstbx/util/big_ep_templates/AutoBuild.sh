@@ -36,7 +36,7 @@ autosol {
   }
 
   general {
-    thoroughness = thorough
+    thoroughness = quick
     nbatch = 8
     nproc = 8
     background = True
@@ -47,5 +47,5 @@ EOF
 
 phenix.autosol autosol.eff > phenix_autosol.log
 
-phenix.autobuild after_autosol=True rebuild_in_place=False seq_file={{ wd }}/{{ seqin_filename }} n_cycle_build_max=3 n_cycle_rebuild_max=5 {%if not singularity_image %} run_command="qsub -N PNX_build -q medium.q -P {{ cluster_project }} -V -cwd -o {{ wd }}/.launch -e {{ wd }}/.launch"  queue_commands=". /etc/profile.d/modules.sh" queue_commands="module load phenix" {% endif %} nproc=4 last_process_is_local=False clean_up=True background=False check_wait_time=30.0 max_wait_time=300.0 wait_between_submit_time=30.0 > phenix_autobuild.log
+phenix.autobuild after_autosol=True quick=True rebuild_in_place=False seq_file={{ wd }}/{{ seqin_filename }} n_cycle_build_max=1 n_cycle_rebuild_max=1 {%if not singularity_image %} run_command="qsub -N PNX_build -q medium.q -P {{ cluster_project }} -V -cwd -o {{ wd }}/.launch -e {{ wd }}/.launch"  queue_commands=". /etc/profile.d/modules.sh" queue_commands="module load phenix" last_process_is_local=False background=False {% endif %} nproc=4 clean_up=True check_wait_time=30.0 max_wait_time=300.0 wait_between_submit_time=30.0 > phenix_autobuild.log
 

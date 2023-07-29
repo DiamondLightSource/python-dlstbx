@@ -430,7 +430,7 @@ def ispyb_write_model_json(working_directory, mdl_dict, logger):
 
 
 def send_results_to_ispyb(results_directory, log_files, record_result):
-    result = False
+    result = True
     mdl_dict = get_map_model_from_json(results_directory)
     try:
         for key in ["pdb", "map", "mtz"]:
@@ -444,26 +444,28 @@ def send_results_to_ispyb(results_directory, log_files, record_result):
                         "importance_rank": 1,
                     }
                 )
-                result = True
+        record_result(
+            {
+                "file_path": str(results_directory),
+                "file_name": "big_ep_model_ispyb.json",
+                "file_type": "Result",
+                "importance_rank": 2,
+            }
+        )
     except Exception:
-        pass
+        result = False
 
     for pipeline_logfile in log_files:
         if os.path.isfile(pipeline_logfile):
-            record_result(
-                {
-                    "file_path": os.path.dirname(pipeline_logfile),
-                    "file_name": os.path.basename(pipeline_logfile),
-                    "file_type": "log",
-                    "importance_rank": 1,
-                }
-            )
-    record_result(
-        {
-            "file_path": results_directory,
-            "file_name": "big_ep_model_ispyb.json",
-            "file_type": "Result",
-            "importance_rank": 2,
-        }
-    )
+            try:
+                record_result(
+                    {
+                        "file_path": os.path.dirname(pipeline_logfile),
+                        "file_name": os.path.basename(pipeline_logfile),
+                        "file_type": "log",
+                        "importance_rank": 1,
+                    }
+                )
+            except Exception:
+                result = False
     return result

@@ -276,11 +276,14 @@ class BigEPWrapper(Wrapper):
 
         pipeline = self.recwrap.environment.get("pipeline")
 
-        output_directory = working_directory / pipeline
-        output_directory.mkdir(parents=True, exist_ok=True)
-
         input_mtz = Path(params["ispyb_parameters"]["data"]).name
-        shutil.move(working_directory / input_mtz, output_directory)
+
+        if pipeline == "autoSHARP":
+            output_directory = working_directory
+        else:
+            output_directory = working_directory / pipeline
+            output_directory.mkdir(parents=True, exist_ok=True)
+            shutil.move(working_directory / input_mtz, output_directory)
         self.msg.wd = str(output_directory)
 
         tmpl_env = Environment(loader=PackageLoader("dlstbx.util", "big_ep_templates"))
@@ -293,10 +296,6 @@ class BigEPWrapper(Wrapper):
             write_sequence_file(output_directory, self.msg)
         except Exception:
             self.log.exception("Error writing sequence file")
-        try:
-            write_settings_file(output_directory, self.msg)
-        except Exception:
-            self.log.exception("Error reading big_ep parameters")
 
         self.log.info(f"Message object: {pformat(self.msg)}")
         self.log.info(f"Parameters: {params}")
@@ -328,6 +327,42 @@ class BigEPWrapper(Wrapper):
         self.log.info(f"command: {pipeline_script}")
         self.log.info(f"runtime: {runtime}")
 
+        if pipeline == "autoSHARP":
+            output_directory = working_directory / pipeline
+
+        if success:
+            self.log.info(f"{pipeline} successful, took {runtime} seconds")
+            ## HTCondor resolves symlinks while transferring data and doesn't support symlinks to directories
+            # if self.msg.singularity_image:
+            #    for tmp_file in output_directory.rglob("*"):
+            #        if (
+            #            tmp_file.is_symlink() and tmp_file.is_dir()
+            #        ) or tmp_file.suffix == ".h5":
+            #            tmp_file.unlink(True)
+            if pipeline == "autoSHARP":
+                mdl_dict = get_autosharp_model_files(output_directory, self.log)
+            elif pipeline == "AutoBuild":
+                mdl_dict = get_autobuild_model_files(output_directory, self.log)
+            elif pipeline == "Crank2":
+                mdl_dict = get_crank2_model_files(output_directory, self.log)
+            else:
+                self.log.error(f"Big_EP was run with an unknown {pipeline = }.")
+                return False
+            if mdl_dict:
+                ispyb_write_model_json(str(output_directory), mdl_dict, self.log)
+                write_coot_script(str(output_directory), mdl_dict)
+            else:
+                self.log.error(f"Cannot process {pipeline} results.")
+                success = False
+            try:
+                write_settings_file(output_directory, self.msg)
+            except Exception:
+                self.log.exception("Error reading big_ep parameters")
+        else:
+            self.log.info(f"{pipeline} failed with exitcode {result.returncode}")
+            self.log.debug(result.stdout)
+            self.log.debug(result.stderr)
+
         try:
             if minio_client := params.get("minio_client"):
                 iris.store_results_in_s3(
@@ -342,24 +377,9 @@ class BigEPWrapper(Wrapper):
                 f"Error compressing {pipeline} output directory", exc_info=True
             )
 
-        if success:
-            self.log.info(f"{pipeline} successful, took {runtime} seconds")
-            # HTCondor resolves symlinks while transferring data and doesn't support symlinks to directories
-            if self.msg.singularity_image:
-                for tmp_file in output_directory.rglob("*"):
-                    if (
-                        tmp_file.is_symlink() and tmp_file.is_dir()
-                    ) or tmp_file.suffix == ".h5":
-                        tmp_file.unlink(True)
-        else:
-            self.log.info(f"{pipeline} failed with exitcode {result.returncode}")
-            self.log.debug(result.stdout)
-            self.log.debug(result.stderr)
-
         return success
 
     def report(self, working_directory: Path, params: dict, success: bool):
-        results_directory = Path(params["results_directory"])
 
         tmpl_env = Environment(loader=PackageLoader("dlstbx.util", "big_ep_templates"))
 
@@ -413,48 +433,34 @@ class BigEPWrapper(Wrapper):
                 f"Error uncompressing {pipeline} output directory", exc_info=True
             )
 
-        if success:
-            if pipeline == "autoSHARP":
-                working_directory = working_directory / "autoSHARP" / "autoSHARP"
-                mdl_dict = get_autosharp_model_files(working_directory, self.log)
-            elif pipeline == "AutoBuild":
-                mdl_dict = get_autobuild_model_files(working_directory, self.log)
-            elif pipeline == "Crank2":
-                mdl_dict = get_crank2_model_files(working_directory, self.log)
-            else:
-                self.log.error(f"Big_EP was run with an unknown {pipeline = }.")
-                return False
-            if mdl_dict:
-                ispyb_write_model_json(str(working_directory), mdl_dict, self.log)
-                write_coot_script(str(working_directory), mdl_dict)
-            else:
-                self.log.error(f"Cannot process {pipeline} results.")
-                success = False
+        working_directory = working_directory / pipeline
 
-        if "devel" not in params:
+        if results_directory := params.get("results_directory"):
+            results_directory = Path(results_directory) / pipeline
             skip_copy = [".launch", ".recipewrap"]
-            if params.get("results_directory"):
-                copy_results(
-                    str(working_directory),
-                    str(results_directory),
-                    skip_copy,
-                    self.log,
-                )
-                if params.get("create_symlink"):
-                    upstream = params["create_symlink"].replace("/", "-")
-                    create_parent_symlink(results_directory, f"{pipeline}-{upstream}")
-                if success:
-                    send_results_to_ispyb(
-                        params.get("results_directory"),
-                        params.get("log_files"),
-                        self.record_result_individual_file,
-                    )
-            else:
-                self.log.debug("Result directory not specified")
+            copy_results(
+                str(working_directory),
+                str(results_directory),
+                skip_copy,
+                self.log,
+            )
+            if params.get("create_symlink"):
+                upstream = params["create_symlink"].replace("/", "-")
+                create_parent_symlink(results_directory, f"{pipeline}-{upstream}")
+        else:
+            self.log.debug("Result directory not specified")
+            return success
+
+        if success:
+            send_results_to_ispyb(
+                results_directory,
+                params.get("log_files"),
+                self.record_result_individual_file,
+            )
 
         self.log.debug("Generating model density images")
         try:
-            bpu.generate_model_snapshots(str(working_directory), tmpl_env, tmpl_data)
+            bpu.generate_model_snapshots(str(results_directory), tmpl_env, tmpl_data)
         except Exception:
             self.log.debug(
                 "Exception raised while generating model snapshots", exc_info=True
@@ -514,7 +520,7 @@ class BigEPWrapper(Wrapper):
         if success:
             self.log.debug("Generating HTML summary")
             html_template = tmpl_env.get_template("bigep_summary.html")
-            with open(working_directory / "bigep_report.html", "w") as fp:
+            with open(results_directory / "bigep_report.html", "w") as fp:
                 try:
                     summary_html = html_template.render(tmpl_data)
                 except UndefinedError:
@@ -525,19 +531,17 @@ class BigEPWrapper(Wrapper):
                     summary_html, pipeline, email_list, tmpl_data
                 )
 
-            self.log.info(f"Copying big_ep report to {str(results_directory)}")
+            self.log.debug("Registering results files in ISPyB")
             keep_ext = {".html": "log", ".png": "log"}
-            for filename in working_directory.iterdir():
+            for filename in results_directory.iterdir():
                 filetype = keep_ext.get(filename.suffix)
                 if filetype is None:
                     continue
-                destination = results_directory / filename.name
-                shutil.copy(filename, destination)
                 if filename.suffix == ".png":
                     self.record_result_individual_file(
                         {
-                            "file_path": str(destination.parent),
-                            "file_name": destination.name,
+                            "file_path": str(filename.parent),
+                            "file_name": filename.name,
                             "file_type": filetype,
                             "importance_rank": 2,
                         }

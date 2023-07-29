@@ -52,18 +52,20 @@ def copy_results(working_directory, results_directory, skip_copy, logger):
     shutil.copytree(
         working_directory,
         results_directory,
-        symlinks=False,
-        ignore_dangling_symlinks=True,
+        symlinks=True,
+        ignore_dangling_symlinks=False,
         ignore=ignore_func,
     )
     src_pth_esc = r"\/".join(os.path.dirname(working_directory).split(os.sep))
+    condor_pth_esc = r"\/var\/lib\/condor\/execute\/dir_[0-9]\+"
     dest_pth_esc = r"\/".join(os.path.dirname(results_directory).split(os.sep))
-    sed_command = (
-        r"find %s -type f -exec grep -Iq . {} \; -and -exec sed -ci 's/%s/%s/g' {} +"
-        % (results_directory, src_pth_esc, dest_pth_esc)
-    )
-    logger.info(f"Running sed command: {sed_command}")
-    try:
-        subprocess.call([sed_command], shell=True)
-    except Exception:
-        logger.warning("Failed to run sed command to update paths", exc_info=True)
+    for pth in (src_pth_esc, condor_pth_esc):
+        sed_command = (
+            r"find %s -type f -exec grep -Iq . {} \; -and -exec sed -ci 's/%s/%s/g' {} +"
+            % (results_directory, pth, dest_pth_esc)
+        )
+        logger.info(f"Running sed command: {sed_command}")
+        try:
+            subprocess.call([sed_command], shell=True)
+        except Exception:
+            logger.warning("Failed to run sed command to update paths", exc_info=True)

@@ -286,8 +286,7 @@ class BigEPWrapper(Wrapper):
             shutil.move(working_directory / input_mtz, output_directory)
         self.msg.wd = str(output_directory)
 
-        tmpl_env = Environment(loader=PackageLoader("dlstbx.util", "big_ep_templates"))
-        pipeline_template = tmpl_env.get_template(f"{pipeline}.sh")
+        pipeline_template = params["tmpl_env"].get_template(f"{pipeline}.sh")
         pipeline_script = output_directory / f"run_{pipeline}.sh"
 
         self.msg.singularity_image = params.get("singularity_image")
@@ -358,6 +357,14 @@ class BigEPWrapper(Wrapper):
                 write_settings_file(output_directory, self.msg)
             except Exception:
                 self.log.exception("Error reading big_ep parameters")
+            self.log.info("Generating model density images")
+            try:
+                bpu.generate_model_snapshots(
+                    str(output_directory), pipeline, params["tmpl_env"]
+                )
+            except Exception:
+                self.log.exception("Exception raised while generating model snapshots")
+
         else:
             self.log.info(f"{pipeline} failed with exitcode {result.returncode}")
             self.log.debug(result.stdout)
@@ -380,8 +387,6 @@ class BigEPWrapper(Wrapper):
         return success
 
     def report(self, working_directory: Path, params: dict, success: bool):
-
-        tmpl_env = Environment(loader=PackageLoader("dlstbx.util", "big_ep_templates"))
 
         dcid = params["dcid"]
         fast_ep_path = params["fast_ep_path"]
@@ -419,26 +424,9 @@ class BigEPWrapper(Wrapper):
             )
 
         working_directory = working_directory / pipeline
-
-        if results_directory := params.get("results_directory"):
-            results_directory = Path(results_directory) / pipeline
-            skip_copy = [".launch", ".recipewrap"]
-            copy_results(
-                str(working_directory),
-                str(results_directory),
-                skip_copy,
-                self.log,
-            )
-            if params.get("create_symlink"):
-                upstream = params["create_symlink"].replace("/", "-")
-                create_parent_symlink(results_directory, f"{pipeline}-{upstream}")
-        else:
-            self.log.debug("Result directory not specified")
-            return success
-
         tmpl_data = {
             "pipeline": pipeline,
-            "big_ep_path": str(results_directory),
+            "big_ep_path": str(working_directory),
             "dcid": dcid,
             "visit": params["visit"],
             "proposal": self.recwrap.environment["proposal_title"],
@@ -448,23 +436,10 @@ class BigEPWrapper(Wrapper):
             "xia2_logs": xia2_log_files,
             "html_images": {},
         }
-
-        tmpl_data.update({"settings": self.recwrap.environment["msg"]})
-
-        if success:
-            send_results_to_ispyb(
-                results_directory,
-                params.get("log_files"),
-                self.record_result_individual_file,
-            )
-
-        self.log.debug("Generating model density images")
-        try:
-            bpu.generate_model_snapshots(str(results_directory), tmpl_env, tmpl_data)
-        except Exception:
-            self.log.debug(
-                "Exception raised while generating model snapshots", exc_info=True
-            )
+        tmpl_data["settings"] = self.recwrap.environment["msg"]
+        if results_directory := params.get("results_directory"):
+            results_directory = Path(results_directory) / pipeline
+            tmpl_data["big_ep_path"] = str(results_directory)
 
         self.log.debug("Generating plots for fast_ep summary")
         try:
@@ -519,8 +494,9 @@ class BigEPWrapper(Wrapper):
 
         if success:
             self.log.debug("Generating HTML summary")
-            html_template = tmpl_env.get_template("bigep_summary.html")
-            with open(results_directory / "bigep_report.html", "w") as fp:
+            bpu.read_model_snapshots(working_directory, pipeline, tmpl_data)
+            html_template = params["tmpl_env"].get_template("bigep_summary.html")
+            with open(working_directory / "bigep_report.html", "w") as fp:
                 try:
                     summary_html = html_template.render(tmpl_data)
                 except UndefinedError:
@@ -531,7 +507,29 @@ class BigEPWrapper(Wrapper):
                     summary_html, pipeline, email_list, tmpl_data
                 )
 
+        if results_directory:
+            skip_copy = [".launch", ".recipewrap"]
+            copy_results(
+                str(working_directory),
+                str(results_directory),
+                skip_copy,
+                self.log,
+            )
+            if params.get("create_symlink"):
+                upstream = params["create_symlink"].replace("/", "-")
+                create_parent_symlink(results_directory, f"{pipeline}-{upstream}")
+        else:
+            self.log.debug("Result directory not specified")
+            return success
+
+        if success:
             self.log.debug("Registering results files in ISPyB")
+            send_results_to_ispyb(
+                results_directory,
+                params.get("log_files"),
+                self.record_result_individual_file,
+            )
+
             keep_ext = {".html": "log", ".png": "log"}
             for filename in results_directory.iterdir():
                 filetype = keep_ext.get(filename.suffix)
@@ -557,6 +555,10 @@ class BigEPWrapper(Wrapper):
         # Create working directory with symbolic link
         working_directory = Path(params.get("working_directory", os.getcwd()))
         working_directory.mkdir(parents=True, exist_ok=True)
+
+        params["tmpl_env"] = Environment(
+            loader=PackageLoader("dlstbx.util", "big_ep_templates")
+        )
 
         if params.get("s3echo"):
             params["minio_client"] = iris.get_minio_client(

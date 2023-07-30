@@ -203,26 +203,9 @@ def read_xia2_processing(tmpl_data):
         save_plot("graph_anom", [anom_data])
 
 
-def read_settings_file(tmpl_data):
-
-    json_path = next(
-        iter(
-            glob.glob(
-                os.path.join(tmpl_data["big_ep_path"], "*", "*", "big_ep_settings.json")
-            )
-        )
-    )
-    with open(json_path) as json_file:
-        msg_json = json.load(json_file)
-        tmpl_data.update({"settings": msg_json})
-
-
-def generate_model_snapshots(working_directory, tmpl_env, tmpl_data):
-    tmpl_data["model_images"] = {}
-    tmpl_data["model_data"] = {}
+def generate_model_snapshots(working_directory, pipeline, tmpl_env):
 
     logger.info(f"Model path: {working_directory}")
-    tag_name = tmpl_data["pipeline"]
     try:
         mdl_data = get_map_model_from_json(working_directory)
     except Exception:
@@ -236,26 +219,22 @@ def generate_model_snapshots(working_directory, tmpl_env, tmpl_data):
         pdb_file_coot = mdl_data["pdb"]
     except Exception:
         pdb_file_coot = False
-    model_py = os.path.join(working_directory, tag_name + "_models.py")
-    coot_sh = os.path.join(working_directory, tag_name + "_models.sh")
-    img_name = f"{tag_name}_model"
+    model_py = os.path.join(working_directory, pipeline + "_models.py")
+    coot_sh = os.path.join(working_directory, pipeline + "_models.sh")
+    img_name = f"{pipeline}_model"
     coot_py_template = tmpl_env.get_template("coot_model.tmpl")
     with open(model_py, "wt") as f:
         coot_script = coot_py_template.render(
             {
                 "map_file": map_file_coot,
                 "pdb_file": pdb_file_coot,
-                "tag_name": tag_name,
+                "tag_name": pipeline,
             }
         )
         f.write(coot_script)
     sh_script = [
         "#!/bin/bash",
-        ". /etc/profile.d/modules.sh",
-        "module purge",
-        "module load ccp4/7.1",
-        "module load python/3",
-        f"coot --python {model_py} --no-graphics --no-guano",
+        f"coot --script {model_py} --no-graphics --no-guano",
     ]
     for idx in range(3):
         sh_script.append(
@@ -264,16 +243,26 @@ def generate_model_snapshots(working_directory, tmpl_env, tmpl_data):
     with open(coot_sh, "wt") as f:
         f.write(os.linesep.join(sh_script))
     subprocess.run(["sh", coot_sh], cwd=working_directory)
+
+
+def read_model_snapshots(working_directory, pipeline, tmpl_data):
+    try:
+        mdl_data = get_map_model_from_json(working_directory)
+        tmpl_data["model_data"] = {pipeline: mdl_data["data"]}
+    except Exception:
+        logger.info(f"Cannot read map/model data from {working_directory}")
+        return
+    img_name = f"{pipeline}_model"
     for idx in range(3):
+        img_filename = f"{img_name}_{idx}"
         try:
             with open(
-                os.path.join(working_directory, f"{img_name}_{idx}.png"), "rb"
+                os.path.join(working_directory, f"{img_filename}.png"), "rb"
             ) as f:
                 img_data = f.read()
-                tmpl_data["html_images"]["_".join([img_name, str(idx)])] = img_data
+                tmpl_data["html_images"][img_filename] = img_data
         except OSError:
             pass
-    tmpl_data["model_data"].update({tag_name: mdl_data["data"]})
 
 
 def get_pia_plot(tmpl_data, image_number, resolution, spot_count, bragg_candidates):

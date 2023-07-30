@@ -403,21 +403,6 @@ class BigEPWrapper(Wrapper):
                 "pipeline", "N/A"
             )
 
-        tmpl_data = {
-            "pipeline": pipeline,
-            "big_ep_path": params["big_ep_path"],
-            "dcid": dcid,
-            "visit": params["visit"],
-            "proposal": self.recwrap.environment["proposal_title"],
-            "mtz": params["data"],
-            "image_template": params["image_template"],
-            "image_directory": params["image_directory"],
-            "xia2_logs": xia2_log_files,
-            "html_images": {},
-        }
-
-        tmpl_data.update({"settings": self.recwrap.environment["msg"]})
-
         try:
             if minio_client := params.get("minio_client"):
                 iris.retrieve_results_from_s3(
@@ -450,6 +435,21 @@ class BigEPWrapper(Wrapper):
         else:
             self.log.debug("Result directory not specified")
             return success
+
+        tmpl_data = {
+            "pipeline": pipeline,
+            "big_ep_path": str(results_directory),
+            "dcid": dcid,
+            "visit": params["visit"],
+            "proposal": self.recwrap.environment["proposal_title"],
+            "mtz": params["data"],
+            "image_template": params["image_template"],
+            "image_directory": params["image_directory"],
+            "xia2_logs": xia2_log_files,
+            "html_images": {},
+        }
+
+        tmpl_data.update({"settings": self.recwrap.environment["msg"]})
 
         if success:
             send_results_to_ispyb(

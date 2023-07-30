@@ -8,6 +8,7 @@ import math
 import os
 import platform
 import smtplib
+import subprocess
 import tempfile
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -15,7 +16,6 @@ from email.mime.text import MIMEText
 
 import matplotlib as mpl
 import numpy as np
-import procrunner
 from iotbx import data_plots
 
 from dlstbx.util.big_ep_helpers import get_map_model_from_json
@@ -217,74 +217,63 @@ def read_settings_file(tmpl_data):
         tmpl_data.update({"settings": msg_json})
 
 
-def generate_model_snapshots(root_wd, tmpl_env, tmpl_data):
+def generate_model_snapshots(working_directory, tmpl_env, tmpl_data):
+    tmpl_data["model_images"] = {}
+    tmpl_data["model_data"] = {}
 
-    tmpl_data.update({"model_images": {}})
-    tmpl_data.update({"model_data": {}})
-
-    model_path = tmpl_data["big_ep_path"]
-    if tmpl_data["pipeline"] == "autoSHARP":
-        model_path = os.path.join(tmpl_data["big_ep_path"], tmpl_data["pipeline"])
-    logger.info(f"Model path: {model_path}")
-    for tag_name, map_model_path in {
-        tmpl_data["pipeline"]: model_path,
-    }.items():
+    logger.info(f"Model path: {working_directory}")
+    tag_name = tmpl_data["pipeline"]
+    try:
+        mdl_data = get_map_model_from_json(working_directory)
+    except Exception:
+        logger.info(f"Cannot read map/model data from {working_directory}")
+        return
+    try:
+        map_file_coot = mdl_data["map"]
+    except Exception:
+        map_file_coot = False
+    try:
+        pdb_file_coot = mdl_data["pdb"]
+    except Exception:
+        pdb_file_coot = False
+    model_py = os.path.join(working_directory, tag_name + "_models.py")
+    coot_sh = os.path.join(working_directory, tag_name + "_models.sh")
+    img_name = f"{tag_name}_model"
+    coot_py_template = tmpl_env.get_template("coot_model.tmpl")
+    with open(model_py, "wt") as f:
+        coot_script = coot_py_template.render(
+            {
+                "map_file": map_file_coot,
+                "pdb_file": pdb_file_coot,
+                "tag_name": tag_name,
+            }
+        )
+        f.write(coot_script)
+    sh_script = [
+        "#!/bin/bash",
+        ". /etc/profile.d/modules.sh",
+        "module purge",
+        "module load ccp4/7.1",
+        "module load python/3",
+        f"coot --python {model_py} --no-graphics --no-guano",
+    ]
+    for idx in range(3):
+        sh_script.append(
+            f"cat raster_{img_name}_{idx}.r3d | render -transparent -png {img_name}_{idx}.png"
+        )
+    with open(coot_sh, "wt") as f:
+        f.write(os.linesep.join(sh_script))
+    subprocess.run(["sh", coot_sh], cwd=working_directory)
+    for idx in range(3):
         try:
-            mdl_data = get_map_model_from_json(map_model_path)
-        except Exception:
-            logger.info("Cannot read map/model data from %s", map_model_path)
-            continue
-
-        try:
-            map_file_coot = mdl_data["map"]
-        except Exception:
-            map_file_coot = False
-
-        try:
-            pdb_file_coot = mdl_data["pdb"]
-        except Exception:
-            pdb_file_coot = False
-
-        model_py = os.path.join(root_wd, tag_name + "_models.py")
-        coot_sh = os.path.join(root_wd, tag_name + "_models.sh")
-
-        img_name = f"{tag_name}_model"
-
-        coot_py_template = tmpl_env.get_template("coot_model.tmpl")
-        with open(model_py, "wt") as f:
-            coot_script = coot_py_template.render(
-                {
-                    "map_file": map_file_coot,
-                    "pdb_file": pdb_file_coot,
-                    "tag_name": tag_name,
-                }
-            )
-            f.write(coot_script)
-
-        sh_script = [
-            "#!/bin/bash",
-            ". /etc/profile.d/modules.sh",
-            "module purge",
-            "module load ccp4/7.1",
-            "module load python/3",
-            f"coot --python {model_py} --no-graphics --no-guano",
-        ]
-        for idx in range(3):
-            sh_script.append(
-                f"cat raster_{img_name}_{idx}.r3d | render -transparent -png {img_name}_{idx}.png"
-            )
-        with open(coot_sh, "wt") as f:
-            f.write(os.linesep.join(sh_script))
-
-        procrunner.run(["sh", coot_sh], working_directory=root_wd)
-        for idx in range(3):
-            try:
-                with open(os.path.join(root_wd, f"{img_name}_{idx}.png"), "rb") as f:
-                    img_data = f.read()
-                    tmpl_data["html_images"]["_".join([img_name, str(idx)])] = img_data
-            except OSError:
-                pass
-        tmpl_data["model_data"].update({tag_name: mdl_data["data"]})
+            with open(
+                os.path.join(working_directory, f"{img_name}_{idx}.png"), "rb"
+            ) as f:
+                img_data = f.read()
+                tmpl_data["html_images"]["_".join([img_name, str(idx)])] = img_data
+        except OSError:
+            pass
+    tmpl_data["model_data"].update({tag_name: mdl_data["data"]})
 
 
 def get_pia_plot(tmpl_data, image_number, resolution, spot_count, bragg_candidates):

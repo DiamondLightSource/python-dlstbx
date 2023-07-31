@@ -234,7 +234,7 @@ def generate_model_snapshots(working_directory, pipeline, tmpl_env):
         f.write(coot_script)
     sh_script = [
         "#!/bin/bash",
-        f"coot --script {model_py} --no-graphics --no-guano",
+        f"coot --script {model_py} --no-graphics --no-guano --no-state-script --no-startup-scripts",
     ]
     for idx in range(3):
         sh_script.append(

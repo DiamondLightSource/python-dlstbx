@@ -248,6 +248,17 @@ def retrieve_results_from_s3(
         bucket_name, s3echo_filename, working_directory / s3echo_filename
     )
     decompress_results_file(working_directory, s3echo_filename, logger)
+
+    # Fix ACL mask for files extracted from .tar archive
+    result = subprocess.run(
+        ["setfacl", "-R", "-m", "m:rw", results_filename],
+        cwd=working_directory,
+    )
+    if not result.returncode:
+        logger.info(f"Resetting ALC mask to m:rw for {results_filename}")
+    else:
+        logger.info(f"Failed to reset ALC mask for {results_filename}")
+
     minio_client.remove_object(bucket_name, s3echo_filename)
     os.remove(working_directory / s3echo_filename)
 

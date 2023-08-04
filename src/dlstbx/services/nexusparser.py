@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import os.path
 
 import workflows.recipe
@@ -69,6 +70,13 @@ class DLSNexusParser(CommonService):
         self.log.debug("Finding files related to %s", root_file)
         try:
             related = dlstbx.util.hdf5.find_all_references(root_file)
+            if root_file.endswith("_master.h5"):
+                prefix = re.sub("_master.h5$", "", root_file)
+                if not f"{prefix}.nxs" in related:
+                    related.append(f"{prefix}.nxs")
+                if not f"{prefix}_meta.h5" in related:
+                    related.append(f"{prefix}_meta.h5")
+
         except (ValueError, KeyError):
             self.log.error(
                 f"Could not find files related to {root_file}", exc_info=True

@@ -17,15 +17,15 @@ class ValidationError(Exception):
 
 
 def find_all_references(startfile):
+    image_count = collections.defaultdict(int)
     startfile = os.path.abspath(startfile)
     if not os.path.exists(startfile):
         log.error(
             "Can not find references from file %s. This file does not exist.", startfile
         )
-        return []
+        return image_count
     filepath = os.path.dirname(startfile)
 
-    image_count = collections.defaultdict(int)
     image_count[startfile] = 0
     with h5py.File(startfile, "r") as fh:
         try:

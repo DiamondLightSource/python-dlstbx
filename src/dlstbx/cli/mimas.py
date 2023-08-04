@@ -79,6 +79,7 @@ def get_scenarios(dcid, session: sqlalchemy.orm.session.Session):
         else dlstbx.mimas.MimasDetectorClass.PILATUS
     )
     sequence = ispyb_info.get("ispyb_sequence")
+    dcg_experiment_type = ispyb_info.get("dcg_experiment_type")
     scenarios = []
     for event in (dlstbx.mimas.MimasEvent.START, dlstbx.mimas.MimasEvent.END):
         scenario = dlstbx.mimas.MimasScenario(
@@ -98,6 +99,7 @@ def get_scenarios(dcid, session: sqlalchemy.orm.session.Session):
             detectorclass=detectorclass,
             anomalous_scatterer=anomalous_scatterer,
             sequence=sequence,
+            dcg_experiment_type=dcg_experiment_type,
         )
         try:
             dlstbx.mimas.validate(scenario)

@@ -322,7 +322,7 @@ class ispybtbx:
         c = crud.get_crystal_for_dcid(dcid, session)
         if c is None:
             return None, None, None
-        elif c.spacegroup is None:
+        elif c.spaceGroup is None:
             return None, None, c.Protein.sequence
         proto_cell = (
             c.cell_a,
@@ -933,6 +933,22 @@ def ispyb_filter(
         if not parameters.get("ispyb_images"):
             parameters["ispyb_images"] = ",".join(related_images)
 
+        # TODO: figure out this block of code
+        for dc in related:
+
+            # FIXME logic: should this exclude dc > dc_id?
+            if dc == dc_id:
+                continue
+
+            info = i.get_dc_info(dc, session)
+            print(info)
+            etype = i.get_dcg_experiment_type(
+                info.get("dataCollectionGroupId"), session
+            )
+            other_dc_class = i.classify_dc(info, etype)
+            if other_dc_class["rotation"]:
+                start, end = i.dc_info_to_start_end(info)
+        # TODO: figure out the above block of code
     return message, parameters
 
 

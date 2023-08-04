@@ -9,6 +9,7 @@ from dlstbx.mimas.core import (
     is_end_group,
     is_pilatus,
     is_serial,
+    is_screening,
     is_start,
     xia2_dials_absorption_params,
 )
@@ -48,9 +49,12 @@ def handle_i19_start_pilatus(
 def handle_i19_end_pilatus(
     scenario: mimas.MimasScenario, **kwargs
 ) -> List[mimas.Invocation]:
+    recipes = ["archive-cbfs", "processing-rlv"]
+    if scenario.dcg_experiment_type == "Screening":
+        recipes.append("strategy-screen19")
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
-        for recipe in ("archive-cbfs", "processing-rlv", "strategy-screen19")
+        for recipe in recipes
     ]
 
 
@@ -137,8 +141,20 @@ def handle_i19_end_eiger(
     ]
 
 
-@mimas.match_specification(is_i19 & is_end & ~is_serial)
+@mimas.match_specification(is_i19 & is_end & is_eiger & is_screening)
+def handle_i19_end_eiger_screening(
+    scenario: mimas.MimasScenario, **kwargs
+) -> List[mimas.Invocation]:
+    return [
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="strategy-screen19-eiger"
+        )
+    ]
+
+
+@mimas.match_specification(is_i19 & is_end & ~is_screening)
 def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invocation]:
+    print(scenario)
     tasks: List[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"

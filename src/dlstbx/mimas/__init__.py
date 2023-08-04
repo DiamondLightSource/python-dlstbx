@@ -77,6 +77,7 @@ class MimasScenario:
     anomalous_scatterer: Optional[MimasISPyBAnomalousScatterer] = None
     cloudbursting: Optional[list[dict[str, Any]]] = None
     sequence: Optional[str] = None
+    dcg_experiment_type: Optional[str] = None
 
 
 @dataclasses.dataclass(frozen=True)

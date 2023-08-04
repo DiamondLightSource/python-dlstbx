@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import re
 import os.path
+import re
 
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -72,9 +72,9 @@ class DLSNexusParser(CommonService):
             related = dlstbx.util.hdf5.find_all_references(root_file)
             if root_file.endswith("_master.h5"):
                 prefix = re.sub("_master.h5$", "", root_file)
-                if not f"{prefix}.nxs" in related:
+                if f"{prefix}.nxs" not in related:
                     related[f"{prefix}.nxs"] = 0
-                if not f"{prefix}_meta.h5" in related:
+                if f"{prefix}_meta.h5" not in related:
                     related[f"{prefix}_meta.h5"] = 0
 
         except (ValueError, KeyError):

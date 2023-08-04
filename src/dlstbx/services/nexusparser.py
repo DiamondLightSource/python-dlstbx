@@ -73,9 +73,9 @@ class DLSNexusParser(CommonService):
             if root_file.endswith("_master.h5"):
                 prefix = re.sub("_master.h5$", "", root_file)
                 if not f"{prefix}.nxs" in related:
-                    related.append(f"{prefix}.nxs")
+                    related[f"{prefix}.nxs"] += 1
                 if not f"{prefix}_meta.h5" in related:
-                    related.append(f"{prefix}_meta.h5")
+                    related[f"{prefix}_meta.h5"] += 1
 
         except (ValueError, KeyError):
             self.log.error(

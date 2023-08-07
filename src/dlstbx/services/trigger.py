@@ -42,6 +42,7 @@ class PrometheusMetrics(BasePrometheusMetrics):
 
 class DimpleParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
+    experiment_type: str
     scaling_id: int = pydantic.Field(gt=0)
     mtz: pathlib.Path
     pdb: list[PDBFileOrCode]
@@ -55,6 +56,7 @@ class ProteinInfo(pydantic.BaseModel):
 
 class MrBumpParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
+    experiment_type: str
     scaling_id: int = pydantic.Field(gt=0)
     protein_info: Optional[ProteinInfo] = None
     hklin: pathlib.Path
@@ -101,6 +103,7 @@ class Screen19MXParameters(pydantic.BaseModel):
 
 class BigEPParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
+    experiment_type: str
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
     program_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
@@ -124,6 +127,7 @@ class BigEPLauncherParameters(pydantic.BaseModel):
 
 class FastEPParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
+    experiment_type: str
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
     scaling_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
@@ -313,6 +317,12 @@ class DLSTrigger(CommonService):
             "pdb_tmpdir": "/path/to/pdb_tmpdir",
         }
         """
+
+        if parameters.experiment_type not in ("OSC", "SAD", "MAD", "Helical"):
+            self.log.info(
+                f"Skipping dimple trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
 
         dcid = parameters.dcid
 
@@ -653,6 +663,12 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
+        if parameters.experiment_type not in ("OSC", "SAD", "MAD", "Helical"):
+            self.log.info(
+                f"Skipping fast_ep trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
+
         if (
             not parameters.diffraction_plan_info
             or not parameters.diffraction_plan_info.anomalousScatterer
@@ -718,6 +734,12 @@ class DLSTrigger(CommonService):
         if not dcid:
             self.log.error("mrbump trigger failed: No DCID specified")
             return False
+
+        if parameters.experiment_type not in ("OSC", "SAD", "MAD"):
+            self.log.info(
+                f"Skipping mrbump trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
 
         if not (parameters.protein_info and parameters.protein_info.sequence):
             self.log.info("Skipping mrbump trigger: sequence information not available")
@@ -802,7 +824,6 @@ class DLSTrigger(CommonService):
         session,
         **kwargs,
     ):
-
         query = (
             session.query(Proposal)
             .join(BLSession, BLSession.proposalId == Proposal.proposalId)
@@ -878,6 +899,12 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
+        if parameters.experiment_type not in ("OSC", "SAD", "MAD", "Helical"):
+            self.log.info(
+                f"Skipping big_ep trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
+
         if not (
             parameters.diffraction_plan_info
             and parameters.diffraction_plan_info.anomalousScatterer

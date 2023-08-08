@@ -93,17 +93,15 @@ def gridscan3d(
         )
         x, y, z = object_slices[index - 1]
         bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))
-        vol = (x.stop - x.start) * (y.stop - y.start) * (z.stop - z.start)
-        if vol >= 27:
-            result = GridScan3DResult(
-                centre_of_mass=com,
-                max_voxel=max_voxel,
-                max_count=max_count,
-                n_voxels=n_voxels,
-                total_count=total_count,
-                bounding_box=bounding_box,
-            )
-            results.append(result)
+        result = GridScan3DResult(
+            centre_of_mass=com,
+            max_voxel=max_voxel,
+            max_count=max_count,
+            n_voxels=n_voxels,
+            total_count=total_count,
+            bounding_box=bounding_box,
+        )
+        results.append(result)
 
     if plot:
         plot_gridscan3d_results(data, reconstructed_3d, results)

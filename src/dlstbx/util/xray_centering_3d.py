@@ -64,10 +64,10 @@ def gridscan3d(
         int(r[0]) for r in np.where(reconstructed_3d == reconstructed_3d.max())
     )
     max_count = int(reconstructed_3d[max_idx])
-    thresholded = (reconstructed_3d >= threshold * max_count) * reconstructed_3d
-    # Count corner-corner contacts as a contiguous region
-    structure = np.ones((3, 3, 3))
-    labels, n_regions = scipy.ndimage.label(thresholded, structure=structure)
+    thresholded = (reconstructed_3d > 0) * reconstructed_3d
+
+    structure = scipy.ndimage.generate_binary_structure(3, 2)
+    labels, n_regions = scipy.ndimage.label(thresholded > 0, structure=structure)
     logger.info(f"Found {n_regions} distinct regions")
 
     object_slices = scipy.ndimage.find_objects(labels)

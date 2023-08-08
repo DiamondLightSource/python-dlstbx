@@ -28,6 +28,7 @@ class GridScan3DResult(GridScanResultBase):
 def gridscan3d(
     data: tuple[np.ndarray, ...],
     threshold: float = 0.25,
+    voxel: int = 8,
     plot: bool = False,
 ) -> list[GridScan3DResult]:
     """
@@ -64,10 +65,10 @@ def gridscan3d(
         int(r[0]) for r in np.where(reconstructed_3d == reconstructed_3d.max())
     )
     max_count = int(reconstructed_3d[max_idx])
-    thresholded = (reconstructed_3d >= threshold * max_count) * reconstructed_3d
-    # Count corner-corner contacts as a contiguous region
-    structure = np.ones((3, 3, 3))
-    labels, n_regions = scipy.ndimage.label(thresholded, structure=structure)
+    thresholded = (reconstructed_3d > 0) * reconstructed_3d
+
+    structure = scipy.ndimage.generate_binary_structure(3, 2)
+    labels, n_regions = scipy.ndimage.label(thresholded > 0, structure=structure)
     logger.info(f"Found {n_regions} distinct regions")
 
     object_slices = scipy.ndimage.find_objects(labels)
@@ -93,15 +94,17 @@ def gridscan3d(
         )
         x, y, z = object_slices[index - 1]
         bounding_box = ((x.start, y.start, z.start), (x.stop, y.stop, z.stop))
-        result = GridScan3DResult(
-            centre_of_mass=com,
-            max_voxel=max_voxel,
-            max_count=max_count,
-            n_voxels=n_voxels,
-            total_count=total_count,
-            bounding_box=bounding_box,
-        )
-        results.append(result)
+        vol = (x.stop - x.start) * (y.stop - y.start) * (z.stop - z.start)
+        if vol >= voxel:
+            result = GridScan3DResult(
+                centre_of_mass=com,
+                max_voxel=max_voxel,
+                max_count=max_count,
+                n_voxels=n_voxels,
+                total_count=total_count,
+                bounding_box=bounding_box,
+            )
+            results.append(result)
 
     if plot:
         plot_gridscan3d_results(data, reconstructed_3d, results)

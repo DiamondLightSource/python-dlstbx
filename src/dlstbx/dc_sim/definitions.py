@@ -42,10 +42,10 @@ tests = {
     },
     "i04-eiger-native": {
         "type": "mx",
-        "src_dir": "/dls/i04/data/2021/cm28182-2/20210416/TestInsulin/insulin1",
-        "src_run_num": (1,),
-        "src_prefix": ("insulin1",),
-        "use_sample_id": 3343400,
+        "src_dir": "/dls/i04/data/2023/mx23694-95/auto/TestProteinaseK/protk5",
+        "src_run_num": (2,),
+        "src_prefix": ("protk5",),
+        "use_sample_id": 4509789,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -57,10 +57,10 @@ tests = {
     },
     "i04-1-eiger-native": {
         "type": "mx",
-        "src_dir": "/dls/i04-1/data/2021/cm28181-3/gw/20210712/TestInsulin/Mpro_2",
+        "src_dir": "/dls/i04-1/data/2023/cm33904-3/TestLysozyme/Lys-Br16",
         "src_run_num": (1,),
-        "src_prefix": ("Mpro_2",),
-        "use_sample_id": 3481827,
+        "src_prefix": ("Lys-Br16",),
+        "use_sample_id": 4684404,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -72,10 +72,10 @@ tests = {
     },
     "i23-lysozyme": {
         "type": "mx",
-        "src_dir": "/dls/i23/data/2019/nr23017-1/20190117/lys_c_4p5keV",
+        "src_dir": "/dls/i23/data/2023/cm33851-2/TestLysozyme/lys_1_km70",
         "src_run_num": (1,),
         "src_prefix": ("data",),
-        "use_sample_id": 1998714,
+        "use_sample_id": 4493445,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

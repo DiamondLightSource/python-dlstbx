@@ -96,7 +96,7 @@ def construct_commandline(
     params: dict,
     logger: logging.LoggerAdapter,
     working_directory: Path | None = None,
-    image_directory: os.PathLike[str] | None = None,
+    input_image_directory: os.PathLike[str] | None = None,
 ):
     """Construct autoPROC command line.
     Takes job parameter dictionary, returns array."""
@@ -155,6 +155,7 @@ def construct_commandline(
 
             template, n_digits = template_regex(first_image_or_master_h5)
 
+        image_directory = input_image_directory
         if image_directory is None:
             image_directory, image_template = os.path.split(template)
         else:
@@ -522,7 +523,7 @@ class autoPROCWrapper(Wrapper):
 
         subprocess_directory = working_directory / "autoPROC"
         subprocess_directory.mkdir(parents=True, exist_ok=True)
-        image_directory = None
+        input_image_directory = None
 
         if s3_urls := self.recwrap.environment.get("s3_urls"):
             # Logger for recording data transfer rates from S3 Echo object store
@@ -543,13 +544,13 @@ class autoPROCWrapper(Wrapper):
             # We only want to override the image_directory when running in The Cloud,
             # as only then will the images have been copied locally. Otherwise use the
             # original image_directory.
-            image_directory = working_directory
+            input_image_directory = working_directory
 
         command = construct_commandline(
             params,
             self.log,
             working_directory=subprocess_directory,
-            image_directory=image_directory,
+            input_image_directory=input_image_directory,
         )
 
         # disable control sequence parameters from autoPROC output

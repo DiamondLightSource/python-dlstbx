@@ -9,7 +9,7 @@ import dlstbx.util.xray_centering
 import dlstbx.util.xray_centering_3d
 
 
-def skip_test_gridscan3d():
+def test_gridscan3d():
     # Data from:
     #   dials.import /dls/i03/data/2020/cm26458-4/gw/20201007/lyso_-45_1_master.h5 output.experiments=lyso_m45_1.expt
     #   dials.find_spots lyso_m45_1.expt output.reflections=lyso_m45_1.refl

@@ -42,9 +42,10 @@ class TimeoutHTTPAdapter(HTTPAdapter):
     #                                   ssl_version=ssl.PROTOCOL_TLSv1)
 
 
-def get_minio_client(configuration, user):
+def get_minio_client(configuration: str) -> minio.Minio:
     config = configparser.ConfigParser()
     config.read(configuration)
+    user = config.sections()[0]
     host = urllib.parse.urlparse(config[user]["endpoint"])
     minio_client = minio.Minio(
         host.netloc,

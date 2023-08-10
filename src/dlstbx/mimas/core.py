@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
+import zocalo.configuration
+
 from dlstbx import mimas
 from dlstbx.mimas.specification import (
     BeamlineSpecification,
     DCClassSpecification,
     DetectorClassSpecification,
     EventSpecification,
+    VisitSpecification,
 )
 
 MX_BEAMLINES = {"i02-1", "i02-2", "i03", "i04", "i04-1", "i23", "i24"}
@@ -181,10 +184,11 @@ def has_related_data_collections(scenario: mimas.MimasScenario):
 @mimas.match_specification(is_rotation & is_end & is_mx_beamline & ~is_vmxi)
 def handle_rotation_end(
     scenario: mimas.MimasScenario,
+    zc: zocalo.configuration.Configuration,
     **kwargs,
 ) -> List[mimas.Invocation]:
 
-    suffix = (
+    suffix = suffix_pref = (
         "-eiger" if scenario.detectorclass is mimas.MimasDetectorClass.EIGER else ""
     )
     tasks: List[mimas.Invocation] = [
@@ -252,17 +256,43 @@ def handle_rotation_end(
             mimas.MimasISPyBParameter(key="failover", value="true"),
         )
 
-    suffix = (
-        "-eiger" if scenario.detectorclass is mimas.MimasDetectorClass.EIGER else ""
-    )
+    triggervars: Tuple[mimas.MimasISPyBTriggerVariable, ...] = ()
+    if scenario.is_cloudbursting and "eiger" in suffix:
+        for group in zc.storage.get("zocalo.mimas.cloud", []):
+            cloud_spec = VisitSpecification(
+                set(group.get("visit_pattern", []))
+            ) & BeamlineSpecification(beamlines=set(group.get("beamlines", [])))
+
+            if group.get("cloudbursting", False) and cloud_spec.is_satisfied_by(
+                scenario
+            ):
+                suffix = "-eiger-cloud"
+                triggervars = (
+                    mimas.MimasISPyBTriggerVariable("statistic-cluster", "iris"),
+                )
+                break
+
+    pipelines = ("xia2/DIALS", "xia2/XDS", "autoPROC")
+    ppl_autostart: dict[str, bool] = {
+        ppl: scenario.preferred_processing == ppl for ppl in pipelines
+    }
+    ppl_suffix: dict[str, str] = {
+        ppl: suffix_pref if scenario.preferred_processing == ppl else suffix
+        for ppl in pipelines
+    }
+    ppl_triggervars: dict[str, Tuple[mimas.MimasISPyBTriggerVariable, ...]] = {
+        ppl: () if scenario.preferred_processing == ppl else triggervars
+        for ppl in pipelines
+    }
+
     for params in extra_params:
         tasks.extend(
             [
                 # xia2-dials
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
-                    autostart=scenario.preferred_processing == "xia2/DIALS",
-                    recipe=f"autoprocessing-xia2-dials{suffix}",
+                    autostart=ppl_autostart["xia2/DIALS"],
+                    recipe=f"autoprocessing-xia2-dials{ppl_suffix['xia2/DIALS']}",
                     source="automatic",
                     displayname="xia2 dials",
                     parameters=(
@@ -273,12 +303,13 @@ def handle_rotation_end(
                         *xia2_dials_beamline_extra_params,
                         *xia2_dials_absorption_params(scenario),
                     ),
+                    triggervariables=ppl_triggervars["xia2/DIALS"],
                 ),
                 # xia2-3dii
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
-                    autostart=scenario.preferred_processing == "xia2/XDS",
-                    recipe=f"autoprocessing-xia2-3dii{suffix}",
+                    autostart=ppl_autostart["xia2/XDS"],
+                    recipe=f"autoprocessing-xia2-3dii{ppl_suffix['xia2/XDS']}",
                     source="automatic",
                     displayname="xia2 3dii",
                     parameters=(
@@ -287,15 +318,17 @@ def handle_rotation_end(
                         ),
                         *params,
                     ),
+                    triggervariables=ppl_triggervars["xia2/XDS"],
                 ),
                 # autoPROC
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
-                    autostart=scenario.preferred_processing == "autoPROC",
-                    recipe=f"autoprocessing-autoPROC{suffix}",
+                    autostart=ppl_autostart["autoPROC"],
+                    recipe=f"autoprocessing-autoPROC{ppl_suffix['autoPROC']}",
                     source="automatic",
                     displayname="autoPROC",
                     parameters=params,
+                    triggervariables=ppl_triggervars["autoPROC"],
                 ),
             ]
         )
@@ -318,6 +351,7 @@ def handle_rotation_end(
                             *xia2_dials_absorption_params(scenario),
                         ),
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                        triggervariables=triggervars,
                     ),
                     # xia2-3dii
                     mimas.MimasISPyBJobInvocation(
@@ -333,6 +367,7 @@ def handle_rotation_end(
                             *params,
                         ),
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                        triggervariables=triggervars,
                     ),
                 ]
             )

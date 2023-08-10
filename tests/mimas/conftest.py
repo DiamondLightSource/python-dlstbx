@@ -14,7 +14,7 @@ def get_zocalo_commands():
         mock_zc = mock.MagicMock(zocalo.configuration.Configuration, autospec=True)
 
         commands = set()
-        actions = mimas.handle_scenario(scenario, zc=mock_zc, cluster_stats=None)
+        actions = mimas.handle_scenario(scenario, zc=mock_zc)
         for a in actions:
             mimas.validate(a)
             commands.add(mimas.zocalo_command_line(a).strip())

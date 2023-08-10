@@ -3,9 +3,12 @@ from __future__ import annotations
 import time
 from pprint import pformat
 
+import htcondor
+import minio
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
+from dlstbx.util.iris import get_minio_client
 from dlstbx.util.profiler import Profiler
 
 
@@ -21,12 +24,26 @@ class HTCondorWatcher(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.htcondorwatcher"
 
+    # STFC S3 Echo credentials
+    _s3echo_credentials = "/dls_sw/apps/zocalo/secrets/credentials-echo-mx.cfg"
+
     def initializing(self):
         """
         Subscribe to the htcondorwatcher queue. Received messages must be
         acknowledged.
         """
         self.log.info("HTCondorwatcher starting")
+
+        collector = htcondor.Collector(htcondor.param["COLLECTOR_HOST"])
+        schedd_ad = collector.locate(htcondor.DaemonTypes.Schedd)
+        self.schedd = htcondor.Schedd(schedd_ad)
+
+        self.minio_client: minio.Minio = get_minio_client(
+            HTCondorWatcher._s3echo_credentials
+        )
+
+        self._register_idle(30, self.update_htcondor_statistics)
+
         workflows.recipe.wrap_subscribe(
             self._transport,
             "htcondorwatcher",
@@ -34,6 +51,48 @@ class HTCondorWatcher(CommonService):
             acknowledgement=True,
             log_extender=self.extend_log,
         )
+
+    def update_htcondor_statistics(self):
+        """Gather job status statistics from STFC/IRIS and S3 Echo object store."""
+
+        # Query number of jobs on STRF/IRIS
+        data_pack = {
+            "statistic": "job-status",
+            "statistic-cluster": "iris",
+            "statistic-group": "cluster",
+            "statistic-timestamp": time.time(),
+        }
+        res = self.schedd.query(
+            constraint='Owner=="gda2"',
+            projection=["Owner", "ClusterId", "ProcId", "JobStatus", "Out"],
+        )
+        job_status_list = [job["JobStatus"] for job in res]
+        for label, code in (("waiting", 1), ("running", 2), ("hold", 5)):
+            data_pack[label] = job_status_list.count(code)
+
+        self._transport.broadcast("transient.statistics.cluster", data_pack)
+        self._transport.send("statistics.cluster", data_pack, persistent=False)
+
+        # Query S3 Echo object store usage
+        data_pack = {
+            "statistic": "used-storage",
+            "statistic-cluster": "s3echo",
+            "statistic-group": "dls-mx",
+            "statistic-timestamp": time.time(),
+        }
+        data_pack["total"] = 0
+        for bucket in self.minio_client.list_buckets():
+            data_pack[bucket.name] = 0
+            store_objects = [
+                obj.object_name for obj in self.minio_client.list_objects(bucket.name)
+            ]
+            for filename in store_objects:
+                result = self.minio_client.stat_object(bucket.name, filename)
+                data_pack[bucket.name] += result.size / 2**40
+                data_pack["total"] += result.size / 2**40
+
+        self._transport.broadcast("transient.statistics.cluster", data_pack)
+        self._transport.send("statistics.cluster", data_pack, persistent=False)
 
     def watch_jobs(self, rw, header, message):
         """
@@ -50,13 +109,6 @@ class HTCondorWatcher(CommonService):
 
         # Keep a record of os.stat timings
         os_stat_profiler = Profiler()
-
-        # Look for jobs
-        import htcondor
-
-        coll = htcondor.Collector(htcondor.param["COLLECTOR_HOST"])
-        schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
-        schedd = htcondor.Schedd(schedd_ad)
 
         # List jobs to wait for
         try:
@@ -93,7 +145,7 @@ class HTCondorWatcher(CommonService):
             #    and joblist[status["seen-jobs"]]
             # ):
             with os_stat_profiler.record():
-                res = schedd.query(
+                res = self.schedd.query(
                     constraint=f"ClusterId=={jobid}",
                     projection=["ClusterId", "ProcId", "JobStatus", "Out"],
                 )
@@ -144,7 +196,7 @@ class HTCondorWatcher(CommonService):
             runtime = time.time() - first_seen
             if timed_out:
                 # HTcondor watch operation has timed out. Put timed out job into Hold state.
-                act_result = schedd.act(
+                act_result = self.schedd.act(
                     htcondor.JobAction.Hold,
                     " && ".join([f"ClusterId == {jobid}" for jobid in seen_jobs]),
                     reason=f"Job timed out after {runtime} seconds",

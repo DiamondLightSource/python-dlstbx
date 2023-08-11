@@ -10,7 +10,7 @@ import pathlib
 import re
 import subprocess
 from pprint import pformat
-from typing import Optional
+from typing import Mapping, Optional
 
 import pkg_resources
 import pydantic
@@ -470,8 +470,13 @@ class DLSCluster(CommonService):
                 self._transport.nack(header)
                 return
         else:
+            cluster_parameters = parameters.get("cluster", {})
+            if not isinstance(cluster_parameters, Mapping):
+                self.log.error("Cannot extract parameters from field: cluster")
+                self._transport.nack(header)
+                return
             try:
-                params = JobSubmissionParameters(**parameters.get("cluster", {}))
+                params = JobSubmissionParameters(cluster_parameters)
             except pydantic.ValidationError as e:
                 self.log.error(
                     "Error creating JobSubmissionParameters: %s", str(e), exc_info=True

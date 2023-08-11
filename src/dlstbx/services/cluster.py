@@ -411,14 +411,22 @@ class DLSCluster(CommonService):
             account = parameters.get("cluster_project")
             queue = parameters.get("cluster_queue")
             commands = parameters.get("cluster_commands")
-            params = JobSubmissionParameters(
-                scheduler="grid_engine",
-                cluster=cluster,
-                account=account,
-                commands=commands,
-                qsub_submission_parameters=cluster_submission_parameters,
-                queue=queue,
-            )
+            try:
+                params = JobSubmissionParameters(
+                    scheduler="grid_engine",
+                    cluster=cluster,
+                    account=account,
+                    commands=commands,
+                    qsub_submission_parameters=cluster_submission_parameters,
+                    queue=queue,
+                )
+            except pydantic.ValidationError as e:
+                self.log.error(
+                    "Error creating JobSubmissionParameters: %s", str(e), exc_info=True
+                )
+                self._transport.nack(header)
+                return
+
         elif isinstance(legacy_cluster_submission_parameters, dict):
             # Dictionary of values for htcondor submission
             self.log.warning(
@@ -443,17 +451,33 @@ class DLSCluster(CommonService):
                 legacy_cluster_submission_parameters["environment"] = dict(
                     item.split("=") for item in environment.split()
                 )
-            params = JobSubmissionParameters(
-                **legacy_cluster_submission_parameters,
-                scheduler="htcondor",
-                cpus_per_task=cpus_per_task,
-                max_memory_per_cpu=max_memory_per_cpu,
-                max_disk_per_cpu=max_disk_per_cpu,
-                job_name=legacy_cluster_submission_parameters["output"].split(".")[0],
-                commands=parameters["cluster_commands"],
-            )
+            try:
+                params = JobSubmissionParameters(
+                    **legacy_cluster_submission_parameters,
+                    scheduler="htcondor",
+                    cpus_per_task=cpus_per_task,
+                    max_memory_per_cpu=max_memory_per_cpu,
+                    max_disk_per_cpu=max_disk_per_cpu,
+                    job_name=legacy_cluster_submission_parameters["output"].split(".")[
+                        0
+                    ],
+                    commands=parameters["cluster_commands"],
+                )
+            except pydantic.ValidationError as e:
+                self.log.error(
+                    "Error creating JobSubmissionParameters: %s", str(e), exc_info=True
+                )
+                self._transport.nack(header)
+                return
         else:
-            params = JobSubmissionParameters(**parameters.get("cluster", {}))
+            try:
+                params = JobSubmissionParameters(**parameters.get("cluster", {}))
+            except pydantic.ValidationError as e:
+                self.log.error(
+                    "Error creating JobSubmissionParameters: %s", str(e), exc_info=True
+                )
+                self._transport.nack(header)
+                return
 
         if not isinstance(params.commands, str):
             params.commands = "\n".join(params.commands)

@@ -476,7 +476,7 @@ class DLSCluster(CommonService):
                 self._transport.nack(header)
                 return
             try:
-                params = JobSubmissionParameters(cluster_parameters)
+                params = JobSubmissionParameters(**cluster_parameters)
             except pydantic.ValidationError as e:
                 self.log.error(
                     "Error creating JobSubmissionParameters: %s", str(e), exc_info=True

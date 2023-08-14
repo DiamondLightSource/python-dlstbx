@@ -424,7 +424,7 @@ class DLSCluster(CommonService):
                 self.log.error(
                     "Error creating JobSubmissionParameters: %s", str(e), exc_info=True
                 )
-                self._transport.nack(header)
+                self._transport.nack(header, requeue=False)
                 return
 
         elif isinstance(legacy_cluster_submission_parameters, dict):
@@ -467,13 +467,13 @@ class DLSCluster(CommonService):
                 self.log.error(
                     "Error creating JobSubmissionParameters: %s", str(e), exc_info=True
                 )
-                self._transport.nack(header)
+                self._transport.nack(header, requeue=False)
                 return
         else:
             cluster_parameters = parameters.get("cluster", {})
             if not isinstance(cluster_parameters, Mapping):
                 self.log.error("Cannot extract parameters from field: cluster")
-                self._transport.nack(header)
+                self._transport.nack(header, requeue=False)
                 return
             try:
                 params = JobSubmissionParameters(**cluster_parameters)
@@ -481,7 +481,7 @@ class DLSCluster(CommonService):
                 self.log.error(
                     "Error creating JobSubmissionParameters: %s", str(e), exc_info=True
                 )
-                self._transport.nack(header)
+                self._transport.nack(header, requeue=False)
                 return
 
         if not isinstance(params.commands, str):

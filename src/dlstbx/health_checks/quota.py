@@ -123,7 +123,6 @@ def _check_quota_for_user(
 def check_quota(cfc: CheckFunctionInterface) -> list[Status]:
     check_prefix = cfc.name
     return [
-        _check_quota_for_user(check_prefix, "wra62962"),
         _check_quota_for_user(check_prefix, "dlshudson"),
         _check_quota_for_user(check_prefix, "dls_dasc", min_entries=1),
     ]

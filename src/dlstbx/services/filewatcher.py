@@ -97,7 +97,7 @@ class DLSFileWatcher(CommonService):
         self.log.info("Filewatcher starting")
         workflows.recipe.wrap_subscribe(
             self._transport,
-            "filewatcher",
+            self._environment.get("queue") or "filewatcher",
             self.watch_files,
             acknowledgement=True,
             log_extender=self.extend_log,

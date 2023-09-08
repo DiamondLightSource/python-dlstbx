@@ -414,7 +414,7 @@ def write_coot_script(working_directory, mdl_dict):
                     "#!/bin/sh",
                     "module purge",
                     "module load ccp4",
-                    "coot --python models.py --no-guano",
+                    "coot --script models.py --no-guano",
                 ]
             )
         )

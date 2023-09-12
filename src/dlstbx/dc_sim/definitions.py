@@ -85,11 +85,11 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "insulin-2016-todo-replace": {
+    "i04-insulin": {
         "type": "mx",
-        "src_dir": "/dls/i03/data/2016/cm14451-4/gw/20161003/ins/INS2",
-        "src_run_num": (2,),
-        "src_prefix": ("INS2",),
+        "src_dir": "/dls/i04/data/2023/cm33903-3/20230808",
+        "src_run_num": (1,),
+        "src_prefix": ("ins12",),
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

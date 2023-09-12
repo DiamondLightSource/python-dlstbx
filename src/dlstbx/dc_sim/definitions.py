@@ -99,12 +99,13 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
-    "mad-multi-todo-replace": {
+    "i04-mad-multi-dcg": {
         "type": "mx",
-        "src_dir": "/dls/i04/data/2017/cm16781-1/20170111/ZnMAD",
+        "src_dir": "/dls/i04/data/2023/cm33903-4/TestThaumatin/SeThau7",
         "src_run_num": (1,),
-        "src_prefix": ("sp0092_Zn_pk", "sp0092_Zn_if", "sp0092_Zn_hrm"),
-        "use_sample_id": 694305,
+        "src_prefix": ("Sethau7_2_pk", "Sethau7_2_if", "Sethau7_2_hrm"),
+        "use_sample_id": 4873871,
+        "dcg": True,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

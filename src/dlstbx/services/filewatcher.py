@@ -6,6 +6,7 @@ import time
 
 import h5py
 import workflows.recipe
+from workflows.recipe import RecipeWrapper
 from workflows.services.common_service import CommonService
 
 from dlstbx.swmr import h5check
@@ -188,7 +189,7 @@ class DLSFileWatcher(CommonService):
             if (nth_file - 1) % m == 0:
                 notify_function(dest)
 
-    def watch_files_list(self, rw, header, message):
+    def watch_files_list(self, rw: RecipeWrapper, header, message):
         """
         Watch for a given list of files.
         """
@@ -441,7 +442,7 @@ class DLSFileWatcher(CommonService):
         )
         rw.transport.transaction_commit(txn)
 
-    def watch_files_pattern(self, rw, header, message):
+    def watch_files_pattern(self, rw: RecipeWrapper, header, message):
         """
         Watch for files where the names follow a linear numeric pattern,
         eg. "template%05d.cbf" with indices 0 to 1800.

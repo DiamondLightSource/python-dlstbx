@@ -27,7 +27,7 @@ def find_all_references(startfile):
 
     image_count = collections.defaultdict(int)
     image_count[startfile] = 0
-    with h5py.File(startfile, "r") as fh:
+    with h5py.File(startfile, "r", libver="latest", swmr=True) as fh:
         try:
             fhed = fh["/entry/data"]
         except KeyError:
@@ -76,7 +76,7 @@ def is_readable(filename: str) -> bool:
     """Check if a file can be read"""
 
     try:
-        with h5py.File(filename, "r"):
+        with h5py.File(filename, "r", libver="latest", swmr=True):
             return True
     except Exception:
         return False
@@ -93,7 +93,7 @@ def is_HDF_1_8_compatible(filename: str) -> bool:
 
 
 def validate_pixel_mask(filename: str) -> bool:
-    with h5py.File(filename, "r") as fh:
+    with h5py.File(filename, "r", libver="latest", swmr=True) as fh:
         nxmx_obj = nxmx.NXmx(fh)
         nxinstrument = nxmx_obj.entries[0].instruments[0]
         nxdetector = nxinstrument.detectors[0]

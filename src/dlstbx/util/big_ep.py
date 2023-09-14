@@ -248,7 +248,7 @@ def generate_model_snapshots(working_directory, pipeline, tmpl_env):
 def read_model_snapshots(working_directory, pipeline, tmpl_data):
     try:
         mdl_data = get_map_model_from_json(working_directory)
-        tmpl_data["model_data"] = {pipeline: mdl_data["data"]}
+        tmpl_data["model_data"][pipeline] = mdl_data["data"]
     except Exception:
         logger.info(f"Cannot read map/model data from {working_directory}")
         return

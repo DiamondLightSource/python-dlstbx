@@ -435,6 +435,7 @@ class BigEPWrapper(Wrapper):
             "image_directory": params["image_directory"],
             "xia2_logs": xia2_log_files,
             "html_images": {},
+            "model_data": {},
         }
         tmpl_data["settings"] = self.recwrap.environment["msg"]
         if results_directory := params.get("results_directory"):

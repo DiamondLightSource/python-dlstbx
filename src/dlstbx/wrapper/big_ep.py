@@ -422,6 +422,7 @@ class BigEPWrapper(Wrapper):
             self.log.info(
                 f"Error uncompressing {pipeline} output directory", exc_info=True
             )
+            return False
 
         working_directory = working_directory / pipeline
         tmpl_data = {

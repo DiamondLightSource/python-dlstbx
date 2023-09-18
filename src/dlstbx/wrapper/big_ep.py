@@ -493,6 +493,12 @@ class BigEPWrapper(Wrapper):
                 "Exception raised while composing xia2 summary", exc_info=True
             )
 
+        success = (
+            success
+            and Path(working_directory / "big_ep_settings.json").is_file()
+            and Path(working_directory / "big_ep_model_ispyb.json").is_file()
+        )
+
         if success:
             self.log.debug("Generating HTML summary")
             bpu.read_model_snapshots(working_directory, pipeline, tmpl_data)

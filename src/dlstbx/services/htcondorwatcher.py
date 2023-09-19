@@ -4,11 +4,9 @@ import time
 from pprint import pformat
 
 import htcondor
-import minio
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
-from dlstbx.util.iris import get_minio_client
 from dlstbx.util.profiler import Profiler
 
 
@@ -24,9 +22,6 @@ class HTCondorWatcher(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.htcondorwatcher"
 
-    # STFC S3 Echo credentials
-    _s3echo_credentials = "/dls_sw/apps/zocalo/secrets/credentials-echo-mx.cfg"
-
     def initializing(self):
         """
         Subscribe to the htcondorwatcher queue. Received messages must be
@@ -38,12 +33,6 @@ class HTCondorWatcher(CommonService):
         schedd_ad = collector.locate(htcondor.DaemonTypes.Schedd)
         self.schedd = htcondor.Schedd(schedd_ad)
 
-        self.minio_client: minio.Minio = get_minio_client(
-            HTCondorWatcher._s3echo_credentials
-        )
-
-        self._register_idle(30, self.update_htcondor_statistics)
-
         workflows.recipe.wrap_subscribe(
             self._transport,
             "htcondorwatcher",
@@ -51,48 +40,6 @@ class HTCondorWatcher(CommonService):
             acknowledgement=True,
             log_extender=self.extend_log,
         )
-
-    def update_htcondor_statistics(self):
-        """Gather job status statistics from STFC/IRIS and S3 Echo object store."""
-
-        # Query number of jobs on STRF/IRIS
-        data_pack = {
-            "statistic": "job-status",
-            "statistic-cluster": "iris",
-            "statistic-group": "cluster",
-            "statistic-timestamp": time.time(),
-        }
-        res = self.schedd.query(
-            constraint='Owner=="gda2"',
-            projection=["Owner", "ClusterId", "ProcId", "JobStatus", "Out"],
-        )
-        job_status_list = [job["JobStatus"] for job in res]
-        for label, code in (("waiting", 1), ("running", 2), ("hold", 5)):
-            data_pack[label] = job_status_list.count(code)
-
-        self._transport.broadcast("transient.statistics.cluster", data_pack)
-        self._transport.send("statistics.cluster", data_pack, persistent=False)
-
-        # Query S3 Echo object store usage
-        data_pack = {
-            "statistic": "used-storage",
-            "statistic-cluster": "s3echo",
-            "statistic-group": "dls-mx",
-            "statistic-timestamp": time.time(),
-        }
-        data_pack["total"] = 0
-        for bucket in self.minio_client.list_buckets():
-            data_pack[bucket.name] = 0
-            store_objects = [
-                obj.object_name for obj in self.minio_client.list_objects(bucket.name)
-            ]
-            for filename in store_objects:
-                result = self.minio_client.stat_object(bucket.name, filename)
-                data_pack[bucket.name] += result.size / 2**40
-                data_pack["total"] += result.size / 2**40
-
-        self._transport.broadcast("transient.statistics.cluster", data_pack)
-        self._transport.send("statistics.cluster", data_pack, persistent=False)
 
     def watch_jobs(self, rw, header, message):
         """

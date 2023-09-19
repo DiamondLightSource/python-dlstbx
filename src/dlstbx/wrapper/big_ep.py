@@ -570,7 +570,7 @@ class BigEPWrapper(Wrapper):
 
         if params.get("s3echo"):
             params["minio_client"] = iris.get_minio_client(
-                params["s3echo"]["configuration"], params["s3echo"]["username"]
+                params["s3echo"]["configuration"]
             )
             params["bucket_name"] = self.recwrap.environment.get("pipeline").lower()
 

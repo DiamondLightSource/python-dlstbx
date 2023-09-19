@@ -20,10 +20,10 @@ class DLSMimasBacklog(CommonService):
         """Subscribe to mimas.held and transient.statistics.cluster"""
         self.log.info("MimasBacklog service starting up")
 
-        self._max_jobs_waiting = 60
         self._message_delay = 30
-        self._jobs_waiting = self._max_jobs_waiting
-        self._last_cluster_update = time.time()
+        self._jobs_waiting = {"live": 60, "iris": 3000}
+        self._last_cluster_update = {"live": time.time(), "iris": time.time()}
+        self._timeout = 300
 
         # Subscribe to the mimas.held queue, which contains the held mimas
         # recipes we would like to drip-feed to the dispatcher
@@ -54,11 +54,21 @@ class DLSMimasBacklog(CommonService):
             message["statistic-cluster"] == "live"
             and message["statistic"] == "waiting-jobs-per-queue"
         ):
-            self._last_cluster_update = time.time()
-            self._jobs_waiting = message["high.q"] + message["medium.q"]
+            self._last_cluster_update["live"] = time.time()
+            self._jobs_waiting["live"] = message["high.q"] + message["medium.q"]
             self.log.log(
-                logging.INFO if self._jobs_waiting else logging.DEBUG,
-                f"Jobs waiting on cluster: {self._jobs_waiting}\n",
+                logging.INFO if self._jobs_waiting["live"] else logging.DEBUG,
+                f"Jobs waiting on live cluster: {self._jobs_waiting['live']}\n",
+            )
+        elif (
+            message["statistic-cluster"] == "iris"
+            and message["statistic"] == "job-status"
+        ):
+            self._last_cluster_update["iris"] = time.time()
+            self._jobs_waiting["iris"] = message["waiting"]
+            self.log.log(
+                logging.INFO if self._jobs_waiting["iris"] else logging.DEBUG,
+                f"Jobs waiting on iris cluster: {self._jobs_waiting['iris']}\n",
             )
 
     def on_mimas_held(self, rw, header, message):
@@ -69,20 +79,24 @@ class DLSMimasBacklog(CommonService):
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
+
+        sc = message["parameters"].get("statistic-cluster", "live")
         try:
-            self._max_jobs_waiting = self.config.storage.get("max_jobs_waiting", 60)
-            self._message_delay = self.config.storage.get("message_delay", 30)
+            max_jobs_waiting = self.config.storage.get(
+                "max_jobs_waiting", {"live": 60, "iris": 3000}
+            )
         except AttributeError:
-            self.log.debug("DLSMimasBacklog service setting are unavailable")
-        self.log.debug(f"Jobs waiting on cluster: {self._jobs_waiting}\n")
-        if self._jobs_waiting < self._max_jobs_waiting:
-            if self._last_cluster_update > time.time() - 300:
+            max_jobs_waiting = {"live": 60, "iris": 3000}
+        self.log.debug(f"Jobs waiting on {sc} cluster: {self._jobs_waiting[sc]}\n")
+
+        if self._jobs_waiting[sc] < max_jobs_waiting[sc]:
+            if self._last_cluster_update[sc] > time.time() - self._timeout:
                 rw.send(message, transaction=txn)
-                self._jobs_waiting += 1
+                self._jobs_waiting[sc] += 1
                 self.log.info(f"Sent message to trigger: {message}")
             else:
                 self.log.warning(
-                    "Not heard from the cluster for over 5 minutes. Holding jobs."
+                    f"Not heard from {sc} cluster for over 5 minutes. Holding jobs."
                 )
                 rw.checkpoint(
                     message,

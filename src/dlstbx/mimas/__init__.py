@@ -75,6 +75,7 @@ class MimasScenario:
     preferred_processing: Optional[str] = None
     detectorclass: Optional[MimasDetectorClass] = None
     anomalous_scatterer: Optional[MimasISPyBAnomalousScatterer] = None
+    is_cloudbursting: Optional[bool] = False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -396,10 +397,9 @@ def match_specification(specification: BaseSpecification):
         def inner_wrapper(
             scenario: MimasScenario,
             zc: zocalo.configuration.Configuration,
-            cluster_stats: dict,
         ) -> List[Invocation]:
             if specification.is_satisfied_by(scenario):
-                return handler(scenario, zc=zc, cluster_stats=cluster_stats)
+                return handler(scenario, zc=zc)
             return []
 
         return inner_wrapper
@@ -416,9 +416,9 @@ def _get_handlers() -> dict[str, Callable]:
 
 
 def handle_scenario(
-    scenario: MimasScenario, zc: zocalo.configuration.Configuration, cluster_stats: dict
+    scenario: MimasScenario, zc: zocalo.configuration.Configuration
 ) -> List[Invocation]:
     tasks: List[Invocation] = []
     for handler in _get_handlers().values():
-        tasks.extend(handler(scenario, zc=zc, cluster_stats=cluster_stats))
+        tasks.extend(handler(scenario, zc=zc))
     return tasks

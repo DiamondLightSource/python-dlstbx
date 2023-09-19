@@ -18,14 +18,10 @@ def test_dummy_plugin(mocker, with_dummy_plugins):
     )
 
     mock_zc = mocker.MagicMock(zocalo.configuration.Configuration, autospec=True)
-    invocations = handle_scenario(
-        scenario(dcclass=MimasDCClass.GRIDSCAN), zc=mock_zc, cluster_stats=None
-    )
+    invocations = handle_scenario(scenario(dcclass=MimasDCClass.GRIDSCAN), zc=mock_zc)
     assert len(invocations) == 1
     assert {r.recipe for r in invocations} == {"spam"}
 
-    invocations = handle_scenario(
-        scenario(dcclass=MimasDCClass.ROTATION), zc=mock_zc, cluster_stats=None
-    )
+    invocations = handle_scenario(scenario(dcclass=MimasDCClass.ROTATION), zc=mock_zc)
     assert len(invocations) == 3
     assert {r.recipe for r in invocations} == {"spam", "foo", "bar"}

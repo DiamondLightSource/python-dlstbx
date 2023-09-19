@@ -27,9 +27,15 @@ class DLSMimas(CommonService):
         self.log.info("Mimas starting")
 
         self.cluster_stats = {
-            "max_jobs_waiting": 60,
-            "jobs_waiting": 60,
-            "last_cluster_update": time.time(),
+            "live": {
+                "jobs_waiting": 60,
+                "last_cluster_update": time.time(),
+            },
+            "iris": {
+                "jobs_waiting": 60,
+                "last_cluster_update": time.time(),
+            },
+            "s3echo": {"total": 0.0, "last_cluster_update": time.time()},
         }
 
         workflows.recipe.wrap_subscribe(
@@ -155,25 +161,78 @@ class DLSMimas(CommonService):
             preferred_processing=step.get("preferred_processing"),
             detectorclass=detectorclass,
             anomalous_scatterer=anomalous_scatterer,
+            is_cloudbursting=self.is_cloudbursting(),
         )
 
     def on_statistics_cluster(self, header, message):
         """
-        Examine the message to determine number of waiting jobs.
-
-        We are only interested in the "live" cluster for now. We are only
-        concerned about the number of waiting jobs in high.q or medium.q.
+        Examine the message to determine number of waiting jobs on
+        DLS Science "live" cluster in high.q and medium.q, on STFC/IRIS cluster and
+        storage utilisation for dls-mx user on S3 Echo object store.
         """
-        if (
-            message["statistic-cluster"] == "live"
-            and message["statistic"] == "waiting-jobs-per-queue"
-        ):
-            self.cluster_stats["last_cluster_update"] = time.time()
-            self.cluster_stats["jobs_waiting"] = message["high.q"] + message["medium.q"]
-            self.log.log(
-                logging.INFO if self.cluster_stats["jobs_waiting"] else logging.DEBUG,
-                f"Jobs waiting on cluster: {self.cluster_stats['jobs_waiting']}\n",
+        try:
+            sc = message["statistic-cluster"]
+        except KeyError:
+            return
+        if sc in ("live", "iris", "s3echo"):
+            self.cluster_stats[sc]["last_cluster_update"] = time.time()
+            if message["statistic"] == "waiting-jobs-per-queue":
+                self.cluster_stats[sc]["jobs_waiting"] = (
+                    message["high.q"] + message["medium.q"]
+                )
+                self.log.log(
+                    logging.INFO
+                    if self.cluster_stats[sc]["jobs_waiting"]
+                    else logging.DEBUG,
+                    f"Jobs waiting on {sc} cluster: {self.cluster_stats[sc]['jobs_waiting']}\n",
+                )
+            elif message["statistic"] == "job-status":
+                self.cluster_stats[sc]["jobs_waiting"] = message["waiting"]
+            elif message["statistic"] == "used-storage":
+                self.cluster_stats[sc]["total"] = message["total"]
+
+    def is_cloudbursting(self) -> bool:
+        """
+        Activate cloudbursting if number of waiting jobs on DLS cluster exceeded
+        the predefined threshold or DLS cluster stats update timed out. Check
+        that queue of jobs on STFC/IRIS and S3 Echo storage utilisation are
+        below threshold and statistics updates haven't timed out.
+        """
+        try:
+            max_jobs_waiting = self.config.storage.get(
+                "max_jobs_waiting", {"live": 60, "iris": 3000}
             )
+            timeout = self.config.storage.get("timeout", 300)
+            s3echo_quota = 0.95 * self.config.storage.get("s3echo_quota", 100)
+            if (
+                (
+                    (
+                        self.cluster_stats["live"]["jobs_waiting"]
+                        > max_jobs_waiting["live"]
+                    )
+                    or (
+                        self.cluster_stats["live"]["last_cluster_update"]
+                        < (time.time() - timeout)
+                    )
+                )
+                and (
+                    self.cluster_stats["iris"]["jobs_waiting"]
+                    < max_jobs_waiting["iris"]
+                )
+                and (
+                    self.cluster_stats["iris"]["last_cluster_update"]
+                    > (time.time() - timeout)
+                )
+                and (self.cluster_stats["s3echo"]["total"] < s3echo_quota)
+                and (
+                    self.cluster_stats["s3echo"]["last_cluster_update"]
+                    > (time.time() - timeout)
+                )
+            ):
+                return True
+        except AttributeError:
+            return False
+        return False
 
     def process(self, rw, header, message):
         """Process an incoming event."""
@@ -197,9 +256,7 @@ class DLSMimas(CommonService):
         rw.set_default_channel("dispatcher")
 
         self.log.debug("Evaluating %r", scenario)
-        things_to_do = mimas.handle_scenario(
-            scenario, self.config, getattr(self, "cluster_stats", None)
-        )
+        things_to_do = mimas.handle_scenario(scenario, self.config)
 
         for ttd in things_to_do:
             try:

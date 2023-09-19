@@ -114,6 +114,7 @@ service_list = [
     "DLSTrigger = dlstbx.services.trigger:DLSTrigger",
     "DLSValidation = dlstbx.services.validation:DLSValidation",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
+    "HTCondorStats = dlstbx.services.htcondorstats:HTCondorStats",
     "HTCondorWatcher = dlstbx.services.htcondorwatcher:HTCondorWatcher",
     "SSXPlotter = dlstbx.services.ssx_plotter:SSXPlotter",
     # "LoadProducer = dlstbx.services.load_producer:LoadProducer",  # tentatively disabled

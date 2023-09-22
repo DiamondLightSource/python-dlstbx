@@ -206,7 +206,10 @@ class DLSMimas(CommonService):
             s3echo_quota = 0.95 * self.config.storage.get("s3echo_quota", 100)
             self.log.debug(f"Live cluster stats: {self.cluster_stats['live']}")
             self.log.debug(f"IRIS cluster stats: {self.cluster_stats['iris']}")
-            self.log.debug(f"S£Echo stats: {self.cluster_stats['s3echo']}")
+            self.log.debug(f"S3Echo stats: {self.cluster_stats['s3echo']}")
+            self.log.debug(
+                f"Cloudbursting threshold values\n'max_jobs_waiting': {max_jobs_waiting}\n's3echo_quota': {s3echo_quota}"
+            )
             if (
                 (
                     (

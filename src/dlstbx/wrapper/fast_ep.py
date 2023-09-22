@@ -170,26 +170,32 @@ class FastEPWrapper(Wrapper):
 
         try:
             start_time = time.perf_counter()
+            self.log.info("command: %s", " ".join(command))
             result = subprocess.run(
                 command,
                 timeout=params.get("timeout"),
                 cwd=subprocess_directory,
             )
             runtime = time.perf_counter() - start_time
-            success = (
-                not result.returncode
-                and not Path(subprocess_directory / "fast_ep.error").exists()
-            )
-            self.log.info("command: %s", " ".join(command))
             self.log.info(f"runtime: {runtime}")
         except subprocess.TimeoutExpired as te:
             success = False
             self.log.warning(f"fast_ep timed out: {te.timeout}\n  {te.cmd}")
             self.log.debug(te.stdout)
             self.log.debug(te.stderr)
-            return success
-        if success:
-            if minio_client := params.get("minio_client"):
+        else:
+            success = (
+                not result.returncode
+                and not Path(subprocess_directory / "fast_ep.error").exists()
+            )
+            if success:
+                self.log.info("fast_ep successful")
+            else:
+                self.log.info(f"fast_ep failed with exitcode {result.returncode}")
+                self.log.debug(result.stdout)
+                self.log.debug(result.stderr)
+        if minio_client := params.get("minio_client"):
+            try:
                 iris.store_results_in_s3(
                     minio_client,
                     params["bucket_name"],
@@ -197,10 +203,10 @@ class FastEPWrapper(Wrapper):
                     subprocess_directory,
                     self.log,
                 )
-        else:
-            self.log.info(f"fast_ep failed with exitcode {result.returncode}")
-            self.log.debug(result.stdout)
-            self.log.debug(result.stderr)
+            except Exception:
+                self.log.exception(
+                    "Error while trying to save fast_ep processing results to S3 Echo"
+                )
         return success
 
     def run_report(self, working_directory, params):

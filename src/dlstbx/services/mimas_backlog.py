@@ -23,7 +23,6 @@ class DLSMimasBacklog(CommonService):
         self._message_delay = 30
         self._jobs_waiting = {"live": 60, "iris": 3000}
         self._last_cluster_update = {"live": time.time(), "iris": time.time()}
-        self._timeout = 300
 
         # Subscribe to the mimas.held queue, which contains the held mimas
         # recipes we would like to drip-feed to the dispatcher
@@ -85,12 +84,14 @@ class DLSMimasBacklog(CommonService):
             max_jobs_waiting = self.config.storage.get(
                 "max_jobs_waiting", {"live": 60, "iris": 3000}
             )
+            timeout = self.config.storage.get("timeout", 300)
         except AttributeError:
             max_jobs_waiting = {"live": 60, "iris": 3000}
+            timeout = 300
         self.log.debug(f"Jobs waiting on {sc} cluster: {self._jobs_waiting[sc]}\n")
 
         if self._jobs_waiting[sc] < max_jobs_waiting[sc]:
-            if self._last_cluster_update[sc] > time.time() - self._timeout:
+            if self._last_cluster_update[sc] > time.time() - timeout:
                 rw.send(message, transaction=txn)
                 self._jobs_waiting[sc] += 1
                 self.log.info(f"Sent message to trigger: {message}")

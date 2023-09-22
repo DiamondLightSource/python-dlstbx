@@ -79,9 +79,14 @@ class HTCondorStats(CommonService):
                 obj.object_name for obj in self.minio_client.list_objects(bucket.name)
             ]
             for filename in store_objects:
-                result = self.minio_client.stat_object(bucket.name, filename)
-                data_pack[bucket.name] += result.size / 2**40
-                data_pack["total"] += result.size / 2**40
+                try:
+                    result = self.minio_client.stat_object(bucket.name, filename)
+                    data_pack[bucket.name] += result.size / 2**40
+                    data_pack["total"] += result.size / 2**40
+                except minio.error.S3Error:
+                    self.log.debug(
+                        f"Exception raised trying to read {filename} object in {bucket.name}"
+                    )
 
         self.log.debug(f"{pformat(data_pack)}")
         self._transport.broadcast("transient.statistics.cluster", data_pack)

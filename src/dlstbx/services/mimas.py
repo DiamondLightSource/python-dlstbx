@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import logging
 import time
+from pprint import pformat
 
 import workflows.recipe
 from workflows.services.common_service import CommonService
@@ -175,21 +175,25 @@ class DLSMimas(CommonService):
         except KeyError:
             return
         if sc in ("live", "iris", "s3echo"):
+            self.log.debug(f"Received cluster stat message: {pformat(message)}")
             self.cluster_stats[sc]["last_cluster_update"] = time.time()
             if message["statistic"] == "waiting-jobs-per-queue":
                 self.cluster_stats[sc]["jobs_waiting"] = (
                     message["high.q"] + message["medium.q"]
                 )
-                self.log.log(
-                    logging.INFO
-                    if self.cluster_stats[sc]["jobs_waiting"]
-                    else logging.DEBUG,
+                self.log.debug(
                     f"Jobs waiting on {sc} cluster: {self.cluster_stats[sc]['jobs_waiting']}\n",
                 )
             elif message["statistic"] == "job-status":
                 self.cluster_stats[sc]["jobs_waiting"] = message["waiting"]
+                self.log.debug(
+                    f"Jobs waiting on {sc} cluster: {self.cluster_stats[sc]['jobs_waiting']}\n",
+                )
             elif message["statistic"] == "used-storage":
                 self.cluster_stats[sc]["total"] = message["total"]
+                self.log.debug(
+                    f"Total used storage on {sc}: {self.cluster_stats[sc]['total']}\n",
+                )
 
     def is_cloudbursting(self) -> bool:
         """

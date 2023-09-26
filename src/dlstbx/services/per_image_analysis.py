@@ -144,7 +144,7 @@ class DLSPerImageAnalysis(CommonService):
             substitutions=rw.environment,
         )
         payload = PerImageAnalysisPayload(**(message | {"parameters": parameters}))
-        self.log.debug("Starting PIA on %s", payload.file)
+        self.log.info("Starting PIA on %s", payload.file)
         params = payload.parameters or PerImageAnalysisParameters()
 
         # Do the per-image-analysis

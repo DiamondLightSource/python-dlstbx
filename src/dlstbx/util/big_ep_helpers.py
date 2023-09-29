@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from itertools import tee
+from pathlib import Path
 
 import libtbx.load_env
 from cctbx.eltbx import henke, sasaki
@@ -272,7 +273,7 @@ def write_sequence_file(working_directory, msg):
 
 def get_autosharp_model_files(working_directory, logger):
 
-    parse_value = lambda v: v.split("=")[1][1:-2]
+    parse_path = lambda v: str(Path(v.split("=")[1][1:-2]).resolve())
 
     try:
         with open(str(working_directory / ".autoSHARP"), "r") as f:
@@ -286,8 +287,8 @@ def get_autosharp_model_files(working_directory, logger):
                     #    str(working_directory  "autoSHARP"), self.msg._wd
                     # )
                     mdl_dict = {
-                        "pdb": parse_value(pdb_line),
-                        "mtz": parse_value(mtz_line),
+                        "pdb": parse_path(pdb_line),
+                        "mtz": parse_path(mtz_line),
                         "pipeline": "autoSHARP",
                         "map": "",
                         "mapcc": 0.0,

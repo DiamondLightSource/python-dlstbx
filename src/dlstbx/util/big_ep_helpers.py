@@ -294,7 +294,7 @@ def get_autosharp_model_files(working_directory, logger):
                         "mapcc": 0.0,
                         "mapcc_dmin": 0.0,
                     }
-                    if "LJS" in os.path.basename(mdl_dict["mtz"]):
+                    if "parrot" in mdl_dict["mtz"]:
                         mdl_dict.update(
                             {
                                 "fwt": "parrot.F_phi.F",
@@ -302,8 +302,13 @@ def get_autosharp_model_files(working_directory, logger):
                                 "fom": None,
                             }
                         )
-                    else:
+                    elif "wARP" in mdl_dict["mtz"]:
                         mdl_dict.update({"fwt": "FWT", "phwt": "PHWT", "fom": None})
+                    else:
+                        logger.info(
+                            f"Skipping model generation. Unsupported mtz file type {mdl_dict['mtz']}"
+                        )
+                        return None
                     model_data = get_model_data(
                         str(working_directory), mdl_dict, logger
                     )

@@ -14,6 +14,7 @@ from pathlib import Path
 import certifi
 import minio
 import requests
+from minio.deleteobjects import DeleteObject
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -96,6 +97,23 @@ def get_objects_from_s3(working_directory, s3_urls, logger):
 def remove_objects_from_s3(minio_clinet, bucket_name, s3_urls):
     for filename in s3_urls.keys():
         minio_clinet.remove_object(bucket_name, filename)
+
+
+def remove_images_from_s3(minio_client, bucket_name, pid, images, logger):
+
+    if not minio_client.bucket_exists(bucket_name):
+        logger.info(f"Bucket {bucket_name} doesn't exists.")
+        return
+
+    image_files = get_image_files(None, images, logger)
+    object_names = [
+        "_".join([pid, Path(filepath).name]) for filepath in image_files.values()
+    ]
+    errors = minio_client.remove_objects(
+        bucket_name, [DeleteObject(obj) for obj in object_names]
+    )
+    for error in errors:
+        logger.info("Error occurred when deleting object: ", error)
 
 
 def get_image_files(working_directory, images, logger):

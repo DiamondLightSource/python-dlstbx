@@ -116,6 +116,7 @@ service_list = [
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
     "HTCondorStats = dlstbx.services.htcondorstats:HTCondorStats",
     "HTCondorWatcher = dlstbx.services.htcondorwatcher:HTCondorWatcher",
+    "S3EchoUploader = dlstbx.services.s3echo_uploader:S3EchoUploader",
     "SSXPlotter = dlstbx.services.ssx_plotter:SSXPlotter",
     # "LoadProducer = dlstbx.services.load_producer:LoadProducer",  # tentatively disabled
     # "LoadReceiver = dlstbx.services.load_receiver:LoadReceiver",  # tentatively disabled

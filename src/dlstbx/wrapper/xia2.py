@@ -156,24 +156,6 @@ class Xia2Wrapper(Wrapper):
                 self.log.exception("Error writing singularity script")
                 return False
 
-            if minio_client := params.get("minio_client"):
-                # Logger for recording data transfer rates to S3 Echo object store
-                formatter = logging.Formatter(
-                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-                )
-                handler = logging.StreamHandler()
-                handler.setFormatter(formatter)
-                self.log.logger.addHandler(handler)
-                self.log.logger.setLevel(logging.DEBUG)
-                s3_urls = iris.get_presigned_urls_images(
-                    minio_client,
-                    params["bucket_name"],
-                    params["rpid"],
-                    params["images"],
-                    self.log,
-                )
-                self.recwrap.environment.update({"s3_urls": s3_urls})
-
         return True
 
     def run_xia2(self, working_directory: Path, params: dict):
@@ -243,11 +225,14 @@ class Xia2Wrapper(Wrapper):
                 self.log.debug(result.stdout)
                 self.log.debug(result.stderr)
 
-        if minio_client := params.get("minio_client"):
+        if params.get("s3echo"):
+            minio_client = iris.get_minio_client(params["s3echo"]["configuration"])
+            bucket_name = params["s3echo"].get("bucket", params["program_name"].lower())
+
             try:
                 iris.store_results_in_s3(
                     minio_client,
-                    params["bucket_name"],
+                    bucket_name,
                     params["rpid"],
                     subprocess_directory,
                     self.log,
@@ -261,28 +246,6 @@ class Xia2Wrapper(Wrapper):
         return success
 
     def report(self, working_directory: Path, params: dict, success: bool):
-        # copy output files to result directory
-        if minio_client := params.get("minio_client"):
-            iris.retrieve_results_from_s3(
-                minio_client,
-                params["bucket_name"],
-                working_directory,
-                params["rpid"],
-                params["program_name"],
-                self.log,
-            )
-            if s3_urls := self.recwrap.environment.get("s3_urls"):
-                try:
-                    iris.remove_objects_from_s3(
-                        minio_client,
-                        params["bucket_name"],
-                        s3_urls,
-                    )
-                except Exception:
-                    self.log.exception(
-                        "Exception raised while trying to remove files from S3 object store."
-                    )
-
         working_directory = working_directory / params["program_name"]
         if not working_directory.is_dir():
             self.log.error(f"xia2 working directory {working_directory} not found.")
@@ -458,14 +421,6 @@ class Xia2Wrapper(Wrapper):
         assert stage in {None, "setup", "run", "report"}
         pipeline = params["xia2"].get("pipeline")
         params["program_name"] = f"xia2-{pipeline}" if pipeline else "xia2"
-
-        if params.get("s3echo"):
-            params["minio_client"] = iris.get_minio_client(
-                params["s3echo"]["configuration"]
-            )
-            params["bucket_name"] = params["s3echo"].get(
-                "bucket", params["program_name"].lower()
-            )
 
         success = True
 

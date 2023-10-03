@@ -499,24 +499,6 @@ class autoPROCWrapper(Wrapper):
                 self.log.exception("Error writing singularity script")
                 return False
 
-            if minio_client := params.get("minio_client"):
-                # Logger for recording data transfer rates to S3 Echo object store
-                formatter = logging.Formatter(
-                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-                )
-                handler = logging.StreamHandler()
-                handler.setFormatter(formatter)
-                self.log.logger.addHandler(handler)
-                self.log.logger.setLevel(logging.DEBUG)
-                s3_urls = iris.get_presigned_urls_images(
-                    minio_client,
-                    params["bucket_name"],
-                    params["rpid"],
-                    params["images"],
-                    self.log,
-                )
-                self.recwrap.environment.update({"s3_urls": s3_urls})
-
         return True
 
     def run_autoPROC(self, working_directory: Path, params: dict):
@@ -614,11 +596,13 @@ class autoPROCWrapper(Wrapper):
         if inlined_html.is_file():
             shutil.copy2(inlined_html, subprocess_directory / "summary.html")
 
-        if minio_client := params.get("minio_client"):
+        if params.get("s3echo"):
+            minio_client = iris.get_minio_client(params["s3echo"]["configuration"])
+            bucket_name = params["s3echo"].get("bucket", "autoproc")
             try:
                 iris.store_results_in_s3(
                     minio_client,
-                    params["bucket_name"],
+                    bucket_name,
                     params["rpid"],
                     subprocess_directory,
                     self.log,
@@ -632,27 +616,6 @@ class autoPROCWrapper(Wrapper):
         return success
 
     def report(self, working_directory: Path, params: dict, success: bool):
-
-        if minio_client := params.get("minio_client"):
-            iris.retrieve_results_from_s3(
-                minio_client,
-                params["bucket_name"],
-                working_directory,
-                params["rpid"],
-                "autoPROC",
-                self.log,
-            )
-            if s3_urls := self.recwrap.environment.get("s3_urls"):
-                try:
-                    iris.remove_objects_from_s3(
-                        minio_client,
-                        params["bucket_name"],
-                        s3_urls,
-                    )
-                except Exception:
-                    self.log.exception(
-                        "Exception raised while trying to remove files from S3 object store."
-                    )
 
         working_directory = working_directory / "autoPROC"
         if not working_directory.is_dir():
@@ -807,12 +770,6 @@ class autoPROCWrapper(Wrapper):
                     params["create_symlink"] += (
                         "-" + params["ispyb_parameters"]["spacegroup"]
                     )
-
-        if params.get("s3echo"):
-            params["minio_client"] = iris.get_minio_client(
-                params["s3echo"]["configuration"]
-            )
-            params["bucket_name"] = params["s3echo"].get("bucket", "autoproc")
 
         stage = params.get("stage")
         assert stage in {None, "setup", "run", "report"}

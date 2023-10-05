@@ -306,7 +306,7 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
         elif success:
             self.log.warning("Expected JSON output file missing")
 
-        if dc_end_time := params.get("dc_end_time"):
+        if (dc_end_time := params.get("dc_end_time")) and dc_end_time != "None":
             dc_end_time = dateutil.parser.parse(dc_end_time)
             dcid = params.get("dcid")
             latency_s = (datetime.datetime.now() - dc_end_time).total_seconds()

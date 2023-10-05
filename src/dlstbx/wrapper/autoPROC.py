@@ -608,6 +608,7 @@ class autoPROCWrapper(Wrapper):
                     self.log,
                 )
             except Exception:
+                success = False
                 self.log.info(
                     "Error while trying to save autoPROC processing results to S3 Echo",
                     exc_info=True,

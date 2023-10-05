@@ -209,16 +209,19 @@ class MrBUMPWrapper(Wrapper):
                         self.log.info(
                             f"MrBUMP output files {hklout} or {xyzout} not found"
                         )
-        if minio_client := params.get("minio_client"):
+        if params.get("s3echo"):
+            minio_client = iris.get_minio_client(params["s3echo"]["configuration"])
+            bucket_name = params["s3echo"].get("bucket", "mrbump")
             try:
                 iris.store_results_in_s3(
                     minio_client,
-                    params["bucket_name"],
+                    bucket_name,
                     params["rpid"],
                     subprocess_directory,
                     self.log,
                 )
             except Exception:
+                success = False
                 self.log.info(
                     "Error while trying to save MrBUMP processing results to S3 Echo",
                     exc_info=True,
@@ -226,15 +229,6 @@ class MrBUMPWrapper(Wrapper):
         return success
 
     def run_report(self, working_directory: Path, params: dict, success: bool) -> bool:
-        if minio_client := params.get("minio_client"):
-            iris.retrieve_results_from_s3(
-                minio_client,
-                params["bucket_name"],
-                working_directory,
-                params["rpid"],
-                params["create_symlink"],
-                self.log,
-            )
         working_directory = working_directory / params.get("create_symlink", "")
         if not working_directory.is_dir():
             self.log.error(f"Output directory {working_directory} doesn't exist")
@@ -282,12 +276,6 @@ class MrBUMPWrapper(Wrapper):
 
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = dict(self.recwrap.recipe_step["job_parameters"])
-
-        if params.get("s3echo"):
-            params["minio_client"] = iris.get_minio_client(
-                params["s3echo"]["configuration"]
-            )
-            params["bucket_name"] = params["s3echo"].get("bucket", "mrbump")
 
         # Create working directory with symbolic link
         working_directory = Path(params.get("working_directory", os.getcwd()))

@@ -370,20 +370,22 @@ class BigEPWrapper(Wrapper):
             self.log.debug(result.stdout)
             self.log.debug(result.stderr)
 
-        try:
-            if minio_client := params.get("minio_client"):
+        if params.get("s3echo"):
+            minio_client = iris.get_minio_client(params["s3echo"]["configuration"])
+            bucket_name = self.recwrap.environment.get("pipeline").lower()
+            try:
                 iris.store_results_in_s3(
                     minio_client,
-                    params["bucket_name"],
+                    bucket_name,
                     params["rpid"],
                     output_directory,
                     self.log,
                 )
-        except Exception:
-            self.log.info(
-                f"Error compressing {pipeline} output directory", exc_info=True
-            )
-
+            except Exception:
+                success = False
+                self.log.info(
+                    f"Error compressing {pipeline} output directory", exc_info=True
+                )
         return success
 
     def report(self, working_directory: Path, params: dict, success: bool):
@@ -407,22 +409,6 @@ class BigEPWrapper(Wrapper):
             pipeline = params.get("ispyb_parameters", self.recwrap.environment).get(
                 "pipeline", "N/A"
             )
-
-        try:
-            if minio_client := params.get("minio_client"):
-                iris.retrieve_results_from_s3(
-                    minio_client,
-                    params["bucket_name"],
-                    working_directory,
-                    params["rpid"],
-                    pipeline,
-                    self.log,
-                )
-        except Exception:
-            self.log.info(
-                f"Error uncompressing {pipeline} output directory", exc_info=True
-            )
-            return False
 
         working_directory = working_directory / pipeline
         tmpl_data = {
@@ -567,12 +553,6 @@ class BigEPWrapper(Wrapper):
         params["tmpl_env"] = Environment(
             loader=PackageLoader("dlstbx.util", "big_ep_templates")
         )
-
-        if params.get("s3echo"):
-            params["minio_client"] = iris.get_minio_client(
-                params["s3echo"]["configuration"]
-            )
-            params["bucket_name"] = self.recwrap.environment.get("pipeline").lower()
 
         stage = params.get("stage")
         assert stage in {None, "setup", "run", "report"}

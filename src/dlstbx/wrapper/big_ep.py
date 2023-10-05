@@ -372,7 +372,7 @@ class BigEPWrapper(Wrapper):
 
         if params.get("s3echo"):
             minio_client = iris.get_minio_client(params["s3echo"]["configuration"])
-            bucket_name = self.recwrap.environment.get("pipeline").lower()
+            bucket_name = params["s3echo"].get("bucket", "big-ep")
             try:
                 iris.store_results_in_s3(
                     minio_client,

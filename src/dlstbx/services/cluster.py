@@ -229,9 +229,7 @@ def submit_to_slurm(
             nodes=[params.nodes, params.nodes] if params.nodes else params.nodes,
             gpus_per_node=params.gpus_per_node,
             memory_per_node=params.memory_per_node,
-            environment=os.environ
-            if params.environment is None
-            else params.environment,
+            environment=params.environment or {},
             memory_per_cpu=params.min_memory_per_cpu,
             time_limit=time_limit_minutes,
             gpus=params.gpus,

@@ -90,6 +90,7 @@ def run():
             .join(models.BLSession)
             .filter(models.BLSession.archived != 1)
             .filter(models.BLSession.endDate < one_year_ago)
+            .filter(models.BLSession.visit_number != None)  # noqa: E711 (sqlalchemy)
             .limit(100)
         )
         archivables = [Archivable(**row) for row in query.all()]

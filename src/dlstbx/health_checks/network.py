@@ -48,7 +48,7 @@ def _check_service(URL, checkname, servicename):
 
 
 def check_agamemnon(cfc: CheckFunctionInterface):
-    URL = "http://agamemnon.diamond.ac.uk:8080/status"
+    URL = "http://agamemnon.diamond.ac.uk/status"
     servicename = "Agamemnon"
     try:
         with urllib.request.urlopen(URL, timeout=3) as response:

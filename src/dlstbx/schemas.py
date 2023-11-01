@@ -20,12 +20,12 @@ class Atom(pydantic.BaseModel):
 
 
 class Blob(pydantic.BaseModel):
-    xyz: tuple[float, float, float]
-    height: float
+    xyz: tuple[pydantic.FiniteFloat, pydantic.FiniteFloat, pydantic.FiniteFloat]
+    height: pydantic.FiniteFloat
     map_type: MapType
-    occupancy: float | None
+    occupancy: pydantic.FiniteFloat | None
     nearest_atom: Atom | None
-    nearest_atom_distance: float | None
+    nearest_atom_distance: pydantic.FiniteFloat | None
     filepath: pathlib.Path | None
     view1: str | None
     view2: str | None
@@ -73,13 +73,13 @@ class Attachment(pydantic.BaseModel):
 class MXMRRun(pydantic.BaseModel):
     auto_proc_scaling_id: int
     auto_proc_program_id: int | None
-    rwork_start: float
-    rwork_end: float
-    rfree_start: float
-    rfree_end: float
+    rwork_start: pydantic.FiniteFloat
+    rwork_end: pydantic.FiniteFloat
+    rfree_start: pydantic.FiniteFloat
+    rfree_end: pydantic.FiniteFloat
     space_group: str | None
-    LLG: float | None
-    TFZ: float | None
+    LLG: pydantic.FiniteFloat | None
+    TFZ: pydantic.FiniteFloat | None
 
 
 class XrayCentringStatus(enum.Enum):

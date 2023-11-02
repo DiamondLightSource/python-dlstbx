@@ -47,6 +47,7 @@ class JobSubmissionParameters(pydantic.BaseModel):
     cluster: Optional[str]
     partition: Optional[str]
     job_name: Optional[str]  #
+    priority: Optional[int]  # HTCondor only
     environment: Optional[dict[str, str]] = None
     cpus_per_task: Optional[int] = None
     tasks: Optional[int] = None  # slurm only
@@ -303,6 +304,8 @@ def submit_to_htcondor(
         htcondor_submit.update(
             {"transfer_output_files": ",".join(params.transfer_output_files)}
         )
+    if params.priority:
+        htcondor_submit["priority"] = f"{params.priority}"
 
     try:
         import htcondor

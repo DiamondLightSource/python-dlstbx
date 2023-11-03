@@ -231,7 +231,7 @@ def submit_to_slurm(
             gpus_per_node=params.gpus_per_node,
             memory_per_node=params.memory_per_node,
             # The environment must not be empty.
-            environment=params.environment or {"down": "with this sort of thing"},
+            environment=params.environment or {"DUMMY_ENV_VAR": "See https://github.com/DiamondLightSource/python-dlstbx/pull/228"},
             memory_per_cpu=params.min_memory_per_cpu,
             time_limit=time_limit_minutes,
             gpus=params.gpus,

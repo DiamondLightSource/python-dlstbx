@@ -216,9 +216,13 @@ def submit_to_slurm(
         script = "\n".join(script)
     script = f"#!/bin/bash\n. /etc/profile.d/modules.sh\n{script}"
 
-    dummy_environment = {
-        "DUMMY": "See https://github.com/DiamondLightSource/python-dlstbx/pull/228"
-    }
+    # The environment must not be empty, see
+    # https://github.com/DiamondLightSource/python-dlstbx/pull/228.
+    # If a recipe requires a environment variable, add it to minimal_environment here.
+    minimal_environment = {"USER"}
+    # Only attempt to copy variables that already exist in the submitter's environment.
+    minimal_environment &= set(os.environ)
+    environment = params.environment or {k: os.environ[k] for k in minimal_environment}
 
     logger.debug(f"Submitting script to Slurm:\n{script}")
     if params.time_limit:
@@ -236,8 +240,7 @@ def submit_to_slurm(
             nodes=[params.nodes, params.nodes] if params.nodes else params.nodes,
             gpus_per_node=params.gpus_per_node,
             memory_per_node=params.memory_per_node,
-            # The environment must not be empty.
-            environment=params.environment or dummy_environment,
+            environment=environment,
             memory_per_cpu=params.min_memory_per_cpu,
             time_limit=time_limit_minutes,
             gpus=params.gpus,

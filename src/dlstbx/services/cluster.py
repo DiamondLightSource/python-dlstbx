@@ -92,6 +92,7 @@ def format_timedelta_to_HHMMSS(td: datetime.timedelta) -> str:
 
 units = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
 
+
 # based on https://stackoverflow.com/a/60708339
 def parse_size(size):
     size = size.upper()
@@ -215,11 +216,16 @@ def submit_to_slurm(
         script = "\n".join(script)
     script = f"#!/bin/bash\n. /etc/profile.d/modules.sh\n{script}"
 
+    dummy_environment = {
+        "DUMMY": "See https://github.com/DiamondLightSource/python-dlstbx/pull/228"
+    }
+
     logger.debug(f"Submitting script to Slurm:\n{script}")
     if params.time_limit:
         time_limit_minutes = math.ceil(params.time_limit.total_seconds() / 60)
     else:
         time_limit_minutes = None
+
     job_submission = slurm.models.JobSubmission(
         script=script,
         job=slurm.models.JobProperties(
@@ -231,7 +237,7 @@ def submit_to_slurm(
             gpus_per_node=params.gpus_per_node,
             memory_per_node=params.memory_per_node,
             # The environment must not be empty.
-            environment=params.environment or {"DUMMY_ENV_VAR": "See https://github.com/DiamondLightSource/python-dlstbx/pull/228"},
+            environment=params.environment or dummy_environment,
             memory_per_cpu=params.min_memory_per_cpu,
             time_limit=time_limit_minutes,
             gpus=params.gpus,

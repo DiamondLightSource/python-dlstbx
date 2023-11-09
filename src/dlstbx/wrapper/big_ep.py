@@ -172,13 +172,13 @@ def record_big_ep_settings_in_ispyb(rpid, msg, logger):
         "compound": msg.compound,
         "sequence": msg.sequence,
     }
-    ispyb_conn = ispyb.open()
-    for key, value in big_ep_settings.items():
-        jpp = ispyb_conn.mx_processing.get_job_parameter_params()
-        jpp["job_id"] = rpid
-        jpp["parameter_key"] = key
-        jpp["parameter_value"] = value
-        ispyb_conn.mx_processing.upsert_job_parameter(list(jpp.values()))
+    with ispyb.open() as ispyb_conn:
+        for key, value in big_ep_settings.items():
+            jpp = ispyb_conn.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = rpid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            ispyb_conn.mx_processing.upsert_job_parameter(list(jpp.values()))
     logger.info(f"big_ep settings jobid {rpid}: {pformat(big_ep_settings)}")
 
 

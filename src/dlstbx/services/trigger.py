@@ -5,6 +5,7 @@ import pathlib
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
+import gemmi
 import ispyb
 import prometheus_client
 import pydantic
@@ -109,6 +110,15 @@ class BigEPParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     spacegroup: Optional[str]
+
+    @pydantic.validator("spacegroup")
+    def is_spacegroup_null(cls, v):
+        ## Validate space group parameter and exclude "None"
+        try:
+            spg = gemmi.SpaceGroup(v).short_name()
+        except (TypeError, ValueError):
+            return None
+        return spg
 
 
 class BigEPLauncherParameters(pydantic.BaseModel):

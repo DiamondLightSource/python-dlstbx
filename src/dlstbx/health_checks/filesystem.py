@@ -63,6 +63,7 @@ def check_filesystems(cfc: CheckFunctionInterface):
         ("/dls/i04-1", "/dls/i04-1/data/2023/cm33904-1/tmp"),
         ("/dls/i18", "/dls/i18/data/2023/cm33872-1/tmp"),
         ("/dls/i19-1", "/dls/i19-1/data/2023/cm33867-1/tmp"),
+        ("/dls/i19-2", "/dls/i19-2/data/2023/cm33868-1/tmp/"),
         ("/dls/i23", "/dls/i23/data/2023/cm33851-1/tmp"),
         ("/dls/i24", "/dls/i24/data/test"),
         ("/dls/m12", "/dls/m12/data/2023/cm33870-3/tmp"),

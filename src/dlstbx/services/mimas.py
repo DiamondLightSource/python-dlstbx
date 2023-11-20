@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import time
 from pprint import pformat
+from typing import Any
 
 import workflows.recipe
 from workflows.services.common_service import CommonService
 
 from dlstbx import mimas
+from dlstbx.mimas import specification
 
 
 class DLSMimas(CommonService):
@@ -161,7 +163,7 @@ class DLSMimas(CommonService):
             preferred_processing=step.get("preferred_processing"),
             detectorclass=detectorclass,
             anomalous_scatterer=anomalous_scatterer,
-            is_cloudbursting=self.is_cloudbursting(),
+            cloudbursting=self.get_cloudbursting_spec(),
         )
 
     def on_statistics_cluster(self, header, message):
@@ -195,54 +197,87 @@ class DLSMimas(CommonService):
                     f"Total used storage on {sc}: {self.cluster_stats[sc]['total']}\n",
                 )
 
-    def is_cloudbursting(self) -> bool:
+    def get_cloudbursting_spec(
+        self,
+    ) -> list[dict[str, Any]]:
         """
         Activate cloudbursting if number of waiting jobs on DLS cluster exceeded
         the predefined threshold or DLS cluster stats update timed out. Check
         that queue of jobs on STFC/IRIS and S3 Echo storage utilisation are
         below threshold and statistics updates haven't timed out.
         """
+        cloud_spec_list: list[dict[str, Any]] = []
         try:
             max_jobs_waiting = self.config.storage.get(
-                "max_jobs_waiting", {"live": 60, "iris": 3000}
+                "max_jobs_waiting", {"live": 60, "iris": 500}
             )
             timeout = self.config.storage.get("timeout", 300)
             s3echo_quota = 0.95 * self.config.storage.get("s3echo_quota", 100)
+            timeout_threshold = time.time() - timeout
             self.log.debug(f"Live cluster stats: {self.cluster_stats['live']}")
             self.log.debug(f"IRIS cluster stats: {self.cluster_stats['iris']}")
             self.log.debug(f"S3Echo stats: {self.cluster_stats['s3echo']}")
             self.log.debug(
-                f"Cloudbursting threshold values\n'max_jobs_waiting': {max_jobs_waiting}\n's3echo_quota': {s3echo_quota}"
+                "Cloudbursting threshold values\n"
+                f"  max_jobs_waiting: {max_jobs_waiting}\n"
+                f"  s3echo_quota: {s3echo_quota}"
+                f"  timeout_threshold: {timeout_threshold}"
             )
-            if (
-                (
-                    (
-                        self.cluster_stats["live"]["jobs_waiting"]
-                        > max_jobs_waiting["live"]
-                    )
-                    or (
-                        self.cluster_stats["live"]["last_cluster_update"]
-                        < (time.time() - timeout)
-                    )
-                )
-                and (
-                    self.cluster_stats["iris"]["jobs_waiting"]
-                    < max_jobs_waiting["iris"]
-                )
-                and (
-                    self.cluster_stats["iris"]["last_cluster_update"]
-                    > (time.time() - timeout)
-                )
-                and (self.cluster_stats["s3echo"]["total"] < s3echo_quota)
-                and (
-                    self.cluster_stats["s3echo"]["last_cluster_update"]
-                    > (time.time() - timeout)
-                )
+            # Check if global cloudbursting flag is False or if S3 Echo is full
+            if (not self.config.storage.get("cloudbursting", False)) or (
+                self.cluster_stats["s3echo"]["total"] > s3echo_quota
             ):
-                return True
+                self.log.debug(
+                    "Cloudbursting disabled:\n"
+                    f"  is_cludbursting {self.config.storage.get('cloudbursting', False)}\n"
+                    f"  s3echo_storage: {self.cluster_stats['s3echo']['total']}"
+                )
+                return cloud_spec_list
+            # Create cloud specification entry for each element in zocalo.mimas.cloud
+            # Add specification to the list if science cluster if oversubscribed
+            # and cluster statistics are up-to-date
+            for group in self.config.storage.get("zocalo.mimas.cloud", []):
+                if not group.get("cloudbursting", True):
+                    continue
+                cloud_spec = specification.VisitSpecification(
+                    set(group.get("visit_pattern", []))
+                ) & specification.BeamlineSpecification(
+                    beamlines=set(group.get("beamlines", []))
+                )
+                group_max_jobs_waiting = group.get("max_jobs_waiting", max_jobs_waiting)
+                if (
+                    (
+                        (
+                            self.cluster_stats["live"]["jobs_waiting"]
+                            > group_max_jobs_waiting["live"]
+                        )
+                        or (
+                            self.cluster_stats["live"]["last_cluster_update"]
+                            < timeout_threshold
+                        )
+                    )
+                    and (
+                        self.cluster_stats["iris"]["jobs_waiting"]
+                        < group_max_jobs_waiting["iris"]
+                    )
+                    and (
+                        self.cluster_stats["iris"]["last_cluster_update"]
+                        > timeout_threshold
+                    )
+                    and (
+                        self.cluster_stats["s3echo"]["last_cluster_update"]
+                        > timeout_threshold
+                    )
+                ):
+                    cloud_spec_list.append(
+                        {
+                            "cloud_spec": cloud_spec,
+                            "recipes": group.get("recipes", ["autoprocessing"]),
+                        }
+                    )
         except AttributeError:
             self.log.exception("Error reading cluster statistics")
-        return False
+        return cloud_spec_list
 
     def process(self, rw, header, message):
         """Process an incoming event."""

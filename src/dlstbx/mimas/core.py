@@ -10,7 +10,6 @@ from dlstbx.mimas.specification import (
     DCClassSpecification,
     DetectorClassSpecification,
     EventSpecification,
-    VisitSpecification,
 )
 
 MX_BEAMLINES = {"i02-1", "i02-2", "i03", "i04", "i04-1", "i23", "i24"}
@@ -257,33 +256,32 @@ def handle_rotation_end(
         )
 
     triggervars: Tuple[mimas.MimasISPyBTriggerVariable, ...] = ()
-    if scenario.is_cloudbursting and "eiger" in suffix:
-        for group in zc.storage.get("zocalo.mimas.cloud", []):
-            cloud_spec = VisitSpecification(
-                set(group.get("visit_pattern", []))
-            ) & BeamlineSpecification(beamlines=set(group.get("beamlines", [])))
-
-            if group.get("cloudbursting", False) and cloud_spec.is_satisfied_by(
-                scenario
-            ):
+    cloud_recipes: list[str] = []
+    if scenario.cloudbursting and "eiger" in suffix:
+        for el in scenario.cloudbursting:
+            if el["cloud_spec"].is_satisfied_by(scenario):
                 suffix = "-eiger-cloud"
+                cloud_recipes = el.get("recipes", ["autoprocessing"])
                 triggervars = (
                     mimas.MimasISPyBTriggerVariable("statistic-cluster", "iris"),
                 )
                 break
 
-    pipelines = ("xia2/DIALS", "xia2/XDS", "autoPROC")
-    ppl_autostart: dict[str, bool] = {
-        ppl: scenario.preferred_processing == ppl for ppl in pipelines
-    }
-    ppl_suffix: dict[str, str] = {
-        ppl: suffix_pref if scenario.preferred_processing == ppl else suffix
-        for ppl in pipelines
-    }
-    ppl_triggervars: dict[str, Tuple[mimas.MimasISPyBTriggerVariable, ...]] = {
-        ppl: () if scenario.preferred_processing == ppl else triggervars
-        for ppl in pipelines
-    }
+    ppl_autostart: dict[str, bool] = {}
+    ppl_suffix: dict[str, str] = {}
+    for ppl, recipe in (
+        ("xia2/DIALS", "autoprocessing-xia2-dials"),
+        ("xia2/XDS", "autoprocessing-xia2-3dii"),
+        ("autoPROC", "autoprocessing-autoPROC"),
+        ("mxia2/DIALS", "autoprocessing-multi-xia2-dials"),
+        ("mxia2/XDS", "autoprocessing-multi-xia2-3dii"),
+    ):
+        ppl_autostart[ppl] = False
+        ppl_suffix[ppl] = suffix_pref
+        if scenario.preferred_processing == ppl:
+            ppl_autostart[ppl] = True
+        elif any(r in recipe for r in cloud_recipes):
+            ppl_suffix[ppl] = suffix
 
     for params in extra_params:
         tasks.extend(
@@ -303,7 +301,7 @@ def handle_rotation_end(
                         *xia2_dials_beamline_extra_params,
                         *xia2_dials_absorption_params(scenario),
                     ),
-                    triggervariables=ppl_triggervars["xia2/DIALS"],
+                    triggervariables=triggervars,
                 ),
                 # xia2-3dii
                 mimas.MimasISPyBJobInvocation(
@@ -318,7 +316,7 @@ def handle_rotation_end(
                         ),
                         *params,
                     ),
-                    triggervariables=ppl_triggervars["xia2/XDS"],
+                    triggervariables=triggervars,
                 ),
                 # autoPROC
                 mimas.MimasISPyBJobInvocation(
@@ -328,7 +326,7 @@ def handle_rotation_end(
                     source="automatic",
                     displayname="autoPROC",
                     parameters=params,
-                    triggervariables=ppl_triggervars["autoPROC"],
+                    triggervariables=triggervars,
                 ),
             ]
         )
@@ -339,8 +337,8 @@ def handle_rotation_end(
                     # xia2-dials
                     mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
-                        autostart=False,
-                        recipe=f"autoprocessing-multi-xia2-dials{suffix}",
+                        autostart=False,  # no priority processing for multi-xia2
+                        recipe=f"autoprocessing-multi-xia2-dials{ppl_suffix['mxia2/DIALS']}",
                         source="automatic",
                         displayname="xia2 dials (multi)",
                         parameters=(
@@ -356,8 +354,8 @@ def handle_rotation_end(
                     # xia2-3dii
                     mimas.MimasISPyBJobInvocation(
                         DCID=scenario.DCID,
-                        autostart=False,
-                        recipe=f"autoprocessing-multi-xia2-3dii{suffix}",
+                        autostart=False,  # no priority processing for multi-xia2
+                        recipe=f"autoprocessing-multi-xia2-3dii{ppl_suffix['mxia2/XDS']}",
                         source="automatic",
                         displayname="xia2 3dii (multi)",
                         parameters=(

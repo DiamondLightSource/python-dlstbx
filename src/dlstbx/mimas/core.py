@@ -255,6 +255,7 @@ def handle_rotation_end(
             mimas.MimasISPyBParameter(key="failover", value="true"),
         )
 
+    triggervars_pref: Tuple[mimas.MimasISPyBTriggerVariable, ...] = ()
     triggervars: Tuple[mimas.MimasISPyBTriggerVariable, ...] = ()
     cloud_recipes: set[str] = set()
     if scenario.cloudbursting and "eiger" in suffix:
@@ -268,6 +269,7 @@ def handle_rotation_end(
 
     ppl_autostart: dict[str, bool] = {}
     ppl_suffix: dict[str, str] = {}
+    ppl_triggervars: dict[str, Tuple[mimas.MimasISPyBTriggerVariable, ...]] = {}
     for ppl, recipe in (
         ("xia2/DIALS", "autoprocessing-xia2-dials"),
         ("xia2/XDS", "autoprocessing-xia2-3dii"),
@@ -277,10 +279,12 @@ def handle_rotation_end(
     ):
         ppl_autostart[ppl] = False
         ppl_suffix[ppl] = suffix_pref
+        ppl_triggervars[ppl] = triggervars_pref
         if scenario.preferred_processing == ppl:
             ppl_autostart[ppl] = True
         elif any(r in recipe for r in cloud_recipes):
             ppl_suffix[ppl] = suffix
+            ppl_triggervars[ppl] = triggervars
 
     for params in extra_params:
         tasks.extend(
@@ -300,7 +304,7 @@ def handle_rotation_end(
                         *xia2_dials_beamline_extra_params,
                         *xia2_dials_absorption_params(scenario),
                     ),
-                    triggervariables=triggervars,
+                    triggervariables=ppl_triggervars["xia2/DIALS"],
                 ),
                 # xia2-3dii
                 mimas.MimasISPyBJobInvocation(
@@ -315,7 +319,7 @@ def handle_rotation_end(
                         ),
                         *params,
                     ),
-                    triggervariables=triggervars,
+                    triggervariables=ppl_triggervars["xia2/XDS"],
                 ),
                 # autoPROC
                 mimas.MimasISPyBJobInvocation(
@@ -325,7 +329,7 @@ def handle_rotation_end(
                     source="automatic",
                     displayname="autoPROC",
                     parameters=params,
-                    triggervariables=triggervars,
+                    triggervariables=ppl_triggervars["autoPROC"],
                 ),
             ]
         )
@@ -348,7 +352,7 @@ def handle_rotation_end(
                             *xia2_dials_absorption_params(scenario),
                         ),
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                        triggervariables=triggervars,
+                        triggervariables=ppl_triggervars["mxia2/DIALS"],
                     ),
                     # xia2-3dii
                     mimas.MimasISPyBJobInvocation(
@@ -364,7 +368,7 @@ def handle_rotation_end(
                             *params,
                         ),
                         sweeps=tuple(scenario.getsweepslistfromsamedcg),
-                        triggervariables=triggervars,
+                        triggervariables=ppl_triggervars["mxia2/XDS"],
                     ),
                 ]
             )

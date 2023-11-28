@@ -256,16 +256,15 @@ def handle_rotation_end(
         )
 
     triggervars: Tuple[mimas.MimasISPyBTriggerVariable, ...] = ()
-    cloud_recipes: list[str] = []
+    cloud_recipes: set[str] = set()
     if scenario.cloudbursting and "eiger" in suffix:
         for el in scenario.cloudbursting:
             if el["cloud_spec"].is_satisfied_by(scenario):
                 suffix = "-eiger-cloud"
-                cloud_recipes = el.get("recipes", ["autoprocessing"])
+                cloud_recipes.update(el.get("recipes", ["autoprocessing"]))
                 triggervars = (
                     mimas.MimasISPyBTriggerVariable("statistic-cluster", "iris"),
                 )
-                break
 
     ppl_autostart: dict[str, bool] = {}
     ppl_suffix: dict[str, str] = {}

@@ -341,19 +341,21 @@ class Xia2Wrapper(Wrapper):
         # Calculate the resolution at which the mean merged I/sig(I) = 2
         # Why? Because https://jira.diamond.ac.uk/browse/LIMS-104
         res_i_sig_i_2 = None
-        if success:
-            try:
-                estimate_resolution_input_files = [
-                    next((working_directory / "DataFiles").glob("*_scaled.expt")),
-                    next((working_directory / "DataFiles").glob("*_scaled.refl")),
-                ]
-            except StopIteration:
-                estimate_resolution_input_files = [
-                    next(
-                        (working_directory / "DataFiles").glob("*_scaled_unmerged.mtz")
-                    ),
-                ]
-            try:
+        try:
+            if success:
+                try:
+                    estimate_resolution_input_files = [
+                        next((working_directory / "DataFiles").glob("*_scaled.expt")),
+                        next((working_directory / "DataFiles").glob("*_scaled.refl")),
+                    ]
+                except StopIteration:
+                    estimate_resolution_input_files = [
+                        next(
+                            (working_directory / "DataFiles").glob(
+                                "*_scaled_unmerged.mtz"
+                            )
+                        ),
+                    ]
                 extra_args = ["misigma=2"]
                 resolution_limits = run_dials_estimate_resolution(
                     estimate_resolution_input_files,
@@ -361,10 +363,8 @@ class Xia2Wrapper(Wrapper):
                     extra_args=extra_args,
                 )
                 res_i_sig_i_2 = resolution_limits.get("Mn(I/sig)")
-            except Exception as e:
-                self.log.warning(
-                    f"dials.estimate_resolution failure: {e}", exc_info=True
-                )
+        except Exception as e:
+            self.log.warning(f"dials.estimate_resolution failure: {e}", exc_info=True)
 
         # Part of the result parsing requires to be in result directory
         os.chdir(results_directory)

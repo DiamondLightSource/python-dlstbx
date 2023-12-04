@@ -435,10 +435,9 @@ def ispyb_write_model_json(working_directory, mdl_dict, logger):
         json_file.write(json_data)
 
 
-def send_results_to_ispyb(results_directory, log_files, record_result):
-    result = True
-    mdl_dict = get_map_model_from_json(results_directory)
+def send_results_to_ispyb(results_directory, log_files, record_result, logger):
     try:
+        mdl_dict = get_map_model_from_json(results_directory)
         for key in ["pdb", "map", "mtz"]:
             fp = mdl_dict[key]
             if os.path.isfile(fp):
@@ -459,7 +458,9 @@ def send_results_to_ispyb(results_directory, log_files, record_result):
             }
         )
     except Exception:
-        result = False
+        logger.warning(
+            f"Cannot get model data file in {results_directory}", exc_info=True
+        )
 
     for pipeline_logfile in log_files:
         if os.path.isfile(pipeline_logfile):
@@ -473,5 +474,6 @@ def send_results_to_ispyb(results_directory, log_files, record_result):
                     }
                 )
             except Exception:
-                result = False
-    return result
+                logger.warning(
+                    f"Cannot write pipeline log file {pipeline_logfile}", exc_info=True
+                )

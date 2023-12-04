@@ -516,28 +516,27 @@ class BigEPWrapper(Wrapper):
             self.log.debug("Result directory not specified")
             return success
 
-        if success:
-            self.log.debug("Registering results files in ISPyB")
-            send_results_to_ispyb(
-                results_directory,
-                params.get("log_files"),
-                self.record_result_individual_file,
-            )
-
-            keep_ext = {".html": "log", ".png": "log"}
-            for filename in results_directory.iterdir():
-                filetype = keep_ext.get(filename.suffix)
-                if filetype is None:
-                    continue
-                if filename.suffix == ".png":
-                    self.record_result_individual_file(
-                        {
-                            "file_path": str(filename.parent),
-                            "file_name": filename.name,
-                            "file_type": filetype,
-                            "importance_rank": 2,
-                        }
-                    )
+        self.log.debug("Registering results files in ISPyB")
+        send_results_to_ispyb(
+            results_directory,
+            params.get("log_files"),
+            self.record_result_individual_file,
+            self.log,
+        )
+        keep_ext = {".html": "log", ".png": "log"}
+        for filename in results_directory.iterdir():
+            filetype = keep_ext.get(filename.suffix)
+            if filetype is None:
+                continue
+            if filename.suffix == ".png":
+                self.record_result_individual_file(
+                    {
+                        "file_path": str(filename.parent),
+                        "file_name": filename.name,
+                        "file_type": filetype,
+                        "importance_rank": 2,
+                    }
+                )
         return success
 
     def run(self):

@@ -528,10 +528,10 @@ def call_sim(test_name, beamline):
     if beamline.startswith(("e", "m")):
         proposal = "cm33870"
     else:
-        proposal = "nt33918"
+        proposal = "nt37183"
     if beamline.startswith("i02"):
         if beamline == "i02-2":
-            dest_visit = f"{proposal}-9"
+            dest_visit = f"{proposal}-1"
         elif beamline == "i02-1":
             dest_visit = f"{proposal}-2"
         dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)

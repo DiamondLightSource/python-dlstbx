@@ -106,6 +106,7 @@ def get_heavy_atom_job(msg):
     except TypeError:
         msg.nres = int(mw / 110)
         msg.sequence = "A" * msg.nres
+        msg.compound = "Polyala"
 
 
 def number_sites_estimate(cell, pointgroup):
@@ -268,7 +269,13 @@ def write_sequence_file(working_directory, msg):
     seqin = working_directory / msg.seqin_filename
 
     with open(seqin, "w") as fp:
-        fp.write(fasta_sequence(msg.sequence).format(80))
+        # Workaround to get Crank2 to accept dummy poly-alanine sequence
+        seq_line_len = 3 if msg.compound == "Polyala" else 80
+        fp.write(
+            fasta_sequence(sequence=msg.sequence, name=msg.compound).format(
+                seq_line_len
+            )
+        )
 
 
 def get_autosharp_model_files(working_directory, logger):

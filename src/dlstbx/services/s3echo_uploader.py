@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import workflows.recipe
-from minio import Minio
 from minio.error import S3Error
 from workflows.services.common_service import CommonService
 
@@ -35,8 +34,6 @@ class S3EchoUploader(CommonService):
         """
         self.log.info(f"{S3EchoUploader._service_name} starting")
 
-        self.minio_client: Minio = get_minio_client(S3EchoUploader._s3echo_credentials)
-
         workflows.recipe.wrap_subscribe(
             self._transport,
             "s3echo.upload",
@@ -63,8 +60,9 @@ class S3EchoUploader(CommonService):
 
         params = rw.recipe_step["parameters"]
         try:
+            minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
             s3_urls = get_presigned_urls_images(
-                self.minio_client,
+                minio_client,
                 params["bucket"],
                 params["rpid"],
                 params["images"],
@@ -92,8 +90,9 @@ class S3EchoUploader(CommonService):
 
         params = rw.recipe_step["parameters"]
         try:
+            minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
             retrieve_results_from_s3(
-                self.minio_client,
+                minio_client,
                 params["bucket"],
                 Path(params["working_directory"]),
                 params["rpid"],
@@ -103,7 +102,7 @@ class S3EchoUploader(CommonService):
             if params.get("remove", False):
                 try:
                     remove_images_from_s3(
-                        self.minio_client,
+                        minio_client,
                         params["bucket"],
                         params["rpid"],
                         params["remove"]["images"],

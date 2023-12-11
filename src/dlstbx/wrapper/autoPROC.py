@@ -281,6 +281,7 @@ class autoPROCWrapper(Wrapper):
     def send_results_to_ispyb(
         self,
         autoproc_xml: dict,
+        success: bool,
         special_program_name: str | None = None,
         attachments: list[tuple[str, Path, str, int]] | None = None,
         res_i_sig_i_2: float | None = None,
@@ -313,8 +314,6 @@ class autoPROCWrapper(Wrapper):
             .split()[0]
         )
         self.log.debug(f"autoPROC version: {autoproc_version}")
-
-        success = True
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
         if auto_proc := autoproc_xml.get("AutoProc"):
@@ -461,14 +460,24 @@ class autoPROCWrapper(Wrapper):
                 )
 
         if special_program_name:
-            ispyb_command_list.append(
-                {
-                    "ispyb_command": "update_processing_status",
-                    "program_id": "$ispyb_autoprocprogram_id",
-                    "message": "processing successful",
-                    "status": "success",
-                }
-            )
+            if success:
+                ispyb_command_list.append(
+                    {
+                        "ispyb_command": "update_processing_status",
+                        "program_id": "$ispyb_autoprocprogram_id",
+                        "message": "processing successful",
+                        "status": "success",
+                    }
+                )
+            else:
+                ispyb_command_list.append(
+                    {
+                        "ispyb_command": "update_processing_status",
+                        "program_id": "$ispyb_autoprocprogram_id",
+                        "message": "processing failure",
+                        "status": "failure",
+                    }
+                )
 
         if not ispyb_command_list:
             self.log.warning("no results to send to ISPyB")
@@ -741,11 +750,15 @@ class autoPROCWrapper(Wrapper):
 
         if autoproc_xml:
             success = self.send_results_to_ispyb(
-                autoproc_xml, attachments=attachments, res_i_sig_i_2=res_i_sig_i_2
+                autoproc_xml,
+                success,
+                attachments=attachments,
+                res_i_sig_i_2=res_i_sig_i_2,
             )
         if staraniso_xml:
             self.send_results_to_ispyb(
                 staraniso_xml,
+                success,
                 special_program_name="autoPROC+STARANISO",
                 attachments=anisofiles,
             )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import pathlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import gemmi
@@ -1115,8 +1115,16 @@ class DLSTrigger(CommonService):
         """
         dcid = parameters.dcid
 
-        # Take related dcids from recipe in preference
-        related_dcids = parameters.related_dcids
+        # Take related dcids from recipe in preference or checkpointed message
+        try:
+            # Checkpointed message has dcid group with still running jobs
+            assert isinstance(
+                related_dcid_group := message.get("related_dcid_group"), list
+            )
+            related_dcids = [RelatedDCIDs(**el) for el in related_dcid_group]
+        except Exception:
+            # Initial call of multiplex trigger
+            related_dcids = parameters.related_dcids
         self.log.info(f"related_dcids={related_dcids}")
 
         if not related_dcids:
@@ -1133,7 +1141,7 @@ class DLSTrigger(CommonService):
         }
         if isinstance(message, dict):
             status.update(message.get("trigger-status", {}))
-        message_delay = (
+        message_delay = int(
             parameters.backoff_delay * parameters.backoff_multiplier ** status["ntry"]
         )
         status["ntry"] += 1
@@ -1158,6 +1166,7 @@ class DLSTrigger(CommonService):
             self.log.info(f"xia2.multiplex trigger: found dcids: {dcids}")
 
             # Check for any processing jobs that are yet to finish (or fail)
+            min_start_time = datetime.now() - timedelta(hours=24)
             query = (
                 (
                     session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
@@ -1169,6 +1178,7 @@ class DLSTrigger(CommonService):
                 .filter(ProcessingJob.dataCollectionId.in_(dcids))
                 .filter(ProcessingJob.automatic == True)  # noqa E712
                 .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+                .filter(ProcessingJob.recordTimestamp > min_start_time)  # noqa E711
                 .filter(
                     or_(
                         AutoProcProgram.processingStatus == None,  # noqa E711
@@ -1202,11 +1212,16 @@ class DLSTrigger(CommonService):
                         f"Waiting for dcids={waiting_dcids}\nappids={waiting_appids}"
                     )
                     rw.checkpoint(
-                        {"trigger-status": status},
+                        {
+                            "trigger-status": status,
+                            "related_dcid_group": [
+                                group.dict(),
+                            ],
+                        },
                         delay=message_delay,
                         transaction=transaction,
                     )
-                    return {"success": True}
+                    continue
 
             query = (
                 (

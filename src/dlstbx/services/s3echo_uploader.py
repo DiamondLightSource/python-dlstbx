@@ -59,8 +59,8 @@ class S3EchoUploader(CommonService):
         rw.transport.ack(header, transaction=txn)
 
         params = rw.recipe_step["parameters"]
+        minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
         try:
-            minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
             s3_urls = get_presigned_urls_images(
                 minio_client,
                 params["bucket"],
@@ -89,8 +89,8 @@ class S3EchoUploader(CommonService):
         rw.transport.ack(header, transaction=txn)
 
         params = rw.recipe_step["parameters"]
+        minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
         try:
-            minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
             retrieve_results_from_s3(
                 minio_client,
                 params["bucket"],
@@ -99,19 +99,6 @@ class S3EchoUploader(CommonService):
                 params["filename"],
                 self.log,
             )
-            if params.get("remove", False):
-                try:
-                    remove_images_from_s3(
-                        minio_client,
-                        params["bucket"],
-                        params["rpid"],
-                        params["remove"]["images"],
-                        self.log,
-                    )
-                except S3Error:
-                    self.log.exception(
-                        "Exception raised while trying to remove files from S3 object store."
-                    )
         except S3Error:
             self.log.exception(
                 f"Error reading {params['rpid']}_{params['filename']} from S3 bucket {params['bucket']}"
@@ -119,6 +106,20 @@ class S3EchoUploader(CommonService):
             rw.send_to("failure", message, transaction=txn)
         else:
             rw.send_to("success", message, transaction=txn)
+
+        if params.get("remove", False):
+            try:
+                remove_images_from_s3(
+                    minio_client,
+                    params["bucket"],
+                    params["rpid"],
+                    params["remove"]["images"],
+                    self.log,
+                )
+            except S3Error:
+                self.log.exception(
+                    f"Exception raised while trying to remove files from S3 object store: {params['remove']['images']}"
+                )
 
         # Commit transaction
         rw.transport.transaction_commit(txn)

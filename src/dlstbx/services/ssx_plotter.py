@@ -179,8 +179,7 @@ class SSXPlotter(CommonService):
             result.file_number: result.n_spots_total for result in pia_results
         }
 
-        plt.figure()
-        ax = plt.subplot()
+        fig, ax = plt.subplots()
 
         plot_pia(n_spots_total, spot_count_cutoff=payload.spot_count_cutoff, ax=ax)
 
@@ -194,6 +193,7 @@ class SSXPlotter(CommonService):
         plt.tight_layout()
         plt.savefig(filename)
         self.log.info(f"Saved plot to {filename}")
+        plt.close(fig)
 
     def plot_index(self, payload: Payload, lines: list[str]):
         indexing_results = [IndexingResult(**json.loads(line)) for line in lines]
@@ -267,12 +267,10 @@ class SSXPlotter(CommonService):
         plt.gcf().set_size_inches(2 * plt.gcf().get_size_inches())
         plt.savefig(filename)
         self.log.info(f"Saved plot to {filename}")
+        plt.close(fig)
 
 
-def plot_pia(n_spots_total: dict[int, int], spot_count_cutoff: int = 16, ax=plt.Axes):
-    if ax is None:
-        ax = plt.gca()
-
+def plot_pia(n_spots_total: dict[int, int], ax: plt.Axes, spot_count_cutoff: int = 16):
     image_numbers = np.array(list(n_spots_total.keys()))
     strong = np.array(list(n_spots_total.values()))
 

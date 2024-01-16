@@ -9,8 +9,8 @@ from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 from dlstbx.util.certificate import problems_with_certificate
 from dlstbx.util.graylog import GraylogAPI
 
-_graylog_host = "graylog2.diamond.ac.uk"
-_graylog_url = "https://graylog2.diamond.ac.uk/"
+_graylog_host = "graylog.diamond.ac.uk"
+_graylog_url = "https://graylog.diamond.ac.uk/"
 _graylog_dashboard = (
     "https://graylog2.diamond.ac.uk/dashboards/5a5c7f4eddab6253b0d28d1c"
 )
@@ -192,6 +192,10 @@ def check_graylog_has_history(cfc: CheckFunctionInterface) -> Status:
 def check_gfps_expulsion(cfc: CheckFunctionInterface) -> Status:
     try:
         g = GraylogAPI("/dls_sw/apps/zocalo/secrets/credentials-log.cfg")
+        # Temporary: Switch to the old graylog instance because syslog
+        # has not been migrated yet
+        g.url = "https://graylog2.diamond.ac.uk/api/"
+
         g.stream = "5d8cd831e7e1f54f98464d3f"  # switch to syslog stream
         g.filters = ["application_name:mmfs", "message:expelling"]
 

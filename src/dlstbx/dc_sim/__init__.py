@@ -511,14 +511,38 @@ def _simulate(
     )
 
 
-def call_sim(test_name, beamline):
+def call_sim(
+    test_name,
+    beamline,
+    src_dir=None,
+    src_prefixes=None,
+    src_run_num=None,
+    sample_id=None,
+):
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     if not scenario:
         sys.exit(f"{test_name} is not a valid test scenario")
+    # If data path not provided in command line, look for it in scenario
+    if src_dir is None:
+        src_dir = Path(scenario["src_dir"])
+    else:
+        src_dir = Path(src_dir)  # Convert src_dir to a path
+    if src_prefixes is None:
+        src_prefixes = scenario["src_prefix"]
+    if src_run_num is None:
+        src_run_num = scenario["src_run_num"]
+    if sample_id is None:
+        sample_id = scenario.get("use_sample_id")
+    else:
+        sample_id = int(sample_id)  # Convert sample_id to int
 
-    src_dir = Path(scenario["src_dir"])
-    sample_id = scenario.get("use_sample_id")
-    src_prefix = scenario["src_prefix"]
+    # Ensure that filename prefix and run number variables are tuples
+
+    if not isinstance(src_prefixes, tuple):
+        src_prefixes = (src_prefixes,)
+    if not isinstance(src_run_num, tuple):
+        src_run_num = (src_run_num,)
+
     proc_params = scenario.get("proc_params")
     time_start = time.time()
 
@@ -605,8 +629,8 @@ def call_sim(test_name, beamline):
     dcid_list = []
     dcg_list = []
     jobid_list = []
-    for src_run_number in scenario["src_run_num"]:
-        for src_prefix in scenario["src_prefix"]:
+    for src_run_number in src_run_num:
+        for src_prefix in src_prefixes:
             dest_prefix = src_prefix
             if scenario.get("dcg") and len(dcg_list):
                 dcg = dcg_list[0]

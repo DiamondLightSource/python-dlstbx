@@ -409,4 +409,5 @@ tests = {
             },
         },
     },
+    "mx-custom": {"type": "mx"},
 }

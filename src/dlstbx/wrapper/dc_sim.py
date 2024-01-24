@@ -12,10 +12,8 @@ class DCSimWrapper(Wrapper):
 
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
-
-        params = self.recwrap.recipe_step["job_parameters"]
-        beamline = params["beamline"]
-        scenario = params["scenario"]
+        # Get parameters from the recipe file (as a copy so that changes can be made without affecting anything)
+        params = self.recwrap.recipe_step["job_parameters"].copy()
 
         # A list of placeholder values to check for in params
         placeholders = [
@@ -32,15 +30,15 @@ class DCSimWrapper(Wrapper):
 
         self.log.info(
             "Running simulated data collection '%s' on beamline '%s'",
-            scenario,
-            beamline,
+            params["scenario"],
+            params["beamline"],
         )
 
         # Convert command line input of certain parameters into a list
         for key in ["src_prefix", "src_run_num"]:
             try:
                 value = eval(params[key])
-            except (SyntaxError, NameError):
+            except (SyntaxError, NameError, TypeError):
                 # Case for dealing with non-evaluatable input (e.g. string)
                 if params[key] is not None:
                     params[key] = [
@@ -56,7 +54,7 @@ class DCSimWrapper(Wrapper):
                         value,
                     ]
 
-        # Convert params into correct format
+        # Convert parameters into correct format
         if params["src_dir"] is not None:
             params["src_dir"] = Path(params["src_dir"])
         if params["sample_id"] is not None:
@@ -64,8 +62,8 @@ class DCSimWrapper(Wrapper):
 
         # Simulate the data collection
         result = dlstbx.dc_sim.call_sim(
-            test_name=scenario,
-            beamline=beamline,
+            test_name=params["scenario"],
+            beamline=params["beamline"],
             src_dir=params["src_dir"],
             src_prefixes=params["src_prefix"],
             src_run_num=params["src_run_num"],

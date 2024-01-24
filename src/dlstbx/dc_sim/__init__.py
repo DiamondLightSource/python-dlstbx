@@ -400,7 +400,8 @@ def _simulate(
             _dest_visit_dir,
             filetemplate,
             _dest_dir + "/",
-            _dest_prefix + "_" + str(run_number) + "_",
+            f"{_dest_prefix}_{run_number}_",
+            # _dest_prefix + "_" + str(run_number) + "_",
             os.path.splitext(filetemplate)[-1],
         ]
 
@@ -522,26 +523,16 @@ def call_sim(
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     if not scenario:
         sys.exit(f"{test_name} is not a valid test scenario")
-    # If data path not provided in command line, look for it in scenario
-    if src_dir is None:
+
+    # Get data path information from scenario. If not present, look for it in command line arguments
+    if "src_dir" in scenario:
         src_dir = Path(scenario["src_dir"])
-    else:
-        src_dir = Path(src_dir)  # Convert src_dir to a path
-    if src_prefixes is None:
+    if "src_prefix" in scenario:
         src_prefixes = scenario["src_prefix"]
-    if src_run_num is None:
+    if "src_run_num" in scenario:
         src_run_num = scenario["src_run_num"]
-    if sample_id is None:
-        sample_id = scenario.get("use_sample_id")
-    else:
-        sample_id = int(sample_id)  # Convert sample_id to int
-
-    # Ensure that filename prefix and run number variables are tuples
-
-    if not isinstance(src_prefixes, tuple):
-        src_prefixes = (src_prefixes,)
-    if not isinstance(src_run_num, tuple):
-        src_run_num = (src_run_num,)
+    if "use_sample_id" in scenario:
+        sample_id = scenario["use_sample_id"]
 
     proc_params = scenario.get("proc_params")
     time_start = time.time()

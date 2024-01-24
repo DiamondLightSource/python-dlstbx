@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import dlstbx.dc_sim.definitions
 from dlstbx.wrapper import Wrapper
 
@@ -15,15 +17,18 @@ class DCSimWrapper(Wrapper):
         beamline = params["beamline"]
         scenario = params["scenario"]
 
-        # Check for optional parameters specifying custom data
-        if "src_dir" in params:
-            src_dir = params["src_dir"]
-        if "src_prefix" in params:
-            src_prefix = params["src_prefix"]
-        if "src_run_num" in params:
-            src_run_num = params["src_run_num"]
-        if "sample_id" in params:
-            sample_id = params["sample_id"]
+        # A list of placeholder values to check for in params
+        placeholders = [
+            "{src_dir}",
+            "{src_prefix}",
+            "{src_run_num}",
+            "{sample_id}",
+        ]
+
+        # Replace any remaining placeholder values in params with None.
+        for key, value in params.items():
+            if value in placeholders:
+                params[key] = None
 
         self.log.info(
             "Running simulated data collection '%s' on beamline '%s'",
@@ -31,18 +36,41 @@ class DCSimWrapper(Wrapper):
             beamline,
         )
 
+        # Convert command line input of certain parameters into a list
+        for key in ["src_prefix", "src_run_num"]:
+            try:
+                value = eval(params[key])
+            except (SyntaxError, NameError):
+                # Case for dealing with non-evaluatable input (e.g. string)
+                if params[key] is not None:
+                    params[key] = [
+                        params[key],
+                    ]
+            else:
+                # Case for dealing with lists or tuples
+                if isinstance(value, list) or isinstance(value, tuple):
+                    params[key] = value
+                # Case for dealing with other evaluatable input (e.g. ints)
+                else:
+                    params[key] = [
+                        value,
+                    ]
+
+        # Convert params into correct format
+        if params["src_dir"] is not None:
+            params["src_dir"] = Path(params["src_dir"])
+        if params["sample_id"] is not None:
+            params["sample_id"] = int(params["sample_id"])
+
         # Simulate the data collection
-        if src_dir:
-            result = dlstbx.dc_sim.call_sim(
-                test_name=scenario,
-                beamline=beamline,
-                src_dir=src_dir,
-                src_prefixes=src_prefix,
-                src_run_num=src_run_num,
-                sample_id=sample_id,
-            )
-        else:
-            result = dlstbx.dc_sim.call_sim(test_name=scenario, beamline=beamline)
+        result = dlstbx.dc_sim.call_sim(
+            test_name=scenario,
+            beamline=beamline,
+            src_dir=params["src_dir"],
+            src_prefixes=params["src_prefix"],
+            src_run_num=params["src_run_num"],
+            sample_id=params["sample_id"],
+        )
 
         if result:
             self.log.info(f"Simulated data collection completed with {result!r}")

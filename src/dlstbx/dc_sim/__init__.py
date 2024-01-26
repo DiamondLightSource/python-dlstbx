@@ -524,14 +524,30 @@ def call_sim(
     if not scenario:
         sys.exit(f"{test_name} is not a valid test scenario")
 
-    # Get data path information from scenario. If not present, look for it in command line arguments
+    # Get data path information from scenario.
     if "src_dir" in scenario:
+        if src_dir is not None:
+            log.warning(
+                "src_dir read from scenario but also specified in command line - using scenario value"
+            )
         src_dir = Path(scenario["src_dir"])
     if "src_prefix" in scenario:
+        if src_prefixes is not None:
+            log.warning(
+                "src_prefix read from scenario but also specified in command line - using scenario value"
+            )
         src_prefixes = scenario["src_prefix"]
     if "src_run_num" in scenario:
+        if src_run_num is not None:
+            log.warning(
+                "src_run_num read from scenario but also specified in command line - using scenario value"
+            )
         src_run_num = scenario["src_run_num"]
     if "use_sample_id" in scenario:
+        if sample_id is not None:
+            log.warning(
+                "sample_id read from scenario but also specified in command line - using scenario value"
+            )
         sample_id = scenario["use_sample_id"]
 
     proc_params = scenario.get("proc_params")

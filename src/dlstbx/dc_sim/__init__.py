@@ -519,6 +519,7 @@ def call_sim(
     src_prefixes=None,
     src_run_num=None,
     sample_id=None,
+    dest_visit=None,
 ):
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     if not scenario:
@@ -552,34 +553,53 @@ def call_sim(
 
     proc_params = scenario.get("proc_params")
     time_start = time.time()
-
-    # Calculate the destination directory
     now = datetime.now()
-    # These proposal numbers need to be updated every year
-    if beamline.startswith(("e", "m")):
-        proposal = "cm33870"
-    else:
-        proposal = "nt37183"
-    if beamline.startswith("i02"):
-        if beamline == "i02-2":
-            dest_visit = f"{proposal}-1"
-        elif beamline == "i02-1":
-            dest_visit = f"{proposal}-2"
-        dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
-    elif scenario.get("visit_num"):
-        dest_visit = f"{proposal}-{scenario['visit_num']}"
-        dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
-    else:
-        for cm_dir in Path("/dls", beamline, "data", str(now.year)).iterdir():
-            if cm_dir.name.startswith(proposal):
-                dest_visit = cm_dir.name
-                break
-        else:
-            log.error("Could not determine destination directory")
-            sys.exit(1)
 
-        # Set mandatory parameters
-        dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
+    # Calculate the destination directory from specified visit number
+    if dest_visit is not None:
+        # Initial check to ensure that specified visit is either in-house or commissioning
+        if dest_visit.startswith(("cm", "nt")):
+            if beamline.startswith("i02"):
+                proposal = dest_visit.split("-")[0]
+                dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
+            else:
+                dest_visit_dir = Path(
+                    "/dls", beamline, "data", str(now.year), dest_visit
+                )
+            if not src_dir.is_dir():
+                sys.exit(
+                    "ERROR: Could not find a valid directory for the specified visit number and beamline."
+                )
+        else:
+            sys.exit(f"ERROR: Supplied visit number {dest_visit} is not allowed")
+
+    # Else, calculate the destination directory for default proposal numbers
+    else:
+        # These proposal numbers need to be updated every year
+        if beamline.startswith(("e", "m")):
+            proposal = "cm33870"
+        else:
+            proposal = "nt37183"
+        if beamline.startswith("i02"):
+            if beamline == "i02-2":
+                dest_visit = f"{proposal}-1"
+            elif beamline == "i02-1":
+                dest_visit = f"{proposal}-2"
+            dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
+        elif scenario.get("visit_num"):
+            dest_visit = f"{proposal}-{scenario['visit_num']}"
+            dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
+        else:
+            for cm_dir in Path("/dls", beamline, "data", str(now.year)).iterdir():
+                if cm_dir.name.startswith(proposal):
+                    dest_visit = cm_dir.name
+                    break
+            else:
+                log.error("Could not determine destination directory")
+                sys.exit(1)
+
+            # Set mandatory parameters
+            dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
 
     random_uuid = str(uuid.uuid4())[:8]
     dest_dir = (

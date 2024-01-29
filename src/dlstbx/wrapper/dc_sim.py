@@ -21,6 +21,7 @@ class DCSimWrapper(Wrapper):
             "{src_prefix}",
             "{src_run_num}",
             "{sample_id}",
+            "{visit}",
         ]
 
         # Replace any remaining placeholder values in params with None.
@@ -68,6 +69,7 @@ class DCSimWrapper(Wrapper):
             src_prefixes=params["src_prefix"],
             src_run_num=params["src_run_num"],
             sample_id=params["sample_id"],
+            dest_visit=params["visit"],
         )
 
         if result:

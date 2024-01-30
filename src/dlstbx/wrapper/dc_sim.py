@@ -22,6 +22,7 @@ class DCSimWrapper(Wrapper):
             "{src_run_num}",
             "{sample_id}",
             "{visit}",
+            "{src_dcid}",
         ]
 
         # Replace any remaining placeholder values in params with None.
@@ -58,8 +59,9 @@ class DCSimWrapper(Wrapper):
         # Convert parameters into correct format
         if params["src_dir"] is not None:
             params["src_dir"] = Path(params["src_dir"])
-        if params["sample_id"] is not None:
-            params["sample_id"] = int(params["sample_id"])
+        for key in ["sample_id", "src_dcid"]:
+            if params[key] is not None:
+                params[key] = int(params[key])
 
         # Simulate the data collection
         result = dlstbx.dc_sim.call_sim(
@@ -70,6 +72,7 @@ class DCSimWrapper(Wrapper):
             src_run_num=params["src_run_num"],
             sample_id=params["sample_id"],
             dest_visit=params["visit"],
+            src_dcid=params["src_dcid"],
         )
 
         if result:

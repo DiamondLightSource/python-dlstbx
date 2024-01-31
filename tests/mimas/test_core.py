@@ -89,7 +89,7 @@ def test_eiger_rotation_multixia2(
         else None,
     )
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
-        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
+        f"zocalo.go -r per-image-analysis-rotation {dcid}",
     }
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r processing-rlv-eiger {dcid}",

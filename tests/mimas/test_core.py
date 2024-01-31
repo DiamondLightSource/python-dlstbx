@@ -88,7 +88,7 @@ def test_eiger_rotation_multixia2(
         if anomalous_scatterer
         else None,
     )
-    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {}
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r processing-rlv-eiger {dcid}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger --display='autoPROC'",

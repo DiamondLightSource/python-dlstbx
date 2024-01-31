@@ -515,41 +515,54 @@ def _simulate(
 def call_sim(
     test_name,
     beamline,
-    src_dir=None,
-    src_prefixes=None,
-    src_run_num=None,
-    sample_id=None,
+    _src_dir=None,
+    _src_prefixes=None,
+    _src_run_num=None,
+    _sample_id=None,
     dest_visit=None,
+    src_dcid=None,
 ):
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     if not scenario:
         sys.exit(f"{test_name} is not a valid test scenario")
 
-    # Get data path information from scenario.
-    if "src_dir" in scenario:
-        if src_dir is not None:
-            log.warning(
-                "src_dir read from scenario but also specified in command line - using scenario value"
+    if scenario["custom_data"]:
+        if src_dcid is not None:
+            # Create a database session
+            ispyb.sqlalchemy.enable_debug_logging()
+            url = ispyb.sqlalchemy.url()
+            engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+            db_session = sqlalchemy.orm.sessionmaker(bind=engine)()
+
+            log.debug(f"Getting the source data from dcid {src_dcid}")
+            row = db.retrieve_dc_from_dcid(db_session, src_dcid)
+            src_dir = Path(row.imageDirectory)
+            src_prefixes = [
+                row.imagePrefix,
+            ]
+            src_run_num = [
+                row.dataCollectionNumber,
+            ]
+            sample_id = row.BLSAMPLEID
+
+            log.debug(
+                f"Source file path = {src_dir}, prefix = {src_prefixes[0]}, run number = {src_run_num[0]}, sample id = {sample_id}"
             )
-        src_dir = Path(scenario["src_dir"])
-    if "src_prefix" in scenario:
-        if src_prefixes is not None:
-            log.warning(
-                "src_prefix read from scenario but also specified in command line - using scenario value"
-            )
-        src_prefixes = scenario["src_prefix"]
-    if "src_run_num" in scenario:
-        if src_run_num is not None:
-            log.warning(
-                "src_run_num read from scenario but also specified in command line - using scenario value"
-            )
-        src_run_num = scenario["src_run_num"]
-    if "use_sample_id" in scenario:
-        if sample_id is not None:
-            log.warning(
-                "sample_id read from scenario but also specified in command line - using scenario value"
-            )
-        sample_id = scenario["use_sample_id"]
+
+        else:
+            src_dir = _src_dir
+            src_prefixes = _src_prefixes
+            src_run_num = _src_run_num
+            sample_id = _sample_id
+    else:
+        # Get data path information from the scenario
+        if scenario.get("src_dir") is not None:
+            src_dir = Path(scenario.get("src_dir"))
+        else:
+            src_dir = None
+        src_prefixes = scenario.get("src_prefix")
+        src_run_num = scenario.get("src_run_num")
+        sample_id = scenario.get("use_sample_id")
 
     proc_params = scenario.get("proc_params")
     time_start = time.time()

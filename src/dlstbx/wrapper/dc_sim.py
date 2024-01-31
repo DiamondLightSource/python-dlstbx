@@ -67,10 +67,10 @@ class DCSimWrapper(Wrapper):
         result = dlstbx.dc_sim.call_sim(
             test_name=params["scenario"],
             beamline=params["beamline"],
-            src_dir=params["src_dir"],
-            src_prefixes=params["src_prefix"],
-            src_run_num=params["src_run_num"],
-            sample_id=params["sample_id"],
+            _src_dir=params["src_dir"],
+            _src_prefixes=params["src_prefix"],
+            _src_run_num=params["src_run_num"],
+            _sample_id=params["sample_id"],
             dest_visit=params["visit"],
             src_dcid=params["src_dcid"],
         )

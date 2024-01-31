@@ -348,6 +348,10 @@ tests = {
             "gamma": approx(180, abs=180),
         },
     },
+    "mx-custom": {
+        "type": "mx",
+        "custom_data": True,
+    },
     "relion": {
         "type": "em-spa",
         "frames": list(set(range(21, 50)) - {32, 33, 34, 38, 41}),
@@ -409,5 +413,4 @@ tests = {
             },
         },
     },
-    "mx-custom": {"type": "mx"},
 }

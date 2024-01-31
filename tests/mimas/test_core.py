@@ -100,7 +100,7 @@ def test_eiger_rotation_multixia2(
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
-        f"zocalo.go -r per-image-analysis-rotation {dcid}",
+        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
     }
 
 

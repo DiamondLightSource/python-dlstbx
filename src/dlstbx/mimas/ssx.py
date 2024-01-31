@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import List, Tuple
 
 from dlstbx import mimas
-from dlstbx.mimas.core import is_eiger, is_end, is_pilatus, is_serial, is_start
+from dlstbx.mimas.core import is_eiger, is_end, is_i24, is_pilatus, is_serial, is_start
 
 
-@mimas.match_specification(is_pilatus & is_end & is_serial)
+@mimas.match_specification(is_pilatus & is_end & is_serial & is_i24)
 def handle_pilatus_serial_end(
     scenario: mimas.MimasScenario,
     **kwargs,
@@ -37,7 +37,7 @@ def handle_pilatus_serial_end(
     ]
 
 
-@mimas.match_specification(is_eiger & is_end & is_serial)
+@mimas.match_specification(is_eiger & is_end & is_serial & is_i24)
 def handle_eiger_serial_end(
     scenario: mimas.MimasScenario,
     **kwargs,
@@ -68,7 +68,7 @@ def handle_eiger_serial_end(
     ]
 
 
-@mimas.match_specification(is_pilatus & is_start & is_serial)
+@mimas.match_specification(is_pilatus & is_start & is_serial & is_i24)
 def handle_pilatus_serial_start(
     scenario: mimas.MimasScenario,
     **kwargs,
@@ -78,7 +78,7 @@ def handle_pilatus_serial_start(
     ]
 
 
-@mimas.match_specification(is_eiger & is_start & is_serial)
+@mimas.match_specification(is_eiger & is_start & is_serial & is_i24)
 def handle_eiger_serial_start(
     scenario: mimas.MimasScenario,
     **kwargs,

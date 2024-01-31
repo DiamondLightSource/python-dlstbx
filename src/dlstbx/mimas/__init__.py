@@ -19,7 +19,7 @@ MimasDCClass = enum.Enum(
 
 MimasDetectorClass = enum.Enum("MimasDetectorClass", "PILATUS EIGER")
 
-MimasEvent = enum.Enum("MimasEvent", "START END")
+MimasEvent = enum.Enum("MimasEvent", "START END START_GROUP END_GROUP")
 
 
 @dataclasses.dataclass(frozen=True)

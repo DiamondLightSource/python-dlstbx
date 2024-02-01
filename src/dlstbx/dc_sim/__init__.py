@@ -566,7 +566,7 @@ def call_sim(
                 dest_visit_dir = Path(
                     "/dls", beamline, "data", str(now.year), dest_visit
                 )
-            if not src_dir.is_dir():
+            if not dest_visit_dir.is_dir():
                 sys.exit(
                     "ERROR: Could not find a valid directory for the specified visit number and beamline."
                 )

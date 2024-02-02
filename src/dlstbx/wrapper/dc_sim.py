@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import dlstbx.dc_sim.definitions
 from dlstbx.wrapper import Wrapper
 
@@ -39,27 +37,18 @@ class DCSimWrapper(Wrapper):
         for key in ["src_prefix", "src_run_num"]:
             try:
                 value = eval(params[key])
+                if isinstance(value, list) or isinstance(value, tuple):
+                    params[key] = value
+                else:
+                    params[key] = [
+                        value,
+                    ]
             except (SyntaxError, NameError, TypeError):
                 # Case for dealing with non-evaluatable input (e.g. string)
                 if params[key] is not None:
                     params[key] = [
                         params[key],
                     ]
-            else:
-                # Case for dealing with lists or tuples
-                if isinstance(value, list) or isinstance(value, tuple):
-                    params[key] = value
-                # Case for dealing with other evaluatable input (e.g. ints)
-                else:
-                    params[key] = [
-                        value,
-                    ]
-
-        # Convert parameters into correct format
-        if params["src_dir"] is not None:
-            params["src_dir"] = Path(params["src_dir"])
-        if params["sample_id"] is not None:
-            params["sample_id"] = int(params["sample_id"])
 
         # Simulate the data collection
         result = dlstbx.dc_sim.call_sim(

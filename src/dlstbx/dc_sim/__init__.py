@@ -401,7 +401,6 @@ def _simulate(
             filetemplate,
             _dest_dir + "/",
             f"{_dest_prefix}_{run_number}_",
-            # _dest_prefix + "_" + str(run_number) + "_",
             os.path.splitext(filetemplate)[-1],
         ]
 
@@ -522,35 +521,34 @@ def call_sim(
     dest_visit=None,
 ):
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
-    if not scenario:
-        sys.exit(f"{test_name} is not a valid test scenario")
+    assert scenario, f"{test_name} is not a valid test scenario"
 
-    # Get data path information from scenario.
-    if "src_dir" in scenario:
-        if src_dir is not None:
+    for ref_key, inp_value in [
+        ("src_dir", src_dir),
+        ("src_prefix", src_prefixes),
+        ("src_run_num", src_run_num),
+        ("use_sample_id", sample_id),
+    ]:
+        if scenario.get(ref_key) and inp_value:
             log.warning(
-                "src_dir read from scenario but also specified in command line - using scenario value"
+                f"{ref_key} read from scenario but also specified in command line - using scenario value"
             )
-        src_dir = Path(scenario["src_dir"])
-    if "src_prefix" in scenario:
-        if src_prefixes is not None:
-            log.warning(
-                "src_prefix read from scenario but also specified in command line - using scenario value"
-            )
-        src_prefixes = scenario["src_prefix"]
-    if "src_run_num" in scenario:
-        if src_run_num is not None:
-            log.warning(
-                "src_run_num read from scenario but also specified in command line - using scenario value"
-            )
-        src_run_num = scenario["src_run_num"]
-    if "use_sample_id" in scenario:
-        if sample_id is not None:
-            log.warning(
-                "sample_id read from scenario but also specified in command line - using scenario value"
-            )
-        sample_id = scenario["use_sample_id"]
 
+    try:
+        src_dir = Path(scenario.get("src_dir", src_dir))
+    except TypeError:
+        raise ValueError("src_dir source data path not specified")
+    assert (
+        src_prefixes := scenario.get("src_prefix", src_prefixes)
+    ), "Cannot set src_prefix value not specified"
+    assert (
+        src_run_num := scenario.get("src_run_num", src_run_num)
+    ), "src_run_num value not specified"
+    try:
+        sample_id = int(scenario.get("use_sample_id", sample_id))
+    except TypeError:
+        log.warning("sample_id value not specified")
+        sample_id = None
     proc_params = scenario.get("proc_params")
     time_start = time.time()
     now = datetime.now()
@@ -558,21 +556,17 @@ def call_sim(
     # Calculate the destination directory from specified visit number
     if dest_visit is not None:
         # Initial check to ensure that specified visit is either in-house or commissioning
-        if dest_visit.startswith(("cm", "nt")):
-            if beamline.startswith("i02"):
-                proposal = dest_visit.split("-")[0]
-                dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
-            else:
-                dest_visit_dir = Path(
-                    "/dls", beamline, "data", str(now.year), dest_visit
-                )
-            if not dest_visit_dir.is_dir():
-                sys.exit(
-                    "ERROR: Could not find a valid directory for the specified visit number and beamline."
-                )
+        assert dest_visit.startswith(
+            ("cm", "nt")
+        ), f"Supplied visit {dest_visit} is not allowed"
+        if beamline.startswith("i02"):
+            proposal = dest_visit.split("-")[0]
+            dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
         else:
-            sys.exit(f"ERROR: Supplied visit number {dest_visit} is not allowed")
-
+            dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
+        assert (
+            dest_visit_dir.is_dir()
+        ), f"Could not find {dest_visit_dir} directory for the specified visit and beamline."
     # Else, calculate the destination directory for default proposal numbers
     else:
         # These proposal numbers need to be updated every year
@@ -595,8 +589,9 @@ def call_sim(
                     dest_visit = cm_dir.name
                     break
             else:
-                log.error("Could not determine destination directory")
-                sys.exit(1)
+                raise ValueError(
+                    f"Could not determine destination directory for proposal {proposal}"
+                )
 
             # Set mandatory parameters
             dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)

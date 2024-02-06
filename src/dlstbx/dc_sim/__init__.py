@@ -541,8 +541,8 @@ def call_sim(
         raise ValueError("src_dir source data path not specified")
     if not (src_prefixes := scenario.get("src_prefix", src_prefixes)):
         log.warning("src_prefix not specified")
-    if not (src_prefixes := scenario.get("src_prefix", src_prefixes)):
-        log.warning("src_prefix not specified")
+    if not (src_run_num := scenario.get("src_run_num", src_run_num)):
+        log.warning("src_run_num not specified")
     try:
         sample_id = int(scenario.get("use_sample_id", sample_id))
     except TypeError:

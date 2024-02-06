@@ -534,17 +534,15 @@ def call_sim(
             log.warning(
                 f"{ref_key} read from scenario but also specified in command line - using scenario value"
             )
-
+    # Read in values from the scenario if present, otherwise use command line values
     try:
         src_dir = Path(scenario.get("src_dir", src_dir))
     except TypeError:
         raise ValueError("src_dir source data path not specified")
-    assert (
-        src_prefixes := scenario.get("src_prefix", src_prefixes)
-    ), "Cannot set src_prefix value not specified"
-    assert (
-        src_run_num := scenario.get("src_run_num", src_run_num)
-    ), "src_run_num value not specified"
+    if not (src_prefixes := scenario.get("src_prefix", src_prefixes)):
+        log.warning("src_prefix not specified")
+    if not (src_prefixes := scenario.get("src_prefix", src_prefixes)):
+        log.warning("src_prefix not specified")
     try:
         sample_id = int(scenario.get("use_sample_id", sample_id))
     except TypeError:

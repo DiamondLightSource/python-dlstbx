@@ -519,6 +519,7 @@ def call_sim(
     src_run_num=None,
     sample_id=None,
     dest_visit=None,
+    dflt_proposals=None,
 ):
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     assert scenario, f"{test_name} is not a valid test scenario"
@@ -556,11 +557,8 @@ def call_sim(
     # Calculate the destination directory from specified visit number
     if dest_visit is not None:
         # Initial check to ensure that specified visit is either in-house or commissioning
-        assert dest_visit.startswith(
-            ("cm", "nt")
-        ), f"Supplied visit {dest_visit} is not allowed"
+        proposal = dest_visit.split("-")[0]
         if beamline.startswith("i02"):
-            proposal = dest_visit.split("-")[0]
             dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
         else:
             dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
@@ -569,11 +567,11 @@ def call_sim(
         ), f"Could not find {dest_visit_dir} directory for the specified visit and beamline."
     # Else, calculate the destination directory for default proposal numbers
     else:
-        # These proposal numbers need to be updated every year
+        # Get default proposals if a visit is not specified
         if beamline.startswith(("e", "m")):
-            proposal = "cm33870"
+            proposal = dflt_proposals["em"]
         else:
-            proposal = "nt37183"
+            proposal = dflt_proposals["mx"]
         if beamline.startswith("i02"):
             if beamline == "i02-2":
                 dest_visit = f"{proposal}-1"

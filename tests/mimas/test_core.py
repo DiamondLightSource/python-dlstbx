@@ -88,9 +88,7 @@ def test_eiger_rotation_multixia2(
         if anomalous_scatterer
         else None,
     )
-    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
-        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
-    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
         f"zocalo.go -r processing-rlv-eiger {dcid}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-autoPROC-eiger --display='autoPROC'",
@@ -102,6 +100,7 @@ def test_eiger_rotation_multixia2(
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
+        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
     }
 
 

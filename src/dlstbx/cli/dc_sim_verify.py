@@ -63,8 +63,6 @@ def run():
     stomp.connect()
     txn = stomp.transaction_begin()
 
-    ispyb_conn = ispyb.open()
-
     sid = workflows.recipe.wrap_subscribe(
         stomp,
         results_queue,
@@ -131,8 +129,9 @@ def run():
     for testruns in test_results.values():
         for testrun in testruns:
             if testrun.get("success") is None:
-                print("Verifying", testrun)
-                dlstbx.dc_sim.check.check_test_outcome(testrun, ispyb_conn)
+                with ispyb.open() as ispyb_conn:
+                    print("Verifying", testrun)
+                    dlstbx.dc_sim.check.check_test_outcome(testrun, ispyb_conn)
                 # 3 possible outcomes:
                 # The test can be successful (testrun['success'] = True)
                 # it can fail (testrun['success'] = False; testrun['reason'] set)

@@ -10,7 +10,6 @@ from dlstbx.mimas.core import (
     is_pilatus,
     is_serial,
     is_start,
-    is_start_group,
     xia2_dials_absorption_params,
 )
 from dlstbx.mimas.specification import BeamlineSpecification
@@ -180,9 +179,11 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=True,
-                    recipe="autoprocessing-multi-xia2-smallmolecule"
-                    if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-                    else "autoprocessing-multi-xia2-smallmolecule-nexus",
+                    recipe=(
+                        "autoprocessing-multi-xia2-smallmolecule"
+                        if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
+                        else "autoprocessing-multi-xia2-smallmolecule-nexus"
+                    ),
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
                     displayname="xia2 dials",
@@ -195,9 +196,11 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=True,
-                    recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml"
-                    if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-                    else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
+                    recipe=(
+                        "autoprocessing-multi-xia2-smallmolecule-dials-aiml"
+                        if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
+                        else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus"
+                    ),
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
                     displayname="xia2 dials-aimless",

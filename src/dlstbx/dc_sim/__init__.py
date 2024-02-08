@@ -400,7 +400,7 @@ def _simulate(
             _dest_visit_dir,
             filetemplate,
             _dest_dir + "/",
-            _dest_prefix + "_" + str(run_number) + "_",
+            f"{_dest_prefix}_{run_number}_",
             os.path.splitext(filetemplate)[-1],
         ]
 
@@ -511,44 +511,86 @@ def _simulate(
     )
 
 
-def call_sim(test_name, beamline):
+def call_sim(
+    test_name,
+    beamline,
+    src_dir=None,
+    src_prefixes=None,
+    src_run_num=None,
+    sample_id=None,
+    dest_visit=None,
+    dflt_proposals=None,
+):
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
-    if not scenario:
-        sys.exit(f"{test_name} is not a valid test scenario")
+    assert scenario, f"{test_name} is not a valid test scenario"
 
-    src_dir = Path(scenario["src_dir"])
-    sample_id = scenario.get("use_sample_id")
-    src_prefix = scenario["src_prefix"]
+    for ref_key, inp_value in [
+        ("src_dir", src_dir),
+        ("src_prefix", src_prefixes),
+        ("src_run_num", src_run_num),
+        ("use_sample_id", sample_id),
+    ]:
+        if scenario.get(ref_key) and inp_value:
+            log.warning(
+                f"{ref_key} read from scenario but also specified in command line - using scenario value"
+            )
+    # Read in values from the scenario if present, otherwise use command line values
+    try:
+        src_dir = Path(scenario.get("src_dir", src_dir))
+    except TypeError:
+        raise ValueError("src_dir source data path not specified")
+    if not (src_prefixes := scenario.get("src_prefix", src_prefixes)):
+        log.warning("src_prefix not specified")
+    if not (src_run_num := scenario.get("src_run_num", src_run_num)):
+        log.warning("src_run_num not specified")
+    try:
+        sample_id = int(scenario.get("use_sample_id", sample_id))
+    except TypeError:
+        log.warning("sample_id value not specified")
+        sample_id = None
     proc_params = scenario.get("proc_params")
     time_start = time.time()
-
-    # Calculate the destination directory
     now = datetime.now()
-    # These proposal numbers need to be updated every year
-    if beamline.startswith(("e", "m")):
-        proposal = "cm33870"
-    else:
-        proposal = "nt37183"
-    if beamline.startswith("i02"):
-        if beamline == "i02-2":
-            dest_visit = f"{proposal}-1"
-        elif beamline == "i02-1":
-            dest_visit = f"{proposal}-2"
-        dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
-    elif scenario.get("visit_num"):
-        dest_visit = f"{proposal}-{scenario['visit_num']}"
-        dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
-    else:
-        for cm_dir in Path("/dls", beamline, "data", str(now.year)).iterdir():
-            if cm_dir.name.startswith(proposal):
-                dest_visit = cm_dir.name
-                break
-        else:
-            log.error("Could not determine destination directory")
-            sys.exit(1)
 
-        # Set mandatory parameters
-        dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
+    # Calculate the destination directory from specified visit number
+    if dest_visit is not None:
+        # Initial check to ensure that specified visit is either in-house or commissioning
+        proposal = dest_visit.split("-")[0]
+        if beamline.startswith("i02"):
+            dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
+        else:
+            dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
+        assert (
+            dest_visit_dir.is_dir()
+        ), f"Could not find {dest_visit_dir} directory for the specified visit and beamline."
+    # Else, calculate the destination directory for default proposal numbers
+    else:
+        # Get default proposals if a visit is not specified
+        if beamline.startswith(("e", "m")):
+            proposal = dflt_proposals["em"]
+        else:
+            proposal = dflt_proposals["mx"]
+        if beamline.startswith("i02"):
+            if beamline == "i02-2":
+                dest_visit = f"{proposal}-1"
+            elif beamline == "i02-1":
+                dest_visit = f"{proposal}-2"
+            dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
+        elif scenario.get("visit_num"):
+            dest_visit = f"{proposal}-{scenario['visit_num']}"
+            dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
+        else:
+            for cm_dir in Path("/dls", beamline, "data", str(now.year)).iterdir():
+                if cm_dir.name.startswith(proposal):
+                    dest_visit = cm_dir.name
+                    break
+            else:
+                raise ValueError(
+                    f"Could not determine destination directory for proposal {proposal}"
+                )
+
+            # Set mandatory parameters
+            dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
 
     random_uuid = str(uuid.uuid4())[:8]
     dest_dir = (
@@ -605,8 +647,8 @@ def call_sim(test_name, beamline):
     dcid_list = []
     dcg_list = []
     jobid_list = []
-    for src_run_number in scenario["src_run_num"]:
-        for src_prefix in scenario["src_prefix"]:
+    for src_run_number in src_run_num:
+        for src_prefix in src_prefixes:
             dest_prefix = src_prefix
             if scenario.get("dcg") and len(dcg_list):
                 dcg = dcg_list[0]

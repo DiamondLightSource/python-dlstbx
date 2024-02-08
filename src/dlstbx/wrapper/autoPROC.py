@@ -9,7 +9,7 @@ import xml.etree.ElementTree
 from pathlib import Path
 from typing import Any
 
-from dials.util.mp import available_cores
+from dials.util.system import CPU_COUNT
 from dxtbx.model.experiment_list import ExperimentListFactory
 from dxtbx.serialize import xds
 
@@ -107,7 +107,7 @@ def construct_commandline(
     pname = params["autoproc"].get("pname")
     xname = params["autoproc"].get("xname")
     beamline = params["beamline"]
-    nproc = params["autoproc"].get("nproc", available_cores())
+    nproc = params["autoproc"].get("nproc", CPU_COUNT)
 
     command = [
         "process",
@@ -366,9 +366,11 @@ class autoPROCWrapper(Wrapper):
                     "r_merge": statistics["rMerge"],
                     "r_pim_all_iplusi_minus": statistics["rPimAllIPlusIMinus"],
                     "r_pim_within_iplusi_minus": statistics["rPimWithinIPlusIMinus"],
-                    "res_i_sig_i_2": res_i_sig_i_2
-                    if statistics["scalingStatisticsType"] == "overall"
-                    else None,
+                    "res_i_sig_i_2": (
+                        res_i_sig_i_2
+                        if statistics["scalingStatisticsType"] == "overall"
+                        else None
+                    ),
                     "res_lim_high": statistics["resolutionLimitHigh"],
                     "res_lim_low": statistics["resolutionLimitLow"],
                 }

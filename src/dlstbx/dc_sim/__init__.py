@@ -525,6 +525,39 @@ def call_sim(
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     assert scenario, f"{test_name} is not a valid test scenario"
 
+    # Get parameters from datacollection ID if supplied
+    if src_dcid is not None:
+        # Warn if command line parameters will be overwritten by dcid lookup
+        list_vals = [
+            var_name
+            for var_name, var_val in [
+                ("src_dir", src_dir),
+                ("src_prefixes", src_prefixes),
+                ("src_run_num", src_run_num),
+                ("sample_id", sample_id),
+            ]
+            if var_val is not None
+        ]
+        log.warning(
+            "Following parameters supplied alongside dcid and will be replaced: "
+            + ", ".join(list_vals)
+        )
+        # Create database session
+        url = ispyb.sqlalchemy.url()
+        engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+        db_session = sqlalchemy.orm.sessionmaker(bind=engine)()
+        log.info(f"Getting source data from dcid: {src_dcid}")
+        # Lookup database entry for dcid
+        row = db.retrieve_dc_from_dcid(db_session, src_dcid)
+        # Set parameters from database entry
+        src_dir = row.imageDirectory
+        src_prefixes = [row.imagePrefix]
+        src_run_num = [row.dataCollectionNumber]
+        sample_id = row.BLSAMPLEID
+        log.info(
+            f"Source file path = {src_dir}, prefix = {src_prefixes[0]}, run number = {src_run_num[0]}, sample id = {sample_id}"
+        )
+
     for ref_key, inp_value in [
         ("src_dir", src_dir),
         ("src_prefix", src_prefixes),

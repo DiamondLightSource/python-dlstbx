@@ -521,6 +521,7 @@ def call_sim(
     dest_visit=None,
     dflt_proposals=None,
     src_dcid=None,
+    src_allowed_visits=None,
 ):
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     assert scenario, f"{test_name} is not a valid test scenario"
@@ -538,10 +539,11 @@ def call_sim(
             ]
             if var_val is not None
         ]
-        log.warning(
-            "Following parameters supplied alongside dcid and will be replaced: "
-            + ", ".join(list_vals)
-        )
+        if len(list_vals):
+            log.warning(
+                "Following parameters supplied alongside dcid and will be replaced: "
+                + ", ".join(list_vals)
+            )
         # Create database session
         url = ispyb.sqlalchemy.url()
         engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
@@ -658,6 +660,12 @@ def call_sim(
         sys.exit(
             "ERROR: The src_dir parameter does not appear to contain a valid visit directory."
         )
+
+    # Compare to src_allowed_visits if src_dir not from scenario
+    if "src_dir" not in scenario and not src_visit.startswith(
+        tuple(src_allowed_visits)
+    ):
+        raise ValueError(f"Supplied src_dir from forbidden visit: {src_visit}")
 
     if scenario["type"] == "mx":
         start_script = f"{MX_SCRIPTS_BINDIR}/RunAtStartOfCollect-{beamline}.sh"

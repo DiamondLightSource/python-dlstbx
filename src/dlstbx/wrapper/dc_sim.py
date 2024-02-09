@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import os
-import re
-
 import dlstbx.dc_sim.definitions
 from dlstbx.wrapper import Wrapper
 
@@ -58,26 +55,6 @@ class DCSimWrapper(Wrapper):
             if not params["visit"].startswith(tuple(params["dest_allowed_visits"])):
                 raise ValueError(f"{params['visit']} is not an allowed visit")
 
-        # Check that any supplied src_dir is from an allowed visit
-        if params["src_dir"] is not None:
-            # Extract visit from the source directory path
-            m1 = re.search(r"(/dls/(\S+?)/data/\d+/)(\S+)", params["src_dir"])
-            if m1:
-                subdir = m1.groups()[2]
-                m2 = re.search(r"^(\S+?)/", subdir)
-                if m2:
-                    src_visit = m2.groups()[0]
-                elif subdir:
-                    src_visit = subdir
-            else:
-                m1 = re.search(r"(/dls/mx/data/)(\S+)", params["src_dir"])
-                if m1:
-                    subdir = m1.groups()[1]
-                    src_visit = subdir.split(os.sep)[1]
-            # Compare to src_allowed_visits
-            if not src_visit.startswith(tuple(params["src_allowed_visits"])):
-                raise ValueError(f"Supplied src_dir from forbidden visit: {src_visit}")
-
         # Simulate the data collection
         result = dlstbx.dc_sim.call_sim(
             test_name=params["scenario"],
@@ -89,6 +66,7 @@ class DCSimWrapper(Wrapper):
             dest_visit=params["visit"],
             dflt_proposals=params["dflt_proposals"],
             src_dcid=params["src_dcid"],
+            src_allowed_visits=params["src_allowed_visits"],
         )
 
         if result:

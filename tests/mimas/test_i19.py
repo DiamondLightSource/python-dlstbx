@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import functools
 
-import pytest
-
 from dlstbx.mimas import MimasDCClass, MimasDetectorClass, MimasEvent, MimasScenario
 
 
@@ -42,5 +40,6 @@ def test_i19_serial_group_end(get_zocalo_commands):
     )
 
     assert get_zocalo_commands(scenario(event=MimasEvent.START_GROUP)) == set()
-    with pytest.raises(NotImplementedError):
-        assert get_zocalo_commands(scenario(event=MimasEvent.END_GROUP)) == set()
+    assert get_zocalo_commands(scenario(event=MimasEvent.END_GROUP)) == {
+        f"zocalo.go -r autoprocessing-i19serial-groupend {dcid}",
+    }

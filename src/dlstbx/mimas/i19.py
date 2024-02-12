@@ -126,7 +126,11 @@ def handle_i19_end_eiger_serial(
 def handle_i19_end_group_eiger_serial(
     scenario: mimas.MimasScenario, **kwargs
 ) -> List[mimas.Invocation]:
-    raise NotImplementedError
+    return [
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="autoprocessing-i19serial-groupend"
+        )
+    ]
 
 
 @mimas.match_specification(is_i19 & is_end & is_eiger & ~is_serial)

@@ -6,13 +6,16 @@ from dlstbx import mimas
 from dlstbx.mimas.core import (
     is_eiger,
     is_end,
+    is_end_group,
     is_pilatus,
+    is_serial,
     is_start,
     xia2_dials_absorption_params,
 )
 from dlstbx.mimas.specification import BeamlineSpecification
 
 is_i19 = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
+
 
 XIA2_DIALS_DAC_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
     mimas.MimasISPyBParameter(key="dynamic_shadowing", value="true"),
@@ -51,7 +54,7 @@ def handle_i19_end_pilatus(
     ]
 
 
-@mimas.match_specification(is_i19 & is_start & is_eiger)
+@mimas.match_specification(is_i19 & is_start & is_eiger & ~is_serial)
 def handle_i19_start_eiger(
     scenario: mimas.MimasScenario, **kwargs
 ) -> List[mimas.Invocation]:
@@ -63,7 +66,74 @@ def handle_i19_start_eiger(
     ]
 
 
-@mimas.match_specification(is_i19 & is_end & is_eiger)
+@mimas.match_specification(is_i19 & is_end & is_eiger & is_serial)
+def handle_i19_end_eiger_serial(
+    scenario: mimas.MimasScenario, **kwargs
+) -> List[mimas.Invocation]:
+    tasks: list[mimas.Invocation] = [
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
+        for recipe in (
+            "per-image-analysis-rotation-swmr-i19",
+            "processing-rlv-eiger",
+            "generate-diffraction-preview",
+            "strategy-screen19-eiger",
+        )
+    ]
+
+    ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
+    extra_params: List[ParamTuple] = [()]
+    if scenario.spacegroup:
+        # Space group is set, run xia2 with space group
+        spacegroup = scenario.spacegroup.string
+        symmetry_parameters: ParamTuple = (
+            mimas.MimasISPyBParameter(key="spacegroup", value=spacegroup),
+        )
+        if scenario.unitcell:
+            symmetry_parameters += (
+                mimas.MimasISPyBParameter(
+                    key="unit_cell", value=scenario.unitcell.string
+                ),
+            )
+        extra_params.append(symmetry_parameters)
+
+    # Find the scenario sweep that matches this DCID
+    dcid_sweep = [
+        x for x in scenario.getsweepslistfromsamedcg if x.DCID == scenario.DCID
+    ]
+    assert len(dcid_sweep) == 0
+
+    for params in extra_params:
+        tasks.extend(
+            [
+                mimas.MimasISPyBJobInvocation(
+                    DCID=scenario.DCID,
+                    autostart=True,
+                    recipe="autoprocessing-multi-xia2-smallmolecule-nexus",
+                    source="automatic",
+                    sweeps=tuple(dcid_sweep),
+                    displayname="xia2 dials",
+                    parameters=(
+                        *params,
+                        *xia2_dials_absorption_params(scenario),
+                    ),
+                ),
+            ]
+        )
+    return tasks
+
+
+@mimas.match_specification(is_i19 & is_end_group & is_eiger & is_serial)
+def handle_i19_end_group_eiger_serial(
+    scenario: mimas.MimasScenario, **kwargs
+) -> List[mimas.Invocation]:
+    return [
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="autoprocessing-i19serial-groupend"
+        )
+    ]
+
+
+@mimas.match_specification(is_i19 & is_end & is_eiger & ~is_serial)
 def handle_i19_end_eiger(
     scenario: mimas.MimasScenario, **kwargs
 ) -> List[mimas.Invocation]:
@@ -78,9 +148,8 @@ def handle_i19_end_eiger(
     ]
 
 
-@mimas.match_specification(is_i19 & is_end)
+@mimas.match_specification(is_i19 & is_end & ~is_serial)
 def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invocation]:
-
     tasks: List[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
@@ -114,9 +183,11 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=True,
-                    recipe="autoprocessing-multi-xia2-smallmolecule"
-                    if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-                    else "autoprocessing-multi-xia2-smallmolecule-nexus",
+                    recipe=(
+                        "autoprocessing-multi-xia2-smallmolecule"
+                        if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
+                        else "autoprocessing-multi-xia2-smallmolecule-nexus"
+                    ),
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
                     displayname="xia2 dials",
@@ -129,9 +200,11 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                 mimas.MimasISPyBJobInvocation(
                     DCID=scenario.DCID,
                     autostart=True,
-                    recipe="autoprocessing-multi-xia2-smallmolecule-dials-aiml"
-                    if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
-                    else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus",
+                    recipe=(
+                        "autoprocessing-multi-xia2-smallmolecule-dials-aiml"
+                        if scenario.detectorclass is mimas.MimasDetectorClass.PILATUS
+                        else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus"
+                    ),
                     source="automatic",
                     sweeps=tuple(scenario.getsweepslistfromsamedcg),
                     displayname="xia2 dials-aimless",

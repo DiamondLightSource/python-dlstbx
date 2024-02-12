@@ -100,7 +100,7 @@ def handle_i19_end_eiger_serial(
     dcid_sweep = [
         x for x in scenario.getsweepslistfromsamedcg if x.DCID == scenario.DCID
     ]
-    assert len(dcid_sweep) == 0
+    assert len(dcid_sweep) == 1
 
     for params in extra_params:
         tasks.extend(

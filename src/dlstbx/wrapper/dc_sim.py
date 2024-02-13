@@ -60,7 +60,7 @@ class DCSimWrapper(Wrapper):
             test_name=params["scenario"],
             beamline=params["beamline"],
             src_dir=params["src_dir"],
-            src_prefixes=params["src_prefix"],
+            src_prefix=params["src_prefix"],
             src_run_num=params["src_run_num"],
             sample_id=params["sample_id"],
             dest_visit=params["visit"],

@@ -515,7 +515,7 @@ def call_sim(
     test_name,
     beamline,
     src_dir=None,
-    src_prefixes=None,
+    src_prefix=None,
     src_run_num=None,
     sample_id=None,
     dest_visit=None,
@@ -526,24 +526,28 @@ def call_sim(
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     assert scenario, f"{test_name} is not a valid test scenario"
 
+    # Check for values specified twice
+    if scenario.get("src_dir") and src_dcid:
+        log.warning(
+            f"dcid: {src_dcid} provided alongside non-custom scenario {test_name} - scenario data will be used"
+        )
+    else:
+        for ref_key, inp_value in [
+            ("src_dir", src_dir),
+            ("src_prefix", src_prefix),
+            ("src_run_num", src_run_num),
+            ("sample_id", sample_id),
+        ]:
+            if scenario.get(ref_key) and inp_value:
+                log.warning(
+                    f"{ref_key} read from scenario but also specified in command line - using scenario value"
+                )
+            if src_dcid and inp_value:
+                log.warning(
+                    f"{ref_key} Specified at command line but dcid: {src_dcid} also provided - using dcid data"
+                )
     # Get parameters from datacollection ID if supplied
     if src_dcid is not None:
-        # Warn if command line parameters will be overwritten by dcid lookup
-        list_vals = [
-            var_name
-            for var_name, var_val in [
-                ("src_dir", src_dir),
-                ("src_prefixes", src_prefixes),
-                ("src_run_num", src_run_num),
-                ("sample_id", sample_id),
-            ]
-            if var_val is not None
-        ]
-        if len(list_vals):
-            log.warning(
-                "Following parameters supplied alongside dcid and will be replaced: "
-                + ", ".join(list_vals)
-            )
         # Create database session
         url = ispyb.sqlalchemy.url()
         engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
@@ -553,34 +557,24 @@ def call_sim(
         row = db.retrieve_dc_from_dcid(db_session, src_dcid)
         # Set parameters from database entry
         src_dir = row.imageDirectory
-        src_prefixes = [row.imagePrefix]
+        src_prefix = [row.imagePrefix]
         src_run_num = [row.dataCollectionNumber]
         sample_id = row.BLSAMPLEID
         log.info(
-            f"Source file path = {src_dir}, prefix = {src_prefixes[0]}, run number = {src_run_num[0]}, sample id = {sample_id}"
+            f"Source file path = {src_dir}, prefix = {src_prefix[0]}, run number = {src_run_num[0]}, sample id = {sample_id}"
         )
 
-    for ref_key, inp_value in [
-        ("src_dir", src_dir),
-        ("src_prefix", src_prefixes),
-        ("src_run_num", src_run_num),
-        ("use_sample_id", sample_id),
-    ]:
-        if scenario.get(ref_key) and inp_value:
-            log.warning(
-                f"{ref_key} read from scenario but also specified in command line - using scenario value"
-            )
     # Read in values from the scenario if present, otherwise use command line values
     try:
         src_dir = Path(scenario.get("src_dir", src_dir))
     except TypeError:
         raise ValueError("src_dir source data path not specified")
-    if not (src_prefixes := scenario.get("src_prefix", src_prefixes)):
+    if not (src_prefix := scenario.get("src_prefix", src_prefix)):
         log.warning("src_prefix not specified")
     if not (src_run_num := scenario.get("src_run_num", src_run_num)):
         log.warning("src_run_num not specified")
     try:
-        sample_id = int(scenario.get("use_sample_id", sample_id))
+        sample_id = int(scenario.get("sample_id", sample_id))
     except TypeError:
         log.warning("sample_id value not specified")
         sample_id = None
@@ -690,8 +684,8 @@ def call_sim(
     dcg_list = []
     jobid_list = []
     for src_run_number in src_run_num:
-        for src_prefix in src_prefixes:
-            dest_prefix = src_prefix
+        for src_prefix_item in src_prefix:
+            dest_prefix = src_prefix_item
             if scenario.get("dcg") and len(dcg_list):
                 dcg = dcg_list[0]
             else:
@@ -701,7 +695,7 @@ def call_sim(
                 beamline,
                 str(src_dir),
                 src_visit,
-                src_prefix,
+                src_prefix_item,
                 src_run_number,
                 dest_prefix,
                 str(dest_visit_dir),

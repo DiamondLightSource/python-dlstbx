@@ -44,14 +44,15 @@ def test_eiger_rotation(anomalous_scatterer, absorption_level, get_zocalo_comman
         getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=1000),),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.EIGER,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
-        if anomalous_scatterer
-        else None,
+        anomalous_scatterer=(
+            MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
+            if anomalous_scatterer
+            else None
+        ),
     )
-    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
-        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
-    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r per-image-analysis-rotation-swmr {dcid}",
         f"zocalo.go -r processing-rlv-eiger {dcid}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-xia2-3dii-eiger --add-param=resolution.cc_half_significance_level:0.1 --display='xia2 3dii'",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-fast-dp-eiger --display='fast_dp' --trigger",
@@ -84,9 +85,11 @@ def test_eiger_rotation_multixia2(
         ),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.EIGER,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
-        if anomalous_scatterer
-        else None,
+        anomalous_scatterer=(
+            MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
+            if anomalous_scatterer
+            else None
+        ),
     )
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
@@ -141,10 +144,9 @@ def test_eiger_gridscan(get_zocalo_commands):
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.EIGER,
     )
-    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
-        f"zocalo.go -r per-image-analysis-gridscan-swmr {dcid}"
-    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r per-image-analysis-gridscan-i03 {dcid}",
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
@@ -189,9 +191,11 @@ def test_cbf_rotation(anomalous_scatterer, absorption_level, get_zocalo_commands
         getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=375),),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.PILATUS,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
-        if anomalous_scatterer
-        else None,
+        anomalous_scatterer=(
+            MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
+            if anomalous_scatterer
+            else None
+        ),
     )
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
         f"zocalo.go -r archive-cbfs {dcid}",
@@ -228,9 +232,11 @@ def test_cbf_rotation_multixia2(
         ),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.PILATUS,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
-        if anomalous_scatterer
-        else None,
+        anomalous_scatterer=(
+            MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
+            if anomalous_scatterer
+            else None
+        ),
     )
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
         f"zocalo.go -r archive-cbfs {dcid}",
@@ -266,9 +272,11 @@ def test_cbf_rotation_with_spacegroup(
         getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=3600),),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.PILATUS,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
-        if anomalous_scatterer
-        else None,
+        anomalous_scatterer=(
+            MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
+            if anomalous_scatterer
+            else None
+        ),
     )
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
         f"zocalo.go -r archive-cbfs {dcid}",
@@ -347,9 +355,11 @@ def test_vmxi_rotation(anomalous_scatterer, absorption_level, get_zocalo_command
         getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=600),),
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.EIGER,
-        anomalous_scatterer=MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
-        if anomalous_scatterer
-        else None,
+        anomalous_scatterer=(
+            MimasISPyBAnomalousScatterer(symbol=anomalous_scatterer)
+            if anomalous_scatterer
+            else None
+        ),
     )
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
@@ -379,10 +389,9 @@ def test_vmxm_rotation(get_zocalo_commands):
         detectorclass=MimasDetectorClass.EIGER,
         anomalous_scatterer=None,
     )
-    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
-        f"zocalo.go -r per-image-analysis-rotation-swmr-vmxm {dcid}"
-    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r per-image-analysis-rotation-swmr-vmxm {dcid}",
         f"ispyb.job --new --dcid={dcid} --source=automatic "
         "--recipe=autoprocessing-autoPROC-eiger --display='autoPROC'",
         f"ispyb.job --new --dcid={dcid} --source=automatic "
@@ -416,10 +425,9 @@ def test_vmxm_gridscan(get_zocalo_commands):
         preferred_processing="xia2/DIALS",
         detectorclass=MimasDetectorClass.EIGER,
     )
-    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == {
-        f"zocalo.go -r per-image-analysis-gridscan-swmr-vmxm {dcid}"
-    }
+    assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
+        f"zocalo.go -r per-image-analysis-gridscan-swmr-vmxm {dcid}",
         f"zocalo.go -r archive-nexus {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",

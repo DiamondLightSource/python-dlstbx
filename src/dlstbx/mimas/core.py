@@ -81,36 +81,17 @@ def handle_pilatus_not_gridscan_start(
     ]
 
 
-@mimas.match_specification(
-    is_eiger
-    & is_start
-    & ~is_serial
-    & is_mx_beamline
-    & ~is_vmxi
-    & ~(is_i03 | is_i04 | is_i04_1)
-)
-def handle_eiger_start(
-    scenario: mimas.MimasScenario,
-    **kwargs,
-) -> List[mimas.Invocation]:
-    suffix = "-vmxm" if scenario.beamline == "i02-1" else ""
-    recipe = (
-        f"per-image-analysis-gridscan-swmr{suffix}"
-        if scenario.dcclass is mimas.MimasDCClass.GRIDSCAN
-        else f"per-image-analysis-rotation-swmr{suffix}"
-    )
-    return [mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)]
-
-
-@mimas.match_specification(is_eiger & is_end & (is_i03 | is_i04 | is_i04_1))
+@mimas.match_specification(is_eiger & is_end & is_mx_beamline & ~is_vmxi & ~is_serial)
 def handle_eiger_end_i03(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
+    suffix_grid = "-swmr-vmxm" if scenario.beamline == "i02-1" else "-i03"
+    suffix_rot = "-vmxm" if scenario.beamline == "i02-1" else ""
     recipe = (
-        "per-image-analysis-gridscan-i03"
+        f"per-image-analysis-gridscan{suffix_grid}"
         if scenario.dcclass is mimas.MimasDCClass.GRIDSCAN
-        else "per-image-analysis-rotation-swmr"
+        else f"per-image-analysis-rotation-swmr{suffix_rot}"
     )
     return [mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)]
 

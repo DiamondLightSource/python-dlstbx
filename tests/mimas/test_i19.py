@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import functools
 
-import pytest
-
 from dlstbx.mimas import (
     MimasDCClass,
     MimasDetectorClass,
@@ -13,7 +11,6 @@ from dlstbx.mimas import (
 )
 
 
-@pytest.mark.xfail
 def test_i19_ssx(get_zocalo_commands):
     dcid = 8374193
     start = 1

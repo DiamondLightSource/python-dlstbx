@@ -24,6 +24,8 @@ import dlstbx.mimas
 _readable = {
     dlstbx.mimas.MimasEvent.START: "start of data collection",
     dlstbx.mimas.MimasEvent.END: "end of data collection",
+    dlstbx.mimas.MimasEvent.START_GROUP: "start of data collection group",
+    dlstbx.mimas.MimasEvent.END_GROUP: "end of data collection group",
 }
 
 Session = sessionmaker(

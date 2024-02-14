@@ -125,15 +125,13 @@ def _simulate(
     _dest_dir,
     _sample_id,
     proc_params,
+    db_session,
     data_collection_group_id,
     scenario_name,
 ):
     _db = db.DB()
     dbsc = dlstbx.dc_sim.dbserverclient.DbserverClient()
     ispyb.sqlalchemy.enable_debug_logging()
-    url = ispyb.sqlalchemy.url()
-    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
-    db_session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
     log.debug("Getting the source SessionID")
     src_sessionid = db.retrieve_sessionid(db_session, _src_visit)
@@ -526,6 +524,11 @@ def call_sim(
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     assert scenario, f"{test_name} is not a valid test scenario"
 
+    # Create database session
+    url = ispyb.sqlalchemy.url()
+    engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
+    db_session = sqlalchemy.orm.sessionmaker(bind=engine)()
+
     # Check for values specified twice
     if scenario.get("src_dir") and src_dcid:
         log.warning(
@@ -546,23 +549,19 @@ def call_sim(
                 log.warning(
                     f"{ref_key} Specified at command line but dcid: {src_dcid} also provided - using dcid data"
                 )
-    # Get parameters from datacollection ID if supplied
-    if src_dcid is not None:
-        # Create database session
-        url = ispyb.sqlalchemy.url()
-        engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
-        db_session = sqlalchemy.orm.sessionmaker(bind=engine)()
-        log.info(f"Getting source data from dcid: {src_dcid}")
-        # Lookup database entry for dcid
-        row = db.retrieve_dc_from_dcid(db_session, src_dcid)
-        # Set parameters from database entry
-        src_dir = row.imageDirectory
-        src_prefix = [row.imagePrefix]
-        src_run_num = [row.dataCollectionNumber]
-        sample_id = row.BLSAMPLEID
-        log.info(
-            f"Source file path = {src_dir}, prefix = {src_prefix[0]}, run number = {src_run_num[0]}, sample id = {sample_id}"
-        )
+        # Get parameters from datacollection ID if supplied
+        if src_dcid is not None:
+            log.info(f"Getting source data from dcid: {src_dcid}")
+            # Lookup database entry for dcid
+            row = db.retrieve_dc_from_dcid(db_session, src_dcid)
+            # Set parameters from database entry
+            src_dir = row.imageDirectory
+            src_prefix = [row.imagePrefix]
+            src_run_num = [row.dataCollectionNumber]
+            sample_id = row.BLSAMPLEID
+            log.info(
+                f"Source file path = {src_dir}, prefix = {src_prefix[0]}, run number = {src_run_num[0]}, sample id = {sample_id}"
+            )
 
     # Read in values from the scenario if present, otherwise use command line values
     try:
@@ -702,6 +701,7 @@ def call_sim(
                 str(dest_dir),
                 sample_id,
                 proc_params,
+                db_session,
                 data_collection_group_id=dcg,
                 scenario_name=test_name,
             )

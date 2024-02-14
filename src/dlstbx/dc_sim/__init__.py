@@ -128,7 +128,7 @@ def _simulate(
     db_session,
     data_collection_group_id,
     scenario_name,
-    scenario,
+    scenario_type,
 ):
     _db = db.DB()
     dbsc = dlstbx.dc_sim.dbserverclient.DbserverClient()
@@ -160,7 +160,7 @@ def _simulate(
         f"Source dataset from DCID {src_dcid}, DCGID {src_dcgid}, file template {filetemplate}"
     )
 
-    if scenario["type"] == "em-spa":
+    if scenario_type == "em-spa":
         # start copying over data files
         log.info(
             f"Copying first 5 files from {_src_dir} to {pathlib.Path(_dest_dir) / 'raw'}"
@@ -271,7 +271,7 @@ def _simulate(
 
         return datacollectionid, datacollectiongroupid, procjobid
 
-    if scenario["type"] == "mx":
+    if scenario_type == "mx":
         if start_img_number is None:
             sys.exit("Could not find the first image number for data collection")
         no_images = row.numberOfImages
@@ -504,7 +504,7 @@ def _simulate(
 
         return datacollectionid, datacollectiongroupid, None
 
-    raise ValueError("Unknown scenario type %s" % scenario["type"])
+    raise ValueError("Unknown scenario type %s" % scenario_type)
 
 
 def call_sim(
@@ -706,7 +706,7 @@ def call_sim(
                 db_session,
                 data_collection_group_id=dcg,
                 scenario_name=test_name,
-                scenario=scenario,
+                scenario_type=scenario["type"],
             )
             jobid_list.append(jobid)
             dcid_list.append(dcid)

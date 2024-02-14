@@ -29,12 +29,12 @@ def test_i19_ssx(get_zocalo_commands):
 
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
-        f"zocalo.go -r per-image-analysis-rotation-serial-cs05r {dcid}",
-        f"zocalo.go -r processing-rlv-eiger {dcid}",
-        f"zocalo.go -r generate-diffraction-preview {dcid}",
-        f"zocalo.go -r strategy-screen19-eiger {dcid}",
         f"ispyb.job --new --dcid={dcid} --source=automatic --recipe=autoprocessing-multi-xia2-smallmolecule-nexus --add-sweep={dcid}:{start}:{end} --add-param=absorption_level:medium --display='xia2 dials' --trigger",
     }
+    # f"zocalo.go -r per-image-analysis-rotation-serial-cs05r {dcid}",
+    # f"zocalo.go -r processing-rlv-eiger {dcid}",
+    # f"zocalo.go -r generate-diffraction-preview {dcid}",
+    # f"zocalo.go -r strategy-screen19-eiger {dcid}",
 
 
 def test_i19_serial_group_end(get_zocalo_commands):

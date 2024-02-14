@@ -73,7 +73,7 @@ def handle_i19_end_eiger_serial(
     tasks: list[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in (
-            "per-image-analysis-rotation-serial-i19.json",
+            "per-image-analysis-rotation-serial-cs05r",
             "processing-rlv-eiger",
             "generate-diffraction-preview",
             "strategy-screen19-eiger",

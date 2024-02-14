@@ -29,7 +29,7 @@ def test_i19_ssx(get_zocalo_commands):
 
     assert get_zocalo_commands(scenario(event=MimasEvent.START)) == set()
     assert get_zocalo_commands(scenario(event=MimasEvent.END)) == {
-        f"zocalo.go -r per-image-analysis-rotation-swmr-i19 {dcid}",
+        f"zocalo.go -r per-image-analysis-rotation-serial-cs05r {dcid}",
         f"zocalo.go -r processing-rlv-eiger {dcid}",
         f"zocalo.go -r generate-diffraction-preview {dcid}",
         f"zocalo.go -r strategy-screen19-eiger {dcid}",

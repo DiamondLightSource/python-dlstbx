@@ -171,6 +171,7 @@ class MultiplexParameters(pydantic.BaseModel):
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+    recipe: Optional[str] = None
 
 
 class Xia2SsxReduceParameters(pydantic.BaseModel):
@@ -1350,7 +1351,7 @@ class DLSTrigger(CommonService):
             jp["comments"] = parameters.comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "xia2.multiplex"
-            jp["recipe"] = "postprocessing-xia2-multiplex"
+            jp["recipe"] = parameters.recipe or "postprocessing-xia2-multiplex"
             self.log.info(jp)
             jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
             jobids.append(jobid)

@@ -117,3 +117,25 @@ def retrieve_sessionid(db_session, visit):
     if query_results[0].sessionId is None:
         raise ValueError(f"Could not find sessionid for visit {visit}")
     return query_results[0].sessionId
+
+
+def retrieve_dc_from_dcid(db_session, dcid):
+    records_to_collect = (
+        "BLSAMPLEID",
+        "dataCollectionGroupId",
+        "dataCollectionId",
+        "dataCollectionNumber",
+        "imageDirectory",
+        "imagePrefix",
+        "imageSuffix",
+    )
+
+    query = (
+        db_session.query(DataCollection)
+        .options(Load(DataCollection).load_only(*records_to_collect))
+        .filter(DataCollection.dataCollectionId == dcid)
+    )
+    result = query.first()
+    if not result:
+        raise ValueError("No matching data collection found")
+    return result

@@ -8,7 +8,7 @@ tests = {
         "src_dir": "/dls/i04/data/2021/cm28182-5/20211118/screening/TestInsulin/ins1",
         "src_run_num": (2,),
         "src_prefix": ("ins1",),
-        "use_sample_id": 3635367,
+        "sample_id": 3635367,
         "results": {
             "a": approx(77.8, abs=1),
             "b": approx(77.8, abs=1),
@@ -45,7 +45,7 @@ tests = {
         "src_dir": "/dls/i04/data/2023/mx23694-95/auto/TestProteinaseK/protk5",
         "src_run_num": (2,),
         "src_prefix": ("protk5",),
-        "use_sample_id": 4509789,
+        "sample_id": 4509789,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -60,7 +60,7 @@ tests = {
         "src_dir": "/dls/i04-1/data/2023/cm33904-3/TestLysozyme/Lys-Br16",
         "src_run_num": (1,),
         "src_prefix": ("Lys-Br16",),
-        "use_sample_id": 4684404,
+        "sample_id": 4684404,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -75,7 +75,7 @@ tests = {
         "src_dir": "/dls/i23/data/2023/cm33851-2/TestLysozyme/lys_1_km70",
         "src_run_num": (1,),
         "src_prefix": ("data",),
-        "use_sample_id": 4493445,
+        "sample_id": 4493445,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -104,7 +104,7 @@ tests = {
         "src_dir": "/dls/i04/data/2023/cm33903-4/TestThaumatin/SeThau7",
         "src_run_num": (1,),
         "src_prefix": ("Sethau7_2_pk", "Sethau7_2_if", "Sethau7_2_hrm"),
-        "use_sample_id": 4873871,
+        "sample_id": 4873871,
         "dcg": True,
         "results": {
             "a": approx(100, abs=100),
@@ -124,7 +124,7 @@ tests = {
             5,
         ),
         "src_prefix": ("SeThau2",),
-        "use_sample_id": 4873856,
+        "sample_id": 4873856,
         "dcg": True,
         "results": {
             "a": approx(100, abs=100),
@@ -143,7 +143,7 @@ tests = {
             2,
         ),
         "src_prefix": ("xtal_1",),
-        "use_sample_id": 3221630,
+        "sample_id": 3221630,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -160,14 +160,14 @@ tests = {
         "src_dir": "/dls/i03/data/2022/cm31105-1/xraycentring/TestProteinaseK/protk_16/",
         "src_run_num": (14,),
         "src_prefix": ("protk_16",),
-        "use_sample_id": 3699723,
+        "sample_id": 3699723,
     },
     "i03-native": {
         "type": "mx",
         "src_dir": "/dls/i03/data/2023/cm33866-2/TestInsulin/ins_1/",
         "src_run_num": (2,),
         "src_prefix": ("200",),
-        "use_sample_id": 4491570,
+        "sample_id": 4491570,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -182,7 +182,7 @@ tests = {
         "src_dir": "/dls/mx/data/nt30330/nt30330-89/VMXi-AB2090/well_110/images",
         "src_run_num": (107993,),
         "src_prefix": ("image",),
-        "use_sample_id": 4315478,
+        "sample_id": 4315478,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -253,7 +253,7 @@ tests = {
         "src_dir": "/dls/i04/data/2023/cm33903-3/20230622/TestLysozyme/lysBr5",
         "src_run_num": (1,),
         "src_prefix": ("lysBr5",),
-        "use_sample_id": 4687158,
+        "sample_id": 4687158,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -268,7 +268,7 @@ tests = {
         "src_dir": "/dls/i04/data/2021/cm28182-2/TestInsulin/insulin2",
         "src_run_num": (4,),
         "src_prefix": ("insulin2_wedged",),
-        "use_sample_id": 3343403,
+        "sample_id": 3343403,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -283,7 +283,7 @@ tests = {
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170223/group1/Thaum/Th_4",
         "src_run_num": (1,),
         "src_prefix": ("Th_4",),
-        "use_sample_id": 790048,
+        "sample_id": 790048,
         "results": {
             "a": approx(57.92, abs=2),
             "b": approx(57.92, abs=2),
@@ -299,7 +299,7 @@ tests = {
         "src_dir": "/dls/i24/data/2017/cm16788-3/screening/hewl/hewl_1",
         "src_run_num": (1,),
         "src_prefix": ("hewl_1",),
-        "use_sample_id": 1018393,
+        "sample_id": 1018393,
         "results": {
             "a": approx(78.30, abs=2),
             "b": approx(78.39, abs=2),
@@ -316,7 +316,7 @@ tests = {
         "src_dir": "/dls/i04/data/2017/cm16781-1/20170316/Thaum/Th_4",
         "src_run_num": (2,),
         "src_prefix": ("Th_4",),
-        "use_sample_id": 790048,
+        "sample_id": 790048,
         "results": {},
     },
     "trp-multi": {
@@ -338,7 +338,7 @@ tests = {
         "src_dir": "/dls/i19-1/data/2023/cm33867-2/TBB_2_1-col",
         "src_run_num": ("01",),
         "src_prefix": ("TBB2",),
-        "use_sample_id": 4290218,
+        "sample_id": 4290218,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -409,5 +409,4 @@ tests = {
             },
         },
     },
-    "mx-custom": {"type": "mx"},
 }

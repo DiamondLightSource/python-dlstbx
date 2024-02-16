@@ -146,8 +146,8 @@ def _simulate(
     row = db.retrieve_datacollection(
         db_session, src_sessionid, _src_dir, _src_prefix, run_number
     )
-    src_dcid = row.dataCollectionId
-    src_dcgid = row.dataCollectionGroupId
+    _src_dcid = row.dataCollectionId
+    _src_dcgid = row.dataCollectionGroupId
     start_img_number = row.startImageNumber
     filetemplate = row.fileTemplate
     src_xtal_snapshot_path = [
@@ -157,7 +157,7 @@ def _simulate(
         row.xtalSnapshotFullPath4,
     ]
     log.debug(
-        f"Source dataset from DCID {src_dcid}, DCGID {src_dcgid}, file template {filetemplate}"
+        f"Source dataset from DCID {_src_dcid}, DCGID {_src_dcgid}, file template {filetemplate}"
     )
 
     if scenario_type == "em-spa":
@@ -206,12 +206,12 @@ def _simulate(
             )
         else:
             datacollectiongroupid = data_collection_group_id
-            datacollectionid = src_dcid
+            datacollectionid = _src_dcid
 
         log.debug(
             "Source dataset from DCID %r, DCGID %r",
-            src_dcid,
-            src_dcgid,
+            _src_dcid,
+            _src_dcgid,
         )
 
         # nowstr = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -358,7 +358,7 @@ def _simulate(
             datacollectiongroupid = data_collection_group_id
 
         # Get the grid info values associated with the source dcg
-        gi_row = retrieve_grid_info_values(_db, src_dcgid)
+        gi_row = retrieve_grid_info_values(_db, _src_dcgid)
 
         # Prouce a GridInfo xml blob from the template if the source DataCollectionGroup has one:
         if gi_row is not None:

@@ -518,13 +518,15 @@ def call_sim(
     dflt_proposals=None,
     src_dcid=None,
     src_allowed_visits=None,
+    is_dcg=None,
+    src_dcg=None,
 ):
     scenario = dlstbx.dc_sim.definitions.tests.get(test_name)
     if scenario is None:
         log.info(
             f"{test_name} is not a defined test scenario - attempting to use custom data"
         )
-        scenario = {"type": "mx"}
+        scenario = {"type": "mx", "is_dcg": is_dcg}
 
     # Create database session
     url = ispyb.sqlalchemy.url()
@@ -532,10 +534,15 @@ def call_sim(
     db_session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
     # Check for values specified twice
-    if scenario.get("src_dir") and src_dcid:
-        log.warning(
-            f"dcid: {src_dcid} provided alongside non-custom scenario {test_name} - scenario data will be used"
-        )
+    if scenario.get("src_dir") and (src_dcid or src_dcg):
+        for item, inp_value in [
+            ("src_dcid", src_dcid),
+            ("src_dcg", src_dcg),
+        ]:
+            if inp_value:
+                log.warning(
+                    f"{item}: {inp_value} provided alongside non-custom scenario {test_name} - scenario data will be used"
+                )
     else:
         for ref_key, inp_value in [
             ("src_dir", src_dir),
@@ -547,12 +554,26 @@ def call_sim(
                 log.warning(
                     f"{ref_key} read from scenario but also specified in command line - using scenario value"
                 )
-            if src_dcid and inp_value:
+            elif src_dcg and inp_value:
+                log.warning(
+                    f"{ref_key} Specified at command line but dcg: {src_dcg} also provided - using dcg data"
+                )
+            elif src_dcid and inp_value:
                 log.warning(
                     f"{ref_key} Specified at command line but dcid: {src_dcid} also provided - using dcid data"
                 )
+        # Get parameters from datacollection group ID if supplied
+        if src_dcg is not None:
+            if src_dcid is not None:
+                log.warning(
+                    f"dcid: {src_dcid} supplied alongside dcg: {src_dcg} - using dcg only"
+                )
+            log.info(f"Getting source data from dcg: {src_dcg}")
+            src_dir, src_prefix, src_run_num = db.retrieve_dcs_from_dcg(
+                db_session, src_dcg
+            )
         # Get parameters from datacollection ID if supplied
-        if src_dcid is not None:
+        elif src_dcid is not None:
             log.info(f"Getting source data from dcid: {src_dcid}")
             # Lookup database entry for dcid
             row = db.retrieve_dc_from_dcid(db_session, src_dcid)
@@ -687,7 +708,7 @@ def call_sim(
     for src_run_number in src_run_num:
         for src_prefix_item in src_prefix:
             dest_prefix = src_prefix_item
-            if scenario.get("dcg") and len(dcg_list):
+            if scenario.get("is_dcg") and len(dcg_list):
                 dcg = dcg_list[0]
             else:
                 dcg = None

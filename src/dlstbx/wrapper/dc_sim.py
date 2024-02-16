@@ -21,6 +21,8 @@ class DCSimWrapper(Wrapper):
             "{sample_id}",
             "{visit}",
             "{src_dcid}",
+            "{src_dcg}",
+            "{is_dcg}",
         ]
 
         # Replace any remaining placeholder values in params with None.
@@ -55,6 +57,22 @@ class DCSimWrapper(Wrapper):
             if not params["visit"].startswith(tuple(params["dest_allowed_visits"])):
                 raise ValueError(f"{params['visit']} is not an allowed visit")
 
+        # Set whether to output as dcg
+        if params["is_dcg"] is not None:
+            # Check that is_dcg is an acceptable boolean value
+            if params["is_dcg"].lower() in ["true", "1", "y", "yes"]:
+                is_dcg = True
+            elif params["is_dcg"].lower() in ["false", "0", "n", "no"]:
+                is_dcg = False
+            else:
+                raise ValueError(
+                    f"{params['is_dcg']} is not a valid value for is_dcg. Acceptable values are 'true', '1', 'y', 'yes' for True and 'false', '0', 'n', 'no' for False - case insensitive"
+                )
+        elif params["src_dcg"] is not None:
+            is_dcg = True
+        else:
+            is_dcg = False
+
         # Simulate the data collection
         result = dlstbx.dc_sim.call_sim(
             test_name=params["scenario"],
@@ -67,6 +85,8 @@ class DCSimWrapper(Wrapper):
             dflt_proposals=params["dflt_proposals"],
             src_dcid=params["src_dcid"],
             src_allowed_visits=params["src_allowed_visits"],
+            is_dcg=is_dcg,
+            src_dcg=params["src_dcg"],
         )
 
         if result:

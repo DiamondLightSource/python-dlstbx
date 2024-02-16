@@ -158,9 +158,10 @@ def retrieve_dcs_from_dcg(db_session, dcg):
         .filter(DataCollection.dataCollectionGroupId == dcg)
     )
     img_dir = query.first().imageDirectory
+    sample_id = query.first().BLSAMPLEID
     # Get values for prefixes and run_nums, removing duplicate values
     img_prefixes = list(set([r.imagePrefix for r in query.all()]))
     img_run_num = list(set([r.dataCollectionNumber for r in query.all()]))
     if not img_dir:
         raise ValueError("No matching data collection found")
-    return img_dir, img_prefixes, img_run_num
+    return img_dir, img_prefixes, img_run_num, sample_id

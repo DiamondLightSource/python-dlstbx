@@ -569,7 +569,7 @@ def call_sim(
                     f"dcid: {src_dcid} supplied alongside dcg: {src_dcg} - using dcg only"
                 )
             log.info(f"Getting source data from dcg: {src_dcg}")
-            src_dir, src_prefix, src_run_num = db.retrieve_dcs_from_dcg(
+            src_dir, src_prefix, src_run_num, sample_id = db.retrieve_dcs_from_dcg(
                 db_session, src_dcg
             )
         # Get parameters from datacollection ID if supplied

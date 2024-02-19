@@ -58,6 +58,7 @@ class DCSimWrapper(Wrapper):
                 raise ValueError(f"{params['visit']} is not an allowed visit")
 
         # Set whether to output as dcg
+        is_dcg = params["src_dcg"] is not None
         if params["is_dcg"] is not None:
             # Check that is_dcg is an acceptable boolean value
             if params["is_dcg"].lower() in ["true", "1", "y", "yes"]:
@@ -68,10 +69,6 @@ class DCSimWrapper(Wrapper):
                 raise ValueError(
                     f"{params['is_dcg']} is not a valid value for is_dcg. Acceptable values are 'true', '1', 'y', 'yes' for True and 'false', '0', 'n', 'no' for False - case insensitive"
                 )
-        elif params["src_dcg"] is not None:
-            is_dcg = True
-        else:
-            is_dcg = False
 
         # Simulate the data collection
         result = dlstbx.dc_sim.call_sim(

@@ -139,3 +139,31 @@ def retrieve_dc_from_dcid(db_session, dcid):
     if not result:
         raise ValueError("No matching data collection found")
     return result
+
+
+def retrieve_dcs_from_dcg(db_session, dcg):
+    records_to_collect = (
+        "BLSAMPLEID",
+        "dataCollectionGroupId",
+        "dataCollectionId",
+        "dataCollectionNumber",
+        "imageDirectory",
+        "imagePrefix",
+        "imageSuffix",
+    )
+
+    query = (
+        db_session.query(DataCollection)
+        .options(Load(DataCollection).load_only(*records_to_collect))
+        .filter(DataCollection.dataCollectionGroupId == dcg)
+    )
+    rows = query.all()
+    if not rows:
+        raise ValueError("No matching data collections found")
+
+    img_dir = rows[0].imageDirectory
+    sample_id = rows[0].BLSAMPLEID
+    # Get values for prefixes and run_nums, removing duplicate values
+    img_prefixes = list(set([r.imagePrefix for r in rows]))
+    img_run_num = list(set([r.dataCollectionNumber for r in rows]))
+    return img_dir, img_prefixes, img_run_num, sample_id

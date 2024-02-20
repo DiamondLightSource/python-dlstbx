@@ -105,7 +105,7 @@ tests = {
         "src_run_num": (1,),
         "src_prefix": ("Sethau7_2_pk", "Sethau7_2_if", "Sethau7_2_hrm"),
         "sample_id": 4873871,
-        "dcg": True,
+        "is_dcg": True,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -125,7 +125,7 @@ tests = {
         ),
         "src_prefix": ("SeThau2",),
         "sample_id": 4873856,
-        "dcg": True,
+        "is_dcg": True,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -223,7 +223,7 @@ tests = {
         "src_dir": "/dls/i03/data/2018/cm19644-4/20180912/chigroup/protk",
         "src_run_num": (8, 9, 10),
         "src_prefix": ("protk",),
-        "dcg": True,
+        "is_dcg": True,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),
@@ -238,7 +238,7 @@ tests = {
         "src_dir": "/dls/i23/data/2018/nr19737-17/20180510/lys6",
         "src_run_num": (1,),
         "src_prefix": ("data_2200eV_A_1_", "data_2200eV_B_1_"),
-        "dcg": True,
+        "is_dcg": True,
         "results": {
             "a": approx(100, abs=100),
             "b": approx(100, abs=100),

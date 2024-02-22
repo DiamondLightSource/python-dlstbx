@@ -15,6 +15,7 @@ from pprint import pprint
 
 import ispyb
 import junit_xml
+import sqlalchemy
 import workflows.recipe
 from workflows.transport.stomp_transport import StompTransport
 
@@ -29,6 +30,12 @@ test_results: dict[str, list] = {}
 # Accommodate for possibility of 1 hour time zone difference between workstations.
 test_timeout = 2 * 3600
 forget_test_after = 2 * 24 * 3600  # forget test after 2 days
+
+_ispyb_sessionmaker = sqlalchemy.orm.sessionmaker(
+    bind=sqlalchemy.create_engine(
+        ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
+    )
+)
 
 
 def process_result(rw, header, message):
@@ -129,9 +136,11 @@ def run():
     for testruns in test_results.values():
         for testrun in testruns:
             if testrun.get("success") is None:
-                with ispyb.open() as ispyb_conn:
+                with _ispyb_sessionmaker() as db_session:
                     print("Verifying", testrun)
-                    dlstbx.dc_sim.check.check_test_outcome(testrun, ispyb_conn)
+                    dlstbx.dc_sim.check.check_test_outcome(
+                        testrun, db_session=db_session
+                    )
                 # 3 possible outcomes:
                 # The test can be successful (testrun['success'] = True)
                 # it can fail (testrun['success'] = False; testrun['reason'] set)

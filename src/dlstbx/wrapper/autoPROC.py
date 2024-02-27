@@ -115,6 +115,9 @@ def construct_commandline(
         "autoPROC_XdsKeyword_MAXIMUM_NUMBER_OF_PROCESSORS=12",
         "-M",
         "HighResCutOnCChalf",
+        "-M",
+        "ReportingInlined",
+        'AutoProcSmallFootprint="yes"',
         'autoPROC_CreateSummaryImageHrefLink="no"',
         'autoPROC_Summary2Base64_Run="yes"',
         'StopIfSubdirExists="no"',
@@ -576,22 +579,6 @@ class autoPROCWrapper(Wrapper):
                     self.log.debug(result.stdout)
                     self.log.debug(result.stderr)
 
-        ## HTCondor resolves symlinks while transferring data and doesn't support symlinks to directories
-        # if "s3_urls" in self.recwrap.environment:
-        #    for tmp_file in subprocess_directory.rglob("*"):
-        #        if (
-        #            tmp_file.is_symlink() and tmp_file.is_dir()
-        #        ) or tmp_file.suffix == ".h5":
-        #            tmp_file.unlink(True)
-
-        # cd $jobdir
-        # tar -xzvf summary.tar.gz
-
-        # Visit=`basename ${3}`
-        ## put history into the log files
-        # echo "Attempting to add history to mtz files"
-        # find $jobdir -name '*.mtz' -exec /dls_sw/apps/mx-scripts/misc/AddHistoryToMTZ.sh $Beamline $Visit {} $2 autoPROC \;
-
         if success:
             json_file = subprocess_directory / "iotbx-merging-stats.json"
             scaled_unmerged_mtz = subprocess_directory / "aimless_unmerged.mtz"
@@ -599,11 +586,6 @@ class autoPROCWrapper(Wrapper):
                 json_file.write_text(
                     get_merging_statistics(os.fspath(scaled_unmerged_mtz)).as_json()
                 )
-
-        # move summary_inlined.html to summary.html
-        inlined_html = subprocess_directory / "summary_inlined.html"
-        if inlined_html.is_file():
-            shutil.copy2(inlined_html, subprocess_directory / "summary.html")
 
         if params.get("s3echo"):
             minio_client = iris.get_minio_client(params["s3echo"]["configuration"])
@@ -656,6 +638,7 @@ class autoPROCWrapper(Wrapper):
             ".mtz",
             ".pdf",
             ".sca",
+            ".stats",
         }
         keep = {"summary.tar.gz": "result", "iotbx-merging-stats.json": "graph"}
         if autoproc_xml:
@@ -688,7 +671,18 @@ class autoPROCWrapper(Wrapper):
                 continue
             destination = results_directory / filename.name
             self.log.debug(f"Copying {filename} to {destination}")
-            shutil.copy(filename, destination)
+            shutil.copy2(filename, destination, follow_symlinks=False)
+
+            # Fix symlinks to point to a file in the processing directory
+            if destination.is_symlink():
+                processed_filename = results_directory / filename.resolve().relative_to(
+                    working_directory
+                )
+                destination.unlink(True)
+                destination.symlink_to(
+                    processed_filename.relative_to(destination.parent)
+                )
+
             if filename.name not in keep:
                 continue  # only copy file, do not register in ISPyB
             importance_rank = {

@@ -279,6 +279,15 @@ class Xia2Wrapper(Wrapper):
                 shutil.copy(f, results_directory)
                 allfiles.append(str(results_directory / f.name))
 
+        success = (
+            success
+            and not (
+                results_directory.joinpath("xia2-error.txt").exists()
+                or results_directory.joinpath("xia2.error").exists()
+            )
+            and results_directory.joinpath("xia2.json").exists()
+        )
+
         # Send results to various listeners
         logfiles = ("xia2.html", "xia2.txt", "xia2.error", "xia2-error.txt")
         for result_file in map(results_directory.joinpath, logfiles):
@@ -373,12 +382,7 @@ class Xia2Wrapper(Wrapper):
                 xtriage_results = json.load(fh).get("xtriage")
         else:
             xtriage_results = None
-        if (
-            success
-            and not (os.path.isfile("xia2-error.txt") or os.path.isfile("xia2.error"))
-            and os.path.exists("xia2.json")
-            and not params.get("do_not_write_to_ispyb")
-        ):
+        if success and not params.get("do_not_write_to_ispyb"):
             self.send_results_to_ispyb(
                 xtriage_results=xtriage_results, res_i_sig_i_2=res_i_sig_i_2
             )

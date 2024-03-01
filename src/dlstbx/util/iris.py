@@ -14,6 +14,7 @@ from pathlib import Path
 import certifi
 import minio
 import requests
+from dxtbx.sequence_filenames import template_regex
 from minio.deleteobjects import DeleteObject
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -106,9 +107,7 @@ def remove_images_from_s3(minio_client, bucket_name, pid, images, logger):
         return
 
     image_files = get_image_files(None, images, logger)
-    object_names = [
-        "_".join([pid, Path(filepath).name]) for filepath in image_files.values()
-    ]
+    object_names = [f"{pid}_{Path(filepath).name}" for filepath in image_files.values()]
     errors = minio_client.remove_objects(
         bucket_name, [DeleteObject(obj) for obj in object_names]
     )
@@ -118,9 +117,15 @@ def remove_images_from_s3(minio_client, bucket_name, pid, images, logger):
 
 def get_image_files(working_directory, images, logger):
     file_list = {}
-    h5_paths = {Path(s.split(":")[0]) for s in images.split(",")}
-    for h5_file in h5_paths:
-        image_pattern = str(h5_file).split("master")[0] + "*"
+    for image in images.split(","):
+        first_image_or_master_h5 = image.split(":")[0]
+        if first_image_or_master_h5.endswith(".h5"):
+            image_pattern = first_image_or_master_h5.split("master")[0] + "*"
+        else:
+            image_pattern = (
+                template_regex(first_image_or_master_h5)[0].split("#")[0] + "*"
+            )
+
         for filepath in glob.glob(image_pattern):
             filename = Path(filepath).name
             logger.info(f"Found image file {filepath}")
@@ -130,39 +135,36 @@ def get_image_files(working_directory, images, logger):
     return file_list
 
 
-def compress_results_directories(working_directory, dirs, logger):
-    filelist = []
-    for tmp_dir in dirs:
-        start_time = time.perf_counter()
-        filename = f"{tmp_dir}.tar.gz"
-        result = subprocess.run(
-            [
-                "tar",
-                "-zcvf",
-                filename,
-                f"{tmp_dir}",
-                "--owner=nobody",
-                "--group=nobody",
-            ],
-            cwd=working_directory,
-        )
-        runtime = time.perf_counter() - start_time
-        if not result.returncode:
-            filelist.append(filename)
-            logger.info(f"Compressing {tmp_dir} took {runtime} seconds")
-        else:
-            logger.info(
-                f"Compressing {tmp_dir} failed with exitcode {result.returncode}"
-            )
-            logger.debug(result.stdout)
-            logger.debug(result.stderr)
-    return filelist
+def get_tar_archive(working_directory, archive_name, input_list, logger):
+    start_time = time.perf_counter()
+    filename = f"{archive_name}.tar"
+    image_directory = Path(next(iter(input_list))).parent
+    image_list = [Path(img).name for img in input_list]
+    result = subprocess.run(
+        [
+            "tar",
+            "-cvf",
+            str(Path(working_directory) / filename),
+            "--owner=nobody",
+            "--group=nobody",
+            *image_list,
+        ],
+        cwd=image_directory,
+    )
+    runtime = time.perf_counter() - start_time
+    if not result.returncode:
+        logger.info(f"Archiving {filename} took {runtime} seconds")
+    else:
+        logger.info(f"Archiving {filename} failed with exitcode {result.returncode}")
+        logger.debug(result.stdout)
+        logger.debug(result.stderr)
+    return str(Path(working_directory) / filename)
 
 
-def decompress_results_file(working_directory, filename, logger):
+def untar_archive(working_directory, filename, logger):
     start_time = time.perf_counter()
     result = subprocess.run(
-        ["tar", "-xvzf", filename, "--no-same-owner", "--no-same-permissions"],
+        ["tar", "-xvf", filename, "--no-same-owner", "--no-same-permissions"],
         cwd=working_directory,
     )
     runtime = time.perf_counter() - start_time
@@ -186,7 +188,7 @@ def get_presigned_urls(minio_client, bucket_name, pid, files, logger):
     s3_urls = {}
     store_objects = [obj.object_name for obj in minio_client.list_objects(bucket_name)]
     for filepath in files:
-        filename = "_".join([pid, Path(filepath).name])
+        filename = f"{pid}_{Path(filepath).name}"
         file_size = Path(filepath).stat().st_size
         upload_file = True
         if filename in store_objects:
@@ -232,17 +234,30 @@ def get_presigned_urls(minio_client, bucket_name, pid, files, logger):
     return s3_urls
 
 
-def get_presigned_urls_images(minio_client, bucket_name, pid, images, logger):
+def get_presigned_urls_images(
+    minio_client, bucket_name, pid, images, working_directory, archive_name, logger
+):
     image_files = get_image_files(None, images, logger)
-    s3_urls = get_presigned_urls(
-        minio_client, bucket_name, pid, image_files.values(), logger
+    archive_filename = get_tar_archive(
+        working_directory, archive_name, image_files.values(), logger
     )
+    s3_urls = get_presigned_urls(
+        minio_client,
+        bucket_name,
+        pid,
+        [
+            archive_filename,
+        ],
+        logger,
+    )
+    os.remove(archive_filename)
     return s3_urls
 
 
 def store_results_in_s3(minio_client, bucket_name, pfx, output_directory, logger):
-    compressed_results_files = compress_results_directories(
+    compressed_results_file = get_tar_archive(
         output_directory.parent,
+        output_directory.name,
         [
             output_directory.name,
         ],
@@ -252,21 +267,22 @@ def store_results_in_s3(minio_client, bucket_name, pfx, output_directory, logger
         minio_client,
         bucket_name,
         pfx,
-        compressed_results_files,
+        [
+            compressed_results_file,
+        ],
         logger,
     )
-    for filename in compressed_results_files:
-        os.remove(filename)
+    os.remove(compressed_results_file)
 
 
 def retrieve_results_from_s3(
     minio_client, bucket_name, working_directory, pfx, results_filename, logger
 ):
-    s3echo_filename = f"{pfx}_{results_filename}.tar.gz"
+    s3echo_filename = f"{pfx}_{results_filename}.tar"
     minio_client.fget_object(
         bucket_name, s3echo_filename, working_directory / s3echo_filename
     )
-    decompress_results_file(working_directory, s3echo_filename, logger)
+    untar_archive(working_directory, s3echo_filename, logger)
 
     # Fix ACL mask for files extracted from .tar archive
     # Using m:rwX resets mask for files as well, unclear why.

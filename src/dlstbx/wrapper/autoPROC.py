@@ -535,6 +535,11 @@ class autoPROCWrapper(Wrapper):
                     "Exception raised while downloading files from S3 object store"
                 )
                 return False
+            if len(s3_urls.keys()) == 1 and "tar" in (
+                image_archive := next(iter(s3_urls))
+            ):
+                image_tar_filename = image_archive.split("_", 1)[-1]
+                iris.untar_archive(working_directory, image_tar_filename, self.log)
             # We only want to override the image_directory when running in The Cloud,
             # as only then will the images have been copied locally. Otherwise use the
             # original image_directory.

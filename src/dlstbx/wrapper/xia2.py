@@ -175,6 +175,11 @@ class Xia2Wrapper(Wrapper):
                     "Exception raised while downloading files from S3 object store"
                 )
                 return False
+            if len(s3_urls.keys()) == 1 and "tar" in (
+                image_archive := next(iter(s3_urls))
+            ):
+                image_tar_filename = image_archive.split("_", 1)[-1]
+                iris.untar_archive(working_directory, image_tar_filename, self.log)
 
         command = self.construct_commandline(
             working_directory, params, "singularity_image" in self.recwrap.environment

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import workflows.recipe
+from minio.deleteobjects import DeleteObject
 from minio.error import S3Error
 from workflows.services.common_service import CommonService
 
@@ -66,6 +67,8 @@ class S3EchoUploader(CommonService):
                 params["bucket"],
                 params["rpid"],
                 params["images"],
+                params["working_directory"],
+                params["archive"],
                 self.log,
             )
         except S3Error:
@@ -109,13 +112,21 @@ class S3EchoUploader(CommonService):
 
         if params.get("remove", False):
             try:
-                remove_images_from_s3(
-                    minio_client,
-                    params["bucket"],
-                    params["rpid"],
-                    params["remove"]["images"],
-                    self.log,
-                )
+                if "images" in params["remove"]:
+                    remove_images_from_s3(
+                        minio_client,
+                        params["bucket"],
+                        params["rpid"],
+                        params["remove"]["images"],
+                        self.log,
+                    )
+                elif "archive" in params["remove"]:
+                    archive_name = f'{params["rpid"]}_{params["remove"]["archive"]}.tar'
+                    errors = minio_client.remove_objects(
+                        params["bucket"], [DeleteObject(archive_name)]
+                    )
+                    for error in errors:
+                        self.log.info("Error occurred when deleting object: ", error)
             except S3Error:
                 self.log.exception(
                     f"Exception raised while trying to remove files from S3 object store: {params['remove']['images']}"

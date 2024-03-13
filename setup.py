@@ -160,6 +160,7 @@ mimas_scenario_handlers = [
     "eiger_serial_end = dlstbx.mimas.ssx:handle_eiger_serial_end",
     "eiger_serial_start = dlstbx.mimas.ssx:handle_eiger_serial_start",
     "eiger_end = dlstbx.mimas.core:handle_eiger_end",
+    "handle_eiger_start_i03 = dlstbx.mimas.core:handle_eiger_start_i03",
     "i03_eiger_end = dlstbx.mimas.core:handle_eiger_end_i03",
     "i15_end = dlstbx.mimas.i15:handle_i15_end",
     "i19_pilatus_start = dlstbx.mimas.i19:handle_i19_start_pilatus",

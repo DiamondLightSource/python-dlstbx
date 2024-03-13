@@ -81,6 +81,17 @@ def handle_pilatus_not_gridscan_start(
     ]
 
 
+@mimas.match_specification(is_eiger & is_start & is_i03)
+def handle_eiger_start_i03(
+    scenario: mimas.MimasScenario, **kwargs
+) -> List[mimas.Invocation]:
+    return [
+        mimas.MimasRecipeInvocation(
+            DCID=scenario.DCID, recipe="per-image-analysis-gridscan-i03-gpu"
+        )
+    ]
+
+
 @mimas.match_specification(is_eiger & is_end & is_mx_beamline & ~is_vmxi & ~is_serial)
 def handle_eiger_end_i03(
     scenario: mimas.MimasScenario,

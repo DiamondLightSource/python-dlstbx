@@ -81,8 +81,8 @@ def handle_pilatus_not_gridscan_start(
     ]
 
 
-@mimas.match_specification(is_eiger & is_start & is_i03)
-def handle_eiger_start_i03(
+@mimas.match_specification(is_eiger & is_start & is_i03 & is_gridscan)
+def handle_eiger_start_i03_gridscan(
     scenario: mimas.MimasScenario, **kwargs
 ) -> List[mimas.Invocation]:
     return [

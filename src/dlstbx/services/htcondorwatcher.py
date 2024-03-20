@@ -6,6 +6,7 @@ from pprint import pformat
 import htcondor
 import workflows.recipe
 from workflows.services.common_service import CommonService
+from zocalo.util import slurm
 
 from dlstbx.util.profiler import Profiler
 
@@ -32,6 +33,9 @@ class HTCondorWatcher(CommonService):
         collector = htcondor.Collector(htcondor.param["COLLECTOR_HOST"])
         schedd_ad = collector.locate(htcondor.DaemonTypes.Schedd)
         self.schedd = htcondor.Schedd(schedd_ad)
+        self.slurm_api: slurm.SlurmRestApi = (
+            slurm.SlurmRestApi.from_zocalo_configuration(self.config, cluster="iris")
+        )
 
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -40,6 +44,17 @@ class HTCondorWatcher(CommonService):
             acknowledgement=True,
             log_extender=self.extend_log,
         )
+
+    def query_htcondor_job(self, jobid: int) -> dict | None:
+        res = self.schedd.query(
+            constraint=f"ClusterId=={jobid}",
+            projection=["ClusterId", "ProcId", "JobStatus", "Out"],
+        )
+        self.log.info(f"schedd status: {pformat(res)}")
+        try:
+            return next(iter(res))
+        except StopIteration:
+            return None
 
     def watch_jobs(self, rw, header, message):
         """
@@ -85,6 +100,7 @@ class HTCondorWatcher(CommonService):
             return
 
         seen_jobs = []
+        scheduler = rw.recipe_step["parameters"].get("scheduler")
         for jobid in joblist:
             # while (
             #    status["seen-jobs"] < jobcount
@@ -92,16 +108,28 @@ class HTCondorWatcher(CommonService):
             #    and joblist[status["seen-jobs"]]
             # ):
             with os_stat_profiler.record():
-                res = self.schedd.query(
-                    constraint=f"ClusterId=={jobid}",
-                    projection=["ClusterId", "ProcId", "JobStatus", "Out"],
-                )
-                self.log.info(f"schedd status: {pformat(res)}")
-                if res:
-                    if res[0]["JobStatus"] not in (3, 4):
-                        seen_jobs.append(jobid)
-                    if res[0]["JobStatus"] == 1:
-                        first_seen = start_time
+                if scheduler == "htcondor":
+                    if res := self.query_htcondor_job(jobid):
+                        if res["JobStatus"] not in (3, 4):
+                            seen_jobs.append(jobid)
+                        if res["JobStatus"] == 1:
+                            first_seen = start_time
+                elif scheduler == "slurm":
+                    if res := self.slurm_api.get_job_info(jobid):
+                        if res.job_state:
+                            if any(
+                                status in res.job_state
+                                for status in [
+                                    slurm.models.JobStateEnum.PENDING,
+                                    slurm.models.JobStateEnum.RUNNING,
+                                    slurm.models.JobStateEnum.TIMEOUT,
+                                    slurm.models.JobStateEnum.REQUEUED,
+                                    slurm.models.JobStateEnum.COMPLETING,
+                                ]
+                            ):
+                                seen_jobs.append(jobid)
+                                if slurm.models.JobStateEnum.PENDING in res.job_state:
+                                    first_seen = start_time
 
         # Are we done?
         if not seen_jobs:
@@ -142,13 +170,14 @@ class HTCondorWatcher(CommonService):
             timed_out = (first_seen + timeout) < time.time()
             runtime = time.time() - first_seen
             if timed_out:
-                # HTcondor watch operation has timed out. Put timed out job into Hold state.
-                act_result = self.schedd.act(
-                    htcondor.JobAction.Hold,
-                    " && ".join([f"ClusterId == {jobid}" for jobid in seen_jobs]),
-                    reason=f"Job timed out after {runtime} seconds",
-                )
-                self.log.info(f"schedd act response: {pformat(act_result)}")
+                if scheduler == "htcondor":
+                    # HTcondor watch operation has timed out. Put timed out job into Hold state.
+                    act_result = self.schedd.act(
+                        htcondor.JobAction.Hold,
+                        " && ".join([f"ClusterId == {jobid}" for jobid in seen_jobs]),
+                        reason=f"Job timed out after {runtime} seconds",
+                    )
+                    self.log.info(f"schedd act response: {pformat(act_result)}")
                 # Report all timeouts as warnings unless the recipe specifies otherwise
                 timeoutlog = self.log.warning
                 if rw.recipe_step["parameters"].get("log-timeout-as-info"):

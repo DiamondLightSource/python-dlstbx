@@ -136,7 +136,7 @@ class DLSXRayCentering(CommonService):
         self._register_idle(60, self.garbage_collect)
         workflows.recipe.wrap_subscribe(
             self._transport,
-            "reduce.xray_centering",
+            self._environment.get("queue") or "reduce.xray_centering",
             self.add_pia_result,
             acknowledgement=True,
             exclusive=True,

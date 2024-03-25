@@ -77,6 +77,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "mrbump = dlstbx.wrapper.mrbump:MrBUMPWrapper",
     "phaser_ellg  = dlstbx.wrapper.phaser_ellg:PhasereLLGWrapper",
     "rlv = dlstbx.wrapper.rlv:RLVWrapper",
+    "scaleit = dlstbx.wrapper.scaleit:ScaleitWrapper",
     "screen19 = dlstbx.wrapper.screen19:Screen19Wrapper",
     "screen19_mx = dlstbx.wrapper.screen19_mx:Screen19MXWrapper",
     "shelxc_stats = dlstbx.wrapper.shelxc_stats:ShelxcStatsWrapper",

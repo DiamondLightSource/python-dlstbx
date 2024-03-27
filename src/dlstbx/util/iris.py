@@ -133,29 +133,36 @@ def get_image_files(working_directory, images, logger):
 def compress_results_directories(working_directory, dirs, logger):
     filelist = []
     for tmp_dir in dirs:
+        retry_count = 1
+        exit_code = 1
         start_time = time.perf_counter()
         filename = f"{tmp_dir}.tar.gz"
-        result = subprocess.run(
-            [
-                "tar",
-                "-zcvf",
-                filename,
-                f"{tmp_dir}",
-                "--owner=nobody",
-                "--group=nobody",
-            ],
-            cwd=working_directory,
-        )
-        runtime = time.perf_counter() - start_time
-        if not result.returncode:
-            filelist.append(filename)
-            logger.info(f"Compressing {tmp_dir} took {runtime} seconds")
-        else:
-            logger.info(
-                f"Compressing {tmp_dir} failed with exitcode {result.returncode}"
+        while retry_count < 5 and exit_code:
+            logger.info(f"Compressing {tmp_dir}. Attempt {retry_count}.")
+            result = subprocess.run(
+                [
+                    "tar",
+                    "-zcvf",
+                    filename,
+                    f"{tmp_dir}",
+                    "--owner=nobody",
+                    "--group=nobody",
+                ],
+                cwd=working_directory,
             )
-            logger.debug(result.stdout)
-            logger.debug(result.stderr)
+            runtime = time.perf_counter() - start_time
+            exit_code = result.returncode
+            if not result.returncode:
+                filelist.append(filename)
+                logger.info(f"Compressing {tmp_dir} took {runtime} seconds")
+            else:
+                retry_count += 1
+                logger.info(
+                    f"Compressing {tmp_dir} failed with exitcode {result.returncode}"
+                )
+                logger.debug(result.stdout)
+                logger.debug(result.stderr)
+                time.sleep(100)
     return filelist
 
 

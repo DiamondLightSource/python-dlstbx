@@ -165,7 +165,6 @@ mimas_scenario_handlers = [
     "i15_end = dlstbx.mimas.i15:handle_i15_end",
     "i19_pilatus_start = dlstbx.mimas.i19:handle_i19_start_pilatus",
     "i19_pilatus_end = dlstbx.mimas.i19:handle_i19_end_pilatus",
-    "i19_eiger_start = dlstbx.mimas.i19:handle_i19_start_eiger",
     "i19_eiger_end = dlstbx.mimas.i19:handle_i19_end_eiger",
     "handle_i19_end_eiger_serial = dlstbx.mimas.i19:handle_i19_end_eiger_serial",
     "handle_i19_end_group_eiger_serial = dlstbx.mimas.i19:handle_i19_end_group_eiger_serial",

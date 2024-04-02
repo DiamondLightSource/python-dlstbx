@@ -54,18 +54,6 @@ def handle_i19_end_pilatus(
     ]
 
 
-@mimas.match_specification(is_i19 & is_start & is_eiger & ~is_serial)
-def handle_i19_start_eiger(
-    scenario: mimas.MimasScenario, **kwargs
-) -> List[mimas.Invocation]:
-    return [
-        mimas.MimasRecipeInvocation(
-            DCID=scenario.DCID,
-            recipe="per-image-analysis-rotation-swmr-i19",
-        )
-    ]
-
-
 @mimas.match_specification(is_i19 & is_end & is_eiger & is_serial)
 def handle_i19_end_eiger_serial(
     scenario: mimas.MimasScenario, **kwargs
@@ -143,6 +131,7 @@ def handle_i19_end_eiger(
             "archive-nexus",
             "processing-rlv-eiger",
             "generate-diffraction-preview",
+            "per-image-analysis-rotation-swmr-i19",
             "strategy-screen19-eiger",
         )
     ]

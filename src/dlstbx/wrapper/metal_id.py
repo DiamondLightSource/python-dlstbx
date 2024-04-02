@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime
 import pathlib
 import subprocess
 
@@ -17,14 +16,11 @@ class MetalIdWrapper(Wrapper):
             f"Running recipewrap file {self.recwrap.recipe_step['parameters']['recipewrapper']}"
         )
         # Get parameters from the recipe file
-        source_directory = pathlib.Path(
-            self.recwrap.recipe_step["job_parameters"]["source_directory"]
+        dimple_dir_above = pathlib.Path(
+            self.recwrap.recipe_step["job_parameters"]["dimple_dir_above"]
         )
-        mtz_above = (
-            source_directory / self.recwrap.recipe_step["job_parameters"]["mtz_above"]
-        )
-        mtz_below = (
-            source_directory / self.recwrap.recipe_step["job_parameters"]["mtz_below"]
+        dimple_dir_below = pathlib.Path(
+            self.recwrap.recipe_step["job_parameters"]["dimple_dir_below"]
         )
         pdb_directory = pathlib.Path(
             self.recwrap.recipe_step["job_parameters"]["user_pdb_directory"]
@@ -32,83 +28,16 @@ class MetalIdWrapper(Wrapper):
         pdb = pdb_directory / self.recwrap.recipe_step["job_parameters"]["pdb"]
 
         # Make a temporary directory for the data to be saved into
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        working_directory = (
-            pathlib.Path(
-                self.recwrap.recipe_step["job_parameters"]["working_directory"]
-            )
-            / timestamp
+        working_directory = pathlib.Path(
+            self.recwrap.recipe_step["job_parameters"]["working_directory"]
         )
         working_directory.mkdir(parents=True, exist_ok=True)
-        results_directory = (
-            pathlib.Path(
-                self.recwrap.recipe_step["job_parameters"]["results_directory"]
-            )
-            / timestamp
+
+        results_directory = pathlib.Path(
+            self.recwrap.recipe_step["job_parameters"]["results_directory"]
         )
         results_directory.mkdir(parents=True, exist_ok=True)
 
-        # Add the F and SIGF data from one file to the other with cad
-        mtz_combi = results_directory / "combined.mtz"
-        cad_script = [
-            f"cad hklin1 {mtz_above} hklin2 {mtz_below} hklout {mtz_combi} <<END-CAD\n"
-            + "TITLE Add data for scaling\n"
-            + "LABIN FILE 1 -\n"
-            + "E1=FreeR_flag E2=IMEAN E3=SIGIMEAN E4=N E5=I(+) E6=SIGI(+) E7=I(-) -\n"
-            + "E8=SIGI(-) E9=N(+) E10=N(-) E11=F E12=SIGF E13=F(+) E14=SIGF(+) -\n"
-            + "E15=F(-) E16=SIGF(-) E17=DANO E18=SIGDANO\n"
-            + "LABIN FILE 2 E1=F E2=SIGF\n"
-            + "LABOUT FILE 2 E1=Fscale E2 = SIGFscale\n"
-            + "SYSAB_KEEP\n"
-            + "END\n"
-            + "END-CAD"
-        ]
-        result = subprocess.run(
-            cad_script,
-            shell=True,
-            cwd=working_directory,
-            capture_output=True,
-            text=True,
-        )
-        with open(working_directory / "cad.log", "w") as log_file:
-            log_file.write(result.stdout)
-
-        # Scale the above data using the data added by cad
-        mtz_scaled = results_directory / "scaled.mtz"
-        scaleit_script = [
-            f"scaleit hklin {mtz_combi} hklout {mtz_scaled} <<END-SCALEIT\n"
-            + "TITLE Scale data using added ref data\n"
-            + "LABIN FP=Fscale SIGFP=SIGFscale FPH1=F SIGFPH1=SIGF DPH1=DANO SIGDPH1=SIGDANO -\n"
-            + "FPH1(+)=F(+) SIGFPH1(+)=SIGF(+) FPH1(-)=F(-) SIGFPH1(-)=SIGF(-) IMEAN1=IMEAN -\n"
-            + "SIGIMEAN1=SIGIMEAN I1(+)=I(+) SIGI1(+)=SIGI(+) I1(-)=I(-) SIGI1(-)=SIGI(-)\n"
-            + "WEIGHT\n"
-            + "END\n"
-            + "END-SCALEIT"
-        ]
-        result = subprocess.run(
-            scaleit_script,
-            shell=True,
-            cwd=working_directory,
-            capture_output=True,
-            text=True,
-        )
-        with open(working_directory / "scaleit.log", "w") as log_file:
-            log_file.write(result.stdout)
-
-        # Run dimple on both datasets
-        print("Running dimple")
-        dimple_dir = working_directory / "dimple"
-        dimple_dir_above = dimple_dir / "above"
-        dimple_dir_below = dimple_dir / "below"
-
-        for mtz, dir in [(mtz_scaled, dimple_dir_above), (mtz_below, dimple_dir_below)]:
-            dir.mkdir(parents=True, exist_ok=True)
-            dimple_command = f"dimple {mtz} {pdb} {dir} --anode"
-            result = subprocess.run(
-                dimple_command, shell=True, capture_output=True, text=True
-            )
-
-        # Make a double difference map from the dimple anode output
         print("Making double difference map")
         pha_above = dimple_dir_above / "anode.pha"
         pha_below = dimple_dir_below / "anode.pha"
@@ -133,6 +62,8 @@ class MetalIdWrapper(Wrapper):
         result = subprocess.run(
             coot_command, shell=True, capture_output=True, text=True
         )
+        with open(working_directory / "metal_id.log", "w") as log_file:
+            log_file.write(result.stdout)
 
         print("Script finished")
         return True

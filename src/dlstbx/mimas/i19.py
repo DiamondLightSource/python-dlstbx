@@ -131,8 +131,8 @@ def handle_i19_end_eiger(
             "archive-nexus",
             "processing-rlv-eiger",
             "generate-diffraction-preview",
-            "per-image-analysis-rotation-swmr-i19",
             "strategy-screen19-eiger",
+            "per-image-analysis-rotation-swmr-i19",
         )
     ]
 

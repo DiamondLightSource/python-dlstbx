@@ -41,12 +41,20 @@ cluster_queue_mapping: dict[str, dict[str, str]] = {
     },
     "hamilton": {"default": "all.q"},
     "htcondor": {},
+    "cs05r": {
+        "default": "cs05r",
+        "low": "mx_low",
+        "high": "mx_high",
+    },
+    "cepheus": {
+        "default": "mx",
+    },
 }
 
 
 class JobSubmissionParameters(pydantic.BaseModel):
     scheduler: str = "grid_engine"
-    cluster: Optional[str]
+    cluster: str = "cluster"
     partition: Optional[str]
     job_name: Optional[str]  #
     priority: Optional[int]  # HTCondor only
@@ -235,6 +243,18 @@ def submit_to_slurm(
     else:
         time_limit_minutes = None
 
+    if params.queue and (
+        mapped_queue := cluster_queue_mapping[params.cluster].get(params.queue)
+    ):
+        logger.debug(
+            f"Mapping requested cluster queue {params.queue} on cluster {params.cluster} to {mapped_queue}"
+        )
+    else:
+        mapped_queue = params.partition
+        logger.warning(
+            f"Requested cluster queue {params.queue} not available on cluster {params.cluster}, using partition value {params.partition}"
+        )
+
     jdm_params = {
         "account": params.account,
         "cpus_per_task": params.cpus_per_task,
@@ -244,7 +264,7 @@ def submit_to_slurm(
         "memory_per_node": slurm.models.Uint64NoVal(number=params.memory_per_node),
         "name": params.job_name,
         "nodes": [params.nodes, params.nodes] if params.nodes else params.nodes,
-        "partition": params.partition,
+        "partition": mapped_queue,
         "qos": params.qos,
         "tasks": params.tasks,
         "time_limit": slurm.models.Uint32NoVal(number=time_limit_minutes),

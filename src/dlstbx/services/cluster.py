@@ -247,12 +247,12 @@ def submit_to_slurm(
         mapped_queue := cluster_queue_mapping[params.cluster].get(params.queue)
     ):
         logger.debug(
-            f"Mapping requested cluster queue {params.queue} on cluster {params.cluster} to {mapped_queue}"
+            f"Mapping requested cluster queue {params.queue} for {params.job_name} on cluster {params.cluster} to {mapped_queue} partition."
         )
     else:
         mapped_queue = params.partition
-        logger.warning(
-            f"Requested cluster queue {params.queue} not available on cluster {params.cluster}, using partition value {params.partition}"
+        logger.debug(
+            f"Submitting {params.job_name} job on cluster {params.cluster} to {params.partition} partition."
         )
 
     jdm_params = {

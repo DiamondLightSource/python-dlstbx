@@ -263,7 +263,7 @@ def submit_to_slurm(
         "memory_per_cpu": slurm.models.Uint64NoVal(number=params.min_memory_per_cpu),
         "memory_per_node": slurm.models.Uint64NoVal(number=params.memory_per_node),
         "name": params.job_name,
-        "nodes": [params.nodes, params.nodes] if params.nodes else params.nodes,
+        "nodes": str(params.nodes) if params.nodes else params.nodes,
         "partition": mapped_queue,
         "qos": params.qos,
         "tasks": params.tasks,

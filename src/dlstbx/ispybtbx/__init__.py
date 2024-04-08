@@ -25,7 +25,8 @@ from dlstbx.util.pdb import PDBFileOrCode
 
 logger = logging.getLogger("dlstbx.ispybtbx")
 
-_gpfs03_beamlines = {
+# List of beamlines with GPFS access to gpfs03/gpfs04
+_cs05r_gpfs_beamlines = {
     "b07",
     "b07-1",
     "b18",
@@ -33,6 +34,7 @@ _gpfs03_beamlines = {
     "b22",
     "e03",
     "ebic",
+    "i04-1",
     "i05",
     "i05-1",
     "i07",
@@ -797,7 +799,7 @@ def ispyb_filter(
         raise ValueError(f"No database entry found for dcid={dc_id}: {dc_id}")
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
     parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id, session)
-    if str(parameters["ispyb_beamline"]).lower() in _gpfs03_beamlines:
+    if str(parameters["ispyb_beamline"]).lower() in _cs05r_gpfs_beamlines:
         parameters["ispyb_preferred_datacentre"] = "cs05r"
         parameters["ispyb_preferred_scheduler"] = "slurm"
         parameters["ispyb_preferred_queue_variant"] = ".cs05r_gpfs"

@@ -247,6 +247,7 @@ setup(
             "grid_engine = dlstbx.services.cluster:submit_to_grid_engine",
             "htcondor = dlstbx.services.cluster:submit_to_htcondor",
             "slurm = dlstbx.services.cluster:submit_to_slurm",
+            "iris = dlstbx.services.cluster:submit_to_slurm",
         ],
         "zocalo.services.dispatcher.filters": [
             "ispyb = dlstbx.ispybtbx:ispyb_filter",

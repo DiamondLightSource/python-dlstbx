@@ -9,6 +9,7 @@ import os
 import pathlib
 import re
 import subprocess
+import time
 from pprint import pformat
 from typing import Optional
 
@@ -16,8 +17,8 @@ import pkg_resources
 import pydantic
 import requests
 import workflows.recipe
-import zocalo.configuration
 from workflows.services.common_service import CommonService
+from zocalo.configuration import Configuration
 from zocalo.util import slurm
 
 cluster_queue_mapping: dict[str, dict[str, str]] = {
@@ -39,12 +40,20 @@ cluster_queue_mapping: dict[str, dict[str, str]] = {
     },
     "hamilton": {"default": "all.q"},
     "htcondor": {},
+    "cs05r": {
+        "default": "cs05r",
+        "low": "mx_low",
+        "high": "mx_high",
+    },
+    "cepheus": {
+        "default": "mx",
+    },
 }
 
 
 class JobSubmissionParameters(pydantic.BaseModel):
     scheduler: str = "grid_engine"
-    cluster: Optional[str]
+    cluster: str = "cluster"
     partition: Optional[str]
     job_name: Optional[str]  #
     priority: Optional[int]  # HTCondor only
@@ -207,9 +216,10 @@ def submit_to_slurm(
     params: JobSubmissionParameters,
     working_directory: pathlib.Path,
     logger: logging.Logger,
-    zc: zocalo.configuration,
+    zc: Configuration,
+    scheduler: str,
 ) -> int | None:
-    api = slurm.SlurmRestApi.from_zocalo_configuration(zc)
+    api = slurm.SlurmRestApi.from_zocalo_configuration(zc, cluster=scheduler)
 
     script = params.commands
     if not isinstance(script, str):
@@ -222,7 +232,9 @@ def submit_to_slurm(
     minimal_environment = {"USER"}
     # Only attempt to copy variables that already exist in the submitter's environment.
     minimal_environment &= set(os.environ)
-    environment = params.environment or {k: os.environ[k] for k in minimal_environment}
+    environment = params.environment or [
+        f"{k}={os.environ[k]}" for k in minimal_environment
+    ]
 
     logger.debug(f"Submitting script to Slurm:\n{script}")
     if params.time_limit:
@@ -230,33 +242,47 @@ def submit_to_slurm(
     else:
         time_limit_minutes = None
 
-    job_submission = slurm.models.JobSubmission(
-        script=script,
-        job=slurm.models.JobProperties(
-            partition=params.partition,
-            name=params.job_name,
-            cpus_per_task=params.cpus_per_task,
-            tasks=params.tasks,
-            nodes=[params.nodes, params.nodes] if params.nodes else params.nodes,
-            gpus_per_node=params.gpus_per_node,
-            memory_per_node=params.memory_per_node,
-            environment=environment,
-            memory_per_cpu=params.min_memory_per_cpu,
-            time_limit=time_limit_minutes,
-            gpus=params.gpus,
-            # exclusive=params.exclusive,
-            account=params.account,
-            current_working_directory=os.fspath(working_directory),
-            qos=params.qos,
-        ),
+    if params.queue and (
+        mapped_queue := cluster_queue_mapping[params.cluster].get(params.queue)
+    ):
+        logger.debug(
+            f"Mapping requested cluster queue {params.queue} for {params.job_name} on cluster {params.cluster} to {mapped_queue} partition."
+        )
+    else:
+        mapped_queue = params.partition
+        logger.debug(
+            f"Submitting {params.job_name} job on cluster {params.cluster} to {params.partition} partition."
+        )
+
+    jdm_params = {
+        "account": params.account,
+        "cpus_per_task": params.cpus_per_task,
+        "current_working_directory": os.fspath(working_directory),
+        "environment": environment,
+        "memory_per_cpu": slurm.models.Uint64NoVal(number=params.min_memory_per_cpu),
+        "memory_per_node": slurm.models.Uint64NoVal(number=params.memory_per_node),
+        "name": params.job_name,
+        "nodes": str(params.nodes) if params.nodes else params.nodes,
+        "partition": mapped_queue,
+        "qos": params.qos,
+        "tasks": params.tasks,
+        "time_limit": slurm.models.Uint32NoVal(number=time_limit_minutes),
+    }
+    if params.gpus_per_node:
+        jdm_params["tres_per_node"] = f"gres/gpu:{params.gpus_per_node}"
+    if params.gpus:
+        jdm_params["tres_per_job"] = f"gres/gpu:{params.gpus}"
+
+    job_submission = slurm.models.JobSubmitReq(
+        script=script, job=slurm.models.JobDescMsg(**jdm_params)
     )
     try:
         response = api.submit_job(job_submission)
     except requests.HTTPError as e:
         logger.error(f"Failed Slurm job submission: {e}\n" f"{e.response.text}")
         return None
-    if response.errors:
-        error_message = "\n".join(f"{e.errno}: {e.error}" for e in response.errors)
+    if response.error:
+        error_message = f"{response.error_code}: {response.error}"
         logger.error(f"Failed Slurm job submission: {error_message}")
         return None
     return response.job_id
@@ -552,10 +578,77 @@ class DLSCluster(CommonService):
             self._transport.nack(header)
             return
 
+        if params.transfer_input_files:
+            try:
+                from datasyncer import datasyncer
+            except ImportError:
+                self.log.error(
+                    "File upload via datasyncer has failed. Cannot import datasyncer module."
+                )
+                self._transport.nack(header)
+                return
+            timestamp = time.time()
+            transfer_status = "active"
+            runtime = 0
+            try:
+                transfer_id = message["datasyncher"]["transfer_id"]
+                transfer_status = datasyncer.status(transfer_id)
+                runtime = timestamp - message["datasyncher"]["timestamp"]
+            except (TypeError, KeyError):
+                transfer_id = datasyncer.transfer(params.transfer_input_files)
+                msg = {
+                    "datasyncher": {
+                        "transfer_id": transfer_id,
+                        "timestamp": timestamp,
+                    }
+                }
+                txn = self._transport.transaction_begin(
+                    subscription_id=header["subscription"]
+                )
+                self._transport.ack(header, transaction=txn)
+                rw.checkpoint(msg, delay=10, transaction=txn)
+                self.log.info(
+                    f"Start transfering input files with transfer_id {transfer_id}"
+                )
+                self._transport.transaction_commit(txn)
+                return
+
+            if transfer_status == "succeeded":
+                self.log.info(
+                    f"Transfering input files for transfer_id {transfer_id} succeeded in {runtime:.2f}s"
+                )
+            elif transfer_status == "active":
+                txn = self._transport.transaction_begin(
+                    subscription_id=header["subscription"]
+                )
+                self._transport.ack(header, transaction=txn)
+                rw.checkpoint(message, delay=10, transaction=txn)
+                self.log.info(
+                    f"Transfering input files for transfer_id {transfer_id} is running for {runtime:.2f}s"
+                )
+                self._transport.transaction_commit(txn)
+                return
+            elif transfer_status == "failed":
+                self.log.error(
+                    f"File upload via datasyncher for transfer_id {transfer_id} failed after {runtime:.2f}s"
+                )
+                self._transport.nack(header)
+                return
+            else:
+                self.log.error(
+                    f"Recieved unknown transfer status value for transfter_id {transfer_id}: {transfer_status}"
+                )
+                self._transport.nack(header)
+                return
+
         submit_to_scheduler = self.schedulers.get(params.scheduler)
 
         jobnumber = submit_to_scheduler(
-            params, working_directory, self.log, zc=self.config
+            params,
+            working_directory,
+            self.log,
+            zc=self.config,
+            scheduler=params.scheduler,
         )
         if not jobnumber:
             self._transport.nack(header)

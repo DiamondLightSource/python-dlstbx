@@ -17,7 +17,6 @@ import pkg_resources
 import pydantic
 import requests
 import workflows.recipe
-from datasyncer import datasyncer
 from workflows.services.common_service import CommonService
 from zocalo.configuration import Configuration
 from zocalo.util import slurm
@@ -580,6 +579,14 @@ class DLSCluster(CommonService):
             return
 
         if params.transfer_input_files:
+            try:
+                from datasyncer import datasyncer
+            except ImportError:
+                self.log.error(
+                    "File upload via datasyncer has failed. Cannot import datasyncer module."
+                )
+                self._transport.nack(header)
+                return
             timestamp = time.time()
             transfer_status = "active"
             runtime = 0

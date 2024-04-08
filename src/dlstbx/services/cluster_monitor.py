@@ -4,7 +4,6 @@ import collections
 import itertools
 import logging
 import time
-from pprint import pformat
 
 import requests
 from workflows.services.common_service import CommonService
@@ -269,6 +268,5 @@ class DLSClusterMonitor(CommonService):
             "statistic-timestamp": kwargs["timestamp"],
         }
         data_pack.update(data)
-        self.log.debug(pformat(data_pack))
         self._transport.broadcast("transient.statistics.cluster", data_pack)
         self._transport.send("statistics.cluster", data_pack, persistent=False)

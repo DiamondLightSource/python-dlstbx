@@ -42,8 +42,8 @@ cluster_queue_mapping: dict[str, dict[str, str]] = {
     "htcondor": {},
     "cs05r": {
         "default": "cs05r",
-        "low": "mx_low",
-        "high": "mx_high",
+        "low": "cs05r",
+        "high": "cs05r",
     },
     "cepheus": {
         "default": "mx",

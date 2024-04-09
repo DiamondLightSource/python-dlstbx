@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import contextlib
+import logging
 import os
 import time
+from pathlib import Path
 
 import h5py
 import workflows.recipe
@@ -32,39 +33,40 @@ def is_file_selected(file_number, selection, total_files):
     )
 
 
-class _Profiler:
+class _StatProfiler:
     """
-    A helper class that can record summary statistics on time spent in
-    code blocks. Example usage:
-
-    profiler = _Profiler()
-    with profiler.record():
-        ...
-    print(profiler.mean)
-    print(profiler.max)
+    Record compound timing statistics running filesystem operations.
     """
 
-    def __init__(self):
-        self._timing_max = None
-        self._timing_sum = None
-        self._timing_count = None
+    def __init__(self, logger: logging.Logger | None = None):
+        self._timing_max: float | None = None
+        self._timing_sum = 0.0
+        self._timing_count = 0.0
+        self._logger = logger
 
-    @contextlib.contextmanager
-    def record(self):
+    def is_file(self, path: str | os.PathLike) -> bool:
+        """Check existence of a single file, tracking IO time."""
         start = time.time()
         try:
-            yield
+            return Path(path).is_file()
         finally:
             runtime = time.time() - start
-            if self._timing_count:
-                self._timing_count += 1
-                self._timing_sum += runtime
-                if runtime > self._timing_max:
-                    self._timing_max = runtime
-            else:
-                self._timing_count = 1
-                self._timing_sum = runtime
-                self._timing_max = runtime
+
+            self._timing_count += 1
+            self._timing_sum += runtime
+            self._timing_max = max(self._timing_max or 0, runtime)
+
+            if runtime > 5 and self._logger:
+                # Anything higher than 5 seconds should be explicitly logged
+                self._logger.warning(
+                    "Excessive filewatcher stat-time for file: %s",
+                    path,
+                    extra={
+                        "stat-time-max": self.max,
+                        "stat-time-mean": self.mean,
+                        "stat-time": runtime,
+                    },
+                )
 
     @property
     def max(self):
@@ -227,7 +229,7 @@ class DLSFileWatcher(CommonService):
         rw.transport.ack(header, transaction=txn)
 
         # Keep a record of os.stat timings
-        os_stat_profiler = _Profiler()
+        os_stat_profiler = _StatProfiler(self.log)
 
         # Look for files
         files_found = 0
@@ -236,9 +238,8 @@ class DLSFileWatcher(CommonService):
             and files_found < rw.recipe_step["parameters"].get("burst-limit", 100)
             and filelist[status["seen-files"]]
         ):
-            with os_stat_profiler.record():
-                if not os.path.isfile(filelist[status["seen-files"]]):
-                    break
+            if not os_stat_profiler.is_file(filelist[status["seen-files"]]):
+                break
 
             files_found += 1
             status["seen-files"] += 1
@@ -494,7 +495,7 @@ class DLSFileWatcher(CommonService):
         rw.transport.ack(header, transaction=txn)
 
         # Keep a record of os.stat timings
-        os_stat_profiler = _Profiler()
+        os_stat_profiler = _StatProfiler(self.log)
 
         # Look for files
         files_found = 0
@@ -502,9 +503,8 @@ class DLSFileWatcher(CommonService):
             "parameters"
         ].get("burst-limit", 100):
             filename = pattern % (pattern_start + status["seen-files"])
-            with os_stat_profiler.record():
-                if not os.path.isfile(filename):
-                    break
+            if not os_stat_profiler.is_file(filename):
+                break
 
             files_found += 1
             status["seen-files"] += 1
@@ -714,28 +714,27 @@ class DLSFileWatcher(CommonService):
             status.update(message.get("filewatcher-status", {}))
 
         # Keep a record of os.stat timings
-        os_stat_profiler = _Profiler()
+        os_stat_profiler = _StatProfiler(self.log)
 
         hdf5 = rw.recipe_step["parameters"]["hdf5"]
         image_count = None
-        with os_stat_profiler.record():
-            if os.path.isfile(hdf5):
-                self.log.debug(f"Opening {hdf5}")
-                try:
-                    with h5py.File(hdf5, mode="r", swmr=True) as f:
-                        d = f["/entry/data/data"]
-                        dataset_files, file_map = h5check.get_real_frames(f, d)
-                        image_count = len(file_map)
-                except Exception as e:
-                    if not is_known_hdf5_exception(e):
-                        self.log.error(f"Error reading {hdf5}", exc_info=True)
-                        rw.transport.nack(header)
-                        return
-                    # For some reason this means that the .nxs file is probably
-                    # still being written to, so quietly log the message and
-                    # continue, leading to the message being resubmitted for
-                    # another round of processing
-                    self.log.info(f"Error reading {hdf5}", exc_info=True)
+        if os_stat_profiler.is_file(hdf5):
+            self.log.debug(f"Opening {hdf5}")
+            try:
+                with h5py.File(hdf5, mode="r", swmr=True) as f:
+                    d = f["/entry/data/data"]
+                    dataset_files, file_map = h5check.get_real_frames(f, d)
+                    image_count = len(file_map)
+            except Exception as e:
+                if not is_known_hdf5_exception(e):
+                    self.log.error(f"Error reading {hdf5}", exc_info=True)
+                    rw.transport.nack(header)
+                    return
+                # For some reason this means that the .nxs file is probably
+                # still being written to, so quietly log the message and
+                # continue, leading to the message being resubmitted for
+                # another round of processing
+                self.log.info(f"Error reading {hdf5}", exc_info=True)
 
         # Identify everys ('every-N' targets) to notify for
         everys = self._parse_everys(rw.recipe_step["output"])
@@ -760,9 +759,8 @@ class DLSFileWatcher(CommonService):
             ):
                 m, frame = file_map[status["seen-images"]]
                 h5_data_file, dsetname = dataset_files[m]
-                with os_stat_profiler.record():
-                    if not os.path.isfile(h5_data_file):
-                        break
+                if not os_stat_profiler.is_file(h5_data_file):
+                    break
 
                 try:
                     if h5_data_file not in file_handles:

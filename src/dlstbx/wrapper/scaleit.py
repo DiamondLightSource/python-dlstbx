@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -68,52 +69,53 @@ class ScaleitWrapper(Wrapper):
                 f"Exactly two data files need to be provided, {len(mtz_files)} files were given"
             )
             return False
-        for _file in mtz_files:
-            if not os.path.isfile(_file):
-                self.log.error(f"Could not find {_file}")
-                return False
 
-        # Reindex the mtz files using pointless to ensure that they have the same symmetry as the pdb file
-        if pdb := self.params["scaleit"].get("pdb"):
-            mtz_reindexed = []
-            for mtz_file in mtz_files:
-                print(mtz_file)
-                _filename = os.path.basename(mtz_file)
-                _filename = os.path.splitext(_filename)[0]
-                hklout = self.working_directory / f"{_filename}_reindexed.mtz"
-                pointless_command = [
-                    f"pointless hklin {mtz_file} hklout {hklout} xyzin {pdb}"
-                ]
-                result = subprocess.run(
-                    pointless_command,
-                    shell=True,
-                    cwd=self.working_directory,
-                    capture_output=True,
-                    text=True,
-                )
-                with open(
-                    self.working_directory / f"reindex_{_filename}.log", "w"
-                ) as log_file:
-                    log_file.write(result.stdout)
-                with open(
-                    self.working_directory / f"reindex_{_filename}_error.log", "w"
-                ) as log_file:
-                    log_file.write(result.stderr)
+        files_out = self.params["scaleit"].get("files_out", [])
 
-                if "Incompatible symmetries" in result.stderr:
-                    self.log.error(
-                        f"{mtz_file} has incompatible symmetry to ref file {pdb}"
-                    )
-                    return False
-                mtz_reindexed.append(hklout)
-            mtz_files = mtz_reindexed
-        else:
-            self.log.info(
-                "No pdb file provided, assuming that mtz files have compatible symmetry"
-            )
+        for _i, _file in enumerate(mtz_files):
+            if files_out:
+                _dest_file = self.working_directory / files_out[_i]
+            else:
+                _file_name = os.path.splitext(os.path.basename(_file))[0]
+                _dest_file = self.working_directory / _file_name
+            try:
+                shutil.copy(_file, _dest_file)
+                self.log.info(f"File '{_file}' copied to '{_dest_file}'")
+            except FileNotFoundError:
+                print(f"Source file '{_file}' not found.")
+            except PermissionError:
+                print(f"Permission denied for copying '{_file}' to '{_dest_file}'.")
 
-        mtz_nat = mtz_files[0]
-        mtz_der = mtz_files[1]
+        mtz_nat = files_out[0]
+        mtz_der = files_out[1]
+
+        # Ensure that the mtz files have compatible symmetry and put them into the same space group using pointless
+        mtz_der_filename = os.path.splitext(os.path.basename(mtz_der))[0]
+        hklout = self.working_directory / f"{mtz_der_filename}_reindexed.mtz"
+        pointless_command = [
+            f"pointless hklin {mtz_der} hklout {hklout} hklref {mtz_nat}"
+        ]
+        result = subprocess.run(
+            pointless_command,
+            shell=True,
+            cwd=self.working_directory,
+            capture_output=True,
+            text=True,
+        )
+        with open(
+            self.working_directory / f"reindex_{mtz_der_filename}.log", "w"
+        ) as log_file:
+            log_file.write(result.stdout)
+        with open(
+            self.working_directory / f"reindex_{mtz_der_filename}_error.log", "w"
+        ) as log_file:
+            log_file.write(result.stderr)
+
+        if "Incompatible symmetries" in result.stderr:
+            self.log.error("Scaleit - mtz files have incompatible symmetry")
+            return False
+        # Update mtz_der to the reindexed file path
+        mtz_der = hklout
 
         # Read in mtz files
         obj_nat = mtz.object(str(mtz_nat))
@@ -136,13 +138,11 @@ class ScaleitWrapper(Wrapper):
                 return False
 
         # Add the F and SIGF data from one file to the other with cad
-        mtz_combi = self.working_directory / "combined.mtz"
-        col_labs_der = (
-            obj_der.crystals()[1].datasets()[0].column_labels()
-        )  # Get list of column headers excluding hkl
-        labin_der = [
-            f"E{_i+1}={_label}" for _i, _label in enumerate(col_labs_der)
-        ]  # Convert list to cad input format
+        mtz_combi = self.working_directory / f"{mtz_der_filename}_combined.mtz"
+        # Get list of column headers excluding hkl
+        col_labs_der = obj_der.crystals()[1].datasets()[0].column_labels()
+        # Convert list to cad input format
+        labin_der = [f"E{_i+1}={_label}" for _i, _label in enumerate(col_labs_der)]
         cad_script = [
             f"cad hklin1 {mtz_nat} hklin2 {mtz_der} hklout {mtz_combi} <<END-CAD",
             "TITLE Add data for scaling",
@@ -165,9 +165,11 @@ class ScaleitWrapper(Wrapper):
         )
         with open(self.working_directory / "cad.log", "w") as log_file:
             log_file.write(result.stdout)
+        with open(self.working_directory / "cad_error.log", "w") as log_file:
+            log_file.write(result.stderr)
 
         # Scale the above data using the data added by cad
-        mtz_scaled = self.working_directory / "scaled.mtz"
+        mtz_scaled = self.working_directory / f"{mtz_der_filename}_scaled.mtz"
         scaleit_script = [
             f"scaleit hklin {mtz_combi} hklout {mtz_scaled} <<END-SCALEIT",
             "TITLE Scale data using added ref data",

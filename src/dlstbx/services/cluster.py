@@ -216,15 +216,16 @@ def submit_to_slurm(
         script = "\n".join(script)
     script = f"#!/bin/bash\n. /etc/profile.d/modules.sh\n{script}"
 
-    # The environment must not be empty, see
-    # https://github.com/DiamondLightSource/python-dlstbx/pull/228.
-    # If a recipe requires a environment variable, add it to minimal_environment here.
-    minimal_environment = {"USER"}
-    # Only attempt to copy variables that already exist in the submitter's environment.
-    minimal_environment &= set(os.environ)
-    environment = params.environment or [
-        f"{k}={os.environ[k]}" for k in minimal_environment
-    ]
+    if params.environment:
+        environment = [f"{k}={v}" for k, v in params.environment.items()]
+    else:
+        # The environment must not be empty, see
+        # https://github.com/DiamondLightSource/python-dlstbx/pull/228.
+        # If a recipe requires a environment variable, add it to minimal_environment here.
+        minimal_environment = {"USER"}
+        # Only attempt to copy variables that already exist in the submitter's environment.
+        minimal_environment &= set(os.environ)
+        environment = [f"{k}={os.environ[k]}" for k in minimal_environment]
 
     logger.debug(f"Submitting script to Slurm:\n{script}")
     if params.time_limit:
@@ -558,7 +559,7 @@ class DLSCluster(CommonService):
 
         if params.transfer_input_files:
             try:
-                import datasyncer
+                from datasyncer import datasyncer
             except ImportError:
                 self.log.error(
                     "File upload via datasyncer has failed. Cannot import datasyncer module."

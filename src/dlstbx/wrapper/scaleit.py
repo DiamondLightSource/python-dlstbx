@@ -1,4 +1,4 @@
-# Wrapper for method of using ccp4 scaleit to adjust 2 .mtz file to the same overall scale.
+# Wrapper for method of using ccp4 scaleit to adjust 2 mtz file to the same overall scale.
 from __future__ import annotations
 
 import os
@@ -15,7 +15,7 @@ class ScaleitWrapper(Wrapper):
 
     _logger_name = "dlstbx.wrap.scaleit"
 
-    def find_cols_from_type(self, obj, type, file):
+    def find_cols_from_type(self, obj, type, file="mtz_file"):
         """Get the label and corresponding sigma label for a specifed data type from an mtz file.
 
         Function takes an iotbx mtz.object and mtz column data-type identifier as input and returns
@@ -44,6 +44,53 @@ class ScaleitWrapper(Wrapper):
             return None
         return col_lab, sig_col_lab
 
+    def calc_amplitudes(self, mtz_obj, mtz_file):
+        """
+        Use truncate to calculate amplitudes from IMEAN data.
+
+        Takes mtz object and mtz file name and runs truncate to calculate
+        amplitudes. Returns a new mtz_object and file name for the output file
+        with suffix: "_amplit.mtz"
+        """
+        if "F" not in mtz_obj.column_types():
+            _col_lab, _sig_col_lab = self.find_cols_from_type(mtz_obj, "J", mtz_file)
+            self.log.info(
+                f"Amplitude data not in {mtz_file}, running TRUNCATE to calculate"
+            )
+            file_basename = os.path.splitext(os.path.basename(mtz_file))[0]
+            amplit_file_name = f"{file_basename}_amplit.mtz"
+            amplit_file = self.working_directory / amplit_file_name
+            truncate_script = [
+                f"truncate hklin {mtz_file} hklout {amplit_file} <<END-TRUNCATE",
+                f"labin IMEAN={_col_lab} SIGIMEAN={_sig_col_lab}",
+                "labout F=F SIGF=SIGF",
+                "NOHARVEST",
+                "END",
+                "END-TRUNCATE",
+            ]
+            _, _ = self.ccp4_command(truncate_script, f"{file_basename}_truncate")
+
+            amplit_obj = mtz.object(str(amplit_file))
+            return amplit_obj, amplit_file
+        else:
+            return mtz_obj, mtz_file
+
+    def ccp4_command(self, _script, _output):
+        _command = "\n".join(_script)
+
+        result = subprocess.run(
+            _command,
+            shell=True,
+            cwd=self.working_directory,
+            capture_output=True,
+            text=True,
+        )
+        with open(self.working_directory / f"{_output}.log", "w") as _log_file:
+            _log_file.write(result.stdout)
+        with open(self.working_directory / f"{_output}_error.log", "w") as _log_file:
+            _log_file.write(result.stderr)
+        return result.stdout, result.stderr
+
     def run(self):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         self.log.debug(
@@ -58,7 +105,6 @@ class ScaleitWrapper(Wrapper):
         )
         # Make the directories if they don't already exist
         self.working_directory.mkdir(parents=True, exist_ok=True)
-        self.log.info(f"Here are the params {self.params}")
         # Check the input mtz files
         mtz_files = self.params["scaleit"].get("data", [])
         if not mtz_files:
@@ -82,9 +128,13 @@ class ScaleitWrapper(Wrapper):
                 shutil.copy(_file, _dest_file)
                 self.log.info(f"File '{_file}' copied to '{_dest_file}'")
             except FileNotFoundError:
-                print(f"Source file '{_file}' not found.")
+                self.log.error(f"Source file '{_file}' not found.")
+                return False
             except PermissionError:
-                print(f"Permission denied for copying '{_file}' to '{_dest_file}'.")
+                self.log.error(
+                    f"Permission denied for copying '{_file}' to '{_dest_file}'."
+                )
+                return False
 
         mtz_nat = files_out[0]
         mtz_der = files_out[1]
@@ -95,23 +145,11 @@ class ScaleitWrapper(Wrapper):
         pointless_command = [
             f"pointless hklin {mtz_der} hklout {hklout} hklref {mtz_nat}"
         ]
-        result = subprocess.run(
-            pointless_command,
-            shell=True,
-            cwd=self.working_directory,
-            capture_output=True,
-            text=True,
+        _, pointless_error = self.ccp4_command(
+            pointless_command, f"reindex_{mtz_der_filename}"
         )
-        with open(
-            self.working_directory / f"reindex_{mtz_der_filename}.log", "w"
-        ) as log_file:
-            log_file.write(result.stdout)
-        with open(
-            self.working_directory / f"reindex_{mtz_der_filename}_error.log", "w"
-        ) as log_file:
-            log_file.write(result.stderr)
 
-        if "Incompatible symmetries" in result.stderr:
+        if "Incompatible symmetries" in pointless_error:
             self.log.error("Scaleit - mtz files have incompatible symmetry")
             return False
         # Update mtz_der to the reindexed file path
@@ -120,6 +158,10 @@ class ScaleitWrapper(Wrapper):
         # Read in mtz files
         obj_nat = mtz.object(str(mtz_nat))
         obj_der = mtz.object(str(mtz_der))
+
+        # Calculate structure factors if needed using truncate
+        obj_nat, mtz_nat = self.calc_amplitudes(obj_nat, mtz_nat)
+        obj_der, mtz_der = self.calc_amplitudes(obj_der, mtz_der)
 
         col_labs = {}
         col_params = [
@@ -144,34 +186,24 @@ class ScaleitWrapper(Wrapper):
         # Convert list to cad input format
         labin_der = [f"E{_i+1}={_label}" for _i, _label in enumerate(col_labs_der)]
         cad_script = [
-            f"cad hklin1 {mtz_nat} hklin2 {mtz_der} hklout {mtz_combi} <<END-CAD",
+            f"cad hklin1 {mtz_der} hklin2 {mtz_nat} hklout {mtz_combi} <<END-CAD",
             "TITLE Add data for scaling",
-            f"LABIN FILE 1 E1={col_labs['F_nat']} E2={col_labs['SIGF_nat']}",
-            f"LABIN FILE 2 {' '.join(labin_der)}",
-            "LABOUT FILE 1 E1=Fscale E2 = SIGFscale",
+            f"LABIN FILE 2 E1={col_labs['F_nat']} E2={col_labs['SIGF_nat']}",
+            f"LABIN FILE 1 {' '.join(labin_der)}",
+            "LABOUT FILE 2 E1=Fscale E2 = SIGFscale",
             "SYSAB_KEEP",
             "END",
             "END-CAD",
         ]
 
-        cad_script = "\n".join(cad_script)
-
-        result = subprocess.run(
-            cad_script,
-            shell=True,
-            cwd=self.working_directory,
-            capture_output=True,
-            text=True,
-        )
-        with open(self.working_directory / "cad.log", "w") as log_file:
-            log_file.write(result.stdout)
-        with open(self.working_directory / "cad_error.log", "w") as log_file:
-            log_file.write(result.stderr)
+        _, _ = self.ccp4_command(cad_script, "cad")
 
         # Scale the above data using the data added by cad
-        mtz_scaled = self.working_directory / f"{mtz_der_filename}_scaled.mtz"
+        mtz_combined_scaled = (
+            self.working_directory / f"{mtz_der_filename}_combined_scaled.mtz"
+        )
         scaleit_script = [
-            f"scaleit hklin {mtz_combi} hklout {mtz_scaled} <<END-SCALEIT",
+            f"scaleit hklin {mtz_combi} hklout {mtz_combined_scaled} <<END-SCALEIT",
             "TITLE Scale data using added ref data",
             f"LABIN FP=Fscale SIGFP=SIGFscale FPH1={col_labs['F_der']} SIGFPH1={col_labs['SIGF_der']} DPH1={col_labs['DANO_der']} SIGDPH1={col_labs['SIGDANO_der']}",
             "AUTO",
@@ -181,19 +213,18 @@ class ScaleitWrapper(Wrapper):
             "END-SCALEIT",
         ]
 
-        scaleit_script = "\n".join(scaleit_script)
+        self.ccp4_command(scaleit_script, "scaleit")
 
-        result = subprocess.run(
-            scaleit_script,
-            shell=True,
-            cwd=self.working_directory,
-            capture_output=True,
-            text=True,
-        )
-        with open(self.working_directory / "scaleit.log", "w") as log_file:
-            log_file.write(result.stdout)
-        with open(self.working_directory / "scaleit_error.log", "w") as log_file:
-            log_file.write(result.stderr)
+        # Remove the reference columns used for scaling from the mtz file using mtzutils
+        self.log.info(f"Removing scaling columns from {mtz_combined_scaled}")
+        mtz_scaled = self.working_directory / f"{mtz_der_filename}_scaled.mtz"
+        mtzutil_script = [
+            f"mtzutils hklin {mtz_combined_scaled} hklout {mtz_scaled} <<END-MTZUTILS",
+            "EXCLUDE Fscale SIGFscale",
+            "END",
+            "END-MTZUTILS",
+        ]
 
-        print("Script finished")
+        self.ccp4_command(mtzutil_script, "mtzutil")
+
         return True

@@ -277,7 +277,7 @@ def handle_rotation_end(
         ("mxia2/DIALS", "autoprocessing-multi-xia2-dials"),
         ("mxia2/XDS", "autoprocessing-multi-xia2-3dii"),
     ):
-        ppl_autostart[ppl] = False
+        ppl_autostart[ppl] = scenario.beamline == "i04-1"
         ppl_suffix[ppl] = suffix_pref
         ppl_triggervars[ppl] = triggervars_pref
         if scenario.preferred_processing == ppl:

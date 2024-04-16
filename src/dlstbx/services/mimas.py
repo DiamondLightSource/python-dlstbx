@@ -330,7 +330,12 @@ class DLSMimas(CommonService):
             if isinstance(ttd, mimas.MimasRecipeInvocation):
                 # Pass through specific parameters from the mimas invocation
                 # This is somewhat a fudge for I03 GPU until we work out a better way
-                passthrough_params = {"filename", "start_index", "number_of_frames"}
+                passthrough_params = {
+                    "filename",
+                    "message_index",
+                    "number_of_frames",
+                    "start_frame_index",
+                }
                 for key in passthrough_params:
                     if key in rw.recipe_step["parameters"]:
                         ttd_zocalo["parameters"][key] = rw.recipe_step["parameters"][

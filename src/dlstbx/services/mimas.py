@@ -336,18 +336,11 @@ class DLSMimas(CommonService):
                     "number_of_frames",
                     "start_frame_index",
                 }
-                pre = dict(rw.recipe_step["parameters"])
                 for key in passthrough_params:
                     if key in rw.recipe_step["parameters"]:
                         ttd_zocalo["parameters"][key] = rw.recipe_step["parameters"][
                             key
                         ]
-                if "start_index" in ttd_zocalo["parameters"]:
-                    self.log.debug(
-                        "Found copied start_index in:\npre:\n%s\nPost:\n%s",
-                        pre,
-                        ttd_zocalo["parameters"],
-                    )
 
                 rw.send(ttd_zocalo, transaction=txn)
             else:

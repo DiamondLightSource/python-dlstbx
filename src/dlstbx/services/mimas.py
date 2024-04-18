@@ -336,12 +336,26 @@ class DLSMimas(CommonService):
                     "number_of_frames",
                     "start_frame_index",
                 }
+                self.log.info(
+                    "Processing input parameters: %s", rw.recipe_step["parameters"]
+                )
+
                 for key in passthrough_params:
+                    self.log.info("Mimas handling key %s", key)
                     if key in rw.recipe_step["parameters"]:
                         ttd_zocalo["parameters"][key] = rw.recipe_step["parameters"][
                             key
                         ]
+                        self.log.info(
+                            "Copying key %s: %s", key, rw.recipe_step["parameters"][key]
+                        )
+                    else:
+                        self.log.info("Nothing to copy")
 
+                self.log.info(
+                    "MIMAS sending parameters to dispatcher: %s",
+                    ttd_zocalo["parameters"],
+                )
                 rw.send(ttd_zocalo, transaction=txn)
             else:
                 rw.send_to("ispyb", ttd_zocalo, transaction=txn)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from pprint import pformat
 
 import htcondor
@@ -91,3 +92,37 @@ class HTCondorStats(CommonService):
         self.log.debug(f"{pformat(data_pack)}")
         self._transport.broadcast("transient.statistics.cluster", data_pack)
         self._transport.send("statistics.cluster", data_pack, persistent=False)
+
+        # Query /iris mount status
+        self.log.debug("Gathering /iris mount status...")
+        for beamline in ("i03", "i04", "i04-1", "i24"):
+            start = time.time()
+            data_pack = {
+                "statistic": "used-storage",
+                "statistic-cluster": "datasyncer",
+                "statistic-group": "iris",
+                "statistic-timestamp": start,
+            }
+            location = f"/iris/{beamline}/data/2024/"
+            try:
+                mtime_location = Path(location).stat().st_mtime
+                self.log.info(f"/iris/{beamline} mount st_mtime: {mtime_location}")
+            finally:
+                runtime = time.time() - start
+                if runtime > 5:
+                    # Anything higher than 5 seconds should be explicitly logged
+                    self.log.warning(
+                        f"Excessive stat-time for accessing {location} on argus",
+                        extra={
+                            "stat-time": runtime,
+                        },
+                    )
+                data_pack["path"] = location
+                data_pack["stat-time"] = runtime
+
+            if mtime_location:
+                self.log.debug(f"{pformat(data_pack)}")
+                self._transport.broadcast("transient.statistics.cluster", data_pack)
+                self._transport.send("statistics.cluster", data_pack, persistent=False)
+            else:
+                self.log.error(f"Cannot access path {location} from argus")

@@ -228,25 +228,30 @@ def submit_to_slurm(
         environment = [f"{k}={os.environ[k]}" for k in minimal_environment]
 
     logger.debug(f"Submitting script to Slurm:\n{script}")
-    if params.time_limit:
-        time_limit_minutes = math.ceil(params.time_limit.total_seconds() / 60)
-    else:
-        time_limit_minutes = None
-
     jdm_params = {
         "account": params.account,
         "cpus_per_task": params.cpus_per_task,
         "current_working_directory": os.fspath(working_directory),
         "environment": environment,
-        "memory_per_cpu": slurm.models.Uint64NoVal(number=params.min_memory_per_cpu),
-        "memory_per_node": slurm.models.Uint64NoVal(number=params.memory_per_node),
         "name": params.job_name,
         "nodes": str(params.nodes) if params.nodes else params.nodes,
         "partition": params.partition,
         "qos": params.qos,
         "tasks": params.tasks,
-        "time_limit": slurm.models.Uint32NoVal(number=time_limit_minutes),
     }
+    if params.min_memory_per_cpu:
+        jdm_params["memory_per_cpu"] = slurm.models.Uint64NoVal(
+            number=params.min_memory_per_cpu, set=True
+        )
+    if params.memory_per_node:
+        jdm_params["memory_per_node"] = slurm.models.Uint64NoVal(
+            number=params.memory_per_node, set=True
+        )
+    if params.time_limit:
+        time_limit_minutes = math.ceil(params.time_limit.total_seconds() / 60)
+        jdm_params["time_limit"] = slurm.models.Uint32NoVal(
+            number=time_limit_minutes, set=True
+        )
     if params.gpus_per_node:
         jdm_params["tres_per_node"] = f"gres/gpu:{params.gpus_per_node}"
     if params.gpus:

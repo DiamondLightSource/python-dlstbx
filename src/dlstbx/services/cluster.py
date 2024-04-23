@@ -559,7 +559,7 @@ class DLSCluster(CommonService):
 
         if params.transfer_input_files:
             try:
-                from datasyncer import datasyncer
+                import datasyncer
             except ImportError:
                 self.log.error(
                     "File upload via datasyncer has failed. Cannot import datasyncer module."

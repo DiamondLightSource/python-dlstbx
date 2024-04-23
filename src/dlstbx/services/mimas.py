@@ -38,6 +38,7 @@ class DLSMimas(CommonService):
                 "last_cluster_update": time.time(),
             },
             "s3echo": {"total": 0.0, "last_cluster_update": time.time()},
+            "datasyncer": {"last_cluster_update": time.time()},
         }
 
         workflows.recipe.wrap_subscribe(
@@ -176,7 +177,7 @@ class DLSMimas(CommonService):
             sc = message["statistic-cluster"]
         except KeyError:
             return
-        if sc in ("live", "iris", "s3echo"):
+        if sc in ("live", "iris", "s3echo", "datasyncer"):
             self.log.debug(f"Received cluster stat message: {pformat(message)}")
             self.cluster_stats[sc]["last_cluster_update"] = time.time()
             if message["statistic"] == "waiting-jobs-per-queue":
@@ -217,6 +218,7 @@ class DLSMimas(CommonService):
             self.log.debug(f"Live cluster stats: {self.cluster_stats['live']}")
             self.log.debug(f"IRIS cluster stats: {self.cluster_stats['iris']}")
             self.log.debug(f"S3Echo stats: {self.cluster_stats['s3echo']}")
+            self.log.debug(f"Datasyncer stats: {self.cluster_stats['datasyncer']}")
             self.log.debug(
                 "Cloudbursting threshold values\n"
                 f"  max_jobs_waiting: {max_jobs_waiting}\n"
@@ -266,6 +268,10 @@ class DLSMimas(CommonService):
                     )
                     and (
                         self.cluster_stats["s3echo"]["last_cluster_update"]
+                        > timeout_threshold
+                    )
+                    and (
+                        self.cluster_stats["datasyncer"]["last_cluster_update"]
                         > timeout_threshold
                     )
                 ):

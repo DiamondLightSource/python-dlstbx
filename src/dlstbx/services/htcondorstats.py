@@ -98,7 +98,7 @@ class HTCondorStats(CommonService):
         for beamline in ("i03", "i04", "i04-1", "i24"):
             start = time.time()
             data_pack = {
-                "statistic": "used-storage",
+                "statistic": "storage-status",
                 "statistic-cluster": "datasyncer",
                 "statistic-group": "iris",
                 "statistic-timestamp": start,

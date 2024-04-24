@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import collections
+import itertools
 import time
 from pathlib import Path
 from pprint import pformat
 
-import htcondor
 import minio
+import requests
 from workflows.services.common_service import CommonService
+from zocalo.util import slurm
 
 from dlstbx.util.iris import get_minio_client
 
@@ -32,18 +35,19 @@ class HTCondorStats(CommonService):
         """
         self.log.info("HTCondorstats starting")
 
-        collector = htcondor.Collector(htcondor.param["COLLECTOR_HOST"])
-        schedd_ad = collector.locate(htcondor.DaemonTypes.Schedd)
-        self.schedd = htcondor.Schedd(schedd_ad)
-
         self.minio_client: minio.Minio = get_minio_client(
             HTCondorStats._s3echo_credentials
         )
 
-        self._register_idle(30, self.update_htcondor_statistics)
+        self.iris_api: slurm.SlurmRestApi = (
+            slurm.SlurmRestApi.from_zocalo_configuration(self.config, cluster="iris")
+        )
 
-    def update_htcondor_statistics(self):
-        """Gather job status statistics from STFC/IRIS and S3 Echo object store."""
+        self._register_idle(30, self.update_htcondor_statistics)
+        self._register_idle(37, self.update_slurm_statistics)
+
+    def update_slurm_statistics(self):
+        """Gather SLURM job status statistics from STFC/IRIS."""
 
         # Query number of jobs on STRF/IRIS
         self.log.debug("Gathering STFC/IRIS statistics...")
@@ -53,17 +57,27 @@ class HTCondorStats(CommonService):
             "statistic-group": "cluster",
             "statistic-timestamp": time.time(),
         }
-        res = self.schedd.query(
-            constraint='Owner=="gda2"',
-            projection=["Owner", "ClusterId", "ProcId", "JobStatus", "Out"],
-        )
-        job_status_list = [job["JobStatus"] for job in res]
-        for label, code in (("waiting", 1), ("running", 2), ("hold", 5)):
-            data_pack[label] = job_status_list.count(code)
+        try:
+            self.log.debug("Gathering SLURM job statistics")
+            job_info_resp: slurm.models.OpenapiJobInfoResp = self.iris_api.get_jobs()
+        except requests.HTTPError as e:
+            self.log.error(f"Failed Slurm API call: {e}\n" f"{e.response.text}")
+        else:
+            self.log.debug("Processing slurm job states on IRIS")
+            jobs_states = itertools.chain(
+                *[job.job_state for job in dict(job_info_resp.jobs).get("__root__", [])]
+            )
+            data: dict[str, int] = dict(
+                collections.Counter([js.name for js in jobs_states])
+            )
+            for label, code in (("waiting", "PENDING"), ("running", "RUNNING")):
+                data_pack[label] = data.get(code, 0)
+            self.log.debug(f"{pformat(data_pack)}")
+            self._transport.broadcast("transient.statistics.cluster", data_pack)
+            self._transport.send("statistics.cluster", data_pack, persistent=False)
 
-        self.log.debug(f"{pformat(data_pack)}")
-        self._transport.broadcast("transient.statistics.cluster", data_pack)
-        self._transport.send("statistics.cluster", data_pack, persistent=False)
+    def update_htcondor_statistics(self):
+        """Gather job status statistics from STFC/IRIS and S3 Echo object store."""
 
         # Query S3 Echo object store usage
         self.log.debug("Gathering S3Echo statistics...")

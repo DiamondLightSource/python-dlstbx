@@ -50,18 +50,14 @@ class MetalIdWrapper(Wrapper):
             f"Running recipewrap file {self.recwrap.recipe_step['parameters']['recipewrapper']}"
         )
         # Get parameters from the recipe file
-        dimple_dir_above = pathlib.Path(
-            self.recwrap.recipe_step["job_parameters"]["dimple_dir_above"]
+        pha_above = pathlib.Path(
+            self.recwrap.recipe_step["job_parameters"]["anode_map_above"]
         )
-        dimple_dir_below = pathlib.Path(
-            self.recwrap.recipe_step["job_parameters"]["dimple_dir_below"]
+        pha_below = pathlib.Path(
+            self.recwrap.recipe_step["job_parameters"]["anode_map_below"]
         )
-        pdb_directory = pathlib.Path(
-            self.recwrap.recipe_step["job_parameters"]["user_pdb_directory"]
-        )
-        pdb = pdb_directory / self.recwrap.recipe_step["job_parameters"]["pdb"]
+        pdb = pathlib.Path(self.recwrap.recipe_step["job_parameters"]["pdb"])
 
-        # Make a temporary directory for the data to be saved into
         working_directory = pathlib.Path(
             self.recwrap.recipe_step["job_parameters"]["working_directory"]
         )
@@ -73,8 +69,6 @@ class MetalIdWrapper(Wrapper):
         results_directory.mkdir(parents=True, exist_ok=True)
 
         self.log.info("Making double difference map")
-        pha_above = dimple_dir_above / "anode.pha"
-        pha_below = dimple_dir_below / "anode.pha"
         map_out = working_directory / "diff.map"
         map_sig_thresh = 8  # Threshold in rmsd for difference map peaks/contours
         coot_script = [

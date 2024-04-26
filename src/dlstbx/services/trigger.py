@@ -51,6 +51,16 @@ class DimpleParameters(pydantic.BaseModel):
     comment: Optional[str] = None
 
 
+class MetalIdParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    sample_group_id: int = pydantic.Field(gt=0)
+    experiment_type: str
+    pdb: list[PDBFileOrCode]
+    energy_min_diff: float = pydantic.Field(default=10, gt=0)
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+
+
 class ProteinInfo(pydantic.BaseModel):
     sequence: Optional[str] = None
 
@@ -396,6 +406,170 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Dimple trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    def trigger_metal_id(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: MetalIdParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        if parameters.experiment_type not in ("Metal ID", "CUSTOM"):
+            self.log.info(
+                f"Skipping metal id trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
+
+        pdb_files_or_codes = parameters.pdb
+
+        if not pdb_files_or_codes:
+            self.log.info(
+                f"Skipping metal id trigger: Sample group {parameters.sample_group_id} has no associated PDB information"
+            )
+            return {"success": True}
+
+        proc_prog = (
+            "xia2 dials"  # Change this to a parameter read from MetalIdParameters
+        )
+        pdb_files = [str(p) for p in pdb_files_or_codes]
+        self.log.info("PDB files: %s", ", ".join(pdb_files))
+
+        # Get a list of collections in the data collection group that include and are older than the present dcid
+        dcids = [d for d in parameters.dcids if d <= parameters.dcid]
+
+        # Only want to trigger metal ID when an above/below pair is present (i.e. every other data collection)
+        if len(dcids) % 2:
+            self.log.info("Skipping metal id trigger: Need even number of dcids")
+            return {"success": True}
+
+        # Get just the most recent two dcids
+        dcids = sorted(dcids)[-2::]
+
+        # Get data collection information for all collections in dcids
+        query = (
+            (
+                session.query(
+                    DataCollection,
+                    AutoProcProgram,
+                )
+                .join(
+                    AutoProcIntegration,
+                    AutoProcIntegration.dataCollectionId
+                    == DataCollection.dataCollectionId,
+                )
+                .join(
+                    AutoProcProgram,
+                    AutoProcProgram.autoProcProgramId
+                    == AutoProcIntegration.autoProcProgramId,
+                )
+                .join(AutoProcProgram.AutoProcProgramAttachments)
+            )
+            .filter(DataCollection.dataCollectionId.in_(dcids))
+            .filter(ProcessingJob.automatic == True)  # noqa E712
+            .filter(AutoProcProgram.processingPrograms == proc_prog)
+            .filter(AutoProcProgram.processingStatus == 1)
+            .filter(AutoProcProgramAttachment.fileName.endswith("_free.mtz"))
+            .options(
+                contains_eager(AutoProcProgram.AutoProcProgramAttachments),
+                joinedload(ProcessingJob.ProcessingJobParameters),
+                Load(DataCollection)
+                .load_only("dataCollectionId", "wavelength")
+                .raiseload("*"),
+            )
+            .populate_existing()
+        )
+
+        dcids = []
+        wavelengths = []
+        data_files = []
+        for dc, app in query.all():
+            attachments = app.AutoProcProgramAttachments
+            if len(attachments) == 0:
+                self.log.error(
+                    f"No file found for appid {app.autoProcProgramId}: Skipping metal_id"
+                )
+                return {"success": True}
+            if len(attachments) > 1:
+                self.log.error(
+                    f"Multiple files found for appid {app.autoProcProgramId}: Skipping metal_id"
+                )
+                return {"success": True}
+            att = attachments[0]
+            data_file = str(pathlib.Path(att.filePath) / att.fileName)
+            data_files.append(data_file)
+            wavelengths.append(dc.wavelength)
+            dcids.append(dc.dataCollectionId)
+            # Get parameters for job image sweep parameters
+            if dc.dataCollectionId == parameters.dcid:
+                start_image = dc.startImageNumber
+                end_image = dc.startImageNumber + dc.numberOfImages - 1
+
+        # Check that the photon energy is different enough between the two data collections
+        energy_diff = abs(12398.0 / wavelengths[0] - 12398.0 / wavelengths[1])
+        if energy_diff < parameters.energy_min_diff:
+            self.log.error(
+                f"Metal id - data collections {dcids} have energy difference < {parameters.energy_min_diff} eV"
+            )
+            return {"success": True}
+
+        # Sort based on wavelength
+        combined = list(zip(wavelengths, dcids, data_files))
+        sorted_combined = sorted(combined)
+        wavelengths, dcids, data_files = zip(*sorted_combined)
+
+        # Get parameters for metal_id recipe
+        mtz_file_below = data_files[1]
+        mtz_file_above = data_files[0]
+        metal_id_parameters: dict[str, list[Any]] = {
+            "dcids": dcids,
+            "data": [mtz_file_below, mtz_file_above],
+            "pdb": pdb_files,
+        }
+
+        self.log.debug("Metal_id trigger: Starting")
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "metal_id"
+        jp["recipe"] = parameters.recipe or "postprocessing-metal-id"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"metal_id trigger: generated JobID {jobid}")
+
+        jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+        jisp["datacollectionid"] = parameters.dcid
+        jisp["start_image"] = start_image
+        jisp["end_image"] = end_image
+
+        for key, values in metal_id_parameters.items():
+            for value in values:
+                jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                jpp["job_id"] = jobid
+                jpp["parameter_key"] = key
+                jpp["parameter_value"] = value
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                    list(jpp.values())
+                )
+                self.log.debug(
+                    f"Metal_id trigger: generated JobParameterID {jppid} with {key}={value}"
+                )
+
+        jisp["job_id"] = jobid
+        jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
+        self.log.debug(f"Metal_id trigger: generated JobImageSweepID {jispid}")
+
+        self.log.debug(f"Metal_id trigger: Processing job {jobid} created")
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Metal_id trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 

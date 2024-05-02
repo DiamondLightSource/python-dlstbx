@@ -1117,13 +1117,10 @@ class DLSTrigger(CommonService):
         dcid = parameters.dcid
 
         # Take related dcids from recipe in preference or checkpointed message
-        try:
+        if isinstance(related_dcid_group := message.get("related_dcid_group"), list):
             # Checkpointed message has dcid group with still running jobs
-            assert isinstance(
-                related_dcid_group := message.get("related_dcid_group"), list
-            )
             related_dcids = [RelatedDCIDs(**el) for el in related_dcid_group]
-        except Exception:
+        else:
             # Initial call of multiplex trigger
             related_dcids = parameters.related_dcids
         self.log.info(f"related_dcids={related_dcids}")

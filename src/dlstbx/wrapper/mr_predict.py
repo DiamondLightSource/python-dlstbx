@@ -34,9 +34,7 @@ class MRPredictWrapper(Wrapper):
             "resolution",
             "spacegroup",
         ):
-            try:
-                assert params[key]
-            except AssertionError:
+            if not params.get(key):
                 self.log.info(f"Cannot read {key} from MrBUMP logfile")
                 return None
         phaser_script = [

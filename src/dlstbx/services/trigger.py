@@ -742,6 +742,13 @@ class DLSTrigger(CommonService):
         **kwargs,
     ):
         dcid = parameters.dcid
+        query = (
+            session.query(BLSession)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        blsession = query.first()
+
         if not dcid:
             self.log.error("mrbump trigger failed: No DCID specified")
             return False
@@ -756,6 +763,10 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping mrbump trigger: sequence information not available")
             return {"success": True}
 
+        if blsession.beamLineName in ("i03", "i04", "i04-1", "i24"):
+            recipe_name = "postprocessing-mrbump"
+        else:
+            recipe_name = "postprocessing-mrbump-cluster"
         jobids = []
 
         all_pdb_files = set()
@@ -768,7 +779,7 @@ class DLSTrigger(CommonService):
             jp["comments"] = parameters.comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "MrBUMP"
-            jp["recipe"] = "postprocessing-mrbump-cluster"
+            jp["recipe"] = recipe_name
             jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
             jobids.append(jobid)
             self.log.debug(f"mrbump trigger: generated JobID {jobid}")

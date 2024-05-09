@@ -379,12 +379,12 @@ tests = {
             },
             "ctf": {
                 f"MotionCorr/job002/Movies/Frames/20170629_000{image_number}_frameImage.mrc": {
-                    "astigmatism": approx(0, abs=0.75)
-                    if image_number == 42
-                    else approx(247, 0.75),
-                    "astigmatismAngle": approx(0, abs=360)
-                    if image_number == 42
-                    else approx(83, 0.75),
+                    "astigmatism": (
+                        approx(0, abs=0.75) if image_number == 42 else approx(247, 0.75)
+                    ),
+                    "astigmatismAngle": (
+                        approx(0, abs=360) if image_number == 42 else approx(83, 0.75)
+                    ),
                     "estimatedResolution": approx(5, 0.75),
                     "estimatedDefocus": approx(10800, 0.75),
                     "ccValue": approx(0.15, 0.75),

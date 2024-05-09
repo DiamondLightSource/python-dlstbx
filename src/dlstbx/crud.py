@@ -257,12 +257,12 @@ def create_blobs(
             height=blob.height,
             occupancy=blob.occupancy,
             nearestAtomName=blob.nearest_atom.name if blob.nearest_atom else None,
-            nearestAtomChainId=blob.nearest_atom.chain_id
-            if blob.nearest_atom
-            else None,
-            nearestAtomResName=blob.nearest_atom.res_name
-            if blob.nearest_atom
-            else None,
+            nearestAtomChainId=(
+                blob.nearest_atom.chain_id if blob.nearest_atom else None
+            ),
+            nearestAtomResName=(
+                blob.nearest_atom.res_name if blob.nearest_atom else None
+            ),
             nearestAtomResSeq=blob.nearest_atom.res_seq if blob.nearest_atom else None,
             nearestAtomDistance=blob.nearest_atom_distance,
             mapType=blob.map_type,
@@ -367,9 +367,9 @@ def insert_xray_centring(
             XrayCentring=db_xrc,
             centreOfMassX=result.centre_of_mass[0] if result.centre_of_mass else None,
             centreOfMassY=result.centre_of_mass[1] if result.centre_of_mass else None,
-            centreOfMassZ=result.centre_of_mass[2]
-            if result.centre_of_mass and is_3d
-            else None,
+            centreOfMassZ=(
+                result.centre_of_mass[2] if result.centre_of_mass and is_3d else None
+            ),
             maxVoxelX=result.max_voxel[0] if result.max_voxel else None,
             maxVoxelY=result.max_voxel[1] if result.max_voxel else None,
             maxVoxelZ=result.max_voxel[2] if result.max_voxel and is_3d else None,

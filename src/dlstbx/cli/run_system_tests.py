@@ -335,10 +335,12 @@ def run():
                 received_count = len([x for x in a.expect if x.get("received")])
                 expected_count = len(a.expect)
                 logger.warning(
-                    f"  {b.classname} {b.name} received {received_count} out of {expected_count} expected replies"
-                    + f" ({b.early} early)"
-                    if b.early
-                    else "",
+                    (
+                        f"  {b.classname} {b.name} received {received_count} out of {expected_count} expected replies"
+                        + f" ({b.early} early)"
+                        if b.early
+                        else ""
+                    ),
                 )
     if unexpected_messages.count:
         logger.error(

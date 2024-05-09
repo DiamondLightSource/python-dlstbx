@@ -1,6 +1,7 @@
 """
 Example of a basic wrapper script
 """
+
 from __future__ import annotations
 
 import tempfile

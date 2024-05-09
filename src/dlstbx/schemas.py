@@ -103,9 +103,9 @@ class XrayCentringResult(pydantic.BaseModel):
     max_count: float | None
     n_voxels: int | None
     total_count: float | None
-    bounding_box: tuple[Coordinate2D, Coordinate2D] | tuple[
-        Coordinate3D, Coordinate3D
-    ] | None
+    bounding_box: (
+        tuple[Coordinate2D, Coordinate2D] | tuple[Coordinate3D, Coordinate3D] | None
+    )
 
 
 class XrayCentring(pydantic.BaseModel):

@@ -61,9 +61,11 @@ def _find_server_issues(hosts: List[str], group_name: str, check_name: str) -> S
     return Status(
         Source=check_name,
         Level=return_level,
-        Message=f"{group_name} online"
-        if return_level == REPORT.PASS
-        else f"{group_name} degraded",
+        Message=(
+            f"{group_name} online"
+            if return_level == REPORT.PASS
+            else f"{group_name} degraded"
+        ),
         MessageBody="\n".join(return_message),
     )
 

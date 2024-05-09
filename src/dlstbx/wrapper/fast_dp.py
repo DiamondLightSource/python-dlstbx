@@ -281,10 +281,12 @@ class FastDPWrapper(dlstbx.wrapper.Wrapper):
                         "file_path": destination.dirname,
                         "file_name": destination.basename,
                         "file_type": filetype,
-                        "importance_rank": 1
-                        if destination.basename
-                        in ("fast_dp.mtz", "fast_dp-report.html")
-                        else 2,
+                        "importance_rank": (
+                            1
+                            if destination.basename
+                            in ("fast_dp.mtz", "fast_dp-report.html")
+                            else 2
+                        ),
                     }
                 )
         if allfiles:

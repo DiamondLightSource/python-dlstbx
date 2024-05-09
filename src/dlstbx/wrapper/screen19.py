@@ -77,9 +77,11 @@ class Screen19Wrapper(Wrapper):
                     {
                         "file_path": dst.dirname,
                         "file_name": dst.basename,
-                        "file_type": "log"
-                        if filename.endswith(".log") or filename.endswith(".html")
-                        else "result",
+                        "file_type": (
+                            "log"
+                            if filename.endswith(".log") or filename.endswith(".html")
+                            else "result"
+                        ),
                     }
                 )
             else:

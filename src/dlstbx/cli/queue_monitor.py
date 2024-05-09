@@ -178,16 +178,18 @@ def print_stats(stats: pd.DataFrame, transport_prefix: str) -> None:
             colour = {
                 "input": c_green if status[qname]["change_publish_rate"] else c_gray,
                 "hold": c_blue if status[qname]["messages_ready"] else c_gray,
-                "flight": c_blue
-                if status[qname]["messages_ready"]
-                or status[qname]["messages_unacknowledged"]
-                else c_gray,
+                "flight": (
+                    c_blue
+                    if status[qname]["messages_ready"]
+                    or status[qname]["messages_unacknowledged"]
+                    else c_gray
+                ),
                 "output": c_green if status[qname]["change_deliver_rate"] else c_gray,
                 "reset": c_reset,
                 "listeners": c_yellow if status[qname]["consumers"] else c_gray,
-                "namespace": c_magenta
-                if status[qname]["name.prefix"] == "zocdev"
-                else "",
+                "namespace": (
+                    c_magenta if status[qname]["name.prefix"] == "zocdev" else ""
+                ),
             }
             filter_zero = {
                 key: status[qname][key] if status[qname][key] > 0 else ""

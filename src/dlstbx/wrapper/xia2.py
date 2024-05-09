@@ -314,9 +314,9 @@ class Xia2Wrapper(Wrapper):
                         "file_path": str(result_file.parent),
                         "file_name": result_file.name,
                         "file_type": file_type,
-                        "importance_rank": 1
-                        if result_file.name.endswith("_free.mtz")
-                        else 2,
+                        "importance_rank": (
+                            1 if result_file.name.endswith("_free.mtz") else 2
+                        ),
                     }
                 )
                 allfiles.append(os.fspath(result_file))

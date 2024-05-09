@@ -14,7 +14,8 @@ class Cluster(CommonSystemTest):
     def test_keep_monitoring_a_running_job(self):
         """Monitoring a job should
         - Run qstat command
-        - Put job information back into the waiting queue with updated timing information"""
+        - Put job information back into the waiting queue with updated timing information
+        """
 
     def test_handle_successful_job(self):
         """When a job successfully completed

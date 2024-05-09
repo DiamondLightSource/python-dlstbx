@@ -158,7 +158,7 @@ def read_mtz_datasets(msg, logger):
     obj = mtz.object(msg.hklin)
 
     wv_list = []
-    for (crst_id, crystal) in enumerate(obj.crystals()):
+    for crst_id, crystal in enumerate(obj.crystals()):
         if crystal.name() == "HKL_base":
             continue
         wv_list.extend(
@@ -174,9 +174,7 @@ def read_mtz_datasets(msg, logger):
         for name in ["lrem", "infl", "peak", "hrem"]
         if name in [ds["name"] for ds in msg.datasets]
     ]
-    for (total_idx, ((crst_idx, ds_idx, wv), name)) in enumerate(
-        zip(wv_list, name_list)
-    ):
+    for total_idx, ((crst_idx, ds_idx, wv), name) in enumerate(zip(wv_list, name_list)):
         dataset = obj.crystals()[crst_idx].datasets()[ds_idx]
         columns = [
             (col.label(), col.type())

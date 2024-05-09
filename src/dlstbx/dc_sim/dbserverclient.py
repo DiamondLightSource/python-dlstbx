@@ -168,9 +168,11 @@ def populate_dc_xml_template(
         _i(_row["focalspotsizeatsampley"]),
     )
     temp = temp.format(
-        comments=f"Simulated datacollection ({scenario_name})."
-        if scenario_name
-        else "Simulated datacollection."
+        comments=(
+            f"Simulated datacollection ({scenario_name})."
+            if scenario_name
+            else "Simulated datacollection."
+        )
     )
 
     # remove lines with null, nan and -1 values:

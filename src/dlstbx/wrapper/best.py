@@ -51,9 +51,9 @@ class BESTWrapper(Wrapper):
             "dcid": params["dcid"],
             "dcgid": params["dcgid"],
             "programversion": "BEST 5.1",
-            "shortcomments": "BEST anomalous"
-            if params["best"]["anomalous"]
-            else "BEST native",
+            "shortcomments": (
+                "BEST anomalous" if params["best"]["anomalous"] else "BEST native"
+            ),
             "comments": "Running BEST via Zocalo",
             "store_result": "ispyb_screening_id",
         }

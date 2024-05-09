@@ -154,10 +154,10 @@ def rewrite(
             for i in range(vds_nblocks):
                 n_images_block = min(n_images - (i * vds_block_size), vds_block_size)
                 filename = dest_path.parent.joinpath(f"{dest_path.stem}_{i:06d}.h5")
-                vds[
-                    i * vds_block_size : i * vds_block_size + n_images_block
-                ] = h5py.VirtualSource(
-                    filename, "data", shape=(n_images_block,) + data.shape[1:]
+                vds[i * vds_block_size : i * vds_block_size + n_images_block] = (
+                    h5py.VirtualSource(
+                        filename, "data", shape=(n_images_block,) + data.shape[1:]
+                    )
                 )
             fd.create_virtual_dataset("/entry/data/data", vds, fillvalue=-1)
             fd[entry_data.name].attrs.update(entry_data.attrs)

@@ -278,7 +278,7 @@ def retrieve_results_from_s3(
     # Fix ACL mask for files extracted from .tar archive
     # Using m:rwX resets mask for files as well, unclear why.
     # Hence, running find to apply mask to files and directories separately
-    for (ft, msk) in (("d", "m:rwx"), ("f", "m:rw")):
+    for ft, msk in (("d", "m:rwx"), ("f", "m:rw")):
         setfacl_command = r"find %s -type %s -exec setfacl -m %s '{}' ';'" % (
             results_filename,
             ft,

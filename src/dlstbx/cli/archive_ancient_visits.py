@@ -14,7 +14,6 @@ The logic is as follows: (originally set out in https://jira.diamond.ac.uk/brows
   Checks for closed proposals, absent data collections and absent data can be run on visits older than 365 days
 """
 
-
 from __future__ import annotations
 
 import datetime

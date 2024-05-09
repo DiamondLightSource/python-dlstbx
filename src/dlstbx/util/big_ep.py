@@ -72,7 +72,7 @@ def read_xia2_processing(tmpl_data):
                     plot_data = {}
                     # Load all plot data in the selected graph
                     x_label = "Resolution"
-                    for (plot, y_label) in zip(plots, graph.y_labels):
+                    for plot, y_label in zip(plots, graph.y_labels):
                         plot_data.update({y_label: plot})
                     stat = {"plot_data": plot_data, "plot_axis": x_label}
                     return stat

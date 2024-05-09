@@ -88,9 +88,9 @@ def test_multiplex(
                     "wavelength": "1.03936",
                     "comment": "xia2.multiplex triggered by automatic xia2-dials",
                     "automatic": True,
-                    "ispyb_parameters": {"spacegroup": spacegroup}
-                    if spacegroup
-                    else {},
+                    "ispyb_parameters": (
+                        {"spacegroup": spacegroup} if spacegroup else {}
+                    ),
                     "related_dcids": [
                         {
                             "dcids": dcids[:-1],

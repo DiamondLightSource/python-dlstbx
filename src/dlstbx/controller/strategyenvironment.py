@@ -118,9 +118,9 @@ class StrategyEnvironment:
                 self.environment["instances"][host] = instance
                 if instance["service"] not in self.environment["services"]:
                     self.environment["services"][instance["service"]] = {}
-                self.environment["services"][instance["service"]][
-                    host
-                ] = self.environment["instances"][host]
+                self.environment["services"][instance["service"]][host] = (
+                    self.environment["instances"][host]
+                )
 
             if instance["service"] != self.environment["instances"][host]["service"]:
                 # Update service assignment
@@ -129,9 +129,9 @@ class StrategyEnvironment:
                 ][host]
                 if instance["service"] not in self.environment["services"]:
                     self.environment["services"][instance["service"]] = {}
-                self.environment["services"][instance["service"]][
-                    host
-                ] = self.environment["instances"][host]
+                self.environment["services"][instance["service"]][host] = (
+                    self.environment["instances"][host]
+                )
 
             self.environment["instances"][host].update(instance)
             instance = self.environment["instances"][host]
@@ -403,8 +403,8 @@ class StrategyEnvironment:
                     ):
                         self.environment["instances"][key]["status"] = self.S_STARTING
                         self.environment["instances"][key]["status-set"] = time.time()
-                        self.environment["instances"][key][
-                            "last-seen"
-                        ] = self.environment["instances"][key]["status-set"]
+                        self.environment["instances"][key]["last-seen"] = (
+                            self.environment["instances"][key]["status-set"]
+                        )
                     else:
                         self.log.debug("Start of %s denied", key)

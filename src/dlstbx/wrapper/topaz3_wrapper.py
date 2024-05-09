@@ -4,7 +4,6 @@ All files will be created in the working directory and then the final prediction
 directory, along with a graph file.
 """
 
-
 from __future__ import annotations
 
 import json

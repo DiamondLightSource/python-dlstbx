@@ -68,9 +68,11 @@ class Xia2SsxWrapper(Wrapper):
     def construct_commandline(self, params: Xia2SsxParams):
         command = [
             "xia2.ssx",
-            f"template={params.template}"
-            if params.template
-            else f"image={params.image}",
+            (
+                f"template={params.template}"
+                if params.template
+                else f"image={params.image}"
+            ),
         ]
         if params.unit_cell:
             command.append("unit_cell=%s,%s,%s,%s,%s,%s" % params.unit_cell)
@@ -408,10 +410,10 @@ class Xia2SsxWrapper(Wrapper):
                     "unit_cell": unit_cell,
                 }
                 if merging_stats:
-                    ispyb_d[
-                        "scaling_statistics"
-                    ] = ispyb_scaling_statistics_from_merging_stats_d(
-                        merging_stats, merging_stats_anom
+                    ispyb_d["scaling_statistics"] = (
+                        ispyb_scaling_statistics_from_merging_stats_d(
+                            merging_stats, merging_stats_anom
+                        )
                     )
 
                 xtriage_results = d[wl].get("xtriage_output")

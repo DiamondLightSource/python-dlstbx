@@ -290,9 +290,11 @@ class Xia2MultiplexWrapper(Wrapper):
                         "file_path": os.fspath(destination.parent),
                         "file_name": destination.name,
                         "file_type": filetype,
-                        "importance_rank": 1
-                        if destination.name in ("scaled.mtz", "xia2.multiplex.html")
-                        else 2,
+                        "importance_rank": (
+                            1
+                            if destination.name in ("scaled.mtz", "xia2.multiplex.html")
+                            else 2
+                        ),
                     }
                 )
         if allfiles:

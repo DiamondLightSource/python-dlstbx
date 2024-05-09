@@ -4,6 +4,7 @@ import math
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 
 from iotbx import pdb
@@ -130,7 +131,7 @@ class MetalIdWrapper(Wrapper):
         ]:
             if not os.path.isfile(file_path):
                 self.log.error(f"Could not find {file_type}, expected at: {file_path}")
-                return {"success": True}
+                return False
 
         # Check and handle pdb file(s)
         if isinstance(pdb_files, str):
@@ -243,7 +244,8 @@ class MetalIdWrapper(Wrapper):
         render_paths = []
         for _i, peak in enumerate(peak_coords):
             quat = view_as_quat(peak, centre)
-            render_path = working_directory / f"peak_{_i}.r3d"
+            # Use relative path as explicit paths can exceed render command length limit
+            render_path = f"peak_{_i}.r3d"
             mini_script = [
                 f"set_rotation_centre{peak}",
                 "set_zoom(30.0)",
@@ -262,17 +264,33 @@ class MetalIdWrapper(Wrapper):
         self.log.info(f"Running coot rendering script {render_script_path}")
         render_command = f"coot --no-guano --no-graphics -s {render_script_path}"
         result = subprocess.run(
-            render_command, shell=True, capture_output=True, text=True
+            render_command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=working_directory,
         )
 
         # Convert r3d files to pngs
         self.log.info("Converting r3d files to pngs")
         for render_path in render_paths:
             render_png_path = f"{os.path.splitext(render_path)[0]}.png"
+            self.log.info(f"Converting {render_path} to {render_png_path}")
             r3d_command = f"cat {render_path} | render -png {render_png_path}"
             result = subprocess.run(
-                r3d_command, shell=True, capture_output=True, text=True
+                r3d_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=working_directory,
             )
+
+        for f in working_directory.iterdir():
+            if f.name.startswith("."):
+                continue
+            if any(f.suffix == skipext for skipext in (".r3d")):
+                continue
+            shutil.copy(f, results_directory)
 
         self.log.info("Metal_ID script finished")
         return True

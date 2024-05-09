@@ -100,11 +100,12 @@ class ScaleitWrapper(Wrapper):
         # Get parameters from the recipe file
         self.params = self.recwrap.recipe_step["job_parameters"]
 
-        self.working_directory = Path(
-            self.recwrap.recipe_step["parameters"]["workingdir"]
-        )
+        # Get the working and results directories
+        self.working_directory = Path(self.params["working_directory"])
+        self.results_directory = Path(self.params["results_directory"])
         # Make the directories if they don't already exist
         self.working_directory.mkdir(parents=True, exist_ok=True)
+        self.results_directory.mkdir(parents=True, exist_ok=True)
         # Check the input mtz files
         mtz_files = self.params["scaleit"].get("data", [])
         if not mtz_files:
@@ -136,8 +137,8 @@ class ScaleitWrapper(Wrapper):
                 )
                 return False
 
-        mtz_nat = files_out[0]
-        mtz_der = files_out[1]
+        mtz_nat = self.working_directory / files_out[0]
+        mtz_der = self.working_directory / files_out[1]
 
         # Ensure that the mtz files have compatible symmetry and put them into the same space group using pointless
         mtz_der_filename = os.path.splitext(os.path.basename(mtz_der))[0]
@@ -226,5 +227,11 @@ class ScaleitWrapper(Wrapper):
         ]
 
         self.ccp4_command(mtzutil_script, "mtzutil")
+
+        self.log.info(f"Copying Scaleit results to {self.results_directory}")
+        for f in self.working_directory.iterdir():
+            if f.name.startswith("."):
+                continue
+            shutil.copy(f, self.results_directory)
 
         return True

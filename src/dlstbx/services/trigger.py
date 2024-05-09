@@ -53,7 +53,8 @@ class DimpleParameters(pydantic.BaseModel):
 
 class MetalIdParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    sample_group_id: int = pydantic.Field(gt=0)
+    dcids: list[int]
+    proc_prog: str
     experiment_type: str
     pdb: list[PDBFileOrCode]
     energy_min_diff: float = pydantic.Field(default=10, gt=0)
@@ -428,18 +429,19 @@ class DLSTrigger(CommonService):
 
         if not pdb_files_or_codes:
             self.log.info(
-                f"Skipping metal id trigger: Sample group {parameters.sample_group_id} has no associated PDB information"
+                f"Skipping metal id trigger: DCID {parameters.dcid} has no associated PDB information"
             )
             return {"success": True}
 
-        proc_prog = (
-            "xia2 dials"  # Change this to a parameter read from MetalIdParameters
-        )
         pdb_files = [str(p) for p in pdb_files_or_codes]
         self.log.info("PDB files: %s", ", ".join(pdb_files))
 
         # Get a list of collections in the data collection group that include and are older than the present dcid
         dcids = [d for d in parameters.dcids if d <= parameters.dcid]
+
+        # If dcid is not included in the list of dcg_dcids it needs to be added
+        if parameters.dcid not in dcids:
+            dcids.append(parameters.dcid)
 
         # Only want to trigger metal ID when an above/below pair is present (i.e. every other data collection)
         if len(dcids) % 2:
@@ -452,10 +454,7 @@ class DLSTrigger(CommonService):
         # Get data collection information for all collections in dcids
         query = (
             (
-                session.query(
-                    DataCollection,
-                    AutoProcProgram,
-                )
+                session.query(DataCollection, AutoProcProgram, ProcessingJob)
                 .join(
                     AutoProcIntegration,
                     AutoProcIntegration.dataCollectionId
@@ -466,11 +465,15 @@ class DLSTrigger(CommonService):
                     AutoProcProgram.autoProcProgramId
                     == AutoProcIntegration.autoProcProgramId,
                 )
+                .join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
                 .join(AutoProcProgram.AutoProcProgramAttachments)
             )
             .filter(DataCollection.dataCollectionId.in_(dcids))
             .filter(ProcessingJob.automatic == True)  # noqa E712
-            .filter(AutoProcProgram.processingPrograms == proc_prog)
+            .filter(AutoProcProgram.processingPrograms == (parameters.proc_prog))
             .filter(AutoProcProgram.processingStatus == 1)
             .filter(AutoProcProgramAttachment.fileName.endswith("_free.mtz"))
             .options(
@@ -486,7 +489,7 @@ class DLSTrigger(CommonService):
         dcids = []
         wavelengths = []
         data_files = []
-        for dc, app in query.all():
+        for dc, app, _pj in query.all():
             attachments = app.AutoProcProgramAttachments
             if len(attachments) == 0:
                 self.log.error(
@@ -537,7 +540,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
         jp["display_name"] = "metal_id"
-        jp["recipe"] = parameters.recipe or "postprocessing-metal-id"
+        jp["recipe"] = "postprocessing-metal-id"
         self.log.info(jp)
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"metal_id trigger: generated JobID {jobid}")

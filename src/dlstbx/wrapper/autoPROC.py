@@ -112,7 +112,6 @@ def construct_commandline(
     command = [
         "process",
         "-xml",
-        "autoPROC_XdsKeyword_MAXIMUM_NUMBER_OF_PROCESSORS=12",
         "-M",
         "HighResCutOnCChalf",
         "-M",

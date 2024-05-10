@@ -336,9 +336,10 @@ def write_singularity_script(
 ):
     singularity_script = working_directory / "run_singularity.sh"
     add_tmp_mount = f"--bind ${{PWD}}/{tmp_mount}:/opt/xia2/tmp" if tmp_mount else ""
+    add_iris_mount = f"--bind {working_directory}:${{PWD}}{working_directory}"
     commands = [
         "#!/bin/bash",
-        f"/usr/bin/singularity exec --home ${{PWD}} {add_tmp_mount} {singularity_image} $@",
+        f"/usr/bin/singularity exec --home ${{PWD}} {add_tmp_mount} {add_iris_mount} {singularity_image} $@",
     ]
     with open(singularity_script, "w") as fp:
         fp.write("\n".join(commands))
@@ -350,14 +351,15 @@ def write_mrbump_singularity_script(
     singularity_script = working_directory / "run_singularity.sh"
 
     tmp_pdb_mount = (
-        f"--bind ${{PWD}}/{tmp_mount}:/opt/xia2/tmp --bind {pdblocal}:{pdblocal}"
+        f"--bind ${{PWD}}/{tmp_mount}:/opt/xia2/tmp --bind {pdblocal}:/opt/PDB"
         if tmp_mount
         else ""
     )
+    add_iris_mount = f"--bind {working_directory}:${{PWD}}{working_directory}"
     commands = [
         "#!/bin/bash",
         f"export USER={getpass.getuser()}",
         "export HOME=${PWD}/auto_mrbump",
-        f"/usr/bin/singularity exec --home ${{PWD}} {tmp_pdb_mount} {singularity_image} $@",
+        f"/usr/bin/singularity exec --home ${{PWD}} {tmp_pdb_mount} {add_iris_mount} {singularity_image} $@",
     ]
     singularity_script.write_text("\n".join(commands))

@@ -10,14 +10,16 @@ import os
 import pathlib
 import re
 import uuid
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import gemmi
 import ispyb.sqlalchemy as isa
+import ispyb.sqlalchemy as models
 import marshmallow.fields
 import sqlalchemy
 import yaml
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
+from sqlalchemy import select
 from sqlalchemy.orm import aliased, selectinload, sessionmaker
 
 from dlstbx import crud
@@ -74,6 +76,18 @@ _cs05r_gpfs_beamlines = {
     "p45",
     "p99",
 }
+
+
+def _get(obj: Any, name: str):
+    """
+    Fetch a named attribute via property or dict lookup.
+
+    Intended to be used so we can mix old/new model schema usage.
+    """
+    try:
+        return getattr(obj, name)
+    except AttributeError:
+        return obj.get(name)
 
 
 Session = sessionmaker(
@@ -626,7 +640,7 @@ class ispybtbx:
         )
 
     def dc_info_to_filename_pattern(self, dc_info):
-        template = dc_info.get("fileTemplate")
+        template = _get(dc_info, "fileTemplate")
         if not template:
             return None
         if "#" not in template:
@@ -649,8 +663,8 @@ class ispybtbx:
         return None
 
     def dc_info_to_start_end(self, dc_info):
-        start = dc_info.get("startImageNumber")
-        number = dc_info.get("numberOfImages")
+        start = _get(dc_info, "startImageNumber")
+        number = _get(dc_info, "numberOfImages")
         if start is None or number is None:
             end = None
         else:
@@ -670,8 +684,8 @@ class ispybtbx:
         return False
 
     def dc_info_is_rotation_scan(self, dc_info):
-        overlap = dc_info.get("overlap")
-        axis_range = dc_info.get("axisRange")
+        overlap = _get(dc_info, "overlap")
+        axis_range = _get(dc_info, "axisRange")
         if overlap is None or axis_range is None:
             return None
         return overlap == 0.0 and axis_range > 0
@@ -793,8 +807,9 @@ def ispyb_filter(
     # files exist; if image already set check they exist, ...
 
     dc_id = parameters["ispyb_dcid"]
-
     dc_info = i.get_dc_info(dc_id, session)
+    dcg_id: int | None = dc_info.get("dataCollectionGroupId")
+
     if not dc_info:
         raise ValueError(f"No database entry found for dcid={dc_id}: {dc_id}")
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
@@ -941,40 +956,35 @@ def ispyb_filter(
     # beware if other projects start using this directory structure will
     # need to be smarter here...
 
-    if dcgid := dc_info["dataCollectionGroupId"]:
-        related_dcs = crud.get_dcids_for_data_collection_group(dcgid, session)
-        if parameters["ispyb_image_directory"].startswith("/dls/mx"):
-            related = []
-        else:
-            related = list(sorted(set(related_dcs)))
-        for dc in related_dcs:
-            info = i.get_dc_info(dc, session)
-            start, end = i.dc_info_to_start_end(info)
-            parameters["ispyb_related_sweeps"].append((dc, start, end))
+    # Handle related DCID properties via DataCollectionGroup, if there is one
+    if dcg_id:
+        stmt = select(
+            models.DataCollection.dataCollectionId,
+            models.DataCollection.startImageNumber,
+            models.DataCollection.numberOfImages,
+            models.DataCollection.overlap,
+            models.DataCollection.axisRange,
+            models.DataCollection.fileTemplate,
+            models.DataCollection.imageDirectory,
+        ).where(models.DataCollection.dataCollectionGroupId == dcg_id)
 
-    related_images = []
+        related_images = []
 
-    if not parameters.get("ispyb_images"):
-        # may have been set via __call__ for reprocessing jobs
-        parameters["ispyb_images"] = ""
-        for dc in related:
+        for dc in session.execute(stmt).all():
+            start, end = i.dc_info_to_start_end(dc)
+            parameters["ispyb_related_sweeps"].append((dc.dataCollectionId, start, end))
 
-            # FIXME logic: should this exclude dc > dc_id?
-            if dc == dc_id:
-                continue
-
-            info = i.get_dc_info(dc, session)
-            etype = i.get_dcg_experiment_type(
-                info.get("dataCollectionGroupId"), session
-            )
-            other_dc_class = i.classify_dc(info, etype)
-            if other_dc_class["rotation"]:
-                start, end = i.dc_info_to_start_end(info)
-
+            # We don't get related images for /dls/mx collections
+            if (
+                not parameters["ispyb_image_directory"].startswith("/dls/mx")
+                and dc.dataCollectionId != dc_id
+                and i.dc_info_is_rotation_scan(dc)
+            ):
                 related_images.append(
-                    "%s:%d:%d" % (i.dc_info_to_filename(info), start, end)
+                    "%s:%d:%d" % (i.dc_info_to_filename(dc), start, end)
                 )
 
+        if not parameters.get("ispyb_images"):
             parameters["ispyb_images"] = ",".join(related_images)
 
     return message, parameters

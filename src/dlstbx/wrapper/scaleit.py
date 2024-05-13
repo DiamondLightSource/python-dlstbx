@@ -199,7 +199,7 @@ class ScaleitWrapper(Wrapper):
             "END-CAD",
         ]
 
-        _, _ = self.ccp4_command(cad_script, "cad")
+        self.ccp4_command(cad_script, "cad")
 
         # Scale the above data using the data added by cad
         mtz_combined_scaled = (

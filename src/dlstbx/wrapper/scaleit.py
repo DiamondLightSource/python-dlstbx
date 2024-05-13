@@ -107,27 +107,29 @@ class ScaleitWrapper(Wrapper):
         self.working_directory.mkdir(parents=True, exist_ok=True)
         self.results_directory.mkdir(parents=True, exist_ok=True)
         # Check the input mtz files
-        mtz_files = self.params["scaleit"].get("data", [])
-        if not mtz_files:
+        src_mtz_files = self.params["scaleit"].get("data", [])
+        if not src_mtz_files:
             self.log.error("Could not identify on what data to run")
             return False
-        if len(mtz_files) != 2:
+        if len(src_mtz_files) != 2:
             self.log.error(
-                f"Exactly two data files need to be provided, {len(mtz_files)} files were given"
+                f"Exactly two data files need to be provided, {len(src_mtz_files)} files were given"
             )
             return False
-
-        files_out = self.params["scaleit"].get("files_out", [])
-
-        for _i, _file in enumerate(mtz_files):
-            if files_out:
-                _dest_file = self.working_directory / files_out[_i]
-            else:
-                _file_name = os.path.splitext(os.path.basename(_file))[0]
-                _dest_file = self.working_directory / _file_name
+        # Copy the source mtz_files files to the working directory
+        mtz_files = []
+        for _file in src_mtz_files:
+            _file_name = os.path.basename(_file)
+            _dest_file = self.working_directory / _file_name
+            # If input mtz files have the same file name (e.g. fast_dp.mtz), add number to differentiate files
+            if _dest_file in mtz_files:
+                _dest_file = _dest_file.with_name(
+                    f"{_dest_file.stem}_{len(mtz_files)}{_dest_file.suffix}"
+                )
             try:
                 shutil.copy(_file, _dest_file)
                 self.log.info(f"File '{_file}' copied to '{_dest_file}'")
+                mtz_files.append(_dest_file)
             except FileNotFoundError:
                 self.log.error(f"Source file '{_file}' not found.")
                 return False
@@ -137,8 +139,8 @@ class ScaleitWrapper(Wrapper):
                 )
                 return False
 
-        mtz_nat = self.working_directory / files_out[0]
-        mtz_der = self.working_directory / files_out[1]
+        mtz_nat = self.working_directory / mtz_files[0]
+        mtz_der = self.working_directory / mtz_files[1]
 
         # Ensure that the mtz files have compatible symmetry and put them into the same space group using pointless
         mtz_der_filename = os.path.splitext(os.path.basename(mtz_der))[0]
@@ -227,6 +229,17 @@ class ScaleitWrapper(Wrapper):
         ]
 
         self.ccp4_command(mtzutil_script, "mtzutil")
+
+        # Convert output files to specified output names if given
+        files_out = self.params["scaleit"].get("files_out", [])
+        if files_out:
+            if len(files_out) != len(src_mtz_files):
+                self.log.error(
+                    "Files_out list has different length to source mtz_files list"
+                )
+                return False
+            shutil.copy(mtz_nat, self.working_directory / files_out[0])
+            shutil.copy(mtz_scaled, self.working_directory / files_out[1])
 
         self.log.info(f"Copying Scaleit results to {self.results_directory}")
         for f in self.working_directory.iterdir():

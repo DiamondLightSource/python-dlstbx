@@ -419,7 +419,7 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        if parameters.experiment_type not in ("Metal ID", "CUSTOM"):
+        if parameters.experiment_type not in ("Metal ID", "Custom"):
             self.log.info(
                 f"Skipping metal id trigger: experiment type {parameters.experiment_type} not supported"
             )
@@ -475,7 +475,8 @@ class DLSTrigger(CommonService):
             .filter(ProcessingJob.automatic == True)  # noqa E712
             .filter(AutoProcProgram.processingPrograms == (parameters.proc_prog))
             .filter(AutoProcProgram.processingStatus == 1)
-            .filter(AutoProcProgramAttachment.fileName.endswith("_free.mtz"))
+            .filter(AutoProcProgramAttachment.fileName.endswith(".mtz"))
+            .filter(AutoProcProgramAttachment.importanceRank == 1)
             .options(
                 contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                 joinedload(ProcessingJob.ProcessingJobParameters),

@@ -47,7 +47,7 @@ class MetalIdWrapper(Wrapper):
 
     _logger_name = "dlstbx.wrap.metal_id"
 
-    def are_pdbs_similar(self, file_1, file_2, tolerances):
+    def are_pdbs_similar(self, file_1, file_2, tolerances=None):
         """
         Determine if two pdb files have the same crystal symmetry, the same number
         and type of atoms and sufficiently similar unit cell and atomic coordinates
@@ -71,7 +71,16 @@ class MetalIdWrapper(Wrapper):
         sym_1, atoms_1, coords_1 = read_pdb(file_1)
         sym_2, atoms_2, coords_2 = read_pdb(file_2)
 
-        # Get tolerances
+        # Use default if none set tolerances
+        if not tolerances:
+            self.log.warning(
+                "PDB similarity tolerances not specified, using default values"
+            )
+            tolerances = {
+                "rel_cell_length": 0.01,
+                "abs_cell_angle": 1.0,
+                "abs_coord_diff": 3.0,
+            }
 
         # Compare symmetry
         is_similar_sym = sym_1.is_similar_symmetry(
@@ -301,18 +310,10 @@ class MetalIdWrapper(Wrapper):
             self.log.info(
                 f"Checking pdb files for similarity. Files: {pdb_files[0]}, {pdb_files[1]}"
             )
-            tolerances = params.get("pdb_comparison_tolerances")
-            if not tolerances:
-                self.log.warning(
-                    "PDB similarity tolerances not specified, using default values"
-                )
-                tolerances = {
-                    "rel_cell_length": 0.01,
-                    "abs_cell_angle": 1.0,
-                    "abs_coord_diff": 3.0,
-                }
             pdbs_are_similar = self.are_pdbs_similar(
-                pdb_files[0], pdb_files[1], tolerances
+                pdb_files[0],
+                pdb_files[1],
+                tolerances=params.get("pdb_comparison_tolerances"),
             )
             if not pdbs_are_similar:
                 self.log.error("PDB files are not similar enough, not running metal_id")

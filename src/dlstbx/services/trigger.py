@@ -451,6 +451,21 @@ class DLSTrigger(CommonService):
         # Get just the most recent two dcids
         dcids = sorted(dcids)[-2::]
 
+        # Dict of file patterns for each of the autoprocessing pipelines
+        input_file_patterns = {
+            "fast_dp": "fast_dp.mtz",
+            "xia2 dials": "_free.mtz",
+            "xia2 3dii": "_free.mtz",
+            "autoPROC": "truncate-unique.mtz",
+            "autoPROC+STARANISO": "staraniso_alldata-unique.mtz",
+        }
+        proc_prog = parameters.proc_prog
+        if proc_prog not in input_file_patterns.keys():
+            self.log.info(
+                f"Skipping metal id trigger: {proc_prog} is not an accepted upstream processing pipeline for metal id"
+            )
+            return {"success": True}
+
         # Get data collection information for all collections in dcids
         query = (
             (
@@ -473,10 +488,13 @@ class DLSTrigger(CommonService):
             )
             .filter(DataCollection.dataCollectionId.in_(dcids))
             .filter(ProcessingJob.automatic == True)  # noqa E712
-            .filter(AutoProcProgram.processingPrograms == (parameters.proc_prog))
+            .filter(AutoProcProgram.processingPrograms == (proc_prog))
             .filter(AutoProcProgram.processingStatus == 1)
-            .filter(AutoProcProgramAttachment.fileName.endswith(".mtz"))
-            .filter(AutoProcProgramAttachment.importanceRank == 1)
+            .filter(
+                AutoProcProgramAttachment.fileName.endswith(
+                    input_file_patterns[proc_prog]
+                )
+            )
             .options(
                 contains_eager(AutoProcProgram.AutoProcProgramAttachments),
                 joinedload(ProcessingJob.ProcessingJobParameters),

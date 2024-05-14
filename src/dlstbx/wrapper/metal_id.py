@@ -116,7 +116,14 @@ class MetalIdWrapper(Wrapper):
         return True
 
     def make_double_diff_map_and_get_peaks(
-        self, map_above, map_below, working_directory, pdb_file, map_out, rmsd_threshold
+        self,
+        map_above,
+        map_below,
+        working_directory,
+        pdb_file,
+        map_out,
+        rmsd_threshold,
+        max_peaks,
     ):
         """Creates and calls a script in coot to generate a double difference map from the anomalous maps from above and below
         the metal absorption edge. Any peaks above the rmsd_threshold are then found and the coordinates and peak heights in
@@ -148,15 +155,20 @@ class MetalIdWrapper(Wrapper):
         with open(working_directory / "metal_id.log", "w") as log_file:
             log_file.write(result.stdout)
 
+        self.log.info("Finding peaks in double difference map")
         # Regex pattern to match lines containing peaks from coot output in format: "0 dv: 77.94 n-rmsd: 42.52 xyz = (     24.08,     12.31,     28.48)"
         pattern = r"\s*\d+\s+dv:\s*([\d.]+)\s+n-rmsd:\s*([\d.]+)\s+xyz\s*=\s*\(\s*([\d., -]+)\)"
-
         # Extract peaks from coot output
         matches = re.finditer(pattern, result.stdout)
         electron_densities = []
         rmsds = []
         peak_coords = []
         for match in matches:
+            if len(peak_coords) == max_peaks:
+                self.log.warning(
+                    f"Found more peaks than the set maximum of {max_peaks} - storing only the largest {max_peaks}"
+                )
+                break
             density = float(match.group(1))
             rmsd = float(match.group(2))
             xyz = tuple(map(float, match.group(3).split(",")))
@@ -185,7 +197,7 @@ class MetalIdWrapper(Wrapper):
         working_directory,
         pdb_file,
         diff_map,
-        map_render_threshold,
+        peak_height_threshold,
         peak_coords,
     ):
         """Plots protein molecule coordinates (pdb file) and difference map in coot, applied a threshold for displaying the map
@@ -202,13 +214,13 @@ class MetalIdWrapper(Wrapper):
             "set_nomenclature_errors_on_read('ignore')",
             f"read_pdb('{pdb_file}')",
             f"read_ccp4_map('{diff_map}', 1)",
-            f"set_contour_level_in_sigma(1, {map_render_threshold})",
+            f"set_contour_level_in_sigma(1, {peak_height_threshold})",
         ]
         render_paths = []
         for _i, peak in enumerate(peak_coords):
             quat = view_as_quat(peak, protein_centre)
             # Use relative path as explicit paths can exceed render command length limit
-            render_path = f"peak_{_i}.r3d"
+            render_path = f"peak_{_i+1}.r3d"
             mini_script = [
                 f"set_rotation_centre{peak}",
                 "set_zoom(30.0)",
@@ -326,25 +338,37 @@ class MetalIdWrapper(Wrapper):
         self.log.info("Making double difference map")
         self.log.info(f"Using {pdb_file} as reference coordinates for map")
         map_out = working_directory / "diff.map"
-        map_sig_thresh = 8  # Threshold in rmsd for difference map peaks/contours
+        # Threshold in rmsd for difference map peaks/contours (defaults to 8.0)
+        peak_height_threshold = params.get("peak_height_threshold", 8.0)
+        # Maximum number of peaks to extract from diff map (defaults to 5)
+        max_peaks = params.get("max_peaks", 5)
         (
             peak_coords,
             electron_densities,
             rmsds,
         ) = self.make_double_diff_map_and_get_peaks(
-            pha_above, pha_below, working_directory, pdb_file, map_out, map_sig_thresh
+            pha_above,
+            pha_below,
+            working_directory,
+            pdb_file,
+            map_out,
+            peak_height_threshold,
+            max_peaks,
         )
 
         # Print the extracted information
+        self.log.info(
+            f"The largest peaks found above the threshold of {peak_height_threshold} rmsd up to a maximum of {max_peaks}:"
+        )
         for i, (density, rmsd, xyz) in enumerate(
             zip(electron_densities, rmsds, peak_coords)
         ):
             self.log.info(
-                f"Peak {i}: Electron Density = {density}, RMSD = {rmsd}, XYZ = {xyz}"
+                f"Peak {i+1}: Electron Density = {density}, RMSD = {rmsd}, XYZ = {xyz}"
             )
 
         self.render_diff_map_peaks(
-            working_directory, pdb_file, map_out, map_sig_thresh, peak_coords
+            working_directory, pdb_file, map_out, peak_height_threshold, peak_coords
         )
 
         for f in working_directory.iterdir():

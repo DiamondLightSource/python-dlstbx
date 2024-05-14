@@ -688,10 +688,16 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         dcid = parameters.dcid
-        query = session.query(DataCollection).filter(
-            DataCollection.dataCollectionId == dcid
+        query = (
+            session.query(DataCollection, BLSession)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dcid)
         )
-        dc = query.one()
+        dc, blsession = query.one()
+        if blsession.beamLineName in ("i03", "i04", "i04-1", "i24"):
+            recipe_name = "postprocessing-fast-ep"
+        else:
+            recipe_name = "postprocessing-fast-ep-cluster"
         jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
         jisp["datacollectionid"] = dcid
         jisp["start_image"] = dc.startImageNumber
@@ -702,7 +708,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "fast_ep"
-        jp["recipe"] = "postprocessing-fast-ep-cluster"
+        jp["recipe"] = recipe_name
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"fast_ep trigger: generated JobID {jobid}")
 
@@ -742,6 +748,13 @@ class DLSTrigger(CommonService):
         **kwargs,
     ):
         dcid = parameters.dcid
+        query = (
+            session.query(BLSession)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+        blsession = query.first()
+
         if not dcid:
             self.log.error("mrbump trigger failed: No DCID specified")
             return False
@@ -756,6 +769,10 @@ class DLSTrigger(CommonService):
             self.log.info("Skipping mrbump trigger: sequence information not available")
             return {"success": True}
 
+        if blsession.beamLineName in ("i03", "i04", "i04-1", "i24"):
+            recipe_name = "postprocessing-mrbump"
+        else:
+            recipe_name = "postprocessing-mrbump-cluster"
         jobids = []
 
         all_pdb_files = set()
@@ -768,7 +785,7 @@ class DLSTrigger(CommonService):
             jp["comments"] = parameters.comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "MrBUMP"
-            jp["recipe"] = "postprocessing-mrbump-cluster"
+            jp["recipe"] = recipe_name
             jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
             jobids.append(jobid)
             self.log.debug(f"mrbump trigger: generated JobID {jobid}")
@@ -836,12 +853,12 @@ class DLSTrigger(CommonService):
         **kwargs,
     ):
         query = (
-            session.query(Proposal)
+            session.query(Proposal, BLSession)
             .join(BLSession, BLSession.proposalId == Proposal.proposalId)
             .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
             .filter(DataCollection.dataCollectionId == parameters.dcid)
         )
-        proposal = query.first()
+        proposal, blsession = query.first()
         if proposal.proposalCode in ("lb", "in", "sw", "ic"):
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
@@ -854,15 +871,13 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
         jp["display_name"] = parameters.pipeline
-        if target == "big_ep_cluster":
-            jp["recipe"] = "postprocessing-big-ep-cluster"
-        elif target == "big_ep_cloud":
+        if (
+            blsession.beamLineName in ("i03", "i04", "i04-1", "i24")
+            and target == "big_ep_cloud"
+        ):
             jp["recipe"] = "postprocessing-big-ep-cloud"
         else:
-            self.log.error(
-                f"big_ep_common trigger failed: Invalid target specified {target}"
-            )
-            return False
+            jp["recipe"] = "postprocessing-big-ep-cluster"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep_common trigger: generated JobID {jobid}")
 
@@ -991,12 +1006,17 @@ class DLSTrigger(CommonService):
         if spacegroup:
             path_ext += "-" + spacegroup
 
+        if blsession.beamLineName in ("i03", "i04", "i04-1", "i24"):
+            recipe_name = "postprocessing-big-ep"
+        else:
+            recipe_name = "postprocessing-big-ep-dls"
+
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "big_ep"
-        jp["recipe"] = "postprocessing-big-ep-dls"
+        jp["recipe"] = recipe_name
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep trigger: generated JobID {jobid}")
 

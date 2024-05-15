@@ -419,6 +419,61 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
+        """Trigger a metal job for a given data collection.
+
+        Requires experiment type to be "Metal ID" and for data collections to be in the
+        same data collection group. Metal ID will trigger for every other data collection,
+        assuming that data collections alternate above and below metal absorption edges.
+
+        Trigger also requires a PDB file or code to be associated with the given data
+        collection:
+        - PDB codes or file contents stored in the ISPyB PDB table and linked with
+          the given data collection. Any files defined in the database will be copied
+          into a subdirectory inside `pdb_tmpdir`, where the subdirectory name will be
+          a hash of the file contents.
+        - PDB files (with `.pdb` extension) stored in the directory optionally provided
+          by the `user_pdb_directory` recipe parameter.
+
+        If any PDB files or codes are identified, then new ProcessingJob,
+        ProcessingJobImageSweep and ProcessingJobParameter will be created, and the
+        resulting processingJobId will be sent to the `processing_recipe` queue.
+
+        Recipe parameters are described below with appropriate ispyb placeholder "{}"
+        values:
+        - target: set this to "metal_id"
+        - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
+        - dcids: the dataCollectionIDs preceding the current dcid in the data
+        collection group. i.e. "{$REPLACE:ispyb_dcg_dcids}"
+        - proc_prog: The name, as it appears in ISPyB, of the autoprocessing pipeline
+        for which the output will be used as the metal_id input mtz file.
+        - experiment_type: the experiment type of the data collection.
+        i.e. "{ispyb_dcg_experiment_type}"
+        - comment: a comment to be stored in the ProcessingJob.comment field
+        - automatic: boolean value passed to ProcessingJob.automatic field
+        - pdb: list of pdb files or codes provided in the pdb_files_or_codes_format,
+        where each pdb file or code is provided as a dict with keys of "filepath",
+        "code" and "source". Set the filepath or code and set the other values to null.
+        "{$REPLACE:ispyb_pdb}" will also achieve this.
+        - energy_min_diff - (optional) the minimum energy difference (eV) required between
+        data collections taken above and below the metal absorption edge.
+
+        Example recipe parameters:
+        { "target": "metal_id",
+            "dcid": 123456,
+            "dcids": [123453, 123454, 123455],
+            "experiment_type": "Metal ID",
+            "proc_prog": "xia2 dials",
+            "comment": "Metal_ID triggered by xia2 dials",
+            "automatic": true,
+            "pdb": [
+                {
+                    "filepath": "/path/to/file.pdb",
+                    "code": null,
+                    "source": null
+            }],
+            "energy_min_diff": 10.0
+        }
+        """
         if parameters.experiment_type != "Metal ID":
             self.log.info(
                 f"Skipping metal id trigger: experiment type {parameters.experiment_type} not supported"

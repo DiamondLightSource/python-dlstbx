@@ -280,7 +280,7 @@ def handle_rotation_end(
         ppl_autostart[ppl] = scenario.beamline == "i04-1"
         ppl_suffix[ppl] = suffix_pref
         ppl_triggervars[ppl] = triggervars_pref
-        if scenario.preferred_processing == ppl and scenario.beamline != "i04-1":
+        if scenario.preferred_processing == ppl:
             ppl_autostart[ppl] = True
         elif any(r in recipe for r in cloud_recipes):
             ppl_suffix[ppl] = suffix

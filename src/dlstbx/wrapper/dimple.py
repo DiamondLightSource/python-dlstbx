@@ -277,7 +277,7 @@ class DimpleWrapper(Wrapper):
                         os.fspath(self.results_directory),
                     )
                 )
-        if success:
+        if success and not self.params.get("supress_ispyb"):
             self.log.info("Sending dimple results to ISPyB")
             success = self.send_results_to_ispyb()
 

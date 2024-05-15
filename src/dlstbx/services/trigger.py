@@ -419,7 +419,7 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        if parameters.experiment_type not in ("Metal ID", "Custom"):
+        if parameters.experiment_type != "Metal ID":
             self.log.info(
                 f"Skipping metal id trigger: experiment type {parameters.experiment_type} not supported"
             )

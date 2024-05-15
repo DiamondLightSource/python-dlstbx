@@ -217,10 +217,10 @@ class MetalIdWrapper(Wrapper):
             f"set_contour_level_in_sigma(1, {peak_height_threshold})",
         ]
         render_paths = []
-        for _i, peak in enumerate(peak_coords):
+        for _i, peak in enumerate(peak_coords, start=1):
             quat = view_as_quat(peak, protein_centre)
             # Use relative path as explicit paths can exceed render command length limit
-            render_path = f"peak_{_i+1}.r3d"
+            render_path = f"peak_{_i}.r3d"
             mini_script = [
                 f"set_rotation_centre{peak}",
                 "set_zoom(30.0)",
@@ -338,9 +338,9 @@ class MetalIdWrapper(Wrapper):
         self.log.info("Making double difference map")
         self.log.info(f"Using {pdb_file} as reference coordinates for map")
         map_out = working_directory / "diff.map"
-        # Threshold in rmsd for difference map peaks/contours (defaults to 8.0)
+        # Threshold in rmsd for difference map peaks/contours
         peak_height_threshold = params.get("peak_height_threshold", 8.0)
-        # Maximum number of peaks to extract from diff map (defaults to 5)
+        # Maximum number of peaks to extract from diff map
         max_peaks = params.get("max_peaks", 5)
         (
             peak_coords,
@@ -360,11 +360,12 @@ class MetalIdWrapper(Wrapper):
         self.log.info(
             f"The largest peaks found above the threshold of {peak_height_threshold} rmsd up to a maximum of {max_peaks}:"
         )
-        for i, (density, rmsd, xyz) in enumerate(
-            zip(electron_densities, rmsds, peak_coords)
+        for _i, (density, rmsd, xyz) in enumerate(
+            zip(electron_densities, rmsds, peak_coords),
+            start=1,
         ):
             self.log.info(
-                f"Peak {i+1}: Electron Density = {density}, RMSD = {rmsd}, XYZ = {xyz}"
+                f"Peak {_i}: Electron Density = {density}, RMSD = {rmsd}, XYZ = {xyz}"
             )
 
         self.render_diff_map_peaks(

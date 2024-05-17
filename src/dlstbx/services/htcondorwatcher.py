@@ -5,6 +5,7 @@ from pprint import pformat
 
 import htcondor
 import workflows.recipe
+from requests.exceptions import HTTPError
 from workflows.services.common_service import CommonService
 from zocalo.util import slurm
 
@@ -115,7 +116,8 @@ class HTCondorWatcher(CommonService):
                         if res["JobStatus"] == 1:
                             first_seen = start_time
                 elif scheduler == "slurm":
-                    if res := self.slurm_api.get_job_info(jobid):
+                    try:
+                        res = self.slurm_api.get_job_info(jobid)
                         if res.job_state:
                             if any(
                                 status in res.job_state
@@ -130,6 +132,16 @@ class HTCondorWatcher(CommonService):
                                 seen_jobs.append(jobid)
                                 if slurm.models.JobStateEnum.PENDING in res.job_state:
                                     first_seen = start_time
+                    except HTTPError as e:
+                        # Job has finished and was removed from SLURM job database
+                        # TODO: Check accessing job info using slurmdb REST API call
+                        if e.response.status_code == 404:
+                            self.log.info(
+                                f"Jobid {jobid} not found in slurm database.\n{e.response.text}"
+                            )
+                            continue
+                        else:
+                            raise
 
         # Are we done?
         if not seen_jobs:

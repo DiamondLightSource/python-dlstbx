@@ -92,7 +92,22 @@ def handle_eiger_start_i03_gridscan(
     ]
 
 
-@mimas.match_specification(is_eiger & is_end & is_mx_beamline & ~is_vmxi & ~is_serial)
+@mimas.match_specification(is_eiger & is_end & is_mx_beamline & is_i03)
+def handle_eiger_end_i03_and_i03_only(
+    scenario: mimas.MimasScenario,
+    **kwargs,
+) -> List[mimas.Invocation]:
+    recipe = (
+        "per-image-analysis-gridscan-i03-no-really"
+        if scenario.dcclass is mimas.MimasDCClass.GRIDSCAN
+        else "per-image-analysis-rotation-swmr"
+    )
+    return [mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)]
+
+
+@mimas.match_specification(
+    is_eiger & is_end & is_mx_beamline & ~is_vmxi & ~is_serial & ~is_i03
+)
 def handle_eiger_end_i03(
     scenario: mimas.MimasScenario,
     **kwargs,

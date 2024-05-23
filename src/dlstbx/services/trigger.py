@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import pathlib
 from datetime import datetime, timedelta
+from time import time
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import gemmi
@@ -415,8 +416,10 @@ class DLSTrigger(CommonService):
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
+        message: Dict,
         parameters: MetalIdParameters,
         session: sqlalchemy.orm.session.Session,
+        transaction: int,
         **kwargs,
     ):
         """Trigger a metal job for a given data collection.
@@ -505,6 +508,44 @@ class DLSTrigger(CommonService):
 
         # Get just the most recent two dcids
         dcids = sorted(dcids)[-2::]
+        self.log.info(f"Metal ID trigger: found dcids {dcids}")
+
+        # Check that both dcids have finished processing successfully
+        query = (
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId.in_(dcids))
+            .filter(ProcessingJob.automatic == True)  # noqa E712
+            .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+            .filter(
+                or_(
+                    AutoProcProgram.processingStatus == None,  # noqa E711
+                    AutoProcProgram.processingStartTime == None,  # noqa E711
+                )
+            )
+        )
+        waiting_jobs = query.all()
+        timeout = 3600
+        if len(waiting_jobs):
+            for _pj, waiting_dcid in waiting_jobs:
+                self.log.info(
+                    f"Metal ID trigger: Waiting for dcid: {waiting_dcid} to finish"
+                )
+            start_time = message.get("start_time", time())
+            run_time = time() - start_time
+            if run_time > timeout:
+                self.log.info(
+                    f"Metal ID trigger: timeout exceeded waiting for {waiting_dcid}, skipping trigger"
+                )
+                return {"success": True}
+            self.log.info(
+                f"Metal ID trigger: Checkpointing trigger for dcid: {parameters.dcid}"
+            )
+            rw.checkpoint({"start_time": start_time}, delay=60, transaction=transaction)
 
         # Dict of file patterns for each of the autoprocessing pipelines
         input_file_patterns = {
@@ -560,6 +601,11 @@ class DLSTrigger(CommonService):
             .populate_existing()
         )
 
+        if len(query.all()) < 2:
+            self.log.info(
+                f"Metal ID trigger: waiting for {proc_prog} processing to finish for dcids: {dcids}"
+            )
+
         dcids = []
         wavelengths = []
         data_files = []
@@ -596,7 +642,7 @@ class DLSTrigger(CommonService):
         # Sort based on wavelength
         combined = list(zip(wavelengths, dcids, data_files))
         sorted_combined = sorted(combined)
-        wavelengths, dcids, data_files = zip(*sorted_combined)
+        wavelengths, dcids, data_files = map(list, zip(*sorted_combined))
 
         # Get parameters for metal_id recipe
         mtz_file_below = data_files[1]

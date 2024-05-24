@@ -59,6 +59,9 @@ class MetalIdParameters(pydantic.BaseModel):
     experiment_type: str
     pdb: list[PDBFileOrCode]
     energy_min_diff: float = pydantic.Field(default=10, gt=0)
+    timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
+    backoff_delay: float = pydantic.Field(default=5, alias="backoff-delay")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     automatic: Optional[bool] = False
     comment: Optional[str] = None
 
@@ -459,6 +462,12 @@ class DLSTrigger(CommonService):
         "{$REPLACE:ispyb_pdb}" will also achieve this.
         - energy_min_diff - (optional) the minimum energy difference (eV) required between
         data collections taken above and below the metal absorption edge.
+        - timeout-minutes - (optional) the max time (in minutes) allowed wait for
+        processing jobs to finish before skipping
+        - backoff-delay - (optional) the time (in minutes) that message will be delayed by when
+        checkpointing if waiting for processing to finish
+        - backoff-multiplier - (optional) a multipler by which the delay is increased after
+        successive checkpoints.
 
         Example recipe parameters:
         { "target": "metal_id",
@@ -475,6 +484,9 @@ class DLSTrigger(CommonService):
                     "source": null
             }],
             "energy_min_diff": 10.0
+            "timeout-minutes": 60,
+            "backoff-delay": 4,
+            "backoff-multiplier": 2
         }
         """
         if parameters.experiment_type != "Metal ID":
@@ -529,23 +541,34 @@ class DLSTrigger(CommonService):
             )
         )
         waiting_jobs = query.all()
-        timeout = 3600
         if len(waiting_jobs):
+            waiting_dcids = []
             for _pj, waiting_dcid in waiting_jobs:
                 self.log.info(
                     f"Metal ID trigger: Waiting for dcid: {waiting_dcid} to finish"
                 )
+                waiting_dcids.append(waiting_dcid)
+            # Get previous checkpoint history
             start_time = message.get("start_time", time())
             run_time = time() - start_time
-            if run_time > timeout:
-                self.log.info(
-                    f"Metal ID trigger: timeout exceeded waiting for {waiting_dcid}, skipping trigger"
+            if run_time > parameters.timeout * 60:
+                self.log.warning(
+                    f"Metal ID trigger: timeout exceeded waiting for dcids: {waiting_dcids}. Skipping trigger"
                 )
                 return {"success": True}
+            # Calculate the message delay
+            ntry = message.get("ntry", 0)
+            delay = parameters.backoff_delay * parameters.backoff_multiplier**ntry
             self.log.info(
-                f"Metal ID trigger: Checkpointing trigger for dcid: {parameters.dcid}"
+                f"Metal ID trigger: Checkpointing for dcid: {parameters.dcid} with delay of {delay} minutes"
             )
-            rw.checkpoint({"start_time": start_time}, delay=60, transaction=transaction)
+            ntry += 1
+            rw.checkpoint(
+                {"start_time": start_time, "ntry": ntry},
+                delay=delay * 60,
+                transaction=transaction,
+            )
+            return {"success": True}
 
         # Dict of file patterns for each of the autoprocessing pipelines
         input_file_patterns = {

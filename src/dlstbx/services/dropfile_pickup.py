@@ -135,18 +135,22 @@ class DLSDropfilePickup(CommonService):
 
     def stats_live_cluster_utilization(self, stats):
         self.rrd_file["cluster"].update(
-            [[
-                        r["statistic-timestamp"],
-                        r["total"],
-                        r["broken"],
-                        r["used-high"],
-                        r["used-medium"],
-                        r["used-low"],
-                    ] for r in stats]
+            [
+                [
+                    r["statistic-timestamp"],
+                    r["total"],
+                    r["broken"],
+                    r["used-high"],
+                    r["used-medium"],
+                    r["used-low"],
+                ]
+                for r in stats
+            ]
         )
         if "admin" in stats[0]:
             self.rrd_file["clustergroups"].update(
-                ([
+                (
+                    [
                         r["statistic-timestamp"],
                         r["cpu"]["total"],
                         r["cpu"]["broken"],
@@ -161,22 +165,28 @@ class DLSDropfilePickup(CommonService):
                         r["admin"]["total"],
                         r["admin"]["broken"],
                         r["admin"]["used"],
-                    ] for r in stats)
+                    ]
+                    for r in stats
+                )
             )
 
     def stats_test_cluster_utilization(self, stats):
         self.rrd_file["testcluster"].update(
-            ([
+            (
+                [
                     r["statistic-timestamp"],
                     r["total"],
                     r["broken"],
                     r["used-high"],
                     r["used-medium"],
                     r["used-low"],
-                ] for r in stats)
+                ]
+                for r in stats
+            )
         )
         self.rrd_file["testclustergroups"].update(
-            ([
+            (
+                [
                     r["statistic-timestamp"],
                     r["cpu"]["total"],
                     r["cpu"]["broken"],
@@ -191,31 +201,39 @@ class DLSDropfilePickup(CommonService):
                     r["admin"]["total"],
                     r["admin"]["broken"],
                     r["admin"]["used"],
-                ] for r in stats)
+                ]
+                for r in stats
+            )
         )
 
     def stats_live_cluster_jobs_waiting(self, stats):
         self.rrd_file["clusterbacklog"].update(
-            [[
-                        r["statistic-timestamp"],
-                        r["admin.q"],
-                        r["bottom.q"],
-                        r["low.q"],
-                        r["medium.q"],
-                        r["high.q"],
-                    ] for r in stats]
+            [
+                [
+                    r["statistic-timestamp"],
+                    r["admin.q"],
+                    r["bottom.q"],
+                    r["low.q"],
+                    r["medium.q"],
+                    r["high.q"],
+                ]
+                for r in stats
+            ]
         )
 
     def stats_test_cluster_jobs_waiting(self, stats):
         self.rrd_file["testclusterbacklog"].update(
-            [[
-                        r["statistic-timestamp"],
-                        r["test-admin.q"],
-                        r["test-bottom.q"],
-                        r["test-low.q"],
-                        r["test-medium.q"],
-                        r["test-high.q"],
-                    ] for r in stats]
+            [
+                [
+                    r["statistic-timestamp"],
+                    r["test-admin.q"],
+                    r["test-bottom.q"],
+                    r["test-low.q"],
+                    r["test-medium.q"],
+                    r["test-high.q"],
+                ]
+                for r in stats
+            ]
         )
 
     def open_all_recordfiles(self):

@@ -491,8 +491,12 @@ def test_notify_for_found_file(nth_file, expected):
 def test_file_selection(select_n_images):
     select_n_images = 250
     for filecount in list(range(1, 255)) + list(range(3600, 3700)):
+
         def selection(x):
-            return dlstbx.services.filewatcher.is_file_selected(x, select_n_images, filecount)
+            return dlstbx.services.filewatcher.is_file_selected(
+                x, select_n_images, filecount
+            )
+
         l = list(filter(selection, range(1, filecount + 1)))
 
         # Check that correct number of images were selected

@@ -27,8 +27,10 @@ def run(model_file, output_file, threshold, metrics):
     )
     pred_proba = classifier_data.predict_proba(df)
     pred_class = 1 if pred_proba[0][1] > threshold else 0
+
     def func_round(x):
         return round(x * 100.0, 3)
+
     with open(output_file, "w") as fp:
         json.dump(
             {

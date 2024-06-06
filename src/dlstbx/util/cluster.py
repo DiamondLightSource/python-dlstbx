@@ -510,12 +510,11 @@ class ClusterStatistics:
         :return a list of job and a list of queue dictionaries otherwise.
         """
         result = cluster.qstat_xml(arguments=arguments)
-        assert not result.returncode, (
-            "Could not run qstat on cluster. exitcode: %s, Output: %s"
-            % (
-                result.returncode,
-                result.stderr or result.stdout,
-            )
+        assert (
+            not result.returncode
+        ), "Could not run qstat on cluster. exitcode: %s, Output: %s" % (
+            result.returncode,
+            result.stderr or result.stdout,
         )
         return self.parse_string(result.stdout)
 

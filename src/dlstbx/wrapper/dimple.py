@@ -77,11 +77,13 @@ class DimpleWrapper(Wrapper):
         input_pdb = pathlib.Path(dimple_args[1])
         # Record AutoProcAttachments (SCI-9692)
         result_files = {
-            self.results_directory / "final.mtz": (
+            self.results_directory
+            / "final.mtz": (
                 schemas.AttachmentFileType.RESULT,
                 1,
             ),
-            self.results_directory / "final.pdb": (
+            self.results_directory
+            / "final.pdb": (
                 schemas.AttachmentFileType.RESULT,
                 1,
             ),

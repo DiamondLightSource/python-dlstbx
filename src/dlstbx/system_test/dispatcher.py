@@ -162,9 +162,9 @@ class DispatcherService(CommonSystemTest):
             },
         )
 
-        recipe["start"][0][1]["parameters"]["image"] = (
-            "/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800"
-        )
+        recipe["start"][0][1]["parameters"][
+            "image"
+        ] = "/dls/i03/data/2016/cm14451-4/tmp/2016-10-07/fake113556/TRP_M1S6_4_0001.cbf:1:1800"
 
         self.expect_recipe_message(
             recipe=Recipe(recipe),

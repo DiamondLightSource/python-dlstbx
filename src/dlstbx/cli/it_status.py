@@ -155,10 +155,13 @@ def run():
             sys.stdout.write(ColorStreamHandler.DEFAULT)
 
     else:
+
         def setbold():
             return None
+
         def setcolor(x):
             return None
+
         def resetcolor():
             return None
 

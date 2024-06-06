@@ -98,12 +98,15 @@ def get_process_uss(pid=None):
 
 try:
     if not os.path.isdir("/proc"):
+
         def get_process_uss(pid=None):
             return None  # noqa: F811
+
 except OSError as exception:
     if exception.errno == 2:
         # /proc not available on this platform
         def get_process_uss(pid=None):
             return None
+
     else:
         raise

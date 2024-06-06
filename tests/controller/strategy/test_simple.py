@@ -9,6 +9,7 @@ from dlstbx.controller.strategyenvironment import StrategyEnvironment
 
 service = mock.sentinel.service_name
 
+
 def request(n):
     return {"required": {"count": n}, "optional": {}, "shutdown": {}}
 

@@ -35,9 +35,11 @@ def get_resubmission_id_for_job(cluster, jobid):
     context = jobinfo.getElementsByTagName("JB_context")
     if context:
         context = {
-            cvar.getElementsByTagName("VA_variable")[0]
-            .firstChild.nodeValue: cvar.getElementsByTagName("VA_value")[0]
-            .firstChild.nodeValue
+            cvar.getElementsByTagName("VA_variable")[
+                0
+            ].firstChild.nodeValue: cvar.getElementsByTagName("VA_value")[
+                0
+            ].firstChild.nodeValue
             for cvar in context[0].getElementsByTagName("element")
         }
     else:

@@ -611,9 +611,7 @@ def call_sim(
             dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
         else:
             dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
-        assert (
-            dest_visit_dir.is_dir()
-        ), f"Could not find {dest_visit_dir} directory for the specified visit and beamline."
+        assert dest_visit_dir.is_dir(), f"Could not find {dest_visit_dir} directory for the specified visit and beamline."
     # Else, calculate the destination directory for default proposal numbers
     else:
         # Get default proposals if a visit is not specified

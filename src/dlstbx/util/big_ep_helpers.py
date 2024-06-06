@@ -275,7 +275,8 @@ def write_sequence_file(working_directory, msg):
 
 
 def get_autosharp_model_files(working_directory, logger):
-    parse_path = lambda v: str(Path(v.split("=")[1][1:-2]).resolve())
+    def parse_path(v):
+        return str(Path(v.split("=")[1][1:-2]).resolve())
 
     try:
         with open(str(working_directory / ".autoSHARP"), "r") as f:

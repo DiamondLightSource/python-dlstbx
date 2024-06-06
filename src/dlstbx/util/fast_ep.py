@@ -16,7 +16,8 @@ from dlstbx.util.radar_plot import radar_factory
 
 def parse_fastep_table(root_wd):
     res = {"CCall": {}, "CCweak": {}, "CCres": {}, "CFOM": {}, "No. found": {}}
-    rmrk = lambda s: float(s.split("|")[0])
+    def rmrk(s):
+        return float(s.split("|")[0])
     num_set = set()
     use_cc_res = False
     logfile = os.path.join(root_wd, "fast_ep.log")
@@ -134,7 +135,7 @@ def parse_fastep_table(root_wd):
                             if "best" in data_line:
                                 best_sg = sg
                             break
-    num_list = sorted(list(num_set))
+    num_list = sorted(num_set)
 
     return num_list, res, (best_num, best_fnum, best_sg)
 

@@ -155,9 +155,12 @@ def run():
             sys.stdout.write(ColorStreamHandler.DEFAULT)
 
     else:
-        setbold = lambda: None
-        setcolor = lambda x: None
-        resetcolor = lambda: None
+        def setbold():
+            return None
+        def setcolor(x):
+            return None
+        def resetcolor():
+            return None
 
     error_seen = False
     for group, colour in (

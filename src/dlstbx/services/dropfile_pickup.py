@@ -93,7 +93,8 @@ class DLSDropfilePickup(CommonService):
         # Acknowledge outside TXN for now, https://issues.apache.org/jira/browse/AMQ-6796
         #    txn = self._transport.transaction_begin()
 
-        ignore = lambda x: None
+        def ignore(x):
+            return None
 
         dispatch = {
             "cluster-live-utilization": self.stats_live_cluster_utilization,
@@ -134,24 +135,18 @@ class DLSDropfilePickup(CommonService):
 
     def stats_live_cluster_utilization(self, stats):
         self.rrd_file["cluster"].update(
-            list(
-                map(
-                    lambda r: [
+            [[
                         r["statistic-timestamp"],
                         r["total"],
                         r["broken"],
                         r["used-high"],
                         r["used-medium"],
                         r["used-low"],
-                    ],
-                    stats,
-                )
-            )
+                    ] for r in stats]
         )
         if "admin" in stats[0]:
             self.rrd_file["clustergroups"].update(
-                map(
-                    lambda r: [
+                ([
                         r["statistic-timestamp"],
                         r["cpu"]["total"],
                         r["cpu"]["broken"],
@@ -166,28 +161,22 @@ class DLSDropfilePickup(CommonService):
                         r["admin"]["total"],
                         r["admin"]["broken"],
                         r["admin"]["used"],
-                    ],
-                    stats,
-                )
+                    ] for r in stats)
             )
 
     def stats_test_cluster_utilization(self, stats):
         self.rrd_file["testcluster"].update(
-            map(
-                lambda r: [
+            ([
                     r["statistic-timestamp"],
                     r["total"],
                     r["broken"],
                     r["used-high"],
                     r["used-medium"],
                     r["used-low"],
-                ],
-                stats,
-            )
+                ] for r in stats)
         )
         self.rrd_file["testclustergroups"].update(
-            map(
-                lambda r: [
+            ([
                     r["statistic-timestamp"],
                     r["cpu"]["total"],
                     r["cpu"]["broken"],
@@ -202,43 +191,31 @@ class DLSDropfilePickup(CommonService):
                     r["admin"]["total"],
                     r["admin"]["broken"],
                     r["admin"]["used"],
-                ],
-                stats,
-            )
+                ] for r in stats)
         )
 
     def stats_live_cluster_jobs_waiting(self, stats):
         self.rrd_file["clusterbacklog"].update(
-            list(
-                map(
-                    lambda r: [
+            [[
                         r["statistic-timestamp"],
                         r["admin.q"],
                         r["bottom.q"],
                         r["low.q"],
                         r["medium.q"],
                         r["high.q"],
-                    ],
-                    stats,
-                )
-            )
+                    ] for r in stats]
         )
 
     def stats_test_cluster_jobs_waiting(self, stats):
         self.rrd_file["testclusterbacklog"].update(
-            list(
-                map(
-                    lambda r: [
+            [[
                         r["statistic-timestamp"],
                         r["test-admin.q"],
                         r["test-bottom.q"],
                         r["test-low.q"],
                         r["test-medium.q"],
                         r["test-high.q"],
-                    ],
-                    stats,
-                )
-            )
+                    ] for r in stats]
         )
 
     def open_all_recordfiles(self):

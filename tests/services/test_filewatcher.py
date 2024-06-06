@@ -491,9 +491,8 @@ def test_notify_for_found_file(nth_file, expected):
 def test_file_selection(select_n_images):
     select_n_images = 250
     for filecount in list(range(1, 255)) + list(range(3600, 3700)):
-        selection = lambda x: dlstbx.services.filewatcher.is_file_selected(
-            x, select_n_images, filecount
-        )
+        def selection(x):
+            return dlstbx.services.filewatcher.is_file_selected(x, select_n_images, filecount)
         l = list(filter(selection, range(1, filecount + 1)))
 
         # Check that correct number of images were selected
@@ -515,13 +514,13 @@ def test_filewatcher_watch_swmr(mocker, tmp_path):
     x = threading.Thread(
         target=h5maker.main,
         args=(h5_prefix,),
-        kwargs=dict(
-            block_size=10,
-            nblocks=10,
-            delay=delay,
-            per_image_delay=per_image_delay,
-            shuffle=False,
-        ),
+        kwargs={
+            "block_size": 10,
+            "nblocks": 10,
+            "delay": delay,
+            "per_image_delay": per_image_delay,
+            "shuffle": False,
+        },
     )
     x.start()
 

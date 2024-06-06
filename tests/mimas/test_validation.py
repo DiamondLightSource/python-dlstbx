@@ -17,7 +17,7 @@ def test_validation_of_unknown_objects():
         False,
         [],
         {},
-        dict(),
+        {},
     ):
         with pytest.raises(ValueError):
             dlstbx.mimas.validate(failing_object)

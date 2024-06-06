@@ -5,7 +5,6 @@ import threading
 import time
 
 import h5py
-
 from dlstbx.cli.h5rewrite import cli
 from dlstbx.swmr import h5watcher
 

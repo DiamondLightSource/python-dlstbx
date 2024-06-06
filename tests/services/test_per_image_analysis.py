@@ -3,9 +3,8 @@ from __future__ import annotations
 from unittest import mock
 
 import workflows.transport.common_transport
-from workflows.recipe.wrapper import RecipeWrapper
-
 from dlstbx.services.per_image_analysis import DLSPerImageAnalysis
+from workflows.recipe.wrapper import RecipeWrapper
 
 
 def generate_recipe_message(parameters, output=None):

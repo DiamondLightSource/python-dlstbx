@@ -3,9 +3,8 @@ from __future__ import annotations
 import dataclasses
 import itertools
 
-import pytest
-
 import dlstbx.mimas
+import pytest
 
 
 def test_validation_of_unknown_objects():

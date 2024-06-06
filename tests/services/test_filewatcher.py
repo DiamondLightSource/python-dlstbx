@@ -7,14 +7,13 @@ import threading
 import time
 from unittest import mock
 
+import dlstbx.services.filewatcher
 import h5py
 import pytest
 import workflows.transport.common_transport
-from workflows.recipe.wrapper import RecipeWrapper
-
-import dlstbx.services.filewatcher
 from dlstbx.services.filewatcher import DLSFileWatcher
 from dlstbx.swmr import h5maker
+from workflows.recipe.wrapper import RecipeWrapper
 
 
 def generate_recipe_message(parameters, output):

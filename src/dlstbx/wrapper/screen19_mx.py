@@ -18,7 +18,6 @@ clean_environment = {
 
 
 class Screen19MXWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.screen19_mx"
 
     def send_html_email_message(self, msg, email_params, img):

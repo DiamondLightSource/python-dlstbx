@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import os
 
-import pytest
-
 import dlstbx.util.hdf5
+import pytest
 
 
 @pytest.mark.skipif(
@@ -15,7 +14,6 @@ import dlstbx.util.hdf5
     reason="Test images not available",
 )
 def test_validate_pixel_mask_shape():
-
     dlstbx.util.hdf5.validate_pixel_mask(
         "/dls/i04-1/data/2022/cm31107-1/auto/TestLysozyme/TEST1/TEST1_1_master.h5"
     )

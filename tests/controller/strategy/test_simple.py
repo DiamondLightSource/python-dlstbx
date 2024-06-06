@@ -4,13 +4,14 @@ import uuid
 from unittest import mock
 
 import pytest
-
 from dlstbx.controller.strategy.simple import SimpleStrategy
 from dlstbx.controller.strategyenvironment import StrategyEnvironment
 
 service = mock.sentinel.service_name
 
-request = lambda n: {"required": {"count": n}, "optional": {}, "shutdown": {}}
+
+def request(n):
+    return {"required": {"count": n}, "optional": {}, "shutdown": {}}
 
 
 def mock_environment(number_of_services_holding, running, disappearing):

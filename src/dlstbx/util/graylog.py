@@ -49,7 +49,7 @@ class GraylogAPI:
 
         returncode = handler.getcode()
         success = returncode == 200
-        headers = {k: v for k, v in handler.headers.items()}
+        headers = dict(handler.headers.items())
         while True:
             body = b""
             try:

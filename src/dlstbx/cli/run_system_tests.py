@@ -259,7 +259,6 @@ def run():
     keep_waiting = True
     last_message = time.time()
     while keep_waiting:
-
         # Wait fixed time period or until next event
         wait_to = time.time() + 0.2
         keep_waiting = False

@@ -328,7 +328,6 @@ def _simulate(
         blsample_id = None
         if src_blsampleid is not None:
             if _sample_id is None:
-
                 log.debug("(SQL) Getting values from the source blsample record")
                 bls_row = retrieve_blsample_values(_db, src_blsampleid)
 
@@ -612,9 +611,7 @@ def call_sim(
             dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
         else:
             dest_visit_dir = Path("/dls", beamline, "data", str(now.year), dest_visit)
-        assert (
-            dest_visit_dir.is_dir()
-        ), f"Could not find {dest_visit_dir} directory for the specified visit and beamline."
+        assert dest_visit_dir.is_dir(), f"Could not find {dest_visit_dir} directory for the specified visit and beamline."
     # Else, calculate the destination directory for default proposal numbers
     else:
         # Get default proposals if a visit is not specified

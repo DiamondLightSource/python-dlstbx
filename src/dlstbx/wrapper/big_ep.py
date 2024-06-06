@@ -39,7 +39,6 @@ from dlstbx.wrapper.helpers import copy_results
 
 
 def get_bigep_parameters(big_ep_params, working_directory, logger):
-
     dcid = big_ep_params["dcid"]
     msg_default = {}
     if big_ep_params.get("ispyb_parameters"):
@@ -183,11 +182,9 @@ def record_big_ep_settings_in_ispyb(rpid, msg, logger):
 
 
 class BigEPWrapper(Wrapper):
-
     _logger_name = "zocalo.wrap.big_ep"
 
     def setup(self, working_directory: Path, params: dict):
-
         # Create working directory with symbolic link
         pipeline = self.recwrap.environment.get("pipeline")
         if params.get("create_symlink"):
@@ -270,7 +267,6 @@ class BigEPWrapper(Wrapper):
         return True
 
     def run_big_ep(self, working_directory: Path, params: dict):
-
         # Collect parameters from payload and check them
         self.msg = Namespace(**self.recwrap.environment["msg"])
 
@@ -389,7 +385,6 @@ class BigEPWrapper(Wrapper):
         return success
 
     def report(self, working_directory: Path, params: dict, success: bool):
-
         dcid = params["dcid"]
         fast_ep_path = params["fast_ep_path"]
         email_list = params["email_list"]
@@ -540,7 +535,6 @@ class BigEPWrapper(Wrapper):
         return success
 
     def run(self):
-
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = dict(self.recwrap.recipe_step["job_parameters"])
         self.recwrap.environment.update(params["ispyb_parameters"])

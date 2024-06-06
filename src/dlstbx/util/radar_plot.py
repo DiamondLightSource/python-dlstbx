@@ -57,7 +57,6 @@ def radar_factory(num_vars, frame="circle"):
         raise ValueError("unknown value for `frame`: %s" % frame)
 
     class RadarAxes(PolarAxes):
-
         name = "radar"
         # use 1 line segment to connect specified points
         RESOLUTION = 1

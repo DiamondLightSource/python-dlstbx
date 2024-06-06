@@ -39,7 +39,6 @@ def watcher(h5_data_files):
         # FIXME check timeout
 
         for h5 in h5_data_files:
-
             if h5.finished:
                 continue
 

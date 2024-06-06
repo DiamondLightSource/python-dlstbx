@@ -5,14 +5,13 @@ import json
 import time
 from unittest import mock
 
+import dlstbx.ispybtbx
 import ispyb.sqlalchemy
 import pytest
 import sqlalchemy
-from sqlalchemy.orm import sessionmaker
-
-import dlstbx.ispybtbx
 from dlstbx import crud
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx
+from sqlalchemy.orm import sessionmaker
 
 ds = {
     "gphl_C2": 1397955,

@@ -4,10 +4,9 @@ import json
 import time
 from unittest import mock
 
+import dlstbx.services.xray_centering
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.transport.offline_transport import OfflineTransport
-
-import dlstbx.services.xray_centering
 
 
 def test_grid_info_params_from_legacy_pixels_per_micron():

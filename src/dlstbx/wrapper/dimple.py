@@ -21,7 +21,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class DimpleWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.dimple"
 
     def send_results_to_ispyb(self):
@@ -78,10 +77,14 @@ class DimpleWrapper(Wrapper):
         input_pdb = pathlib.Path(dimple_args[1])
         # Record AutoProcAttachments (SCI-9692)
         result_files = {
-            self.results_directory
-            / "final.mtz": (schemas.AttachmentFileType.RESULT, 1),
-            self.results_directory
-            / "final.pdb": (schemas.AttachmentFileType.RESULT, 1),
+            self.results_directory / "final.mtz": (
+                schemas.AttachmentFileType.RESULT,
+                1,
+            ),
+            self.results_directory / "final.pdb": (
+                schemas.AttachmentFileType.RESULT,
+                1,
+            ),
             self.results_directory / "screen.log": (schemas.AttachmentFileType.LOG, 1),
             input_mtz: (schemas.AttachmentFileType.INPUT, 2),
             input_pdb: (schemas.AttachmentFileType.INPUT, 2),

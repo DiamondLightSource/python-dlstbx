@@ -293,7 +293,7 @@ class DLSTrigger(CommonService):
             return
         rw.transport.transaction_commit(txn)
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_dimple(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -410,7 +410,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_metal_id(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -650,7 +650,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_ep_predict(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -739,7 +739,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_mr_predict(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -815,7 +815,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_screen19_mx(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -873,7 +873,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_best(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -916,7 +916,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_fast_ep(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -983,7 +983,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_mrbump(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -1077,7 +1077,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobids}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_big_ep_common(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -1151,7 +1151,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_big_ep(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -1284,7 +1284,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": None}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_multiplex(
         self,
         rw: RecipeWrapper,
@@ -1674,7 +1674,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobids}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_xia2_ssx_reduce(
         self,
         rw: RecipeWrapper,
@@ -1997,7 +1997,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobids}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_alphafold(
         self,
         rw: workflows.recipe.RecipeWrapper,

@@ -145,7 +145,6 @@ def _retrieve_mx_processing(dcid, session):
 
 
 def _check_mx_outcome(test, expected_outcome, session):
-
     failed_tests = []
     outcomes = {}
     overall = {}

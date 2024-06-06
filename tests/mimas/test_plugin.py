@@ -3,7 +3,6 @@ from __future__ import annotations
 import functools
 
 import zocalo.configuration
-
 from dlstbx.mimas import MimasDCClass, MimasEvent, MimasScenario, handle_scenario
 
 

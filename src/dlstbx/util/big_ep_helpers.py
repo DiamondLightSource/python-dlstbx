@@ -128,7 +128,6 @@ def read_data(msg):
     """Read and scale input data"""
 
     def __read_mtz_object(obj, anomalous=True):
-
         for ma in obj.as_miller_arrays():
             if anomalous and not ma.anomalous_flag():
                 continue
@@ -242,7 +241,6 @@ def read_mtz_datasets(msg, logger):
 
 
 def write_settings_file(working_directory, msg):
-
     json_data = json.dumps(
         {
             "atom": msg.atom,
@@ -277,8 +275,8 @@ def write_sequence_file(working_directory, msg):
 
 
 def get_autosharp_model_files(working_directory, logger):
-
-    parse_path = lambda v: str(Path(v.split("=")[1][1:-2]).resolve())
+    def parse_path(v):
+        return str(Path(v.split("=")[1][1:-2]).resolve())
 
     try:
         with open(str(working_directory / ".autoSHARP"), "r") as f:
@@ -330,7 +328,6 @@ def get_autosharp_model_files(working_directory, logger):
 
 
 def get_autobuild_model_files(working_directory, logger):
-
     mdl_dict = {
         "pdb": str(working_directory / "AutoBuild_run_1_" / "overall_best.pdb"),
         "mtz": str(
@@ -352,7 +349,6 @@ def get_autobuild_model_files(working_directory, logger):
 
 
 def get_crank2_model_files(working_directory, logger):
-
     ref_pth = working_directory / "crank2" / "5-comb_phdmmb" / "ref"
     dmfull_pth = working_directory / "crank2" / "5-comb_phdmmb" / "dmfull" / "ref"
 
@@ -432,7 +428,6 @@ def write_coot_script(working_directory, mdl_dict):
 
 
 def ispyb_write_model_json(working_directory, mdl_dict, logger):
-
     json_data = json.dumps(mdl_dict, indent=4, separators=(",", ":"))
     with open(
         os.path.join(working_directory, "big_ep_model_ispyb.json"), "w"

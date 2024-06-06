@@ -44,7 +44,6 @@ def view_as_quat(p1, p2):
 
 
 class MetalIdWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.metal_id"
 
     def are_pdbs_similar(self, file_1, file_2, tolerances=None):
@@ -62,9 +61,9 @@ class MetalIdWrapper(Wrapper):
             sym = pdb_obj.crystal_symmetry()
             atoms = pdb_obj.atoms()
             atom_names = atoms.extract_name()
-            list_atoms = [atom for atom in atom_names]
+            list_atoms = list(atom_names)
             atom_coords = atoms.extract_xyz()
-            list_coords = [coords for coords in atom_coords]
+            list_coords = list(atom_coords)
             return sym, list_atoms, list_coords
 
         # Read pdb files

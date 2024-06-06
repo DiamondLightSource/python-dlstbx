@@ -3,7 +3,6 @@ from __future__ import annotations
 import functools
 
 import pytest
-
 from dlstbx import mimas
 from dlstbx.mimas import (
     MimasDCClass,

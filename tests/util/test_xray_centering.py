@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import dlstbx.util.xray_centering
 import numpy as np
 import pytest
-
-import dlstbx.util.xray_centering
 
 
 def test_xray_centering():

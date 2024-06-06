@@ -17,7 +17,6 @@ from sqlalchemy import or_
 
 
 def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
-
     url = ispyb.sqlalchemy.url()
     engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
     db_session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
@@ -147,7 +146,6 @@ def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
 def read_bigep_results(rows):
     results = {}
     for row in rows:
-
         rpid = row["rpid"]
         if rpid not in results:
             results[rpid] = {

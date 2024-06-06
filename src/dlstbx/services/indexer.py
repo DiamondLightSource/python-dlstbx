@@ -92,7 +92,6 @@ class DLSIndexer(CommonService):
 
     @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     def index(self, rw: workflows.recipe.RecipeWrapper, header: dict, message: dict):
-
         parameters = ChainMapWithReplacement(
             message if isinstance(message, dict) else {},
             rw.recipe_step["parameters"],

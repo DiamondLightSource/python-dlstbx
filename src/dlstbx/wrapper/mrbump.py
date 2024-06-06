@@ -15,7 +15,6 @@ from dlstbx.wrapper.helpers import copy_results
 
 
 class MrBUMPWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.mrbump"
 
     def construct_script(
@@ -273,7 +272,6 @@ class MrBUMPWrapper(Wrapper):
         return success
 
     def run(self) -> bool:
-
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = dict(self.recwrap.recipe_step["job_parameters"])
 

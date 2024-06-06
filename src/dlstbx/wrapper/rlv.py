@@ -11,7 +11,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class RLVWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.rlv"
 
     def run(self):

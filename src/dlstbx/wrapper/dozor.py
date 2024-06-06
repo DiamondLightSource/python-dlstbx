@@ -15,7 +15,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class DozorWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.dozor"
 
     def run(self):

@@ -21,7 +21,6 @@ clean_environment = {
 
 
 class MRPredictWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.mr_predict"
 
     def run_phaser_ellg(self, working_directory, tag, params, timeout):

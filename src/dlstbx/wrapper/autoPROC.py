@@ -495,7 +495,6 @@ class autoPROCWrapper(Wrapper):
         return success
 
     def setup(self, working_directory: Path, params: dict):
-
         # Create working directory with symbolic link
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
@@ -515,7 +514,6 @@ class autoPROCWrapper(Wrapper):
         return True
 
     def run_autoPROC(self, working_directory: Path, params: dict):
-
         subprocess_directory = working_directory / "autoPROC"
         subprocess_directory.mkdir(parents=True, exist_ok=True)
         input_image_directory = None
@@ -609,7 +607,6 @@ class autoPROCWrapper(Wrapper):
         return success
 
     def report(self, working_directory: Path, params: dict, success: bool):
-
         working_directory = working_directory / "autoPROC"
         if not working_directory.is_dir():
             self.log.error(f"autoPROC working directory {working_directory} not found.")
@@ -761,7 +758,6 @@ class autoPROCWrapper(Wrapper):
         return success
 
     def run(self):
-
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = dict(self.recwrap.recipe_step["job_parameters"])
 

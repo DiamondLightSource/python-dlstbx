@@ -21,7 +21,6 @@ clean_environment = {
 
 
 class EPPredictWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.ep_predict"
 
     def get_xia2_meric_keys(self, params):

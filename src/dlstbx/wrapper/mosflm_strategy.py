@@ -10,7 +10,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class MosflmStrategyWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.mosflm_strategy"
 
     def run(self):
@@ -160,7 +159,6 @@ class MosflmStrategyWrapper(Wrapper):
         return success
 
     def send_screening_result_to_ispyb(self, dcid, results):
-
         # example strategy.dat output:
         #
         # character,57.910,57.910,149.806,90.000,90.000,90.000,P4,0.55
@@ -174,7 +172,6 @@ class MosflmStrategyWrapper(Wrapper):
         for i, strategy in enumerate(
             [results["strategy_native"], results["strategy_anomalous"]]
         ):
-
             # Step 1: Add new record to Screening table, keep the ScreeningId
             d = {
                 "dcid": dcid,

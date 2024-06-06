@@ -10,7 +10,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class EdnaWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.edna"
 
     def run(self):
@@ -272,7 +271,6 @@ module load {edna_module}
         min_exposure,
         anomalous=False,
     ):
-
         params = self.recwrap.recipe_step["job_parameters"]
         dcid = int(params["dcid"])
         assert dcid > 0, "Invalid data collection ID given."

@@ -17,7 +17,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class FastEPWrapper(Wrapper):
-
     _logger_name = "zocalo.wrap.fast_ep"
 
     def stop_fast_ep(self, params):
@@ -326,7 +325,6 @@ class FastEPWrapper(Wrapper):
         return True
 
     def run(self):
-
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = dict(self.recwrap.recipe_step["job_parameters"])
 

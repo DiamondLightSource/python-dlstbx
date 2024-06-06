@@ -8,7 +8,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class Screen19Wrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.screen19"
 
     def run(self):

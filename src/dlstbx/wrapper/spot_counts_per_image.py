@@ -10,7 +10,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class SCPIWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.spot_counts_per_image"
 
     def run(self):

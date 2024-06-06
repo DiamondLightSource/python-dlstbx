@@ -7,7 +7,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class TopazWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.timg"
 
     def run(self):

@@ -12,7 +12,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class FastRDPWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.fast_rdp"
 
     def send_results_to_ispyb(self, z):

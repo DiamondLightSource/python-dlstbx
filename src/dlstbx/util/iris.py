@@ -100,7 +100,6 @@ def remove_objects_from_s3(minio_clinet, bucket_name, s3_urls):
 
 
 def remove_images_from_s3(minio_client, bucket_name, pid, images, logger):
-
     if not minio_client.bucket_exists(bucket_name):
         logger.info(f"Bucket {bucket_name} doesn't exists.")
         return
@@ -184,7 +183,6 @@ def decompress_results_file(working_directory, filename, logger):
 
 
 def get_presigned_urls(minio_client, bucket_name, pid, files, logger):
-
     if not minio_client.bucket_exists(bucket_name):
         minio_client.make_bucket(bucket_name)
     else:
@@ -302,7 +300,6 @@ def retrieve_results_from_s3(
 
 
 def retrieve_file_with_url(filename, url, logger):
-
     import pycurl
 
     logger.info(f"Retrieving data from {url}")

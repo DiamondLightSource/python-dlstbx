@@ -24,7 +24,6 @@ clean_environment = {
 
 
 class Topaz3Wrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.topaz3"
 
     """
@@ -177,8 +176,9 @@ class Topaz3Wrapper(Wrapper):
         assert (
             len(payload["cell_info"]) == 6
         ), f"Expected list of 6 numbers for cell info, got {payload['cell_info']}"
-        assert isinstance(payload["cell_info"][0], int) or isinstance(
-            payload["cell_info"][0], float
+        assert (
+            isinstance(payload["cell_info"][0], int)
+            or isinstance(payload["cell_info"][0], float)
         ), f"Expected cell info to be int or float types, got {type(payload['cell_info'][0])}"
         assert isinstance(
             payload["space_group"], str

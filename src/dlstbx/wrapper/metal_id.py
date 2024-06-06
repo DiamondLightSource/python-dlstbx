@@ -44,7 +44,6 @@ def view_as_quat(p1, p2):
 
 
 class MetalIdWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.metal_id"
 
     def are_pdbs_similar(self, file_1, file_2, tolerances=None):

@@ -6,7 +6,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class SteppedTransmissionWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.stepped_transmission"
 
     def run(self):
@@ -72,7 +71,6 @@ class SteppedTransmissionWrapper(Wrapper):
         ispyb_command_list = []
 
         for i, wedges in enumerate([recipe_1, recipe_2][:1]):
-
             # Step 1: Add new record to Screening table, keep the ScreeningId
             d = {
                 "dcid": dcid,
@@ -122,7 +120,6 @@ class SteppedTransmissionWrapper(Wrapper):
             ispyb_command_list.append(d)
 
             for j, wedge in enumerate(wedges):
-
                 # Step 5: Store screeningStrategyWedge results, linked to the screeningStrategyId
                 #         Keep the screeningStrategyWedgeId
                 d = {

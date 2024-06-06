@@ -204,7 +204,6 @@ def read_xia2_processing(tmpl_data):
 
 
 def generate_model_snapshots(working_directory, pipeline, tmpl_env):
-
     logger.info(f"Model path: {working_directory}")
     try:
         mdl_data = get_map_model_from_json(working_directory)
@@ -341,7 +340,6 @@ def get_image_files(tmpl_data):
 
 
 def get_email_subject(log_file, visit):
-
     rel_pth = os.path.dirname(log_file).split(os.sep)
     idx_pp = next(i for i, v in enumerate(rel_pth) if "xia2" in v or "autoPROC" in v)
     dataset_relpth = os.sep.join(rel_pth[idx_pp - 2 : idx_pp + 2])
@@ -351,7 +349,6 @@ def get_email_subject(log_file, visit):
 
 def send_html_email_message(msg, pipeline, to_addrs, tmpl_data):
     def add_images(m):
-
         for cid, img in tmpl_data["html_images"].items():
             try:
                 mime_image = MIMEImage(img)

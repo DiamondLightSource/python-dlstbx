@@ -135,7 +135,6 @@ class Xia2Wrapper(Wrapper):
         self.log.info("Sent %d commands to ISPyB", len(ispyb_command_list))
 
     def setup(self, working_directory: Path, params: dict):
-
         # Create symbolic link
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
@@ -403,7 +402,6 @@ class Xia2Wrapper(Wrapper):
         return success
 
     def run(self):
-
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = dict(self.recwrap.recipe_step["job_parameters"])
 

@@ -148,7 +148,6 @@ class EM_Mixin:
 
     @validate_arguments(config=dict(arbitrary_types_allowed=True))
     def do_insert_movie(self, *, parameter_map: MovieParams, **kwargs):
-
         self.log.info("Inserting Movie parameters.")
 
         movie_params = self.ispyb.em_acquisition.get_movie_params()

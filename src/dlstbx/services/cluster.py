@@ -10,7 +10,6 @@ import pathlib
 import re
 import subprocess
 import time
-from pprint import pformat
 from typing import Optional
 
 import pkg_resources
@@ -46,7 +45,6 @@ class JobSubmissionParameters(pydantic.BaseModel):
     cluster: str = "cluster"
     partition: Optional[str]
     job_name: Optional[str]  #
-    priority: Optional[int]  # HTCondor only
     environment: Optional[dict[str, str]] = None
     cpus_per_task: Optional[int] = None
     tasks: Optional[int] = None  # slurm only
@@ -56,12 +54,6 @@ class JobSubmissionParameters(pydantic.BaseModel):
     min_memory_per_cpu: Optional[int] = pydantic.Field(
         None, description="Minimum real memory per cpu (MB)"
     )
-    max_memory_per_cpu: Optional[int] = pydantic.Field(
-        None, description="Maximum real memory per cpu (MB)"
-    )  # HTCondor: maximum memory allocated for job
-    max_disk_per_cpu: Optional[int] = pydantic.Field(
-        None, description="Maximum disk space per cpu (MB)"
-    )  # HTCondor: maximum disk space allocated for job
     time_limit: Optional[datetime.timedelta] = None
     gpus: Optional[int] = None
     exclusive: bool = False
@@ -70,12 +62,8 @@ class JobSubmissionParameters(pydantic.BaseModel):
     qos: Optional[str]
     queue: Optional[str]  # legacy for grid engine
     qsub_submission_parameters: Optional[str]  # temporary support for legacy recipes
-    transfer_input_files: Optional[list[str]]  # HTCondor: list of input objects to
-    #           transfer from submitter node
-    transfer_output_files: Optional[
-        list[str]
-    ]  # HTCondor: list of output objects to transfer
-    #           transfer to submitter node
+    transfer_input_files: Optional[list[str]]  # datasyncer: list of input objects to
+    #                                            transfer from submitter node
 
 
 class JobSubmissionValidationError(ValueError):
@@ -272,85 +260,6 @@ def submit_to_slurm(
     return response.job_id
 
 
-def submit_to_htcondor(
-    params: JobSubmissionParameters,
-    working_directory: pathlib.Path,
-    logger: logging.Logger,
-    **kwargs,
-) -> int | None:
-    current_wd = os.getcwd()
-
-    singularity_environment = "SINGULARITY_CACHEDIR=/tmp/singularity SINGULARITY_LOCALCACHEDIR=/tmp/singularity SINGULARITY_TMPDIR=/tmp/singularity"
-
-    commands = params.commands
-    if not isinstance(commands, str):
-        commands = "\n".join(commands)
-    cluster_exec, cluster_args = commands.split("\n", 1)
-    logger.info(f"{cluster_exec} {cluster_args}")
-    htcondor_submit = {
-        "executable": cluster_exec,
-        "arguments": cluster_args,
-        "universe": "vanilla",
-        "environment": (
-            singularity_environment
-            if params.environment is None
-            else " ".join(f"{k}={v}" for k, v in params.environment.items())
-        ),
-        "should_transfer_files": "YES",
-        "when_to_transfer_output": "ON_EXIT_OR_EVICT",
-        "output": f"{params.job_name}.condor.out",
-        "error": f"{params.job_name}.condor.err",
-        "log": f"{params.job_name}.condor.log",
-        "on_exit_hold": False,
-        "on_exit_remove": True,
-    }
-    if params.cpus_per_task:
-        htcondor_submit.update({"request_cpus": str(params.cpus_per_task)})
-        if params.max_memory_per_cpu:
-            htcondor_submit.update(
-                {
-                    "request_memory": f"{str(params.max_memory_per_cpu * params.cpus_per_task)}MB"
-                }
-            )
-        if params.max_disk_per_cpu:
-            htcondor_submit.update(
-                {
-                    "request_disk": f"{str(params.max_disk_per_cpu * params.cpus_per_task)}MB"
-                }
-            )
-    if params.transfer_input_files:
-        htcondor_submit.update(
-            {"transfer_input_files": ",".join(params.transfer_input_files)}
-        )
-    if params.transfer_output_files:
-        htcondor_submit.update(
-            {"transfer_output_files": ",".join(params.transfer_output_files)}
-        )
-    if params.priority:
-        htcondor_submit["priority"] = f"{params.priority}"
-
-    try:
-        import htcondor
-
-        coll = htcondor.Collector(htcondor.param["COLLECTOR_HOST"])
-        schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
-        schedd = htcondor.Schedd(schedd_ad)
-        logger.debug(f"Address of the Schedd is: {str(schedd_ad['MyAddress'])}")
-        os.chdir(working_directory)
-        htcondor_job = htcondor.Submit(htcondor_submit)
-
-        with schedd.transaction() as txn:
-            jobnumber = htcondor_job.queue(txn, count=1)
-    except Exception:
-        logger.exception(
-            f"Could not submit HTCondor job:\n{pformat(htcondor_submit)}",
-        )
-        return None
-    finally:
-        os.chdir(current_wd)
-    return jobnumber
-
-
 class DLSCluster(CommonService):
     """A service to interface zocalo with functions to start new
     jobs on the clusters."""
@@ -441,39 +350,6 @@ class DLSCluster(CommonService):
                 commands=commands,
                 qsub_submission_parameters=cluster_submission_parameters,
                 queue=queue,
-            )
-        elif isinstance(legacy_cluster_submission_parameters, dict):
-            # Dictionary of values for htcondor submission
-            self.log.warning(
-                f"Legacy htcondor parameters encountered in recipe_ID: {rw.environment['ID']}"
-            )
-            max_memory_per_cpu = None
-            max_disk_per_cpu = None
-            if cpus_per_task := legacy_cluster_submission_parameters.get(
-                "request_cpus"
-            ):
-                cpus_per_task = int(cpus_per_task)
-
-                if request_memory := legacy_cluster_submission_parameters.get(
-                    "request_memory"
-                ):
-                    max_memory_per_cpu = parse_size(request_memory) / cpus_per_task
-                if request_disk := legacy_cluster_submission_parameters.get(
-                    "request_disk"
-                ):
-                    max_disk_per_cpu = parse_size(request_disk) / cpus_per_task
-            if environment := legacy_cluster_submission_parameters.get("environment"):
-                legacy_cluster_submission_parameters["environment"] = dict(
-                    item.split("=") for item in environment.split()
-                )
-            params = JobSubmissionParameters(
-                **legacy_cluster_submission_parameters,
-                scheduler="htcondor",
-                cpus_per_task=cpus_per_task,
-                max_memory_per_cpu=max_memory_per_cpu,
-                max_disk_per_cpu=max_disk_per_cpu,
-                job_name=legacy_cluster_submission_parameters["output"].split(".")[0],
-                commands=parameters["cluster_commands"],
             )
         else:
             params = JobSubmissionParameters(**parameters.get("cluster", {}))

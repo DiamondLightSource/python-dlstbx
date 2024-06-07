@@ -246,7 +246,6 @@ setup(
         "workflows.services": sorted(service_list),
         "zocalo.health_checks": sorted(health_checks),
         "zocalo.services.cluster.schedulers": [
-            "htcondor = dlstbx.services.cluster:submit_to_htcondor",
             "slurm = dlstbx.services.cluster:submit_to_slurm",
             "iris = dlstbx.services.cluster:submit_to_slurm",
         ],

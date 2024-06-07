@@ -14,30 +14,28 @@ from zocalo.util import slurm
 from dlstbx.util.iris import get_minio_client
 
 
-class HTCondorStats(CommonService):
+class IRISStats(CommonService):
     """
-    A service that collects HTCondor and S3 Echo object store utilization
+    A service that collects IRIS and S3 Echo object store utilization
     statistics.
     """
 
     # Human readable service name
-    _service_name = "HTCondorstats"
+    _service_name = "IRISStats"
 
     # Logger name
-    _logger_name = "dlstbx.services.htcondorstats"
+    _logger_name = "dlstbx.services.irisstats"
 
     # STFC S3 Echo credentials
     _s3echo_credentials = "/dls_sw/apps/zocalo/secrets/credentials-echo-mx.cfg"
 
     def initializing(self):
         """
-        Register callback function to collect HTCondor and S3 Echo stats.
+        Register callback function to collect IRIS and S3 Echo stats.
         """
-        self.log.info("HTCondorstats starting")
+        self.log.info("IRISStats starting")
 
-        self.minio_client: minio.Minio = get_minio_client(
-            HTCondorStats._s3echo_credentials
-        )
+        self.minio_client: minio.Minio = get_minio_client(IRISStats._s3echo_credentials)
 
         self.iris_api: slurm.SlurmRestApi = (
             slurm.SlurmRestApi.from_zocalo_configuration(self.config, cluster="iris")

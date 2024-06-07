@@ -11,24 +11,24 @@ from zocalo.util import slurm
 from dlstbx.util.profiler import Profiler
 
 
-class HTCondorWatcher(CommonService):
+class IRISWatcher(CommonService):
     """
-    A service that waits for HTCondor jobs to complete and notifies interested
+    A service that waits for IRIS jobs to complete and notifies interested
     parties when they do, or don't.
     """
 
     # Human readable service name
-    _service_name = "HTCondorwatcher"
+    _service_name = "IRISwatcher"
 
     # Logger name
-    _logger_name = "dlstbx.services.htcondorwatcher"
+    _logger_name = "dlstbx.services.iriswatcher"
 
     def initializing(self):
         """
-        Subscribe to the htcondorwatcher queue. Received messages must be
+        Subscribe to the iriswatcher queue. Received messages must be
         acknowledged.
         """
-        self.log.info("HTCondorwatcher starting")
+        self.log.info("IRISwatcher starting")
 
         self.slurm_api: slurm.SlurmRestApi = (
             slurm.SlurmRestApi.from_zocalo_configuration(self.config, cluster="iris")
@@ -36,7 +36,7 @@ class HTCondorWatcher(CommonService):
 
         workflows.recipe.wrap_subscribe(
             self._transport,
-            "htcondorwatcher",
+            "iriswatcher",
             self.watch_jobs,
             acknowledgement=True,
             log_extender=self.extend_log,
@@ -167,7 +167,7 @@ class HTCondorWatcher(CommonService):
                     timeoutlog = self.log.info
 
                 timeoutlog(
-                    "HTCondorwatcher for jobs %s timed out after %.1f seconds (%d of %d jobs found after %.1f seconds)",
+                    "IRISwatcher for jobs %s timed out after %.1f seconds (%d of %d jobs found after %.1f seconds)",
                     pformat(seen_jobs),
                     runtime,
                     len(seen_jobs),

@@ -42,9 +42,9 @@ cluster_queue_mapping: dict[str, dict[str, str]] = {
 
 
 class JobSubmissionParameters(pydantic.BaseModel):
-    scheduler: str = "grid_engine"
-    cluster: str = "cluster"
-    partition: Optional[str]
+    scheduler: str = "slurm"
+    cluster: str = "cs05r"
+    partition: str = "cs04r"
     job_name: Optional[str]  #
     priority: Optional[int]  # HTCondor only
     environment: Optional[dict[str, str]] = None
@@ -68,7 +68,6 @@ class JobSubmissionParameters(pydantic.BaseModel):
     account: Optional[str]  # account in slurm terminology
     commands: list[str] | str
     qos: Optional[str]
-    queue: Optional[str]  # legacy for grid engine
     qsub_submission_parameters: Optional[str]  # temporary support for legacy recipes
     transfer_input_files: Optional[list[str]]  # HTCondor: list of input objects to
     #           transfer from submitter node

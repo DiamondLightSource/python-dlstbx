@@ -8,7 +8,6 @@ import math
 import os
 import pathlib
 import re
-import subprocess
 import time
 from pprint import pformat
 from typing import Optional
@@ -98,107 +97,6 @@ def parse_size(size):
         size = re.sub(r"([KMGT]?B)", r" \1", size)
     number, unit = [string.strip() for string in size.split()]
     return int(float(number) * units[unit])
-
-
-def submit_to_grid_engine(
-    params: JobSubmissionParameters,
-    working_directory: pathlib.Path,
-    logger: logging.Logger,
-    **kwargs,
-) -> int | None:
-    # validate
-    assert params.cluster is not None
-    if params.account and 1 < len(params.account.strip()) and "{" not in params.account:
-        if params.cluster == "hamilton" and params.account == "dls":
-            raise JobSubmissionValidationError(
-                "Project 'dls' is not allowed on Hamilton"
-            )
-    elif params.cluster == "hamilton":
-        raise JobSubmissionValidationError(
-            f"No cluster project set for job ({params.account}) on Hamilton. "
-            "Cluster project is mandatory for submission."
-        )
-
-    submission_params: list
-    if params.qsub_submission_parameters:
-        submission_params = params.qsub_submission_parameters.split()
-    else:
-        submission_params = []
-
-    if params.job_name:
-        submission_params.extend(["-N", params.job_name])
-    if params.cpus_per_task:
-        submission_params.extend(["-pe", "smp", str(params.cpus_per_task)])
-    if params.min_memory_per_cpu:
-        submission_params.extend(["-l", f"mfree={params.min_memory_per_cpu}M"])
-    if params.time_limit:
-        HHMMSS = format_timedelta_to_HHMMSS(params.time_limit)
-        submission_params.extend(["-l", f"h_rt={HHMMSS}"])
-    if params.exclusive:
-        submission_params.extend(["-l", "exclusive"])
-    if params.gpus:
-        submission_params.extend(["-l", f"gpus={params.gpus}"])
-    if params.account:
-        submission_params.extend(["-P", params.account])
-
-    cluster_queue = params.queue
-    if cluster_queue is not None:
-        mapped_queue = cluster_queue_mapping[params.cluster].get(cluster_queue)
-        if mapped_queue:
-            logger.debug(
-                f"Mapping requested cluster queue {cluster_queue} on cluster {params.cluster} to {mapped_queue}"
-            )
-        else:
-            mapped_queue = cluster_queue_mapping[params.cluster].get("default")
-            if mapped_queue:
-                logger.info(
-                    f"Requested cluster queue {cluster_queue} not available on cluster {params.cluster}, mapping to {mapped_queue} instead"
-                )
-        if mapped_queue:
-            submission_params = ["-q", mapped_queue] + submission_params
-        else:
-            logger.warning(
-                f"Requested cluster queue {cluster_queue} not available on cluster {params.cluster}, no default queue set"
-            )
-
-    commands = params.commands
-    if not isinstance(commands, str):
-        commands = " ".join(commands)
-
-    submission = [
-        ". /etc/profile.d/modules.sh",
-        "module load global/" + params.cluster,
-        # thanks to Modules 3.2 weirdness qsub may now be a function
-        # calling the real qsub command, but eating up its parameters.
-        "unset -f qsub",
-        f"qsub {' '.join(submission_params)} << EOF",
-        "#!/bin/bash",
-        ". /etc/profile.d/modules.sh",
-        "cd " + os.fspath(working_directory),
-        commands,
-        "EOF",
-    ]
-    logger.debug(
-        f"Cluster ({params.cluster}) submission parameters: {submission_params}"
-    )
-    logger.debug(f"Commands: {commands}")
-    logger.debug(f"Working directory: {working_directory}")
-    result = subprocess.run(
-        ["/bin/bash"],
-        input="\n".join(submission).encode("latin1"),
-        cwd=working_directory,
-        capture_output=True,
-    )
-    if result.returncode:
-        logger.error(
-            "Could not submit cluster job:\n%s\n%s",
-            result.stdout.decode("latin1"),
-            result.stderr.decode("latin1"),
-        )
-        return None
-    assert b"has been submitted" in result.stdout
-    jobnumber = result.stdout.split()[2].decode("latin1")
-    return int(jobnumber)
 
 
 def submit_to_slurm(
@@ -416,66 +314,15 @@ class DLSCluster(CommonService):
 
     def run_submit_job(self, rw, header, message):
         """Submit cluster job according to message."""
-
         parameters = rw.recipe_step["parameters"]
-        legacy_cluster_submission_parameters = parameters.get(
-            "cluster_submission_parameters"
-        )
-        if isinstance(legacy_cluster_submission_parameters, str):
-            # String containing Grid Engine submission parameters
-            self.log.warning(
-                f"Legacy cluster parameters encountered in recipe_ID: {rw.environment['ID']}"
+        if parameters.get("cluster_submission_parameters"):
+            self.log.error(
+                f"Deprecated cluster parameters encountered in recipe_ID: {rw.environment['ID']}"
             )
-            cluster = parameters["cluster"]
-            cluster_submission_parameters = parameters.get(
-                "cluster_submission_parameters"
-            )
-            account = parameters.get("cluster_project")
-            queue = parameters.get("cluster_queue")
-            commands = parameters.get("cluster_commands")
-            params = JobSubmissionParameters(
-                scheduler="grid_engine",
-                cluster=cluster,
-                account=account,
-                commands=commands,
-                qsub_submission_parameters=cluster_submission_parameters,
-                queue=queue,
-            )
-        elif isinstance(legacy_cluster_submission_parameters, dict):
-            # Dictionary of values for htcondor submission
-            self.log.warning(
-                f"Legacy htcondor parameters encountered in recipe_ID: {rw.environment['ID']}"
-            )
-            max_memory_per_cpu = None
-            max_disk_per_cpu = None
-            if cpus_per_task := legacy_cluster_submission_parameters.get(
-                "request_cpus"
-            ):
-                cpus_per_task = int(cpus_per_task)
+            self._transport.nack(header)
+            return
 
-                if request_memory := legacy_cluster_submission_parameters.get(
-                    "request_memory"
-                ):
-                    max_memory_per_cpu = parse_size(request_memory) / cpus_per_task
-                if request_disk := legacy_cluster_submission_parameters.get(
-                    "request_disk"
-                ):
-                    max_disk_per_cpu = parse_size(request_disk) / cpus_per_task
-            if environment := legacy_cluster_submission_parameters.get("environment"):
-                legacy_cluster_submission_parameters["environment"] = dict(
-                    item.split("=") for item in environment.split()
-                )
-            params = JobSubmissionParameters(
-                **legacy_cluster_submission_parameters,
-                scheduler="htcondor",
-                cpus_per_task=cpus_per_task,
-                max_memory_per_cpu=max_memory_per_cpu,
-                max_disk_per_cpu=max_disk_per_cpu,
-                job_name=legacy_cluster_submission_parameters["output"].split(".")[0],
-                commands=parameters["cluster_commands"],
-            )
-        else:
-            params = JobSubmissionParameters(**parameters.get("cluster", {}))
+        params = JobSubmissionParameters(**parameters.get("cluster", {}))
 
         if not isinstance(params.commands, str):
             params.commands = "\n".join(params.commands)

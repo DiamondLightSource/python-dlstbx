@@ -27,56 +27,6 @@ from dlstbx.util.pdb import PDBFileOrCode
 
 logger = logging.getLogger("dlstbx.ispybtbx")
 
-# List of beamlines with GPFS access to gpfs03/gpfs04
-_cs05r_gpfs_beamlines = {
-    "b07",
-    "b07-1",
-    "b18",
-    "b21",
-    "b22",
-    "e03",
-    "ebic",
-    "i04-1",
-    "i05",
-    "i05-1",
-    "i07",
-    "i08",
-    "i08-1",
-    "i09",
-    "i09-1",
-    "i09-2",
-    "i10",
-    "i10-1",
-    "i12",
-    "i13",
-    "i13-1",
-    "i14",
-    "i14-1",
-    "i19",
-    "i19-1",
-    "i19-2",
-    "i20",
-    "i20-1",
-    "i21",
-    "k11",
-    "m01",
-    "m02",
-    "m03",
-    "m04",
-    "m05",
-    "m06",
-    "m07",
-    "m08",
-    "m10",
-    "m11",
-    "m12",
-    "m13",
-    "m14",
-    "mpl",
-    "p45",
-    "p99",
-}
-
 
 def _get(obj: Any, name: str):
     """
@@ -814,14 +764,10 @@ def ispyb_filter(
         raise ValueError(f"No database entry found for dcid={dc_id}: {dc_id}")
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
     parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id, session)
-    if str(parameters["ispyb_beamline"]).lower() in _cs05r_gpfs_beamlines:
-        parameters["ispyb_preferred_datacentre"] = "cs05r"
-        parameters["ispyb_preferred_scheduler"] = "slurm"
-        parameters["ispyb_preferred_queue_variant"] = ".cs05r_gpfs"
-    else:
-        parameters["ispyb_preferred_datacentre"] = "cluster"
-        parameters["ispyb_preferred_scheduler"] = "grid_engine"
-        parameters["ispyb_preferred_queue_variant"] = ""
+    parameters["ispyb_preferred_datacentre"] = "cs05r"
+    parameters["ispyb_preferred_scheduler"] = "slurm"
+    parameters["ispyb_preferred_queue_variant"] = ".cs05r_gpfs"
+
     parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info, session)
     parameters["ispyb_dc_info"] = dc_info
     parameters["ispyb_dc_info"]["gridinfo"] = i.get_gridscan_info(

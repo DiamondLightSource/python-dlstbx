@@ -123,10 +123,10 @@ def validate(mimasobject, expectedtype=None):
 def _(mimasobject: MimasScenario, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
-    if not isinstance(mimasobject.DCID, int):
+    if type(mimasobject.DCID) is not int:  # noqa: E721
         raise ValueError(f"{mimasobject!r} has non-integer DCID")
     if mimasobject.visit is not None:
-        if not isinstance(mimasobject.visit, str):
+        if type(mimasobject.visit) is not str:  # noqa: E721
             raise ValueError(f"{mimasobject!r} has non-string visit")
     validate(mimasobject.dcclass, expectedtype=MimasDCClass)
     validate(mimasobject.event, expectedtype=MimasEvent)
@@ -170,9 +170,9 @@ def _(mimasobject: MimasDetectorClass, expectedtype=None):
 def _(mimasobject: MimasRecipeInvocation, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
-    if not isinstance(mimasobject.DCID, int):
+    if type(mimasobject.DCID) is not int:  # noqa: E721
         raise ValueError(f"{mimasobject!r} has non-integer DCID")
-    if not isinstance(mimasobject.recipe, str):
+    if type(mimasobject.recipe) is not str:  # noqa: E721
         raise ValueError(f"{mimasobject!r} has non-string recipe")
     if not mimasobject.recipe:
         raise ValueError(f"{mimasobject!r} has empty recipe string")
@@ -182,7 +182,7 @@ def _(mimasobject: MimasRecipeInvocation, expectedtype=None):
 def _(mimasobject: MimasISPyBJobInvocation, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
-    if not isinstance(mimasobject.DCID, int):
+    if type(mimasobject.DCID) is not int:  # noqa: E721
         raise ValueError(f"{mimasobject!r} has non-integer DCID")
     if mimasobject.autostart not in (True, False):
         raise ValueError(f"{mimasobject!r} has invalid autostart property")
@@ -192,7 +192,7 @@ def _(mimasobject: MimasISPyBJobInvocation, expectedtype=None):
         )
     for parameter in mimasobject.parameters:
         validate(parameter, expectedtype=MimasISPyBParameter)
-    if not isinstance(mimasobject.recipe, str):
+    if type(mimasobject.recipe) is not str:  # noqa: E721
         raise ValueError(f"{mimasobject!r} has non-string recipe")
     if not mimasobject.recipe:
         raise ValueError(f"{mimasobject!r} has empty recipe string")
@@ -208,11 +208,11 @@ def _(mimasobject: MimasISPyBJobInvocation, expectedtype=None):
 def _(mimasobject: MimasISPyBParameter, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
-    if not isinstance(mimasobject.key, str):
+    if type(mimasobject.key) is not str:  # noqa: E721
         raise ValueError(f"{mimasobject!r} has non-string key")
     if not mimasobject.key:
         raise ValueError(f"{mimasobject!r} has an empty key")
-    if not isinstance(mimasobject.value, str):
+    if type(mimasobject.value) is not str:  # noqa: E721
         raise ValueError(
             f"{mimasobject!r} value must be a string, not {type(mimasobject.value)}"
         )
@@ -222,15 +222,15 @@ def _(mimasobject: MimasISPyBParameter, expectedtype=None):
 def _(mimasobject: MimasISPyBSweep, expectedtype=None):
     if expectedtype and not isinstance(mimasobject, expectedtype):
         raise ValueError(f"{mimasobject!r} is not a {expectedtype}")
-    if not isinstance(mimasobject.DCID, int):
+    if type(mimasobject.DCID) is not int:  # noqa: E721
         raise ValueError(f"{mimasobject!r} has non-integer DCID")
     if mimasobject.DCID <= 0:
         raise ValueError(f"{mimasobject!r} has an invalid DCID")
-    if not isinstance(mimasobject.start, int):
+    if type(mimasobject.start) is not int:  # noqa: E721
         raise ValueError(f"{mimasobject!r} has non-integer start image")
     if mimasobject.start < 0:
         raise ValueError(f"{mimasobject!r} has an invalid start image")
-    if not isinstance(mimasobject.end, int):
+    if type(mimasobject.end) is not int:  # noqa: E721
         raise ValueError(f"{mimasobject!r} has non-integer end image")
     if mimasobject.end < mimasobject.start:
         raise ValueError(f"{mimasobject!r} has an invalid end image")

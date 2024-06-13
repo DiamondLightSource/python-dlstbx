@@ -106,7 +106,7 @@ def test_ispyb_recipe_filtering_raises_error_for_borken_dcid(db_session):
         ispyb_filter({}, {"ispyb_dcid": borken_dcid}, db_session)
 
 
-@pytest.mark.xfail("Broken old directory permissions")
+@pytest.mark.xfail(reason="Broken old directory permissions")
 def test_ispyb_filtering_for_processing_job(db_session):
     message = {}
     parameters = {"ispyb_process": 6406100}

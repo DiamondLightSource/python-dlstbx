@@ -7,7 +7,6 @@ import logging
 import math
 import os
 import pathlib
-import re
 import time
 from pprint import pformat
 from typing import Optional
@@ -20,29 +19,9 @@ from workflows.services.common_service import CommonService
 from zocalo.configuration import Configuration
 from zocalo.util import slurm
 
-cluster_queue_mapping: dict[str, dict[str, str]] = {
-    "cluster": {
-        "default": "medium.q",
-        "bottom": "bottom.q",
-        "low": "low.q",
-        "medium": "medium.q",
-        "high": "high.q",
-        "admin": "admin.q",
-        "tempservices": "tempservices.q",
-    },
-    "testcluster": {
-        "default": "test-medium.q",
-        "low": "test-low.q",
-        "medium": "test-medium.q",
-        "high": "test-high.q",
-        "admin": "test-admin.q",
-    },
-}
-
 
 class JobSubmissionParameters(pydantic.BaseModel):
     scheduler: str = "slurm"
-    cluster: str = "cs05r"
     partition: str = "cs04r"
     job_name: Optional[str]  #
     priority: Optional[int]  # HTCondor only
@@ -78,25 +57,6 @@ class JobSubmissionParameters(pydantic.BaseModel):
 
 class JobSubmissionValidationError(ValueError):
     pass
-
-
-def format_timedelta_to_HHMMSS(td: datetime.timedelta) -> str:
-    td_in_seconds = td.total_seconds()
-    hours, remainder = divmod(td_in_seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    return f"{hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}"
-
-
-units = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
-
-
-# based on https://stackoverflow.com/a/60708339
-def parse_size(size):
-    size = size.upper()
-    if not re.match(r" ", size):
-        size = re.sub(r"([KMGT]?B)", r" \1", size)
-    number, unit = [string.strip() for string in size.split()]
-    return int(float(number) * units[unit])
 
 
 def submit_to_slurm(

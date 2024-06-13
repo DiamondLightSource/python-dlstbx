@@ -210,7 +210,7 @@ def submit_to_slurm(
     scheduler: str,
 ) -> int | None:
     api = slurm.SlurmRestApi.from_zocalo_configuration(zc, cluster=scheduler)
-    logger.warning(f"Token[:5]: {api.user_token[:5]}...{api.user_token[-5:]}")
+
     script = params.commands
     if not isinstance(script, str):
         script = "\n".join(script)
@@ -256,6 +256,10 @@ def submit_to_slurm(
         jdm_params["tres_per_node"] = f"gres/gpu:{params.gpus_per_node}"
     if params.gpus:
         jdm_params["tres_per_job"] = f"gres/gpu:{params.gpus}"
+
+    logger.warning(
+        f"Token[:5]: {api.user_token[:5]}...{api.user_token[-5:]}\n{jdm_params!r}"
+    )
 
     job_submission = slurm.models.JobSubmitReq(
         script=script, job=slurm.models.JobDescMsg(**jdm_params)

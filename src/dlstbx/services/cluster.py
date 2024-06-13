@@ -225,7 +225,9 @@ def submit_to_slurm(
         minimal_environment = {"USER"}
         # Only attempt to copy variables that already exist in the submitter's environment.
         minimal_environment &= set(os.environ)
-        environment = [f"{k}={os.environ[k]}" for k in minimal_environment]
+        environment = [f"{k}={os.environ[k]}" for k in minimal_environment] or [
+            "NAN=-424242"
+        ]
 
     logger.debug(f"Submitting script to Slurm:\n{script}")
     jdm_params = {

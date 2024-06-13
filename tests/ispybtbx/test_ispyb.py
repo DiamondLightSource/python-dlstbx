@@ -106,6 +106,7 @@ def test_ispyb_recipe_filtering_raises_error_for_borken_dcid(db_session):
         ispyb_filter({}, {"ispyb_dcid": borken_dcid}, db_session)
 
 
+@pytest.mark.xfail("Broken old directory permissions")
 def test_ispyb_filtering_for_processing_job(db_session):
     message = {}
     parameters = {"ispyb_process": 6406100}
@@ -655,9 +656,9 @@ def test_get_dcg_dcids(db_session):
 
 
 def test_dcg_experiment_type(db_session):
-    _, params = ispyb_filter({}, {"ispyb_dcid": 6903084}, db_session)
-    assert params["ispyb_dcg_experiment_type"] == "Mesh"
-    _, params = ispyb_filter({}, {"ispyb_dcid": 6921153}, db_session)
+    _, params = ispyb_filter({}, {"ispyb_dcid": 13465224}, db_session)
+    assert params["ispyb_dcg_experiment_type"] == "Mesh3D"
+    _, params = ispyb_filter({}, {"ispyb_dcid": 13465230}, db_session)
     assert params["ispyb_dcg_experiment_type"] == "SAD"
 
 

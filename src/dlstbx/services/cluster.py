@@ -210,7 +210,7 @@ def submit_to_slurm(
     scheduler: str,
 ) -> int | None:
     api = slurm.SlurmRestApi.from_zocalo_configuration(zc, cluster=scheduler)
-
+    logger.warning(f"Token[:5]: {api.user_token[:5]}...{api.user_token[-5:]}")
     script = params.commands
     if not isinstance(script, str):
         script = "\n".join(script)

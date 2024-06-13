@@ -324,6 +324,13 @@ class DLSCluster(CommonService):
 
         params = JobSubmissionParameters(**parameters.get("cluster", {}))
 
+        if params.scheduler not in self.schedulers.keys():
+            self.log.error(
+                f"Unsupported cluster scheduler '{params.scheduler}' encountered in recipe_ID: {rw.environment['ID']}"
+            )
+            self._transport.nack(header)
+            return
+
         if not isinstance(params.commands, str):
             params.commands = "\n".join(params.commands)
 
@@ -496,4 +503,6 @@ class DLSCluster(CommonService):
 
         # Commit transaction
         self._transport.transaction_commit(txn)
-        self.log.info(f"Submitted job {jobnumber} to {params.cluster}")
+        self.log.info(
+            f"Submitted job {jobnumber} to '{params.scheduler}' on partition '{params.partition}'"
+        )

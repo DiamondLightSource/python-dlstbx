@@ -259,10 +259,6 @@ def submit_to_slurm(
     if params.gpus:
         jdm_params["tres_per_job"] = f"gres/gpu:{params.gpus}"
 
-    logger.warning(
-        f"Token[:5]: {api.user_token[:5]}...{api.user_token[-5:]}\n{jdm_params!r}"
-    )
-
     job_submission = slurm.models.JobSubmitReq(
         script=script, job=slurm.models.JobDescMsg(**jdm_params)
     )

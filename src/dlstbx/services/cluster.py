@@ -83,7 +83,7 @@ def submit_to_slurm(
         # Only attempt to copy variables that already exist in the submitter's environment.
         minimal_environment &= set(os.environ)
         environment = [f"{k}={os.environ[k]}" for k in minimal_environment] or [
-            "NAN=-424242"
+            "USER=gda2"
         ]
 
     logger.debug(f"Submitting script to Slurm:\n{script}")

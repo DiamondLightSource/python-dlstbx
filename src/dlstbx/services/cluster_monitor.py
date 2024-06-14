@@ -21,36 +21,6 @@ class DLSClusterMonitor(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.cluster_monitor"
 
-    def __new__(cls, *args, **kwargs):
-        """
-        Start DRMAA cluster control processes as children of the main process,
-        and transparently inject references to those system-wide processes into
-        all instantiated objects.
-        """
-        if not hasattr(DLSClusterMonitor, "__drmaa_cluster"):
-            setattr(
-                DLSClusterMonitor,
-                "__drmaa_cluster",
-                dlstbx.util.cluster.Cluster("dlscluster"),
-            )
-        if not hasattr(DLSClusterMonitor, "__drmaa_testcluster"):
-            setattr(
-                DLSClusterMonitor,
-                "__drmaa_testcluster",
-                dlstbx.util.cluster.Cluster("dlstestcluster"),
-            )
-        # if not hasattr(DLSClusterMonitor, "__drmaa_hamilton"):
-        #    setattr(
-        #        DLSClusterMonitor,
-        #        "__drmaa_hamilton",
-        #        dlstbx.util.cluster.Cluster("hamilton"),
-        #    )
-        instance = super().__new__(DLSClusterMonitor)
-        instance.__drmaa_cluster = getattr(DLSClusterMonitor, "__drmaa_cluster")
-        instance.__drmaa_testcluster = getattr(DLSClusterMonitor, "__drmaa_testcluster")
-        # instance.__drmaa_hamilton = getattr(DLSClusterMonitor, "__drmaa_hamilton")
-        return instance
-
     def initializing(self):
         """Set up monitoring timer. Do not subscribe to anything."""
         self.log.info("Cluster monitor starting")
@@ -74,30 +44,6 @@ class DLSClusterMonitor(CommonService):
     def update_cluster_statistics(self):
         """Gather some cluster statistics."""
 
-        for cluster_name, cluster_reference, downstream_name in [
-            ("science cluster", self.__drmaa_cluster, "live"),
-            ("test cluster", self.__drmaa_testcluster, "test"),
-            # ("hamilton", self.__drmaa_hamilton, "hamilton"),
-        ]:
-            if not cluster_reference.is_accessible:
-                self.log.warning(
-                    f"Statistics for {cluster_name} unavailable due to previous error"
-                )
-                continue
-            self.log.debug("Gathering %s statistics...", cluster_name)
-            timestamp = time.time()
-            try:
-                joblist, queuelist = self.cluster_statistics.run_on(
-                    cluster_reference, arguments=["-f", "-r", "-u", "gda2"]
-                )
-            except (AssertionError, RuntimeError):
-                self.log.error(
-                    f"Could not gather {cluster_name} statistics", exc_info=True
-                )
-            else:
-                self.calculate_cluster_statistics(
-                    joblist, queuelist, downstream_name, timestamp
-                )
         for scheduler, cluster_api in [
             ("slurm", self.slurm_api),
             ("iris", self.iris_api),
@@ -111,147 +57,16 @@ class DLSClusterMonitor(CommonService):
             else:
                 self.calculate_slurm_statistics(scheduler, job_info_resp, timestamp)
 
-    def calculate_cluster_statistics(self, joblist, queuelist, cluster, timestamp):
-        self.log.debug("Processing %s cluster statistics", cluster)
-        hamilton = cluster == "hamilton"
-
-        pending_jobs = collections.Counter(
-            j["queue"].split("@@")[0]
-            for j in joblist
-            if j["state"] == "pending"
-            and "h" not in j["statecode"]
-            and "E" not in j["statecode"]
-        )
-        waiting_jobs_per_queue = {
-            queue: pending_jobs[queue]
-            for queue in {q["class"] for q in queuelist} | set(pending_jobs)
-        }
-        self.report_statistic(
-            waiting_jobs_per_queue,
-            description="waiting-jobs-per-queue",
-            cluster=cluster,
-            timestamp=timestamp,
-        )
-
-        cluster_nodes = self.cluster_statistics.get_nodelist_from_queuelist(queuelist)
-        node_summary = {
-            node: self.cluster_statistics.summarize_node_status(status)
-            for node, status in cluster_nodes.items()
-        }
-        self.report_statistic(
-            node_summary,
-            description="node-status",
-            cluster=cluster,
-            timestamp=timestamp,
-        )
-
-        corestats = {}
-        corestats["cpu"] = {"total": 0, "broken": 0}
-        if hamilton:
-            corestats["cpu"]["free"] = 0
-        else:
-            corestats["cpu"].update(
-                {"free_for_low": 0, "free_for_medium": 0, "free_for_high": 0}
-            )
-        corestats["gpu"] = corestats["cpu"].copy()
-
-        for nodename, node in cluster_nodes.items():
-            node = {q["class"]: q for q in node}
-            for queuename in list(node):
-                if queuename.startswith("test"):
-                    if queuename.startswith("test-") and queuename[5:] not in node:
-                        node[queuename[5:]] = node[queuename]
-                    del node[queuename]
-
-            if "admin.q" in node:
-                if "admin" not in corestats:
-                    corestats["admin"] = {"total": 0, "broken": 0, "free": 0}
-                adminq_slots = node["admin.q"]["slots_total"]
-                corestats["admin"]["total"] += adminq_slots
-                if (
-                    node["admin.q"]["enabled"]
-                    and not node["admin.q"]["suspended"]
-                    and not node["admin.q"]["error"]
-                ):
-                    corestats["admin"]["free"] += node["admin.q"]["slots_free"]
-                else:
-                    corestats["admin"]["broken"] += adminq_slots
-                del node["admin.q"]
-
-            if not node:
-                continue
-
-            nodename = (nodename.split("-")[2:3] or [None])[0]
-            if nodename and (nodename == "com14" or nodename.startswith("gpu")):
-                nodetype = "gpu"
-            else:
-                nodetype = "cpu"
-            cores = max(q["slots_total"] for q in node.values())
-            corestats[nodetype]["total"] += cores
-            node = {
-                n: q
-                for n, q in node.items()
-                if q["enabled"] and not q["suspended"] and not q["error"]
-            }
-            if not node:
-                corestats[nodetype]["broken"] += cores
-                continue
-            if hamilton:
-                corestats[nodetype]["free"] += node.get("all.q", {}).get(
-                    "slots_free", 0
-                )
-            else:
-                freelow, freemedium, freehigh = (
-                    node.get(q, {}).get("slots_free", 0)
-                    for q in ("low.q", "medium.q", "high.q")
-                )
-                corestats[nodetype]["free_for_low"] += freelow
-                corestats[nodetype]["free_for_medium"] += max(freelow, freemedium)
-                corestats[nodetype]["free_for_high"] += max(
-                    freelow, freemedium, freehigh
-                )
-
-        for nodetype in ("cpu", "gpu"):
-            if hamilton:
-                corestats[nodetype]["used"] = (
-                    corestats[nodetype]["total"]
-                    - corestats[nodetype]["broken"]
-                    - corestats[nodetype]["free"]
-                )
-            else:
-                corestats[nodetype]["used-high"] = (
-                    corestats[nodetype]["total"]
-                    - corestats[nodetype]["broken"]
-                    - corestats[nodetype]["free_for_high"]
-                )
-                corestats[nodetype]["used-medium"] = (
-                    corestats[nodetype]["free_for_high"]
-                    - corestats[nodetype]["free_for_medium"]
-                )
-                corestats[nodetype]["used-low"] = (
-                    corestats[nodetype]["free_for_medium"]
-                    - corestats[nodetype]["free_for_low"]
-                )
-            for k, v in corestats[nodetype].items():
-                corestats[k] = corestats.get(k, 0) + v
-
-        if "admin" in corestats:
-            corestats["admin"]["used"] = (
-                corestats["admin"]["total"]
-                - corestats["admin"]["free"]
-                - corestats["admin"]["broken"]
-            )
-
-        self.report_statistic(
-            corestats, description="utilization", cluster=cluster, timestamp=timestamp
-        )
-
     def calculate_slurm_statistics(
         self, scheduler, response: slurm.models.OpenapiJobInfoResp, timestamp
     ):
         self.log.debug(f"Processing {scheduler} job states")
         jobs_states = itertools.chain(
-            *[job.job_state for job in dict(response.jobs).get("__root__", [])]
+            *[
+                job.job_state
+                for job in dict(response.jobs).get("__root__", [])
+                if job.user_name == "gda2"
+            ]
         )
         data: dict[str, int] = dict(
             collections.Counter([js.name for js in jobs_states])

@@ -764,8 +764,6 @@ def ispyb_filter(
         raise ValueError(f"No database entry found for dcid={dc_id}: {dc_id}")
     dc_info["uuid"] = parameters.get("guid") or str(uuid.uuid4())
     parameters["ispyb_beamline"] = i.get_beamline_from_dcid(dc_id, session)
-    parameters["ispyb_preferred_datacentre"] = "cs05r"
-    parameters["ispyb_preferred_scheduler"] = "slurm"
 
     parameters["ispyb_detectorclass"] = i.dc_info_to_detectorclass(dc_info, session)
     parameters["ispyb_dc_info"] = dc_info

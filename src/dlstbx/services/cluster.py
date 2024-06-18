@@ -284,7 +284,12 @@ class DLSCluster(CommonService):
             self._transport.nack(header)
             return
 
-        params = JobSubmissionParameters(**parameters.get("cluster", {}))
+        try:
+            params = JobSubmissionParameters(**parameters.get("cluster", {}))
+        except pydantic.ValidationError as e:
+            self.log.error(f"Invalid JobSubmissionParameters: {e}")
+            self._transport.nack(header)
+            return
 
         if params.scheduler not in self.schedulers.keys():
             self.log.error(

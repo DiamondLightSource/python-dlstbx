@@ -73,7 +73,6 @@ class HTCondorStats(CommonService):
                 data_pack[label] = data.get(code, 0)
             self.log.debug(f"{pformat(data_pack)}")
             self._transport.broadcast("transient.statistics.cluster", data_pack)
-            self._transport.send("statistics.cluster", data_pack, persistent=False)
 
         # Query S3 Echo object store usage
         self.log.debug("Gathering S3Echo statistics...")
@@ -101,7 +100,6 @@ class HTCondorStats(CommonService):
 
         self.log.debug(f"{pformat(data_pack)}")
         self._transport.broadcast("transient.statistics.cluster", data_pack)
-        self._transport.send("statistics.cluster", data_pack, persistent=False)
 
         # Query /iris mount status
         self.log.debug("Gathering /iris mount status...")
@@ -133,6 +131,5 @@ class HTCondorStats(CommonService):
             if mtime_location:
                 self.log.debug(f"{pformat(data_pack)}")
                 self._transport.broadcast("transient.statistics.cluster", data_pack)
-                self._transport.send("statistics.cluster", data_pack, persistent=False)
             else:
                 self.log.error(f"Cannot access path {location} from argus")

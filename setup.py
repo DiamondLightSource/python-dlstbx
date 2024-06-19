@@ -112,7 +112,6 @@ service_list = [
     "DLSNotifyGDA = dlstbx.services.notifygda:DLSNotifyGDA",
     "DLSPerImageAnalysis = dlstbx.services.per_image_analysis:DLSPerImageAnalysis",
     "DLSReverseBridge = dlstbx.services.bridge_reverse:DLSReverseBridge",
-    "DLSStatistics = dlstbx.services.statistics:DLSStatistics",
     "DLSTrigger = dlstbx.services.trigger:DLSTrigger",
     "DLSValidation = dlstbx.services.validation:DLSValidation",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",

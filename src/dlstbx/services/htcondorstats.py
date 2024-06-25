@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import collections
-import itertools
 import time
 from pathlib import Path
 from pprint import pformat
 
 import minio
-import requests
 from workflows.services.common_service import CommonService
-from zocalo.util import slurm
 
 from dlstbx.util.iris import get_minio_client
 
@@ -39,40 +35,10 @@ class HTCondorStats(CommonService):
             HTCondorStats._s3echo_credentials
         )
 
-        self.iris_api: slurm.SlurmRestApi = (
-            slurm.SlurmRestApi.from_zocalo_configuration(self.config, cluster="iris")
-        )
-
         self._register_idle(30, self.update_slurm_statistics)
 
     def update_slurm_statistics(self):
-        """Gather SLURM job status statistics from STFC/IRIS."""
-
-        # Query number of jobs on STRF/IRIS
-        self.log.debug("Gathering STFC/IRIS statistics...")
-        data_pack = {
-            "statistic": "job-status",
-            "statistic-cluster": "iris",
-            "statistic-group": "cluster",
-            "statistic-timestamp": time.time(),
-        }
-        try:
-            self.log.debug("Gathering SLURM job statistics")
-            job_info_resp: slurm.models.OpenapiJobInfoResp = self.iris_api.get_jobs()
-        except requests.HTTPError as e:
-            self.log.error(f"Failed Slurm API call: {e}\n" f"{e.response.text}")
-        else:
-            self.log.debug("Processing slurm job states on IRIS")
-            jobs_states = itertools.chain(
-                *[job.job_state for job in dict(job_info_resp.jobs).get("__root__", [])]
-            )
-            data: dict[str, int] = dict(
-                collections.Counter([js.name for js in jobs_states])
-            )
-            for label, code in (("waiting", "PENDING"), ("running", "RUNNING")):
-                data_pack[label] = data.get(code, 0)
-            self.log.debug(f"{pformat(data_pack)}")
-            self._transport.broadcast("transient.statistics.cluster", data_pack)
+        """Gather storage usage statistics from STFC/IRIS and S3 Echo."""
 
         # Query S3 Echo object store usage
         self.log.debug("Gathering S3Echo statistics...")

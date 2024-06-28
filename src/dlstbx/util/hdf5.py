@@ -53,7 +53,7 @@ def find_all_references(startfile):
                 filename = os.path.abspath(os.path.join(filepath, entry_link.filename))
                 if filename in image_count and image_count[filename]:
                     log.error(
-                        "image data linked multiple fimes in %s",
+                        "image data linked multiple times in %s",
                         startfile,
                         exc_info=True,
                     )

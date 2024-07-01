@@ -141,18 +141,12 @@ class Xia2Wrapper(Wrapper):
                 working_directory, params["create_symlink"], levels=1
             )
 
-        if singularity_image := params.get("singularity_image"):
+        if images := params.get("s3echo_upload"):
             try:
-                tmp_path = working_directory / "TMP"
-                tmp_path.mkdir(parents=True, exist_ok=True)
-                iris.write_singularity_script(
-                    working_directory, singularity_image, tmp_path.name
-                )
-                self.recwrap.environment.update(
-                    {"singularity_image": singularity_image}
-                )
+                image_files = iris.get_image_files(None, images, self.log)
+                self.recwrap.environment.update({"s3echo_upload": image_files})
             except Exception:
-                self.log.exception("Error writing singularity script")
+                self.log.exception("Error uploading image files to S3 Echo")
                 return False
 
         return True
@@ -176,7 +170,7 @@ class Xia2Wrapper(Wrapper):
                 return False
 
         command = self.construct_commandline(
-            working_directory, params, "singularity_image" in self.recwrap.environment
+            working_directory, params, "s3_urls" in self.recwrap.environment
         )
         self.log.info("command: %s", " ".join(command))
 

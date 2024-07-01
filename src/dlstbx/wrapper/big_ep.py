@@ -32,7 +32,6 @@ from dlstbx.util.big_ep_helpers import (
     write_sequence_file,
     write_settings_file,
 )
-from dlstbx.util.iris import write_singularity_script
 from dlstbx.util.symlink import create_parent_symlink
 from dlstbx.wrapper import Wrapper
 from dlstbx.wrapper.helpers import copy_results
@@ -231,23 +230,15 @@ class BigEPWrapper(Wrapper):
         except Exception:
             self.log.exception(f"Error configuring {pipeline} jobs")
             return False
-
-        singularity_image = params.get("singularity_image")
-        if singularity_image:
-            try:
-                tmp_path = working_directory / "TMP"
-                tmp_path.mkdir(parents=True, exist_ok=True)
-                # shutil.copy(singularity_image, str(working_directory))
-                # image_name = Path(singularity_image).name
-                write_singularity_script(
-                    working_directory, singularity_image, tmp_path.name
-                )
-                self.recwrap.environment.update(
-                    {"singularity_image": singularity_image}
-                )
-            except Exception:
-                self.log.exception("Error writing singularity script")
-                return False
+        if params.get("s3echo_upload"):
+            if input_mtz := Path(params["s3echo_upload"]["data"]):
+                try:
+                    self.recwrap.environment.update(
+                        {"s3echo_upload": {input_mtz.name: str(input_mtz)}}
+                    )
+                except Exception:
+                    self.log.exception("Error uploading image files to S3 Echo")
+                    return False
 
         self.log.info("Sending message to downstream channel")
         self.log.info(f"Message: {msg}")
@@ -272,7 +263,22 @@ class BigEPWrapper(Wrapper):
 
         pipeline = self.recwrap.environment.get("pipeline")
 
-        input_mtz = Path(params["ispyb_parameters"]["data"]).name
+        if params.get("ispyb_parameters"):
+            if params["ispyb_parameters"].get("data"):
+                if s3_urls := self.recwrap.environment.get("s3_urls"):
+                    try:
+                        iris.get_objects_from_s3(working_directory, s3_urls, self.log)
+                    except Exception:
+                        self.log.exception(
+                            "Exception raised while downloading files from S3 object store"
+                        )
+                        return False
+                    input_mtz = str(
+                        working_directory
+                        / Path(params["ispyb_parameters"]["data"]).name
+                    )
+                else:
+                    input_mtz = Path(params["ispyb_parameters"]["data"]).name
 
         if pipeline == "autoSHARP":
             output_directory = working_directory

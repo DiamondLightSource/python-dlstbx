@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from pprint import pformat
 
 import workflows.recipe
 from minio.error import S3Error
@@ -8,7 +9,7 @@ from workflows.services.common_service import CommonService
 
 from dlstbx.util.iris import (
     get_minio_client,
-    get_presigned_urls_images,
+    get_presigned_urls,
     remove_images_from_s3,
     retrieve_results_from_s3,
 )
@@ -61,16 +62,16 @@ class S3EchoUploader(CommonService):
         params = rw.recipe_step["parameters"]
         minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
         try:
-            s3_urls = get_presigned_urls_images(
+            s3_urls = get_presigned_urls(
                 minio_client,
                 params["bucket"],
                 params["rpid"],
-                params["images"],
+                rw.environment["s3echo_upload"].values(),
                 self.log,
             )
         except S3Error:
             self.log.exception(
-                f"Error writing {params['rpid']}_{params['images']} to S3 bucket {params['bucket']}"
+                f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(rw.environment['s3_upload'])}"
             )
             rw.send_to("failure", message, transaction=txn)
         else:

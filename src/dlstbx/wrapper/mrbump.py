@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import logging
 import os
-import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -60,46 +60,26 @@ class MrBUMPWrapper(Wrapper):
             dlstbx.util.symlink.create_parent_symlink(
                 working_directory, params["create_symlink"], levels=1
             )
-        singularity_image = params.get("singularity_image")
-        if singularity_image:
-            # Copy files into mrbump_data directory for HTCondor transfer
-            data_directory = working_directory / "mrbump_data"
-            data_directory.mkdir(parents=True, exist_ok=True)
+        if s3echo_upload := params.get("s3echo_upload"):
+            mrbump_data = {}
             # Extend stdin with those provided in ispyb_parameters
-            for key, val in params.get("ispyb_parameters", {}).items():
+            for key, val in s3echo_upload.items():
                 if key == "hklin":
                     # This is provided as command line keyword and handled elsewhere
                     hkl_paths = []
                     for pth in val:
-                        shutil.copy(pth, data_directory)
-                        hkl_paths.append(
-                            str(Path(data_directory.name) / Path(pth).name)
-                        )
+                        filename = Path(pth).name
+                        hkl_paths.append(str(working_directory / filename))
+                        mrbump_data[filename] = pth
                     self.recwrap.environment.update({"hklin": hkl_paths})
                 elif key == "localfile":
                     localfile_paths = []
                     for localfile in val:
-                        shutil.copy(localfile, data_directory)
-                        localfile_paths.append(
-                            str(Path(data_directory.name) / Path(localfile).name)
-                        )
+                        filename = Path(localfile).name
+                        localfile_paths.append(str(working_directory / filename))
+                        mrbump_data[filename] = localfile
                     self.recwrap.environment.update({"localfile": localfile_paths})
-            try:
-                tmp_path = working_directory / "TMP"
-                tmp_path.mkdir(parents=True, exist_ok=True)
-                pdblocal = params["mrbump"]["pdblocal"]
-                iris.write_mrbump_singularity_script(
-                    working_directory,
-                    singularity_image,
-                    tmp_path.name,
-                    pdblocal,
-                )
-                self.recwrap.environment.update(
-                    {"singularity_image": singularity_image}
-                )
-            except Exception:
-                self.log.exception("Error writing singularity script")
-                return False
+            self.recwrap.environment.update({"s3echo_upload": mrbump_data})
         return True
 
     def run_mrbump(self, working_directory: Path, params: dict) -> bool:
@@ -121,12 +101,28 @@ class MrBUMPWrapper(Wrapper):
         seq_filename = subprocess_directory / f"seq_{params['dcid']}.fasta"
         seq_filename.write_text(fasta_sequence(sequence).format(80))
 
-        if self.recwrap.environment.get("singularity_image"):
+        if s3_urls := self.recwrap.environment.get("s3_urls"):
+            # Logger for recording data transfer rates from S3 Echo object store
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            self.log.logger.addHandler(handler)
+            self.log.logger.setLevel(logging.DEBUG)
+            try:
+                iris.get_objects_from_s3(working_directory, s3_urls, self.log)
+            except Exception:
+                self.log.exception(
+                    "Exception raised while downloading files from S3 object store"
+                )
+                return False
+
             hklin = self.recwrap.environment.get("hklin")
             # Alternatively hklin could be provided in cdl_params
             if hklin:
                 assert len(hklin) == 1, f"More than one hklin provided: {hklin}"
-                hklin = working_directory / hklin[0]
+                hklin = working_directory / Path(hklin[0]).name
             else:
                 self.log.error(
                     "MrBUMP processing failed: Input hklin file not specified."
@@ -155,9 +151,9 @@ class MrBUMPWrapper(Wrapper):
                 # This is provided as command line keyword and handled elsewhere
                 continue
             if k == "localfile":
-                if self.recwrap.environment.get("singularity_image"):
+                if self.recwrap.environment.get("s3_urls"):
                     localfile = [
-                        f"{k} {str(working_directory / vi)} CHAIN ALL"
+                        f"{k} {str(working_directory / Path(vi).name)} CHAIN ALL"
                         for vi in self.recwrap.environment.get("localfile")
                     ]
                 else:

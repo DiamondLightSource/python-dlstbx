@@ -53,13 +53,21 @@ def submit_to_slurm(
     logger: logging.Logger,
     zc: Configuration,
     scheduler: str,
+    recipewrapper: str,
 ) -> int | None:
     api = slurm.SlurmRestApi.from_zocalo_configuration(zc, cluster=scheduler)
 
     script = params.commands
     if not isinstance(script, str):
         script = "\n".join(script)
-    script = f"#!/bin/bash\n. /etc/profile.d/modules.sh\n{script}"
+    if scheduler == "iris":
+        tmp_script = ["#!/bin/bash", f"cat > {pathlib.Path(recipewrapper).name} << EOF"]
+        with open(recipewrapper) as fp:
+            tmp_script.extend(fp.readlines())
+        tmp_script.append(f"EOF\n{script}")
+        script = "\n".join(tmp_script)
+    else:
+        script = f"#!/bin/bash\n. /etc/profile.d/modules.sh\n{script}"
 
     if params.environment:
         environment = [f"{k}={v}" for k, v in params.environment.items()]
@@ -364,6 +372,7 @@ class DLSCluster(CommonService):
             self.log,
             zc=self.config,
             scheduler=params.scheduler,
+            recipewrapper=recipewrapper,
         )
         if not jobnumber:
             self._transport.nack(header)

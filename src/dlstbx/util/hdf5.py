@@ -57,6 +57,7 @@ def find_all_references(startfile):
                         startfile,
                         exc_info=True,
                     )
+                    raise ValueError(f"image data linked multiple times in {startfile}")
             if not entry.startswith("data_"):
                 image_count[filename] += 0
                 continue

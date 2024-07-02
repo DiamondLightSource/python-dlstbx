@@ -596,7 +596,7 @@ class DLSTrigger(CommonService):
         # Sort based on wavelength
         combined = list(zip(wavelengths, dcids, data_files))
         sorted_combined = sorted(combined)
-        wavelengths, dcids, data_files = zip(*sorted_combined)
+        wavelengths, dcids, data_files = [list(v) for v in zip(*sorted_combined)]
 
         # Get parameters for metal_id recipe
         mtz_file_below = data_files[1]

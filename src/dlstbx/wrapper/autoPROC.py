@@ -588,6 +588,11 @@ class autoPROCWrapper(Wrapper):
             minio_client = iris.get_minio_client(params["s3echo"]["configuration"])
             bucket_name = params["s3echo"].get("bucket", "autoproc")
             try:
+                slurm_log = next((working_directory).glob("slurm-*.out"))
+                shutil.copy(slurm_log, subprocess_directory)
+            except Exception:
+                self.log.exception("Slurm log file not found.")
+            try:
                 iris.store_results_in_s3(
                     minio_client,
                     bucket_name,

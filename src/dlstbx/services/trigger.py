@@ -953,7 +953,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "fast_ep"
-        jp["recipe"] = "postprocessing-fast-ep"
+        jp["recipe"] = "postprocessing-fast-ep-cloud"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"fast_ep trigger: generated JobID {jobid}")
 
@@ -1019,7 +1019,7 @@ class DLSTrigger(CommonService):
             jp["comments"] = parameters.comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "MrBUMP"
-            jp["recipe"] = "postprocessing-mrbump"
+            jp["recipe"] = "postprocessing-mrbump-cloud"
             jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
             jobids.append(jobid)
             self.log.debug(f"mrbump trigger: generated JobID {jobid}")

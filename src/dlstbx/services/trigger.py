@@ -242,8 +242,8 @@ class DLSTrigger(CommonService):
             self.log.error("No trigger target defined in recipe")
             rw.transport.nack(header)
             return
-        if target in {"big_ep_cluster", "big_ep_cloud"}:
-            target = "big_ep_common"
+        if "big_ep_launcher" in target:
+            target = "big_ep_launcher"
         if not hasattr(self, "trigger_" + target):
             self.log.error("Unknown target %s defined in recipe", target)
             rw.transport.nack(header)
@@ -1078,7 +1078,7 @@ class DLSTrigger(CommonService):
         return {"success": True, "return_value": jobids}
 
     @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
-    def trigger_big_ep_common(
+    def trigger_big_ep_launcher(
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
@@ -1105,22 +1105,24 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
         jp["display_name"] = parameters.pipeline
-        if target == "big_ep_cluster":
-            jp["recipe"] = "postprocessing-big-ep-cluster"
-        elif target == "big_ep_cloud":
-            jp["recipe"] = "postprocessing-big-ep-cloud"
+        if target == "big_ep_launcher":
+            jp["recipe"] = "postprocessing-big-ep-launcher"
+        elif target == "big_ep_launcher_cloud":
+            jp["recipe"] = "postprocessing-big-ep-launcher-cloud"
         else:
             self.log.error(
-                f"big_ep_common trigger failed: Invalid target specified {target}"
+                f"big_ep_launcher trigger failed: Invalid target specified {target}"
             )
             return False
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"big_ep_common trigger: generated JobID {jobid}")
+        self.log.debug(f"big_ep_launcher trigger: generated JobID {jobid}")
 
         try:
             program_id = parameters.program_id
         except (TypeError, ValueError):
-            self.log.error("big_ep_common trigger failed: Invalid program_id specified")
+            self.log.error(
+                "big_ep_launcher trigger failed: Invalid program_id specified"
+            )
             return False
         big_ep_parameters = {
             "pipeline": parameters.pipeline,
@@ -1139,7 +1141,7 @@ class DLSTrigger(CommonService):
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
             self.log.debug(f"big_ep_cloud trigger: generated JobParameterID {jppid}")
 
-        self.log.debug(f"big_ep_common trigger: Processing job {jobid} created")
+        self.log.debug(f"big_ep_launcher trigger: Processing job {jobid} created")
 
         message = {
             "recipes": [],
@@ -1147,7 +1149,7 @@ class DLSTrigger(CommonService):
         }
         rw.transport.send("processing_recipe", message)
 
-        self.log.info(f"big_ep_common trigger: Processing job {jobid} triggered")
+        self.log.info(f"big_ep_launcher trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 
@@ -1247,7 +1249,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "big_ep"
-        jp["recipe"] = "postprocessing-big-ep"
+        jp["recipe"] = "postprocessing-big-ep-cloud"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep trigger: generated JobID {jobid}")
 

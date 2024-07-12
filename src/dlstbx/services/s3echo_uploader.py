@@ -10,7 +10,7 @@ from workflows.services.common_service import CommonService
 from dlstbx.util.iris import (
     get_minio_client,
     get_presigned_urls,
-    remove_images_from_s3,
+    remove_objects_from_s3,
     retrieve_results_from_s3,
 )
 
@@ -108,19 +108,8 @@ class S3EchoUploader(CommonService):
         else:
             rw.send_to("success", message, transaction=txn)
 
-        if params.get("remove", False):
-            try:
-                remove_images_from_s3(
-                    minio_client,
-                    params["bucket"],
-                    params["rpid"],
-                    params["remove"]["images"],
-                    self.log,
-                )
-            except S3Error:
-                self.log.exception(
-                    f"Exception raised while trying to remove files from S3 object store: {params['remove']['images']}"
-                )
+        if s3_urls := rw.environment.get("s3_urls"):
+            remove_objects_from_s3(minio_client, params["bucket"], s3_urls, self.log)
 
         # Commit transaction
         rw.transport.transaction_commit(txn)

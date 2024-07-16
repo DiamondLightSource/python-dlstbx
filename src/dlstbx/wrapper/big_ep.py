@@ -398,7 +398,6 @@ class BigEPWrapper(Wrapper):
     def report(self, working_directory: Path, params: dict, success: bool):
         dcid = params["dcid"]
         fast_ep_path = params["fast_ep_path"]
-        email_list = params["email_list"]
 
         xia2_log_files = [
             os.path.join(row["filePath"], row["fileName"])
@@ -503,9 +502,6 @@ class BigEPWrapper(Wrapper):
                     self.log.exception("Error rendering big_ep summary report")
                     return False
                 fp.write(summary_html)
-                bpu.send_html_email_message(
-                    summary_html, pipeline, email_list, tmpl_data
-                )
 
         if results_directory:
             skip_copy = [".launch", ".recipewrap"]

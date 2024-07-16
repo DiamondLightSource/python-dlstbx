@@ -7,7 +7,6 @@ import logging
 import math
 import os
 import pathlib
-import time
 from typing import Optional
 
 import pkg_resources
@@ -39,8 +38,6 @@ class JobSubmissionParameters(pydantic.BaseModel):
     commands: list[str] | str
     qos: Optional[str]
     qsub_submission_parameters: Optional[str]  # temporary support for legacy recipes
-    transfer_input_files: Optional[list[str]]  # datasyncer: list of input objects to
-    #                                            transfer from submitter node
 
 
 class JobSubmissionValidationError(ValueError):
@@ -300,69 +297,6 @@ class DLSCluster(CommonService):
             )
             self._transport.nack(header)
             return
-
-        if params.transfer_input_files:
-            try:
-                import datasyncer
-            except ImportError:
-                self.log.error(
-                    "File upload via datasyncer has failed. Cannot import datasyncer module."
-                )
-                self._transport.nack(header)
-                return
-            timestamp = time.time()
-            transfer_status = "active"
-            runtime = 0
-            try:
-                transfer_id = message["datasyncher"]["transfer_id"]
-                transfer_status = datasyncer.status(transfer_id)
-                runtime = timestamp - message["datasyncher"]["timestamp"]
-            except (TypeError, KeyError):
-                transfer_id = datasyncer.transfer(params.transfer_input_files)
-                msg = {
-                    "datasyncher": {
-                        "transfer_id": transfer_id,
-                        "timestamp": timestamp,
-                    }
-                }
-                txn = self._transport.transaction_begin(
-                    subscription_id=header["subscription"]
-                )
-                self._transport.ack(header, transaction=txn)
-                rw.checkpoint(msg, delay=10, transaction=txn)
-                self.log.info(
-                    f"Start transfering input files with transfer_id {transfer_id}"
-                )
-                self._transport.transaction_commit(txn)
-                return
-
-            if transfer_status == "succeeded":
-                self.log.info(
-                    f"Transfering input files for transfer_id {transfer_id} succeeded in {runtime:.2f}s"
-                )
-            elif transfer_status == "active":
-                txn = self._transport.transaction_begin(
-                    subscription_id=header["subscription"]
-                )
-                self._transport.ack(header, transaction=txn)
-                rw.checkpoint(message, delay=10, transaction=txn)
-                self.log.info(
-                    f"Transfering input files for transfer_id {transfer_id} is running for {runtime:.2f}s"
-                )
-                self._transport.transaction_commit(txn)
-                return
-            elif transfer_status == "failed":
-                self.log.error(
-                    f"File upload via datasyncher for transfer_id {transfer_id} failed after {runtime:.2f}s"
-                )
-                self._transport.nack(header)
-                return
-            else:
-                self.log.error(
-                    f"Recieved unknown transfer status value for transfter_id {transfer_id}: {transfer_status}"
-                )
-                self._transport.nack(header)
-                return
 
         submit_to_scheduler = self.schedulers.get(params.scheduler)
 

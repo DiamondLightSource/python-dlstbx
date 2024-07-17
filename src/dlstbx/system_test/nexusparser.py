@@ -53,6 +53,7 @@ class NexusParserService(CommonSystemTest):
                         "protk_4_10_000003.h5",
                         "protk_4_10_000004.h5",
                         "protk_4_10_master.h5",
+                        "protk_4_10_meta.h5",
                     )
                 )
             },

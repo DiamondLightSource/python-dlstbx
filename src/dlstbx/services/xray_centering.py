@@ -338,7 +338,7 @@ class DLSXRayCentering(CommonService):
                         parameters.output,
                     )
                     parameters.output.parent.mkdir(parents=True, exist_ok=True)
-                    parameters.output.write_text(result.json(sort_keys=True))
+                    parameters.output.write_text(result.model_dump_json())
                     if parameters.results_symlink:
                         # Create symbolic link above working directory
                         dlstbx.util.symlink.create_parent_symlink(

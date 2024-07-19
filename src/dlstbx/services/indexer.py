@@ -16,6 +16,7 @@ from dxtbx.model.experiment_list import (
     ExperimentList,
     ExperimentListFactory,
 )
+from pydantic import ConfigDict
 from workflows.services.common_service import CommonService
 
 from dlstbx.services.per_image_analysis import msgpack_mangle_for_receiving
@@ -25,8 +26,7 @@ UnitCell = tuple[float, float, float, float, float, float]
 
 
 class IndexingPayload(pydantic.BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     experiments: ExperimentList
     reflections: flex.reflection_table

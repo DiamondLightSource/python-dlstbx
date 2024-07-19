@@ -10,6 +10,7 @@ import numpy as np
 import prometheus_client
 import pydantic
 import workflows.recipe
+from pydantic import ConfigDict
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.symlink
@@ -95,8 +96,7 @@ class CenteringData(pydantic.BaseModel):
     def images_seen(self):
         return len(self.headers)
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class PrometheusMetrics(BasePrometheusMetrics):

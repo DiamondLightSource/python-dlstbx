@@ -120,7 +120,7 @@ class BigEPParameters(pydantic.BaseModel):
     program_id: int = pydantic.Field(gt=0)
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    spacegroup: Optional[str]
+    spacegroup: Optional[str] = None
 
     @pydantic.validator("spacegroup")
     def is_spacegroup_null(cls, v):
@@ -174,7 +174,7 @@ class MultiplexParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
     wavelength: Optional[float] = pydantic.Field(gt=0)
-    spacegroup: Optional[str]
+    spacegroup: Optional[str] = None
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
@@ -189,7 +189,7 @@ class Xia2SsxReduceParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
     wavelength: Optional[float] = pydantic.Field(gt=0)
-    spacegroup: Optional[str]
+    spacegroup: Optional[str] = None
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")

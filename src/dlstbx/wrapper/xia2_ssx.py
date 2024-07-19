@@ -22,8 +22,8 @@ from dlstbx.wrapper import Wrapper
 
 
 class Xia2SsxParams(pydantic.BaseModel):
-    template: Optional[Path]
-    image: Optional[Path]
+    template: Optional[Path] = None
+    image: Optional[Path] = None
     unit_cell: Optional[
         tuple[
             pydantic.NonNegativeFloat,

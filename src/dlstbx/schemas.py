@@ -5,7 +5,7 @@ import enum
 import pathlib
 
 import pydantic
-from pydantic import ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 
 class MapType(enum.Enum):
@@ -13,14 +13,14 @@ class MapType(enum.Enum):
     DIFFERENCE = "difference"
 
 
-class Atom(pydantic.BaseModel):
+class Atom(BaseModel):
     name: str
     chain_id: str
     res_seq: int
     res_name: str
 
 
-class Blob(pydantic.BaseModel):
+class Blob(BaseModel):
     xyz: tuple[pydantic.FiniteFloat, pydantic.FiniteFloat, pydantic.FiniteFloat]
     height: pydantic.FiniteFloat
     map_type: MapType
@@ -34,7 +34,7 @@ class Blob(pydantic.BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
 
-class AutoProcProgram(pydantic.BaseModel):
+class AutoProcProgram(BaseModel):
     command_line: str
     programs: str
     status: int
@@ -55,7 +55,7 @@ class AttachmentFileType(enum.Enum):
     INPUT = "input"
 
 
-class Attachment(pydantic.BaseModel):
+class Attachment(BaseModel):
     file_type: AttachmentFileType
     file_path: pathlib.Path
     file_name: str
@@ -64,7 +64,7 @@ class Attachment(pydantic.BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
 
-class MXMRRun(pydantic.BaseModel):
+class MXMRRun(BaseModel):
     auto_proc_scaling_id: int
     auto_proc_program_id: int | None = None
     rwork_start: pydantic.FiniteFloat
@@ -91,7 +91,7 @@ Coordinate2D = tuple[int, int]
 Coordinate3D = tuple[int, int, int]
 
 
-class XrayCentringResult(pydantic.BaseModel):
+class XrayCentringResult(BaseModel):
     centre_of_mass: tuple[float, ...] | None = None
     max_voxel: tuple[int, ...] | None = None
     max_count: float | None = None
@@ -102,7 +102,7 @@ class XrayCentringResult(pydantic.BaseModel):
     ) = None
 
 
-class XrayCentring(pydantic.BaseModel):
+class XrayCentring(BaseModel):
     dcgid: pydantic.NonNegativeInt
     status: XrayCentringStatus
     type: XrayCentringType

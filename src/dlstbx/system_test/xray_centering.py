@@ -26,7 +26,7 @@ class XrayCentering(CommonSystemTest):
                 "service": "DLS X-Ray Centering",
                 "queue": "reduce.xray_centering",
                 "parameters": {
-                    "dcid": random.randint(0, 1e6),
+                    "dcid": random.randint(0, int(1e6)),
                     "experiment_type": "Mesh",
                     "output": os.fspath(json_file),
                     "log": os.fspath(log_file),

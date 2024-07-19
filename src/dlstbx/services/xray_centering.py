@@ -85,7 +85,7 @@ class CenteringData(pydantic.BaseModel):
     recipewrapper: workflows.recipe.wrapper.RecipeWrapper
     headers: list = pydantic.Field(default_factory=list)
     last_activity: float = pydantic.Field(default_factory=time.time)
-    last_image_seen_at: pydantic.NonNegativeInt
+    last_image_seen_at: pydantic.PositiveFloat
     data: np.ndarray = None
 
     def __init__(self, **data):

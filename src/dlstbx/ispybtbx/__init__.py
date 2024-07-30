@@ -70,9 +70,6 @@ def setup_marshmallow_schema(session):
             setattr(class_, "__marshmallow__", schema_class)
 
 
-re_visit_base = re.compile(r"^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
-
-
 class ispybtbx:
     def __init__(self):
         with Session() as session:
@@ -659,10 +656,9 @@ class ispybtbx:
         -> /dls/${beamline}/data/${year}/${visit}"""
         if not directory:
             return None
-        visit_base = re_visit_base.search(directory)
-        if not visit_base:
+        if directory.count(os.sep) < 6:
             return None
-        return visit_base.group(1)
+        return os.sep.join(directory.split(os.sep)[:6])
 
     @staticmethod
     def get_visit_from_image_directory(directory):
@@ -670,10 +666,9 @@ class ispybtbx:
         -> ${visit}"""
         if not directory:
             return None
-        visit_base = re_visit_base.search(directory)
-        if not visit_base:
+        if directory.count(os.sep) < 6:
             return None
-        return visit_base.group(2)
+        return directory.split(os.sep)[5]
 
     def dc_info_to_working_directory(self, dc_info):
         directory = dc_info.get("imageDirectory")

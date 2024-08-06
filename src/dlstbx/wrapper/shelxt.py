@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import pathlib
 
 import procrunner
 
@@ -16,12 +17,22 @@ class ShelxtWrapper(Wrapper):
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
-
+        self.log.info(f"params from recipe: {params}")
         # run in working directory
-        working_directory = params["working_directory"]
+        working_directory = pathlib.Path(params["working_directory"])
         if not os.path.exists(working_directory):
             os.makedirs(working_directory)
         os.chdir(working_directory)
+
+        # we need the ins and the hkl file here
+        ispyb_params = params.get("ispyb_parameters", {})
+        previous_directory = ispyb_params.get("ins_file_location", ["."])
+        previous_directory = pathlib.Path(previous_directory[0])
+        self.log.info(previous_directory)
+        for f in previous_directory.iterdir():
+            if f.is_file() and f.name.startswith("shelx"):
+                self.log.info(f"Copying {f} to working directory")
+                shutil.copy(f, working_directory)
 
         command = [
             "shelxt",
@@ -36,10 +47,15 @@ class ShelxtWrapper(Wrapper):
                 result["timeout"],
             )
             return False
-        self.log.info("Shelxt successful, took %.1f seconds", result["runtime"])
+        # shelxt returns 0 if it didn't find the file :eyeroll:
+        # lets check the stdout to see if anything's up
+        self.log.info(result.stdout)
+
+        self.log.info("Shelxt successful, took %.3f seconds", result["runtime"])
 
         # copy output files to result directory
-        results_directory = params["results_directory"]
+        results_directory = pathlib.Path(params["results_directory"])
+        self.log.info(previous_directory)
         if not os.path.exists(results_directory):
             os.makedirs(results_directory)
 
@@ -51,11 +67,13 @@ class ShelxtWrapper(Wrapper):
 
         # Send results to various listeners
         shelxt_files = ["shelxt_a.hkl", "shelxt_a.res", "shelxt.hkl", "shelxt.ins", "shelxt.lxt"]
-        for result_file in map(results_directory.joinpath, shelxt_files):
+        for result_file in [results_directory / x for x in shelxt_files]:
             if result_file.is_file():
                 file_type = "Result"
                 if result_file.name.endswith("lxt"):
                     file_type = "Log"
+                elif result_file.stem.endswith("_a"):
+                    file_type = "Input"
                 self.record_result_individual_file(
                     {
                         "file_path": str(result_file.parent),

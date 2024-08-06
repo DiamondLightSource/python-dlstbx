@@ -203,6 +203,7 @@ class AlphaFoldParameters(pydantic.BaseModel):
 
 class ShelxtParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
+    ins_file_location: pathlib.Path
 
 
 class DLSTrigger(CommonService):
@@ -261,6 +262,7 @@ class DLSTrigger(CommonService):
             rw.recipe_step["parameters"],
             substitutions=rw.environment,
         )
+        print(parameter_map)
 
         with self._ispyb_sessionmaker() as session:
             try:
@@ -2057,49 +2059,29 @@ class DLSTrigger(CommonService):
         """Trigger a shelxt job for a given data collection.
 
         """
-        print(hello)
+        print(parameters)
 
         dcid = parameters.dcid
-
-        pdb_files_or_codes = parameters.pdb
-
-        if not pdb_files_or_codes:
-            self.log.info(
-                "Skipping dimple trigger: DCID %s has no associated PDB information",
-                dcid,
-            )
-            return {"success": True}
-        pdb_files = [str(p) for p in pdb_files_or_codes]
-        self.log.info("PDB files: %s", ", ".join(pdb_files))
 
         dc = (
             session.query(DataCollection)
             .filter(DataCollection.dataCollectionId == dcid)
             .one()
         )
-        dimple_parameters: dict[str, list[Any]] = {
-            "data": [os.fspath(parameters.mtz)],
-            "scaling_id": [parameters.scaling_id],
-            "pdb": pdb_files,
+        shelx_parameters: dict[str, list[Any]] = {
+            "ins_file_location": [os.fspath(parameters.ins_file_location)],
         }
 
-        jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
-        jisp["datacollectionid"] = dcid
-        jisp["start_image"] = dc.startImageNumber
-        jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
-
-        self.log.debug("Dimple trigger: Starting")
+        self.log.debug("Shelxt trigger: Starting")
 
         jp = self.ispyb.mx_processing.get_job_params()
-        jp["automatic"] = parameters.automatic
-        jp["comments"] = "this is a comment"
         jp["datacollectionid"] = dcid
         jp["display_name"] = "shelxt"
         jp["recipe"] = "postprocessing-shelxt"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"Shelxt trigger: generated JobID {jobid}")
 
-        for key, values in dimple_parameters.items():
+        for key, values in shelx_parameters.items():
             for value in values:
                 jpp = self.ispyb.mx_processing.get_job_parameter_params()
                 jpp["job_id"] = jobid
@@ -2108,17 +2090,13 @@ class DLSTrigger(CommonService):
                 jppid = self.ispyb.mx_processing.upsert_job_parameter(
                     list(jpp.values())
                 )
-                self.log.debug(f"Dimple trigger: generated JobParameterID {jppid}")
+                self.log.debug(f"Shelxt trigger: generated JobParameterID {jppid}")
 
-        jisp["job_id"] = jobid
-        jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
-        self.log.debug(f"Dimple trigger: generated JobImageSweepID {jispid}")
-
-        self.log.debug(f"Dimple trigger: Processing job {jobid} created")
+        self.log.debug(f"Shelxt trigger: Processing job {jobid} created")
 
         message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
         rw.transport.send("processing_recipe", message)
 
-        self.log.info(f"Dimple trigger: Processing job {jobid} triggered")
+        self.log.info(f"Shelxt trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

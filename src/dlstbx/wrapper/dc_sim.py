@@ -5,7 +5,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class DCSimWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.dc_sim"
 
     def run(self):

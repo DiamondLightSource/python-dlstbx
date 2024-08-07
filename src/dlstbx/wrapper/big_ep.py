@@ -32,14 +32,12 @@ from dlstbx.util.big_ep_helpers import (
     write_sequence_file,
     write_settings_file,
 )
-from dlstbx.util.iris import write_singularity_script
 from dlstbx.util.symlink import create_parent_symlink
 from dlstbx.wrapper import Wrapper
 from dlstbx.wrapper.helpers import copy_results
 
 
 def get_bigep_parameters(big_ep_params, working_directory, logger):
-
     dcid = big_ep_params["dcid"]
     msg_default = {}
     if big_ep_params.get("ispyb_parameters"):
@@ -183,11 +181,9 @@ def record_big_ep_settings_in_ispyb(rpid, msg, logger):
 
 
 class BigEPWrapper(Wrapper):
-
     _logger_name = "zocalo.wrap.big_ep"
 
     def setup(self, working_directory: Path, params: dict):
-
         # Create working directory with symbolic link
         pipeline = self.recwrap.environment.get("pipeline")
         if params.get("create_symlink"):
@@ -234,23 +230,15 @@ class BigEPWrapper(Wrapper):
         except Exception:
             self.log.exception(f"Error configuring {pipeline} jobs")
             return False
-
-        singularity_image = params.get("singularity_image")
-        if singularity_image:
-            try:
-                tmp_path = working_directory / "TMP"
-                tmp_path.mkdir(parents=True, exist_ok=True)
-                # shutil.copy(singularity_image, str(working_directory))
-                # image_name = Path(singularity_image).name
-                write_singularity_script(
-                    working_directory, singularity_image, tmp_path.name
-                )
-                self.recwrap.environment.update(
-                    {"singularity_image": singularity_image}
-                )
-            except Exception:
-                self.log.exception("Error writing singularity script")
-                return False
+        if params.get("s3echo_upload"):
+            if input_mtz := Path(params["s3echo_upload"]["data"]):
+                try:
+                    self.recwrap.environment.update(
+                        {"s3echo_upload": {input_mtz.name: str(input_mtz)}}
+                    )
+                except Exception:
+                    self.log.exception("Error uploading image files to S3 Echo")
+                    return False
 
         self.log.info("Sending message to downstream channel")
         self.log.info(f"Message: {msg}")
@@ -270,13 +258,27 @@ class BigEPWrapper(Wrapper):
         return True
 
     def run_big_ep(self, working_directory: Path, params: dict):
-
         # Collect parameters from payload and check them
         self.msg = Namespace(**self.recwrap.environment["msg"])
 
         pipeline = self.recwrap.environment.get("pipeline")
 
-        input_mtz = Path(params["ispyb_parameters"]["data"]).name
+        if params.get("ispyb_parameters"):
+            if params["ispyb_parameters"].get("data"):
+                if s3_urls := self.recwrap.environment.get("s3_urls"):
+                    try:
+                        iris.get_objects_from_s3(working_directory, s3_urls, self.log)
+                    except Exception:
+                        self.log.exception(
+                            "Exception raised while downloading files from S3 object store"
+                        )
+                        return False
+                    input_mtz = str(
+                        working_directory
+                        / Path(params["ispyb_parameters"]["data"]).name
+                    )
+                else:
+                    input_mtz = Path(params["ispyb_parameters"]["data"]).name
 
         if pipeline == "autoSHARP":
             output_directory = working_directory
@@ -374,6 +376,11 @@ class BigEPWrapper(Wrapper):
             minio_client = iris.get_minio_client(params["s3echo"]["configuration"])
             bucket_name = params["s3echo"].get("bucket", "big-ep")
             try:
+                slurm_log = next((working_directory).glob("slurm-*.out"))
+                shutil.copy(slurm_log, output_directory)
+            except Exception:
+                self.log.exception("Slurm log file not found.")
+            try:
                 iris.store_results_in_s3(
                     minio_client,
                     bucket_name,
@@ -389,10 +396,8 @@ class BigEPWrapper(Wrapper):
         return success
 
     def report(self, working_directory: Path, params: dict, success: bool):
-
         dcid = params["dcid"]
         fast_ep_path = params["fast_ep_path"]
-        email_list = params["email_list"]
 
         xia2_log_files = [
             os.path.join(row["filePath"], row["fileName"])
@@ -497,9 +502,6 @@ class BigEPWrapper(Wrapper):
                     self.log.exception("Error rendering big_ep summary report")
                     return False
                 fp.write(summary_html)
-                bpu.send_html_email_message(
-                    summary_html, pipeline, email_list, tmpl_data
-                )
 
         if results_directory:
             skip_copy = [".launch", ".recipewrap"]
@@ -540,7 +542,6 @@ class BigEPWrapper(Wrapper):
         return success
 
     def run(self):
-
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = dict(self.recwrap.recipe_step["job_parameters"])
         self.recwrap.environment.update(params["ispyb_parameters"])

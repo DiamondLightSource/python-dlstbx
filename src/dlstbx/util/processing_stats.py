@@ -51,10 +51,7 @@ def get_pdb_chain_stats(pdb_file, logger):
                     + [
                         (i, l)
                         for (i, l) in enumerate(
-                            map(
-                                lambda x: operator.sub(*x),
-                                zip(resids[1:], resids[:-1]),
-                            ),
+                            (operator.sub(*x) for x in zip(resids[1:], resids[:-1])),
                             1,
                         )
                         if l > 1

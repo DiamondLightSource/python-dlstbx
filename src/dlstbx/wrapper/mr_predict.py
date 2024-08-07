@@ -21,7 +21,6 @@ clean_environment = {
 
 
 class MRPredictWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.mr_predict"
 
     def run_phaser_ellg(self, working_directory, tag, params, timeout):
@@ -34,9 +33,7 @@ class MRPredictWrapper(Wrapper):
             "resolution",
             "spacegroup",
         ):
-            try:
-                assert params[key]
-            except AssertionError:
+            if not params.get(key):
                 self.log.info(f"Cannot read {key} from MrBUMP logfile")
                 return None
         phaser_script = [

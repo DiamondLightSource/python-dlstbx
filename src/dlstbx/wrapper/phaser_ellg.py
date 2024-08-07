@@ -15,7 +15,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class PhasereLLGWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.phaser_ellg"
 
     def run(self):

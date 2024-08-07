@@ -5,7 +5,6 @@ import pathlib
 from unittest import mock
 
 import pytest
-
 from dlstbx.wrapper import autoPROC
 
 

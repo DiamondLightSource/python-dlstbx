@@ -81,7 +81,7 @@ class MimasService(CommonSystemTest):
             (
                 2,
                 {
-                    "recipes": ["per-image-analysis-gridscan-i03"],
+                    "recipes": ["per-image-analysis-gridscan-i03-no-really"],
                     "parameters": {"ispyb_dcid": 8257178},
                 },
             ),

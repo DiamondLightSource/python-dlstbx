@@ -1,18 +1,12 @@
 from __future__ import annotations
 
-import getpass
 import glob
 import json
 import logging
 import math
 import os
-import platform
-import smtplib
 import subprocess
 import tempfile
-from email.mime.image import MIMEImage
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 import matplotlib as mpl
 import numpy as np
@@ -21,8 +15,6 @@ from iotbx import data_plots
 from dlstbx.util.big_ep_helpers import get_map_model_from_json
 
 mpl.use("Agg")
-from smtplib import SMTPSenderRefused
-from time import sleep
 
 import matplotlib.pyplot as plt
 
@@ -204,7 +196,6 @@ def read_xia2_processing(tmpl_data):
 
 
 def generate_model_snapshots(working_directory, pipeline, tmpl_env):
-
     logger.info(f"Model path: {working_directory}")
     try:
         mdl_data = get_map_model_from_json(working_directory)
@@ -338,53 +329,3 @@ def get_image_files(tmpl_data):
         read_mime_image(diff_img_path, "img_diff")
     except StopIteration:
         logger.info("Diffraction image matching %s pattern not found", diff_pattern)
-
-
-def get_email_subject(log_file, visit):
-
-    rel_pth = os.path.dirname(log_file).split(os.sep)
-    idx_pp = next(i for i, v in enumerate(rel_pth) if "xia2" in v or "autoPROC" in v)
-    dataset_relpth = os.sep.join(rel_pth[idx_pp - 2 : idx_pp + 2])
-    sub = "->".join([visit, dataset_relpth])
-    return sub
-
-
-def send_html_email_message(msg, pipeline, to_addrs, tmpl_data):
-    def add_images(m):
-
-        for cid, img in tmpl_data["html_images"].items():
-            try:
-                mime_image = MIMEImage(img)
-                mime_image.add_header("Content-ID", cid)
-                m.attach(mime_image)
-            except Exception:
-                continue
-
-    try:
-        from_addr = "@".join([getpass.getuser(), platform.node()])
-        subject = get_email_subject(
-            next(iter(tmpl_data["xia2_logs"])), tmpl_data["visit"]
-        )
-
-        message = MIMEMultipart("related")
-        message["From"] = from_addr
-        message["To"] = ",".join(to_addrs)
-        message["Subject"] = " ".join([f"[phasing-html:{pipeline}]", subject])
-        txt = MIMEText(msg, "html")
-        message.attach(txt)
-        add_images(message)
-
-        server = smtplib.SMTP("localhost")
-        retry = 5
-        for i in range(retry):
-            try:
-                server.sendmail(
-                    from_addr=from_addr, to_addrs=to_addrs, msg=message.as_string()
-                )
-                logger.info("Sent email with big_ep results")
-                return
-            except SMTPSenderRefused:
-                sleep(60)
-        logger.error("Cannot sending email with big_ep processing results")
-    except Exception:
-        logger.exception("Error sending email with big_ep processing results")

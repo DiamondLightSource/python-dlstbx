@@ -7,7 +7,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class EMSimWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.em_sim"
 
     def run(self):

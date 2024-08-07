@@ -3,7 +3,6 @@ from __future__ import annotations
 
 class Reader:
     def __init__(self, filename):
-
         fields = [
             ("Low resolution", "low_resolution", 3),
             ("High resolution", "high_resolution", 3),

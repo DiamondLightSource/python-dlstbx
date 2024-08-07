@@ -21,8 +21,8 @@ class DLSMimasBacklog(CommonService):
         self.log.info("MimasBacklog service starting up")
 
         self._message_delay = 30
-        self._jobs_waiting = {"live": 60, "iris": 3000}
-        self._last_cluster_update = {"live": time.time(), "iris": time.time()}
+        self._jobs_waiting = {"slurm": 60, "iris": 3000}
+        self._last_cluster_update = {"slurm": time.time(), "iris": time.time()}
 
         # Subscribe to the mimas.held queue, which contains the held mimas
         # recipes we would like to drip-feed to the dispatcher
@@ -46,29 +46,22 @@ class DLSMimasBacklog(CommonService):
         """
         Examine the message to determine number of waiting jobs.
 
-        We are only interested in the "live" cluster for now. We are only
-        concerned about the number of waiting jobs in high.q or medium.q.
+        We are interested in the "slurm" and "iris" clusters for now. We are
+        only concerned about the number of pending gda2 jobs.
         """
-        if (
-            message["statistic-cluster"] == "live"
-            and message["statistic"] == "waiting-jobs-per-queue"
-        ):
-            self._last_cluster_update["live"] = time.time()
-            self._jobs_waiting["live"] = message["high.q"] + message["medium.q"]
-            self.log.log(
-                logging.INFO if self._jobs_waiting["live"] else logging.DEBUG,
-                f"Jobs waiting on live cluster: {self._jobs_waiting['live']}\n",
-            )
-        elif (
-            message["statistic-cluster"] == "iris"
-            and message["statistic"] == "job-status"
-        ):
-            self._last_cluster_update["iris"] = time.time()
-            self._jobs_waiting["iris"] = message["waiting"]
-            self.log.log(
-                logging.INFO if self._jobs_waiting["iris"] else logging.DEBUG,
-                f"Jobs waiting on iris cluster: {self._jobs_waiting['iris']}\n",
-            )
+        for statistic_cluster in ("slurm", "iris"):
+            if (
+                message["statistic-cluster"] == statistic_cluster
+                and message["statistic"] == "job-states"
+            ):
+                self._last_cluster_update[statistic_cluster] = time.time()
+                self._jobs_waiting[statistic_cluster] = message.get("PENDING", 0)
+                self.log.log(
+                    logging.INFO
+                    if self._jobs_waiting[statistic_cluster]
+                    else logging.DEBUG,
+                    f"Jobs waiting on {statistic_cluster} cluster: {self._jobs_waiting[statistic_cluster]}\n",
+                )
 
     def on_mimas_held(self, rw, header, message):
         """
@@ -79,25 +72,27 @@ class DLSMimasBacklog(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        sc = message["parameters"].get("statistic-cluster", "live")
+        statistic_cluster = message["parameters"].get("statistic-cluster", "slurm")
         try:
             max_jobs_waiting = self.config.storage.get(
-                "max_jobs_waiting", {"live": 60, "iris": 3000}
+                "max_jobs_waiting", {"slurm": 60, "iris": 3000}
             )
             timeout = self.config.storage.get("timeout", 300)
         except AttributeError:
-            max_jobs_waiting = {"live": 60, "iris": 3000}
+            max_jobs_waiting = {"slurm": 60, "iris": 3000}
             timeout = 300
-        self.log.debug(f"Jobs waiting on {sc} cluster: {self._jobs_waiting[sc]}\n")
+        self.log.debug(
+            f"Jobs waiting on {statistic_cluster} cluster: {self._jobs_waiting[statistic_cluster]}\n"
+        )
 
-        if self._jobs_waiting[sc] < max_jobs_waiting[sc]:
-            if self._last_cluster_update[sc] > time.time() - timeout:
+        if self._jobs_waiting[statistic_cluster] < max_jobs_waiting[statistic_cluster]:
+            if self._last_cluster_update[statistic_cluster] > time.time() - timeout:
                 rw.send(message, transaction=txn)
-                self._jobs_waiting[sc] += 1
+                self._jobs_waiting[statistic_cluster] += 1
                 self.log.info(f"Sent message to trigger: {message}")
             else:
                 self.log.warning(
-                    f"Not heard from {sc} cluster for over 5 minutes. Holding jobs."
+                    f"Not heard from {statistic_cluster} cluster for over 5 minutes. Holding jobs."
                 )
                 rw.checkpoint(
                     message,

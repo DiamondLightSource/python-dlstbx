@@ -16,7 +16,6 @@ from dlstbx.util.merging_statistics import get_merging_statistics
 
 
 class FastDPWrapper(dlstbx.wrapper.Wrapper):
-
     _logger_name = "dlstbx.wrap.fast_dp"
 
     name = "fast_dp"

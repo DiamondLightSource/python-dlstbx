@@ -7,10 +7,6 @@ import logging
 import math
 import os
 import pathlib
-import re
-import subprocess
-import time
-from pprint import pformat
 from typing import Optional
 
 import pkg_resources
@@ -21,32 +17,11 @@ from workflows.services.common_service import CommonService
 from zocalo.configuration import Configuration
 from zocalo.util import slurm
 
-cluster_queue_mapping: dict[str, dict[str, str]] = {
-    "cluster": {
-        "default": "medium.q",
-        "bottom": "bottom.q",
-        "low": "low.q",
-        "medium": "medium.q",
-        "high": "high.q",
-        "admin": "admin.q",
-        "tempservices": "tempservices.q",
-    },
-    "testcluster": {
-        "default": "test-medium.q",
-        "low": "test-low.q",
-        "medium": "test-medium.q",
-        "high": "test-high.q",
-        "admin": "test-admin.q",
-    },
-}
-
 
 class JobSubmissionParameters(pydantic.BaseModel):
-    scheduler: str = "grid_engine"
-    cluster: str = "cluster"
-    partition: Optional[str]
+    scheduler: str = "slurm"
+    partition: str = "cs04r"
     job_name: Optional[str]  #
-    priority: Optional[int]  # HTCondor only
     environment: Optional[dict[str, str]] = None
     cpus_per_task: Optional[int] = None
     tasks: Optional[int] = None  # slurm only
@@ -56,150 +31,17 @@ class JobSubmissionParameters(pydantic.BaseModel):
     min_memory_per_cpu: Optional[int] = pydantic.Field(
         None, description="Minimum real memory per cpu (MB)"
     )
-    max_memory_per_cpu: Optional[int] = pydantic.Field(
-        None, description="Maximum real memory per cpu (MB)"
-    )  # HTCondor: maximum memory allocated for job
-    max_disk_per_cpu: Optional[int] = pydantic.Field(
-        None, description="Maximum disk space per cpu (MB)"
-    )  # HTCondor: maximum disk space allocated for job
     time_limit: Optional[datetime.timedelta] = None
     gpus: Optional[int] = None
     exclusive: bool = False
     account: Optional[str]  # account in slurm terminology
     commands: list[str] | str
     qos: Optional[str]
-    queue: Optional[str]  # legacy for grid engine
     qsub_submission_parameters: Optional[str]  # temporary support for legacy recipes
-    transfer_input_files: Optional[list[str]]  # HTCondor: list of input objects to
-    #           transfer from submitter node
-    transfer_output_files: Optional[
-        list[str]
-    ]  # HTCondor: list of output objects to transfer
-    #           transfer to submitter node
 
 
 class JobSubmissionValidationError(ValueError):
     pass
-
-
-def format_timedelta_to_HHMMSS(td: datetime.timedelta) -> str:
-    td_in_seconds = td.total_seconds()
-    hours, remainder = divmod(td_in_seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    return f"{hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}"
-
-
-units = {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40}
-
-
-# based on https://stackoverflow.com/a/60708339
-def parse_size(size):
-    size = size.upper()
-    if not re.match(r" ", size):
-        size = re.sub(r"([KMGT]?B)", r" \1", size)
-    number, unit = [string.strip() for string in size.split()]
-    return int(float(number) * units[unit])
-
-
-def submit_to_grid_engine(
-    params: JobSubmissionParameters,
-    working_directory: pathlib.Path,
-    logger: logging.Logger,
-    **kwargs,
-) -> int | None:
-    # validate
-    assert params.cluster is not None
-    if params.account and 1 < len(params.account.strip()) and "{" not in params.account:
-        if params.cluster == "hamilton" and params.account == "dls":
-            raise JobSubmissionValidationError(
-                "Project 'dls' is not allowed on Hamilton"
-            )
-    elif params.cluster == "hamilton":
-        raise JobSubmissionValidationError(
-            f"No cluster project set for job ({params.account}) on Hamilton. "
-            "Cluster project is mandatory for submission."
-        )
-
-    submission_params: list
-    if params.qsub_submission_parameters:
-        submission_params = params.qsub_submission_parameters.split()
-    else:
-        submission_params = []
-
-    if params.job_name:
-        submission_params.extend(["-N", params.job_name])
-    if params.cpus_per_task:
-        submission_params.extend(["-pe", "smp", str(params.cpus_per_task)])
-    if params.min_memory_per_cpu:
-        submission_params.extend(["-l", f"mfree={params.min_memory_per_cpu}M"])
-    if params.time_limit:
-        HHMMSS = format_timedelta_to_HHMMSS(params.time_limit)
-        submission_params.extend(["-l", f"h_rt={HHMMSS}"])
-    if params.exclusive:
-        submission_params.extend(["-l", "exclusive"])
-    if params.gpus:
-        submission_params.extend(["-l", f"gpus={params.gpus}"])
-    if params.account:
-        submission_params.extend(["-P", params.account])
-
-    cluster_queue = params.queue
-    if cluster_queue is not None:
-        mapped_queue = cluster_queue_mapping[params.cluster].get(cluster_queue)
-        if mapped_queue:
-            logger.debug(
-                f"Mapping requested cluster queue {cluster_queue} on cluster {params.cluster} to {mapped_queue}"
-            )
-        else:
-            mapped_queue = cluster_queue_mapping[params.cluster].get("default")
-            if mapped_queue:
-                logger.info(
-                    f"Requested cluster queue {cluster_queue} not available on cluster {params.cluster}, mapping to {mapped_queue} instead"
-                )
-        if mapped_queue:
-            submission_params = ["-q", mapped_queue] + submission_params
-        else:
-            logger.warning(
-                f"Requested cluster queue {cluster_queue} not available on cluster {params.cluster}, no default queue set"
-            )
-
-    commands = params.commands
-    if not isinstance(commands, str):
-        commands = " ".join(commands)
-
-    submission = [
-        ". /etc/profile.d/modules.sh",
-        "module load global/" + params.cluster,
-        # thanks to Modules 3.2 weirdness qsub may now be a function
-        # calling the real qsub command, but eating up its parameters.
-        "unset -f qsub",
-        f"qsub {' '.join(submission_params)} << EOF",
-        "#!/bin/bash",
-        ". /etc/profile.d/modules.sh",
-        "cd " + os.fspath(working_directory),
-        commands,
-        "EOF",
-    ]
-    logger.debug(
-        f"Cluster ({params.cluster}) submission parameters: {submission_params}"
-    )
-    logger.debug(f"Commands: {commands}")
-    logger.debug(f"Working directory: {working_directory}")
-    result = subprocess.run(
-        ["/bin/bash"],
-        input="\n".join(submission).encode("latin1"),
-        cwd=working_directory,
-        capture_output=True,
-    )
-    if result.returncode:
-        logger.error(
-            "Could not submit cluster job:\n%s\n%s",
-            result.stdout.decode("latin1"),
-            result.stderr.decode("latin1"),
-        )
-        return None
-    assert b"has been submitted" in result.stdout
-    jobnumber = result.stdout.split()[2].decode("latin1")
-    return int(jobnumber)
 
 
 def submit_to_slurm(
@@ -208,13 +50,21 @@ def submit_to_slurm(
     logger: logging.Logger,
     zc: Configuration,
     scheduler: str,
+    recipewrapper: str,
 ) -> int | None:
     api = slurm.SlurmRestApi.from_zocalo_configuration(zc, cluster=scheduler)
 
     script = params.commands
     if not isinstance(script, str):
         script = "\n".join(script)
-    script = f"#!/bin/bash\n. /etc/profile.d/modules.sh\n{script}"
+    if scheduler == "iris":
+        tmp_script = ["#!/bin/bash", f"cat > {pathlib.Path(recipewrapper).name} << EOF"]
+        with open(recipewrapper) as fp:
+            tmp_script.extend(fp.readlines())
+        tmp_script.append(f"EOF\n{script}")
+        script = "\n".join(tmp_script)
+    else:
+        script = f"#!/bin/bash\n. /etc/profile.d/modules.sh\n{script}"
 
     if params.environment:
         environment = [f"{k}={v}" for k, v in params.environment.items()]
@@ -225,7 +75,9 @@ def submit_to_slurm(
         minimal_environment = {"USER"}
         # Only attempt to copy variables that already exist in the submitter's environment.
         minimal_environment &= set(os.environ)
-        environment = [f"{k}={os.environ[k]}" for k in minimal_environment]
+        environment = [f"{k}={os.environ[k]}" for k in minimal_environment] or [
+            "USER=gda2"
+        ]
 
     logger.debug(f"Submitting script to Slurm:\n{script}")
     jdm_params = {
@@ -270,85 +122,6 @@ def submit_to_slurm(
         logger.error(f"Failed Slurm job submission: {error_message}")
         return None
     return response.job_id
-
-
-def submit_to_htcondor(
-    params: JobSubmissionParameters,
-    working_directory: pathlib.Path,
-    logger: logging.Logger,
-    **kwargs,
-) -> int | None:
-    current_wd = os.getcwd()
-
-    singularity_environment = "SINGULARITY_CACHEDIR=/tmp/singularity SINGULARITY_LOCALCACHEDIR=/tmp/singularity SINGULARITY_TMPDIR=/tmp/singularity"
-
-    commands = params.commands
-    if not isinstance(commands, str):
-        commands = "\n".join(commands)
-    cluster_exec, cluster_args = commands.split("\n", 1)
-    logger.info(f"{cluster_exec} {cluster_args}")
-    htcondor_submit = {
-        "executable": cluster_exec,
-        "arguments": cluster_args,
-        "universe": "vanilla",
-        "environment": (
-            singularity_environment
-            if params.environment is None
-            else " ".join(f"{k}={v}" for k, v in params.environment.items())
-        ),
-        "should_transfer_files": "YES",
-        "when_to_transfer_output": "ON_EXIT_OR_EVICT",
-        "output": f"{params.job_name}.condor.out",
-        "error": f"{params.job_name}.condor.err",
-        "log": f"{params.job_name}.condor.log",
-        "on_exit_hold": False,
-        "on_exit_remove": True,
-    }
-    if params.cpus_per_task:
-        htcondor_submit.update({"request_cpus": str(params.cpus_per_task)})
-        if params.max_memory_per_cpu:
-            htcondor_submit.update(
-                {
-                    "request_memory": f"{str(params.max_memory_per_cpu * params.cpus_per_task)}MB"
-                }
-            )
-        if params.max_disk_per_cpu:
-            htcondor_submit.update(
-                {
-                    "request_disk": f"{str(params.max_disk_per_cpu * params.cpus_per_task)}MB"
-                }
-            )
-    if params.transfer_input_files:
-        htcondor_submit.update(
-            {"transfer_input_files": ",".join(params.transfer_input_files)}
-        )
-    if params.transfer_output_files:
-        htcondor_submit.update(
-            {"transfer_output_files": ",".join(params.transfer_output_files)}
-        )
-    if params.priority:
-        htcondor_submit["priority"] = f"{params.priority}"
-
-    try:
-        import htcondor
-
-        coll = htcondor.Collector(htcondor.param["COLLECTOR_HOST"])
-        schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
-        schedd = htcondor.Schedd(schedd_ad)
-        logger.debug(f"Address of the Schedd is: {str(schedd_ad['MyAddress'])}")
-        os.chdir(working_directory)
-        htcondor_job = htcondor.Submit(htcondor_submit)
-
-        with schedd.transaction() as txn:
-            jobnumber = htcondor_job.queue(txn, count=1)
-    except Exception:
-        logger.exception(
-            f"Could not submit HTCondor job:\n{pformat(htcondor_submit)}",
-        )
-        return None
-    finally:
-        os.chdir(current_wd)
-    return jobnumber
 
 
 class DLSCluster(CommonService):
@@ -417,66 +190,27 @@ class DLSCluster(CommonService):
 
     def run_submit_job(self, rw, header, message):
         """Submit cluster job according to message."""
-
         parameters = rw.recipe_step["parameters"]
-        legacy_cluster_submission_parameters = parameters.get(
-            "cluster_submission_parameters"
-        )
-        if isinstance(legacy_cluster_submission_parameters, str):
-            # String containing Grid Engine submission parameters
-            self.log.warning(
-                f"Legacy cluster parameters encountered in recipe_ID: {rw.environment['ID']}"
+        if parameters.get("cluster_submission_parameters"):
+            self.log.error(
+                f"Deprecated cluster parameters encountered in recipe_ID: {rw.environment['ID']}"
             )
-            cluster = parameters["cluster"]
-            cluster_submission_parameters = parameters.get(
-                "cluster_submission_parameters"
-            )
-            account = parameters.get("cluster_project")
-            queue = parameters.get("cluster_queue")
-            commands = parameters.get("cluster_commands")
-            params = JobSubmissionParameters(
-                scheduler="grid_engine",
-                cluster=cluster,
-                account=account,
-                commands=commands,
-                qsub_submission_parameters=cluster_submission_parameters,
-                queue=queue,
-            )
-        elif isinstance(legacy_cluster_submission_parameters, dict):
-            # Dictionary of values for htcondor submission
-            self.log.warning(
-                f"Legacy htcondor parameters encountered in recipe_ID: {rw.environment['ID']}"
-            )
-            max_memory_per_cpu = None
-            max_disk_per_cpu = None
-            if cpus_per_task := legacy_cluster_submission_parameters.get(
-                "request_cpus"
-            ):
-                cpus_per_task = int(cpus_per_task)
+            self._transport.nack(header)
+            return
 
-                if request_memory := legacy_cluster_submission_parameters.get(
-                    "request_memory"
-                ):
-                    max_memory_per_cpu = parse_size(request_memory) / cpus_per_task
-                if request_disk := legacy_cluster_submission_parameters.get(
-                    "request_disk"
-                ):
-                    max_disk_per_cpu = parse_size(request_disk) / cpus_per_task
-            if environment := legacy_cluster_submission_parameters.get("environment"):
-                legacy_cluster_submission_parameters["environment"] = dict(
-                    item.split("=") for item in environment.split()
-                )
-            params = JobSubmissionParameters(
-                **legacy_cluster_submission_parameters,
-                scheduler="htcondor",
-                cpus_per_task=cpus_per_task,
-                max_memory_per_cpu=max_memory_per_cpu,
-                max_disk_per_cpu=max_disk_per_cpu,
-                job_name=legacy_cluster_submission_parameters["output"].split(".")[0],
-                commands=parameters["cluster_commands"],
-            )
-        else:
+        try:
             params = JobSubmissionParameters(**parameters.get("cluster", {}))
+        except pydantic.ValidationError as e:
+            self.log.error(f"Invalid JobSubmissionParameters: {e}")
+            self._transport.nack(header)
+            return
+
+        if params.scheduler not in self.schedulers.keys():
+            self.log.error(
+                f"Unsupported cluster scheduler '{params.scheduler}' encountered in recipe_ID: {rw.environment['ID']}"
+            )
+            self._transport.nack(header)
+            return
 
         if not isinstance(params.commands, str):
             params.commands = "\n".join(params.commands)
@@ -564,69 +298,6 @@ class DLSCluster(CommonService):
             self._transport.nack(header)
             return
 
-        if params.transfer_input_files:
-            try:
-                import datasyncer
-            except ImportError:
-                self.log.error(
-                    "File upload via datasyncer has failed. Cannot import datasyncer module."
-                )
-                self._transport.nack(header)
-                return
-            timestamp = time.time()
-            transfer_status = "active"
-            runtime = 0
-            try:
-                transfer_id = message["datasyncher"]["transfer_id"]
-                transfer_status = datasyncer.status(transfer_id)
-                runtime = timestamp - message["datasyncher"]["timestamp"]
-            except (TypeError, KeyError):
-                transfer_id = datasyncer.transfer(params.transfer_input_files)
-                msg = {
-                    "datasyncher": {
-                        "transfer_id": transfer_id,
-                        "timestamp": timestamp,
-                    }
-                }
-                txn = self._transport.transaction_begin(
-                    subscription_id=header["subscription"]
-                )
-                self._transport.ack(header, transaction=txn)
-                rw.checkpoint(msg, delay=10, transaction=txn)
-                self.log.info(
-                    f"Start transfering input files with transfer_id {transfer_id}"
-                )
-                self._transport.transaction_commit(txn)
-                return
-
-            if transfer_status == "succeeded":
-                self.log.info(
-                    f"Transfering input files for transfer_id {transfer_id} succeeded in {runtime:.2f}s"
-                )
-            elif transfer_status == "active":
-                txn = self._transport.transaction_begin(
-                    subscription_id=header["subscription"]
-                )
-                self._transport.ack(header, transaction=txn)
-                rw.checkpoint(message, delay=10, transaction=txn)
-                self.log.info(
-                    f"Transfering input files for transfer_id {transfer_id} is running for {runtime:.2f}s"
-                )
-                self._transport.transaction_commit(txn)
-                return
-            elif transfer_status == "failed":
-                self.log.error(
-                    f"File upload via datasyncher for transfer_id {transfer_id} failed after {runtime:.2f}s"
-                )
-                self._transport.nack(header)
-                return
-            else:
-                self.log.error(
-                    f"Recieved unknown transfer status value for transfter_id {transfer_id}: {transfer_status}"
-                )
-                self._transport.nack(header)
-                return
-
         submit_to_scheduler = self.schedulers.get(params.scheduler)
 
         jobnumber = submit_to_scheduler(
@@ -635,6 +306,7 @@ class DLSCluster(CommonService):
             self.log,
             zc=self.config,
             scheduler=params.scheduler,
+            recipewrapper=recipewrapper,
         )
         if not jobnumber:
             self._transport.nack(header)
@@ -650,4 +322,6 @@ class DLSCluster(CommonService):
 
         # Commit transaction
         self._transport.transaction_commit(txn)
-        self.log.info(f"Submitted job {jobnumber} to {params.cluster}")
+        self.log.info(
+            f"Submitted job {jobnumber} to '{params.scheduler}' on partition '{params.partition}'"
+        )

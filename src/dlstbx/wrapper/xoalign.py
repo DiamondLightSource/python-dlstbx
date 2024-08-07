@@ -9,7 +9,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class XOalignWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.xoalign"
 
     def run(self):

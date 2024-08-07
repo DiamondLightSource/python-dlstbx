@@ -11,7 +11,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class AlignCrystalWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.dlstbx.align_crystal"
 
     def insert_dials_align_strategies(self, dcid, crystal_symmetry, results):

@@ -20,7 +20,6 @@ class AlphaFoldParameters(pydantic.BaseModel):
 
 
 class AlphaFoldWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.alphafold"
 
     def send_results_to_ispyb(self, pdb_files: List[pathlib.Path], protein_id: int):

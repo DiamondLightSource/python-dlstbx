@@ -12,12 +12,10 @@ import xmltodict
 
 import dlstbx.util.symlink
 from dlstbx.util import iris
-from dlstbx.util.iris import write_singularity_script
 from dlstbx.wrapper import Wrapper
 
 
 class FastEPWrapper(Wrapper):
-
     _logger_name = "zocalo.wrap.fast_ep"
 
     def stop_fast_ep(self, params):
@@ -138,17 +136,13 @@ class FastEPWrapper(Wrapper):
                 working_directory, params["create_symlink"], levels=1
             )
 
-        singularity_image = params.get("singularity_image")
-        if singularity_image:
+        if input_mtz := Path(params.get("s3echo_upload")["data"]):
             try:
-                # shutil.copy(singularity_image, str(working_directory))
-                # image_name = Path(singularity_image).name
-                write_singularity_script(working_directory, singularity_image)
                 self.recwrap.environment.update(
-                    {"singularity_image": singularity_image}
+                    {"s3echo_upload": {input_mtz.name: str(input_mtz)}}
                 )
             except Exception:
-                self.log.exception("Error writing singularity script")
+                self.log.exception("Error uploading image files to S3 Echo")
                 return False
 
         return True
@@ -156,7 +150,14 @@ class FastEPWrapper(Wrapper):
     def run_fast_ep(self, working_directory, params):
         if params.get("ispyb_parameters"):
             if params["ispyb_parameters"].get("data"):
-                if "singularity_image" in self.recwrap.environment:
+                if s3_urls := self.recwrap.environment.get("s3_urls"):
+                    try:
+                        iris.get_objects_from_s3(working_directory, s3_urls, self.log)
+                    except Exception:
+                        self.log.exception(
+                            "Exception raised while downloading files from S3 object store"
+                        )
+                        return False
                     params["fast_ep"]["data"] = str(
                         working_directory
                         / Path(params["ispyb_parameters"]["data"]).name
@@ -197,6 +198,11 @@ class FastEPWrapper(Wrapper):
         if params.get("s3echo"):
             minio_client = iris.get_minio_client(params["s3echo"]["configuration"])
             bucket_name = params["s3echo"].get("bucket", "fast-ep")
+            try:
+                slurm_log = next((working_directory).glob("slurm-*.out"))
+                shutil.copy(slurm_log, subprocess_directory)
+            except Exception:
+                self.log.exception("Slurm log file not found.")
             try:
                 iris.store_results_in_s3(
                     minio_client,
@@ -326,7 +332,6 @@ class FastEPWrapper(Wrapper):
         return True
 
     def run(self):
-
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = dict(self.recwrap.recipe_step["job_parameters"])
 

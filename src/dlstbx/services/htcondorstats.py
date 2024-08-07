@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-import collections
-import itertools
 import time
-from pathlib import Path
 from pprint import pformat
 
 import minio
-import requests
 from workflows.services.common_service import CommonService
-from zocalo.util import slurm
 
 from dlstbx.util.iris import get_minio_client
 
@@ -39,41 +34,10 @@ class HTCondorStats(CommonService):
             HTCondorStats._s3echo_credentials
         )
 
-        self.iris_api: slurm.SlurmRestApi = (
-            slurm.SlurmRestApi.from_zocalo_configuration(self.config, cluster="iris")
-        )
-
         self._register_idle(30, self.update_slurm_statistics)
 
     def update_slurm_statistics(self):
-        """Gather SLURM job status statistics from STFC/IRIS."""
-
-        # Query number of jobs on STRF/IRIS
-        self.log.debug("Gathering STFC/IRIS statistics...")
-        data_pack = {
-            "statistic": "job-status",
-            "statistic-cluster": "iris",
-            "statistic-group": "cluster",
-            "statistic-timestamp": time.time(),
-        }
-        try:
-            self.log.debug("Gathering SLURM job statistics")
-            job_info_resp: slurm.models.OpenapiJobInfoResp = self.iris_api.get_jobs()
-        except requests.HTTPError as e:
-            self.log.error(f"Failed Slurm API call: {e}\n" f"{e.response.text}")
-        else:
-            self.log.debug("Processing slurm job states on IRIS")
-            jobs_states = itertools.chain(
-                *[job.job_state for job in dict(job_info_resp.jobs).get("__root__", [])]
-            )
-            data: dict[str, int] = dict(
-                collections.Counter([js.name for js in jobs_states])
-            )
-            for label, code in (("waiting", "PENDING"), ("running", "RUNNING")):
-                data_pack[label] = data.get(code, 0)
-            self.log.debug(f"{pformat(data_pack)}")
-            self._transport.broadcast("transient.statistics.cluster", data_pack)
-            self._transport.send("statistics.cluster", data_pack, persistent=False)
+        """Gather storage usage statistics from STFC/IRIS and S3 Echo."""
 
         # Query S3 Echo object store usage
         self.log.debug("Gathering S3Echo statistics...")
@@ -101,38 +65,3 @@ class HTCondorStats(CommonService):
 
         self.log.debug(f"{pformat(data_pack)}")
         self._transport.broadcast("transient.statistics.cluster", data_pack)
-        self._transport.send("statistics.cluster", data_pack, persistent=False)
-
-        # Query /iris mount status
-        self.log.debug("Gathering /iris mount status...")
-        for beamline in ("i03", "i04", "i04-1", "i24"):
-            start = time.time()
-            data_pack = {
-                "statistic": "storage-status",
-                "statistic-cluster": "datasyncer",
-                "statistic-group": "iris",
-                "statistic-timestamp": start,
-            }
-            location = f"/iris/{beamline}/data/2024/"
-            try:
-                mtime_location = Path(location).stat().st_mtime
-                self.log.info(f"/iris/{beamline} mount st_mtime: {mtime_location}")
-            finally:
-                runtime = time.time() - start
-                if runtime > 5:
-                    # Anything higher than 5 seconds should be explicitly logged
-                    self.log.warning(
-                        f"Excessive stat-time for accessing {location} on argus",
-                        extra={
-                            "stat-time": runtime,
-                        },
-                    )
-                data_pack["path"] = location
-                data_pack["stat-time"] = runtime
-
-            if mtime_location:
-                self.log.debug(f"{pformat(data_pack)}")
-                self._transport.broadcast("transient.statistics.cluster", data_pack)
-                self._transport.send("statistics.cluster", data_pack, persistent=False)
-            else:
-                self.log.error(f"Cannot access path {location} from argus")

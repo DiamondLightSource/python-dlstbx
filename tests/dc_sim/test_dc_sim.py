@@ -5,10 +5,9 @@ import time
 from dataclasses import dataclass
 from unittest import mock
 
-import pytest
-
 import dlstbx.dc_sim.check
 import dlstbx.dc_sim.definitions
+import pytest
 
 all_programs = ["fast_dp", "xia2 3dii", "xia2 dials", "autoPROC", "autoPROC+STARANISO"]
 

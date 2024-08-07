@@ -90,9 +90,8 @@ class DLSIndexer(CommonService):
             mangle_for_receiving=msgpack_mangle_for_receiving,
         )
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def index(self, rw: workflows.recipe.RecipeWrapper, header: dict, message: dict):
-
         parameters = ChainMapWithReplacement(
             message if isinstance(message, dict) else {},
             rw.recipe_step["parameters"],

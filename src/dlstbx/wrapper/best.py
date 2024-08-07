@@ -12,11 +12,9 @@ from dlstbx.wrapper import Wrapper
 
 
 class BESTWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.best"
 
     def xml_to_dict(self, all_names):
-
         tree = ET.ElementTree(ET.fromstring(self.xml_string))
         root = tree.getroot()
         assert root.tag == "edna_tables", root.tag

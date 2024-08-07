@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Set
 
 import dlstbx.mimas
 
@@ -93,9 +93,6 @@ class DetectorClassSpecification(ScenarioSpecification):
 
     def is_satisfied_by(self, candidate: dlstbx.mimas.MimasScenario) -> bool:
         return candidate.detectorclass == self.detectorclass
-
-
-from typing import Set
 
 
 @dataclass(frozen=True)

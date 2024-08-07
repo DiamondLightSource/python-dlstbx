@@ -246,8 +246,8 @@ class DLSTrigger(CommonService):
             self.log.error("No trigger target defined in recipe")
             rw.transport.nack(header)
             return
-        if target in {"big_ep_cluster", "big_ep_cloud"}:
-            target = "big_ep_common"
+        if "big_ep_launcher" in target:
+            target = "big_ep_launcher"
         if not hasattr(self, "trigger_" + target):
             self.log.error("Unknown target %s defined in recipe", target)
             rw.transport.nack(header)
@@ -297,7 +297,7 @@ class DLSTrigger(CommonService):
             return
         rw.transport.transaction_commit(txn)
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_dimple(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -414,7 +414,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_metal_id(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -667,7 +667,7 @@ class DLSTrigger(CommonService):
         # Sort based on wavelength
         combined = list(zip(wavelengths, dcids, data_files))
         sorted_combined = sorted(combined)
-        wavelengths, dcids, data_files = map(list, zip(*sorted_combined))
+        wavelengths, dcids, data_files = [list(v) for v in zip(*sorted_combined)]
 
         # Get parameters for metal_id recipe
         mtz_file_below = data_files[1]
@@ -721,7 +721,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_ep_predict(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -810,7 +810,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_mr_predict(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -886,7 +886,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_screen19_mx(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -944,7 +944,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_best(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -987,7 +987,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_fast_ep(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -1024,7 +1024,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "fast_ep"
-        jp["recipe"] = "postprocessing-fast-ep-cluster"
+        jp["recipe"] = "postprocessing-fast-ep-cloud"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"fast_ep trigger: generated JobID {jobid}")
 
@@ -1054,7 +1054,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_mrbump(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -1090,7 +1090,7 @@ class DLSTrigger(CommonService):
             jp["comments"] = parameters.comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "MrBUMP"
-            jp["recipe"] = "postprocessing-mrbump-cluster"
+            jp["recipe"] = "postprocessing-mrbump-cloud"
             jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
             jobids.append(jobid)
             self.log.debug(f"mrbump trigger: generated JobID {jobid}")
@@ -1148,8 +1148,8 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobids}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
-    def trigger_big_ep_common(
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    def trigger_big_ep_launcher(
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
@@ -1176,22 +1176,24 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
         jp["display_name"] = parameters.pipeline
-        if target == "big_ep_cluster":
-            jp["recipe"] = "postprocessing-big-ep-cluster"
-        elif target == "big_ep_cloud":
-            jp["recipe"] = "postprocessing-big-ep-cloud"
+        if target == "big_ep_launcher":
+            jp["recipe"] = "postprocessing-big-ep-launcher"
+        elif target == "big_ep_launcher_cloud":
+            jp["recipe"] = "postprocessing-big-ep-launcher-cloud"
         else:
             self.log.error(
-                f"big_ep_common trigger failed: Invalid target specified {target}"
+                f"big_ep_launcher trigger failed: Invalid target specified {target}"
             )
             return False
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-        self.log.debug(f"big_ep_common trigger: generated JobID {jobid}")
+        self.log.debug(f"big_ep_launcher trigger: generated JobID {jobid}")
 
         try:
             program_id = parameters.program_id
         except (TypeError, ValueError):
-            self.log.error("big_ep_common trigger failed: Invalid program_id specified")
+            self.log.error(
+                "big_ep_launcher trigger failed: Invalid program_id specified"
+            )
             return False
         big_ep_parameters = {
             "pipeline": parameters.pipeline,
@@ -1210,7 +1212,7 @@ class DLSTrigger(CommonService):
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
             self.log.debug(f"big_ep_cloud trigger: generated JobParameterID {jppid}")
 
-        self.log.debug(f"big_ep_common trigger: Processing job {jobid} created")
+        self.log.debug(f"big_ep_launcher trigger: Processing job {jobid} created")
 
         message = {
             "recipes": [],
@@ -1218,11 +1220,11 @@ class DLSTrigger(CommonService):
         }
         rw.transport.send("processing_recipe", message)
 
-        self.log.info(f"big_ep_common trigger: Processing job {jobid} triggered")
+        self.log.info(f"big_ep_launcher trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_big_ep(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -1318,7 +1320,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "big_ep"
-        jp["recipe"] = "postprocessing-big-ep-dls"
+        jp["recipe"] = "postprocessing-big-ep-cloud"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep trigger: generated JobID {jobid}")
 
@@ -1355,7 +1357,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": None}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_multiplex(
         self,
         rw: RecipeWrapper,
@@ -1439,13 +1441,10 @@ class DLSTrigger(CommonService):
         dcid = parameters.dcid
 
         # Take related dcids from recipe in preference or checkpointed message
-        try:
+        if isinstance(related_dcid_group := message.get("related_dcid_group"), list):
             # Checkpointed message has dcid group with still running jobs
-            assert isinstance(
-                related_dcid_group := message.get("related_dcid_group"), list
-            )
             related_dcids = [RelatedDCIDs(**el) for el in related_dcid_group]
-        except Exception:
+        else:
             # Initial call of multiplex trigger
             related_dcids = parameters.related_dcids
         self.log.info(f"related_dcids={related_dcids}")
@@ -1745,7 +1744,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobids}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_xia2_ssx_reduce(
         self,
         rw: RecipeWrapper,
@@ -2068,7 +2067,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobids}
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def trigger_alphafold(
         self,
         rw: workflows.recipe.RecipeWrapper,

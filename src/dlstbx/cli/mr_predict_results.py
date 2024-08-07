@@ -20,7 +20,6 @@ from dlstbx.util import mr_utils
 
 
 def read_data_from_ispyb(jobids=None, dtstamp_start=None, dtstamp_end=None):
-
     url = ispyb.sqlalchemy.url()
     engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
     db_session_maker = sqlalchemy.orm.sessionmaker(bind=engine)

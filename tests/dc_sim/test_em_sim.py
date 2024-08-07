@@ -4,10 +4,9 @@ import time
 from dataclasses import dataclass
 from unittest import mock
 
-import pytest
-
 import dlstbx.dc_sim.check
 import dlstbx.dc_sim.definitions
+import pytest
 
 
 @dataclass(frozen=True)

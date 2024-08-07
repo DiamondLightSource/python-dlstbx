@@ -53,7 +53,6 @@ class SimpleStrategy:
             )
 
     def assess(self, environment):
-
         assert isinstance(environment, dict), "passed environment is invalid"
         instances = _categorize(
             environment.get("services", {}).get(self.service_name, {})

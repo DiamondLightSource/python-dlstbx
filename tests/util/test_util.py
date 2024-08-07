@@ -4,7 +4,6 @@ from dlstbx.util import ChainMapWithReplacement
 
 
 def test_chain_map():
-
     substitutions = {
         "foo": "bar",
     }

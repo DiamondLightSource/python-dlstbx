@@ -17,8 +17,7 @@ Subscribes to the `cluster.submission` queue.
 
 A service to interface zocalo with functions to gather cluster statistics. 
 
-Sends results to the `statistics.cluster` queue and the `transient.statistics.cluster`
-topic.
+Sends results to the `transient.statistics.cluster` topic.
 
 ## DLSController
 
@@ -153,13 +152,6 @@ in the `per_image_analysis` queue a single image will be analysed. This calls th
 [`dials.find_spots_server`](https://dials.github.io/documentation/programs/dials_find_spots_server.html).
 
 Subscribes to the `per_image_analysis` queue.
-
-## DLSStatistics
-
-A service to gather report statistics on and around zocalo. Writes results to
-[RRDtool](https://oss.oetiker.ch/rrdtool/) files in `/dls_sw/apps/zocalo/statistics/`.
-
-Subscribes to the `statistics.cluster` queue.
 
 ## DLSTrigger
 

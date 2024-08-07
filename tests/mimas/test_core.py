@@ -3,7 +3,6 @@ from __future__ import annotations
 import functools
 
 import pytest
-
 from dlstbx import mimas
 from dlstbx.mimas import (
     MimasDCClass,
@@ -159,7 +158,7 @@ def test_cbf_screening(get_zocalo_commands):
         MimasScenario,
         DCID=dcid,
         dcclass=MimasDCClass.SCREENING,
-        beamline="i03",
+        beamline="i04-1",
         visit="nt28218-6",
         runstatus="DataCollection Successful",
         preferred_processing="xia2/DIALS",
@@ -185,7 +184,7 @@ def test_cbf_rotation(anomalous_scatterer, absorption_level, get_zocalo_commands
         MimasScenario,
         DCID=dcid,
         dcclass=MimasDCClass.ROTATION,
-        beamline="i03",
+        beamline="i04-1",
         visit="nt28218-6",
         runstatus="DataCollection Successful",
         getsweepslistfromsamedcg=(MimasISPyBSweep(DCID=dcid, start=1, end=375),),
@@ -223,7 +222,7 @@ def test_cbf_rotation_multixia2(
         MimasScenario,
         DCID=dcid,
         dcclass=MimasDCClass.ROTATION,
-        beamline="i03",
+        beamline="i04-1",
         visit="nt28218-6",
         runstatus="DataCollection Successful",
         getsweepslistfromsamedcg=(
@@ -302,7 +301,7 @@ def test_cbf_gridscan(get_zocalo_commands):
         DCID=dcid,
         dcclass=MimasDCClass.GRIDSCAN,
         event=MimasEvent.START,
-        beamline="i03",
+        beamline="i04-1",
         visit="nt28218-6",
         runstatus="DataCollection Successful",
         preferred_processing="xia2/DIALS",

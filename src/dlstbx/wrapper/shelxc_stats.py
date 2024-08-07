@@ -7,7 +7,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class ShelxcStatsWrapper(Wrapper):
-
     _logger_name = "zocalo.wrap.shelxc_stats"
 
     def run(self):

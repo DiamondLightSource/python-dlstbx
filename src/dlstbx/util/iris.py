@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import configparser
-import getpass
 import glob
 import os
 import shutil
@@ -14,7 +13,7 @@ from pathlib import Path
 import certifi
 import minio
 import requests
-from minio.deleteobjects import DeleteObject
+from minio.error import S3Error
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -94,26 +93,15 @@ def get_objects_from_s3(working_directory, s3_urls, logger):
         )
 
 
-def remove_objects_from_s3(minio_clinet, bucket_name, s3_urls):
-    for filename in s3_urls.keys():
-        minio_clinet.remove_object(bucket_name, filename)
-
-
-def remove_images_from_s3(minio_client, bucket_name, pid, images, logger):
-
-    if not minio_client.bucket_exists(bucket_name):
-        logger.info(f"Bucket {bucket_name} doesn't exists.")
-        return
-
-    image_files = get_image_files(None, images, logger)
-    object_names = [
-        "_".join([pid, Path(filepath).name]) for filepath in image_files.values()
-    ]
-    errors = minio_client.remove_objects(
-        bucket_name, [DeleteObject(obj) for obj in object_names]
-    )
-    for error in errors:
-        logger.info("Error occurred when deleting object: ", error)
+def remove_objects_from_s3(minio_clinet, bucket_name, s3_urls, logger):
+    for filename in s3_urls:
+        logger.info(f"Removing file {filename} from bucket {bucket_name}")
+        try:
+            minio_clinet.remove_object(bucket_name, filename)
+        except S3Error:
+            logger.exception(
+                f"Exception raised while trying to remove {filename} file from from bucket {bucket_name}"
+            )
 
 
 def get_image_files(working_directory, images, logger):
@@ -184,7 +172,6 @@ def decompress_results_file(working_directory, filename, logger):
 
 
 def get_presigned_urls(minio_client, bucket_name, pid, files, logger):
-
     if not minio_client.bucket_exists(bucket_name):
         minio_client.make_bucket(bucket_name)
     else:
@@ -295,14 +282,13 @@ def retrieve_results_from_s3(
         if not result.returncode:
             logger.info(f"Resetting ALC mask to {msk} in {results_filename}")
         else:
-            logger.info(f"Failed to reset ALC mask to {msk} in {results_filename}")
+            logger.error(f"Failed to reset ALC mask to {msk} in {results_filename}")
 
     minio_client.remove_object(bucket_name, s3echo_filename)
     os.remove(working_directory / s3echo_filename)
 
 
 def retrieve_file_with_url(filename, url, logger):
-
     import pycurl
 
     logger.info(f"Retrieving data from {url}")
@@ -329,37 +315,3 @@ def retrieve_file_with_url(filename, url, logger):
             retries_left -= 1
             time.sleep(5)
     c.close()
-
-
-def write_singularity_script(
-    working_directory: Path, singularity_image: str, tmp_mount: str | None = None
-):
-    singularity_script = working_directory / "run_singularity.sh"
-    add_tmp_mount = f"--bind ${{PWD}}/{tmp_mount}:/opt/xia2/tmp" if tmp_mount else ""
-    add_iris_mount = f"--bind {working_directory}:${{PWD}}{working_directory}"
-    commands = [
-        "#!/bin/bash",
-        f"/usr/bin/singularity exec --home ${{PWD}} {add_tmp_mount} {add_iris_mount} {singularity_image} $@",
-    ]
-    with open(singularity_script, "w") as fp:
-        fp.write("\n".join(commands))
-
-
-def write_mrbump_singularity_script(
-    working_directory: Path, singularity_image: str, tmp_mount: str, pdblocal: str
-):
-    singularity_script = working_directory / "run_singularity.sh"
-
-    tmp_pdb_mount = (
-        f"--bind ${{PWD}}/{tmp_mount}:/opt/xia2/tmp --bind {pdblocal}:/opt/PDB"
-        if tmp_mount
-        else ""
-    )
-    add_iris_mount = f"--bind {working_directory}:${{PWD}}{working_directory}"
-    commands = [
-        "#!/bin/bash",
-        f"export USER={getpass.getuser()}",
-        "export HOME=${PWD}/auto_mrbump",
-        f"/usr/bin/singularity exec --home ${{PWD}} {tmp_pdb_mount} {add_iris_mount} {singularity_image} $@",
-    ]
-    singularity_script.write_text("\n".join(commands))

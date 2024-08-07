@@ -27,6 +27,19 @@ def find_all_references(startfile):
 
     image_count = collections.defaultdict(int)
     image_count[startfile] = 0
+
+    def walker(handle):
+        for k in handle:
+            v = handle.get(k)
+            l = handle.get(k, getlink=True)
+            if isinstance(l, h5py.ExternalLink):
+                f = os.path.abspath(os.path.join(filepath, l.filename))
+                image_count[f] = 0
+            elif isinstance(v, h5py.Group):
+                walker(v)
+
+    walker(h5py.File(startfile, "r"))
+
     with h5py.File(startfile, "r") as fh:
         try:
             fhed = fh["/entry/data"]
@@ -38,7 +51,13 @@ def find_all_references(startfile):
                 filename = startfile
             else:
                 filename = os.path.abspath(os.path.join(filepath, entry_link.filename))
-                assert filename not in image_count
+                if filename in image_count and image_count[filename]:
+                    log.error(
+                        "image data linked multiple times in %s",
+                        startfile,
+                        exc_info=True,
+                    )
+                    raise ValueError(f"image data linked multiple times in {startfile}")
             if not entry.startswith("data_"):
                 image_count[filename] += 0
                 continue

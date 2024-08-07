@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def get_mrbump_metrics(mrbump_logfile):
-    mrbump_log = [l for l in Path(mrbump_logfile).read_text().split("\n")]
+    mrbump_log = list(Path(mrbump_logfile).read_text().split("\n"))
     iter_log = iter(mrbump_log)
     for line in iter_log:
         if "Input Sequence file:" in line:

@@ -82,7 +82,7 @@ class SSXPlotter(CommonService):
             log_extender=self.extend_log,
         )
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
     def receive_msg(
         self,
         rw: workflows.recipe.RecipeWrapper,

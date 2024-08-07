@@ -29,7 +29,7 @@ class DLSMimas(CommonService):
         self.log.info("Mimas starting")
 
         self.cluster_stats = {
-            "live": {
+            "slurm": {
                 "jobs_waiting": 60,
                 "last_cluster_update": time.time(),
             },
@@ -38,7 +38,6 @@ class DLSMimas(CommonService):
                 "last_cluster_update": time.time(),
             },
             "s3echo": {"total": 0.0, "last_cluster_update": time.time()},
-            "datasyncer": {"last_cluster_update": time.time()},
         }
 
         workflows.recipe.wrap_subscribe(
@@ -169,26 +168,19 @@ class DLSMimas(CommonService):
 
     def on_statistics_cluster(self, header, message):
         """
-        Examine the message to determine number of waiting jobs on
-        DLS Science "live" cluster in high.q and medium.q, on STFC/IRIS cluster and
+        Examine the message to determine number of pending jobs on
+        "slurm" cluster (wilson), on "iris" cluster (STFC) and
         storage utilisation for dls-mx user on S3 Echo object store.
         """
         try:
             sc = message["statistic-cluster"]
         except KeyError:
             return
-        if sc in ("live", "iris", "s3echo", "datasyncer"):
+        if sc in ("slurm", "iris", "s3echo"):
             self.log.debug(f"Received cluster stat message: {pformat(message)}")
             self.cluster_stats[sc]["last_cluster_update"] = time.time()
-            if message["statistic"] == "waiting-jobs-per-queue":
-                self.cluster_stats[sc]["jobs_waiting"] = (
-                    message["high.q"] + message["medium.q"]
-                )
-                self.log.debug(
-                    f"Jobs waiting on {sc} cluster: {self.cluster_stats[sc]['jobs_waiting']}\n",
-                )
-            elif message["statistic"] == "job-status":
-                self.cluster_stats[sc]["jobs_waiting"] = message["waiting"]
+            if message["statistic"] == "job-states":
+                self.cluster_stats[sc]["jobs_waiting"] = message.get("PENDING", 0)
                 self.log.debug(
                     f"Jobs waiting on {sc} cluster: {self.cluster_stats[sc]['jobs_waiting']}\n",
                 )
@@ -210,15 +202,14 @@ class DLSMimas(CommonService):
         cloud_spec_list: list[dict[str, Any]] = []
         try:
             max_jobs_waiting = self.config.storage.get(
-                "max_jobs_waiting", {"live": 60, "iris": 500}
+                "max_jobs_waiting", {"slurm": 60, "iris": 500}
             )
             timeout = self.config.storage.get("timeout", 300)
             s3echo_quota = 0.95 * self.config.storage.get("s3echo_quota", 100)
             timeout_threshold = time.time() - timeout
-            self.log.debug(f"Live cluster stats: {self.cluster_stats['live']}")
+            self.log.debug(f"Slurm cluster stats: {self.cluster_stats['slurm']}")
             self.log.debug(f"IRIS cluster stats: {self.cluster_stats['iris']}")
             self.log.debug(f"S3Echo stats: {self.cluster_stats['s3echo']}")
-            self.log.debug(f"Datasyncer stats: {self.cluster_stats['datasyncer']}")
             self.log.debug(
                 "Cloudbursting threshold values\n"
                 f"  max_jobs_waiting: {max_jobs_waiting}\n"
@@ -250,11 +241,11 @@ class DLSMimas(CommonService):
                 if (
                     (
                         (
-                            self.cluster_stats["live"]["jobs_waiting"]
-                            > group_max_jobs_waiting["live"]
+                            self.cluster_stats["slurm"]["jobs_waiting"]
+                            > group_max_jobs_waiting["slurm"]
                         )
                         or (
-                            self.cluster_stats["live"]["last_cluster_update"]
+                            self.cluster_stats["slurm"]["last_cluster_update"]
                             < timeout_threshold
                         )
                     )
@@ -268,10 +259,6 @@ class DLSMimas(CommonService):
                     )
                     and (
                         self.cluster_stats["s3echo"]["last_cluster_update"]
-                        > timeout_threshold
-                    )
-                    and (
-                        self.cluster_stats["datasyncer"]["last_cluster_update"]
                         > timeout_threshold
                     )
                 ):

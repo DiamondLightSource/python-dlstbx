@@ -278,7 +278,6 @@ def create_attachments(
     db_app: models.AutoProcProgram,
     session: sqlalchemy.orm.session.Session,
 ) -> List[models.AutoProcProgramAttachment]:
-
     db_attachments: List[models.AutoProcProgramAttachment] = [
         models.AutoProcProgramAttachment(
             AutoProcProgram=db_app,

@@ -112,7 +112,6 @@ service_list = [
     "DLSNotifyGDA = dlstbx.services.notifygda:DLSNotifyGDA",
     "DLSPerImageAnalysis = dlstbx.services.per_image_analysis:DLSPerImageAnalysis",
     "DLSReverseBridge = dlstbx.services.bridge_reverse:DLSReverseBridge",
-    "DLSStatistics = dlstbx.services.statistics:DLSStatistics",
     "DLSTrigger = dlstbx.services.trigger:DLSTrigger",
     "DLSValidation = dlstbx.services.validation:DLSValidation",
     "DLSXRayCentering = dlstbx.services.xray_centering:DLSXRayCentering",
@@ -247,8 +246,6 @@ setup(
         "workflows.services": sorted(service_list),
         "zocalo.health_checks": sorted(health_checks),
         "zocalo.services.cluster.schedulers": [
-            "grid_engine = dlstbx.services.cluster:submit_to_grid_engine",
-            "htcondor = dlstbx.services.cluster:submit_to_htcondor",
             "slurm = dlstbx.services.cluster:submit_to_slurm",
             "iris = dlstbx.services.cluster:submit_to_slurm",
         ],

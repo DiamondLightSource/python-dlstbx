@@ -12,7 +12,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class ScaleitWrapper(Wrapper):
-
     _logger_name = "dlstbx.wrap.scaleit"
 
     def find_cols_from_type(self, obj, type, file="mtz_file"):

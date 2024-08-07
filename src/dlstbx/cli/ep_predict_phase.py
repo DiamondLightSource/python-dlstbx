@@ -103,7 +103,6 @@ def read_ispyb_data(jobids):
 
 
 def read_big_ep_jobids(data, last_records=True):
-
     url = ispyb.sqlalchemy.url()
     engine = sqlalchemy.create_engine(url, connect_args={"use_pure": True})
     db_session_maker = sqlalchemy.orm.sessionmaker(bind=engine)
@@ -218,7 +217,6 @@ def run_ispyb_job(data, debug, dry_run):
 
 
 def trigger_dlstbx_go(data, arg_sleep, debug, dry_run):
-
     results = read_big_ep_jobids(data)
     if not results:
         raise ValueError(

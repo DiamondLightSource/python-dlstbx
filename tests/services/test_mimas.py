@@ -3,10 +3,9 @@ from __future__ import annotations
 from unittest import mock
 
 import workflows.transport
+from dlstbx.services.mimas import DLSMimas
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.transport.offline_transport import OfflineTransport
-
-from dlstbx.services.mimas import DLSMimas
 
 
 def test_mimas(with_dummy_plugins, monkeypatch, mocker):

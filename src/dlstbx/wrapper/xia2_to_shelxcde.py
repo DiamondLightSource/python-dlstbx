@@ -12,7 +12,6 @@ from dlstbx.wrapper import Wrapper
 
 
 class Xia2toShelxcdeWrapper(Wrapper):
-
     _logger_name = "zocalo.wrap.xia2.to_shelxcde"
 
     def run(self):

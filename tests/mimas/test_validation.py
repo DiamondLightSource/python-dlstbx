@@ -3,9 +3,8 @@ from __future__ import annotations
 import dataclasses
 import itertools
 
-import pytest
-
 import dlstbx.mimas
+import pytest
 
 
 def test_validation_of_unknown_objects():
@@ -18,7 +17,7 @@ def test_validation_of_unknown_objects():
         False,
         [],
         {},
-        dict(),
+        {},
     ):
         with pytest.raises(ValueError):
             dlstbx.mimas.validate(failing_object)

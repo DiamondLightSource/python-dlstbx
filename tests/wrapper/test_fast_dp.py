@@ -8,7 +8,6 @@ from dlstbx.wrapper.fast_dp import FastDPWrapper
 
 
 def test_FastDPWrapper(make_wrapper, tmpdir, mocker):
-
     image_path = "/dls/i04-1/data/2019/nt18231-19/tmp/2019-05-02/09-36-17-da63fb1b/INS2_29_2_1_0001.cbf:1:200"
     working_directory = tmpdir.join("work_dir")
     working_directory.ensure(dir=True)

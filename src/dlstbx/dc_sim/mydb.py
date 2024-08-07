@@ -164,6 +164,6 @@ def retrieve_dcs_from_dcg(db_session, dcg):
     img_dir = rows[0].imageDirectory
     sample_id = rows[0].BLSAMPLEID
     # Get values for prefixes and run_nums, removing duplicate values
-    img_prefixes = list(set([r.imagePrefix for r in rows]))
-    img_run_num = list(set([r.dataCollectionNumber for r in rows]))
+    img_prefixes = list({r.imagePrefix for r in rows})
+    img_run_num = list({r.dataCollectionNumber for r in rows})
     return img_dir, img_prefixes, img_run_num, sample_id

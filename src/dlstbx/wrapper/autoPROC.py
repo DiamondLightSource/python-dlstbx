@@ -495,27 +495,23 @@ class autoPROCWrapper(Wrapper):
         return success
 
     def setup(self, working_directory: Path, params: dict):
-
         # Create working directory with symbolic link
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 working_directory, params["create_symlink"], levels=1
             )
 
-        if singularity_image := params.get("singularity_image"):
+        if images := params.get("s3echo_upload"):
             try:
-                iris.write_singularity_script(working_directory, singularity_image)
-                self.recwrap.environment.update(
-                    {"singularity_image": singularity_image}
-                )
+                image_files = iris.get_image_files(None, images, self.log)
+                self.recwrap.environment.update({"s3echo_upload": image_files})
             except Exception:
-                self.log.exception("Error writing singularity script")
+                self.log.exception("Error uploading image files to S3 Echo")
                 return False
 
         return True
 
     def run_autoPROC(self, working_directory: Path, params: dict):
-
         subprocess_directory = working_directory / "autoPROC"
         subprocess_directory.mkdir(parents=True, exist_ok=True)
         input_image_directory = None
@@ -592,6 +588,11 @@ class autoPROCWrapper(Wrapper):
             minio_client = iris.get_minio_client(params["s3echo"]["configuration"])
             bucket_name = params["s3echo"].get("bucket", "autoproc")
             try:
+                slurm_log = next((working_directory).glob("slurm-*.out"))
+                shutil.copy(slurm_log, subprocess_directory)
+            except Exception:
+                self.log.exception("Slurm log file not found.")
+            try:
                 iris.store_results_in_s3(
                     minio_client,
                     bucket_name,
@@ -609,7 +610,6 @@ class autoPROCWrapper(Wrapper):
         return success
 
     def report(self, working_directory: Path, params: dict, success: bool):
-
         working_directory = working_directory / "autoPROC"
         if not working_directory.is_dir():
             self.log.error(f"autoPROC working directory {working_directory} not found.")
@@ -761,7 +761,6 @@ class autoPROCWrapper(Wrapper):
         return success
 
     def run(self):
-
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         params = dict(self.recwrap.recipe_step["job_parameters"])
 

@@ -4,7 +4,7 @@ from workflows.recipe import Recipe
 
 from dlstbx.system_test.common import CommonSystemTest
 
-imagepath = "/dls/i03/data/2023/cm33866-2/TestInsulin/ins_16/"
+imagepath = "/dls/i03/data/2024/cm37235-3/TestProteinaseK/protk_4/"
 
 
 class NexusParserService(CommonSystemTest):
@@ -23,7 +23,7 @@ class NexusParserService(CommonSystemTest):
                 "service": "DLS System Test",
                 "queue": self.target_queue,
             },
-            "start": [(1, {"file": imagepath + "ins_16_4_master.h5"})],
+            "start": [(1, {"file": imagepath + "protk_4_10_master.h5"})],
         }
         recipe = Recipe(recipe)
         recipe.validate()
@@ -48,11 +48,12 @@ class NexusParserService(CommonSystemTest):
                 "filelist": sorted(
                     imagepath + filename
                     for filename in (
-                        "ins_16_4_000001.h5",
-                        "ins_16_4_000002.h5",
-                        "ins_16_4_000003.h5",
-                        "ins_16_4_000004.h5",
-                        "ins_16_4_master.h5",
+                        "protk_4_10_000001.h5",
+                        "protk_4_10_000002.h5",
+                        "protk_4_10_000003.h5",
+                        "protk_4_10_000004.h5",
+                        "protk_4_10_master.h5",
+                        "protk_4_10_meta.h5",
                     )
                 )
             },

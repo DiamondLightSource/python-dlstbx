@@ -29,7 +29,6 @@ def parse_shelxc_logs(shelxc_log, logger):
     cc_data = Group(Literal("CC(1/2)").suppress() + OneOrMore(float_number))
 
     def shelxc_log_pattern(pattern):
-
         res_pattern = OneOrMore(SkipTo(pattern).suppress() + pattern)
         return res_pattern
 
@@ -71,7 +70,6 @@ def parse_shelxc_logs(shelxc_log, logger):
 
 
 def reduce_shelxc_results(msg, params, logger):
-
     RESOL_CUTOFF = params.get("resol_cutoff", -1.0)
     DSIG_CUTOFF = params.get("dsig_cutoff", -1.0)
     HIGHRES_CUTOFF = params.get("dmin_cutoff", -1.0)

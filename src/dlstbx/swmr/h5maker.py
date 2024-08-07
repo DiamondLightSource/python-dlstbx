@@ -72,7 +72,6 @@ def main(
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description="Generate a fake HDF5 SWMR file.")
     parser.add_argument(
         "prefix", type=pathlib.Path, help="/path/to/generated/hdf/prefix"

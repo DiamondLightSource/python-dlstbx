@@ -522,6 +522,8 @@ class DLSTrigger(CommonService):
         dcids = sorted(dcids)[-2::]
         self.log.info(f"Metal ID trigger: found dcids {dcids}")
 
+        proc_prog = parameters.proc_prog
+
         # Check that both dcids have finished processing successfully
         query = (
             (
@@ -532,7 +534,7 @@ class DLSTrigger(CommonService):
             )
             .filter(ProcessingJob.dataCollectionId.in_(dcids))
             .filter(ProcessingJob.automatic == True)  # noqa E712
-            .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+            .filter(AutoProcProgram.processingPrograms == proc_prog)
             .filter(
                 or_(
                     AutoProcProgram.processingStatus == None,  # noqa E711
@@ -578,7 +580,7 @@ class DLSTrigger(CommonService):
             "autoPROC": "truncate-unique.mtz",
             "autoPROC+STARANISO": "staraniso_alldata-unique.mtz",
         }
-        proc_prog = parameters.proc_prog
+
         if proc_prog not in input_file_patterns.keys():
             self.log.info(
                 f"Skipping metal id trigger: {proc_prog} is not an accepted upstream processing pipeline for metal id"

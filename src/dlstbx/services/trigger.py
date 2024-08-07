@@ -131,6 +131,7 @@ class BigEPParameters(pydantic.BaseModel):
             return None
         return spg
 
+
 class BigEPLauncherParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     pipeline: Literal["autoSHARP", "AutoBuild", "Crank2"]
@@ -2056,18 +2057,11 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        """Trigger a shelxt job for a given data collection.
-
-        """
+        """Trigger a shelxt job for a given data collection."""
         print(parameters)
 
         dcid = parameters.dcid
 
-        dc = (
-            session.query(DataCollection)
-            .filter(DataCollection.dataCollectionId == dcid)
-            .one()
-        )
         shelx_parameters: dict[str, list[Any]] = {
             "ins_file_location": [os.fspath(parameters.ins_file_location)],
         }

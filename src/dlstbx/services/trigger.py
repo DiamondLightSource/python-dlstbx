@@ -205,6 +205,8 @@ class AlphaFoldParameters(pydantic.BaseModel):
 class ShelxtParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     ins_file_location: pathlib.Path
+    prefix: Optional[str]
+    automatic: Optional[bool] = False
 
 
 class DLSTrigger(CommonService):
@@ -2064,6 +2066,7 @@ class DLSTrigger(CommonService):
 
         shelx_parameters: dict[str, list[Any]] = {
             "ins_file_location": [os.fspath(parameters.ins_file_location)],
+            "prefix": [parameters.prefix],
         }
 
         self.log.debug("Shelxt trigger: Starting")
@@ -2072,6 +2075,7 @@ class DLSTrigger(CommonService):
         jp["datacollectionid"] = dcid
         jp["display_name"] = "shelxt"
         jp["recipe"] = "postprocessing-shelxt"
+        jp["automatic"] = parameters.automatic
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"Shelxt trigger: generated JobID {jobid}")
 

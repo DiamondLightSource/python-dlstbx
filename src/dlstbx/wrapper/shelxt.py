@@ -65,7 +65,7 @@ class ShelxtWrapper(Wrapper):
 
         # we want to extract R1 and the space group from the lxt for each solution
         lxt_file_path = working_directory / f"{prefix}.lxt"
-        solutions = []
+        solutions = ["Solution", "Space Group", "R1"]
         try:
             with open(lxt_file_path, "r") as f:
                 lines = f.readlines()
@@ -90,9 +90,7 @@ class ShelxtWrapper(Wrapper):
                 r1 = line.split()[0]
                 spacegroup = line[43:].split()[0]
                 filename = line[65:].split()[0]
-                solutions.append(
-                    {"filename": filename, "spacegroup": spacegroup, "r1": r1}
-                )
+                solutions.append([filename, spacegroup, r1])
         except Exception as e:
             self.log.warning("could not extract details from lxt file: ", e)
 
@@ -104,8 +102,8 @@ class ShelxtWrapper(Wrapper):
         command2 = [
             "run_csd_python_api",
             "/dls/science/users/fer45166/dials-dev-env/make_a_pretty_picture.py",
-            str(working_directory / "shelxt_a.res"),
-            str(working_directory / "shelxt_a.png"),
+            str(working_directory / f"{prefix}_a.res"),
+            str(working_directory / f"{prefix}_a.png"),
         ]
 
         self.log.info("pretty picture command: %s", " ".join(command2))

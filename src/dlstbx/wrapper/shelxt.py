@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import shutil
@@ -24,19 +25,28 @@ class ShelxtWrapper(Wrapper):
             os.makedirs(working_directory)
         os.chdir(working_directory)
 
+        if params.get("create_symlink"):
+            dlstbx.util.symlink.create_parent_symlink(
+                working_directory, params["create_symlink"], levels=1
+            )
+
         # we need the ins and the hkl file here
         ispyb_params = params.get("ispyb_parameters", {})
         previous_directory = ispyb_params.get("ins_file_location", ["."])
         previous_directory = pathlib.Path(previous_directory[0])
 
+        prefix = ispyb_params.get("prefix", ["shelxt_#"])
+        prefix = prefix[0].split("#")[0][0:-1]
+
         for f in previous_directory.iterdir():
             if f.is_file() and f.name.startswith("shelx"):
                 self.log.info(f"Copying {f} to working directory")
-                shutil.copy(f, working_directory)
+                new_name = prefix + f.suffix
+                shutil.copy(f, working_directory / new_name)
 
         command = [
             "shelxt",
-            "shelxt",  # it appears as though the file is always called shelxt.ins?
+            prefix,
         ]
         self.log.info("shelxt command: %s", " ".join(command))
         result = procrunner.run(command, timeout=params.get("timeout"))
@@ -52,6 +62,43 @@ class ShelxtWrapper(Wrapper):
         self.log.debug(result.stdout)
 
         self.log.info("Shelxt successful, took %.3f seconds", result["runtime"])
+
+        # we want to extract R1 and the space group from the lxt for each solution
+        lxt_file_path = working_directory / f"{prefix}.lxt"
+        solutions = []
+        try:
+            with open(lxt_file_path, "r") as f:
+                lines = f.readlines()
+            for i, l in enumerate(lines):
+                if l.split() == [
+                    "R1",
+                    "Rweak",
+                    "Alpha",
+                    "SysAbs",
+                    "Orientation",
+                    "Space",
+                    "group",
+                    "Flack_x",
+                    "File",
+                    "Formula",
+                ]:
+                    break
+            for j in range(1, 10):
+                line = lines[i + j]
+                if line == "\n":
+                    break
+                r1 = line.split()[0]
+                spacegroup = line[43:].split()[0]
+                filename = line[65:].split()[0]
+                solutions.append(
+                    {"filename": filename, "spacegroup": spacegroup, "r1": r1}
+                )
+        except Exception as e:
+            self.log.warning("could not extract details from lxt file: ", e)
+
+        solutions_filename = working_directory / "shelxt_results.json"
+        with open(solutions_filename, "w") as f:
+            json.dump(solutions, f)
 
         # rough hacklet to make a pretty picture
         command2 = [
@@ -84,19 +131,10 @@ class ShelxtWrapper(Wrapper):
                 self.log.debug(f"Copying {f} to results directory")
                 shutil.copy(f, results_directory)
 
-        # Send results to various listeners
-        shelxt_files = [
-            "shelxt_a.hkl",
-            "shelxt_a.res",
-            "shelxt.hkl",
-            "shelxt.ins",
-            "shelxt.lxt",
-            "shelxt_a.png",
-        ]
-        for result_file in [results_directory / x for x in shelxt_files]:
+        for result_file in results_directory.iterdir():
             if result_file.is_file():
                 file_type = "Result"
-                if result_file.suffix in [".lxt", ".png"]:
+                if result_file.suffix in [".lxt", ".png", ".json"]:
                     file_type = "Log"
                 self.record_result_individual_file(
                     {

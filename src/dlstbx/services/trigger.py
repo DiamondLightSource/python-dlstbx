@@ -2060,7 +2060,6 @@ class DLSTrigger(CommonService):
         **kwargs,
     ):
         """Trigger a shelxt job for a given data collection."""
-        print(parameters)
 
         dcid = parameters.dcid
 

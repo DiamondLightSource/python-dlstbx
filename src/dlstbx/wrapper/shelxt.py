@@ -36,7 +36,10 @@ class ShelxtWrapper(Wrapper):
         previous_directory = pathlib.Path(previous_directory[0])
 
         prefix = ispyb_params.get("prefix", ["shelxt_#"])
-        prefix = prefix[0].split("#")[0][0:-1]
+        if "#" in prefix:
+            prefix = prefix[0].split("#")[0][0:-1]
+        else:
+            prefix = prefix[0].split("_master.h5")[0]
 
         for f in previous_directory.iterdir():
             if f.is_file() and f.name.startswith("shelx"):
@@ -65,7 +68,7 @@ class ShelxtWrapper(Wrapper):
 
         # we want to extract R1 and the space group from the lxt for each solution
         lxt_file_path = working_directory / f"{prefix}.lxt"
-        solutions = ["Solution", "Space Group", "R1"]
+        solutions = [["Solution", "Space Group", "R1"]]
         try:
             with open(lxt_file_path, "r") as f:
                 lines = f.readlines()

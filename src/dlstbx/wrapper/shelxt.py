@@ -36,7 +36,7 @@ class ShelxtWrapper(Wrapper):
         previous_directory = pathlib.Path(previous_directory[0])
 
         prefix = ispyb_params.get("prefix", ["shelxt_#"])
-        if "#" in prefix:
+        if "#" in prefix[0]:
             prefix = prefix[0].split("#")[0][0:-1]
         else:
             prefix = prefix[0].split("_master.h5")[0]

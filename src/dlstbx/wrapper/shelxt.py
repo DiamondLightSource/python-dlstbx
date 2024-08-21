@@ -178,6 +178,9 @@ class ShelxtWrapper(Wrapper):
         for result_file in results_directory.iterdir():
             if result_file.is_file():
                 file_type = "Result"
+                importance_rank = 1
+                if "pdb" in result_file.name:
+                    importance_rank = 2
                 if result_file.suffix in [".lxt", ".png", ".json"]:
                     file_type = "Log"
                 self.record_result_individual_file(
@@ -185,7 +188,7 @@ class ShelxtWrapper(Wrapper):
                         "file_path": str(result_file.parent),
                         "file_name": result_file.name,
                         "file_type": file_type,
-                        "importance_rank": 1,
+                        "importance_rank": importance_rank,
                     }
                 )
 

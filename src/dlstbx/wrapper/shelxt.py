@@ -15,6 +15,16 @@ class ShelxtWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.shelxt"
 
     def run(self):
+        """run shelxt and all the paraphernalia.
+        Step 1: Figure out a good name to use from the prefix
+        Step 2: should have an hkl and an ins file from the upstream, copy these using new name
+        Step 3: run shelxt
+        Step 4: extract the solutions from the lxt file and save into a json file
+        Step 5: make a png for synchweb using csd api
+        Step 6: make a copy of the res file, insert WPDB and run shelxl to make PDB file
+        Step 7: copy to processed, upload, symlinks, etc
+
+        """
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
 
         params = self.recwrap.recipe_step["job_parameters"]
@@ -35,6 +45,7 @@ class ShelxtWrapper(Wrapper):
         previous_directory = ispyb_params.get("ins_file_location", ["."])
         previous_directory = pathlib.Path(previous_directory[0])
 
+        # get the file prefix from the parameters
         prefix = ispyb_params.get("prefix", ["shelxt_#"])
         if "#" in prefix[0]:
             prefix = prefix[0].split("#")[0][0:-1]
@@ -60,6 +71,7 @@ class ShelxtWrapper(Wrapper):
                 result["timeout"],
             )
             return False
+
         # shelxt returns 0 if it didn't find the file :eyeroll:
         # lets check the stdout to see if anything's up
         self.log.debug(result.stdout)
@@ -119,6 +131,37 @@ class ShelxtWrapper(Wrapper):
             )
 
         self.log.info("picture making successful, took %.3f seconds", result["runtime"])
+
+        # make a PDB file
+        # copy the res file from the first solution to a new ins file, call it something different
+        candidate_res_file = f"{prefix}_a.res"
+        candidate_hkl_file = f"{prefix}_a.hkl"
+        with open(candidate_res_file, "r") as f:
+            lines = f.readlines()
+        for i, l in enumerate(lines):
+            if "LIST" in l or "FMAP" in l or "PLAN" in l:
+                break
+        lines.insert(i, "WPDB\n")
+        with open("pdb_maker.ins", "w") as f:
+            f.writelines(lines)
+
+        # we also need to copy the hkl file for the shelxl to work
+        shutil.copy(candidate_hkl_file, working_directory / "pdb_maker.hkl")
+
+        command3 = ["shelxl", "pdb_maker"]
+
+        self.log.info("shelxl / pdb command: %s", " ".join(command3))
+        result = procrunner.run(command3, timeout=params.get("timeout"))
+        if result["exitcode"] or result["timeout"]:
+            self.log.warning(
+                "Failed to run shelxt with exitcode %s and timeout %s",
+                result["exitcode"],
+                result["timeout"],
+            )
+
+        self.log.info(
+            "shelxl / pdb step successful, took %.3f seconds", result["runtime"]
+        )
 
         # copy output files to result directory
         results_directory = pathlib.Path(params["results_directory"])

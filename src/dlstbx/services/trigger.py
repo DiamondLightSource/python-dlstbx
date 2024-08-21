@@ -265,7 +265,6 @@ class DLSTrigger(CommonService):
             rw.recipe_step["parameters"],
             substitutions=rw.environment,
         )
-        print(parameter_map)
 
         with self._ispyb_sessionmaker() as session:
             try:

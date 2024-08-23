@@ -207,6 +207,7 @@ class ShelxtParameters(pydantic.BaseModel):
     ins_file_location: pathlib.Path
     prefix: Optional[str]
     automatic: Optional[bool] = False
+    scaling_id: int = pydantic.Field(gt=0)
 
 
 class DLSTrigger(CommonService):
@@ -2065,6 +2066,7 @@ class DLSTrigger(CommonService):
         shelx_parameters: dict[str, list[Any]] = {
             "ins_file_location": [os.fspath(parameters.ins_file_location)],
             "prefix": [parameters.prefix],
+            "scaling_id": [parameters.scaling_id],
         }
 
         self.log.debug("Shelxt trigger: Starting")

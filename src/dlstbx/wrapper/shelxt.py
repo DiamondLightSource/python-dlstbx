@@ -4,8 +4,7 @@ import json
 import os
 import pathlib
 import shutil
-
-import procrunner
+import subprocess
 
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
@@ -63,12 +62,22 @@ class ShelxtWrapper(Wrapper):
             prefix,
         ]
         self.log.info("shelxt command: %s", " ".join(command))
-        result = procrunner.run(command, timeout=params.get("timeout"))
-        if result["exitcode"] or result["timeout"]:
+
+        try:
+            result = subprocess.run(command, timeout=params.get("timeout"))
+        except subprocess.TimeoutExpired:
             self.log.warning(
-                "Failed to run shelxt with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
+                "Failed to run shelxt, timeout reached",
+            )
+            return False
+        except Exception as e:
+            self.log.warning(
+                f"Failed to run shelxt: {e}",
+            )
+            return False
+        if result.returncode:
+            self.log.warning(
+                "Failed to run shelxt, non-zero exit code",
             )
             return False
 
@@ -76,7 +85,7 @@ class ShelxtWrapper(Wrapper):
         # lets check the stdout to see if anything's up
         self.log.debug(result.stdout)
 
-        self.log.info("Shelxt successful, took %.3f seconds", result["runtime"])
+        self.log.info("Shelxt successful")
 
         # we want to extract R1 and the space group from the lxt for each solution
         lxt_file_path = working_directory / f"{prefix}.lxt"
@@ -113,6 +122,8 @@ class ShelxtWrapper(Wrapper):
         with open(solutions_filename, "w") as f:
             json.dump(solutions, f)
 
+        failure = False
+
         # rough hacklet to make a pretty picture
         command2 = [
             "run_csd_python_api",
@@ -122,15 +133,24 @@ class ShelxtWrapper(Wrapper):
         ]
 
         self.log.info("pretty picture command: %s", " ".join(command2))
-        result = procrunner.run(command2, timeout=params.get("timeout"))
-        if result["exitcode"] or result["timeout"]:
-            self.log.warning(
-                "Failed to run shelxt with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
-            )
 
-        self.log.info("picture making successful, took %.3f seconds", result["runtime"])
+        try:
+            result = subprocess.run(command2, timeout=params.get("timeout"))
+        except subprocess.TimeoutExpired:
+            self.log.warning(
+                "Failed to run shelxt png generation, timeout reached",
+            )
+            failure = True
+        except Exception as e:
+            self.log.warning(
+                f"Failed to run shelxt png generation: {e}",
+            )
+            failure = True
+        if result.returncode:
+            self.log.warning(
+                "Failed to run shelxt png generation, non-zero exit code",
+            )
+            failure = True
 
         # make a PDB file
         # copy the res file from the first solution to a new ins file, call it something different
@@ -151,17 +171,23 @@ class ShelxtWrapper(Wrapper):
         command3 = ["shelxl", "pdb_maker"]
 
         self.log.info("shelxl / pdb command: %s", " ".join(command3))
-        result = procrunner.run(command3, timeout=params.get("timeout"))
-        if result["exitcode"] or result["timeout"]:
+        try:
+            result = subprocess.run(command3, timeout=params.get("timeout"))
+        except subprocess.TimeoutExpired:
             self.log.warning(
-                "Failed to run shelxt with exitcode %s and timeout %s",
-                result["exitcode"],
-                result["timeout"],
+                "Failed to run shelxt pdb generation, timeout reached",
             )
-
-        self.log.info(
-            "shelxl / pdb step successful, took %.3f seconds", result["runtime"]
-        )
+            failure = True
+        except Exception as e:
+            self.log.warning(
+                f"Failed to run shelxt pdb generation: {e}",
+            )
+            failure = True
+        if result.returncode:
+            self.log.warning(
+                "Failed to run shelxt pdb generation, non-zero exit code",
+            )
+            failure = True
 
         # copy output files to result directory
         results_directory = pathlib.Path(params["results_directory"])
@@ -198,6 +224,9 @@ class ShelxtWrapper(Wrapper):
                 results_directory, params["create_symlink"]
             )
 
-        self.log.info("Done.")
-
-        return True
+        if failure:
+            self.log.warning("Complete but with errors")
+            return False
+        else:
+            self.log.info("Done.")
+            return True

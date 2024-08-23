@@ -127,7 +127,7 @@ class ShelxtWrapper(Wrapper):
         # rough hacklet to make a pretty picture
         command2 = [
             "run_csd_python_api",
-            "/dls/science/users/fer45166/dials-dev-env/make_a_pretty_picture.py",
+            "/dls_sw/i19/scripts/analysis/make_a_pretty_picture.py",
             str(working_directory / f"{prefix}_a.res"),
             str(working_directory / f"{prefix}_a.png"),
         ]

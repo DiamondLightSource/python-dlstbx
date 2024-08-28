@@ -202,6 +202,14 @@ class AlphaFoldParameters(pydantic.BaseModel):
     protein_id: int = pydantic.Field(gt=0)
 
 
+class ShelxtParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    ins_file_location: pathlib.Path
+    prefix: Optional[str]
+    automatic: Optional[bool] = False
+    scaling_id: int = pydantic.Field(gt=0)
+
+
 class DLSTrigger(CommonService):
     """A service that creates and runs downstream processing jobs."""
 
@@ -2041,3 +2049,52 @@ class DLSTrigger(CommonService):
         self._metrics.record_metric("zocalo_trigger_jobs_total", ["alphafold"])
 
         return {"success": True}
+
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    def trigger_shelxt(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: ShelxtParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        """Trigger a shelxt job for a given data collection."""
+
+        dcid = parameters.dcid
+
+        shelx_parameters: dict[str, list[Any]] = {
+            "ins_file_location": [os.fspath(parameters.ins_file_location)],
+            "prefix": [parameters.prefix],
+            "scaling_id": [parameters.scaling_id],
+        }
+
+        self.log.debug("Shelxt trigger: Starting")
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "shelxt"
+        jp["recipe"] = "postprocessing-shelxt"
+        jp["automatic"] = parameters.automatic
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"Shelxt trigger: generated JobID {jobid}")
+
+        for key, values in shelx_parameters.items():
+            for value in values:
+                jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                jpp["job_id"] = jobid
+                jpp["parameter_key"] = key
+                jpp["parameter_value"] = value
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                    list(jpp.values())
+                )
+                self.log.debug(f"Shelxt trigger: generated JobParameterID {jppid}")
+
+        self.log.debug(f"Shelxt trigger: Processing job {jobid} created")
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Shelxt trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}

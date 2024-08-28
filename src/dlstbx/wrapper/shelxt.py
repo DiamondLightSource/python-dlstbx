@@ -36,7 +36,7 @@ class ShelxtWrapper(Wrapper):
 
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                working_directory, params["create_symlink"], levels=1
+                working_directory, params["create_symlink"]
             )
 
         # we need the ins and the hkl file here

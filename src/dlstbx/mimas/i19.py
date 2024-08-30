@@ -128,7 +128,6 @@ def handle_i19_end_eiger(
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in (
-            "archive-nexus",
             "processing-rlv-eiger",
             "generate-diffraction-preview",
             "strategy-screen19-eiger",

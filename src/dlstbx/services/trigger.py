@@ -208,6 +208,7 @@ class ShelxtParameters(pydantic.BaseModel):
     prefix: Optional[str]
     automatic: Optional[bool] = False
     scaling_id: int = pydantic.Field(gt=0)
+    comment: Optional[str] = None
 
 
 class DLSTrigger(CommonService):
@@ -2076,6 +2077,7 @@ class DLSTrigger(CommonService):
         jp["display_name"] = "shelxt"
         jp["recipe"] = "postprocessing-shelxt"
         jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"Shelxt trigger: generated JobID {jobid}")
 

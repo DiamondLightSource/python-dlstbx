@@ -522,7 +522,6 @@ def test_i19_rotation(
                 "--trigger",
             )
         ),
-        f"zocalo.go -r archive-{data_format} {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r processing-rlv{rlv_type} {dcid}",
         f"zocalo.go -r strategy-screen19{rlv_type} {dcid}",
@@ -674,7 +673,6 @@ def test_i19_rotation_with_symmetry(
                 "--trigger",
             )
         ),
-        f"zocalo.go -r archive-{data_format} {dcid}",
         f"zocalo.go -r generate-crystal-thumbnails {dcid}",
         f"zocalo.go -r processing-rlv{rlv_type} {dcid}",
         f"zocalo.go -r strategy-screen19{rlv_type} {dcid}",

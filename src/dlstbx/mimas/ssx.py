@@ -69,14 +69,6 @@ def handle_eiger_serial_end(
     ]
 
 
-@mimas.match_specification(is_pilatus & is_start & is_serial & is_i24)
-def handle_pilatus_serial_start(
-    scenario: mimas.MimasScenario,
-    **kwargs,
-) -> List[mimas.Invocation]:
-    return []
-
-
 @mimas.match_specification(is_eiger & is_start & is_serial & is_i24)
 def handle_eiger_serial_start(
     scenario: mimas.MimasScenario,

@@ -6,7 +6,6 @@ import pytest
 from dlstbx.mimas import MimasDCClass, MimasDetectorClass, MimasEvent, MimasScenario
 
 
-@pytest.mark.xfail(reason="GPFS04 issues.Run SSX PIA SSX at end of collection.")
 @pytest.mark.parametrize(
     "dcclass,detectorclass",
     [

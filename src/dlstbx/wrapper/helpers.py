@@ -33,7 +33,7 @@ def run_dials_estimate_resolution(
     return resolution_limits
 
 
-def copy_results(working_directory, results_directory, skip_copy, logger):
+def copy_results(working_directory, results_directory, skip_copy, uuid, logger):
     def ignore_func(directory, files):
         ignore_list = deepcopy(skip_copy)
         pth = py.path.local(directory)
@@ -56,9 +56,9 @@ def copy_results(working_directory, results_directory, skip_copy, logger):
         ignore=ignore_func,
     )
     src_pth_esc = r"\/".join(os.path.dirname(working_directory).split(os.sep))
-    condor_pth_esc = r"\/var\/lib\/condor\/execute\/dir_[0-9]\+"
+    iris_pth_esc = rf"\/tmp\/{uuid}"
     dest_pth_esc = r"\/".join(os.path.dirname(results_directory).split(os.sep))
-    for pth in (src_pth_esc, condor_pth_esc):
+    for pth in (src_pth_esc, iris_pth_esc):
         sed_command = (
             r"find %s -type f -exec grep -Iq . {} \; -and -exec sed -ci 's/%s/%s/g' {} +"
             % (results_directory, pth, dest_pth_esc)

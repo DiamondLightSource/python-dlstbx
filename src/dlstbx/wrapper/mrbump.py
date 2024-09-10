@@ -245,6 +245,7 @@ class MrBUMPWrapper(Wrapper):
                 str(working_directory),
                 str(results_directory),
                 skip_copy,
+                self.recwrap.environment["ID"],
                 self.log,
             )
             # Create symlink to results directory

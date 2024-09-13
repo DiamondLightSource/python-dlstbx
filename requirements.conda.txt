@@ -1,5 +1,5 @@
 drmaa
-ispyb>=8.0.0
+ispyb>=10.1.0
 junit-xml>=1.9
 marshmallow-sqlalchemy
 minio>=7.1.0

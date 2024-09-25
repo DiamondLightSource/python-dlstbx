@@ -261,15 +261,18 @@ class MetalIdWrapper(Wrapper):
 
     def send_attachments_to_ispyb(self, results_directory):
         for f in results_directory.iterdir():
-            if f.suffix not in [".map", ".log", ".py"]:
+            if f.suffix not in [".map", ".log", ".py", ".pha", ".pdb"]:
                 self.log.info(f"Skipping file {f.name}")
                 continue
-            elif f.suffix == ".map":
+            elif f.suffix in [".map", ".pdb"]:
                 file_type = "Result"
                 importance_rank = 1
+            elif f.suffix == ".pha":
+                file_type = "Result"
+                importance_rank = 2
             else:
                 file_type = "Log"
-                importance_rank = 2
+                importance_rank = 3
             try:
                 result_dict = {
                     "file_path": str(results_directory),
@@ -333,6 +336,14 @@ class MetalIdWrapper(Wrapper):
             pdb_file = pathlib.Path(pdb_files[0])
         else:
             pdb_file = pathlib.Path(pdb_files[0])
+
+        self.log.info("Copying input files to working directory")
+        for file, filename in [
+            (pdb_file, "final.pdb"),
+            (pha_above, "above.pha"),
+            (pha_below, "below.pha"),
+        ]:
+            shutil.copyfile(file, working_directory / filename)
 
         self.log.info("Making double difference map")
         self.log.info(f"Using {pdb_file} as reference coordinates for map")

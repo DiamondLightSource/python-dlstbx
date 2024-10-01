@@ -71,6 +71,7 @@ known_wrappers = [  # please keep alphabetically sorted
     "fast_dp = dlstbx.wrapper.fast_dp:FastDPWrapper",
     "fast_ep = dlstbx.wrapper.fast_ep:FastEPWrapper",
     "fast_rdp = dlstbx.wrapper.fast_rdp:FastRDPWrapper",
+    "ligand_fit = dlstbx.wrapper.ligand_fit:LigandFitWrapper",
     "metal_id = dlstbx.wrapper.metal_id:MetalIdWrapper",
     "mosflm_strategy = dlstbx.wrapper.mosflm_strategy:MosflmStrategyWrapper",
     "mr_predict = dlstbx.wrapper.mr_predict:MRPredictWrapper",

@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import json
 import math
 import os
 import pathlib
 import re
 import shutil
 import subprocess
+from datetime import datetime
 
 from iotbx import pdb
 
+from dlstbx import schemas
 from dlstbx.wrapper import Wrapper
 
 
@@ -174,7 +177,7 @@ class MetalIdWrapper(Wrapper):
             electron_densities.append(density)
             rmsds.append(rmsd)
             peak_coords.append(xyz)
-        return peak_coords, electron_densities, rmsds
+        return peak_coords, electron_densities, rmsds, coot_command
 
     def find_protein_centre(self, pdb_file):
         """Runs find-blobs on a pdb file then uses regex to get the protein centre of mass coordinates from the output
@@ -285,22 +288,78 @@ class MetalIdWrapper(Wrapper):
             except Exception:
                 self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
 
+    # def send_results_to_ispyb(self, peak_data, results_directory, coot_command):
+    #     mxmrrun = schemas.MXMRRun(
+    #         # auto_proc_scaling_id=scaling_id,
+    #         auto_proc_program_id=self.params.get("program_id"),
+    #         # rfree_start=log.getfloat("refmac5 restr", "ini_free_r"),
+    #         # rfree_end=log.getfloat("refmac5 restr", "free_r"),
+    #         # rwork_start=log.getfloat("refmac5 restr", "ini_overall_r"),
+    #         # rwork_end=log.getfloat("refmac5 restr", "overall_r"),
+    #     )
+
+    #     blobs = []
+    #     for n_peak, (density, rmsd, xyz) in enumerate(peak_data, start=1):
+    #         blobs.append(
+    #             schemas.Blob(
+    #                 xyz=xyz,
+    #                 height=density,
+    #                 #nearest_atom=nearest_atom,
+    #                 #nearest_atom_distance=distance,
+    #                 map_type="anomalous_difference",
+    #                 filepath=results_directory,
+    #                 view1=f"peak_{n_peak}.png"
+    #             )
+    #         )
+
+    #     app = schemas.AutoProcProgram(
+    #         command_line=coot_command,
+    #         programs="metal_id",
+    #         status=1,
+    #         #message=msg,
+    #         #start_time=dateutil.parser.parse(start_time),
+    #         #end_time=dateutil.parser.parse(end_time),
+    #     )
+
+    #     attachments = [
+    #         schemas.Attachment(
+    #             file_type=ftype,
+    #             file_path=f.parent,
+    #             file_name=f.name,
+    #             timestamp=dateutil.parser.parse(end_time),
+    #             importance_rank=importance_rank,
+    #         )
+    #         for f, (ftype, importance_rank) in result_files.items()
+    #         if f.is_file()
+    #     ]
+
+    #     ispyb_results = {
+    #         "mxmrrun": json.loads(mxmrrun.json()),
+    #         "blobs": [json.loads(blob.json()) for blob in blobs],
+    #         "auto_proc_program": json.loads(app.json()),
+    #         "attachments": [json.loads(attachment.json()) for attachment in attachments],
+    #     }
+
+    #     self.log.debug(f"Sending {str(ispyb_results)} to ispyb service")
+    #     self.recwrap.send_to("ispyb", ispyb_results)
+
     def run(self):
+        start_time = datetime.now()
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
         self.log.debug(
             f"Running recipewrap file {self.recwrap.recipe_step['parameters']['recipewrapper']}"
         )
         # Get parameters from the recipe file
-        params = self.recwrap.recipe_step["job_parameters"]
+        self.params = self.recwrap.recipe_step["job_parameters"]
 
-        pha_above = pathlib.Path(params["anode_map_above"])
-        pha_below = pathlib.Path(params["anode_map_below"])
-        pdb_files = params["pdb"]
+        pha_above = pathlib.Path(self.params["anode_map_above"])
+        pha_below = pathlib.Path(self.params["anode_map_below"])
+        pdb_files = self.params["pdb"]
 
-        working_directory = pathlib.Path(params["working_directory"])
+        working_directory = pathlib.Path(self.params["working_directory"])
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        results_directory = pathlib.Path(params["results_directory"])
+        results_directory = pathlib.Path(self.params["results_directory"])
         results_directory.mkdir(parents=True, exist_ok=True)
 
         # Check file inputs
@@ -327,7 +386,7 @@ class MetalIdWrapper(Wrapper):
             pdbs_are_similar = self.are_pdbs_similar(
                 pdb_files[0],
                 pdb_files[1],
-                tolerances=params.get("pdb_comparison_tolerances"),
+                tolerances=self.params.get("pdb_comparison_tolerances"),
             )
             if not pdbs_are_similar:
                 self.log.error("PDB files are not similar enough, not running metal_id")
@@ -349,31 +408,28 @@ class MetalIdWrapper(Wrapper):
         self.log.info(f"Using {pdb_file} as reference coordinates for map")
         map_out = working_directory / "diff.map"
         # Threshold in rmsd for difference map peaks/contours
-        peak_height_threshold = params.get("peak_height_threshold", 8.0)
+        peak_height_threshold = self.params.get("peak_height_threshold", 8.0)
         # Maximum number of peaks to extract from diff map
-        max_peaks = params.get("max_peaks", 5)
-        (
-            peak_coords,
-            electron_densities,
-            rmsds,
-        ) = self.make_double_diff_map_and_get_peaks(
-            pha_above,
-            pha_below,
-            working_directory,
-            pdb_file,
-            map_out,
-            peak_height_threshold,
-            max_peaks,
+        max_peaks = self.params.get("max_peaks", 5)
+        (peak_coords, electron_densities, rmsds, coot_command) = (
+            self.make_double_diff_map_and_get_peaks(
+                pha_above,
+                pha_below,
+                working_directory,
+                pdb_file,
+                map_out,
+                peak_height_threshold,
+                max_peaks,
+            )
         )
+
+        peak_data = zip(electron_densities, rmsds, peak_coords)
 
         # Print the extracted information
         self.log.info(
             f"The largest peaks found above the threshold of {peak_height_threshold} rmsd up to a maximum of {max_peaks}:"
         )
-        for _i, (density, rmsd, xyz) in enumerate(
-            zip(electron_densities, rmsds, peak_coords),
-            start=1,
-        ):
+        for _i, (density, rmsd, xyz) in enumerate(peak_data, start=1):
             self.log.info(
                 f"Peak {_i}: Electron Density = {density}, RMSD = {rmsd}, XYZ = {xyz}"
             )
@@ -390,7 +446,79 @@ class MetalIdWrapper(Wrapper):
             shutil.copy(f, results_directory)
 
         self.log.info("Sending results to ISPyB")
-        self.send_attachments_to_ispyb(results_directory)
+        end_time = datetime.now()
+        mxmrrun = schemas.MXMRRun(
+            # auto_proc_scaling_id=scaling_id,
+            auto_proc_program_id=self.params.get("program_id"),
+            # rfree_start=log.getfloat("refmac5 restr", "ini_free_r"),
+            # rfree_end=log.getfloat("refmac5 restr", "free_r"),
+            # rwork_start=log.getfloat("refmac5 restr", "ini_overall_r"),
+            # rwork_end=log.getfloat("refmac5 restr", "overall_r"),
+        )
+
+        blobs = []
+        for n_peak, (density, rmsd, xyz) in enumerate(peak_data, start=1):
+            blobs.append(
+                schemas.Blob(
+                    xyz=xyz,
+                    height=density,
+                    # nearest_atom=nearest_atom,
+                    # nearest_atom_distance=distance,
+                    map_type="difference",  # TODO change this to anomalous_difference once enum exists.
+                    filepath=results_directory,
+                    view1=f"peak_{n_peak}.png",
+                )
+            )
+
+        app = schemas.AutoProcProgram(
+            command_line=coot_command,
+            programs="metal_id",
+            status=1,
+            message="processing successful",
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        attachments = []
+        self.log.info("Adding attachments for upload to ispyb")
+        for f in results_directory.iterdir():
+            if f.suffix not in [".map", ".log", ".py", ".pha", ".pdb"]:
+                self.log.info(f"Skipping file {f.name}")
+                continue
+            elif f.suffix in [".map", ".pdb"]:
+                file_type = "Result"
+                importance_rank = 1
+            elif f.suffix == ".pha":
+                file_type = "Result"
+                importance_rank = 2
+            else:
+                file_type = "Log"
+                importance_rank = 3
+
+            attachments.append = [
+                schemas.Attachment(
+                    file_type=file_type,
+                    file_path=f.parent,
+                    file_name=f.name,
+                    timestamp=end_time,
+                    importance_rank=importance_rank,
+                )
+            ]
+            self.log.info(f"Added {f.name} as an attachment")
+
+        ispyb_results = {
+            "mxmrrun": json.loads(mxmrrun.json()),
+            "blobs": [json.loads(blob.json()) for blob in blobs],
+            "auto_proc_program": json.loads(app.json()),
+            "attachments": [
+                json.loads(attachment.json()) for attachment in attachments
+            ],
+        }
+
+        self.log.debug(f"Sending {str(ispyb_results)} to ispyb service")
+        self.recwrap.send_to("ispyb", ispyb_results)
+
+        # self.send_attachments_to_ispyb(results_directory)
 
         self.log.info("Metal_ID script finished")
         return True

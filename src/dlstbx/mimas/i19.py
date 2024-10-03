@@ -166,6 +166,11 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
     if scenario.dcclass == mimas.MimasDCClass.DIAMOND_ANVIL_CELL:
         xia2_dials_extra_params = (*XIA2_DIALS_DAC_PARAMS,)
 
+    # Find the scenario sweep that matches this DCID
+    dcid_sweep = [
+        x for x in scenario.getsweepslistfromsamedcg if x.DCID == scenario.DCID
+    ]
+    assert len(dcid_sweep) == 1
     for params in extra_params:
         tasks.extend(
             [
@@ -178,7 +183,7 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                         else "autoprocessing-multi-xia2-smallmolecule-nexus"
                     ),
                     source="automatic",
-                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    sweeps=tuple(dcid_sweep),
                     displayname="xia2 dials",
                     parameters=(
                         *params,
@@ -195,7 +200,7 @@ def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
                         else "autoprocessing-multi-xia2-smallmolecule-d-a-nexus"
                     ),
                     source="automatic",
-                    sweeps=tuple(scenario.getsweepslistfromsamedcg),
+                    sweeps=tuple(dcid_sweep),
                     displayname="xia2 dials-aimless",
                     parameters=(
                         *params,

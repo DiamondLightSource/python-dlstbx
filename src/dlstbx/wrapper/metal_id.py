@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import configparser
 import json
 import math
 import os
@@ -423,7 +424,7 @@ class MetalIdWrapper(Wrapper):
             )
         )
 
-        peak_data = zip(electron_densities, rmsds, peak_coords)
+        peak_data = list(zip(electron_densities, rmsds, peak_coords))
 
         # Print the extracted information
         self.log.info(
@@ -446,18 +447,53 @@ class MetalIdWrapper(Wrapper):
             shutil.copy(f, results_directory)
 
         self.log.info("Sending results to ISPyB")
+
+        # Check inputs
+        scaling_id = self.params.get("scaling_id", [])
+        if len(scaling_id) != 1:
+            self.log.info(f"Scaling ID {scaling_id} provided")
+            self.log.error(
+                "Exactly one scaling_id must be provided - cannot insert metal_id results to ISPyB"
+            )
+            return False
+        scaling_id = scaling_id[0]
+
+        dimple_log_file = self.params.get("dimple_log")
+        if not dimple_log_file:
+            self.log.error(
+                "No dimple log file provided - cannot insert metal_id results to ISPyB"
+            )
+            return False
+        dimple_log_file = pathlib.Path(dimple_log_file)
+        if not dimple_log_file.is_file():
+            self.log.error(
+                f"dimple log file '{dimple_log_file}' not found - cannot insert metal_id results to ISPyB"
+            )
+            return False
+        self.log.info(
+            f"Autoproc_prog_id: '{self.recwrap.environment.get('ispyb_autoprocprogram_id')}'"
+        )
+
+        dimple_log = configparser.RawConfigParser()
+        dimple_log.read(dimple_log_file)
+
         end_time = datetime.now()
         mxmrrun = schemas.MXMRRun(
-            # auto_proc_scaling_id=scaling_id,
-            auto_proc_program_id=self.params.get("program_id"),
-            # rfree_start=log.getfloat("refmac5 restr", "ini_free_r"),
-            # rfree_end=log.getfloat("refmac5 restr", "free_r"),
-            # rwork_start=log.getfloat("refmac5 restr", "ini_overall_r"),
-            # rwork_end=log.getfloat("refmac5 restr", "overall_r"),
+            auto_proc_scaling_id=scaling_id,
+            auto_proc_program_id=self.recwrap.environment.get(
+                "ispyb_autoprocprogram_id"
+            ),
+            rfree_start=dimple_log.getfloat("refmac5 restr", "ini_free_r"),
+            rfree_end=dimple_log.getfloat("refmac5 restr", "free_r"),
+            rwork_start=dimple_log.getfloat("refmac5 restr", "ini_overall_r"),
+            rwork_end=dimple_log.getfloat("refmac5 restr", "overall_r"),
         )
 
         blobs = []
         for n_peak, (density, rmsd, xyz) in enumerate(peak_data, start=1):
+            self.log.info(
+                f"Adding blob {n_peak} to ispyb results - Density: {density}, rmsd: {rmsd}, xyz: {xyz}"
+            )
             blobs.append(
                 schemas.Blob(
                     xyz=xyz,
@@ -486,16 +522,16 @@ class MetalIdWrapper(Wrapper):
                 self.log.info(f"Skipping file {f.name}")
                 continue
             elif f.suffix in [".map", ".pdb"]:
-                file_type = "Result"
+                file_type = "result"
                 importance_rank = 1
             elif f.suffix == ".pha":
-                file_type = "Result"
+                file_type = "result"
                 importance_rank = 2
             else:
-                file_type = "Log"
+                file_type = "log"
                 importance_rank = 3
 
-            attachments.append = [
+            attachments.append(
                 schemas.Attachment(
                     file_type=file_type,
                     file_path=f.parent,
@@ -503,7 +539,7 @@ class MetalIdWrapper(Wrapper):
                     timestamp=end_time,
                     importance_rank=importance_rank,
                 )
-            ]
+            )
             self.log.info(f"Added {f.name} as an attachment")
 
         ispyb_results = {
@@ -515,7 +551,7 @@ class MetalIdWrapper(Wrapper):
             ],
         }
 
-        self.log.debug(f"Sending {str(ispyb_results)} to ispyb service")
+        self.log.info(f"Sending {str(ispyb_results)} to ispyb service")
         self.recwrap.send_to("ispyb", ispyb_results)
 
         # self.send_attachments_to_ispyb(results_directory)

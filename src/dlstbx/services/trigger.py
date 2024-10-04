@@ -57,6 +57,7 @@ class MetalIdParameters(pydantic.BaseModel):
     dcids: list[int]
     proc_prog: str
     experiment_type: str
+    scaling_id: int = pydantic.Field(gt=0)
     pdb: list[PDBFileOrCode]
     energy_min_diff: float = pydantic.Field(default=10, gt=0)
     timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
@@ -465,6 +466,7 @@ class DLSTrigger(CommonService):
         i.e. "{ispyb_dcg_experiment_type}"
         - comment: a comment to be stored in the ProcessingJob.comment field
         - automatic: boolean value passed to ProcessingJob.automatic field
+        - scaling_id: autoProcScalingId that the metal_id results should be linked to
         - pdb: list of pdb files or codes provided in the pdb_files_or_codes_format,
         where each pdb file or code is provided as a dict with keys of "filepath",
         "code" and "source". Set the filepath or code and set the other values to null.
@@ -486,6 +488,7 @@ class DLSTrigger(CommonService):
             "proc_prog": "xia2 dials",
             "comment": "Metal_ID triggered by xia2 dials",
             "automatic": true,
+            "scaling_id": 654321,
             "pdb": [
                 {
                     "filepath": "/path/to/file.pdb",
@@ -684,6 +687,7 @@ class DLSTrigger(CommonService):
         metal_id_parameters: dict[str, list[Any]] = {
             "dcids": dcids,
             "data": [mtz_file_below, mtz_file_above],
+            "scaling_id": [parameters.scaling_id],
             "pdb": pdb_files,
         }
 

@@ -197,7 +197,12 @@ def get_presigned_urls(minio_client, bucket_name, pid, files, logger):
         if upload_file:
             logger.info(f"Uploading file {filename} into object store.")
             timestamp = time.perf_counter()
-            minio_client.fput_object(bucket_name, filename, filepath)
+            minio_client.fput_object(
+                bucket_name,
+                filename,
+                filepath,
+                num_parallel_uploads=10,
+            )
             timestamp = time.perf_counter() - timestamp
             logger.info(
                 f"Upload of {filename} into object store completed in {timestamp:.3f} seconds."

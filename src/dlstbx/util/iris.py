@@ -202,7 +202,7 @@ def get_presigned_urls(minio_client, bucket_name, pid, files, logger):
                 filename,
                 filepath,
                 part_size=20 * 1024 * 1024,
-                num_parallel_uploads=10,
+                num_parallel_uploads=5,
             )
             timestamp = time.perf_counter() - timestamp
             logger.info(

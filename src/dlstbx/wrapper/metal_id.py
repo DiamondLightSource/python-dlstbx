@@ -264,31 +264,112 @@ class MetalIdWrapper(Wrapper):
                 cwd=working_directory,
             )
 
-    def send_attachments_to_ispyb(self, results_directory):
+    def send_results_to_ispyb(
+        self, peak_data, coot_command, results_directory, start_time
+    ):
+        scaling_id = self.params.get("scaling_id", [])
+        if len(scaling_id) != 1:
+            self.log.info(f"Scaling ID {scaling_id} provided")
+            self.log.error(
+                "Exactly one scaling_id must be provided - cannot insert metal_id results to ISPyB"
+            )
+            return False
+        scaling_id = scaling_id[0]
+
+        dimple_log_file = self.params.get("dimple_log")
+        if not dimple_log_file:
+            self.log.error(
+                "No dimple log file provided - cannot insert metal_id results to ISPyB"
+            )
+            return False
+        dimple_log_file = pathlib.Path(dimple_log_file)
+        if not dimple_log_file.is_file():
+            self.log.error(
+                f"dimple log file '{dimple_log_file}' not found - cannot insert metal_id results to ISPyB"
+            )
+            return False
+        self.log.info(
+            f"Autoproc_prog_id: '{self.recwrap.environment.get('ispyb_autoprocprogram_id')}'"
+        )
+
+        dimple_log = configparser.RawConfigParser()
+        dimple_log.read(dimple_log_file)
+
+        end_time = datetime.now()
+        mxmrrun = schemas.MXMRRun(
+            auto_proc_scaling_id=scaling_id,
+            auto_proc_program_id=self.recwrap.environment.get(
+                "ispyb_autoprocprogram_id"
+            ),
+            rfree_start=dimple_log.getfloat("refmac5 restr", "ini_free_r"),
+            rfree_end=dimple_log.getfloat("refmac5 restr", "free_r"),
+            rwork_start=dimple_log.getfloat("refmac5 restr", "ini_overall_r"),
+            rwork_end=dimple_log.getfloat("refmac5 restr", "overall_r"),
+        )
+
+        blobs = []
+        for n_peak, (density, rmsd, xyz) in enumerate(peak_data, start=1):
+            self.log.info(
+                f"Adding blob {n_peak} to ispyb results - Density: {density}, rmsd: {rmsd}, xyz: {xyz}"
+            )
+            blobs.append(
+                schemas.Blob(
+                    xyz=xyz,
+                    height=density,
+                    # nearest_atom=nearest_atom,
+                    # nearest_atom_distance=distance,
+                    map_type="difference",  # TODO change this to anomalous_difference once enum exists.
+                    filepath=results_directory,
+                    view1=f"peak_{n_peak}.png",
+                )
+            )
+
+        app = schemas.AutoProcProgram(
+            command_line=coot_command,
+            programs="metal_id",
+            status=1,
+            message="processing successful",
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        attachments = []
+        self.log.info("Adding attachments for upload to ispyb")
         for f in results_directory.iterdir():
             if f.suffix not in [".map", ".log", ".py", ".pha", ".pdb"]:
                 self.log.info(f"Skipping file {f.name}")
                 continue
             elif f.suffix in [".map", ".pdb"]:
-                file_type = "Result"
+                file_type = "result"
                 importance_rank = 1
             elif f.suffix == ".pha":
-                file_type = "Result"
+                file_type = "result"
                 importance_rank = 2
             else:
-                file_type = "Log"
+                file_type = "log"
                 importance_rank = 3
-            try:
-                result_dict = {
-                    "file_path": str(results_directory),
-                    "file_name": f.name,
-                    "file_type": file_type,
-                    "importance_rank": importance_rank,
-                }
-                self.record_result_individual_file(result_dict)
-                self.log.info(f"Uploaded {f.name} as an attachment")
-            except Exception:
-                self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
+
+            attachments.append(
+                schemas.Attachment(
+                    file_type=file_type,
+                    file_path=f.parent,
+                    file_name=f.name,
+                    timestamp=end_time,
+                    importance_rank=importance_rank,
+                )
+            )
+            self.log.info(f"Added {f.name} as an attachment")
+
+        ispyb_results = {
+            "mxmrrun": json.loads(mxmrrun.json()),
+            "blobs": [json.loads(blob.json()) for blob in blobs],
+            "auto_proc_program": json.loads(app.json()),
+            "attachments": [
+                json.loads(attachment.json()) for attachment in attachments
+            ],
+        }
+
+        return ispyb_results
 
     def run(self):
         start_time = datetime.now()
@@ -402,108 +483,9 @@ class MetalIdWrapper(Wrapper):
 
         self.log.info("Sending results to ISPyB")
 
-        # Check inputs
-        scaling_id = self.params.get("scaling_id", [])
-        if len(scaling_id) != 1:
-            self.log.info(f"Scaling ID {scaling_id} provided")
-            self.log.error(
-                "Exactly one scaling_id must be provided - cannot insert metal_id results to ISPyB"
-            )
-            return False
-        scaling_id = scaling_id[0]
-
-        dimple_log_file = self.params.get("dimple_log")
-        if not dimple_log_file:
-            self.log.error(
-                "No dimple log file provided - cannot insert metal_id results to ISPyB"
-            )
-            return False
-        dimple_log_file = pathlib.Path(dimple_log_file)
-        if not dimple_log_file.is_file():
-            self.log.error(
-                f"dimple log file '{dimple_log_file}' not found - cannot insert metal_id results to ISPyB"
-            )
-            return False
-        self.log.info(
-            f"Autoproc_prog_id: '{self.recwrap.environment.get('ispyb_autoprocprogram_id')}'"
+        ispyb_results = self.send_results_to_ispyb(
+            peak_data, coot_command, results_directory, start_time
         )
-
-        dimple_log = configparser.RawConfigParser()
-        dimple_log.read(dimple_log_file)
-
-        end_time = datetime.now()
-        mxmrrun = schemas.MXMRRun(
-            auto_proc_scaling_id=scaling_id,
-            auto_proc_program_id=self.recwrap.environment.get(
-                "ispyb_autoprocprogram_id"
-            ),
-            rfree_start=dimple_log.getfloat("refmac5 restr", "ini_free_r"),
-            rfree_end=dimple_log.getfloat("refmac5 restr", "free_r"),
-            rwork_start=dimple_log.getfloat("refmac5 restr", "ini_overall_r"),
-            rwork_end=dimple_log.getfloat("refmac5 restr", "overall_r"),
-        )
-
-        blobs = []
-        for n_peak, (density, rmsd, xyz) in enumerate(peak_data, start=1):
-            self.log.info(
-                f"Adding blob {n_peak} to ispyb results - Density: {density}, rmsd: {rmsd}, xyz: {xyz}"
-            )
-            blobs.append(
-                schemas.Blob(
-                    xyz=xyz,
-                    height=density,
-                    # nearest_atom=nearest_atom,
-                    # nearest_atom_distance=distance,
-                    map_type="difference",  # TODO change this to anomalous_difference once enum exists.
-                    filepath=results_directory,
-                    view1=f"peak_{n_peak}.png",
-                )
-            )
-
-        app = schemas.AutoProcProgram(
-            command_line=coot_command,
-            programs="metal_id",
-            status=1,
-            message="processing successful",
-            start_time=start_time,
-            end_time=end_time,
-        )
-
-        attachments = []
-        self.log.info("Adding attachments for upload to ispyb")
-        for f in results_directory.iterdir():
-            if f.suffix not in [".map", ".log", ".py", ".pha", ".pdb"]:
-                self.log.info(f"Skipping file {f.name}")
-                continue
-            elif f.suffix in [".map", ".pdb"]:
-                file_type = "result"
-                importance_rank = 1
-            elif f.suffix == ".pha":
-                file_type = "result"
-                importance_rank = 2
-            else:
-                file_type = "log"
-                importance_rank = 3
-
-            attachments.append(
-                schemas.Attachment(
-                    file_type=file_type,
-                    file_path=f.parent,
-                    file_name=f.name,
-                    timestamp=end_time,
-                    importance_rank=importance_rank,
-                )
-            )
-            self.log.info(f"Added {f.name} as an attachment")
-
-        ispyb_results = {
-            "mxmrrun": json.loads(mxmrrun.json()),
-            "blobs": [json.loads(blob.json()) for blob in blobs],
-            "auto_proc_program": json.loads(app.json()),
-            "attachments": [
-                json.loads(attachment.json()) for attachment in attachments
-            ],
-        }
 
         self.log.info(f"Sending {str(ispyb_results)} to ispyb service")
         self.recwrap.send_to("ispyb", ispyb_results)

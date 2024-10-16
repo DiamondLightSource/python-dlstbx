@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from pprint import pformat
 
 import workflows.recipe
 from minio.error import S3Error
@@ -9,7 +8,6 @@ from workflows.services.common_service import CommonService
 
 from dlstbx.util.iris import (
     get_minio_client,
-    get_presigned_urls,
     remove_objects_from_s3,
     retrieve_results_from_s3,
 )
@@ -35,13 +33,13 @@ class S3EchoUploader(CommonService):
         """
         self.log.info(f"{S3EchoUploader._service_name} starting")
 
-        # workflows.recipe.wrap_subscribe(
-        #    self._transport,
-        #    "s3echo.upload",
-        #    self.on_upload,
-        #    acknowledgement=True,
-        #    log_extender=self.extend_log,
-        # )
+        workflows.recipe.wrap_subscribe(
+            self._transport,
+            "s3echo.upload",
+            self.on_upload,
+            acknowledgement=True,
+            log_extender=self.extend_log,
+        )
 
         workflows.recipe.wrap_subscribe(
             self._transport,
@@ -57,26 +55,26 @@ class S3EchoUploader(CommonService):
         """
         # Conditionally acknowledge receipt of the message
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
-        rw.transport.ack(header, transaction=txn)
+        rw.transport.nack(header, transaction=txn)
 
-        params = rw.recipe_step["parameters"]
-        minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
-        try:
-            s3_urls = get_presigned_urls(
-                minio_client,
-                params["bucket"],
-                params["rpid"],
-                rw.environment["s3echo_upload"].values(),
-                self.log,
-            )
-        except S3Error:
-            self.log.exception(
-                f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(rw.environment['s3_upload'])}"
-            )
-            rw.send_to("failure", message, transaction=txn)
-        else:
-            rw.environment["s3_urls"] = s3_urls
-            rw.send_to("success", message, transaction=txn)
+        # params = rw.recipe_step["parameters"]
+        # minio_client = get_minio_client(S3EchoUploader._s3echo_credentials)
+        # try:
+        #    s3_urls = get_presigned_urls(
+        #        minio_client,
+        #        params["bucket"],
+        #        params["rpid"],
+        #        rw.environment["s3echo_upload"].values(),
+        #        self.log,
+        #    )
+        # except S3Error:
+        #    self.log.exception(
+        #        f"Error uploading following files to S3 bucket {params['bucket']}:\n{pformat(rw.environment['s3_upload'])}"
+        #    )
+        #    rw.send_to("failure", message, transaction=txn)
+        # else:
+        #    rw.environment["s3_urls"] = s3_urls
+        #    rw.send_to("success", message, transaction=txn)
 
         # Commit transaction
         rw.transport.transaction_commit(txn)

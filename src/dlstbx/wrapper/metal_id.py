@@ -12,6 +12,7 @@ from datetime import datetime
 
 from iotbx import pdb
 
+import dlstbx.util.symlink
 from dlstbx import schemas
 from dlstbx.wrapper import Wrapper
 
@@ -390,6 +391,14 @@ class MetalIdWrapper(Wrapper):
             if any(f.suffix == skipext for skipext in [".r3d"]):
                 continue
             shutil.copy(f, results_directory)
+
+        if self.params.get("create_symlink"):
+            dlstbx.util.symlink.create_parent_symlink(
+                os.fspath(working_directory), self.params["create_symlink"]
+            )
+            dlstbx.util.symlink.create_parent_symlink(
+                os.fspath(results_directory), self.params["create_symlink"]
+            )
 
         self.log.info("Sending results to ISPyB")
 

@@ -289,61 +289,6 @@ class MetalIdWrapper(Wrapper):
             except Exception:
                 self.log.warning(f"Could not attach {f.name} to ISPyB", exc_info=True)
 
-    # def send_results_to_ispyb(self, peak_data, results_directory, coot_command):
-    #     mxmrrun = schemas.MXMRRun(
-    #         # auto_proc_scaling_id=scaling_id,
-    #         auto_proc_program_id=self.params.get("program_id"),
-    #         # rfree_start=log.getfloat("refmac5 restr", "ini_free_r"),
-    #         # rfree_end=log.getfloat("refmac5 restr", "free_r"),
-    #         # rwork_start=log.getfloat("refmac5 restr", "ini_overall_r"),
-    #         # rwork_end=log.getfloat("refmac5 restr", "overall_r"),
-    #     )
-
-    #     blobs = []
-    #     for n_peak, (density, rmsd, xyz) in enumerate(peak_data, start=1):
-    #         blobs.append(
-    #             schemas.Blob(
-    #                 xyz=xyz,
-    #                 height=density,
-    #                 #nearest_atom=nearest_atom,
-    #                 #nearest_atom_distance=distance,
-    #                 map_type="anomalous_difference",
-    #                 filepath=results_directory,
-    #                 view1=f"peak_{n_peak}.png"
-    #             )
-    #         )
-
-    #     app = schemas.AutoProcProgram(
-    #         command_line=coot_command,
-    #         programs="metal_id",
-    #         status=1,
-    #         #message=msg,
-    #         #start_time=dateutil.parser.parse(start_time),
-    #         #end_time=dateutil.parser.parse(end_time),
-    #     )
-
-    #     attachments = [
-    #         schemas.Attachment(
-    #             file_type=ftype,
-    #             file_path=f.parent,
-    #             file_name=f.name,
-    #             timestamp=dateutil.parser.parse(end_time),
-    #             importance_rank=importance_rank,
-    #         )
-    #         for f, (ftype, importance_rank) in result_files.items()
-    #         if f.is_file()
-    #     ]
-
-    #     ispyb_results = {
-    #         "mxmrrun": json.loads(mxmrrun.json()),
-    #         "blobs": [json.loads(blob.json()) for blob in blobs],
-    #         "auto_proc_program": json.loads(app.json()),
-    #         "attachments": [json.loads(attachment.json()) for attachment in attachments],
-    #     }
-
-    #     self.log.debug(f"Sending {str(ispyb_results)} to ispyb service")
-    #     self.recwrap.send_to("ispyb", ispyb_results)
-
     def run(self):
         start_time = datetime.now()
         assert hasattr(self, "recwrap"), "No recipewrapper object found"
@@ -553,8 +498,6 @@ class MetalIdWrapper(Wrapper):
 
         self.log.info(f"Sending {str(ispyb_results)} to ispyb service")
         self.recwrap.send_to("ispyb", ispyb_results)
-
-        # self.send_attachments_to_ispyb(results_directory)
 
         self.log.info("Metal_ID script finished")
         return True

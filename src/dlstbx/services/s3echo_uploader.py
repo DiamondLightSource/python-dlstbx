@@ -35,13 +35,13 @@ class S3EchoUploader(CommonService):
         """
         self.log.info(f"{S3EchoUploader._service_name} starting")
 
-        # workflows.recipe.wrap_subscribe(
-        #    self._transport,
-        #    "s3echo.upload",
-        #    self.on_upload,
-        #    acknowledgement=True,
-        #    log_extender=self.extend_log,
-        # )
+        workflows.recipe.wrap_subscribe(
+            self._transport,
+            "s3echo.upload",
+            self.on_upload,
+            acknowledgement=True,
+            log_extender=self.extend_log,
+        )
 
         workflows.recipe.wrap_subscribe(
             self._transport,

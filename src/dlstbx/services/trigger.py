@@ -211,6 +211,17 @@ class ShelxtParameters(pydantic.BaseModel):
     comment: Optional[str] = None
 
 
+class LigandFitParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    experiment_type: str
+    pdb: pathlib.Path
+    mtz: pathlib.Path
+    smiles: str
+    pipeline: str
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+
+
 class DLSTrigger(CommonService):
     """A service that creates and runs downstream processing jobs."""
 
@@ -2098,5 +2109,116 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Shelxt trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    def trigger_ligand_fit(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: LigandFitParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        """Trigger a metal job for a given data collection.
+
+        Requires experiment type to be "SAD".
+
+        Trigger also requires a PDB file or code to be associated with the given data
+        collection:
+        - PDB codes or file contents stored in the ISPyB PDB table and linked with
+          the given data collection. Any files defined in the database will be copied
+          into a subdirectory inside `pdb_tmpdir`, where the subdirectory name will be
+          a hash of the file contents.
+        - PDB files (with `.pdb` extension) stored in the directory optionally provided
+          by the `user_pdb_directory` recipe parameter.
+
+        If any PDB files or codes are identified, then new ProcessingJob,
+        ProcessingJobImageSweep and ProcessingJobParameter will be created, and the
+        resulting processingJobId will be sent to the `processing_recipe` queue.
+
+        Recipe parameters are described below with appropriate ispyb placeholder "{}"
+        values:
+        - target: set this to "ligand_fit"
+        - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
+        - proc_prog: The name, as it appears in ISPyB, of the autoprocessing pipeline
+        for which the output will be used as the metal_id input mtz file.
+        - experiment_type: the experiment type of the data collection.
+        i.e. "{ispyb_dcg_experiment_type}"
+        - comment: a comment to be stored in the ProcessingJob.comment field
+        - automatic: boolean value passed to ProcessingJob.automatic field
+        - pdb: list of pdb files or codes provided in the pdb_files_or_codes_format,
+        where each pdb file or code is provided as a dict with keys of "filepath",
+        "code" and "source". Set the filepath or code and set the other values to null.
+        "{$REPLACE:ispyb_pdb}" will also achieve this.
+
+        Example recipe parameters:
+        { "target": "ligand_fit",
+            "dcid": 123456,
+            "experiment_type": "SAD",
+            "proc_prog": "xia2 dials",
+            "comment": "Ligand_fit triggered by xia2 dials",
+            "automatic": true,
+            "pdb": "/path/to/pdb"
+        }
+        """
+        if parameters.experiment_type != "SAD":
+            self.log.info(
+                f"Skipping ligand fit trigger: experiment type {parameters.experiment_type} not supported"
+            )
+            return {"success": True}
+
+        if not parameters.smiles:
+            self.log.info(
+                f"Skipping ligand fit trigger: DCID {parameters.dcid} has no associated SMILES string"
+            )
+            return {"success": True}
+
+        self.log.debug("Ligand-fit trigger: Starting")
+
+        ligand_fit_parameters = {
+            "dcid": parameters.dcid,
+            "pdb": str(parameters.pdb),
+            "mtz": str(parameters.mtz),
+            "smiles": parameters.smiles,
+            "pipeline": parameters.pipeline,
+        }
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "ligandfit"
+        jp["recipe"] = "postprocessing-ligandfit"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"ligandfit trigger: generated JobID {jobid}")
+
+        # jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+        # jisp["datacollectionid"] = parameters.dcid
+        # jisp["start_image"] = start_image
+        # jisp["end_image"] = end_image
+
+        for key, value in ligand_fit_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"Ligand_fit trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        # jisp["job_id"] = jobid
+        # jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
+        # self.log.debug(f"Ligand_fit_id trigger: generated JobImageSweepID {jispid}")
+
+        self.log.debug(f"Ligand_fit_id trigger: Processing job {jobid} created")
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Ligand_fit_id trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

@@ -37,22 +37,6 @@ class GridInfo(pydantic.BaseModel):
     def image_count(self) -> int:
         return self.steps_x * self.steps_y
 
-    @pydantic.root_validator(pre=True)
-    def handle_legacy_pixels_per_micron(cls, values):
-        # The field pixelsPerMicron{X,Y} was renamed to micronsPerPixel{X,Y}
-        # to correctly match the units of the value stored therein.
-        # For an overlapping period we may have to handle both columns until
-        # GDA has been updated on all beamlines to insert the correct column
-        # into the database.
-        # See also https://jira.diamond.ac.uk/browse/LIMS-464
-        for axis in "XY":
-            if not values.get(f"micronsPerPixel{axis}"):
-                values[f"micronsPerPixel{axis}"] = values.get(f"pixelsPerMicron{axis}")
-            assert values[
-                f"micronsPerPixel{axis}"
-            ], f"micronsPerPixel{axis} value is {values[f'micronsPerPixel{axis}']}"
-        return values
-
 
 class Parameters(pydantic.BaseModel):
     "Recipe parameters used by the X-ray centering service"

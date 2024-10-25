@@ -28,6 +28,7 @@ from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
 
+import dlstbx.ispybtbx
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
@@ -177,9 +178,11 @@ class RelatedDCIDs(pydantic.BaseModel):
 class MultiplexParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
+    program_id: int = pydantic.Field(gt=0)
     wavelength: Optional[float] = pydantic.Field(gt=0)
     spacegroup: Optional[str]
     automatic: Optional[bool] = False
+    run_once_per_group: Optional[bool] = False
     comment: Optional[str] = None
     backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
@@ -1448,6 +1451,7 @@ class DLSTrigger(CommonService):
         }
         """
         dcid = parameters.dcid
+        program_id = parameters.program_id
 
         # Take related dcids from recipe in preference or checkpointed message
         if isinstance(related_dcid_group := message.get("related_dcid_group"), list):
@@ -1463,6 +1467,48 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
+
+        # Check if we have any new data collections added to any sample group
+        # to decide if we need to processed triggering multipex if we run it
+        # only once when data for all samples have been collected
+        if parameters.run_once_per_group:
+            # Get currnent list of data collections for all samples in the sample groups
+            _, ispyb_info = dlstbx.ispybtbx.ispyb_filter(
+                {}, {"ispyb_dcid": dcid}, session
+            )
+            ispyb_related_dcids = ispyb_info.get("ispyb_related_dcids", [])
+            # If we have a sample group that doesn't have any new data collections,
+            # proceed with triggering multiplex for all sample groups
+            if all(max(el.get("dcids", [])) > dcid for el in ispyb_related_dcids):
+                added_dcids = []
+                for el in ispyb_related_dcids:
+                    added_dcids.extend([d for d in el.get("dcids", []) if d > dcid])
+                # Check if there are xia2 dials jobs that were triggered on any new
+                # data collections after current multiplex job was triggered
+                min_start_time = datetime.now() - timedelta(hours=12)
+                query = (
+                    (
+                        session.query(
+                            AutoProcProgram, ProcessingJob.dataCollectionId
+                        ).join(
+                            ProcessingJob,
+                            ProcessingJob.processingJobId
+                            == AutoProcProgram.processingJobId,
+                        )
+                    )
+                    .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
+                    .filter(ProcessingJob.automatic == True)  # noqa E712
+                    .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+                    .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
+                    .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                )
+                # Abort triggering multiplex if we have xia2 dials running on any subsequent
+                # data collection in all sample groups
+                if triggered_processing_job := query.first():
+                    self.log.info(
+                        f"Aborting multiplex trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
+                    )
+                    return {"success": True}
 
         # Calculate message delay for exponential backoff in case a processing
         # program for a related data collection is still running, in which case

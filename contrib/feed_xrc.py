@@ -14,7 +14,7 @@ Args:
     PIA_FILES   JSON-lines files, with one entry on each line of a
                 message with the following structure:
 
-                    {"file_number": N, "file_seen_at": 123456, "n_spots_total": 43}
+                    {"file-number": N, "file-seen-at": 123456, "n_spots_total": 43}
 """
 
 from __future__ import annotations

@@ -4,6 +4,7 @@ import uuid
 from unittest import mock
 
 import pytest
+
 from dlstbx.controller.strategy.simple import SimpleStrategy
 from dlstbx.controller.strategyenvironment import StrategyEnvironment
 

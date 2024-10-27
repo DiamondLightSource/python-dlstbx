@@ -4,7 +4,6 @@ import datetime
 from unittest import mock
 
 import pytest
-from dlstbx.services.trigger import DLSTrigger
 from ispyb.sqlalchemy import (
     AutoProcIntegration,
     AutoProcProgram,
@@ -18,6 +17,8 @@ from ispyb.sqlalchemy import (
 )
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.transport.offline_transport import OfflineTransport
+
+from dlstbx.services.trigger import DLSTrigger
 
 
 @pytest.fixture

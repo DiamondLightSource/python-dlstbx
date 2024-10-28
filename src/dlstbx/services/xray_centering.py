@@ -261,7 +261,7 @@ class DLSXRayCentering(CommonService):
                         dlstbx.util.xray_centering.reshape_grid(
                             _cd.data,
                             (_cd.gridinfo.steps_x, _cd.gridinfo.steps_y),
-                            not _cd.gridinfo.snaked,  # XXX
+                            _cd.gridinfo.snaked,
                             _cd.gridinfo.orientation,
                         )
                     )

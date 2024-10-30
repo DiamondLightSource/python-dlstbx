@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling", "hatch-vcs", "unidep"]
 build-backend = "hatchling.build"
 
 [project]
@@ -16,8 +16,42 @@ classifiers = [
     "Natural Language :: English",
     "Programming Language :: Python :: 3",
 ]
-dynamic = ["version"]
+dynamic = ["version", "dependencies"]
 requires-python = ">3.10"
+
+[tool.unidep]
+channels = ["conda-forge"]
+dependencies = [
+    "drmaa",
+    "ispyb >=10.0.0",
+    "junit-xml",
+    "marshmallow-sqlalchemy",
+    "minio >=7.1.0",
+    "msgpack-python",
+    "networkx",
+    "nxmx",
+    "pandas",
+    "pika",
+    "pint",
+    "procrunner >=1.0.2",
+    "prometheus_client",
+    "pydantic <2",
+    "python-jose",
+    { conda = "python-relion", pip = "relion" },
+    "pyyaml",
+    "pyzmq",
+    "seaborn",
+    "sqlalchemy >=1.4.0,<1.5",
+    { conda = "stomp.py", pip = "stomp-py" },
+    "workflows >=2.19",
+    "xmltodict",
+    "zocalo >=0.32.0",
+]
+
+[tool.unidep.optional-dependencies]
+test = ["pytest", "pytest-mock"]
+
+[tool.hatch.metadata.hooks.unidep]
 
 [tool.hatch.version]
 source = "vcs"

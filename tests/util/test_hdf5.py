@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import os
 
-import dlstbx.util.hdf5
 import pytest
+
+import dlstbx.util.hdf5
 
 
 @pytest.mark.skipif(

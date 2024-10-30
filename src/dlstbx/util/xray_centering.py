@@ -43,7 +43,7 @@ class GridScan2DResult(GridScanResultBase):
 
 
 def reshape_grid(
-    data: np.ndarray, steps: tuple[int, int], snaked: bool, orientation: Orientation
+    data: np.ndarray, steps: tuple[int, int], *, snaked: bool, orientation: Orientation
 ) -> np.ndarray:
     if orientation == Orientation.VERTICAL:
         data = data.reshape(steps)
@@ -84,7 +84,7 @@ def gridscan2d(
             message="No good images found",
         ), "\n".join(output)
 
-    data = reshape_grid(data, steps, snaked, orientation).T
+    data = reshape_grid(data, steps, snaked=snaked, orientation=orientation).T
 
     output.append(f"There are {maximum_spots} reflections in image #{best_image}.")
 

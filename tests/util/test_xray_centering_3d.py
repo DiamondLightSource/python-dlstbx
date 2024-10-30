@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 
-import dlstbx.util.xray_centering
-import dlstbx.util.xray_centering_3d
 import numpy as np
 import pytest
+
+import dlstbx.util.xray_centering
+import dlstbx.util.xray_centering_3d
 
 
 def test_gridscan3d():

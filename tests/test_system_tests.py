@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import dlstbx.system_test
 import pytest
 import zocalo.configuration
+
+import dlstbx.system_test
 from dlstbx.system_test.common import CommonSystemTest
 
 

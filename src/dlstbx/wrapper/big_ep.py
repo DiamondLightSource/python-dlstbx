@@ -509,6 +509,7 @@ class BigEPWrapper(Wrapper):
                 str(working_directory),
                 str(results_directory),
                 skip_copy,
+                self.recwrap.environment["ID"],
                 self.log,
             )
             if params.get("create_symlink"):

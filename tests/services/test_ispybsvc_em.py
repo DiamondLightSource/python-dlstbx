@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from unittest import mock
 
-import dlstbx.services.ispybsvc_em as em
 import ispyb
 import pytest
+
+import dlstbx.services.ispybsvc_em as em
 
 
 def parameters(arg):

@@ -7,10 +7,11 @@ from typing import List
 import ispyb.sqlalchemy
 import pkg_resources
 import pytest
-from dlstbx import mimas
-from dlstbx.mimas.specification import BeamlineSpecification, DCClassSpecification
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+from dlstbx import mimas
+from dlstbx.mimas.specification import BeamlineSpecification, DCClassSpecification
 
 
 @pytest.fixture(scope="session")

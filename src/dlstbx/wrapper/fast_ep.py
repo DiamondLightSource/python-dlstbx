@@ -136,14 +136,17 @@ class FastEPWrapper(Wrapper):
                 working_directory, params["create_symlink"], levels=1
             )
 
-        if input_mtz := Path(params.get("s3echo_upload")["data"]):
-            try:
-                self.recwrap.environment.update(
-                    {"s3echo_upload": {input_mtz.name: str(input_mtz)}}
-                )
-            except Exception:
-                self.log.exception("Error uploading image files to S3 Echo")
-                return False
+        try:
+            if input_mtz := Path(params["s3echo_upload"]["data"]):
+                try:
+                    self.recwrap.environment.update(
+                        {"s3echo_upload": {input_mtz.name: str(input_mtz)}}
+                    )
+                except Exception:
+                    self.log.exception("Error uploading image files to S3 Echo")
+                    return False
+        except KeyError:
+            self.log.debug("Data for uploading to S3 Echo object store not specified")
 
         return True
 

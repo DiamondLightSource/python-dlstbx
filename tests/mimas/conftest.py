@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 import zocalo.configuration
+
 from dlstbx import mimas
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import pathlib
 from datetime import datetime, timedelta
+from time import time
 from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import gemmi
@@ -58,6 +59,9 @@ class MetalIdParameters(pydantic.BaseModel):
     experiment_type: str
     pdb: list[PDBFileOrCode]
     energy_min_diff: float = pydantic.Field(default=10, gt=0)
+    timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
+    backoff_delay: float = pydantic.Field(default=5, alias="backoff-delay")
+    backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     automatic: Optional[bool] = False
     comment: Optional[str] = None
 
@@ -200,6 +204,15 @@ class Xia2SsxReduceParameters(pydantic.BaseModel):
 
 class AlphaFoldParameters(pydantic.BaseModel):
     protein_id: int = pydantic.Field(gt=0)
+
+
+class ShelxtParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    ins_file_location: pathlib.Path
+    prefix: Optional[str]
+    automatic: Optional[bool] = False
+    scaling_id: int = pydantic.Field(gt=0)
+    comment: Optional[str] = None
 
 
 class DLSTrigger(CommonService):
@@ -415,8 +428,10 @@ class DLSTrigger(CommonService):
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
+        message: Dict,
         parameters: MetalIdParameters,
         session: sqlalchemy.orm.session.Session,
+        transaction: int,
         **kwargs,
     ):
         """Trigger a metal job for a given data collection.
@@ -456,6 +471,12 @@ class DLSTrigger(CommonService):
         "{$REPLACE:ispyb_pdb}" will also achieve this.
         - energy_min_diff - (optional) the minimum energy difference (eV) required between
         data collections taken above and below the metal absorption edge.
+        - timeout-minutes - (optional) the max time (in minutes) allowed wait for
+        processing jobs to finish before skipping
+        - backoff-delay - (optional) the time (in minutes) that message will be delayed by when
+        checkpointing if waiting for processing to finish
+        - backoff-multiplier - (optional) a multipler by which the delay is increased after
+        successive checkpoints.
 
         Example recipe parameters:
         { "target": "metal_id",
@@ -472,6 +493,9 @@ class DLSTrigger(CommonService):
                     "source": null
             }],
             "energy_min_diff": 10.0
+            "timeout-minutes": 60,
+            "backoff-delay": 4,
+            "backoff-multiplier": 2
         }
         """
         if parameters.experiment_type != "Metal ID":
@@ -505,6 +529,57 @@ class DLSTrigger(CommonService):
 
         # Get just the most recent two dcids
         dcids = sorted(dcids)[-2::]
+        self.log.info(f"Metal ID trigger: found dcids {dcids}")
+
+        proc_prog = parameters.proc_prog
+
+        # Check that both dcids have finished processing successfully
+        query = (
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId.in_(dcids))
+            .filter(ProcessingJob.automatic == True)  # noqa E712
+            .filter(AutoProcProgram.processingPrograms == proc_prog)
+            .filter(
+                or_(
+                    AutoProcProgram.processingStatus == None,  # noqa E711
+                    AutoProcProgram.processingStartTime == None,  # noqa E711
+                )
+            )
+        )
+        waiting_jobs = query.all()
+        if len(waiting_jobs):
+            waiting_dcids = []
+            for _pj, waiting_dcid in waiting_jobs:
+                self.log.info(
+                    f"Metal ID trigger: Waiting for dcid: {waiting_dcid} to finish"
+                )
+                waiting_dcids.append(waiting_dcid)
+            # Get previous checkpoint history
+            start_time = message.get("start_time", time())
+            run_time = time() - start_time
+            if run_time > parameters.timeout * 60:
+                self.log.warning(
+                    f"Metal ID trigger: timeout exceeded waiting for dcids: {waiting_dcids}. Skipping trigger"
+                )
+                return {"success": True}
+            # Calculate the message delay
+            ntry = message.get("ntry", 0)
+            delay = parameters.backoff_delay * parameters.backoff_multiplier**ntry
+            self.log.info(
+                f"Metal ID trigger: Checkpointing for dcid: {parameters.dcid} with delay of {delay} minutes"
+            )
+            ntry += 1
+            rw.checkpoint(
+                {"start_time": start_time, "ntry": ntry},
+                delay=delay * 60,
+                transaction=transaction,
+            )
+            return {"success": True}
 
         # Dict of file patterns for each of the autoprocessing pipelines
         input_file_patterns = {
@@ -514,7 +589,7 @@ class DLSTrigger(CommonService):
             "autoPROC": "truncate-unique.mtz",
             "autoPROC+STARANISO": "staraniso_alldata-unique.mtz",
         }
-        proc_prog = parameters.proc_prog
+
         if proc_prog not in input_file_patterns.keys():
             self.log.info(
                 f"Skipping metal id trigger: {proc_prog} is not an accepted upstream processing pipeline for metal id"
@@ -559,6 +634,11 @@ class DLSTrigger(CommonService):
             )
             .populate_existing()
         )
+
+        if len(query.all()) < 2:
+            self.log.info(
+                f"Metal ID trigger: waiting for {proc_prog} processing to finish for dcids: {dcids}"
+            )
 
         dcids = []
         wavelengths = []
@@ -1370,13 +1450,10 @@ class DLSTrigger(CommonService):
         dcid = parameters.dcid
 
         # Take related dcids from recipe in preference or checkpointed message
-        try:
+        if isinstance(related_dcid_group := message.get("related_dcid_group"), list):
             # Checkpointed message has dcid group with still running jobs
-            assert isinstance(
-                related_dcid_group := message.get("related_dcid_group"), list
-            )
             related_dcids = [RelatedDCIDs(**el) for el in related_dcid_group]
-        except Exception:
+        else:
             # Initial call of multiplex trigger
             related_dcids = parameters.related_dcids
         self.log.info(f"related_dcids={related_dcids}")
@@ -2044,3 +2121,53 @@ class DLSTrigger(CommonService):
         self._metrics.record_metric("zocalo_trigger_jobs_total", ["alphafold"])
 
         return {"success": True}
+
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    def trigger_shelxt(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: ShelxtParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        """Trigger a shelxt job for a given data collection."""
+
+        dcid = parameters.dcid
+
+        shelx_parameters: dict[str, list[Any]] = {
+            "ins_file_location": [os.fspath(parameters.ins_file_location)],
+            "prefix": [parameters.prefix],
+            "scaling_id": [parameters.scaling_id],
+        }
+
+        self.log.debug("Shelxt trigger: Starting")
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "shelxt"
+        jp["recipe"] = "postprocessing-shelxt"
+        jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"Shelxt trigger: generated JobID {jobid}")
+
+        for key, values in shelx_parameters.items():
+            for value in values:
+                jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                jpp["job_id"] = jobid
+                jpp["parameter_key"] = key
+                jpp["parameter_value"] = value
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                    list(jpp.values())
+                )
+                self.log.debug(f"Shelxt trigger: generated JobParameterID {jppid}")
+
+        self.log.debug(f"Shelxt trigger: Processing job {jobid} created")
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Shelxt trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}

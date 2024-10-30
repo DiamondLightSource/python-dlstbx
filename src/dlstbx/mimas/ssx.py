@@ -25,7 +25,6 @@ def handle_pilatus_serial_end(
                 ),
             )
     return [
-        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="pia-index-ssx-pilatus"),
         mimas.MimasISPyBJobInvocation(
             DCID=scenario.DCID,
             autostart=True,
@@ -74,7 +73,9 @@ def handle_pilatus_serial_start(
     scenario: mimas.MimasScenario,
     **kwargs,
 ) -> List[mimas.Invocation]:
-    return []
+    return [
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="pia-index-ssx-pilatus"),
+    ]
 
 
 @mimas.match_specification(is_eiger & is_start & is_serial & is_i24)

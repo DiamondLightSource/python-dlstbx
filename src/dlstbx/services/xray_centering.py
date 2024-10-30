@@ -246,8 +246,8 @@ class DLSXRayCentering(CommonService):
                     dlstbx.util.xray_centering.reshape_grid(
                         cd.data,
                         (cd.gridinfo.steps_x, cd.gridinfo.steps_y),
-                        cd.gridinfo.snaked,
-                        cd.gridinfo.orientation,
+                        snaked=cd.gridinfo.snaked,
+                        orientation=cd.gridinfo.orientation,
                     )
                 ]
                 for _dcid in dcg_dcids:
@@ -261,8 +261,8 @@ class DLSXRayCentering(CommonService):
                         dlstbx.util.xray_centering.reshape_grid(
                             _cd.data,
                             (_cd.gridinfo.steps_x, _cd.gridinfo.steps_y),
-                            _cd.gridinfo.snaked,
-                            _cd.gridinfo.orientation,
+                            snaked=_cd.gridinfo.snaked,
+                            orientation=_cd.gridinfo.orientation,
                         )
                     )
                 else:

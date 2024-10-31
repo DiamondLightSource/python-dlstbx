@@ -18,28 +18,30 @@ class LigandFitWrapper(Wrapper):
         # get params
         params = self.recwrap.recipe_step["job_parameters"]
 
-        pdb_file = params["pdb_file"]
-        if not pdb_file:
-            self.log.error("Aborting ligand fit processing. PDB file not provided.")
+        pdb = params.get("pdb")  # needs handling if not provided
+        if not pdb:
+            self.log.error(
+                "Aborting ligand fit processing. PDB file not provided."
+            )  # do again for other params
             return False  # need better check of PDB file format, also mtz
 
-        # pdb_file = params["pdb_file"]
-        mtz_file = params["mtz_file"]
+        mtz = params.get("mtz")
         # ligand_code = params["ligand_code"]
-        smiles_string = params["smiles_string"]
-        working_directory = pathlib.Path(params["working_directory"])
-        pipeline = params["pipeline"]
+        smiles = params.get("smiles")
+        pipeline = params.get("pipeline")
 
         pipelines = ["phenix", "phenix_pipeline"]
         if pipeline not in pipelines:
             self.log.error("Aborting ligand fit processing. Pipeline not recognised")
             return False
 
+        working_directory = pathlib.Path(params["working_directory"])
+        working_directory.mkdir(parents=True, exist_ok=True)
         with open(working_directory / "LIG.smi", "w") as smi_file:
-            smi_file.write(smiles_string)
+            smi_file.write(smiles)
 
         if pipeline == "phenix":
-            phenix_command = f"phenix.ligandfit data={mtz_file}  model={pdb_file} ligand=LIG.smi"  # ligand={ligand_code}
+            phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi"  # ligand={ligand_code}
             result = subprocess.run(
                 phenix_command,
                 shell=True,
@@ -49,7 +51,7 @@ class LigandFitWrapper(Wrapper):
             )
 
         elif pipeline == "phenix_pipeline":
-            phenix_command = f"phenix.ligand_pipeline {pdb_file} {mtz_file} LIG.smi"  # ligand_code={ligand_code}
+            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi"  # ligand_code={ligand_code}
             result = subprocess.run(
                 phenix_command,
                 shell=True,

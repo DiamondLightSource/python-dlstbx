@@ -37,7 +37,7 @@ class GridInfo(pydantic.BaseModel):
     def image_count(self) -> int:
         return self.steps_x * self.steps_y
 
-    @pydantic.root_validator(pre=True)
+    @pydantic.model_validator(mode="before")
     def handle_legacy_pixels_per_micron(cls, values):
         # The field pixelsPerMicron{X,Y} was renamed to micronsPerPixel{X,Y}
         # to correctly match the units of the value stored therein.
@@ -46,11 +46,12 @@ class GridInfo(pydantic.BaseModel):
         # into the database.
         # See also https://jira.diamond.ac.uk/browse/LIMS-464
         for axis in "XY":
-            if not values.get(f"micronsPerPixel{axis}"):
+            if (
+                f"micronsPerPixel{axis}" not in values
+                and f"pixelsPerMicron{axis}" in values
+            ):
                 values[f"micronsPerPixel{axis}"] = values.get(f"pixelsPerMicron{axis}")
-            assert values[
-                f"micronsPerPixel{axis}"
-            ], f"micronsPerPixel{axis} value is {values[f'micronsPerPixel{axis}']}"
+                del values[f"pixelsPerMicron{axis}"]
         return values
 
 

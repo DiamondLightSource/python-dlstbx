@@ -126,12 +126,13 @@ class BigEPParameters(pydantic.BaseModel):
     comment: Optional[str] = None
     spacegroup: Optional[str] = None
 
-    @pydantic.validator("spacegroup")
+    @pydantic.field_validator("spacegroup")
     def is_spacegroup_null(cls, v):
         ## Validate space group parameter and exclude "None"
         try:
             spg = gemmi.SpaceGroup(v).short_name()
         except (TypeError, ValueError):
+            # Note: Is this valid? Don't we want to raise ValueError?
             return None
         return spg
 

@@ -55,7 +55,7 @@ class Payload(pydantic.BaseModel):
     timeout: pydantic.PositiveFloat = 3600
     status: Optional[Status] = None
 
-    @pydantic.root_validator
+    @pydantic.model_validator(mode="after")
     def check_files_expected_or_images_expected(cls, values):
         if (
             values.get("files_expected") is None

@@ -31,7 +31,7 @@ class PerImageAnalysisParameters(pydantic.BaseModel):
     filter_ice: bool = True
     ice_rings_width: pydantic.NonNegativeFloat = 0.004
 
-    @pydantic.validator("scan_range", pre=True)
+    @pydantic.field_validator("scan_range", mode="before")
     def str_to_tuple(cls, v):
         if isinstance(v, str):
             return tuple(int(i) for i in v.split(","))

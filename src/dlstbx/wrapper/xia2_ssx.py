@@ -46,7 +46,7 @@ class Xia2SsxParams(pydantic.BaseModel):
         v = tuple(float(v) for v in v)
         return v
 
-    @pydantic.root_validator
+    @pydantic.model_validator(mode="after")
     def check_template_or_image(cls, values):
         if values.get("template") is None and values.get("image") is None:
             raise ValueError("Either template or image must be defined")

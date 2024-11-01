@@ -31,7 +31,7 @@ def test_get_blobs_from_anode_log(tmp_path):
     )
     blobs = get_blobs_from_anode_log(anode_log, cell)
     assert len(blobs) == 9
-    assert blobs[0].dict() == {
+    assert blobs[0].model_dump() == {
         "filepath": None,
         "xyz": pytest.approx((15.7009203, 28.6875984, 32.9493824)),
         "height": 13.5,
@@ -48,7 +48,7 @@ def test_get_blobs_from_anode_log(tmp_path):
         "view2": None,
         "view3": None,
     }
-    assert blobs[8].dict() == {
+    assert blobs[8].model_dump() == {
         "filepath": None,
         "xyz": pytest.approx((21.6304329, 27.7106613, 28.163872)),
         "height": 4.2,
@@ -83,7 +83,7 @@ Protein mass center: xyz = (   -0.5181,     20.49,     18.82)
     )
     blobs = get_blobs_from_find_blobs_log(find_blobs_log)
     assert len(blobs) == 4
-    assert blobs[0].dict() == {
+    assert blobs[0].model_dump() == {
         "filepath": None,
         "xyz": (3.62, 22.63, 24.25),
         "height": 104.9,

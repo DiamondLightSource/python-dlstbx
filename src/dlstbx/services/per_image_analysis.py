@@ -179,7 +179,7 @@ class DLSPerImageAnalysis(CommonService):
             return
         runtime = time.time() - start
 
-        results = pia_results.dict()
+        results = pia_results.model_dump()
         # Pass through all file* fields
         for key in (x for x in message if x.startswith("file")):
             results[key] = message[key]

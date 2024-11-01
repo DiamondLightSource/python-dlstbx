@@ -1546,7 +1546,7 @@ class DLSTrigger(CommonService):
                         {
                             "trigger-status": status,
                             "related_dcid_group": [
-                                group.dict(),
+                                group.model_dump(),
                             ],
                         },
                         delay=message_delay,

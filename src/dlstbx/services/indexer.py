@@ -189,7 +189,7 @@ class DLSIndexer(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        result = indexing_result.dict()
+        result = indexing_result.model_dump()
         # Pass through all file* fields
         for key in (x for x in message if x.startswith("file")):
             result[key] = message[key]

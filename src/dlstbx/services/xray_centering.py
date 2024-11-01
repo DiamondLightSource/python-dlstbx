@@ -296,7 +296,7 @@ class DLSXRayCentering(CommonService):
                     rw.send_to(
                         "success",
                         {
-                            "results": [r.dict() for r in result],
+                            "results": [r.model_dump() for r in result],
                             "status": "success",
                             "type": "3d",
                         },
@@ -387,7 +387,11 @@ class DLSXRayCentering(CommonService):
                 rw.set_default_channel("success")
                 rw.send_to(
                     "success",
-                    {"results": [result.dict()], "status": "success", "type": "2d"},
+                    {
+                        "results": [result.model_dump()],
+                        "status": "success",
+                        "type": "2d",
+                    },
                     transaction=txn,
                 )
                 rw.transport.transaction_commit(txn)

@@ -314,9 +314,15 @@ class FastEPWrapper(Wrapper):
                         working_directory / params["fast_ep"]["xml"]
                     ).read_text()
                     self.log.info("Sending fast_ep phasing results to ISPyB")
-                    xml_file.write_text(
-                        xml_data.replace(str(working_directory), str(results_directory))
-                    )
+                    # Replace tmp run location at DLS and IRIS to processed directory
+                    for replace_path in (
+                        str(working_directory),
+                        f"/tmp/{self.recwrap.environment['ID']}",
+                    ):
+                        xml_data = xml_data.replace(
+                            replace_path, str(results_directory)
+                        )
+                    xml_file.write_text(xml_data)
                     result_ispyb = self.send_results_to_ispyb(xml_file)
                     if not result_ispyb:
                         self.log.error(

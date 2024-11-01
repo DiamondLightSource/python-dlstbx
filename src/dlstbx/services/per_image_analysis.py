@@ -95,7 +95,7 @@ class DLSPerImageAnalysis(CommonService):
             log_extender=self.extend_log,
         )
 
-    # @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    # @pydantic.validate_call(config=dict(arbitrary_types_allowed=True))
     def per_image_analysis(
         self,
         rw: workflows.recipe.RecipeWrapper,

@@ -47,7 +47,7 @@ class GridInfo(pydantic.BaseModel):
         # See also https://jira.diamond.ac.uk/browse/LIMS-464
         for axis in "XY":
             if (
-                f"micronsPerPixel{axis}" not in values
+                values.get(f"micronsPerPixel{axis}") is None
                 and f"pixelsPerMicron{axis}" in values
             ):
                 values[f"micronsPerPixel{axis}"] = values.get(f"pixelsPerMicron{axis}")

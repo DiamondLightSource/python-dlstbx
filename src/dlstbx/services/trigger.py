@@ -28,6 +28,7 @@ from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
 
+import dlstbx.ispybtbx
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
@@ -177,6 +178,7 @@ class RelatedDCIDs(pydantic.BaseModel):
 class MultiplexParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
+    program_id: int = pydantic.Field(gt=0)
     wavelength: Optional[float] = pydantic.Field(gt=0)
     spacegroup: Optional[str]
     automatic: Optional[bool] = False
@@ -187,6 +189,7 @@ class MultiplexParameters(pydantic.BaseModel):
     wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
     recipe: Optional[str] = None
+    use_clustering: Optional[List[str]] = None
 
 
 class Xia2SsxReduceParameters(pydantic.BaseModel):
@@ -1404,6 +1407,12 @@ class DLSTrigger(CommonService):
         will be created, and the resulting list of processingJobIds will be sent to
         the `processing_recipe` queue.
 
+        If clustering algorithm is enabled, skip triggering multiplex if new related dcid
+        values are added into all defined sample groups to run multiplex only once when
+        all samples in one of the groups have been collected. When running multiplex
+        only include results from datasets collected prior to the current one in all
+        sample groups.
+
         Recipe parameters:
         - target: set this to "multiplex"
         - dcid: the dataCollectionId for the given data collection
@@ -1448,6 +1457,8 @@ class DLSTrigger(CommonService):
         }
         """
         dcid = parameters.dcid
+        program_id = parameters.program_id
+        parameters.recipe = "postprocessing-xia2-multiplex"
 
         # Take related dcids from recipe in preference or checkpointed message
         if isinstance(related_dcid_group := message.get("related_dcid_group"), list):
@@ -1463,6 +1474,53 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
+        # Check if we have any new data collections added to any sample group
+        # to decide if we need to processed triggering multiplex.
+        # Run multiplex only once when processing for all samples in the group have been collected.
+        if parameters.use_clustering:
+            # Get currnent list of data collections for all samples in the sample groups
+            _, ispyb_info = dlstbx.ispybtbx.ispyb_filter(
+                {}, {"ispyb_dcid": dcid}, session
+            )
+            ispyb_related_dcids = ispyb_info.get("ispyb_related_dcids", [])
+            beamline = ispyb_info.get("ispyb_beamline", "")
+            visit = ispyb_info.get("ispyb_visit", "")
+            if beamline in parameters.use_clustering or any(
+                el in visit for el in parameters.use_clustering
+            ):
+                parameters.recipe = "postprocessing-xia2-multiplex-clustering"
+                # If we have a sample group that doesn't have any new data collections,
+                # proceed with triggering multiplex for all sample groups
+                if all(max(el.get("dcids", [])) > dcid for el in ispyb_related_dcids):
+                    added_dcids = []
+                    for el in ispyb_related_dcids:
+                        added_dcids.extend([d for d in el.get("dcids", []) if d > dcid])
+                    # Check if there are xia2 dials jobs that were triggered on any new
+                    # data collections after current multiplex job was triggered
+                    min_start_time = datetime.now() - timedelta(hours=12)
+                    query = (
+                        (
+                            session.query(
+                                AutoProcProgram, ProcessingJob.dataCollectionId
+                            ).join(
+                                ProcessingJob,
+                                ProcessingJob.processingJobId
+                                == AutoProcProgram.processingJobId,
+                            )
+                        )
+                        .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
+                        .filter(ProcessingJob.automatic == True)  # noqa E712
+                        .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
+                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                    )
+                    # Abort triggering multiplex if we have xia2 dials running on any subsequent
+                    # data collection in all sample groups
+                    if triggered_processing_job := query.first():
+                        self.log.info(
+                            f"Aborting multiplex trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
+                        )
+                        return {"success": True}
 
         # Calculate message delay for exponential backoff in case a processing
         # program for a related data collection is still running, in which case
@@ -1667,6 +1725,12 @@ class DLSTrigger(CommonService):
             set_dcids = set(dcids)
             self.log.debug(set_dcids)
             self.log.debug(multiplex_job_dcids)
+            # Check if upstream dials job has succeeded when we run multiplex per data collection
+            if ("clustering" not in parameters.recipe) and (dcid not in set_dcids):
+                self.log.info(
+                    f"Skipping xia2.multiplex trigger: upstream dials job failed for dcid={dcid} group={group}"
+                )
+                continue
             if set_dcids in multiplex_job_dcids:
                 continue
             if dcid in set_dcids and len(set_dcids) == 1:
@@ -1681,7 +1745,7 @@ class DLSTrigger(CommonService):
             jp["comments"] = parameters.comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "xia2.multiplex"
-            jp["recipe"] = parameters.recipe or "postprocessing-xia2-multiplex"
+            jp["recipe"] = parameters.recipe
             self.log.info(jp)
             jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
             jobids.append(jobid)
@@ -1732,6 +1796,13 @@ class DLSTrigger(CommonService):
                     [
                         ("anomalous", "true"),
                         ("absorption_level", "high"),
+                    ]
+                )
+            if "clustering" in parameters.recipe:
+                job_parameters.extend(
+                    [
+                        ("clustering.method", "coordinate"),
+                        ("clustering.output_clusters", "true"),
                     ]
                 )
             for k, v in job_parameters:

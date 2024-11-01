@@ -74,7 +74,7 @@ def test_xray_centering():
     }
 
     # verify that the results can be serialized to json
-    assert results.json()
+    assert results.model_dump_json()
 
 
 def test_xray_centering_second_example():

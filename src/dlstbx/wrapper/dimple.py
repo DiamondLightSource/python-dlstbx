@@ -160,10 +160,10 @@ class DimpleWrapper(Wrapper):
 
         ispyb_results = {
             "ispyb_command": "insert_dimple_results",
-            "mxmrrun": json.loads(mxmrrun.json()),
-            "blobs": [json.loads(b.json()) for b in blobs + anom_blobs],
-            "auto_proc_program": json.loads(app.json()),
-            "attachments": [json.loads(att.json()) for att in attachments],
+            "mxmrrun": json.loads(mxmrrun.model_dump_json()),
+            "blobs": [json.loads(b.model_dump_json()) for b in blobs + anom_blobs],
+            "auto_proc_program": json.loads(app.model_dump_json()),
+            "attachments": [json.loads(att.model_dump_json()) for att in attachments],
         }
 
         self.log.debug("Sending %s", str(ispyb_results))

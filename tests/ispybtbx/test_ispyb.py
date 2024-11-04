@@ -10,6 +10,13 @@ import pytest
 import sqlalchemy
 from sqlalchemy.orm import sessionmaker
 
+try:
+    import dlstbx.ispybtbx
+except AttributeError as e:
+    if "No credentials file specified" in str(e):
+        pytest.skip("No ISPYB_CREDENTIALS", allow_module_level=True)
+    raise
+
 import dlstbx.ispybtbx
 from dlstbx import crud
 from dlstbx.ispybtbx import ispyb_filter, ispybtbx

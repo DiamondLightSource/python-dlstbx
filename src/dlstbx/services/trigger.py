@@ -13,9 +13,11 @@ import sqlalchemy.engine
 import sqlalchemy.orm
 import workflows.recipe
 from ispyb.sqlalchemy import (
+    AutoProc,
     AutoProcIntegration,
     AutoProcProgram,
     AutoProcProgramAttachment,
+    AutoProcScaling,
     BLSession,
     DataCollection,
     ProcessingJob,
@@ -220,6 +222,7 @@ class LigandFitParameters(pydantic.BaseModel):
     pipeline: str
     automatic: Optional[bool] = False
     comment: Optional[str] = None
+    scaling_id: int = pydantic.Field(gt=0)
 
 
 class DLSTrigger(CommonService):
@@ -2172,6 +2175,29 @@ class DLSTrigger(CommonService):
         if not parameters.smiles:
             self.log.info(
                 f"Skipping ligand fit trigger: DCID {parameters.dcid} has no associated SMILES string"
+            )
+            return {"success": True}
+
+        # Get data collection information for all collections in dcids
+        query = (
+            (
+                session.query(AutoProcProgram)
+                .join(
+                    AutoProc,
+                    AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+                )
+                .join(
+                    AutoProcScaling,
+                    AutoProc.autoProcId == AutoProcScaling.autoProcId,
+                )
+            )
+            .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+            .one()
+        )
+
+        if query.processingPrograms != "xia2.multiplex":
+            self.log.info(
+                "ligandfit trigger: processingProgram is not xia2.multiplex, skipping..."
             )
             return {"success": True}
 

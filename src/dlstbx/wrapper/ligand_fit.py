@@ -10,8 +10,8 @@ from dlstbx.wrapper import Wrapper
 class LigandFitWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.ligand_fit"
 
-    def send_attachments_to_ispyb(self, results_directory):
-        for f in results_directory.iterdir():
+    def send_attachments_to_ispyb(self, pipeline_directory):
+        for f in pipeline_directory.iterdir():
             if f.stem.endswith == "final":
                 file_type = "Result"
                 importance_rank = 1
@@ -20,7 +20,7 @@ class LigandFitWrapper(Wrapper):
                 importance_rank = 2
             try:
                 result_dict = {
-                    "file_path": str(results_directory),
+                    "file_path": str(pipeline_directory),
                     "file_name": f.name,
                     "file_type": file_type,
                     "importance_rank": importance_rank,
@@ -94,10 +94,14 @@ class LigandFitWrapper(Wrapper):
         for f in working_directory.iterdir():
             if f.name.startswith("."):
                 continue
-            shutil.copy(f, results_directory)
+            shutil.copytree(f, results_directory)
+
+        pipeline_directory = (
+            results_directory / "pipeline_1"
+        )  # will work only when pipeline=phenix_pipeline
 
         self.log.info("Sending results to ISPyB")
-        self.send_attachments_to_ispyb(results_directory)
+        self.send_attachments_to_ispyb(pipeline_directory)
 
         self.log.info("Ligand_fitting pipeline finished")
         return True

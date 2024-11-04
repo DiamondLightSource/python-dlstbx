@@ -9,29 +9,29 @@ from workflows.services.common_service import CommonService
 from dlstbx.util.iris import get_minio_client
 
 
-class HTCondorStats(CommonService):
+class CloudStats(CommonService):
     """
-    A service that collects HTCondor and S3 Echo object store utilization
+    A service that collects Cloud and S3 Echo object store utilization
     statistics.
     """
 
     # Human readable service name
-    _service_name = "HTCondorstats"
+    _service_name = "Cloudstats"
 
     # Logger name
-    _logger_name = "dlstbx.services.htcondorstats"
+    _logger_name = "dlstbx.services.cloudstats"
 
     # STFC S3 Echo credentials
     _s3echo_credentials = "/dls_sw/apps/zocalo/secrets/credentials-echo-mx.cfg"
 
     def initializing(self):
         """
-        Register callback function to collect HTCondor and S3 Echo stats.
+        Register callback function to collect Cloud and S3 Echo stats.
         """
-        self.log.info("HTCondorstats starting")
+        self.log.info("Cloudstats starting")
 
         self.minio_client: minio.Minio = get_minio_client(
-            HTCondorStats._s3echo_credentials
+            CloudStats._s3echo_credentials
         )
 
         self._register_idle(30, self.update_slurm_statistics)

@@ -176,7 +176,7 @@ class DLSIndexer(CommonService):
                     ],
                     n_unindexed=idxr.unindexed_reflections.size(),
                 )
-                self.log.info(indexing_result.json(indent=2))
+                self.log.info(indexing_result.model_dump_json(indent=2))
 
             except Exception as e:
                 self.log.debug(f"Indexing failed with message: {e}")

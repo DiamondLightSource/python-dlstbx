@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List
-
 from dlstbx import mimas
 from dlstbx.mimas.core import (
     is_end,
@@ -17,7 +15,7 @@ from dlstbx.mimas.core import (
 def handle_vmxi_start(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     # Do nothing
     return []
 
@@ -26,7 +24,7 @@ def handle_vmxi_start(
 def handle_vmxi_end(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
@@ -42,7 +40,7 @@ def handle_vmxi_end(
 def handle_vmxi_gridscan(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="vmxi-spot-counts-per-image"
@@ -54,7 +52,7 @@ def handle_vmxi_gridscan(
 def handle_vmxi_rotation_scan(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         # Per-image analysis
         mimas.MimasRecipeInvocation(

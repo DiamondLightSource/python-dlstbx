@@ -315,8 +315,7 @@ def _simulate(
                     log.debug("(filesystem) ... 'mkdir -p' %s" % path)
                     os.makedirs(path, exist_ok=True)
                     log.debug(
-                        "(filesystem) ... copying %s to %s"
-                        % (src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x])
+                        f"(filesystem) ... copying {src_xtal_snapshot_path[x]} to {dest_xtal_snapshot_path[x]}"
                     )
                     copy_via_temp_file(
                         src_xtal_snapshot_path[x], dest_xtal_snapshot_path[x]
@@ -424,10 +423,8 @@ def _simulate(
                 src_prefix = ""
                 if _src_prefix is not None:
                     src_prefix = _src_prefix
-                src_fname = "%s_%s_%s.cbf" % (
-                    src_prefix,
-                    str(_src_run_number),
-                    str(_src_img_number),
+                src_fname = (
+                    f"{src_prefix}_{str(_src_run_number)}_{str(_src_img_number)}.cbf"
                 )
                 dest_fname = "%s_%d_%s.cbf" % (
                     _dest_prefix,
@@ -453,7 +450,7 @@ def _simulate(
                 )
             for src in files:
                 dest_fname = os.path.basename(src).replace(
-                    "%s_%s" % (src_prefix, str(_src_run_number)),
+                    f"{src_prefix}_{str(_src_run_number)}",
                     "%s_%d" % (_dest_prefix, run_number),
                 )
                 target = os.path.join(_dest_dir, dest_fname)

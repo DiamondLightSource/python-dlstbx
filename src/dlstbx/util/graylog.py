@@ -137,13 +137,11 @@ class GraylogAPI:
             level = self.level
         return self._get(
             "search/universal/absolute/histogram?"
-            "query=level:{level_op}{level}&"
+            f"query=level:{level_op}{level}&"
             "interval=minute&"
-            "from={from_time}&"
+            f"from={from_time}&"
             "to=2031-01-01%2012%3A00%3A00&"
-            "filter=streams%3A{stream}".format(
-                from_time=from_time, stream=self.stream, level=level, level_op=level_op
-            )
+            f"filter=streams%3A{self.stream}"
         )
 
     def relative_update(self, time=600, query=None):
@@ -156,14 +154,10 @@ class GraylogAPI:
             )
         return self._get(
             "search/universal/relative?"
-            "query={query}&"
-            "range={time}&"
-            "filter=streams%3A{stream}&"
-            "sort=timestamp%3Aasc".format(
-                time=time,
-                stream=self.stream,
-                query=urllib.parse.quote(query.format(level=self.level)),
-            )
+            f"query={urllib.parse.quote(query.format(level=self.level))}&"
+            f"range={time}&"
+            f"filter=streams%3A{self.stream}&"
+            "sort=timestamp%3Aasc"
         )
 
     def absolute_update(self, from_time=None, query=None):
@@ -179,15 +173,11 @@ class GraylogAPI:
         from_time = from_time.replace(":", "%3A")
         return self._get(
             "search/universal/absolute?"
-            "query={query}&"
-            "from={from_time}&"
+            f"query={urllib.parse.quote(query.format(level=self.level))}&"
+            f"from={from_time}&"
             "to=2031-01-01%2012%3A00%3A00&"
-            "filter=streams%3A{stream}&"
-            "sort=timestamp%3Aasc".format(
-                from_time=from_time,
-                stream=self.stream,
-                query=urllib.parse.quote(query.format(level=self.level)),
-            )
+            f"filter=streams%3A{self.stream}&"
+            "sort=timestamp%3Aasc"
         )
 
     def get_history_statistics(self):
@@ -196,9 +186,9 @@ class GraylogAPI:
             "query=%2A&"
             "from=1970-01-01%2000%3A00%3A00&"
             "to=2031-01-01%2012%3A00%3A00&"
-            "filter=streams%3A{stream}&"
+            f"filter=streams%3A{self.stream}&"
             "limit=1&"
-            "sort=timestamp%3Aasc".format(stream=self.stream)
+            "sort=timestamp%3Aasc"
         )
         if not first_message["success"]:
             return False

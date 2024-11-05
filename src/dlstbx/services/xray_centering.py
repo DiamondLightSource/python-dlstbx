@@ -4,7 +4,6 @@ import logging
 import pathlib
 import threading
 import time
-from typing import List, Optional
 
 import numpy as np
 import prometheus_client
@@ -58,10 +57,10 @@ class Parameters(pydantic.BaseModel):
 
     dcid: int
     experiment_type: str
-    dcg_dcids: Optional[List[int]] = None
-    output: Optional[pathlib.Path] = None
-    log: Optional[pathlib.Path] = None
-    results_symlink: Optional[str] = None
+    dcg_dcids: list[int] | None = None
+    output: pathlib.Path | None = None
+    log: pathlib.Path | None = None
+    results_symlink: str | None = None
     latency_log_warning: float = 30
     latency_log_error: float = 300
     beamline: str

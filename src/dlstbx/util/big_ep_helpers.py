@@ -198,7 +198,7 @@ def read_mtz_datasets(msg, logger):
 
         try:
             fp, fpp = next(
-                ((ds["fp"], ds["fpp"]) for ds in msg.datasets if ds["name"] == name)
+                (ds["fp"], ds["fpp"]) for ds in msg.datasets if ds["name"] == name
             )
         except Exception:
             fp, fpp = get_tabulated_fp_fpp(msg.atom, name, wv)
@@ -230,7 +230,7 @@ def read_mtz_datasets(msg, logger):
             logger.warning("Warning: DANO/SIGDANO columns are missing")
 
         try:
-            isym = next((i.label() for i in dataset.columns() if i.type() == "Y"))
+            isym = next(i.label() for i in dataset.columns() if i.type() == "Y")
             tmp_dataset.update({"ISYM": isym})
         except Exception:
             logger.info("Warning: ISYM column is missing")
@@ -279,7 +279,7 @@ def get_autosharp_model_files(working_directory, logger):
         return str(Path(v.split("=")[1][1:-2]).resolve())
 
     try:
-        with open(str(working_directory / ".autoSHARP"), "r") as f:
+        with open(str(working_directory / ".autoSHARP")) as f:
             lines = f.readlines()
             for mtz_line, pdb_line in zip(lines[:0:-1], lines[-2::-1]):
                 if "autoSHARP_modelmtz=" in mtz_line and "autoSHARP_model=" in pdb_line:

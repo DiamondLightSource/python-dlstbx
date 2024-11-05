@@ -4,7 +4,6 @@ import json
 import os.path
 import pathlib
 import time
-from typing import List
 
 import ispyb.sqlalchemy
 import mysql.connector
@@ -26,9 +25,9 @@ def lookup_command(command, refclass):
 
 class DimpleResult(pydantic.BaseModel):
     mxmrrun: schemas.MXMRRun
-    blobs: List[schemas.Blob]
+    blobs: list[schemas.Blob]
     auto_proc_program: schemas.AutoProcProgram
-    attachments: List[schemas.Attachment]
+    attachments: list[schemas.Attachment]
 
 
 class DLSISPyB(EM_Mixin, CommonService):

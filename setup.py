@@ -240,7 +240,7 @@ setup(
     entry_points={
         "console_scripts": sorted(console_scripts),
         "libtbx.dispatcher.script": [
-            "%s=%s" % (x.split("=")[0], x.split("=")[0]) for x in console_scripts
+            "{}={}".format(x.split("=")[0], x.split("=")[0]) for x in console_scripts
         ]
         + [f"{x}={x}" for x in swirltbx_hacks],
         "libtbx.precommit": ["dlstbx=dlstbx"],

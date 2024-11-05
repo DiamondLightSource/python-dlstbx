@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import socket
 import subprocess
 import urllib.request
 
@@ -15,7 +14,7 @@ def _check_service(URL, checkname, servicename):
         with urllib.request.urlopen(URL, timeout=3) as response:
             data = response.read(250)
             status = response.status
-    except socket.timeout:
+    except TimeoutError:
         return Status(
             Source=checkname,
             Level=REPORT.ERROR,
@@ -54,7 +53,7 @@ def check_agamemnon(cfc: CheckFunctionInterface):
         with urllib.request.urlopen(URL, timeout=3) as response:
             data = response.read(250)
             status = response.status
-    except socket.timeout:
+    except TimeoutError:
         return Status(
             Source=cfc.name,
             Level=REPORT.ERROR,

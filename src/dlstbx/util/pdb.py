@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 import iotbx.pdb
 from scitbx.array_family import flex
@@ -12,9 +11,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class PDBFileOrCode:
-    filepath: Optional[str] = None
-    code: Optional[str] = None
-    source: Optional[str] = None
+    filepath: str | None = None
+    code: str | None = None
+    source: str | None = None
 
     def __str__(self):
         return str(self.filepath) if self.filepath else str(self.code)
@@ -23,8 +22,8 @@ class PDBFileOrCode:
 def trim_pdb_bfactors(
     pdb_in: str,
     pdb_out: str,
-    atom_selection: Optional[str] = None,
-    set_b_iso: Optional[float] = None,
+    atom_selection: str | None = None,
+    set_b_iso: float | None = None,
 ):
     h_all = iotbx.pdb.input(pdb_in).construct_hierarchy()
     if atom_selection:

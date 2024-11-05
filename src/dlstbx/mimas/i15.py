@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Tuple
-
 from dlstbx import mimas
 from dlstbx.mimas.core import is_end, xia2_dials_absorption_params
 from dlstbx.mimas.specification import BeamlineSpecification
@@ -10,8 +8,8 @@ is_i15 = BeamlineSpecification("i15")
 
 
 @mimas.match_specification(is_i15 & is_end)
-def handle_i15_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invocation]:
-    tasks: List[mimas.Invocation] = [
+def handle_i15_end(scenario: mimas.MimasScenario, **kwargs) -> list[mimas.Invocation]:
+    tasks: list[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in (
             "generate-crystal-thumbnails",
@@ -21,8 +19,8 @@ def handle_i15_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invoca
         )
     ]
 
-    ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
-    extra_params: List[ParamTuple] = [()]
+    ParamTuple = tuple[mimas.MimasISPyBParameter, ...]
+    extra_params: list[ParamTuple] = [()]
     if scenario.spacegroup:
         # Space group is set, run xia2 with space group
         spacegroup = scenario.spacegroup.string

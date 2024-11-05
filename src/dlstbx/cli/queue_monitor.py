@@ -157,14 +157,7 @@ def print_stats(stats: pd.DataFrame, transport_prefix: str) -> None:
         header=c_reset + c_yellow,
         transport_prefix=transport_prefix,
     )
-    topic_sep = (
-        "\n{header}ActiveMQ status: {highlight}{topics}{header} topics{reset}".format(
-            topics=len(topic_stats),
-            highlight=c_bold + c_yellow,
-            reset=c_reset,
-            header=c_reset + c_yellow,
-        )
-    )
+    topic_sep = f"\n{c_reset + c_yellow}ActiveMQ status: {c_bold + c_yellow}{len(topic_stats)}{c_reset + c_yellow} topics{c_reset}"
 
     for sep, stats in ((queue_sep, queue_stats), (topic_sep, topic_stats)):
         if not len(stats):
@@ -210,12 +203,7 @@ def print_stats(stats: pd.DataFrame, transport_prefix: str) -> None:
                 )
             )
 
-    print(
-        "\n{header}What do the numbers mean:{reset}".format(
-            reset=c_reset,
-            header=c_reset + c_yellow,
-        )
-    )
+    print(f"\n{c_reset + c_yellow}What do the numbers mean:{c_reset}")
     print(
         f"topic/queue name  {c_green}m.in/5s >{c_gray}[ {c_blue}m.held{c_gray} | {c_yellow}clients{c_gray} | {c_blue}m.dispatchd{c_gray} ]{c_green}> m.out/5s{c_reset}"
     )

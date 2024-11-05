@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import os
 import pathlib
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from time import time
-from typing import Any, Dict, List, Literal, Mapping, Optional
+from typing import Any, Literal
 
 import gemmi
 import ispyb
@@ -48,8 +49,8 @@ class DimpleParameters(pydantic.BaseModel):
     scaling_id: int = pydantic.Field(gt=0)
     mtz: pathlib.Path
     pdb: list[PDBFileOrCode]
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
+    automatic: bool | None = False
+    comment: str | None = None
 
 
 class MetalIdParameters(pydantic.BaseModel):
@@ -62,47 +63,47 @@ class MetalIdParameters(pydantic.BaseModel):
     timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
     backoff_delay: float = pydantic.Field(default=5, alias="backoff-delay")
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
+    automatic: bool | None = False
+    comment: str | None = None
 
 
 class ProteinInfo(pydantic.BaseModel):
-    sequence: Optional[str] = None
+    sequence: str | None = None
 
 
 class MrBumpParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     experiment_type: str
     scaling_id: int = pydantic.Field(gt=0)
-    protein_info: Optional[ProteinInfo] = None
+    protein_info: ProteinInfo | None = None
     hklin: pathlib.Path
     pdb: list[PDBFileOrCode]
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
+    automatic: bool | None = False
+    comment: str | None = None
 
 
 class DiffractionPlanInfo(pydantic.BaseModel):
-    anomalousScatterer: Optional[str] = None
+    anomalousScatterer: str | None = None
 
 
 class EPPredictParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+    diffraction_plan_info: DiffractionPlanInfo | None = None
     program: str
     program_id: int = pydantic.Field(gt=0)
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
+    automatic: bool | None = False
+    comment: str | None = None
     data: pathlib.Path
     threshold: float
 
 
 class MRPredictParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+    diffraction_plan_info: DiffractionPlanInfo | None = None
     program: str
     program_id: int = pydantic.Field(gt=0)
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
+    automatic: bool | None = False
+    comment: str | None = None
     data: pathlib.Path
     threshold: float
 
@@ -112,19 +113,19 @@ class Screen19MXParameters(pydantic.BaseModel):
     visit: str
     test_visit: str
     program_id: int = pydantic.Field(gt=0)
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
+    automatic: bool | None = False
+    comment: str | None = None
     data: pathlib.Path
 
 
 class BigEPParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     experiment_type: str
-    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+    diffraction_plan_info: DiffractionPlanInfo | None = None
     program_id: int = pydantic.Field(gt=0)
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
-    spacegroup: Optional[str]
+    automatic: bool | None = False
+    comment: str | None = None
+    spacegroup: str | None
 
     @pydantic.validator("spacegroup")
     def is_spacegroup_null(cls, v):
@@ -143,20 +144,20 @@ class BigEPLauncherParameters(pydantic.BaseModel):
     shelxc_path: pathlib.Path
     fast_ep_path: pathlib.Path
     program_id: int = pydantic.Field(gt=0)
-    path_ext: Optional[str] = pydantic.Field(
+    path_ext: str | None = pydantic.Field(
         default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S")
     )
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
+    automatic: bool | None = False
+    comment: str | None = None
 
 
 class FastEPParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     experiment_type: str
-    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
+    diffraction_plan_info: DiffractionPlanInfo | None = None
     scaling_id: int = pydantic.Field(gt=0)
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
+    automatic: bool | None = False
+    comment: str | None = None
     mtz: pathlib.Path
 
 
@@ -164,38 +165,38 @@ class BestParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     program_id: int = pydantic.Field(gt=0)
     data: pathlib.Path
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
+    automatic: bool | None = False
+    comment: str | None = None
 
 
 class RelatedDCIDs(pydantic.BaseModel):
-    dcids: List[int]
-    sample_id: Optional[int] = pydantic.Field(gt=0)
-    sample_group_id: Optional[int] = pydantic.Field(gt=0)
+    dcids: list[int]
+    sample_id: int | None = pydantic.Field(gt=0)
+    sample_group_id: int | None = pydantic.Field(gt=0)
 
 
 class MultiplexParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    related_dcids: List[RelatedDCIDs]
-    wavelength: Optional[float] = pydantic.Field(gt=0)
-    spacegroup: Optional[str]
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
+    related_dcids: list[RelatedDCIDs]
+    wavelength: float | None = pydantic.Field(gt=0)
+    spacegroup: str | None
+    automatic: bool | None = False
+    comment: str | None = None
     backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
     wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
-    diffraction_plan_info: Optional[DiffractionPlanInfo] = None
-    recipe: Optional[str] = None
+    diffraction_plan_info: DiffractionPlanInfo | None = None
+    recipe: str | None = None
 
 
 class Xia2SsxReduceParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    related_dcids: List[RelatedDCIDs]
-    wavelength: Optional[float] = pydantic.Field(gt=0)
-    spacegroup: Optional[str]
-    automatic: Optional[bool] = False
-    comment: Optional[str] = None
+    related_dcids: list[RelatedDCIDs]
+    wavelength: float | None = pydantic.Field(gt=0)
+    spacegroup: str | None
+    automatic: bool | None = False
+    comment: str | None = None
     backoff_delay: float = pydantic.Field(default=8, alias="backoff-delay")
     backoff_max_try: int = pydantic.Field(default=10, alias="backoff-max-try")
     backoff_multiplier: float = pydantic.Field(default=2, alias="backoff-multiplier")
@@ -209,10 +210,10 @@ class AlphaFoldParameters(pydantic.BaseModel):
 class ShelxtParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     ins_file_location: pathlib.Path
-    prefix: Optional[str]
-    automatic: Optional[bool] = False
+    prefix: str | None
+    automatic: bool | None = False
     scaling_id: int = pydantic.Field(gt=0)
-    comment: Optional[str] = None
+    comment: str | None = None
 
 
 class DLSTrigger(CommonService):
@@ -293,7 +294,7 @@ class DLSTrigger(CommonService):
             rw.send({"result": result.get("return_value")}, transaction=txn)
             rw.transport.ack(header, transaction=txn)
             if retval := result.get("return_value"):
-                if isinstance(retval, (tuple, list)):
+                if isinstance(retval, tuple | list):
                     for i in range(len(retval)):
                         self._metrics.record_metric(
                             "zocalo_trigger_jobs_total", [target]
@@ -428,7 +429,7 @@ class DLSTrigger(CommonService):
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
-        message: Dict,
+        message: dict,
         parameters: MetalIdParameters,
         session: sqlalchemy.orm.session.Session,
         transaction: int,
@@ -676,7 +677,7 @@ class DLSTrigger(CommonService):
         # Sort based on wavelength
         combined = list(zip(wavelengths, dcids, data_files))
         sorted_combined = sorted(combined)
-        wavelengths, dcids, data_files = [list(v) for v in zip(*sorted_combined)]
+        wavelengths, dcids, data_files = (list(v) for v in zip(*sorted_combined))
 
         # Get parameters for metal_id recipe
         mtz_file_below = data_files[1]
@@ -1370,7 +1371,7 @@ class DLSTrigger(CommonService):
     def trigger_multiplex(
         self,
         rw: RecipeWrapper,
-        message: Dict,
+        message: dict,
         parameters: MultiplexParameters,
         session: sqlalchemy.orm.session.Session,
         transaction: int,
@@ -1757,7 +1758,7 @@ class DLSTrigger(CommonService):
     def trigger_xia2_ssx_reduce(
         self,
         rw: RecipeWrapper,
-        message: Dict,
+        message: dict,
         parameters: Xia2SsxReduceParameters,
         session: sqlalchemy.orm.session.Session,
         transaction: int,

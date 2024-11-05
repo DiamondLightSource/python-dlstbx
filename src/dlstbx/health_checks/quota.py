@@ -6,7 +6,7 @@ import re
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _quotafile() -> list[str]:
     with open("/dls/tmp/quota.netapp") as fh:
         return fh.readlines()

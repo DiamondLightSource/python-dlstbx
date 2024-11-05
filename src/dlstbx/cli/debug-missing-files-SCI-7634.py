@@ -101,11 +101,7 @@ def debug_message(message):
     found = int(m.group(2))
     visit = m.group(1).split("/")[5]
     borken_DCIDs[dcid] = True
-    print(
-        "SynchWeb      : https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dcid}".format(
-            dcid=dcid, visit=visit
-        )
-    )
+    print(f"SynchWeb      : https://ispyb.diamond.ac.uk/dc/visit/{visit}/id/{dcid}")
     print("DCID          :", dcid)
     print(
         "Files         : %s%d of %d%s found "

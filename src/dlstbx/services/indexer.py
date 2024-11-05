@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import pydantic
 import workflows.recipe
@@ -30,10 +29,10 @@ class IndexingPayload(pydantic.BaseModel):
 
     experiments: ExperimentList
     reflections: flex.reflection_table
-    unit_cell: Optional[uctbx.unit_cell] = None
-    space_group: Optional[sgtbx.space_group_info] = None
+    unit_cell: uctbx.unit_cell | None = None
+    space_group: sgtbx.space_group_info | None = None
     max_lattices: pydantic.PositiveInt = 1
-    reference_geometry: Optional[Path] = None
+    reference_geometry: Path | None = None
 
     @pydantic.validator("unit_cell", pre=True)
     def check_unit_cell(cls, v):

@@ -191,9 +191,7 @@ def _check_mx_outcome(test, expected_outcome, session):
                 outcomes[program] = {
                     "success": False,
                     "reason": [
-                        "Expected result not present for program {program}, DCID:{dcid}".format(
-                            program=program, dcid=dcid
-                        )
+                        f"Expected result not present for program {program}, DCID:{dcid}"
                     ],
                 }
 

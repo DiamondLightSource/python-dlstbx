@@ -58,10 +58,10 @@ def get_real_frames(master, dataset):
         if srcspace.get_select_type() != h5py.h5s.SEL_HYPERSLABS:
             continue
 
-        voffset, vstride, vcount, vframes = [
+        voffset, vstride, vcount, vframes = (
             v[0] for v in vspace.get_regular_hyperslab()
-        ]
-        offset, stride, count, frames = [v[0] for v in srcspace.get_regular_hyperslab()]
+        )
+        offset, stride, count, frames = (v[0] for v in srcspace.get_regular_hyperslab())
 
         # Assert that data is collected in continuous blocks
         assert (vstride, vcount, stride, count) == (1, 1, 1, 1)

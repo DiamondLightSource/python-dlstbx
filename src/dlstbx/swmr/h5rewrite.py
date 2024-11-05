@@ -4,7 +4,6 @@ import logging
 import math
 import pathlib
 import time
-from typing import Optional, Tuple, Union
 
 import h5py
 import hdf5plugin
@@ -17,8 +16,8 @@ class Visitor:
     def __init__(
         self,
         dest: h5py.File,
-        compression: Optional[int] = None,
-        compression_opts: Optional[tuple] = None,
+        compression: int | None = None,
+        compression_opts: tuple | None = None,
     ):
         self.dest = dest
         self.compression = compression
@@ -38,7 +37,7 @@ class Visitor:
         dset.attrs.update(dataset.attrs)
         return dset
 
-    def __call__(self, name: str, node: Union[h5py.Dataset, h5py.Group]):
+    def __call__(self, name: str, node: h5py.Dataset | h5py.Group):
         if (
             node.attrs.get("NX_class") == b"NXdata"
             or node.parent.attrs.get("NX_class") == b"NXdata"
@@ -76,7 +75,7 @@ class Visitor:
                     logger.debug(
                         f"ExternalLink: {'/'.join((node.name, item))} -> {external}:{link.path}"
                     )
-                elif isinstance(link, (h5py.SoftLink, h5py.HardLink)):
+                elif isinstance(link, h5py.SoftLink | h5py.HardLink):
                     try:
                         ref_name = node[child.ref].name
                     except ValueError:
@@ -101,8 +100,8 @@ def rewrite(
     master_h5: pathlib.Path,
     out_h5: pathlib.Path,
     zeros: bool = False,
-    image_range: Optional[Tuple[int, int]] = None,
-    delay: Optional[float] = None,
+    image_range: tuple[int, int] | None = None,
+    delay: float | None = None,
 ) -> None:
     """Re-write an HDF5 file as a VDS/SWMR file.
 

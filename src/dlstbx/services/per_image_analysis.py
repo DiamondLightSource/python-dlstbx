@@ -4,7 +4,6 @@ import io
 import logging
 import pathlib
 import time
-from typing import Optional
 
 import dials.util.ext
 import msgpack
@@ -24,7 +23,7 @@ from dlstbx.util.per_image_analysis import (
 
 class PerImageAnalysisPayload(pydantic.BaseModel):
     file: pathlib.Path
-    parameters: Optional[PerImageAnalysisParameters] = None
+    parameters: PerImageAnalysisParameters | None = None
 
 
 def msgpack_mangle_for_sending(message):
@@ -47,7 +46,7 @@ def msgpack_serializer(obj):
         return msgpack.ExtType(1, buf.getvalue())
     elif isinstance(obj, ExperimentList):
         return obj.to_dict()
-    raise TypeError("Unknown type: %r" % (obj,))
+    raise TypeError(f"Unknown type: {obj!r}")
 
 
 def msgpack_ext_hook(code, data):

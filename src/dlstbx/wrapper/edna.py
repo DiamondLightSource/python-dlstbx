@@ -73,7 +73,7 @@ class EdnaWrapper(Wrapper):
                     anomalous=sparams["anomalous"],
                 )
             )
-        short_comments = "%s Multiplicity=%s I/sig=%s Maxlifespan=%s s" % (
+        short_comments = "{} Multiplicity={} I/sig={} Maxlifespan={} s".format(
             sparams["description"],
             multiplicity,
             i_over_sig_i,

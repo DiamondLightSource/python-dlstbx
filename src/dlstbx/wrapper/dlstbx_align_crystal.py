@@ -214,9 +214,7 @@ class AlignCrystalWrapper(Wrapper):
             )
         else:
             self.log.info(
-                "dlstbx.align_crystal failed with exitcode %s and timeout %s:\n{result[stderr]}".format(
-                    result=result
-                ),
+                f"dlstbx.align_crystal failed with exitcode %s and timeout %s:\n{result['stderr']}",
                 result["exitcode"],
                 result["timeout"],
             )

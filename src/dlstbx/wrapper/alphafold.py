@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pathlib
 import subprocess
-from typing import List, Optional
 
 import procrunner
 import pydantic
@@ -16,13 +15,13 @@ class AlphaFoldParameters(pydantic.BaseModel):
     protein_id: int = pydantic.Field(..., gt=0)
     protein_name: str
     working_directory: pathlib.Path
-    timeout: Optional[float] = pydantic.Field(None, gt=0)
+    timeout: float | None = pydantic.Field(None, gt=0)
 
 
 class AlphaFoldWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.alphafold"
 
-    def send_results_to_ispyb(self, pdb_files: List[pathlib.Path], protein_id: int):
+    def send_results_to_ispyb(self, pdb_files: list[pathlib.Path], protein_id: int):
         ispyb_command = {
             "ispyb_command": "insert_pdb_files",
             "protein_id": protein_id,

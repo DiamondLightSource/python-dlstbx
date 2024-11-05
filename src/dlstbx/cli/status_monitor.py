@@ -12,7 +12,7 @@ import re
 import threading
 import time
 from pprint import pprint
-from typing import Any, Tuple
+from typing import Any
 
 import workflows
 import workflows.services
@@ -47,7 +47,7 @@ class Monitor:
     border_chars_text = ("|", "|", "=", "=", "/", "\\", "\\", "/")
     """Example alternative set of frame border characters."""
 
-    most_recent_version: dict[Any, Tuple[Any, Any]] = {}
+    most_recent_version: dict[Any, tuple[Any, Any]] = {}
     """Dictionary to hold software version information, so old versions can be highlighted."""
 
     def __init__(self, filters=None, transport=None, version=None):

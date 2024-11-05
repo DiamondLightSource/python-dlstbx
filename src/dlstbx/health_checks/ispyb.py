@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import subprocess
 import xml.dom.minidom
-from typing import List
 
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 
 
-def _find_server_issues(hosts: List[str], group_name: str, check_name: str) -> Status:
+def _find_server_issues(hosts: list[str], group_name: str, check_name: str) -> Status:
     try:
         result = subprocess.run(
             ["nmap", "-sT", "-oX", "-", "-p", "3306,4306"] + hosts,

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Optional, Union
 
 from prometheus_client import Counter, Gauge, Histogram, Summary
 
@@ -40,8 +39,8 @@ class BasePrometheusMetrics(ABC):
     def record_metric(
         self,
         metric_name: str,
-        labels: List[str],
-        value: Optional[Union[int, float]] = None,
+        labels: list[str],
+        value: int | float | None = None,
     ):
         metric = False
         try:
@@ -74,7 +73,7 @@ class NoMetrics(BasePrometheusMetrics):
     def record_metric(
         self,
         metric_name: str,
-        labels: List[str],
-        value: Optional[Union[int, float]] = None,
+        labels: list[str],
+        value: int | float | None = None,
     ):
         pass

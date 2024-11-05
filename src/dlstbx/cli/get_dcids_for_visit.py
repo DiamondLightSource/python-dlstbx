@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import re
-from typing import List, Optional
 
 import ispyb.sqlalchemy
 import sqlalchemy.orm
@@ -38,8 +37,8 @@ def get_bl_sessionid_from_visit_name(
 def get_dcids_for_bl_sessionid(
     bl_sessionid: int,
     db_session: sqlalchemy.orm.session.Session,
-    experiment_type: Optional[List[str]] = None,
-) -> List[int]:
+    experiment_type: list[str] | None = None,
+) -> list[int]:
     query = (
         db_session.query(DataCollection)
         .join(DataCollectionGroup)

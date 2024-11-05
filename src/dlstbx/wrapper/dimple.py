@@ -8,7 +8,6 @@ import os
 import pathlib
 import re
 import shutil
-from typing import List
 
 import dateutil.parser
 import gemmi
@@ -292,7 +291,7 @@ ATOM_NAME_RE = re.compile(r"([\w]+)_([A-Z]):([A-Z]+)([0-9]+)")
 
 def get_blobs_from_anode_log(
     log_file: pathlib.Path, cell: gemmi.UnitCell
-) -> List[schemas.Blob]:
+) -> list[schemas.Blob]:
     blobs = []
     with log_file.open() as fh:
         in_strongest_peaks_section = False
@@ -326,7 +325,7 @@ def get_blobs_from_anode_log(
     return blobs
 
 
-def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> List[schemas.Blob]:
+def get_blobs_from_find_blobs_log(log_file: pathlib.Path) -> list[schemas.Blob]:
     blobs = []
     with log_file.open() as fh:
         for line in fh.readlines():

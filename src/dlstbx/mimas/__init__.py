@@ -4,7 +4,8 @@ import dataclasses
 import enum
 import functools
 import numbers
-from typing import Any, Callable, TypeAlias
+from collections.abc import Callable
+from typing import Any, TypeAlias
 
 import gemmi
 import pkg_resources
@@ -286,7 +287,7 @@ def zocalo_message(mimasobject):
     into serializable objects that can be sent via zocalo.
     If any issues are found a ValueError is raised.
     """
-    if isinstance(mimasobject, (bool, int, float, str, type(None))):
+    if isinstance(mimasobject, bool | int | float | str | type(None)):
         # trivial base types
         return mimasobject
     raise ValueError(f"{mimasobject!r} is not a known Mimas object")

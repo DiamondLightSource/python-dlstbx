@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import math
 import operator
-from typing import Tuple
 
 import numpy as np
 import scipy.ndimage
@@ -17,12 +16,12 @@ Coordinate = tuple[int, int, int]
 
 
 class GridScan3DResult(GridScanResultBase):
-    centre_of_mass: Tuple[float, ...]
-    max_voxel: Tuple[int, ...]
+    centre_of_mass: tuple[float, ...]
+    max_voxel: tuple[int, ...]
     max_count: float
     n_voxels: int
     total_count: float
-    bounding_box: Tuple[Coordinate, Coordinate]
+    bounding_box: tuple[Coordinate, Coordinate]
 
 
 def gridscan3d(

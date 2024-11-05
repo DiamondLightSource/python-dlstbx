@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import platform
-from typing import Union
 
 # how to use:
 # i used a dict-based logging configuration, not sure what else would work.
@@ -57,15 +56,15 @@ from typing import Union
 
 
 class _GenericColorStreamHandler(logging.StreamHandler):
-    DEFAULT: Union[int, str] = ""
-    CRITICAL: Union[int, str] = ""
-    ERROR: Union[int, str] = ""
-    WARNING: Union[int, str] = ""
-    INFO: Union[int, str] = ""
-    DEBUG: Union[int, str] = ""
+    DEFAULT: int | str = ""
+    CRITICAL: int | str = ""
+    ERROR: int | str = ""
+    WARNING: int | str = ""
+    INFO: int | str = ""
+    DEBUG: int | str = ""
 
     @classmethod
-    def _get_color(cls, level: int) -> Union[int, str]:
+    def _get_color(cls, level: int) -> int | str:
         if level >= logging.CRITICAL:
             return cls.CRITICAL
         elif level >= logging.ERROR:

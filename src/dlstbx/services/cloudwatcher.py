@@ -219,12 +219,8 @@ class CloudWatcher(CommonService):
                 message_delay = 1
             self.log.debug(
                 (
-                    "No further jobs in list finished after a total time of {time:.1f} seconds\n"
-                    "{jobs_seen} of {jobs_total} still running."
-                ).format(
-                    time=time.time() - first_seen,
-                    jobs_seen=len(seen_jobs),
-                    jobs_total=jobcount,
+                    f"No further jobs in list finished after a total time of {time.time() - first_seen:.1f} seconds\n"
+                    f"{len(seen_jobs)} of {jobcount} still running."
                 ),
                 extra={
                     "stat-time-max": os_stat_profiler.max,

@@ -123,7 +123,7 @@ class Cluster:
             trace = [
                 "  %s" % line for line in traceback.format_exception(*sys.exc_info())
             ]
-            if isinstance(e, (drmaa.errors.DrmaaException, subprocess.TimeoutExpired)):
+            if isinstance(e, drmaa.errors.DrmaaException | subprocess.TimeoutExpired):
                 e = RuntimeError(repr(e))
             e.trace = "\n" + "\n".join(trace)
             initialisation_exception = e
@@ -145,7 +145,7 @@ class Cluster:
                         for line in traceback.format_exception(*sys.exc_info())
                     ]
                     if isinstance(
-                        e, (drmaa.errors.DrmaaException, subprocess.TimeoutExpired)
+                        e, drmaa.errors.DrmaaException | subprocess.TimeoutExpired
                     ):
                         e = RuntimeError(repr(e))
                     e.trace = "\n" + "\n".join(trace)
@@ -510,13 +510,7 @@ class ClusterStatistics:
         :return a list of job and a list of queue dictionaries otherwise.
         """
         result = cluster.qstat_xml(arguments=arguments)
-        assert not result.returncode, (
-            "Could not run qstat on cluster. exitcode: %s, Output: %s"
-            % (
-                result.returncode,
-                result.stderr or result.stdout,
-            )
-        )
+        assert not result.returncode, f"Could not run qstat on cluster. exitcode: {result.returncode}, Output: {result.stderr or result.stdout}"
         return self.parse_string(result.stdout)
 
 
@@ -542,8 +536,7 @@ if __name__ == "__main__":
         job_params={"project": "cluster_health"},
     )
     print(
-        "Submitted job #%s to the cluster, #%s to the testcluster, #%s to hamilton"
-        % (real_id, test_id, hamilton_id)
+        f"Submitted job #{real_id} to the cluster, #{test_id} to the testcluster, #{hamilton_id} to hamilton"
     )
 
     for cluster, jobid, name in [

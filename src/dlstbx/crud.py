@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from typing import List
 
 import ispyb.sqlalchemy as models
 import sqlalchemy.orm
@@ -240,11 +239,11 @@ def create_mxmrrun(
 
 
 def create_blobs(
-    blobs: List[schemas.Blob],
+    blobs: list[schemas.Blob],
     db_mxmrrun: models.MXMRRun,
     session: sqlalchemy.orm.session.Session,
-) -> List[models.MXMRRunBlob]:
-    db_blobs: List[models.MXMRRunBlob] = [
+) -> list[models.MXMRRunBlob]:
+    db_blobs: list[models.MXMRRunBlob] = [
         models.MXMRRunBlob(
             MXMRRun=db_mxmrrun,
             view1=blob.view1,
@@ -274,11 +273,11 @@ def create_blobs(
 
 
 def create_attachments(
-    attachments: List[schemas.Attachment],
+    attachments: list[schemas.Attachment],
     db_app: models.AutoProcProgram,
     session: sqlalchemy.orm.session.Session,
-) -> List[models.AutoProcProgramAttachment]:
-    db_attachments: List[models.AutoProcProgramAttachment] = [
+) -> list[models.AutoProcProgramAttachment]:
+    db_attachments: list[models.AutoProcProgramAttachment] = [
         models.AutoProcProgramAttachment(
             AutoProcProgram=db_app,
             fileType=att.file_type,
@@ -295,9 +294,9 @@ def create_attachments(
 
 def insert_dimple_result(
     mxmrrun: schemas.MXMRRun,
-    blobs: List[schemas.Blob],
+    blobs: list[schemas.Blob],
     auto_proc_program: schemas.AutoProcProgram,
-    attachments: List[schemas.Attachment],
+    attachments: list[schemas.Attachment],
     session: sqlalchemy.orm.session.Session,
 ) -> models.MXMRRun:
     app_id = mxmrrun.auto_proc_program_id

@@ -3,8 +3,9 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any
 from urllib.parse import urlparse
 
 import requests
@@ -15,7 +16,7 @@ from dlstbx.util.certificate import problems_with_certificate
 from dlstbx.util.colorstreamhandler import ColorStreamHandler
 
 workflows.transport.default_transport = "PikaTransport"
-JSONDict = Dict[str, Any]
+JSONDict = dict[str, Any]
 
 
 def _setup_logging(level=logging.INFO):
@@ -130,13 +131,13 @@ def colourreset():
     return ColorStreamHandler.DEFAULT
 
 
-def rabbit_checks(zc, hosts: List[str]):
+def rabbit_checks(zc, hosts: list[str]):
     rabbit = {host: _MicroAPI(zc, base_url=f"https://{host}") for host in hosts}
-    result: Dict[str, JSONDict] = {"hosts": {}, "cluster": {}}
+    result: dict[str, JSONDict] = {"hosts": {}, "cluster": {}}
 
-    status: Dict[str, JSONDict] = {}
-    nodes: Dict[str, JSONDict] = {}
-    cluster_name: Optional[str] = None
+    status: dict[str, JSONDict] = {}
+    nodes: dict[str, JSONDict] = {}
+    cluster_name: str | None = None
     for host in rabbit:
         certificate_issue = problems_with_certificate(host)
         result["hosts"][host] = {}
@@ -313,7 +314,7 @@ def run():
     reset = conditional_colour(ColorStreamHandler.DEFAULT)
 
     def colour(
-        value, name: Optional[str] = None, *, warnlevel=None, errorlevel=None, fmt="{}"
+        value, name: str | None = None, *, warnlevel=None, errorlevel=None, fmt="{}"
     ):
         if name:
             warnlevel, errorlevel = colour_limits[name]
@@ -331,9 +332,7 @@ def run():
         ].split(","),
     )
 
-    def fmt(
-        s: Union[StatusText, StatusValue], formatter: Optional[Callable] = None
-    ) -> str:
+    def fmt(s: StatusText | StatusValue, formatter: Callable | None = None) -> str:
         if isinstance(s, StatusText):
             value = s.text
         elif formatter:

@@ -36,7 +36,7 @@ class Xia2Wrapper(Wrapper):
                     continue
                 param = "image"
                 values = values.split(",")
-            if not isinstance(values, (list, tuple)):
+            if not isinstance(values, list | tuple):
                 values = [values]
             if param == "image" and is_cloud:
                 update_values = []

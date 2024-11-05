@@ -69,9 +69,7 @@ def get_dcid_for_recipe_ID(recipe):
                 or not isinstance(incoming_block["parameters"], dict)
             ):
                 sys.exit(
-                    "Recipe {} does not contain processing parameters".format(
-                        recipe_file.strpath
-                    )
+                    f"Recipe {recipe_file.strpath} does not contain processing parameters"
                 )
             parameters = incoming_block["parameters"]
             if parameters.get("ispyb_dcid"):
@@ -172,8 +170,6 @@ def run():
         else:
             pprint.pprint(parameters)
         print(
-            "Synchweb: https://ispyb.diamond.ac.uk/dc/visit/{0[ispyb_visit]}/id/{0[ispyb_dcid]}".format(
-                parameters
-            )
+            f"Synchweb: https://ispyb.diamond.ac.uk/dc/visit/{parameters['ispyb_visit']}/id/{parameters['ispyb_dcid']}"
         )
         print()

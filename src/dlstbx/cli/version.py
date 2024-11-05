@@ -7,7 +7,9 @@ from dlstbx.util.version import dlstbx_version
 
 def run():
     print(dlstbx_version())
-    print("Python {0.major}.{0.minor}.{0.micro}".format(sys.version_info))
+    print(
+        f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
     try:
         import ispyb
 

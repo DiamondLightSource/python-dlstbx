@@ -87,11 +87,9 @@ class DLSNotifyGDA(CommonService):
                     gdahost,
                     gdaport,
                     (
-                        "PIA:{dcid}:{image_number}:{r[spot_total]}"
-                        ":{r[good_bragg_candidates]}:{r[method1_res]}:{r[total_integrated_signal]}"
-                    )
-                    .format(dcid=dcid, image_number=image_number, r=record)
-                    .encode("latin-1"),
+                        f"PIA:{dcid}:{image_number}:{record['spot_total']}"
+                        f":{record['good_bragg_candidates']}:{record['method1_res']}:{record['total_integrated_signal']}"
+                    ).encode("latin-1"),
                 )
             except Exception as e:
                 self.log.error("Could not notify GDA: %s", e, exc_info=True)

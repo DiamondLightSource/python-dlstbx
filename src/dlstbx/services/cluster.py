@@ -7,7 +7,6 @@ import logging
 import math
 import os
 import pathlib
-from typing import Optional
 
 import pkg_resources
 import pydantic
@@ -21,23 +20,23 @@ from zocalo.util import slurm
 class JobSubmissionParameters(pydantic.BaseModel):
     scheduler: str = "slurm"
     partition: str = "cs04r"
-    job_name: Optional[str]  #
-    environment: Optional[dict[str, str]] = None
-    cpus_per_task: Optional[int] = None
-    tasks: Optional[int] = None  # slurm only
-    nodes: Optional[int]  # slurm only
-    memory_per_node: Optional[int] = None  # slurm only
-    gpus_per_node: Optional[str] = None  # slurm only
-    min_memory_per_cpu: Optional[int] = pydantic.Field(
+    job_name: str | None  #
+    environment: dict[str, str] | None = None
+    cpus_per_task: int | None = None
+    tasks: int | None = None  # slurm only
+    nodes: int | None  # slurm only
+    memory_per_node: int | None = None  # slurm only
+    gpus_per_node: str | None = None  # slurm only
+    min_memory_per_cpu: int | None = pydantic.Field(
         None, description="Minimum real memory per cpu (MB)"
     )
-    time_limit: Optional[datetime.timedelta] = None
-    gpus: Optional[int] = None
+    time_limit: datetime.timedelta | None = None
+    gpus: int | None = None
     exclusive: bool = False
-    account: Optional[str]  # account in slurm terminology
+    account: str | None  # account in slurm terminology
     commands: list[str] | str
-    qos: Optional[str]
-    qsub_submission_parameters: Optional[str]  # temporary support for legacy recipes
+    qos: str | None
+    qsub_submission_parameters: str | None  # temporary support for legacy recipes
 
 
 class JobSubmissionValidationError(ValueError):

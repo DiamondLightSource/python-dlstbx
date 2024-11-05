@@ -77,7 +77,9 @@ class DozorWrapper(Wrapper):
         results = parse_dozor_output(result["stdout"])
 
         for image in sorted(results):
-            print("%4d" % image, "%6.3f %6.3f %6.3f" % tuple(results[image]))
+            print(
+                "%4d" % image, "{:6.3f} {:6.3f} {:6.3f}".format(*tuple(results[image]))
+            )
             self.recwrap.send_to(
                 "image-analysis-results",
                 {"file-number": image, "dozor_score": tuple(results[image])[0]},

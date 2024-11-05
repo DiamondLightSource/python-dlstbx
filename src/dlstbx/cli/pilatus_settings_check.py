@@ -27,8 +27,7 @@ def pilatus_settings_check(filename):
 
     if math.fabs(threshold_ratio - 0.5) > 0.05:
         sys.exit(
-            "Threshold incorrect: is %.1f should be %.1f"
-            % (threshold, 0.5 * (wavelength_to_energy / wavelength))
+            f"Threshold incorrect: is {threshold:.1f} should be {0.5 * (wavelength_to_energy / wavelength):.1f}"
         )
 
 

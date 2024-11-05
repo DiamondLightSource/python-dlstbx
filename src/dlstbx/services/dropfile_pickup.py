@@ -149,43 +149,6 @@ class DLSDropfilePickup(CommonService):
         )
         if "admin" in stats[0]:
             self.rrd_file["clustergroups"].update(
-                (
-                    [
-                        r["statistic-timestamp"],
-                        r["cpu"]["total"],
-                        r["cpu"]["broken"],
-                        r["cpu"]["used-high"],
-                        r["cpu"]["used-medium"],
-                        r["cpu"]["used-low"],
-                        r["gpu"]["total"],
-                        r["gpu"]["broken"],
-                        r["gpu"]["used-high"],
-                        r["gpu"]["used-medium"],
-                        r["gpu"]["used-low"],
-                        r["admin"]["total"],
-                        r["admin"]["broken"],
-                        r["admin"]["used"],
-                    ]
-                    for r in stats
-                )
-            )
-
-    def stats_test_cluster_utilization(self, stats):
-        self.rrd_file["testcluster"].update(
-            (
-                [
-                    r["statistic-timestamp"],
-                    r["total"],
-                    r["broken"],
-                    r["used-high"],
-                    r["used-medium"],
-                    r["used-low"],
-                ]
-                for r in stats
-            )
-        )
-        self.rrd_file["testclustergroups"].update(
-            (
                 [
                     r["statistic-timestamp"],
                     r["cpu"]["total"],
@@ -204,6 +167,37 @@ class DLSDropfilePickup(CommonService):
                 ]
                 for r in stats
             )
+
+    def stats_test_cluster_utilization(self, stats):
+        self.rrd_file["testcluster"].update(
+            [
+                r["statistic-timestamp"],
+                r["total"],
+                r["broken"],
+                r["used-high"],
+                r["used-medium"],
+                r["used-low"],
+            ]
+            for r in stats
+        )
+        self.rrd_file["testclustergroups"].update(
+            [
+                r["statistic-timestamp"],
+                r["cpu"]["total"],
+                r["cpu"]["broken"],
+                r["cpu"]["used-high"],
+                r["cpu"]["used-medium"],
+                r["cpu"]["used-low"],
+                r["gpu"]["total"],
+                r["gpu"]["broken"],
+                r["gpu"]["used-high"],
+                r["gpu"]["used-medium"],
+                r["gpu"]["used-low"],
+                r["admin"]["total"],
+                r["admin"]["broken"],
+                r["admin"]["used"],
+            ]
+            for r in stats
         )
 
     def stats_live_cluster_jobs_waiting(self, stats):

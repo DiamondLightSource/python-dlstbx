@@ -59,10 +59,7 @@ def copy_results(working_directory, results_directory, skip_copy, uuid, logger):
     iris_pth_esc = rf"\/tmp\/{uuid}"
     dest_pth_esc = r"\/".join(os.path.dirname(results_directory).split(os.sep))
     for pth in (src_pth_esc, iris_pth_esc):
-        sed_command = (
-            r"find %s -type f -exec grep -Iq . {} \; -and -exec sed -ci 's/%s/%s/g' {} +"
-            % (results_directory, pth, dest_pth_esc)
-        )
+        sed_command = rf"find {results_directory} -type f -exec grep -Iq . {{}} \; -and -exec sed -ci 's/{pth}/{dest_pth_esc}/g' {{}} +"
         logger.info(f"Running sed command: {sed_command}")
         try:
             subprocess.call([sed_command], shell=True)

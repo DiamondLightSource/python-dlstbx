@@ -243,11 +243,7 @@ def run():
                         sys.stdout.write(format(message))
                 except (OSError, urllib.error.URLError, http.client.BadStatusLine) as e:
                     sys.stdout.write(
-                        "{DEFAULT}{localtime:%Y-%m-%d %H:%M:%S} Graylog update failed: {exception}\n".format(
-                            DEFAULT=ColorStreamHandler.DEFAULT,
-                            localtime=datetime.datetime.now(),
-                            exception=str(e),
-                        )
+                        f"{ColorStreamHandler.DEFAULT}{datetime.datetime.now():%Y-%m-%d %H:%M:%S} Graylog update failed: {str(e)}\n"
                     )
                 sys.stdout.flush()
                 time.sleep(0.7)
@@ -256,9 +252,7 @@ def run():
             for order, message in enumerate(g.get_all_messages(time=options.time)):
                 try:
                     message_id = (
-                        "{message[level]}:{message[file]}:{message[line]}".format(
-                            message=message
-                        )
+                        f"{message['level']}:{message['file']}:{message['line']}"
                     )
                 except KeyError:
                     message_id = message.get("_id")
@@ -271,9 +265,7 @@ def run():
                 sys.stdout.write(format(message["message"]))
                 if message["count"] > 1:
                     sys.stdout.write(
-                        "(representative of a group of {c.BOLD}{m[count]}{c.DEFAULT} similar messages)\n".format(
-                            m=message, c=ColorStreamHandler
-                        )
+                        f"(representative of a group of {ColorStreamHandler.BOLD}{message['count']}{ColorStreamHandler.DEFAULT} similar messages)\n"
                     )
                 print()
         else:

@@ -9,7 +9,6 @@ import os
 import pathlib
 import subprocess
 import sys
-from typing import Optional
 
 import pkg_resources
 
@@ -37,7 +36,7 @@ def _notice(*lines, **context):
     )
 
 
-conda_required: Optional[list[str]]
+conda_required: list[str] | None
 if dlstbx_path:
     conda_required = (
         pathlib.Path(dlstbx.__file__)
@@ -103,8 +102,7 @@ def check():
                         break
             if location and currentversion in requirement:
                 print(
-                    "requires conda package %s, has %s as developer installation"
-                    % (requirement, currentversion)
+                    f"requires conda package {requirement}, has {currentversion} as developer installation"
                 )
                 continue
             elif location and currentversion not in requirement:
@@ -127,13 +125,11 @@ def check():
         if requirement.name in conda_environment:
             if conda_environment[requirement.name] in requirement:
                 print(
-                    "requires conda package %s, has %s"
-                    % (requirement, conda_environment[requirement.name])
+                    f"requires conda package {requirement}, has {conda_environment[requirement.name]}"
                 )
                 continue
             print(
-                "conda requirement %s is not currently met, current version %s"
-                % (requirement, conda_environment[requirement.name])
+                f"conda requirement {requirement} is not currently met, current version {conda_environment[requirement.name]}"
             )
 
         # Install/update required

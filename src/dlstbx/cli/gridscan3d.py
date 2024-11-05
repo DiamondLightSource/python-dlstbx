@@ -9,7 +9,6 @@ import enum
 import json
 import logging
 import sys
-from typing import List
 
 import dials.util
 import dials.util.log
@@ -52,8 +51,8 @@ class metrics(enum.Enum):
 
 
 def gridscan3d(
-    experiment_lists: List[ExperimentList],
-    reflection_tables: List[flex.reflection_table],
+    experiment_lists: list[ExperimentList],
+    reflection_tables: list[flex.reflection_table],
     metric: str | metrics = "n_spots_total",
     threshold: float = 0.25,
     plot: bool = False,
@@ -140,7 +139,7 @@ def gridscan3d(
 
 
 @dials.util.show_mail_on_error()
-def run(args: List[str] = None, phil: libtbx.phil.scope = phil_scope) -> None:
+def run(args: list[str] = None, phil: libtbx.phil.scope = phil_scope) -> None:
     """
     Check command-line input and call other functions to do the legwork.
 

@@ -49,9 +49,7 @@ class JMXAPI:
         host = cfgparser.get("jmx", "host")
         port = cfgparser.get("jmx", "port")
         base = cfgparser.get("jmx", "baseurl")
-        self.url = "http://{host}:{port}/{baseurl}/read/".format(
-            host=host, port=port, baseurl=base
-        )
+        self.url = f"http://{host}:{port}/{base}/read/"
         self.authstring = b"Basic " + base64.b64encode(
             cfgparser.get("jmx", "username").encode("utf-8")
             + b":"

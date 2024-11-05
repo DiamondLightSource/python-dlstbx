@@ -6,7 +6,7 @@ import re
 import sys
 import uuid
 import xml.dom.minidom
-from typing import Any, Optional
+from typing import Any
 
 from tqdm import tqdm
 
@@ -74,7 +74,7 @@ for clustername, cluster in clusters.items():
                     resubmission_db[resubmission_id] = j["ID"]
                 bar.update(1)
 
-    error_db: dict[int, Optional[str]] = {}
+    error_db: dict[int, str | None] = {}
     errored_jobs = [j for j in jobs if j["statecode"] == "Eqw" and j["owner"] == "gda2"]
 
     print("\n* found %d jobs in error state" % len(errored_jobs))
@@ -140,8 +140,7 @@ for clustername, cluster in clusters.items():
                 )
                 if not resubmission_id:
                     raise RuntimeError(
-                        "Could not requeue job %s: %s"
-                        % (j, resub.stderr or resub.stdout)
+                        f"Could not requeue job {j}: {resub.stderr or resub.stdout}"
                     )
                 resubmission_id = resubmission_id.group(1)
                 resubmission_db[error_db[j]] = resubmission_id

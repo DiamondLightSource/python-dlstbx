@@ -5,7 +5,8 @@ import logging
 import os
 import re
 import time
-from typing import Any, Callable, Dict, NamedTuple, Protocol
+from collections.abc import Callable
+from typing import Any, NamedTuple, Protocol
 
 import PIL.Image
 import pkg_resources
@@ -23,7 +24,7 @@ class _CallableParameter(Protocol):
 class PluginInterface(NamedTuple):
     rw: workflows.recipe.wrapper.RecipeWrapper
     parameters: _CallableParameter
-    message: Dict[str, Any]
+    message: dict[str, Any]
 
 
 PluginParameter = PluginInterface  # backwards-compatibility, 20210702

@@ -2,11 +2,6 @@ from __future__ import annotations
 
 import sys
 
-if sys.version_info < (3, 8):
-    import warnings
-
-    warnings.warn("dlstbx requires a Python 3.8+ environment", UserWarning)
-
 
 def berkel_me():
     import builtins
@@ -56,7 +51,4 @@ class Buck:
             raise Exception()
         except Exception:
             self._debuck(sys.exc_info()[2].tb_frame.f_back.f_locals)
-            return "<%s instance at %s...aand it's gone>" % (
-                self._name,
-                hex(id(self))[:-1],
-            )
+            return f"<{self._name} instance at {hex(id(self))[:-1]}...aand it's gone>"

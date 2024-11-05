@@ -3,14 +3,13 @@ from __future__ import annotations
 import socket
 from contextlib import closing
 from datetime import datetime
-from typing import Optional
 
 import idna
 from cryptography import x509
 from OpenSSL import SSL
 
 
-def problems_with_certificate(hostname: str) -> Optional[str]:
+def problems_with_certificate(hostname: str) -> str | None:
     try:
         with closing(socket.socket()) as sock:
             sock.connect((hostname, 443))

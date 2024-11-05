@@ -91,7 +91,7 @@ class ShelxtWrapper(Wrapper):
         lxt_file_path = working_directory / f"{prefix}.lxt"
         solutions = [["Solution", "Space Group", "R1"]]
         try:
-            with open(lxt_file_path, "r") as f:
+            with open(lxt_file_path) as f:
                 lines = f.readlines()
             for i, l in enumerate(lines):
                 if l.split() == [
@@ -156,7 +156,7 @@ class ShelxtWrapper(Wrapper):
         # copy the res file from the first solution to a new ins file, call it something different
         candidate_res_file = f"{prefix}_a.res"
         candidate_hkl_file = f"{prefix}_a.hkl"
-        with open(candidate_res_file, "r") as f:
+        with open(candidate_res_file) as f:
             lines = f.readlines()
         for i, l in enumerate(lines):
             if "LIST" in l or "FMAP" in l or "PLAN" in l:

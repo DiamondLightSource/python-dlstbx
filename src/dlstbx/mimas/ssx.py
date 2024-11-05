@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Tuple
-
 from dlstbx import mimas
 from dlstbx.mimas.core import is_eiger, is_end, is_i24, is_pilatus, is_serial, is_start
 
@@ -10,8 +8,8 @@ from dlstbx.mimas.core import is_eiger, is_end, is_i24, is_pilatus, is_serial, i
 def handle_pilatus_serial_end(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
-    ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
+) -> list[mimas.Invocation]:
+    ParamTuple = tuple[mimas.MimasISPyBParameter, ...]
     symmetry_parameters: ParamTuple = ()
     if scenario.spacegroup:
         spacegroup = scenario.spacegroup.string
@@ -41,8 +39,8 @@ def handle_pilatus_serial_end(
 def handle_eiger_serial_end(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
-    ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
+) -> list[mimas.Invocation]:
+    ParamTuple = tuple[mimas.MimasISPyBParameter, ...]
     symmetry_parameters: ParamTuple = ()
     if scenario.spacegroup:
         spacegroup = scenario.spacegroup.string
@@ -72,7 +70,7 @@ def handle_eiger_serial_end(
 def handle_pilatus_serial_start(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="pia-index-ssx-pilatus"),
     ]
@@ -82,7 +80,7 @@ def handle_pilatus_serial_start(
 def handle_eiger_serial_start(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="pia-index-ssx-swmr"),
     ]

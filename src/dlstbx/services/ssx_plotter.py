@@ -5,7 +5,6 @@ import math
 import os
 import time
 from pathlib import Path
-from typing import Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -20,7 +19,7 @@ matplotlib.use("Agg")
 
 
 class Status(pydantic.BaseModel):
-    start_time: Optional[pydantic.PositiveFloat] = None
+    start_time: pydantic.PositiveFloat | None = None
 
 
 class PerImageAnalysisResult(pydantic.BaseModel):
@@ -46,14 +45,14 @@ class Payload(pydantic.BaseModel):
     plot_file: Path
     every: int = 1
     spot_count_cutoff: pydantic.NonNegativeInt = 16
-    files_expected: Optional[pydantic.NonNegativeInt] = pydantic.Field(
+    files_expected: pydantic.NonNegativeInt | None = pydantic.Field(
         alias="files-expected"
     )
-    images_expected: Optional[pydantic.NonNegativeInt] = pydantic.Field(
+    images_expected: pydantic.NonNegativeInt | None = pydantic.Field(
         alias="images-expected"
     )
     timeout: pydantic.PositiveFloat = 3600
-    status: Optional[Status]
+    status: Status | None
 
     @pydantic.root_validator
     def check_files_expected_or_images_expected(cls, values):

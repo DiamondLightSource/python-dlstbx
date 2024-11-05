@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional, Set
+from typing import Any
 
 import dlstbx.mimas
 
@@ -60,8 +60,8 @@ class ScenarioSpecification(BaseSpecification):
 
 @dataclass(frozen=True)
 class BeamlineSpecification(ScenarioSpecification):
-    beamline: Optional[str] = None
-    beamlines: Optional[set[str]] = None
+    beamline: str | None = None
+    beamlines: set[str] | None = None
 
     def is_satisfied_by(self, candidate: dlstbx.mimas.MimasScenario) -> bool:
         return (
@@ -97,7 +97,7 @@ class DetectorClassSpecification(ScenarioSpecification):
 
 @dataclass(frozen=True)
 class VisitSpecification(ScenarioSpecification):
-    visits: Set[str]
+    visits: set[str]
 
     def is_satisfied_by(self, candidate: dlstbx.mimas.MimasScenario) -> bool:
         return (

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import ispyb.sqlalchemy
 import sqlalchemy
@@ -11,7 +11,7 @@ logger = logging.getLogger("dlstbx.services.ispybsvc_buffer")
 
 class BufferResult(NamedTuple):
     success: bool
-    value: Optional[int]
+    value: int | None
 
 
 def evict(*, session):

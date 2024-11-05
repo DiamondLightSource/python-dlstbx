@@ -5,7 +5,6 @@ import enum
 import logging
 import pathlib
 import time
-from typing import Optional
 
 import pydantic
 from cctbx import uctbx
@@ -23,11 +22,11 @@ class ThresholdAlgorithm(enum.Enum):
 
 
 class PerImageAnalysisParameters(pydantic.BaseModel):
-    d_min: Optional[pydantic.PositiveFloat] = None
-    d_max: Optional[pydantic.PositiveFloat] = 40
+    d_min: pydantic.PositiveFloat | None = None
+    d_max: pydantic.PositiveFloat | None = 40
     threshold_algorithm: ThresholdAlgorithm = ThresholdAlgorithm.DISPERSION
     disable_parallax_correction: bool = True
-    scan_range: Optional[tuple[int, int]] = None
+    scan_range: tuple[int, int] | None = None
     filter_ice: bool = True
     ice_rings_width: pydantic.NonNegativeFloat = 0.004
 
@@ -44,11 +43,11 @@ class PerImageAnalysisResults(pydantic.BaseModel):
     n_spots_no_ice: pydantic.NonNegativeInt
     n_spots_total: pydantic.NonNegativeInt
     total_intensity: pydantic.NonNegativeFloat
-    d_min_distl_method_1: Optional[float] = None
-    d_min_distl_method_2: Optional[float] = None
-    estimated_d_min: Optional[float] = None
-    noisiness_method_1: Optional[float] = None
-    noisiness_method_2: Optional[float] = None
+    d_min_distl_method_1: float | None = None
+    d_min_distl_method_2: float | None = None
+    estimated_d_min: float | None = None
+    noisiness_method_1: float | None = None
+    noisiness_method_2: float | None = None
 
 
 def do_per_image_analysis(

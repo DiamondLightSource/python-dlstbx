@@ -48,10 +48,7 @@ def run():
         for d in directories:
             recipe_file = d.join(recipe[0:2]).join(recipe[2:])
             if recipe_file.check():
-                line = "Recipe {recipe} ({timestamp:%Y-%m-%d %H:%M:%S})".format(
-                    recipe=recipe,
-                    timestamp=datetime.fromtimestamp(recipe_file.mtime()),
-                )
+                line = f"Recipe {recipe} ({datetime.fromtimestamp(recipe_file.mtime()):%Y-%m-%d %H:%M:%S})"
                 if isatty:
                     print(f"{c.BOLD}{c.GREEN}{line}{c.DEFAULT}")
                 else:

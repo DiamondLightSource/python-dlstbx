@@ -4,7 +4,6 @@ import itertools
 import os
 import socket
 import subprocess
-from typing import Optional, Tuple
 
 from dlstbx.health_checks import REPORT, CheckFunctionInterface, Status
 
@@ -17,7 +16,7 @@ _threshold_error = 15
 _threshold_warning = 45
 
 
-def _get_test_failure_history(status: Optional[Status]) -> list[bool]:
+def _get_test_failure_history(status: Status | None) -> list[bool]:
     if not status or not status.MessageBody:
         return []
     test_history = [
@@ -34,7 +33,7 @@ def _grouper(iterable, n, fillvalue=None):
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
 
-def _run_fs_check(filesystem: str, location: str) -> Tuple[bool, str]:
+def _run_fs_check(filesystem: str, location: str) -> tuple[bool, str]:
     result = subprocess.run(
         ("/home/dlshudson/dials_check_dls_it/ministresstest", location),
         stdout=subprocess.PIPE,
@@ -141,7 +140,7 @@ def _parse_df_output(source: str, percent_str: str, directory: str) -> Status:
 
 
 def _run_df_in(
-    directory: str, *, test_name: str, source_prefix: Optional[str] = None
+    directory: str, *, test_name: str, source_prefix: str | None = None
 ) -> Status:
     readable_directory = directory.replace("/", ".")
     if readable_directory == ".":

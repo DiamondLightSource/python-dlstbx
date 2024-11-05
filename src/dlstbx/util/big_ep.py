@@ -144,7 +144,7 @@ def read_xia2_processing(tmpl_data):
                     ax[i].set_xlim([xdata[0], xdata[-1]])
                     ax[i].set_ylabel(key)
         ax1.set_xticklabels(
-            ["{:.2f}".format(np.float64(1.0) / math.sqrt(x)) for x in ax1.get_xticks()]
+            [f"{np.float64(1.0) / math.sqrt(x):.2f}" for x in ax1.get_xticks()]
         )
         ax1.set_xlabel(x_axis_title)
 
@@ -214,7 +214,7 @@ def generate_model_snapshots(working_directory, pipeline, tmpl_env):
     coot_sh = os.path.join(working_directory, pipeline + "_models.sh")
     img_name = f"{pipeline}_model"
     coot_py_template = tmpl_env.get_template("coot_model.tmpl")
-    with open(model_py, "wt") as f:
+    with open(model_py, "w") as f:
         coot_script = coot_py_template.render(
             {
                 "map_file": map_file_coot,
@@ -231,7 +231,7 @@ def generate_model_snapshots(working_directory, pipeline, tmpl_env):
         sh_script.append(
             f"cat raster_{img_name}_{idx}.r3d | render -transparent -png {img_name}_{idx}.png"
         )
-    with open(coot_sh, "wt") as f:
+    with open(coot_sh, "w") as f:
         f.write(os.linesep.join(sh_script))
     subprocess.run(["sh", coot_sh], cwd=working_directory)
 

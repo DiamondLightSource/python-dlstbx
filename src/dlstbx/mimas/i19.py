@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Tuple
-
 from dlstbx import mimas
 from dlstbx.mimas.core import (
     is_eiger,
@@ -17,7 +15,7 @@ from dlstbx.mimas.specification import BeamlineSpecification
 is_i19 = BeamlineSpecification("i19-1") | BeamlineSpecification("i19-2")
 
 
-XIA2_DIALS_DAC_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
+XIA2_DIALS_DAC_PARAMS: tuple[mimas.MimasISPyBParameter, ...] = (
     mimas.MimasISPyBParameter(key="dynamic_shadowing", value="true"),
     mimas.MimasISPyBParameter(key="ice_rings.filter", value="true"),
     mimas.MimasISPyBParameter(
@@ -36,7 +34,7 @@ XIA2_DIALS_DAC_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
 @mimas.match_specification(is_i19 & is_start & is_pilatus)
 def handle_i19_start_pilatus(
     scenario: mimas.MimasScenario, **kwargs
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="per-image-analysis-rotation-i19"
@@ -47,7 +45,7 @@ def handle_i19_start_pilatus(
 @mimas.match_specification(is_i19 & is_end & is_pilatus)
 def handle_i19_end_pilatus(
     scenario: mimas.MimasScenario, **kwargs
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in ("archive-cbfs", "processing-rlv", "strategy-screen19")
@@ -57,7 +55,7 @@ def handle_i19_end_pilatus(
 @mimas.match_specification(is_i19 & is_end & is_eiger & is_serial)
 def handle_i19_end_eiger_serial(
     scenario: mimas.MimasScenario, **kwargs
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     tasks: list[mimas.Invocation] = []
     #     mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
     #     for recipe in (
@@ -68,8 +66,8 @@ def handle_i19_end_eiger_serial(
     #     )
     # ]
 
-    ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
-    extra_params: List[ParamTuple] = [()]
+    ParamTuple = tuple[mimas.MimasISPyBParameter, ...]
+    extra_params: list[ParamTuple] = [()]
     if scenario.spacegroup:
         # Space group is set, run xia2 with space group
         spacegroup = scenario.spacegroup.string
@@ -113,7 +111,7 @@ def handle_i19_end_eiger_serial(
 @mimas.match_specification(is_i19 & is_end_group & is_eiger & is_serial)
 def handle_i19_end_group_eiger_serial(
     scenario: mimas.MimasScenario, **kwargs
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="autoprocessing-i19serial-groupend"
@@ -124,7 +122,7 @@ def handle_i19_end_group_eiger_serial(
 @mimas.match_specification(is_i19 & is_end & is_eiger & ~is_serial)
 def handle_i19_end_eiger(
     scenario: mimas.MimasScenario, **kwargs
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in (
@@ -138,15 +136,15 @@ def handle_i19_end_eiger(
 
 
 @mimas.match_specification(is_i19 & is_end & ~is_serial)
-def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> List[mimas.Invocation]:
-    tasks: List[mimas.Invocation] = [
+def handle_i19_end(scenario: mimas.MimasScenario, **kwargs) -> list[mimas.Invocation]:
+    tasks: list[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
         )
     ]
 
-    ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
-    extra_params: List[ParamTuple] = [()]
+    ParamTuple = tuple[mimas.MimasISPyBParameter, ...]
+    extra_params: list[ParamTuple] = [()]
     if scenario.spacegroup:
         # Space group is set, run xia2 with space group
         spacegroup = scenario.spacegroup.string

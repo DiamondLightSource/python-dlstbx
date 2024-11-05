@@ -62,7 +62,7 @@ def scanner(arg):
     results = parse_dozor_output(result["stdout"])
 
     for image in sorted(results):
-        print("%4d" % image, "%6.3f %6.3f %6.3f" % tuple(results[image]))
+        print("%4d" % image, "{:6.3f} {:6.3f} {:6.3f}".format(*tuple(results[image])))
 
     return results
 

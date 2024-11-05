@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import zocalo.configuration
 
 from dlstbx import mimas
@@ -33,7 +31,7 @@ is_rotation = DCClassSpecification(mimas.MimasDCClass.ROTATION)
 is_screening = DCClassSpecification(mimas.MimasDCClass.SCREENING)
 
 
-XIA2_DIALS_COPPER_RINGS_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
+XIA2_DIALS_COPPER_RINGS_PARAMS: tuple[mimas.MimasISPyBParameter, ...] = (
     mimas.MimasISPyBParameter(
         key="ice_rings.unit_cell", value="3.615,3.615,3.615,90,90,90"
     ),
@@ -45,7 +43,7 @@ XIA2_DIALS_COPPER_RINGS_PARAMS: Tuple[mimas.MimasISPyBParameter, ...] = (
 
 def xia2_dials_absorption_params(
     scenario: mimas.MimasScenario,
-) -> Tuple[mimas.MimasISPyBParameter]:
+) -> tuple[mimas.MimasISPyBParameter]:
     # Decide absorption_level for xia2-dials jobs
     absorption_level = "high" if scenario.anomalous_scatterer else "medium"
     return (mimas.MimasISPyBParameter(key="absorption_level", value=absorption_level),)
@@ -57,7 +55,7 @@ def xia2_dials_absorption_params(
 def handle_pilatus_gridscan_start(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-cbfs"),
         mimas.MimasRecipeInvocation(
@@ -72,7 +70,7 @@ def handle_pilatus_gridscan_start(
 def handle_pilatus_not_gridscan_start(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe="archive-cbfs"),
         mimas.MimasRecipeInvocation(
@@ -84,7 +82,7 @@ def handle_pilatus_not_gridscan_start(
 @mimas.match_specification(is_eiger & is_start & is_i03 & is_gridscan)
 def handle_eiger_start_i03_gridscan(
     scenario: mimas.MimasScenario, **kwargs
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="per-image-analysis-gridscan-i03-gpu"
@@ -96,7 +94,7 @@ def handle_eiger_start_i03_gridscan(
 def handle_eiger_end_i03_and_i03_only(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     recipe = (
         "per-image-analysis-gridscan-i03-no-really"
         if scenario.dcclass is mimas.MimasDCClass.GRIDSCAN
@@ -111,7 +109,7 @@ def handle_eiger_end_i03_and_i03_only(
 def handle_eiger_end_i03(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     suffix_grid = "-swmr-vmxm" if scenario.beamline == "i02-1" else "-i03"
     suffix_rot = "-vmxm" if scenario.beamline == "i02-1" else ""
     recipe = (
@@ -126,9 +124,9 @@ def handle_eiger_end_i03(
 def handle_eiger_end(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     stopped = scenario.runstatus == "DataCollection Stopped"
-    tasks: List[mimas.Invocation] = [
+    tasks: list[mimas.Invocation] = [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
         ),
@@ -147,7 +145,7 @@ def handle_eiger_end(
 def handle_pilatus_end(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID, recipe="generate-crystal-thumbnails"
@@ -159,7 +157,7 @@ def handle_pilatus_end(
 def handle_eiger_screening(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in (
@@ -176,7 +174,7 @@ def handle_eiger_screening(
 def handle_pilatus_screening(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     return [
         mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
         for recipe in (
@@ -201,11 +199,11 @@ def handle_rotation_end(
     scenario: mimas.MimasScenario,
     zc: zocalo.configuration.Configuration,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.Invocation]:
     suffix = suffix_pref = (
         "-eiger" if scenario.detectorclass is mimas.MimasDetectorClass.EIGER else ""
     )
-    tasks: List[mimas.Invocation] = [
+    tasks: list[mimas.Invocation] = [
         # RLV
         mimas.MimasRecipeInvocation(
             DCID=scenario.DCID,
@@ -213,8 +211,8 @@ def handle_rotation_end(
         ),
     ]
 
-    ParamTuple = Tuple[mimas.MimasISPyBParameter, ...]
-    extra_params: List[ParamTuple] = [()]
+    ParamTuple = tuple[mimas.MimasISPyBParameter, ...]
+    extra_params: list[ParamTuple] = [()]
     if scenario.spacegroup:
         spacegroup = scenario.spacegroup.string
         # if spacegroup == "P1211":
@@ -270,8 +268,8 @@ def handle_rotation_end(
             mimas.MimasISPyBParameter(key="failover", value="true"),
         )
 
-    triggervars_pref: Tuple[mimas.MimasISPyBTriggerVariable, ...] = ()
-    triggervars: Tuple[mimas.MimasISPyBTriggerVariable, ...] = ()
+    triggervars_pref: tuple[mimas.MimasISPyBTriggerVariable, ...] = ()
+    triggervars: tuple[mimas.MimasISPyBTriggerVariable, ...] = ()
     cloud_recipes: set[str] = set()
     if scenario.cloudbursting and "eiger" in suffix:
         for el in scenario.cloudbursting:
@@ -284,7 +282,7 @@ def handle_rotation_end(
 
     ppl_autostart: dict[str, bool] = {}
     ppl_suffix: dict[str, str] = {}
-    ppl_triggervars: dict[str, Tuple[mimas.MimasISPyBTriggerVariable, ...]] = {}
+    ppl_triggervars: dict[str, tuple[mimas.MimasISPyBTriggerVariable, ...]] = {}
     for ppl, recipe in (
         ("xia2/DIALS", "autoprocessing-xia2-dials"),
         ("xia2/XDS", "autoprocessing-xia2-3dii"),

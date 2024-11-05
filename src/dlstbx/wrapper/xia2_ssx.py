@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import iotbx.mtz
 import iotbx.pdb
@@ -22,9 +22,9 @@ from dlstbx.wrapper import Wrapper
 
 
 class Xia2SsxParams(pydantic.BaseModel):
-    template: Optional[Path]
-    image: Optional[Path]
-    unit_cell: Optional[
+    template: Path | None
+    image: Path | None
+    unit_cell: (
         tuple[
             pydantic.NonNegativeFloat,
             pydantic.NonNegativeFloat,
@@ -33,11 +33,12 @@ class Xia2SsxParams(pydantic.BaseModel):
             pydantic.NonNegativeFloat,
             pydantic.NonNegativeFloat,
         ]
-    ] = None
-    spacegroup: Optional[str] = None
+        | None
+    ) = None
+    spacegroup: str | None = None
     reference_pdb: list[PDBFileOrCode] = []
-    reference_geometry: Optional[Path] = None
-    dose_series_repeat: Optional[int] = None
+    reference_geometry: Path | None = None
+    dose_series_repeat: int | None = None
 
     @pydantic.validator("unit_cell", pre=True)
     def check_unit_cell(cls, v):
@@ -56,8 +57,8 @@ class Xia2SsxParams(pydantic.BaseModel):
 class Payload(pydantic.BaseModel):
     working_directory: Path
     results_directory: Path
-    create_symlink: Optional[Path] = None
-    timeout: Optional[pydantic.PositiveFloat] = None
+    create_symlink: Path | None = None
+    timeout: pydantic.PositiveFloat | None = None
 
 
 class Xia2SsxWrapper(Wrapper):
@@ -75,7 +76,7 @@ class Xia2SsxWrapper(Wrapper):
             ),
         ]
         if params.unit_cell:
-            command.append("unit_cell=%s,%s,%s,%s,%s,%s" % params.unit_cell)
+            command.append("unit_cell={},{},{},{},{},{}".format(*params.unit_cell))
         if params.spacegroup:
             command.append(f"space_group={params.spacegroup}")
         reference_pdb = self.find_matching_reference_pdb(params)
@@ -483,7 +484,7 @@ def ispyb_scaling_statistics_from_merging_stats_d(
 
 class Xia2SsxReduceParams(pydantic.BaseModel):
     data: list[str]
-    unit_cell: Optional[
+    unit_cell: (
         tuple[
             pydantic.NonNegativeFloat,
             pydantic.NonNegativeFloat,
@@ -492,10 +493,11 @@ class Xia2SsxReduceParams(pydantic.BaseModel):
             pydantic.NonNegativeFloat,
             pydantic.NonNegativeFloat,
         ]
-    ] = None
-    spacegroup: Optional[str] = None
+        | None
+    ) = None
+    spacegroup: str | None = None
     reference_pdb: list[PDBFileOrCode] = []
-    dose_series_repeat: Optional[int] = None
+    dose_series_repeat: int | None = None
 
     @pydantic.validator("unit_cell", pre=True)
     def check_unit_cell(cls, v):
@@ -526,7 +528,7 @@ class Xia2SsxReduceWrapper(Xia2SsxWrapper):
         for f in data_files:
             command.append(f)
         if params.unit_cell:
-            command.append("unit_cell=%s,%s,%s,%s,%s,%s" % params.unit_cell)
+            command.append("unit_cell={},{},{},{},{},{}".format(*params.unit_cell))
         if params.spacegroup:
             command.append(f"space_group={params.spacegroup}")
         reference_pdb = self.find_matching_reference_pdb(params)

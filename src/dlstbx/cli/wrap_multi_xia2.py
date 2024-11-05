@@ -37,7 +37,7 @@ def run(args=None):
         if param == "images":
             param = "image"
             values = values.split(",")
-        if not isinstance(values, (list, tuple)):
+        if not isinstance(values, list | tuple):
             values = [values]
         for v in values:
             command.append(f"{param}={v}")

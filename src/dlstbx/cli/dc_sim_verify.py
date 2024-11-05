@@ -179,7 +179,7 @@ def generate_xml_files(test_results):
     for testruns in test_results.values():
         r = dlstbx.util.result.Result()
         r.set_name(testruns[0]["scenario"])
-        r.set_classname("{test[beamline]}.{test[scenario]}".format(test=testruns[0]))
+        r.set_classname(f"{testruns[0]['beamline']}.{testruns[0]['scenario']}")
         for test in testruns:
             if test.get("success") in (False, True):
                 r.log_message(

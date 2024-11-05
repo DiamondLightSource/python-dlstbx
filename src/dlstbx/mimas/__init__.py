@@ -4,7 +4,7 @@ import dataclasses
 import enum
 import functools
 import numbers
-from typing import Any, Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, TypeAlias
 
 import gemmi
 import pkg_resources
@@ -69,13 +69,13 @@ class MimasScenario:
     beamline: str
     visit: str
     runstatus: str
-    spacegroup: Optional[MimasISPyBSpaceGroup] = None
-    unitcell: Optional[MimasISPyBUnitCell] = None
-    getsweepslistfromsamedcg: Tuple[MimasISPyBSweep, ...] = ()
-    preferred_processing: Optional[str] = None
-    detectorclass: Optional[MimasDetectorClass] = None
-    anomalous_scatterer: Optional[MimasISPyBAnomalousScatterer] = None
-    cloudbursting: Optional[list[dict[str, Any]]] = None
+    spacegroup: MimasISPyBSpaceGroup | None = None
+    unitcell: MimasISPyBUnitCell | None = None
+    getsweepslistfromsamedcg: tuple[MimasISPyBSweep, ...] = ()
+    preferred_processing: str | None = None
+    detectorclass: MimasDetectorClass | None = None
+    anomalous_scatterer: MimasISPyBAnomalousScatterer | None = None
+    cloudbursting: list[dict[str, Any]] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -98,9 +98,9 @@ class MimasISPyBJobInvocation:
     source: str
     comment: str = ""
     displayname: str = ""
-    parameters: Tuple[MimasISPyBParameter, ...] = ()
-    sweeps: Tuple[MimasISPyBSweep, ...] = ()
-    triggervariables: Tuple[MimasISPyBTriggerVariable, ...] = ()
+    parameters: tuple[MimasISPyBParameter, ...] = ()
+    sweeps: tuple[MimasISPyBSweep, ...] = ()
+    triggervariables: tuple[MimasISPyBTriggerVariable, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -350,19 +350,19 @@ def _(mimasobject: MimasRecipeInvocation):
 
 @zocalo_command_line.register(MimasISPyBJobInvocation)  # type: ignore
 def _(mimasobject: MimasISPyBJobInvocation):
-    comment: Tuple[str, ...]
+    comment: tuple[str, ...]
     if mimasobject.comment:
         comment = (f"--comment={mimasobject.comment!r}",)
     else:
         comment = ()
-    displayname: Tuple[str, ...]
+    displayname: tuple[str, ...]
     if mimasobject.displayname:
         displayname = (f"--display={mimasobject.displayname!r}",)
     else:
         displayname = ()
     parameters = (f"--add-param={p.key}:{p.value}" for p in mimasobject.parameters)
     sweeps = (f"--add-sweep={s.DCID}:{s.start}:{s.end}" for s in mimasobject.sweeps)
-    trigger: Tuple[str, ...]
+    trigger: tuple[str, ...]
     if mimasobject.autostart:
         trigger = ("--trigger",)
     else:
@@ -388,7 +388,7 @@ def _(mimasobject: MimasISPyBJobInvocation):
     )
 
 
-Invocation = Union[MimasISPyBJobInvocation, MimasRecipeInvocation]
+Invocation: TypeAlias = MimasISPyBJobInvocation | MimasRecipeInvocation
 
 
 def match_specification(specification: BaseSpecification):
@@ -397,7 +397,7 @@ def match_specification(specification: BaseSpecification):
         def inner_wrapper(
             scenario: MimasScenario,
             zc: zocalo.configuration.Configuration,
-        ) -> List[Invocation]:
+        ) -> list[Invocation]:
             if specification.is_satisfied_by(scenario):
                 return handler(scenario, zc=zc)
             return []
@@ -417,8 +417,8 @@ def _get_handlers() -> dict[str, Callable]:
 
 def handle_scenario(
     scenario: MimasScenario, zc: zocalo.configuration.Configuration
-) -> List[Invocation]:
-    tasks: List[Invocation] = []
+) -> list[Invocation]:
+    tasks: list[Invocation] = []
     for handler in _get_handlers().values():
         tasks.extend(handler(scenario, zc=zc))
     return tasks

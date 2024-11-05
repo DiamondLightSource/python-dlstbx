@@ -11,7 +11,7 @@ import pathlib
 import re
 import uuid
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union
+from typing import Any
 
 import gemmi
 import ispyb.sqlalchemy as isa
@@ -306,7 +306,7 @@ class ispybtbx:
 
     def get_dcg_experiment_type(
         self, dcgid: int, session: sqlalchemy.orm.session.Session
-    ) -> Optional[str]:
+    ) -> str | None:
         if not dcgid:
             return None
         query = session.query(isa.DataCollectionGroup.experimentType).filter(
@@ -328,7 +328,7 @@ class ispybtbx:
             c.cell_beta,
             c.cell_gamma,
         )
-        cell: Union[bool, Tuple[float, ...]]
+        cell: bool | tuple[float, ...]
         if not all(proto_cell):
             cell = False
         else:
@@ -490,7 +490,7 @@ class ispybtbx:
         dcid: int,
         session: sqlalchemy.orm.session.Session,
         pdb_tmpdir: pathlib.Path,
-        user_pdb_dir: Optional[pathlib.Path] = None,
+        user_pdb_dir: pathlib.Path | None = None,
         ignore_pdb_codes: bool = False,
     ) -> list[dict]:
         """Get linked PDB files for a given data collection ID.

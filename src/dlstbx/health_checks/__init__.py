@@ -6,7 +6,7 @@ import logging
 import pathlib
 import types
 from datetime import datetime
-from typing import Dict, List, NamedTuple
+from typing import NamedTuple
 
 import junit_xml
 import sqlalchemy.ext.declarative
@@ -22,7 +22,7 @@ _Base = sqlalchemy.ext.declarative.declarative_base()
 
 
 class CheckFunctionInterface(NamedTuple):
-    current_status: Dict[str, Status]
+    current_status: dict[str, Status]
     name: str
 
 
@@ -162,7 +162,7 @@ class database:
             )
         )
 
-    def get_status(self) -> List[Status]:
+    def get_status(self) -> list[Status]:
         with self._sessionmaker() as session:
             status = session.execute(select(Status)).scalars().all()
         for s in status:

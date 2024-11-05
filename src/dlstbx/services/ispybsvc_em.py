@@ -18,9 +18,9 @@ from pydantic import BaseModel, validate_arguments
 
 class MovieParams(BaseModel):
     dcid: int
-    movie_number: int = None  # image number
-    movie_path: str = None  # micrograph full path
-    timestamp: float = None
+    movie_number: int | None = None  # image number
+    movie_path: str | None = None  # micrograph full path
+    timestamp: float | None = None
 
 
 class EM_Mixin:
@@ -148,9 +148,9 @@ class EM_Mixin:
 
     @validate_arguments(config={"arbitrary_types_allowed": True})
     def do_insert_movie(self, *, parameter_map: MovieParams, **kwargs):
-        self.log.info("Inserting Movie parameters.")
+        self.log.info("Inserting Movie parameters.")  # type: ignore
 
-        movie_params = self.ispyb.em_acquisition.get_movie_params()
+        movie_params = self.ispyb.em_acquisition.get_movie_params()  # type: ignore
         movie_params["dataCollectionId"] = parameter_map.dcid
         movie_params["movieNumber"] = parameter_map.movie_number
         movie_params["movieFullPath"] = parameter_map.movie_path
@@ -158,8 +158,8 @@ class EM_Mixin:
             movie_params["createdTimeStamp"] = datetime.fromtimestamp(
                 parameter_map.timestamp
             ).strftime("%Y-%m-%d %H:%M:%S")
-        result = self.ispyb.em_acquisition.insert_movie(list(movie_params.values()))
-        self.log.info(f"Created Movie record {result}")
+        result = self.ispyb.em_acquisition.insert_movie(list(movie_params.values()))  # type: ignore
+        self.log.info(f"Created Movie record {result}")  # type: ignore
         return {"success": True, "return_value": result}
 
     def do_insert_motion_correction(self, parameters, message=None, **kwargs):

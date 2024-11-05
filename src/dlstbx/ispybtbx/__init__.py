@@ -10,6 +10,7 @@ import os
 import pathlib
 import re
 import uuid
+from pathlib import Path
 from typing import Any, Optional, Tuple, Union
 
 import gemmi
@@ -68,9 +69,6 @@ def setup_marshmallow_schema(session):
                 },
             )
             setattr(class_, "__marshmallow__", schema_class)
-
-
-re_visit_base = re.compile(r"^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
 
 
 class ispybtbx:
@@ -654,26 +652,32 @@ class ispybtbx:
         }
 
     @staticmethod
-    def get_visit_directory_from_image_directory(directory):
+    def get_visit_directory_from_image_directory(
+        directory: str | Path | None,
+    ) -> str | None:
         """/dls/${beamline}/data/${year}/${visit}/...
         -> /dls/${beamline}/data/${year}/${visit}"""
         if not directory:
             return None
-        visit_base = re_visit_base.search(directory)
-        if not visit_base:
+        directory = Path(directory)
+        if not directory.is_absolute():
+            raise ValueError("Got relative directory instead of absolute")
+        if len(directory.parts) < 6:
             return None
-        return visit_base.group(1)
+        return str(directory.parents[-6])
 
     @staticmethod
-    def get_visit_from_image_directory(directory):
+    def get_visit_from_image_directory(directory: str | Path | None) -> str | None:
         """/dls/${beamline}/data/${year}/${visit}/...
         -> ${visit}"""
         if not directory:
             return None
-        visit_base = re_visit_base.search(directory)
-        if not visit_base:
+        directory = Path(directory)
+        if not directory.is_absolute():
+            raise ValueError("Got relative directory instead of absolute")
+        if len(directory.parts) < 6:
             return None
-        return visit_base.group(2)
+        return directory.parts[5]
 
     def dc_info_to_working_directory(self, dc_info):
         directory = dc_info.get("imageDirectory")

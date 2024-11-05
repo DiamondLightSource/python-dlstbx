@@ -10,6 +10,7 @@ import os
 import pathlib
 import re
 import uuid
+from pathlib import Path
 from typing import Any, Optional, Tuple, Union
 
 import gemmi
@@ -651,24 +652,32 @@ class ispybtbx:
         }
 
     @staticmethod
-    def get_visit_directory_from_image_directory(directory):
+    def get_visit_directory_from_image_directory(
+        directory: str | Path | None,
+    ) -> str | None:
         """/dls/${beamline}/data/${year}/${visit}/...
         -> /dls/${beamline}/data/${year}/${visit}"""
         if not directory:
             return None
-        if directory.count(os.sep) < 6:
+        directory = Path(directory)
+        if not directory.is_absolute():
+            raise ValueError("Got relative directory instead of absolute")
+        if len(directory.parts) < 6:
             return None
-        return os.sep.join(directory.split(os.sep)[:6])
+        return str(directory.parents[-6])
 
     @staticmethod
-    def get_visit_from_image_directory(directory):
+    def get_visit_from_image_directory(directory: str | Path | None) -> str | None:
         """/dls/${beamline}/data/${year}/${visit}/...
         -> ${visit}"""
         if not directory:
             return None
-        if directory.count(os.sep) < 6:
+        directory = Path(directory)
+        if not directory.is_absolute():
+            raise ValueError("Got relative directory instead of absolute")
+        if len(directory.parts) < 6:
             return None
-        return directory.split(os.sep)[5]
+        return directory.parts[5]
 
     def dc_info_to_working_directory(self, dc_info):
         directory = dc_info.get("imageDirectory")

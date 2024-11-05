@@ -79,6 +79,7 @@ class MrBumpParameters(pydantic.BaseModel):
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
+    recipe: Optional[str] = None
 
 
 class DiffractionPlanInfo(pydantic.BaseModel):
@@ -125,6 +126,7 @@ class BigEPParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     spacegroup: Optional[str]
+    recipe: Optional[str] = None
 
     @pydantic.validator("spacegroup")
     def is_spacegroup_null(cls, v):
@@ -148,6 +150,7 @@ class BigEPLauncherParameters(pydantic.BaseModel):
     )
     automatic: Optional[bool] = False
     comment: Optional[str] = None
+    recipe: Optional[str] = None
 
 
 class FastEPParameters(pydantic.BaseModel):
@@ -158,6 +161,7 @@ class FastEPParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     mtz: pathlib.Path
+    recipe: Optional[str] = None
 
 
 class BestParameters(pydantic.BaseModel):
@@ -255,8 +259,6 @@ class DLSTrigger(CommonService):
             self.log.error("No trigger target defined in recipe")
             rw.transport.nack(header)
             return
-        if "big_ep_launcher" in target:
-            target = "big_ep_launcher"
         if not hasattr(self, "trigger_" + target):
             self.log.error("Unknown target %s defined in recipe", target)
             rw.transport.nack(header)
@@ -1033,7 +1035,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "fast_ep"
-        jp["recipe"] = "postprocessing-fast-ep-cloud"
+        jp["recipe"] = parameters.recipe or "postprocessing-fast-ep"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"fast_ep trigger: generated JobID {jobid}")
 
@@ -1099,7 +1101,7 @@ class DLSTrigger(CommonService):
             jp["comments"] = parameters.comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "MrBUMP"
-            jp["recipe"] = "postprocessing-mrbump-cloud"
+            jp["recipe"] = parameters.recipe or "postprocessing-mrbump"
             jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
             jobids.append(jobid)
             self.log.debug(f"mrbump trigger: generated JobID {jobid}")
@@ -1177,23 +1179,12 @@ class DLSTrigger(CommonService):
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
-        params = rw.recipe_step.get("parameters", {})
-        target = params.get("target")
-
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
         jp["display_name"] = parameters.pipeline
-        if target == "big_ep_launcher":
-            jp["recipe"] = "postprocessing-big-ep-launcher"
-        elif target == "big_ep_launcher_cloud":
-            jp["recipe"] = "postprocessing-big-ep-launcher-cloud"
-        else:
-            self.log.error(
-                f"big_ep_launcher trigger failed: Invalid target specified {target}"
-            )
-            return False
+        jp["recipe"] = parameters.recipe or "postprocessing-big-ep-launcher"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep_launcher trigger: generated JobID {jobid}")
 
@@ -1219,7 +1210,7 @@ class DLSTrigger(CommonService):
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(f"big_ep_cloud trigger: generated JobParameterID {jppid}")
+            self.log.debug(f"big_ep_launcher trigger: generated JobParameterID {jppid}")
 
         self.log.debug(f"big_ep_launcher trigger: Processing job {jobid} created")
 
@@ -1329,7 +1320,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "big_ep"
-        jp["recipe"] = "postprocessing-big-ep-cloud"
+        jp["recipe"] = parameters.recipe or "postprocessing-big-ep"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep trigger: generated JobID {jobid}")
 

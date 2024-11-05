@@ -139,7 +139,7 @@ def gridscan3d(
 
 
 @dials.util.show_mail_on_error()
-def run(args: list[str] = None, phil: libtbx.phil.scope = phil_scope) -> None:
+def run(args: list[str] | None = None, phil: libtbx.phil.scope = phil_scope) -> None:
     """
     Check command-line input and call other functions to do the legwork.
 

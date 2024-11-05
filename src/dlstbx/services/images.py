@@ -49,7 +49,7 @@ class DLSImages(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.images"
 
-    def initializing(self):
+    def initializing(self) -> None:
         """Subscribe to a queue. Received messages must be acknowledged."""
         self.log.info("Image service starting")
         self.image_functions: dict[str, Callable] = {

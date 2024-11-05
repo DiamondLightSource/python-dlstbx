@@ -23,7 +23,7 @@ class CloudWatcher(CommonService):
     # Logger name
     _logger_name = "dlstbx.services.cloudwatcher"
 
-    def initializing(self):
+    def initializing(self) -> None:
         """
         Subscribe to the cloudwatcher queue. Received messages must be
         acknowledged.

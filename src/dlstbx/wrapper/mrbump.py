@@ -29,7 +29,9 @@ class MrBUMPWrapper(Wrapper):
         mrbump_script = []
 
         if module_params:
-            mrbump_script.extend(["#!/bin/bash", ". /etc/profile.d/modules.sh"])
+            mrbump_script.extend(
+                ["#!/bin/bash", ". /etc/profile.d/modules.sh", "unset LIBTBX_BUILD"]
+            )
             for mdl in module_params:
                 mrbump_script.append(f"module load {mdl}")
 

@@ -301,8 +301,6 @@ def handle_rotation_end(
             ppl_suffix[ppl] = suffix
             ppl_triggervars[ppl] = triggervars
 
-    if scenario.beamline == "i02-2":
-        ppl_suffix["xia2/DIALS"] += "-vmxi"
     for params in extra_params:
         tasks.extend(
             [

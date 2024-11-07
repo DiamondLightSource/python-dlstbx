@@ -31,6 +31,13 @@ class DimpleResult(pydantic.BaseModel):
     attachments: List[schemas.Attachment]
 
 
+class MetalIdResult(pydantic.BaseModel):
+    mxmrrun: schemas.MXMRRun
+    blobs: List[schemas.Blob]
+    auto_proc_program: schemas.AutoProcProgram
+    attachments: List[schemas.Attachment]
+
+
 class DLSISPyB(EM_Mixin, CommonService):
     """A service that receives information to be written to ISPyB."""
 
@@ -863,6 +870,23 @@ class DLSISPyB(EM_Mixin, CommonService):
         **kwargs,
     ):
         mxmrrun = crud.insert_dimple_result(
+            mxmrrun=parameter_map.mxmrrun,
+            blobs=parameter_map.blobs,
+            auto_proc_program=parameter_map.auto_proc_program,
+            attachments=parameter_map.attachments,
+            session=session,
+        )
+        return {"success": True, "return_value": mxmrrun.mxMRRunId}
+
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    def do_insert_metal_id_result(
+        self,
+        *,
+        parameter_map: MetalIdResult,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        mxmrrun = crud.insert_metal_id_result(
             mxmrrun=parameter_map.mxmrrun,
             blobs=parameter_map.blobs,
             auto_proc_program=parameter_map.auto_proc_program,

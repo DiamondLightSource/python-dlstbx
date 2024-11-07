@@ -312,6 +312,25 @@ def insert_dimple_result(
     return db_mxmrrun
 
 
+def insert_metal_id_result(
+    mxmrrun: schemas.MXMRRun,
+    blobs: List[schemas.Blob],
+    auto_proc_program: schemas.AutoProcProgram,
+    attachments: List[schemas.Attachment],
+    session: sqlalchemy.orm.session.Session,
+) -> models.MXMRRun:
+    app_id = mxmrrun.auto_proc_program_id
+    if app_id:
+        db_app = update_auto_proc_program(app_id, auto_proc_program, session)
+    else:
+        db_app = create_auto_proc_program(auto_proc_program, session)
+    db_mxmrrun = create_mxmrrun(mxmrrun, db_app, session)
+    create_blobs(blobs, db_mxmrrun, session)
+    create_attachments(attachments, db_app, session)
+    session.commit()
+    return db_mxmrrun
+
+
 def get_pdb_for_dcid(
     dcid: int,
     session: sqlalchemy.orm.session.Session,

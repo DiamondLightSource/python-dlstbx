@@ -182,7 +182,7 @@ class RelatedDCIDs(pydantic.BaseModel):
 class MultiplexParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
-    program_id: Optional[int] = pydantic.Field(gt=0)
+    program_id: Optional[int] = pydantic.Field(default=0, gt=0)
     wavelength: Optional[float] = pydantic.Field(gt=0)
     spacegroup: Optional[str]
     automatic: Optional[bool] = False

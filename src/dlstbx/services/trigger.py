@@ -182,7 +182,7 @@ class RelatedDCIDs(pydantic.BaseModel):
 class MultiplexParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
-    program_id: int = pydantic.Field(gt=0)
+    program_id: Optional[int] = pydantic.Field(gt=0)
     wavelength: Optional[float] = pydantic.Field(gt=0)
     spacegroup: Optional[str]
     automatic: Optional[bool] = False
@@ -1468,7 +1468,7 @@ class DLSTrigger(CommonService):
         # Check if we have any new data collections added to any sample group
         # to decide if we need to processed triggering multiplex.
         # Run multiplex only once when processing for all samples in the group have been collected.
-        if parameters.use_clustering:
+        if parameters.use_clustering and parameters.program_id:
             # Get currnent list of data collections for all samples in the sample groups
             _, ispyb_info = dlstbx.ispybtbx.ispyb_filter(
                 {}, {"ispyb_dcid": dcid}, session

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pathlib
 import shutil
 import subprocess
+from shutil import ignore_patterns
 
 from dlstbx.wrapper import Wrapper
 
@@ -12,7 +13,7 @@ class LigandFitWrapper(Wrapper):
 
     def send_attachments_to_ispyb(self, pipeline_directory):
         for f in pipeline_directory.iterdir():
-            if f.stem.endswith == "final":
+            if f.stem.endswith("final"):
                 file_type = "Result"
                 importance_rank = 1
             elif f.suffix == ".log":
@@ -91,10 +92,12 @@ class LigandFitWrapper(Wrapper):
         with open(working_directory / "ligand_fit.log", "w") as log_file:
             log_file.write(result.stdout)
 
-        for f in working_directory.iterdir():
-            if f.name.startswith("."):
-                continue
-            shutil.copytree(f, results_directory)
+        shutil.copytree(
+            working_directory,
+            results_directory,
+            dirs_exist_ok=True,
+            ignore=ignore_patterns(".*"),
+        )
 
         pipeline_directory = (
             results_directory / "pipeline_1"

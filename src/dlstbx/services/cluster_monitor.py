@@ -56,6 +56,9 @@ class DLSClusterMonitor(CommonService):
                 self.log.error(f"Failed Slurm API call: {e}\n" f"{e.response.text}")
             else:
                 self.calculate_slurm_statistics(scheduler, job_info_resp, timestamp)
+            # Add timeout between making SLURM REST API calls.
+            # Trying to address https://support.schedmd.com/show_bug.cgi?id=21123
+            time.sleep(5)
 
     def calculate_slurm_statistics(
         self, scheduler, response: slurm.models.OpenapiJobInfoResp, timestamp

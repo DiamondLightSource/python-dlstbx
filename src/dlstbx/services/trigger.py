@@ -215,7 +215,6 @@ class ShelxtParameters(pydantic.BaseModel):
 
 class LigandFitParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    experiment_type: str
     pdb: pathlib.Path
     mtz: pathlib.Path
     smiles: str
@@ -2126,40 +2125,25 @@ class DLSTrigger(CommonService):
     ):
         """Trigger a ligand fit job for a given data collection.
 
-        Requires experiment type to be "SAD".
-
-        Trigger also requires a PDB file or code to be associated with the given data
-        collection:
-        - PDB codes or file contents stored in the ISPyB PDB table and linked with
-          the given data collection. Any files defined in the database will be copied
-          into a subdirectory inside `pdb_tmpdir`, where the subdirectory name will be
-          a hash of the file contents.
-        - PDB files (with `.pdb` extension) stored in the directory optionally provided
-          by the `user_pdb_directory` recipe parameter.
-
-        If any PDB files or codes are identified, then new ProcessingJob,
-        ProcessingJobImageSweep and ProcessingJobParameter will be created, and the
-        resulting processingJobId will be sent to the `processing_recipe` queue.
+        Trigger uses the 'final.pdb' and 'final.mtz' files which are output from
+        DIMPLE, and requires a user submitted ligand SMILES code as inputs to
+        the ligand fit pipeline
 
         Recipe parameters are described below with appropriate ispyb placeholder "{}"
         values:
         - target: set this to "ligand_fit"
         - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
-        - proc_prog: The name, as it appears in ISPyB, of the autoprocessing pipeline
-        for which the output will be used as the metal_id input mtz file.
-        - experiment_type: the experiment type of the data collection.
-        i.e. "{ispyb_dcg_experiment_type}"
+        - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
+        - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
+        - smiles: ligand SMILES code i.e. "{ispyb_smiles}"
+        - pipeline: the pipeline to be used i.e. "phenix_pipeline"
         - comment: a comment to be stored in the ProcessingJob.comment field
+        - scaling_id: scaling id of the data reduction pipeline that triggered dimple
         - automatic: boolean value passed to ProcessingJob.automatic field
-        - pdb: list of pdb files or codes provided in the pdb_files_or_codes_format,
-        where each pdb file or code is provided as a dict with keys of "filepath",
-        "code" and "source". Set the filepath or code and set the other values to null.
-        "{$REPLACE:ispyb_pdb}" will also achieve this.
 
         Example recipe parameters:
         { "target": "ligand_fit",
             "dcid": 123456,
-            "experiment_type": "SAD",
             "pdb": "/path/to/pdb",
             "mtz": "/path/to/mtz"
             "smiles": "CN(CCC(N)=O)C[C@H]1O[C@H]([C@H](O)[C@@H]1O)n1c(C)nc2c(N)ncnc12"
@@ -2167,7 +2151,6 @@ class DLSTrigger(CommonService):
             "automatic": true,
             "comment": "Ligand_fit triggered by xia2 dials",
             "scaling_id": 123456
-
 
         }
         """

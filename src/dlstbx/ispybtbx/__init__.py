@@ -664,6 +664,8 @@ class ispybtbx:
             raise ValueError("Got relative directory instead of absolute")
         if len(directory.parts) < 6:
             return None
+        if len(directory.parts) == 6:
+            return str(directory)
         return str(directory.parents[-6])
 
     @staticmethod

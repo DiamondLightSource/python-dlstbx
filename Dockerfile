@@ -1,6 +1,6 @@
 FROM harbor.diamond.ac.uk/dockerhub-cache/dials/dials:latest
 
-RUN yum install bzip2 libXxf86vm rrdtool -y
+RUN yum install bzip2 libXxf86vm rrdtool git -y
 
 WORKDIR /dials/modules
 

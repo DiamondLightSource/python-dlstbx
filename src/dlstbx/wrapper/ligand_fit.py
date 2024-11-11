@@ -40,17 +40,16 @@ class LigandFitWrapper(Wrapper):
         # get params
         params = self.recwrap.recipe_step["job_parameters"]
 
-        pdb = params.get("pdb")  # what if more than one pdb, see metal id
+        pdb = params.get("pdb")
         if not pdb:
             self.log.error("Aborting ligand fit processing. PDB file not provided.")
-            return False  # need better check of PDB file format?
+            return False
 
         mtz = params.get("mtz")
         if not mtz:
             self.log.error("Aborting ligand fit processing. MTZ file not provided.")
             return False
 
-        # ligand_code = params["ligand_code"]
         smiles = params.get("smiles")
         if not smiles:
             self.log.error(
@@ -59,14 +58,14 @@ class LigandFitWrapper(Wrapper):
             return False
 
         pipeline = params.get("pipeline")
-        pipelines = ["phenix", "phenix_pipeline"]  # add more options?
+        pipelines = ["phenix", "phenix_pipeline"]  # options
         if pipeline not in pipelines:
             self.log.error("Aborting ligand fit processing. Pipeline not recognised")
             return False
 
         working_directory = pathlib.Path(params["working_directory"])
         working_directory.mkdir(parents=True, exist_ok=True)
-        results_directory = pathlib.Path(params["results_directory"])  # needed?
+        results_directory = pathlib.Path(params["results_directory"])
         results_directory.mkdir(parents=True, exist_ok=True)
         with open(working_directory / "LIG.smi", "w") as smi_file:
             smi_file.write(smiles)
@@ -101,7 +100,7 @@ class LigandFitWrapper(Wrapper):
 
         pipeline_directory = (
             results_directory / "pipeline_1"
-        )  # will work only when pipeline=phenix_pipeline
+        )  # for pipeline = phenix_pipeline only
 
         self.log.info("Sending results to ISPyB")
         self.send_attachments_to_ispyb(pipeline_directory)

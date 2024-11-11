@@ -2124,7 +2124,7 @@ class DLSTrigger(CommonService):
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
-        """Trigger a metal job for a given data collection.
+        """Trigger a ligand fit job for a given data collection.
 
         Requires experiment type to be "SAD".
 
@@ -2160,10 +2160,15 @@ class DLSTrigger(CommonService):
         { "target": "ligand_fit",
             "dcid": 123456,
             "experiment_type": "SAD",
-            "proc_prog": "xia2 dials",
-            "comment": "Ligand_fit triggered by xia2 dials",
+            "pdb": "/path/to/pdb",
+            "mtz": "/path/to/mtz"
+            "smiles": "CN(CCC(N)=O)C[C@H]1O[C@H]([C@H](O)[C@@H]1O)n1c(C)nc2c(N)ncnc12"
+            "pipeline": "phenix_pipeline",
             "automatic": true,
-            "pdb": "/path/to/pdb"
+            "comment": "Ligand_fit triggered by xia2 dials",
+            "scaling_id": 123456
+
+
         }
         """
         if parameters.experiment_type != "SAD":
@@ -2197,11 +2202,11 @@ class DLSTrigger(CommonService):
 
         if query.processingPrograms != "xia2.multiplex":
             self.log.info(
-                "ligandfit trigger: processingProgram is not xia2.multiplex, skipping..."
+                "Ligand_fit trigger: processingProgram is not xia2.multiplex, skipping..."
             )
             return {"success": True}
 
-        self.log.debug("Ligand-fit trigger: Starting")
+        self.log.debug("Ligand_fit trigger: Starting")
 
         ligand_fit_parameters = {
             "dcid": parameters.dcid,

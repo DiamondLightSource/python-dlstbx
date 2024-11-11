@@ -11,6 +11,6 @@ RUN source /dials/dials \
 RUN source /dials/dials \
   && sed -i'' 's|libtbx.conda|mamba|' "/dials/modules/dlstbx/src/dlstbx/requirements.py" \
   && python3 /dials/modules/dlstbx/src/dlstbx/requirements.py python-relion -y \
-  && pip3 install 'workflows>=3.1'
+  && pip3 install git+https://github.com/DiamondLightSource/python-workflows@diag_emptyheader
 
 CMD ["dials.version"]

@@ -37,7 +37,6 @@ class LigandFitWrapper(Wrapper):
             f"Running recipewrap file {self.recwrap.recipe_step['parameters']['recipewrapper']}"
         )
 
-        # get params
         params = self.recwrap.recipe_step["job_parameters"]
 
         pdb = params.get("pdb")
@@ -58,9 +57,9 @@ class LigandFitWrapper(Wrapper):
             return False
 
         pipeline = params.get("pipeline")
-        pipelines = ["phenix", "phenix_pipeline"]  # options
+        pipelines = ["phenix_pipeline"] 
         if pipeline not in pipelines:
-            self.log.error("Aborting ligand fit processing. Pipeline not recognised")
+            self.log.error(f"Aborting ligand fit processing. Pipeline '{pipeline}' not recognised")
             return False
 
         working_directory = pathlib.Path(params["working_directory"])
@@ -82,10 +81,13 @@ class LigandFitWrapper(Wrapper):
                 capture_output=True,
                 text=True,
                 cwd=working_directory,
+                check=True,
             )
 
-        except subprocess.CalledProcessError:
-            self.log.error("Ligand_fit process failed")
+        except subprocess.CalledProcessError as e:
+            self.log.error(f"Ligand_fit process '{phenix_command}' failed")
+            self.log.debug(e.stdout)
+            self.log.debug(e.stderr)
             return False
 
         with open(working_directory / "ligand_fit.log", "w") as log_file:

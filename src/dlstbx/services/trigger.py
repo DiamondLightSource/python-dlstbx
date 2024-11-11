@@ -2171,12 +2171,6 @@ class DLSTrigger(CommonService):
 
         }
         """
-        if parameters.experiment_type != "SAD":
-            self.log.info(
-                f"Skipping ligand fit trigger: experiment type {parameters.experiment_type} not supported"
-            )
-            return {"success": True}
-
         if not parameters.smiles:
             self.log.info(
                 f"Skipping ligand fit trigger: DCID {parameters.dcid} has no associated SMILES string"
@@ -2202,7 +2196,7 @@ class DLSTrigger(CommonService):
 
         if query.processingPrograms != "xia2.multiplex":
             self.log.info(
-                "Ligand_fit trigger: processingProgram is not xia2.multiplex, skipping..."
+                "Skipping ligand_fit trigger: Upstream processing program is not xia2.multiplex."
             )
             return {"success": True}
 
@@ -2226,11 +2220,6 @@ class DLSTrigger(CommonService):
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"ligandfit trigger: generated JobID {jobid}")
 
-        # jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
-        # jisp["datacollectionid"] = parameters.dcid
-        # jisp["start_image"] = start_image
-        # jisp["end_image"] = end_image
-
         for key, value in ligand_fit_parameters.items():
             jpp = self.ispyb.mx_processing.get_job_parameter_params()
             jpp["job_id"] = jobid
@@ -2240,10 +2229,6 @@ class DLSTrigger(CommonService):
             self.log.debug(
                 f"Ligand_fit trigger: generated JobParameterID {jppid} with {key}={value}"
             )
-
-        # jisp["job_id"] = jobid
-        # jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
-        # self.log.debug(f"Ligand_fit_id trigger: generated JobImageSweepID {jispid}")
 
         self.log.debug(f"Ligand_fit_id trigger: Processing job {jobid} created")
 

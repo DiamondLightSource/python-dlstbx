@@ -19,6 +19,8 @@ class LigandFitWrapper(Wrapper):
             elif f.suffix == ".log":
                 file_type = "Log"
                 importance_rank = 2
+            else:
+                continue
             try:
                 result_dict = {
                     "file_path": str(pipeline_directory),
@@ -57,9 +59,11 @@ class LigandFitWrapper(Wrapper):
             return False
 
         pipeline = params.get("pipeline")
-        pipelines = ["phenix_pipeline"] 
+        pipelines = ["phenix_pipeline"]
         if pipeline not in pipelines:
-            self.log.error(f"Aborting ligand fit processing. Pipeline '{pipeline}' not recognised")
+            self.log.error(
+                f"Aborting ligand fit processing. Pipeline '{pipeline}' not recognised"
+            )
             return False
 
         working_directory = pathlib.Path(params["working_directory"])
@@ -86,8 +90,8 @@ class LigandFitWrapper(Wrapper):
 
         except subprocess.CalledProcessError as e:
             self.log.error(f"Ligand_fit process '{phenix_command}' failed")
-            self.log.debug(e.stdout)
-            self.log.debug(e.stderr)
+            self.log.info(e.stdout)
+            self.log.error(e.stderr)
             return False
 
         with open(working_directory / "ligand_fit.log", "w") as log_file:

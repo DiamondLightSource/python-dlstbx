@@ -217,8 +217,8 @@ class LigandFitParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     pdb: pathlib.Path
     mtz: pathlib.Path
-    smiles: str
     pipeline: str
+    smiles: Optional[str]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: int = pydantic.Field(gt=0)

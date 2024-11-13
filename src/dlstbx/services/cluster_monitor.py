@@ -54,6 +54,7 @@ class DLSClusterMonitor(CommonService):
                 job_info_resp: slurm.models.OpenapiJobInfoResp = cluster_api.get_jobs()
             except requests.HTTPError as e:
                 self.log.error(f"Failed Slurm API call: {e}\n" f"{e.response.text}")
+                raise e
             else:
                 self.calculate_slurm_statistics(scheduler, job_info_resp, timestamp)
             # Add timeout between making SLURM REST API calls.

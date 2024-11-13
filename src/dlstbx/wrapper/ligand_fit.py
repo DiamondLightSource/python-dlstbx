@@ -43,12 +43,12 @@ class LigandFitWrapper(Wrapper):
 
         pdb = params.get("pdb")
         if not pdb.is_file():
-            self.log.error("Aborting ligand fit processing. PDB file not provided.")
+            self.log.error("Aborting ligand fit processing. PDB file does not exist.")
             return False
 
         mtz = params.get("mtz")
         if not mtz.is_file():
-            self.log.error("Aborting ligand fit processing. MTZ file not provided.")
+            self.log.error("Aborting ligand fit processing. MTZ file does not exist.")
             return False
 
         smiles = params.get("smiles")

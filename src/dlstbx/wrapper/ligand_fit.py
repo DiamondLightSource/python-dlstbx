@@ -42,21 +42,16 @@ class LigandFitWrapper(Wrapper):
         params = self.recwrap.recipe_step["job_parameters"]
 
         pdb = params.get("pdb")
-        if not pdb:
+        if not pdb.is_file():
             self.log.error("Aborting ligand fit processing. PDB file not provided.")
             return False
 
         mtz = params.get("mtz")
-        if not mtz:
+        if not mtz.is_file():
             self.log.error("Aborting ligand fit processing. MTZ file not provided.")
             return False
 
         smiles = params.get("smiles")
-        if not smiles:
-            self.log.error(
-                "Aborting ligand fit processing. Ligand SMILES string not provided."
-            )
-            return False
 
         pipeline = params.get("pipeline")
         pipelines = ["phenix_pipeline"]

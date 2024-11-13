@@ -218,7 +218,7 @@ class LigandFitParameters(pydantic.BaseModel):
     pdb: pathlib.Path
     mtz: pathlib.Path
     pipeline: str
-    smiles: Optional[str]
+    smiles: str
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     scaling_id: int = pydantic.Field(gt=0)
@@ -2154,7 +2154,7 @@ class DLSTrigger(CommonService):
 
         }
         """
-        if not parameters.smiles:
+        if parameters.smiles == "None":
             self.log.info(
                 f"Skipping ligand fit trigger: DCID {parameters.dcid} has no associated SMILES string"
             )

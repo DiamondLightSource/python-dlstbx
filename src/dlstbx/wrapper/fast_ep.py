@@ -169,6 +169,29 @@ class FastEPWrapper(Wrapper):
                     params["fast_ep"]["data"] = params["ispyb_parameters"]["data"]
 
         command = self.construct_commandline(params)
+
+        # Check if we have extra commands specified in recipe to setup running environment
+        if commands := params.get("commands", []):
+            fast_ep_script = (
+                [
+                    "#!/bin/bash",
+                ]
+                + commands
+                + [
+                    " ".join(command),
+                ]
+            )
+            try:
+                fast_ep_filename = working_directory / "run_fast_ep.sh"
+                with open(fast_ep_filename, "w") as fp:
+                    fp.write("\n".join(fast_ep_script))
+            except OSError:
+                self.log.exception(
+                    f"Could not create fast_ep script file in the working directory {working_directory}"
+                )
+                return False
+            command = ["sh", f"{working_directory}/run_fast_ep.sh"]
+
         subprocess_directory = working_directory / params["create_symlink"]
         subprocess_directory.mkdir(parents=True, exist_ok=True)
 

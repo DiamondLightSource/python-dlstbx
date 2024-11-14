@@ -1,7 +1,14 @@
+#!/bin/bash
+{% if singularity_image %}
+unset LIBTBX_BUILD
+unset PYTHONPATH
+unset LD_LIDRARY_PATH
+source ${PHENIX}/phenix_env.sh
+{% else %}
 . /etc/profile.d/modules.sh
 
 module load {{ phenix_module }}
-module load {{ ccp4_module }}
+{% endif %}
 
 cat > autosol.eff << EOF
 autosol {

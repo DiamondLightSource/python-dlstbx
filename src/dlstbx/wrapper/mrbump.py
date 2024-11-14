@@ -34,6 +34,9 @@ class MrBUMPWrapper(Wrapper):
             )
             for mdl in module_params:
                 mrbump_script.append(f"module load {mdl}")
+        elif commands := params.get("commands"):
+            mrbump_script.append("#!/bin/bash")
+            mrbump_script.extend(commands)
 
         mrbump_command = ["mrbump"]
 

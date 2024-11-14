@@ -58,7 +58,10 @@ def submit_to_slurm(
     if not isinstance(script, str):
         script = "\n".join(script)
     if scheduler == "iris":
-        tmp_script = ["#!/bin/bash", f"cat > {pathlib.Path(recipewrapper).name} << EOF"]
+        tmp_script = [
+            "#!/bin/bash",
+            f"cat > {pathlib.Path(recipewrapper).name} << 'EOF'",
+        ]
         with open(recipewrapper) as fp:
             tmp_script.extend(fp.readlines())
         tmp_script.append(f"EOF\n{script}")

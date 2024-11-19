@@ -45,9 +45,28 @@ class AlphaFoldWrapper(Wrapper):
 
         stdin = "\n".join(
             [
-                ". /etc/profile.d/modules.sh",
-                "module load alphafold",
-                f"alphafold --fasta_paths={seq_filename}",
+                "DATABASE_DIR=/dls/mx-scratch/alphafold-db",
+                "INSTALL_DIR=/dls_sw/apps/alphafold/alphafoldv2.3.2",
+                "BIN_DIR=/dls_sw/apps/alphafold/alphafoldv2.3.2/env/bin",
+                "mamba activate /dls_sw/apps/alphafold/alphafoldv2.3.2/env",
+                "python ${INSTALL_DIR}/run_alphafold.py \
+                    --data_dir=$DATABASE_DIR \
+                    --uniref90_database_path=$DATABASE_DIR/uniref90/uniref90.fasta \
+                    --mgnify_database_path=$DATABASE_DIR/mgnify/mgy_clusters_2022_05.fa \
+                    --bfd_database_path=$DATABASE_DIR/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt \
+                    --uniref30_database_path=$DATABASE_DIR/uniref30/UniRef30_2021_03 \
+                    --pdb70_database_path=$DATABASE_DIR/pdb70/pdb70 \
+                    --template_mmcif_dir=$DATABASE_DIR/pdb_mmcif/mmcif_files \
+                    --obsolete_pdbs_path=$DATABASE_DIR/pdb_mmcif/obsolete.dat \
+                    --model_preset=monomer \
+                    --max_template_date=3000-01-01 \
+                    --db_preset=full_dbs \
+                    --jackhmmer_binary_path=${BIN_DIR}/jackhmmer \
+                    --hhsearch_binary_path=${BIN_DIR}/hhsearch \
+                    --hhblits_binary_path=${BIN_DIR}/hhblits \
+                    --kalign_binary_path=${BIN_DIR}/kalign \
+                    --fasta_paths={seq_filename} \
+                    --use_gpu_relax=TRUE",
             ]
         )
 

@@ -233,7 +233,7 @@ class LigandFitParameters(pydantic.BaseModel):
     smiles: str
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    scaling_id: int = pydantic.Field(gt=0)
+    scaling_id: list[int]
 
 
 class DLSTrigger(CommonService):
@@ -2276,6 +2276,7 @@ class DLSTrigger(CommonService):
         - pipeline: the pipeline to be used i.e. "phenix_pipeline"
         - comment: a comment to be stored in the ProcessingJob.comment field
         - scaling_id: scaling id of the data reduction pipeline that triggered dimple
+          given as a list as this is how it is presented in the dimple recipe.
         - automatic: boolean value passed to ProcessingJob.automatic field
 
         Example recipe parameters:
@@ -2287,7 +2288,7 @@ class DLSTrigger(CommonService):
             "pipeline": "phenix_pipeline",
             "automatic": true,
             "comment": "Ligand_fit triggered by xia2 dials",
-            "scaling_id": 123456
+            "scaling_id": [123456]
 
         }
         """
@@ -2296,6 +2297,14 @@ class DLSTrigger(CommonService):
                 f"Skipping ligand fit trigger: DCID {parameters.dcid} has no associated SMILES string"
             )
             return {"success": True}
+
+        if len(parameters.scaling_id) != 1:
+            self.log.info(
+                f"Skipping ligand fit trigger: exactly one scaling id must be provided, {len(parameters.scaling_id)} were given"
+            )
+            return {"success": True}
+
+        scaling_id = parameters.scaling_id[0]
 
         # Get data collection information for all collections in dcids
         query = (
@@ -2310,7 +2319,7 @@ class DLSTrigger(CommonService):
                     AutoProc.autoProcId == AutoProcScaling.autoProcId,
                 )
             )
-            .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+            .filter(AutoProcScaling.autoProcScalingId == scaling_id)
             .one()
         )
 

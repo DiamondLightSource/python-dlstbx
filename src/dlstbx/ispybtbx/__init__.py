@@ -289,6 +289,14 @@ class ispybtbx:
             )
             return related_dcids
 
+    def get_sample_smiles(self, sample_id, session: sqlalchemy.orm.session.Session):
+        if not sample_id:
+            return None
+        sample = crud.get_blsample(sample_id, session)
+        if not sample:
+            return None
+        return sample.SMILES
+
     def get_related_dcids_same_directory(
         self, dcid: int, session: sqlalchemy.orm.session.Session
     ):
@@ -900,6 +908,8 @@ def ispyb_filter(
     )
     parameters["ispyb_ssx_events"] = events or None
     parameters["ispyb_ssx_shots_per_image"] = shots_per_image or None
+
+    parameters["ispyb_smiles"] = i.get_sample_smiles(sample_id, session)
 
     # for the moment we do not want multi-xia2 for /dls/mx i.e. VMXi
     # beware if other projects start using this directory structure will

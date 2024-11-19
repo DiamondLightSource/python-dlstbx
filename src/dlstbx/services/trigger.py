@@ -14,9 +14,11 @@ import sqlalchemy.engine
 import sqlalchemy.orm
 import workflows.recipe
 from ispyb.sqlalchemy import (
+    AutoProc,
     AutoProcIntegration,
     AutoProcProgram,
     AutoProcProgramAttachment,
+    AutoProcScaling,
     BLSession,
     DataCollection,
     ProcessingJob,
@@ -221,6 +223,17 @@ class ShelxtParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     scaling_id: int = pydantic.Field(gt=0)
     comment: Optional[str] = None
+
+
+class LigandFitParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    pdb: pathlib.Path
+    mtz: pathlib.Path
+    pipeline: str
+    smiles: str
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    scaling_id: int = pydantic.Field(gt=0)
 
 
 class DLSTrigger(CommonService):
@@ -2235,5 +2248,113 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Shelxt trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    def trigger_ligand_fit(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: LigandFitParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        """Trigger a ligand fit job for a given data collection.
+
+        Trigger uses the 'final.pdb' and 'final.mtz' files which are output from
+        DIMPLE, and requires a user submitted ligand SMILES code as inputs to
+        the ligand fit pipeline
+
+        Recipe parameters are described below with appropriate ispyb placeholder "{}"
+        values:
+        - target: set this to "ligand_fit"
+        - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
+        - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
+        - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
+        - smiles: ligand SMILES code i.e. "{ispyb_smiles}"
+        - pipeline: the pipeline to be used i.e. "phenix_pipeline"
+        - comment: a comment to be stored in the ProcessingJob.comment field
+        - scaling_id: scaling id of the data reduction pipeline that triggered dimple
+        - automatic: boolean value passed to ProcessingJob.automatic field
+
+        Example recipe parameters:
+        { "target": "ligand_fit",
+            "dcid": 123456,
+            "pdb": "/path/to/pdb",
+            "mtz": "/path/to/mtz"
+            "smiles": "CN(CCC(N)=O)C[C@H]1O[C@H]([C@H](O)[C@@H]1O)n1c(C)nc2c(N)ncnc12"
+            "pipeline": "phenix_pipeline",
+            "automatic": true,
+            "comment": "Ligand_fit triggered by xia2 dials",
+            "scaling_id": 123456
+
+        }
+        """
+        if parameters.smiles == "None":
+            self.log.info(
+                f"Skipping ligand fit trigger: DCID {parameters.dcid} has no associated SMILES string"
+            )
+            return {"success": True}
+
+        # Get data collection information for all collections in dcids
+        query = (
+            (
+                session.query(AutoProcProgram)
+                .join(
+                    AutoProc,
+                    AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+                )
+                .join(
+                    AutoProcScaling,
+                    AutoProc.autoProcId == AutoProcScaling.autoProcId,
+                )
+            )
+            .filter(AutoProcScaling.autoProcScalingId == parameters.scaling_id)
+            .one()
+        )
+
+        if query.processingPrograms != "xia2.multiplex":
+            self.log.info(
+                "Skipping ligand_fit trigger: Upstream processing program is not xia2.multiplex."
+            )
+            return {"success": True}
+
+        self.log.debug("Ligand_fit trigger: Starting")
+
+        ligand_fit_parameters = {
+            "dcid": parameters.dcid,
+            "pdb": str(parameters.pdb),
+            "mtz": str(parameters.mtz),
+            "smiles": parameters.smiles,
+            "pipeline": parameters.pipeline,
+        }
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "ligandfit"
+        jp["recipe"] = "postprocessing-ligandfit"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"ligandfit trigger: generated JobID {jobid}")
+
+        for key, value in ligand_fit_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"Ligand_fit trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        self.log.debug(f"Ligand_fit_id trigger: Processing job {jobid} created")
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Ligand_fit_id trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

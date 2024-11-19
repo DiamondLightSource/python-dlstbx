@@ -48,6 +48,7 @@ class AlphaFoldWrapper(Wrapper):
                 "DATABASE_DIR=/dls/mx-scratch/alphafold-db",
                 "INSTALL_DIR=/dls_sw/apps/alphafold/alphafoldv2.3.2",
                 "BIN_DIR=/dls_sw/apps/alphafold/alphafoldv2.3.2/env/bin",
+                "module load mamba",
                 "mamba activate /dls_sw/apps/alphafold/alphafoldv2.3.2/env",
                 "python ${INSTALL_DIR}/run_alphafold.py \
                     --data_dir=$DATABASE_DIR \

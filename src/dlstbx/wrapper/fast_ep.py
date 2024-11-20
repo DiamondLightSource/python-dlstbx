@@ -339,8 +339,10 @@ class FastEPWrapper(Wrapper):
                     self.log.info("Sending fast_ep phasing results to ISPyB")
                     # Replace tmp run location at DLS and IRIS to processed directory
                     for replace_path in (
-                        str(working_directory),
-                        f"/tmp/{self.recwrap.environment['ID']}",
+                        str(
+                            working_directory / params.get("create_symlink", "fast_ep")
+                        ),
+                        f"/tmp/{self.recwrap.environment['ID']}/{params.get('create_symlink', 'fast_ep')}",
                     ):
                         xml_data = xml_data.replace(
                             replace_path, str(results_directory)

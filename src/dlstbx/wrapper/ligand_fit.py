@@ -41,14 +41,14 @@ class LigandFitWrapper(Wrapper):
 
         params = self.recwrap.recipe_step["job_parameters"]
 
-        pdb = params.get("pdb")
+        pdb = pathlib.Path(params.get("pdb"))
         if not pdb.is_file():
             self.log.error(
                 f"Aborting ligand fit processing. PDB file {pdb} does not exist."
             )
             return False
 
-        mtz = params.get("mtz")
+        mtz = pathlib.Path(params.get("mtz"))
         if not mtz.is_file():
             self.log.error(
                 f"Aborting ligand fit processing. MTZ file {mtz} does not exist."

@@ -797,6 +797,7 @@ def ispyb_filter(
     parameters["ispyb_energy_scan_info"] = energy_scan_info
     start, end = i.dc_info_to_start_end(dc_info)
     sample_id = parameters["ispyb_dc_info"].get("BLSAMPLEID")
+    parameters["ispyb_smiles"] = i.get_sample_smiles(sample_id, session)
     priority_processing = crud.get_priority_processing_for_sample_id(sample_id, session)
     if not priority_processing:
         priority_processing = "xia2/DIALS"
@@ -908,8 +909,6 @@ def ispyb_filter(
     )
     parameters["ispyb_ssx_events"] = events or None
     parameters["ispyb_ssx_shots_per_image"] = shots_per_image or None
-
-    parameters["ispyb_smiles"] = i.get_sample_smiles(sample_id, session)
 
     # for the moment we do not want multi-xia2 for /dls/mx i.e. VMXi
     # beware if other projects start using this directory structure will

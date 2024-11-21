@@ -17,6 +17,8 @@ from minio.error import S3Error
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from dlstbx.wrapper.helpers import fix_acl_mask
+
 URL_EXPIRE = timedelta(days=7)
 
 # http.client.HTTPConnection.debuglevel = 1
@@ -261,28 +263,7 @@ def retrieve_results_from_s3(
         bucket_name, s3echo_filename, working_directory / s3echo_filename
     )
     decompress_results_file(working_directory, s3echo_filename, logger)
-
-    # Fix ACL mask for files extracted from .tar archive
-    # Using m:rwX resets mask for files as well, unclear why.
-    # Hence, running find to apply mask to files and directories separately
-    for ft, msk in (("d", "m:rwx"), ("f", "m:rw")):
-        setfacl_command = r"find %s -type %s -exec setfacl -m %s '{}' ';'" % (
-            results_filename,
-            ft,
-            msk,
-        )
-        logger.info(f"Running command to fix ACLs: {setfacl_command}")
-        result = subprocess.run(
-            [
-                setfacl_command,
-            ],
-            cwd=working_directory,
-            shell=True,
-        )
-        if not result.returncode:
-            logger.info(f"Resetting ALC mask to {msk} in {results_filename}")
-        else:
-            logger.error(f"Failed to reset ALC mask to {msk} in {results_filename}")
+    fix_acl_mask(working_directory, results_filename, logger)
 
     minio_client.remove_object(bucket_name, s3echo_filename)
     os.remove(working_directory / s3echo_filename)

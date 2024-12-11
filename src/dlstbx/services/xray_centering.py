@@ -177,7 +177,19 @@ class DLSXRayCentering(CommonService):
                     del self._centering_data[dcid]
 
     def add_pia_result(self, rw, header, message):
-        """Process incoming PIA result."""
+        """Process incoming PIA result.
+
+        This is invoked repeatedly as each image in the gridscan comes through.
+
+        Recipe Step Inputs:
+            gridinfo: This is the ISPyB DataCollectionGridInfo for the DataCollection
+            parameters: Other parameters in the recipe - see the relevant per-image-analysis-xxx.json
+        Args:
+            rw: an instance of RecipeWrapper
+            header: The message header
+            message: A dict which decodes to an instance of Message
+
+        """
 
         try:
             recipe_step = RecipeStep(**rw.recipe_step)

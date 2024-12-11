@@ -315,3 +315,58 @@ def test_single_connected_region(data, reflections_in_best_image):
     )
     assert result.centre_x == result.centre_x_box == 5
     assert result.centre_y == result.centre_y_box == 5
+
+
+EXPECTED_OUTPUT_COL_MAJOR = (np.array([
+    [1, 5, 9],
+    [2, 6, 10],
+    [3, 7, 11],
+    [4, 8, 12]
+]))
+
+GRID_INPUT_ROW_MAJOR_SNAKED_L_TO_R_FIRST = (np.array([
+    1, 2, 3, 4,
+    8, 7, 6, 5,
+    9, 10, 11, 12,
+]))
+GRID_INPUT_ROW_MAJOR_SNAKED_R_TO_L_FIRST = (np.array([
+    4, 3, 2, 1,
+    5, 6, 7, 8,
+    12, 11, 10, 9,
+]))
+GRID_INPUT_ROW_MAJOR_NOT_SNAKED_L_TO_R = (np.array([
+    1, 2, 3, 4,
+    5, 6, 7, 8,
+    9, 10, 11, 12,
+]))
+GRID_INPUT_COL_MAJOR_NOT_SNAKED = (np.array([
+    1, 5, 9,
+    2, 6, 10,
+    3, 7, 11,
+    4, 8, 12
+]))
+GRID_INPUT_COL_MAJOR_SNAKED_T_TO_B_FIRST = (np.array([
+    1, 5, 9,
+    10, 6, 2,
+    3, 7, 11,
+    12, 8, 4
+ ]))
+
+@pytest.mark.parametrize("data_in, expected_data, steps, snaked, orientation",
+                         [
+                             [GRID_INPUT_ROW_MAJOR_SNAKED_L_TO_R_FIRST, EXPECTED_OUTPUT_COL_MAJOR, (4, 3), True, dlstbx.util.xray_centering.Orientation.HORIZONTAL],
+                             [GRID_INPUT_ROW_MAJOR_NOT_SNAKED_L_TO_R, EXPECTED_OUTPUT_COL_MAJOR, (4, 3), False, 
+                              dlstbx.util.xray_centering.Orientation.HORIZONTAL],
+                             [GRID_INPUT_ROW_MAJOR_SNAKED_R_TO_L_FIRST, EXPECTED_OUTPUT_COL_MAJOR, (4, 3), True, 
+                             dlstbx.util.xray_centering.Orientation.HORIZONTAL],
+                             [GRID_INPUT_COL_MAJOR_NOT_SNAKED, EXPECTED_OUTPUT_COL_MAJOR, (4, 3), False,
+                             dlstbx.util.xray_centering.Orientation.VERTICAL],
+                             [GRID_INPUT_COL_MAJOR_SNAKED_T_TO_B_FIRST, EXPECTED_OUTPUT_COL_MAJOR, (4, 3), True,
+                             dlstbx.util.xray_centering.Orientation.VERTICAL],
+                          ]
+                         )
+def test_reshape_grid(
+        data_in, expected_data, steps, snaked, orientation
+):
+    data_out = dlstbx.util.xray_centering.reshape_grid(data_in, steps, snaked=snaked, orientation=orientation)
+    assert np.all(data_out == expected_data), f"{data_out} != {expected_data}"

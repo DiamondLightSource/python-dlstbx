@@ -17,6 +17,24 @@ Coordinate = tuple[int, int, int]
 
 
 class GridScan3DResult(GridScanResultBase):
+    """
+        Represents a single gridscan result, corresponding to a diffracting centre.
+
+        Coordinates expressed are in terms of grid boxes, with the centre of the box
+        lying on half-integer coordinates.
+
+        Attributes:
+             centre_of_mass: The position of the centre of mass of the crystal, for a
+             crystal of size (1, 1, 1) this will be on half-integer coordinates
+             max_voxel: Position of the centre of the maximum voxel
+             max_count: max count achieved in a single voxel for the crystal
+             n_voxels: Number of voxels in the diffracting centre
+             total_count: Total of above-threshold spot counts in the labelled voxels
+             bounding_box: The rectangular prism that bounds the crystal, expressed
+                as the volume of whole boxes as a half-open range i.e such that
+                p1 = (x1, y1, z1) <= p < p2 = (x2, y2, z2) and
+                p2 - p1 gives the dimensions in whole voxels.
+    """
     centre_of_mass: Tuple[float, ...]
     max_voxel: Tuple[int, ...]
     max_count: float

@@ -26,7 +26,7 @@ class GridScan3DResult(GridScanResultBase):
         Attributes:
              centre_of_mass: The position of the centre of mass of the crystal, for a
              crystal of size (1, 1, 1) this will be on half-integer coordinates
-             max_voxel: Position of the centre of the maximum voxel
+             max_voxel: Position of the maximum voxel, on integer coordinates!!!
              max_count: max count achieved in a single voxel for the crystal
              n_voxels: Number of voxels in the diffracting centre
              total_count: Total of above-threshold spot counts in the labelled voxels

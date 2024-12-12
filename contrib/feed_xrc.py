@@ -170,6 +170,8 @@ for i, dc in enumerate(dcs):
         "dcg_dcids": [x.dcid for x in dcs[:i]],
         "experiment_type": "Mesh3D",
         "beamline": "i03",
+        "threshold": 0.05,
+        "threshold_absolute": 5
     }
 
     rw = RecipeWrapper(

@@ -27,7 +27,8 @@ class GridScan3DResult(GridScanResultBase):
 
 def gridscan3d(
     data: tuple[np.ndarray, ...],
-    threshold: float = 0.25,
+    threshold: float = 0.05,
+    threshold_absolute: float = 5,
     plot: bool = False,
 ) -> list[GridScan3DResult]:
     """
@@ -47,6 +48,8 @@ def gridscan3d(
         data: A tuple of spot counts from 2 orthogonal 2D gridscans
         threshold: mask out values less than this fraction of the maximum data value
                    in the reconstructed 3d grid
+        threshold_absolute: mask out values less than this absolute value in the
+                            original grids
         plot: Show interactive debug plots of the grid scan analysis (default=False)
 
     Returns:
@@ -56,6 +59,10 @@ def gridscan3d(
     assert data[0].ndim == 2
     assert data[1].ndim == 2
 
+    # mask out grid scans to reduce impact of noisy pixels / edge effects
+    data[0][data[0] < threshold_absolute] = 0
+    data[1][data[1] < threshold_absolute] = 0
+
     reconstructed_3d = data[0][:, :, np.newaxis] * data[1][:, np.newaxis, :]
     logger.debug(data[0].shape)
     logger.debug(data[1].shape)
@@ -64,6 +71,7 @@ def gridscan3d(
         int(r[0]) for r in np.where(reconstructed_3d == reconstructed_3d.max())
     )
     max_count = int(reconstructed_3d[max_idx])
+
     thresholded = (reconstructed_3d >= threshold * max_count) * reconstructed_3d
     # Count corner-corner contacts as a contiguous region
     structure = np.ones((3, 3, 3))

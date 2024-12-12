@@ -45,7 +45,10 @@ class GridScan2DResult(GridScanResultBase):
 def reshape_grid(
     data: np.ndarray, steps: tuple[int, int], snaked: bool, orientation: Orientation
 ) -> np.ndarray:
-    """Converts the linear array to column major 2D, and unsnake"""
+    """
+    Converts the linear array to column major 2D, and unsnake.
+    NOTE, the current implementation deliberately mutates the input!
+    """
     # Transpose the array if orientation is horizontal
     if orientation == Orientation.VERTICAL:
         data = data.reshape(steps)

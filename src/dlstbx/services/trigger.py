@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import re
 from datetime import datetime, timedelta
 from time import time
 from typing import Any, Dict, List, Literal, Mapping, Optional
@@ -53,9 +54,19 @@ class DimpleParameters(pydantic.BaseModel):
     comment: Optional[str] = None
 
 
+class DataCollectionInfo(pydantic.BaseModel):
+    numberOfImages: Optional[int] = None
+    startImageNumber: Optional[int] = None
+    imagePrefix: Optional[str] = None
+    dataCollectionNumber: Optional[int] = None
+    SESSIONID: Optional[int] = None
+
+
 class MetalIdParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
-    dcids: list[int]
+    dcg_dcids: list[int]
+    related_dcids: List[RelatedDCIDs]
+    dc_info: Optional[DataCollectionInfo] = None
     proc_prog: str
     experiment_type: str
     beamline: str
@@ -541,21 +552,112 @@ class DLSTrigger(CommonService):
         pdb_files = [str(p) for p in pdb_files_or_codes]
         self.log.info("PDB files: %s", ", ".join(pdb_files))
 
-        # Get a list of collections in the data collection group that include and are older than the present dcid
-        dcids = [d for d in parameters.dcids if d <= parameters.dcid]
+        # Look for dcids in checkpointed message
+        dcids = message.get("dcids")
+        if not dcids:
+            self.log.info(
+                f"Metal ID trigger: looking for matching data collection for dcid {parameters.dcid}"
+            )
 
-        # If dcid is not included in the list of dcg_dcids it needs to be added
-        if parameters.dcid not in dcids:
-            dcids.append(parameters.dcid)
+            # I23 specific routine for finding matching data collections
+            if parameters.beamline == "i23":
+                related_dcids = parameters.related_dcids
+                if not len(related_dcids):
+                    self.log.info(
+                        f"Skipping metal id trigger: No related DCIDs for {parameters.dcid}"
+                    )
+                    return {"success": True}
+                for related_dcid_set in related_dcids:
+                    if "sample_id" in related_dcid_set:
+                        dcids = related_dcid_set.get("dcids")
+                    if not dcids:
+                        self.log.info(
+                            f"Skipping metal id trigger: No sample-specific related DCIDs for {parameters.dcid}"
+                        )
+                dc_info = parameters.dc_info
+                if not dc_info:
+                    self.log.info(
+                        f"Skipping metal id trigger: DCID info not provided for DCID {parameters.dcid}"
+                    )
+                    return {"success": True}
+                if any(
+                    getattr(dc_info, field) is None
+                    for field in [
+                        "numberOfImages",
+                        "startImageNumber",
+                        "imagePrefix",
+                        "SESSIONID",
+                    ]
+                ):
+                    self.log.info(
+                        f"Skipping metal id trigger: DCID info missing for DCID {parameters.dcid}"
+                    )
+                    return {"success": True}
 
-        # Only want to trigger metal ID when an above/below pair is present (i.e. every other data collection)
-        if len(dcids) % 2:
-            self.log.info("Skipping metal id trigger: Need even number of dcids")
-            return {"success": True}
+                if match := re.search(r"E(\d+)$", str(dc_info.imagePrefix)):
+                    energy_num = int(match.group(1))
+                else:
+                    self.log.info(
+                        "Skipping metal id trigger: Image prefix does not end with E# where # is an integer"
+                    )
 
-        # Get just the most recent two dcids
-        dcids = sorted(dcids)[-2::]
-        self.log.info(f"Metal ID trigger: found dcids {dcids}")
+                query = (
+                    (session.query(DataCollection))
+                    .filter(DataCollection.dataCollectionId.in_(dcids))
+                    .filter(DataCollection.numberOfImages == dc_info.numberOfImages)
+                    .filter(DataCollection.startImageNumber == dc_info.startImageNumber)
+                    .filter(DataCollection.imagePrefix.endswith(f"E{energy_num-1}"))
+                    .filter(DataCollection.SESSIONID == dc_info.SESSIONID)
+                )
+                if not len(query.all()):
+                    self.log.info(
+                        "Skipping metal id trigger: No matching data collections found"
+                    )
+                    return {"success": True}
+                elif len(query.all()) == 1:
+                    dcid_2 = [query[0].dataCollectionId]
+                else:
+                    self.log.info(
+                        "Metal ID trigger: found multiple matching data collections - looking for matching data collection number"
+                    )
+                    query = query.filter(
+                        DataCollection.dataCollectionNumber
+                        == dc_info.dataCollectionNumber
+                    )
+                    if not len(query.all()):
+                        self.log.info(
+                            "Skipping metal id trigger: No matching data collection number found"
+                        )
+                        return {"success": True}
+                    elif len(query.all()) == 1:
+                        dcid_2 = [query[0].dataCollectionId]
+                    elif len(query.all() > 1):
+                        self.log.info(
+                            "Metal ID trigger - found multiple matching data collections with matching data collection number, picking most recent"
+                        )
+                        sorted_query = sorted(
+                            query, key=lambda q: (q.dataCollectionId), reverse=True
+                        )
+                        dcid_2 = [sorted_query[0].dataCollectionId]
+                dcids = [parameters.dcid, dcid_2]
+            else:
+                # Get a list of collections in the data collection group that include and are older than the present dcid
+                dcids = parameters.dcg_dcids
+                # If dcid is not included in the list of dcg_dcids it needs to be added
+                if parameters.dcid not in dcids:
+                    dcids.append(parameters.dcid)
+
+                # Only want to trigger metal ID when an above/below pair is present (i.e. every other data collection)
+                if len(dcids) % 2:
+                    self.log.info(
+                        "Skipping metal id trigger: Need even number of dcids"
+                    )
+                    return {"success": True}
+
+                # Get just the most recent two dcids
+                dcids = sorted(dcids)[-2::]
+
+            self.log.info(f"Metal ID trigger: found dcids {dcids}")
 
         proc_prog = parameters.proc_prog
 
@@ -632,7 +734,7 @@ class DLSTrigger(CommonService):
             )
             ntry += 1
             rw.checkpoint(
-                {"start_time": start_time, "ntry": ntry},
+                {"start_time": start_time, "ntry": ntry, "dcids": dcids},
                 delay=delay * 60,
                 transaction=transaction,
             )

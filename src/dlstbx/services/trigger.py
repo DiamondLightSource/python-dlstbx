@@ -64,11 +64,17 @@ class DataCollectionInfo(pydantic.BaseModel):
     SESSIONID: Optional[int] = None
 
 
+class RelatedDCIDs(pydantic.BaseModel):
+    dcids: List[int]
+    sample_id: Optional[int] = pydantic.Field(gt=0)
+    sample_group_id: Optional[int] = pydantic.Field(gt=0)
+
+
 class MetalIdParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     dcg_dcids: list[int]
-    related_dcids: List[RelatedDCIDs]
-    dc_info: Optional[DataCollectionInfo] = None
+    related_dcids: list[RelatedDCIDs]
+    dc_info: DataCollectionInfo
     proc_prog: str
     experiment_type: str
     beamline: str
@@ -187,12 +193,6 @@ class BestParameters(pydantic.BaseModel):
     data: pathlib.Path
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-
-
-class RelatedDCIDs(pydantic.BaseModel):
-    dcids: List[int]
-    sample_id: Optional[int] = pydantic.Field(gt=0)
-    sample_group_id: Optional[int] = pydantic.Field(gt=0)
 
 
 class MultiplexParameters(pydantic.BaseModel):
@@ -574,6 +574,21 @@ class DLSTrigger(CommonService):
             )
 
             # I23 specific routine for finding matching data collections
+            """
+            For metal ID experiments, I23 take a series of data collections where the image prefix
+            ends in E#, where # is an integer assigned to each different photon energy used in the
+            series of metal ID data collections. This routine looks to find a corresponding data
+            collection at E(#-1) for the same sample in the same visit, to match with the current
+            data collection and run metal ID. This routine also looks for a matching start image
+            number and number of images in the data collections to handle interleaving type
+            experiments. If more than one result comes back, the routine checks for a matching data
+            collection number to handle cases where multiple sweeps have been taken. If more than
+            one match is still found, the most recent one will be used. The expectation is that the
+            same number of sweeps and same collection parameters have been used in all data
+            collections in the series. For interleaving experiments, a consequence of this routine
+            is that metal ID will run for all matching partial data sets but ultimately the metal
+            ID pipeline triggered by the final multiplex pipeline call will be the most useful.
+            """
             if parameters.beamline == "i23":
                 related_dcids = parameters.related_dcids
                 if not len(related_dcids):
@@ -582,12 +597,13 @@ class DLSTrigger(CommonService):
                     )
                     return {"success": True}
                 for related_dcid_set in related_dcids:
-                    if "sample_id" in related_dcid_set:
-                        dcids = related_dcid_set.get("dcids")
-                    if not dcids:
-                        self.log.info(
-                            f"Skipping metal id trigger: No sample-specific related DCIDs for {parameters.dcid}"
-                        )
+                    if related_dcid_set.sample_id:
+                        dcids = related_dcid_set.dcids
+                if not dcids:
+                    self.log.info(
+                        f"Skipping metal id trigger: No sample-specific related DCIDs for {parameters.dcid}"
+                    )
+                    return {"success": True}
                 dc_info = parameters.dc_info
                 if not dc_info:
                     self.log.info(
@@ -614,6 +630,11 @@ class DLSTrigger(CommonService):
                     self.log.info(
                         "Skipping metal id trigger: Image prefix does not end with E# where # is an integer"
                     )
+                    return {"success": True}
+
+                self.log.info(
+                    f"dcids: '{dcids}', number of images: '{dc_info.numberOfImages}', start image: '{dc_info.startImageNumber}', image prefix: '{dc_info.imagePrefix}', session id: '{dc_info.SESSIONID}', energy num: '{energy_num}'"
+                )
 
                 query = (
                     (session.query(DataCollection))
@@ -629,7 +650,7 @@ class DLSTrigger(CommonService):
                     )
                     return {"success": True}
                 elif len(query.all()) == 1:
-                    dcid_2 = [query[0].dataCollectionId]
+                    dcid_2 = query[0].dataCollectionId
                 else:
                     self.log.info(
                         "Metal ID trigger: found multiple matching data collections - looking for matching data collection number"
@@ -644,7 +665,7 @@ class DLSTrigger(CommonService):
                         )
                         return {"success": True}
                     elif len(query.all()) == 1:
-                        dcid_2 = [query[0].dataCollectionId]
+                        dcid_2 = query[0].dataCollectionId
                     elif len(query.all() > 1):
                         self.log.info(
                             "Metal ID trigger - found multiple matching data collections with matching data collection number, picking most recent"
@@ -652,8 +673,8 @@ class DLSTrigger(CommonService):
                         sorted_query = sorted(
                             query, key=lambda q: (q.dataCollectionId), reverse=True
                         )
-                        dcid_2 = [sorted_query[0].dataCollectionId]
-                dcids = [parameters.dcid, dcid_2]
+                        dcid_2 = sorted_query[0].dataCollectionId
+                dcids = [dcid_2, parameters.dcid]
             else:
                 # Get a list of collections in the data collection group that include and are older than the present dcid
                 dcids = parameters.dcg_dcids

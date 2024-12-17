@@ -701,6 +701,7 @@ class DLSTrigger(CommonService):
             "fast_dp": "fast_dp.mtz",
             "xia2 dials": "_free.mtz",
             "xia2 3dii": "_free.mtz",
+            "xia2.multiplex": "scaled.mtz",
             "autoPROC": "truncate-unique.mtz",
             "autoPROC+STARANISO": "staraniso_alldata-unique.mtz",
         }

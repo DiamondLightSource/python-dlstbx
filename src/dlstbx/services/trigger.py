@@ -591,11 +591,7 @@ class DLSTrigger(CommonService):
             """
             if parameters.beamline == "i23":
                 related_dcids = parameters.related_dcids
-                if not len(related_dcids):
-                    self.log.info(
-                        f"Skipping metal id trigger: No related DCIDs for {parameters.dcid}"
-                    )
-                    return {"success": True}
+
                 for related_dcid_set in related_dcids:
                     if related_dcid_set.sample_id:
                         dcids = related_dcid_set.dcids
@@ -604,12 +600,8 @@ class DLSTrigger(CommonService):
                         f"Skipping metal id trigger: No sample-specific related DCIDs for {parameters.dcid}"
                     )
                     return {"success": True}
+
                 dc_info = parameters.dc_info
-                if not dc_info:
-                    self.log.info(
-                        f"Skipping metal id trigger: DCID info not provided for DCID {parameters.dcid}"
-                    )
-                    return {"success": True}
                 if any(
                     getattr(dc_info, field) is None
                     for field in [
@@ -620,7 +612,7 @@ class DLSTrigger(CommonService):
                     ]
                 ):
                     self.log.info(
-                        f"Skipping metal id trigger: DCID info missing for DCID {parameters.dcid}"
+                        f"Skipping metal id trigger: dcid info missing for dcid '{parameters.dcid}'"
                     )
                     return {"success": True}
 
@@ -693,6 +685,7 @@ class DLSTrigger(CommonService):
                 dcids = sorted(dcids)[-2::]
 
             self.log.info(f"Metal ID trigger: found dcids {dcids}")
+            return {"success": True}
 
         proc_prog = parameters.proc_prog
 

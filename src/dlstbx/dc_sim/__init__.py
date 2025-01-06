@@ -621,9 +621,9 @@ def call_sim(
         else:
             proposal = dflt_proposals["mx"]
         if beamline.startswith("i02"):
-            if not dflt_i02_visits.get("beamline"):
+            if not dflt_i02_visits.get(beamline):
                 log.error("Could not determine which destination visit to use")
-                raise ValueError("Could not determine destination visit")
+                raise ValueError("Could not determine the destination visit")
             dest_visit = f"{proposal}-{dflt_i02_visits.get(beamline)}"
             dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
         elif scenario.get("visit_num"):

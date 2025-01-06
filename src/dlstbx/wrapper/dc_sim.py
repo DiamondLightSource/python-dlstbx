@@ -79,6 +79,7 @@ class DCSimWrapper(Wrapper):
             sample_id=params["sample_id"],
             dest_visit=params["visit"],
             dflt_proposals=params["dflt_proposals"],
+            dflt_i02_visits=params["dflt_i02_visits"],
             src_dcid=params["src_dcid"],
             src_allowed_visits=params["src_allowed_visits"],
             is_dcg=is_dcg,

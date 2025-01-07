@@ -12,7 +12,7 @@ from iotbx.bioinformatics import fasta_sequence
 import dlstbx.util.symlink
 from dlstbx.util import iris
 from dlstbx.wrapper import Wrapper
-from dlstbx.wrapper.helpers import copy_results
+from dlstbx.wrapper.helpers import copy_results, fix_acl_mask
 
 
 class MrBUMPWrapper(Wrapper):
@@ -29,9 +29,14 @@ class MrBUMPWrapper(Wrapper):
         mrbump_script = []
 
         if module_params:
-            mrbump_script.extend(["#!/bin/bash", ". /etc/profile.d/modules.sh"])
+            mrbump_script.extend(
+                ["#!/bin/bash", ". /etc/profile.d/modules.sh", "unset LIBTBX_BUILD"]
+            )
             for mdl in module_params:
                 mrbump_script.append(f"module load {mdl}")
+        elif commands := params.get("commands"):
+            mrbump_script.append("#!/bin/bash")
+            mrbump_script.extend(commands)
 
         mrbump_command = ["mrbump"]
 
@@ -234,6 +239,10 @@ class MrBUMPWrapper(Wrapper):
         if not working_directory.is_dir():
             self.log.error(f"Output directory {working_directory} doesn't exist")
             return False
+
+        # ACL mask is already fixed by S3EchoUploader service after retrieving results file from IRIS
+        if not self.recwrap.environment.get("s3_urls"):
+            fix_acl_mask(working_directory.parent, params["create_symlink"], self.log)
 
         if params.get("results_directory"):
             results_directory = Path(params["results_directory"]) / params.get(

@@ -515,6 +515,28 @@ class autoPROCWrapper(Wrapper):
             input_image_directory=input_image_directory,
         )
 
+        # Check if we have extra commands specified in recipe to setup running environment
+        if commands := params.get("commands", []):
+            autoproc_script = (
+                [
+                    "#!/bin/bash",
+                ]
+                + commands
+                + [
+                    " ".join(command),
+                ]
+            )
+            try:
+                autoproc_filename = working_directory / "run_autoPROC.sh"
+                with open(autoproc_filename, "w") as fp:
+                    fp.write("\n".join(autoproc_script))
+            except OSError:
+                self.log.exception(
+                    f"Could not create autoPROC script file in the working directory {working_directory}"
+                )
+                return False
+            command = ["sh", f"{working_directory}/run_autoPROC.sh"]
+
         # disable control sequence parameters from autoPROC output
         # https://www.globalphasing.com/autoproc/wiki/index.cgi?RunningAutoProcAtSynchrotrons#settings
         self.log.info("command: %s", " ".join(command))

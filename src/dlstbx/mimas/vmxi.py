@@ -72,7 +72,7 @@ def handle_vmxi_rotation_scan(
         mimas.MimasISPyBJobInvocation(
             DCID=scenario.DCID,
             autostart=scenario.preferred_processing == "xia2/DIALS",
-            recipe="autoprocessing-xia2-dials-eiger",
+            recipe="autoprocessing-xia2-dials-eiger-vmxi",
             source="automatic",
             displayname="xia2 dials",
             parameters=(

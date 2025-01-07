@@ -10,6 +10,7 @@ import os
 import pathlib
 import re
 import uuid
+from pathlib import Path
 from typing import Any, Optional, Tuple, Union
 
 import gemmi
@@ -71,9 +72,6 @@ def setup_marshmallow_schema(session):
                 },
             )
             setattr(class_, "__marshmallow__", schema_class)
-
-
-re_visit_base = re.compile(r"^(.*\/([a-z][a-z][0-9]+-[0-9]+))\/")
 
 
 class ispybtbx:
@@ -293,6 +291,14 @@ class ispybtbx:
                 f"dcids defined via BLSample for {sample_id=}: {related_dcids}"
             )
             return related_dcids
+
+    def get_sample_smiles(self, sample_id, session: sqlalchemy.orm.session.Session):
+        if not sample_id:
+            return None
+        sample = crud.get_blsample(sample_id, session)
+        if not sample:
+            return None
+        return sample.SMILES
 
     def get_related_dcids_same_directory(
         self, dcid: int, session: sqlalchemy.orm.session.Session
@@ -657,26 +663,34 @@ class ispybtbx:
         }
 
     @staticmethod
-    def get_visit_directory_from_image_directory(directory):
+    def get_visit_directory_from_image_directory(
+        directory: str | Path | None,
+    ) -> str | None:
         """/dls/${beamline}/data/${year}/${visit}/...
         -> /dls/${beamline}/data/${year}/${visit}"""
         if not directory:
             return None
-        visit_base = re_visit_base.search(directory)
-        if not visit_base:
+        directory = Path(directory)
+        if not directory.is_absolute():
+            raise ValueError("Got relative directory instead of absolute")
+        if len(directory.parts) < 6:
             return None
-        return visit_base.group(1)
+        if len(directory.parts) == 6:
+            return str(directory)
+        return str(directory.parents[-6])
 
     @staticmethod
-    def get_visit_from_image_directory(directory):
+    def get_visit_from_image_directory(directory: str | Path | None) -> str | None:
         """/dls/${beamline}/data/${year}/${visit}/...
         -> ${visit}"""
         if not directory:
             return None
-        visit_base = re_visit_base.search(directory)
-        if not visit_base:
+        directory = Path(directory)
+        if not directory.is_absolute():
+            raise ValueError("Got relative directory instead of absolute")
+        if len(directory.parts) < 6:
             return None
-        return visit_base.group(2)
+        return directory.parts[5]
 
     def dc_info_to_working_directory(self, dc_info):
         directory = dc_info.get("imageDirectory")
@@ -786,6 +800,7 @@ def ispyb_filter(
     parameters["ispyb_energy_scan_info"] = energy_scan_info
     start, end = i.dc_info_to_start_end(dc_info)
     sample_id = parameters["ispyb_dc_info"].get("BLSAMPLEID")
+    parameters["ispyb_smiles"] = i.get_sample_smiles(sample_id, session)
     priority_processing = crud.get_priority_processing_for_sample_id(sample_id, session)
     if not priority_processing:
         priority_processing = "xia2/DIALS"

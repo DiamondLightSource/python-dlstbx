@@ -193,6 +193,7 @@ class ScaleitWrapper(Wrapper):
             f"LABIN FILE 2 E1={col_labs['F_nat']} E2={col_labs['SIGF_nat']}",
             f"LABIN FILE 1 {' '.join(labin_der)}",
             "LABOUT FILE 2 E1=Fscale E2 = SIGFscale",
+            "DNAME FILE_NUMBER 2 ALL=refData",
             "SYSAB_KEEP",
             "END",
             "END-CAD",

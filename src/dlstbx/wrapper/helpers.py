@@ -68,3 +68,27 @@ def copy_results(working_directory, results_directory, skip_copy, uuid, logger):
             subprocess.call([sed_command], shell=True)
         except Exception:
             logger.warning("Failed to run sed command to update paths", exc_info=True)
+
+
+def fix_acl_mask(subprocess_directory, results_directory, logger):
+    # Fix ACL mask for files extracted from .tar archive
+    # Using m:rwX resets mask for files as well, unclear why.
+    # Hence, running find to apply mask to files and directories separately
+    for ft, msk in (("d", "m:rwx"), ("f", "m:rw")):
+        setfacl_command = r"find %s -type %s -exec setfacl -m %s '{}' ';'" % (
+            results_directory,
+            ft,
+            msk,
+        )
+        logger.info(f"Running command to fix ACLs: {setfacl_command}")
+        result = subprocess.run(
+            [
+                setfacl_command,
+            ],
+            cwd=subprocess_directory,
+            shell=True,
+        )
+        if not result.returncode:
+            logger.info(f"Resetting ALC mask to {msk} in {results_directory}")
+        else:
+            logger.error(f"Failed to reset ALC mask to {msk} in {results_directory}")

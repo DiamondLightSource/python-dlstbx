@@ -14,9 +14,11 @@ import sqlalchemy.engine
 import sqlalchemy.orm
 import workflows.recipe
 from ispyb.sqlalchemy import (
+    AutoProc,
     AutoProcIntegration,
     AutoProcProgram,
     AutoProcProgramAttachment,
+    AutoProcScaling,
     BLSession,
     DataCollection,
     ProcessingJob,
@@ -28,6 +30,7 @@ from sqlalchemy.orm import Load, contains_eager, joinedload
 from workflows.recipe.wrapper import RecipeWrapper
 from workflows.services.common_service import CommonService
 
+import dlstbx.ispybtbx
 from dlstbx.util import ChainMapWithReplacement
 from dlstbx.util.pdb import PDBFileOrCode, trim_pdb_bfactors
 from dlstbx.util.prometheus_metrics import BasePrometheusMetrics, NoMetrics
@@ -57,6 +60,7 @@ class MetalIdParameters(pydantic.BaseModel):
     dcids: list[int]
     proc_prog: str
     experiment_type: str
+    scaling_id: int = pydantic.Field(gt=0)
     pdb: list[PDBFileOrCode]
     energy_min_diff: float = pydantic.Field(default=10, gt=0)
     timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
@@ -79,6 +83,7 @@ class MrBumpParameters(pydantic.BaseModel):
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
+    recipe: Optional[str] = None
 
 
 class DiffractionPlanInfo(pydantic.BaseModel):
@@ -125,6 +130,7 @@ class BigEPParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     spacegroup: Optional[str] = None
+    recipe: Optional[str] = None
 
     @pydantic.field_validator("spacegroup")
     def is_spacegroup_null(cls, v):
@@ -149,6 +155,7 @@ class BigEPLauncherParameters(pydantic.BaseModel):
     )
     automatic: Optional[bool] = False
     comment: Optional[str] = None
+    recipe: Optional[str] = None
 
 
 class FastEPParameters(pydantic.BaseModel):
@@ -159,6 +166,7 @@ class FastEPParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     comment: Optional[str] = None
     mtz: pathlib.Path
+    recipe: Optional[str] = None
 
 
 class BestParameters(pydantic.BaseModel):
@@ -178,6 +186,7 @@ class RelatedDCIDs(pydantic.BaseModel):
 class MultiplexParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
+    program_id: Optional[int] = pydantic.Field(default=0, gt=0)
     wavelength: Optional[float] = pydantic.Field(gt=0)
     spacegroup: Optional[str] = None
     automatic: Optional[bool] = False
@@ -188,6 +197,7 @@ class MultiplexParameters(pydantic.BaseModel):
     wavelength_tolerance: float = pydantic.Field(default=1e-4, ge=0)
     diffraction_plan_info: Optional[DiffractionPlanInfo] = None
     recipe: Optional[str] = None
+    use_clustering: Optional[List[str]] = None
 
 
 class Xia2SsxReduceParameters(pydantic.BaseModel):
@@ -214,6 +224,17 @@ class ShelxtParameters(pydantic.BaseModel):
     automatic: Optional[bool] = False
     scaling_id: int = pydantic.Field(gt=0)
     comment: Optional[str] = None
+
+
+class LigandFitParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    pdb: pathlib.Path
+    mtz: pathlib.Path
+    pipeline: str
+    smiles: str
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    scaling_id: list[int]
 
 
 class DLSTrigger(CommonService):
@@ -256,8 +277,6 @@ class DLSTrigger(CommonService):
             self.log.error("No trigger target defined in recipe")
             rw.transport.nack(header)
             return
-        if "big_ep_launcher" in target:
-            target = "big_ep_launcher"
         if not hasattr(self, "trigger_" + target):
             self.log.error("Unknown target %s defined in recipe", target)
             rw.transport.nack(header)
@@ -466,6 +485,7 @@ class DLSTrigger(CommonService):
         i.e. "{ispyb_dcg_experiment_type}"
         - comment: a comment to be stored in the ProcessingJob.comment field
         - automatic: boolean value passed to ProcessingJob.automatic field
+        - scaling_id: autoProcScalingId that the metal_id results should be linked to
         - pdb: list of pdb files or codes provided in the pdb_files_or_codes_format,
         where each pdb file or code is provided as a dict with keys of "filepath",
         "code" and "source". Set the filepath or code and set the other values to null.
@@ -487,6 +507,7 @@ class DLSTrigger(CommonService):
             "proc_prog": "xia2 dials",
             "comment": "Metal_ID triggered by xia2 dials",
             "automatic": true,
+            "scaling_id": 654321,
             "pdb": [
                 {
                     "filepath": "/path/to/file.pdb",
@@ -685,6 +706,7 @@ class DLSTrigger(CommonService):
         metal_id_parameters: dict[str, list[Any]] = {
             "dcids": dcids,
             "data": [mtz_file_below, mtz_file_above],
+            "scaling_id": [parameters.scaling_id],
             "pdb": pdb_files,
         }
 
@@ -1034,7 +1056,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "fast_ep"
-        jp["recipe"] = "postprocessing-fast-ep-cloud"
+        jp["recipe"] = parameters.recipe or "postprocessing-fast-ep"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"fast_ep trigger: generated JobID {jobid}")
 
@@ -1100,7 +1122,7 @@ class DLSTrigger(CommonService):
             jp["comments"] = parameters.comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "MrBUMP"
-            jp["recipe"] = "postprocessing-mrbump-cloud"
+            jp["recipe"] = parameters.recipe or "postprocessing-mrbump"
             jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
             jobids.append(jobid)
             self.log.debug(f"mrbump trigger: generated JobID {jobid}")
@@ -1178,23 +1200,12 @@ class DLSTrigger(CommonService):
             self.log.info(f"Skipping big_ep trigger for {proposal.proposalCode} visit")
             return {"success": True}
 
-        params = rw.recipe_step.get("parameters", {})
-        target = params.get("target")
-
         jp = self.ispyb.mx_processing.get_job_params()
         jp["automatic"] = parameters.automatic
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
         jp["display_name"] = parameters.pipeline
-        if target == "big_ep_launcher":
-            jp["recipe"] = "postprocessing-big-ep-launcher"
-        elif target == "big_ep_launcher_cloud":
-            jp["recipe"] = "postprocessing-big-ep-launcher-cloud"
-        else:
-            self.log.error(
-                f"big_ep_launcher trigger failed: Invalid target specified {target}"
-            )
-            return False
+        jp["recipe"] = parameters.recipe or "postprocessing-big-ep-launcher"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep_launcher trigger: generated JobID {jobid}")
 
@@ -1220,7 +1231,7 @@ class DLSTrigger(CommonService):
             jpp["parameter_key"] = key
             jpp["parameter_value"] = value
             jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
-            self.log.debug(f"big_ep_cloud trigger: generated JobParameterID {jppid}")
+            self.log.debug(f"big_ep_launcher trigger: generated JobParameterID {jppid}")
 
         self.log.debug(f"big_ep_launcher trigger: Processing job {jobid} created")
 
@@ -1330,7 +1341,7 @@ class DLSTrigger(CommonService):
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = dcid
         jp["display_name"] = "big_ep"
-        jp["recipe"] = "postprocessing-big-ep-cloud"
+        jp["recipe"] = parameters.recipe or "postprocessing-big-ep"
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"big_ep trigger: generated JobID {jobid}")
 
@@ -1405,6 +1416,12 @@ class DLSTrigger(CommonService):
         will be created, and the resulting list of processingJobIds will be sent to
         the `processing_recipe` queue.
 
+        If clustering algorithm is enabled, skip triggering multiplex if new related dcid
+        values are added into all defined sample groups to run multiplex only once when
+        all samples in one of the groups have been collected. When running multiplex
+        only include results from datasets collected prior to the current one in all
+        sample groups.
+
         Recipe parameters:
         - target: set this to "multiplex"
         - dcid: the dataCollectionId for the given data collection
@@ -1449,6 +1466,8 @@ class DLSTrigger(CommonService):
         }
         """
         dcid = parameters.dcid
+        program_id = parameters.program_id
+        parameters.recipe = "postprocessing-xia2-multiplex"
 
         # Take related dcids from recipe in preference or checkpointed message
         if isinstance(related_dcid_group := message.get("related_dcid_group"), list):
@@ -1464,6 +1483,53 @@ class DLSTrigger(CommonService):
             return {"success": True}
 
         self.log.debug(f"related_dcids for dcid={dcid}: {related_dcids}")
+        # Check if we have any new data collections added to any sample group
+        # to decide if we need to processed triggering multiplex.
+        # Run multiplex only once when processing for all samples in the group have been collected.
+        if parameters.use_clustering and parameters.program_id:
+            # Get currnent list of data collections for all samples in the sample groups
+            _, ispyb_info = dlstbx.ispybtbx.ispyb_filter(
+                {}, {"ispyb_dcid": dcid}, session
+            )
+            ispyb_related_dcids = ispyb_info.get("ispyb_related_dcids", [])
+            beamline = ispyb_info.get("ispyb_beamline", "")
+            visit = ispyb_info.get("ispyb_visit", "")
+            if beamline in parameters.use_clustering or any(
+                el in visit for el in parameters.use_clustering
+            ):
+                parameters.recipe = "postprocessing-xia2-multiplex-clustering"
+                # If we have a sample group that doesn't have any new data collections,
+                # proceed with triggering multiplex for all sample groups
+                if all(max(el.get("dcids", [])) > dcid for el in ispyb_related_dcids):
+                    added_dcids = []
+                    for el in ispyb_related_dcids:
+                        added_dcids.extend([d for d in el.get("dcids", []) if d > dcid])
+                    # Check if there are xia2 dials jobs that were triggered on any new
+                    # data collections after current multiplex job was triggered
+                    min_start_time = datetime.now() - timedelta(hours=12)
+                    query = (
+                        (
+                            session.query(
+                                AutoProcProgram, ProcessingJob.dataCollectionId
+                            ).join(
+                                ProcessingJob,
+                                ProcessingJob.processingJobId
+                                == AutoProcProgram.processingJobId,
+                            )
+                        )
+                        .filter(ProcessingJob.dataCollectionId.in_(added_dcids))
+                        .filter(ProcessingJob.automatic == True)  # noqa E712
+                        .filter(AutoProcProgram.processingPrograms == "xia2 dials")
+                        .filter(AutoProcProgram.autoProcProgramId > program_id)  # noqa E711
+                        .filter(AutoProcProgram.recordTimeStamp > min_start_time)  # noqa E711
+                    )
+                    # Abort triggering multiplex if we have xia2 dials running on any subsequent
+                    # data collection in all sample groups
+                    if triggered_processing_job := query.first():
+                        self.log.info(
+                            f"Aborting multiplex trigger for dcid {dcid} as processing job has been started for dcid {triggered_processing_job.dataCollectionId}"
+                        )
+                        return {"success": True}
 
         # Calculate message delay for exponential backoff in case a processing
         # program for a related data collection is still running, in which case
@@ -1668,6 +1734,12 @@ class DLSTrigger(CommonService):
             set_dcids = set(dcids)
             self.log.debug(set_dcids)
             self.log.debug(multiplex_job_dcids)
+            # Check if upstream dials job has succeeded when we run multiplex per data collection
+            if ("clustering" not in parameters.recipe) and (dcid not in set_dcids):
+                self.log.info(
+                    f"Skipping xia2.multiplex trigger: upstream dials job failed for dcid={dcid} group={group}"
+                )
+                continue
             if set_dcids in multiplex_job_dcids:
                 continue
             if dcid in set_dcids and len(set_dcids) == 1:
@@ -1682,7 +1754,7 @@ class DLSTrigger(CommonService):
             jp["comments"] = parameters.comment
             jp["datacollectionid"] = dcid
             jp["display_name"] = "xia2.multiplex"
-            jp["recipe"] = parameters.recipe or "postprocessing-xia2-multiplex"
+            jp["recipe"] = parameters.recipe
             self.log.info(jp)
             jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
             jobids.append(jobid)
@@ -1733,6 +1805,13 @@ class DLSTrigger(CommonService):
                     [
                         ("anomalous", "true"),
                         ("absorption_level", "high"),
+                    ]
+                )
+            if "clustering" in parameters.recipe:
+                job_parameters.extend(
+                    [
+                        ("clustering.method", "coordinate"),
+                        ("clustering.output_clusters", "true"),
                     ]
                 )
             for k, v in job_parameters:
@@ -2170,5 +2249,122 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Shelxt trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    def trigger_ligand_fit(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        parameters: LigandFitParameters,
+        session: sqlalchemy.orm.session.Session,
+        **kwargs,
+    ):
+        """Trigger a ligand fit job for a given data collection.
+
+        Trigger uses the 'final.pdb' and 'final.mtz' files which are output from
+        DIMPLE, and requires a user submitted ligand SMILES code as inputs to
+        the ligand fit pipeline
+
+        Recipe parameters are described below with appropriate ispyb placeholder "{}"
+        values:
+        - target: set this to "ligand_fit"
+        - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
+        - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
+        - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
+        - smiles: ligand SMILES code i.e. "{ispyb_smiles}"
+        - pipeline: the pipeline to be used i.e. "phenix_pipeline"
+        - comment: a comment to be stored in the ProcessingJob.comment field
+        - scaling_id: scaling id of the data reduction pipeline that triggered dimple
+          given as a list as this is how it is presented in the dimple recipe.
+        - automatic: boolean value passed to ProcessingJob.automatic field
+
+        Example recipe parameters:
+        { "target": "ligand_fit",
+            "dcid": 123456,
+            "pdb": "/path/to/pdb",
+            "mtz": "/path/to/mtz"
+            "smiles": "CN(CCC(N)=O)C[C@H]1O[C@H]([C@H](O)[C@@H]1O)n1c(C)nc2c(N)ncnc12"
+            "pipeline": "phenix_pipeline",
+            "automatic": true,
+            "comment": "Ligand_fit triggered by xia2 dials",
+            "scaling_id": [123456]
+
+        }
+        """
+        if parameters.smiles == "None":
+            self.log.info(
+                f"Skipping ligand fit trigger: DCID {parameters.dcid} has no associated SMILES string"
+            )
+            return {"success": True}
+
+        if len(parameters.scaling_id) != 1:
+            self.log.info(
+                f"Skipping ligand fit trigger: exactly one scaling id must be provided, {len(parameters.scaling_id)} were given"
+            )
+            return {"success": True}
+
+        scaling_id = parameters.scaling_id[0]
+
+        # Get data collection information for all collections in dcids
+        query = (
+            (
+                session.query(AutoProcProgram)
+                .join(
+                    AutoProc,
+                    AutoProcProgram.autoProcProgramId == AutoProc.autoProcProgramId,
+                )
+                .join(
+                    AutoProcScaling,
+                    AutoProc.autoProcId == AutoProcScaling.autoProcId,
+                )
+            )
+            .filter(AutoProcScaling.autoProcScalingId == scaling_id)
+            .one()
+        )
+
+        if query.processingPrograms != "xia2.multiplex":
+            self.log.info(
+                "Skipping ligand_fit trigger: Upstream processing program is not xia2.multiplex."
+            )
+            return {"success": True}
+
+        self.log.debug("Ligand_fit trigger: Starting")
+
+        ligand_fit_parameters = {
+            "dcid": parameters.dcid,
+            "pdb": str(parameters.pdb),
+            "mtz": str(parameters.mtz),
+            "smiles": parameters.smiles,
+            "pipeline": parameters.pipeline,
+        }
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "ligandfit"
+        jp["recipe"] = "postprocessing-ligandfit"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"ligandfit trigger: generated JobID {jobid}")
+
+        for key, value in ligand_fit_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"Ligand_fit trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        self.log.debug(f"Ligand_fit_id trigger: Processing job {jobid} created")
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"Ligand_fit_id trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}

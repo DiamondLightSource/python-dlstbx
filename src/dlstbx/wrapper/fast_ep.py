@@ -169,6 +169,29 @@ class FastEPWrapper(Wrapper):
                     params["fast_ep"]["data"] = params["ispyb_parameters"]["data"]
 
         command = self.construct_commandline(params)
+
+        # Check if we have extra commands specified in recipe to setup running environment
+        if commands := params.get("commands", []):
+            fast_ep_script = (
+                [
+                    "#!/bin/bash",
+                ]
+                + commands
+                + [
+                    " ".join(command),
+                ]
+            )
+            try:
+                fast_ep_filename = working_directory / "run_fast_ep.sh"
+                with open(fast_ep_filename, "w") as fp:
+                    fp.write("\n".join(fast_ep_script))
+            except OSError:
+                self.log.exception(
+                    f"Could not create fast_ep script file in the working directory {working_directory}"
+                )
+                return False
+            command = ["sh", f"{working_directory}/run_fast_ep.sh"]
+
         subprocess_directory = working_directory / params["create_symlink"]
         subprocess_directory.mkdir(parents=True, exist_ok=True)
 
@@ -314,9 +337,17 @@ class FastEPWrapper(Wrapper):
                         working_directory / params["fast_ep"]["xml"]
                     ).read_text()
                     self.log.info("Sending fast_ep phasing results to ISPyB")
-                    xml_file.write_text(
-                        xml_data.replace(str(working_directory), str(results_directory))
-                    )
+                    # Replace tmp run location at DLS and IRIS to processed directory
+                    for replace_path in (
+                        str(
+                            working_directory / params.get("create_symlink", "fast_ep")
+                        ),
+                        f"/tmp/{self.recwrap.environment['ID']}/{params.get('create_symlink', 'fast_ep')}",
+                    ):
+                        xml_data = xml_data.replace(
+                            replace_path, str(results_directory)
+                        )
+                    xml_file.write_text(xml_data)
                     result_ispyb = self.send_results_to_ispyb(xml_file)
                     if not result_ispyb:
                         self.log.error(

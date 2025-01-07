@@ -174,6 +174,28 @@ class Xia2Wrapper(Wrapper):
         )
         self.log.info("command: %s", " ".join(command))
 
+        # Check if we have extra commands specified in recipe to setup running environment
+        if commands := params.get("commands", []):
+            xia2_script = (
+                [
+                    "#!/bin/bash",
+                ]
+                + commands
+                + [
+                    " ".join(command),
+                ]
+            )
+            try:
+                xia2_filename = working_directory / "run_xia2.sh"
+                with open(xia2_filename, "w") as fp:
+                    fp.write("\n".join(xia2_script))
+            except OSError:
+                self.log.exception(
+                    f"Could not create run_xia2.sh script file in the working directory {working_directory}"
+                )
+                return False
+            command = ["sh", f"{working_directory}/run_xia2.sh"]
+
         subprocess_directory = working_directory / params["program_name"]
         subprocess_directory.mkdir(parents=True, exist_ok=True)
 

@@ -878,7 +878,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         )
         return {"success": True, "return_value": mxmrrun.mxMRRunId}
 
-    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def do_insert_metal_id_result(
         self,
         *,

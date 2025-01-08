@@ -10,6 +10,7 @@ import numpy as np
 import prometheus_client
 import pydantic
 import workflows.recipe
+from pydantic import ConfigDict
 from workflows.services.common_service import CommonService
 
 import dlstbx.util.symlink
@@ -36,7 +37,7 @@ class GridInfo(pydantic.BaseModel):
     def image_count(self) -> int:
         return self.steps_x * self.steps_y
 
-    @pydantic.root_validator(pre=True)
+    @pydantic.model_validator(mode="before")
     def handle_legacy_pixels_per_micron(cls, values):
         # The field pixelsPerMicron{X,Y} was renamed to micronsPerPixel{X,Y}
         # to correctly match the units of the value stored therein.
@@ -45,11 +46,12 @@ class GridInfo(pydantic.BaseModel):
         # into the database.
         # See also https://jira.diamond.ac.uk/browse/LIMS-464
         for axis in "XY":
-            if not values.get(f"micronsPerPixel{axis}"):
+            if (
+                values.get(f"micronsPerPixel{axis}") is None
+                and f"pixelsPerMicron{axis}" in values
+            ):
                 values[f"micronsPerPixel{axis}"] = values.get(f"pixelsPerMicron{axis}")
-            assert values[
-                f"micronsPerPixel{axis}"
-            ], f"micronsPerPixel{axis} value is {values[f'micronsPerPixel{axis}']}"
+                del values[f"pixelsPerMicron{axis}"]
         return values
 
 
@@ -84,7 +86,7 @@ class CenteringData(pydantic.BaseModel):
     recipewrapper: workflows.recipe.wrapper.RecipeWrapper
     headers: list = pydantic.Field(default_factory=list)
     last_activity: float = pydantic.Field(default_factory=time.time)
-    last_image_seen_at: pydantic.NonNegativeInt
+    last_image_seen_at: pydantic.PositiveFloat
     data: np.ndarray = None
 
     def __init__(self, **data):
@@ -95,8 +97,7 @@ class CenteringData(pydantic.BaseModel):
     def images_seen(self):
         return len(self.headers)
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class PrometheusMetrics(BasePrometheusMetrics):
@@ -296,7 +297,7 @@ class DLSXRayCentering(CommonService):
                     rw.send_to(
                         "success",
                         {
-                            "results": [r.dict() for r in result],
+                            "results": [r.model_dump() for r in result],
                             "status": "success",
                             "type": "3d",
                         },
@@ -338,7 +339,7 @@ class DLSXRayCentering(CommonService):
                         parameters.output,
                     )
                     parameters.output.parent.mkdir(parents=True, exist_ok=True)
-                    parameters.output.write_text(result.json(sort_keys=True))
+                    parameters.output.write_text(result.model_dump_json())
                     if parameters.results_symlink:
                         # Create symbolic link above working directory
                         dlstbx.util.symlink.create_parent_symlink(
@@ -387,7 +388,11 @@ class DLSXRayCentering(CommonService):
                 rw.set_default_channel("success")
                 rw.send_to(
                     "success",
-                    {"results": [result.dict()], "status": "success", "type": "2d"},
+                    {
+                        "results": [result.model_dump()],
+                        "status": "success",
+                        "type": "2d",
+                    },
                     transaction=txn,
                 )
                 rw.transport.transaction_commit(txn)

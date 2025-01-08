@@ -95,7 +95,7 @@ class DLSPerImageAnalysis(CommonService):
             log_extender=self.extend_log,
         )
 
-    # @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    # @pydantic.validate_call(config=dict(arbitrary_types_allowed=True))
     def per_image_analysis(
         self,
         rw: workflows.recipe.RecipeWrapper,
@@ -179,7 +179,7 @@ class DLSPerImageAnalysis(CommonService):
             return
         runtime = time.time() - start
 
-        results = pia_results.dict()
+        results = pia_results.model_dump()
         # Pass through all file* fields
         for key in (x for x in message if x.startswith("file")):
             results[key] = message[key]

@@ -11,7 +11,7 @@ pika
 pint
 procrunner>=1.0.2
 prometheus_client
-pydantic<2.0
+pydantic>=2.0.3
 pytest
 pytest-mock
 python-jose

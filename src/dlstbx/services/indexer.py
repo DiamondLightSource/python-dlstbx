@@ -16,6 +16,7 @@ from dxtbx.model.experiment_list import (
     ExperimentList,
     ExperimentListFactory,
 )
+from pydantic import ConfigDict
 from workflows.services.common_service import CommonService
 
 from dlstbx.services.per_image_analysis import msgpack_mangle_for_receiving
@@ -25,8 +26,7 @@ UnitCell = tuple[float, float, float, float, float, float]
 
 
 class IndexingPayload(pydantic.BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     experiments: ExperimentList
     reflections: flex.reflection_table
@@ -90,7 +90,7 @@ class DLSIndexer(CommonService):
             mangle_for_receiving=msgpack_mangle_for_receiving,
         )
 
-    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def index(self, rw: workflows.recipe.RecipeWrapper, header: dict, message: dict):
         parameters = ChainMapWithReplacement(
             message if isinstance(message, dict) else {},
@@ -176,7 +176,7 @@ class DLSIndexer(CommonService):
                     ],
                     n_unindexed=idxr.unindexed_reflections.size(),
                 )
-                self.log.info(indexing_result.json(indent=2))
+                self.log.info(indexing_result.model_dump_json(indent=2))
 
             except Exception as e:
                 self.log.debug(f"Indexing failed with message: {e}")
@@ -189,7 +189,7 @@ class DLSIndexer(CommonService):
         txn = rw.transport.transaction_begin(subscription_id=header["subscription"])
         rw.transport.ack(header, transaction=txn)
 
-        result = indexing_result.dict()
+        result = indexing_result.model_dump()
         # Pass through all file* fields
         for key in (x for x in message if x.startswith("file")):
             result[key] = message[key]

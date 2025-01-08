@@ -861,7 +861,7 @@ class DLSISPyB(EM_Mixin, CommonService):
         )
         return {"success": True, "return_value": scalingId}
 
-    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def do_insert_dimple_result(
         self,
         *,
@@ -1435,7 +1435,7 @@ class DLSISPyB(EM_Mixin, CommonService):
             )
             return False
 
-    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def do_insert_xray_centring(
         self,
         *,

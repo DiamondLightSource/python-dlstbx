@@ -13,7 +13,7 @@ from ispyb.sqlalchemy import (
     TiltImageAlignment,
     Tomogram,
 )
-from pydantic import BaseModel, validate_arguments
+from pydantic import BaseModel, validate_call
 
 
 class MovieParams(BaseModel):
@@ -146,7 +146,7 @@ class EM_Mixin:
         else:
             return None
 
-    @validate_arguments(config={"arbitrary_types_allowed": True})
+    @validate_call(config={"arbitrary_types_allowed": True})
     def do_insert_movie(self, *, parameter_map: MovieParams, **kwargs):
         self.log.info("Inserting Movie parameters.")
 

@@ -39,7 +39,7 @@ def test_gridscan3d():
 
     results = dlstbx.util.xray_centering_3d.gridscan3d(data, plot=False)
     assert len(results) == 1
-    result_d = results[0].dict()
+    result_d = results[0].model_dump()
     # check that the results are JSON-serializable
     json.dumps(result_d)
     assert result_d == {

@@ -33,10 +33,12 @@ borken_dcid = 2091234
 def db_session():
     """Yields a SQLAlchemy connection which is rollbacked after the test"""
 
+    try:
+        url = ispyb.sqlalchemy.url()
+    except AttributeError:
+        pytest.skip("No ISPYB_CREDENTIALS or otherwise unspecified URL")
     Session = sessionmaker(
-        bind=sqlalchemy.create_engine(
-            ispyb.sqlalchemy.url(), connect_args={"use_pure": True}
-        )
+        bind=sqlalchemy.create_engine(url, connect_args={"use_pure": True})
     )
     session_ = Session()
     yield session_
@@ -216,7 +218,7 @@ def test_get_datacollection_information_for_em_tiffs(db_session):
     assert working_directory  # == '/dls/m02/data/2021/bi23047-54/tmp/zocalo/raw'
 
 
-def test_datacollection_classification():
+def test_datacollection_classification(db_session):
     i = ispybtbx()
     dc = {
         "axisRange": 0,
@@ -295,7 +297,7 @@ def test_datacollection_classification():
     }
 
 
-def test_get_first_file_of_datacollection():
+def test_get_first_file_of_datacollection(db_session):
     i = ispybtbx()
     dc = {
         "imageDirectory": "dir",
@@ -306,7 +308,7 @@ def test_get_first_file_of_datacollection():
     assert i.dc_info_to_filename(dc) == "dir/file_00030.cbf"
 
 
-def test_get_extent_of_filenames_for_datacollection():
+def test_get_extent_of_filenames_for_datacollection(db_session):
     i = ispybtbx()
     dc = {
         "imageDirectory": "dir",
@@ -443,7 +445,7 @@ ispyb_space_group: P212121
     }
 
 
-def test_get_space_group_and_unit_cell_from_yaml(tmp_path):
+def test_get_space_group_and_unit_cell_from_yaml(tmp_path, db_session):
     foo_yml = tmp_path / "processing" / "foo.yml"
     foo_yml.parent.mkdir()
     foo_yml.write_text(
@@ -464,7 +466,7 @@ ispyb_space_group: P212121
     assert uc == [10, 11, 12, 90, 90, 90]
 
 
-def test_get_space_group_and_unit_cell_from_borken_yaml(tmp_path, caplog):
+def test_get_space_group_and_unit_cell_from_borken_yaml(tmp_path, caplog, db_session):
     ispyb_info = {
         "ispyb_visit_directory": tmp_path,
         "ispyb_image_directory": tmp_path / "foo" / "bar",

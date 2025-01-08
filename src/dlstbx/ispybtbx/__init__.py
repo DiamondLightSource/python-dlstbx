@@ -41,9 +41,12 @@ def _get(obj: Any, name: str):
         return obj.get(name)
 
 
-Session = sessionmaker(
-    bind=sqlalchemy.create_engine(isa.url(), connect_args={"use_pure": True})
-)
+def Session() -> sqlalchemy.orm.session.Session:
+    if (_maker := getattr(Session, "_maker", None)) is None:  # type: ignore
+        Session._maker = sessionmaker(  # type: ignore
+            bind=sqlalchemy.create_engine(isa.url(), connect_args={"use_pure": True})
+        )
+    return Session._maker  # type: ignore
 
 
 def setup_marshmallow_schema(session):

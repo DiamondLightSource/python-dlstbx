@@ -21,11 +21,11 @@ from zocalo.util import slurm
 class JobSubmissionParameters(pydantic.BaseModel):
     scheduler: str = "slurm"
     partition: str = "cs04r"
-    job_name: Optional[str]  #
+    job_name: Optional[str] = None  #
     environment: Optional[dict[str, str]] = None
     cpus_per_task: Optional[int] = None
     tasks: Optional[int] = None  # slurm only
-    nodes: Optional[int]  # slurm only
+    nodes: Optional[int] = None  # slurm only
     memory_per_node: Optional[int] = None  # slurm only
     gpus_per_node: Optional[str] = None  # slurm only
     min_memory_per_cpu: Optional[int] = pydantic.Field(
@@ -34,10 +34,12 @@ class JobSubmissionParameters(pydantic.BaseModel):
     time_limit: Optional[datetime.timedelta] = None
     gpus: Optional[int] = None
     exclusive: bool = False
-    account: Optional[str]  # account in slurm terminology
+    account: Optional[str] = None  # account in slurm terminology
     commands: list[str] | str
-    qos: Optional[str]
-    qsub_submission_parameters: Optional[str]  # temporary support for legacy recipes
+    qos: Optional[str] = None
+    qsub_submission_parameters: Optional[str] = (
+        None  # temporary support for legacy recipes
+    )
 
 
 class JobSubmissionValidationError(ValueError):

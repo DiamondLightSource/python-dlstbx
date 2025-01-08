@@ -46,7 +46,7 @@ def Session() -> sqlalchemy.orm.session.Session:
         Session._maker = sessionmaker(  # type: ignore
             bind=sqlalchemy.create_engine(isa.url(), connect_args={"use_pure": True})
         )
-    return Session._maker  # type: ignore
+    return Session._maker()  # type: ignore
 
 
 def setup_marshmallow_schema(session):

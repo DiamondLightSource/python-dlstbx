@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import os
 import pathlib
 import re
 import shutil
 import subprocess
 from shutil import ignore_patterns
 
+import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
 
@@ -126,6 +128,14 @@ class LigandFitWrapper(Wrapper):
         pipeline_directory = (
             results_directory / "pipeline_1"
         )  # for pipeline = phenix_pipeline only
+
+        if self.params.get("create_symlink"):
+            dlstbx.util.symlink.create_parent_symlink(
+                os.fspath(working_directory), self.params["create_symlink"]
+            )
+            dlstbx.util.symlink.create_parent_symlink(
+                os.fspath(results_directory), self.params["create_symlink"]
+            )
 
         self.log.info("Sending results to ISPyB")
         self.send_attachments_to_ispyb(pipeline_directory)

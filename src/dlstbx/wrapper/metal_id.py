@@ -361,11 +361,11 @@ class MetalIdWrapper(Wrapper):
             self.log.info(f"Added {f.name} as an attachment")
 
         ispyb_results = {
-            "mxmrrun": json.loads(mxmrrun.json()),
-            "blobs": [json.loads(blob.json()) for blob in blobs],
-            "auto_proc_program": json.loads(app.json()),
+            "mxmrrun": json.loads(mxmrrun.model_dump_json()),
+            "blobs": [json.loads(blob.model_dump_json()) for blob in blobs],
+            "auto_proc_program": json.loads(app.model_dump_json()),
             "attachments": [
-                json.loads(attachment.json()) for attachment in attachments
+                json.loads(attachment.model_dump_json()) for attachment in attachments
             ],
         }
 

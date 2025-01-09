@@ -220,7 +220,7 @@ class AlphaFoldParameters(pydantic.BaseModel):
 class ShelxtParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     ins_file_location: pathlib.Path
-    prefix: Optional[str]
+    prefix: Optional[str] = None
     automatic: Optional[bool] = False
     scaling_id: int = pydantic.Field(gt=0)
     comment: Optional[str] = None
@@ -297,7 +297,7 @@ class DLSTrigger(CommonService):
                 result = getattr(self, "trigger_" + target)(
                     rw=rw,
                     header=header,
-                    message=message,
+                    message=message or {},
                     parameters=parameter_map,
                     parameter_map=parameter_map,
                     session=session,
@@ -2252,7 +2252,7 @@ class DLSTrigger(CommonService):
 
         return {"success": True, "return_value": jobid}
 
-    @pydantic.validate_arguments(config={"arbitrary_types_allowed": True})
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
     def trigger_ligand_fit(
         self,
         rw: workflows.recipe.RecipeWrapper,

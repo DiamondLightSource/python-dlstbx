@@ -297,7 +297,7 @@ class DLSTrigger(CommonService):
                 result = getattr(self, "trigger_" + target)(
                     rw=rw,
                     header=header,
-                    message=message if isinstance(message, dict) else {},
+                    message=message or {},
                     parameters=parameter_map,
                     parameter_map=parameter_map,
                     session=session,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import shutil
 import subprocess
 from shutil import ignore_patterns
@@ -11,9 +12,26 @@ from dlstbx.wrapper import Wrapper
 class LigandFitWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.ligand_fit"
 
+    def pull_CC_from_log(self, pipeline_directory):
+        f = pipeline_directory / "pipeline.log"
+        file_read = open(f, "r")
+        text = "Overall CC"
+        lines = file_read.readlines()
+        llist = []
+        for line in lines:
+            if text in line:
+                llist.append(line)
+        file_read.close()
+        mystring = llist[0]
+        CC = re.findall(r"\d+\.\d+", mystring)[0]
+        return CC
+
     def send_attachments_to_ispyb(self, pipeline_directory):
+        CC = self.pull_CC_from_log(pipeline_directory)
+        params = self.recwrap.recipe_step["job_parameters"]
+        min_cc_keep = params.get("min_cc_keep")
         for f in pipeline_directory.iterdir():
-            if f.stem.endswith("final"):
+            if f.stem.endswith("final") and CC >= min_cc_keep:
                 file_type = "Result"
                 importance_rank = 1
             elif f.suffix == ".log":
@@ -56,6 +74,7 @@ class LigandFitWrapper(Wrapper):
             return False
 
         smiles = params.get("smiles")
+        min_cc_keep = params.get("min_cc_keep")
 
         pipeline = params.get("pipeline")
         pipelines = ["phenix_pipeline"]
@@ -73,9 +92,9 @@ class LigandFitWrapper(Wrapper):
             smi_file.write(smiles)
 
         if pipeline == "phenix":
-            phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi"  # ligand={ligand_code}
+            phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi min_ligand_cc_keep={min_cc_keep}"  # ligand={ligand_code}
         elif pipeline == "phenix_pipeline":
-            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi"  # ligand_code={ligand_code}
+            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep}"  # ligand_code={ligand_code}
 
         try:
             result = subprocess.run(
@@ -110,5 +129,12 @@ class LigandFitWrapper(Wrapper):
         self.log.info("Sending results to ISPyB")
         self.send_attachments_to_ispyb(pipeline_directory)
 
-        self.log.info("Ligand_fitting pipeline finished")
-        return True
+        CC = self.pull_CC_from_log(pipeline_directory)
+        if CC >= min_cc_keep:
+            self.log.info("Ligand_fitting pipeline finished successfully")
+            return True
+        else:
+            self.log.info(
+                "Ligand_fitting pipeline finished but ligand fitting did not meet quality threshold"
+            )
+            return False

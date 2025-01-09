@@ -104,6 +104,7 @@ class LigandFitWrapper(Wrapper):
                 text=True,
                 cwd=working_directory,
                 check=True,
+                timeout=params.get("timeout"),
             )
 
         except subprocess.CalledProcessError as e:

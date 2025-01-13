@@ -25,7 +25,7 @@ void setBuildStatus(String message, String state) {
                 -H "Authorization: Bearer ${GITHUB_TOKEN}" \
                 -H "X-GitHub-Api-Version: 2022-11-28" \
                 https://api.github.com/repos/diamondlightsource/python-dlstbx/statuses/${GIT_COMMIT} \
-                -d '{"state":"${state}","target_url":"${BUILD_URL}","context":"Jenkins"}'
+                -d '{"state":"'${state}'","target_url":"'${BUILD_URL}'","context":"Jenkins"}'
 
             '''
         }

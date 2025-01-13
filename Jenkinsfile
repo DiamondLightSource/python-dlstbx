@@ -17,17 +17,16 @@ void setBuildStatus(String message, String state) {
     def GITHUB_API_TOKEN = '623abc16-039e-42f1-b9b7-c2e2ade145aa'
     withCredentials([string(credentialsId: GITHUB_API_TOKEN, variable: 'GITHUB_TOKEN')]) {
         script {
-            sh '''
+            sh """
             set -x
             curl -L \
                 -X POST \
                 -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Authorization: Bearer ${env.GITHUB_TOKEN}" \
                 -H "X-GitHub-Api-Version: 2022-11-28" \
-                https://api.github.com/repos/diamondlightsource/python-dlstbx/statuses/${GIT_COMMIT} \
-                -d '{"state":"'${state}'","target_url":"'${BUILD_URL}'","context":"Jenkins"}'
-
-            '''
+                https://api.github.com/repos/diamondlightsource/python-dlstbx/statuses/${env.GIT_COMMIT} \
+                -d '{"state":"${state}","target_url":"${env.BUILD_URL}","context":"Jenkins"}'
+            """
         }
     }
 }

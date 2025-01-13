@@ -47,10 +47,10 @@ class Payload(pydantic.BaseModel):
     every: int = 1
     spot_count_cutoff: pydantic.NonNegativeInt = 16
     files_expected: Optional[pydantic.NonNegativeInt] = pydantic.Field(
-        alias="files-expected"
+        default=None, alias="files-expected"
     )
     images_expected: Optional[pydantic.NonNegativeInt] = pydantic.Field(
-        alias="images-expected"
+        default=None, alias="images-expected"
     )
     timeout: pydantic.PositiveFloat = 3600
     status: Optional[Status] = None

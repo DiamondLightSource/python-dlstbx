@@ -57,11 +57,10 @@ pipeline {
     buildDiscarder logRotator(daysToKeepStr: '90', numToKeepStr: '90' )
     timeout(activity: true, time: 480, unit: 'SECONDS')
     quietPeriod 0
-    pollSCM ''
   }
 
   triggers {
-    cron 'H H(0-6) * * *'
+    pollSCM ''
   }
 
   stages {

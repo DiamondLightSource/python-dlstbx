@@ -25,7 +25,7 @@ class LigandFitWrapper(Wrapper):
                 llist.append(line)
         file_read.close()
         mystring = llist[0]
-        CC = re.findall(r"\d+\.\d+", mystring)[0]
+        CC = float(re.findall(r"\d+\.\d+", mystring)[0])
         return CC
 
     def send_attachments_to_ispyb(self, pipeline_directory):
@@ -129,12 +129,12 @@ class LigandFitWrapper(Wrapper):
             results_directory / "pipeline_1"
         )  # for pipeline = phenix_pipeline only
 
-        if self.params.get("create_symlink"):
+        if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                os.fspath(working_directory), self.params["create_symlink"]
+                os.fspath(working_directory), params["create_symlink"]
             )
             dlstbx.util.symlink.create_parent_symlink(
-                os.fspath(results_directory), self.params["create_symlink"]
+                os.fspath(results_directory), params["create_symlink"]
             )
 
         self.log.info("Sending results to ISPyB")

@@ -179,15 +179,15 @@ class BestParameters(pydantic.BaseModel):
 
 class RelatedDCIDs(pydantic.BaseModel):
     dcids: List[int]
-    sample_id: Optional[int] = pydantic.Field(gt=0)
-    sample_group_id: Optional[int] = pydantic.Field(gt=0)
+    sample_id: Optional[int] = pydantic.Field(default=None, gt=0)
+    sample_group_id: Optional[int] = pydantic.Field(default=None, gt=0)
 
 
 class MultiplexParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
     program_id: Optional[int] = pydantic.Field(default=0, gt=0)
-    wavelength: Optional[float] = pydantic.Field(gt=0)
+    wavelength: Optional[float] = pydantic.Field(default=None, gt=0)
     spacegroup: Optional[str] = None
     automatic: Optional[bool] = False
     comment: Optional[str] = None
@@ -203,7 +203,7 @@ class MultiplexParameters(pydantic.BaseModel):
 class Xia2SsxReduceParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     related_dcids: List[RelatedDCIDs]
-    wavelength: Optional[float] = pydantic.Field(gt=0)
+    wavelength: Optional[float] = pydantic.Field(default=None, gt=0)
     spacegroup: Optional[str] = None
     automatic: Optional[bool] = False
     comment: Optional[str] = None

@@ -12,7 +12,25 @@
 // Credentials for r/w access to GitHub
 def GITHUB_SSH_CREDENTIALS = '24f690ea-2240-484b-95e4-09c773a8a149'
 // People who are emailed when something goes wrong
-def MAINTAINERS = 'graeme.winter@diamond.ac.uk,nicholas.devenish@diamond.ac.uk,ben.williams@diamond.ac.uk,irakli.sikharulidze@diamond.ac.uk,philip.blowey@diamond.ac.uk'
+def GITHUB_API_TOKEN = '623abc16-039e-42f1-b9b7-c2e2ade145aa'
+
+void setBuildStatus(String message, String state) {
+  withCredentials([string(credentialsId: GITHUB_API_TOKEN, variable: 'GITHUB_TOKEN')]) {
+    script {
+        sh '''
+        set -x
+        curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_API_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/diamondlightsource/python-dlstbx/statuses/${GIT_COMMIT} \
+            -d '{"state":"${state}","target_url":"${env.BUILD_URL}","context":"Jenkins"}'
+
+        '''
+    }
+                    }
+}
 
 /// We need the verbose checkout form to allow references. Do that here.
 void checkoutWithReference(params) {
@@ -28,12 +46,6 @@ void checkoutWithReference(params) {
     )
 }
 
-void sendEmail(params) {
-    emailext mimeType: 'text/html',
-        subject: 'Jenkins ${PROJECT_NAME} build ${BUILD_NUMBER} ${BUILD_STATUS}',
-        to: params.to,
-        body: '${SCRIPT, template="groovy-html.template"}'
-}
 pipeline {
   agent { label "dials-cs04r-sc-serv-131 || dials-builder" }
 
@@ -53,6 +65,11 @@ pipeline {
   }
 
   stages {
+    stage("Start Build") {
+        steps {
+            setBuildStatus("Build complete", "pending");
+        }
+    }
     stage("Build Base Environment") {
         // Run this if we didn't do it today yet
         when {
@@ -189,6 +206,7 @@ pipeline {
       post {
         success {
             archiveArtifacts 'dlstbx.tar.bz2'
+            setBuildStatus("Build complete", "success");
         }
         always {
             junit   allowEmptyResults: true,
@@ -198,10 +216,7 @@ pipeline {
                     testResults: 'tests/output.xml'
         }
         unsuccessful {
-            sendEmail to: MAINTAINERS
-        }
-        fixed {
-            sendEmail to: MAINTAINERS
+            setBuildStatus("Build complete", "failure");
         }
       }
     } // stage

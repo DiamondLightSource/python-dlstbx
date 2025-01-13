@@ -12,24 +12,24 @@
 // Credentials for r/w access to GitHub
 def GITHUB_SSH_CREDENTIALS = '24f690ea-2240-484b-95e4-09c773a8a149'
 // People who are emailed when something goes wrong
-def GITHUB_API_TOKEN = '623abc16-039e-42f1-b9b7-c2e2ade145aa'
 
 void setBuildStatus(String message, String state) {
-  withCredentials([string(credentialsId: GITHUB_API_TOKEN, variable: 'GITHUB_TOKEN')]) {
-    script {
-        sh '''
-        set -x
-        curl -L \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${env.GITHUB_TOKEN}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/diamondlightsource/python-dlstbx/statuses/${GIT_COMMIT} \
-            -d '{"state":"${state}","target_url":"${env.BUILD_URL}","context":"Jenkins"}'
+    def GITHUB_API_TOKEN = '623abc16-039e-42f1-b9b7-c2e2ade145aa'
+    withCredentials([string(credentialsId: GITHUB_API_TOKEN, variable: 'GITHUB_TOKEN')]) {
+        script {
+            sh '''
+            set -x
+            curl -L \
+                -X POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${env.GITHUB_TOKEN}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                https://api.github.com/repos/diamondlightsource/python-dlstbx/statuses/${GIT_COMMIT} \
+                -d '{"state":"${state}","target_url":"${env.BUILD_URL}","context":"Jenkins"}'
 
-        '''
+            '''
+        }
     }
-                    }
 }
 
 /// We need the verbose checkout form to allow references. Do that here.

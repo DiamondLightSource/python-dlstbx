@@ -35,7 +35,7 @@ void setBuildStatus(String message, String state) {
 /// We need the verbose checkout form to allow references. Do that here.
 void checkoutWithReference(params) {
     branch = params.get('branch', 'main')
-    checkout poll: false, scm: scmGit(
+    checkout poll: true, scm: scmGit(
         branches: [[name: "*/${branch}"]],
         extensions: [
             cloneOption(noTags: false, reference: params.reference, shallow: false),
@@ -60,7 +60,6 @@ pipeline {
   }
 
   triggers {
-    upstream upstreamProjects: 'dials_repositories/dials_svn_trigger_dlstbx'
     cron 'H H(0-6) * * *'
   }
 

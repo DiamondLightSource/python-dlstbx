@@ -4,6 +4,7 @@ import itertools
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import time
@@ -268,8 +269,28 @@ class Xia2MultiplexWrapper(Wrapper):
             working_directory / "xia2.multiplex.log",
         ]
 
+        # Record cluster analysis result files for all found clusters
+        cluster_result_files = []
+        for dirpath, _, tmp_files in os.walk(working_directory):
+            for tmp_file in tmp_files:
+                cluster_filename = pathlib.Path(dirpath) / tmp_file
+                if any(
+                    "cluster" in tmp_file
+                    and file_tmpl in tmp_file
+                    and filetype == "result"
+                    for file_tmpl, filetype in keep.items()
+                ):
+                    cluster_result_files.append(cluster_filename)
+                    keep[tmp_file] = "result"
+                elif filetype := keep_ext.get(cluster_filename.suffix):
+                    if re.search(r"\d+_*", tmp_file):
+                        cluster_result_files.append(cluster_filename)
+                        keep[tmp_file] = filetype
+
         allfiles = []
-        for filename in primary_log_files + list(working_directory.iterdir()):
+        for filename in (
+            primary_log_files + list(working_directory.iterdir()) + cluster_result_files
+        ):
             if not filename.is_file():
                 continue  # primary_log_files may not actually exist
             filetype = keep_ext.get(filename.suffix)

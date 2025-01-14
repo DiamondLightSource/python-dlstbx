@@ -27,7 +27,7 @@ class JobSubmissionParameters(pydantic.BaseModel):
     tasks: Optional[int] = None  # slurm only
     nodes: Optional[int] = None  # slurm only
     memory_per_node: Optional[int] = None  # slurm only
-    gpus_per_node: Optional[str] = None  # slurm only
+    gpus_per_node: Optional[int] = None  # slurm only
     min_memory_per_cpu: Optional[int] = pydantic.Field(
         None, description="Minimum real memory per cpu (MB)"
     )

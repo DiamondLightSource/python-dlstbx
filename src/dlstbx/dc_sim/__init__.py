@@ -626,7 +626,6 @@ def call_sim(
             except KeyError:
                 log.error("Could not determine which destination visit to use")
                 raise
-            dest_visit = f"{proposal}-{dflt_i02_visits.get(beamline)}"
             dest_visit_dir = Path("/dls/mx/data", proposal, dest_visit)
         elif scenario.get("visit_num"):
             dest_visit = f"{proposal}-{scenario['visit_num']}"

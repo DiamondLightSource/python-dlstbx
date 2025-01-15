@@ -331,17 +331,13 @@ class FastEPWrapper(Wrapper):
                     )
 
             if "xml" in params["fast_ep"]:
-                xml_file = working_directory / params["fast_ep"]["xml"]
+                xml_file = results_directory / params["fast_ep"]["xml"]
                 if xml_file.is_file():
-                    xml_data = Path(
-                        working_directory / params["fast_ep"]["xml"]
-                    ).read_text()
+                    xml_data = xml_file.read_text()
                     self.log.info("Sending fast_ep phasing results to ISPyB")
                     # Replace tmp run location at DLS and IRIS to processed directory
                     for replace_path in (
-                        str(
-                            working_directory / params.get("create_symlink", "fast_ep")
-                        ),
+                        str(working_directory),
                         f"/tmp/{self.recwrap.environment['ID']}/{params.get('create_symlink', 'fast_ep')}",
                     ):
                         xml_data = xml_data.replace(

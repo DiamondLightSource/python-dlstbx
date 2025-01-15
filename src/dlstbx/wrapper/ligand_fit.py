@@ -94,9 +94,9 @@ class LigandFitWrapper(Wrapper):
             smi_file.write(smiles)
 
         if pipeline == "phenix":
-            phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi min_ligand_cc_keep={min_cc_keep}"  # ligand={ligand_code}
+            phenix_command = f"phenix.ligandfit data={mtz}  model={pdb} ligand=LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"  # ligand={ligand_code}
         elif pipeline == "phenix_pipeline":
-            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep}"  # ligand_code={ligand_code}
+            phenix_command = f"phenix.ligand_pipeline {pdb} {mtz} LIG.smi min_ligand_cc_keep={min_cc_keep} nproc=8"  # ligand_code={ligand_code}
 
         try:
             result = subprocess.run(

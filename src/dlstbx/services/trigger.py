@@ -53,7 +53,7 @@ class DimpleParameters(pydantic.BaseModel):
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    symlink: Optional[str] = "dimple"
+    symlink: str = pydantic.Field(default="dimple")
 
 
 class MetalIdParameters(pydantic.BaseModel):
@@ -416,7 +416,7 @@ class DLSTrigger(CommonService):
                 for cluster_dir in cluster_dirs
             ]
         else:
-            mtz_files_and_symlinks = [(parameters.mtz, str(parameters.symlink))]
+            mtz_files_and_symlinks = [(parameters.mtz, parameters.symlink)]
 
         for mtz_file, symlink in mtz_files_and_symlinks:
             dimple_parameters: dict[str, list[Any]] = {

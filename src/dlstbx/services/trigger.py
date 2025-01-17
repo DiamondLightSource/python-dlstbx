@@ -423,7 +423,7 @@ class DLSTrigger(CommonService):
                 "data": [mtz_file.as_posix()],
                 "scaling_id": [parameters.scaling_id],
                 "pdb": pdb_files,
-                "symlink": [symlink],
+                "create_symlink": [symlink],
             }
 
             jisp = self.ispyb.mx_processing.get_job_image_sweep_params()

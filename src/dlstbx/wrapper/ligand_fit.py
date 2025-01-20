@@ -144,6 +144,6 @@ class LigandFitWrapper(Wrapper):
             return True
         else:
             self.log.info(
-                "Ligand_fitting pipeline finished but ligand fitting did not meet quality threshold"
+                f"Ligand_fitting pipeline finished but ligand fitting CC ({CC}) did not meet quality threshold ({min_cc_keep})"
             )
             return False

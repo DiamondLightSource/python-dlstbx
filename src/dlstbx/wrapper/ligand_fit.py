@@ -28,10 +28,8 @@ class LigandFitWrapper(Wrapper):
         CC = float(re.findall(r"\d+\.\d+", mystring)[0])
         return CC
 
-    def send_attachments_to_ispyb(self, pipeline_directory):
+    def send_attachments_to_ispyb(self, pipeline_directory, min_cc_keep):
         CC = self.pull_CC_from_log(pipeline_directory)
-        params = self.recwrap.recipe_step["job_parameters"]
-        min_cc_keep = params.get("min_cc_keep")
         for f in pipeline_directory.iterdir():
             if f.stem.endswith("final") and CC >= min_cc_keep:
                 file_type = "Result"
@@ -138,7 +136,7 @@ class LigandFitWrapper(Wrapper):
             )
 
         self.log.info("Sending results to ISPyB")
-        self.send_attachments_to_ispyb(pipeline_directory)
+        self.send_attachments_to_ispyb(pipeline_directory, min_cc_keep)
 
         CC = self.pull_CC_from_log(pipeline_directory)
         if CC >= min_cc_keep:

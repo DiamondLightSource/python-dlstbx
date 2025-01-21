@@ -28,6 +28,7 @@ console_scripts = [
     "dlstbx.h5rewrite=dlstbx.cli.h5rewrite:cli",
     "dlstbx.hdf5_missing_frames=dlstbx.cli.hdf5_missing_frames:run",
     "dlstbx.mimas=dlstbx.cli.mimas:run",
+    "dlstbx.mmcif_gen_dls_json=dlstbx.cli.mmcif_gen_dls_json:run",
     "dlstbx.mr_predict_results=dlstbx.cli.mr_predict_results:runmain",
     "dlstbx.pickup=dlstbx.cli.pickup:run",
     "dlstbx.pilatus_settings_check=dlstbx.cli.pilatus_settings_check:run",

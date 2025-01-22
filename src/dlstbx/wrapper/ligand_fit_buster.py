@@ -13,24 +13,23 @@ from dlstbx.wrapper import Wrapper
 class LigandFitBusterWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.ligand_fit_buster"
 
-    def pull_CC_from_log(pipeline_directory):
-        f = pipeline_directory / "Hit_corr.log"
+    def pull_CC_from_log(self, results_directory):
+        f = results_directory / "rhofit" / "Hit_corr.log"
         file_read = open(f, "r")
         lines = file_read.readlines()
         Hit_ccs = []
         for line in lines:
             Hit_ccs.append(float((line.split(" ")[1])))
         file_read.close()
-        CC = Hit_ccs[0]
+        CC = max(Hit_ccs)
         return CC
 
     def send_attachments_to_ispyb(self, results_directory, min_cc_keep):
         CC = self.pull_CC_from_log(results_directory)
         final_results = [
-            "refine.pdb",
-            "refine.mtz",
-            "refine.log",
-            "buster-refine-report.pdf",
+            "BUSTER_model.pdb",
+            "BUSTER_refln.mtz",
+            "report.pdf",
             "buster-refine.log",
         ]
         for f in results_directory.rglob("*"):
@@ -44,9 +43,7 @@ class LigandFitBusterWrapper(Wrapper):
                 continue
             try:
                 result_dict = {
-                    "file_path": str(
-                        results_directory
-                    ),  # might not work as was previously pipeline directory
+                    "file_path": str(f.parents[0]),
                     "file_name": f.name,
                     "file_type": file_type,
                     "importance_rank": importance_rank,
@@ -105,7 +102,7 @@ class LigandFitBusterWrapper(Wrapper):
                     text=True,
                     cwd=working_directory,
                     check=True,
-                    timeout=params.get("timeout") * 60,
+                    timeout=params.get("timeout-minutes") * 60,
                 )
 
             except subprocess.CalledProcessError as e:
@@ -122,6 +119,8 @@ class LigandFitBusterWrapper(Wrapper):
             results_directory,
             dirs_exist_ok=True,
             ignore=ignore_patterns(".*"),
+            symlinks=False,
+            ignore_dangling_symlinks=True,
         )
 
         if params.get("create_symlink"):

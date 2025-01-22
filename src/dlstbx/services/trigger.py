@@ -2405,7 +2405,7 @@ class DLSTrigger(CommonService):
 
         Recipe parameters are described below with appropriate ispyb placeholder "{}"
         values:
-        - target: set this to "ligand_fit-buster"
+        - target: set this to "ligand_fit_buster"
         - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
         - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
         - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
@@ -2419,7 +2419,7 @@ class DLSTrigger(CommonService):
         - automatic: boolean value passed to ProcessingJob.automatic field
 
         Example recipe parameters:
-        { "target": "ligand_fit-buster",
+        { "target": "ligand_fit_buster",
             "dcid": 123456,
             "pdb": "/path/to/pdb",
             "mtz": "/path/to/mtz"
@@ -2428,7 +2428,7 @@ class DLSTrigger(CommonService):
             "comment": "Ligand_fit triggered by xia2 dials",
             "scaling_id": [123456],
             "min_cc_keep": 0.7,
-            "timeout-minutes": 115
+            "timeout-minutes": 90
 
         }
         """

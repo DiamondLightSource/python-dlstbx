@@ -288,6 +288,7 @@ class Xia2MultiplexWrapper(Wrapper):
                         keep[tmp_file] = filetype
 
         allfiles = []
+        mtz_files_for_dimple = []
         for filename in (
             primary_log_files + list(working_directory.iterdir()) + cluster_result_files
         ):
@@ -318,11 +319,16 @@ class Xia2MultiplexWrapper(Wrapper):
                         ),
                     }
                 )
+            if filename.name.endswith("scaled.mtz"):
+                mtz_files_for_dimple.append(filename)
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
         if success:
             self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
+            if mtz_files_for_dimple:
+                dimple_message = {"mtz": mtz_files_for_dimple}
+                self.recwrap.send_to("dimple", dimple_message)
             self._success_counter.inc()
         else:
             self._failure_counter.inc()

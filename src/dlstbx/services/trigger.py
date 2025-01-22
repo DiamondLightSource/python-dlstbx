@@ -4,7 +4,7 @@ import os
 import pathlib
 from datetime import datetime, timedelta
 from time import time
-from typing import Any, Dict, List, Literal, Mapping, Optional
+from typing import Any, Dict, List, Literal, Mapping, Optional, Union
 
 import gemmi
 import ispyb
@@ -49,7 +49,7 @@ class DimpleParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     experiment_type: str
     scaling_id: int = pydantic.Field(gt=0)
-    mtz: pathlib.Path
+    mtz: Union[pathlib.Path, list[pathlib.Path]]
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
@@ -399,31 +399,15 @@ class DLSTrigger(CommonService):
             .one()
         )
         # Check for multiplex clustering results
-        mtz_dir = parameters.mtz.parent
+        mtz = parameters.mtz
+        if isinstance(mtz, pathlib.Path):
+            mtz = [mtz]
 
-        cluster_dirs = [
-            cluster_dir
-            for cluster_dir in mtz_dir.iterdir()
-            if cluster_dir.is_dir()
-            and cluster_dir.name.startswith("coordinate_cluster_")
-        ]
-        if len(cluster_dirs) > 1:
-            mtz_files_and_symlinks = [
-                (
-                    cluster_dir / f"{cluster_dir.name}_scaled.mtz",
-                    f"{parameters.symlink}_{cluster_dir.name}",
-                )
-                for cluster_dir in cluster_dirs
-            ]
-        else:
-            mtz_files_and_symlinks = [(parameters.mtz, parameters.symlink)]
-
-        for mtz_file, symlink in mtz_files_and_symlinks:
+        for mtz_file in mtz:
             dimple_parameters: dict[str, list[Any]] = {
                 "data": [mtz_file.as_posix()],
                 "scaling_id": [parameters.scaling_id],
                 "pdb": pdb_files,
-                "create_symlink": [symlink],
             }
 
             jisp = self.ispyb.mx_processing.get_job_image_sweep_params()

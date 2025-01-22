@@ -5,7 +5,7 @@ import sys
 if sys.version_info < (3, 8):
     import warnings
 
-    warnings.warn("dlstbx requires a Python 3.8+ environment", UserWarning)
+    warnings.warning("dlstbx requires a Python 3.8+ environment", UserWarning)
 
 
 def berkel_me():

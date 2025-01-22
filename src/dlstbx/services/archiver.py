@@ -275,7 +275,7 @@ class DLSArchiver(CommonService):
             self._transport.nack(header)
             return
         if not filelist:
-            self.log.warn("Attempted to archive an empty list of files.")
+            self.log.warning("Attempted to archive an empty list of files.")
             self._transport.nack(header)
             return
         self.log.info(

@@ -332,7 +332,7 @@ class Cluster:
         )
         runtime = time.perf_counter() - runtime
         if runtime > warn_after:
-            log.warn("reading cluster statistics took %.1f seconds", runtime)
+            log.warning("reading cluster statistics took %.1f seconds", runtime)
         else:
             log.debug("reading cluster statistics took %.1f seconds", runtime)
         return result

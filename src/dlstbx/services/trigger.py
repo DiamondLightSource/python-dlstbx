@@ -226,7 +226,7 @@ class ShelxtParameters(pydantic.BaseModel):
     comment: Optional[str] = None
 
 
-class LigandFitParameters(pydantic.BaseModel):
+class LigandFitPhenixParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     pdb: pathlib.Path
     mtz: pathlib.Path
@@ -2267,11 +2267,11 @@ class DLSTrigger(CommonService):
         return {"success": True, "return_value": jobid}
 
     @pydantic.validate_call(config={"arbitrary_types_allowed": True})
-    def trigger_ligand_fit(
+    def trigger_ligand_fit_phenix(
         self,
         rw: workflows.recipe.RecipeWrapper,
         *,
-        parameters: LigandFitParameters,
+        parameters: LigandFitPhenixParameters,
         session: sqlalchemy.orm.session.Session,
         **kwargs,
     ):
@@ -2283,7 +2283,7 @@ class DLSTrigger(CommonService):
 
         Recipe parameters are described below with appropriate ispyb placeholder "{}"
         values:
-        - target: set this to "ligand_fit"
+        - target: set this to "ligand_fit_phenix"
         - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
         - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
         - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
@@ -2298,7 +2298,7 @@ class DLSTrigger(CommonService):
         - automatic: boolean value passed to ProcessingJob.automatic field
 
         Example recipe parameters:
-        { "target": "ligand_fit",
+        { "target": "ligand_fit_phenix",
             "dcid": 123456,
             "pdb": "/path/to/pdb",
             "mtz": "/path/to/mtz"
@@ -2349,7 +2349,7 @@ class DLSTrigger(CommonService):
             )
             return {"success": True}
 
-        self.log.debug("Ligand_fit trigger: Starting")
+        self.log.debug("Ligand_fit_phenix trigger: Starting")
 
         ligand_fit_parameters = {
             "dcid": parameters.dcid,
@@ -2363,8 +2363,8 @@ class DLSTrigger(CommonService):
         jp["automatic"] = parameters.automatic
         jp["comments"] = parameters.comment
         jp["datacollectionid"] = parameters.dcid
-        jp["display_name"] = "ligandfit"
-        jp["recipe"] = "postprocessing-ligandfit"
+        jp["display_name"] = "ligandfit-phenix"
+        jp["recipe"] = "postprocessing-ligandfit-phenix"
         self.log.info(jp)
         jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
         self.log.debug(f"ligandfit trigger: generated JobID {jobid}")

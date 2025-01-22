@@ -11,8 +11,8 @@ import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
 
-class LigandFitWrapper(Wrapper):
-    _logger_name = "dlstbx.wrap.ligand_fit"
+class LigandFitPhenixWrapper(Wrapper):
+    _logger_name = "dlstbx.wrap.ligand_fit_phenix"
 
     def pull_CC_from_log(self, pipeline_directory):
         f = pipeline_directory / "pipeline.log"

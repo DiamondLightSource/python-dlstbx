@@ -53,7 +53,7 @@ class DimpleParameters(pydantic.BaseModel):
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    symlink: str = pydantic.Field(default="dimple")
+    symlinks: Union[str, list[str]] = pydantic.Field(default=[])
 
 
 class MetalIdParameters(pydantic.BaseModel):
@@ -398,16 +398,22 @@ class DLSTrigger(CommonService):
             .filter(DataCollection.dataCollectionId == dcid)
             .one()
         )
-        # Check for multiplex clustering results
+
         mtz = parameters.mtz
         if isinstance(mtz, pathlib.Path):
             mtz = [mtz]
+        symlinks = parameters.symlinks
+        if isinstance(symlinks, str):
+            symlinks = [symlinks]
+        if len(symlinks) < len(mtz):
+            symlinks.extend([""] * (len(mtz) - len(symlinks)))
 
-        for mtz_file in mtz:
+        for mtz_file, symlink in zip(mtz, symlinks):
             dimple_parameters: dict[str, list[Any]] = {
                 "data": [mtz_file.as_posix()],
                 "scaling_id": [parameters.scaling_id],
                 "pdb": pdb_files,
+                "create_symlink": [symlink],
             }
 
             jisp = self.ispyb.mx_processing.get_job_image_sweep_params()

@@ -289,6 +289,7 @@ class Xia2MultiplexWrapper(Wrapper):
 
         allfiles = []
         mtz_files_for_dimple = []
+        dimple_symlinks = []
         for filename in (
             primary_log_files + list(working_directory.iterdir()) + cluster_result_files
         ):
@@ -321,13 +322,23 @@ class Xia2MultiplexWrapper(Wrapper):
                 )
             if filename.name.endswith("scaled.mtz"):
                 mtz_files_for_dimple.append(filename)
+                dimple_symlink = "dimple-xia2.multiplex"
+                # Append cluster_# to the symlink for cluster results.
+                if match := re.search(
+                    r"coordinate_(cluster_\d+)_scaled\.mtz", filename
+                ):
+                    dimple_symlink += match.group(1)
+                dimple_symlinks.append(dimple_symlink)
         if allfiles:
             self.record_result_all_files({"filelist": allfiles})
 
         if success:
             self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
             if mtz_files_for_dimple:
-                dimple_message = {"mtz": mtz_files_for_dimple}
+                dimple_message = {
+                    "mtz": mtz_files_for_dimple,
+                    "symlink": dimple_symlinks,
+                }
                 self.recwrap.send_to("dimple", dimple_message)
             self._success_counter.inc()
         else:

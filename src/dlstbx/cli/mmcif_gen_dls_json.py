@@ -48,6 +48,9 @@ def run():
                     "AVERAGETEMPERATURE"
                 ),
                 DataCollection.wavelength.cast(Float).label("WAVELENGTH"),
+                DataCollectionGroup.experimentType.label(
+                    "PDBX_SERIAL_CRYSTAL_EXPERIMENT"
+                ),  # Used for now only to identify serial data collections
                 Detector.detectorManufacturer.label("DETECTORMANUFACTURER"),
                 Detector.detectorModel.label("DETECTORMODEL"),
                 DataCollection.beamSizeAtSampleX.cast(Float).label("BEAMSIZEATSAMPLEX"),
@@ -75,15 +78,35 @@ def run():
             .one()
         )
         dc_info = dict(dc)
+
+        is_serial = any(
+            ("Serial" in el) or ("SSX" in el)
+            for el in (
+                dc_info["PDBX_DIFFRN_PROTOCOL"],
+                dc_info["PDBX_SERIAL_CRYSTAL_EXPERIMENT"],
+            )
+        )
+        try:
+            beamsize_sample_x = 1000.0 * dc_info["BEAMSIZEATSAMPLEX"]
+        except Exception:
+            beamsize_sample_x = None
+        try:
+            beamsize_sample_y = 1000.0 * dc_info["BEAMSIZEATSAMPLEY"]
+        except Exception:
+            beamsize_sample_y = None
         dc_info.update(
             {
+                "BEAMSIZEATSAMPLEX": beamsize_sample_x,
+                "BEAMSIZEATSAMPLEY": beamsize_sample_y,
                 "PDBX_SOURCE": "SYNCHROTRON",
                 "PDBX_SYNCHROTRON": "DIAMOND",
                 "PDBX_TYPE": "DIAMOND BEAMLINE " + dc_info["BEAMLINENAME"].upper(),
                 "PDBX_DETECTOR": "PIXEL",
-                "PDBX_SCATTERING_TYPE": "X-RAY",
+                "PDBX_SCATTERING_TYPE": "x-ray",
                 "PDBX_MONOCHROMATOR_OR_LAUE_M_L": None,
                 "PDBX_AMBIENT_TEMP": dc_info["AVERAGETEMPERATURE"],
+                "PDBX_DIFFRN_PROTOCOL": None,  # Not fully implemented by data acquisition yet
+                "PDBX_SERIAL_CRYSTAL_EXPERIMENT": "Y" if is_serial else "N",
             }
         )
     results = {

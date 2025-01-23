@@ -65,7 +65,7 @@ class ActiveMQRRD:
             self.log.info("No update required.")
             return
         if not self.api_activemq:
-            self.log.warn("ActiveMQ API not available.")
+            self.log.warning("ActiveMQ API not available.")
             return
 
         self.rrd_activemq.update(

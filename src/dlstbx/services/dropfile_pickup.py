@@ -86,7 +86,7 @@ class DLSDropfilePickup(CommonService):
             pass
 
         if not records:
-            self.log.warn("Statistics service in invalid state")
+            self.log.warning("Statistics service in invalid state")
             return
 
         # Process and acknowledge messages

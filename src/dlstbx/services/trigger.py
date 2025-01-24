@@ -53,7 +53,7 @@ class DimpleParameters(pydantic.BaseModel):
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    symlinks: Union[str, list[str]] = pydantic.Field(default=[])
+    symlinks: Union[str, list[str]] = pydantic.Field(default=[""], alias="symlink")
 
 
 class MetalIdParameters(pydantic.BaseModel):

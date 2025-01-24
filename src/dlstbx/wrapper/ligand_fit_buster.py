@@ -6,6 +6,8 @@ import shutil
 import subprocess
 from shutil import ignore_patterns
 
+from iotbx import pdb
+
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
@@ -24,14 +26,35 @@ class LigandFitBusterWrapper(Wrapper):
         CC = max(Hit_ccs)
         return CC
 
+    def find_ligand_gif(self, results_directory):
+        pdb_file = str(results_directory / "rhofit" / "merged.pdb")
+        pdb_obj = pdb.input(pdb_file)
+        hier = pdb_obj.construct_hierarchy()
+        lig_resnumber = hier.last_resseq_as_int()
+
+        for file in results_directory.rglob(
+            f"*{lig_resnumber}_electrondensity_movie.gif"
+        ):
+            f = pathlib.Path(file)
+            new_name = results_directory / "LIG_electrondensity.gif"
+            f.rename(new_name)
+
     def send_attachments_to_ispyb(self, results_directory, min_cc_keep):
-        CC = self.pull_CC_from_log(results_directory)
+        final_pdb = results_directory / "buster-refine" / "refine.pdb"
+        final_mtz = results_directory / "buster-refine" / "refine.mtz"
+        final_pdb.rename(results_directory / "buster-refine" / "refine_final.pdb")
+        final_mtz.rename(results_directory / "buster-refine" / "refine_final.mtz")
+
         final_results = [
-            "BUSTER_model.pdb",
-            "BUSTER_refln.mtz",
+            "refine_final.pdb",
+            "refine_final.mtz",
             "report.pdf",
+            "LIG_electrondensity.gif",
             "buster-refine.log",
         ]
+
+        CC = self.pull_CC_from_log(results_directory)
+
         for f in results_directory.rglob("*"):
             if f.name in final_results and CC >= min_cc_keep and f.suffix != ".log":
                 file_type = "Result"
@@ -131,6 +154,7 @@ class LigandFitBusterWrapper(Wrapper):
                 os.fspath(results_directory), params["create_symlink"]
             )
 
+        self.find_ligand_gif(results_directory)
         self.log.info("Sending results to ISPyB")
         self.send_attachments_to_ispyb(results_directory, min_cc_keep)
 

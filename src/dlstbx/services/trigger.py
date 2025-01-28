@@ -4,7 +4,7 @@ import os
 import pathlib
 from datetime import datetime, timedelta
 from time import time
-from typing import Any, Dict, List, Literal, Mapping, Optional, Union
+from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import gemmi
 import ispyb
@@ -49,11 +49,11 @@ class DimpleParameters(pydantic.BaseModel):
     dcid: int = pydantic.Field(gt=0)
     experiment_type: str
     scaling_id: int = pydantic.Field(gt=0)
-    mtz: Union[pathlib.Path, list[pathlib.Path]]
+    mtz: pathlib.Path
     pdb: list[PDBFileOrCode]
     automatic: Optional[bool] = False
     comment: Optional[str] = None
-    symlinks: Union[str, list[str]] = pydantic.Field(default=[""], alias="symlink")
+    symlink: str = pydantic.Field(default="")
 
 
 class MetalIdParameters(pydantic.BaseModel):
@@ -399,62 +399,50 @@ class DLSTrigger(CommonService):
             .one()
         )
 
-        mtz = parameters.mtz
-        if isinstance(mtz, pathlib.Path):
-            mtz = [mtz]
-        symlinks = parameters.symlinks
-        if isinstance(symlinks, str):
-            symlinks = [symlinks]
-        if len(symlinks) < len(mtz):
-            symlinks.extend([""] * (len(mtz) - len(symlinks)))
+        dimple_parameters: dict[str, list[Any]] = {
+            "data": [parameters.mtz.as_posix()],
+            "scaling_id": [parameters.scaling_id],
+            "pdb": pdb_files,
+            "create_symlink": [parameters.symlink],
+        }
 
-        for mtz_file, symlink in zip(mtz, symlinks):
-            dimple_parameters: dict[str, list[Any]] = {
-                "data": [mtz_file.as_posix()],
-                "scaling_id": [parameters.scaling_id],
-                "pdb": pdb_files,
-                "create_symlink": [symlink],
-            }
+        jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
+        jisp["datacollectionid"] = dcid
+        jisp["start_image"] = dc.startImageNumber
+        jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
 
-            jisp = self.ispyb.mx_processing.get_job_image_sweep_params()
-            jisp["datacollectionid"] = dcid
-            jisp["start_image"] = dc.startImageNumber
-            jisp["end_image"] = dc.startImageNumber + dc.numberOfImages - 1
+        self.log.debug("Dimple trigger: Starting")
 
-            self.log.debug("Dimple trigger: Starting")
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = dcid
+        jp["display_name"] = "DIMPLE"
+        jp["recipe"] = "postprocessing-dimple"
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"Dimple trigger: generated JobID {jobid}")
 
-            jp = self.ispyb.mx_processing.get_job_params()
-            jp["automatic"] = parameters.automatic
-            jp["comments"] = parameters.comment
-            jp["datacollectionid"] = dcid
-            jp["display_name"] = "DIMPLE"
-            jp["recipe"] = "postprocessing-dimple"
-            jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
-            self.log.debug(f"Dimple trigger: generated JobID {jobid}")
+        for key, values in dimple_parameters.items():
+            for value in values:
+                jpp = self.ispyb.mx_processing.get_job_parameter_params()
+                jpp["job_id"] = jobid
+                jpp["parameter_key"] = key
+                jpp["parameter_value"] = value
+                jppid = self.ispyb.mx_processing.upsert_job_parameter(
+                    list(jpp.values())
+                )
+                self.log.debug(f"Dimple trigger: generated JobParameterID {jppid}")
 
-            for key, values in dimple_parameters.items():
-                for value in values:
-                    jpp = self.ispyb.mx_processing.get_job_parameter_params()
-                    jpp["job_id"] = jobid
-                    jpp["parameter_key"] = key
-                    jpp["parameter_value"] = value
-                    jppid = self.ispyb.mx_processing.upsert_job_parameter(
-                        list(jpp.values())
-                    )
-                    self.log.debug(f"Dimple trigger: generated JobParameterID {jppid}")
+        jisp["job_id"] = jobid
+        jispid = self.ispyb.mx_processing.upsert_job_image_sweep(list(jisp.values()))
+        self.log.debug(f"Dimple trigger: generated JobImageSweepID {jispid}")
 
-            jisp["job_id"] = jobid
-            jispid = self.ispyb.mx_processing.upsert_job_image_sweep(
-                list(jisp.values())
-            )
-            self.log.debug(f"Dimple trigger: generated JobImageSweepID {jispid}")
+        self.log.debug(f"Dimple trigger: Processing job {jobid} created")
 
-            self.log.debug(f"Dimple trigger: Processing job {jobid} created")
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
 
-            message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
-            rw.transport.send("processing_recipe", message)
-
-            self.log.info(f"Dimple trigger: Processing job {jobid} triggered")
+        self.log.info(f"Dimple trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
 

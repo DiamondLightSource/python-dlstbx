@@ -18,7 +18,6 @@ console_scripts = [
     "dlstbx.ep_predict_results=dlstbx.cli.ep_predict_results:runmain",
     "dlstbx.find_funny_eiger_frames=dlstbx.cli.find_funny_eiger_frames:run",
     "dlstbx.find_in_ispyb=dlstbx.cli.find_in_ispyb:run",
-    "dlstbx.fix_cluster_jobs=dlstbx.cli.fix_cluster_jobs:run",
     "dlstbx.get_activemq_statistics=dlstbx.cli.get_activemq_statistics:run",
     "dlstbx.get_dcids_for_visit=dlstbx.cli.get_dcids_for_visit:run",
     "dlstbx.get_graylog_statistics=dlstbx.cli.get_graylog_statistics:run",

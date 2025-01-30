@@ -2,25 +2,43 @@ from __future__ import annotations
 
 import itertools
 import json
-import os
 import pathlib
-import re
 import shutil
 import subprocess
 import time
 
+import iotbx.merging_statistics
 from cctbx import uctbx
 
 import dlstbx.util.symlink
 from dlstbx.wrapper import Wrapper
 
 
+def lookup(merging_stats, item, shell):
+    i_bin = {"innerShell": 0, "outerShell": -1}.get(shell)
+    if i_bin is not None:
+        return merging_stats[item][i_bin]
+    return merging_stats["overall"][item]
+
+
 class Xia2MultiplexWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.xia2.multiplex"
     name = "xia2.multiplex"
 
-    def send_results_to_ispyb(self, z, xtriage_results=None):
+    def send_results_to_ispyb(
+        self, z, xtriage_results=None, is_cluster=False, attachments=[]
+    ):
         ispyb_command_list = []
+
+        # Step 0: For clusters, register new AutoProcProgram record
+        if is_cluster:
+            register_autoproc_prog = {
+                "ispyb_command": "register_processing",
+                "program": "xia2.multiplex",
+                "cmdline": "xia2.multiplex (ap-zoc)",
+                "store_result": "ispyb_autoprocprogram_id",
+            }
+            ispyb_command_list.append(register_autoproc_prog)
 
         # Step 1: Add new record to AutoProc, keep the AutoProcID
         register_autoproc = {
@@ -63,6 +81,29 @@ class Xia2MultiplexWrapper(Wrapper):
             #'refined_ybeam': z['refined_beam'][1],
         }
         ispyb_command_list.append(integration)
+
+        # Step 4: Upload attachments
+        if attachments:
+            for attachment in attachments:
+                upload_attachment = {
+                    "ispyb_command": "add_program_attachment",
+                    "program_id": "$ispyb_autoprocprogram_id",
+                    "file_name": attachment["file_name"],
+                    "file_path": attachment["file_path"],
+                    "file_type": attachment["file_type"],
+                    "importance_rank": attachment["importance_rank"],
+                }
+                ispyb_command_list.append(upload_attachment)
+
+        # Step 5: Register successful processing for cluster jobs
+        if is_cluster:
+            update_autoproc_prog = {
+                "ispyb_command": "update_processing_status",
+                "program_id": "$ispyb_autoprocprogram_id",
+                "message": "processing successful",
+                "status": "success",
+            }
+            ispyb_command_list.append(update_autoproc_prog)
 
         if xtriage_results is not None:
             for level, messages in xtriage_results.items():
@@ -174,75 +215,20 @@ class Xia2MultiplexWrapper(Wrapper):
         self.log.info(f"working_directory: {working_directory}")
 
         scaled_unmerged_mtz = working_directory / "scaled_unmerged.mtz"
-        if success and scaled_unmerged_mtz.is_file():
-            import iotbx.merging_statistics
-
-            i_obs = iotbx.merging_statistics.select_data(
-                os.fspath(scaled_unmerged_mtz), data_labels=None
-            )
-        else:
-            success = False
-
         multiplex_json = working_directory / "xia2.multiplex.json"
-        if success and multiplex_json.is_file():
-            with multiplex_json.open("r") as fh:
-                d = json.load(fh)
 
-            merging_stats = d["datasets"]["All data"]["merging_stats"]
-            merging_stats_anom = d["datasets"]["All data"]["merging_stats_anom"]
-            with (working_directory / "merging-stats.json").open("w") as fh:
-                json.dump(merging_stats, fh)
-
-            def lookup(merging_stats, item, shell):
-                i_bin = {"innerShell": 0, "outerShell": -1}.get(shell)
-                if i_bin is not None:
-                    return merging_stats[item][i_bin]
-                return merging_stats["overall"][item]
-
-            ispyb_d = {
-                "commandline": " ".join(command),
-                "spacegroup": i_obs.space_group().type().lookup_symbol(),
-                "unit_cell": list(i_obs.unit_cell().parameters()),
-                "scaling_statistics": {},
-            }
-
-            for shell in ("overall", "innerShell", "outerShell"):
-                ispyb_d["scaling_statistics"][shell] = {
-                    "cc_half": lookup(merging_stats, "cc_one_half", shell),
-                    "completeness": lookup(merging_stats, "completeness", shell),
-                    "mean_i_sig_i": lookup(merging_stats, "i_over_sigma_mean", shell),
-                    "multiplicity": lookup(merging_stats, "multiplicity", shell),
-                    "n_tot_obs": lookup(merging_stats, "n_obs", shell),
-                    "n_tot_unique_obs": lookup(merging_stats, "n_uniq", shell),
-                    "r_merge": lookup(merging_stats, "r_merge", shell),
-                    "res_lim_high": uctbx.d_star_sq_as_d(
-                        lookup(merging_stats, "d_star_sq_min", shell)
-                    ),
-                    "res_lim_low": uctbx.d_star_sq_as_d(
-                        lookup(merging_stats, "d_star_sq_max", shell)
-                    ),
-                    "anom_completeness": lookup(
-                        merging_stats_anom, "anom_completeness", shell
-                    ),
-                    "anom_multiplicity": lookup(
-                        merging_stats_anom, "multiplicity", shell
-                    ),
-                    "cc_anom": lookup(merging_stats_anom, "cc_anom", shell),
-                    "r_meas_all_iplusi_minus": lookup(
-                        merging_stats_anom, "r_meas", shell
-                    ),
-                }
-
-            xtriage_results = d["datasets"]["All data"].get("xtriage")
-        else:
+        # Placeholder logic to keep existing functionality - TODO - review if this is needed still
+        if not (scaled_unmerged_mtz.is_file() and multiplex_json.is_file()):
             success = False
 
-        # copy output files to result directory
+        # Create results directory
         results_directory.mkdir(parents=True, exist_ok=True)
         if params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
                 results_directory, params["create_symlink"]
             )
+
+        # Patterns for file keeping
         keep_ext = {
             ".png": None,
             ".log": "log",
@@ -269,77 +255,126 @@ class Xia2MultiplexWrapper(Wrapper):
             working_directory / "xia2.multiplex.log",
         ]
 
-        # Record cluster analysis result files for all found clusters
-        cluster_result_files = []
-        for dirpath, _, tmp_files in os.walk(working_directory):
-            for tmp_file in tmp_files:
-                cluster_filename = pathlib.Path(dirpath) / tmp_file
-                if any(
-                    "cluster" in tmp_file
-                    and file_tmpl in tmp_file
-                    and filetype == "result"
-                    for file_tmpl, filetype in keep.items()
-                ):
-                    cluster_result_files.append(cluster_filename)
-                    keep[tmp_file] = "result"
-                elif filetype := keep_ext.get(cluster_filename.suffix):
-                    if re.search(r"\d+_*", tmp_file):
-                        cluster_result_files.append(cluster_filename)
-                        keep[tmp_file] = filetype
-
         allfiles = []
-        mtz_files_for_dimple = []
-        dimple_symlinks = []
-        for filename in (
-            primary_log_files + list(working_directory.iterdir()) + cluster_result_files
-        ):
-            if not filename.is_file():
-                continue  # primary_log_files may not actually exist
-            filetype = keep_ext.get(filename.suffix)
-            if filename.name in keep:
-                filetype = keep[filename.name]
-            if filetype is None:
-                continue
-            destination = results_directory / filename.name
-            if os.fspath(destination) in allfiles:
-                # We've already seen this file above
-                continue
-            self.log.debug(f"Copying {filename} to {destination}")
-            allfiles.append(os.fspath(destination))
-            shutil.copy(filename, destination)
-            if filetype:
-                self.record_result_individual_file(
-                    {
-                        "file_path": os.fspath(destination.parent),
-                        "file_name": destination.name,
-                        "file_type": filetype,
-                        "importance_rank": (
-                            1
-                            if destination.name in ("scaled.mtz", "xia2.multiplex.html")
-                            else 2
-                        ),
-                    }
-                )
-            if filename.name.endswith("scaled.mtz"):
-                mtz_files_for_dimple.append(filename.as_posix())
-                dimple_symlink = "dimple-xia2.multiplex"
-                # Append cluster_# to the symlink for cluster results.
-                if match := re.search(
-                    r"coordinate_(cluster_\d+)_scaled\.mtz", filename.as_posix()
-                ):
-                    dimple_symlink += match.group(1)
-                dimple_symlinks.append(dimple_symlink)
-        if allfiles:
-            self.record_result_all_files({"filelist": allfiles})
 
         if success:
-            self.send_results_to_ispyb(ispyb_d, xtriage_results=xtriage_results)
-            for mtz_file, symlink in zip(mtz_files_for_dimple, dimple_symlinks):
-                dimple_message = {
-                    "mtz": mtz_file,
-                    "symlink": symlink,
+            with multiplex_json.open("r") as fh:
+                d = json.load(fh)
+
+            for dataset_name, dataset in d["datasets"].items():
+                if dataset_name == "All data":
+                    base_dir = working_directory
+                    scaled_unmerged_mtz = base_dir / "scaled_unmerged.mtz"
+                    scaled_mtz = working_directory / "scaled.mtz"
+                    dimple_symlink = "dimple-xia2.multiplex"
+                    cluster_prefix = ""
+                    is_cluster = False
+                elif "coordinate cluster" in dataset_name:
+                    cluster_num = dataset_name.split(" ")[-1]
+                    cluster_prefix = f"coordinate_cluster_{cluster_num}_"
+                    is_cluster = True
+                    base_dir = working_directory / f"coordinate_cluster_{cluster_num}"
+                    scaled_unmerged_mtz = (
+                        base_dir / f"{cluster_prefix}scaled_unmerged.mtz"
+                    )
+                    scaled_mtz = working_directory / f"{cluster_prefix}scaled.mtz"
+                    dimple_symlink = (
+                        f"dimple-xia2.multiplex-coordinate_cluster_{cluster_num})"
+                    )
+                else:
+                    self.log.warning(
+                        f"Ignoring unrecognised dataset pattern {dataset_name}"
+                    )
+                    continue
+
+                i_obs = iotbx.merging_statistics.select_data(
+                    scaled_unmerged_mtz.as_posix(), data_labels=None
+                )
+
+                merging_stats = dataset["merging_stats"]
+                merging_stats_anom = dataset["merging_stats_anom"]
+                with (base_dir / f"{cluster_prefix}merging-stats.json").open("w") as fh:
+                    json.dump(merging_stats, fh)
+
+                ispyb_d = {
+                    "commandline": " ".join(command),
+                    "spacegroup": i_obs.space_group().type().lookup_symbol(),
+                    "unit_cell": list(i_obs.unit_cell().parameters()),
+                    "scaling_statistics": {},
                 }
-                self.recwrap.send_to("dimple", dimple_message)
+
+                for shell in ("overall", "innerShell", "outerShell"):
+                    ispyb_d["scaling_statistics"][shell] = {
+                        "cc_half": lookup(merging_stats, "cc_one_half", shell),
+                        "completeness": lookup(merging_stats, "completeness", shell),
+                        "mean_i_sig_i": lookup(
+                            merging_stats, "i_over_sigma_mean", shell
+                        ),
+                        "multiplicity": lookup(merging_stats, "multiplicity", shell),
+                        "n_tot_obs": lookup(merging_stats, "n_obs", shell),
+                        "n_tot_unique_obs": lookup(merging_stats, "n_uniq", shell),
+                        "r_merge": lookup(merging_stats, "r_merge", shell),
+                        "res_lim_high": uctbx.d_star_sq_as_d(
+                            lookup(merging_stats, "d_star_sq_min", shell)
+                        ),
+                        "res_lim_low": uctbx.d_star_sq_as_d(
+                            lookup(merging_stats, "d_star_sq_max", shell)
+                        ),
+                        "anom_completeness": lookup(
+                            merging_stats_anom, "anom_completeness", shell
+                        ),
+                        "anom_multiplicity": lookup(
+                            merging_stats_anom, "multiplicity", shell
+                        ),
+                        "cc_anom": lookup(merging_stats_anom, "cc_anom", shell),
+                        "r_meas_all_iplusi_minus": lookup(
+                            merging_stats_anom, "r_meas", shell
+                        ),
+                    }
+
+                xtriage_results = dataset.get("xtriage")
+                attachments = []
+
+                for filename in primary_log_files + list(working_directory.iterdir()):
+                    if not filename.is_file():
+                        continue  # primary_log_files may not actually exist
+                    filetype = keep_ext.get(filename.suffix)
+                    if filename.name in keep:
+                        filetype = keep[filename.name]
+                    if filetype is None:
+                        continue
+                    destination = results_directory / filename.name
+                    if destination.as_posix() not in allfiles:
+                        self.log.debug(f"Copying {filename} to {destination}")
+                        allfiles.append(destination.as_posix())
+                        shutil.copy(filename, destination)
+                    if filetype:
+                        attachments.append(
+                            {
+                                "file_path": destination.parent.as_posix(),
+                                "file_name": destination.name,
+                                "file_type": filetype,
+                                "importance_rank": (
+                                    1
+                                    if destination.name.endswith(
+                                        ("scaled.mtz", "xia2.multiplex.html")
+                                    )
+                                    else 2
+                                ),
+                            }
+                        )
+                # Add parameters to the environment to be picked up downstream by trigger function
+                self.recwrap.environment.update({"dimple_mtz": scaled_mtz.as_posix()})
+                self.recwrap.environment.update({"dimple_symlink": dimple_symlink})
+
+                # Send results to ispyb and trigger downstream recipe steps for this dataset
+                self.send_results_to_ispyb(
+                    ispyb_d,
+                    xtriage_results=xtriage_results,
+                    is_cluster=is_cluster,
+                    attachments=attachments,
+                )
+
             self._success_counter.inc()
         else:
             self._failure_counter.inc()

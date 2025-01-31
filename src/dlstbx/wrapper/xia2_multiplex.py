@@ -277,9 +277,9 @@ class Xia2MultiplexWrapper(Wrapper):
                     scaled_unmerged_mtz = (
                         base_dir / f"{cluster_prefix}scaled_unmerged.mtz"
                     )
-                    scaled_mtz = working_directory / f"{cluster_prefix}scaled.mtz"
+                    scaled_mtz = results_directory / f"{cluster_prefix}scaled.mtz"
                     dimple_symlink = (
-                        f"dimple-xia2.multiplex-coordinate_cluster_{cluster_num})"
+                        f"dimple-xia2.multiplex-coordinate_cluster_{cluster_num}"
                     )
                 else:
                     self.log.warning(
@@ -368,6 +368,9 @@ class Xia2MultiplexWrapper(Wrapper):
                 self.recwrap.environment.update({"dimple_symlink": dimple_symlink})
 
                 # Send results to ispyb and trigger downstream recipe steps for this dataset
+                self.log.info(
+                    f"Triggering downstream recipe steps for dataset: '{dataset_name}'"
+                )
                 self.send_results_to_ispyb(
                     ispyb_d,
                     xtriage_results=xtriage_results,

@@ -372,7 +372,10 @@ class Xia2MultiplexWrapper(Wrapper):
                             }
                         )
                 # Add parameters to the environment to be picked up downstream by trigger function
-                self.recwrap.environment.update({"dimple_mtz": scaled_mtz.as_posix()})
+                self.recwrap.environment.update({"scaled_mtz": scaled_mtz.as_posix()})
+                self.recwrap.environment.update(
+                    {"scaled_unmerged_mtz": scaled_unmerged_mtz.as_posix()}
+                )
                 self.recwrap.environment.update({"dimple_symlink": dimple_symlink})
 
                 # Send results to ispyb and trigger downstream recipe steps for this dataset

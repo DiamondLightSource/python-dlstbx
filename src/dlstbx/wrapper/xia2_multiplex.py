@@ -68,9 +68,16 @@ class Xia2MultiplexWrapper(Wrapper):
         ispyb_command_list.append(insert_scaling)
 
         # Step 3: Store integration result, linked to the ScalingID
+        # Use pre-registered integration id for 'All data' dataset
+        if is_cluster:
+            integration_id = None
+        else:
+            integration_id = "$ispyb_integration_id"
+
         integration = {
             "ispyb_command": "upsert_integration",
             "scaling_id": "$ispyb_autoprocscaling_id",
+            "integration_id": integration_id,
             "cell_a": z["unit_cell"][0],
             "cell_b": z["unit_cell"][1],
             "cell_c": z["unit_cell"][2],
@@ -335,12 +342,13 @@ class Xia2MultiplexWrapper(Wrapper):
                 xtriage_results = dataset.get("xtriage")
                 attachments = []
 
-                for filename in primary_log_files + list(working_directory.iterdir()):
+                for filename in primary_log_files + list(base_dir.iterdir()):
                     if not filename.is_file():
                         continue  # primary_log_files may not actually exist
                     filetype = keep_ext.get(filename.suffix)
-                    if filename.name in keep:
-                        filetype = keep[filename.name]
+                    for file_pattern in keep:
+                        if filename.name.endswith(file_pattern):
+                            filetype = keep[file_pattern]
                     if filetype is None:
                         continue
                     destination = results_directory / filename.name

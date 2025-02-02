@@ -171,7 +171,7 @@ for i, dc in enumerate(dcs):
         "experiment_type": "Mesh3D",
         "beamline": "i03",
         "threshold": 0.05,
-        "threshold_absolute": 5
+        "threshold_absolute": 5,
     }
 
     rw = RecipeWrapper(

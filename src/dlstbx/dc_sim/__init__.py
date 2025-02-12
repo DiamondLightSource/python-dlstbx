@@ -69,12 +69,12 @@ def copy_via_temp_file(source, destination):
     os.rename(temp_destination, destination)
 
 
-def retrieve_grid_info_values(_db, _src_dcgid):
+def retrieve_grid_info_values(_db, _src_dcid):
     _db.cursor.execute(
-        "SELECT dx_mm, dy_mm, steps_x, steps_y, pixelspermicronx, pixelspermicrony, "
-        "snapshot_offsetxpixel, snapshot_offsetypixel, orientation "
+        "SELECT dx_mm, dy_mm, steps_x, steps_y, micronsperpixelx, micronsperpixely, "
+        "snapshot_offsetxpixel, snapshot_offsetypixel, patchesx, patchesy, orientation, snaked "
         "FROM GridInfo "
-        "WHERE datacollectiongroupid=%d" % _src_dcgid
+        "WHERE datacollectionid=%d" % _src_dcid
     )
 
     desc = [d[0] for d in _db.cursor.description]
@@ -356,19 +356,6 @@ def _simulate(
         else:
             datacollectiongroupid = data_collection_group_id
 
-        # Get the grid info values associated with the source dcg
-        gi_row = retrieve_grid_info_values(_db, _src_dcgid)
-
-        # Prouce a GridInfo xml blob from the template if the source DataCollectionGroup has one:
-        if gi_row is not None:
-            gridinfo_xml = dlstbx.dc_sim.dbserverclient.populate_grid_info_xml_template(
-                gi_row, datacollectiongroupid
-            )
-
-            # Ingest the GridInfo.xml file data using the DbserverClient
-            log.debug("(dbserver) Ingest the gridinfo XML")
-            dbsc.storeGridInfo(gridinfo_xml)
-
         # Produce a DataCollection xml blob from the template and use the new run number
         row_as_dictionary = {
             name.lower(): getattr(row, name)
@@ -391,6 +378,19 @@ def _simulate(
         # Ingest the DataCollection xml blob data using the DbserverClient
         log.debug("(dbserver) Ingest the datacollection XML")
         datacollectionid = dbsc.storeDataCollection(dc_xml)
+
+        # Get the grid info values associated with the source dcid
+        gi_row = retrieve_grid_info_values(_db, _src_dcid)
+
+        # Prouce a GridInfo xml blob from the template if the source DataCollectionGroup has one:
+        if gi_row is not None:
+            gridinfo_xml = dlstbx.dc_sim.dbserverclient.populate_grid_info_xml_template(
+                gi_row, datacollectionid
+            )
+
+            # Ingest the GridInfo.xml file data using the DbserverClient
+            log.debug("(dbserver) Ingest the gridinfo XML")
+            dbsc.storeGridInfo(gridinfo_xml)
 
         run_at_params = [
             "automaticProcessing_Yes",

@@ -89,12 +89,12 @@ def populate_grid_info_xml_template(_row, _dcid):
         _f(_row["snapshot_offsetxpixel"]),
         _f(_row["snapshot_offsetypixel"]),
         _s(_row["orientation"]),
-        _i(_row["snaked"]),
+        bool(_row["snaked"]),
         _dcid,
-        _f(_row["micronsperpixelx"]),
-        _f(_row["micronsperpixely"]),
         _i(_row["patchesx"]),
         _i(_row["patchesy"]),
+        _f(_row["micronsperpixelx"]),
+        _f(_row["micronsperpixely"]),
     )
 
     # remove lines with null, nan and -1 values:
@@ -223,12 +223,12 @@ _grid_info_temp_xml = (
     "<snapshot_offsetXPixel>%.4f</snapshot_offsetXPixel>"
     "<snapshot_offsetYPixel>%.4f</snapshot_offsetYPixel>"
     "<orientation>%s</orientation>"
-    "<snaked>%d</snaked>"
+    "<snaked>%s</snaked>"
     "<dataCollectionId>%d</dataCollectionId>"
     "<patchesX>%d</patchesX>"
     "<patchesY>%d</patchesY>"
-    "<micronsPerPixelX>%.4f</micronsPerPixelX>"
-    "<micronsPerPixelY>%.4f</micronsPerPixelY>"
+    "<micronsPerPixelX>%.6f</micronsPerPixelX>"
+    "<micronsPerPixelY>%.6f</micronsPerPixelY>"
     "</GridInfo>"
 )
 

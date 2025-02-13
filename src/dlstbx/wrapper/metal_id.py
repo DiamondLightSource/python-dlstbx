@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import configparser
 import json
-import math
 import os
 import pathlib
 import re
@@ -10,262 +9,42 @@ import shutil
 import subprocess
 from datetime import datetime
 
-from iotbx import pdb
-
 import dlstbx.util.symlink
 from dlstbx import schemas
 from dlstbx.wrapper import Wrapper
 
 
-def view_as_quat(p1, p2):
-    """
-    Calculate a quaternion representing the rotation necessary to orient a viewer's
-    perspective from an initial view direction towards a desired view direction,
-    given by the positions p1 and p2, respectively.
-
-    Parameters:
-    - p1: tuple or list representing the initial rotation centre (x, y, z) of the viewer.
-    - p2: tuple or list representing the desired position (x, y, z) towards which
-        the viewer should orient.
-
-    Returns:
-    - Quaternion: A tuple representing the quaternion (w, x, y, z) that represents
-    the rotation necessary to align the initial view direction with the desired
-    view direction. If either p1 or p2 is None, returns the default identity
-    quaternion (0., 0., 0., 1.), indicating no rotation.
-    """
-    if p1 is None or p2 is None:
-        return (0.0, 0.0, 0.0, 1.0)
-    # Find and normalise direction vector from p1 to p2
-    d = (p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2])
-    length = math.sqrt(d[0] ** 2 + d[1] ** 2 + d[2] ** 2)
-    d = (d[0] / length, d[1] / length, d[2] / length)
-    # Cross product of d and (0, 0, -1) to view down the direction vector.
-    prod = (d[1], -d[0], 0)
-    # Generate and normalise quaternion from cross product
-    quat = (prod[0], prod[1], prod[2], 1 - d[2])
-    qlen = math.sqrt(sum(a * a for a in quat))
-    return (quat[0] / qlen, quat[1] / qlen, quat[2] / qlen, quat[3] / qlen)
-
-
 class MetalIdWrapper(Wrapper):
     _logger_name = "dlstbx.wrap.metal_id"
 
-    def are_pdbs_similar(self, file_1, file_2, tolerances=None):
-        """
-        Determine if two pdb files have the same crystal symmetry, the same number
-        and type of atoms and sufficiently similar unit cell and atomic coordinates
-        within the defined tolerances
-        """
-
-        def read_pdb(file):
-            """
-            Read a pdb file to get crystal symmetry, atom names and atom coordinates
-            """
-            pdb_obj = pdb.input(file)
-            sym = pdb_obj.crystal_symmetry()
-            atoms = pdb_obj.atoms()
-            atom_names = atoms.extract_name()
-            list_atoms = list(atom_names)
-            atom_coords = atoms.extract_xyz()
-            list_coords = list(atom_coords)
-            return sym, list_atoms, list_coords
-
-        # Read pdb files
-        sym_1, atoms_1, coords_1 = read_pdb(file_1)
-        sym_2, atoms_2, coords_2 = read_pdb(file_2)
-
-        # Use default if none set tolerances
-        if not tolerances:
-            self.log.warning(
-                "PDB similarity tolerances not specified, using default values"
-            )
-            tolerances = {
-                "rel_cell_length": 0.01,
-                "abs_cell_angle": 1.0,
-                "abs_coord_diff": 3.0,
-            }
-
-        # Compare symmetry
-        is_similar_sym = sym_1.is_similar_symmetry(
-            sym_2,
-            relative_length_tolerance=tolerances["rel_cell_length"],
-            absolute_angle_tolerance=tolerances["abs_cell_angle"],
-        )
-        if not is_similar_sym:
-            self.log.error("PDB file symmetries are too different")
-            return False
-
-        # Compare atom type/number
-        if atoms_1 != atoms_2:
-            self.log.error("Different number or type of atoms in pdb files")
-
-        # Compare atom coordinates
-        combined_coords = zip(coords_1, coords_2)
-        for xyz_1, xyz_2 in combined_coords:
-            # Calculate the distance between xyz_1 and xyz_2
-            diff = abs(
-                (
-                    (xyz_1[0] - xyz_2[0]) ** 2
-                    + (xyz_1[1] - xyz_2[1]) ** 2
-                    + (xyz_1[2] - xyz_2[2]) ** 2
+    def parse_peak_data(self, peak_data_file):
+        peak_data = []
+        with open(peak_data_file, "r") as file:
+            for line in file:
+                match = re.match(
+                    r"Peak \d+: Electron Density = ([\d.]+) e/Å\^3, RMSD = ([\d.]+), XYZ = \(([\d.]+), ([\d.]+), ([\d.]+)\)",
+                    line,
                 )
-                ** 0.5
-            )
-            if diff > tolerances["abs_coord_diff"]:
-                self.log.error(
-                    f"PDB atom coordinates have difference > tolerance ({tolerances['abs_coord_diff']} Å"
-                )
-                return False
-        return True
-
-    def make_double_diff_map_and_get_peaks(
-        self,
-        map_above,
-        map_below,
-        working_directory,
-        pdb_file,
-        map_out,
-        rmsd_threshold,
-        max_peaks,
-    ):
-        """Creates and calls a script in coot to generate a double difference map from the anomalous maps from above and below
-        the metal absorption edge. Any peaks above the rmsd_threshold are then found and the coordinates and peak heights in
-        units of rmsd and electron density are returned
-
-        """
-        coot_script = [
-            "#!/usr/bin/env coot",
-            "# python script for coot - generated by metal_ID",
-            "set_nomenclature_errors_on_read('ignore')",
-            f"read_pdb('{pdb_file}')",
-            f"map_above = read_phs_and_make_map_using_cell_symm_from_previous_mol('{map_above}')",
-            f"map_below = read_phs_and_make_map_using_cell_symm_from_previous_mol('{map_below}')",
-            "map_diff = difference_map(map_above, map_below, 1)",
-            f"difference_map_peaks(3, 0, {rmsd_threshold}, 0.0, 1, 0, 0)",
-            f"export_map(map_diff, '{map_out}')",
-            "coot_real_exit(0)",
-        ]
-        coot_script_path = working_directory / "coot_diff_map.py"
-        with open(coot_script_path, "w") as script_file:
-            for line in coot_script:
-                script_file.write(line + "\n")
-        self.log.info(f"Running coot script {coot_script_path} to create diff.map")
-        coot_command = f"coot --no-guano --no-graphics -s {coot_script_path}"
-        result = subprocess.run(
-            coot_command, shell=True, capture_output=True, text=True
-        )
-
-        with open(working_directory / "metal_id.log", "w") as log_file:
-            log_file.write(result.stdout)
-
-        self.log.info("Finding peaks in double difference map")
-        # Regex pattern to match lines containing peaks from coot output in format: "0 dv: 77.94 n-rmsd: 42.52 xyz = (     24.08,     12.31,     28.48)"
-        pattern = r"\s*\d+\s+dv:\s*([\d.]+)\s+n-rmsd:\s*([\d.]+)\s+xyz\s*=\s*\(\s*([\d., -]+)\)"
-        # Extract peaks from coot output
-        matches = re.finditer(pattern, result.stdout)
-        electron_densities = []
-        rmsds = []
-        peak_coords = []
-        for match in matches:
-            if len(peak_coords) == max_peaks:
-                self.log.warning(
-                    f"Found more peaks than the set maximum of {max_peaks} - storing only the largest {max_peaks}"
-                )
-                break
-            density = float(match.group(1))
-            rmsd = float(match.group(2))
-            xyz = tuple(map(float, match.group(3).split(",")))
-            electron_densities.append(density)
-            rmsds.append(rmsd)
-            peak_coords.append(xyz)
-        return peak_coords, electron_densities, rmsds, coot_command
-
-    def find_protein_centre(self, pdb_file):
-        """Runs find-blobs on a pdb file then uses regex to get the protein centre of mass coordinates from the output
-        Despite the name, find-blobs is not being used to find blobs here. Returns (x,y,z) coordinates of the protein centre.
-        """
-        find_blobs_command = f"find-blobs -c {pdb_file}"
-        result = subprocess.run(
-            find_blobs_command, shell=True, capture_output=True, text=True
-        )
-        # Regex pattern for extracting coords from find-blobs output in format "Protein mass center: xyz = (     12.37,     23.89,     32.69)"
-        pattern = r"Protein mass center: xyz = \(\s*([-+]?\d*\.\d+|\d+\.\d*)\s*,\s*([-+]?\d*\.\d+|\d+\.\d*)\s*,\s*([-+]?\d*\.\d+|\d+\.\d*)\s*\)"
-        match = re.search(pattern, result.stdout)
-        assert match, "Protein mass center not found"
-        centre = tuple(map(float, match.groups()))
-        return centre
-
-    def render_diff_map_peaks(
-        self,
-        working_directory,
-        pdb_file,
-        diff_map,
-        peak_height_threshold,
-        peak_coords,
-    ):
-        """Plots protein molecule coordinates (pdb file) and difference map in coot, applied a threshold for displaying the map
-        then renders images centred on the peak_coords, viewing towards the protein centre.
-        """
-        self.log.info("Finding protein centre")
-        protein_centre = self.find_protein_centre(pdb_file)
-
-        self.log.info(f"Protein mass centre at: {protein_centre}")
-
-        render_script = [
-            "#!/usr/bin/env coot",
-            "# python script for coot - generated by metal_ID",
-            "set_nomenclature_errors_on_read('ignore')",
-            f"read_pdb('{pdb_file}')",
-            f"read_ccp4_map('{diff_map}', 1)",
-            f"set_contour_level_in_sigma(1, {peak_height_threshold})",
-        ]
-        render_paths = []
-        for _i, peak in enumerate(peak_coords, start=1):
-            quat = view_as_quat(peak, protein_centre)
-            # Use relative path as explicit paths can exceed render command length limit
-            render_path = f"peak_{_i}.r3d"
-            mini_script = [
-                f"set_rotation_centre{peak}",
-                "set_zoom(30.0)",
-                f"set_view_quaternion{quat}",
-                "graphics_draw()",
-                f"raster3d('{str(render_path)}')",
-            ]
-            render_script.extend(mini_script)
-            render_paths.append(render_path)
-        render_script.append("coot_real_exit(0)")
-
-        render_script_path = working_directory / "coot_render.py"
-        with open(render_script_path, "w") as script_file:
-            for line in render_script:
-                script_file.write(line + "\n")
-        self.log.info(f"Running coot rendering script {render_script_path}")
-        render_command = f"coot --no-guano --no-graphics -s {render_script_path}"
-        subprocess.run(
-            render_command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            cwd=working_directory,
-        )
-
-        # Convert r3d files to pngs
-        self.log.info("Converting r3d files to pngs")
-        for render_path in render_paths:
-            render_png_path = f"{os.path.splitext(render_path)[0]}.png"
-            self.log.info(f"Converting {render_path} to {render_png_path}")
-            r3d_command = f"cat {render_path} | render -png {render_png_path}"
-            subprocess.run(
-                r3d_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                cwd=working_directory,
-            )
+                if match:
+                    electron_density = float(match.group(1))
+                    rmsd = float(match.group(2))
+                    xyz = (
+                        float(match.group(3)),
+                        float(match.group(4)),
+                        float(match.group(5)),
+                    )
+                    peak_data.append(
+                        {"electron_density": electron_density, "rmsd": rmsd, "xyz": xyz}
+                    )
+        return peak_data
 
     def send_results_to_ispyb(
-        self, peak_data, coot_command, results_directory, start_time
+        self,
+        peak_data,
+        metal_id_command,
+        dimple_log_file,
+        results_directory,
+        start_time,
     ):
         scaling_id = self.params.get("scaling_id", [])
         if len(scaling_id) != 1:
@@ -276,13 +55,6 @@ class MetalIdWrapper(Wrapper):
             return False
         scaling_id = scaling_id[0]
 
-        dimple_log_file = self.params.get("dimple_log")
-        if not dimple_log_file:
-            self.log.error(
-                "No dimple log file provided - cannot insert metal_id results to ISPyB"
-            )
-            return False
-        dimple_log_file = pathlib.Path(dimple_log_file)
         if not dimple_log_file.is_file():
             self.log.error(
                 f"dimple log file '{dimple_log_file}' not found - cannot insert metal_id results to ISPyB"
@@ -308,14 +80,14 @@ class MetalIdWrapper(Wrapper):
         )
 
         blobs = []
-        for n_peak, (density, rmsd, xyz) in enumerate(peak_data, start=1):
+        for n_peak, peak in enumerate(peak_data, start=1):
             self.log.info(
-                f"Adding blob {n_peak} to ispyb results - Density: {density}, rmsd: {rmsd}, xyz: {xyz}"
+                f"Adding blob {n_peak} to ispyb results - Density: {peak["electron_density"]}, rmsd: {peak["rmsd"]}, xyz: {peak["xyz"]}"
             )
             blobs.append(
                 schemas.Blob(
-                    xyz=xyz,
-                    height=density,
+                    xyz=peak["xyz"],
+                    height=peak["electron_density"],
                     # nearest_atom=nearest_atom,
                     # nearest_atom_distance=distance,
                     map_type="difference",  # TODO change this to anomalous_difference once enum exists.
@@ -325,7 +97,7 @@ class MetalIdWrapper(Wrapper):
             )
 
         app = schemas.AutoProcProgram(
-            command_line=coot_command,
+            command_line=metal_id_command,
             programs="metal_id",
             status=1,
             message="processing successful",
@@ -336,13 +108,13 @@ class MetalIdWrapper(Wrapper):
         attachments = []
         self.log.info("Adding attachments for upload to ispyb")
         for f in results_directory.iterdir():
-            if f.suffix not in [".map", ".log", ".py", ".pha", ".pdb"]:
+            if f.suffix not in [".map", ".log", ".py", ".pha", ".pdb", ".dat"]:
                 self.log.info(f"Skipping file {f.name}")
                 continue
-            elif f.suffix in [".map", ".pdb"]:
+            elif f.suffix in [".map", ".pdb", ".dat"]:
                 file_type = "result"
                 importance_rank = 1
-            elif f.suffix == ".pha":
+            elif f.suffix in [".pha", ".mtz"]:
                 file_type = "result"
                 importance_rank = 2
             else:
@@ -380,9 +152,15 @@ class MetalIdWrapper(Wrapper):
         # Get parameters from the recipe file
         self.params = self.recwrap.recipe_step["job_parameters"]
 
-        pha_above = pathlib.Path(self.params["anode_map_above"])
-        pha_below = pathlib.Path(self.params["anode_map_below"])
-        pdb_files = self.params["pdb"]
+        src_mtz_files = self.params.get("data", [])
+        if not src_mtz_files:
+            self.log.error("Could not identify on what data to run")
+            return False
+        if len(src_mtz_files) != 2:
+            self.log.error(
+                f"Exactly two data files need to be provided, {len(src_mtz_files)} files were given"
+            )
+            return False
 
         working_directory = pathlib.Path(self.params["working_directory"])
         working_directory.mkdir(parents=True, exist_ok=True)
@@ -390,92 +168,78 @@ class MetalIdWrapper(Wrapper):
         results_directory = pathlib.Path(self.params["results_directory"])
         results_directory.mkdir(parents=True, exist_ok=True)
 
-        # Check file inputs
-        for file_type, file_path in [
-            ("AnoDe map above", pha_above),
-            ("AnoDe map below", pha_below),
-        ]:
-            if not os.path.isfile(file_path):
-                self.log.error(f"Could not find {file_type}, expected at: {file_path}")
+        # Copy the source mtz_files files to the working directory
+        mtz_files = []
+        for _file in src_mtz_files:
+            _file_name = os.path.basename(_file)
+            _dest_file = working_directory / _file_name
+            # If input mtz files have the same file name (e.g. fast_dp.mtz), add number to differentiate files
+            if _dest_file in mtz_files:
+                _dest_file = _dest_file.with_name(
+                    f"{_dest_file.stem}_{len(mtz_files)}{_dest_file.suffix}"
+                )
+            try:
+                shutil.copy(_file, _dest_file)
+                self.log.info(f"File '{_file}' copied to '{_dest_file}'")
+                mtz_files.append(_dest_file)
+            except FileNotFoundError:
+                self.log.error(f"Source file '{_file}' not found.")
+                return False
+            except PermissionError:
+                self.log.error(
+                    f"Permission denied for copying '{_file}' to '{_dest_file}'."
+                )
                 return False
 
-        # Check and handle pdb file(s)
-        if isinstance(pdb_files, str):
-            # Handles case where a single pdb file is given, not as a list
-            pdb_file = pathlib.Path(pdb_files)
-        elif len(pdb_files) > 2:
-            self.log.error(
-                f"Expected up to two pdb files, instead {len(pdb_files)} were given"
-            )
-        elif len(pdb_files) == 2:
-            self.log.info(
-                f"Checking pdb files for similarity. Files: {pdb_files[0]}, {pdb_files[1]}"
-            )
-            pdbs_are_similar = self.are_pdbs_similar(
-                pdb_files[0],
-                pdb_files[1],
-                tolerances=self.params.get("pdb_comparison_tolerances"),
-            )
-            if not pdbs_are_similar:
-                self.log.error("PDB files are not similar enough, not running metal_id")
-                return False
-            self.log.info("PDB files are similar enough, continuing with metal_id")
-            pdb_file = pathlib.Path(pdb_files[0])
-        else:
-            pdb_file = pathlib.Path(pdb_files[0])
+        mtz_below = working_directory / mtz_files[0]
+        mtz_above = working_directory / mtz_files[1]
 
-        self.log.info("Copying input files to working directory")
-        for file, filename in [
-            (pdb_file, "final.pdb"),
-            (pha_above, "above.pha"),
-            (pha_below, "below.pha"),
-        ]:
-            shutil.copyfile(file, working_directory / filename)
+        pdb_files_and_codes = self.params["pdb"]
 
-        self.log.info("Making double difference map")
-        self.log.info(f"Using {pdb_file} as reference coordinates for map")
-        map_out = working_directory / "diff.map"
-        # Threshold in rmsd for difference map peaks/contours
-        peak_height_threshold = self.params.get("peak_height_threshold", 8.0)
-        # Maximum number of peaks to extract from diff map
-        max_peaks = self.params.get("max_peaks", 5)
-        (peak_coords, electron_densities, rmsds, coot_command) = (
-            self.make_double_diff_map_and_get_peaks(
-                pha_above,
-                pha_below,
-                working_directory,
-                pdb_file,
-                map_out,
-                peak_height_threshold,
-                max_peaks,
-            )
+        pdb_files = []
+        for file_or_code in pdb_files_and_codes:
+            if not os.path.isfile(file_or_code) and len(file_or_code) == 4:
+                local_pdb_copy = pathlib.Path(
+                    f"/dls/science/groups/scisoft/PDB/{file_or_code[1:3].lower()}/pdb{file_or_code.lower()}.ent.gz"
+                )
+                if local_pdb_copy.is_file():
+                    file_or_code = local_pdb_copy
+                    self.log.debug(f"Using local PDB {local_pdb_copy}")
+            if os.path.isfile(file_or_code):
+                shutil.copy(file_or_code, working_directory)
+                pdb_files.append(
+                    str(working_directory / os.path.basename(file_or_code))
+                )
+
+        output_directory = working_directory / "metal_id"
+
+        # Run metal_id
+        metal_id_command = f"metal_id {mtz_above} {mtz_below} {' '.join(pdb_files)} -o {output_directory}"
+        self.log.debug(f"Running metal_id command: '{metal_id_command}'")
+
+        subprocess.run(
+            metal_id_command,
+            shell=True,
+            cwd=working_directory,
         )
 
-        peak_data = list(zip(electron_densities, rmsds, peak_coords))
+        self.log.debug("Reading in peak data")
+        peak_data = self.parse_peak_data(output_directory / "found_peaks.dat")
 
-        # Print the extracted information
-        self.log.info(
-            f"The largest peaks found above the threshold of {peak_height_threshold} rmsd up to a maximum of {max_peaks}:"
-        )
-        for _i, (density, rmsd, xyz) in enumerate(peak_data, start=1):
-            self.log.info(
-                f"Peak {_i}: Electron Density = {density}, RMSD = {rmsd}, XYZ = {xyz}"
-            )
-
-        self.render_diff_map_peaks(
-            working_directory, pdb_file, map_out, peak_height_threshold, peak_coords
-        )
-
-        for f in working_directory.iterdir():
+        for f in output_directory.iterdir():
+            self.log.info(f"Searching for files to copy. Current file is : {f}")
+            if f.is_dir():
+                continue
             if f.name.startswith("."):
                 continue
             if any(f.suffix == skipext for skipext in [".r3d"]):
                 continue
+            self.log.info("Copying file")
             shutil.copy(f, results_directory)
 
         if self.params.get("create_symlink"):
             dlstbx.util.symlink.create_parent_symlink(
-                os.fspath(working_directory), self.params["create_symlink"]
+                os.fspath(output_directory), self.params["create_symlink"]
             )
             dlstbx.util.symlink.create_parent_symlink(
                 os.fspath(results_directory), self.params["create_symlink"]
@@ -483,8 +247,10 @@ class MetalIdWrapper(Wrapper):
 
         self.log.info("Sending results to ISPyB")
 
+        dimple_log = working_directory / "metal_id" / "dimple_below" / "dimple.log"
+
         ispyb_results = self.send_results_to_ispyb(
-            peak_data, coot_command, results_directory, start_time
+            peak_data, metal_id_command, dimple_log, results_directory, start_time
         )
 
         self.log.info(f"Sending {str(ispyb_results)} to ispyb service")

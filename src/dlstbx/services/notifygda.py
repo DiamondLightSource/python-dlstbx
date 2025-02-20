@@ -57,10 +57,10 @@ class DLSNotifyGDA(CommonService):
             return
 
         record = {}
-        record["spot_total"] = message.get("n_spots_total")
-        record["good_bragg_candidates"] = message.get("n_spots_no_ice")
-        record["method1_res"] = message.get("estimated_d_min")
-        record["total_integrated_signal"] = message.get("total_intensity")
+        record["spot_total"] = message.get("n_spots_total", 0)
+        record["good_bragg_candidates"] = message.get("n_spots_no_ice", 0)
+        record["method1_res"] = message.get("estimated_d_min", 0)
+        record["total_integrated_signal"] = message.get("total_intensity", 0)
         if record["spot_total"] is None:
             self.log.error("Message does not contain a spot count")
             rw.transport.nack(header)

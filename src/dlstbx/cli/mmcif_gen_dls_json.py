@@ -85,6 +85,7 @@ def run():
                 dc_info["PDBX_DIFFRN_PROTOCOL"],
                 dc_info["PDBX_SERIAL_CRYSTAL_EXPERIMENT"],
             )
+            if el
         )
         try:
             beamsize_sample_x = 1000.0 * dc_info["BEAMSIZEATSAMPLEX"]

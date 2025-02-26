@@ -96,13 +96,22 @@ def handle_eiger_start_i03_gridscan(
 def handle_eiger_end_i03_and_i03_only(
     scenario: mimas.MimasScenario,
     **kwargs,
-) -> List[mimas.Invocation]:
+) -> list[mimas.MimasISPyBJobInvocation | mimas.MimasRecipeInvocation]:
     recipe = (
         "per-image-analysis-gridscan-i03-no-really"
         if scenario.dcclass is mimas.MimasDCClass.GRIDSCAN
         else "per-image-analysis-rotation-swmr"
     )
-    return [mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)]
+    recipes: list[mimas.MimasISPyBJobInvocation | mimas.MimasRecipeInvocation] = [
+        mimas.MimasRecipeInvocation(DCID=scenario.DCID, recipe=recipe)
+    ]
+    if scenario.dcclass is mimas.MimasDCClass.ROTATION:
+        recipes.append(
+            mimas.MimasRecipeInvocation(
+                DCID=scenario.DCID, recipe="processing-mmcif-gen"
+            )
+        )
+    return recipes
 
 
 @mimas.match_specification(

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import gemmi
 import ispyb
+import pandas as pd
 import prometheus_client
 import pydantic
 import sqlalchemy.engine
@@ -236,6 +237,18 @@ class LigandFitParameters(pydantic.BaseModel):
     comment: Optional[str] = None
     scaling_id: list[int]
     min_cc_keep: float = pydantic.Field(default=0.7)
+    timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
+
+
+class PanDDAParameters(pydantic.BaseModel):
+    dcid: int = pydantic.Field(gt=0)
+    pdb: pathlib.Path
+    mtz: pathlib.Path
+    pipeline: str
+    smiles: str
+    automatic: Optional[bool] = False
+    comment: Optional[str] = None
+    scaling_id: list[int]
     timeout: float = pydantic.Field(default=360, alias="timeout-minutes")
 
 
@@ -2373,5 +2386,198 @@ class DLSTrigger(CommonService):
         rw.transport.send("processing_recipe", message)
 
         self.log.info(f"Ligand_fit_id trigger: Processing job {jobid} triggered")
+
+        return {"success": True, "return_value": jobid}
+
+    @pydantic.validate_call(config={"arbitrary_types_allowed": True})
+    def trigger_pandda(
+        self,
+        rw: workflows.recipe.RecipeWrapper,
+        *,
+        message: Dict,  # for the delay
+        parameters: PanDDAParameters,
+        session: sqlalchemy.orm.session.Session,
+        transaction: int,  # for the delay
+        **kwargs,
+    ):
+        """Trigger a pandda job for a fragment screening experiment.
+
+        Trigger uses the 'final.pdb' and 'final.mtz' files which are output from
+        DIMPLE, and, for now, requires the keyword 'frag' in a user submitted ligand SMILES code
+        entry to signal this is a fragment screening experiment
+
+        Recipe parameters are described below with appropriate ispyb placeholder "{}"
+        values:
+        - target: set this to "ligand_fit"
+        - dcid: the dataCollectionId for the given data collection i.e. "{ispyb_dcid}"
+        - pdb: the output pdb from dimple i.e. "{ispyb_results_directory}/dimple/final.pdb"
+        - mtz: the output mtz from dimple i.e. "{ispyb_results_directory}/dimple/final.mtz"
+        - smiles: ligand SMILES code i.e. "{ispyb_smiles}"
+        - comment: a comment to be stored in the ProcessingJob.comment field
+        - scaling_id: scaling id of the data reduction pipeline that triggered dimple
+        given as a list as this is how it is presented in the dimple recipe.
+        - timeout-minutes: (optional) the max time (in minutes) allowed to wait for
+        processing jobs to finish before skipping
+        - automatic: boolean value passed to ProcessingJob.automatic field
+
+        Example recipe parameters:
+        { "target": "pandda",
+            "dcid": 123456,
+            "pdb": "/path/to/pdb",
+            "mtz": "/path/to/mtz"
+            "smiles": "frag" or "None"
+            "automatic": true,
+            "comment": "PanDDA triggered by dimple",
+            "scaling_id": [123456],
+            "timeout-minutes": 115
+
+        }
+        """
+        # if (
+        #     parameters.smiles != "frag"
+        # ):  # workaround secret word trigger for now? better param for this?
+        #     self.log.info(
+        #         f"Skipping PanDDA trigger: SMILES string for DCID {parameters.dcid} does not correspond to fragment screen"
+        #     )
+        #     return {"success": True}
+
+        # if len(parameters.scaling_id) != 1:
+        #     self.log.info(
+        #         f"Skipping ligand fit trigger: exactly one scaling id must be provided, {len(parameters.scaling_id)} were given"
+        #     )
+        #     return {"success": True}
+
+        # scaling_id = parameters.scaling_id[0]
+        dcid = parameters.dcid
+
+        # get the proposal code, visit number to find filesystem path
+        query = (
+            session.query(Proposal, BLSession)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(DataCollection.dataCollectionId == dcid)
+        )
+
+        proposal, blsession = query.first()
+
+        # proposal_visit = (
+        #     proposal.proposalCode
+        #     + proposal.proposalNumber
+        #     + f"-{blsession.visit_number}"
+        # )
+
+        # path = "/dls/" + proposal_visit
+        # now from proposal and visit number get all dcids
+
+        query = (
+            session.query(Proposal, BLSession, DataCollection)
+            .join(BLSession, BLSession.proposalId == Proposal.proposalId)
+            .join(DataCollection, DataCollection.SESSIONID == BLSession.sessionId)
+            .filter(Proposal.proposalCode == proposal.proposalCode)
+            .filter(Proposal.proposalNumber == proposal.proposalNumber)
+            .filter(BLSession.visit_number == blsession.visit_number)
+        )
+
+        query = query.with_entities(
+            DataCollection.dataCollectionId,
+            Proposal.proposalCode,
+            Proposal.proposalNumber,
+            BLSession.visit_number,
+        )
+
+        df = pd.read_sql(query.statement, query.session.bind)
+        dcids = df["dataCollectionId"].unique()
+        self.log.info(f"PanDDA trigger: found dcids {dcids}")
+
+        # Check that all dcids have finished processing successfully,
+        query = (
+            (
+                session.query(AutoProcProgram, ProcessingJob.dataCollectionId).join(
+                    ProcessingJob,
+                    ProcessingJob.processingJobId == AutoProcProgram.processingJobId,
+                )
+            )
+            .filter(ProcessingJob.dataCollectionId.in_(dcids))
+            # .filter(ProcessingJob.automatic == True)
+            .filter(AutoProcProgram.processingPrograms == "dimple")
+            .filter(
+                ProcessingJob.comments == "DIMPLE triggered by automatic xia2.multiplex"
+            )
+            .filter(
+                or_(
+                    AutoProcProgram.processingStatus is None,
+                    AutoProcProgram.processingStartTime is None,
+                )
+            )
+        )
+
+        waiting_jobs = query.all()
+        if len(waiting_jobs):
+            waiting_dcids = []
+            for _pj, waiting_dcid in waiting_jobs:
+                self.log.info(
+                    f"PanDDA trigger: Waiting for dcid: {waiting_dcid} to finish"
+                )
+                waiting_dcids.append(waiting_dcid)
+            # Get previous checkpoint history
+            start_time = message.get("start_time", time())
+            run_time = time() - start_time
+            if run_time > parameters.timeout * 60:
+                self.log.warning(
+                    f"PanDDA trigger: timeout exceeded waiting for dcids: {waiting_dcids}. Skipping trigger"
+                )
+                return {"success": True}
+            # Calculate the message delay
+            ntry = message.get("ntry", 0)
+            delay = parameters.backoff_delay * parameters.backoff_multiplier**ntry
+            self.log.info(
+                f"PanDDA trigger: Checkpointing for dcid: {parameters.dcid} with delay of {delay} minutes"
+            )
+            ntry += 1
+            rw.checkpoint(
+                {"start_time": start_time, "ntry": ntry},
+                delay=delay * 60,
+                transaction=transaction,
+            )
+            return {"success": True}
+
+        # check that pandda not already triggered by data collection in same frag screen expt?
+        self.log.debug("PanDDA trigger: Starting")
+
+        pandda_parameters = {
+            "dcid": parameters.dcid,
+            "pdb": str(parameters.pdb),
+            "mtz": str(parameters.mtz),
+            "smiles": parameters.smiles,
+        }
+
+        jp = self.ispyb.mx_processing.get_job_params()
+        jp["automatic"] = parameters.automatic
+        jp["comments"] = parameters.comment
+        jp["datacollectionid"] = parameters.dcid
+        jp["display_name"] = "pandda"
+        jp["recipe"] = "postprocessing-pandda"
+        self.log.info(jp)
+        jobid = self.ispyb.mx_processing.upsert_job(list(jp.values()))
+        self.log.debug(f"pandda trigger: generated JobID {jobid}")
+
+        for key, value in pandda_parameters.items():
+            jpp = self.ispyb.mx_processing.get_job_parameter_params()
+            jpp["job_id"] = jobid
+            jpp["parameter_key"] = key
+            jpp["parameter_value"] = value
+            jppid = self.ispyb.mx_processing.upsert_job_parameter(list(jpp.values()))
+            self.log.debug(
+                f"PanDDA trigger: generated JobParameterID {jppid} with {key}={value}"
+            )
+
+        self.log.debug(f"PanDDA_id trigger: Processing job {jobid} created")
+
+        # put all the echo file stuff in the wrapper?
+
+        message = {"recipes": [], "parameters": {"ispyb_process": jobid}}
+        rw.transport.send("processing_recipe", message)
+
+        self.log.info(f"PanDDA_id trigger: Processing job {jobid} triggered")
 
         return {"success": True, "return_value": jobid}
